@@ -317,17 +317,12 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 
 > Items techniques et de bootstrap, à valider empiriquement. Pas d'ADR : aucune décision architecturale structurelle, celles-ci vivent dans `adrs/`.
 
-### Validation technique finale
+### Revue globale de l'app
 
-- [ ] **`uv run ruff check sidecar/ && uv run ruff format --check sidecar/`** — lint + format Python
-- [ ] **`uv run mypy sidecar/src/`** — typecheck strict
-- [ ] **`uv run pytest`** — tests du sidecar, techno-scraper et Sentry mockés
-- [ ] **`pnpm lint && pnpm typecheck`** — ESLint (+ règles de templates et d'accessibilité) et types Angular
-- [ ] **`pnpm test`** — Vitest vert, et les règles métier portées par un composant effectivement couvertes (pas de seuil chiffré sur `src/`)
-- [ ] **`cargo check && cargo clippy`** — la coquille compile proprement
-- [ ] **`pnpm tauri build`** — installeur produit sans erreur, sidecar bien empaqueté
-- [ ] **Smoke test du livrable** — installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux
-- [ ] **Test de sécurité vert** — la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry
+- [ ] **`/simplify`** — passe qualité sur toute la branche. Seul écrivain de la chaîne, donc seul et en premier
+- [ ] **`/code-review`** + **`Agent(code-reviewer)`** — correctness et conformité aux `.claude/rules/**`, en parallèle
+- [ ] **Appliquer les findings retenus** — dernière écriture avant le gel du code
+- [ ] **`/security-review`** — seul et en dernier, sur l'état gelé : clé API dans les logs et les rapports, chemins et titres de morceaux dans les payloads Sentry
 
 ### Cohérence documentaire
 
@@ -339,6 +334,18 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **README.md** — présentation, stack, getting started, liens docs, complété une fois les autres docs stabilisées. Rester factuel : « récupère des métadonnées via une API », pas « scrape Beatport » ([ADR-021](adrs/021-visibilite-du-depot.md))
 
 > **Pas de sous-section conformité légale / RGPD.** Outil personnel non commercialisé, sans compte, sans analytics et sans cookie ; le durcissement du SDK garantit qu'aucune donnée personnelle ne quitte la machine, et c'est un **test** qui tient cette garantie, pas une page de mentions ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Si la distribution s'élargissait au-delà du cercle amical, cette section serait à ouvrir, en commençant par informer que les plantages remontent.
+
+### Validation technique finale
+
+- [ ] **`uv run ruff check sidecar/ && uv run ruff format --check sidecar/`** — lint + format Python
+- [ ] **`uv run mypy sidecar/src/`** — typecheck strict
+- [ ] **`uv run pytest`** — tests du sidecar, techno-scraper et Sentry mockés
+- [ ] **`pnpm lint && pnpm typecheck`** — ESLint (+ règles de templates et d'accessibilité) et types Angular
+- [ ] **`pnpm test`** — Vitest vert, et les règles métier portées par un composant effectivement couvertes (pas de seuil chiffré sur `src/`)
+- [ ] **`cargo check && cargo clippy`** — la coquille compile proprement
+- [ ] **`pnpm tauri build`** — installeur produit sans erreur, sidecar bien empaqueté
+- [ ] **Smoke test du livrable** — installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux
+- [ ] **Test de sécurité vert** — la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry
 
 ## Checklist Post-MEP
 
