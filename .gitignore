@@ -1,0 +1,45 @@
+# --- Secrets & environnement ---
+.env
+.env.*
+!.env.example
+*.local
+
+# --- Angular / Node (src/) ---
+node_modules/
+dist/
+.angular/
+*.tsbuildinfo
+coverage/
+
+# --- Python (sidecar/) ---
+__pycache__/
+*.py[cod]
+.venv/
+sidecar/build/
+sidecar/dist/
+sidecar/*.spec
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Rust / Tauri (src-tauri/) ---
+src-tauri/target/
+src-tauri/gen/
+
+# Le sidecar PyInstaller est produit au build, jamais commite
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
+
+# --- Signature updater (ne doit jamais etre commitee) ---
+*.key
+*.pem
+
+# --- IDE & OS ---
+**/.history/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+desktop.ini
