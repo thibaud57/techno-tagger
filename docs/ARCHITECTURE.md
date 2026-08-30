@@ -130,7 +130,7 @@ techno-tagger/
 └── README.md
 ```
 
-> **Le code Rust est une zone morte, la configuration Tauri non.** Seul `src-tauri/src/` (soit `main.rs` et `lib.rs`) est figé : on y colle l'initialisation des plugins et on n'y retourne jamais. Le reste de `src-tauri/` se modifie régulièrement, `tauri.conf.json` pour `externalBin` et l'updater, `capabilities/default.json` pour les permissions, `binaries/` qui reçoit le sidecar à chaque build. Tout le code applicatif, lui, vit dans `src/` et `sidecar/`.
+> **Le code Rust est une zone morte, la configuration Tauri non.** Seul `src-tauri/src/` (soit `main.rs` et `lib.rs`) est figé : on y colle l'initialisation des plugins et on n'y retourne jamais. Toute logique qui s'y installerait serait à réécrire au premier changement de coquille, et échapperait aux tests Python comme aux tests Angular. Le reste de `src-tauri/` se modifie régulièrement, `tauri.conf.json` pour `externalBin` et l'updater, `capabilities/default.json` pour les permissions, `binaries/` qui reçoit le sidecar à chaque build. Tout le code applicatif, lui, vit dans `src/` et `sidecar/`.
 
 ## Composants Principaux (Haut Niveau)
 
@@ -182,11 +182,11 @@ graph TB
 
 L'utilisateur choisit un dossier source (parcouru récursivement), un dossier destination et un fichier de playlist (SQLite `vlc_media.db` ou M3U8). Le dump VLC contenant toute la médiathèque, le sidecar en liste d'abord les playlists avec leur nombre de morceaux et l'utilisateur choisit dans un sélecteur ; le schéma est vérifié avant tout traitement (cf. [ADR-019](adrs/019-resilience-schema-vlc-media-db.md)).
 
-Le sidecar résout ensuite chaque entrée **par nom de fichier, jamais par chemin** : la base vient par ex du téléphone Android, les fichiers sont sur le PC. Les morceaux trouvés sont copiés (défaut) ou déplacés vers la destination, les absents sont logués et le traitement continue. Quand plusieurs fichiers portent le même nom, le plus volumineux est retenu et les candidats écartés sont consignés (cf. [ADR-020](adrs/020-doublons-noms-de-fichiers.md)). Un **rapport d'extraction** est écrit dans le dossier destination, distinct du rapport de run que produit le re-tagging.
+Le sidecar résout ensuite chaque entrée **par nom de fichier, jamais par chemin** : le chemin stocké dans la playlist est ignoré, seul le nom est cherché récursivement dans le dossier source. Sans ça le cas principal ne marche pas, la base venant du téléphone Android quand les fichiers sont sur le PC. Les morceaux trouvés sont copiés (défaut) ou déplacés vers la destination, les absents sont logués et le traitement continue. Quand plusieurs fichiers portent le même nom, le plus volumineux est retenu et les candidats écartés sont consignés (cf. [ADR-020](adrs/020-doublons-noms-de-fichiers.md)). Un **rapport d'extraction** est écrit dans le dossier destination, distinct du rapport de run que produit le re-tagging.
 
 ### Use-case 2 : Pipeline de re-tagging
 
-L'utilisateur choisit un dossier, typiquement la destination du use-case 1. Pour chaque fichier, la requête est construite depuis les tags ID3 artiste et titre, avec repli sur le nom de fichier nettoyé. Le sidecar interroge techno-scraper en pool asyncio borné, score les candidats avec rapidfuzz, et classe chaque morceau en **auto**, **zone grise** ou **vide**. Le pipeline ne s'arrête jamais : les morceaux ambigus s'empilent dans une file d'arbitrage traitée en parallèle du réseau.
+L'utilisateur choisit un dossier, typiquement la destination du use-case 1. Pour chaque fichier, la requête est construite depuis les tags ID3 artiste et titre, avec repli sur le nom de fichier nettoyé, ce qui couvre aussi bien les fichiers déjà à peu près taggés que les téléchargements sauvages nommés `track01.mp3`. Le sidecar interroge techno-scraper en pool asyncio borné, score les candidats avec rapidfuzz, et classe chaque morceau en **auto**, **zone grise** ou **vide**. Le pipeline ne s'arrête jamais : les morceaux ambigus s'empilent dans une file d'arbitrage traitée en parallèle du réseau.
 
 **Seuils de départ hérités de la CLI**, qui applique déjà ce modèle à trois états : plancher de **70** sur le score artiste et sur le score titre pris séparément, sous lequel le candidat est écarté ; seuil haut de **90** sur la moyenne des deux, au-dessus duquel la validation est automatique. Entre les deux, zone grise. Réglables dans les Settings.
 
@@ -278,7 +278,6 @@ flowchart TD
 
 Trois états après interrogation d'une source : **auto** (un candidat au-dessus du seuil haut), **zone grise** (candidats plausibles, décision humaine), **vide** (zéro résultat ou tout sous le plancher). Zéro résultat, candidats sous le plancher et refus utilisateur convergent tous vers **un seul `state`**, `unresolved`, le paquet que la phase URL rattrape. Leur `failure_reason` continue de les distinguer dans le rapport, la correction à apporter n'étant pas la même selon le motif.
 
-SoundCloud n'est jamais interrogé en recherche automatique, ses métadonnées d'upload étant trop peu fiables. Il n'est accepté qu'en saisie d'URL.
 
 ## Patterns Utilisés
 
@@ -883,11 +882,8 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 Décisions tranchées ne justifiant pas un ADR à part entière.
 
 - **Formats de playlist : VLC SQLite + M3U8**, pas le TXT Rekordbox. Le M3U8 couvre Rekordbox, Traktor, foobar et VLC desktop avec un seul parser ; le TXT dépend de la langue d'export, donc fragile. Le dump SQLite est incontournable côté VLC Android, qui **n'a aucune fonction d'export de playlist** : les scripts tiers type `vlc-to-m3u` ne font rien d'autre que lire cette base.
-- **Résolution par nom de fichier, pas par chemin.** Le chemin stocké dans la playlist est ignoré, seul le nom est retenu puis cherché récursivement dans le dossier source. Sans ça le cas principal ne marche pas : la base vient du téléphone, les fichiers sont sur le PC.
 - **Copie par défaut, déplacement en option.** La bibliothèque source reste intacte pendant que le re-tagging réécrit les fichiers de destination. Une ligne de différence à l'implémentation.
-- **Requête de recherche : tags ID3 avec repli sur le nom de fichier nettoyé.** Couvre aussi bien les fichiers déjà à peu près taggés que les téléchargements sauvages nommés `track01.mp3`.
 - **Dépôt neuf plutôt qu'évolution de `BeatportScrapper-TrackTagger`.** La CLI sert de référence à lire, rien n'est porté tel quel, son arborescence à plat ne correspond pas à la structure Tauri.
-- **`src-tauri/src/` est une zone morte.** Le Rust se limite à l'initialisation des plugins. Toute logique qui s'y installerait serait à réécrire le jour d'un changement de coquille, et échapperait aux tests Python comme aux tests Angular.
 - **Types TypeScript maintenus à la main** en miroir de `protocol.py`, sans génération de code. Le contrat est petit et stable une fois figé à l'étape 3 ; une chaîne de génération coûterait plus cher que la vingtaine de types concernés.
 
 ## Questions ouvertes
