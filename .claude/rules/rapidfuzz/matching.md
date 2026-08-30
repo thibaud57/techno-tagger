@@ -28,7 +28,7 @@ paths:
 - Le passage de fuzzywuzzy à rapidfuzz conserve l'échelle mais pas les valeurs exactes : fuzzywuzzy alternait Ratcliff-Obershelp et Levenshtein selon l'installation, rapidfuzz utilise toujours l'Indel similarity
 - En cas d'égalité de score, le premier élément de la liste gagne : l'ordre des candidats rendus par l'API a un effet, à consigner si un arbitrage est rejoué
 - 3.14.0 corrige `WRatio` pour un ratio de longueur exactement égal à 8.0. La 3.14.6 annoncée abandonne Python 3.10 et les wheels free-threaded 3.13
-- Le hook PyInstaller est livré par le paquet lui-même via l'entry point `pyinstaller40`, donc sans `--hidden-import` à écrire : le vérifier en exécutant le scoring sur le binaire figé, un échec d'extension C++ ne se manifestant que là
+- Déclarer `collect_submodules("rapidfuzz")` dans le `.spec` : **aucun hook ne couvre rapidfuzz**, son entry point `pyinstaller40` s'appelant `tests` et non `hook-dirs`. L'extension C++ est collectée par l'analyse statique, pas ses cibles SIMD. Vérifier le scoring sur le binaire figé, un échec ne se manifestant que là
 
 ## Exemples
 ```python

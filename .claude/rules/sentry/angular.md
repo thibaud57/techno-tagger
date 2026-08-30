@@ -9,14 +9,13 @@ paths:
 ## À faire
 - Initialiser dans `main.ts` **avant** `bootstrapApplication()`
 - Retirer les intégrations `Breadcrumbs` et `Replay` du jeu par défaut plutôt que d'essayer de les filtrer après coup
-- Enregistrer le gestionnaire d'erreurs par `Sentry.provideErrorHandler()`, forme standalone
+- Enregistrer le gestionnaire d'erreurs par `{ provide: ErrorHandler, useValue: Sentry.createErrorHandler() }` : en 10.72.0 le paquet n'exporte que `createErrorHandler` et `SentryErrorHandler`, il n'existe aucun `provideErrorHandler`
 - Poser la même `release` que côté sidecar, et renseigner `environment`
 - Générer les source maps en mode `hidden` et les uploader vers Sentry
 - Réserver Sentry aux erreurs techniques : le quota de 5 000 événements par mois est un budget, pas un plafond théorique
 
 ## À éviter
 - Garder `Breadcrumbs` : elle capture les interactions et le contenu de la console, donc les noms de morceaux affichés à l'écran. `Replay` capture le DOM
-- `createErrorHandler()` : elle visait le style NgModule et se tree-shake moins bien
 - Livrer les source maps dans le bundle distribué : elles vont chez Sentry, pas chez l'utilisateur
 - Envoyer des événements métier : le quota se remplit et le vrai crash est jeté
 
@@ -40,5 +39,7 @@ Sentry.init({
 bootstrapApplication(AppComponent, appConfig);
 
 // ✅ app.config.ts
-providers: [Sentry.provideErrorHandler({ showDialog: false, logErrors: true })]
+providers: [
+  { provide: ErrorHandler, useValue: Sentry.createErrorHandler({ showDialog: false, logErrors: true }) },
+]
 ```

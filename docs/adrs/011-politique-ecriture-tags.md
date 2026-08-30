@@ -166,7 +166,7 @@ Les trois champs sans équivalent Picard (`SOURCE_ID`, `SOURCE`, et l'URL en Vor
 - **Le WAV reste incertain en lecture** : le chunk ID3v2 s'écrit correctement, mais rien ne garantit que le lecteur DJ le relise. On écrit quand même, en le signalant dans le rapport.
 - Un fichier tagué depuis Bandcamp conserve des champs anciens et faux si le fichier en avait, sans qu'aucune source ne les corrige
 - Les frames TPE4 et TKEY ne sont pas exposées par EasyID3 et doivent être enregistrées explicitement
-- La cible v2.3 dégrade un champ : la date de sortie perd le jour et le mois. Seule perte réelle du choix de version, les valeurs multiples restant récupérables par `v23_sep=None`
+- La cible v2.3 dégrade un champ : la date de sortie perd le jour et le mois. Les valeurs multiples sont un second arbitrage ouvert : `v23_sep=None` les préserve mais écrit un v2.3 non standard, que la documentation mutagen déconseille (« some implementations might get confused about »)
 
 ---
 
@@ -180,7 +180,7 @@ v2.4 est pourtant le meilleur format sur le papier. Ce qui tranche est l'état d
 
 **Rekordbox respecte la version déjà en place**, ce qui rend la décision sûre au lieu de probable : « Rekordbox v6.8.4 seems to use ID3v2.3 too, **if such a tag already exists** in the track » (test du 18 février 2025), le v2.4 n'apparaissant que sur un fichier sans tag. Comme techno-tagger écrit **avant** le logiciel DJ, c'est lui qui fixe la version et Rekordbox s'y conforme.
 
-**Ce que v2.3 coûte**, mesuré et non supposé : la date de sortie perd le jour et le mois, `update_to_v23()` ne reportant que l'année de `TDOR` dans `TORY`. Les valeurs multiples ne sont pas perdues pour autant, `v23_sep=None` conservant le séparateur null. L'unicode non plus, v2.3 l'encodant en UTF-16.
+**Ce que v2.3 coûte**, mesuré et non supposé : la date de sortie perd le jour et le mois, `update_to_v23()` ne reportant que l'année de `TDOR` dans `TORY`. L'unicode ne l'est pas, v2.3 l'encodant en UTF-16. Les valeurs multiples restent à trancher : `v23_sep=None` conserve le séparateur null mais produit un v2.3 non standard, déconseillé par la documentation mutagen (cf. VERSIONS.md § mutagen).
 
 > **Réserve.** Le comportement de Rekordbox est récent et vérifié, la recommandation Serato est constante mais documentée entre 2008 et 2015, et la version qu'écrit Traktor 4 par défaut n'a pas pu être établie.
 

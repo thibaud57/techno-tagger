@@ -75,7 +75,6 @@ Le mode manifest est nécessaire dès qu'un fichier de version sort du fichier p
       "release-type": "node",
       "include-component-in-tag": false,
       "extra-files": [
-        { "type": "json", "path": "src-tauri/tauri.conf.json", "jsonpath": "$.version" },
         { "type": "toml", "path": "src-tauri/Cargo.toml",      "jsonpath": "$.package.version" },
         { "type": "toml", "path": "sidecar/pyproject.toml",    "jsonpath": "$.project.version" }
       ]
@@ -91,7 +90,7 @@ Le mode manifest est nécessaire dès qu'un fichier de version sort du fichier p
 
 ### Points Importants
 
-- **Aucun `release-type: tauri` n'existe** : `tauri.conf.json` se traite comme un fichier JSON générique avec un `jsonpath`
+- **`tauri.conf.json` reste hors d'`extra-files`** : son champ `version` vaut `"../package.json"`, la doc Tauri acceptant « a semver version number or a path to a `package.json` file ». Une source de vérité de moins à synchroniser. L'alternative, un littéral bumpé par `extra-files` avec un `jsonpath` (aucun `release-type: tauri` n'existe), marche aussi mais ajoute un fichier au problème
 - **`include-component-in-tag: false` donne un tag `vX.Y.Z`** au lieu de `<composant>-vX.Y.Z` : c'est ce qu'attendent l'updater et le workflow
 - **Un fichier de version oublié dans `extra-files` produit une désynchronisation silencieuse** : l'installeur annonce une version, le manifeste updater une autre
 - Un seul package racine plutôt que trois packages liés : l'application est un livrable unique, pas trois bibliothèques indépendantes. Trois packages produiraient trois changelogs et trois tags

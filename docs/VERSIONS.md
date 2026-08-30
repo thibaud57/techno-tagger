@@ -27,7 +27,7 @@ Zone `sidecar/`, gestionnaire **uv**, fichier `sidecar/pyproject.toml` + `sideca
 | uv | `0.12.7` | ✅ | Format `uv.lock` couvert par la politique de versionnement, ne casse qu'en bump mineur. Épingler le patch en CI |
 | Pydantic | `2.13.5` | ✅ | Porte les modèles du protocole NDJSON. `pydantic-core` est une extension native : wheels `cp314` Windows publiées, hook livré par `pyinstaller-hooks-contrib` |
 | mutagen | `1.48.1` | ⚠️ | Projet peu actif (2 ans 9 mois entre 1.47.0 et 1.48.0). Piège `EasyID3` + `v2_version=3` sur TDRC/TYER |
-| RapidFuzz | `3.14.5` | ✅ | MIT, wheels Windows précompilées, hook PyInstaller livré par le paquet. La 3.14.6 en préparation abandonne Python 3.10 |
+| RapidFuzz | `3.14.5` | ⚠️ | MIT, wheels Windows précompilées. **Aucun hook PyInstaller ne le couvre**, ni le paquet ni `pyinstaller-hooks-contrib`. La 3.14.6 en préparation abandonne Python 3.10 |
 | httpx2 | `2.12.0` | ⚠️ | Fork de `httpx` par Pydantic Services. Import `httpx2`, pas `httpx`. **Aucun mock (`respx`, `pytest-httpx`) ne le supporte encore** |
 | keyring | `25.7.0` | ⚠️ | Backends chargés par entry points : casse sous PyInstaller sans forçage explicite du backend |
 | sentry-sdk | `2.68.1` | ✅ | Intégrations chargées par `importlib` : le hook `pyinstaller-hooks-contrib` est indispensable |
@@ -44,7 +44,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 
 | Technologie | Version Recommandée | Statut Production | Notes Critiques |
 |-------------|-------------------|-----------------|----------------|
-| Angular | `22.1.4` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé |
+| Angular | `22.1.4` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé. `@angular/cli` et `@angular/build` en `22.1.6`, cadence de patch distincte |
 | TypeScript | `6.0.x` | ✅ | Contrainte dure d'Angular 22 : `>=6.0.0 <6.1.0`. **TS 7 (tsgo) casse `compiler-cli` et `typescript-eslint`** |
 | Node.js | `24.x` (Active LTS) | ✅ | Bascule prévue sur 26.x quand elle passe LTS le 2026-10-28, une ligne de workflow. Installée par `pnpm/setup`, pas par `actions/setup-node` |
 | pnpm | `11.24.0` | ✅ | Ce que pointe le dist-tag `latest`. pnpm 12 a trois jours et reste sous `next-12` |
@@ -210,7 +210,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Compatibilité Écosystème** :
 - Licence MIT, ce qui règle le problème de `fuzzywuzzy` / `python-Levenshtein` sous GPL
 - Wheels `win_amd64` publiées pour cp310 à cp314, aucune compilation locale requise
-- **Hook PyInstaller livré par le paquet lui-même** via l'entry point `pyinstaller40` : détection automatique, pas de `--hidden-import` à écrire. Un ancien bug de hook (cibles SIMD `avx2`/`sse2` non listées, issue #391) est corrigé
+- **Aucun hook PyInstaller ne couvre rapidfuzz**, contrairement à ce que laisse croire son entry point `pyinstaller40` : celui-ci s'appelle `tests` et pointe `rapidfuzz.__pyinstaller:get_PyInstaller_tests`, qui fournit des tests à PyInstaller et non un hook. Vérifié dans le venv du projet en 3.14.5 : `rapidfuzz/__pyinstaller/` ne contient que `__init__.py` et `test_rapidfuzz_packaging.py`, et `pyinstaller-hooks-contrib` n'expose pas de `hook-rapidfuzz.py`. L'extension native est collectée par l'analyse d'imports statiques, mais les cibles SIMD (`avx2`/`sse2`, issue #391) se chargent dynamiquement : le `.spec` déclare donc `collect_submodules("rapidfuzz")`, et le scoring se teste sur le binaire figé
 - Livre un `py.typed`
 
 **Recommandation** : ✅ Sur le choix de scorer, `WRatio` reste le défaut tout-usage pour du matching artiste/titre, mais `token_set_ratio` tolère mieux les mots surnuméraires (`Live`, `Remastered`, `feat.`) qui sont le cas courant sur Beatport. Le calibrage relève de l'implémentation, pas de la compatibilité.
@@ -359,8 +359,10 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 ## Frontend
 
 ### 1. Angular
-**Version actuelle** : `22.1.4`
+**Version actuelle** : runtime `@angular/*` en `22.1.4`, outillage `@angular/cli` et `@angular/build` en `22.1.6`
 **Stabilité** : ✅
+
+Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@angular/build` déclare `@angular/core` en `^22.0.0` : les aligner bloquerait les correctifs du builder.
 
 **Breaking Changes Majeurs** :
 - **`ChangeDetectionStrategy.OnPush` devient le défaut** pour tout composant qui n'en déclare pas. `ChangeDetectionStrategy.Eager` restaure l'ancien comportement, et `ng update` pose ce marqueur là où il le faut
@@ -885,7 +887,7 @@ Trois contournements, dans l'ordre de préférence :
 | httpx2 2.12.0 | truststore + PyInstaller | ⚠️ | Appels `ctypes` vers l'API OS dans un binaire figé, non documenté |
 | keyring 25.7.0 | PyInstaller 6.22.2 | ⚠️ | Backends par entry points, aucun hook contrib. Forçage explicite requis |
 | sentry-sdk 2.68.1 | PyInstaller 6.22.2 | ✅ | `hook-sentry_sdk.py` fourni par `pyinstaller-hooks-contrib` |
-| rapidfuzz 3.14.5 | PyInstaller 6.22.2 | ✅ | Hook livré par le paquet via entry point `pyinstaller40` |
+| rapidfuzz 3.14.5 | PyInstaller 6.22.2 | ⚠️ | **Aucun hook**, ni du paquet ni de `hooks-contrib` : son entry point `pyinstaller40` est `tests`, pas `hook-dirs`. Couvrir par `collect_submodules("rapidfuzz")` à cause des cibles SIMD |
 | pydantic 2.13.5 | PyInstaller 6.22.2 | ⚠️ | Hook `pydantic` livré par `pyinstaller-hooks-contrib`, mais le couple `pydantic-core` + interpréteur géré par uv reste à vérifier au premier build |
 | mutagen 1.48.1 | PyInstaller 6.22.2 | ✅ | Pur Python, aucun hook nécessaire |
 | Mypy 2.3.1 strict | toutes les deps Python | ✅ | Toutes livrent un `py.typed` |
@@ -944,7 +946,9 @@ Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilot�
 
 **`[tool.mypy]`** : `strict = true` et `warn_unreachable = true`. Aucune section `[[tool.mypy.overrides]]` n'est nécessaire, toutes les dépendances livrent un `py.typed`. Ajouter `plugins = ["pydantic.mypy"]`, qui donne au checker la signature réelle des `__init__` générés.
 
-**`[tool.pytest.ini_options]`** : `asyncio_mode = "strict"`, `addopts` portant `--cov=tagger --cov-fail-under=80`.
+**`[tool.pytest.ini_options]`** : `asyncio_mode = "strict"`, `addopts` portant `--cov=tagger`.
+
+Le seuil `--cov-fail-under=80` vit dans la recette `just test` et non dans `addopts` : il mesure la couverture globale, donc dans `addopts` il ferait échouer toute exécution ciblée sur un seul fichier.
 
 ### sidecar/build.py
 
@@ -958,9 +962,11 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 > 🔴 **Retirer le `devEngines.packageManager` que `pnpm init` écrit par défaut, et ne pas déclarer `packageManager` non plus.** C'est contre-intuitif, mais ces deux champs sont les seuls déclencheurs du lockfile multi-document sur ce projet, et ce format casse le graphe de dépendances GitHub, donc les alertes de sécurité. Renovate **lit** ces alertes, il ne les produit pas : les perdre reviendrait à n'avoir aucune veille CVE tout en croyant le contraire. La version de pnpm se déclare à la place en input `version` de `pnpm/setup`, ce qui la place dans le workflow plutôt que dans `package.json`. C'est l'inverse de ce que recommande la doc pnpm, et c'est assumé : le graphe de dépendances vaut plus cher ici que la centralisation de la version.
 
-**Dépendances** : `@angular/*` en `22.1.4`, `primeng` en `22.1.0`, `@primeuix/themes` en `3.0.0` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `10.72.0`, `@tauri-apps/api` en `2.11.1`, plus les sept paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`).
+**Dépendances** : les paquets runtime `@angular/*` en `22.1.4` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.1.6`), `primeng` en `22.1.0`, `@primeuix/themes` en `3.0.0` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `10.72.0`, `@tauri-apps/api` en `2.11.1`, plus les sept paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`).
 
-**devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `4.1.11`, `angular-eslint` en `22.1.0`, `eslint` en `^9`, `typescript-eslint` en `^8`, `eslint-config-prettier`, `prettier` en `3.9.6`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.11.4`.
+**devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `4.1.11`, `angular-eslint` en `22.1.0`, `eslint` en `^10`, `typescript-eslint` en `^8`, `eslint-config-prettier`, `prettier` en `3.9.6`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.11.4`.
+
+> `eslint` en `^10` : la ligne 9 est marquée dépréciée sur npm, et `angular-eslint` 22.1.0 accepte `^9.0.0 || ^10.0.0`. `ng add angular-eslint` ajoute aussi `@angular-eslint/builder` et `@eslint/js`.
 
 ### .postcssrc.json
 

@@ -10,7 +10,7 @@ paths:
 ## À faire
 - Déclarer un seul package racine : l'application est un livrable unique, trois packages liés produiraient trois changelogs et trois tags
 - Lister les quatre fichiers de version dans `extra-files` et vérifier après la première release qu'ils portent tous la même
-- Traiter `tauri.conf.json` comme un fichier JSON générique avec un `jsonpath` : aucun `release-type: tauri` n'existe
+- Laisser `tauri.conf.json` hors d'`extra-files` : son champ `version` vaut `"../package.json"`, Tauri acceptant un chemin plutôt qu'un littéral. Une source de vérité de moins à synchroniser
 - Viser `$.project.version` pour un `pyproject.toml` en PEP 621, le `jsonpath` dépendant du backend de build
 - Garder `include-component-in-tag: false` pour des tags `vX.Y.Z`, ce qu'attendent l'updater et le workflow
 - Nommer le type de commit selon Conventional Commits : `fix:` bump le patch, `feat:` la mineure, `feat!:` ou un pied `BREAKING CHANGE:` la majeure, `chore(deps):` ne bumpe pas mais entre au changelog
@@ -34,14 +34,13 @@ paths:
 
 ## Exemples
 ```json
-// ✅ un package racine, les trois fichiers hors package.json en extra-files
+// ✅ un package racine ; tauri.conf.json est absent, il pointe vers package.json
 {
   "packages": {
     ".": {
       "release-type": "node",
       "include-component-in-tag": false,
       "extra-files": [
-        { "type": "json", "path": "src-tauri/tauri.conf.json", "jsonpath": "$.version" },
         { "type": "toml", "path": "src-tauri/Cargo.toml", "jsonpath": "$.package.version" },
         { "type": "toml", "path": "sidecar/pyproject.toml", "jsonpath": "$.project.version" }
       ]

@@ -103,13 +103,13 @@ bootstrapApplication(AppComponent, appConfig);
 ```typescript
 // app.config.ts
 providers: [
-  Sentry.provideErrorHandler({ showDialog: false, logErrors: true }),
+  { provide: ErrorHandler, useValue: Sentry.createErrorHandler({ showDialog: false, logErrors: true }) },
 ]
 ```
 
 ### Points Importants
 
-- **`provideErrorHandler()` est la forme standalone** ; `createErrorHandler()` visait le style NgModule et se tree-shake moins bien
+- **`createErrorHandler()` est la seule fabrique exposée**, à brancher par `{ provide: ErrorHandler, useValue: ... }`. Il n'existe aucun `provideErrorHandler()` : vérifié dans `@sentry/angular` 10.72.0, qui n'exporte que `createErrorHandler` et `SentryErrorHandler`, et confirmé par la doc officielle
 - **`Breadcrumbs` capture les interactions et le contenu de la console**, donc des noms de morceaux affichés à l'écran ; **`Replay` capture le DOM**. Les deux sont à retirer, pas à régler
 - `sendDefaultPii` est déjà `false` par défaut côté JavaScript, contrairement à Python où le défaut documenté est `None`
 - La `peerDependency` couvre `@angular/core >= 14.x <= 22.x`
