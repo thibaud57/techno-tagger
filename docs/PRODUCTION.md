@@ -322,7 +322,9 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`/simplify`** — passe qualité sur toute la branche. Seul écrivain de la chaîne, donc seul et en premier
 - [ ] **`/code-review`** + **`Agent(code-reviewer)`** — correctness et conformité aux `.claude/rules/**`, en parallèle
 - [ ] **Appliquer les findings retenus** — dernière écriture avant le gel du code
-- [ ] **`/security-review`** — seul et en dernier, sur l'état gelé : clé API dans les logs et les rapports, chemins et titres de morceaux dans les payloads Sentry
+- [ ] **`/security-review`** — seul et en dernier, sur l'état gelé
+
+> Points de vigilance connus, sans que la revue s'y limite : clé API dans les logs et les rapports, chemins et titres de morceaux dans les payloads Sentry.
 
 ### Cohérence documentaire
 
