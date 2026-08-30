@@ -1,6 +1,6 @@
 ---
 name: git-ops
-description: Applique les conventions git de techno-tagger : branches, messages de commit, PR, versionnement. À utiliser pour créer une branche, écrire un message de commit, ouvrir ou merger une PR.
+description: Applique les conventions git de techno-tagger (branches, messages de commit, PR, versionnement). À utiliser pour créer une branche, écrire un message de commit, ouvrir ou merger une PR.
 disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(gh *)
 ---
