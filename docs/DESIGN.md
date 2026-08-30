@@ -190,7 +190,7 @@ Côté Tailwind v4, le variant est aligné sur le même sélecteur dans le CSS g
 ```css
 /* src/styles.css */
 @import "tailwindcss";
-@import "tailwindcss-primeui";
+@plugin "tailwindcss-primeui";
 @custom-variant dark (&:where(.app-dark, .app-dark *));
 ```
 
@@ -258,10 +258,10 @@ Quatre wrappers, écrits une fois pour que ce qu'ils encapsulent ne soit pas rec
 
 | Composant | Base | Rôle |
 |-----------|------|------|
-| `Icon` | `@primeicons/angular` | Nom d'icône et token de taille en props. Les icônes étant rendues en SVG inline, la taille se pose en `width` / `height` et non en `font-size` : sans ce wrapper, les trois tailles 16 / 20 / 24 se recopient à la main partout |
-| `SourceLogo` | SVG Simple Icons | Les quatre logos en `currentColor`, même jeu de trois tailles |
-| `StateTag` | `p-tag` | Porte le mapping `state` / `resolution` / `failure_reason` → famille, icône, libellé. Entièrement spécifié au § Couleurs Sémantiques : l'encoder une fois évite qu'il soit re-dérivé, de travers, écran par écran |
-| `EmptyState` | — | Le bloc vide décrit au § États des Composants. PrimeNG n'a pas d'équivalent, il s'écrit from scratch |
+| `IconComponent` | `@primeicons/angular` | Nom d'icône et token de taille en props. Les icônes étant rendues en SVG inline, la taille se pose en `width` / `height` et non en `font-size` : sans ce wrapper, les trois tailles 16 / 20 / 24 se recopient à la main partout |
+| `SourceLogoComponent` | SVG Simple Icons | Les quatre logos en `currentColor`, même jeu de trois tailles |
+| `StateTagComponent` | `p-tag` | Porte le mapping `state` / `resolution` / `failure_reason` → famille, icône, libellé. Entièrement spécifié au § Couleurs Sémantiques : l'encoder une fois évite qu'il soit re-dérivé, de travers, écran par écran |
+| `EmptyStateComponent` | — | Le bloc vide décrit au § États des Composants. PrimeNG n'a pas d'équivalent, il s'écrit from scratch |
 
 ## États des Composants
 

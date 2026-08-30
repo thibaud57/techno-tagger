@@ -21,8 +21,9 @@ export const appConfig: ApplicationConfig = {
           cssLayer: { name: 'primeng', order: 'theme, base, primeng' },
         },
       },
-      // TODO: passer PRIMENG_LICENSE_KEY, requise meme en Community. Le canal
-      // reste a trancher : elle ne doit jamais etre commitee.
+      // Substituee au build par `--define` (cf. build-constants.d.ts), jamais
+      // commitee. Requise meme en Community License.
+      license: PRIMENG_LICENSE_KEY,
     }),
   ],
 };

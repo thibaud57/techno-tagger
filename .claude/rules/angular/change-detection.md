@@ -33,7 +33,7 @@ paths:
   selector: 'app-run-summary',
   template: `<p>{{ pendingCount() }}</p>`
 })
-export class RunSummary {
+export class RunSummaryComponent {
   protected readonly pendingCount = computed(() => this.store.tracks().length);
 }
 
@@ -42,7 +42,7 @@ export class RunSummary {
   template: `<p>{{ countPending() }}</p>`,
   changeDetection: ChangeDetectionStrategy.Eager
 })
-export class RunSummary {
+export class RunSummaryComponent {
   countPending(): number { ... }
 }
 ```

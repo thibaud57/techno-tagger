@@ -50,7 +50,8 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | pnpm | `11.24.0` | ✅ | Ce que pointe le dist-tag `latest`. pnpm 12 a trois jours et reste sous `next-12` |
 | PrimeNG | `22.1.0` | ❌ | Dépôt archivé le 2026-06-28, licence PrimeUI avec clé obligatoire même en Community. Voir [Conflits Potentiels](#conflits-potentiels) |
 | @primeuix/themes | `3.0.0` | ⚠️ | **Pas une dépendance transitive de PrimeNG**, à déclarer explicitement. Base rem passée de 14px à 16px |
-| PrimeIcons | `@primeicons/angular ^8.0.0` | ❌ | Tiré par PrimeNG 22. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 est sous licence PrimeUI |
+| PrimeIcons | `@primeicons/angular 8.0.0` | ❌ | Dépendance directe de PrimeNG 22, **à déclarer quand même** : pnpm isole, une transitive n'est pas importable depuis `src/`. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 est sous licence PrimeUI |
+| Angular CDK | `@angular/cdk 22.1.4` | ✅ | **peerDependency de PrimeNG 22**, donc jamais installée seule : son absence ne se voit qu'au premier composant qui en dépend |
 | Tailwind CSS | `4.3.3` | ✅ | Config CSS-first, `tailwind.config.js` disparu, ne compile ni SCSS ni LESS |
 | @tailwindcss/postcss | `4.3.3` | ✅ | Version alignée sur `tailwindcss` (même monorepo) |
 | tailwindcss-primeui | `0.6.1` | ⚠️ | Aucune publication depuis mars 2025, donc antérieure à PrimeNG 22 et à Tailwind 4.3 |
@@ -295,7 +296,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Compatibilité Écosystème** :
 - `requires_python` : `>=3.8,<3.16`. Le support de 3.14 date de 6.15.0, celui de 3.15 de 6.21.0. **Le décalage de support redouté n'existe pas ici**
 - Confirmé verbatim : « it is not a cross-compiler; to make a Windows app you run PyInstaller on Windows »
-- **Hooks livrés par `pyinstaller-hooks-contrib`** : `hook-sentry_sdk.py` (interroge dynamiquement `_AUTO_ENABLING_INTEGRATIONS` au build), le hook `pydantic` (mis à jour pour la v2, PR #611) et `hook-certifi.py` (`collect_data_files`). **Aucun hook pour keyring, mutagen ou httpx**. RapidFuzz fournit le sien via entry point
+- **Hooks livrés par `pyinstaller-hooks-contrib`** : `hook-sentry_sdk.py` (interroge dynamiquement `_AUTO_ENABLING_INTEGRATIONS` au build), le hook `pydantic` (mis à jour pour la v2, PR #611) et `hook-certifi.py` (`collect_data_files`). **Aucun hook pour mutagen ou httpx**. keyring est couvert par `hook-keyring.py`, livré par PyInstaller lui-même. RapidFuzz ne l'est par aucun : son entry point `pyinstaller40` s'appelle `tests`, pas `hook-dirs`
 - **Licence** : GPL 2.0+ avec exception explicite sur le bootloader : « unlimited permission to link or embed compiled bootloader and related files into combinations with other programs, and to distribute those combinations without any restriction ». Le binaire distribué peut donc rester sous la licence du projet
 
 **`--onedir` vs `--onefile`** : le choix `--onedir` d'[ARCHITECTURE.md](ARCHITECTURE.md#arborescence) est confirmé par la doc officielle (« One-folder launches faster »), et il évite le piège du `--onefile` : « The `_MEI_xxxxxx_` folder is not removed if the program crashes or is killed », soit une accumulation de dossiers temporaires chez l'utilisateur à chaque crash du sidecar. `--contents-directory '.'` permet un layout plat si le sous-dossier `_internal/` gêne.
@@ -470,7 +471,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 - `MultiSelect`, `PanelMenu`, `Password`, `Galleria` et `ColorPicker` sont dépréciés mais **pas encore supprimés**, suppression annoncée en v24
 
 **Compatibilité Écosystème** :
-- `peerDependencies` de 22.1.0 : `@angular/core`, `common`, `forms`, `router`, `platform-browser` et `cdk` en `^22.1.0`. **La contrainte est `^22.1.0`, pas `22.x`** : un projet resté sur Angular 22.0.0 déclencherait un avertissement de peer dependency
+- `peerDependencies` de 22.1.0 : `@angular/core`, `common`, `forms`, `router`, `platform-browser` et `cdk` en `^22.1.0`. **La contrainte est `^22.1.0`, pas `22.x`** : un projet resté sur Angular 22.0.0 déclencherait un avertissement de peer dependency. `@angular/cdk` n'étant tiré par aucun autre paquet, il est à déclarer explicitement
 - Dépendances directes : `@primeuix/utils`, `@primeuix/motion`, `@primeuix/styled`, `@primeuix/styles ^3.0.0`, `@primeicons/angular ^8.0.0`, `@primeui/license-manager`
 - **Tabs et router** : aucune suppression formelle d'un « mode router » dans le guide de migration, mais plusieurs issues ouvertes (#17563, #17505, #11999) décrivent l'état actif d'onglet non synchronisé avec `routerLink`. La dizaine de lignes de dérivation depuis l'URL prévue par [ARCHITECTURE.md § Navigation](ARCHITECTURE.md#navigation) reste donc la bonne approche
 
@@ -697,7 +698,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 **Compatibilité Écosystème** :
 - **MSRV** : 1.77.2 pour la crate `tauri`, 1.85 pour la branche edition 2024 de `tauri-build`. Rust 1.98 satisfait les deux
 - **Windows** : « Tauri uses Microsoft Edge WebView2 to render content on Windows », préinstallé depuis Windows 10 build 1803. Build Tools C++ (workload « Desktop development with C++ ») et toolchain MSVC requis
-- **Sidecar** : la doc cite explicitement « Python CLI apps or API servers bundled with PyInstaller » comme cas d'usage d'`externalBin`. Le suffixe target-triple s'obtient par `rustc --print host-tuple` (flag disponible depuis Rust 1.84.0). **`externalBin` ne gère qu'un exécutable** : le dossier `_internal/` d'un build `--onedir` passe par `bundle.resources` et se résout au runtime via `resolveResource()`
+- **Sidecar** : la doc cite explicitement « Python CLI apps or API servers bundled with PyInstaller » comme cas d'usage d'`externalBin`. Le suffixe target-triple s'obtient par `rustc --print host-tuple` (flag disponible depuis Rust 1.84.0). **`externalBin` ne gère qu'un exécutable** : le dossier `_internal/` d'un build `--onedir` passe par `bundle.resources`, **en forme objet** (`{ "binaries/_internal": "_internal" }`), seule forme qui le pose à côté de l'exécutable. `resolveResource()` n'y sert à rien : le bootloader `--onedir` cherche son dossier de contenu relativement à l'exe, sans passer par l'API Tauri
 - **`assetProtocol`** : `{ "enable": true, "scope": ["$APPCACHE/covers/*"] }`, plus une CSP dont `img-src` doit inclure `'self' asset: http://asset.localhost blob: data:`. Côté webview, `convertFileSrc(filePath)` produit l'URL à poser dans le `src`
 - **Updater** : le `latest.json` minimal ne requiert que `version`, `platforms.[target].url` et `platforms.[target].signature`. La signature vient de `TAURI_SIGNING_PRIVATE_KEY` (chemin ou contenu, **jamais un `.env`**) et la `pubkey` de `tauri.conf.json` doit être le contenu de la clé publique, pas un chemin
 - **NSIS et MSI sont tous deux compatibles avec l'updater** : « MSI and NSIS installers receive signatures and can be used with the updater ». NSIS a deux avantages : le mode `downloadBootstrapper` pour WebView2, et la cross-compilation possible, là où le MSI (WiX) « can only be created on Windows »
@@ -922,7 +923,7 @@ Trois contournements, dans l'ordre de préférence :
 | **Deux tournures interdites par Python 3.14** : `asyncio.get_event_loop()` hors loop lève `RuntimeError`, et `sqlite3.version` est supprimé | 🟢 | Aucune des deux n'a de raison d'exister dans du code neuf. Les bannir dans `[tool.ruff.lint.flake8-tidy-imports.banned-api]` fait porter la garantie par la CI plutôt que par la mémoire, y compris sur du code repris de la CLI d'origine |
 | **`pydantic-core` est une seconde extension native à empaqueter.** Le hook `pydantic` de `pyinstaller-hooks-contrib` couvre le cas nominal, mais aucune source ne documente le couple `pydantic-core` + interpréteur géré par uv sous PyInstaller | 🟡 | Même traitement que rapidfuzz et keyring : valider au premier build CI qu'un `model_validate_json()` fonctionne dans le binaire figé, pas seulement sur les sources. L'échec serait un `ImportError` au démarrage, immédiat et explicite |
 | **La config Ruff de techno-scraper n'est pas transposable** si elle date d'avant la 0.16.0 : le jeu par défaut est passé de 59 à 413 règles | 🟡 | Partir de la config par défaut de 0.16.x, ajouter la catégorie `I`, retirer `COM812`. Ne pas copier-coller |
-| **`externalBin` ne prend qu'un exécutable**, or PyInstaller `--onedir` produit un exe plus un dossier `_internal/` | 🟡 | Déclarer l'exe suffixé en `bundle.externalBin` et le dossier en `bundle.resources`, résolu au runtime par `resolveResource()`. Déjà anticipé dans l'arborescence d'[ARCHITECTURE.md](ARCHITECTURE.md#arborescence), à valider au premier `tauri build` |
+| **`externalBin` ne prend qu'un exécutable**, or PyInstaller `--onedir` produit un exe plus un dossier `_internal/` | 🟡 | Déclarer l'exe suffixé en `bundle.externalBin` et le dossier en `bundle.resources` **sous forme objet** (`{ "binaries/_internal": "_internal" }`). La forme tableau le range sous `binaries/_internal/` et le sidecar meurt sur `Failed to load Python DLL`, invisible en `tauri dev`. Vérifié sur artefact, pas seulement au build |
 | **release-please n'est pas documenté sur un flux `develop` → `main`.** L'outil raisonne sur une branche de vérité unique pilotée par `target-branch` | 🟡 | Valider sur un dépôt de test avant la première release réelle. Le chaînage `needs:` est indépendant de ce point et reste correct dans tous les cas |
 | **`tauri-action` n'offre aucun hook pour construire un sidecar** avant `tauri build` | 🟢 | Construire le binaire PyInstaller et le copier dans `src-tauri/binaries/` dans une étape antérieure du même job. Contrainte connue, sans contournement à inventer |
 | **La syntaxe `shell:allow-spawn` avec `"sidecar": true`** n'est pas confirmée verbatim par la documentation, seul l'exemple équivalent sur `allow-execute` l'est | 🟢 | Vérifier dans les exemples du dépôt `plugins-workspace` au moment d'écrire `capabilities/default.json`. Un échec est immédiat et explicite (`program not allowed on the configured shell scope`), pas silencieux |
@@ -940,7 +941,9 @@ Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilot�
 
 **Dépendances d'exécution** : `pydantic>=2.13.5,<3`, `mutagen>=1.48.1,<2`, `rapidfuzz>=3.14.5,<4`, `httpx2>=2.12.0,<3`, `keyring>=25.7.0,<26`, `sentry-sdk>=2.68.1,<3`.
 
-**Groupe `dev`** (via `[dependency-groups]`, PEP 735) : `pytest>=9.1.1`, `pytest-asyncio>=1.4.0`, `pytest-cov>=7.1.0`, `ruff>=0.16.5`, `mypy>=2.3.1`, `pyinstaller>=6.22.2`.
+**Groupe `dev`** (via `[dependency-groups]`, PEP 735) : `pytest>=9.1.1`, `pytest-asyncio>=1.4.0`, `pytest-cov>=7.1.0`, `ruff>=0.16.5`, `mypy>=2.3.1`.
+
+**Groupe `build`** : `pyinstaller>=6.22.2`, `pyinstaller-hooks-contrib>=2026.1`.
 
 **`[tool.ruff]`** : `target-version = "py314"`. Sous `[tool.ruff.lint]`, partir du jeu par défaut de la 0.16.x, ajouter `I`, et poser en `ignore` les règles incompatibles avec le formateur (`COM812` en premier lieu). Sous `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, interdire `asyncio.get_event_loop` et `sqlite3.version` avec un message renvoyant à leur remplaçant.
 
@@ -958,7 +961,7 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 ### package.json
 
-`engines.node` sur `>=24.15.0`. Un `pnpm-workspace.yaml` est à créer même sans monorepo, pour accueillir `allowBuilds: { esbuild: true }` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11.
+`engines.node` sur `^24.15.0 || ^26.0.0` : un `>=` laisserait passer Node 25.x, hors de la plage supportée par Angular 22. Un `pnpm-workspace.yaml` est à créer même sans monorepo, pour accueillir `allowBuilds: { esbuild: true }` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11.
 
 > 🔴 **Retirer le `devEngines.packageManager` que `pnpm init` écrit par défaut, et ne pas déclarer `packageManager` non plus.** C'est contre-intuitif, mais ces deux champs sont les seuls déclencheurs du lockfile multi-document sur ce projet, et ce format casse le graphe de dépendances GitHub, donc les alertes de sécurité. Renovate **lit** ces alertes, il ne les produit pas : les perdre reviendrait à n'avoir aucune veille CVE tout en croyant le contraire. La version de pnpm se déclare à la place en input `version` de `pnpm/setup`, ce qui la place dans le workflow plutôt que dans `package.json`. C'est l'inverse de ce que recommande la doc pnpm, et c'est assumé : le graphe de dépendances vaut plus cher ici que la centralisation de la version.
 

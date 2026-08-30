@@ -1,20 +1,24 @@
 import { bootstrapApplication } from '@angular/platform-browser';
 import * as Sentry from '@sentry/angular';
 
-import { App } from './app/app';
+import { AppComponent } from './app/app.component';
 import { appConfig } from './app/app.config';
+import { scrub } from './app/core/scrub';
 
-// TODO: injecter SENTRY_DSN_UI et la version au build. DSN vide = SDK inerte,
-// et la release doit etre identique a celle du sidecar pour que les erreurs des
-// deux cotes se croisent sur une meme livraison.
+// DSN vide = SDK inerte : c'est ainsi qu'on coupe la remontee en developpement.
+// Le nom de la release est fixe en dur, identique a celui du sidecar, sans quoi
+// les erreurs des deux cotes ne se croisent sur aucune livraison.
 Sentry.init({
-  dsn: '',
-  release: '',
-  environment: 'production',
+  dsn: SENTRY_DSN_UI,
+  release: `techno-tagger@${APP_VERSION}`,
+  environment: APP_ENVIRONMENT,
   // Breadcrumbs capture la console et les interactions, donc les titres
   // affiches ; Replay capture le DOM.
   integrations: (defaults) =>
     defaults.filter((i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay'),
+  // Pendant du before_send du sidecar : les chemins que le sidecar envoie dans
+  // ses evenements finissent affiches, donc dans un message d'erreur.
+  beforeSend: scrub,
 });
 
-bootstrapApplication(App, appConfig).catch((err) => console.error(err));
+bootstrapApplication(AppComponent, appConfig).catch((err) => console.error(err));

@@ -16,6 +16,8 @@ paths:
 - Utiliser `satisfies` pour valider la forme d'un littéral sans élargir ses types (tables de seuils, de configuration)
 - Déclarer explicitement les `types` nécessaires dans `tsconfig.json` : le scan automatique n'a plus lieu
 - Garder un job `tsc --noEmit` en CI, distinct du build et des tests
+- Exporter toute fonction en `export const nom: TypeDuContrat = (args) => ...`, jamais en `export function` : l'annoter par le type que le framework attend (`CanDeactivateFn`, `ResolveFn`, `BrowserOptions['beforeSend']`) fait échouer la compilation le jour où sa signature change, là où une signature réécrite à la main dérive en silence
+- Exporter toute fonction en `export const nom: TypeDuContrat = (args) => ...`, jamais en `export function` : annoter par le type que le framework attend (`CanDeactivateFn`, `ResolveFn`, `BrowserOptions['beforeSend']`) fait echouer la compilation le jour ou sa signature change, la ou une signature reecrite a la main derive en silence
 
 ## À éviter
 - Monter en TypeScript 7 : le compilateur Angular et `typescript-eslint` échouent tous les deux, ce n'est pas un avertissement mais un échec de build
@@ -23,6 +25,7 @@ paths:
 - Asserter le retour de `JSON.parse` en type métier
 - Compter sur les tests pour attraper une erreur de types : Vitest transpile par esbuild et n'exécute pas `tsc`
 - Copier un `tsconfig.json` issu d'un projet en TypeScript 5 : plusieurs de ses options n'existent plus
+- `export function` pour un callback de framework : sa signature est alors écrite deux fois, une par le SDK et une par nous, et rien ne vérifie qu'elles concordent
 
 ## Gotchas
 - La borne haute est dure : `@angular/compiler-cli` et `typescript-eslint` consomment l'API de compilation programmatique, absente du cœur natif Go de TypeScript 7. La levée est attendue avec la stabilisation en 7.1, sans date acquise

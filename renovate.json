@@ -41,16 +41,28 @@
     },
     {
       "matchManagers": ["pep621"],
-      "matchDepTypes": ["dependency-groups"],
+      "matchDepTypes": ["dependency-groups", "build-system.requires"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "outillage du sidecar",
       "semanticCommitType": "chore"
     },
     {
-      "matchManagers": ["github-actions"],
+      "matchManagers": ["cargo"],
+      "matchDepTypes": ["build-dependencies", "dev-dependencies"],
       "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "outillage de la coquille",
+      "semanticCommitType": "chore"
+    },
+    {
+      "description": "Actions et leurs digests epingles : chore, hors changelog",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"],
       "groupName": "github actions",
       "semanticCommitType": "chore"
     }
-  ]
+  ],
+  "schedule": ["before 5am on the first day of the month"],
+  "vulnerabilityAlerts": {
+    "schedule": ["at any time"]
+  }
 }

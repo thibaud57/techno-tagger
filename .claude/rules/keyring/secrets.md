@@ -27,7 +27,7 @@ paths:
 
 ## Gotchas
 - Depuis la 12.0.0 les backends sont découverts exclusivement par entry points, que PyInstaller n'embarque pas : `entry_points()` rend une liste vide, keyring bascule sur son backend `fail` et lève `NoKeyringError` (`No recommended backend was available`) dans le binaire, jamais en développement
-- Le hook `hook-keyring.backend.py` livré par le paquet ne suffit pas : il ajoute des `hiddenimports` mais ne copie pas les métadonnées que lit la découverte. Il faut aussi `--collect-metadata keyring` et les `--hidden-import win32ctypes.pywin32.win32cred` / `win32ctypes.pywin32.pywintypes`
+- Le hook `hook-keyring.backend.py` livré par le paquet ne suffit pas : il ajoute des `hiddenimports` mais ne copie pas les métadonnées que lit la découverte. PyInstaller 6.22.2 en livre un second, `hook-keyring.py`, qui fait à la fois `collect_submodules("keyring.backends")` — c'est **lui** qui résout le backend — et `copy_metadata("keyring")`. Le `.spec` du projet garde la copie des métadonnées en double, volontairement : une régression du hook se verrait sinon uniquement dans le binaire. Les `--hidden-import win32ctypes.pywin32.win32cred` / `win32ctypes.pywin32.pywintypes` restent indispensables, `hook-win32ctypes.core.py` ne couvrant que `win32ctypes.core.*`
 - Le Credential Manager plafonne à 2560 octets (`CRED_MAX_CREDENTIAL_BLOB_SIZE`) : un dépassement produit un `CredWrite ... (1783, "The stub received bad data")` cryptique, remonté en `PasswordSetError`
 - Le secret est lisible par l'utilisateur Windows connecté : keyring protège d'un fichier en clair, pas d'un utilisateur malveillant sur sa propre session
 - 25.3.0 déprécie les `username` vides. La dépendance est `pywin32-ctypes`, pure Python, donc sans extension compilée à empaqueter

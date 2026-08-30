@@ -113,6 +113,10 @@ techno-tagger/
 │   │   ├── cache.py                      #   réponses API et artworks
 │   │   └── plan.py                       #   plan de run, reprise, rapport
 │   ├── tests/                            #   pytest, seuil de couverture bloquant en CI
+│   │   ├── unit/                         #     un module isole, miroir de src/tagger/
+│   │   ├── integration/                  #     plusieurs modules, protocole NDJSON compris
+│   │   ├── fixtures/                     #     donnees figees : audio, vlc_media.db, M3U8
+│   │   └── helpers/                      #     constructeurs partages, importables a plat
 │   └── build.py                          #   PyInstaller -> binaire
 │
 ├── src-tauri/

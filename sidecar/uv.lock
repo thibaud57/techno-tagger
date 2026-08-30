@@ -759,6 +759,7 @@ dependencies = [
 [package.dev-dependencies]
 build = [
     { name = "pyinstaller" },
+    { name = "pyinstaller-hooks-contrib" },
 ]
 dev = [
     { name = "mypy" },
@@ -779,7 +780,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-build = [{ name = "pyinstaller", specifier = ">=6.22.2" }]
+build = [
+    { name = "pyinstaller", specifier = ">=6.22.2" },
+    { name = "pyinstaller-hooks-contrib", specifier = ">=2026.1" },
+]
 dev = [
     { name = "mypy", specifier = ">=2.3.1" },
     { name = "pytest", specifier = ">=9.1.1" },

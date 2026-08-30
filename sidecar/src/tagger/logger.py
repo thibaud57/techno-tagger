@@ -22,8 +22,20 @@ FORMAT = "%(asctime)s %(levelname)-5s %(name)-16s %(message)s"
 MAX_BYTES = 5 * 1024 * 1024
 BACKUP_COUNT = 3
 
+# Ce que cette fonction a pose au dernier appel, et elle seule : le logger racine
+# est un singleton de process, et deux handles sur un meme fichier tournant font
+# echouer la rotation sous Windows, qui refuse de renommer un fichier ouvert.
+_installed: list[logging.Handler] = []
+
 
 def setup_logging(log_dir: Path, level: int = logging.INFO) -> None:
+    root = logging.getLogger()
+
+    for handler in _installed:
+        root.removeHandler(handler)
+        handler.close()
+    _installed.clear()
+
     log_dir.mkdir(parents=True, exist_ok=True)
     formatter = logging.Formatter(FORMAT, datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -40,7 +52,7 @@ def setup_logging(log_dir: Path, level: int = logging.INFO) -> None:
     stderr_handler = logging.StreamHandler(sys.stderr)
     stderr_handler.setFormatter(formatter)
 
-    root = logging.getLogger()
     root.setLevel(level)
     root.addHandler(file_handler)
     root.addHandler(stderr_handler)
+    _installed.extend((file_handler, stderr_handler))

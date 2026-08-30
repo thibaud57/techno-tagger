@@ -32,11 +32,11 @@ paths:
 ```typescript
 // ✅ Route lazy, une feature par chunk
 export const routes: Routes = [
-  { path: 'settings', loadComponent: () => import('./features/settings/settings-page') },
+  { path: 'settings', loadComponent: () => import('./features/settings/settings-page.component') },
 ];
 
 // ❌ Le composant est aussi importé par un composant eager : le chunk repart dans le bundle initial
-@Component({ imports: [SettingsPage] })
+@Component({ imports: [SettingsPageComponent] })
 export class AppComponent {}
 ```
 

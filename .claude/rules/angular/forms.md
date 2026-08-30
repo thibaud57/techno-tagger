@@ -35,7 +35,7 @@ paths:
 // ✅ Signal Forms : modèle signal, validation déclarative
 interface Settings { apiUrl: string; lowThreshold: number; }
 
-export class SettingsPage {
+export class SettingsPageComponent {
   protected readonly model = signal<Settings>({ apiUrl: '', lowThreshold: 70 });
 
   protected readonly settings = form(this.model, (f) => {

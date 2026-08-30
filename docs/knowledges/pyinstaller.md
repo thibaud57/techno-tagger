@@ -34,7 +34,7 @@ pyinstaller --onedir --console --name tagger --noconfirm --clean sidecar/src/tag
 
 ### Points Importants
 
-- **Le mode retenu est `--onedir`** (cf. [ADR-015](../adrs/015-cibles-distribution-windows.md)) : `externalBin` ne prend que l'exe suffixé, le dossier `_internal/` passant par `bundle.resources`
+- **Le mode retenu est `--onedir`** (cf. [ADR-015](../adrs/015-cibles-distribution-windows.md)) : `externalBin` ne prend que l'exe suffixé, le dossier `_internal/` passant par `bundle.resources` **en forme objet** (`{ "binaries/_internal": "_internal" }`). Le bootloader `--onedir` cherche ce dossier à côté de l'exe : toute autre forme de déclaration le range ailleurs dans le bundle et le binaire ne démarre pas
 - **Le prix est un démarrage à froid** : extraction dans `%TEMP%\_MEIxxxxxx` à chaque lancement, puis suppression à la sortie. Le sidecar étant un process long lancé une fois au démarrage de l'application, ce coût est payé une fois par session, pas par action
 - `sys._MEIPASS` donne le chemin d'extraction, nécessaire pour lire un fichier de données embarqué
 - **`Process.kill()` côté Tauri ne cible que le bootloader** en mode onefile, un mode que le projet n'utilise pas : prévoir un arrêt propre par le protocole plutôt que par un kill

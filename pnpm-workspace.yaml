@@ -12,3 +12,6 @@ allowBuilds:
 # En minutes. A garder aligne sur renovate.json, sinon une PR Renovate produit un
 # lockfile que `pnpm install --frozen-lockfile` refuse en CI.
 minimumReleaseAge: 1440
+
+# pnpm lance les scripts via cmd sous Windows, ou $VAR ne s expande pas.
+scriptShell: bash

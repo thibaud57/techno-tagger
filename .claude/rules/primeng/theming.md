@@ -23,8 +23,8 @@ paths:
 > Le câblage de `providePrimeNG()` (preset importé, valeurs exactes de `darkModeSelector` et de `cssLayer`) est dans [angular/app-config.md](../angular/app-config.md), qui porte le bootstrap.
 
 ## Gotchas
-- **La propriété est `license`**, confirmée par la page Installation de PrimeNG (`providePrimeNG({ theme: Aura, license: "PRIMEUI-LICENSE-KEY" })`). Ce qui reste à décider est le canal : le secret vit dans les secrets GitHub Actions et doit descendre dans le bundle au moment du build sans jamais être commité (cf. [PRODUCTION.md](../../../docs/PRODUCTION.md#secrets--configuration)), à trancher au setup du frontend
-- Sans clé valide, les composants affichent une notice de licence : ce n'est pas une limitation fonctionnelle, mais c'est visible par l'utilisateur, donc c'est un prérequis de premier build
+- **La propriété est `license`**, confirmée par la page Installation de PrimeNG (`providePrimeNG({ theme: Aura, license: "PRIMEUI-LICENSE-KEY" })`). **Le canal est tranché** : `--define` du builder Angular, alimenté par `PRIMENG_LICENSE_KEY` (dotenv de `just` en local, secret Actions en CI), identifiant déclaré dans `src/build-constants.d.ts`. `environments/` a été écarté : c'est un mécanisme de configuration versionnée, inadapté à un secret qui ne doit jamais être commité
+- Sans clé valide, les composants affichent une notice de licence, **y compris en développement** : la webview Tauri n'est pas exemptée, contrairement à ce qu'on lit sur l'exemption localhost. C'est donc un prérequis du premier `just dev`, pas seulement du premier build
 - La clé Community est gratuite, valable 12 mois avec 30 jours de grâce, et renouvelable
 - La base rem est passée de 14px à 16px en v22 : tout style maison calé sur 14px se retrouve décalé
 - Aucune limitation fonctionnelle sur la bibliothèque centrale en Community, et les versions antérieures à la v22 restent MIT pour toujours

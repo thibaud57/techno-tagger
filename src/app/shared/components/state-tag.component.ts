@@ -8,7 +8,7 @@ import { Component, input } from '@angular/core';
   selector: 'app-state-tag',
   template: '<!-- TODO: implement, p-tag -->',
 })
-export class StateTag {
+export class StateTagComponent {
   // TODO: implement, types importes de core/models/protocol.ts une fois le
   // contrat NDJSON fige, puis mapping vers les quatre familles de DESIGN.md.
   readonly state = input.required<string>();

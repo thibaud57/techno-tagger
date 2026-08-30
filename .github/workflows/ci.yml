@@ -6,11 +6,20 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Un push qui en chasse un autre annule le run precedent, mais seulement sur PR :
+# sur main et develop chaque commit garde son propre resultat de CI.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   sidecar:
+    # Exception documentee au defaut ubuntu-latest : le sidecar cible Windows par
+    # ce qu'il touche, backend keyring WinVault, encodage cp1252 des flux standard
+    # et %LOCALAPPDATA%. Sur Linux ces regressions passeraient le gate sans bruit.
     name: Sidecar (ruff, mypy, pytest)
     runs-on: windows-latest
     steps:
@@ -28,8 +37,9 @@ jobs:
       - run: just test-sidecar
 
   ui:
-    name: Webview (eslint, tsc, vitest)
-    runs-on: windows-latest
+    name: Webview (eslint, tsc, build, vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Installe pnpm ET Node en une etape : ni actions/setup-node, ni corepack,
@@ -42,11 +52,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: just lint-ui
       - run: just typecheck-ui
+      # tsc --noEmit ne verifie pas les templates : seul le compilateur Angular
+      # le fait, et ni typecheck-ui ni test-ui ne le declenchent sur toute l'app.
+      - run: just build-ui
       - run: just test-ui
 
   tauri:
     name: Coquille Tauri (check, clippy)
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1

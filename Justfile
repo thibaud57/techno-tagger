@@ -1,8 +1,6 @@
 set dotenv-load
 set windows-shell := ["bash", "-cu"]
 
-WEB_PORT := env("WEB_PORT", "4200")
-
 # Lister les recettes disponibles
 default:
     @just --list
@@ -24,30 +22,15 @@ dev-ui:
 dev-sidecar:
     cd sidecar && uv run python -m tagger
 
-# Arreter le dev server Angular (libere le port {{WEB_PORT}})
+# Arreter le dev server Angular (port 4200, aligne sur devUrl de tauri.conf.json)
 [group('dev')]
-[windows]
 stop-ui:
-    powershell -Command "(Get-NetTCPConnection -LocalPort {{WEB_PORT}} -ErrorAction SilentlyContinue).OwningProcess | Select-Object -Unique | ForEach-Object { taskkill /PID \$_ /T /F *>\$null }; Write-Host 'Angular arrete'"
-
-# Arreter le dev server Angular
-[group('dev')]
-[unix]
-stop-ui:
-    pkill -f "ng serve" || true
+    powershell -Command "(Get-NetTCPConnection -LocalPort 4200 -ErrorAction SilentlyContinue).OwningProcess | Select-Object -Unique | ForEach-Object { taskkill /PID \$_ /T /F *>\$null }; Write-Host 'Angular arrete'"
 
 # Arreter la fenetre Tauri et le sidecar qu'elle a spawn
 [group('dev')]
-[windows]
 stop-app:
-    powershell -Command "taskkill /IM techno-tagger.exe /T /F *>\$null; taskkill /IM tagger-x86_64-pc-windows-msvc.exe /T /F *>\$null; Write-Host 'Application arretee'"
-
-# Arreter la fenetre Tauri et le sidecar qu'elle a spawn
-[group('dev')]
-[unix]
-stop-app:
-    pkill -f "techno-tagger" || true
-    pkill -f "tagger-" || true
+    powershell -Command "taskkill /IM techno-tagger.exe /T /F *>\$null; taskkill /IM tagger.exe /T /F *>\$null; Write-Host 'Application arretee'"
 
 # Tout arreter
 [group('dev')]
@@ -63,6 +46,8 @@ build-sidecar:
 # Compiler la webview Angular
 [group('quality')]
 build-ui:
+    # Le --define de la licence vit dans le script npm : c'est la zone Angular qui
+    # sait comment on la build. `set dotenv-load` exporte la variable, npm en herite.
     pnpm build
 
 # Produire l'installeur Windows
@@ -74,7 +59,8 @@ build: build-sidecar
 # Lint de la webview
 [group('quality')]
 lint-ui:
-    pnpm exec ng lint
+    pnpm exec ng lint --max-warnings 0
+    pnpm exec prettier --check .
 
 # Lint du sidecar
 [group('quality')]
@@ -86,6 +72,7 @@ lint-sidecar:
 [group('quality')]
 lint-tauri:
     cd src-tauri && cargo clippy -- -D warnings
+    cd src-tauri && cargo fmt --check
 
 # Lint des trois zones
 [group('quality')]
@@ -99,7 +86,7 @@ typecheck-ui:
 # Typage du sidecar
 [group('quality')]
 typecheck-sidecar:
-    cd sidecar && uv run mypy src
+    cd sidecar && uv run mypy src tests
 
 # Typage des deux zones typees
 [group('quality')]
@@ -146,13 +133,16 @@ install: install-ui install-sidecar install-tauri
 [group('setup')]
 setup: install build-sidecar
 
-# Verifier que l'environnement local est pret
+# Verifier que l'environnement local est pret. Le hook SessionStart s'en sert
+# comme source de verite : sortie vide = rien a signaler, donc aucune ligne hors
+# avertissement.
 [group('setup')]
 check:
-    @node --version > /dev/null 2>&1 || echo "⚠️ Node requis (>=24.15.0)"
-    @pnpm --version > /dev/null 2>&1 || echo "⚠️ pnpm requis (11.24.0)"
-    @uv --version > /dev/null 2>&1 || echo "⚠️ uv requis (0.12.7)"
-    @rustc --version > /dev/null 2>&1 || echo "⚠️ Rust requis (1.98.0, toolchain epinglee dans rust-toolchain.toml)"
+    @node --version > /dev/null 2>&1 || echo "⚠️ Node requis (voir engines de package.json)"
+    @pnpm --version > /dev/null 2>&1 || echo "⚠️ pnpm requis (version dans le workflow CI)"
+    @uv --version > /dev/null 2>&1 || echo "⚠️ uv requis (version dans le workflow CI)"
+    @rustc --version > /dev/null 2>&1 || echo "⚠️ Rust requis (version dans rust-toolchain.toml)"
     @test -d node_modules || echo "⚠️ Dependances webview absentes, lancer just install-ui"
     @test -d sidecar/.venv || echo "⚠️ Environnement du sidecar absent, lancer just install-sidecar"
     @test -f src-tauri/binaries/tagger-x86_64-pc-windows-msvc.exe || echo "⚠️ Binaire du sidecar absent, lancer just build-sidecar (sans lui toute commande Tauri echoue)"
+    @test ! -f sidecar/src/tagger/_build_info.py || echo "⚠️ _build_info.py present : build interrompu, le DSN de production est reste dans les sources. Le supprimer, sinon les runs de dev remontent vers Sentry en production"

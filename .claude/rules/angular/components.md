@@ -43,7 +43,7 @@ paths:
     }
   `
 })
-export class TrackRow {
+export class TrackRowComponent {
   private readonly sidecar = inject(SidecarService);
 
   readonly track = input.required<Track>();
@@ -51,7 +51,7 @@ export class TrackRow {
 }
 
 // ❌
-export class TrackRow {
+export class TrackRowComponent {
   @Input() track!: Track;
   @Output() arbitrated = new EventEmitter<TrackDecision>();
   constructor(private sidecar: SidecarService) {}

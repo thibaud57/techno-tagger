@@ -16,7 +16,7 @@ paths:
 - Traiter `stdout` comme le canal de protocole et `stderr` comme le canal de logs, sans jamais mélanger les deux : `CommandEvent` distingue `Stdout`, `Stderr`, `Terminated` et `Error`
 - Consommer une ligne `stdout` comme un événement NDJSON : le découpage est fait par Tauri, il n'est pas à refaire
 - Construire le sidecar avant `tauri build` : `beforeDevCommand` et `beforeBuildCommand` déclenchent le build Angular, jamais celui du sidecar
-- Déclarer le dossier `_internal/` d'un build `--onedir` en `bundle.resources`, résolu au runtime par `resolveResource()` : `externalBin` ne gère qu'un exécutable
+- Déclarer le dossier `_internal/` d'un build `--onedir` en `bundle.resources` **sous la forme objet** (`{ "binaries/_internal": "_internal" }`), qui le pose à côté de l'exécutable : `externalBin` ne gère qu'un exécutable
 
 ## À éviter
 - `execute()` pour le sidecar : bloque jusqu'à la fin du process, donc plus de barre de progression ni d'arbitrage en cours de run
@@ -31,6 +31,8 @@ paths:
 - `tauri-action` n'offre aucun hook pour construire un sidecar avant `tauri build` : la construction et la copie dans `src-tauri/binaries/` sont une étape antérieure du même job
 - La documentation Tauri cite explicitement les applications Python empaquetées par PyInstaller comme cas d'usage d'`externalBin`
 - `tauri info` est le premier réflexe quand une crate et son paquet npm divergent
+- La forme tableau (`["binaries/_internal/**/*"]`) place le dossier sous `binaries/_internal/` dans le bundle, et `resolveResource()` n'y change rien : le bootloader `--onedir` de PyInstaller résout son dossier de contenu **relativement à l'exécutable**, sans passer par l'API Tauri. Symptôme : `Failed to load Python DLL ...\_internal\python314.dll` au premier spawn, invisible en `tauri dev`
+- Tauri strippe le target triple en stageant l'`externalBin` : le fichier sur disque s'appelle `tagger-x86_64-pc-windows-msvc.exe`, le process lancé s'appelle `tagger.exe`. Un `taskkill /IM` sur le nom suffixé ne tue rien
 
 ## Exemples
 ```rust

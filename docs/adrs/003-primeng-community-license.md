@@ -49,7 +49,7 @@ Quelle bibliothèque de composants Angular retenir, alors que la plus adaptée f
 **Inconvénients :**
 - Une clé de licence embarquée dans le bundle distribué
 - Renouvellement gratuit à refaire tous les 12 mois, avec 30 jours de grâce
-- **Les erreurs de licence ne s'affichent pas sur localhost** : un oubli de renouvellement se verra chez les amis avant de se voir en développement
+- **La notice de licence s'affiche aussi en développement**, constaté au premier `just dev` : la webview Tauri n'est pas exemptée. C'est une bonne nouvelle pour la détection d'un oubli de renouvellement, mais cela impose de passer la clé en dev comme en build (cf. [angular/app-config.md](../../.claude/rules/angular/app-config.md), canal `--define`)
 - Les composants Pro, PrimeBlocks et le Theme Designer ne sont pas inclus
 - Dépendance à la politique commerciale de PrimeTek, qui vient de changer une fois
 

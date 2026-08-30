@@ -99,7 +99,7 @@ Conséquences par lock, très inégales :
 | `Cargo.lock` | `cargo build` sans `--locked` le réécrit en silence (diff parasite) ; avec `--locked`, échec | 🟡 bruit |
 | `pnpm-lock.yaml` | Ne porte pas la version du projet racine | ✅ non concerné |
 
-> **Traitement retenu** : un job du workflow release-please rejoue `uv lock` et `cargo check` sur la branche de la PR de release, et pousse les lockfiles réalignés dans cette même PR. Le commit de release reste cohérent et le build d'après tag part d'un arbre où `--frozen` passe. À défaut, retirer `--frozen` du build de release revient à abandonner la reproductibilité au moment précis où elle compte le plus.
+> **Traitement retenu** : un job du workflow release-please rejoue `uv lock` et `cargo update --workspace` sur la branche de la PR de release, et pousse les lockfiles réalignés dans cette même PR. Le commit de release reste cohérent et le build d'après tag part d'un arbre où `--frozen` passe. À défaut, retirer `--frozen` du build de release revient à abandonner la reproductibilité au moment précis où elle compte le plus.
 
 > La version compte au-delà du CHANGELOG : c'est elle que le sidecar passe en `release=` à Sentry (`techno-tagger@X.Y.Z`), et c'est elle que l'updater compare pour décider d'une mise à jour. Un bump manuel oublié quelque part rend le tri Sentry faux ou une mise à jour invisible.
 
@@ -227,7 +227,7 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD=<mot de passe de la clé ci-dessus>
 SENTRY_DSN_SIDECAR=<DSN du projet Sentry Python, région EU ; compilé dans le binaire du sidecar>
 SENTRY_DSN_UI=<DSN du projet Sentry JavaScript, région EU ; compilé dans le bundle Angular>
 PRIMENG_LICENSE_KEY=<clé Community License, providePrimeNG({ license })>
-SENTRY_AUTH_TOKEN=<Organization Auth Token, scope project:releases, création de la release Sentry au tag>
+SENTRY_AUTH_TOKEN=<Organization Auth Token, scope org:ci non modifiable, création de la release Sentry au tag>
 GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 ```
 
@@ -264,7 +264,7 @@ En développement, le sidecar lit un `.env` local (jamais commité) pour un DSN 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
 | Push / PR (`main`, `develop`) | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `cargo check` + `cargo clippy` (`src-tauri/`), seuil de coverage sur `sidecar/` | — (gate qualité) |
-| Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo check` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
+| Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release | GitHub Releases |
 
 > 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : le tag créé par release-please n'en déclenche aucun. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** — la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
@@ -353,6 +353,8 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 - [ ] **Clé API révoquée testée** — avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
 - [ ] **Release Sentry créée au tag** — la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy
 
+> **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus — ils exigent une Release publiée — mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Restent à couvrir en post-MEP : la réception de l'**email**, la présence d'un **titre de morceau** dans un payload (aucun n'existe au bootstrap), et le comportement depuis une application **installée**.
+
 ---
 
 # 🔧 Mises à jour
@@ -395,8 +397,8 @@ Surface d'attaque volontairement minimale : **aucun port en écoute, aucun compt
 |--------|----------|-------|------------------------------|
 | `TAURI_SIGNING_PRIVATE_KEY` (+ password) | Secrets GitHub Actions **et** sauvegarde chiffrée hors GitHub | Injecté au build, jamais logué | 🔴 **Plus aucune mise à jour possible sur les installations existantes** |
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Secrets GitHub Actions | Compilés au build, init des deux SDK (deux projets Sentry, cf. § Observabilité) | Régénérables depuis Sentry |
-| `PRIMENG_LICENSE_KEY` | Secrets GitHub Actions | `providePrimeNG({ license })` | Bandeau de licence chez les utilisateurs, renouvellement gratuit |
-| `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Création de la release Sentry au tag, **Organization Auth Token** scope `project:releases`, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
+| `PRIMENG_LICENSE_KEY` | Secrets GitHub Actions | `providePrimeNG({ license })`, gravée dans le bundle par `--define` | Bandeau de licence chez les utilisateurs, renouvellement gratuit (échéance au § Rotation) |
+| `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Création de la release Sentry au tag, **Organization Auth Token**, scope `org:ci` imposé et non modifiable, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
 | Clé API techno-scraper (utilisateur) | Trousseau de l'OS via keyring, machine de l'utilisateur | Header `X-API-Key` posé par le sidecar | L'utilisateur en ressaisit une, révocation individuelle côté API |
 | Jeu `API_KEYS` (`user-N` → clé) | Variables d'environnement côté techno-scraper (Dokploy) + sauvegarde chiffrée | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
 
@@ -428,7 +430,7 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 |--------|-----------|-----------|
 | Clé API d'un utilisateur | Sur suspicion de fuite, ou au départ de la personne | Générer, remplacer l'entrée dans `API_KEYS`, redéployer l'API, transmettre la nouvelle clé, la personne la ressaisit dans les Settings |
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret GitHub, **publier une nouvelle version** : le DSN est compilé, les installations existantes gardent l'ancien jusqu'à leur mise à jour |
-| `PRIMENG_LICENSE_KEY` | Annuelle | Renouvellement gratuit, mise à jour du secret, effectif à la prochaine release |
+| `PRIMENG_LICENSE_KEY` | Annuelle, **valide jusqu'au 2027-08-30** | Émise le 2026-08-30, tier Community, 4 sièges. Grâce de 30 jours au-delà, soit jusqu'au 2027-09-29. Renouvellement gratuit par reconfirmation d'éligibilité sur [primeui.dev/licenses/community](https://primeui.dev/licenses/community), puis mise à jour du secret. **Effectif à la prochaine release seulement** : une version déjà distribuée garde la clé expirée et affiche la notice |
 | `SENTRY_AUTH_TOKEN` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret. Effet immédiat, ce token n'est jamais compilé dans un binaire |
 | **Clé de signature updater** | ❌ **Non rotative en pratique** | La release qui introduit la nouvelle `pubkey` doit être **signée avec l'ancienne clé** pour que les installations existantes l'acceptent. Sans l'ancienne clé, il n'y a pas de transition possible, seulement une réinstallation manuelle chez chaque utilisateur |
 
@@ -454,7 +456,7 @@ Minimal et gratuit, pour un dev solo et quelques utilisateurs : **Sentry (plan D
 
 | Outil | Usage | Accès |
 |-------|-------|-------|
-| Sentry (`sentry-sdk` Python) | Crashs du sidecar, API injoignable, parsing cassé | Dashboard Sentry, région EU |
+| Sentry (`sentry-sdk` Python) | Crashs du sidecar, API injoignable, parsing cassé | Dashboard Sentry, région EU, fixée à la création de l'organisation et jamais modifiable ensuite |
 | Sentry (`@sentry/angular`) | Erreurs de la webview | Projet Sentry **distinct** de celui du sidecar |
 | Fichier de log local | Débogage à distance chez un utilisateur | Bouton « ouvrir le dossier de logs » dans les Settings |
 | Rapport de run (JSON + Markdown) | Qualité du matching, cas d'arbitrage, échecs | Dossier destination, envoi par geste explicite |
@@ -463,7 +465,9 @@ Minimal et gratuit, pour un dev solo et quelques utilisateurs : **Sentry (plan D
 
 **Release tracking** : `sentry_sdk.init(release="techno-tagger@X.Y.Z")`, la version étant lue du package installé, donc bumpée par release-please et jamais à la main. Le nom, lui, est **fixé en dur et identique dans les deux projets** : le package Python s'appelle `tagger`, laisser le SDK dériver le nom donnerait deux chaînes de release différentes de part et d'autre, incomparables. Le préfixe `nom@` conditionne le classement en versioning sémantique côté Sentry, et avec lui la détection de régression et le tri `release:latest`. La détection automatique du SDK ne peut pas suppléer : elle retomberait sur un SHA git absent du binaire distribué.
 
-> ⚠️ **Tagger les events ne crée pas la release côté Sentry** : elle n'est matérialisée qu'au premier event qui la porte, donc au premier crash. Créer la release au tag, dans le même workflow que le build (job conditionné à `release_created`, secret `SENTRY_AUTH_TOKEN` portant un **Organization Auth Token** scope `project:releases`, jamais le token du CLI local qui est nominatif et à durée de vie courte).
+> ⚠️ **Tagger les events ne crée pas la release côté Sentry** : elle n'est matérialisée qu'au premier event qui la porte, donc au premier crash. Créer la release au tag, dans le même workflow que le build (job conditionné à `release_created`, secret `SENTRY_AUTH_TOKEN` portant un **Organization Auth Token**, jamais le token du CLI local qui est nominatif et à durée de vie courte).
+
+> `project:releases` existe toujours, mais c'est un scope de **Personal Token** : il n'est pas proposé à la création d'un token d'organisation.
 
 > **Ce que le monitoring ne voit pas, et ne verra jamais** : combien d'utilisateurs tournent, sur quelle version, et si la mise à jour est passée. Aucun événement métier n'est envoyé, aucun ping de version n'existe. C'est délibéré ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)) et cela conditionne toute la gestion d'incident : le parc est invisible, la seule information disponible est un crash spontané ou un ami qui écrit.
 
@@ -473,7 +477,7 @@ Pas de métrique serveur à surveiller. Les signaux utiles se lisent dans Sentry
 
 | Métrique | Seuil Warning | Seuil Critical |
 |----------|---------------|----------------|
-| Quota Sentry consommé (plan Developer, 5 000 events/mois) | > 2 500 / mois | > 4 000 : marge avant le plafond de 5 000, au-delà duquel les events sont **jetés silencieusement** |
+| Quota Sentry consommé (plan Developer, 5 000 events/mois **partagés avec techno-scraper**, même organisation) | > 2 500 / mois | > 4 000 : marge avant le plafond de 5 000, au-delà duquel les events sont **jetés silencieusement** |
 | Morceaux non résolus **faute de requête exploitable** (nettoyage vide, tags absents, nom de fichier réduit à du bruit) | — | — : jamais une alerte, c'est la qualité de la bibliothèque source |
 | Morceaux en échec **par erreur de source** (5xx épuisés, parsing, réponse hors schéma) | ≥ 3 sur un run | ≥ 10 % du run : la source a changé, pas la bibliothèque |
 | `403` consécutifs sur techno-scraper | 1 | 3 : le run s'arrête de lui-même, clé invalide ou révoquée |

@@ -48,7 +48,6 @@ module.exports = defineConfig([
     files: ['**/*.html'],
     // templateAccessibility n'est pas inclus dans templateRecommended
     extends: [angular.configs.templateRecommended, angular.configs.templateAccessibility],
-    rules: {},
   },
   // En dernier : il desactive des regles, tout bloc place apres les retablirait
   prettier,

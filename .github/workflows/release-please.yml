@@ -5,6 +5,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Un build de release interrompu en pleine signature laisserait une Release
+# incomplete : ici on n'annule jamais, contrairement au gate qualite.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -64,6 +70,8 @@ jobs:
   build:
     name: Build et publication
     needs: release-please
+    # Defaut a 6 heures : un build bloque les consommerait entierement
+    timeout-minutes: 45
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: windows-latest
     permissions:
@@ -92,6 +100,10 @@ jobs:
       # tauri-action n'offre aucun hook pour construire un sidecar : le binaire
       # doit etre en place avant son invocation.
       - run: just build-sidecar
+        env:
+          # Grave par build.py dans le binaire figé : PyInstaller n'a pas
+          # d'equivalent au --define d'esbuild. Absent, le SDK reste inerte.
+          SENTRY_DSN_SIDECAR: ${{ secrets.SENTRY_DSN_SIDECAR }}
 
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
@@ -100,6 +112,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Lus par `pnpm build`, que tauri-action declenche via beforeBuildCommand,
+          # et substitues dans le bundle par --define. Sans eux : notice de licence
+          # affichee, et SDK Sentry inerte dans la version distribuee.
+          PRIMENG_LICENSE_KEY: ${{ secrets.PRIMENG_LICENSE_KEY }}
+          SENTRY_DSN_UI: ${{ secrets.SENTRY_DSN_UI }}
         with:
           tagName: ${{ needs.release-please.outputs.tag_name }}
           releaseName: ${{ needs.release-please.outputs.tag_name }}

@@ -3,6 +3,8 @@
 .env.*
 !.env.example
 *.local
+# Permissions validees localement, propres a la machine. Ne matche pas *.local
+.claude/settings.local.json
 
 # --- Angular / Node (src/) ---
 node_modules/
@@ -17,7 +19,10 @@ __pycache__/
 .venv/
 sidecar/build/
 sidecar/dist/
-sidecar/*.spec
+# Grave par build.py au packaging : porte le DSN Sentry, regenere a chaque build
+sidecar/src/tagger/_build_info.py
+# tagger.spec n'est PAS ignore : build.py l'invoque par son nom et il porte
+# trois hidden imports ecrits a la main. Sans lui, aucun build sur un clone frais.
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -34,6 +39,13 @@ src-tauri/binaries/
 # --- Signature updater (ne doit jamais etre commitee) ---
 *.key
 *.pem
+
+# Le sidecar ecrit dans appLocalDataDir, jamais ici. Ceinture si un chemin
+# relatif revenait par accident.
+logs/
+
+# Snapshots et logs de console poses par le MCP Playwright a chaque navigation
+.playwright-mcp/
 
 # --- IDE & OS ---
 **/.history/

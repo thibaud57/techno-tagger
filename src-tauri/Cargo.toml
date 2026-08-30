@@ -3,7 +3,7 @@ name = "techno-tagger"
 version = "0.0.0"
 description = "Coquille Tauri de techno-tagger : plugins, packaging et updater"
 authors = ["thibaud57"]
-license = ""
+license = "MIT"
 repository = "https://github.com/thibaud57/techno-tagger"
 edition = "2024"
 # MSRV de tauri-build en edition 2024, pas de notre code
@@ -11,10 +11,10 @@ rust-version = "1.85"
 
 [lib]
 name = "techno_tagger_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.6.3" }
+tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 # protocol-asset : exige des que app.security.assetProtocol est actif

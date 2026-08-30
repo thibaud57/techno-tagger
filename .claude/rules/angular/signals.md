@@ -32,7 +32,7 @@ paths:
 ## Exemples
 ```typescript
 // ✅ État privé, lecture publique, dérivation par computed
-export class RunStore {
+export class RunService {
   private readonly _tracks = signal<Track[]>([]);
 
   readonly tracks = this._tracks.asReadonly();

@@ -16,13 +16,11 @@
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
-        "minHeight": 700,
-        "resizable": true,
-        "fullscreen": false
+        "minHeight": 700
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost blob: data:",
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://*.ingest.de.sentry.io; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'",
       "assetProtocol": {
         "enable": true,
         "scope": ["$APPLOCALDATA/cache/artworks/**"]
@@ -32,15 +30,9 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "externalBin": ["binaries/tagger"],
-    "resources": ["binaries/_internal/**/*"],
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
+    "resources": { "binaries/_internal": "_internal" },
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]
   }
 }

@@ -30,7 +30,7 @@ jq -nc --arg blocages "$OUTPUT" '{
     additionalContext: (
       "Le diagnostic de demarrage a releve des blocages sur l environnement local :\n\n"
       + $blocages
-      + "\n\nAvant toute tache qui construit, lance ou empaquette le projet : enumerer ces blocages a l utilisateur, proposer le correctif correspondant (just install pour des dependances manquantes, just build-sidecar pour le binaire du sidecar, cp .env.example .env si un secret de build est requis), et attendre sa confirmation. Ne pas tenter de contourner un blocage en modifiant une version dans un manifeste."
+      + "\n\nAvant toute tache qui construit, lance ou empaquette le projet : enumerer ces blocages a l utilisateur, proposer le correctif correspondant (just install pour des dependances manquantes, just build-sidecar pour le binaire du sidecar), et attendre sa confirmation. Ne pas tenter de contourner un blocage en modifiant une version dans un manifeste."
     )
   }
 }'

@@ -8,6 +8,8 @@ paths:
 ## À faire
 - Activer `assetProtocol` avec un `scope` restreint au dossier de cache des pochettes, et traduire les chemins par `convertFileSrc()` côté webview
 - Ajouter `asset:` et `http://asset.localhost` à l'`img-src` de la CSP en même temps que l'activation de l'asset protocol : les deux réglages n'ont de sens qu'ensemble
+- Déclarer `connect-src 'self' ipc: http://ipc.localhost` dès qu'une CSP est posée : l'IPC v2 passe par un `fetch()` sur ce hôte, et `default-src 'self'` le refuse. Y ajouter l'hôte d'ingestion Sentry (`https://*.ingest.de.sentry.io`) sinon aucun crash de la webview ne part
+- Déclarer `style-src 'self' 'unsafe-inline'` : PrimeNG injecte son thème par un `<style>` créé à l'exécution, qu'aucun nonce ne couvre
 - Prévoir un fallback visuel quand une pochette a disparu entre l'événement et l'affichage : le cache est jetable (cf. [ADR-013](../../../docs/adrs/013-cache-disque-jetable.md))
 - Renseigner `plugins.updater.pubkey` avec le **contenu** de la clé publique, pas un chemin
 - Vérifier les mises à jour au démarrage uniquement, jamais pendant un run : sous Windows l'application se ferme avant l'installation, ce qui interromprait le run
@@ -25,7 +27,8 @@ paths:
 - Sans `asset:` dans la CSP, la webview refuse l'image sans erreur réseau visible
 - La taille de fenêtre n'est pas mémorisée entre deux lancements : un agrandissement est perdu à la fermeture, le plugin `window-state` corrigerait ça mais n'est pas retenu au MVP
 - Le manifeste de l'updater n'exige que `version`, `platforms.<target>.url` et `platforms.<target>.signature` ; `notes` et `pub_date` sont optionnels
-- `bundle.createUpdaterArtifacts` doit être actif pour que le build produise les artefacts signés attendus par le manifeste
+- `bundle.createUpdaterArtifacts` doit être actif pour que le build produise les artefacts signés attendus par le manifeste, mais **le laisser actif avant d'avoir la paire de clés** fait échouer ou produire des artefacts inutilisables au premier build de release : il reste à `false` tant que `plugins.updater.pubkey` et `TAURI_SIGNING_PRIVATE_KEY` ne sont pas posés
+- Tauri n'injecte de nonce que sur les balises portant ses jetons `__TAURI_STYLE_NONCE__` / `__TAURI_SCRIPT_NONCE__`, absents d'un build Angular, et ne calcule de hash CSP que pour les fichiers `.js` / `.mjs` — jamais pour les styles. Un `<style>` inline d'un frontend tiers est donc bloqué net, et un `onload=` d'attribut ne peut être débloqué par aucun réglage : c'est le critical CSS d'Angular qu'il faut désactiver (`optimization.styles.inlineCritical: false`)
 - Le MSI (WiX) ne peut être produit que sur Windows, là où NSIS se cross-compile : sans usage immédiat au MVP, mais c'est ce qui fait pencher le choix
 
 ## Exemples
@@ -35,7 +38,7 @@ paths:
   "app": {
     "security": {
       "assetProtocol": { "enable": true, "scope": ["$APPLOCALDATA/cache/artworks/**"] },
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost blob: data:"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://*.ingest.de.sentry.io; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'"
     },
     "windows": [{ "width": 1280, "height": 800, "minWidth": 1024, "minHeight": 700 }]
   }

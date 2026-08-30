@@ -34,13 +34,13 @@ paths:
 ## Exemples
 ```typescript
 // ✅ Guard fonctionnel qui redirige par UrlTree
-export const runInProgressGuard: CanDeactivateFn<TaggingPage> = (page) =>
+export const runInProgressGuard: CanDeactivateFn<TaggingPageComponent> = (page) =>
   page.canLeave() || inject(Router).createUrlTree(['/tagging']);
 
 // ❌ Guard en classe, navigation impérative dans le guard
 @Injectable({ providedIn: 'root' })
-export class RunInProgressGuard implements CanDeactivate<TaggingPage> {
-  canDeactivate(page: TaggingPage): boolean {
+export class RunInProgressGuard implements CanDeactivate<TaggingPageComponent> {
+  canDeactivate(page: TaggingPageComponent): boolean {
     if (!page.canLeave()) { this.router.navigate(['/tagging']); return false; }
     return true;
   }

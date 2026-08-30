@@ -173,7 +173,7 @@ C'est ce qui évite de transporter les pochettes en base64 dans le flux NDJSON.
         "enable": true,
         "scope": ["$APPLOCALDATA/cache/artworks/**"]
       },
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'"
     }
   }
 }
@@ -188,6 +188,9 @@ const artworkUrl = convertFileSrc(event.artwork_path); // asset://localhost/...
 ### Points Importants
 
 - **La CSP doit autoriser `asset:` et `http://asset.localhost`**, sinon la webview refuse l'image sans erreur réseau visible
+- **Poser une CSP oblige à déclarer `connect-src`** : l'IPC v2 passe par un `fetch()` sur `http://ipc.localhost` (`scripts/ipc-protocol.js`), que `default-src 'self'` refuse. Sans lui, `invoke()` est bloqué, pas seulement les appels réseau
+- **`style-src 'self' 'unsafe-inline'` est nécessaire dès qu'un composant injecte son style à l'exécution** (le thème PrimeNG le fait) : Tauri n'ajoute de nonce qu'aux balises portant ses jetons `__TAURI_STYLE_NONCE__`, absents d'un build Angular, et ne hashe que les fichiers `.js` / `.mjs`
+- Un gestionnaire d'événement en attribut (`onload="…"`) n'est débloquable par aucune directive quand un hash est présent sur `script-src` : il faut le supprimer côté frontend
 - **`deny` prime sur `allow`** dans le scope : un chemin listé des deux côtés est refusé
 - Restreindre le scope au dossier de cache, jamais à l'ensemble du disque : c'est ce qui empêche la webview de lire la bibliothèque musicale de l'utilisateur
 - Le cache étant jetable (cf. [ADR-013](../adrs/013-cache-disque-jetable.md)), une pochette peut disparaître entre l'événement et l'affichage : prévoir un fallback visuel
