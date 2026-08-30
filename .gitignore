@@ -29,8 +29,7 @@ src-tauri/target/
 src-tauri/gen/
 
 # Le sidecar PyInstaller est produit au build, jamais commite
-src-tauri/binaries/*
-!src-tauri/binaries/.gitkeep
+src-tauri/binaries/
 
 # --- Signature updater (ne doit jamais etre commitee) ---
 *.key
