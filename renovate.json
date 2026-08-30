@@ -1,0 +1,56 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "baseBranches": ["develop"],
+  "semanticCommits": "enabled",
+  "minimumReleaseAge": "1 day",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Majeures isolees et jamais groupees : un contrat documente peut avoir change",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Dependances de production : semanticCommitType fix, pour qu'elles entrent au changelog",
+      "matchManagers": ["npm", "cargo"],
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dependances de production",
+      "semanticCommitType": "fix"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchDepTypes": ["project.dependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dependances du sidecar",
+      "semanticCommitType": "fix"
+    },
+    {
+      "description": "Outillage : chore, hors changelog",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "outillage frontend",
+      "semanticCommitType": "chore"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchDepTypes": ["dependency-groups"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "outillage du sidecar",
+      "semanticCommitType": "chore"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "github actions",
+      "semanticCommitType": "chore"
+    }
+  ]
+}

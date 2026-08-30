@@ -37,7 +37,9 @@ src-tauri/binaries/
 
 # --- IDE & OS ---
 **/.history/
+# On versionne ce qui decrit le projet, pas ce qui decrit la machine
 .vscode/*
+!.vscode/settings.json
 !.vscode/extensions.json
 .idea/
 Thumbs.db

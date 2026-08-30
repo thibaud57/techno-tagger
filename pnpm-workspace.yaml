@@ -1,0 +1,14 @@
+# Requis meme sans monorepo : pnpm 11 n'accepte plus ces reglages dans .npmrc
+packages: []
+
+# Un paquet non approuve ne casse pas l'install, son binaire manque a l'execution.
+# Les quatre sont des transitives de @angular/build et resolvent un binaire prebuilt.
+allowBuilds:
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true
+  '@parcel/watcher': true
+
+# En minutes. A garder aligne sur renovate.json, sinon une PR Renovate produit un
+# lockfile que `pnpm install --frozen-lockfile` refuse en CI.
+minimumReleaseAge: 1440
