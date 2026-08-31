@@ -81,3 +81,22 @@ jobs:
       # cargo check echoue avant meme de compiler notre code.
       - run: just build-sidecar
       - run: just lint-tauri
+
+  # Check unique exige par la protection de branche : les noms des trois jobs
+  # ci-dessus peuvent changer sans toucher aux reglages du depot, et un job
+  # ajoute plus tard est couvert des qu'il entre dans `needs`.
+  ci:
+    needs: [sidecar, ui, tauri]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verifier les trois zones
+        run: |
+          echo "sidecar=${{ needs.sidecar.result }} ui=${{ needs.ui.result }} tauri=${{ needs.tauri.result }}"
+          for r in "${{ needs.sidecar.result }}" "${{ needs.ui.result }}" "${{ needs.tauri.result }}"; do
+            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
+              echo "::error::Une zone au moins n'est pas passee"
+              exit 1
+            fi
+          done
