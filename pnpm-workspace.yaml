@@ -2,8 +2,10 @@
 packages: []
 
 # Un paquet non approuve ne casse pas l'install, son binaire manque a l'execution.
-# Les quatre sont des transitives de @angular/build et resolvent un binaire prebuilt.
+# Tous resolvent un binaire prebuilt : les quatre derniers sont des transitives
+# d'@angular/build, sentry-cli est une devDependency directe.
 allowBuilds:
+  '@sentry/cli': true
   esbuild: true
   lmdb: true
   msgpackr-extract: true

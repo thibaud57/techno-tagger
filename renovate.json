@@ -3,6 +3,7 @@
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "baseBranches": ["develop"],
   "semanticCommits": "enabled",
+  "description": "minimumReleaseAge est aussi pose dans pnpm-workspace.yaml, en minutes : desaccordes, une PR Renovate produit un lockfile que `pnpm install --frozen-lockfile` refuse en CI.",
   "minimumReleaseAge": "1 day",
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,

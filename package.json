@@ -8,11 +8,12 @@
   },
   "scripts": {
     "ng": "ng",
-    "start": "ng serve --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\" --define \"APP_ENVIRONMENT='development'\"",
-    "build": "ng build --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\" --define \"APP_ENVIRONMENT='production'\"",
-    "watch": "ng build --watch --configuration development --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\" --define \"APP_ENVIRONMENT='development'\"",
+    "start": "ng serve --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\"",
+    "build": "ng build --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\" --define \"APP_ENVIRONMENT='production'\" && pnpm run sourcemaps",
+    "watch": "ng build --watch --configuration development --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\"",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "sourcemaps": "if [ -n \"$SENTRY_AUTH_TOKEN\" ]; then sentry-cli sourcemaps upload --org \"${SENTRY_ORG:-tg-ws}\" --project \"${SENTRY_PROJECT_UI:-techno-tagger-ui}\" --release \"techno-tagger@$npm_package_version\" dist/$npm_package_name/browser; fi; find dist/$npm_package_name/browser -name '*.map' -delete"
   },
   "dependencies": {
     "@angular/cdk": "22.1.4",
@@ -46,6 +47,7 @@
     "@angular/cli": "22.1.6",
     "@angular/compiler-cli": "22.1.4",
     "@eslint/js": "^10.0.1",
+    "@sentry/cli": "^3.7.0",
     "@tailwindcss/postcss": "4.3.3",
     "@tauri-apps/cli": "2.11.4",
     "angular-eslint": "22.1.0",

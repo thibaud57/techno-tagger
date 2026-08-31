@@ -44,7 +44,14 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.css"]
+            "styles": ["src/styles.css"],
+            "define": {
+              "PRIMENG_LICENSE_KEY": "''",
+              "APP_VERSION": "'0.0.0-dev'",
+              "SENTRY_DSN_UI": "''",
+              "APP_ENVIRONMENT": "'development'",
+              "APP_NAME": "'techno-tagger'"
+            }
           },
           "configurations": {
             "production": {
@@ -61,6 +68,7 @@
                 }
               ],
               "outputHashing": "all",
+              "sourceMap": { "scripts": true, "styles": false, "hidden": true },
               "optimization": {
                 "scripts": true,
                 "fonts": true,

@@ -26,7 +26,6 @@ build-backend = "uv_build"
 package = true
 
 [tool.ruff]
-target-version = "py314"
 line-length = 100
 
 [tool.ruff.lint]

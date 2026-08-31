@@ -13,14 +13,17 @@ fi
 # just check est la source de verite unique : runtimes, dependances, binaire du
 # sidecar. Ne rien dupliquer ici, sinon les deux divergent.
 OUTPUT="$(just check 2>&1 || true)"
-[ -n "$OUTPUT" ] && echo "$OUTPUT"
 
 # Sans warning, sortie stdout seule : rien a demander a Claude.
 if ! echo "$OUTPUT" | grep -q "⚠️"; then
+    [ -n "$OUTPUT" ] && echo "$OUTPUT"
     exit 0
 fi
 
+# A partir d'ici stdout doit rester du JSON pur : un prefixe texte rend le bloc
+# impossible a parser, `additionalContext` est ignore et l'objet recrache verbatim.
 if ! command -v jq > /dev/null 2>&1; then
+    echo "$OUTPUT"
     exit 0
 fi
 

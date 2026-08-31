@@ -20,7 +20,10 @@ def log_dir() -> Path:
     courant : pour une application installee, c'est celui d'ou l'utilisateur l'a
     lancee, donc n'importe ou sur son disque.
     """
-    # TODO: implement, recevoir le chemin de Tauri plutot que le recalculer ici.
+    # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
+    # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
+    # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
+    # argument non conforme est retire en silence.
     base = os.getenv("LOCALAPPDATA")
     root = Path(base) if base else Path.home() / "AppData" / "Local"
     return root / BUNDLE_IDENTIFIER / "logs"
@@ -46,6 +49,9 @@ def main() -> None:
     # `logger.exception` doit avoir un handler autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
+    # TODO: implement a l'etape 5, keyring.set_keyring(WinVaultKeyring()) avant tout
+    # acces au secret : dans le binaire fige, la decouverte par entry points rend
+    # une liste vide et keyring bascule sur son backend `fail`.
 
     # Sans flush, stdout est bufferise des qu'il n'est plus un terminal : les
     # evenements partiraient par paquets en fin de run. Invisible en dev.

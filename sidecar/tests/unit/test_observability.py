@@ -5,12 +5,11 @@ teste donc comme du code metier (cf. ADR-014).
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
-from tagger import APP_NAME
+from tagger import APP_NAME, RELEASE
 from tagger import observability as obs
 from tagger.observability import MASK, _scrub, init_sentry
 
 DSN = "https://key@o1.ingest.de.sentry.io/1"
-RELEASE = "techno-tagger@1.0.0"
 
 if TYPE_CHECKING:
     import pytest
@@ -69,7 +68,7 @@ def test_le_scrubbing_masque_le_nom_d_utilisateur_a_toute_profondeur(
             ]
         },
         "tags": {"user": "thibaud"},
-        "extra": {"tracks": 42},
+        "extra": {r"C:\Users\thibaud\Music": "locked", "tracks": 42},
     }
 
     scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
@@ -84,5 +83,17 @@ def test_le_scrubbing_masque_le_nom_d_utilisateur_a_toute_profondeur(
             ]
         },
         "tags": {"user": MASK},
-        "extra": {"tracks": 42},
+        "extra": {rf"{MASK}\Music": "locked", "tracks": 42},
     }
+
+
+def test_le_scrubbing_laisse_intacts_les_champs_d_enveloppe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\dev"})
+    monkeypatch.setattr(obs, "_USERNAME", "dev")
+    event = {"environment": "development", "level": "error", "release": RELEASE}
+
+    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+
+    assert scrubbed == event

@@ -6,6 +6,6 @@ import { Injectable } from '@angular/core';
  */
 @Injectable({ providedIn: 'root' })
 export class SidecarService {
-  // TODO: implement, Command.sidecar('tagger') puis spawn(), abonnement a
+  // TODO: implement, Command.sidecar('binaries/tagger') puis spawn(), abonnement a
   // command.stdout, etat du run et file d'arbitrage portes par des signals.
 }

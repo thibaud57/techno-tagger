@@ -46,8 +46,8 @@ build-sidecar:
 # Compiler la webview Angular
 [group('quality')]
 build-ui:
-    # Le --define de la licence vit dans le script npm : c'est la zone Angular qui
-    # sait comment on la build. `set dotenv-load` exporte la variable, npm en herite.
+    # Tout le detail du build vit dans les scripts npm : `pnpm build` seul doit
+    # rendre un dist livrable. `set dotenv-load` exporte les variables, npm en herite.
     pnpm build
 
 # Produire l'installeur Windows
@@ -74,8 +74,11 @@ lint-tauri:
     cd src-tauri && cargo clippy -- -D warnings
     cd src-tauri && cargo fmt --check
 
+# Sortie des zones entrelacee, ligne a ligne : la ligne `error: recipe X failed`
+# de fin nomme la zone fautive, et son code de retour est celui de `just`.
 # Lint des trois zones
 [group('quality')]
+[parallel]
 lint: lint-ui lint-sidecar lint-tauri
 
 # Typage de la webview
@@ -90,6 +93,7 @@ typecheck-sidecar:
 
 # Typage des deux zones typees
 [group('quality')]
+[parallel]
 typecheck: typecheck-ui typecheck-sidecar
 
 # Tests du sidecar, seuil de couverture compris
@@ -106,6 +110,7 @@ test-ui:
 
 # Tous les tests
 [group('quality')]
+[parallel]
 test: test-sidecar test-ui
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
@@ -127,8 +132,10 @@ install-tauri:
 
 # Installer les dependances des trois zones
 [group('setup')]
+[parallel]
 install: install-ui install-sidecar install-tauri
 
+# Pas de [parallel] : build-sidecar exige install-sidecar termine.
 # Setup complet : dependances puis binaire du sidecar, requis par toute commande Tauri
 [group('setup')]
 setup: install build-sidecar
@@ -144,5 +151,5 @@ check:
     @rustc --version > /dev/null 2>&1 || echo "⚠️ Rust requis (version dans rust-toolchain.toml)"
     @test -d node_modules || echo "⚠️ Dependances webview absentes, lancer just install-ui"
     @test -d sidecar/.venv || echo "⚠️ Environnement du sidecar absent, lancer just install-sidecar"
-    @test -f src-tauri/binaries/tagger-x86_64-pc-windows-msvc.exe || echo "⚠️ Binaire du sidecar absent, lancer just build-sidecar (sans lui toute commande Tauri echoue)"
+    @test -f src-tauri/binaries/tagger-$(rustc --print host-tuple).exe || echo "⚠️ Binaire du sidecar absent, lancer just build-sidecar (sans lui toute commande Tauri echoue)"
     @test ! -f sidecar/src/tagger/_build_info.py || echo "⚠️ _build_info.py present : build interrompu, le DSN de production est reste dans les sources. Le supprimer, sinon les runs de dev remontent vers Sentry en production"

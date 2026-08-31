@@ -13,8 +13,9 @@ from importlib.metadata import version
 from pathlib import Path
 
 SIDECAR = Path(__file__).parent
-# Derive du manifeste : un renommage du paquet ne doit pas se propager a la main
-# dans les chemins de sortie, la spec et la lecture de version.
+# Derive du manifeste : un renommage du paquet ne doit pas se propager a la main.
+# Deux fichiers restent hors de cette derivation et portent `tagger` en dur :
+# `externalBin` de tauri.conf.json et le scope shell de capabilities/default.json.
 PACKAGE = tomllib.loads((SIDECAR / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
 DIST = SIDECAR / "dist" / PACKAGE
 BINARIES = SIDECAR.parent / "src-tauri" / "binaries"

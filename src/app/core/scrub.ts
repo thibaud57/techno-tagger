@@ -14,7 +14,10 @@ export const MASK = '<user>';
 
 // `C:\Users\nom`, `C:/Users/nom`, `/Users/nom`, `/home/nom`. Le groupe capture le
 // separateur pour rendre la forme d'origine, seul le nom est remplace.
-const HOME = /((?:[A-Za-z]:)?[\\/](?:Users|home)[\\/])[^\\/\s"']+/gi;
+// L'espace n'est pas une borne : Windows nomme le dossier de profil d'apres le nom
+// complet d'un compte Microsoft, et `Jean Dupont` ne laisserait fuir que sa
+// seconde moitie.
+const HOME = /((?:[A-Za-z]:)?[\\/](?:Users|home)[\\/])[^\\/\n\r"']+/gi;
 
 function mask(text: string): string {
   return text.replace(HOME, `$1${MASK}`);
@@ -24,13 +27,17 @@ function maskDeep(value: unknown): unknown {
   if (typeof value === 'string') return mask(value);
   if (Array.isArray(value)) return value.map(maskDeep);
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, maskDeep(v)]));
+    // `prepareEvent` normalise avant `beforeSend` : une Error y est deja
+    // `{message, name, stack}`, une Date une chaine ISO. Ne pas poser
+    // `normalizeDepth: 0`, qui desactiverait cette passe.
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [mask(k), maskDeep(v)]));
   }
   return value;
 }
 
-/** Parcours recursif sans liste de champs : un champ ajoute plus tard est couvert.
- * Type par le contrat du SDK : un changement de signature casse a la compilation.
+/** Parcours recursif sans liste de champs : un champ ajoute plus tard est couvert,
+ * cles comprises. Pas de cles d'enveloppe exclues comme cote sidecar : le motif de
+ * chemin est ancre, il ne peut matcher ni `release` ni `environment`.
  */
 export const scrub: NonNullable<BrowserOptions['beforeSend']> = (event) =>
   maskDeep(event) as typeof event;

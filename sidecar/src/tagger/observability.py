@@ -37,15 +37,39 @@ def _mask(text: str) -> str:
     return text.replace(_USERNAME, MASK) if _USERNAME else text
 
 
+# Sentry route et regroupe sur ces champs, qui ne portent aucune donnee de
+# l'utilisateur. Les masquer casserait le tri des qu'un nom de compte est le
+# substring d'une valeur : `dev` rendrait `environment` egal a `<user>elopment`.
+_ENVELOPE_KEYS = frozenset(
+    {
+        "environment",
+        "event_id",
+        "level",
+        "logger",
+        "modules",
+        "platform",
+        "release",
+        "sdk",
+        "server_name",
+        "timestamp",
+    }
+)
+
+
 def _mask_deep(value: object) -> object:
     match value:
         case str():
             return _mask(value)
         case dict():
-            return {key: _mask_deep(item) for key, item in value.items()}
+            # La cle aussi : un chemin sert de cle dans un `extra` ou un contexte, et
+            # le serializer du SDK la preserve telle quelle (`str_k = str(k)`).
+            return {_mask(str(key)): _mask_deep(item) for key, item in value.items()}
         case list():
             return [_mask_deep(item) for item in value]
         case _:
+            # Rien ne fuit ici : le SDK appelle `serialize()` avant `before_send`
+            # (« annotated types do generally not surface in before_send »), tuple,
+            # set et bytes y sont deja devenus list, str ou repr.
             return value
 
 
@@ -54,7 +78,10 @@ def _scrub(event: Event, _hint: Hint) -> Event | None:
     de frames, messages d'exception, tags, contextes. Le parcours est recursif et
     sans liste de champs, pour qu'un nouveau champ soit couvert d'office.
     """
-    return cast("Event", _mask_deep(event))
+    masked = {
+        key: value if key in _ENVELOPE_KEYS else _mask_deep(value) for key, value in event.items()
+    }
+    return cast("Event", masked)
 
 
 def init_sentry(dsn: str, release: str) -> None:
@@ -82,11 +109,11 @@ def init_sentry(dsn: str, release: str) -> None:
             # Sans valeur fixe, c'est le nom de machine de l'utilisateur qui part.
             server_name=APP_NAME,
             before_send=_scrub,
-            # level=None coupe les breadcrumbs, qui partent des INFO par defaut
-            # et embarqueraient chemins et titres dans le prochain event.
-            # sentry_logs_level=None ferme le troisieme canal, inerte tant que
-            # `enable_logs` est absent mais qu'un ajout futur rouvrirait sans bruit.
-            integrations=[LoggingIntegration(level=None, sentry_logs_level=None)],
+            # Les trois canaux de la LoggingIntegration fermes : chacun embarquerait
+            # chemins et titres dans un event. Defauts ouverts, INFO pour les
+            # breadcrumbs et ERROR pour les events issus d'un `logger.error`. Le
+            # troisieme est inerte sans `enable_logs`, mais un ajout futur le rouvre.
+            integrations=[LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)],
             # Sonde une quarantaine d'integrations framework absentes d'ici : 90 ms
             # au demarrage, et autant de modules embarques par le hook au build.
             auto_enabling_integrations=False,

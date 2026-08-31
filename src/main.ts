@@ -6,11 +6,9 @@ import { appConfig } from './app/app.config';
 import { scrub } from './app/core/scrub';
 
 // DSN vide = SDK inerte : c'est ainsi qu'on coupe la remontee en developpement.
-// Le nom de la release est fixe en dur, identique a celui du sidecar, sans quoi
-// les erreurs des deux cotes ne se croisent sur aucune livraison.
 Sentry.init({
   dsn: SENTRY_DSN_UI,
-  release: `techno-tagger@${APP_VERSION}`,
+  release: `${APP_NAME}@${APP_VERSION}`,
   environment: APP_ENVIRONMENT,
   // Breadcrumbs capture la console et les interactions, donc les titres
   // affiches ; Replay capture le DOM.

@@ -5,15 +5,14 @@ Ce qui suit est charge dynamiquement, donc invisible a l'analyse statique : une
 omission ne se voit qu'a l'execution du binaire, jamais au build.
 """
 
-import tomllib
-
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
-# SPECPATH est fourni par PyInstaller. Le nom vient du manifeste, comme dans
-# build.py, qui va ensuite chercher l'executable sous ce meme nom.
-PACKAGE = tomllib.loads((Path(SPECPATH) / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
+# SPEC est fourni par PyInstaller, et build.py compose ce nom de fichier depuis
+# `project.name` : le nom en derive donc sans relire le manifeste ici, ce qu'un
+# spec ne pourrait pas faire par import (cf. rules/pyinstaller/build.md).
+PACKAGE = Path(SPEC).stem
 
 a = Analysis(
     [f"src/{PACKAGE}/__main__.py"],

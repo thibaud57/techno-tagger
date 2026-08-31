@@ -1,8 +1,10 @@
-"""Configuration du logger : logfmt dans un fichier tournant.
+"""Installe les handlers du sidecar : un fichier tournant, plus stderr.
 
 Le fichier a un seul destinataire, l'auteur, quand un utilisateur clique sur
-« ouvrir le dossier de logs » et l'envoie. D'ou logfmt plutot que du JSON par
-ligne : `grep 'status=403' tagger.log` marche chez quelqu'un qui n'a pas jq.
+« ouvrir le dossier de logs » et l'envoie. D'ou le logfmt plutot que du JSON par
+ligne : `grep 'status=403' tagger.log` marche chez quelqu'un qui n'a pas jq. Le
+prefixe est pose ici, les champs `cle=valeur` par les appelants (PRODUCTION.md
+§ Logging).
 """
 
 import logging
@@ -13,12 +15,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-# Jeu de cles fixe (run, track, source, score, status, reason) : une cle inventee
-# au fil des commits rend un grep faux sans que rien ne casse.
-FORMAT = "%(asctime)s %(levelname)-5s %(name)-16s %(message)s"
+# TODO: implement, jeu de cles logfmt fixe (PRODUCTION.md § Logging). Largeur 7 et
+# non 5 : le plus long levelname est WARNING, et le padding ne tronque pas.
+FORMAT = "%(asctime)s %(levelname)-7s %(name)-16s %(message)s"
 
-# 20 Mo au maximum sur le disque. Rotation sur la taille et jamais sur le run,
-# qui peut donc etre a cheval sur deux fichiers : d'ou la cle `run` sur chaque ligne.
+# 20 Mo au maximum sur le disque, rotation sur la taille et jamais sur le run.
 MAX_BYTES = 5 * 1024 * 1024
 BACKUP_COUNT = 3
 

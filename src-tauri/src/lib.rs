@@ -7,6 +7,10 @@ pub fn run() {
         // sidecars ecrivant le meme plan de run.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
+                // Les trois, dans cet ordre : sous Windows `set_focus` seul sur un
+                // HWND minimise fait clignoter la barre des taches sans rien restaurer.
+                let _ = window.unminimize();
+                let _ = window.show();
                 let _ = window.set_focus();
             }
         }))

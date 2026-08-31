@@ -24,4 +24,20 @@ describe('scrub', () => {
       tracks: 42,
     });
   });
+
+  it('masque un nom de compte porteur d une espace', () => {
+    const event = { message: 'cannot read C:\\Users\\Jean Dupont\\Music\\set.flac' };
+
+    const scrubbed = scrub(event as never, {} as never) as unknown as Record<string, unknown>;
+
+    expect(scrubbed['message']).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`);
+  });
+
+  it('masque la cle d un mapping autant que sa valeur', () => {
+    const event = { extra: { 'C:\\Users\\thibaud\\Music': 'locked' } };
+
+    const scrubbed = scrub(event as never, {} as never) as unknown as Record<string, unknown>;
+
+    expect(scrubbed['extra']).toEqual({ [`C:\\Users\\${MASK}\\Music`]: 'locked' });
+  });
 });
