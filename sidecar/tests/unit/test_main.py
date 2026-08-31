@@ -121,6 +121,20 @@ def test_le_nom_du_binaire_du_sidecar_est_le_meme_des_deux_cotes() -> None:
     assert [entry["name"] for entry in spawn["allow"]] == [expected]
 
 
+def test_le_nom_du_projet_angular_est_le_meme_dans_les_trois_manifestes() -> None:
+    """Aucun `outputPath` n'est declare : Angular derive `dist/<projet>/` de son nom
+    de projet. `frontendDist` et le script sourcemaps, qui lit `name` par
+    `$npm_package_name`, pointent ce dossier par une chaine recopiee a la main.
+    """
+    projects = _at("angular.json", "projects")
+
+    assert isinstance(projects, dict)
+    project = next(iter(projects))
+
+    assert _at("package.json", "name") == project
+    assert _at("src-tauri/tauri.conf.json", "build", "frontendDist") == f"../dist/{project}/browser"
+
+
 def test_les_quatre_manifestes_portent_la_meme_version() -> None:
     """release-please les propage, rien ne verifie le resultat : desaccordes, sidecar
     et webview remontent deux releases pour une meme livraison.
