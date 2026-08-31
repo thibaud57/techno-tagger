@@ -28,7 +28,6 @@ Trois tables : réglages globaux, règles de lint, options du formatter.
 
 ```toml
 [tool.ruff]
-target-version = "py314"
 line-length = 100
 
 [tool.ruff.lint]
@@ -36,14 +35,14 @@ select = ["E4", "E7", "E9", "F"]          # jeu explicite, cf. ci-dessous
 extend-select = ["B", "ASYNC", "SIM"]     # ajouts par-dessus
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]                      # assert autorisé dans les tests
+"tests/**" = ["S101"]                     # assert autorisé dans les tests
 "__init__.py" = ["F401"]                  # ré-exports
 ```
 
 ### Points Importants
 
 - **`select` remplace entièrement le jeu actif**, `extend-select` s'y ajoute : les confondre change tout le comportement
-- `target-version` doit suivre le `requires-python` du projet, sinon Ruff propose des réécritures incompatibles
+- **Ne pas poser `target-version`** : Ruff le dérive de `project.requires-python`, la clé en ferait une seconde source à synchroniser
 - `per-file-ignores` évite de désactiver une règle globalement pour un seul dossier
 - Les règles `preview` changent sans préavis entre patchs : laisser `preview` désactivé
 

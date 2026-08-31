@@ -35,7 +35,7 @@ dependencies = ["httpx2", "mutagen", "rapidfuzz", "keyring", "sentry-sdk"]
 
 [tool.uv]
 package = true
-default-groups = ["dev"]
+# default-groups n'est pas posé : ["dev"] est déjà la valeur par défaut d'uv
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff", "mypy"]

@@ -85,7 +85,7 @@ Le mode manifest est nécessaire dès qu'un fichier de version sort du fichier p
 
 ```json
 // .release-please-manifest.json
-{ ".": "0.1.0" }
+{ ".": "0.0.0" }
 ```
 
 ### Points Importants

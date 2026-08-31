@@ -14,7 +14,7 @@ Client HTTP asynchrone, **fork de `httpx` maintenu par Pydantic Services**. Le s
 
 **Le paquet s'importe `httpx2`, pas `httpx`.** L'API et le design sont annoncés identiques à httpx par ses mainteneurs, ce qui rend la documentation httpx transposable, mais les imports et l'écosystème d'outillage, eux, ne le sont pas.
 
-Deux différences internes valent d'être connues : `certifi` est remplacé par `truststore` (magasin de certificats de l'OS) et `httpcore` est vendorisé dans le dépôt.
+Deux différences internes valent d'être connues : `certifi` est remplacé par `truststore` (magasin de certificats de l'OS), et `httpcore` devient `httpcore2`, une dépendance PyPI séparée épinglée à la même version exacte (`httpcore2==2.12.0`), pas du code vendorisé dans le dépôt.
 
 ---
 

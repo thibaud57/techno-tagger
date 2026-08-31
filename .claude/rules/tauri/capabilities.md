@@ -9,7 +9,7 @@ paths:
 
 ## À faire
 - Octroyer chaque permission explicitement : v2 n'expose aucune commande IPC par défaut, contrairement à v1
-- Restreindre au strict nécessaire : `shell:allow-spawn` ciblé sur le sidecar, `fs` limité aux chemins choisis, `assetProtocol` limité au cache
+- Restreindre au strict nécessaire : `shell:allow-spawn` ciblé sur le sidecar, `fs` limité à `$APPLOCALDATA` (les fichiers musicaux sont gérés par le sidecar, pas par la webview), `assetProtocol` limité au cache
 - Accorder `shell:allow-spawn` et non `shell:allow-execute` : la permission suit la méthode réellement appelée
 - Poser `"sidecar": true` sur l'entrée `allow` : aucune commande arbitraire n'est autorisée, même avec le plugin `shell` actif
 - Restreindre la capability par `windows` (fenêtre nommée) et `platforms` (OS)

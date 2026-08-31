@@ -11,7 +11,7 @@ paths:
 - Utiliser les génériques natifs (`list[str]`, `dict[str, int]`, `tuple[int, ...]`) et `X | None`
 - Déclarer les type parameters en syntaxe inline PEP 695 : `def first[T](...)`, `type Candidates = list[Candidate]`
 - Valider toute charge JSON entrante par un `BaseModel` (cf. [pydantic/modeles.md](../pydantic/modeles.md)) ; `TypedDict` reste réservé à la forme d'un dict interne jamais instancié
-- Restreindre les champs d'état du protocole (`state`, `resolution`, `failure_reason`) par `Literal`, et fermer les `match` correspondants par `assert_never`
+- Fermer les `match` sur les champs d'état du protocole (`state`, `resolution`, `failure_reason`, cf. [python/modeles-donnees.md](modeles-donnees.md) pour leur type `StrEnum`) par `assert_never`
 - Déclarer un `Protocol` pour un contrat consommé (client HTTP, backend de cache) plutôt qu'une classe de base à hériter
 - Marquer `@override` sur toute redéfinition, `Final` sur les constantes, `ClassVar` sur les attributs de classe
 

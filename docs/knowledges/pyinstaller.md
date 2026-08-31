@@ -78,12 +78,17 @@ pyinstaller tagger.spec --noconfirm --clean
 
 ```python
 # tagger.spec — extrait
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 a = Analysis(
     ['src/tagger/__main__.py'],
-    hiddenimports=[*collect_submodules('rapidfuzz'), 'keyring.backends.Windows'],
-    excludes=['tkinter', 'unittest', 'pydoc'],
+    datas=copy_metadata('keyring'),
+    hiddenimports=[
+        'win32ctypes.pywin32.win32cred',
+        'win32ctypes.pywin32.pywintypes',
+        *collect_submodules('rapidfuzz'),
+    ],
+    excludes=['tkinter', 'PyQt5', 'PySide2', 'mypy'],
 )
 ```
 
@@ -178,7 +183,7 @@ Un exécutable non signé est régulièrement signalé par Windows Defender et S
 
 ```bash
 pyinstaller --onedir --console --noupx \
-  --exclude-module tkinter --exclude-module unittest --exclude-module pydoc \
+  --exclude-module tkinter --exclude-module PyQt5 --exclude-module PySide2 --exclude-module mypy \
   ...
 ```
 

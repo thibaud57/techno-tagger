@@ -37,7 +37,7 @@ paths:
 @import "tailwindcss";
 @plugin "tailwindcss-primeui";
 
-@custom-variant dark (&:where(.dark, .dark *));   /* même sélecteur que darkModeSelector */
+@custom-variant dark (&:where(.app-dark, .app-dark *));   /* même sélecteur que darkModeSelector */
 
 @theme {
   --font-sans: 'Inter Variable', system-ui, sans-serif;

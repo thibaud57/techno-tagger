@@ -130,11 +130,11 @@ techno-tagger/
 │   ├── binaries/
 │   │   ├── tagger-x86_64-pc-windows-msvc.exe   # suffixe target-triple OBLIGATOIRE
 │   │   └── _internal/                          # deps PyInstaller --onedir -> bundle.resources
-│   ├── capabilities/default.json         #   permissions : shell(sidecar), dialog, fs, store, os, opener, updater
+│   ├── capabilities/default.json         #   permissions : shell(sidecar), dialog, fs, store, os, opener (updater s'ajoute à l'étape 9, pas encore câblé)
 │   ├── icons/
 │   ├── src/
 │   │   ├── main.rs                       #   entrée desktop, généré, jamais modifié
-│   │   └── lib.rs                        #   ~5 lignes : init des plugins
+│   │   └── lib.rs                        #   init des plugins, rien d'autre
 │   ├── tauri.conf.json                   #   bundle.externalBin, frontendDist, assetProtocol
 │   ├── installer-hooks.nsh               #   hook NSIS : tue le sidecar avant l'écrasement par l'installeur
 │   └── Cargo.toml
@@ -344,7 +344,7 @@ Via les plugins Tauri v2, déclarés dans `src-tauri/capabilities/default.json` 
 |---|---|
 | `shell` | Lancement du sidecar via `Command.sidecar()`. Permission `shell:allow-spawn` et non `shell:allow-execute` : le sidecar est un process long démarré par `spawn()`, pas une exécution ponctuelle. La permission cible le chemin du sidecar avec `"sidecar": true`, aucune commande arbitraire n'est autorisée. |
 | `dialog` | Sélection des dossiers source, destination et du fichier de playlist |
-| `fs` | Accès aux chemins choisis par l'utilisateur, périmètre restreint |
+| `fs` | Restreint à `$APPLOCALDATA` (plans de run, cache, logs), en lecture et écriture récursives. La webview n'accède pas aux chemins de la bibliothèque musicale : le sidecar Python lit et écrit ces fichiers directement, hors du système de permissions Tauri |
 | `store` | Préférences : langue, seuils, mode copie / déplacement, signal sonore. **L'URL de l'API y est persistée mais transmise au sidecar par `set_api_url`**, seul à appeler techno-scraper |
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
 | `opener` | Bouton « ouvrir le dossier de logs » des Settings, et lien vers la fiche source du récapitulatif. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
@@ -518,7 +518,7 @@ La file d'arbitrage est une simple structure en mémoire, exposée à l'interfac
 
 - **AuthN / AuthZ** : sans objet, application locale mono-utilisateur. Aucun compte, aucun rôle, aucun port en écoute.
 - **Authentification sortante** : header `X-API-Key` vers techno-scraper, une clé par utilisateur, saisie dans les Settings et stockée via **keyring** dans le Credential Manager Windows (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md))
-- **Durcissement** : le plugin `shell` de Tauri n'autorise que le lancement du sidecar déclaré, pas de commande arbitraire. Le périmètre `fs` est restreint aux chemins sélectionnés par l'utilisateur.
+- **Durcissement** : le plugin `shell` de Tauri n'autorise que le lancement du sidecar déclaré, pas de commande arbitraire. Le périmètre `fs` est restreint à `$APPLOCALDATA` ; les fichiers musicaux sont lus et écrits par le sidecar Python, jamais par la webview.
 - **Validation** : toute commande reçue sur `stdin` est validée contre son modèle Pydantic avant exécution, `extra="forbid"` rejetant tout champ non déclaré ; une commande malformée produit un événement `error`, jamais un effet de bord partiel.
 
 ### Services Externes
@@ -839,7 +839,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 
 ### Environnement de Test
 
-- **CI** : GitHub Actions, matrice Python et Node, aucun service container nécessaire (pas de base de données)
+- **CI** : GitHub Actions, une version fixe de Python et de Node par job (pas de matrice), aucun service container nécessaire (pas de base de données)
 - **Local** : fixtures de fichiers audio des quatre formats, base `vlc_media.db` de test, playlists M3U8 d'exemple
 - **Services externes** : techno-scraper et Sentry **toujours mockés**. Aucun test ne consomme le quota de l'API ni ne pollue le projet Sentry.
 

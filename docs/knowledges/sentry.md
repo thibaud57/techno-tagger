@@ -44,7 +44,8 @@ sentry_sdk.init(
 
 - **`include_local_variables` vaut `True` par défaut** : le SDK joint alors un instantané des variables locales de chaque frame, qui contiennent les chemins complets, l'artiste et le titre en cours de traitement, et potentiellement la clé API si elle transite par une variable locale de `scraper_client.py`
 - **`server_name` est auto-détecté** : sans valeur fixe, le nom de la machine part avec chaque événement
-- **`send_default_pii` est déjà à `False`** : il s'agit de ne pas l'activer, pas de le régler
+- **`send_default_pii` a pour défaut `None`** (vérifié dans `sentry_sdk.consts.DEFAULT_OPTIONS`, contrairement à `false` côté JavaScript) : il s'agit de ne pas l'activer, pas de le régler
+- **`LoggingIntegration` est active par défaut avec `level=logging.INFO`** : tout log INFO devient un breadcrumb attaché au prochain événement, chemin complet ou titre de morceau compris. `level=None` la neutralise ; `auto_enabling_integrations=False` empêche toute autre intégration implicite de se réactiver dans son dos
 - Le DSN de la région EU passe par `ingest.de.sentry.io` : la résidence des données se choisit à la création de l'organisation et ne se change pas ensuite
 - Ces trois réglages **ne dispensent pas du scrubbing** : ils ferment les canaux les plus larges, pas tous
 
@@ -94,7 +95,9 @@ Sentry.init({
   environment: 'production',
   sendDefaultPii: false,
   integrations: (defaults) =>
-    defaults.filter((i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay'),
+    defaults.filter(
+      (i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay' && i.name !== 'CultureContext',
+    ),
 });
 
 bootstrapApplication(AppComponent, appConfig);
@@ -110,7 +113,7 @@ providers: [
 ### Points Importants
 
 - **`createErrorHandler()` est la seule fabrique exposée**, à brancher par `{ provide: ErrorHandler, useValue: ... }`. Il n'existe aucun `provideErrorHandler()` : vérifié dans `@sentry/angular` 10.72.0, qui n'exporte que `createErrorHandler` et `SentryErrorHandler`, et confirmé par la doc officielle
-- **`Breadcrumbs` capture les interactions et le contenu de la console**, donc des noms de morceaux affichés à l'écran ; **`Replay` capture le DOM**. Les deux sont à retirer, pas à régler
+- **`Breadcrumbs` capture les interactions et le contenu de la console**, donc des noms de morceaux affichés à l'écran ; **`Replay` capture le DOM** ; **`CultureContext` envoie la locale, le calendrier et le fuseau horaire** de l'utilisateur. Les trois sont à retirer, pas à régler
 - `sendDefaultPii` est déjà `false` par défaut côté JavaScript, contrairement à Python où le défaut documenté est `None`
 - La `peerDependency` couvre `@angular/core >= 14.x <= 22.x`
 - Les source maps se génèrent en mode `hidden`, s'uploadent vers Sentry et **ne sont pas livrées dans le bundle** distribué

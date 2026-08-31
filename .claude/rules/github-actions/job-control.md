@@ -10,8 +10,8 @@ paths:
 - Poser `concurrency` au niveau workflow sur le gate qualité, avec `cancel-in-progress` **conditionné à l'event** : `${{ github.event_name == 'pull_request' }}`. Un nouveau push sur une PR rend le run précédent inutile ; sur `main` et `develop` chaque commit garde son propre verdict, celui de `main` étant le dernier état vert connu avant le tag
 - Poser `cancel-in-progress: false` sur le job de release : un build interrompu en cours de signature laisse une Release incomplète
 - Déclarer `needs:` sur tout job conditionné par `failure()`, sans quoi il démarre en parallèle avant que les autres aient pu échouer
-- Utiliser une matrice pour couvrir plusieurs versions de Python ou de Node sur le même job de qualité
-- `fail-fast: false` quand on veut le rapport complet de la matrice, et pas seulement la première combinaison rouge
+- Utiliser une matrice pour couvrir plusieurs versions de Python ou de Node sur le même job de qualité, si un jour plusieurs versions sont réellement supportées : ce projet épingle une version unique par job (`ci.yml`), sans matrice de versions
+- `fail-fast: false` quand on veut le rapport complet d'une matrice, et pas seulement la première combinaison rouge
 - `timeout-minutes` sur les jobs de build : le défaut est de 6 heures, un job bloqué les consomme entièrement
 
 ## À éviter

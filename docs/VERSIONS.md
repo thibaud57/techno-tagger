@@ -115,7 +115,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | sentry-sdk 2.68.1 | classifiers jusqu'à 3.14 | Explicite |
 | mypy 2.3.1 | classifiers jusqu'à 3.15 | Wheels `cp314` |
 | pytest 9.1.1 | `>=3.10` | Support de 3.14 depuis pytest 8.4.0 |
-| Ruff 0.16.5 | `target-version = "py314"` | Valeur documentée |
+| Ruff 0.16.5 | dérivé de `requires-python` du projet | Pas de `target-version` posé : Ruff le lit dans `pyproject.toml` |
 | keyring 25.7.0 | `>=3.9` | `pywin32-ctypes` est pur Python, rien à compiler |
 | mutagen 1.48.1 | `>=3.10,<4` | Classifiers non détaillés par version mineure, mais pur Python sans dépendance : risque structurellement nul |
 | uv 0.12.7 | — | Livre le build 3.14.7 depuis 0.12.2 (2026-08-05) |

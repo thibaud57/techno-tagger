@@ -57,21 +57,23 @@ Grouper les mises à jour par zone limite le nombre de PR et rend chacune relisi
 ```json
 {
   "packageRules": [
-    { "matchManagers": ["npm"],            "groupName": "frontend (src/)",  "semanticCommitType": "fix" },
-    { "matchManagers": ["pep621"],         "groupName": "sidecar (uv)",     "semanticCommitType": "fix" },
-    { "matchManagers": ["cargo"],          "groupName": "tauri (rust)",     "semanticCommitType": "fix" },
-    { "matchManagers": ["github-actions"], "groupName": "github actions",   "semanticCommitType": "chore" },
-    { "matchUpdateTypes": ["minor", "patch"], "automerge": true, "automergeType": "pr" },
-    { "matchUpdateTypes": ["major"], "automerge": false }
+    { "matchUpdateTypes": ["major"], "dependencyDashboardApproval": true },
+    { "matchManagers": ["npm", "cargo"], "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["minor", "patch"], "groupName": "dependances de production", "semanticCommitType": "fix" },
+    { "matchManagers": ["npm"], "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"], "groupName": "outillage frontend", "semanticCommitType": "chore" },
+    { "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"], "groupName": "github actions", "semanticCommitType": "chore" }
   ]
 }
 ```
 
 ### Points Importants
 
-- **Séparer les majeures du reste** : une majeure demande une lecture du changelog, un patch non
+- **Séparer les majeures du reste** : une majeure demande une lecture du changelog, un patch non. Le projet ne les automerge pas : elles restent bloquées derrière `dependencyDashboardApproval`, à débloquer à la main depuis le tableau de bord
+- **Grouper par `matchDepTypes`, pas seulement par `matchManagers`** : dépendances de production et outillage (`devDependencies` côté npm, `dependency-groups`/`build-system.requires` côté uv, `build-dependencies`/`dev-dependencies` côté cargo) ont chacun leur groupe et leur `semanticCommitType`
 - `semanticCommitType: "fix"` sur les dépendances de production les fait apparaître au changelog ; `"chore"` sur l'outillage les en sort
-- **L'automerge n'a de sens que si la CI couvre réellement le risque** : lint, typecheck et tests des trois zones
+- **Aucun automerge dans ce projet** : chaque PR, majeure ou non, se merge à la main. L'automerge n'aurait de sens que si la CI couvrait le risque à elle seule
 - Une majeure de PrimeNG, d'Angular ou de Tauri touche à des contrats documentés dans `docs/knowledges/` : la fiche correspondante se relit en même temps que la PR
 
 ---
@@ -88,7 +90,7 @@ Rafraîchit les lockfiles indépendamment des montées de version directes, ce q
 {
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 4am on monday"]
+    "schedule": ["before 5am on monday"]
   }
 }
 ```
@@ -98,6 +100,27 @@ Rafraîchit les lockfiles indépendamment des montées de version directes, ce q
 - **Sans elle, les dépendances transitives ne bougent jamais** tant qu'une directe ne les tire pas
 - La planifier hors des heures de travail évite d'ajouter du bruit en pleine session
 - La régénération passe par les CLI (`pnpm install`, `uv lock`, `cargo update`) : le format des lockfiles n'est pas réimplémenté par Renovate
+
+---
+
+## `minimumReleaseAge`
+
+### Description
+
+Retarde la prise en compte d'une release pour absorber un retrait ou un correctif rapide de la part du mainteneur, avant que Renovate ne l'ouvre en PR.
+
+### Exemple
+
+```json
+{ "minimumReleaseAge": "1 day" }
+```
+
+### Points Importants
+
+- **Piège de désaccord avec pnpm** : la même valeur, en minutes, est aussi posée dans `pnpm-workspace.yaml` (`minimumReleaseAge`). Si les deux divergent, une PR Renovate peut proposer un lockfile que `pnpm install --frozen-lockfile` refuse ensuite en CI, la release n'étant pas encore assez mûre du point de vue de pnpm
+- Les deux valeurs se maintiennent ensemble, jamais séparément
+- `vulnerabilityAlerts` reste en dehors de ce délai (`"schedule": ["at any time"]`) : une CVE n'attend pas la fenêtre habituelle
+- `baseBranches: ["develop"]` cible Renovate sur la branche d'intégration, pas `main`
 
 ---
 

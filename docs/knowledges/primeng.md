@@ -12,7 +12,7 @@ technologies: ["Angular", "Tailwind CSS", "Tauri"]
 
 Bibliothèque de composants Angular qui fournit l'essentiel de l'interface : tableaux, modales, formulaires, onglets. Le projet l'utilise en **mode sombre forcé**, cohérent avec les outils DJ et avec un usage nocturne (cf. [ADR-003](../adrs/003-primeng-community-license.md)).
 
-Cette fiche couvre trois paquets indissociables : `primeng` 22.1.0, `@primeuix/themes` 3.0.0 (le moteur de thème, **pas une dépendance transitive**, à déclarer explicitement) et `@primeicons/angular` ^8.0.0 (les icônes, tirées par PrimeNG v22).
+Cette fiche couvre trois paquets indissociables : `primeng` 22.1.0, `@primeuix/themes` 3.0.0 (le moteur de thème, **pas une dépendance transitive**, à déclarer explicitement) et `@primeicons/angular` 8.0.0 (les icônes, tirées par PrimeNG v22).
 
 Le détail visuel du projet (tokens retenus, scale typographique, mapping composant par composant) vit dans [DESIGN.md](../DESIGN.md), pas ici.
 
@@ -32,13 +32,14 @@ PrimeNG v22 passe sous licence PrimeUI, avec un modèle dual Community / Commerc
 // app.config.ts
 providePrimeNG({
   theme: { preset: Aura, options: { darkModeSelector: '.app-dark' } },
-  license: PRIMEUI_LICENSE_KEY,   // fournie au build, jamais commitée
+  license: PRIMENG_LICENSE_KEY,   // fournie au build, jamais commitée
 })
 ```
 
 ### Points Importants
 
 - **Sans clé valide, les composants affichent une notice de licence** : ce n'est pas une limitation fonctionnelle mais c'est visible par l'utilisateur. La clé est donc un prérequis de premier build, pas une formalité de fin de projet
+- **La notice ne se masque pas en développement dans ce projet.** La documentation PrimeUI mentionne une exemption sur `localhost`, mais la webview Tauri n'est pas un navigateur pointé sur `localhost` : elle n'en bénéficie pas, la notice s'affiche donc dès le premier `just dev` sans clé
 - **Aucune limitation fonctionnelle sur la bibliothèque centrale** en Community : tous les composants sont là
 - **Le Theme Designer n'est pas inclus** : toute personnalisation passe par `definePreset()`, jamais par un outil visuel
 - Les versions antérieures à la v22 restent MIT pour toujours, le changement n'est pas rétroactif
@@ -71,7 +72,7 @@ export const appConfig: ApplicationConfig = {
           cssLayer: { name: 'primeng', order: 'theme, base, primeng' },
         },
       },
-      license: PRIMEUI_LICENSE_KEY,   // fournie au build, jamais commitée
+      license: PRIMENG_LICENSE_KEY,   // fournie au build, jamais commitée
     }),
   ],
 };

@@ -39,7 +39,7 @@ const TaggerPreset = definePreset(Aura, {
 
 providePrimeNG({
   theme: { preset: TaggerPreset, options: { prefix: 'p', darkModeSelector: DARK_SELECTOR } },
-  license: PRIMEUI_LICENSE_KEY,   // fournie au build depuis les secrets, jamais commitée
+  license: PRIMENG_LICENSE_KEY,   // fournie au build depuis les secrets, jamais commitée
 });
 
 // ❌ surcharge par sélecteur : casse à la montée de version
