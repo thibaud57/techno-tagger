@@ -1,6 +1,6 @@
 [package]
 name = "techno-tagger"
-version = "0.0.0"
+version = "0.1.0"
 description = "Coquille Tauri de techno-tagger : plugins, packaging et updater"
 authors = ["thibaud57"]
 license = "MIT"

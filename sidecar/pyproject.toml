@@ -1,6 +1,6 @@
 [project]
 name = "tagger"
-version = "0.0.0"
+version = "0.1.0"
 description = "Sidecar metier de techno-tagger : protocole NDJSON, tags, matching et plan de run"
 authors = [
     { name = "thibaud57", email = "thibaud57@users.noreply.github.com" }
