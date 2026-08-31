@@ -90,7 +90,7 @@ a = Analysis(
 - **Les options du `.spec` priment sur les flags CLI** quand les deux sont donnés : ne pas dupliquer les réglages aux deux endroits
 - Un `.spec` est du Python : il se relit, se diffe et se commente, contrairement à une commande de trente flags
 - **`--noconfirm` est nécessaire en CI**, sinon PyInstaller demande confirmation avant d'écraser `dist/`
-- `--clean` vide le cache : utile quand un hidden import ajouté ne semble pas pris en compte
+- `--clean` vide le cache et `build/`. Passé systématiquement par `build.py`, comme dans les commandes ci-dessus : gratuit en CI, où le runner est neuf, et il garantit que l'analyse ne réutilise rien qui concerne `_build_info.py`, créé puis supprimé à chaque build. Reste aussi le réflexe quand un hidden import ajouté ne semble pas pris en compte
 
 ---
 

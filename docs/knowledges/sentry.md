@@ -126,7 +126,7 @@ Deux SDK, deux projets Sentry, mais une seule version distribuée. La même vale
 ### Exemple
 
 ```
-release = "1.4.2"   # version produite par release-please, identique partout
+release = "techno-tagger@1.4.2"   # préfixe + version release-please, identique des deux côtés
 ```
 
 ### Points Importants

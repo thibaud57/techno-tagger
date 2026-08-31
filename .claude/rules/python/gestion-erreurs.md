@@ -12,6 +12,7 @@ paths:
 - Un logger par module via `logging.getLogger(__name__)`, la configuration se faisant une seule fois au point d'entrée
 - `logger.exception(...)` dans un `except` (traceback inclus), avec formatage lazy `%s`, pas de f-string
 - Trier les erreurs d'un `TaskGroup` par `except*`, une clause par famille
+- Structurer les logs en logfmt, champs `clé=valeur` appendés au message, jeu de clés fixe (`run`, `track`, `source`, `score`, `status`, `reason`) : une clé inventée au fil des commits rend un `grep` faux sans que rien ne casse ni ne se voie (cf. [PRODUCTION.md](../../../docs/PRODUCTION.md) § Logging)
 - Rattacher un incident propre à un morceau à son `failure_reason`, pas à un message libre
 
 ## À éviter

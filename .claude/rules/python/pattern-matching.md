@@ -7,7 +7,7 @@ paths:
 
 ## À faire
 - Dispatcher les commandes reçues sur `stdin` par `match` / `case` sur des mapping patterns, une clause par commande
-- Terminer tout `match` exhaustif par un `case _:` qui produit une erreur explicite, jamais un passage silencieux
+- Terminer par un `case _:` qui produit une erreur explicite, jamais un passage silencieux, tout `match` qui **dispatche une entrée externe** (commande NDJSON, événement). Sur un parcours normalisant au contraire, un `case _` qui rend la valeur inchangée est le comportement correct : c'est le cas de `_mask_deep`, dont le SDK Sentry a déjà réduit l'entrée à des scalaires
 - Qualifier toute valeur comparée (`case Source.BEATPORT:`), sinon c'est une capture
 - Regrouper les alternatives par OR pattern (`case "resume_run" | "discard_run":`)
 - Poser les conditions non structurelles en guard `if` derrière le pattern

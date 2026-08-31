@@ -26,10 +26,11 @@ paths:
 - Lire le `store` depuis le sidecar : l'URL de l'API y est persistée mais transmise au sidecar par une commande, Python n'y a pas accès
 
 ## Gotchas
+- `args` absent vaut `"args": false`, soit **aucun argument autorisé**, et non « arguments libres » : seul `"args": true` ouvre le passage, et poser `false` explicitement est un no-op. Corollaire : un argument passé malgré tout est **silencieusement retiré** du spawn, pas rejeté, le plugin construisant la ligne de commande depuis la liste autorisée et non depuis celle reçue
 - Tous les fichiers de `src-tauri/capabilities/` sont actifs par défaut : en ajouter un élargit la surface sans autre geste
 - Un appel sans permission déclarée échoue côté frontend, souvent sans message clair : c'est la première piste quand une API Tauri « ne fait rien »
 - `deny` prime sur `allow` dans un scope : un chemin listé des deux côtés est refusé
-- La syntaxe `shell:allow-spawn` avec `"sidecar": true` n'est pas confirmée verbatim par la documentation, seul l'équivalent sur `allow-execute` l'est : vérifier dans les exemples du dépôt `plugins-workspace`. L'échec serait immédiat et explicite (`program not allowed on the configured shell scope`)
+- La syntaxe `shell:allow-spawn` avec `"sidecar": true` n'est pas confirmée verbatim par la documentation, seul l'équivalent sur `allow-execute` l'est : vérifier dans les exemples du dépôt `plugins-workspace`. L'échec serait immédiat et explicite (`program not allowed on the configured shell scope`). Cela vaut pour le **nom du programme** ; un argument non autorisé, lui, est retiré en silence (gotcha ci-dessus)
 - `single-instance` n'a aucune permission à déclarer, et c'est le seul plugin retenu sans paquet npm
 - `updater` 2.5.0 supprime `UpdaterBuilder::new` au profit de `UpdaterExt::updater_builder` : concerne l'usage Rust bas niveau, pas l'API JS
 

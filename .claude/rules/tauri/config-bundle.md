@@ -24,6 +24,7 @@ paths:
 - Poser le mode sombre côté Tauri : il vit dans la webview, classe sur `<html>` plus `darkModeSelector` PrimeNG
 
 ## Gotchas
+- Quatre valeurs de ce fichier sont recopiées ailleurs sans aucune synchronisation : `identifier` (copié dans `sidecar/src/tagger/__init__.py`, il compose `appLocalDataDir()` donc les scopes `fs`), `productName` (préfixe de release Sentry, copié dans le sidecar, `angular.json` et deux workflows), `externalBin` et le scope `shell:allow-spawn`. Un renommage se fait partout à la fois, et `sidecar/tests/unit/test_main.py` échoue sinon
 - Sans `asset:` dans la CSP, la webview refuse l'image sans erreur réseau visible
 - La taille de fenêtre n'est pas mémorisée entre deux lancements : un agrandissement est perdu à la fermeture, le plugin `window-state` corrigerait ça mais n'est pas retenu au MVP
 - Le manifeste de l'updater n'exige que `version`, `platforms.<target>.url` et `platforms.<target>.signature` ; `notes` et `pub_date` sont optionnels

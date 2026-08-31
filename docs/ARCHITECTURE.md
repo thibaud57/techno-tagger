@@ -82,6 +82,7 @@ techno-tagger/
 │   ├── app/
 │   │   ├── core/
 │   │   │   ├── sidecar.service.ts        #   flux NDJSON <-> sidecar
+│   │   │   ├── scrub.ts                  #   masquage PII avant envoi Sentry
 │   │   │   └── models/                   #   types miroir du contrat JSON
 │   │   ├── features/
 │   │   │   ├── playlist/                 #   onglet 1 : dossiers, playlist, déplacement
@@ -94,6 +95,7 @@ techno-tagger/
 │   ├── assets/icons/                     #   4 SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
 │   ├── index.html
 │   ├── main.ts                           #   bootstrapApplication, init Sentry
+│   ├── build-constants.d.ts              #   constantes substituées par --define
 │   └── styles.css                        #   CSS pur, jamais SCSS
 ├── public/i18n/                          #   JSON ngx-translate : Angular sert public/ à la racine
 ├── angular.json
@@ -105,6 +107,9 @@ techno-tagger/
 │   ├── uv.lock
 │   ├── src/tagger/
 │   │   ├── __main__.py                   #   boucle de commandes, émission d'événements
+│   │   ├── build_info.py                 #   façade des constantes gravées au packaging
+│   │   ├── logger.py                     #   fichier tournant + stderr, jamais stdout
+│   │   ├── observability.py              #   init Sentry durci, scrubbing PII
 │   │   ├── protocol.py                   #   modèles des commandes et des événements
 │   │   ├── playlists/                    #   parsing VLC SQLite et M3U8
 │   │   ├── files.py                      #   mutagen : lecture/écriture des tags
@@ -117,6 +122,7 @@ techno-tagger/
 │   │   ├── integration/                  #     plusieurs modules, protocole NDJSON compris
 │   │   ├── fixtures/                     #     donnees figees : audio, vlc_media.db, M3U8
 │   │   └── helpers/                      #     constructeurs partages, importables a plat
+│   ├── tagger.spec                       #   hidden imports et métadonnées collectées
 │   └── build.py                          #   PyInstaller -> binaire
 │
 ├── src-tauri/
@@ -131,6 +137,7 @@ techno-tagger/
 │   ├── tauri.conf.json                   #   bundle.externalBin, frontendDist, assetProtocol
 │   └── Cargo.toml
 │
+├── Justfile                               # recettes dev, qualité, build, setup
 └── README.md
 ```
 

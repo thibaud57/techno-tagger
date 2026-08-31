@@ -27,6 +27,8 @@ paths:
 - Passer par Corepack, y compris là où il existe encore : il installe un shim JavaScript à la place de pnpm, donc chaque appel démarre Node avant pnpm
 
 ## Gotchas
+- Les scripts tournent sous `bash` (`scriptShell`), donc `$npm_package_name` et `$npm_package_version` y sont exploitables : les préférer à un chemin ou une version recopiés
+
 - `packageManager` et `devEngines.packageManager` sont les deux seuls déclencheurs du lockfile multi-document sur ce projet, format qui casse le graphe de dépendances GitHub et donc les alertes de sécurité que Renovate consomme. C'est l'inverse de ce que recommande la doc pnpm, et c'est assumé (cf. [VERSIONS.md § Conflits Potentiels](../../../docs/VERSIONS.md#conflits-potentiels))
 - Corepack est retiré des binaires officiels Node depuis la 25.x et absent de la 26.0.0
 - Depuis la v10, les scripts de cycle de vie des dépendances ne s'exécutent plus à l'installation : le symptôme d'un paquet non approuvé est un module manquant **à l'exécution**, pas une erreur d'installation

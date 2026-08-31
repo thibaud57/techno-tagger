@@ -7,7 +7,7 @@ paths:
 # GitHub Actions — Contrôle d'exécution
 
 ## À faire
-- Poser `concurrency` au niveau workflow avec `cancel-in-progress: true` sur le gate qualité : un nouveau push sur une PR rend le run précédent inutile
+- Poser `concurrency` au niveau workflow sur le gate qualité, avec `cancel-in-progress` **conditionné à l'event** : `${{ github.event_name == 'pull_request' }}`. Un nouveau push sur une PR rend le run précédent inutile ; sur `main` et `develop` chaque commit garde son propre verdict, celui de `main` étant le dernier état vert connu avant le tag
 - Poser `cancel-in-progress: false` sur le job de release : un build interrompu en cours de signature laisse une Release incomplète
 - Déclarer `needs:` sur tout job conditionné par `failure()`, sans quoi il démarre en parallèle avant que les autres aient pu échouer
 - Utiliser une matrice pour couvrir plusieurs versions de Python ou de Node sur le même job de qualité
@@ -26,10 +26,10 @@ paths:
 
 ## Exemples
 ```yaml
-# ✅ annule les runs superseded sur la même branche
+# ✅ annule les runs superseded d'une PR, garde le verdict de chaque commit de main
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # ✅ outcome, pas conclusion, après un step toléré
 - id: tests

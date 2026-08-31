@@ -114,7 +114,9 @@ Conséquences par lock, très inégales :
 - [ ] **Sauvegarde de la clé privée updater revérifiée** : archive chiffrée accessible et déchiffrable. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
 - [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
+- [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles` présent en tête de la PR de release. C'est l'unique garde-fou du mode de panne 🔴 de la § Propagation de la version, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run »
 - [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `tauri build` + signature)
+- [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent — à confirmer au premier run. Symptôme si c'est faux : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
 - [ ] Release GitHub porte bien **l'installeur ET `latest.json`** (sans le second, aucun client ne verra la mise à jour)
 - [ ] **Smoke test d'installation** sur une machine ou une VM propre : l'installeur passe, l'application démarre, le sidecar répond
 - [ ] **Smoke test de mise à jour** : depuis une installation en version N-1, l'updater propose, télécharge, installe et relance, **et le sidecar a bien changé de version** (cf. § Remplacement du sidecar à la mise à jour)
@@ -224,10 +226,10 @@ Deux mondes distincts, à ne pas confondre.
 # Secrets GitHub Actions (Settings → Secrets and variables → Actions)
 TAURI_SIGNING_PRIVATE_KEY=<clé privée minisign de l'updater, contenu ou chemin>
 TAURI_SIGNING_PRIVATE_KEY_PASSWORD=<mot de passe de la clé ci-dessus>
-SENTRY_DSN_SIDECAR=<DSN du projet Sentry Python, région EU ; compilé dans le binaire du sidecar>
-SENTRY_DSN_UI=<DSN du projet Sentry JavaScript, région EU ; compilé dans le bundle Angular>
+SENTRY_DSN_SIDECAR=<DSN du projet Sentry Python `techno-tagger-sidecar`, région EU ; compilé dans le binaire du sidecar>
+SENTRY_DSN_UI=<DSN du projet Sentry JavaScript `techno-tagger-ui`, région EU ; compilé dans le bundle Angular>
 PRIMENG_LICENSE_KEY=<clé Community License, providePrimeNG({ license })>
-SENTRY_AUTH_TOKEN=<Organization Auth Token, scope org:ci non modifiable, création de la release Sentry au tag>
+SENTRY_AUTH_TOKEN=<Organization Auth Token, scope org:ci non modifiable, upload des source maps de la webview et création de la release Sentry au tag>
 GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 ```
 
@@ -267,7 +269,7 @@ En développement, le sidecar lit un `.env` local (jamais commité) pour un DSN 
 | Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release | GitHub Releases |
 
-> 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : le tag créé par release-please n'en déclenche aucun. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** — la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
+> 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run, with the following exceptions » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : les exceptions sont `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, un push de tag n'en fait pas partie. Le tag créé par release-please ne déclenche donc aucun workflow. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** — la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
 >
 > Alternative si un fichier séparé devenait nécessaire : donner un PAT ou un token de GitHub App à release-please, au prix d'un secret de plus à faire tourner.
 
@@ -304,7 +306,13 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`target/release/` hors cache CI** — Tauri y copie le sidecar sans invalider la copie, un cache de ce répertoire peut donc embarquer un binaire périmé dans l'installeur
 - [ ] **Contrôle de version UI ↔ sidecar au démarrage** — refuser de lancer un run si les deux versions diffèrent, filet contre le sidecar non remplacé
 - [ ] **Flush explicite après chaque ligne NDJSON** — `flush=True` à chaque événement émis, un binaire PyInstaller derrière un pipe ne respectant ni `-u` ni `PYTHONUNBUFFERED` : sans lui, l'interface paraît figée pendant tout le run (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
-- [ ] **Backend keyring forcé explicitement** — le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `pywintypes`. Le plus sûr reste de court-circuiter la découverte par `PYTHON_KEYRING_BACKEND` ou `keyring.set_keyring()`. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md))
+- [ ] **Backend keyring forcé explicitement** — le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
+  ⚠️ **Non vérifiable avant l'étape 5** : au bootstrap, aucun module n'importe `keyring`, il n'entre donc pas dans le graphe analysé et `hook-keyring.py` ne se déclenche jamais. Constaté sur le binaire du bootstrap, qui ne contient ni `keyring.backends` ni `WinVaultKeyring`, seulement les métadonnées posées par le `copy_metadata` explicite du `.spec`. Cocher cet item sur un binaire antérieur à l'étape 5 ne prouve rien
+- [ ] **`target-branch: main` valide sur le flux `develop → main`** — release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). À éprouver sur un dépôt de test avant la première release, pas sur la première release
+- [ ] **`extra-files` a bumpé les deux manifestes TOML** — après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
+- [ ] **WebView2 présent sur le runner `windows-latest`** — sa présence sur l'image n'est pas confirmée (cf. [VERSIONS.md](VERSIONS.md) § GitHub Actions). Son absence casse `tauri build`, ou pire produit un installeur dont l'application ne s'ouvre pas
+- [ ] **Releases Sentry créées dans les deux projets** — job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison
+- [ ] **Source maps de la webview uploadées puis purgées** — `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers
 - [ ] **`pnpm-workspace.yaml` créé** — même sans monorepo : depuis pnpm 11, `.npmrc` n'accepte plus que l'auth et le registry, et `allowBuilds: { esbuild: true }` doit y vivre
 - [ ] **Ruff interdit `asyncio.get_event_loop` et `sqlite3.version`** — via `banned-api`, les deux étant supprimés ou durcis en Python 3.14. Fait porter la garantie par la CI plutôt que par la vigilance
 - [ ] **Actions CI pinnées** — `pnpm/setup` sur la v2.1.0 et non sur le tag flottant `@v2`, qui traîne sur une version antérieure au correctif de chemin de cache Windows
@@ -407,7 +415,7 @@ Surface d'attaque volontairement minimale : **aucun port en écoute, aucun compt
 | `TAURI_SIGNING_PRIVATE_KEY` (+ password) | Secrets GitHub Actions **et** sauvegarde chiffrée hors GitHub | Injecté au build, jamais logué | 🔴 **Plus aucune mise à jour possible sur les installations existantes** |
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Secrets GitHub Actions | Compilés au build, init des deux SDK (deux projets Sentry, cf. § Observabilité) | Régénérables depuis Sentry |
 | `PRIMENG_LICENSE_KEY` | Secrets GitHub Actions | `providePrimeNG({ license })`, gravée dans le bundle par `--define` | Bandeau de licence chez les utilisateurs, renouvellement gratuit (échéance au § Rotation) |
-| `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Création de la release Sentry au tag, **Organization Auth Token**, scope `org:ci` imposé et non modifiable, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
+| `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Upload des source maps de la webview par `pnpm build` et création de la release Sentry au tag, **Organization Auth Token**, scope `org:ci` imposé et non modifiable, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
 | Clé API techno-scraper (utilisateur) | Trousseau de l'OS via keyring, machine de l'utilisateur | Header `X-API-Key` posé par le sidecar | L'utilisateur en ressaisit une, révocation individuelle côté API |
 | Jeu `API_KEYS` (`user-N` → clé) | Variables d'environnement côté techno-scraper (Dokploy) + sauvegarde chiffrée | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
 
@@ -472,6 +480,8 @@ Minimal et gratuit, pour un dev solo et quelques utilisateurs : **Sentry (plan D
 
 **Deux projets Sentry**, un pour le sidecar Python, un pour la webview. Un projet unique accepterait techniquement les deux, mais JavaScript est bruyant : mélangé au Python, il noierait les crashs du sidecar, seuls à porter du métier. Le **quota se compte au niveau de l'organisation**, pas du projet : découper ne double pas les 5 000 events du plan gratuit, cela ne fait que les rendre triables. La version publiée doit exister comme release dans **les deux** projets.
 
+Les deux projets vivent dans l'organisation `tg-ws`, sous les slugs `techno-tagger-ui` et `techno-tagger-sidecar`, écrits en dur dans `release-please.yml` : ni l'un ni l'autre n'est un secret, et une `var` GitHub les rendrait invisibles depuis le dépôt. Le slug `techno-tagger-ui` désigne aussi le package Angular, ce sont deux objets distincts.
+
 **Release tracking** : `sentry_sdk.init(release="techno-tagger@X.Y.Z")`, la version étant lue du package installé, donc bumpée par release-please et jamais à la main. Le nom, lui, est **fixé en dur et identique dans les deux projets** : le package Python s'appelle `tagger`, laisser le SDK dériver le nom donnerait deux chaînes de release différentes de part et d'autre, incomparables. Le préfixe `nom@` conditionne le classement en versioning sémantique côté Sentry, et avec lui la détection de régression et le tri `release:latest`. La détection automatique du SDK ne peut pas suppléer : elle retomberait sur un SHA git absent du binaire distribué.
 
 > ⚠️ **Tagger les events ne crée pas la release côté Sentry** : elle n'est matérialisée qu'au premier event qui la porte, donc au premier crash. Créer la release au tag, dans le même workflow que le build (job conditionné à `release_created`, secret `SENTRY_AUTH_TOKEN` portant un **Organization Auth Token**, jamais le token du CLI local qui est nominatif et à durée de vie courte).
@@ -524,9 +534,9 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 Fichier local unique, une ligne par événement, au format **logfmt** : un préfixe lisible (horodatage, niveau, logger, message) suivi des champs structurés en `clé=valeur`.
 
 ```
-2026-08-27 21:14:03 INFO  tagger.matching  candidat retenu     run=a3f9c1 track=42 score=91 source=beatport
-2026-08-27 21:14:04 WARN  tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=locked
-2026-08-27 21:14:09 ERROR tagger.scraper   arrêt du run        run=a3f9c1 status=403 consecutive=3
+2026-08-27 21:14:03 INFO    tagger.matching  candidat retenu     run=a3f9c1 track=42 score=91 source=beatport
+2026-08-27 21:14:04 WARNING tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=locked
+2026-08-27 21:14:09 ERROR   tagger.scraper   arrêt du run        run=a3f9c1 status=403 consecutive=3
 ```
 
 Le choix se lit depuis le lecteur final : ce fichier a un seul destinataire, l'auteur, quand un utilisateur clique sur « ouvrir le dossier de logs » et envoie le fichier par message. Rien ne l'agrège, rien ne le corrèle à Sentry, et **l'artefact machine du projet existe déjà**, c'est le rapport de run JSON relu par l'application. Du JSON par ligne coûterait donc la lisibilité sans acheter ce qui le justifie côté API, où les logs sont relus et filtrés dans une console Docker.

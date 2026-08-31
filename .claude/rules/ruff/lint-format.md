@@ -25,6 +25,8 @@ paths:
 - Ajouter Black ou isort à côté : Ruff couvre les deux, et deux formatters se contredisent
 
 ## Gotchas
+- Ne pas poser `target-version` : Ruff le derive de `project.requires-python`, et la cle en ferait une seconde source a synchroniser
+
 - La 0.16.0 retire aussi 18 règles du jeu par défaut (`E401`, `E402`, `E701`, `F403`, `F405`…) sans les déprécier ni le documenter dans les notes de rupture : une règle qui « ne se déclenche plus » après montée de version vient peut-être de là
 - Codes de sortie : 0 rien à signaler, 1 violations restantes, 2 erreur de configuration. Distinguer les deux derniers en CI
 - `ruff format` est compatible Black à plus de 99,9 % sur du code déjà formaté : la migration ne produit pas de diff significatif

@@ -7,6 +7,7 @@ paths:
 
 ## À faire
 - N'écrire un test que s'il vérifie une règle métier du projet : une régression de notre code doit le faire échouer
+- Garder par un test toute valeur recopiée à la main entre deux manifestes du dépôt, quand aucune dérivation n'est possible : lire les deux fichiers et les comparer. Ce test n'implique aucune dépendance, il ne casse que sur une édition unilatérale de notre propre code, et couvre des divergences qui ne se verraient qu'à l'exécution du bundle. `test_main.py` porte celles du nom, de l'identifiant, du binaire et des quatre versions
 - Structurer en Arrange / Act / Assert séparés par une ligne vide, sans commentaire de section
 - Mocker le client techno-scraper par le `MockTransport` natif d'httpx2, injecté via le paramètre `transport` du client
 - Écrire dans `tmp_path`, jamais dans un chemin en dur ni dans le répertoire courant

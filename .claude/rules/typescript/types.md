@@ -17,7 +17,6 @@ paths:
 - Déclarer explicitement les `types` nécessaires dans `tsconfig.json` : le scan automatique n'a plus lieu
 - Garder un job `tsc --noEmit` en CI, distinct du build et des tests
 - Exporter toute fonction en `export const nom: TypeDuContrat = (args) => ...`, jamais en `export function` : l'annoter par le type que le framework attend (`CanDeactivateFn`, `ResolveFn`, `BrowserOptions['beforeSend']`) fait échouer la compilation le jour où sa signature change, là où une signature réécrite à la main dérive en silence
-- Exporter toute fonction en `export const nom: TypeDuContrat = (args) => ...`, jamais en `export function` : annoter par le type que le framework attend (`CanDeactivateFn`, `ResolveFn`, `BrowserOptions['beforeSend']`) fait echouer la compilation le jour ou sa signature change, la ou une signature reecrite a la main derive en silence
 
 ## À éviter
 - Monter en TypeScript 7 : le compilateur Angular et `typescript-eslint` échouent tous les deux, ce n'est pas un avertissement mais un échec de build

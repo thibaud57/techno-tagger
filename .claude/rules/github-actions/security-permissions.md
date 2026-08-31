@@ -21,7 +21,7 @@ paths:
 - Une action tierce non vérifiée dont le code source n'a pas été inspecté
 
 ## Gotchas
-- Le `GITHUB_TOKEN` est régénéré par run, limité au dépôt courant et expire à la fin du job : rien à faire tourner, mais aucun event qu'il déclenche ne relance de workflow
+- Le `GITHUB_TOKEN` est régénéré par run, limité au dépôt courant et expire à la fin du job : rien à faire tourner, et les seuls events qu'il déclenche à relancer un workflow sont ceux listés en exception par [events.md](events.md), toujours en état approval-required
 - Pas d'OIDC ni d'attestation de provenance dans ce projet : aucun provider cloud, la garantie d'intégrité du livrable repose sur la signature updater (cf. [PRODUCTION.md](../../../docs/PRODUCTION.md) § Sécurité & Configuration)
 
 ## Exemples

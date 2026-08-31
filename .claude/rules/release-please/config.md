@@ -9,7 +9,7 @@ paths:
 
 ## À faire
 - Déclarer un seul package racine : l'application est un livrable unique, trois packages liés produiraient trois changelogs et trois tags
-- Lister les quatre fichiers de version dans `extra-files` et vérifier après la première release qu'ils portent tous la même
+- Lister dans `extra-files` les fichiers de version que le `release-type` ne traite pas lui-meme, et vérifier après la première release qu'ils portent tous la même
 - Laisser `tauri.conf.json` hors d'`extra-files` : son champ `version` vaut `"../package.json"`, Tauri acceptant un chemin plutôt qu'un littéral. Une source de vérité de moins à synchroniser
 - Viser `$.project.version` pour un `pyproject.toml` en PEP 621, le `jsonpath` dépendant du backend de build
 - Garder `include-component-in-tag: false` pour des tags `vX.Y.Z`, ce qu'attendent l'updater et le workflow

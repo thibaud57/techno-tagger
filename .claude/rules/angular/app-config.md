@@ -13,6 +13,7 @@ paths:
 - Configurer PrimeNG avec le preset `Aura` importé de `@primeuix/themes/aura`, `darkModeSelector: '.app-dark'` et `cssLayer: { name: 'primeng', order: 'theme, base, primeng' }` (valeurs exactes dans DESIGN.md)
 - Déclarer la configuration applicative par un `InjectionToken` avec factory, plutôt que par un objet importé
 - Régler `budgets`, `fileReplacements` et `outputHashing` par configuration dans `angular.json`
+- Poser dans le `define` d'`angular.json` un repli inerte pour chaque constante de build, et n'ajouter un `--define` à un script npm que si la valeur vient de l'environnement ou surcharge ce repli. Sans repli, un `ng build` ou `ng test` lancé hors script npm laisse l'identifiant nu et lève un `ReferenceError` au bootstrap. Ce JSON n'interpolant aucune variable, il ne peut jamais porter un secret
 - Pointer `frontendDist` de `tauri.conf.json` sur `dist/<app>/browser`, la sortie de `ng build`
 - Monter de version par `ng update @angular/core@<v> @angular/cli@<v>`, qui applique les migrations
 

@@ -12,7 +12,7 @@ technologies: ["GitHub Actions", "Tauri", "Renovate"]
 
 Automatise le versionnement et la publication : lecture des Conventional Commits, calcul de la version, changelog, PR de release, tag et GitHub Release.
 
-Deux particularités du projet dictent sa configuration : **quatre fichiers portent la version** (`package.json`, `Cargo.toml`, `tauri.conf.json`, `pyproject.toml`) et doivent rester synchronisés pour l'updater Tauri ; et **le job de build doit être chaîné en `needs:`**, un tag créé par `GITHUB_TOKEN` ne déclenchant aucun workflow.
+Deux particularités du projet dictent sa configuration : **quatre fichiers portent la version** (`package.json`, `Cargo.toml`, `tauri.conf.json`, `pyproject.toml`) et doivent rester synchronisés pour l'updater Tauri ; et **le job de build doit être chaîné en `needs:`**, un push de tag par `GITHUB_TOKEN` ne figurant pas dans les exceptions qui déclenchent un workflow.
 
 L'action 5.0.0 tourne sur Node 24.
 
@@ -102,7 +102,7 @@ Le mode manifest est nécessaire dès qu'un fichier de version sort du fichier p
 
 ### Description
 
-**C'est le point critique.** Un tag ou une release créés avec le `GITHUB_TOKEN` par défaut ne déclenchent aucun workflow. Un fichier séparé écoutant `on: push: tags` ne partirait jamais, sans erreur, laissant une Release vide qu'aucun updater ne verrait.
+**C'est le point critique.** Un tag ou une release créés avec le `GITHUB_TOKEN` par défaut ne déclenchent aucun workflow : les seules exceptions de GitHub sont `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, ces derniers en état approval-required. Un fichier séparé écoutant `on: push: tags` ne partirait jamais, sans erreur, laissant une Release vide qu'aucun updater ne verrait.
 
 ### Exemple
 

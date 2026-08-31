@@ -12,9 +12,10 @@ paths:
 - Construire en `--onedir` et déclarer l'exe en `bundle.externalBin`, le dossier `_internal/` en `bundle.resources` ([ARCHITECTURE.md § Arborescence](../../../docs/ARCHITECTURE.md#arborescence))
 - Rester en mode console : `--windowed` détache `stdin`/`stdout` sous Windows et casse le protocole NDJSON
 - Déclarer `pyinstaller-hooks-contrib` dans le groupe de dépendances de build : sans lui, sentry-sdk perd ses intégrations, silencieusement ou par `ImportError` selon la version
-- Forcer le backend keyring en code : son hook ajoute des imports cachés mais pas les métadonnées que lit la découverte par entry points (cf. [keyring/secrets.md](../keyring/secrets.md))
+- Forcer le backend keyring en code : `hook-keyring.py` résout le backend par `collect_submodules` et `copy_metadata`, mais `set_keyring()` reste la ceinture, une régression du hook ne se voyant que dans le binaire figé (cf. [keyring/secrets.md](../keyring/secrets.md))
 - Lire le target triple depuis `rustc --print host-tuple` dans `build.py`, jamais en dur, et copier le binaire suffixé dans `src-tauri/binaries/`
-- Passer `--noconfirm` en CI, sans exception, et `--clean` quand un hidden import ajouté ne semble pas pris en compte
+- Passer `--noconfirm` en CI, sans exception
+- Garder `--clean` systématique dans `build.py` : le runner de CI n'a aucun cache PyInstaller ni `build/` à vider, le coût y est nul, et l'analyse repart d'un arbre propre alors que `_build_info.py` est créé puis supprimé à chaque build, DSN de production compris. Le coût réel est local, sur les builds répétés. `--clean` reste par ailleurs le premier réflexe quand un hidden import ajouté ne semble pas pris en compte
 - Garder `--noupx` et réduire la taille par `--exclude-module` sur les paquets non utilisés
 - Valider chaque chargement dynamique **sur le binaire figé** : clé keyring lue, event Sentry envoyé, scoring rapidfuzz exécuté, ligne NDJSON validée par un modèle Pydantic. `rapidfuzz` et `pydantic-core`, les deux extensions natives de la stack, ont un hook mais leur collecte ne se constate qu'à l'exécution
 
@@ -26,6 +27,7 @@ paths:
 - Compter sur `Process.kill()` côté Tauri pour arrêter un sidecar `--onefile` : seul le bootloader est visé, prévoir un arrêt propre par le protocole
 
 ## Gotchas
+- Le `.spec` reçoit `SPEC`, `SPECPATH`, `DISTPATH` et `workpath` de PyInstaller, mais **pas** son dossier sur `sys.path` : il ne peut importer aucun module voisin sous l'entry point `pyinstaller`, qui retire `sys.path[0]` quand c'est `Scripts`. Toute valeur partagée avec `build.py` passe par ces globals ou par le nom du fichier
 - Tout ce qui s'importe par une chaîne de caractères est invisible à l'analyse statique : c'est la règle qui explique les trois cas du projet (sentry-sdk par `importlib`, keyring par entry points, l'extension C++ de rapidfuzz)
 - `--debug=imports` est le premier outil face à un `ModuleNotFoundError` qui n'existe qu'en binaire ; le fichier sous `build/<nom>/` liste les modules analysés
 - 6.22.2 corrige la collecte de DLL pour des paquets installés par uv plutôt que pip : la combinaison est maintenue mais demande de suivre les versions

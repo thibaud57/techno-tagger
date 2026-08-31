@@ -143,7 +143,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - Politique officielle : « the minor version number is bumped for breaking changes, and the patch version number is bumped for bug fixes ». Le format `uv.lock` fait partie de l'API publique et ne casse donc qu'en bump mineur
 - Renovate couvre `pyproject.toml` et `uv.lock` via son manager `pep621`, avec extraction de `tool.uv.dev-dependencies` et `tool.uv.sources` (Dependabot supporte aussi l'écosystème `uv`, mais n'est plus l'outil retenu, cf. [§ Renovate](#6-renovate))
 - CI : `astral-sh/setup-uv@v10.0.1`. La doc CI d'Astral montre encore un exemple pinné sur v9.0.0, elle est en retard sur le dépôt
-- **PyInstaller + interpréteur géré par uv** : aucune source officielle ne documente ce couple. La doc `python-build-standalone` signale que les chemins absolus figés dans les métadonnées de build sont corrigés à l'installation par uv, donc le piège connu ne s'applique pas, mais **cela reste à valider empiriquement dès le premier build CI**
+- **PyInstaller + interpréteur géré par uv** : ✅ **validé sur le binaire du bootstrap** — il démarre, sort en 0, écrit son log dans `%LOCALAPPDATA%`, et embarque `pydantic_core`, `rapidfuzz.fuzz`, `sentry_sdk.integrations.logging` et `win32ctypes.pywin32.win32cred`. Aucune source officielle ne documente ce couple. La doc `python-build-standalone` signale que les chemins absolus figés dans les métadonnées de build sont corrigés à l'installation par uv, donc le piège connu ne s'applique pas, mais **cela reste à valider empiriquement dès le premier build CI**
 
 **Recommandation** : ✅ Épingler le patch exact en CI (`astral-sh/setup-uv` avec `version: 0.12.7`), la cadence de release étant très élevée (7 releases en un mois).
 

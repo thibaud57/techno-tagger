@@ -13,7 +13,7 @@ Ta mission est de rendre l'environnement local utilisable, et de diagnostiquer c
 | Recette | Effet |
 |---------|-------|
 | `just check` | Diagnostic. N'installe rien, liste ce qui manque. **Premier réflexe** |
-| `just install` | Dépendances des trois zones |
+| `just install` | Dépendances des trois zones, en `[parallel]` : sortie entrelacée |
 | `just install-ui` / `install-sidecar` / `install-tauri` | Installation ciblée |
 | `just setup` | `install` + construction du binaire du sidecar |
 | `just build-sidecar` | Empaquette le sidecar et l'installe dans `src-tauri/binaries/` |

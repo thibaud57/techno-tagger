@@ -18,6 +18,8 @@ paths:
 ## À éviter
 - Supposer qu'un fichier produit dans un job existe dans le suivant : chaque job repart d'un runner vierge, il faut un artifact ou un cache
 - Répéter la même chaîne d'installation dans dix steps au lieu d'un `run: |` multi-ligne
+- Sortir le job de build dans son propre fichier : le tag venant du `GITHUB_TOKEN` ne le déclencherait pas, et c'est ce qui impose le chaînage `needs:` dans le workflow release-please
+- Passer par un `workflow_call` tant qu'il n'y a qu'un appelant : l'indirection coûte des secrets à repasser explicitement et des logs imbriqués, sans rien factoriser. Le jour où un second appelant existe (un build à la demande sans release, par exemple), le refactor est mécanique
 - Rejouer en CI ce que la CI joue déjà ailleurs : pas de hooks pre-commit, le même trio lint / typecheck / tests tourne sur chaque PR
 
 ## Gotchas

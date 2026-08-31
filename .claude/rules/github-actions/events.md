@@ -21,7 +21,8 @@ paths:
 - Exclure `.github/workflows/**` d'un `paths-ignore` au point de ne plus jamais tester une modification de la CI elle-même
 
 ## Gotchas
-- Verbatim GitHub : « events triggered by the `GITHUB_TOKEN` will not create a new workflow run ». Les seuls contournements sont le chaînage `needs:` (choix du projet), un PAT ou un token de GitHub App, les deux derniers au prix d'un secret à faire tourner
+- Verbatim GitHub : « events triggered by the `GITHUB_TOKEN` will not create a new workflow run, **with the following exceptions** ». Les exceptions sont `workflow_dispatch`, `repository_dispatch`, et les `pull_request` de type `opened` / `synchronize` / `reopened`, ces derniers créant des runs **en état approval-required**. Un push de **tag** n'en fait pas partie : `on: push: tags` ne partirait toujours jamais, et le chaînage `needs:` reste le contournement du projet. PAT et token de GitHub App restent les alternatives, au prix d'un secret à faire tourner
+- La PR de release, et tout commit qu'un job y pousse, produisent des runs `pull_request` **bloqués en attente d'approbation**, pas des runs absents. Sans clic « Approve workflows to run », rien ne valide la tête de cette PR
 - Le flux `develop` → `main` n'est pas documenté côté release-please, qui raisonne sur une branche de vérité unique pilotée par `target-branch` : à valider sur un dépôt de test avant la première release (cf. [VERSIONS.md](../../../docs/VERSIONS.md) § release-please)
 - Un workflow `schedule` est désactivé après 60 jours sans activité sur le dépôt
 
