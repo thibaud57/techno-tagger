@@ -43,7 +43,7 @@ const child = await command.spawn();
 
 command.stdout.on('data', (line) => { /* 1 ligne = 1 événement NDJSON */ });
 command.stderr.on('data', (line) => console.error(line));
-await child.write('{"cmd":"start_run"}\n');
+await child.write('{"type":"start_tagging"}\n');
 
 // ❌ execute : rend la sortie complète une fois le process terminé
 const output = await Command.sidecar('binaries/tagger').execute();

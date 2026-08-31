@@ -240,6 +240,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Bouton « ouvrir le dossier de logs », pour récupérer une trace à distance
 - Bouton « vider le cache »
 
+> ⚠️ **Décidé autrement depuis** : le motif de renommage n'est finalement pas une préférence des Settings. Il est fixé à `{artist} - {title}.{ext}` au MVP et n'a donc rien à persister dans le store (cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)).
+
 ### Feature 8 : Distribution et mise à jour
 
 - Installeur Windows produit par la CI au tag, publié sur les GitHub Releases
@@ -252,6 +254,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Scrubbing des chemins de fichiers dans les stack traces (ils contiennent le nom d'utilisateur de l'OS)
 - Aucun titre de morceau envoyé automatiquement : les cas d'arbitrage et d'échec restent dans le rapport local
 - Bouton « envoyer ce rapport pour améliorer le matching » dans l'écran final : geste explicite de l'utilisateur, pousse le JSON du run, ne consomme pas le quota Sentry
+
+> ⚠️ **Décidé autrement depuis** : l'application ne pousse rien elle-même. Le bouton ouvre, via le plugin `opener`, une issue pré-remplie du dépôt que l'utilisateur relit, ampute ou abandonne avant de valider (cf. [ARCHITECTURE.md § Alerts](ARCHITECTURE.md#alerts)).
 
 ## Post-MVP
 

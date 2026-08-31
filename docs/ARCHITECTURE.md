@@ -84,6 +84,7 @@ techno-tagger/
 │   │   │   ├── sidecar.service.ts        #   flux NDJSON <-> sidecar
 │   │   │   ├── scrub.ts                  #   masquage PII avant envoi Sentry
 │   │   │   └── models/                   #   types miroir du contrat JSON
+│   │   ├── shared/components/            #   4 wrappers custom (cf. DESIGN.md § Composants Custom)
 │   │   ├── features/
 │   │   │   ├── playlist/                 #   onglet 1 : dossiers, playlist, déplacement
 │   │   │   ├── tagging/                  #   onglet 2 : liste, arbitrage, récapitulatif
@@ -135,6 +136,7 @@ techno-tagger/
 │   │   ├── main.rs                       #   entrée desktop, généré, jamais modifié
 │   │   └── lib.rs                        #   ~5 lignes : init des plugins
 │   ├── tauri.conf.json                   #   bundle.externalBin, frontendDist, assetProtocol
+│   ├── installer-hooks.nsh               #   hook NSIS : tue le sidecar avant l'écrasement par l'installeur
 │   └── Cargo.toml
 │
 ├── Justfile                               # recettes dev, qualité, build, setup
@@ -645,7 +647,7 @@ Aucun. L'application tourne intégralement sur la machine de l'utilisateur. La s
 
 | Déclencheur | Étapes |
 |---|---|
-| Push, pull request | Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `cargo check` + `cargo clippy` |
+| Push, pull request | Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/` |
 | Merge de la PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows, copie du binaire en `src-tauri/binaries/` avec le suffixe target-triple, `tauri build`, signature de l'updater, publication de la Release |
 
 > ⚠️ **Le build est chaîné en `needs:` au job release-please, jamais posé sur `on: push: tags`.** Un tag créé par release-please via `GITHUB_TOKEN` ne déclenche aucun workflow : un fichier séparé sur le tag ne partirait jamais, et sans erreur, laissant une Release vide qu'aucun updater ne verrait. Mécanisme et alternative : [PRODUCTION.md](PRODUCTION.md#pipelines).
@@ -833,7 +835,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 |---|---|
 | `sidecar/` | pytest, Ruff, Mypy strict, uv |
 | `src/` | Vitest, ESLint + `@angular-eslint` (règles de templates et d'accessibilité), Prettier + `prettier-plugin-tailwindcss` |
-| `src-tauri/` | `cargo check`, `cargo clippy` |
+| `src-tauri/` | `cargo clippy -- -D warnings`, `cargo fmt --check` (`just lint-tauri`, clippy subsume `cargo check`) |
 
 ### Environnement de Test
 

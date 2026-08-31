@@ -66,7 +66,7 @@ Le lockfile fige la résolution complète. Son format est couvert par la politiq
 
 ---
 
-## `sync --frozen` en CI
+## Installer le lock en CI : `--locked` et `--frozen`
 
 ### Description
 
@@ -81,7 +81,7 @@ uv sync --locked                  # échoue si le lock devrait être mis à jour
 
 ### Points Importants
 
-- **`--frozen` n'inspecte même pas la fraîcheur** : aucun accès réseau de résolution, le plus reproductible
+- **`--frozen` installe le lock tel quel** : aucun accès réseau de résolution, mais aucune vérification que ce lock correspond encore au `pyproject.toml` — la reproductibilité qu'il offre suppose un lock déjà à jour, condition que lui-même ne contrôle pas
 - **`--locked` échoue explicitement** quand le lock a divergé : préférable quand on veut détecter une dérive plutôt que la subir
 - Sans l'un des deux, un `pyproject.toml` modifié sans `uv lock` produit un environnement différent de celui des autres machines
 - `--all-groups` inclut `build`, nécessaire au job qui empaquette le sidecar
@@ -169,7 +169,7 @@ Installation locale et en CI, exécution des outils.
 
 ```bash
 uv sync                             # local : re-lock si besoin puis installe
-uv sync --frozen --all-groups       # CI : lock tel quel, tous les groupes
+uv sync --locked --all-groups       # CI : échoue si le lock a dérivé, tous les groupes
 uv run <outil>                      # exécute dans le venv verrouillé
 uv build                            # sdist + wheel dans dist/
 ```
@@ -187,7 +187,7 @@ uv build                            # sdist + wheel dans dist/
 ## ✅ Recommandations
 
 - **Épingler le patch exact d'uv en CI** (`version: "0.12.7"` dans l'action de setup), la compatibilité du lock n'étant garantie qu'au sein d'une mineure
-- **Utiliser `uv sync --frozen` en CI**, jamais `uv sync` nu
+- **Utiliser `uv sync --locked` en CI**, jamais `uv sync` nu
 - **Lancer tous les outils par `uv run`**, PyInstaller compris
 - **Séparer les groupes `dev` et `build`** : un job de test n'a pas besoin de PyInstaller
 - **Commiter `uv.lock` à chaque changement de dépendance**, dans le même commit que le `pyproject.toml`
@@ -196,7 +196,7 @@ uv build                            # sdist + wheel dans dist/
 ## ❌ Anti-Patterns
 
 - **Éditer `uv.lock` à la main** : il se régénère, il ne se corrige pas
-- **`uv sync` sans `--frozen` en CI** : une re-résolution silencieuse rend le build non reproductible
+- **`uv sync` sans `--locked` en CI** : une re-résolution silencieuse rend le build non reproductible
 - **Épingler uv sur une plage ou sur `latest`** : un bump mineur peut rejeter le lock commité
 - **Lancer `pytest` ou `pyinstaller` hors de `uv run`** : l'outil peut venir d'un autre environnement
 - **Confondre `.python-version` et `requires-python`** : le premier est une préférence locale, le second un contrat

@@ -27,7 +27,7 @@ paths:
 
 ## Gotchas
 - Angular 22 : `strictTemplates` est activé par défaut dans `tsconfig.json`
-- Contraintes d'`engines` d'Angular 22 : Node `^22.22.3 || ^24.15.0 || ^26.0.0` et TypeScript `>=6.0.0 <6.1.0`. TypeScript 7 casse simultanément `@angular/compiler-cli` et `typescript-eslint`
+- Contraintes d'`engines` d'Angular 22 : Node `^22.22.3 || ^24.15.0 || >=26.0.0` et TypeScript `>=6.0.0 <6.1.0`. TypeScript 7 casse simultanément `@angular/compiler-cli` et `typescript-eslint`
 - Angular 20 a supprimé les suffixes de fichiers générés, **ce projet les restaure** par le bloc `schematics` d'`angular.json` : `type` sur component / directive / service, `typeSeparator: "."` sur guard / interceptor / pipe. `ng g c user` produit donc `user.component.ts` et la classe `UserComponent`
 - Retirer `devEngines.packageManager` de `package.json` : écrit par défaut par `pnpm init` en pnpm 11, il déclenche le lockfile multi-document qui casse le graphe de dépendances GitHub
 - L'optimiseur de chunks tourne par défaut en Angular 22 ; `NG_BUILD_CHUNKS_ROLLDOWN=1` reste expérimental

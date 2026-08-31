@@ -133,19 +133,20 @@ shortlist = process.extract(query, choices, scorer=fuzz.WRatio, limit=5,
 
 ### Description
 
-RapidFuzz embarque une extension C++ (`_rapidfuzz_cpp`), invisible à l'analyse statique de PyInstaller dans certains cas.
+RapidFuzz embarque plusieurs extensions C++ sous son propre package (`fuzz_cpp`, `process_cpp_impl`, `utils_cpp`, `metrics_cpp`, dont les cibles SIMD), invisibles à l'analyse statique de PyInstaller. Le paquet n'expose aucun module top-level à hidden-importer isolément : ses extensions vivent toutes sous `rapidfuzz.*`.
 
 ### Exemple
 
 ```python
 # sidecar/tagger.spec
-hiddenimports = ["_rapidfuzz_cpp"]
-# ou en CLI : --collect-all rapidfuzz
+from PyInstaller.utils.hooks import collect_submodules
+hiddenimports = [*collect_submodules("rapidfuzz")]
+# ou en CLI : --collect-submodules rapidfuzz
 ```
 
 ### Points Importants
 
-- **L'existence d'un hook livré par le paquet n'est pas confirmée** : le dossier `__pyinstaller` du dépôt n'expose qu'une entrée `tests`, destinée à la suite de tests de PyInstaller, pas un hook `hiddenimports` pour les utilisateurs finaux
+- **Aucun hook ne couvre rapidfuzz**, ni côté PyInstaller ni côté `pyinstaller-hooks-contrib` (absent de `stdhooks/`) : son entry point `pyinstaller40` s'appelle `tests` (`rapidfuzz.__pyinstaller:get_PyInstaller_tests`) et rend un chemin vers la suite de tests de PyInstaller, pas des `hiddenimports` pour les utilisateurs finaux — un nom qui prête à confusion sur ce que fait réellement cette entrée
 - Une issue ouverte signale un échec à l'exécution en mode `--noconsole`, où `--hidden-import rapidfuzz` seul n'a pas suffi. Le sidecar étant en mode console, ce cas ne s'applique pas directement, mais il indique que le packaging demande une vérification réelle
 - **Tester le binaire produit avant de considérer le packaging comme acquis** : un scoring qui échoue seulement dans le binaire gelé est le symptôme
 - Wheels précompilées pour cp314 sur Windows, y compris les builds free-threaded

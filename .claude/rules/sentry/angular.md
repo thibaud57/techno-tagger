@@ -8,14 +8,14 @@ paths:
 
 ## À faire
 - Initialiser dans `main.ts` **avant** `bootstrapApplication()`
-- Retirer les intégrations `Breadcrumbs` et `Replay` du jeu par défaut plutôt que d'essayer de les filtrer après coup
+- Retirer les intégrations `Breadcrumbs`, `Replay` et `CultureContext` du jeu par défaut plutôt que d'essayer de les filtrer après coup : `Breadcrumbs` capture la console et les interactions (donc les titres de morceaux affichés), `Replay` capture le DOM, `CultureContext` envoie la locale, le calendrier et le fuseau horaire de l'utilisateur
 - Enregistrer le gestionnaire d'erreurs par `{ provide: ErrorHandler, useValue: Sentry.createErrorHandler() }` : en 10.72.0 le paquet n'exporte que `createErrorHandler` et `SentryErrorHandler`, il n'existe aucun `provideErrorHandler`
 - Poser la même `release` que côté sidecar, **préfixe compris** (`techno-tagger@X.Y.Z`), et renseigner `environment`. Les deux valeurs viennent du `define` esbuild, ce projet n'ayant aucun `environment.ts` : Angular compile avec esbuild, pas Vite
 - Générer les source maps en mode `hidden`, les uploader vers Sentry puis **les supprimer de `dist/`** : `tauri-codegen` embarque tout fichier de `frontendDist` sans filtre d'extension. Les trois gestes vivent dans les scripts npm, enchaînés par `pnpm build` : `tauri build` appelle lui-même `beforeBuildCommand`, et un `pnpm build` lancé à la main doit rendre le même `dist/` livrable
 - Réserver Sentry aux erreurs techniques : le quota de 5 000 événements par mois est un budget, pas un plafond théorique
 
 ## À éviter
-- Garder `Breadcrumbs` : elle capture les interactions et le contenu de la console, donc les noms de morceaux affichés à l'écran. `Replay` capture le DOM
+- Garder `Breadcrumbs` : elle capture les interactions et le contenu de la console, donc les noms de morceaux affichés à l'écran. `Replay` capture le DOM. `CultureContext` envoie la locale, le calendrier et le fuseau horaire, ce qui localise grossièrement l'utilisateur
 - Livrer les source maps dans le bundle distribué : elles vont chez Sentry, pas chez l'utilisateur
 - Envoyer des événements métier : le quota se remplit et le vrai crash est jeté
 
@@ -34,7 +34,9 @@ Sentry.init({
   release: `${APP_NAME}@${APP_VERSION}`,   // prefixe compris, identique au sidecar
   environment: APP_ENVIRONMENT,
   integrations: (defaults) =>
-    defaults.filter((i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay'),
+    defaults.filter(
+      (i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay' && i.name !== 'CultureContext',
+    ),
 });
 
 bootstrapApplication(AppComponent, appConfig);

@@ -76,7 +76,7 @@ while let Some(event) = rx.recv().await {
 }
 
 // Commande de l'UI vers le sidecar
-child.write(b"{\"cmd\":\"start_run\"}\n")?;
+child.write(b"{\"type\":\"start_tagging\"}\n")?;
 ```
 
 ### Points Importants

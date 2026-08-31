@@ -51,6 +51,8 @@ Commits : `type(scope): description`, types `feat | feat! | fix | docs | refacto
 
 ## Commandes
 
+**Toute commande `just` (et tout script pnpm) se lance depuis Git Bash, jamais PowerShell ou cmd** : le `Justfile` pose `set windows-shell := ["bash", "-cu"]` et `pnpm-workspace.yaml` pose `scriptShell: bash`, or depuis PowerShell `bash` résout d'abord vers `C:\Windows\System32\bash.exe` (le lanceur WSL) et échoue en `execvpe(/bin/bash) failed` sans distribution installée.
+
 | Commande / Skill | Rôle |
 |---|---|
 | `dev-server` | Lance l'app, la webview seule ou le sidecar en CLI (`just dev` / `dev-ui` / `dev-sidecar` / `stop`) |

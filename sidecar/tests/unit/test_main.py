@@ -43,6 +43,23 @@ def test_les_flux_du_protocole_sont_forces_en_utf8(monkeypatch: pytest.MonkeyPat
     assert stdout.encoding == "utf-8"
 
 
+def test_le_flux_du_protocole_sort_en_lf_seul(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le plugin shell de Tauri coupe ses lignes sur `\\r` seul quand un chunk de 8 Ko
+    tombe avant le `\\n` : un CRLF tronque l'evenement et fait partir un evenement
+    parasite vide. Le wrapper traduit `\\n` en `os.linesep` tant qu'on ne fixe pas
+    `newline`, et rien dans le protocole ne le montre en developpement.
+    """
+    raw = io.BytesIO()
+    stdout = io.TextIOWrapper(raw, encoding="cp1252", newline="\r\n")
+    monkeypatch.setattr(sys, "stdout", stdout)
+
+    __main__._force_utf8_streams()
+    stdout.write('{"type":"ready"}\n')
+    stdout.flush()
+
+    assert raw.getvalue() == b'{"type":"ready"}\n'
+
+
 def test_le_dossier_de_logs_suit_l_identifiant_de_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
     """Tauri compose `appLocalDataDir()` avec l'identifiant du bundle, pas avec le
     nom de l'application : le sidecar ecrirait sinon hors des scopes de la webview.

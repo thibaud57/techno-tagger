@@ -67,8 +67,11 @@ def main() -> int:
         )
     finally:
         # Sinon le DSN de production reste dans l'arbre source, et le prochain
-        # `just dev-sidecar` initialise Sentry pour de bon.
+        # `just dev-sidecar` initialise Sentry pour de bon. Le bytecode compile
+        # pendant le build porte les memes constantes : le supprimer aussi.
         BUILD_INFO.unlink(missing_ok=True)
+        for cached in BUILD_INFO.parent.glob(f"__pycache__/{BUILD_INFO.stem}.*.pyc"):
+            cached.unlink(missing_ok=True)
 
     exe = DIST / f"{PACKAGE}.exe"
     if not exe.exists():

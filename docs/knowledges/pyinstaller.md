@@ -35,8 +35,8 @@ pyinstaller --onedir --console --name tagger --noconfirm --clean sidecar/src/tag
 ### Points Importants
 
 - **Le mode retenu est `--onedir`** (cf. [ADR-015](../adrs/015-cibles-distribution-windows.md)) : `externalBin` ne prend que l'exe suffixé, le dossier `_internal/` passant par `bundle.resources` **en forme objet** (`{ "binaries/_internal": "_internal" }`). Le bootloader `--onedir` cherche ce dossier à côté de l'exe : toute autre forme de déclaration le range ailleurs dans le bundle et le binaire ne démarre pas
-- **Le prix est un démarrage à froid** : extraction dans `%TEMP%\_MEIxxxxxx` à chaque lancement, puis suppression à la sortie. Le sidecar étant un process long lancé une fois au démarrage de l'application, ce coût est payé une fois par session, pas par action
-- `sys._MEIPASS` donne le chemin d'extraction, nécessaire pour lire un fichier de données embarqué
+- **Le prix est une arborescence visible à côté de l'exécutable** : `_internal/` doit rester solidaire du binaire (cf. puce précédente sur `bundle.resources` en forme objet). C'est `--onefile` qui extrait dans `%TEMP%\_MEIxxxxxx` à chaque lancement puis nettoie à la sortie ; `--onedir` n'auto-extrait rien, ce qui est précisément ce qui le rend sept fois plus rapide au démarrage (335 ms contre 2282 ms, cf. [PRODUCTION.md § Performance](../PRODUCTION.md))
+- `sys._MEIPASS` : en `--onedir`, chemin du dossier `_internal` du bundle (donc pas d'extraction, chemin fixe posé par le bundle Tauri) ; en `--onefile`, chemin du dossier temporaire créé par le bootloader. Le projet étant en `--onedir`, `_MEIPASS` désigne chez nous `_internal`, nécessaire pour lire un fichier de données embarqué
 - **`Process.kill()` côté Tauri ne cible que le bootloader** en mode onefile, un mode que le projet n'utilise pas : prévoir un arrêt propre par le protocole plutôt que par un kill
 
 ---
@@ -78,9 +78,11 @@ pyinstaller tagger.spec --noconfirm --clean
 
 ```python
 # tagger.spec — extrait
+from PyInstaller.utils.hooks import collect_submodules
+
 a = Analysis(
     ['src/tagger/__main__.py'],
-    hiddenimports=['_rapidfuzz_cpp', 'keyring.backends.Windows'],
+    hiddenimports=[*collect_submodules('rapidfuzz'), 'keyring.backends.Windows'],
     excludes=['tkinter', 'unittest', 'pydoc'],
 )
 ```
@@ -105,15 +107,15 @@ Trois dépendances du projet chargent du code par un mécanisme invisible à l'a
 | Dépendance | Mécanisme | Réponse |
 |---|---|---|
 | `sentry-sdk` | intégrations chargées par `importlib` | hook de `pyinstaller-hooks-contrib`, **dépendance à déclarer explicitement** |
-| `keyring` | backends découverts par entry points | **`keyring.set_keyring()` au démarrage**, le hook ne suffit pas |
-| `rapidfuzz` | extension C++ `_rapidfuzz_cpp` | `--hidden-import _rapidfuzz_cpp` ou `--collect-all rapidfuzz`, à vérifier par un build réel |
+| `keyring` | backends découverts par entry points | hook `hook-keyring.py` (submodules + métadonnées) **et** **`keyring.set_keyring()`** au démarrage, en défense en profondeur |
+| `rapidfuzz` | extensions C++ sous le package (`fuzz_cpp`, `process_cpp_impl`, `utils_cpp`, `metrics_cpp`, dont les cibles SIMD) | `collect_submodules("rapidfuzz")`, le paquet n'exposant aucun module top-level à hidden-importer seul |
 | `mutagen` | pur Python, imports statiques | aucune action attendue, à confirmer par un build |
 
 ### Points Importants
 
 - **`pyinstaller-hooks-contrib` doit être une dépendance déclarée du groupe de build** : sans lui, sentry-sdk perd ses intégrations, silencieusement ou par `ImportError` selon la version
-- **Le hook de keyring ne résout pas son problème** : il ajoute des imports cachés mais pas les métadonnées que la découverte par entry points lit. Le forçage explicite du backend reste nécessaire (cf. [keyring.md](keyring.md))
-- **La présence d'un hook livré par rapidfuzz n'est pas confirmée** : le tester plutôt que le supposer
+- **Le hook réel est `PyInstaller/hooks/hook-keyring.py`**, et il fait déjà les deux : `collect_submodules('keyring.backends')` et `copy_metadata('keyring')`. Le forçage explicite du backend par `set_keyring()` reste la solution confirmée par les mainteneurs pour court-circuiter entièrement la découverte, pas un correctif à un hook lacunaire (cf. [keyring.md](keyring.md))
+- **Aucun hook ne couvre rapidfuzz** : son entry point `pyinstaller40` s'appelle `tests`, pas `hook-dirs`, et `pyinstaller-hooks-contrib` n'en fournit pas non plus. `collect_submodules("rapidfuzz")` est donc explicite dans le `.spec`, pas délégué à un hook
 - La règle générale : **tout ce qui s'importe par une chaîne de caractères est invisible** à PyInstaller
 
 ---
@@ -203,7 +205,7 @@ Le cycle complet, tel qu'appelé par `build.py` en local comme en CI.
 uv run pyinstaller tagger.spec --noconfirm --clean
 uv run pyi-makespec --onedir --console --name tagger src/tagger/__main__.py
 uv run pyinstaller --onedir --console --name tagger --noconfirm \
-  --hidden-import _rapidfuzz_cpp --collect-all sentry_sdk src/tagger/__main__.py
+  --collect-submodules rapidfuzz --collect-all sentry_sdk src/tagger/__main__.py
 ```
 
 ### Points Importants

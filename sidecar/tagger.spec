@@ -41,6 +41,10 @@ a = Analysis(
         "tkinter",
         "PyQt5",
         "PySide2",
+        # Le hook pydantic collecte `pydantic.mypy`, qui tire le type checker
+        # complet et sa runtime mypyc dans le binaire distribue. Rien ne
+        # l'importe a l'execution : mypy est une dependance de developpement.
+        "mypy",
     ],
     noarchive=False,
     optimize=0,

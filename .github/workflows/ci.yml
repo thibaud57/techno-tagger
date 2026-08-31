@@ -31,7 +31,7 @@ jobs:
           enable-cache: true
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - name: Installer les dependances
-        run: uv sync --frozen --all-groups
+        run: uv sync --locked --all-groups
         working-directory: sidecar
       - run: just lint-sidecar
       - run: just typecheck-sidecar
@@ -75,7 +75,7 @@ jobs:
           workspaces: src-tauri
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - name: Installer les dependances du sidecar
-        run: uv sync --frozen --all-groups
+        run: uv sync --locked --all-groups
         working-directory: sidecar
       # externalBin est valide des la compilation : sans le binaire en place,
       # cargo check echoue avant meme de compiler notre code.

@@ -148,7 +148,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Recommandation** : ✅ Épingler le patch exact en CI (`astral-sh/setup-uv` avec `version: 0.12.7`), la cadence de release étant très élevée (7 releases en un mois).
 
 ### 3. Pydantic
-**Version actuelle** : `2.13.5` (2026-08-28), `pydantic-core 2.48.0` (2026-08-06)
+**Version actuelle** : `2.13.5` (2026-08-28), `pydantic-core 2.46.5` (2026-08-28)
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** :
@@ -339,7 +339,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - Doc officielle : « Ruff is a linter, not a type checker […] It's recommended that you use Ruff in conjunction with a type checker, like Mypy ». Aucun recouvrement avec le gate Mypy
 - CI : `astral-sh/ruff-action@v4.1.0`, capable de lire la version cible depuis `uv.lock`
 
-**Recommandation** : ⚠️ **Ne pas copier tel quel le `[tool.ruff]` de techno-scraper** si celui-ci est resté sur une version antérieure à 0.16 : le jeu de règles par défaut a changé d'un ordre de grandeur et le premier `ruff check` produira un diff ingérable. Partir de la config par défaut de 0.16.x, ajouter `I`, retirer `COM812`.
+**Recommandation** : ⚠️ Figer un `select` explicite plutôt que d'hériter du défaut de Ruff, une montée de version pouvant sinon ajouter une règle en silence. Ne pas déclarer `target-version`, que Ruff dérive de `requires-python` (cf. [`.claude/rules/ruff/lint-format.md`](../.claude/rules/ruff/lint-format.md)).
 
 ### 12. Mypy
 **Version actuelle** : `2.3.1` (2026-08-15)
@@ -376,7 +376,7 @@ Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@an
 - Signal Forms, API Signals, architecture zoneless et `httpResource`/`rxResource` passent en stable
 
 **Compatibilité Écosystème** :
-- `engines` : Node `^22.22.3 || ^24.15.0 || ^26.0.0`, TypeScript `>=6.0.0 <6.1.0`, RxJS `^6.5.3 || ^7.4.0`
+- `engines` : Node `^22.22.3 || ^24.15.0 || >=26.0.0`, TypeScript `>=6.0.0 <6.1.0`, RxJS `^6.5.3 || ^7.4.0`
 - `ng build` produit `dist/<app>/browser`, à pointer directement en `frontendDist` dans `tauri.conf.json`. Aucun serveur Node au runtime
 - pnpm supporté nativement : `ng new --package-manager pnpm`, ou champ `cli.packageManager` d'`angular.json`
 - Vitest promu stable en v21 : « we decided on Vitest as our new default test runner, and are promoting it to stable in Angular v21 »
@@ -416,7 +416,7 @@ Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@an
 - **22.20.0** : OpenSSL bundlé passé de 3.0.x à 3.5.2, OpenSSL 3.0.x sortant de support en septembre 2026. Tout pin sur 22.x doit être ≥ 22.20.0
 
 **Compatibilité Écosystème** :
-- Angular 22 : `^22.22.3 || ^24.15.0 || ^26.0.0`
+- Angular 22 : `^22.22.3 || ^24.15.0 || >=26.0.0`
 - pnpm 11.x exige Node `>=22.13`, pnpm 10.x exige `>=18.12`
 - Vitest 4.1.x : `^20.0.0 || ^22.0.0 || >=24.0.0`
 - `@tauri-apps/cli` : `>= 10`, sans contrainte réelle (le binaire Tauri est en Rust)
@@ -809,7 +809,7 @@ Trois contournements, dans l'ordre de préférence :
 
 **Propagation d'une version dans trois langages** : le montage retenu est décrit par [PRODUCTION.md § Propagation de la version](PRODUCTION.md#propagation-de-la-version) et repose sur **un seul composant** en `release-type: node`, `package.json` faisant seul foi. Les autres fichiers suivent par `extra-files`, sauf `tauri.conf.json` qui se retire du problème en pointant `"version": "../package.json"`. Le plugin `linked-versions`, qui aligne plusieurs composants entre eux, n'a donc pas d'objet ici.
 
-**Le piège n'est pas la propagation mais les lockfiles** : `uv.lock` et `Cargo.lock` portent la version du paquet local dans un tableau `[[package]]`, que l'updater TOML générique ne sait pas cibler. Il rend `No entries modified` **sans échouer** ([release-please#2455](https://github.com/googleapis/release-please/issues/2455)), et `uv sync --frozen` fait ensuite échouer le build de release.
+**Le piège n'est pas la propagation mais les lockfiles** : `uv.lock` et `Cargo.lock` portent la version du paquet local dans un tableau `[[package]]`, que l'updater TOML générique ne sait pas cibler. Il rend `No entries modified` **sans échouer** ([release-please#2455](https://github.com/googleapis/release-please/issues/2455)), et `uv sync --locked` refuse ensuite un lock désaccordé, ce qui fait échouer le build de release.
 
 **Comportement `chore:`** confirmé verbatim : « A releasable unit is a commit to the branch with one of the following prefixes: 'feat', 'fix', and 'deps'. (A 'chore' or 'build' commit is not a releasable unit.) ». L'échappatoire l'est aussi : « When a commit to the main branch has `Release-As: x.x.x` (case insensitive) in the commit body, Release Please will open a new pull request for the specified version ».
 
@@ -847,7 +847,7 @@ Trois contournements, dans l'ordre de préférence :
 |--------------|--------------|---------------|-------|
 | Angular 22.1.4 | TypeScript 6.0.x | ✅ | Contrainte dure `>=6.0.0 <6.1.0` |
 | Angular 22.1.4 | TypeScript 7.0.x | ❌ | `compiler-cli` ne compile pas, élargissement refusé en `not planned` |
-| Angular 22.1.4 | Node 24.x et 26.x | ✅ | `engines` : `^22.22.3 \|\| ^24.15.0 \|\| ^26.0.0` |
+| Angular 22.1.4 | Node 24.x et 26.x | ✅ | `engines` : `^22.22.3 \|\| ^24.15.0 \|\| >=26.0.0` |
 | Angular 22.1.4 | PrimeNG 22.1.0 | ✅ | `peerDependency` en `^22.1.0`, pas `22.x` |
 | Angular 22.1.4 | Vitest 4.1.11 | ✅ | Runner par défaut du CLI depuis la v21 |
 | Angular 22.1.4 | ngx-translate 18.0.0 | ✅ | « Tested against Angular 18, 19, 20, 21, and 22 » |
@@ -922,7 +922,7 @@ Trois contournements, dans l'ordre de préférence :
 | **`tailwindcss-primeui` n'a pas bougé depuis mars 2025**, soit avant la base 16px et le nouveau système d'icônes de PrimeNG 22 | 🟡 | Vérification visuelle dès la première page composée. Le plugin ne consommant que des variables CSS générées par PrimeNG, une rupture est peu probable, et le repli consiste à déclarer les tokens directement dans `@theme` |
 | **Deux tournures interdites par Python 3.14** : `asyncio.get_event_loop()` hors loop lève `RuntimeError`, et `sqlite3.version` est supprimé | 🟢 | Aucune des deux n'a de raison d'exister dans du code neuf. Les bannir dans `[tool.ruff.lint.flake8-tidy-imports.banned-api]` fait porter la garantie par la CI plutôt que par la mémoire, y compris sur du code repris de la CLI d'origine |
 | **`pydantic-core` est une seconde extension native à empaqueter.** Le hook `pydantic` de `pyinstaller-hooks-contrib` couvre le cas nominal, mais aucune source ne documente le couple `pydantic-core` + interpréteur géré par uv sous PyInstaller | 🟡 | Même traitement que rapidfuzz et keyring : valider au premier build CI qu'un `model_validate_json()` fonctionne dans le binaire figé, pas seulement sur les sources. L'échec serait un `ImportError` au démarrage, immédiat et explicite |
-| **La config Ruff de techno-scraper n'est pas transposable** si elle date d'avant la 0.16.0 : le jeu par défaut est passé de 59 à 413 règles | 🟡 | Partir de la config par défaut de 0.16.x, ajouter la catégorie `I`, retirer `COM812`. Ne pas copier-coller |
+| **La config Ruff de techno-scraper n'est pas transposable** si elle date d'avant la 0.16.0 : le jeu par défaut est passé de 59 à 413 règles | 🟡 | Le projet ne part pas du défaut : `sidecar/pyproject.toml` fige un `select` explicite (commentaire « Liste figee plutot que le defaut de Ruff »), pour qu'une montée de version de Ruff n'ajoute pas de règle silencieusement. Ne pas copier-coller la config d'un autre projet telle quelle, figée ou non |
 | **`externalBin` ne prend qu'un exécutable**, or PyInstaller `--onedir` produit un exe plus un dossier `_internal/` | 🟡 | Déclarer l'exe suffixé en `bundle.externalBin` et le dossier en `bundle.resources` **sous forme objet** (`{ "binaries/_internal": "_internal" }`). La forme tableau le range sous `binaries/_internal/` et le sidecar meurt sur `Failed to load Python DLL`, invisible en `tauri dev`. Vérifié sur artefact, pas seulement au build |
 | **release-please n'est pas documenté sur un flux `develop` → `main`.** L'outil raisonne sur une branche de vérité unique pilotée par `target-branch` | 🟡 | Valider sur un dépôt de test avant la première release réelle. Le chaînage `needs:` est indépendant de ce point et reste correct dans tous les cas |
 | **`tauri-action` n'offre aucun hook pour construire un sidecar** avant `tauri build` | 🟢 | Construire le binaire PyInstaller et le copier dans `src-tauri/binaries/` dans une étape antérieure du même job. Contrainte connue, sans contournement à inventer |
@@ -945,9 +945,9 @@ Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilot�
 
 **Groupe `build`** : `pyinstaller>=6.22.2`, `pyinstaller-hooks-contrib>=2026.1`.
 
-**`[tool.ruff]`** : `target-version = "py314"`. Sous `[tool.ruff.lint]`, partir du jeu par défaut de la 0.16.x, ajouter `I`, et poser en `ignore` les règles incompatibles avec le formateur (`COM812` en premier lieu). Sous `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, interdire `asyncio.get_event_loop` et `sqlite3.version` avec un message renvoyant à leur remplaçant.
+**`[tool.ruff]`** : pas de `target-version` déclaré, Ruff le dérive de `requires-python` (l'écrire en ferait une seconde source à synchroniser). Sous `[tool.ruff.lint]`, un `select` explicite plutôt que le défaut de la 0.16.x (commentaire « Liste figee plutot que le defaut de Ruff », pour qu'une montée de version n'ajoute pas de règle silencieusement), et les règles incompatibles avec le formateur en `ignore` (`COM812` en premier lieu). Sous `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, interdire `asyncio.get_event_loop` et `sqlite3.version` avec un message renvoyant à leur remplaçant.
 
-**`[tool.mypy]`** : `strict = true` et `warn_unreachable = true`. Aucune section `[[tool.mypy.overrides]]` n'est nécessaire, toutes les dépendances livrent un `py.typed`. Ajouter `plugins = ["pydantic.mypy"]`, qui donne au checker la signature réelle des `__init__` générés.
+**`[tool.mypy]`** : `strict = true` et `warn_unreachable = true`. Une section `[[tool.mypy.overrides]]` existe pour `tagger._build_info` (`ignore_missing_imports = true`) : ce module est gravé par `build.py` au packaging puis supprimé, donc absent d'un arbre propre où Mypy ne le trouve pas. Ciblée plutôt que globale, pour que la disparition des types d'une vraie dépendance reste une erreur. Toutes les autres dépendances livrent un `py.typed`. Ajouter `plugins = ["pydantic.mypy"]`, qui donne au checker la signature réelle des `__init__` générés.
 
 **`[tool.pytest.ini_options]`** : `asyncio_mode = "strict"`, `addopts` portant `--cov=tagger`.
 
@@ -1047,7 +1047,7 @@ pnpm exec tauri build
 - [ ] [ADR-003](adrs/003-primeng-community-license.md) rouvert et tranché à la lumière de l'archivage du dépôt PrimeNG
 - [ ] Stratégie de mock d'`httpx2` arrêtée (`MockTransport` natif), première fixture écrite
 - [ ] `uv sync` puis `uv run mypy --strict` passent sans `ignore_missing_imports`
-- [ ] `uv run ruff check` sur une config partie du défaut 0.16.x, pas d'un copier-coller
+- [ ] `uv run ruff check` passe sur le `select` explicite figé du projet, pas sur le défaut 0.16.x ni un copier-coller d'un autre projet
 - [ ] `banned-api` interdit bien `asyncio.get_event_loop` et `sqlite3.version` : écrire volontairement l'un des deux et vérifier que la CI échoue
 
 **Au premier build PyInstaller** :
