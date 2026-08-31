@@ -1,0 +1,29 @@
+[package]
+name = "techno-tagger"
+version = "0.0.0"
+description = "Coquille Tauri de techno-tagger : plugins, packaging et updater"
+authors = ["thibaud57"]
+license = "MIT"
+repository = "https://github.com/thibaud57/techno-tagger"
+edition = "2024"
+# MSRV de tauri-build en edition 2024, pas de notre code
+rust-version = "1.85"
+
+[lib]
+name = "techno_tagger_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+# protocol-asset : exige des que app.security.assetProtocol est actif
+tauri = { version = "2.11.5", features = ["protocol-asset"] }
+tauri-plugin-single-instance = "2.4.3"
+tauri-plugin-shell = "2.3.5"
+tauri-plugin-dialog = "2.7.2"
+tauri-plugin-fs = "2.5.1"
+tauri-plugin-store = "2.4.4"
+tauri-plugin-os = "2.3.2"
+tauri-plugin-opener = "2.5.4"
+tauri-plugin-updater = "2.10.1"

@@ -3,10 +3,12 @@
 .env.*
 !.env.example
 *.local
+# Permissions validees localement, propres a la machine. Ne matche pas *.local
+.claude/settings.local.json
 
 # --- Angular / Node (src/) ---
 node_modules/
-dist/
+/dist/
 .angular/
 *.tsbuildinfo
 coverage/
@@ -17,7 +19,10 @@ __pycache__/
 .venv/
 sidecar/build/
 sidecar/dist/
-sidecar/*.spec
+# Grave par build.py au packaging : porte le DSN Sentry, regenere a chaque build
+sidecar/src/tagger/_build_info.py
+# tagger.spec n'est PAS ignore : build.py l'invoque par son nom et il porte
+# trois hidden imports ecrits a la main. Sans lui, aucun build sur un clone frais.
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -29,16 +34,27 @@ src-tauri/target/
 src-tauri/gen/
 
 # Le sidecar PyInstaller est produit au build, jamais commite
-src-tauri/binaries/*
-!src-tauri/binaries/.gitkeep
+src-tauri/binaries/
 
 # --- Signature updater (ne doit jamais etre commitee) ---
 *.key
 *.pem
 
+# Le sidecar ecrit dans appLocalDataDir, jamais ici. Ceinture si un chemin
+# relatif revenait par accident.
+logs/
+
+# Snapshots et logs de console poses par le MCP Playwright a chaque navigation
+.playwright-mcp/
+
+# Espace de travail des plans d execution : journaux, briefs, rapports d agents
+.superpowers/
+
 # --- IDE & OS ---
 **/.history/
+# On versionne ce qui decrit le projet, pas ce qui decrit la machine
 .vscode/*
+!.vscode/settings.json
 !.vscode/extensions.json
 .idea/
 Thumbs.db

@@ -1,0 +1,24 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/sidecar/.venv/Scripts/python.exe",
+  "files.exclude": {
+    "**/.history": true
+  },
+  "search.exclude": {
+    "**/.history": true,
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/dist": true,
+    "**/src-tauri/target": true,
+    "**/.angular": true,
+    "**/pnpm-lock.yaml": true,
+    "**/uv.lock": true,
+    "**/Cargo.lock": true
+  },
+  "files.watcherExclude": {
+    "**/.history/**": true,
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/src-tauri/target/**": true,
+    "**/.angular/**": true
+  }
+}

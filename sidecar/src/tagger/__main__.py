@@ -1,0 +1,69 @@
+"""Point d'entree du sidecar : boucle de commandes NDJSON sur les flux standard.
+
+stdin porte les commandes, stdout les evenements. stderr reste aux logs et n'est
+jamais melange au protocole.
+"""
+
+import io
+import os
+import sys
+from pathlib import Path
+
+from tagger import BUNDLE_IDENTIFIER, RELEASE
+from tagger.build_info import SENTRY_DSN
+from tagger.logger import setup_logging
+from tagger.observability import init_sentry
+
+
+def log_dir() -> Path:
+    """Ou `appLocalDataDir()` de Tauri resout sous Windows. Jamais le repertoire
+    courant : pour une application installee, c'est celui d'ou l'utilisateur l'a
+    lancee, donc n'importe ou sur son disque.
+    """
+    # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
+    # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
+    # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
+    # argument non conforme est retire en silence.
+    base = os.getenv("LOCALAPPDATA")
+    root = Path(base) if base else Path.home() / "AppData" / "Local"
+    return root / BUNDLE_IDENTIFIER / "logs"
+
+
+def _force_utf8_streams() -> None:
+    """Sous Windows, stdin et stdout tombent en cp1252 des qu'ils sont des pipes,
+    c'est-a-dire exactement comme Tauri lance le sidecar. Un titre cyrillique,
+    japonais ou un emoji leverait alors UnicodeDecodeError ou UnicodeEncodeError
+    en plein run. PEP 686 rend l'UTF-8 implicite en 3.15, pas en 3.14.
+
+    `newline` est fixe dans la foulee : laisse a None, le wrapper traduit chaque
+    `\\n` en `\\r\\n` sous Windows, et le lecteur de lignes de Tauri coupe sur le
+    `\\r` seul des qu'un chunk de 8 Ko tombe avant le `\\n`.
+    """
+    for stream in (sys.stdin, sys.stdout):
+        # Un flux substitue (capture de test, redirection) n'est pas un
+        # TextIOWrapper et n'a rien a reconfigurer : seul le cas reel compte ici.
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8", errors="strict", newline="\n")
+
+
+def main() -> None:
+    _force_utf8_streams()
+
+    # Avant tout traitement : un crash du parsing doit deja pouvoir remonter, et
+    # `logger.exception` doit avoir un handler autre que celui de dernier recours.
+    setup_logging(log_dir())
+    init_sentry(SENTRY_DSN, RELEASE)
+    # TODO: implement a l'etape 5, keyring.set_keyring(WinVaultKeyring()) avant tout
+    # acces au secret : dans le binaire fige, la decouverte par entry points rend
+    # une liste vide et keyring bascule sur son backend `fail`.
+
+    # Sans flush, stdout est bufferise des qu'il n'est plus un terminal : les
+    # evenements partiraient par paquets en fin de run. Invisible en dev.
+    for _line in sys.stdin:
+        # TODO: implement, valider la commande contre son modele Pydantic
+        # (protocol.py), la dispatcher, puis emettre les evenements produits.
+        sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    main()

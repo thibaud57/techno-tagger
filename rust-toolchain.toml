@@ -1,0 +1,7 @@
+# Seule source de verite, en local comme en CI. Sans epinglage, Clippy promeut des
+# lints au gre des images de runner et le gate bouge tout seul.
+[toolchain]
+channel = "1.98.0"
+components = ["clippy", "rustfmt"]
+targets = ["x86_64-pc-windows-msvc"]
+profile = "minimal"

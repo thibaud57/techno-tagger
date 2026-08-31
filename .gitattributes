@@ -1,0 +1,18 @@
+# L'index est deja en LF : ceci aligne l'arbre de travail dessus, quelle que soit
+# la valeur de core.autocrlf du poste. Sans ce fichier, un dev sous Windows voit
+# du CRLF et `prettier --check` echoue sur des fichiers pourtant bien formates.
+* text=auto eol=lf
+
+# Binaires : aucune conversion
+*.png binary
+*.ico binary
+*.icns binary
+*.woff2 binary
+*.exe binary
+*.db binary
+# Fixtures des tests de tags : une normalisation CRLF corromprait les frames
+# ID3/Vorbis que ces tests existent pour asserter, et seul un clone frais le verrait.
+*.mp3 binary
+*.flac binary
+*.m4a binary
+*.aiff binary

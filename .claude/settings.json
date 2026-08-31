@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/SessionStart/env-check.sh",
+            "statusMessage": "Diagnostic de l'environnement local"
+          }
+        ]
+      }
+    ]
+  }
+}

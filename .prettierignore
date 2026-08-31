@@ -1,0 +1,21 @@
+# Appartiennent a leur gestionnaire de paquets
+pnpm-lock.yaml
+src-tauri/Cargo.lock
+
+# Ecrits ou alignes a la main : Prettier reflow les tableaux et rend les diffs
+# illisibles. Couvre aussi CHANGELOG.md, que release-please reecrit.
+*.md
+
+# Porte settings.json et le hook, que *.md ne couvre pas
+.claude/
+
+# Formate par `ruff format`, pas par Prettier
+sidecar/
+
+# Genere
+dist/
+.angular/
+coverage/
+src-tauri/gen/
+src-tauri/target/
+src-tauri/binaries/

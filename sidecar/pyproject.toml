@@ -1,0 +1,140 @@
+[project]
+name = "tagger"
+version = "0.0.0"
+description = "Sidecar metier de techno-tagger : protocole NDJSON, tags, matching et plan de run"
+authors = [
+    { name = "thibaud57", email = "thibaud57@users.noreply.github.com" }
+]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "httpx2>=2.12.0,<3",
+    "keyring>=25.7.0,<26",
+    "mutagen>=1.48.1,<2",
+    "pydantic>=2.13.5,<3",
+    "rapidfuzz>=3.14.5,<4",
+    "sentry-sdk>=2.68.1,<3",
+]
+
+[project.scripts]
+tagger = "tagger.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# Liste figee plutot que le defaut de Ruff, qui est passe de 59 a 413 regles en 0.16
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "RUF",
+    "ASYNC",
+    "S",
+    "PTH",
+    "PT",
+    "LOG",
+    "G",
+    "TRY",
+    "PL",
+    "PERF",
+    "DTZ",
+    "TC",
+    "TID",
+]
+# Liste officielle des regles que Ruff documente comme incompatibles avec son
+# propre formateur : les laisser actives ferait se contredire `check` et `format`.
+# La plupart visent des familles absentes de `select`, elles sont donc
+# preventives : elles mordent le jour ou COM, ISC, Q ou D y entrent.
+ignore = [
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "Q004",
+    "E111",
+    "E114",
+    "E117",
+    "W191",
+    "D203",
+    "D206",
+    "D300",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"asyncio.get_event_loop".msg = "Leve RuntimeError hors event loop en 3.14. Utiliser asyncio.run()."
+"sqlite3.version".msg = "Supprime en 3.14. Utiliser sqlite3.sqlite_version pour la version du moteur."
+
+[tool.mypy]
+strict = true
+warn_unreachable = true  # non couvert par strict
+python_version = "3.14"
+plugins = ["pydantic.mypy"]
+
+# Genere par build.py au packaging, donc absent d'un arbre propre. Cible plutot
+# que global : la disparition des types d'une vraie dependance reste une erreur.
+[[tool.mypy.overrides]]
+module = "tagger._build_info"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests/helpers"]  # importable sans en faire un package
+asyncio_mode = "strict"
+# Le seuil de couverture est bloquant dans `just test` et non ici : sur un run
+# cible, la couverture globale est basse et l'habitude deviendrait de passer --no-cov
+addopts = [
+    "--cov=tagger",
+    "--strict-markers",
+    "--strict-config",
+    "--import-mode=importlib",  # pas de bricolage sys.path, le packaging uv suffit
+]
+
+[tool.coverage.run]
+# Une branche non prise compte comme couverte en mode ligne, pas ici.
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# `exclude_also` complete la liste par defaut, `exclude_lines` l'ecraserait.
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[dependency-groups]
+build = [
+    "pyinstaller>=6.22.2",
+    # Porte le hook sentry-sdk, qui charge ses integrations par importlib :
+    # en transitif il arrive quand meme, mais rien ne garantit qu'il y reste.
+    "pyinstaller-hooks-contrib>=2026.1",
+]
+dev = [
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.5",
+]
