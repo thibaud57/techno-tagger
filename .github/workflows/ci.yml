@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main, develop]
 
 # Un push qui en chasse un autre annule le run precedent, mais seulement sur PR :
-# sur main et develop chaque commit garde son propre resultat de CI.
+# sur main chaque commit garde son propre resultat de CI.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
