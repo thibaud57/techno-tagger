@@ -47,6 +47,9 @@ logs/
 # Snapshots et logs de console poses par le MCP Playwright a chaque navigation
 .playwright-mcp/
 
+# Espace de travail des plans d execution : journaux, briefs, rapports d agents
+.superpowers/
+
 # --- IDE & OS ---
 **/.history/
 # On versionne ce qui decrit le projet, pas ce qui decrit la machine
