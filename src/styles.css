@@ -8,8 +8,9 @@
    est sombre pendant que les utilitaires Tailwind suivent le reglage systeme. */
 @custom-variant dark (&:where(.app-dark, .app-dark *));
 
-/* Aura ne declare aucune font-family, contrairement aux couleurs. Tailwind
-   applique celle-ci par --default-font-family, sans regle sur body. */
+/* Aura declare fontFamily: 'inherit' (aucune police concrete), contrairement
+   aux couleurs. Tailwind applique celle-ci par --default-font-family, sans
+   regle sur body. */
 @theme {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
 }

@@ -33,6 +33,14 @@ describe('scrub', () => {
     expect(scrubbed['message']).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`);
   });
 
+  it('masque un nom de compte porteur d une apostrophe', () => {
+    const event = { message: "cannot read C:\\Users\\O'Brien\\Music\\set.flac" };
+
+    const scrubbed = scrub(event as never, {} as never) as unknown as Record<string, unknown>;
+
+    expect(scrubbed['message']).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`);
+  });
+
   it('masque la cle d un mapping autant que sa valeur', () => {
     const event = { extra: { 'C:\\Users\\thibaud\\Music': 'locked' } };
 

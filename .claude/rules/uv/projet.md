@@ -14,7 +14,7 @@ paths:
 - Poser `package = true` pour installer le projet en editable, ce qui rend le sidecar importable sans manipuler `PYTHONPATH`
 - Passer par la CLI pour toute dépendance : `uv add`, `uv add --dev`, `uv add --group build`, `uv remove`
 - Committer `uv.lock` dans le même commit que le `pyproject.toml` modifié
-- En CI : épingler le patch exact d'uv (la compatibilité du lock n'est garantie qu'au sein d'une mineure), installer par `uv sync --frozen --all-groups`, et poser `uv lock --check` au pipeline pour détecter un `pyproject.toml` modifié sans re-lock
+- En CI : épingler le patch exact d'uv (la compatibilité du lock n'est garantie qu'au sein d'une mineure), installer par `uv sync --locked --all-groups`
 - Lancer tous les outils par `uv run`, PyInstaller compris : c'est ce qui garantit le venv verrouillé
 - Fixer l'interpréteur par `uv python pin`, en gardant `.python-version` dans la plage de `requires-python`
 

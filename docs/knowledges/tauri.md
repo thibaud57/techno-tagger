@@ -76,7 +76,7 @@ while let Some(event) = rx.recv().await {
 }
 
 // Commande de l'UI vers le sidecar
-child.write(b"{\"cmd\":\"start_run\"}\n")?;
+child.write(b"{\"type\":\"start_tagging\"}\n")?;
 ```
 
 ### Points Importants
@@ -173,7 +173,7 @@ C'est ce qui évite de transporter les pochettes en base64 dans le flux NDJSON.
         "enable": true,
         "scope": ["$APPLOCALDATA/cache/artworks/**"]
       },
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://*.ingest.de.sentry.io; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'"
     }
   }
 }
@@ -189,6 +189,7 @@ const artworkUrl = convertFileSrc(event.artwork_path); // asset://localhost/...
 
 - **La CSP doit autoriser `asset:` et `http://asset.localhost`**, sinon la webview refuse l'image sans erreur réseau visible
 - **Poser une CSP oblige à déclarer `connect-src`** : l'IPC v2 passe par un `fetch()` sur `http://ipc.localhost` (`scripts/ipc-protocol.js`), que `default-src 'self'` refuse. Sans lui, `invoke()` est bloqué, pas seulement les appels réseau
+- **Y ajouter l'hôte d'ingestion Sentry** (`https://*.ingest.de.sentry.io`), sinon aucun crash de la webview ne part
 - **`style-src 'self' 'unsafe-inline'` est nécessaire dès qu'un composant injecte son style à l'exécution** (le thème PrimeNG le fait) : Tauri n'ajoute de nonce qu'aux balises portant ses jetons `__TAURI_STYLE_NONCE__`, absents d'un build Angular, et ne hashe que les fichiers `.js` / `.mjs`
 - Un gestionnaire d'événement en attribut (`onload="…"`) n'est débloquable par aucune directive quand un hash est présent sur `script-src` : il faut le supprimer côté frontend
 - **`deny` prime sur `allow`** dans le scope : un chemin listé des deux côtés est refusé
@@ -207,7 +208,7 @@ L'updater vérifie un manifeste au démarrage, télécharge et installe une mise
 
 ```json
 {
-  "bundle": { "createUpdaterArtifacts": true },
+  "bundle": { "createUpdaterArtifacts": false },  // true seulement une fois pubkey + TAURI_SIGNING_PRIVATE_KEY posés
   "plugins": {
     "updater": {
       "pubkey": "<clé publique en clair>",

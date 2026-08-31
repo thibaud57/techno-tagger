@@ -81,10 +81,13 @@ lint-tauri:
 [parallel]
 lint: lint-ui lint-sidecar lint-tauri
 
-# Typage de la webview
+# Typage de la webview. Les deux tsconfig : `tsconfig.app.json` exclut les
+# `.spec.ts`, que Vitest transpile ensuite par esbuild sans jamais appeler tsc.
+# Sans la seconde ligne, une erreur de type dans un test est verte partout.
 [group('quality')]
 typecheck-ui:
     pnpm exec tsc --noEmit -p tsconfig.app.json
+    pnpm exec tsc --noEmit -p tsconfig.spec.json
 
 # Typage du sidecar
 [group('quality')]
@@ -103,10 +106,11 @@ test-sidecar:
     # globale serait mecaniquement basse
     cd sidecar && uv run pytest --cov-fail-under=80
 
-# Tests de la webview
+# Tests de la webview. `--watch=false` explicite : le builder met watch a true
+# des que le terminal est un TTY, et `just test` (parallel) resterait bloque.
 [group('quality')]
 test-ui:
-    pnpm exec ng test
+    pnpm exec ng test --watch=false
 
 # Tous les tests
 [group('quality')]

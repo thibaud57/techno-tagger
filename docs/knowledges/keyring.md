@@ -92,7 +92,8 @@ keyring.set_keyring(WinVaultKeyring())
 ### Points Importants
 
 - **`set_keyring()` court-circuite entièrement la découverte** : c'est la solution confirmée par les mainteneurs, pas un contournement
-- **Le hook livré par le paquet (`hook-keyring.backend.py`) ne suffit pas** : il ajoute des `hiddenimports` mais ne copie pas les métadonnées que la découverte lit
+- **Le hook réel est `PyInstaller/hooks/hook-keyring.py`**, et il fait déjà `collect_submodules('keyring.backends')` et `copy_metadata('keyring')`. `set_keyring()` reste la solution confirmée par les mainteneurs pour court-circuiter la découverte au démarrage, en complément du hook plutôt qu'en réponse à une lacune de celui-ci
+- **Piège de recherche** : un fichier `hook-keyring.backend.py` existe bel et bien, mais à la racine du dépôt GitHub de keyring, pas dans le paquet installé ni dans PyInstaller ou hooks-contrib. Aucun entry point `pyinstaller40` ne le référence, donc PyInstaller ne le découvre jamais ; une recherche « pyinstaller keyring hook » peut y mener à tort
 - **L'appel doit précéder toute utilisation** du secret, donc au démarrage du sidecar et non à la première lecture
 - La variable d'environnement `PYTHON_KEYRING_BACKEND` est l'alternative sans modification de code, mais **moins fiable pour un sidecar** dont l'environnement est hérité du process parent, hors contrôle du code Python
 - Symptôme à reconnaître : `No recommended backend was available` dans le binaire, jamais en développement

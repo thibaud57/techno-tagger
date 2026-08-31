@@ -124,10 +124,10 @@ Beatport ──► auto ? ──oui──► VALIDÉ
 - Framework : **Angular**
 - UI System : **PrimeNG**, dernière version (catalogue large, table à scroll virtuel pour les listes de 100 lignes)
 - i18n : **ngx-translate**, FR et EN, bascule à l'exécution. Pas `@angular/localize`, qui traduit à la compilation et imposerait un build et un installeur par langue.
-- Plugins Tauri : shell (sidecar), dialog (sélection de dossiers), fs, store (préférences), os (locale système), updater
+- Plugins Tauri : shell (sidecar), dialog (sélection de dossiers), fs, store (préférences), os (locale système), updater, single-instance, opener
 - Monitoring : @sentry/angular
 
-> ⚠️ **PrimeNG n'est plus open source à partir de la v22** (dépôt archivé fin juin 2026, bascule sous licence PrimeUI ; la v21 et les antérieures restent MIT). La **Community License** est gratuite et couvre ce projet, sous quatre conditions cumulatives : moins d'1 M$ de revenus annuels, moins de 5 développeurs, moins de 10 employés, et jamais plus de 3 M$ de capital-risque reçu. Aucune limitation fonctionnelle sur la bibliothèque centrale, mais le Theme Designer et les composants Pro n'y sont pas. Conséquences : une clé à poser dans `providePrimeNG({ license: ... })`, donc embarquée dans le bundle distribué ; un renouvellement gratuit tous les 12 mois avec 30 jours de grâce ; et **les erreurs de licence ne s'affichent pas sur localhost**, donc un oubli de renouvellement se verra chez les amis avant de se voir en développement. Un fork MIT de la v21 existe, **Optimus UI** (OpenNG), gardé comme porte de sortie.
+> ⚠️ **PrimeNG n'est plus open source à partir de la v22** (dépôt archivé fin juin 2026, bascule sous licence PrimeUI ; la v21 et les antérieures restent MIT). La **Community License** est gratuite et couvre ce projet, sous quatre conditions cumulatives : moins d'1 M$ de revenus annuels, moins de 5 développeurs, moins de 10 employés, et jamais plus de 3 M$ de capital-risque reçu. Aucune limitation fonctionnelle sur la bibliothèque centrale, mais le Theme Designer et les composants Pro n'y sont pas. Conséquences : une clé à poser dans `providePrimeNG({ license: ... })`, donc embarquée dans le bundle distribué ; un renouvellement gratuit tous les 12 mois avec 30 jours de grâce ; et **la notice de licence s'affiche même en développement** : la documentation PrimeUI mentionne une exemption sur `localhost`, mais la webview Tauri n'en bénéficie pas, donc un oubli se verra dès le premier `just dev`, pas seulement chez les amis. Un fork MIT de la v21 existe, **Optimus UI** (OpenNG), gardé comme porte de sortie.
 
 ## Coquille
 
@@ -159,7 +159,7 @@ Isoler dans un dossier de travail les morceaux d'une playlist, pris dans une bib
 - **Sélecteur de playlist** quand le fichier est un dump VLC : celui-ci contient toute la médiathèque, l'app liste donc les playlists présentes avec leur nombre de morceaux. Sans objet pour un M3U8, qui n'en contient qu'une.
 - Toggle copier / déplacer, **copier par défaut** : la bibliothèque source reste intacte pendant que le re-tagging réécrit les fichiers de destination
 - Un titre de la playlist introuvable dans le dossier source est logué et le traitement continue
-- Barre de progression, signal sonore de fin (désactivable)
+- Barre de progression
 - Rapport de run écrit dans le dossier destination
 
 **Deux formats, deux provenances :**
@@ -173,7 +173,7 @@ Les deux sont nécessaires : **VLC Android n'a aucune fonction d'export de playl
 
 **Résolution par nom de fichier, pas par chemin.** Le chemin de la playlist est ignoré, seul le nom est retenu puis cherché récursivement dans le dossier source ([playlist_processor.py:122-126](https://github.com/thibaud57/BeatportScrapper-TrackTagger/blob/HEAD/processors/playlist_processor.py#L122-L126)). Sans ça le cas principal ne marche pas : la base vient du téléphone, les fichiers sont sur le PC.
 
-Reste à traiter : deux fichiers de même nom dans des sous-dossiers différents. La CLI prend silencieusement le premier trouvé.
+Deux fichiers de même nom dans des sous-dossiers différents : la CLI prenait silencieusement le premier trouvé. Tranché depuis, le plus volumineux est retenu, chaque cas consigné dans le rapport avec les candidats écartés ([ADR-020](adrs/020-doublons-noms-de-fichiers.md)).
 
 ### Feature 2 : Onglet Scraping, pipeline de re-tagging
 
@@ -184,7 +184,7 @@ Reste à traiter : deux fichiers de même nom dans des sous-dossiers différents
 - Pool asyncio borné : plusieurs morceaux en vol simultanément, le débit restant tenu par l'API
 - Cache disque des réponses de l'API et des pochettes téléchargées, TTL 30 jours, plafond 500 Mo en éviction LRU
 - Liste scrollable affichant `Artiste - Titre` et un état par ligne : vert validé (coche), rouge sans correspondance (croix), bleu en attente d'arbitrage (i)
-- Barre de progression, signal sonore de fin
+- Barre de progression, **signal sonore de fin** (désactivable) : se déclenche une seule fois, à la fin de cette phase réseau, pas par arbitrage
 
 ### Feature 3 : Arbitrage utilisateur
 
@@ -227,8 +227,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Un run interrompu est détecté au lancement suivant : « Run du 2 août sur `D:\Sets\Août`, 62/100 traités, reprendre ou repartir de zéro ? ». Aucun fichier n'a été touché entre-temps.
 - Purge automatique au démarrage : les plans des runs terminés et écrits sont supprimés, les runs interrompus conservés, plafond d'ancienneté à 30 jours
 - Écran récapitulatif final dans l'app : tableau filtrable (tout, validés, arbitrés, échecs), avant/après par morceau, lien vers la fiche source
-- Rapport écrit dans le dossier destination en deux formats : JSON (source de vérité, relu par l'app pour rouvrir un run passé) et Markdown (lisible hors application)
-- Le rapport détaille par morceau : requête envoyée, source ayant répondu, décision et son origine, champs écrits, ancien et nouveau nom de fichier, erreurs
+- **Deux rapports distincts** écrits dans le dossier destination, l'un par l'extraction et l'autre par le re-tagging, chacun en deux formats : JSON (source de vérité, relu par l'app pour rouvrir un run passé) et Markdown (lisible hors application)
+- Le rapport de re-tagging détaille par morceau : requête envoyée, source ayant répondu, décision et son origine, champs écrits, ancien et nouveau nom de fichier, erreurs
 
 ### Feature 7 : Settings
 
@@ -239,6 +239,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Signal sonore de fin
 - Bouton « ouvrir le dossier de logs », pour récupérer une trace à distance
 - Bouton « vider le cache »
+
+> ⚠️ **Décidé autrement depuis** : le motif de renommage n'est finalement pas une préférence des Settings. Il est fixé à `{artist} - {title}.{ext}` au MVP et n'a donc rien à persister dans le store (cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)).
 
 ### Feature 8 : Distribution et mise à jour
 
@@ -252,6 +254,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Scrubbing des chemins de fichiers dans les stack traces (ils contiennent le nom d'utilisateur de l'OS)
 - Aucun titre de morceau envoyé automatiquement : les cas d'arbitrage et d'échec restent dans le rapport local
 - Bouton « envoyer ce rapport pour améliorer le matching » dans l'écran final : geste explicite de l'utilisateur, pousse le JSON du run, ne consomme pas le quota Sentry
+
+> ⚠️ **Décidé autrement depuis** : l'application ne pousse rien elle-même. Le bouton ouvre, via le plugin `opener`, une issue pré-remplie du dépôt que l'utilisateur relit, ampute ou abandonne avant de valider (cf. [ARCHITECTURE.md § Alerts](ARCHITECTURE.md#alerts)).
 
 ## Post-MVP
 
@@ -319,25 +323,25 @@ Justifié le jour où l'application est distribuée à plusieurs personnes et o�
 
 ## Techniques
 
-- **techno-scraper multi-clés** : [`core/security.py`](https://github.com/thibaud57/techno-scraper/blob/HEAD/src/technoscraper/core/security.py) compare contre une clé unique (`settings.api_key`). Une clé par utilisateur impose de passer à un jeu de clés nommées. Changement petit, mais sur une API déjà en production.
-- **Taille du pool de concurrence** : combien d'appels en vol simultanés sans dégrader la latence de l'API ? À mesurer, pas à deviner.
-- **Seuils de matching par défaut** : les valeurs de la CLI actuelle sont-elles transposables, sachant que le contrat de sortie de l'API a changé ?
-- **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ?
-- **Doublons de noms de fichiers** : que faire quand plusieurs fichiers du dossier source portent le même nom (demander, prendre le plus gros, tout signaler dans le rapport) ?
-- **Nettoyage des noms de fichiers** : quels motifs retirer avant d'envoyer la requête (`[FREE DL]`, `320kbps`, numéros de piste, tirets bas) ?
-- **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport.
-- **Clés libres Vorbis** : quelles conventions retenir pour `key`, `catalog_number` et `source` sur FLAC, où aucun champ standard n'existe (aligner sur Picard) ?
-- **Motif de renommage** : quel format par défaut, et jusqu'où le rendre configurable ?
-- **Versionnement du plan JSON** : un plan écrit par une version antérieure doit-il rester reprenable après mise à jour de l'app ?
-- **Maturité de PyInstaller sur macOS** : à vérifier le jour où la cible macOS revient au programme.
-- **Licence PrimeUI** : que se passe-t-il exactement avec une clé absente ou expirée sur les versions actuelles ? Le mécanisme connu (bandeau dans l'application, erreurs invisibles sur localhost) vient du dispositif LTS de PrimeNG, à reconfirmer au moment de prendre la clé.
-- **Sélection des modèles LLM (Post-MVP)** : comment proposer une liste à jour sans la coder en dur ni la maintenir à chaque sortie de modèle ?
+- **techno-scraper multi-clés** : [`core/security.py`](https://github.com/thibaud57/techno-scraper/blob/HEAD/src/technoscraper/core/security.py) compare contre une clé unique (`settings.api_key`). Une clé par utilisateur impose de passer à un jeu de clés nommées. Changement petit, mais sur une API déjà en production. ✅ **Tranché** : jeu de clés nommées en variable d'environnement ([ADR-016](adrs/016-multi-cles-techno-scraper.md)), chantier porté par techno-scraper et non livré à ce jour
+- **Taille du pool de concurrence** : combien d'appels en vol simultanés sans dégrader la latence de l'API ? À mesurer, pas à deviner. ✅ **Tranché** : pool aligné sur les sémaphores de l'API, 3 pour Beatport et 2 pour Bandcamp ([ADR-017](adrs/017-taille-pool-concurrence.md))
+- **Seuils de matching par défaut** : les valeurs de la CLI actuelle sont-elles transposables, sachant que le contrat de sortie de l'API a changé ? Toujours ouvert : à recalibrer aux premiers runs réels (cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
+- **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ? ✅ **Tranché** : requête embarquée, schéma vérifié avant traitement plutôt qu'un fichier SQL externe. L'inspection du fichier a montré une autre raison à cette externalisation : un nom de playlist codé en dur (`WHERE p.name = 'final'`), pas une protection contre un schéma instable — aucun changement de schéma n'a d'ailleurs jamais été observé ([ADR-019](adrs/019-resilience-schema-vlc-media-db.md))
+- **Doublons de noms de fichiers** : que faire quand plusieurs fichiers du dossier source portent le même nom (demander, prendre le plus gros, tout signaler dans le rapport) ? ✅ **Tranché** : le plus volumineux est retenu, chaque cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md))
+- **Nettoyage des noms de fichiers** : quels motifs retirer avant d'envoyer la requête (`[FREE DL]`, `320kbps`, numéros de piste, tirets bas) ? Mécanisme tranché (nettoyage de la chaîne interrogée, jamais des tags), la liste exacte des motifs reste à établir au premier run réel (cf. [ARCHITECTURE.md](ARCHITECTURE.md#capacités-natives))
+- **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport. Toujours ouvert (étape 1, cf. [ARCHITECTURE.md § Questions ouvertes](ARCHITECTURE.md#questions-ouvertes))
+- **Clés libres Vorbis** : quelles conventions retenir pour `key`, `catalog_number` et `source` sur FLAC, où aucun champ standard n'existe (aligner sur Picard) ? ✅ **Tranché** : conventions Picard suivies ([ADR-011](adrs/011-politique-ecriture-tags.md))
+- **Motif de renommage** : quel format par défaut, et jusqu'où le rendre configurable ? ✅ **Tranché** : fixé à `{artist} - {title}.{ext}` au MVP, non configurable (voir plus haut)
+- **Versionnement du plan JSON** : un plan écrit par une version antérieure doit-il rester reprenable après mise à jour de l'app ? ✅ **Tranché** : numéro de version de schéma, plan de version inconnue refusé, rapport de version antérieure migré ([ADR-018](adrs/018-versionnement-plan-de-run.md))
+- **Maturité de PyInstaller sur macOS** : à vérifier le jour où la cible macOS revient au programme. Toujours ouvert
+- **Licence PrimeUI** : que se passe-t-il exactement avec une clé absente ou expirée sur les versions actuelles ? Le mécanisme connu (bandeau dans l'application, erreurs invisibles sur localhost) vient du dispositif LTS de PrimeNG, à reconfirmer au moment de prendre la clé. ✅ **Tranché** : notice de licence affichée sans clé valide, y compris en développement, la webview Tauri n'étant pas exemptée contrairement au `localhost` d'un navigateur (cf. [primeng.md](knowledges/primeng.md))
+- **Sélection des modèles LLM (Post-MVP)** : comment proposer une liste à jour sans la coder en dur ni la maintenir à chaque sortie de modèle ? Toujours ouvert, hors périmètre MVP
 
 ## Business
 
-- Combien d'utilisateurs réels, donc combien de clés API à gérer et à révoquer ?
-- Un pote est-il réellement sur Mac ? C'est ce qui déclenchera la cible macOS, et avec elle la question des 99 $/an.
-- Dépôt public ou privé ? Sans objet tant qu'on reste sur Windows, décisif dès qu'un runner macOS entre en jeu (gratuit sur public, facturé x10 sur privé).
+- Combien d'utilisateurs réels, donc combien de clés API à gérer et à révoquer ? Toujours ouvert
+- Un pote est-il réellement sur Mac ? C'est ce qui déclenchera la cible macOS, et avec elle la question des 99 $/an. Toujours ouvert
+- Dépôt public ou privé ? Sans objet tant qu'on reste sur Windows, décisif dès qu'un runner macOS entre en jeu (gratuit sur public, facturé x10 sur privé). ✅ **Tranché** : dépôt public, distribution par GitHub Releases ([ADR-021](adrs/021-visibilite-du-depot.md))
 
 ---
 

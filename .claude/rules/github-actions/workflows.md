@@ -28,9 +28,10 @@ paths:
 
 ## Exemples
 ```yaml
-# ✅ working-directory posé une fois pour tout le job
+# ✅ working-directory posé une fois pour tout le job — exemple générique,
+# le job sidecar réel de ce projet tourne sur windows-latest via `just lint-sidecar`
 jobs:
-  sidecar:
+  lint-python:
     runs-on: ubuntu-latest
     defaults:
       run:

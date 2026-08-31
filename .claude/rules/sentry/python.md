@@ -38,7 +38,7 @@ paths:
 
 ## Exemples
 ```python
-# ✅ les trois réglages posés explicitement
+# ✅ tous les réglages posés explicitement, y compris le canal breadcrumbs
 sentry_sdk.init(
     dsn=SENTRY_DSN,
     release=RELEASE,                   # f"{APP_NAME}@{__version__}", identique côté Angular
@@ -46,6 +46,8 @@ sentry_sdk.init(
     include_local_variables=False,     # défaut True : à forcer
     server_name="techno-tagger",       # sinon : nom de machine de l'utilisateur
     before_send=scrub_event,
+    integrations=[LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)],  # coupe les breadcrumbs de log
+    auto_enabling_integrations=False,
 )
 
 # ❌ défauts laissés en place : variables locales et hostname partent avec chaque event

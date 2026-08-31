@@ -24,6 +24,7 @@ paths:
 - Poser le mode sombre côté Tauri : il vit dans la webview, classe sur `<html>` plus `darkModeSelector` PrimeNG
 
 ## Gotchas
+- `bundle.windows.nsis.installerHooks` pointe `installer-hooks.nsh`, qui tue le sidecar avant que l'installeur n'écrase ses fichiers : en mode mise à jour (`/UPDATE`) NSIS saute la section de désinstallation, et `CheckIfAppIsRunning` ne détecte que `${MAINBINARYNAME}.exe`, jamais le sidecar. Sans ce hook, un `tagger.exe` orphelin verrouille son propre fichier pendant que l'installeur tente de l'écraser
 - Quatre valeurs de ce fichier sont recopiées ailleurs sans aucune synchronisation : `identifier` (copié dans `sidecar/src/tagger/__init__.py`, il compose `appLocalDataDir()` donc les scopes `fs`), `productName` (préfixe de release Sentry, copié dans le sidecar, `angular.json` et deux workflows), `externalBin` et le scope `shell:allow-spawn`. Un renommage se fait partout à la fois, et `sidecar/tests/unit/test_main.py` échoue sinon
 - Sans `asset:` dans la CSP, la webview refuse l'image sans erreur réseau visible
 - La taille de fenêtre n'est pas mémorisée entre deux lancements : un agrandissement est perdu à la fermeture, le plugin `window-state` corrigerait ça mais n'est pas retenu au MVP

@@ -40,7 +40,7 @@ hotfix/*  → main → tag vX.Y.Z → build + GitHub Release → updater        
 | Étape | Branch | Environnement | Déclencheur |
 |-------|--------|---------------|-------------|
 | Développement | `feature/*` | Local (`tauri dev`, sidecar depuis les sources) | Manuel |
-| Validation qualité | `feature/*` → PR | CI (GitHub Actions) | Push / PR : Ruff + Mypy + pytest, lint + typecheck + Vitest, `cargo check` + `cargo clippy` |
+| Validation qualité | `feature/*` → PR | CI (GitHub Actions) | Push / PR : Ruff + Mypy + pytest, lint + typecheck + Vitest, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` |
 | Intégration | `develop` | Local | Merge `feature/*` → `develop` |
 | Intégration prod | `main` | — (aucune publication) | Merge `develop` → `main` (lot de features prêt) |
 | PR release (CHANGELOG + bump) | `release-please--branches--main--*` | — | Auto à chaque push sur `main` (release-please) |
@@ -95,18 +95,18 @@ Conséquences par lock, très inégales :
 
 | Lock | Symptôme si non réaligné | Gravité |
 |---|---|---|
-| `uv.lock` | `uv sync --frozen` refuse un lock désaccordé de `pyproject.toml` → **le build PyInstaller de la release échoue** | 🔴 bloquant |
+| `uv.lock` | `uv sync --locked` refuse un lock désaccordé, et c'est ce drapeau qui rend le job `sync-lockfiles` nécessaire | 🔴 bloquant |
 | `Cargo.lock` | `cargo build` sans `--locked` le réécrit en silence (diff parasite) ; avec `--locked`, échec | 🟡 bruit |
 | `pnpm-lock.yaml` | Ne porte pas la version du projet racine | ✅ non concerné |
 
-> **Traitement retenu** : un job du workflow release-please rejoue `uv lock` et `cargo update --workspace` sur la branche de la PR de release, et pousse les lockfiles réalignés dans cette même PR. Le commit de release reste cohérent et le build d'après tag part d'un arbre où `--frozen` passe. À défaut, retirer `--frozen` du build de release revient à abandonner la reproductibilité au moment précis où elle compte le plus.
+> **Traitement retenu** : un job du workflow release-please rejoue `uv lock` et `cargo update --workspace` sur la branche de la PR de release, et pousse les lockfiles réalignés dans cette même PR. Le commit de release reste cohérent et le build d'après tag part d'un arbre où `--locked` passe. À défaut, retirer `--locked` du build de release revient à abandonner la reproductibilité au moment précis où elle compte le plus.
 
 > La version compte au-delà du CHANGELOG : c'est elle que le sidecar passe en `release=` à Sentry (`techno-tagger@X.Y.Z`), et c'est elle que l'updater compare pour décider d'une mise à jour. Un bump manuel oublié quelque part rend le tri Sentry faux ou une mise à jour invisible.
 
 ## Checklist Release
 
 **Automatisé (vérifier le statut avant de merger) :**
-- [ ] CI verte : Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `cargo check` + `cargo clippy`
+- [ ] CI verte : Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/` (clippy subsume `cargo check` ; sans le binaire du sidecar en place, la validation d'`externalBin` fait échouer la compilation avant même `cargo check`)
 - [ ] Seuil de coverage 80 % tenu sur `sidecar/`. **Aucun seuil chiffré sur `src/`** : c'est le périmètre des lignes « Unitaires (UI) » qui doit être couvert, et son absence se voit en review, pas dans un pourcentage (cf. [ARCHITECTURE.md § Coverage](ARCHITECTURE.md#coverage))
 - [ ] Lock files à jour et commités (`pnpm-lock.yaml`, `uv.lock`, `Cargo.lock`)
 
@@ -114,7 +114,7 @@ Conséquences par lock, très inégales :
 - [ ] **Sauvegarde de la clé privée updater revérifiée** : archive chiffrée accessible et déchiffrable. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
 - [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
-- [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles` présent en tête de la PR de release. C'est l'unique garde-fou du mode de panne 🔴 de la § Propagation de la version, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run »
+- [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles sur la version de release` présent en tête de la PR de release. Garantit que le lock committé au tag porte la version publiée, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run »
 - [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `tauri build` + signature)
 - [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent — à confirmer au premier run. Symptôme si c'est faux : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
 - [ ] Release GitHub porte bien **l'installeur ET `latest.json`** (sans le second, aucun client ne verra la mise à jour)
@@ -173,7 +173,7 @@ Le sidecar porte tout le métier, mais il voyage comme **binaire externe**, pas 
 | Comportement | Effet ici |
 |---|---|
 | Tauri copie le sidecar dans `target/release/` **sans invalider la copie** | Un build qui réutilise ce répertoire peut embarquer un **sidecar périmé** sous une interface à jour. Ne pas mettre `target/release/` en cache CI, ou le purger avant le build de release |
-| Réinstaller la **même version** ne remplace pas le sidecar déjà installé | Le réflexe « réinstalle par-dessus » **ne répare pas** un sidecar mis en quarantaine par l'antivirus. Il faut désinstaller d'abord, ou restaurer le fichier depuis la quarantaine |
+| En mode mise à jour, NSIS saute entièrement la section de désinstallation | Un `tagger.exe` encore vivant verrouille son propre fichier pendant que l'installeur tente de l'écraser. Le hook `NSIS_HOOK_PREINSTALL` (`src-tauri/installer-hooks.nsh`) le tue avant les copies de fichiers. Les fichiers retirés d'`_internal` entre deux versions restent en revanche orphelins, la désinstallation ne tournant pas |
 | La CSP bloque les appels cross-origin du sidecar en production | Sans objet : le protocole passe par stdin/stdout en NDJSON, sans port ni requête HTTP locale ([ADR-005](adrs/005-sidecar-python-protocole-ndjson.md)) |
 
 > ⚠️ **`externalBin` résout relativement à `src-tauri/`, pas à `src-tauri/binaries/`.** Le binaire étant rangé dans `binaries/`, la valeur correcte est `"externalBin": ["binaries/tagger"]`, Tauri ajoutant lui-même le suffixe target-triple. Écrire `["tagger"]` le ferait chercher `src-tauri/tagger-x86_64-pc-windows-msvc.exe`. Le point n'est pas documenté côté Tauri.
@@ -265,7 +265,7 @@ En développement, le sidecar lit un `.env` local (jamais commité) pour un DSN 
 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
-| Push / PR (`main`, `develop`) | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `cargo check` + `cargo clippy` (`src-tauri/`), seuil de coverage sur `sidecar/` | — (gate qualité) |
+| Push / PR (`main`, `develop`) | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | — (gate qualité) |
 | Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release | GitHub Releases |
 
@@ -306,7 +306,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`target/release/` hors cache CI** — Tauri y copie le sidecar sans invalider la copie, un cache de ce répertoire peut donc embarquer un binaire périmé dans l'installeur
 - [ ] **Contrôle de version UI ↔ sidecar au démarrage** — refuser de lancer un run si les deux versions diffèrent, filet contre le sidecar non remplacé
 - [ ] **Flush explicite après chaque ligne NDJSON** — `flush=True` à chaque événement émis, un binaire PyInstaller derrière un pipe ne respectant ni `-u` ni `PYTHONUNBUFFERED` : sans lui, l'interface paraît figée pendant tout le run (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
-- [ ] **Backend keyring forcé explicitement** — le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
+- [ ] **Backend keyring forcé explicitement** — le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
   ⚠️ **Non vérifiable avant l'étape 5** : au bootstrap, aucun module n'importe `keyring`, il n'entre donc pas dans le graphe analysé et `hook-keyring.py` ne se déclenche jamais. Constaté sur le binaire du bootstrap, qui ne contient ni `keyring.backends` ni `WinVaultKeyring`, seulement les métadonnées posées par le `copy_metadata` explicite du `.spec`. Cocher cet item sur un binaire antérieur à l'étape 5 ne prouve rien
 - [ ] **`target-branch: main` valide sur le flux `develop → main`** — release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). À éprouver sur un dépôt de test avant la première release, pas sur la première release
 - [ ] **`extra-files` a bumpé les deux manifestes TOML** — après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
@@ -347,13 +347,12 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 
 ### Validation technique finale
 
-- [ ] **`uv run ruff check sidecar/ && uv run ruff format --check sidecar/`** — lint + format Python
-- [ ] **`uv run mypy sidecar/src/`** — typecheck strict
-- [ ] **`uv run pytest`** — tests du sidecar, techno-scraper et Sentry mockés
-- [ ] **`pnpm lint && pnpm typecheck`** — ESLint (+ règles de templates et d'accessibilité) et types Angular
-- [ ] **`pnpm test`** — Vitest vert, et les règles métier portées par un composant effectivement couvertes (pas de seuil chiffré sur `src/`)
-- [ ] **`cargo check && cargo clippy`** — la coquille compile proprement
-- [ ] **`pnpm tauri build`** — installeur produit sans erreur, sidecar bien empaqueté
+> Les quatre recettes ci-dessous se lancent depuis **Git Bash**, jamais PowerShell (`bash` y résout vers le lanceur WSL de `System32` et échoue en `execvpe(/bin/bash) failed`). La CI rejoue exactement les mêmes étapes sur chaque PR (cf. § Pipelines).
+
+- [ ] **`just lint`** — Ruff + Ruff format (`sidecar/`), ESLint + Prettier (`src/`), `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`)
+- [ ] **`just typecheck`** — `tsc --noEmit` sur les deux tsconfig Angular, Mypy strict sur `sidecar/src` et `sidecar/tests`
+- [ ] **`just test`** — pytest avec le seuil de couverture 80 % bloquant sur `sidecar/`, Vitest sur `src/`
+- [ ] **`just build`** — binaire PyInstaller du sidecar (`build-sidecar`) puis installeur NSIS (`tauri build`)
 - [ ] **Smoke test du livrable** — installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux
 - [ ] **Test de sécurité vert** — la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry
 
@@ -382,7 +381,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 |-----------|-----------|-----------|
 | Dépendances Python (uv) | Mensuelle / sur CVE | PR Renovate (manager `pep621`, lit `uv.lock`) → CI verte → merge |
 | Dépendances Node (pnpm) | Mensuelle / sur CVE | PR Renovate (manager `npm`) → CI verte → merge |
-| Crates Rust (cargo) | Mensuelle / sur CVE | PR Renovate (manager `cargo`) → `cargo check` + build → merge |
+| Crates Rust (cargo) | Mensuelle / sur CVE | PR Renovate (manager `cargo`) → CI verte → merge |
 | Actions GitHub | Mensuelle | PR Renovate (manager `github-actions`) |
 | Tauri (majeure) | Sur release majeure | PR dédiée, guide de migration, **build + smoke test d'installation obligatoires** avant merge |
 | Angular / PrimeNG (majeures) | Sur release majeure | PR dédiée, `ng update`, vérification visuelle des écrans |

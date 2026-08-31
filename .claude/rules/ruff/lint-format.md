@@ -7,8 +7,7 @@ paths:
 
 ## À faire
 - Déclarer `select` explicitement plutôt que d'hériter du jeu par défaut de la version installée
-- Aligner `target-version` sur le `requires-python` du projet, sinon Ruff propose des réécritures incompatibles
-- Enchaîner `ruff check --select I --fix` puis `ruff format` : le formateur ne trie pas les imports, et l'ordre inverse laisse du code corrigé mais mal formaté
+- En local, enchaîner `ruff check --select I --fix` puis `ruff format` : `--select I` restreint l'auto-fix aux seuls imports (pas un `--fix` généralisé sur tout le `select` global), le formateur ne les trie pas lui-même, et l'ordre inverse laisse du code corrigé mais mal formaté. La CI, elle, ne corrige rien : `just lint-sidecar` ne fait que vérifier (`ruff check .`, `ruff format --check .`)
 - Utiliser `per-file-ignores` pour les tests (`S101`) et les `__init__.py` (`F401`) plutôt que de désactiver une règle globalement
 - Bannir `asyncio.get_event_loop` et `sqlite3.version` dans `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, avec un message renvoyant au remplaçant : Python 3.14 les rejette, et la garantie passe par la CI plutôt que par la mémoire
 - Épingler la version de Ruff en CI comme en pre-commit, et laisser Renovate proposer la montée

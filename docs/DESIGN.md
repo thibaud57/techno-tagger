@@ -23,7 +23,7 @@ technologies: ["Angular", "PrimeNG", "Tailwind CSS", "PrimeIcons", "Simple Icons
 
 Aucun appel à un CDN de polices : l'application est un binaire local qui doit s'afficher identiquement hors ligne, et une webview qui attend un `fonts.googleapis.com` injoignable rend en police de repli le temps du timeout.
 
-Le preset Aura ne déclare **aucune `font-family`** (vérifié dans sa source : seuls des `fontSize` et des `fontWeight` y figurent). La typographie est donc entièrement à la charge du projet, et rien n'est à défaire côté preset.
+Le preset Aura déclare `fontFamily: 'inherit'` (vérifié dans sa source, avec `fontSize` et `fontWeight`) : il ne fixe donc aucune police concrète, la valeur remonte simplement jusqu'au `body` du projet. La typographie reste entièrement à la charge du projet, et rien n'est à défaire côté preset.
 
 ### Scale Typographique
 
@@ -81,9 +81,9 @@ Le tooltip se pose sur `--p-surface-700`, soit deux crans au-dessus du panneau. 
 |-------|--------|
 | `--p-tooltip-background` | `{surface.700}` |
 | `--p-tooltip-color` | `{surface.0}` |
-| `--p-tooltip-padding` | `0.5rem 0.75rem` |
+| `--p-tooltip-padding` | `0.375rem 0.625rem` |
 | `--p-tooltip-border-radius` | `--p-border-radius-md` (6px) |
-| `--p-tooltip-max-width` | `12rem` |
+| `--p-tooltip-max-width` | `12.5rem` |
 | `--tt-tooltip-max-width-wide` | `26rem` |
 | `--p-tooltip-gutter` | `0.25rem` |
 | `--p-tooltip-shadow` | = `--p-overlay-popover-shadow` |
@@ -278,9 +278,9 @@ Quatre wrappers, écrits une fois pour que ce qu'ils encapsulent ne soit pas rec
 
 ### Tailles de Badge
 
-Deux tailles, `small` (20px) et `normal` (24px). Pas de `large` : le badge n'a qu'un usage réel dans le produit, le compteur de la file d'arbitrage, et rien n'y demande plus de 24px.
+Deux tailles, celle par défaut (20px, aucune prop `size`) et `large` (24px, `size="large"`). Pas de `small` : le badge n'a qu'un usage réel dans le produit, le compteur de la file d'arbitrage, et rien n'y demande moins de 20px. Vérifié dans le composant `p-badge` : `size="small"` map sur `p-badge-sm` (18px), `size="large"` sur `p-badge-lg` (24px), et l'absence de `size` reste sur le token racine (20px) — ni `small` ni `xlarge` n'ont d'usage ici.
 
-La taille s'apparie à celle des éléments de la même rangée, pas à une préférence : `small` à côté de boutons `small`, `normal` à côté de boutons `normal`. Dans le footer d'arbitrage, le compteur est encadré de boutons `small`, il est donc en `small`. Un badge plus court que ce qui l'entoure sur une même ligne est un défaut, pas une variante.
+La taille s'apparie à celle des éléments de la même rangée, pas à une préférence : défaut à côté de boutons `small`, `large` à côté de boutons `normal`. Dans le footer d'arbitrage, le compteur est encadré de boutons `small`, il reste donc en taille par défaut. Un badge plus court que ce qui l'entoure sur une même ligne est un défaut, pas une variante.
 
 **La puce portée par un `p-button` est neutre par défaut**, avec les mêmes paires de couleurs que `p-badge`. Un compteur de file n'est pas une action, et l'accent reste réservé aux actions et à la sélection (cf. § Palette de Couleurs). Un compteur porté par un bouton doit par ailleurs être indiscernable du même compteur posé à côté, sinon `1/3` et `2/3` ne se ressemblent pas.
 
@@ -456,7 +456,7 @@ Le jeu de six colonnes tient à 1024px, le plancher de la fenêtre. Aucune colon
 - [PrimeNG — Table](https://primeng.dev/table) : `size`, scroll virtuel, `expandedRowKeys`
 - [PrimeNG — Migration v21](https://primeng.dev/migration/v21) : passage aux animations CSS natives
 - [Tailwind CSS — Dark mode](https://tailwindcss.com/docs/dark-mode) : `@custom-variant`
-- [PrimeIcons](https://primeicons.dev) : 357 icônes, catégories, recherche
+- [PrimeIcons](https://primeicons.dev) : 358 icônes, catégories, recherche
 - [Angular — Enter and Leave animations](https://angular.dev/guide/animations) : `animate.enter` / `animate.leave`
 - [Angular — Migrating to Native CSS Animations](https://angular.dev/guide/animations/migration) : sortie de `@angular/animations`
 - [Simple Icons](https://simpleicons.org) : logos Beatport, Bandcamp, SoundCloud, VLC media player

@@ -34,12 +34,16 @@ def _force_utf8_streams() -> None:
     c'est-a-dire exactement comme Tauri lance le sidecar. Un titre cyrillique,
     japonais ou un emoji leverait alors UnicodeDecodeError ou UnicodeEncodeError
     en plein run. PEP 686 rend l'UTF-8 implicite en 3.15, pas en 3.14.
+
+    `newline` est fixe dans la foulee : laisse a None, le wrapper traduit chaque
+    `\\n` en `\\r\\n` sous Windows, et le lecteur de lignes de Tauri coupe sur le
+    `\\r` seul des qu'un chunk de 8 Ko tombe avant le `\\n`.
     """
     for stream in (sys.stdin, sys.stdout):
         # Un flux substitue (capture de test, redirection) n'est pas un
         # TextIOWrapper et n'a rien a reconfigurer : seul le cas reel compte ici.
         if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(encoding="utf-8", errors="strict")
+            stream.reconfigure(encoding="utf-8", errors="strict", newline="\n")
 
 
 def main() -> None:

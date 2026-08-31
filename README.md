@@ -14,7 +14,7 @@ L'interface et le métier communiquent par un protocole NDJSON sur les flux stan
 
 ## Démarrage
 
-Les prérequis, l'installation et les commandes de développement sont dans le `Justfile` : `just --list` en donne l'inventaire.
+Les prérequis, l'installation et les commandes de développement sont dans le `Justfile` : `just --list` en donne l'inventaire. Tout se lance **depuis Git Bash**, le `Justfile` et les scripts pnpm passant par `bash`.
 
 ## Documentation
 

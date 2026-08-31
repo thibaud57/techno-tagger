@@ -1,7 +1,7 @@
 ---
 title: "release-please — Versionnement et publication"
 version: "5.0.0"
-description: "Référence technique pour release-please-action : Conventional Commits, PR de release, mode manifest, extra-files pour synchroniser quatre fichiers de version et chaînage needs obligatoire."
+description: "Référence technique pour release-please-action : Conventional Commits, PR de release, synchronisation de quatre fichiers de version (mode manifest, extra-files, renvoi Tauri) et chaînage needs obligatoire."
 date: "2026-08-29"
 keywords: ["release-please", "conventional-commits", "versioning", "changelog", "github-actions", "tauri"]
 scope: ["docs"]
@@ -85,7 +85,7 @@ Le mode manifest est nécessaire dès qu'un fichier de version sort du fichier p
 
 ```json
 // .release-please-manifest.json
-{ ".": "0.1.0" }
+{ ".": "0.0.0" }
 ```
 
 ### Points Importants
@@ -130,7 +130,7 @@ jobs:
 
   build:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: windows-latest      # PyInstaller + tauri build : pas de cross-compilation
     steps:
       - uses: actions/checkout@v4
@@ -176,7 +176,7 @@ upload_url       # dépôt des artefacts sur la Release
 
 ## ✅ Recommandations
 
-- **Lister les quatre fichiers de version** dans `extra-files` et vérifier après la première release qu'ils portent bien la même
+- **Lister dans `extra-files` les deux fichiers que `release-type: node` ne couvre pas** (`Cargo.toml`, `pyproject.toml`) et vérifier après la première release qu'ils portent bien la même version que `package.json` ; `tauri.conf.json` reste hors d'`extra-files`, son champ `version` pointant vers `../package.json`
 - **Chaîner le build en `needs:`** avec `if: release_created`, jamais sur `on: push: tags`
 - **Checkouter `tag_name`** dans le job de build
 - **Relire le changelog de la PR avant merge** : c'est le seul moment où un commit mal typé se rattrape

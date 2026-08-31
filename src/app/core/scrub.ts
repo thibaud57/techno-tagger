@@ -14,10 +14,11 @@ export const MASK = '<user>';
 
 // `C:\Users\nom`, `C:/Users/nom`, `/Users/nom`, `/home/nom`. Le groupe capture le
 // separateur pour rendre la forme d'origine, seul le nom est remplace.
-// L'espace n'est pas une borne : Windows nomme le dossier de profil d'apres le nom
-// complet d'un compte Microsoft, et `Jean Dupont` ne laisserait fuir que sa
-// seconde moitie.
-const HOME = /((?:[A-Za-z]:)?[\\/](?:Users|home)[\\/])[^\\/\n\r"']+/gi;
+// Les bornes sont les caracteres qu'un nom de dossier Windows ne peut pas porter :
+// tout le reste est legal dans un nom de compte, l'espace comme l'apostrophe.
+// Windows nomme le dossier de profil d'apres le nom complet d'un compte Microsoft :
+// `Jean Dupont` et `O'Brien` ne laisseraient fuir que leur seconde moitie.
+const HOME = /((?:[A-Za-z]:)?[\\/](?:Users|home)[\\/])[^\\/:*?"<>|\n\r]+/gi;
 
 function mask(text: string): string {
   return text.replace(HOME, `$1${MASK}`);

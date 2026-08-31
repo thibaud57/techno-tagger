@@ -84,6 +84,8 @@ macOS n'est pas repoussé par difficulté technique mais par arbitrage économiq
 
 Linux est indolore mais sans destinataire ; il suivra macOS si l'occasion se présente.
 
+Le mode PyInstaller retenu pour cette cible Windows est `--onedir`, détaillé en Notes complémentaires : mesuré plus rapide au démarrage et moins sujet aux faux positifs antivirus que `--onefile`.
+
 ---
 
 # 🔄 Conséquences

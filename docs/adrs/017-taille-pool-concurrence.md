@@ -123,4 +123,6 @@ Le sémaphore Bandcamp à 2 est adossé à une observation documentée dans les 
 
 Une piste pour supprimer la duplication, hors périmètre MVP : exposer les valeurs de concurrence dans une route de l'API (par exemple `/health` ou une route de capacités), que le client lirait au démarrage. Cela transformerait deux constantes dupliquées en un contrat explicite.
 
+Le téléchargement des pochettes a son propre pool, distinct de celui des requêtes API, sa taille fixée à **6**. Ce n'est pas une contrainte de sémaphore côté techno-scraper comme les valeurs ci-dessus : les CDN de pochettes ne sont pas concernés par `_MAX_CONCURRENCY`, c'est un calibrage libre.
+
 Le cache disque (cf. [ADR-013](013-cache-disque-jetable.md)) supprime la charge d'un re-run, mais ne change rien au premier passage sur un dossier neuf, qui est le cas dimensionnant.

@@ -34,14 +34,14 @@ import httpx2
 client = httpx2.AsyncClient(
     base_url=api_url,
     headers={"X-API-Key": api_key},
-    timeout=httpx2.Timeout(100.0),  # au-dessus du budget de 90 s de l'API
+    timeout=httpx2.Timeout(10.0, read=100.0),  # read au-dessus du budget de 90 s de l'API, le reste court (cf. httpx2.md § Timeouts)
 )
 ```
 
 ### Points Importants
 
 - **Clé absente et clé invalide rendent toutes deux `403`, jamais `401`.** Un `403` ne se retry pas : il remonte à l'utilisateur comme une clé à corriger dans les Settings
-- Une clé par utilisateur, l'API en accepte plusieurs (cf. [ADR-016](../adrs/016-multi-cles-techno-scraper.md))
+- **Une seule clé aujourd'hui** : [`core/security.py`](https://github.com/thibaud57/techno-scraper/blob/HEAD/src/technoscraper/core/security.py) compare contre `settings.api_key`, une valeur unique. Le passage à un jeu de clés nommées est acté ([ADR-016](../adrs/016-multi-cles-techno-scraper.md)) mais reste un chantier côté techno-scraper, pas encore livré ([techno-scraper#73](https://github.com/thibaud57/techno-scraper/issues/73))
 - `/openapi.json`, `/docs` et `/redoc` sont **désactivés en production** : la référence de contrat est le repo, pas une doc en ligne
 - Le sidecar est le seul composant à appeler l'API. L'URL est persistée côté Tauri dans le `store` mais transmise au sidecar par la commande `set_api_url` — la webview n'émet jamais de requête vers l'API
 
