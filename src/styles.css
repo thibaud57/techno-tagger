@@ -1,8 +1,8 @@
 /* Embarquee, aucun CDN : l'application doit s'afficher hors ligne. */
-@import '@fontsource-variable/inter/wght.css';
+@import "@fontsource-variable/inter/wght.css";
 
-@import 'tailwindcss';
-@plugin 'tailwindcss-primeui';
+@import "tailwindcss";
+@plugin "tailwindcss-primeui";
 
 /* Doit cibler exactement le darkModeSelector de providePrimeNG(), sinon PrimeNG
    est sombre pendant que les utilitaires Tailwind suivent le reglage systeme. */
@@ -12,5 +12,5 @@
    aux couleurs. Tailwind applique celle-ci par --default-font-family, sans
    regle sur body. */
 @theme {
-  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
 }

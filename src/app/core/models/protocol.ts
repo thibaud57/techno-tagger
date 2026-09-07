@@ -6,4 +6,4 @@
 // TODO: implement, commandes, evenements, et les trois champs d'etat d'un
 // morceau (state, resolution, failure_reason).
 
-export {};
+export {}

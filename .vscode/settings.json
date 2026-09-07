@@ -10,6 +10,10 @@
     "**/dist": true,
     "**/src-tauri/target": true,
     "**/.angular": true,
+    "**/coverage": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/.pytest_cache": true,
     "**/pnpm-lock.yaml": true,
     "**/uv.lock": true,
     "**/Cargo.lock": true
@@ -19,6 +23,10 @@
     "**/node_modules/**": true,
     "**/.venv/**": true,
     "**/src-tauri/target/**": true,
-    "**/.angular/**": true
+    "**/.angular/**": true,
+    "**/coverage/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.pytest_cache/**": true
   }
 }
