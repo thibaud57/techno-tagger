@@ -25,9 +25,9 @@ paths:
 - Déclarer un paquet `types-*` : toutes les dépendances du projet livrent un `py.typed`, `--install-types` n'a pas d'usage ici
 
 ## Gotchas
-- `strict` active `disallow_any_generics`, `disallow_subclassing_any`, `disallow_untyped_calls`, `disallow_untyped_defs`, `disallow_incomplete_defs`, `check_untyped_defs`, `disallow_untyped_decorators`, `warn_redundant_casts`, `warn_unused_ignores`, `warn_return_any`, `no_implicit_reexport`, `strict_equality` et `extra_checks` — savoir lesquels évite d'en réactiver un déjà couvert
+- `strict` active `disallow_any_generics`, `disallow_subclassing_any`, `disallow_untyped_calls`, `disallow_untyped_defs`, `disallow_incomplete_defs`, `check_untyped_defs`, `disallow_untyped_decorators`, `warn_redundant_casts`, `warn_unused_ignores`, `warn_return_any`, `no_implicit_reexport`, `strict_equality` et `extra_checks` : savoir lesquels évite d'en réactiver un déjà couvert
 - 2.0 : `--local-partial-types` devient le défaut, ce qui change l'inférence des variables assignées dans des portées différentes
-- 2.0 : `--strict-bytes` devient le défaut (PEP 688) — passer un `bytearray` ou un `memoryview` là où `bytes` est attendu ne passe plus, ce qui concerne le code des pochettes
+- 2.0 : `--strict-bytes` devient le défaut (PEP 688). Passer un `bytearray` ou un `memoryview` là où `bytes` est attendu ne passe plus, ce qui concerne le code des pochettes
 - 2.0 : `--allow-redefinition` prend le comportement de l'ancien `--allow-redefinition-new`, et `--python-version 3.9` est rejeté (cible minimale 3.10)
 - Une coroutine non attendue est inférée `Coroutine[Any, Any, T]` : c'est le type qui trahit un `await` oublié, et `strict` le signale
 - 2.0 introduit `--num-workers` pour paralléliser la vérification

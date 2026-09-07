@@ -10,7 +10,7 @@ paths:
 - En local, enchaîner `ruff check --select I --fix` puis `ruff format` : `--select I` restreint l'auto-fix aux seuls imports (pas un `--fix` généralisé sur tout le `select` global), le formateur ne les trie pas lui-même, et l'ordre inverse laisse du code corrigé mais mal formaté. La CI, elle, ne corrige rien : `just lint-sidecar` ne fait que vérifier (`ruff check .`, `ruff format --check .`)
 - Utiliser `per-file-ignores` pour les tests (`S101`) et les `__init__.py` (`F401`) plutôt que de désactiver une règle globalement
 - Bannir `asyncio.get_event_loop` et `sqlite3.version` dans `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, avec un message renvoyant au remplaçant : Python 3.14 les rejette, et la garantie passe par la CI plutôt que par la mémoire
-- Épingler la version de Ruff en CI comme en pre-commit, et laisser Renovate proposer la montée
+- Épingler la version de Ruff en CI comme en pre-commit, et laisser Dependabot proposer la montée
 - Cadrer une montée de version par `ruff check --statistics` avant de regarder le diff
 - Produire des annotations natives en CI par `--output-format github`, et interdire le `--fix` implicite par `--exit-non-zero-on-fix`
 

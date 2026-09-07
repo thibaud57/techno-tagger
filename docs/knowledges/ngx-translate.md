@@ -227,5 +227,5 @@ Un fichier JSON par langue, chargé en HTTP par le loader. Structure imbriquée 
 
 ## Ressources Complémentaires
 
-- [ADR-004 — i18n par ngx-translate](../adrs/004-i18n-ngx-translate.md)
-- [Tauri — plugin OS (locale)](https://v2.tauri.app/plugin/os-info/)
+- [ADR-004 : i18n par ngx-translate](../adrs/004-i18n-ngx-translate.md)
+- [Tauri : plugin OS (locale)](https://v2.tauri.app/plugin/os-info/)

@@ -26,6 +26,17 @@ TypeScript 6 est la dernière version bâtie sur le code JavaScript historique, 
 
 `@angular/compiler-cli` et `typescript-eslint` consomment tous deux l'API de compilation programmatique de TypeScript, pour transformer des AST. Cette API n'existe pas encore de façon stable sur le nouveau cœur natif Go (`tsgo`) de TypeScript 7.
 
+### Exemple
+
+```json
+// package.json (racine du frontend)
+{
+  "devDependencies": {
+    "typescript": "~6.0.0"   // patches uniquement, jamais 6.1.x tant qu'Angular ne suit pas
+  }
+}
+```
+
 ### Points Importants
 
 - **Installer TypeScript 7 casse le compilateur Angular**, avec des incompatibilités sur les entrées du `compiler-cli`. Ce n'est pas un avertissement de compatibilité, c'est un échec de build
@@ -190,7 +201,7 @@ pnpm exec tsc --watch            # recompile en continu
 
 ## ✅ Recommandations
 
-- **Épingler TypeScript dans la plage exigée par Angular** et laisser Renovate proposer les patchs sans franchir la borne
+- **Épingler TypeScript dans la plage exigée par Angular** et refuser la majeure que Dependabot proposera tant que la borne tient
 - **Modéliser tout le contrat NDJSON en unions discriminées** avec une branche `never` d'exhaustivité
 - **Typer les entrées externes en `unknown`** puis les faire passer par un type guard
 - **Garder un job `tsc --noEmit` en CI**, distinct du build et des tests
@@ -218,5 +229,5 @@ pnpm exec tsc --watch            # recompile en continu
 
 ## Ressources Complémentaires
 
-- [VERSIONS.md](../VERSIONS.md) — contrainte de version et conflits potentiels
-- [angular-eslint.md](angular-eslint.md) — typed linting et `projectService`
+- [VERSIONS.md](../VERSIONS.md) : contrainte de version et conflits potentiels
+- [angular-eslint.md](angular-eslint.md) : typed linting et `projectService`

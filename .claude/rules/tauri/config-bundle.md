@@ -1,6 +1,7 @@
 ---
 paths:
   - "src-tauri/tauri.conf.json"
+  - "src-tauri/installer-hooks.nsh"
 ---
 
 # Tauri — Asset protocol, updater & fenêtre
@@ -30,7 +31,7 @@ paths:
 - La taille de fenêtre n'est pas mémorisée entre deux lancements : un agrandissement est perdu à la fermeture, le plugin `window-state` corrigerait ça mais n'est pas retenu au MVP
 - Le manifeste de l'updater n'exige que `version`, `platforms.<target>.url` et `platforms.<target>.signature` ; `notes` et `pub_date` sont optionnels
 - `bundle.createUpdaterArtifacts` doit être actif pour que le build produise les artefacts signés attendus par le manifeste, mais **le laisser actif avant d'avoir la paire de clés** fait échouer ou produire des artefacts inutilisables au premier build de release : il reste à `false` tant que `plugins.updater.pubkey` et `TAURI_SIGNING_PRIVATE_KEY` ne sont pas posés
-- Tauri n'injecte de nonce que sur les balises portant ses jetons `__TAURI_STYLE_NONCE__` / `__TAURI_SCRIPT_NONCE__`, absents d'un build Angular, et ne calcule de hash CSP que pour les fichiers `.js` / `.mjs` — jamais pour les styles. Un `<style>` inline d'un frontend tiers est donc bloqué net, et un `onload=` d'attribut ne peut être débloqué par aucun réglage : c'est le critical CSS d'Angular qu'il faut désactiver (`optimization.styles.inlineCritical: false`)
+- Tauri n'injecte de nonce que sur les balises portant ses jetons `__TAURI_STYLE_NONCE__` / `__TAURI_SCRIPT_NONCE__`, absents d'un build Angular, et ne calcule de hash CSP que pour les fichiers `.js` / `.mjs` : jamais pour les styles. Un `<style>` inline d'un frontend tiers est donc bloqué net, et un `onload=` d'attribut ne peut être débloqué par aucun réglage : c'est le critical CSS d'Angular qu'il faut désactiver (`optimization.styles.inlineCritical: false`)
 - Le MSI (WiX) ne peut être produit que sur Windows, là où NSIS se cross-compile : sans usage immédiat au MVP, mais c'est ce qui fait pencher le choix
 
 ## Exemples

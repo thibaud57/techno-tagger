@@ -1,10 +1,10 @@
-import { ApplicationConfig, ErrorHandler, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
-import Aura from '@primeuix/themes/aura';
-import * as Sentry from '@sentry/angular';
-import { providePrimeNG } from 'primeng/config';
+import { ApplicationConfig, ErrorHandler, provideBrowserGlobalErrorListeners } from "@angular/core"
+import { provideRouter, withComponentInputBinding } from "@angular/router"
+import Aura from "@primeuix/themes/aura"
+import * as Sentry from "@sentry/angular"
+import { providePrimeNG } from "primeng/config"
 
-import { routes } from './app.routes';
+import { routes } from "./app.routes"
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -16,9 +16,9 @@ export const appConfig: ApplicationConfig = {
         preset: Aura,
         options: {
           // Doit rester identique au @custom-variant dark de styles.css
-          darkModeSelector: '.app-dark',
+          darkModeSelector: ".app-dark",
           // Laisse les utilitaires Tailwind gagner sur les styles de composant
-          cssLayer: { name: 'primeng', order: 'theme, base, primeng' },
+          cssLayer: { name: "primeng", order: "theme, base, primeng" },
         },
       },
       // Substituee au build par `--define` (cf. build-constants.d.ts), jamais
@@ -26,4 +26,4 @@ export const appConfig: ApplicationConfig = {
       license: PRIMENG_LICENSE_KEY,
     }),
   ],
-};
+}

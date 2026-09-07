@@ -84,7 +84,7 @@ Le tooltip se pose sur `--p-surface-700`, soit deux crans au-dessus du panneau. 
 | `--p-tooltip-padding` | `0.375rem 0.625rem` |
 | `--p-tooltip-border-radius` | `--p-border-radius-md` (6px) |
 | `--p-tooltip-max-width` | `12.5rem` |
-| `--tt-tooltip-max-width-wide` | `26rem` |
+| `--tt-tooltip-max-width-wide` | `26rem`, réservé : posé dans le CSS global avec le tooltip de colonne |
 | `--p-tooltip-gutter` | `0.25rem` |
 | `--p-tooltip-shadow` | = `--p-overlay-popover-shadow` |
 
@@ -212,15 +212,27 @@ providePrimeNG({
 
 ## Mapping Composants
 
-Une ligne par usage réel de l'application. Les features référencées sont celles de [ARCHITECTURE.md § Flux Fonctionnels](ARCHITECTURE.md#flux-fonctionnels-use-cases-critiques).
+Une ligne par usage de l'application, par famille. L'interface s'écrit à partir de l'étape 5 de l'ordre de développement : ce mapping la précède et la contraint. Les features référencées sont celles de [ARCHITECTURE.md § Flux Fonctionnels](ARCHITECTURE.md#flux-fonctionnels-use-cases-critiques).
 
-| Catégorie | Composant | Notes |
-|-----------|-----------|-------|
+### Navigation
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
 | Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG v22 ne fournit aucun mode router, et `p-tabMenu` a été supprimé. L'onglet actif se dérive de l'URL, la navigation se déclenche au changement de valeur |
+
+### Playlist et fichiers
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
 | Sélection de dossier / de fichier | `p-button` (outlined) + plugin `dialog` de Tauri | Le chemin retenu s'affiche à côté en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
 | Playlist détectée | Logo VLC (SVG) ou `pi-file` | Le logo signale un dump VLC reconnu. Un M3U8 tombe sur l'icône générique, le logiciel qui l'a exporté étant inconnu |
 | Sélecteur de playlist (dump VLC) | `p-select` | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
 | Mode copie / déplacement | `p-selectbutton` | Deux options, copie par défaut |
+
+### Liste du run
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
 | Liste des morceaux d'un run | `p-table` en `[size]="'small'"`, `[scrollable]`, `[virtualScroll]`, `[virtualScrollItemSize]` | Six colonnes (cf. § Layout), 100 lignes |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
 | État d'un morceau | `p-tag` | Familles du § Couleurs Sémantiques |
@@ -228,27 +240,53 @@ Une ligne par usage réel de l'application. Les features référencées sont cel
 | Détail avant / après | `[expandedRowKeys]` + `<ng-template #expandedrow>` | Comparaison champ par champ, pochette en grand, sur le morceau déplié |
 | Texte tronqué d'une colonne fluide | `pTooltip` | Avant et Après sont fluides et tronquent en permanence, et ce sont exactement les deux chaînes que l'utilisateur compare. Jamais seul porteur d'une information, cf. § Tokens de Tooltip |
 | Progression d'une phase | `p-progressbar` + compteur | Alimentée par l'événement `progress` du sidecar |
+| Chargement | `p-skeleton` | Lignes de table en attente du premier événement |
+
+### Arbitrage
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
 | Modale d'arbitrage | `p-dialog` modal, largeur et hauteur figées | S'ouvre dès qu'un morceau entre en zone grise et qu'aucune autre n'est ouverte. Dimensions fixes, cf. § Layout |
 | Candidats en zone grise | `p-listbox` à hauteur fixe, scroll interne | Sélection simple, scores en `text-xs` par ligne. La liste Bandcamp remplace celle de Beatport dans la même fenêtre après un refus, sans que rien ne se déplace |
 | Navigation entre arbitrages | `p-button` icon (`pi-chevron-left` / `pi-chevron-right`) + `p-badge` | Compteur du type 1/3, la file se réduisant au fil des décisions |
 | Refus explicite | `p-button` `severity="secondary"` outlined | Action distincte de la fermeture de la modale, qui ne décide rien |
 | Rattrapage par URL | `p-inputgroup` + `input pInputText` + `p-button` | Une ligne par morceau non résolu, validation de l'hôte avant envoi |
+
+### Écriture et récapitulatif
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
 | Confirmation globale de l'écriture | `p-confirmdialog`, bouton `danger` | Le point de non-retour du run : seule modale dont le bouton principal est destructif |
 | Récapitulatif filtrable | `p-table` + `p-selectbutton` + `p-iconfield` | Filtres tout / validés / arbitrés / échecs, plus une recherche texte. « Échecs » lit `state`, les deux autres `resolution` (cf. § Conventions de Code) |
 | Relance de l'écriture en échec | `p-button` `severity="danger"` outlined + `p-confirmdialog` | Dans le récapitulatif, actif seulement s'il reste des `write_error`. Rejoue l'écriture sur ces seuls fichiers, sans refaire ni la phase réseau ni les arbitrages. Destructif comme la confirmation globale, donc même traitement |
 | Reprise d'un run interrompu | `p-dialog` au démarrage | Deux actions : reprendre, repartir de zéro |
-| Sidecar absent ou en quarantaine | `p-message` `severity="error"` plein écran | Écran bloquant, pas une modale : rien d'autre n'est utilisable tant que le binaire manque |
+| Rollback | `p-button` `severity="danger"` outlined + `p-confirmdialog` | Par run ou par morceau |
+| Envoi du rapport | `p-button` `severity="secondary"` | Geste explicite, seul endroit d'où des titres quittent la machine |
+
+### Settings
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
 | Clé API | `p-password` (`[feedback]="false"`, `[toggleMask]="true"`) | Jamais préremplie, jamais relue depuis le keyring vers la webview |
 | URL de l'API | `input pInputText` | Champ ordinaire, pas un secret : l'URL est publique et déjà présente en clair dans le binaire. Persistée dans le `store`, contrairement à la clé |
 | Seuils de matching | `p-slider` lié à un `p-inputnumber` | Plancher et seuil haut, valeurs de départ 70 et 90 |
 | Langue | `p-select` | FR / EN, force la locale détectée au premier lancement |
-| Bascules des Settings | `p-toggleswitch` | Signal sonore, copie par défaut, mode agent IA (Post-MVP) |
+| Bascules des Settings | `p-toggleswitch` | Signal sonore, copie par défaut |
 | Actions d'administration | `p-button` `severity="secondary"` outlined | Vider le cache, ouvrir le dossier de logs |
-| Rollback | `p-button` `severity="danger"` outlined + `p-confirmdialog` | Par run ou par morceau |
+
+### Feedback
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
+| Sidecar absent ou en quarantaine | `p-message` `severity="error"` plein écran | Écran bloquant, pas une modale : rien d'autre n'est utilisable tant que le binaire manque |
 | Notifications non bloquantes | `p-toast` | Fin de phase, cache vidé, clé enregistrée |
 | Erreurs contextuelles | `p-message` inline | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue |
-| Chargement | `p-skeleton` | Lignes de table en attente du premier événement |
-| Envoi du rapport | `p-button` `severity="secondary"` | Geste explicite, seul endroit d'où des titres quittent la machine |
+
+### Post-MVP
+
+| Usage | Composant | Notes |
+|-------|-----------|-------|
+| Bascule du mode agent IA | `p-toggleswitch` dans les Settings | Arrive avec l'agent d'arbitrage, cf. [ARCHITECTURE.md § Évolutions Futures](ARCHITECTURE.md#-évolutions-futures-post-mvp) |
 
 > `pInputText` et `pTooltip` sont des **directives** posées sur un élément existant, pas des composants `<p-inputtext>` ou `<p-tooltip>`.
 
@@ -258,14 +296,14 @@ Quatre wrappers, écrits une fois pour que ce qu'ils encapsulent ne soit pas rec
 
 | Composant | Base | Rôle |
 |-----------|------|------|
-| `IconComponent` | `@primeicons/angular` | Nom d'icône et token de taille en props. Les icônes étant rendues en SVG inline, la taille se pose en `width` / `height` et non en `font-size` : sans ce wrapper, les trois tailles 16 / 20 / 24 se recopient à la main partout |
+| `IconComponent` | `@primeicons/angular` | Nom d'icône et token de taille en props. Le nom est une union littérale des icônes utilisées, jamais `string` : un nom ouvert imposerait un registre des 359 icônes de la 8.0.0 et casserait le tree-shaking. Un import et un `@case` par icône, plus un test qui parcourt la liste, Angular ne vérifiant pas l'exhaustivité d'un `@switch`. Les icônes étant rendues en SVG inline, la taille se pose en `width` / `height` et non en `font-size` : sans ce wrapper, les trois tailles 16 / 20 / 24 se recopient à la main partout |
 | `SourceLogoComponent` | SVG Simple Icons | Les quatre logos en `currentColor`, même jeu de trois tailles |
 | `StateTagComponent` | `p-tag` | Porte le mapping `state` / `resolution` / `failure_reason` → famille, icône, libellé. Entièrement spécifié au § Couleurs Sémantiques : l'encoder une fois évite qu'il soit re-dérivé, de travers, écran par écran |
 | `EmptyStateComponent` | — | Le bloc vide décrit au § États des Composants. PrimeNG n'a pas d'équivalent, il s'écrit from scratch |
 
 ## États des Composants
 
-> Les composants PrimeNG portent déjà leurs états (hover, focus, disabled, invalid) via le preset. Ce tableau ne couvre que les éléments **custom** écrits from scratch.
+> Les composants PrimeNG portent déjà leurs états (hover, focus, disabled, invalid) via le preset. Ce tableau ne couvre que les éléments **custom** écrits from scratch, plus `p-badge`, dont les tailles sont une décision projet (§ Tailles de Badge).
 
 | État | Style / Comportement | Notes |
 |------|---------------------|-------|
@@ -278,7 +316,7 @@ Quatre wrappers, écrits une fois pour que ce qu'ils encapsulent ne soit pas rec
 
 ### Tailles de Badge
 
-Deux tailles, celle par défaut (20px, aucune prop `size`) et `large` (24px, `size="large"`). Pas de `small` : le badge n'a qu'un usage réel dans le produit, le compteur de la file d'arbitrage, et rien n'y demande moins de 20px. Vérifié dans le composant `p-badge` : `size="small"` map sur `p-badge-sm` (18px), `size="large"` sur `p-badge-lg` (24px), et l'absence de `size` reste sur le token racine (20px) — ni `small` ni `xlarge` n'ont d'usage ici.
+Deux tailles, celle par défaut (20px, aucune prop `size`) et `large` (24px, `size="large"`). Pas de `small` : le badge n'a qu'un usage réel dans le produit, le compteur de la file d'arbitrage, et rien n'y demande moins de 20px. Vérifié dans le composant `p-badge` : `size="small"` map sur `p-badge-sm` (18px), `size="large"` sur `p-badge-lg` (24px), et l'absence de `size` reste sur le token racine (20px). Ni `small` ni `xlarge` n'ont d'usage ici.
 
 La taille s'apparie à celle des éléments de la même rangée, pas à une préférence : défaut à côté de boutons `small`, `large` à côté de boutons `normal`. Dans le footer d'arbitrage, le compteur est encadré de boutons `small`, il reste donc en taille par défaut. Un badge plus court que ce qui l'entoure sur une même ligne est un défaut, pas une variante.
 
@@ -339,7 +377,7 @@ C'est le seul `!important` toléré du projet (cf. § Anti-Patterns) : il ne cor
 
 ## Composants Animés
 
-> Les transitions des composants PrimeNG (Dialog, Toast, Tabs, ProgressBar, Skeleton) sont intégrées et ne sont pas reprises ici. Ce tableau ne couvre que les éléments custom.
+> Les transitions des composants PrimeNG (Dialog, Toast, Tabs, ProgressBar, Skeleton) sont intégrées et ne sont pas reprises ici. Ce tableau ne couvre que les éléments custom, plus la modale d'arbitrage, dont l'absence d'animation est une décision projet.
 
 | Composant | Type d'animation | Mécanisme | Trigger |
 |-----------|-----------------|-----------|---------|
@@ -381,7 +419,7 @@ Les colonnes **Avant** et **Après** portent chacune un artiste plus un titre, s
 | Avant | **fluide** | Artiste et titre lus dans le fichier, avec le **nom du fichier en sous-texte** `text-xs text-muted-color`. Quand les tags sont vides, le nom de fichier nettoyé passe en ligne principale |
 | Après | **fluide** | Ce que la source retenue va écrire |
 | Source | 116px | Logo 16px + libellé, Beatport / Bandcamp / SoundCloud. Mesurée sur « SoundCloud » plus son logo, son gap et le padding de cellule |
-| Score | 92px | Moyenne des deux scores en ligne principale, `A 96 · T 92` en `text-xs` dessous |
+| Score | 92px | Moyenne des deux scores en ligne principale, `A 96 · T 92` en `text-xs` dessous. Dimensionnée sur `A 100 · T 100`, le plus large des sous-textes, plus le padding de cellule |
 | État | 124px | `p-tag`, cf. § Couleurs Sémantiques. Dimensionnée sur « Échec d'écriture » plus son glyphe, le plus long des cinq libellés, et à revérifier en anglais |
 
 Les trois colonnes fixes tiennent sur leur contenu le plus large et pas un pixel de plus : ce qui leur est repris va aux deux colonnes qu'on compare vraiment. Une colonne fixe surdimensionnée est de la largeur volée à la comparaison.
@@ -449,22 +487,22 @@ Le jeu de six colonnes tient à 1024px, le plancher de la fenêtre. Aucune colon
 
 ## Documentation Officielle
 
-- [PrimeNG — Theming](https://primeng.dev/theming) : design tokens, `definePreset()`, `darkModeSelector`, tokens scopés `[dt]`
-- [PrimeNG — Configuration](https://primeng.dev/configuration) : `providePrimeNG()`, licence, ripple (désactivé par défaut)
-- [PrimeNG — Tailwind CSS](https://primeng.dev/tailwind) : installation, liste des classes issues des tokens, utilitaires d'animation, dark mode
-- [PrimeNG — PassThrough](https://primeng.dev/passthrough) : API `[pt]`, locale et globale
-- [PrimeNG — Table](https://primeng.dev/table) : `size`, scroll virtuel, `expandedRowKeys`
-- [PrimeNG — Migration v21](https://primeng.dev/migration/v21) : passage aux animations CSS natives
-- [Tailwind CSS — Dark mode](https://tailwindcss.com/docs/dark-mode) : `@custom-variant`
-- [PrimeIcons](https://primeicons.dev) : 358 icônes, catégories, recherche
-- [Angular — Enter and Leave animations](https://angular.dev/guide/animations) : `animate.enter` / `animate.leave`
-- [Angular — Migrating to Native CSS Animations](https://angular.dev/guide/animations/migration) : sortie de `@angular/animations`
+- [PrimeNG : Theming](https://primeng.dev/theming) : design tokens, `definePreset()`, `darkModeSelector`, tokens scopés `[dt]`
+- [PrimeNG : Configuration](https://primeng.dev/configuration) : `providePrimeNG()`, licence, ripple (désactivé par défaut)
+- [PrimeNG : Tailwind CSS](https://primeng.dev/tailwind) : installation, liste des classes issues des tokens, utilitaires d'animation, dark mode
+- [PrimeNG : PassThrough](https://primeng.dev/passthrough) : API `[pt]`, locale et globale
+- [PrimeNG : Table](https://primeng.dev/table) : `size`, scroll virtuel, `expandedRowKeys`
+- [PrimeNG : Migration v21](https://primeng.dev/migration/v21) : passage aux animations CSS natives
+- [Tailwind CSS : Dark mode](https://tailwindcss.com/docs/dark-mode) : `@custom-variant`
+- [PrimeIcons](https://primeicons.dev) : catalogue, catégories, recherche
+- [Angular : Enter and Leave animations](https://angular.dev/guide/animations) : `animate.enter` / `animate.leave`
+- [Angular : Migrating to Native CSS Animations](https://angular.dev/guide/animations/migration) : sortie de `@angular/animations`
 - [Simple Icons](https://simpleicons.org) : logos Beatport, Bandcamp, SoundCloud, VLC media player
-- [Fontsource — Inter](https://fontsource.org/fonts/inter) : paquet `@fontsource-variable/inter`, axes et poids
+- [Fontsource : Inter](https://fontsource.org/fonts/inter) : paquet `@fontsource-variable/inter`, axes et poids
 
 ## Ressources Complémentaires
 
-- [Preset Aura — source](https://github.com/primefaces/primeuix/blob/main/packages/themes/src/presets/aura/base/index.ts) : valeurs exactes des primitives et des tokens sémantiques
+- [Preset Aura : source](https://github.com/primefaces/primeuix/blob/main/packages/themes/src/presets/aura/base/index.ts) : valeurs exactes des primitives et des tokens sémantiques
 - [primeng#17946](https://github.com/primefaces/primeng/issues/17946) et [tailwindcss-primeui#27](https://github.com/primefaces/tailwindcss-primeui/issues/27) : l'incompatibilité SCSS de Tailwind v4
 - [ARCHITECTURE.md](ARCHITECTURE.md) : stack, écrans, contrat NDJSON et modes de panne à couvrir visuellement
 - [ADR-003](adrs/003-primeng-community-license.md) : PrimeNG sous Community License, preset Aura, `definePreset()` comme seule voie de personnalisation **du thème**, le Theme Designer n'étant pas inclus

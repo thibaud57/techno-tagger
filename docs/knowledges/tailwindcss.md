@@ -169,7 +169,7 @@ Expose les design tokens du preset PrimeNG en classes utilitaires : `bg-primary`
 
 ## Documentation Officielle
 
-- [Tailwind CSS v4 — annonce](https://tailwindcss.com/blog/tailwindcss-v4)
+- [Tailwind CSS v4 : annonce](https://tailwindcss.com/blog/tailwindcss-v4)
 - [Guide d'installation Angular](https://tailwindcss.com/docs/installation/framework-guides/angular)
 - [Dark Mode](https://tailwindcss.com/docs/dark-mode)
 - [Functions and Directives](https://tailwindcss.com/docs/functions-and-directives)
@@ -180,5 +180,5 @@ Expose les design tokens du preset PrimeNG en classes utilitaires : `bg-primary`
 - [tailwindcss-primeui](https://github.com/primefaces/tailwindcss-primeui)
 - [PrimeNG × Tailwind](https://primeng.dev/tailwind)
 - [prettier-plugin-tailwindcss](https://github.com/tailwindlabs/prettier-plugin-tailwindcss)
-- [primeng.md](primeng.md) — `darkModeSelector` et design tokens
-- [DESIGN.md](../DESIGN.md) — tokens et layout du projet
+- [primeng.md](primeng.md) : `darkModeSelector` et design tokens
+- [DESIGN.md](../DESIGN.md) : tokens et layout du projet

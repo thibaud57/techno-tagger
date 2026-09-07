@@ -165,10 +165,10 @@ _Non relevé._ Aucun dump n'a été capturé comme fixture à ce jour.
 
 ## Documentation Officielle
 
-- [VLC pour Android](https://www.videolan.org/vlc/download-android.html) — aucune spécification du schéma de `vlc_media.db` n'est publiée
+- [VLC pour Android](https://www.videolan.org/vlc/download-android.html) : aucune spécification du schéma de `vlc_media.db` n'est publiée
 
 ## Ressources Complémentaires
 
-- [ADR-019 — Lecture du dump VLC](../adrs/019-resilience-schema-vlc-media-db.md)
-- [ADR-020 — Doublons de noms de fichiers](../adrs/020-doublons-noms-de-fichiers.md)
-- [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) — CLI d'origine, source de la requête SQL
+- [ADR-019 : Lecture du dump VLC](../adrs/019-resilience-schema-vlc-media-db.md)
+- [ADR-020 : Doublons de noms de fichiers](../adrs/020-doublons-noms-de-fichiers.md)
+- [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : CLI d'origine, source de la requête SQL

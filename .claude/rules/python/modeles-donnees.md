@@ -18,11 +18,11 @@ paths:
 - Aplatir l'état d'un morceau en une seule valeur : trois champs distincts et non interchangeables (cf. [ARCHITECTURE.md § API](../../../docs/ARCHITECTURE.md#api))
 - Une dataclass pour un modèle du protocole : rien n'est validé à la construction, une charge malformée passe
 - `TypedDict` pour une entrée externe : à l'exécution ce n'est qu'un `dict`, sans validation
-- Un attribut de classe mutable — partagé par toutes les instances
+- Un attribut de classe mutable : partagé par toutes les instances
 - Définir `__eq__` sans redéfinir `__hash__` : l'objet devient non hashable
 
 ## Gotchas
-- 3.11+ : `str()` et `format()` d'un `StrEnum` / `IntEnum` rendent la valeur primitive, plus `NomEnum.MEMBRE` — un test qui parsait l'ancien format casse
+- 3.11+ : `str()` et `format()` d'un `StrEnum` / `IntEnum` rendent la valeur primitive, plus `NomEnum.MEMBRE` : un test qui parsait l'ancien format casse
 - Un `StrEnum` se sérialise tel quel, par `json.dumps` comme par `model_dump_json()`
 - `@dataclass(slots=True)` recrée la classe : une référence capturée avant le décorateur ne pointe pas sur la classe finale
 - `@dataclass` et `NamedTuple` génèrent `__match_args__`, dont dépendent les patterns positionnels (cf. [pattern-matching.md](pattern-matching.md))

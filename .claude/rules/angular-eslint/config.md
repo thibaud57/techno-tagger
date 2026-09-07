@@ -10,7 +10,8 @@ paths:
 - Écrire une flat config à deux blocs, TypeScript puis HTML dans cet ordre
 - Poser `processor: angular.processInlineTemplates` sur le bloc TypeScript, sans quoi les templates inline échappent aux règles HTML et le composant passe le lint sans que son template soit vérifié
 - Étendre `angular.configs.templateRecommended` **et** `angular.configs.templateAccessibility` : les règles d'accessibilité ne sont pas dans le preset recommandé
-- Activer le typed linting par `parserOptions.projectService: true`, qui remplace `project: true` depuis typescript-eslint v8
+- Activer le typed linting par `parserOptions.projectService: true`, qui remplace `project: true` depuis typescript-eslint v8, **et** étendre `tseslint.configs.strictTypeChecked` plus `stylisticTypeChecked` : `projectService` seul ne fait qu'ouvrir l'accès aux types, les presets `recommended` et `stylistic` n'en lisent aucun
+- Régler `@typescript-eslint/no-extraneous-class` avec `allowWithDecorator: true` : un composant sans logique est une classe vide décorée, ce que le preset strict interdit par défaut
 - Ancrer `tsconfigRootDir` explicitement : `src/`, `src-tauri/` et `sidecar/` cohabitent, un mauvais ancrage résout le mauvais tsconfig
 - Fixer les préfixes par `component-selector` et `directive-selector`, alignés sur le CLI
 - Placer `eslint-config-prettier/flat` en dernier : il désactive, donc tout bloc placé après le rétablirait

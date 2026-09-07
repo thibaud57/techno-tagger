@@ -48,6 +48,17 @@ warn_unreachable = true   # NON inclus par strict
 
 La ligne 2.x change plusieurs comportements par défaut. Un projet monté depuis la 1.x voit apparaître des erreurs sur du code inchangé.
 
+### Exemple
+
+```python
+def write_cover_art(buf: bytes) -> None: ...
+
+frame = memoryview(b"\xff\xd8\xff\xe0")
+write_cover_art(frame)
+# error: Argument 1 to "write_cover_art" has incompatible type "memoryview"; expected "bytes"
+# --strict-bytes est le défaut depuis Mypy 2.0 (PEP 688)
+```
+
 ### Points Importants
 
 - **`--local-partial-types` est devenu le défaut** : l'inférence change pour les variables assignées dans des portées différentes
@@ -88,6 +99,19 @@ async def fetch_track(client: httpx2.AsyncClient, track_id: str) -> Track:
 ### Description
 
 Un paquet qui livre un marqueur `py.typed` expose ses annotations. Toutes celles du projet le font.
+
+### Exemple
+
+```toml
+[tool.mypy]
+plugins = ["pydantic.mypy"]   # améliore le typage des modèles du contrat NDJSON
+
+# si une dépendance perdait un jour son py.typed, cibler l'override
+# plutôt que de désactiver ignore_missing_imports globalement
+[[tool.mypy.overrides]]
+module = "un_paquet_sans_py_typed.*"
+ignore_missing_imports = true
+```
 
 ### Points Importants
 
@@ -158,4 +182,4 @@ uv run mypy --cache-dir=.mypy_cache src    # emplacement explicite du cache
 ## Ressources Complémentaires
 
 - [Plugin Mypy de Pydantic](https://docs.pydantic.dev/latest/integrations/mypy/)
-- [ruff.md](ruff.md) — répartition des responsabilités
+- [ruff.md](ruff.md) : répartition des responsabilités

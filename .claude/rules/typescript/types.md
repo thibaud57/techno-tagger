@@ -31,7 +31,7 @@ paths:
 - Défauts de la 6 : `strict: true`, `module: "esnext"`, `target: "es2025"`, `types: []` et `noUncheckedSideEffectImports: true`. Un type global qui « disparaît » après montée de version vient de `types: []`
 - `alwaysStrict: false`, `esModuleInterop: false` et `allowSyntheticDefaultImports: false` ne sont plus acceptés ; `--target es5`, `--module amd/umd/systemjs`, `--moduleResolution classic/node10`, `--outFile` et `--downlevelIteration` sont supprimés ou dépréciés
 - Le mot-clé d'import assertions `assert` est remplacé par `with`, et les namespaces en syntaxe `module Foo {}` ne sont plus supportés
-- La version est épinglée au tilde pour rester sous la borne, et Renovate ne propose que les patchs (cf. [VERSIONS.md](../../../docs/VERSIONS.md))
+- La version est épinglée au tilde pour rester sous la borne, et Dependabot proposera la majeure en PR séparée, à refuser tant que la borne tient (cf. [VERSIONS.md](../../../docs/VERSIONS.md))
 
 ## Exemples
 ```typescript

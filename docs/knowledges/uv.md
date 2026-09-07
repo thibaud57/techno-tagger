@@ -5,7 +5,7 @@ description: "Référence technique pour uv : projet et dependency groups, lockf
 date: "2026-08-29"
 keywords: ["uv", "python", "lockfile", "pep-735", "pyproject", "ci"]
 scope: ["docs"]
-technologies: ["Python", "PyInstaller", "GitHub Actions", "Renovate"]
+technologies: ["Python", "PyInstaller", "GitHub Actions", "Dependabot"]
 ---
 
 # Description
@@ -57,6 +57,14 @@ build = ["pyinstaller", "pyinstaller-hooks-contrib"]
 
 Le lockfile fige la résolution complète. Son format est couvert par la politique de versionnement d'uv.
 
+### Exemple
+
+```yaml
+- uses: astral-sh/setup-uv@v7
+  with:
+    version: "0.12.7"   # patch exact : la compatibilité du lock n'est garantie qu'au sein d'une mineure
+```
+
 ### Points Importants
 
 - **Un lockfile ne peut être rejeté qu'entre versions mineures** d'uv : `0.12.0` à `0.12.7` sont interchangeables de ce point de vue
@@ -81,7 +89,7 @@ uv sync --locked                  # échoue si le lock devrait être mis à jour
 
 ### Points Importants
 
-- **`--frozen` installe le lock tel quel** : aucun accès réseau de résolution, mais aucune vérification que ce lock correspond encore au `pyproject.toml` — la reproductibilité qu'il offre suppose un lock déjà à jour, condition que lui-même ne contrôle pas
+- **`--frozen` installe le lock tel quel** : aucun accès réseau de résolution, mais aucune vérification que ce lock correspond encore au `pyproject.toml`. La reproductibilité qu'il offre suppose un lock déjà à jour, condition que lui-même ne contrôle pas
 - **`--locked` échoue explicitement** quand le lock a divergé : préférable quand on veut détecter une dérive plutôt que la subir
 - Sans l'un des deux, un `pyproject.toml` modifié sans `uv lock` produit un environnement différent de celui des autres machines
 - `--all-groups` inclut `build`, nécessaire au job qui empaquette le sidecar
@@ -212,10 +220,9 @@ uv build                            # sdist + wheel dans dist/
 - [Politique de versionnement](https://docs.astral.sh/uv/reference/policies/versioning/)
 - [Sync et lock](https://docs.astral.sh/uv/concepts/projects/sync/) · [Dépendances](https://docs.astral.sh/uv/concepts/projects/dependencies/)
 - [Versions de Python](https://docs.astral.sh/uv/concepts/python-versions/)
-- [Intégration GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/) · [Intégration Renovate](https://docs.astral.sh/uv/guides/integration/renovate/)
-
+- [Intégration GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/)
 ## Ressources Complémentaires
 
 - [astral-sh/setup-uv](https://github.com/astral-sh/setup-uv)
-- [pyinstaller.md](pyinstaller.md) — build du sidecar via `uv run`
-- [VERSIONS.md](../VERSIONS.md) — versions épinglées du projet
+- [pyinstaller.md](pyinstaller.md) : build du sidecar via `uv run`
+- [VERSIONS.md](../VERSIONS.md) : versions épinglées du projet
