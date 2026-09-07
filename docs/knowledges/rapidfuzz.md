@@ -38,7 +38,7 @@ def artist_score(query: str, candidate: str) -> float:
 
 - **`ratio`** : similarité caractère par caractère, sensible à l'ordre. Le défaut quand la requête est déjà propre
 - **`token_sort_ratio`** : trie les mots avant de comparer, donc insensible à l'ordre. C'est ce qu'il faut quand plusieurs artistes sont listés dans un ordre différent selon la source
-- **`token_set_ratio`** : compare les ensembles de tokens et rend 100 si l'un est inclus dans l'autre. Le plus tolérant, donc le plus générateur de faux positifs — à ne pas utiliser seul comme critère d'auto-validation
+- **`token_set_ratio`** : compare les ensembles de tokens et rend 100 si l'un est inclus dans l'autre. Le plus tolérant, donc le plus générateur de faux positifs : à ne pas utiliser seul comme critère d'auto-validation
 - `WRatio` est le scorer par défaut de `process.extract` : il combine plusieurs ratios avec pondération, pratique mais moins prévisible qu'un choix explicite
 - **Un candidat sans mention de remix est écarté quand la requête en contient une** : cette règle est en amont du scoring, pas dedans
 
@@ -146,7 +146,7 @@ hiddenimports = [*collect_submodules("rapidfuzz")]
 
 ### Points Importants
 
-- **Aucun hook ne couvre rapidfuzz**, ni côté PyInstaller ni côté `pyinstaller-hooks-contrib` (absent de `stdhooks/`) : son entry point `pyinstaller40` s'appelle `tests` (`rapidfuzz.__pyinstaller:get_PyInstaller_tests`) et rend un chemin vers la suite de tests de PyInstaller, pas des `hiddenimports` pour les utilisateurs finaux — un nom qui prête à confusion sur ce que fait réellement cette entrée
+- **Aucun hook ne couvre rapidfuzz**, ni côté PyInstaller ni côté `pyinstaller-hooks-contrib` (absent de `stdhooks/`) : son entry point `pyinstaller40` s'appelle `tests` (`rapidfuzz.__pyinstaller:get_PyInstaller_tests`) et rend un chemin vers la suite de tests de PyInstaller, pas des `hiddenimports` pour les utilisateurs finaux (un nom qui prête à confusion sur ce que fait réellement cette entrée)
 - Une issue ouverte signale un échec à l'exécution en mode `--noconsole`, où `--hidden-import rapidfuzz` seul n'a pas suffi. Le sidecar étant en mode console, ce cas ne s'applique pas directement, mais il indique que le packaging demande une vérification réelle
 - **Tester le binaire produit avant de considérer le packaging comme acquis** : un scoring qui échoue seulement dans le binaire gelé est le symptôme
 - Wheels précompilées pour cp314 sur Windows, y compris les builds free-threaded
@@ -187,5 +187,5 @@ hiddenimports = [*collect_submodules("rapidfuzz")]
 ## Ressources Complémentaires
 
 - [Différences d'API avec fuzzywuzzy](https://github.com/rapidfuzz/RapidFuzz/blob/main/api_differences.md)
-- [ADR-008 — Matching rapidfuzz et agent IA](../adrs/008-matching-rapidfuzz-et-agent-ia.md)
-- [Issue #437 — échec sous PyInstaller en mode noconsole](https://github.com/rapidfuzz/RapidFuzz/issues/437)
+- [ADR-008 : Matching rapidfuzz et agent IA](../adrs/008-matching-rapidfuzz-et-agent-ia.md)
+- [Issue #437 : échec sous PyInstaller en mode noconsole](https://github.com/rapidfuzz/RapidFuzz/issues/437)

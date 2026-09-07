@@ -95,4 +95,4 @@ Le Rust reste une zone morte : `src-tauri/src/lib.rs` se limite à l'initialisat
 
 Le choix de la coquille ne conditionne pas le métier : le sidecar communique par flux standard (cf. [ADR-005](005-sidecar-python-protocole-ndjson.md)), et resterait utilisable tel quel derrière une autre coquille, voire en ligne de commande.
 
-Références : [Tauri v2 — Sidecar](https://v2.tauri.app/develop/sidecar/), [Tauri v2 — Plugins](https://v2.tauri.app/plugin/).
+Références : [Tauri v2 : Sidecar](https://v2.tauri.app/develop/sidecar/), [Tauri v2 : Plugins](https://v2.tauri.app/plugin/).

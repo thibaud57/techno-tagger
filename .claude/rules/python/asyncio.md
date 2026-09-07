@@ -16,10 +16,10 @@ paths:
 - N'utiliser que les primitives `asyncio` (`Lock`, `Semaphore`, `Queue`) dans le code async
 
 ## À éviter
-- `asyncio.get_event_loop()` — banni en `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, la CI échoue
+- `asyncio.get_event_loop()` : banni en `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, la CI échoue
 - `asyncio.gather` sans `return_exceptions=True` : les tâches sœurs continuent après une erreur
 - `time.sleep`, appel HTTP synchrone ou parsing lourd directement dans une coroutine
-- `threading.Lock` / `threading.Semaphore` en contexte async — ils bloquent le thread entier
+- `threading.Lock` / `threading.Semaphore` en contexte async : ils bloquent le thread entier
 
 ## Gotchas
 - Python 3.14 : `asyncio.get_event_loop()` lève `RuntimeError` hors loop au lieu d'en créer une

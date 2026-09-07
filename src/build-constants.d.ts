@@ -18,16 +18,16 @@
  * Prefixe de la release Sentry, fixe et identique au sidecar : le paquet Python
  * s'appelle `tagger`, deriver donnerait deux chaines incomparables.
  */
-declare const APP_NAME: string;
+declare const APP_NAME: string
 
 /** Vide en local : une notice de licence s'affiche, rien ne casse. */
-declare const PRIMENG_LICENSE_KEY: string;
+declare const PRIMENG_LICENSE_KEY: string
 
 /** Lue de `package.json`, donc bumpee par release-please. Doit matcher le sidecar. */
-declare const APP_VERSION: string;
+declare const APP_VERSION: string
 
 /** Vide en local : le SDK reste inerte, rien ne remonte. */
-declare const SENTRY_DSN_UI: string;
+declare const SENTRY_DSN_UI: string
 
 /** Deduit du script lance : servir, c'est developper. Separe les runs de dev du quota. */
-declare const APP_ENVIRONMENT: string;
+declare const APP_ENVIRONMENT: string

@@ -31,7 +31,7 @@ Trois options décident de ce qui quitte la machine de l'utilisateur. Elles se t
 ```python
 sentry_sdk.init(
     dsn=SENTRY_DSN,                    # o<id>.ingest.de.sentry.io → région EU
-    release=APP_VERSION,               # même valeur que côté Angular
+    release=RELEASE,                   # f"{APP_NAME}@{__version__}", identique côté Angular
     environment="production",
     include_local_variables=False,     # défaut True : à forcer
     server_name="techno-tagger",       # défaut : nom de machine de l'utilisateur
@@ -90,10 +90,9 @@ Initialisation dans `main.ts` avant le bootstrap, gestionnaire d'erreurs fourni 
 ```typescript
 // main.ts
 Sentry.init({
-  dsn: environment.sentryDsn,
-  release: environment.appVersion,      // identique au sidecar
-  environment: 'production',
-  sendDefaultPii: false,
+  dsn: SENTRY_DSN_UI,                       // constantes `define` d'esbuild, pas d'environment.ts
+  release: `${APP_NAME}@${APP_VERSION}`,    // préfixe compris, identique au sidecar
+  environment: APP_ENVIRONMENT,
   integrations: (defaults) =>
     defaults.filter(
       (i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay' && i.name !== 'CultureContext',
@@ -168,6 +167,17 @@ pyinstaller-hooks-contrib
 
 Un seul canal fait sortir des titres de morceaux de la machine, et il est explicite : le bouton « envoyer ce rapport » de l'écran final.
 
+### Exemple
+
+```typescript
+import { open } from '@tauri-apps/plugin-opener';
+
+async function sendReport(trackTitle: string, matchId: string): Promise<void> {
+  const body = encodeURIComponent(`Titre : ${trackTitle}\nMatch : ${matchId}`);
+  await open(`https://github.com/<org>/techno-tagger/issues/new?body=${body}`);
+}
+```
+
 ### Points Importants
 
 - **Le bouton ouvre une issue pré-remplie dans le navigateur** via le plugin `opener`, que l'utilisateur relit, ampute ou abandonne avant de valider. L'application ne pousse rien elle-même
@@ -175,6 +185,35 @@ Un seul canal fait sortir des titres de morceaux de la machine, et il est explic
 - La règle « HTTPS vers techno-scraper, Sentry et GitHub uniquement » reste donc vraie
 - **La clé API ne doit apparaître dans aucun event** : c'est ce que `include_local_variables=False` garantit en premier lieu
 - Les logs locaux (`tagger.log`, rotation à 5 Mo, 3 sauvegardes) restent sur la machine et se récupèrent par le bouton « ouvrir le dossier de logs »
+
+---
+
+# Commandes Clés
+
+## Upload des source maps
+
+### Description
+
+Après le build Angular, avant que `tauri build` n'embarque `frontendDist` : les source maps de la webview partent vers Sentry puis sont détruites localement, pour qu'aucune ne se retrouve dans l'installeur.
+
+### Syntaxe
+
+```bash
+sentry-cli sourcemaps upload \
+  --org "$SENTRY_ORG" \
+  --project "$SENTRY_PROJECT_UI" \
+  --release "techno-tagger@$npm_package_version" \
+  dist/techno-tagger-ui/browser
+
+find dist/techno-tagger-ui/browser -name '*.map' -delete
+```
+
+### Points Importants
+
+- **Le script `sourcemaps` de `package.json` enchaîne les deux étapes**, appelé par `pnpm build` : upload conditionné à `SENTRY_AUTH_TOKEN`, suppression des `.map` systématique ensuite, token présent ou non
+- **La configuration `production` génère les maps en mode `hidden`** (`sourceMap: { hidden: true }`) : produites pour l'upload, sans commentaire `sourceMappingURL` qui les exposerait dans le bundle livré
+- **Sentry résout la stack par les Debug IDs qu'`@angular/build` injecte**, pas par le chemin des fichiers : la release et l'org/projet identifient le bon jeu de maps
+- Une map oubliée dans `dist/` finit dans l'installeur : `tauri-codegen` n'écarte aucune extension au moment d'embarquer `frontendDist`
 
 ---
 
@@ -212,6 +251,6 @@ Un seul canal fait sortir des titres de morceaux de la machine, et il est explic
 
 ## Ressources Complémentaires
 
-- [ADR-014 — Observabilité Sentry et RGPD](../adrs/014-observabilite-sentry-et-rgpd.md)
+- [ADR-014 : Observabilité Sentry et RGPD](../adrs/014-observabilite-sentry-et-rgpd.md)
 - [hook-sentry_sdk.py](https://github.com/pyinstaller/pyinstaller-hooks-contrib/blob/master/_pyinstaller_hooks_contrib/stdhooks/hook-sentry_sdk.py)
-- [pyinstaller.md](pyinstaller.md) — hooks et imports dynamiques
+- [pyinstaller.md](pyinstaller.md) : hooks et imports dynamiques

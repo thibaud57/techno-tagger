@@ -16,10 +16,10 @@ paths:
 
 ## À éviter
 - Concaténer des chemins en chaînes, ou passer par `os.path` dans du code neuf
-- Écrire un diagnostic sur `stdout`, réservé au flux NDJSON — `stderr` et le fichier de log pour tout le reste
+- Écrire un diagnostic sur `stdout`, réservé au flux NDJSON : `stderr` et le fichier de log pour tout le reste
 - `datetime.utcnow()` et `utcfromtimestamp()` : dépréciés depuis 3.12, ils retournent un naive
 - Un chemin temporaire en dur : `tempfile.TemporaryDirectory` en code, `tmp_path` en test
-- `f.readlines()` sur un fichier volumineux — le fichier s'itère ligne par ligne
+- `f.readlines()` sur un fichier volumineux : le fichier s'itère ligne par ligne
 
 ## Gotchas
 - Un `datetime` naive et un aware ne se comparent ni ne se soustraient : `TypeError` à l'exécution

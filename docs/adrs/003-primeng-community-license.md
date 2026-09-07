@@ -130,4 +130,4 @@ Une clé manquante, invalide ou expirée déclenche l'affichage d'un avis de lic
 
 Le preset est importé depuis `@primeuix/themes/aura` en base 16px, pas la variante `aura-compat` calibrée pour un root de 14px, maintenue jusqu'en juin 2027 pour les projets historiques.
 
-Références : [PrimeUI — Community License](https://primeui.dev/licenses/community), [PrimeUI — The Next Chapter of PrimeTek](https://primeui.dev/nextchapter), [PrimeNG — Theming](https://primeng.dev/theming), [PrimeNG — Migration v22](https://primeng.dev/migration/v22), [Optimus UI](https://optimus.openng.org/), [OpenNG — PrimeNG is no longer open source](https://www.openng.org/blog/primeng-is-no-longer-open-source).
+Références : [PrimeUI : Community License](https://primeui.dev/licenses/community), [PrimeUI : The Next Chapter of PrimeTek](https://primeui.dev/nextchapter), [PrimeNG : Theming](https://primeng.dev/theming), [PrimeNG : Migration v22](https://primeng.dev/migration/v22), [Optimus UI](https://optimus.openng.org/), [OpenNG : PrimeNG is no longer open source](https://www.openng.org/blog/primeng-is-no-longer-open-source).

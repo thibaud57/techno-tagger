@@ -1,6 +1,6 @@
 ---
 title: "angular-eslint — Lint du frontend"
-version: "22.1.0"
+version: "22.2.0"
 description: "Référence technique pour angular-eslint : flat config obligatoire, blocs TS et HTML, typed linting par projectService, règles Angular notables et cohabitation avec Prettier."
 date: "2026-08-29"
 keywords: ["angular-eslint", "eslint", "flat-config", "typed-linting", "a11y", "prettier"]
@@ -86,6 +86,7 @@ languageOptions: {
 ### Points Importants
 
 - **`projectService` remplace `project: true`** depuis typescript-eslint v8
+- **`projectService` seul n'active aucune règle typée** : les presets `recommended` et `stylistic` ne lisent pas les types, il faut étendre `strictTypeChecked` et `stylisticTypeChecked` (ou leurs variantes `recommendedTypeChecked`) pour que l'accès aux types serve à quelque chose
 - **`tsconfigRootDir` est important dans ce dépôt** : `src/`, `src-tauri/` et `sidecar/` cohabitent, et un mauvais ancrage résout le mauvais tsconfig
 - Le typed linting est plus lent : c'est le coût de règles qui raisonnent sur les types plutôt que sur la syntaxe
 - Un fichier hors du périmètre des tsconfig produit une erreur de parsing, pas une violation de règle : le distinguer au diagnostic
@@ -97,6 +98,17 @@ languageOptions: {
 ### Description
 
 Trois règles portent des décisions du projet, au-delà du style.
+
+### Exemple
+
+```typescript
+@Component({
+  selector: 'app-run-report',
+  changeDetection: ChangeDetectionStrategy.Default,   // signalé par prefer-on-push-component-change-detection en v22
+  standalone: false,                                  // signalé par prefer-standalone
+})
+export class RunReportComponent {}
+```
 
 ### Points Importants
 
@@ -192,6 +204,6 @@ pnpm exec eslint . --cache --cache-strategy content # relint des seuls fichiers 
 
 ## Ressources Complémentaires
 
-- [typescript-eslint — projectService](https://typescript-eslint.io/blog/project-service/)
+- [typescript-eslint : projectService](https://typescript-eslint.io/blog/project-service/)
 - [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier)
-- [typescript.md](typescript.md) — contrainte de version
+- [typescript.md](typescript.md) : contrainte de version

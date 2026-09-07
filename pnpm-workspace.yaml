@@ -5,14 +5,14 @@ packages: []
 # Tous resolvent un binaire prebuilt : les quatre derniers sont des transitives
 # d'@angular/build, sentry-cli est une devDependency directe.
 allowBuilds:
-  '@sentry/cli': true
+  "@sentry/cli": true
   esbuild: true
   lmdb: true
   msgpackr-extract: true
-  '@parcel/watcher': true
+  "@parcel/watcher": true
 
-# En minutes. A garder aligne sur renovate.json, sinon une PR Renovate produit un
-# lockfile que `pnpm install --frozen-lockfile` refuse en CI.
+# En minutes : pnpm refuse un paquet publie il y a moins d'un jour. Dependabot regenere le
+# lockfile par la CLI pnpm, qui applique ce delai elle-meme : rien a aligner ailleurs.
 minimumReleaseAge: 1440
 
 # pnpm lance les scripts via cmd sous Windows, ou $VAR ne s expande pas.

@@ -93,13 +93,25 @@ def test_l_identite_de_l_application_est_la_meme_partout() -> None:
     """
     build = ("projects", f"{APP_NAME}-ui", "architect", "build", "options")
     workflow = (REPO / ".github/workflows/release-please.yml").read_text(encoding="utf-8")
+    cargo = tomllib.loads((REPO / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
 
     assert _at("src-tauri/tauri.conf.json", "identifier") == BUNDLE_IDENTIFIER
     assert _at("src-tauri/tauri.conf.json", "productName") == APP_NAME
+    # `tauri dev` lance target/debug/<package.name>.exe, le bundle <productName>.exe :
+    # `just stop-app` ne tue les deux que s'ils portent le meme nom.
+    assert cargo["package"]["name"] == APP_NAME
     assert f"{APP_NAME}@{__version__}" == RELEASE
     assert _at("angular.json", *build, "define", "APP_NAME") == f"'{APP_NAME}'"
     assert f"{APP_NAME}@" in str(_at("package.json", "scripts", "sourcemaps"))
     assert f"release: {APP_NAME}@" in workflow
+
+
+def _sidecar_name() -> str:
+    """`project.name` est la source dont build.py derive deja le nom du binaire."""
+    manifest = tomllib.loads((REPO / "sidecar/pyproject.toml").read_text(encoding="utf-8"))
+    name = manifest["project"]["name"]
+    assert isinstance(name, str)
+    return name
 
 
 def test_le_nom_du_binaire_du_sidecar_est_le_meme_des_deux_cotes() -> None:
@@ -107,9 +119,7 @@ def test_le_nom_du_binaire_du_sidecar_est_le_meme_des_deux_cotes() -> None:
     divergence laisse passer `cargo check`, `just lint-tauri` et `just build`, et ne
     se voit qu'au premier spawn chez l'utilisateur, en SidecarNotAllowed.
     """
-    # `project.name` est la source dont build.py derive deja le nom du binaire.
-    manifest = tomllib.loads((REPO / "sidecar/pyproject.toml").read_text(encoding="utf-8"))
-    expected = f"binaries/{manifest['project']['name']}"
+    expected = f"binaries/{_sidecar_name()}"
     permissions = _at("src-tauri/capabilities/default.json", "permissions")
 
     assert isinstance(permissions, list)
@@ -119,6 +129,21 @@ def test_le_nom_du_binaire_du_sidecar_est_le_meme_des_deux_cotes() -> None:
 
     assert _at("src-tauri/tauri.conf.json", "bundle", "externalBin") == [expected]
     assert [entry["name"] for entry in spawn["allow"]] == [expected]
+
+
+def test_le_processus_du_sidecar_est_tue_sous_son_vrai_nom() -> None:
+    """Le hook NSIS et `just stop-app` tuent le sidecar par nom de processus, en
+    dur : renomme, il survivrait a l'installeur et verrouillerait son propre
+    fichier pendant l'ecrasement, sans qu'aucun build ne le signale.
+    """
+    process = f"{_sidecar_name()}.exe"
+    hook = (REPO / "src-tauri/installer-hooks.nsh").read_text(encoding="utf-8")
+    justfile = (REPO / "Justfile").read_text(encoding="utf-8")
+
+    assert f'KillProcessCurrentUser "{process}"' in hook
+    # `//IM` : le Justfile tourne sous Git Bash, ou MSYS convertirait `/IM` en chemin
+    assert f"taskkill //IM {process}" in justfile
+    assert f"taskkill //IM {APP_NAME}.exe" in justfile
 
 
 def test_le_nom_du_projet_angular_est_le_meme_dans_les_trois_manifestes() -> None:

@@ -161,7 +161,7 @@ PyInstaller embarque l'interpréteur natif de la plateforme hôte et analyse ses
 # .github/workflows/release.yml — extrait
 jobs:
   build:
-    runs-on: windows-latest   # obligatoire, pas un choix de confort
+    runs-on: windows-2025   # Windows obligatoire, pas un choix de confort ; image figée
 ```
 
 ### Points Importants
@@ -274,7 +274,7 @@ uv run pyinstaller --log-level=DEBUG tagger.spec # verbosité de l'analyse
 
 ## Ressources Complémentaires
 
-- [ADR-005 — Sidecar Python et protocole NDJSON](../adrs/005-sidecar-python-protocole-ndjson.md)
-- [ADR-015 — Cibles de distribution Windows](../adrs/015-cibles-distribution-windows.md)
-- [Tauri — Embedding External Binaries](https://v2.tauri.app/develop/sidecar/)
+- [ADR-005 : Sidecar Python et protocole NDJSON](../adrs/005-sidecar-python-protocole-ndjson.md)
+- [ADR-015 : Cibles de distribution Windows](../adrs/015-cibles-distribution-windows.md)
+- [Tauri : Embedding External Binaries](https://v2.tauri.app/develop/sidecar/)
 - [keyring.md](keyring.md) · [sentry.md](sentry.md) · [rapidfuzz.md](rapidfuzz.md)

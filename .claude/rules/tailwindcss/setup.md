@@ -29,7 +29,7 @@ paths:
 - Sans le sélecteur aligné des deux côtés, les composants PrimeNG sont sombres pendant que les utilitaires Tailwind suivent le réglage système : l'écart est visuel et difficile à diagnostiquer
 - `tailwindcss-primeui` n'a pas été republié depuis mars 2025, donc avant PrimeNG 22 et Tailwind 4.3 : il ne consomme que des variables CSS générées, mais aucune correction rapide n'est à attendre si un token nouveau n'est pas exposé. Le repli est de déclarer les tokens directement dans `@theme`
 - `tailwindStylesheet` remplace `tailwindConfig` de la v3 : sans lui, le plugin ne résout ni le thème ni les plugins et le tri devient approximatif. Il exige Prettier ≥ 3.7 et le paquet est ESM-only
-- `minimumReleaseAge` côté Renovate doit rester aligné sur celui de pnpm, sans quoi un lockfile régénéré fait échouer `pnpm install --frozen-lockfile` (cas documenté sur `caniuse-lite`)
+- Dependabot régénère le lockfile par la CLI pnpm, qui applique `minimumReleaseAge` elle-même : un bot qui résoudrait sans cette fenêtre ferait échouer `pnpm install --frozen-lockfile` sur une transitive trop fraîche (cas documenté sur `caniuse-lite`)
 
 ## Exemples
 ```css

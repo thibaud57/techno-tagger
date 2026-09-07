@@ -20,7 +20,7 @@ paths:
 ## À éviter
 - Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer
 - `respx` et `pytest-httpx` : ni l'un ni l'autre ne supporte httpx2, les PR de support sont ouvertes et non mergées
-- Un appel réseau ou Sentry réel — les deux sont toujours mockés, aucun test ne consomme le quota
+- Un appel réseau ou Sentry réel : les deux sont toujours mockés, aucun test ne consomme le quota
 - Mocker sans `autospec` : un changement de signature passe alors inaperçu
 - Élargir le `scope` d'une fixture qui porte de l'état mutable
 

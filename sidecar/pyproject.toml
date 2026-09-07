@@ -15,9 +15,6 @@ dependencies = [
     "sentry-sdk>=2.68.1,<3",
 ]
 
-[project.scripts]
-tagger = "tagger.__main__:main"
-
 [build-system]
 requires = ["uv_build>=0.12.7,<0.13.0"]
 build-backend = "uv_build"
@@ -27,6 +24,9 @@ package = true
 
 [tool.ruff]
 line-length = 100
+# Ruff 0.16 formate les blocs Python des .md. Les exemples des rules et des knowledges
+# sont ecrits a la main, commentaires alignes : le formateur les detache du code annote.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # Liste figee plutot que le defaut de Ruff, qui est passe de 59 a 413 regles en 0.16
@@ -53,6 +53,9 @@ select = [
     "DTZ",
     "TC",
     "TID",
+    "T20",
+    # `# noqa` et `# type: ignore` nus interdits : le code d'erreur est obligatoire
+    "PGH",
 ]
 # Liste officielle des regles que Ruff documente comme incompatibles avec son
 # propre formateur : les laisser actives ferait se contredire `check` et `format`.
@@ -75,11 +78,29 @@ ignore = [
     "D203",
     "D206",
     "D300",
+    # Un message court dans un validator pydantic ou sur un invariant est l'usage :
+    # une classe d'exception par message serait du bruit, et EM n'est pas selectionne
+    "TRY003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+# S105/S106 : les fixtures posent une fausse cle API en dur, c'est leur role
+# PLR0913/PLR0917 : les fixtures injectees sont des parametres, pas une signature a reduire
+"tests/**" = ["S101", "S105", "S106", "S107", "PLR2004", "PLR0913", "PLR0917"]
 "__init__.py" = ["F401"]
+# Script de build lance a la main : ses messages vont sur stderr, pas au protocole
+"build.py" = ["T201"]
+
+[tool.ruff.lint.pylint]
+# 5 par defaut : une fonction interne kw-only a souvent 6 ou 7 options legitimes,
+# le seuil garde les vraies signatures monstres sans noqa sur chaque fonction
+max-args = 8
+max-positional-args = 8
+
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic resout les annotations a l'execution : un --fix de TC001-TC003 qui
+# deplacerait un import de modele sous TYPE_CHECKING casserait la validation
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "asyncio.get_event_loop".msg = "Leve RuntimeError hors event loop en 3.14. Utiliser asyncio.run()."
@@ -101,6 +122,10 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["tests/helpers"]  # importable sans en faire un package
 asyncio_mode = "strict"
+# Une deprecation d'une dependance se voit au premier run, pas au jour ou elle casse
+filterwarnings = ["error"]
+# Un xfail qui passe est une correction non consignee : il doit echouer
+xfail_strict = true
 # Le seuil de couverture est bloquant dans `just test` et non ici : sur un run
 # cible, la couverture globale est basse et l'habitude deviendrait de passer --no-cov
 addopts = [
@@ -136,5 +161,5 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
-    "ruff>=0.16.5",
+    "ruff>=0.16.6",
 ]

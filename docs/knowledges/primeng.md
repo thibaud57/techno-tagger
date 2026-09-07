@@ -277,7 +277,7 @@ export class SourcePickerComponent {}
 
 ## Ressources Complémentaires
 
-- [ADR-002 — Framework UI Angular](../adrs/002-framework-ui-angular.md)
-- [ADR-003 — PrimeNG Community License](../adrs/003-primeng-community-license.md)
-- [DESIGN.md](../DESIGN.md) — tokens, layout et mapping composants du projet
-- [tailwindcss.md](tailwindcss.md) — alignement du variant `dark:`
+- [ADR-002 : Framework UI Angular](../adrs/002-framework-ui-angular.md)
+- [ADR-003 : PrimeNG Community License](../adrs/003-primeng-community-license.md)
+- [DESIGN.md](../DESIGN.md) : tokens, layout et mapping composants du projet
+- [tailwindcss.md](tailwindcss.md) : alignement du variant `dark:`

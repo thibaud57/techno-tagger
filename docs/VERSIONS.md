@@ -9,7 +9,7 @@ technologies: ["Python", "Angular", "Tauri", "Rust"]
 
 > **Trois écosystèmes, trois gestionnaires de paquets.** `sidecar/` en uv, `src/` en pnpm, `src-tauri/` en cargo. Aucun workspace transverse (cf. [ARCHITECTURE.md § Package Manager](ARCHITECTURE.md#package-manager)). La section « Partagé / Infrastructure » couvre la coquille Tauri et la chaîne CI/CD, qui traversent les trois zones.
 
-> **Versions relevées le 2026-08-29.** Les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) sont hors périmètre : elles seront documentées le jour où elles entrent réellement dans un fichier de dépendances.
+> **Versions relevées le 2026-09-06**, dans les **lockfiles** (`uv.lock`, `pnpm-lock.yaml`, `Cargo.lock`), c'est-à-dire ce qui est réellement résolu, pas les plages déclarées dans les manifestes. Le périmètre est ce que le dépôt déclare : les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) en sont donc hors, elles seront documentées le jour où elles entrent réellement dans un fichier de dépendances.
 
 > **Politique de version du projet : la dernière stable, toujours.** Une version antérieure ne se retient que sur une incompatibilité dure, documentée dans [Conflits Potentiels](#conflits-potentiels), et qu'aucune ligne de configuration ne contourne. Une rupture qui se règle par une règle de lint, un réglage ou une tournure de code à éviter n'est pas une raison de rester en arrière : elle se mécanise et on avance. Trois entrées seulement s'écartent de la dernière version publiée, et chacune s'en explique dans sa fiche : **TypeScript**, bloqué en 6.0.x par une incompatibilité qu'aucun réglage ne lève ; **pnpm**, retenu en 11.24.0 parce que c'est ce que pointe `latest`, la ligne 12 vivant sous un dist-tag de pré-adoption ; et **Node**, tenu en 24.x LTS jusqu'à ce que la 26 passe LTS en octobre, parce que c'est un outil de build et non une dépendance du produit.
 
@@ -32,10 +32,11 @@ Zone `sidecar/`, gestionnaire **uv**, fichier `sidecar/pyproject.toml` + `sideca
 | keyring | `25.7.0` | ⚠️ | Backends chargés par entry points : casse sous PyInstaller sans forçage explicite du backend |
 | sentry-sdk | `2.68.1` | ✅ | Intégrations chargées par `importlib` : le hook `pyinstaller-hooks-contrib` est indispensable |
 | PyInstaller | `6.22.2` | ✅ | Supporte Python 3.8 à 3.15. Ne cross-compile pas, runner Windows obligatoire |
+| pyinstaller-hooks-contrib | `2026.7` | ✅ | Hooks `sentry_sdk`, `pydantic` et `keyring` : sans eux les intégrations chargées par `importlib` manquent du binaire |
 | pytest | `9.1.1` | ✅ | Les `PytestRemovedIn9Warning` sont des erreurs depuis la 9.0 |
 | pytest-asyncio | `1.4.0` | ✅ | Fixture `event_loop` supprimée en 1.0, `event_loop_policy` dépréciée en 1.4 |
 | pytest-cov | `7.1.0` | ✅ | Corrige un calcul de total qui faussait `--cov-fail-under` |
-| Ruff | `0.16.5` | ⚠️ | La 0.16.0 fait passer le jeu par défaut de 59 à 413 règles. Une config copiée d'un projet antérieur produira un diff massif |
+| Ruff | `0.16.6` | ⚠️ | La 0.16.0 fait passer le jeu par défaut de 59 à 413 règles. Une config copiée d'un projet antérieur produira un diff massif |
 | Mypy | `2.3.1` | ✅ | Toutes les dépendances du projet livrent un `py.typed`, aucun paquet `types-*` requis |
 
 ## Frontend
@@ -45,7 +46,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | Technologie | Version Recommandée | Statut Production | Notes Critiques |
 |-------------|-------------------|-----------------|----------------|
 | Angular | `22.1.4` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé. `@angular/cli` et `@angular/build` en `22.1.6`, cadence de patch distincte |
-| TypeScript | `6.0.x` | ✅ | Contrainte dure d'Angular 22 : `>=6.0.0 <6.1.0`. **TS 7 (tsgo) casse `compiler-cli` et `typescript-eslint`** |
+| TypeScript | `6.0.3` | ✅ | Contrainte dure d'Angular 22 : `>=6.0.0 <6.1.0`. **TS 7 (tsgo) casse `compiler-cli` et `typescript-eslint`**. `noUncheckedIndexedAccess` activé le 2026-09-06 : zéro erreur sur la base existante |
 | Node.js | `24.x` (Active LTS) | ✅ | Bascule prévue sur 26.x quand elle passe LTS le 2026-10-28, une ligne de workflow. Installée par `pnpm/setup`, pas par `actions/setup-node` |
 | pnpm | `11.24.0` | ✅ | Ce que pointe le dist-tag `latest`. pnpm 12 a trois jours et reste sous `next-12` |
 | PrimeNG | `22.1.0` | ❌ | Dépôt archivé le 2026-06-28, licence PrimeUI avec clé obligatoire même en Community. Voir [Conflits Potentiels](#conflits-potentiels) |
@@ -60,9 +61,12 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | @ngx-translate/http-loader | `18.0.0` | ✅ | `provideTranslateHttpLoader({ prefix, suffix })` remplace le pattern `useFactory` |
 | @tauri-apps/api | `2.11.1` | ✅ | Ne suit pas la cadence de patch de la crate `tauri` |
 | @sentry/angular | `10.72.0` | ✅ | `peerDependency` : `@angular/core >= 14.x <= 22.x` |
+| @sentry/cli | `3.7.0` | ✅ | Script `sourcemaps` de `package.json` : upload des source maps `hidden` puis suppression de `dist/` |
+| rxjs | `7.8.2` | ✅ | Réservé aux flux dans le temps (événements NDJSON, navigation), exposés aux composants en signals par `toSignal()` |
+| jsdom | `28.1.0` | ✅ | Environnement par défaut de Vitest sous `@angular/build:unit-test` |
 | Vitest | `4.1.11` | ✅ | Runner par défaut du CLI Angular 22 |
-| angular-eslint | `22.1.0` | ✅ | ESLint 9+ en flat config uniquement, `.eslintrc` supprimé |
-| Prettier | `3.9.6` | ✅ | Parser Angular suivi jusqu'à `@angular/compiler` 22.1.x |
+| angular-eslint | `22.2.0` | ✅ | ESLint 9+ en flat config uniquement, `.eslintrc` supprimé |
+| Prettier | `3.9.6` | ✅ | Parser Angular suivi jusqu'à `@angular/compiler` 22.1.x. `semi: false` depuis le 2026-09-06, aligné sur le portfolio |
 | prettier-plugin-tailwindcss | `0.8.1` | ✅ | Exige Prettier ≥ 3.7.x et l'option `tailwindStylesheet` en Tailwind v4 |
 
 ## Partagé / Infrastructure
@@ -76,9 +80,9 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | @tauri-apps/cli | `2.11.4` | ✅ | Décalage de patch normal avec la crate |
 | Plugins Tauri v2 | voir [§ Plugins](#2-plugins-officiels-tauri-v2) | ✅ | Versions crate et npm strictement alignées, plugin par plugin |
 | Rust | `1.98.0` (stable) | ✅ | Préinstallé sur les runners Windows GitHub. Édition 2024 |
-| GitHub Actions | voir [§ CI/CD](#4-github-actions) | ✅ | `windows-latest` pointe désormais sur Windows Server 2025 + Visual Studio 2026 |
+| GitHub Actions | voir [§ CI/CD](#4-github-actions) | ✅ | Images figées `windows-2025` (Visual Studio 2026) et `ubuntu-24.04`, jamais de label `-latest` |
 | release-please-action | `5.0.0` | ⚠️ | Le tag créé avec `GITHUB_TOKEN` ne déclenche aucun workflow. Chaînage `needs:` obligatoire |
-| Renovate | `44.51.0` | ✅ | **Remplace Dependabot.** Délègue la régénération du lockfile à la CLI pnpm, donc insensible à son format. Couvre `npm`, `pep621`/uv, `cargo` et `github-actions` en une seule config |
+| Dependabot | app GitHub intégrée, version non épinglée par le dépôt | ✅ | Écosystèmes `npm`, `uv`, `cargo` et `github-actions` couverts par un seul `dependabot.yml`. Fonctionne à condition que `pnpm-lock.yaml` reste mono-document (cf. [§ Dependabot](#6-dependabot)) |
 | pnpm/setup (action) | `2.1.0` | ✅ | Installe pnpm **et** Node en une étape. Exige pnpm 11+. Plancher 2.0.1 sur runner Windows |
 
 ---
@@ -115,7 +119,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | sentry-sdk 2.68.1 | classifiers jusqu'à 3.14 | Explicite |
 | mypy 2.3.1 | classifiers jusqu'à 3.15 | Wheels `cp314` |
 | pytest 9.1.1 | `>=3.10` | Support de 3.14 depuis pytest 8.4.0 |
-| Ruff 0.16.5 | dérivé de `requires-python` du projet | Pas de `target-version` posé : Ruff le lit dans `pyproject.toml` |
+| Ruff 0.16.6 | dérivé de `requires-python` du projet | Pas de `target-version` posé : Ruff le lit dans `pyproject.toml` |
 | keyring 25.7.0 | `>=3.9` | `pywin32-ctypes` est pur Python, rien à compiler |
 | mutagen 1.48.1 | `>=3.10,<4` | Classifiers non détaillés par version mineure, mais pur Python sans dépendance : risque structurellement nul |
 | uv 0.12.7 | — | Livre le build 3.14.7 depuis 0.12.2 (2026-08-05) |
@@ -141,9 +145,9 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 
 **Compatibilité Écosystème** :
 - Politique officielle : « the minor version number is bumped for breaking changes, and the patch version number is bumped for bug fixes ». Le format `uv.lock` fait partie de l'API publique et ne casse donc qu'en bump mineur
-- Renovate couvre `pyproject.toml` et `uv.lock` via son manager `pep621`, avec extraction de `tool.uv.dev-dependencies` et `tool.uv.sources` (Dependabot supporte aussi l'écosystème `uv`, mais n'est plus l'outil retenu, cf. [§ Renovate](#6-renovate))
+- Dependabot couvre `pyproject.toml` et `uv.lock` nativement via l'écosystème `uv`, en disponibilité générale depuis le 2025-03-13 (cf. [§ Dependabot](#6-dependabot))
 - CI : `astral-sh/setup-uv@v10.0.1`. La doc CI d'Astral montre encore un exemple pinné sur v9.0.0, elle est en retard sur le dépôt
-- **PyInstaller + interpréteur géré par uv** : ✅ **validé sur le binaire du bootstrap** — il démarre, sort en 0, écrit son log dans `%LOCALAPPDATA%`, et embarque `pydantic_core`, `rapidfuzz.fuzz`, `sentry_sdk.integrations.logging` et `win32ctypes.pywin32.win32cred`. Aucune source officielle ne documente ce couple. La doc `python-build-standalone` signale que les chemins absolus figés dans les métadonnées de build sont corrigés à l'installation par uv, donc le piège connu ne s'applique pas, mais **cela reste à valider empiriquement dès le premier build CI**
+- **PyInstaller + interpréteur géré par uv** : ✅ **validé sur le binaire du bootstrap** : il démarre, sort en 0, écrit son log dans `%LOCALAPPDATA%`, et embarque `pydantic_core`, `rapidfuzz.fuzz`, `sentry_sdk.integrations.logging` et `win32ctypes.pywin32.win32cred`. Aucune source officielle ne documente ce couple. La doc `python-build-standalone` signale que les chemins absolus figés dans les métadonnées de build sont corrigés à l'installation par uv, donc le piège connu ne s'applique pas, mais **cela reste à valider empiriquement dès le premier build CI**
 
 **Recommandation** : ✅ Épingler le patch exact en CI (`astral-sh/setup-uv` avec `version: 0.12.7`), la cadence de release étant très élevée (7 releases en un mois).
 
@@ -323,7 +327,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Recommandation** : ✅ pour pytest lui-même. ❌ pour le mock HTTP, voir [Conflits Potentiels](#conflits-potentiels).
 
 ### 11. Ruff
-**Version actuelle** : `0.16.5` (2026-08-27)
+**Version actuelle** : `0.16.6` (relevée le 2026-09-06)
 **Stabilité** : ⚠️ (par le volume du changement de défauts, pas par la qualité de l'outil)
 
 **Breaking Changes Majeurs** :
@@ -337,7 +341,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - **Le formateur ne trie pas les imports** : `ruff check --select I --fix` puis `ruff format`, dans cet ordre. La catégorie `I` reste hors du jeu par défaut même après l'expansion, tout comme `ANN`, `N` et `C90`
 - **Règles incompatibles avec `ruff format`**, à exclure : `W191`, `E111`, `E114`, `E117`, `D203`, `D206`, `D300`, `Q000` à `Q004`, `COM812`, `COM819`, `ISC002`. `COM812` est le cas classique qui casse
 - Doc officielle : « Ruff is a linter, not a type checker […] It's recommended that you use Ruff in conjunction with a type checker, like Mypy ». Aucun recouvrement avec le gate Mypy
-- CI : `astral-sh/ruff-action@v4.1.0`, capable de lire la version cible depuis `uv.lock`
+- CI : Ruff tourne par `uv run` dans `just lint-sidecar`, à la version du lockfile, sans action dédiée
 
 **Recommandation** : ⚠️ Figer un `select` explicite plutôt que d'hériter du défaut de Ruff, une montée de version pouvant sinon ajouter une règle en silence. Ne pas déclarer `target-version`, que Ruff dérive de `requires-python` (cf. [`.claude/rules/ruff/lint-format.md`](../.claude/rules/ruff/lint-format.md)).
 
@@ -384,7 +388,7 @@ Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@an
 **Recommandation** : ✅ Le passage d'OnPush en défaut est sans incidence, l'état passant entièrement par des signals et ngx-translate documentant la compatibilité OnPush de son pipe. Le point à surveiller est ailleurs : Angular 22 verrouille TypeScript sur la ligne 6.0.
 
 ### 2. TypeScript
-**Version actuelle** : `6.0.x` (retenue) / `7.0.2` (dernière stable, **inutilisable ici**)
+**Version actuelle** : `6.0.3` (retenue, ligne 6.0.x) / `7.0.2` (dernière stable, **inutilisable ici**)
 **Stabilité** : ✅ sur 6.0.x
 
 **Breaking Changes Majeurs** :
@@ -452,12 +456,12 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 **Compatibilité Écosystème** :
 - **Angular CLI tourne déjà sur pnpm 11 en interne** : le dépôt `angular/angular-cli` bump sa propre version de pnpm de 11.20.0 à 11.24.0 sur `main` et sur la branche 22.1.x, sans régression documentée
 - Aucun `node-linker=hoisted` n'est nécessaire, le résolveur strict par défaut convient
-- **Dependabot ne suit pas.** Voir la fiche [Renovate](#6-renovate), qui est la réponse retenue
+- **Dependabot suit**, à condition que le lockfile reste mono-document. Voir la fiche [Dependabot](#6-dependabot)
 - CI : `pnpm/setup@v2.1.0`, qui **exige pnpm 11 ou plus récent**. `pnpm/action-setup` reste l'action des versions ≤ 10, et son README pointe lui-même vers son successeur
 
 **Recommandation** : ✅ **11.24.0**, ce que pointe `latest`. pnpm 12 a trois jours d'existence, vit sous un dist-tag de pré-adoption, et son propre blog le présente comme un changement à instruire et non comme une montée de version : le prendre serait dépasser « la dernière stable », pas l'appliquer. À réévaluer dès que `latest` basculera sur la ligne 12.
 
-> ⚠️ **Piège de CI à désamorcer avant le premier build.** `minimumReleaseAge` à 24 h combiné à `pnpm install --frozen-lockfile` fait échouer la CI quand un bot vient de regénérer un lockfile pointant une dépendance transitive publiée dans les dernières 24 heures. Le cas est documenté sur Angular avec `caniuse-lite`, via la chaîne browserslist, et se solde par `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. `--frozen-lockfile` ne fait que vérifier, sans repli possible. Deux parades : aligner le `minimumReleaseAge` de Renovate sur celui de pnpm pour que les deux fenêtres coïncident, et garder `minimumReleaseAgeExclude` pour les paquets qui se republient trop souvent.
+> ⚠️ **Piège de CI à désamorcer avant le premier build.** `minimumReleaseAge` à 24 h combiné à `pnpm install --frozen-lockfile` fait échouer la CI quand un bot vient de regénérer un lockfile pointant une dépendance transitive publiée dans les dernières 24 heures. Le cas est documenté sur Angular avec `caniuse-lite`, via la chaîne browserslist, et se solde par `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. `--frozen-lockfile` ne fait que vérifier, sans repli possible. Dependabot ne régénère pas le lockfile lui-même, il appelle la CLI pnpm, qui applique son propre `minimumReleaseAge` : rien à aligner côté bot. Seule parade restante côté pnpm : `minimumReleaseAgeExclude` pour les paquets qui se republient trop souvent.
 
 ### 5. PrimeNG
 **Version actuelle** : `22.1.0`
@@ -647,7 +651,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 **Recommandation** : ✅
 
 ### 15. angular-eslint
-**Version actuelle** : `22.1.0` (2026-07-12)
+**Version actuelle** : `22.2.0` (relevée le 2026-09-06)
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** :
@@ -659,7 +663,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 
 **Compatibilité Écosystème** :
 - Le paquet suit la majeure d'Angular : `@angular/cli >= 22.0.0 < 23.0.0`
-- `typescript-eslint ^8.0.0` (dernière 8.68.0), qui contraint TypeScript à `>=4.8.4 <6.1.0`
+- `typescript-eslint ^8.0.0` (dernière 8.69.0), qui contraint TypeScript à `>=4.8.4 <6.1.0`
 - **Les règles d'accessibilité ne sont pas dans `recommended`** : il faut étendre explicitement les deux presets, `angular.configs.templateRecommended` **et** `angular.configs.templateAccessibility`. C'est ce dernier qui apporte `alt-text`, `click-events-have-key-events`, `interactive-supports-focus`, `label-has-associated-control`, `role-has-required-aria`, `valid-aria`
 - `eslint-config-prettier` reste nécessaire : angular-eslint ne désactive pas ses règles stylistiques
 
@@ -699,7 +703,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 - **MSRV** : 1.77.2 pour la crate `tauri`, 1.85 pour la branche edition 2024 de `tauri-build`. Rust 1.98 satisfait les deux
 - **Windows** : « Tauri uses Microsoft Edge WebView2 to render content on Windows », préinstallé depuis Windows 10 build 1803. Build Tools C++ (workload « Desktop development with C++ ») et toolchain MSVC requis
 - **Sidecar** : la doc cite explicitement « Python CLI apps or API servers bundled with PyInstaller » comme cas d'usage d'`externalBin`. Le suffixe target-triple s'obtient par `rustc --print host-tuple` (flag disponible depuis Rust 1.84.0). **`externalBin` ne gère qu'un exécutable** : le dossier `_internal/` d'un build `--onedir` passe par `bundle.resources`, **en forme objet** (`{ "binaries/_internal": "_internal" }`), seule forme qui le pose à côté de l'exécutable. `resolveResource()` n'y sert à rien : le bootloader `--onedir` cherche son dossier de contenu relativement à l'exe, sans passer par l'API Tauri
-- **`assetProtocol`** : `{ "enable": true, "scope": ["$APPCACHE/covers/*"] }`, plus une CSP dont `img-src` doit inclure `'self' asset: http://asset.localhost blob: data:`. Côté webview, `convertFileSrc(filePath)` produit l'URL à poser dans le `src`
+- **`assetProtocol`** : `{ "enable": true, "scope": ["$APPLOCALDATA/cache/artworks/**"] }`, plus une CSP dont `img-src` doit inclure `'self' asset: http://asset.localhost blob: data:`. Côté webview, `convertFileSrc(filePath)` produit l'URL à poser dans le `src`
 - **Updater** : le `latest.json` minimal ne requiert que `version`, `platforms.[target].url` et `platforms.[target].signature`. La signature vient de `TAURI_SIGNING_PRIVATE_KEY` (chemin ou contenu, **jamais un `.env`**) et la `pubkey` de `tauri.conf.json` doit être le contenu de la clé publique, pas un chemin
 - **NSIS et MSI sont tous deux compatibles avec l'updater** : « MSI and NSIS installers receive signatures and can be used with the updater ». NSIS a deux avantages : le mode `downloadBootstrapper` pour WebView2, et la cross-compilation possible, là où le MSI (WiX) « can only be created on Windows »
 
@@ -752,7 +756,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 - MSRV Tauri : 1.77.2 pour le core, 1.85 pour `tauri-build` en édition 2024. Large marge
 - Rust 1.98.0 est **préinstallé sur les images Windows des runners GitHub**
 - Cache CI : `Swatinem/rust-cache@v2.9.2`, d'autant plus rentable ici que le rapport dépendances / code propre est extrême
-- Renovate met à jour `Cargo.toml` et `Cargo.lock` en déléguant à cargo
+- Dependabot met à jour `Cargo.toml` et `Cargo.lock` via l'écosystème `cargo`, en déléguant la régénération à cargo
 
 **Recommandation** : ✅ Poser un `rust-toolchain.toml` épinglant la stable utilisée. Le code Rust étant une zone morte de cinq lignes, la seule chose que la CI peut casser est un lint Clippy nouvellement promu, et Clippy déplace régulièrement des lints entre catégories. L'épinglage rend ce risque explicite au lieu de le laisser survenir au gré des mises à jour d'image de runner.
 
@@ -771,10 +775,12 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 | `Swatinem/rust-cache` | `v2.9.2` (2026-08-06) | Supporte le layout de build Cargo V2 |
 | `tauri-apps/tauri-action` | `v1.0.0` (2026-06-29) | v1 abandonne Tauri v1, supprime `includeRelease`/`includeDebug`, renomme `assetNamePattern` en `releaseAssetNamePattern` |
 | `googleapis/release-please-action` | `v5.0.0` (2026-04-22) | v5 : passage au runtime Node 24 |
+| `extractions/setup-just` | `v4.0.0` | Installe `just` sur le runner : les deux workflows appellent les recettes du `Justfile` plutôt que de dupliquer les commandes |
+| `getsentry/action-release` | `v3.7.0` | Job `sentry-release` : une release par projet Sentry (`techno-tagger-ui`, `techno-tagger-sidecar`), `set_commits: auto` d'où le `fetch-depth: 0` |
 
 **Breaking Changes Majeurs** :
 - `actions/upload-artifact@v3` dépréciée depuis le 2024-11-30, à ne jamais reprendre d'un exemple ancien
-- **`windows-latest` ne pointe plus sur Windows Server 2022** mais sur Windows Server 2025 avec Visual Studio 2026
+- **`windows-latest` ne pointe plus sur Windows Server 2022** mais sur Windows Server 2025 avec Visual Studio 2026 : c'est ce genre de bascule silencieuse que l'épinglage `windows-2025` / `ubuntu-24.04` des workflows évite, la montée d'image passant par une PR Dependabot
 
 **Compatibilité Écosystème** :
 - **Runners Windows** : Rust 1.98.0, Node 22.23.2 (24.19.0 en cache), Python 3.12.10 (3.13.15 et 3.14.7 en cache), MSVC 14.51 et le SDK Windows sont préinstallés. La présence de WebView2 n'a pas pu être confirmée
@@ -813,31 +819,26 @@ Trois contournements, dans l'ordre de préférence :
 
 **Comportement `chore:`** confirmé verbatim : « A releasable unit is a commit to the branch with one of the following prefixes: 'feat', 'fix', and 'deps'. (A 'chore' or 'build' commit is not a releasable unit.) ». L'échappatoire l'est aussi : « When a commit to the main branch has `Release-As: x.x.x` (case insensitive) in the commit body, Release Please will open a new pull request for the specified version ».
 
-**Recommandation** : ⚠️ Le flux `develop` → `main` **n'est documenté nulle part**. release-please raisonne sur une branche de vérité unique (« A config file must exist at the tip of the default/configured branch ») pilotée par `target-branch`. Rien n'indique que ce soit cassé, rien ne l'atteste non plus : **à valider par un run à blanc sur un dépôt de test avant la première release**, pas au moment de publier.
+**Recommandation** : ✅ Le flux `develop` → `main` **n'est documenté nulle part**, release-please raisonnant sur une branche de vérité unique (« A config file must exist at the tip of the default/configured branch ») pilotée par `target-branch`. Il marche pourtant sans réglage : le squash-merge de la PR `develop → main` est un commit ordinaire de `main`, et c'est lui que l'outil lit. **Confirmé au premier run**, tag `v0.1.0` et `CHANGELOG.md` à l'appui.
 
-### 6. Renovate
-**Version actuelle** : `44.51.0` (2026-08-29)
+### 6. Dependabot
+**Version actuelle** : app GitHub intégrée à la plateforme, aucune version épinglée par le dépôt : la CLI qui régénère chaque lockfile est celle installée par le job (pnpm, uv, cargo), pas un binaire versionné côté Dependabot
 **Stabilité** : ✅
 
-**Ce qui a changé par rapport au choix initial de Dependabot.** Dependabot supporte bien les quatre écosystèmes du projet (`uv`, `npm`, `cargo`, `github-actions`), mais il **parse le `pnpm-lock.yaml` lui-même**, et sa doc officielle plafonne encore à pnpm v10. Sur un lockfile pnpm 11 multi-document, la conséquence n'est pas celle qu'on croit : les PR de bump continuent de fonctionner, c'est le *dependency grapher* qui lit le mauvais document et **referme silencieusement les alertes de sécurité**, comme si le dépôt n'avait aucune dépendance. Verbatim de la PR de correction, ouverte le 2026-08-19 et non mergée : « the native JS helper already extracts the project document since the pnpm 11 beta support change, so update PRs kept working while the graph path stayed broken ». Un échec silencieux sur les alertes de sécurité est pire qu'un échec bruyant sur les PR.
-
-**Renovate ne rencontre pas ce problème par construction** : il ne parse pas le lockfile, il le fait régénérer par la CLI du gestionnaire. Doc officielle : « Lock file maintenance is delegated to the underlying package manager, which Renovate runs as an external command ». Le format du fichier lui est donc indifférent, aujourd'hui comme au prochain changement.
+**Ce que le mode de panne documenté impose, et comment le projet s'en dégage.** Sur un `pnpm-lock.yaml` multi-document, format que pnpm 11 écrit dès que `packageManager` ou `devEngines.packageManager` est déclaré dans `package.json`, le *dependency grapher* de GitHub lit le mauvais document et rapporte zéro dépendance : les alertes de sécurité se referment d'elles-mêmes, sans rien afficher, alors même que les PR de bump continuent de fonctionner ([dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794), ouverte, PR de correction #15968 non mergée). Un échec silencieux sur les alertes de sécurité est pire qu'un échec bruyant sur les PR, et c'est précisément ce mode de panne qui avait fait écarter Dependabot dans une version antérieure de ce document. Le projet ne le contourne pas, il en retire la cause : les deux champs déclencheurs sont volontairement absents de `package.json` (vérifié : absents), et le lockfile reste mono-document (vérifié : zéro séparateur `---`, un seul `lockfileVersion: '9.0'`), la version de pnpm étant portée par l'input `version` de `pnpm/setup` en CI plutôt que par ces champs. **Tant que cet invariant tient, le mode de panne ne s'applique plus et Dependabot fonctionne normalement.**
 
 **Nouvelles Features Pertinentes** :
-- `packageRules` groupe et filtre par manager, par type semver et par calendrier, là où les `groups` de Dependabot restent sommaires
-- Automerge natif, sans règle de branch protection ni workflow tiers à monter
-- `minimumReleaseAge` par type de bump, à aligner sur le réglage homonyme de pnpm 11
+- Support natif de l'écosystème `uv` en disponibilité générale depuis le 2025-03-13 : « Developers can now use Dependabot to automatically keep their `uv` dependencies up to date » (GitHub Changelog). Dependabot comprend `pyproject.toml` et régénère `uv.lock` directement, sans détour par l'écosystème `pip`
+- `groups` avec `update-types: [minor, patch]` groupe les mises à jour mineures et correctifs par écosystème, laissant les majeures sortir isolées, une par dépendance : c'est le réglage posé dans `.github/dependabot.yml`
 
 **Compatibilité Écosystème** :
-- **Une seule configuration couvre les quatre zones** : manager `npm` (Angular), `pep621` pour uv, dont la doc précise « This manager supports lockFileMaintenance for the following file(s): pdm.lock, uv.lock », `cargo` avec mise à jour de `Cargo.lock`, et `github-actions` avec pin par SHA
-- **Gratuit sur dépôt public**, via l'app GitHub hébergée. Une variante auto-hébergée existe en GitHub Action si le contrôle du cache ou de la cadence devient nécessaire
-- **Les alertes de sécurité GitHub restent en place** : Renovate ne remplace pas le scanner, il consomme l'API Dependabot alerts en lecture. Activer « Dependency graph » et « Dependabot alerts » dans les réglages du dépôt reste nécessaire, indépendamment des version updates
+- **Une entrée `updates` par écosystème**, déclarée explicitement : `npm` en `/` (Angular), `uv` en `/sidecar`, `cargo` en `/src-tauri`, `github-actions` en `/`. Les quatre valeurs de `package-ecosystem` sont confirmées par la doc officielle
+- **Dependabot ne régénère pas le lockfile lui-même, il appelle la CLI du gestionnaire** (`pnpm install`, `uv lock`, `cargo update`), qui applique ses propres réglages : le `minimumReleaseAge: 1440` posé dans `pnpm-workspace.yaml` s'applique donc à une PR Dependabot exactement comme à une installation locale, rien à répliquer côté configuration du bot
+- **Gratuit et intégré à GitHub**, aucune app tierce à installer ni à autoriser séparément. « Dependency graph » et « Dependabot alerts » restent à activer dans les réglages de sécurité du dépôt, ce sont eux qui alimentent le *dependency grapher* que Dependabot consomme
 
-**Issue à surveiller** : la discussion renovatebot#43161 (2026-05-07) rapporte que la régénération d'un lockfile pnpm 11 retire les blocs `overrides:` et `patchedDependencies:`. Le projet n'en déclare aucun, et l'issue formelle correspondante a été fermée en `not_planned` sans explication récupérable.
+**Issue à surveiller** : [dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794) reste ouverte côté `pnpm-lock.yaml` multi-document, non résolue en amont. Le projet n'est pas exposé tant que `packageManager` et `devEngines.packageManager` restent absents de `package.json` : la vigilance porte sur cet invariant, pas sur l'outil. Un `pnpm init` relancé par erreur, ou un exemple copié d'un autre dépôt qui réintroduit l'un des deux champs, suffirait à rouvrir le mode de panne.
 
-**Recommandation** : ✅ Avec la cadence de release d'uv (sept versions en un mois) et de Ruff, grouper minor et patch par écosystème et isoler les majeures reste indispensable, sans quoi le flux de PR devient ingérable. C'est exactement ce que `packageRules` exprime mieux que `groups`.
-
-> Les procédures opérationnelles correspondantes vivent dans [PRODUCTION.md § Dépendances](PRODUCTION.md#dépendances) et [§ Composants applicatifs](PRODUCTION.md#composants-applicatifs).
+**Recommandation** : ✅ Dependabot, intégré à GitHub sans app tierce à installer ni à réautoriser, sur la garantie que `packageManager` et `devEngines.packageManager` restent absents de `package.json`. Voir [PRODUCTION.md § Dépendances](PRODUCTION.md#dépendances) et [§ Composants applicatifs](PRODUCTION.md#composants-applicatifs) pour la procédure opérationnelle.
 
 ---
 
@@ -866,9 +867,8 @@ Trois contournements, dans l'ordre de préférence :
 | Tailwind 4.3.3 | SCSS / LESS | ❌ | Non supporté par conception, d'où le CSS pur |
 | Tailwind 4.3.3 | WebView2 | ✅ | Plancher navigateur de la v4 très en deçà du Chromium de WebView2 |
 | pnpm 11.24.0 | Angular CLI 22 | ✅ | `angular/angular-cli` bump sa propre version de pnpm en 11.24.0, sans régression |
-| pnpm 11.24.0 | Renovate 44.51.0 | ✅ | Renovate ne parse pas le lockfile, il le fait régénérer par la CLI pnpm |
-| Renovate 44.51.0 | uv, cargo, github-actions | ✅ | Managers `pep621` (dont `uv.lock`), `cargo` et `github-actions` dans une seule config |
-| pnpm 11.24.0 | Dependabot | ⚠️ | PR de bump fonctionnelles, mais le graphe de dépendances referme les alertes de sécurité en silence |
+| pnpm 11.24.0 (lockfile mono-document) | Dependabot | ✅ | Le graphe de dépendances lit le bon document tant que `packageManager` et `devEngines.packageManager` restent absents de `package.json` |
+| Dependabot | uv, cargo, github-actions | ✅ | Écosystèmes `uv`, `cargo` et `github-actions` couverts par le même `dependabot.yml` que `npm` |
 | pnpm 11.24.0 | `pnpm/setup` v2.1.0 | ✅ | L'action exige pnpm 11+, les deux choix se tiennent |
 | pnpm 11.24.0 | `pnpm/action-setup` v6 | ❌ | Action réservée à pnpm 10 et antérieur |
 | pnpm 11.24.0 | `--frozen-lockfile` en CI | ⚠️ | `minimumReleaseAge` à 24 h fait échouer l'install sur une transitive trop fraîche |
@@ -892,8 +892,8 @@ Trois contournements, dans l'ordre de préférence :
 | pydantic 2.13.5 | PyInstaller 6.22.2 | ⚠️ | Hook `pydantic` livré par `pyinstaller-hooks-contrib`, mais le couple `pydantic-core` + interpréteur géré par uv reste à vérifier au premier build |
 | mutagen 1.48.1 | PyInstaller 6.22.2 | ✅ | Pur Python, aucun hook nécessaire |
 | Mypy 2.3.1 strict | toutes les deps Python | ✅ | Toutes livrent un `py.typed` |
-| Ruff 0.16.5 lint | Ruff 0.16.5 format | ⚠️ | Exclure `COM812`, `ISC002`, `Q000`-`Q004`, `E111`, `E114`, `E117`, `W191`, `D203`, `D206`, `D300` |
-| Ruff 0.16.5 | Mypy 2.3.1 | ✅ | Périmètres disjoints, aucun recouvrement |
+| Ruff 0.16.6 lint | Ruff 0.16.6 format | ⚠️ | Exclure `COM812`, `ISC002`, `Q000`-`Q004`, `E111`, `E114`, `E117`, `W191`, `D203`, `D206`, `D300` |
+| Ruff 0.16.6 | Mypy 2.3.1 | ✅ | Périmètres disjoints, aucun recouvrement |
 | Rust 1.98.0 | tauri 2.11.5 | ✅ | MSRV 1.77.2 |
 | Rust 1.98.0 | tauri-build 2.6.3 | ✅ | MSRV 1.85 sur la branche edition 2024 |
 | tauri 2.11.5 | plugins v2 (8 crates) | ✅ | Bornes `>=2.10.0`, sauf `os` en `>=2.8.2`, toutes `<3.0.0` |
@@ -901,7 +901,7 @@ Trois contournements, dans l'ordre de préférence :
 | tauri 2.11.5 | @tauri-apps/api 2.11.1 | ✅ | Cadences de patch distinctes, sans incidence |
 | PyInstaller `--onedir` | Tauri `externalBin` | ⚠️ | `externalBin` ne prend qu'un exécutable, `_internal/` passe par `bundle.resources` |
 | release-please + `GITHUB_TOKEN` | `on: push: tags` | ❌ | Aucun workflow déclenché, confirmé par la doc GitHub |
-| release-please | flux `develop` → `main` | ⚠️ | Non documenté, à valider sur un dépôt de test |
+| release-please | flux `develop` → `main` | ✅ | Non documenté mais confirmé au premier run (`v0.1.0`) : le squash-merge est un commit ordinaire de `main` |
 | tauri-action v1.0.0 | build sidecar préalable | ⚠️ | Aucun hook : le binaire doit être en place avant l'invocation |
 | NSIS | plugin updater | ✅ | « MSI and NSIS installers receive signatures and can be used with the updater » |
 
@@ -911,20 +911,20 @@ Trois contournements, dans l'ordre de préférence :
 
 | Conflit | Risque | Solution |
 |---------|--------|---------|
-| **La bascule sous licence PrimeUI s'étend au paquet d'icônes**, que l'[ADR-003](adrs/003-primeng-community-license.md) n'avait pas couvert : PrimeNG 22 tire `@primeicons/angular ^8.0.0`, sous la même licence, la dernière version MIT du paquet d'icônes étant `primeicons` 7.0.0 | 🟡 | Compléter les Négatives de l'ADR-003 : la dépendance à PrimeTek dépasse la seule bibliothèque de composants. Préciser aussi la porte de sortie Optimus UI côté icônes. **La décision elle-même tient** : l'ADR a instruit l'archivage du dépôt et la Community License, et rien de nouveau ne la remet en cause |
+| **La bascule sous licence PrimeUI s'étend au paquet d'icônes**, que l'[ADR-003](adrs/003-primeng-community-license.md) n'avait pas couvert : PrimeNG 22 tire `@primeicons/angular ^8.0.0`, sous la même licence, la dernière version MIT du paquet d'icônes étant `primeicons` 7.0.0 | 🟡 | Consigné dans les Négatives de l'ADR-003 : la dépendance à PrimeTek dépasse la seule bibliothèque de composants, porte de sortie Optimus UI côté icônes comprise. **La décision elle-même tient** : l'ADR a instruit l'archivage du dépôt et la Community License, et rien de nouveau ne la remet en cause |
 | **Aucun mock HTTP ne supporte `httpx2`.** `respx` dépend de `httpx>=0.25.0`, `pytest-httpx` de `httpx==0.28.*`. Les PR de support (respx#317, pytest-httpx#239) sont ouvertes, non mergées | 🔴 | Le « client techno-scraper mocké » d'[ARCHITECTURE.md § Stratégie de Tests](ARCHITECTURE.md#stratégie-de-tests) doit reposer sur le `MockTransport` natif d'`httpx2`, injecté dans le client via son paramètre `transport`. C'est quelques dizaines de lignes de fixture, sans dépendance externe, et le pattern survit à l'arrivée d'un vrai `respx` compatible. **Trancher avant d'écrire le premier test réseau**, pas après |
 | **`keyring` ne trouve pas son backend dans le binaire PyInstaller.** Les backends sont découverts par entry points depuis la 12.0.0, l'analyse statique ne les voit pas, et l'échec est `RuntimeError: No recommended backend was available` au runtime | 🔴 | Ne pas compter sur l'auto-détection : forcer `PYTHON_KEYRING_BACKEND=keyring.backends.Windows.WinVaultKeyring` ou appeler `keyring.set_keyring(WinVaultKeyring())` en code, plus `--collect-metadata keyring` et `--hidden-import win32ctypes.pywin32.win32cred,win32ctypes.pywin32.pywintypes` à la commande PyInstaller. **Tester sur le binaire figé, jamais seulement sur les sources** |
 | **`sentry_sdk.init()` peut planter dans le binaire figé.** Les intégrations sont importées par `importlib.import_module`, et le code n'intercepte que `DidNotEnable` et `SyntaxError`, pas `ImportError` : un module manquant fait tomber l'initialisation au lieu de désactiver silencieusement l'intégration | 🟡 | `hook-sentry_sdk.py` de `pyinstaller-hooks-contrib` couvre le cas nominal en interrogeant `_AUTO_ENABLING_INTEGRATIONS` au build. Vérifier sa présence, et couvrir l'appel à `init()` d'un `try/except` : une remontée d'erreurs cassée ne doit jamais empêcher l'application de démarrer |
-| **Dependabot referme les alertes de sécurité en silence sur un lockfile pnpm 11 multi-document.** Ce ne sont pas les PR de bump qui cassent, c'est le graphe de dépendances, qui rapporte zéro dépendance (dependabot-core#14794 ouverte, PR de correction #15968 non mergée) | 🔴 | **Passer à Renovate**, qui délègue le lockfile à la CLI pnpm et n'est donc pas exposé au format. Le contournement consistant à figer pnpm 10 échange un échec silencieux contre une dette de version, et enferme au passage sur `pnpm/action-setup`, l'action que son propre README donne pour dépassée |
-| **`minimumReleaseAge` à 24 h fait échouer `pnpm install --frozen-lockfile`** quand un bot vient de regénérer un lockfile pointant une transitive publiée dans la fenêtre. Cas documenté sur Angular via `caniuse-lite` | 🟡 | Aligner le `minimumReleaseAge` de Renovate sur celui de pnpm pour que les deux fenêtres coïncident, et garder `minimumReleaseAgeExclude` en parade ciblée. Ne pas désactiver le réglage, c'est une protection supply-chain réelle |
+| **Un `pnpm-lock.yaml` multi-document referme les alertes de sécurité Dependabot en silence.** Le déclencheur est `packageManager` ou `devEngines.packageManager` dans `package.json` : le graphe de dépendances lit alors le mauvais document et rapporte zéro dépendance, sans que les PR de bump elles-mêmes cassent (dependabot-core#14794 ouverte, PR de correction #15968 non mergée) | 🔴 | **Les deux champs restent absents de `package.json`, par construction.** Le lockfile reste mono-document et la version de pnpm se déclare en input `version` de `pnpm/setup` : le mode de panne ne s'applique plus. Vérifier l'absence des deux champs à chaque changement de `package.json` reste le seul geste qui compte (cf. [§ Dependabot](#6-dependabot)) |
+| **`minimumReleaseAge` à 24 h fait échouer `pnpm install --frozen-lockfile`** quand un bot vient de regénérer un lockfile pointant une transitive publiée dans la fenêtre. Cas documenté sur Angular via `caniuse-lite` | 🟡 | Dependabot régénère le lockfile via la CLI pnpm, qui applique elle-même son `minimumReleaseAge` : rien à aligner côté bot. Garder `minimumReleaseAgeExclude` côté pnpm en parade ciblée. Ne pas désactiver le réglage, c'est une protection supply-chain réelle |
 | **Corepack disparaît sous les pieds de la CI.** Retiré des binaires officiels Node depuis la 25.x, absent de la 26.0.0 | 🟢 | `pnpm/setup@v2.1.0` installe pnpm et Node en une étape, sans Corepack. pnpm le déconseille de toute façon en CI, même là où il existe encore : « Corepack installs a JavaScript shim in place of pnpm, so every `pnpm` call starts Node.js to run the shim before pnpm itself starts » |
-| **`devEngines.packageManager`, écrit par défaut par `pnpm init`, déclenche le lockfile multi-document** et donc la panne du graphe de dépendances GitHub, alors même que sans Corepack ce champ n'a plus aucun effet d'enforcement | 🔴 | **Le retirer de `package.json`** et passer la version de pnpm en input `version` de `pnpm/setup`. Passer à Renovate ne suffit pas à s'en dispenser : Renovate lit les alertes de sécurité GitHub, il ne les produit pas, donc un graphe cassé le prive de sa source. C'est le seul geste qui rend l'item « le graphe liste bien les dépendances » atteignable |
+| **`devEngines.packageManager`, écrit par défaut par `pnpm init`, déclenche le lockfile multi-document** et donc la panne du graphe de dépendances GitHub, alors même que sans Corepack ce champ n'a plus aucun effet d'enforcement | 🔴 | **Le retirer de `package.json`** et passer la version de pnpm en input `version` de `pnpm/setup`. Dependabot lit les alertes de sécurité GitHub, il ne les produit pas : un graphe cassé le prive de sa source, PR de bump ou pas. C'est le seul geste qui rend l'item « le graphe liste bien les dépendances » atteignable |
 | **`tailwindcss-primeui` n'a pas bougé depuis mars 2025**, soit avant la base 16px et le nouveau système d'icônes de PrimeNG 22 | 🟡 | Vérification visuelle dès la première page composée. Le plugin ne consommant que des variables CSS générées par PrimeNG, une rupture est peu probable, et le repli consiste à déclarer les tokens directement dans `@theme` |
 | **Deux tournures interdites par Python 3.14** : `asyncio.get_event_loop()` hors loop lève `RuntimeError`, et `sqlite3.version` est supprimé | 🟢 | Aucune des deux n'a de raison d'exister dans du code neuf. Les bannir dans `[tool.ruff.lint.flake8-tidy-imports.banned-api]` fait porter la garantie par la CI plutôt que par la mémoire, y compris sur du code repris de la CLI d'origine |
 | **`pydantic-core` est une seconde extension native à empaqueter.** Le hook `pydantic` de `pyinstaller-hooks-contrib` couvre le cas nominal, mais aucune source ne documente le couple `pydantic-core` + interpréteur géré par uv sous PyInstaller | 🟡 | Même traitement que rapidfuzz et keyring : valider au premier build CI qu'un `model_validate_json()` fonctionne dans le binaire figé, pas seulement sur les sources. L'échec serait un `ImportError` au démarrage, immédiat et explicite |
 | **La config Ruff de techno-scraper n'est pas transposable** si elle date d'avant la 0.16.0 : le jeu par défaut est passé de 59 à 413 règles | 🟡 | Le projet ne part pas du défaut : `sidecar/pyproject.toml` fige un `select` explicite (commentaire « Liste figee plutot que le defaut de Ruff »), pour qu'une montée de version de Ruff n'ajoute pas de règle silencieusement. Ne pas copier-coller la config d'un autre projet telle quelle, figée ou non |
 | **`externalBin` ne prend qu'un exécutable**, or PyInstaller `--onedir` produit un exe plus un dossier `_internal/` | 🟡 | Déclarer l'exe suffixé en `bundle.externalBin` et le dossier en `bundle.resources` **sous forme objet** (`{ "binaries/_internal": "_internal" }`). La forme tableau le range sous `binaries/_internal/` et le sidecar meurt sur `Failed to load Python DLL`, invisible en `tauri dev`. Vérifié sur artefact, pas seulement au build |
-| **release-please n'est pas documenté sur un flux `develop` → `main`.** L'outil raisonne sur une branche de vérité unique pilotée par `target-branch` | 🟡 | Valider sur un dépôt de test avant la première release réelle. Le chaînage `needs:` est indépendant de ce point et reste correct dans tous les cas |
+| **release-please n'est pas documenté sur un flux `develop` → `main`.** L'outil raisonne sur une branche de vérité unique pilotée par `target-branch` | 🟢 | Confirmé au premier run (`v0.1.0`) : le squash-merge de la PR est un commit ordinaire de `main`, rien à régler. Le chaînage `needs:` est indépendant de ce point |
 | **`tauri-action` n'offre aucun hook pour construire un sidecar** avant `tauri build` | 🟢 | Construire le binaire PyInstaller et le copier dans `src-tauri/binaries/` dans une étape antérieure du même job. Contrainte connue, sans contournement à inventer |
 | **La syntaxe `shell:allow-spawn` avec `"sidecar": true`** n'est pas confirmée verbatim par la documentation, seul l'exemple équivalent sur `allow-execute` l'est | 🟢 | Vérifier dans les exemples du dépôt `plugins-workspace` au moment d'écrire `capabilities/default.json`. Un échec est immédiat et explicite (`program not allowed on the configured shell scope`), pas silencieux |
 | **PyInstaller et les faux positifs antivirus** : ampleur non mesurable depuis la documentation | 🟡 | Le mode `--onedir` est la seule atténuation retenue, la signature de code supposant un certificat écarté par le budget nul. La mesure appartient à la Checklist Post-MEP de [PRODUCTION.md](PRODUCTION.md#checklist-post-mep) : un build qui passe en local ne prouve rien |
@@ -941,7 +941,7 @@ Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilot�
 
 **Dépendances d'exécution** : `pydantic>=2.13.5,<3`, `mutagen>=1.48.1,<2`, `rapidfuzz>=3.14.5,<4`, `httpx2>=2.12.0,<3`, `keyring>=25.7.0,<26`, `sentry-sdk>=2.68.1,<3`.
 
-**Groupe `dev`** (via `[dependency-groups]`, PEP 735) : `pytest>=9.1.1`, `pytest-asyncio>=1.4.0`, `pytest-cov>=7.1.0`, `ruff>=0.16.5`, `mypy>=2.3.1`.
+**Groupe `dev`** (via `[dependency-groups]`, PEP 735) : `pytest>=9.1.1`, `pytest-asyncio>=1.4.0`, `pytest-cov>=7.1.0`, `ruff>=0.16.6`, `mypy>=2.3.1`.
 
 **Groupe `build`** : `pyinstaller>=6.22.2`, `pyinstaller-hooks-contrib>=2026.1`.
 
@@ -963,7 +963,7 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 `engines.node` sur `^24.15.0 || ^26.0.0` : un `>=` laisserait passer Node 25.x, hors de la plage supportée par Angular 22. Un `pnpm-workspace.yaml` est à créer même sans monorepo, pour accueillir `allowBuilds: { esbuild: true }` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11.
 
-> 🔴 **Retirer le `devEngines.packageManager` que `pnpm init` écrit par défaut, et ne pas déclarer `packageManager` non plus.** C'est contre-intuitif, mais ces deux champs sont les seuls déclencheurs du lockfile multi-document sur ce projet, et ce format casse le graphe de dépendances GitHub, donc les alertes de sécurité. Renovate **lit** ces alertes, il ne les produit pas : les perdre reviendrait à n'avoir aucune veille CVE tout en croyant le contraire. La version de pnpm se déclare à la place en input `version` de `pnpm/setup`, ce qui la place dans le workflow plutôt que dans `package.json`. C'est l'inverse de ce que recommande la doc pnpm, et c'est assumé : le graphe de dépendances vaut plus cher ici que la centralisation de la version.
+> 🔴 **Retirer le `devEngines.packageManager` que `pnpm init` écrit par défaut, et ne pas déclarer `packageManager` non plus.** C'est contre-intuitif, mais ces deux champs sont les seuls déclencheurs du lockfile multi-document sur ce projet, et ce format casse le graphe de dépendances GitHub, donc les alertes de sécurité. Dependabot **lit** ces alertes, il ne les produit pas : les perdre reviendrait à n'avoir aucune veille CVE tout en croyant le contraire. La version de pnpm se déclare à la place en input `version` de `pnpm/setup`, ce qui la place dans le workflow plutôt que dans `package.json`. C'est l'inverse de ce que recommande la doc pnpm, et c'est assumé : le graphe de dépendances vaut plus cher ici que la centralisation de la version.
 
 **Dépendances** : les paquets runtime `@angular/*` en `22.1.4` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.1.6`), `primeng` en `22.1.0`, `@primeuix/themes` en `3.0.0` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `10.72.0`, `@tauri-apps/api` en `2.11.1`, plus les sept paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`).
 
@@ -999,17 +999,17 @@ Flat config obligatoire. Étendre `angular.configs.tsRecommended`, `angular.conf
 
 ### src-tauri/capabilities/default.json
 
-Les permissions de sept plugins, `shell`, `dialog`, `fs`, `store`, `os`, `opener` et `updater`, avec `shell:allow-spawn` restreinte au sidecar déclaré et un scope `fs` limité aux chemins nécessaires. Le huitième, `single-instance`, n'a aucune permission à déclarer.
+Les permissions de six plugins, `shell`, `dialog`, `fs`, `store`, `os` et `opener`, avec `shell:allow-spawn` restreinte au sidecar déclaré et un scope `fs` limité aux chemins nécessaires. `updater` s'y ajoute à l'étape 9, et `single-instance` n'a aucune permission à déclarer.
 
 ### rust-toolchain.toml
 
 Épingler la version en cours (1.98.0) et le composant `clippy` dans un `rust-toolchain.toml`, qui devient alors la seule source de vérité : `rustup` en local comme `dtolnay/rust-toolchain@stable` en CI s'y conforment, et le gate cesse de bouger au gré des mises à jour d'image de runner.
 
-### renovate.json
+### dependabot.yml
 
-Une seule configuration pour les quatre managers, auto-détectés par les fichiers présents : `npm` (`package.json`), `pep621` (`sidecar/pyproject.toml` et `uv.lock`), `cargo` (`src-tauri/Cargo.toml`), `github-actions` (`.github/workflows/`). Base `config:recommended`, PR ciblant `develop`, `packageRules` groupant minor et patch par manager et isolant les majeures, `minimumReleaseAge` aligné sur celui de pnpm, et `prConcurrentLimit` pour tenir le flux de PR d'uv et de Ruff.
+Quatre entrées `updates`, une par écosystème, déclarées explicitement : `npm` en `/` (`package.json`), `uv` en `/sidecar` (`sidecar/pyproject.toml` et `uv.lock`), `cargo` en `/src-tauri` (`src-tauri/Cargo.toml`), `github-actions` en `/` (`.github/workflows/`). Chaque bloc cible `develop`, cadence mensuelle, `groups.minor-patch` sur `update-types: [minor, patch]` pour grouper mineures et correctifs et laisser les majeures sortir isolées, `open-pull-requests-limit: 5` pour tenir le flux de PR d'uv et de Ruff.
 
-L'app GitHub Renovate est à installer sur le dépôt, et « Dependency graph » plus « Dependabot alerts » restent activés dans les réglages de sécurité : Renovate lit ces alertes, il ne les produit pas.
+Aucune app tierce à installer : Dependabot est intégré à GitHub. « Dependency graph » et « Dependabot alerts » restent à activer dans les réglages de sécurité, condition de fonctionnement du *dependency grapher* que Dependabot consomme.
 
 ## Post-Install / Setup
 
@@ -1072,12 +1072,12 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 
 **Au premier passage CI** :
 
-- [ ] Un run à blanc de release-please sur un dépôt de test valide le flux `develop` → `main`
-- [ ] Le job de build est chaîné en `needs:` sur `release_created`, et **pas** sur `on: push: tags`
+- [x] Le flux `develop` → `main` de release-please est validé : premier run réel, tag `v0.1.0`
+- [x] Le job de build est chaîné en `needs:` sur `release_created`, et **pas** sur `on: push: tags` : installeur publié sur la Release `v0.1.0`
 - [ ] `latest.json` est publié avec une signature valide, et un client sur la version antérieure détecte la mise à jour
 - [ ] `pnpm/setup` est pinné sur la v2.1.0, pas sur le tag flottant `@v2`, et le cache pnpm fonctionne sur le runner Windows
 - [ ] Les workflows installent pnpm et Node par la seule action `pnpm/setup`, sans `corepack enable` ni `actions/setup-node`
-- [ ] `pnpm install --frozen-lockfile` passe sur une PR Renovate fraîche, sans `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`
+- [ ] `pnpm install --frozen-lockfile` passe sur une PR Dependabot fraîche, sans `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`
 - [ ] Le graphe de dépendances GitHub liste bien les dépendances des quatre écosystèmes, et pas zéro
 
 **Vérifications visuelles** :
@@ -1085,6 +1085,14 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 - [ ] Le variant `dark:` de Tailwind suit bien le `darkModeSelector` de PrimeNG
 - [ ] `tailwindcss-primeui` expose les tokens attendus sur `@primeuix/themes` 3.0.0
 - [ ] La table à scroll virtuel tient 100 lignes sans dégradation à 1024×700
+
+## Montées Bloquées
+
+| Paquet | Installée | Disponible | Ce qui casse | Levée attendue |
+|---|---|---|---|---|
+| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` et `typescript-eslint` refusent TS 7 (cf. § TypeScript) | Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
+| pnpm | `11.24.0` | `12.1.0` | Aucun blocage technique identifié : la 12 vit sous le dist-tag `next-12` | `latest` pointant la ligne 12 |
+| Node.js | `24.x` | `26.x` | Aucun blocage technique identifié : outil de build, rien de la 26 n'est exploité (cf. § Node.js) | Passage LTS de la 26, annoncé au 2026-10-28 |
 
 ---
 
@@ -1094,11 +1102,11 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 
 ## Points Critiques
 
-1. **L'écosystème PrimeNG est entièrement sous licence PrimeUI, icônes comprises.** L'[ADR-003](adrs/003-primeng-community-license.md) a instruit l'archivage du dépôt et la Community License pour les composants, mais pas le fait que `@primeicons/angular` suive la même bascule. La décision tient, sa section Négatives est à compléter.
+1. **L'écosystème PrimeNG est entièrement sous licence PrimeUI, icônes comprises.** L'[ADR-003](adrs/003-primeng-community-license.md) a instruit l'archivage du dépôt et la Community License pour les composants, mais pas le fait que `@primeicons/angular` suive la même bascule. La décision tient, sa section Négatives le consigne.
 2. **`httpx2` n'a pas encore d'outillage de test.** Ni `respx` ni `pytest-httpx` ne le supportent. Le `MockTransport` natif règle le problème pour quelques dizaines de lignes, mais le choix doit précéder le premier test réseau, pas le suivre.
 3. **`keyring` sous PyInstaller est le point de rupture le plus probable du build.** La découverte par entry points échoue dans un binaire figé, et l'erreur ne survient qu'au runtime chez l'utilisateur. Forçage explicite du backend, plus un test de fumée sur le binaire.
 4. **TypeScript est verrouillé sur la ligne 6.0** par Angular 22. TS 7 casse le build et le lint simultanément : ce n'est pas un arbitrage de performance mais un blocage à respecter jusqu'à TS 7.1.
-5. **Le passage de Dependabot à Renovate n'est pas un détail d'outillage.** Il conditionne la possibilité de suivre la ligne pnpm, et le motif n'est pas une préférence d'outil mais un mode de panne : sur un lockfile pnpm 11, Dependabot referme les alertes de sécurité **sans rien signaler**. [PRODUCTION.md](PRODUCTION.md#dépendances) est aligné en conséquence.
+5. **L'absence de `packageManager` et `devEngines.packageManager` dans `package.json` n'est pas un détail d'outillage.** Elle conditionne le fonctionnement de Dependabot sur ce dépôt : sur un lockfile pnpm 11 multi-document, ces deux champs referment les alertes de sécurité **sans rien signaler**. Le lockfile mono-document est un invariant à garder, pas une configuration ponctuelle. [PRODUCTION.md](PRODUCTION.md#dépendances) est aligné en conséquence.
 
 ## ROI / Avantages
 
@@ -1106,7 +1114,7 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 2. **Aucune dépendance ne manque de types.** Les six bibliothèques Python livrent un `py.typed`, le gate Mypy strict s'installe sans un seul `ignore_missing_imports`, et le contrat NDJSON est typable de bout en bout dès le premier jour.
 3. **Le coût de packaging est déjà payé par les outils.** RapidFuzz et sentry-sdk livrent leurs hooks PyInstaller, `pydantic` reçoit le sien de `pyinstaller-hooks-contrib`, mutagen n'en a pas besoin, `pywin32-ctypes` évite une extension compilée. Seul keyring demande un geste explicite.
 4. **La chaîne CI/CD ne coûte rien.** Dépôt public, runners standard, GitHub Releases pour la distribution et l'updater : la contrainte de budget nul d'[ARCHITECTURE.md](ARCHITECTURE.md#enjeux--contraintes) est tenue sans compromis, y compris sur les runners Windows.
-5. **Les trois zones sont indépendantes.** Un bump côté Angular ne touche pas le sidecar, un bump Python ne touche pas la webview, et les majeures isolées par Renovate mettent d'office en quarantaine les mises à jour à risque.
+5. **Les trois zones sont indépendantes.** Un bump côté Angular ne touche pas le sidecar, un bump Python ne touche pas la webview, et les majeures isolées par Dependabot mettent d'office en quarantaine les mises à jour à risque.
 
 ---
 
@@ -1114,34 +1122,35 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 
 ## Documentation Officielle
 
-- [Angular — Releases et versions supportées](https://angular.dev/reference/versions)
-- [Python — Calendrier des versions](https://devguide.python.org/versions/)
+- [Angular : Releases et versions supportées](https://angular.dev/reference/versions)
+- [Python : Calendrier des versions](https://devguide.python.org/versions/)
 - [Tauri v2](https://v2.tauri.app/)
-- [PrimeNG — Guide de migration v22](https://primeng.dev/migration/v22)
-- [Tailwind CSS — Guide de mise à niveau v4](https://tailwindcss.com/docs/upgrade-guide)
-- [PyInstaller — Changelog](https://pyinstaller.org/en/stable/CHANGES.html)
-- [uv — Politique de versionnement](https://docs.astral.sh/uv/reference/policies/versioning/)
-- [Ruff — Documentation](https://docs.astral.sh/ruff/)
-- [Mypy — Changelog](https://mypy.readthedocs.io/en/stable/changelog.html)
-- [Pydantic — Documentation](https://pydantic.dev/docs/validation/latest/)
-- [Node.js — Versions précédentes et calendrier LTS](https://nodejs.org/en/about/previous-releases)
-- [Rust — Notes de version](https://doc.rust-lang.org/releases.html)
+- [PrimeNG : Guide de migration v22](https://primeng.dev/migration/v22)
+- [Tailwind CSS : Guide de mise à niveau v4](https://tailwindcss.com/docs/upgrade-guide)
+- [PyInstaller : Changelog](https://pyinstaller.org/en/stable/CHANGES.html)
+- [uv : Politique de versionnement](https://docs.astral.sh/uv/reference/policies/versioning/)
+- [Ruff : Documentation](https://docs.astral.sh/ruff/)
+- [Mypy : Changelog](https://mypy.readthedocs.io/en/stable/changelog.html)
+- [Pydantic : Documentation](https://pydantic.dev/docs/validation/latest/)
+- [Node.js : Versions précédentes et calendrier LTS](https://nodejs.org/en/about/previous-releases)
+- [Rust : Notes de version](https://doc.rust-lang.org/releases.html)
 
 ## Ressources Complémentaires
 
-- [Tauri v2 — Sidecar (binaires embarqués)](https://v2.tauri.app/develop/sidecar/)
-- [Tauri v2 — Capabilities et permissions](https://v2.tauri.app/security/capabilities/)
-- [Tauri v2 — Plugin updater](https://v2.tauri.app/plugin/updater/)
-- [ngx-translate — Guide de migration](https://ngx-translate.org/getting-started/migration-guide/)
-- [Sentry — Migration Python 1.x vers 2.x](https://docs.sentry.io/platforms/python/migration/1.x-to-2.x/)
-- [Sentry — Données collectées par le SDK Python](https://docs.sentry.io/platforms/python/data-collected/)
-- [GitHub Actions — Déclenchement d'un workflow (limite du GITHUB_TOKEN)](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
-- [release-please — Configuration du manifeste](https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md)
-- [pnpm 11 — Notes de version](https://pnpm.io/blog/releases/11.0)
-- [pnpm — Format du fichier de lock (conditions du multi-document)](https://pnpm.io/lockfile)
-- [pnpm — Intégration continue](https://pnpm.io/continuous-integration)
-- [Renovate — Options de configuration](https://docs.renovatebot.com/configuration-options/)
-- [Renovate — Manager pep621 (uv)](https://docs.renovatebot.com/modules/manager/pep621/)
-- [httpx2 — Documentation](https://httpx2.pydantic.dev/)
-- [mutagen — Guide ID3](https://mutagen.readthedocs.io/en/latest/user/id3.html)
-- [angular-eslint — Dépôt et configuration](https://github.com/angular-eslint/angular-eslint)
+- [Tauri v2 : Sidecar (binaires embarqués)](https://v2.tauri.app/develop/sidecar/)
+- [Tauri v2 : Capabilities et permissions](https://v2.tauri.app/security/capabilities/)
+- [Tauri v2 : Plugin updater](https://v2.tauri.app/plugin/updater/)
+- [ngx-translate : Guide de migration](https://ngx-translate.org/getting-started/migration-guide/)
+- [Sentry : Migration Python 1.x vers 2.x](https://docs.sentry.io/platforms/python/migration/1.x-to-2.x/)
+- [Sentry : Données collectées par le SDK Python](https://docs.sentry.io/platforms/python/data-collected/)
+- [GitHub Actions : Déclenchement d'un workflow (limite du GITHUB_TOKEN)](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
+- [release-please : Configuration du manifeste](https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md)
+- [pnpm 11 : Notes de version](https://pnpm.io/blog/releases/11.0)
+- [pnpm : Format du fichier de lock (conditions du multi-document)](https://pnpm.io/lockfile)
+- [pnpm : Intégration continue](https://pnpm.io/continuous-integration)
+- [Dependabot : options de configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) : `package-ecosystem`, `directory`, `groups`
+- [Dependabot : écosystèmes et dépôts pris en charge](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)
+- [Dependabot : support de l'écosystème uv (disponibilité générale, 2025-03-13)](https://github.blog/changelog/2025-03-13-dependabot-version-updates-now-support-uv-in-general-availability/)
+- [httpx2 : Documentation](https://httpx2.pydantic.dev/)
+- [mutagen : Guide ID3](https://mutagen.readthedocs.io/en/latest/user/id3.html)
+- [angular-eslint : Dépôt et configuration](https://github.com/angular-eslint/angular-eslint)

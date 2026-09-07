@@ -44,7 +44,7 @@ keyring.delete_password(SERVICE, USERNAME)      # lève si absent
 - **`get_password` rend `None` pour une entrée absente**, sans lever : c'est le cas normal au premier lancement, pas une erreur
 - **`delete_password` lève `PasswordDeleteError` si l'entrée n'existe pas** : l'envelopper pour rendre la suppression idempotente
 - `set_password` écrase silencieusement une valeur existante pour le même couple
-- `get_credential()` rend un objet avec `.username` et `.password`, utile si plusieurs identités devaient cohabiter — hors périmètre ici
+- `get_credential()` rend un objet avec `.username` et `.password`, utile si plusieurs identités devaient cohabiter (hors périmètre ici)
 
 ---
 
@@ -135,36 +135,11 @@ def clear_api_key() -> None:
 
 ---
 
-# Commandes Clés
-
-## Diagnostic et manipulation manuelle
-
-### Description
-
-Le CLI sert au débogage local et à l'assistance à distance chez un utilisateur, pas au fonctionnement de l'application.
-
-### Syntaxe
-
-```bash
-keyring diagnose                             # backend sélectionné et fichier de config
-keyring set techno-tagger api-key            # saisie masquée
-keyring get techno-tagger api-key            # affiche le secret en clair
-keyring del techno-tagger api-key
-```
-
-### Points Importants
-
-- **`keyring get` affiche le secret en clair sur la sortie standard** : à ne jamais lancer dans un terminal partagé ou une session enregistrée
-- `keyring diagnose` est le premier réflexe quand le backend sélectionné est douteux
-- **`keyring --disable` écrit une configuration persistante** qui désactive keyring pour l'utilisateur système : effet durable au-delà du process, à ne pas utiliser pour « tester »
-- Ces commandes utilisent le keyring de l'environnement Python, pas celui du binaire empaqueté : elles valident le stockage, pas le packaging
-
----
-
 # Bonnes Pratiques
 
 ## ✅ Recommandations
 
+- **Utiliser `keyring diagnose` en local** pour vérifier le backend sélectionné avant de soupçonner autre chose
 - **Appeler `keyring.set_keyring(WinVaultKeyring())` au démarrage du sidecar**, avant tout accès au secret
 - **Tester la lecture de la clé dans le binaire PyInstaller**, pas seulement en développement : c'est le seul endroit où le bug se manifeste
 - **Rendre `delete_password` idempotent** en capturant `PasswordDeleteError`
@@ -193,7 +168,7 @@ keyring del techno-tagger api-key
 
 ## Ressources Complémentaires
 
-- [ADR-012 — Sécurité de la clé API par keyring](../adrs/012-securite-cle-api-keyring.md)
-- [Issue #399 — NoKeyringError sous PyInstaller](https://github.com/jaraco/keyring/issues/399)
-- [Issue #468 — découverte des backends dans un binaire gelé](https://github.com/jaraco/keyring/issues/468)
-- [pyinstaller.md](pyinstaller.md) — hooks et métadonnées
+- [ADR-012 : Sécurité de la clé API par keyring](../adrs/012-securite-cle-api-keyring.md)
+- [Issue #399 : NoKeyringError sous PyInstaller](https://github.com/jaraco/keyring/issues/399)
+- [Issue #468 : découverte des backends dans un binaire gelé](https://github.com/jaraco/keyring/issues/468)
+- [pyinstaller.md](pyinstaller.md) : hooks et métadonnées

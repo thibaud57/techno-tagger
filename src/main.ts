@@ -1,9 +1,9 @@
-import { bootstrapApplication } from '@angular/platform-browser';
-import * as Sentry from '@sentry/angular';
+import { bootstrapApplication } from "@angular/platform-browser"
+import * as Sentry from "@sentry/angular"
 
-import { AppComponent } from './app/app.component';
-import { appConfig } from './app/app.config';
-import { scrub } from './app/core/scrub';
+import { AppComponent } from "./app/app.component"
+import { appConfig } from "./app/app.config"
+import { scrub } from "./app/core/scrub"
 
 // DSN vide = SDK inerte : c'est ainsi qu'on coupe la remontee en developpement.
 Sentry.init({
@@ -15,11 +15,13 @@ Sentry.init({
   // et fuseau horaire, qui localisent grossierement l'utilisateur.
   integrations: (defaults) =>
     defaults.filter(
-      (i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay' && i.name !== 'CultureContext',
+      (i) => i.name !== "Breadcrumbs" && i.name !== "Replay" && i.name !== "CultureContext",
     ),
   // Pendant du before_send du sidecar : les chemins que le sidecar envoie dans
   // ses evenements finissent affiches, donc dans un message d'erreur.
   beforeSend: scrub,
-});
+})
 
-bootstrapApplication(AppComponent, appConfig).catch((err) => console.error(err));
+bootstrapApplication(AppComponent, appConfig).catch((err: unknown) => {
+  console.error(err)
+})

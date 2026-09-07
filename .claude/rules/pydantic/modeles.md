@@ -9,7 +9,8 @@ paths:
 
 ## À faire
 - `BaseModel` pour tout ce qui traverse une frontière : commandes et événements du protocole NDJSON, plan de run, rapports JSON
-- `model_config = ConfigDict(extra="forbid", frozen=True)` sur les commandes entrantes — un champ inconnu est une commande malformée, pas un détail à ignorer
+- `model_config = ConfigDict(extra="forbid", frozen=True)` sur les commandes entrantes : un champ inconnu est une commande malformée, pas un détail à ignorer
+- Laisser `extra="ignore"` (le défaut) sur les modèles de réponse de techno-scraper dans `scraper_client.py` : un champ ajouté côté API ne doit pas casser un run. Les deux réglages ne s'uniformisent pas (cf. [ADR-022](../../../docs/adrs/022-modeles-pydantic-du-protocole.md))
 - `model_validate_json(ligne)` pour parser et valider en une passe, `model_dump_json()` pour émettre
 - Convertir toute `ValidationError` en événement `error` portant un `code` stable et des `params` tirés de `.errors()` (`loc`, `type`)
 - `Annotated[type, Field(...)]` pour les contraintes, factorisées en alias réutilisables plutôt que répétées champ par champ
@@ -19,10 +20,10 @@ paths:
 - Router la migration d'un plan de run versionné dans un `@model_validator(mode="before")` (cf. [ADR-018](../../../docs/adrs/018-versionnement-plan-de-run.md))
 
 ## À éviter
-- `@validator`, `class Config`, `.dict()`, `.json()` — API v1, supprimée en v2
+- `@validator`, `class Config`, `.dict()`, `.json()` : API v1, supprimée en v2
 - `populate_by_name` : déprécié, remplacé par `validate_by_name` combiné à `validate_by_alias`
 - Laisser la coercion lax sur les seuils et compteurs reçus de l'interface : poser `strict=True` sur le modèle ou le champ
-- `champ: int | None` sans valeur par défaut en croyant le rendre optionnel — il reste requis, seulement nullable
+- `champ: int | None` sans valeur par défaut en croyant le rendre optionnel : il reste requis, seulement nullable
 - Tester un `field_validator` qui ne porte aucune règle métier : c'est du plumbing de librairie
 - Laisser un message Pydantic remonter jusqu'à l'écran : le sidecar n'émet jamais de phrase destinée à l'utilisateur, l'interface traduit un `code`
 
@@ -30,7 +31,7 @@ paths:
 - `pydantic-core` est une extension native Rust, seconde extension du sidecar après rapidfuzz : à valider sur le binaire PyInstaller figé, jamais sur les seules sources
 - `extra="ignore"` est le défaut : sans `forbid`, une commande portant un champ en trop passe silencieusement
 - `model_dump(by_alias=True)` n'émet un alias que si le champ déclare `alias` ou `serialization_alias` ; un `validation_alias` seul garde le nom Python en sortie
-- `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON — ne jamais y ajouter `indent`
+- `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON : ne jamais y ajouter `indent`
 - Les types TypeScript sont maintenus à la main en miroir de `protocol.py` : tout changement de champ se répercute des deux côtés (cf. [ADR-005](../../../docs/adrs/005-sidecar-python-protocole-ndjson.md))
 
 ## Exemples

@@ -21,7 +21,7 @@ paths:
 - Monter un `environment:` avec règles de protection : le projet n'a que deux états d'application et aucun déploiement serveur (cf. [PRODUCTION.md](../../../docs/PRODUCTION.md) § Environnements)
 
 ## Gotchas
-- Les secrets Dependabot sont un stock distinct des secrets Actions, jamais partagés ; le projet utilise Renovate, dont les PR passent le même gate qualité que les PR humaines
+- Les secrets Dependabot sont un stock distinct des secrets Actions, jamais partagés ; les PR de Dependabot passent le même gate qualité que les PR humaines
 - Un secret d'environment écrase le secret repo de même nom pour le job qui le cible
 - Le contexte `secrets` n'est disponible ni dans un `if:` de job ni dans un `if:` de step : impossible de conditionner l'exécution sur la présence d'une valeur
 

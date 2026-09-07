@@ -244,7 +244,7 @@ except (MutagenError, OSError) as exc:
 
 ## Ressources Complémentaires
 
-- [ADR-010 — Écriture batch et plan de run](../adrs/010-ecriture-batch-et-plan-de-run.md)
-- [ADR-011 — Politique d'écriture des tags](../adrs/011-politique-ecriture-tags.md)
-- [Issue #188 — EasyID3 et ID3v2.3](https://github.com/quodlibet/mutagen/issues/188)
-- [Issue #302 — pochettes front cover multiples](https://github.com/quodlibet/mutagen/issues/302)
+- [ADR-010 : Écriture batch et plan de run](../adrs/010-ecriture-batch-et-plan-de-run.md)
+- [ADR-011 : Politique d'écriture des tags](../adrs/011-politique-ecriture-tags.md)
+- [Issue #188 : EasyID3 et ID3v2.3](https://github.com/quodlibet/mutagen/issues/188)
+- [Issue #302 : pochettes front cover multiples](https://github.com/quodlibet/mutagen/issues/302)

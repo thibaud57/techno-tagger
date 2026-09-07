@@ -16,7 +16,7 @@ paths:
 ## À éviter
 - `import *` hors REPL
 - Manipuler `sys.path` à la main : le package est installé et résolu par `uv sync`
-- Oublier un `__init__.py` — le dossier devient un namespace package (PEP 420) et masque des erreurs d'import
+- Oublier un `__init__.py` : le dossier devient un namespace package (PEP 420) et masque des erreurs d'import
 - Un import différé posé pour contourner un cycle sans corriger le découpage
 
 ## Gotchas
