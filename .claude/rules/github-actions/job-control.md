@@ -15,7 +15,7 @@ paths:
 - `timeout-minutes` sur les jobs de build : le défaut est de 6 heures, un job bloqué les consomme entièrement
 
 ## À éviter
-- `continue-on-error: true` sur un step du gate qualité : il masque l'échec au lieu de le conditionner, et rend le job vert alors que le lint ou les tests ont échoué
+- `continue-on-error: true` sur un step du gate qualité : il masque l'échec au lieu de le conditionner, et rend le job vert alors que le lint ou les tests ont échoué. Seule exception : les steps `just audit-*`, non bloquants par décision (une CVE publiée en amont ne doit pas figer une PR sans rapport), et dont la lecture est imposée par la Checklist Release de PRODUCTION.md
 - Tester `conclusion` après un `continue-on-error` pour détecter l'échec : c'est `outcome` qui porte le résultat brut, `conclusion` valant `success`
 - Compter sur `[skip ci]` pour éviter un run : cela ne s'applique qu'aux events `push` et `pull_request`, et prive la PR de son gate
 - Un `max-parallel` sur les runners GitHub-hosted d'un dépôt public, gratuits et illimités : rien à ménager

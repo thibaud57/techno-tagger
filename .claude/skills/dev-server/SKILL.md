@@ -29,4 +29,4 @@ Ta mission est de démarrer ou d'arrêter l'environnement de développement, en 
 - **`just dev` exige le binaire du sidecar** dans `src-tauri/binaries/`. Sans lui, Tauri échoue sur `externalBin` avant même de compiler. Lancer `just build-sidecar` d'abord, ou `just check` qui le signale.
 - **Ne jamais enchaîner un `just stop` juste après un `just dev`** pour « vérifier » : le démarrage prend plusieurs secondes et l'arrêt tuerait le process en cours de compilation.
 - **Un seul `just dev` à la fois** : l'application est en instance unique, un second lancement redonne le focus au premier au lieu d'ouvrir une fenêtre.
-- Le mode développement ne prouve rien sur trois pièges qui n'existent qu'en distribution : sidecar non remplacé à la mise à jour, backend keyring introuvable, sortie NDJSON bufferisée. Les valider demande un run sur le bundle.
+- Le mode développement ne prouve rien sur trois pièges qui n'existent qu'en distribution, cf. `CLAUDE.md` § Gotchas.

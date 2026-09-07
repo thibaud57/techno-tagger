@@ -155,4 +155,4 @@ La règle des `code` + `params` porte donc sur le **flux NDJSON**, pas sur les f
 
 Le DSN Sentry est injecté au build depuis un secret GitHub Actions. Un DSN vide rend le SDK inerte, ce qui reste le moyen de désactiver la remontée en développement.
 
-Référence : [Sentry — Options Python](https://docs.sentry.io/platforms/python/configuration/options/).
+Référence : [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/).

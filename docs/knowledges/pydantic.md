@@ -293,13 +293,13 @@ plugins = ["pydantic.mypy"]
 
 ## Documentation Officielle
 
-- [Pydantic — Documentation](https://pydantic.dev/docs/validation/latest/)
-- [Pydantic — Changelog](https://pydantic.dev/docs/validation/latest/get-started/changelog/)
-- [Pydantic — Plugin Mypy](https://pydantic.dev/docs/validation/latest/integrations/dev-tools/mypy/)
-- [Pydantic — Alias (validate_by_name / validate_by_alias)](https://pydantic.dev/docs/validation/latest/concepts/alias/)
+- [Pydantic : Documentation](https://pydantic.dev/docs/validation/latest/)
+- [Pydantic : Changelog](https://pydantic.dev/docs/validation/latest/get-started/changelog/)
+- [Pydantic : Plugin Mypy](https://pydantic.dev/docs/validation/latest/integrations/dev-tools/mypy/)
+- [Pydantic : Alias (validate_by_name / validate_by_alias)](https://pydantic.dev/docs/validation/latest/concepts/alias/)
 
 ## Ressources Complémentaires
 
 - [pydantic sur PyPI](https://pypi.org/project/pydantic/)
 - [pydantic-core sur PyPI](https://pypi.org/project/pydantic-core/)
-- [pyinstaller-hooks-contrib — hook pydantic v2 (PR #611)](https://github.com/pyinstaller/pyinstaller-hooks-contrib/pull/611)
+- [pyinstaller-hooks-contrib : hook pydantic v2 (PR #611)](https://github.com/pyinstaller/pyinstaller-hooks-contrib/pull/611)

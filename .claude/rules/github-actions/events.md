@@ -7,7 +7,7 @@ paths:
 # GitHub Actions — Événements déclencheurs
 
 ## À faire
-- Déclencher le gate qualité sur `push` et `pull_request` filtrés par `branches: [main, develop]`
+- Déclencher le gate qualité sur `push` filtré par `branches: [main]` et `pull_request` filtré par `branches: [main, develop]` : tout atteint `develop` par PR, un push direct n'y déclenche rien (même réglage que techno-scraper et le portfolio)
 - Déclencher le build de release **depuis le workflow release-please**, par `needs:` conditionné à l'output `release_created`, jamais depuis un fichier séparé
 - Ajouter `workflow_dispatch` sur un workflow qu'il faut pouvoir rejouer à la main sans pousser un commit
 - Filtrer par `paths:` un workflow qui ne concerne qu'une zone du dépôt
@@ -23,7 +23,7 @@ paths:
 ## Gotchas
 - Verbatim GitHub : « events triggered by the `GITHUB_TOKEN` will not create a new workflow run, **with the following exceptions** ». Les exceptions sont `workflow_dispatch`, `repository_dispatch`, et les `pull_request` de type `opened` / `synchronize` / `reopened`, ces derniers créant des runs **en état approval-required**. Un push de **tag** n'en fait pas partie : `on: push: tags` ne partirait toujours jamais, et le chaînage `needs:` reste le contournement du projet. PAT et token de GitHub App restent les alternatives, au prix d'un secret à faire tourner
 - La PR de release, et tout commit qu'un job y pousse, produisent des runs `pull_request` **bloqués en attente d'approbation**, pas des runs absents. Sans clic « Approve workflows to run », rien ne valide la tête de cette PR
-- Le flux `develop` → `main` n'est pas documenté côté release-please, qui raisonne sur une branche de vérité unique pilotée par `target-branch` : à valider sur un dépôt de test avant la première release (cf. [VERSIONS.md](../../../docs/VERSIONS.md) § release-please)
+- Le flux `develop` → `main` n'est pas documenté côté release-please, qui raisonne sur une branche de vérité unique pilotée par `target-branch`. Il marche : le squash-merge de la PR `develop → main` est un commit ordinaire de `main`, et le premier run (tag `v0.1.0`) l'a confirmé (cf. [VERSIONS.md](../../../docs/VERSIONS.md) § release-please)
 - Un workflow `schedule` est désactivé après 60 jours sans activité sur le dépôt
 
 ## Exemples

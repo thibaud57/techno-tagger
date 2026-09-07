@@ -10,9 +10,9 @@ paths:
 - Déclarer `permissions:` explicitement, au plus près du besoin : `contents: read` par défaut sur le workflow, les écritures ouvertes seulement sur le job qui en a l'usage (`contents: write` et `pull-requests: write` pour release-please et la publication de la Release)
 - Épingler chaque action tierce sur un SHA de commit, avec la version en commentaire
 - Épingler à la version exacte quand un tag flottant traîne : `pnpm/setup` doit être posé sur la v2.1.0, le tag `@v2` restant sur une version antérieure au correctif de chemin de cache Windows
-- Laisser Renovate (manager `github-actions`) faire remonter les bumps d'actions en PR mensuelle, gate qualité compris
+- Laisser Dependabot (écosystème `github-actions`) faire remonter les bumps d'actions en PR mensuelle, gate qualité compris
 - Passer toute valeur contrôlée par un tiers (titre de PR, corps d'issue, `client_payload`) par `env:` avant de la lire dans un `run:`
-- Laisser « Dependency graph » et « Dependabot alerts » actifs côté dépôt : Renovate les lit, il ne les produit pas
+- Laisser « Dependency graph » et « Dependabot alerts » actifs côté dépôt : les mises à jour de sécurité de Dependabot s'appuient dessus
 
 ## À éviter
 - Interpoler `${{ github.event.* }}` directement dans un `run:` : la valeur est substituée avant l'exécution du shell, ce qui exécute du code arbitraire choisi par l'auteur de la PR ou de l'issue

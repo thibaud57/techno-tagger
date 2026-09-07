@@ -27,7 +27,7 @@ paths:
 - Rien n'est publié tant que la PR de release n'est pas mergée : c'est le point de contrôle humain de la chaîne
 - `bump-minor-pre-major` et `bump-patch-for-minor-pre-major` adoucissent le calcul sous 1.0.0, tous deux désactivés par défaut
 - `separate-pull-requests` est à `false` par défaut, ce qui groupe tout dans une seule PR : le bon comportement ici
-- Le flux `develop` → `main` n'est pas documenté, l'outil raisonnant sur une branche de vérité unique pilotée par `target-branch` : à valider sur un dépôt de test avant la première release
+- Le flux `develop` → `main` n'est pas documenté, l'outil raisonnant sur une branche de vérité unique pilotée par `target-branch`. Il marche, le squash-merge de la PR étant un commit ordinaire de `main` : confirmé au premier run (tag `v0.1.0`)
 - En mode monorepo les outputs sont préfixés par le chemin : sans objet avec un package racine unique
 
 > Le chaînage `needs:` du build sur `release_created`, la raison pour laquelle `on: push: tags` ne partirait jamais et les permissions du job sont dans [github-actions/events.md](../github-actions/events.md) et [github-actions/security-permissions.md](../github-actions/security-permissions.md). Les règles de nommage des commits ne s'auto-injectent sur aucun fichier : elles valent au moment d'écrire le message.

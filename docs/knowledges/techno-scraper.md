@@ -1,8 +1,8 @@
 ---
 title: "techno-scraper — API gateway de métadonnées musicales"
-version: "3.1.2"
+version: "3.1.3"
 description: "Référence technique pour techno-scraper : authentification, contrat Track normalisé, routes consommées, sémantique d'erreur et bornes de concurrence."
-date: "2026-08-29"
+date: "2026-09-04"
 keywords: ["techno-scraper", "api", "track", "beatport", "bandcamp", "soundcloud", "x-api-key"]
 scope: ["docs"]
 technologies: ["httpx2", "Python", "FastAPI", "Pydantic"]
@@ -43,7 +43,7 @@ client = httpx2.AsyncClient(
 - **Clé absente et clé invalide rendent toutes deux `403`, jamais `401`.** Un `403` ne se retry pas : il remonte à l'utilisateur comme une clé à corriger dans les Settings
 - **Une seule clé aujourd'hui** : [`core/security.py`](https://github.com/thibaud57/techno-scraper/blob/HEAD/src/technoscraper/core/security.py) compare contre `settings.api_key`, une valeur unique. Le passage à un jeu de clés nommées est acté ([ADR-016](../adrs/016-multi-cles-techno-scraper.md)) mais reste un chantier côté techno-scraper, pas encore livré ([techno-scraper#73](https://github.com/thibaud57/techno-scraper/issues/73))
 - `/openapi.json`, `/docs` et `/redoc` sont **désactivés en production** : la référence de contrat est le repo, pas une doc en ligne
-- Le sidecar est le seul composant à appeler l'API. L'URL est persistée côté Tauri dans le `store` mais transmise au sidecar par la commande `set_api_url` — la webview n'émet jamais de requête vers l'API
+- Le sidecar est le seul composant à appeler l'API. L'URL est persistée côté Tauri dans le `store` mais transmise au sidecar par la commande `set_api_url` : la webview n'émet jamais de requête vers l'API
 
 ---
 
@@ -128,6 +128,13 @@ La distinction est contractuelle et conditionne toute la logique de fallback du 
 503  code=source_unavailable | stale_content → source injoignable après retries
 504  code=request_timeout                    → budget de 90 s dépassé, file saturée
 403                                          → clé absente ou invalide
+400  code=invalid_cursor                     → curseur illisible ou forgé
+404                                          → ressource absente (id inconnu)
+
+Corps 404, 502, 503 : { "code": "...", "provider": "...", "request_id": "..." }
+Corps 400, 504     : { "code": "...", "request_id": "..." }, sans provider
+Corps 403          : { "detail": "Invalid API key" }, défaut FastAPI, ni code ni request_id
+En-tête sur toutes les réponses, succès compris : X-Request-ID
 ```
 
 ### Points Importants
@@ -137,6 +144,7 @@ La distinction est contractuelle et conditionne toute la logique de fallback du 
 - **Le `504` prime sur le `503`** quand les deux sont possibles : une route enchaînant plusieurs `fetch` dépasse le budget avant d'avoir épuisé ses tentatives. Les deux se traitent pareil (source indisponible), seul le code diffère
 - `502 parse_error` n'est pas actionnable côté application : c'est un parser à corriger côté API. Le morceau se traite comme non résolu, et le rapport doit le distinguer d'un « rien trouvé »
 - **Le retry est à la charge du consommateur** : l'API ne le fait pas pour lui, sa concurrence sortante étant mutualisée entre tous les consommateurs
+- **Le corps d'erreur ne porte ni message ni trace** : `{code, provider, request_id}` sur 404, 502 et 503, sans `provider` sur 400 et 504, et le `{"detail": ...}` par défaut de FastAPI sur 403. Inutile d'y chercher un texte à afficher, le libellé utilisateur appartient au sidecar. Le `request_id`, repris en en-tête `X-Request-ID` sur toutes les réponses, est le seul lien avec la ligne de log et l'issue Sentry côté API : le journaliser à chaque échec, depuis l'en-tête plutôt que le corps
 
 ---
 
@@ -165,7 +173,8 @@ async def search_all(client, query: str) -> list[dict]:
 ### Points Importants
 
 - **Le curseur est opaque et forward-only** : le décoder, le construire à la main ou le réutiliser sur une autre route est un contrat rompu
-- `next_cursor: null` signifie « fin de liste », y compris quand la source ne pagine pas du tout — c'est le cas de `/bandcamp/search`
+- **Le paramètre ne s'appelle pas `cursor` partout** : c'est `cursor` sur `/beatport/search` et `/soundcloud/users/{id}/likes`, mais **`tracks_cursor`** sur `/soundcloud/resolve` et `/soundcloud/users/{id}`, où les morceaux sont une seconde collection à côté du profil. Les modèles de paramètres de l'API étant en `extra="forbid"`, se tromper de nom rend `422`, pas une première page
+- `next_cursor: null` signifie « fin de liste », y compris quand la source ne pagine pas du tout (c'est le cas de `/bandcamp/search`)
 - **Le tagger ne pagine pas en recherche** : seuls les premiers candidats sont scorés, un morceau au-delà de la première page n'étant pas un candidat plausible. La boucle ci-dessus vaut pour les usages exhaustifs (discographie), pas pour le chemin de tagging
 - Beatport plafonne sa fenêtre de recherche à 10 000 résultats cumulés (mesuré côté API le 2026-08-09) : au-delà, `400 cursor_out_of_range`
 
@@ -208,7 +217,10 @@ Un seul module connaît les URLs, les codes d'erreur et la forme des réponses d
 
 ```python
 # scraper_client.py — seul endroit qui connaît le contrat de l'API
-async def search_tracks(self, source: Source, query: str) -> list[TrackCandidate]:
+# `type` n'existe que sur beatport et bandcamp : /soundcloud/search rend des profils
+async def search_tracks(
+    self, source: Literal[Source.BEATPORT, Source.BANDCAMP], query: str
+) -> list[TrackCandidate]:
     try:
         response = await self._client.get(f"/{source}/search", params={"q": query, "type": "tracks"})
         response.raise_for_status()
@@ -255,13 +267,13 @@ async def search_tracks(self, source: Source, query: str) -> list[TrackCandidate
 
 - [techno-scraper (production)](https://techno-scraper.empiricmind.fr)
 - [Dépôt techno-scraper](https://github.com/thibaud57/techno-scraper)
-- [ADR-002 — API gateway bas niveau](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md)
-- [ADR-006 — Schéma Track normalisé](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md)
-- [ADR-009 — Pagination cross-provider](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/009-pagination-cross-provider.md)
+- [ADR-002 : API gateway bas niveau](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md)
+- [ADR-006 : Schéma Track normalisé](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md)
+- [ADR-009 : Pagination cross-provider](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/009-pagination-cross-provider.md)
 
 ## Ressources Complémentaires
 
-- [ADR-006 — Scraping délégué à techno-scraper](../adrs/006-scraping-delegue-techno-scraper.md)
-- [ADR-009 — Enchaînement des sources et arbitrage](../adrs/009-enchainement-sources-et-arbitrage.md)
-- [ADR-016 — Multi-clés techno-scraper](../adrs/016-multi-cles-techno-scraper.md)
-- [ADR-017 — Taille du pool de concurrence](../adrs/017-taille-pool-concurrence.md)
+- [ADR-006 : Scraping délégué à techno-scraper](../adrs/006-scraping-delegue-techno-scraper.md)
+- [ADR-009 : Enchaînement des sources et arbitrage](../adrs/009-enchainement-sources-et-arbitrage.md)
+- [ADR-016 : Multi-clés techno-scraper](../adrs/016-multi-cles-techno-scraper.md)
+- [ADR-017 : Taille du pool de concurrence](../adrs/017-taille-pool-concurrence.md)

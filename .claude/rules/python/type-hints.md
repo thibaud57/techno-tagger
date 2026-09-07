@@ -16,11 +16,11 @@ paths:
 - Marquer `@override` sur toute redéfinition, `Final` sur les constantes, `ClassVar` sur les attributs de classe
 
 ## À éviter
-- `Any` : il se propage et éteint le contrôle en cascade — préférer `object` + narrowing, un `Protocol` ou un generic
-- `from __future__ import annotations` — inutile en 3.14, et force encore le mode STRING qui masque les vrais objets
-- `typing.List` / `Dict` / `Tuple` / `Optional` / `Union` — dépréciés
+- `Any` : il se propage et éteint le contrôle en cascade (préférer `object` + narrowing, un `Protocol` ou un generic)
+- `from __future__ import annotations` : inutile en 3.14, et force encore le mode STRING qui masque les vrais objets
+- `typing.List` / `Dict` / `Tuple` / `Optional` / `Union` : dépréciés
 - `# type: ignore` nu : toujours avec le code d'erreur entre crochets
-- `cast()` pour faire taire le checker — il n'affirme rien au runtime
+- `cast()` pour faire taire le checker : il n'affirme rien au runtime
 
 ## Gotchas
 - Mypy 2.0 : `--strict-bytes` par défaut, `bytearray` et `memoryview` ne sont plus assignables à `bytes` (concerne les blobs d'artwork et les transports mockés)

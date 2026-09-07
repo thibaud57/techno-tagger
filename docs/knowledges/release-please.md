@@ -5,7 +5,7 @@ description: "Référence technique pour release-please-action : Conventional Co
 date: "2026-08-29"
 keywords: ["release-please", "conventional-commits", "versioning", "changelog", "github-actions", "tauri"]
 scope: ["docs"]
-technologies: ["GitHub Actions", "Tauri", "Renovate"]
+technologies: ["GitHub Actions", "Tauri", "Dependabot"]
 ---
 
 # Description
@@ -40,7 +40,7 @@ chore(deps): bump httpx2 to 2.12.0             → aucun bump, entrée de change
 - **Un `BREAKING CHANGE:` en pied de commit vaut aussi majeure**, comme le `!`
 - `bump-minor-pre-major` et `bump-patch-for-minor-pre-major` adoucissent le calcul tant que la version est sous 1.0.0, tous deux désactivés par défaut
 - **Un commit hors convention ne produit aucune entrée** : il disparaît du changelog sans avertir
-- Les PR de Renovate doivent donc respecter la convention (cf. [renovate.md](renovate.md))
+- Les PR de Dependabot ciblent `develop` et disparaissent dans le squash `develop → main` : seul le titre de cette PR-là compte pour release-please
 
 ---
 
@@ -50,11 +50,21 @@ chore(deps): bump httpx2 to 2.12.0             → aucun bump, entrée de change
 
 release-please maintient une PR persistante, mise à jour à chaque push sur la branche cible. Elle porte le bump de version et le changelog. **La merger déclenche le tag et la Release.**
 
+### Exemple
+
+```bash
+# Titre généré par release-please, visible dans l'historique du dépôt :
+# chore(main): release 0.1.0 (#11)
+
+# Merge sans modification : c'est ce merge qui crée le tag vX.Y.Z
+gh pr merge <numero> --squash
+```
+
 ### Points Importants
 
 - **Rien n'est publié tant que la PR n'est pas mergée** : c'est le point de contrôle humain de la chaîne de release
 - La PR se met à jour toute seule à chaque commit : inutile de la fermer et de la rouvrir
-- `separate-pull-requests` est à `false` par défaut, ce qui groupe tout dans une seule PR — le bon comportement ici, l'application étant un seul livrable
+- `separate-pull-requests` est à `false` par défaut, ce qui groupe tout dans une seule PR : le bon comportement ici, l'application étant un seul livrable
 - Le changelog généré se relit avant merge : c'est le moment de repérer un commit mal typé
 
 ---
@@ -117,12 +127,12 @@ permissions:
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v5
+      - uses: googleapis/release-please-action@<sha> # v5.0.0
         id: release
         with:
           config-file: release-please-config.json
@@ -131,9 +141,9 @@ jobs:
   build:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    runs-on: windows-latest      # PyInstaller + tauri build : pas de cross-compilation
+    runs-on: windows-2025      # PyInstaller + tauri build : pas de cross-compilation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@<sha> # v7.0.1
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
       # build du sidecar, tauri build, signature, upload des artefacts
@@ -145,7 +155,7 @@ jobs:
 - **`if: needs.release-please.outputs.release_created`** évite de builder à chaque push
 - Le `checkout` doit viser `tag_name`, sinon le build part du dernier commit et non de la version publiée
 - **L'alternative est un PAT ou un token de GitHub App**, qui restaure les déclencheurs mais ajoute un secret à gérer : le chaînage évite ce secret
-- Le runner est `windows-latest` par nécessité, PyInstaller ne cross-compilant pas (cf. [pyinstaller.md](pyinstaller.md))
+- Le runner est Windows (`windows-2025`, image figée) par nécessité, PyInstaller ne cross-compilant pas (cf. [pyinstaller.md](pyinstaller.md))
 
 ---
 
@@ -206,5 +216,5 @@ upload_url       # dépôt des artefacts sur la Release
 ## Ressources Complémentaires
 
 - [Conventional Commits](https://www.conventionalcommits.org/)
-- [PRODUCTION.md](../PRODUCTION.md) — pipelines et secrets
-- [pyinstaller.md](pyinstaller.md) · [sentry.md](sentry.md) · [renovate.md](renovate.md)
+- [PRODUCTION.md](../PRODUCTION.md) : pipelines et secrets
+- [pyinstaller.md](pyinstaller.md) · [sentry.md](sentry.md)

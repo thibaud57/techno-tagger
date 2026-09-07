@@ -1,6 +1,8 @@
 ---
 paths:
   - "sidecar/src/tagger/__main__.py"
+  - "sidecar/src/tagger/observability.py"
+  - "sidecar/src/tagger/protocol.py"
 ---
 
 # Python Pattern Matching — Règles
@@ -15,7 +17,7 @@ paths:
 
 ## À éviter
 - `case CONSTANTE:` avec un nom nu : c'est un capture pattern, il matche tout et écrase le nom
-- Un `match` sans cas par défaut sur une entrée externe — il tombe sans lever
+- Un `match` sans cas par défaut sur une entrée externe : il tombe sans lever
 - Un sequence pattern pour matcher une chaîne : `str`, `bytes` et `bytearray` en sont exclus
 
 ## Gotchas

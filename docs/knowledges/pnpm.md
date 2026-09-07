@@ -5,7 +5,7 @@ description: "Référence technique pour pnpm : store et isolation des dépendan
 date: "2026-08-29"
 keywords: ["pnpm", "lockfile", "corepack", "packageManager", "hoisting", "ci"]
 scope: ["docs"]
-technologies: ["Node.js", "Angular", "Tauri", "GitHub Actions", "Renovate"]
+technologies: ["Node.js", "Angular", "Tauri", "GitHub Actions", "Dependabot"]
 ---
 
 # Description
@@ -25,6 +25,14 @@ Son intérêt principal ici n'est pas la vitesse mais **l'isolation** : un paque
 ### Description
 
 Les paquets vivent une fois dans un store adressé par contenu. `node_modules` n'est qu'un ensemble de liens : les dépendances directes à la racine, les transitives isolées sous `node_modules/.pnpm/`.
+
+### Exemple
+
+```yaml
+# pnpm-workspace.yaml
+public-hoist-pattern:
+  - '*@tauri-apps/cli*'   # cible ce seul paquet plutôt que shamefully-hoist
+```
 
 ### Points Importants
 
@@ -65,10 +73,19 @@ Le champ `packageManager` fixe la version exacte pour tout le monde, mais **ce p
 
 `pnpm-lock.yaml` fige la résolution. Il se commite et se relit comme du code.
 
+### Exemple
+
+```bash
+# résoudre un conflit git sur pnpm-lock.yaml
+git checkout --ours pnpm-lock.yaml   # peu importe le côté choisi ici
+pnpm install                          # régénère le lock depuis package.json résolu
+git add pnpm-lock.yaml
+```
+
 ### Points Importants
 
 - **Un conflit git sur le lockfile ne se résout pas à la main** : relancer `pnpm install` et relire le diff avant de committer
-- Le format du lockfile est indifférent à Renovate, qui délègue sa régénération à la CLI pnpm elle-même (cf. [renovate.md](renovate.md))
+- Le format du lockfile est indifférent à Dependabot, qui délègue sa régénération à la CLI pnpm elle-même
 - Ne jamais mélanger `npm install` et `pnpm install` sur le même dépôt : deux lockfiles cohabiteraient sans se voir
 
 ---
@@ -197,7 +214,7 @@ pnpm tauri dev                  # raccourci vers le binaire @tauri-apps/cli
 
 ## Documentation Officielle
 
-- [pnpm — installation](https://pnpm.io/installation)
+- [pnpm : installation](https://pnpm.io/installation)
 - [pnpm install](https://pnpm.io/cli/install) · [pnpm add](https://pnpm.io/cli/add) · [pnpm exec](https://pnpm.io/cli/exec) · [pnpm dlx](https://pnpm.io/cli/dlx)
 - [Réglages node-modules et hoisting](https://pnpm.io/settings/node-modules)
 - [pnpm approve-builds](https://pnpm.io/cli/approve-builds)
@@ -206,5 +223,4 @@ pnpm tauri dev                  # raccourci vers le binaire @tauri-apps/cli
 ## Ressources Complémentaires
 
 - [Corepack](https://github.com/nodejs/corepack#readme)
-- [renovate.md](renovate.md) — mise à jour du lockfile
-- [VERSIONS.md](../VERSIONS.md) — versions épinglées du projet
+- [VERSIONS.md](../VERSIONS.md) : versions épinglées du projet

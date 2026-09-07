@@ -74,33 +74,11 @@ Le sidecar est un process long lancé au démarrage, pas une invocation par acti
 
 ## Chaîne de résolution d'un morceau
 
-Trois états après interrogation d'une source : **auto** (candidat au-dessus du seuil haut), **zone grise** (décision humaine), **vide**.
+Trois états après interrogation d'une source : **auto** (candidat au-dessus du seuil haut), **zone grise** (décision humaine dans une modale), **vide**.
 
-```
-requête = tags ID3 (repli : nom de fichier nettoyé)
-   │
-Beatport ──► auto ? ──oui──► VALIDÉ
-     │ non
-     ├── vide ──► Bandcamp (en fond, pipeline)
-     │              ├─ auto ──► VALIDÉ
-     │              ├─ zone grise ──► MODALE (candidats Bandcamp)
-     │              └─ vide ──► NON RÉSOLU
-     │
-     └── zone grise ──► MODALE, temps 1 : candidats Beatport
-                          ├─ choix ──► VALIDÉ           (Bandcamp jamais appelé)
-                          └─ « aucune » ──► appel Bandcamp déclenché ici
-                                 │
-                          MODALE, temps 2 : la liste Bandcamp remplace la liste Beatport
-                                 ├─ choix ──► VALIDÉ
-                                 └─ « aucune » ou vide ──► NON RÉSOLU
-                                                                │
-   fin de run : saisie d'URL sur tous les NON RÉSOLUS ◄─────────┘
-   puis confirmation globale ──► écriture des tags, pochettes, renommage ──► rapport
-```
+**Bandcamp n'est jamais appelé spéculativement**, seulement au refus ou au vide de Beatport. Les échecs convergent vers « non résolu », rattrapé par saisie d'URL en fin de run, SoundCloud n'étant accepté que là.
 
-**Bandcamp n'est jamais appelé spéculativement** : l'appel ne part qu'au refus des candidats Beatport, la modale restant ouverte pendant ce temps. Les trois causes d'échec convergent vers un seul état, « non résolu », que la phase URL rattrape. SoundCloud n'est accepté qu'en saisie d'URL.
-
-> Justification de l'enchaînement : [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md).
+> Diagramme et états détaillés : [ARCHITECTURE.md § Chaîne de résolution](ARCHITECTURE.md#chaîne-de-résolution-dun-morceau). Justification de l'enchaînement : [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md).
 
 ---
 
@@ -127,7 +105,7 @@ Beatport ──► auto ? ──oui──► VALIDÉ
 - Plugins Tauri : shell (sidecar), dialog (sélection de dossiers), fs, store (préférences), os (locale système), updater, single-instance, opener
 - Monitoring : @sentry/angular
 
-> ⚠️ **PrimeNG n'est plus open source à partir de la v22** (dépôt archivé fin juin 2026, bascule sous licence PrimeUI ; la v21 et les antérieures restent MIT). La **Community License** est gratuite et couvre ce projet, sous quatre conditions cumulatives : moins d'1 M$ de revenus annuels, moins de 5 développeurs, moins de 10 employés, et jamais plus de 3 M$ de capital-risque reçu. Aucune limitation fonctionnelle sur la bibliothèque centrale, mais le Theme Designer et les composants Pro n'y sont pas. Conséquences : une clé à poser dans `providePrimeNG({ license: ... })`, donc embarquée dans le bundle distribué ; un renouvellement gratuit tous les 12 mois avec 30 jours de grâce ; et **la notice de licence s'affiche même en développement** : la documentation PrimeUI mentionne une exemption sur `localhost`, mais la webview Tauri n'en bénéficie pas, donc un oubli se verra dès le premier `just dev`, pas seulement chez les amis. Un fork MIT de la v21 existe, **Optimus UI** (OpenNG), gardé comme porte de sortie.
+> ⚠️ **PrimeNG n'est plus open source à partir de la v22** : Community License gratuite, conditions cumulatives vérifiées pour ce projet, clé de licence requise même en développement, Optimus UI (fork MIT de la v21) gardé comme porte de sortie. Cf. [ADR-003](adrs/003-primeng-community-license.md).
 
 ## Coquille
 
@@ -171,9 +149,7 @@ Isoler dans un dossier de travail les morceaux d'une playlist, pris dans une bib
 
 Les deux sont nécessaires : **VLC Android n'a aucune fonction d'export de playlist**, le dump est sa seule sortie (les scripts tiers type `vlc-to-m3u` ne font rien d'autre que lire cette base). Le SQLite couvre le cas principal, playlist curée sur le téléphone ; le M3U8 couvre les autres DJ.
 
-**Résolution par nom de fichier, pas par chemin.** Le chemin de la playlist est ignoré, seul le nom est retenu puis cherché récursivement dans le dossier source ([playlist_processor.py:122-126](https://github.com/thibaud57/BeatportScrapper-TrackTagger/blob/HEAD/processors/playlist_processor.py#L122-L126)). Sans ça le cas principal ne marche pas : la base vient du téléphone, les fichiers sont sur le PC.
-
-Deux fichiers de même nom dans des sous-dossiers différents : la CLI prenait silencieusement le premier trouvé. Tranché depuis, le plus volumineux est retenu, chaque cas consigné dans le rapport avec les candidats écartés ([ADR-020](adrs/020-doublons-noms-de-fichiers.md)).
+**Résolution par nom de fichier, pas par chemin** : la base vient du téléphone, les fichiers sont sur le PC. Deux fichiers de même nom, le plus volumineux est retenu et le cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md)). Détail du flux : [ARCHITECTURE.md § Use-case 1](ARCHITECTURE.md#use-case-1--extraction-sélective-par-playlist).
 
 ### Feature 2 : Onglet Scraping, pipeline de re-tagging
 
@@ -296,6 +272,12 @@ Rien au MVP : le contrat NDJSON est déjà testable en ligne de commande sans in
 
 Justifié le jour où l'application est distribuée à plusieurs personnes et où une régression de la chaîne UI vers sidecar cesse d'être détectable à l'œil.
 
+### Feature 6 : Canal beta
+
+Pré-release GitHub publiée sur un manifeste updater distinct, pour installer une mise à jour sur une machine avant de la pousser à tout le monde.
+
+Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se justifie le jour où un bug de mise à jour toucherait des utilisateurs qui ne savent pas revenir en arrière.
+
 ---
 
 # ⚠️ Contraintes
@@ -326,7 +308,7 @@ Justifié le jour où l'application est distribuée à plusieurs personnes et o�
 - **techno-scraper multi-clés** : [`core/security.py`](https://github.com/thibaud57/techno-scraper/blob/HEAD/src/technoscraper/core/security.py) compare contre une clé unique (`settings.api_key`). Une clé par utilisateur impose de passer à un jeu de clés nommées. Changement petit, mais sur une API déjà en production. ✅ **Tranché** : jeu de clés nommées en variable d'environnement ([ADR-016](adrs/016-multi-cles-techno-scraper.md)), chantier porté par techno-scraper et non livré à ce jour
 - **Taille du pool de concurrence** : combien d'appels en vol simultanés sans dégrader la latence de l'API ? À mesurer, pas à deviner. ✅ **Tranché** : pool aligné sur les sémaphores de l'API, 3 pour Beatport et 2 pour Bandcamp ([ADR-017](adrs/017-taille-pool-concurrence.md))
 - **Seuils de matching par défaut** : les valeurs de la CLI actuelle sont-elles transposables, sachant que le contrat de sortie de l'API a changé ? Toujours ouvert : à recalibrer aux premiers runs réels (cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
-- **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ? ✅ **Tranché** : requête embarquée, schéma vérifié avant traitement plutôt qu'un fichier SQL externe. L'inspection du fichier a montré une autre raison à cette externalisation : un nom de playlist codé en dur (`WHERE p.name = 'final'`), pas une protection contre un schéma instable — aucun changement de schéma n'a d'ailleurs jamais été observé ([ADR-019](adrs/019-resilience-schema-vlc-media-db.md))
+- **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ? ✅ **Tranché** : requête embarquée, schéma vérifié avant traitement plutôt qu'un fichier SQL externe. L'inspection du fichier a montré une autre raison à cette externalisation : un nom de playlist codé en dur (`WHERE p.name = 'final'`), pas une protection contre un schéma instable. Aucun changement de schéma n'a d'ailleurs jamais été observé ([ADR-019](adrs/019-resilience-schema-vlc-media-db.md))
 - **Doublons de noms de fichiers** : que faire quand plusieurs fichiers du dossier source portent le même nom (demander, prendre le plus gros, tout signaler dans le rapport) ? ✅ **Tranché** : le plus volumineux est retenu, chaque cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md))
 - **Nettoyage des noms de fichiers** : quels motifs retirer avant d'envoyer la requête (`[FREE DL]`, `320kbps`, numéros de piste, tirets bas) ? Mécanisme tranché (nettoyage de la chaîne interrogée, jamais des tags), la liste exacte des motifs reste à établir au premier run réel (cf. [ARCHITECTURE.md](ARCHITECTURE.md#capacités-natives))
 - **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport. Toujours ouvert (étape 1, cf. [ARCHITECTURE.md § Questions ouvertes](ARCHITECTURE.md#questions-ouvertes))
@@ -391,9 +373,9 @@ Justifié le jour où l'application est distribuée à plusieurs personnes et o�
 
 **Références :**
 
-- [Tauri v2 — Sidecar](https://v2.tauri.app/develop/sidecar/)
-- [Tauri v2 — Plugins](https://v2.tauri.app/plugin/)
-- [techno-scraper — README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md) : routes, contrat `Page[T]`, sémantique des erreurs
-- [techno-scraper — ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
-- [techno-scraper — ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
+- [Tauri v2 : Sidecar](https://v2.tauri.app/develop/sidecar/)
+- [Tauri v2 : Plugins](https://v2.tauri.app/plugin/)
+- [techno-scraper : README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md) : routes, contrat `Page[T]`, sémantique des erreurs
+- [techno-scraper : ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
+- [techno-scraper : ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
 - [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : implémentation CLI de référence (parsing des playlists, matching, déplacement)

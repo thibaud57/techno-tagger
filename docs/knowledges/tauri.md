@@ -345,7 +345,7 @@ tauri permission add <identifiant>      # ajout dans une capability
 
 ## Ressources Complémentaires
 
-- [ADR-001 — Coquille desktop Tauri](../adrs/001-coquille-desktop-tauri.md)
-- [ADR-005 — Sidecar Python et protocole NDJSON](../adrs/005-sidecar-python-protocole-ndjson.md)
-- [ADR-015 — Cibles de distribution Windows](../adrs/015-cibles-distribution-windows.md)
-- [pyinstaller.md](pyinstaller.md) — empaquetage du sidecar
+- [ADR-001 : Coquille desktop Tauri](../adrs/001-coquille-desktop-tauri.md)
+- [ADR-005 : Sidecar Python et protocole NDJSON](../adrs/005-sidecar-python-protocole-ndjson.md)
+- [ADR-015 : Cibles de distribution Windows](../adrs/015-cibles-distribution-windows.md)
+- [pyinstaller.md](pyinstaller.md) : empaquetage du sidecar

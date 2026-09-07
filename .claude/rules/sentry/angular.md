@@ -2,6 +2,8 @@
 paths:
   - "src/main.ts"
   - "src/app/app.config.ts"
+  - "src/app/core/scrub.ts"
+  - "src/app/core/scrub.spec.ts"
 ---
 
 # Sentry — SDK Angular

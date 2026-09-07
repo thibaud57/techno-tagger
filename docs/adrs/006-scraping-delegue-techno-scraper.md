@@ -97,4 +97,4 @@ Le module `scraper_client.py` isole le contrat de l'API du reste du métier : un
 
 Le cache disque atténue partiellement la dépendance réseau sur un re-run du même dossier, mais ne constitue pas un mode hors ligne (cf. [ADR-013](013-cache-disque-jetable.md)).
 
-Références : [techno-scraper — README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md), [techno-scraper — ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md), [techno-scraper — ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md).
+Références : [techno-scraper : README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md), [techno-scraper : ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md), [techno-scraper : ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md).

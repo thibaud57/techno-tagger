@@ -1,6 +1,6 @@
 ---
 title: "Ruff — Linter et formatter du sidecar"
-version: "0.16.5"
+version: "0.16.6"
 description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0, select vs extend-select et ordre lint/format."
 date: "2026-08-29"
 keywords: ["ruff", "lint", "format", "pyproject", "regles", "pre-commit"]
@@ -98,6 +98,13 @@ uv run ruff format
 
 `--fix` n'applique que les corrections marquées sûres. `--unsafe-fixes` élargit à celles qui peuvent changer le comportement.
 
+### Exemple
+
+```bash
+uv run ruff check --fix                  # corrections sûres uniquement
+uv run ruff check --fix --unsafe-fixes   # inclut les corrections non sûres, diff à relire en main
+```
+
 ### Points Importants
 
 - **`--unsafe-fixes` ne s'utilise pas en aveugle** : par définition, ces corrections peuvent modifier ce que le code fait
@@ -139,7 +146,7 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 ## ✅ Recommandations
 
 - **Déclarer `select` explicitement** plutôt que de dépendre du jeu par défaut de la version installée
-- **Épingler la version de Ruff** en CI et en pre-commit, et laisser Renovate proposer la montée
+- **Épingler la version de Ruff** en CI et en pre-commit, et laisser Dependabot proposer la montée
 - **Lancer `ruff check --fix` puis `ruff format`**, dans cet ordre
 - **Cadrer une montée de version par `--statistics`** avant de regarder le diff
 - **Utiliser `per-file-ignores`** pour les tests et les `__init__.py` plutôt que de désactiver globalement
@@ -160,7 +167,7 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 
 ## Documentation Officielle
 
-- [Ruff — configuration](https://docs.astral.sh/ruff/configuration/)
+- [Ruff : configuration](https://docs.astral.sh/ruff/configuration/)
 - [Linter](https://docs.astral.sh/ruff/linter/) · [Formatter](https://docs.astral.sh/ruff/formatter/) · [Réglages](https://docs.astral.sh/ruff/settings/)
 - [Compatibilité avec Black](https://docs.astral.sh/ruff/formatter/black/)
 - [Versionnement](https://docs.astral.sh/ruff/versioning/)
@@ -169,4 +176,4 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 
 - [Annonce Ruff 0.16.0](https://astral.sh/blog/ruff-v0.16.0)
 - [ruff-pre-commit](https://github.com/astral-sh/ruff-pre-commit)
-- [mypy.md](mypy.md) — répartition des responsabilités
+- [mypy.md](mypy.md) : répartition des responsabilités

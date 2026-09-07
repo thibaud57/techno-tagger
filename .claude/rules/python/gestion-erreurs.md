@@ -16,7 +16,7 @@ paths:
 - Rattacher un incident propre à un morceau à son `failure_reason`, pas à un message libre
 
 ## À éviter
-- `except:` nu, et `except Exception` sans re-raise — masque `KeyboardInterrupt` et les bugs
+- `except:` nu, et `except Exception` sans re-raise : masque `KeyboardInterrupt` et les bugs
 - `print` pour du diagnostic : le binaire empaqueté n'a pas de console, et `stdout` porte le flux NDJSON
 - `assert` pour valider une commande reçue sur `stdin` : supprimé sous `python -O`
 - `return` / `break` / `continue` sortant d'un bloc `finally`

@@ -203,7 +203,7 @@ L'utilisateur choisit un dossier, typiquement la destination du use-case 1. Pour
 
 **Seuils de départ hérités de la CLI**, qui applique déjà ce modèle à trois états : plancher de **70** sur le score artiste et sur le score titre pris séparément, sous lequel le candidat est écarté ; seuil haut de **90** sur la moyenne des deux, au-dessus duquel la validation est automatique. Entre les deux, zone grise. Réglables dans les Settings.
 
-> **Hérités ne veut pas dire transposables.** Le passage de fuzzywuzzy à rapidfuzz est neutre, même algorithme et même échelle 0-100. Celui de la CLI à cette application ne l'est pas : le contrat de sortie de l'API a changé, les chaînes comparées ne sont plus les mêmes. 70 et 90 sont donc à recalibrer aux premiers runs réels (cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md)).
+> **Hérités ne veut pas dire transposables** : le contrat de sortie de l'API a changé, 70 et 90 sont à recalibrer aux premiers runs réels (cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md)).
 
 **Règles de scoring** reprises telles quelles : `token_sort_ratio` quand l'artiste contient une virgule ou une esperluette, `ratio` sinon ; et un candidat sans mention de remix est écarté quand la requête en contient une.
 
@@ -397,6 +397,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
+| `shutdown` | aucune. Émise à la fermeture de la fenêtre : le sidecar finit d'écrire le plan de run en cours, puis sort. L'EOF sur stdin reste le filet si l'application est tuée, la reprise de run (use-case 6) couvre ce cas |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **identifiant de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible, seuils de matching |
@@ -415,7 +416,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 
 | Événement | Contenu |
 |---|---|
-| `version` | version du sidecar, comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)) |
+| `version` | version du sidecar, comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)), et `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
 | `playlists_listed` | playlists du dump VLC : identifiant, nom, nombre de morceaux |
 | `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture |
 | `extraction_finished` | morceaux copiés ou déplacés, titres introuvables, doublons résolus avec leurs candidats écartés, chemin du rapport d'extraction |
@@ -506,9 +507,7 @@ Le contrat se teste en ligne de commande en injectant des commandes sur `stdin` 
 
 ### Concurrence
 
-Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-httpx2.md)), dimensionné en miroir des sémaphores de sortie de techno-scraper : **3 requêtes Beatport en vol, 2 pour Bandcamp**. Au-delà, les requêtes s'empilent derrière le sémaphore de l'API sans rien gagner et consomment son budget de 90 secondes, qui se solde par un 504 (cf. [ADR-017](adrs/017-taille-pool-concurrence.md)).
-
-Le timeout client est fixé au-dessus de ce budget, autour de 100 secondes, pour recevoir le 504 structuré de l'API plutôt qu'un timeout local aveugle. Couper plus tôt ferait passer une saturation pour une panne réseau locale.
+Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-httpx2.md)), dimensionné en miroir des sémaphores de sortie de techno-scraper : **3 requêtes Beatport en vol, 2 pour Bandcamp**, timeout client à **100 secondes**, au-dessus du budget de 90 secondes de l'API (cf. [ADR-017](adrs/017-taille-pool-concurrence.md)).
 
 **Le téléchargement des pochettes a son propre pool.** L'API fournit bien l'`artwork_url` dans le contrat `Track`, mais cette URL pointe vers le CDN de la source : le téléchargement de l'image ne passe donc pas par techno-scraper et ne consomme pas ses sémaphores. Le compter dans le pool de 3 briderait les images pour rien. **Sa taille est fixée à 6, et c'est un calibrage libre, pas une contrainte d'API** : contrairement aux deux autres, aucun sémaphore distant ne le dicte, seule la politesse envers le CDN. Un échec de téléchargement n'échoue jamais le morceau : les tags sont écrits sans pochette et le rapport le signale.
 
@@ -543,7 +542,7 @@ La file d'arbitrage est une simple structure en mémoire, exposée à l'interfac
 | Dump des tags d'origine | `appLocalDataDir()` | **30 jours, y compris pour un run terminé** | Rollback par run ou par morceau |
 | Logs du sidecar | `appLocalDataDir()` | Rotation à 5 Mo, 3 sauvegardes | Débogage à distance chez un utilisateur |
 
-Le plan vit dans `appLocalDataDir()` et non dans le dossier destination : c'est un état de session, pas un livrable, et le dossier de musique peut être déplacé ou renommé sans casser la reprise (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
+Le plan vit dans `appLocalDataDir()`, jamais dans le dossier destination (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
 
 Deux rapports distincts sont produits, l'un par l'extraction et l'autre par le re-tagging, chacun dans le dossier destination et chacun en JSON plus Markdown. **Tous deux en anglais**, indépendamment de la langue de l'interface : le JSON l'est déjà par construction, le Markdown n'en est que le rendu (cf. [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
 
@@ -551,7 +550,7 @@ Deux rapports distincts sont produits, l'un par l'extraction et l'autre par le r
 
 ### Cache
 
-Deux contenus, réponses de l'API et pochettes, sous la politique décrite dans le tableau ci-dessus. Ce qui compte n'est pas le réglage mais la propriété : **le dossier est jetable à tout moment**, y compris en plein run, sans rien casser d'autre que des appels réseau à repayer. Bouton « vider le cache » dans les Settings (cf. [ADR-013](adrs/013-cache-disque-jetable.md)).
+Deux contenus, réponses de l'API et pochettes, sous la politique du tableau ci-dessus. **Dossier jetable à tout moment**, bouton « vider le cache » dans les Settings (cf. [ADR-013](adrs/013-cache-disque-jetable.md)).
 
 ### Files / Assets Storage
 
@@ -723,7 +722,7 @@ Une clé par utilisateur, saisie dans les Settings, jamais compilée dans le bin
 
 > **Ce qui sort de la machine.** Outil personnel partagé entre amis, sans commercialisation : le cadre réglementaire ne s'applique pas ici, et les règles ci-dessous sont des choix produit, pas des obligations. Elles coûtent trois lignes de configuration, et évitent d'envoyer chez un tiers ce qui appartient à quelqu'un d'autre.
 
-> La protection ne passe pas par une case à cocher mais par **ce que le SDK a le droit d'envoyer** : variables locales des frames désactivées, nom de machine fixé, chemins scrubbés. Et **aucun titre de morceau envoyé automatiquement**, les cas d'arbitrage et d'échec restant dans le rapport local dont l'envoi est un geste manuel explicite. Région Sentry EU. Cf. [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md).
+> La protection passe par **ce que le SDK a le droit d'envoyer**, pas par une case à cocher, et **aucun titre de morceau ne part sans geste manuel**. Réglages, région EU et canal manuel : [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md).
 
 ## 🛡️ Robustesse & Modes de Panne
 
@@ -793,15 +792,7 @@ Erreurs techniques uniquement, des deux côtés : sidecar qui tombe, API injoign
 
 Aucun événement métier n'est envoyé. Le plan gratuit plafonne à 5 000 erreurs par mois et **jette silencieusement les suivantes** : noyer les crashs sous de la télémétrie ferait perdre le vrai bug quand il arrive.
 
-**Sentry est actif d'office**, sans écran de consentement ni réglage. Sur un outil personnel partagé entre amis, une case à cocher ne protège rien : ce qui protège, c'est ce que le SDK a le droit d'envoyer. Trois réglages non négociables, à tester au même titre que le reste :
-
-| Réglage | Valeur | Pourquoi |
-|---|---|---|
-| `include_local_variables` | `False` | **Vaut `True` par défaut.** Le SDK joint alors un instantané des variables locales de chaque frame, qui contiennent chemins complets, artiste et titre en cours de traitement, et potentiellement la clé API si elle passe par une variable locale de `scraper_client.py`. |
-| `server_name` | valeur fixe | Auto-détecté par défaut, donc le nom de la machine de l'utilisateur part avec chaque événement. |
-| `send_default_pii` | laissé au défaut | Déjà à `False`, ne pas l'activer. |
-
-S'y ajoute le scrubbing des chemins dans les frames, qui contiennent le nom d'utilisateur de l'OS.
+**Sentry est actif d'office**, sans écran de consentement. Les trois réglages non négociables du SDK (`include_local_variables`, `server_name`, `send_default_pii`) et le scrubbing des chemins sont fixés par [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md) et testés comme du code métier.
 
 Le seul geste explicite qui subsiste est le bouton « envoyer ce rapport » de l'écran final : c'est le seul endroit où des titres de morceaux quittent la machine, donc le seul où demander a un sens. Il ouvre une issue pré-remplie dans le navigateur, que l'utilisateur relit avant de valider (cf. [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
 
@@ -827,7 +818,7 @@ Le métier vit dans le sidecar, l'effort de test y est concentré.
 
 Aucun test e2e au MVP : le contrat NDJSON est testable sans interface, ce qui couvre le vrai risque. WebdriverIO + `tauri-driver` est une feature Post-MVP, justifiée le jour où une régression de la chaîne UI vers sidecar cesse d'être détectable à l'œil.
 
-Le critère est le même partout : **une régression de notre code ferait-elle échouer ce test ?** On ne teste pas que mutagen sait écrire un TPE1 ni qu'un `*ngIf` masque un div, on teste que **notre** table de correspondance envoie le bon champ au bon tag, qu'un `null` ne détruit rien, et qu'un candidat sous le plancher n'atteint jamais l'écran. Un test qui casse à la mise à jour d'une dépendance plutôt qu'à un changement de règle est un test à supprimer.
+Le critère est le même partout : **une régression de notre code ferait-elle échouer ce test ?** On ne teste pas que mutagen sait écrire un TPE1 ni qu'un `@if` masque un div, on teste que **notre** table de correspondance envoie le bon champ au bon tag, qu'un `null` ne détruit rien, et qu'un candidat sous le plancher n'atteint jamais l'écran. Un test qui casse à la mise à jour d'une dépendance plutôt qu'à un changement de règle est un test à supprimer.
 
 ### Tools
 
@@ -945,13 +936,13 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 
 ## Documentation Officielle
 
-- [Tauri v2 — Sidecar](https://v2.tauri.app/develop/sidecar/)
-- [Tauri v2 — Plugin Updater](https://v2.tauri.app/plugin/updater/)
-- [Tauri v2 — Plugins](https://v2.tauri.app/plugin/)
+- [Tauri v2 : Sidecar](https://v2.tauri.app/develop/sidecar/)
+- [Tauri v2 : Plugin Updater](https://v2.tauri.app/plugin/updater/)
+- [Tauri v2 : Plugins](https://v2.tauri.app/plugin/)
 - [Angular](https://angular.dev)
-- [PrimeNG — Theming](https://primeng.dev/theming)
-- [PrimeNG — Configuration](https://primeng.dev/configuration)
-- [PrimeUI — Community License](https://primeui.dev/licenses/community)
+- [PrimeNG : Theming](https://primeng.dev/theming)
+- [PrimeNG : Configuration](https://primeng.dev/configuration)
+- [PrimeUI : Community License](https://primeui.dev/licenses/community)
 - [mutagen](https://mutagen.readthedocs.io)
 - [rapidfuzz](https://rapidfuzz.github.io/RapidFuzz/)
 - [PyInstaller](https://pyinstaller.org)
@@ -959,11 +950,11 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 
 ## Ressources Complémentaires
 
-- [techno-scraper — README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md) : routes, contrat `Page[T]`, sémantique des erreurs
-- [techno-scraper — ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
-- [techno-scraper — ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
+- [techno-scraper : README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md) : routes, contrat `Page[T]`, sémantique des erreurs
+- [techno-scraper : ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
+- [techno-scraper : ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
 - [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : implémentation CLI de référence (parsing des playlists, matching, déplacement)
 - [BRAINSTORM.md](BRAINSTORM.md) : vision, features et décisions d'origine
 - [DESIGN.md](DESIGN.md) : design system, tokens, mapping composants et conventions de style
-- [MusicBrainz Picard — Tag Mapping](https://picard-docs.musicbrainz.org/en/latest/appendices/tag_mapping.html) : conventions retenues pour les clés hors standard
-- [GitHub Actions — Billing](https://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions)
+- [MusicBrainz Picard : Tag Mapping](https://picard-docs.musicbrainz.org/en/latest/appendices/tag_mapping.html) : conventions retenues pour les clés hors standard
+- [GitHub Actions : Billing](https://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions)

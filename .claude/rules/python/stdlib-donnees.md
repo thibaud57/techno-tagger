@@ -17,7 +17,7 @@ paths:
 - `re.match` pour valider : il n'ancre qu'au début, `re.match(r"\d+", "12abc")` matche
 - Un `.*` greedy là où une classe négée (`[^>]*`) dit la même chose, plus clairement et plus vite
 - Lire une clé d'un `defaultdict` sans intention de la créer : la lecture crée l'entrée et fausse un `in` ultérieur
-- Ré-itérer un itérateur `itertools` déjà consommé — il est vide, sans erreur
+- Ré-itérer un itérateur `itertools` déjà consommé : il est vide, sans erreur
 
 ## Gotchas
 - `groupby` sur des données non triées par la clé de groupe scinde les groupes sans rien lever : la même clé réapparaît plus loin

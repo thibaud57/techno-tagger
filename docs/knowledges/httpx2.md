@@ -218,6 +218,6 @@ client = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
 
 ## Ressources Complémentaires
 
-- [ADR-007 — Client HTTP httpx2](../adrs/007-client-http-httpx2.md)
-- [ADR-017 — Taille du pool de concurrence](../adrs/017-taille-pool-concurrence.md)
-- [techno-scraper.md](techno-scraper.md) — bornes de l'API et sémantique d'erreur
+- [ADR-007 : Client HTTP httpx2](../adrs/007-client-http-httpx2.md)
+- [ADR-017 : Taille du pool de concurrence](../adrs/017-taille-pool-concurrence.md)
+- [techno-scraper.md](techno-scraper.md) : bornes de l'API et sémantique d'erreur

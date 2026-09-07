@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-08-29"
+date: "2026-09-06"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
@@ -42,7 +42,7 @@ hotfix/*  → main → tag vX.Y.Z → build + GitHub Release → updater        
 | Développement | `feature/*` | Local (`tauri dev`, sidecar depuis les sources) | Manuel |
 | Validation qualité | `feature/*` → PR | CI (GitHub Actions) | Push / PR : Ruff + Mypy + pytest, lint + typecheck + Vitest, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` |
 | Intégration | `develop` | Local | Merge `feature/*` → `develop` |
-| Intégration prod | `main` | — (aucune publication) | Merge `develop` → `main` (lot de features prêt) |
+| Intégration prod | `main` | Aucune publication | Merge `develop` → `main` (lot de features prêt) |
 | PR release (CHANGELOG + bump) | `release-please--branches--main--*` | — | Auto à chaque push sur `main` (release-please) |
 | Tag + **build + publication** | — | Distribution (GitHub Releases) | Merge de la PR release-please → tag `vX.Y.Z` → job de build **chaîné** (cf. § Pipelines) |
 | Resync develop | `develop` | Local | Back-merge `main` → `develop` après tag |
@@ -106,11 +106,12 @@ Conséquences par lock, très inégales :
 ## Checklist Release
 
 **Automatisé (vérifier le statut avant de merger) :**
-- [ ] CI verte : Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/` (clippy subsume `cargo check` ; sans le binaire du sidecar en place, la validation d'`externalBin` fait échouer la compilation avant même `cargo check`)
+- [ ] CI verte : Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/` (`just audit` n'y bloque pas) (clippy subsume `cargo check` ; sans le binaire du sidecar en place, la validation d'`externalBin` fait échouer la compilation avant même `cargo check`)
 - [ ] Seuil de coverage 80 % tenu sur `sidecar/`. **Aucun seuil chiffré sur `src/`** : c'est le périmètre des lignes « Unitaires (UI) » qui doit être couvert, et son absence se voit en review, pas dans un pourcentage (cf. [ARCHITECTURE.md § Coverage](ARCHITECTURE.md#coverage))
 - [ ] Lock files à jour et commités (`pnpm-lock.yaml`, `uv.lock`, `Cargo.lock`)
 
 **Manuel :**
+- [ ] `just audit` lu : chaque vulnérabilité remontée est corrigée, ou constatée sans correctif disponible (cf. § Dépendances)
 - [ ] **Sauvegarde de la clé privée updater revérifiée** : archive chiffrée accessible et déchiffrable. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
 - [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
@@ -142,7 +143,7 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 | Windows x86_64 | GitHub Releases (dépôt public) | Aucun canal séparé au MVP : machine ou VM propre en local | Release publiée + `latest.json` |
 | macOS / Linux | — | — | Post-MVP ([ADR-015](adrs/015-cibles-distribution-windows.md)) |
 
-**Endpoint updater** : `https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json`. Aucun token n'est nécessaire côté client, c'est exactement la raison du dépôt public : des utilisateurs sans compte GitHub téléchargent et se mettent à jour sans rien manipuler.
+**Endpoint updater, cible de l'étape 9, non câblé** (`createUpdaterArtifacts: false`, plugin non enregistré) : `https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json`. Aucun token n'est nécessaire côté client, c'est exactement la raison du dépôt public : des utilisateurs sans compte GitHub téléchargent et se mettent à jour sans rien manipuler.
 
 > ⚠️ **L'updater ignore les releases en brouillon.** Une Release laissée en draft n'apparaît pas derrière `/releases/latest/`, et l'application ne trouve alors aucune mise à jour, **sans erreur visible**.
 >
@@ -158,13 +159,13 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 
 | Élément | Signé | Mécanisme | Conséquence |
 |---|---|---|---|
-| Bundle de mise à jour (`.sig`) | ✅ Oui, obligatoire | minisign, `TAURI_SIGNING_PRIVATE_KEY` (+ password) injectés au build | Sans signature valide, l'updater **refuse** la mise à jour |
+| Bundle de mise à jour (`.sig`) | Cible, étape 9 : oui, obligatoire | minisign, `TAURI_SIGNING_PRIVATE_KEY` (+ password) injectés au build | Sans signature valide, l'updater **refuse** la mise à jour |
 | Installeur Windows | ❌ Non | — | SmartScreen avertit au premier lancement, contournable en deux clics dans la fenêtre |
 | Sidecar `tagger-*.exe` | ❌ Non | — | Faux positifs Defender possibles, que le mode PyInstaller retenu peut atténuer (cf. § Performance) |
 
 Signer l'installeur ne changerait pas grand-chose : depuis mars 2024, les certificats EV n'ont plus de contournement SmartScreen instantané, la réputation se construisant par volume de téléchargements qu'une application distribuée à quelques amis n'atteindra jamais. L'option la moins chère accessible à un individu, Azure Trusted Signing (~120 $/an), est écartée au vu du budget nul ; son bénéfice réel serait la réduction des faux positifs antivirus, que le mode `--onedir` retenu atténue sans rien dépenser ([ADR-015](adrs/015-cibles-distribution-windows.md)).
 
-> 🔴 **La clé privée de signature est l'actif le plus critique du projet.** Sa perte n'est pas récupérable : « if you lose this key you will NOT be able to publish new updates to the users that have the app already installed » ([Tauri — Updater](https://v2.tauri.app/plugin/updater/)). La rotation elle-même exige l'ancienne clé, la release qui introduit la nouvelle `pubkey` devant être **signée avec l'ancienne** pour que les installations existantes l'acceptent. Sauvegarde obligatoire hors GitHub, cf. § Backup & Recovery.
+> 🔴 **La clé privée de signature est l'actif le plus critique du projet.** Sa perte n'est pas récupérable : « if you lose this key you will NOT be able to publish new updates to the users that have the app already installed » ([Tauri : Updater](https://v2.tauri.app/plugin/updater/)). La rotation elle-même exige l'ancienne clé, la release qui introduit la nouvelle `pubkey` devant être **signée avec l'ancienne** pour que les installations existantes l'acceptent. Sauvegarde obligatoire hors GitHub, cf. § Backup & Recovery.
 
 ## Remplacement du sidecar à la mise à jour
 
@@ -172,7 +173,7 @@ Le sidecar porte tout le métier, mais il voyage comme **binaire externe**, pas 
 
 | Comportement | Effet ici |
 |---|---|
-| Tauri copie le sidecar dans `target/release/` **sans invalider la copie** | Un build qui réutilise ce répertoire peut embarquer un **sidecar périmé** sous une interface à jour. Ne pas mettre `target/release/` en cache CI, ou le purger avant le build de release |
+| Tauri copie le sidecar dans `target/release/` **sans invalider la copie** | Un build qui réutilise ce répertoire peut embarquer un **sidecar périmé** sous une interface à jour. Ne pas mettre `target/release/` en cache CI, ou le purger avant le build. `Swatinem/rust-cache` ne sauve de `target/release/` que `build/`, `deps/` et `.fingerprint/` : la copie du sidecar et `_internal/` n'entrent jamais dans le cache |
 | En mode mise à jour, NSIS saute entièrement la section de désinstallation | Un `tagger.exe` encore vivant verrouille son propre fichier pendant que l'installeur tente de l'écraser. Le hook `NSIS_HOOK_PREINSTALL` (`src-tauri/installer-hooks.nsh`) le tue avant les copies de fichiers. Les fichiers retirés d'`_internal` entre deux versions restent en revanche orphelins, la désinstallation ne tournant pas |
 | La CSP bloque les appels cross-origin du sidecar en production | Sans objet : le protocole passe par stdin/stdout en NDJSON, sans port ni requête HTTP locale ([ADR-005](adrs/005-sidecar-python-protocole-ndjson.md)) |
 
@@ -210,7 +211,7 @@ Deux états de l'application, pas des branches ni des serveurs. **Aucun héberge
 | Env | Accès | Branch | Sidecar | Auto-publication |
 |-----|-------|--------|---------|------------------|
 | Développement | `tauri dev` en local | `develop`, `feature/*` | Lancé depuis les sources Python, sans PyInstaller | Non |
-| Distribution | Installeur GitHub Releases | `main` (tags uniquement) | Binaire PyInstaller empaqueté et signé | Oui, au tag (cf. § Pipelines) |
+| Distribution | Installeur GitHub Releases | `main` (tags uniquement) | Binaire PyInstaller empaqueté, signature de l'updater à l'étape 9 | Oui, au tag (cf. § Pipelines) |
 
 Pas de staging : sans serveur ni base, il n'y a rien à déployer entre les deux. Le rôle du staging est tenu par la **VM propre** du smoke test d'installation.
 
@@ -240,7 +241,7 @@ GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 | Clé API techno-scraper | Trousseau de l'OS via keyring (Credential Manager Windows) | Chiffré par l'OS, jamais exposé au JavaScript de la webview ([ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 | URL de l'API, langue, seuils, mode copie / déplacement, signal sonore | Store Tauri (fichier local) | Réglages non sensibles, l'URL étant publique et déjà présente en clair dans le binaire |
 
-En développement, le sidecar lit un `.env` local (jamais commité) pour un DSN **vide**, ce qui rend le SDK inerte et évite de polluer le projet Sentry pendant le développement ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
+Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
 
 ### Règles
 - ✅ **Aucun secret exploitable dans le binaire distribué** : ni clé API, ni token d'accès. Un `strings` sur un exécutable PyInstaller suffirait à l'extraire, et le dépôt est public. Les DSN Sentry font exception assumée : ils sont compilés par nécessité, et n'autorisent que l'**envoi** d'événements, jamais la lecture. Leur fuite permettrait au pire de polluer le quota, d'où leur présence dans le tableau de rotation.
@@ -265,11 +266,11 @@ En développement, le sidecar lit un `.env` local (jamais commité) pour un DSN 
 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
-| Push / PR (`main`, `develop`) | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | — (gate qualité) |
+| Push `main`, PR vers `main` ou `develop` | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | Gate qualité |
 | Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release | GitHub Releases |
 
-> 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run, with the following exceptions » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : les exceptions sont `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, un push de tag n'en fait pas partie. Le tag créé par release-please ne déclenche donc aucun workflow. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** — la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
+> 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run, with the following exceptions » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : les exceptions sont `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, un push de tag n'en fait pas partie. Le tag créé par release-please ne déclenche donc aucun workflow. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** : la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
 >
 > Alternative si un fichier séparé devenait nécessaire : donner un PAT ou un token de GitHub App à release-please, au prix d'un secret de plus à faire tourner.
 
@@ -299,49 +300,49 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 
 ### Bootstrap technique
 
-- [ ] **PyInstaller en `--onedir`** — exécutable dans `externalBin`, dépendances (`_internal/`) dans `bundle.resources`, répertoire de travail du sidecar fixé explicitement. Mode retenu sur mesure, 335 ms contre 2282 ms au démarrage (cf. § Performance et [ADR-015](adrs/015-cibles-distribution-windows.md))
-- [ ] **Paire de clés updater générée** — `tauri signer generate -w ~/.tauri/techno-tagger.key`, clé publique dans `tauri.conf.json` (contenu littéral, **pas un chemin**), clé privée + mot de passe dans les secrets GitHub **et** sauvegardés hors GitHub (cf. § Backup & Recovery)
-- [ ] **`tauri.conf.json` pointe `"version": "../package.json"`** — supprime un fichier de version à synchroniser
-- [ ] **Suffixe target-triple du sidecar** — `tagger-x86_64-pc-windows-msvc.exe`, sans quoi Tauri ne trouve pas le binaire externe, avec `"externalBin": ["binaries/tagger"]` (chemin relatif à `src-tauri/`, suffixe ajouté par Tauri)
-- [ ] **`target/release/` hors cache CI** — Tauri y copie le sidecar sans invalider la copie, un cache de ce répertoire peut donc embarquer un binaire périmé dans l'installeur
-- [ ] **Contrôle de version UI ↔ sidecar au démarrage** — refuser de lancer un run si les deux versions diffèrent, filet contre le sidecar non remplacé
-- [ ] **Flush explicite après chaque ligne NDJSON** — `flush=True` à chaque événement émis, un binaire PyInstaller derrière un pipe ne respectant ni `-u` ni `PYTHONUNBUFFERED` : sans lui, l'interface paraît figée pendant tout le run (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
-- [ ] **Backend keyring forcé explicitement** — le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
+- [ ] **PyInstaller en `--onedir`** : exécutable dans `externalBin`, dépendances (`_internal/`) dans `bundle.resources`, répertoire de travail du sidecar fixé explicitement. Mode retenu sur mesure, 335 ms contre 2282 ms au démarrage (cf. § Performance et [ADR-015](adrs/015-cibles-distribution-windows.md))
+- [ ] **Paire de clés updater générée** : `tauri signer generate -w ~/.tauri/techno-tagger.key`, clé publique dans `tauri.conf.json` (contenu littéral, **pas un chemin**), clé privée + mot de passe dans les secrets GitHub **et** sauvegardés hors GitHub (cf. § Backup & Recovery)
+- [ ] **`tauri.conf.json` pointe `"version": "../package.json"`** : supprime un fichier de version à synchroniser
+- [ ] **Suffixe target-triple du sidecar** : `tagger-x86_64-pc-windows-msvc.exe`, sans quoi Tauri ne trouve pas le binaire externe, avec `"externalBin": ["binaries/tagger"]` (chemin relatif à `src-tauri/`, suffixe ajouté par Tauri)
+- [ ] **`target/release/` hors cache CI**, ou purgé de la copie du sidecar avant le build : couvert par le nettoyage de `Swatinem/rust-cache` (cf. § Remplacement du sidecar à la mise à jour), à revérifier si cette action change
+- [ ] **Contrôle de version UI ↔ sidecar au démarrage** : refuser de lancer un run si les deux versions diffèrent, filet contre le sidecar non remplacé
+- [ ] **Flush explicite après chaque ligne NDJSON** : `flush=True` à chaque événement émis, un binaire PyInstaller derrière un pipe ne respectant ni `-u` ni `PYTHONUNBUFFERED` : sans lui, l'interface paraît figée pendant tout le run (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
+- [ ] **Backend keyring forcé explicitement** : le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
   ⚠️ **Non vérifiable avant l'étape 5** : au bootstrap, aucun module n'importe `keyring`, il n'entre donc pas dans le graphe analysé et `hook-keyring.py` ne se déclenche jamais. Constaté sur le binaire du bootstrap, qui ne contient ni `keyring.backends` ni `WinVaultKeyring`, seulement les métadonnées posées par le `copy_metadata` explicite du `.spec`. Cocher cet item sur un binaire antérieur à l'étape 5 ne prouve rien
-- [ ] **`target-branch: main` valide sur le flux `develop → main`** — release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). À éprouver sur un dépôt de test avant la première release, pas sur la première release
-- [ ] **`extra-files` a bumpé les deux manifestes TOML** — après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
-- [ ] **WebView2 présent sur le runner `windows-latest`** — sa présence sur l'image n'est pas confirmée (cf. [VERSIONS.md](VERSIONS.md) § GitHub Actions). Son absence casse `tauri build`, ou pire produit un installeur dont l'application ne s'ouvre pas
-- [ ] **Releases Sentry créées dans les deux projets** — job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison
-- [ ] **Source maps de la webview uploadées puis purgées** — `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers
-- [ ] **`pnpm-workspace.yaml` créé** — même sans monorepo : depuis pnpm 11, `.npmrc` n'accepte plus que l'auth et le registry, et `allowBuilds: { esbuild: true }` doit y vivre
-- [ ] **Ruff interdit `asyncio.get_event_loop` et `sqlite3.version`** — via `banned-api`, les deux étant supprimés ou durcis en Python 3.14. Fait porter la garantie par la CI plutôt que par la vigilance
-- [ ] **Actions CI pinnées** — `pnpm/setup` sur la v2.1.0 et non sur le tag flottant `@v2`, qui traîne sur une version antérieure au correctif de chemin de cache Windows
-- [ ] **Renovate installé et `renovate.json` commité** — l'app GitHub activée sur le dépôt, et « Dependency graph » plus « Dependabot alerts » laissés actifs dans les réglages de sécurité
-- [ ] **Permissions minimales dans `capabilities/default.json`** — `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le bouton « ouvrir le dossier de logs » et le lien vers la fiche source : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
-- [ ] **Instance unique activée** — plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
-- [ ] **Préfixe `\\?\` sur les chemins Windows** du sidecar — la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage, et `LongPathsEnabled` ne suffit pas à un interpréteur Python non manifesté
-- [ ] **Durcissement Sentry en place et testé** — `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
-- [ ] **Icônes et branding** — jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
+- [x] **`target-branch: main` valide sur le flux `develop → main`** : release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). Confirmé au premier run (`v0.1.0`) : le squash-merge de la PR est un commit ordinaire de `main`, rien à régler
+- [ ] **`extra-files` a bumpé les deux manifestes TOML** : après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
+- [ ] **WebView2 présent sur le runner `windows-2025`** : sa présence sur l'image n'est pas confirmée (cf. [VERSIONS.md](VERSIONS.md) § GitHub Actions). Son absence casse `tauri build`, ou pire produit un installeur dont l'application ne s'ouvre pas
+- [ ] **Releases Sentry créées dans les deux projets** : job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison
+- [ ] **Source maps de la webview uploadées puis purgées** : `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers
+- [ ] **`pnpm-workspace.yaml` créé** : même sans monorepo : depuis pnpm 11, `.npmrc` n'accepte plus que l'auth et le registry, et `allowBuilds: { esbuild: true }` doit y vivre
+- [ ] **Ruff interdit `asyncio.get_event_loop` et `sqlite3.version`** : via `banned-api`, les deux étant supprimés ou durcis en Python 3.14. Fait porter la garantie par la CI plutôt que par la vigilance
+- [ ] **Actions CI pinnées** : `pnpm/setup` sur la v2.1.0 et non sur le tag flottant `@v2`, qui traîne sur une version antérieure au correctif de chemin de cache Windows
+- [ ] **`dependabot.yml` commité, Dependency graph et Dependabot alerts actifs** : les deux réglages de sécurité du dépôt activés, condition de fonctionnement du graphe de dépendances que Dependabot consomme
+- [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le bouton « ouvrir le dossier de logs » et le lien vers la fiche source : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
+- [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
+- [ ] **Préfixe `\\?\` sur les chemins Windows** du sidecar : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage, et `LongPathsEnabled` ne suffit pas à un interpréteur Python non manifesté
+- [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
 > Items techniques et de bootstrap, à valider empiriquement. Pas d'ADR : aucune décision architecturale structurelle, celles-ci vivent dans `adrs/`.
 
 ### Revue globale de l'app
 
-- [ ] **`/simplify`** — passe qualité sur toute la branche. Seul écrivain de la chaîne, donc seul et en premier
-- [ ] **`/code-review`** + **`Agent(code-reviewer)`** — correctness et conformité aux `.claude/rules/**`, en parallèle
-- [ ] **Appliquer les findings retenus** — dernière écriture avant le gel du code
-- [ ] **`/security-review`** — seul et en dernier, sur l'état gelé
+- [ ] **`/simplify`** : passe qualité sur toute la branche. Seul écrivain de la chaîne, donc seul et en premier
+- [ ] **`/code-review`** + **`Agent(code-reviewer)`** : correctness et conformité aux `.claude/rules/**`, en parallèle
+- [ ] **Appliquer les findings retenus** : dernière écriture avant le gel du code
+- [ ] **`/security-review`** : seul et en dernier, sur l'état gelé
 
 > Points de vigilance connus, sans que la revue s'y limite : clé API dans les logs et les rapports, chemins et titres de morceaux dans les payloads Sentry.
 
 ### Cohérence documentaire
 
-- [ ] **BRAINSTORM.md** — auditer le doc dans son ensemble et identifier les écarts entre la vision / les features et l'implémentation livrée
-- [ ] **ARCHITECTURE.md** — auditer le doc dans son ensemble (ADRs compris) et identifier les écarts avec le code, dont le mécanisme de déclenchement du build signalé en § Pipelines
-- [ ] **DESIGN.md** — auditer le doc dans son ensemble et identifier les écarts entre le design system et l'interface livrée
-- [ ] **VERSIONS.md** — confronter les versions documentées à celles réellement installées (`pyproject.toml`, `package.json`, `Cargo.toml`), et vérifier que les incertitudes de sa checklist ont toutes été levées par le premier build
-- [ ] **PRODUCTION.md** — auditer le doc dans son ensemble et vérifier que toutes les procédures documentées sont effectivement en place (secrets, sauvegarde de la clé, alertes, rotation)
-- [ ] **README.md** — présentation, stack, getting started, liens docs, complété une fois les autres docs stabilisées. Rester factuel : « récupère des métadonnées via une API », pas « scrape Beatport » ([ADR-021](adrs/021-visibilite-du-depot.md))
+- [ ] **BRAINSTORM.md** : auditer le doc dans son ensemble et identifier les écarts entre la vision / les features et l'implémentation livrée
+- [ ] **ARCHITECTURE.md** : auditer le doc dans son ensemble (ADRs compris) et identifier les écarts avec le code, dont le mécanisme de déclenchement du build signalé en § Pipelines
+- [ ] **DESIGN.md** : auditer le doc dans son ensemble et identifier les écarts entre le design system et l'interface livrée
+- [ ] **VERSIONS.md** : confronter les versions documentées à celles réellement installées (`pyproject.toml`, `package.json`, `Cargo.toml`), et vérifier que les incertitudes de sa checklist ont toutes été levées par le premier build
+- [ ] **PRODUCTION.md** : auditer le doc dans son ensemble et vérifier que toutes les procédures documentées sont effectivement en place (secrets, sauvegarde de la clé, alertes, rotation)
+- [ ] **README.md** : présentation, stack, getting started, liens docs, complété une fois les autres docs stabilisées. Rester factuel : « récupère des métadonnées via une API », pas « scrape Beatport » ([ADR-021](adrs/021-visibilite-du-depot.md))
 
 > **Pas de sous-section conformité légale / RGPD.** Outil personnel non commercialisé, sans compte, sans analytics et sans cookie ; le durcissement du SDK garantit qu'aucune donnée personnelle ne quitte la machine, et c'est un **test** qui tient cette garantie, pas une page de mentions ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Si la distribution s'élargissait au-delà du cercle amical, cette section serait à ouvrir, en commençant par informer que les plantages remontent.
 
@@ -349,27 +350,27 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 
 > Les quatre recettes ci-dessous se lancent depuis **Git Bash**, jamais PowerShell (`bash` y résout vers le lanceur WSL de `System32` et échoue en `execvpe(/bin/bash) failed`). La CI rejoue exactement les mêmes étapes sur chaque PR (cf. § Pipelines).
 
-- [ ] **`just lint`** — Ruff + Ruff format (`sidecar/`), ESLint + Prettier (`src/`), `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`)
-- [ ] **`just typecheck`** — `tsc --noEmit` sur les deux tsconfig Angular, Mypy strict sur `sidecar/src` et `sidecar/tests`
-- [ ] **`just test`** — pytest avec le seuil de couverture 80 % bloquant sur `sidecar/`, Vitest sur `src/`
-- [ ] **`just build`** — binaire PyInstaller du sidecar (`build-sidecar`) puis installeur NSIS (`tauri build`)
-- [ ] **Smoke test du livrable** — installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux
-- [ ] **Test de sécurité vert** — la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry
+- [ ] **`just lint`** : Ruff + Ruff format (`sidecar/`), ESLint + Prettier (`src/`), `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`)
+- [ ] **`just typecheck`** : `tsc --noEmit` sur les deux tsconfig Angular, Mypy strict sur `sidecar/src` et `sidecar/tests`
+- [ ] **`just test`** : pytest avec le seuil de couverture 80 % bloquant sur `sidecar/`, Vitest sur `src/`
+- [ ] **`just build`** : binaire PyInstaller du sidecar (`build-sidecar`) puis installeur NSIS (`tauri build`)
+- [ ] **Smoke test du livrable** : installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux
+- [ ] **Test de sécurité vert** : la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry
 
 ## Checklist Post-MEP
 
 Items one-shot après la première Release publiée, nécessitant qu'elle soit accessible publiquement.
 
-- [ ] **`latest.json` accessible sans authentification** — `curl -L https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json` rend le manifeste, avec `version`, `platforms.windows-x86_64.url` et `.signature` renseignés
-- [ ] **Chaîne de mise à jour vérifiée en réel** — machine en version N-1, l'updater détecte, télécharge, **vérifie la signature**, installe et relance
-- [ ] **Installation depuis zéro sur une machine tierce** — celle d'un des utilisateurs réels, pas une VM : SmartScreen, antivirus et trousseau s'y comportent différemment
-- [ ] **Faux positif antivirus mesuré** — soumission de l'installeur et du sidecar à VirusTotal pour connaître l'ampleur réelle, et signalement aux éditeurs concernés si le blocage est bloquant
-- [ ] **Chaîne d'alerte Sentry** — provoquer une erreur de test côté sidecar et côté webview, vérifier la réception de l'issue **et** de l'email
-- [ ] **Payload Sentry inspecté en vrai** — ouvrir un event réel dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau
-- [ ] **Clé API révoquée testée** — avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
-- [ ] **Release Sentry créée au tag** — la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy
+- [ ] **`latest.json` accessible sans authentification** : `curl -L https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json` rend le manifeste, avec `version`, `platforms.windows-x86_64.url` et `.signature` renseignés
+- [ ] **Chaîne de mise à jour vérifiée en réel** : machine en version N-1, l'updater détecte, télécharge, **vérifie la signature**, installe et relance
+- [ ] **Installation depuis zéro sur une machine tierce** : celle d'un des utilisateurs réels, pas une VM : SmartScreen, antivirus et trousseau s'y comportent différemment
+- [ ] **Faux positif antivirus mesuré** : soumission de l'installeur et du sidecar à VirusTotal pour connaître l'ampleur réelle, et signalement aux éditeurs concernés si le blocage est bloquant
+- [ ] **Chaîne d'alerte Sentry** : provoquer une erreur de test côté sidecar et côté webview, vérifier la réception de l'issue **et** de l'email
+- [ ] **Payload Sentry inspecté en vrai** : ouvrir un event réel dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau
+- [ ] **Clé API révoquée testée** : avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
+- [ ] **Release Sentry créée au tag** : la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy
 
-> **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus — ils exigent une Release publiée — mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Restent à couvrir en post-MEP : la réception de l'**email**, la présence d'un **titre de morceau** dans un payload (aucun n'existe au bootstrap), et le comportement depuis une application **installée**.
+> **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus (ils exigent une Release publiée) mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Restent à couvrir en post-MEP : la réception de l'**email**, la présence d'un **titre de morceau** dans un payload (aucun n'existe au bootstrap), et le comportement depuis une application **installée**.
 
 ---
 
@@ -379,21 +380,21 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 
 | Composant | Fréquence | Procédure |
 |-----------|-----------|-----------|
-| Dépendances Python (uv) | Mensuelle / sur CVE | PR Renovate (manager `pep621`, lit `uv.lock`) → CI verte → merge |
-| Dépendances Node (pnpm) | Mensuelle / sur CVE | PR Renovate (manager `npm`) → CI verte → merge |
-| Crates Rust (cargo) | Mensuelle / sur CVE | PR Renovate (manager `cargo`) → CI verte → merge |
-| Actions GitHub | Mensuelle | PR Renovate (manager `github-actions`) |
+| Dépendances Python (uv) | Mensuelle / sur CVE | PR Dependabot (écosystème `uv`, lit `pyproject.toml` et `uv.lock`) → CI verte → merge |
+| Dépendances Node (pnpm) | Mensuelle / sur CVE | PR Dependabot (écosystème `npm`) → CI verte → merge |
+| Crates Rust (cargo) | Mensuelle / sur CVE | PR Dependabot (écosystème `cargo`) → CI verte → merge |
+| Actions GitHub | Mensuelle | PR Dependabot (écosystème `github-actions`) |
 | Tauri (majeure) | Sur release majeure | PR dédiée, guide de migration, **build + smoke test d'installation obligatoires** avant merge |
 | Angular / PrimeNG (majeures) | Sur release majeure | PR dédiée, `ng update`, vérification visuelle des écrans |
 | Runtime Python du sidecar | Sur fin de support | Bump dans `pyproject.toml` et `.python-version`, rebuild PyInstaller, **retester les faux positifs antivirus** |
 | Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `pnpm/setup` et d'`engines.node`. Prochaine échéance : Node 26, LTS planifiée au 2026-10-28 |
 | Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. **Conditionné à l'issue de l'[ADR-003](adrs/003-primeng-community-license.md)**, rouvert depuis l'archivage du dépôt PrimeNG (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
 
-**Renovate** : managers `npm`, `pep621`, `cargo` et `github-actions` auto-détectés, cadence mensuelle, PRs ciblant `develop`, `prConcurrentLimit` pour tenir le flux. Grouper minor et patch par manager via `packageRules` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque.
+**Dependabot** : écosystèmes `npm`, `uv`, `cargo` et `github-actions` déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque.
 
-> 🔴 **Dependabot ne convient pas à ce projet, et son mode de panne est silencieux.** Sur un `pnpm-lock.yaml` multi-document, celui que produit pnpm 11 dès que `devEngines.packageManager` est déclaré, les PR de bump continuent de fonctionner mais le *dependency grapher* lit le mauvais document et rapporte zéro dépendance : **les alertes de sécurité se referment d'elles-mêmes**, sans rien afficher. Correctif en attente ([dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794) ouverte, PR #15968 non mergée). Renovate n'est pas exposé : il ne parse pas le lockfile, il le fait régénérer par la CLI du gestionnaire. Détail dans [VERSIONS.md § Renovate](VERSIONS.md#6-renovate).
+> 🔴 **Le lockfile `pnpm-lock.yaml` doit rester mono-document : c'est l'invariant qui protège les alertes de sécurité Dependabot.** Sur un lockfile pnpm 11 multi-document, celui que pnpm produit dès que `packageManager` ou `devEngines.packageManager` est déclaré dans `package.json`, les PR de bump continuent de fonctionner mais le *dependency grapher* lit le mauvais document et rapporte zéro dépendance : **les alertes de sécurité se referment d'elles-mêmes**, sans rien afficher. Correctif en attente en amont ([dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794) ouverte, PR #15968 non mergée). Le projet supprime la cause à la racine plutôt que de la contourner : ces deux champs sont volontairement absents de `package.json`, le lockfile reste mono-document, et la version de pnpm se déclare en input `version` de `pnpm/setup`. Tant que cet invariant tient, le mode de panne ne s'applique pas. Détail dans [VERSIONS.md § Dependabot](VERSIONS.md#6-dependabot).
 
-> ⚠️ **Une PR de mise à jour peut faire échouer `pnpm install --frozen-lockfile`** si le lockfile régénéré pointe une transitive publiée dans les dernières 24 heures, `minimumReleaseAge` de pnpm 11 la rejetant (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`). Aligner le `minimumReleaseAge` de Renovate sur celui de pnpm, et garder `minimumReleaseAgeExclude` pour les paquets qui se republient sans cesse.
+> ⚠️ **Une PR de mise à jour peut faire échouer `pnpm install --frozen-lockfile`** si le lockfile régénéré pointe une transitive publiée dans les dernières 24 heures, `minimumReleaseAge` de pnpm 11 la rejetant (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`). Dependabot régénère le lockfile via la CLI pnpm elle-même, qui applique alors son propre `minimumReleaseAge` : rien à aligner côté configuration du bot. Garder `minimumReleaseAgeExclude` côté pnpm pour les paquets qui se republient sans cesse.
 
 > ✅ **Toute mise à jour touchant le packaging se valide par un build complet**, pas par une CI verte : c'est `tauri build` et l'installeur qui cassent, pas les tests unitaires.
 > ❌ **Ne jamais bumper Tauri et le runtime Python dans la même PR** : les deux touchent l'empaquetage, un échec de build ne dirait plus lequel accuser.
@@ -426,7 +427,7 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 
 | Opération | Procédure |
 |---|---|
-| **Générer** | `python -c "import secrets; print(secrets.token_urlsafe(32))"` — ASCII imprimable sans espace, contrainte imposée par le décodage latin-1 des en-têtes HTTP côté API |
+| **Générer** | `python -c "import secrets; print(secrets.token_urlsafe(32))"` : ASCII imprimable sans espace, contrainte imposée par le décodage latin-1 des en-têtes HTTP côté API |
 | **Enregistrer** | Ajouter `user-N:<clé>` au jeu `API_KEYS` côté techno-scraper, redéployer l'API. **Identifiant non nominatif** : un prénom finirait chez Sentry via la `LoggingIntegration`, seule donnée nominative de la chaîne |
 | **Transmettre** | Canal privé direct (messagerie), jamais par email en clair, jamais dans une issue ou un commit |
 | **Suivre** | Tenir la table `user-N` → personne → clé dans la sauvegarde chiffrée, seul endroit où la correspondance existe. Sans elle, un `user-3` qui sature l'API reste anonyme |
@@ -456,11 +457,12 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 
 | Outil | Scope | Fréquence | Config |
 |-------|-------|-----------|--------|
-| Renovate | `npm`, `pep621` (uv), `cargo`, `github-actions` | Mensuelle | `renovate.json` sur `config:recommended`, PRs vers `develop`, minor+patch groupés par manager, majeures isolées |
-| CI | Toutes les PRs Renovate | À chaque PR | Même gate qualité que les PRs humaines |
-| Alertes de sécurité GitHub | Dépôt public | Continu | **« Dependency graph » et « Dependabot alerts » à laisser activés** : Renovate les lit via l'API, il ne les produit pas |
+| Dependabot | `npm`, `uv`, `cargo`, `github-actions` | Mensuelle | `dependabot.yml`, une entrée par écosystème, PRs vers `develop`, minor+patch groupés par écosystème, majeures isolées |
+| CI | Toutes les PRs Dependabot | À chaque PR | Même gate qualité que les PRs humaines |
+| Alertes de sécurité GitHub | Dépôt public | Continu | **« Dependency graph » et « Dependabot alerts » à laisser activés** : c'est le graphe de dépendances qui les produit, `dependabot.yml` ne pilote que les PR de mise à jour |
+| `just audit` | `pnpm audit --audit-level=high` sur `src/`, `uv audit` sur `sidecar/` | À chaque run CI (`audit-ui`, `audit-sidecar`), et en local avant chaque release | **Non bloquant** en CI, une CVE publiée en amont ne doit pas figer une PR sans rapport ; la Checklist Release oblige à lire le résultat. `src-tauri/` non couvert, `cargo audit` exigerait une installation à part |
 
-> L'app GitHub Renovate est gratuite sur dépôt public. Les alertes de sécurité restent produites par GitHub et non par l'outil de mise à jour : les désactiver en croyant qu'elles font doublon avec Renovate priverait le projet de sa seule veille CVE.
+> Dependabot est intégré et gratuit sur dépôt public, aucune app tierce à installer. Les alertes de sécurité restent produites par le graphe de dépendances de GitHub et non par `dependabot.yml` : les désactiver en croyant qu'elles font doublon avec les PR de mise à jour priverait le projet de sa seule veille CVE.
 
 ---
 
@@ -496,7 +498,7 @@ Pas de métrique serveur à surveiller. Les signaux utiles se lisent dans Sentry
 | Métrique | Seuil Warning | Seuil Critical |
 |----------|---------------|----------------|
 | Quota Sentry consommé (plan Developer, 5 000 events/mois **partagés avec techno-scraper**, même organisation) | > 2 500 / mois | > 4 000 : marge avant le plafond de 5 000, au-delà duquel les events sont **jetés silencieusement** |
-| Morceaux non résolus **faute de requête exploitable** (nettoyage vide, tags absents, nom de fichier réduit à du bruit) | — | — : jamais une alerte, c'est la qualité de la bibliothèque source |
+| Morceaux non résolus **faute de requête exploitable** (nettoyage vide, tags absents, nom de fichier réduit à du bruit) | — | Aucun : jamais une alerte, c'est la qualité de la bibliothèque source |
 | Morceaux en échec **par erreur de source** (5xx épuisés, parsing, réponse hors schéma) | ≥ 3 sur un run | ≥ 10 % du run : la source a changé, pas la bibliothèque |
 | `403` consécutifs sur techno-scraper | 1 | 3 : le run s'arrête de lui-même, clé invalide ou révoquée |
 | `504` sur techno-scraper dans un run | quelques-uns | rafale : pool client désaligné des sémaphores de l'API ([ADR-017](adrs/017-taille-pool-concurrence.md)) |
@@ -701,21 +703,21 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 # 🔗 Ressources
 
 ## Documentation Officielle
-- [Tauri v2 — Updater](https://v2.tauri.app/plugin/updater/) : génération des clés, `pubkey`, format de `latest.json`
-- [Tauri v2 — Sidecar](https://v2.tauri.app/develop/sidecar/) : `externalBin`, suffixe target-triple
-- [Tauri v2 — Distribution GitHub](https://v2.tauri.app/distribute/pipelines/github/)
+- [Tauri v2 : Updater](https://v2.tauri.app/plugin/updater/) : génération des clés, `pubkey`, format de `latest.json`
+- [Tauri v2 : Sidecar](https://v2.tauri.app/develop/sidecar/) : `externalBin`, suffixe target-triple
+- [Tauri v2 : Distribution GitHub](https://v2.tauri.app/distribute/pipelines/github/)
 - [tauri-action](https://github.com/tauri-apps/tauri-action) : `tagName`, `releaseDraft`, `uploadUpdaterJson`
-- [release-please — customizing](https://github.com/googleapis/release-please/blob/main/docs/customizing.md) : `extra-files`, updaters TOML et JSON génériques
-- [GitHub Actions — déclencheurs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) : un tag créé par `GITHUB_TOKEN` ne déclenche aucun workflow
-- [Sentry — Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `include_local_variables`, `server_name`, `send_default_pii`
+- [release-please : customizing](https://github.com/googleapis/release-please/blob/main/docs/customizing.md) : `extra-files`, updaters TOML et JSON génériques
+- [GitHub Actions : déclencheurs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) : un tag créé par `GITHUB_TOKEN` ne déclenche aucun workflow
+- [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `include_local_variables`, `server_name`, `send_default_pii`
 - [PyInstaller](https://pyinstaller.org) : modes `--onefile` et `--onedir`
-- [Renovate — options de configuration](https://docs.renovatebot.com/configuration-options/) : `packageRules`, `minimumReleaseAge`, automerge
-- [pnpm — intégration continue](https://pnpm.io/continuous-integration) : `pnpm/setup`, et pourquoi Corepack n'est plus recommandé
+- [Dependabot : options de configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) : `package-ecosystem`, `directory`, `groups`
+- [pnpm : intégration continue](https://pnpm.io/continuous-integration) : `pnpm/setup`, et pourquoi Corepack n'est plus recommandé
 
 ## Ressources Complémentaires
 - [ARCHITECTURE.md](ARCHITECTURE.md) : infrastructure, sécurité et observabilité à haut niveau, modes de panne
 - [VERSIONS.md](VERSIONS.md) : versions retenues, matrice de compatibilité croisée et conflits connus, dont le mode de panne de Dependabot sur pnpm 11
 - ADRs opérationnels : [012 clé API et keyring](adrs/012-securite-cle-api-keyring.md), [013 cache jetable](adrs/013-cache-disque-jetable.md), [014 observabilité et vie privée](adrs/014-observabilite-sentry-et-rgpd.md), [015 cibles de distribution](adrs/015-cibles-distribution-windows.md), [016 multi-clés](adrs/016-multi-cles-techno-scraper.md), [018 versionnement des artefacts](adrs/018-versionnement-plan-de-run.md), [021 visibilité du dépôt](adrs/021-visibilite-du-depot.md)
-- [techno-scraper — PRODUCTION.md](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/PRODUCTION.md) : chaîne release-please et pièges de squash-merge, dont ce projet hérite
-- [PythonGUIs — antivirus et PyInstaller](https://www.pythonguis.com/faq/problems-with-antivirus-software-and-pyinstaller/) : pourquoi `--onefile` déclenche les heuristiques
+- [techno-scraper : PRODUCTION.md](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/PRODUCTION.md) : chaîne release-please et pièges de squash-merge, dont ce projet hérite
+- [PythonGUIs : antivirus et PyInstaller](https://www.pythonguis.com/faq/problems-with-antivirus-software-and-pyinstaller/) : pourquoi `--onefile` déclenche les heuristiques
 - [The Twelve-Factor App](https://12factor.net/) : référence dont ce projet s'écarte volontairement, faute de serveur et de variables d'environnement au runtime

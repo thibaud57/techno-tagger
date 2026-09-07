@@ -17,7 +17,7 @@ paths:
 - Passer `--noconfirm` en CI, sans exception
 - Garder `--clean` systématique dans `build.py` : le runner de CI n'a aucun cache PyInstaller ni `build/` à vider, le coût y est nul, et l'analyse repart d'un arbre propre alors que `_build_info.py` est créé puis supprimé à chaque build, DSN de production compris. Le coût réel est local, sur les builds répétés. `--clean` reste par ailleurs le premier réflexe quand un hidden import ajouté ne semble pas pris en compte
 - Garder `--noupx` et réduire la taille par `--exclude-module` sur les paquets non utilisés
-- Valider chaque chargement dynamique **sur le binaire figé** : clé keyring lue, event Sentry envoyé, scoring rapidfuzz exécuté, ligne NDJSON validée par un modèle Pydantic. Trois cas distincts : `pydantic` a un hook (`hook-pydantic.py` de `pyinstaller-hooks-contrib`) qui collecte ses sous-modules ; `pydantic-core`, l'extension native qu'il embarque, n'a pas de hook propre et n'en a pas besoin, l'analyse statique la traçant via les imports de `pydantic` ; `rapidfuzz`, l'autre extension native de la stack, n'a aucun hook du tout, son entry point `pyinstaller40` pointant vers sa suite de tests et non vers des `hiddenimports` — `collect_submodules("rapidfuzz")` est donc explicite dans le `.spec`
+- Valider chaque chargement dynamique **sur le binaire figé** : clé keyring lue, event Sentry envoyé, scoring rapidfuzz exécuté, ligne NDJSON validée par un modèle Pydantic. Trois cas distincts : `pydantic` a un hook (`hook-pydantic.py` de `pyinstaller-hooks-contrib`) qui collecte ses sous-modules ; `pydantic-core`, l'extension native qu'il embarque, n'a pas de hook propre et n'en a pas besoin, l'analyse statique la traçant via les imports de `pydantic` ; `rapidfuzz`, l'autre extension native de la stack, n'a aucun hook du tout, son entry point `pyinstaller40` pointant vers sa suite de tests et non vers des `hiddenimports` : `collect_submodules("rapidfuzz")` est donc explicite dans le `.spec`
 
 ## À éviter
 - `--windowed` : le protocole passe par les flux standards
@@ -25,6 +25,7 @@ paths:
 - Considérer le packaging comme acquis parce que le build a réussi, ou parce qu'un hook est censé couvrir une dépendance : les échecs d'import dynamique n'apparaissent qu'à l'exécution
 - Tenter un build Windows depuis Linux : PyInstaller ne cross-compile pas, sans contournement, ni conteneur ni option de ciblage
 - Compter sur `Process.kill()` côté Tauri pour arrêter un sidecar `--onefile` : seul le bootloader est visé, prévoir un arrêt propre par le protocole
+- Déclarer `[project.scripts]` dans le `pyproject.toml` du sidecar : `uv init --package` le génère, mais le point d'entrée est le script du `.spec` et rien ne consomme la commande console
 
 ## Gotchas
 - Le `.spec` reçoit `SPEC`, `SPECPATH`, `DISTPATH` et `workpath` de PyInstaller, mais **pas** son dossier sur `sys.path` : il ne peut importer aucun module voisin sous l'entry point `pyinstaller`, qui retire `sys.path[0]` quand c'est `Scripts`. Toute valeur partagée avec `build.py` passe par ces globals ou par le nom du fichier
