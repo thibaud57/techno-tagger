@@ -14,3 +14,14 @@
 @theme {
   --font-sans: "Inter Variable", system-ui, sans-serif;
 }
+
+/* Le plugin pose une propriete `animation` sur les utilitaires, pas une variable
+   interposee : la coupure surcharge donc la propriete elle-meme. Seul !important
+   tolere du projet, il neutralise une preference systeme par-dessus des classes
+   generees. Le selecteur attrape aussi les `p-animate-*` de PrimeNG. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadein,
+  [class*="animate-"] {
+    animation: none !important;
+  }
+}
