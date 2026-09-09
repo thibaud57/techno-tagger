@@ -1032,7 +1032,7 @@ npm install -g pnpm@11.24.0
 pnpm install
 pnpm exec ng build
 
-# 4. Coquille Tauri (dev, sidecar lancé depuis les sources)
+# 4. Coquille Tauri (dev, sidecar déjà construit par just build-sidecar)
 pnpm exec tauri dev
 
 # 5. Build complet local (ordre imposé : le sidecar avant tauri build)

@@ -46,7 +46,7 @@ Commits : `type(scope): description`, types `feat | feat! | fix | docs | refacto
 
 ## Gotchas
 
-- **Le mode développement ne prouve rien sur trois pièges** qui n'existent qu'en distribution : sidecar non remplacé à la mise à jour, backend keyring introuvable dans le binaire figé, sortie NDJSON bufferisée. Les valider demande un run sur le bundle, pas un `tauri dev`.
+- **Le mode développement ne prouve rien sur deux pièges** qui n'existent qu'en distribution : sidecar non remplacé à la mise à jour, backend keyring introuvable dans le binaire figé. Les valider demande un run sur le bundle, pas un `tauri dev`. La sortie NDJSON bufferisée, elle, se voit dès le développement : `tauri dev` lance le même binaire par un pipe (cf. [ADR-005](../docs/adrs/005-sidecar-python-protocole-ndjson.md)).
 - **Toute commande Tauri exige le binaire du sidecar** dans `src-tauri/binaries/` : Tauri valide `externalBin` dès la compilation, donc `cargo check` lui-même échoue sans lui. `just build-sidecar` d'abord.
 
 ## Commandes

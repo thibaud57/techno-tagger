@@ -38,12 +38,21 @@ def _force_utf8_streams() -> None:
     `newline` est fixe dans la foulee : laisse a None, le wrapper traduit chaque
     `\\n` en `\\r\\n` sous Windows, et le lecteur de lignes de Tauri coupe sur le
     `\\r` seul des qu'un chunk de 8 Ko tombe avant le `\\n`.
+
+    `line_buffering` sur la sortie : sans lui, un binaire PyInstaller lance par un
+    pipe garde tout jusqu'a la fin du run, et `PYTHONUNBUFFERED` n'y peut rien
+    (cf. ADR-005). Pose ici une fois, il dispense de flusher chaque evenement.
     """
     for stream in (sys.stdin, sys.stdout):
         # Un flux substitue (capture de test, redirection) n'est pas un
         # TextIOWrapper et n'a rien a reconfigurer : seul le cas reel compte ici.
         if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(encoding="utf-8", errors="strict", newline="\n")
+            stream.reconfigure(
+                encoding="utf-8",
+                errors="strict",
+                newline="\n",
+                line_buffering=stream is sys.stdout,
+            )
 
 
 def main() -> None:
@@ -57,12 +66,10 @@ def main() -> None:
     # acces au secret : dans le binaire fige, la decouverte par entry points rend
     # une liste vide et keyring bascule sur son backend `fail`.
 
-    # Sans flush, stdout est bufferise des qu'il n'est plus un terminal : les
-    # evenements partiraient par paquets en fin de run. Invisible en dev.
     for _line in sys.stdin:
         # TODO: implement, valider la commande contre son modele Pydantic
         # (protocol.py), la dispatcher, puis emettre les evenements produits.
-        sys.stdout.flush()
+        pass
 
 
 if __name__ == "__main__":
