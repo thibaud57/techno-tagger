@@ -7,7 +7,8 @@ paths:
 
 ## À faire
 - Garder RxJS pour ce qui est un flux dans le temps (événements NDJSON du sidecar, événements de navigation) et exposer le résultat en signals pour les composants
-- Alimenter le flux du sidecar par un `Subject`, poussé depuis les handlers `command.stdout.on('data')` et `command.on('close')`, puis le projeter en signals dans le service
+- Interposer un `Subject` entre la source d'événements et les signals dès qu'un opérateur s'applique au flux : filtrage, projection, fenêtrage, annulation, retry. Sans opérateur, écrire directement dans les signals depuis le handler est plus court et se lit mieux, et un `Subject` qui ne fait que réalimenter le même `switch` n'apporte rien
+- Vérifier la surface exacte du transport avant de coder contre elle : le découpage des lignes de `stdout` est déjà fait par Tauri, et un service testable hors Tauri reçoit son transport par un jeton d'injection plutôt que d'appeler l'API du plugin en direct
 - Convertir avec `toSignal()` pour l'affichage et `toObservable()` pour appliquer des opérateurs à un signal
 - Fournir un `initialValue` à `toSignal()` ; ne passer `requireSync: true` que sur une source qui émet à la souscription (`BehaviorSubject`, `of()`)
 - Se désabonner par `takeUntilDestroyed()` sur toute souscription manuelle
@@ -30,16 +31,20 @@ paths:
 
 ## Exemples
 ```typescript
-// ✅ Flux RxJS en interne, signals en surface
-export class SidecarService {
-  private readonly events$ = new Subject<SidecarEvent>();
+// ✅ Un opérateur s'applique au flux : Subject en interne, signals en surface
+private readonly events$ = new Subject<SidecarEvent>();
 
-  readonly lastEvent = toSignal(this.events$, { initialValue: null });
+readonly progress = toSignal(
+  this.events$.pipe(filter(isProgress), map(e => e.percent)),
+  { initialValue: 0 },
+);
 
-  readonly progress = toSignal(
-    this.events$.pipe(filter(isProgress), map(e => e.percent)),
-    { initialValue: 0 },
-  );
+// ✅ Aucun opérateur : le handler écrit dans les signals, sans couche intermédiaire
+#handleEvent(event: SidecarEvent): void {
+  switch (event.event) {
+    case 'progress': this.#progress.set(event); break;
+    // ...
+  }
 }
 
 // ❌ Souscription manuelle non nettoyée, état hors signal
