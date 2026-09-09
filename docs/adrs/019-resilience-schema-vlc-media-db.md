@@ -15,12 +15,12 @@ Le cas d'usage principal est une playlist curée sur téléphone dans VLC Androi
 La CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), ce que le BRAINSTORM interprétait comme un signe d'instabilité du schéma. L'inspection du fichier montre autre chose :
 
 ```sql
-SELECT DISTINCT m.fileName
+SELECT DISTINCT m.filename
 FROM Playlist p
 INNER JOIN PlaylistMediaRelation pm ON pm.playlist_id = p.id_playlist
 INNER JOIN Media m ON m.id_media = pm.media_id
 WHERE p.name = 'final'
-ORDER BY CAST(m.fileName AS TEXT) COLLATE NOCASE;
+ORDER BY CAST(m.filename AS TEXT) COLLATE NOCASE;
 ```
 
 **Le nom de la playlist est codé en dur.** L'externalisation ne servait pas à absorber un changement de schéma, elle servait à changer de playlist sans recompiler. C'est exactement la corvée que le projet veut supprimer.
@@ -95,9 +95,9 @@ L'option C est écartée faute de preuve : **aucun changement de schéma n'a ét
 
 Mise en œuvre retenue :
 
-- **Étape 1, listage** : lecture des playlists du dump (identifiant et nom), avec le nombre de morceaux de chacune, présentés dans un sélecteur. C'est une commande à part entière du contrat, `list_playlists`, rendue par l'événement `playlists_listed` : l'extraction ne peut pas la précéder puisqu'elle a besoin de l'identifiant choisi (cf. [ARCHITECTURE.md § Backend > API](../ARCHITECTURE.md#api))
+- **Étape 1, listage** : lecture des playlists du dump (identifiant et nom), avec le nombre de morceaux de chacune, présentés dans un sélecteur. C'est une commande à part entière du contrat, `list_playlists`, rendue par l'événement `playlists_listed` : l'extraction ne peut pas la précéder puisqu'elle a besoin de la playlist choisie (cf. [ARCHITECTURE.md § Backend > API](../ARCHITECTURE.md#api))
 - **Étape 2, vérification** : inspection de `sqlite_master` pour les tables `Playlist`, `PlaylistMediaRelation` et `Media`, puis des colonnes utilisées. Un écart produit un message nommant précisément ce qui manque.
-- **Étape 3, extraction** : la requête existante, paramétrée par l'identifiant de playlist choisi et non plus par un nom en dur
+- **Étape 3, extraction** : la requête existante, paramétrée par la playlist choisie et non plus par un nom en dur
 - **Schéma partiellement compatible** : traité comme incompatible. Extraire à moitié une playlist est pire qu'échouer clairement, l'utilisateur découvrant les morceaux manquants bien plus tard.
 
 ---
@@ -124,6 +124,16 @@ Mise en œuvre retenue :
 
 Le format M3U8 n'a aucun de ces problèmes : textuel, stable, il couvre Rekordbox, Traktor, foobar et VLC desktop avec un seul parser, et contient une seule playlist, donc sans sélection à faire.
 
-Rappel valable pour les deux formats : la résolution se fait **par nom de fichier, pas par chemin**. Le chemin stocké est ignoré, seul le nom est cherché récursivement dans le dossier source, la base venant du téléphone et les fichiers étant sur le PC. La requête ne sélectionne d'ailleurs que `fileName`, jamais un chemin.
+Rappel valable pour les deux formats : la résolution se fait **par nom de fichier, pas par chemin**. Le chemin stocké est ignoré, seul le nom est cherché récursivement dans le dossier source, la base venant du téléphone et les fichiers étant sur le PC. La requête ne sélectionne d'ailleurs que `filename`, jamais un chemin, ce que l'ouverture d'un dump réel confirme : aucune valeur relevée ne contient de séparateur de chemin.
 
 Le `COLLATE NOCASE` de la requête d'origine est conservé : il rend l'ordre de traitement stable et lisible dans le rapport.
+
+## Vérification sur un dump réel, 2026-09-08
+
+Cet ADR a été écrit sans avoir ouvert de dump, à partir du seul fichier SQL de la CLI. L'ouverture d'un dump réel confirme la décision et corrige trois points de fait, sans rien changer aux options ni au choix. Détail dans [knowledges/vlc-media-db.md](../knowledges/vlc-media-db.md).
+
+- **La requête ci-dessus échoue seule.** `Media.filename` est déclaré `COLLATE FILENAME`, une collation propre à VLC qu'un `sqlite3` standard ne connaît pas, et un `SELECT DISTINCT` suffit à la déclencher. La CLI l'enregistrait par `create_collation` avant d'exécuter sa requête ; c'est ce code, et non le SQL, que la transcription initiale avait perdu.
+- **La colonne est `filename`, pas `fileName`.** La requête fonctionne malgré son casing, SQLite étant insensible à la casse sur les identifiants, mais l'étape 2 ci-dessus doit comparer les noms de colonnes sans tenir compte de la casse, sous peine de rejeter un schéma valide.
+- **Les compteurs dénormalisés de `Playlist` ne sont pas fiables** : `nb_audio` relevé à 0 sur une playlist de 8 morceaux. Le nombre de morceaux annoncé par le sélecteur se compte donc sur `PlaylistMediaRelation`.
+
+La volumétrie relevée conforte la conséquence négative déjà notée : 795 entrées dans `Media` pour une playlist de 8 morceaux, le dump étant bien la médiathèque entière.

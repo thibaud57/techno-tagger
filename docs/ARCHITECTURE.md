@@ -399,7 +399,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
 | `shutdown` | aucune. Émise à la fermeture de la fenêtre : le sidecar finit d'écrire le plan de run en cours, puis sort. L'EOF sur stdin reste le filet si l'application est tuée, la reprise de run (use-case 6) couvre ce cas |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
-| `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **identifiant de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
+| `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible, seuils de matching |
 | `resolve_arbitration` | identifiant du morceau, candidat choisi ou refus explicite |
 | `switch_arbitration_source` | identifiant du morceau, source demandée. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), et produit un `arbitration_updated` |
@@ -677,7 +677,7 @@ Deux états de l'application, pas des branches.
 
 | Environnement | Origine | Sidecar |
 |---|---|---|
-| Développement | `tauri dev` en local | Lancé depuis les sources Python, sans PyInstaller |
+| Développement | `tauri dev` en local | Le binaire de `just build-sidecar`, que Tauri exige dès la compilation. Les sources se testent en CLI par `just dev-sidecar` |
 | Distribution | Tag `v*` | Empaqueté dans l'installeur signé, consommé par l'updater |
 
 Pas de staging : sans serveur ni base, il n'y a rien à déployer entre les deux. Un canal beta (pré-release sur un manifeste updater distinct) reste possible plus tard si la distribution s'élargit.
