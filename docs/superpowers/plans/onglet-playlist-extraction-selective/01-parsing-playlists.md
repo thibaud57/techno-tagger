@@ -60,7 +60,7 @@ Le constructeur de dump est la fondation de toutes les tâches suivantes : sans 
   - `tagger.errors.TaggerError(message: str, **params: object)`, attributs `code: ClassVar[str]` et `params: dict[str, object]`
   - `tagger.playlists.models.PlaylistFormat` : `VLC_DUMP`, `M3U8`
   - `tagger.playlists.models.PlaylistSummary(playlist_id: int, name: str, track_count: int)`
-  - `tagger.playlists.errors.PlaylistError`, `UnsupportedPlaylistFormat(path: Path)`, `IncompatibleDumpSchema(missing: Sequence[str])`, `PlaylistNotFound(name: str)`
+  - `tagger.playlists.errors.PlaylistError`, `UnsupportedPlaylistFormatError(path: Path)`, `IncompatibleDumpSchemaError(missing: Sequence[str])`, `PlaylistNotFoundError(name: str)`
   - `tests/helpers/vlc_dump.build_dump(path: Path, *, omit_table: str | None = None, omit_column: str | None = None) -> Path`
   - constantes `TRACKS: tuple[str, ...]`, `PLAYLIST_MAIN: str`, `PLAYLIST_OTHER: str`
   - fixtures pytest `vlc_dump: Path` et `m3u8_playlist: Path`
@@ -363,7 +363,7 @@ class PlaylistError(TaggerError):
     code: ClassVar[str] = "playlist_error"
 
 
-class UnsupportedPlaylistFormat(PlaylistError):
+class UnsupportedPlaylistFormatError(PlaylistError):
     """Le fichier n'est ni un dump SQLite ni une playlist texte exploitable."""
 
     code: ClassVar[str] = "unsupported_playlist_format"
@@ -372,7 +372,7 @@ class UnsupportedPlaylistFormat(PlaylistError):
         super().__init__(f"unsupported playlist format: {path.name}", filename=path.name)
 
 
-class IncompatibleDumpSchema(PlaylistError):
+class IncompatibleDumpSchemaError(PlaylistError):
     """Le dump ne porte pas les tables et colonnes attendues.
 
     Un schema partiellement compatible est traite comme incompatible : extraire a
@@ -386,7 +386,7 @@ class IncompatibleDumpSchema(PlaylistError):
         super().__init__(f"incompatible vlc_media.db schema: {listed}", missing=list(missing))
 
 
-class PlaylistNotFound(PlaylistError):
+class PlaylistNotFoundError(PlaylistError):
     """Aucune playlist de ce nom dans le dump."""
 
     code: ClassVar[str] = "playlist_not_found"
@@ -416,7 +416,7 @@ git commit -m "feat(playlists): socle des erreurs, modeles et fixture de dump VL
 - Test: `sidecar/tests/unit/test_playlists_vlc.py` (compléter)
 
 **Interfaces:**
-- Consumes: `PlaylistFormat` et `UnsupportedPlaylistFormat` de la Task 1, fixture `vlc_dump`
+- Consumes: `PlaylistFormat` et `UnsupportedPlaylistFormatError` de la Task 1, fixture `vlc_dump`
 - Produces: `tagger.playlists.vlc.is_vlc_dump(path: Path) -> bool`, constante `SQLITE_HEADER: bytes`
 
 - [ ] **Step 1: Écrire les tests de détection**
@@ -507,7 +507,7 @@ git commit -m "feat(playlists): detecter un dump VLC a son en-tete SQLite"
 - Test: `sidecar/tests/unit/test_playlists_vlc.py` (compléter)
 
 **Interfaces:**
-- Consumes: `IncompatibleDumpSchema` de la Task 1, `build_dump(..., omit_table=, omit_column=)`
+- Consumes: `IncompatibleDumpSchemaError` de la Task 1, `build_dump(..., omit_table=, omit_column=)`
 - Produces: `tagger.playlists.vlc.connect(dump_path: Path) -> sqlite3.Connection` (connexion en lecture seule, collation enregistrée, schéma vérifié), constante `EXPECTED_SCHEMA: dict[str, tuple[str, ...]]`
 
 - [ ] **Step 1: Écrire les tests de vérification**
@@ -524,7 +524,7 @@ def test_accepts_a_dump_carrying_the_expected_schema(vlc_dump: Path) -> None:
 def test_reports_a_missing_table_by_name(tmp_path: Path) -> None:
     amputated = build_dump(tmp_path / "no_relation.db", omit_table="PlaylistMediaRelation")
 
-    with pytest.raises(IncompatibleDumpSchema) as excinfo:
+    with pytest.raises(IncompatibleDumpSchemaError) as excinfo:
         vlc.connect(amputated)
 
     assert excinfo.value.params["missing"] == ["PlaylistMediaRelation"]
@@ -533,7 +533,7 @@ def test_reports_a_missing_table_by_name(tmp_path: Path) -> None:
 def test_reports_a_missing_column_by_table_and_name(tmp_path: Path) -> None:
     amputated = build_dump(tmp_path / "no_filename.db", omit_column="Media.filename")
 
-    with pytest.raises(IncompatibleDumpSchema) as excinfo:
+    with pytest.raises(IncompatibleDumpSchemaError) as excinfo:
         vlc.connect(amputated)
 
     assert excinfo.value.params["missing"] == ["Media.filename"]
@@ -570,7 +570,7 @@ def test_converts_a_corrupt_file_into_a_business_error(tmp_path: Path) -> None:
         vlc.connect(corrupt)
 ```
 
-Compléter les imports : `from tagger.playlists.errors import IncompatibleDumpSchema, PlaylistError` et `from tagger.playlists.vlc import SQLITE_HEADER`.
+Compléter les imports : `from tagger.playlists.errors import IncompatibleDumpSchemaError, PlaylistError` et `from tagger.playlists.vlc import SQLITE_HEADER`.
 
 - [ ] **Step 2: Lancer les tests pour les voir échouer**
 
@@ -610,7 +610,7 @@ def connect(dump_path: Path) -> sqlite3.Connection:
             f"unreadable vlc_media.db: {dump_path.name}", filename=dump_path.name
         ) from error
     except Exception:
-        # `_verify_schema` leve `IncompatibleDumpSchema`, qui n'est pas une erreur
+        # `_verify_schema` leve `IncompatibleDumpSchemaError`, qui n'est pas une erreur
         # sqlite3 : sans ce filet la connexion deja ouverte resterait a la charge
         # du ramasse-miettes.
         connection.close()
@@ -632,7 +632,7 @@ def _collate_filename(left: str, right: str) -> int:
 
 
 def _verify_schema(connection: sqlite3.Connection) -> None:
-    """Leve `IncompatibleDumpSchema` en nommant tout ce qui manque.
+    """Leve `IncompatibleDumpSchemaError` en nommant tout ce qui manque.
 
     Un schema partiellement compatible est traite comme incompatible (ADR-019).
     """
@@ -651,10 +651,10 @@ def _verify_schema(connection: sqlite3.Connection) -> None:
         missing.extend(f"{table}.{column}" for column in columns if column.lower() not in declared)
 
     if missing:
-        raise IncompatibleDumpSchema(missing)
+        raise IncompatibleDumpSchemaError(missing)
 ```
 
-Compléter les imports en tête du module : `from tagger.playlists.errors import IncompatibleDumpSchema, PlaylistError`.
+Compléter les imports en tête du module : `from tagger.playlists.errors import IncompatibleDumpSchemaError, PlaylistError`.
 
 - [ ] **Step 4: Lancer les tests pour les voir passer**
 
@@ -778,7 +778,7 @@ git commit -m "feat(playlists): lister les playlists d un dump avec leur nombre 
 - Test: `sidecar/tests/unit/test_playlists_vlc.py` (compléter)
 
 **Interfaces:**
-- Consumes: `vlc.connect()` de la Task 3, `PlaylistNotFound` de la Task 1
+- Consumes: `vlc.connect()` de la Task 3, `PlaylistNotFoundError` de la Task 1
 - Produces: `tagger.playlists.vlc.read_playlist(dump_path: Path, playlist_name: str) -> tuple[str, ...]`
 
 - [ ] **Step 1: Écrire les tests d'extraction**
@@ -811,7 +811,7 @@ def test_returns_file_names_never_paths(vlc_dump: Path) -> None:
 
 
 def test_raises_when_the_playlist_does_not_exist(vlc_dump: Path) -> None:
-    with pytest.raises(PlaylistNotFound) as excinfo:
+    with pytest.raises(PlaylistNotFoundError) as excinfo:
         vlc.read_playlist(vlc_dump, "absente")
 
     assert excinfo.value.params["playlist_name"] == "absente"
@@ -823,7 +823,7 @@ def test_extracts_only_the_tracks_of_the_requested_playlist(vlc_dump: Path) -> N
     assert names == (TRACKS[0],)
 ```
 
-Compléter les imports : ajouter `PlaylistNotFound` à l'import de `tagger.playlists.errors`.
+Compléter les imports : ajouter `PlaylistNotFoundError` à l'import de `tagger.playlists.errors`.
 
 - [ ] **Step 2: Lancer les tests pour les voir échouer**
 
@@ -862,7 +862,7 @@ def read_playlist(dump_path: Path, playlist_name: str) -> tuple[str, ...]:
     connection = connect(dump_path)
     try:
         if connection.execute(PLAYLIST_EXISTS_QUERY, (playlist_name,)).fetchone() is None:
-            raise PlaylistNotFound(playlist_name)
+            raise PlaylistNotFoundError(playlist_name)
 
         rows = connection.execute(READ_PLAYLIST_QUERY, (playlist_name,)).fetchall()
     finally:
@@ -871,7 +871,7 @@ def read_playlist(dump_path: Path, playlist_name: str) -> tuple[str, ...]:
     return tuple(str(row[0]) for row in rows)
 ```
 
-Compléter les imports du module : ajouter `PlaylistNotFound` à l'import de `tagger.playlists.errors`.
+Compléter les imports du module : ajouter `PlaylistNotFoundError` à l'import de `tagger.playlists.errors`.
 
 - [ ] **Step 4: Lancer les tests pour les voir passer**
 
@@ -900,7 +900,7 @@ git commit -m "feat(playlists): extraire les noms de fichiers d une playlist du 
 - Test: `sidecar/tests/unit/test_playlists_m3u8.py`
 
 **Interfaces:**
-- Consumes: fixture `m3u8_playlist` de la Task 1, `UnsupportedPlaylistFormat` de la Task 1
+- Consumes: fixture `m3u8_playlist` de la Task 1, `UnsupportedPlaylistFormatError` de la Task 1
 - Produces: `tagger.playlists.m3u8.read_playlist(path: Path) -> tuple[str, ...]`
 
 - [ ] **Step 1: Créer la fixture M3U8**
@@ -1021,11 +1021,11 @@ def test_rejects_a_binary_file_as_an_unsupported_format(tmp_path: Path) -> None:
     binary = tmp_path / "cover.jpg"
     binary.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x02\x03\xfe\xfd")
 
-    with pytest.raises(UnsupportedPlaylistFormat):
+    with pytest.raises(UnsupportedPlaylistFormatError):
         m3u8.read_playlist(binary)
 ```
 
-Compléter les imports : `import pytest` et `from tagger.playlists.errors import UnsupportedPlaylistFormat`.
+Compléter les imports : `import pytest` et `from tagger.playlists.errors import UnsupportedPlaylistFormatError`.
 
 Note : la dernière entrée du fichier porte un `#EXTINF` suivi d'un chemin, donc `test_returns_nothing_for_a_file_holding_only_directives` écrit sa propre fixture, un `#EXTINF` orphelin n'existant pas dans `sample.m3u8`.
 
@@ -1049,7 +1049,7 @@ est retenu : la resolution se fait par nom, jamais par chemin (ADR-020).
 
 from typing import TYPE_CHECKING, Final
 
-from tagger.playlists.errors import UnsupportedPlaylistFormat
+from tagger.playlists.errors import UnsupportedPlaylistFormatError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -1075,7 +1075,7 @@ def read_playlist(path: Path) -> tuple[str, ...]:
     try:
         content = path.read_text(encoding="utf-8-sig")
     except UnicodeDecodeError as error:
-        raise UnsupportedPlaylistFormat(path) from error
+        raise UnsupportedPlaylistFormatError(path) from error
 
     return tuple(
         _file_name(stripped)
@@ -1120,7 +1120,7 @@ Dernière tâche : elle assemble les deux lecteurs derrière une surface unique,
 - Test: `sidecar/tests/unit/test_playlists_facade.py`
 
 **Interfaces:**
-- Consumes: `vlc.is_vlc_dump`, `vlc.list_playlists`, `vlc.read_playlist`, `m3u8.read_playlist`, `PlaylistFormat`, `UnsupportedPlaylistFormat`
+- Consumes: `vlc.is_vlc_dump`, `vlc.list_playlists`, `vlc.read_playlist`, `m3u8.read_playlist`, `PlaylistFormat`, `UnsupportedPlaylistFormatError`
 - Produces (surface publique du package, consommée par les sub-projects 02 et 04) :
   - `detect_format(path: Path) -> PlaylistFormat`
   - `list_playlists(path: Path) -> tuple[PlaylistSummary, ...]`
@@ -1142,7 +1142,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 import tagger.playlists as playlists
-from tagger.playlists.errors import UnsupportedPlaylistFormat
+from tagger.playlists.errors import UnsupportedPlaylistFormatError
 from tagger.playlists.models import PlaylistFormat
 
 
@@ -1171,7 +1171,7 @@ def test_routes_a_playlist_file_to_the_text_parser(m3u8_playlist: Path) -> None:
 
 
 def test_requires_a_playlist_name_for_a_dump(vlc_dump: Path) -> None:
-    with pytest.raises(UnsupportedPlaylistFormat):
+    with pytest.raises(UnsupportedPlaylistFormatError):
         playlists.read_playlist(vlc_dump)
 
 
@@ -1202,10 +1202,10 @@ from typing import TYPE_CHECKING
 
 from tagger.playlists import m3u8, vlc
 from tagger.playlists.errors import (
-    IncompatibleDumpSchema,
+    IncompatibleDumpSchemaError,
     PlaylistError,
-    PlaylistNotFound,
-    UnsupportedPlaylistFormat,
+    PlaylistNotFoundError,
+    UnsupportedPlaylistFormatError,
 )
 from tagger.playlists.models import PlaylistFormat, PlaylistSummary
 
@@ -1213,12 +1213,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 __all__ = [
-    "IncompatibleDumpSchema",
+    "IncompatibleDumpSchemaError",
     "PlaylistError",
     "PlaylistFormat",
-    "PlaylistNotFound",
+    "PlaylistNotFoundError",
     "PlaylistSummary",
-    "UnsupportedPlaylistFormat",
+    "UnsupportedPlaylistFormatError",
     "detect_format",
     "list_playlists",
     "read_playlist",
@@ -1253,7 +1253,7 @@ def read_playlist(path: Path, playlist_name: str | None = None) -> tuple[str, ..
     """
     if detect_format(path) is PlaylistFormat.VLC_DUMP:
         if playlist_name is None:
-            raise UnsupportedPlaylistFormat(path)
+            raise UnsupportedPlaylistFormatError(path)
 
         return vlc.read_playlist(path, playlist_name)
 

@@ -2,7 +2,7 @@
 feature: "Feature 1 — Onglet Playlist, extraction sélective"
 subproject: "parsing-playlists"
 goal: "Lire les deux formats de playlist du projet et en extraire les noms de fichiers à traiter, sans toucher au système de fichiers musical"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
@@ -145,7 +145,7 @@ Aucune — ce sub-project est autoporté.
   - un BOM en tête de fichier n'apparaît pas dans le premier nom rendu
   - un nom non-ASCII est rendu intact
   - un fichier ne contenant que des directives rend un résultat vide sans lever
-  - un fichier binaire, ni SQLite ni texte décodable, lève `UnsupportedPlaylistFormat`
+  - un fichier binaire, ni SQLite ni texte décodable, lève `UnsupportedPlaylistFormatError`
 
 ### Integration
 
