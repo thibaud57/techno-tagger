@@ -6,7 +6,7 @@ paths:
 # vlc_media.db — Lecture des playlists
 
 ## À faire
-- Ouvrir le dump en lecture seule : `sqlite3.connect(f"file:{path}?mode=ro", uri=True)`. Le fichier appartient à l'utilisateur, l'application n'a aucune raison de l'écrire
+- Ouvrir le dump en lecture seule : `sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)`. Le fichier appartient à l'utilisateur, l'application n'a aucune raison de l'écrire. `Path.as_uri()` et non une f-string sur le chemin brut : `#` et `%`, légaux sous Windows, sont significatifs dans une URI et couperaient ou décoderaient le chemin
 - Enregistrer la collation `FILENAME` par `create_collation` juste après l'ouverture, avant toute requête touchant `Media.filename` : la colonne est déclarée `COLLATE FILENAME`, une collation propre à VLC que `sqlite3` ne connaît pas, et un `SELECT DISTINCT` suffit à la déclencher
 - Vérifier le schéma avant tout traitement en inspectant `sqlite_master` pour `Playlist`, `PlaylistMediaRelation` et `Media`, puis les colonnes utilisées, et produire un message nommant précisément ce qui manque
 - Traiter un schéma partiellement compatible comme incompatible : extraire à moitié une playlist est pire qu'échouer clairement, l'utilisateur découvrant les morceaux manquants bien plus tard
@@ -47,12 +47,12 @@ ORDER BY CAST(m.filename AS TEXT) COLLATE NOCASE;
 
 ```python
 # ✅ lecture seule, collation enregistrée, schéma vérifié, dans cet ordre
-connection = sqlite3.connect(f"file:{dump_path}?mode=ro", uri=True)
+connection = sqlite3.connect(f"{dump_path.as_uri()}?mode=ro", uri=True)
 connection.create_collation("FILENAME", collate_filename)
 verify_schema(connection)   # lève une erreur métier nommant la table ou la colonne manquante
 
 # ❌ requête transcrite sans sa collation : OperationalError au premier dump réel
-connection = sqlite3.connect(f"file:{dump_path}?mode=ro", uri=True)
+connection = sqlite3.connect(f"{dump_path.as_uri()}?mode=ro", uri=True)
 connection.execute(EXTRACT_QUERY, (playlist_name,))
 
 # ❌ le chemin de la base utilisé tel quel
