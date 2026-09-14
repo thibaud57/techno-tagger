@@ -28,5 +28,6 @@
     "**/.mypy_cache/**": true,
     "**/.ruff_cache/**": true,
     "**/.pytest_cache/**": true
-  }
+  },
+  "python.analysis.extraPaths": ["./sidecar/tests/helpers"]
 }
