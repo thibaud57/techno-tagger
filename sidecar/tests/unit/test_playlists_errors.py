@@ -1,97 +1,78 @@
-"""Tests des erreurs du domaine playlist."""
+"""Tests des erreurs du domaine playlist.
+
+Le `code` est la cle que l'interface traduit sous `errors.<code>`, les `params`
+remplissent son message : un renommage doit casser un test, pas un ecran.
+"""
 
 from pathlib import Path
+
+import pytest
 
 from tagger.playlists.errors import (
     IncompatibleDumpSchemaError,
     PlaylistError,
+    PlaylistNameRequiredError,
     PlaylistNotFoundError,
+    UnreadableDumpError,
+    UnreadablePlaylistFileError,
     UnsupportedPlaylistFormatError,
 )
 
 
-class TestPlaylistError:
-    """Erreur de base du domaine playlist."""
-
-    def test_code_is_set(self) -> None:
-        error = PlaylistError("test message")
-
-        assert error.code == "playlist_error"
-
-    def test_params_stored(self) -> None:
-        error = PlaylistError("test message", foo="bar", count=42)
-
-        assert error.params == {"foo": "bar", "count": 42}
-
-    def test_no_params(self) -> None:
-        error = PlaylistError("test message")
-
-        assert error.params == {}
-
-
-class TestUnsupportedPlaylistFormat:
-    """Fichier qui n'est ni un dump SQLite ni une playlist texte."""
-
-    def test_code_is_set(self) -> None:
-        path = Path("file.txt")
-        error = UnsupportedPlaylistFormatError(path)
-
-        assert error.code == "unsupported_playlist_format"
-
-    def test_filename_in_params(self) -> None:
-        path = Path("my_playlist.wav")
-        error = UnsupportedPlaylistFormatError(path)
-
-        assert error.params == {"filename": "my_playlist.wav"}
-
-    def test_message_includes_filename(self) -> None:
-        path = Path("broken.bin")
-        error = UnsupportedPlaylistFormatError(path)
-
-        assert "broken.bin" in str(error)
-
-
-class TestIncompatibleDumpSchema:
-    """Dump ne portant pas les tables et colonnes attendues."""
-
-    def test_code_is_set(self) -> None:
-        error = IncompatibleDumpSchemaError(["Playlist", "Media.filename"])
-
-        assert error.code == "vlc_schema_mismatch"
-
-    def test_single_missing_element(self) -> None:
-        error = IncompatibleDumpSchemaError(["Playlist"])
-
-        assert error.params == {"missing": ["Playlist"]}
-
-    def test_multiple_missing_elements(self) -> None:
-        missing = ["Playlist", "Media.filename", "PlaylistMediaRelation.media_id"]
-        error = IncompatibleDumpSchemaError(missing)
-
-        assert error.params == {"missing": missing}
-
-    def test_message_lists_missing(self) -> None:
-        error = IncompatibleDumpSchemaError(["Playlist", "Media"])
-
-        error_str = str(error)
-        assert "Playlist" in error_str
-        assert "Media" in error_str
+@pytest.mark.parametrize(
+    ("error", "code", "params"),
+    [
+        (PlaylistError("playlist error"), "playlist_error", {}),
+        (
+            UnsupportedPlaylistFormatError(Path("C:/Users/dj/Music/broken.bin")),
+            "unsupported_playlist_format",
+            {"filename": "broken.bin"},
+        ),
+        (
+            IncompatibleDumpSchemaError(["Playlist", "Media.filename"]),
+            "vlc_schema_mismatch",
+            {"missing": ["Playlist", "Media.filename"]},
+        ),
+        (PlaylistNotFoundError("Favorites"), "playlist_not_found", {"playlist_name": "Favorites"}),
+        (
+            UnreadablePlaylistFileError(Path("C:/Users/dj/Music/gone.m3u8")),
+            "playlist_file_unreadable",
+            {"filename": "gone.m3u8"},
+        ),
+        (
+            UnreadableDumpError(Path("C:/Users/dj/Music/vlc_media.db")),
+            "unreadable_dump",
+            {"filename": "vlc_media.db"},
+        ),
+        (PlaylistNameRequiredError(), "playlist_name_required", {}),
+    ],
+    ids=[
+        "base",
+        "unsupported_format",
+        "schema_mismatch",
+        "playlist_not_found",
+        "unreadable_file",
+        "unreadable_dump",
+        "name_required",
+    ],
+)
+def test_carries_the_code_and_params_the_interface_translates(
+    error: PlaylistError, code: str, params: dict[str, object]
+) -> None:
+    assert error.code == code
+    assert error.params == params
 
 
-class TestPlaylistNotFound:
-    """Aucune playlist de ce nom dans le dump."""
-
-    def test_code_is_set(self) -> None:
-        error = PlaylistNotFoundError("My Playlist")
-
-        assert error.code == "playlist_not_found"
-
-    def test_playlist_name_in_params(self) -> None:
-        error = PlaylistNotFoundError("Test Playlist")
-
-        assert error.params == {"playlist_name": "Test Playlist"}
-
-    def test_message_includes_name(self) -> None:
-        error = PlaylistNotFoundError("Favorites")
-
-        assert "Favorites" in str(error)
+@pytest.mark.parametrize(
+    ("error", "named"),
+    [
+        (UnsupportedPlaylistFormatError(Path("broken.bin")), "broken.bin"),
+        (IncompatibleDumpSchemaError(["Playlist", "Media.filename"]), "Playlist, Media.filename"),
+        (PlaylistNotFoundError("Favorites"), "Favorites"),
+        (UnreadablePlaylistFileError(Path("gone.m3u8")), "gone.m3u8"),
+        (UnreadableDumpError(Path("vlc_media.db")), "vlc_media.db"),
+    ],
+    ids=["unsupported_format", "schema_mismatch", "playlist_not_found", "unreadable_file", "dump"],
+)
+def test_the_log_message_names_what_failed(error: PlaylistError, named: str) -> None:
+    assert named in str(error)
