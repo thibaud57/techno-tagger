@@ -783,7 +783,8 @@ Dans `public/i18n/en.json`, ajouter l'objet `errors` et remplacer l'objet `playl
     "playlist_not_found": "No playlist named {{playlist_name}} in this database.",
     "extraction_error": "The extraction failed before it started.",
     "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
-    "source_folder_unreadable": "The source folder cannot be read: {{filename}}."
+    "source_folder_unreadable": "The source folder cannot be read: {{folder}}.",
+    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}."
   },
   "playlist": {
     "title": "Playlist",
@@ -836,7 +837,8 @@ Dans `public/i18n/fr.json`, les mêmes objets traduits :
     "playlist_not_found": "Aucune playlist nommée {{playlist_name}} dans cette base.",
     "extraction_error": "L'extraction a échoué avant de commencer.",
     "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
-    "source_folder_unreadable": "Le dossier source est illisible : {{filename}}."
+    "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.",
+    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}."
   },
   "playlist": {
     "title": "Playlist",

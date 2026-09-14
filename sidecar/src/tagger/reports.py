@@ -330,9 +330,9 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     dossier reellement en cause : les morceaux sont deja extraits, seul le rapport
     manque, et l'appelant doit pouvoir dire ce qui a echoue.
     """
-    stamp = context.generated_at.strftime(TIMESTAMP_FORMAT)
-    json_path = context.destination_folder / f"{FILE_STEM}-{stamp}.json"
-    markdown_path = context.destination_folder / f"{FILE_STEM}-{stamp}.md"
+    json_path, markdown_path = _unused_report_paths(
+        context.destination_folder, context.generated_at.strftime(TIMESTAMP_FORMAT)
+    )
 
     try:
         context.destination_folder.mkdir(parents=True, exist_ok=True)
@@ -352,6 +352,21 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
         raise
 
     return ReportPaths(json_path=json_path, markdown_path=markdown_path)
+
+
+def _unused_report_paths(folder: Path, stamp: str) -> ReportPaths:
+    """Suffixe `-2`, `-3`... si ce couple horodate existe deja.
+
+    L'horodatage est a la seconde, et un run qui ne trouve que des fichiers deja
+    presents se termine en quelques millisecondes : relance aussitot, il ecraserait
+    le rapport du premier.
+    """
+    stem, attempt = f"{FILE_STEM}-{stamp}", 1
+    while (folder / f"{stem}.json").exists() or (folder / f"{stem}.md").exists():
+        attempt += 1
+        stem = f"{FILE_STEM}-{stamp}-{attempt}"
+
+    return ReportPaths(json_path=folder / f"{stem}.json", markdown_path=folder / f"{stem}.md")
 
 
 def _write_report_file(path: Path, content: str) -> None:

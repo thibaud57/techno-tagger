@@ -147,6 +147,8 @@ skip_covered = true
 exclude_also = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
+    # Clause d'exhaustivite d'un `match` : inatteignable par construction, Mypy la garde.
+    "case .+:\\s+assert_never\\(",
 ]
 
 [dependency-groups]

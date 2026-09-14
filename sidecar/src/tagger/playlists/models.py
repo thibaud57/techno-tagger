@@ -7,6 +7,7 @@ validation des charges NDJSON appartenant a `protocol.py` (cf.
 
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
+from typing import NamedTuple
 
 
 @verify(UNIQUE)
@@ -24,3 +25,10 @@ class PlaylistSummary:
     playlist_id: int
     name: str
     track_count: int
+
+
+class PlaylistListing(NamedTuple):
+    """Retour de `list_playlists`, porteur du format qu'elle a deja reconnu."""
+
+    playlist_format: PlaylistFormat
+    playlists: tuple[PlaylistSummary, ...]

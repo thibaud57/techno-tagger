@@ -128,6 +128,15 @@ class SourceFolderUnreadableError(ExtractionError):
         super().__init__(f"unreadable source folder: {path.name}", folder=path.name)
 
 
+class DestinationFolderUnwritableError(ExtractionError):
+    """Le dossier destination ne peut pas etre cree (chemin occupe, droits, lecteur absent)."""
+
+    code: ClassVar[str] = "destination_folder_unwritable"
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(f"unwritable destination folder: {path.name}", folder=path.name)
+
+
 def pick_file(file_name: str, candidates: Sequence[Path]) -> PickedFile:
     """Retient un chemin parmi des homonymes et rend la trace du choix.
 
@@ -225,8 +234,8 @@ def extract(
     """Extrait les morceaux nommes du dossier source vers le dossier destination.
 
     Copie par defaut : la bibliotheque source doit rester intacte pendant que le
-    re-tagging reecrit les fichiers de destination. Seul un dossier source illisible
-    leve, et avant tout traitement.
+    re-tagging reecrit les fichiers de destination. Seuls un dossier source illisible
+    et un dossier destination impossible a creer levent, et avant tout transfert.
     """
     resolved_source, resolved_destination = source.resolve(), destination.resolve()
 
@@ -242,7 +251,11 @@ def extract(
     index = build_source_index(source, excluded=excluded)
 
     if file_names and not extracts_in_place:
-        destination.mkdir(parents=True, exist_ok=True)
+        # Non emballee, l'`OSError` sortirait de la boucle NDJSON et tuerait le sidecar.
+        try:
+            destination.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise DestinationFolderUnwritableError(destination) from error
 
     extracted: list[str] = []
     already_present: list[str] = []

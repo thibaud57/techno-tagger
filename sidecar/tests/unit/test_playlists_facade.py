@@ -45,13 +45,15 @@ def test_requires_a_playlist_name_for_a_dump(vlc_dump: Path) -> None:
 def test_lists_no_playlist_for_a_text_file(m3u8_playlist: Path) -> None:
     listed = playlists.list_playlists(m3u8_playlist)
 
-    assert listed == ()
+    assert listed.playlist_format is PlaylistFormat.M3U8
+    assert listed.playlists == ()
 
 
 def test_lists_every_playlist_of_a_vlc_dump(vlc_dump: Path) -> None:
     listed = playlists.list_playlists(vlc_dump)
 
-    assert {summary.name for summary in listed} == {PLAYLIST_MAIN, PLAYLIST_OTHER}
+    assert listed.playlist_format is PlaylistFormat.VLC_DUMP
+    assert {summary.name for summary in listed.playlists} == {PLAYLIST_MAIN, PLAYLIST_OTHER}
 
 
 def test_rejects_an_unreadable_binary_file(unreadable_binary_file: Path) -> None:

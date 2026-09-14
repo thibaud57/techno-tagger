@@ -8,7 +8,7 @@ paths:
 ## À faire
 - `encoding="utf-8"` explicite à chaque `open()`, `read_text()` et `write_text()` : la cible est Windows, dont la locale par défaut est `cp1252`
 - `pathlib.Path` et l'opérateur `/` pour tout chemin, `mkdir(parents=True, exist_ok=True)` et `unlink(missing_ok=True)` pour les créations et suppressions
-- Émettre chaque événement NDJSON sur une seule ligne, `model_dump_json()` pour les modèles du protocole et `json.dumps` sans `indent` ailleurs, suivie d'un flush
+- Émettre chaque événement NDJSON sur une seule ligne, `model_dump_json()` pour les modèles du protocole et `json.dumps` sans `indent` ailleurs, vidée à chaque ligne par le `line_buffering=True` posé sur `stdout` au démarrage, pas par un `flush()` répété à chaque point d'émission (cf. [ADR-005](../../../docs/adrs/005-sidecar-python-protocole-ndjson.md))
 - `ensure_ascii=False` pour les rapports JSON lisibles, `sort_keys=True` quand un rendu déterministe est attendu
 - `default=` et `object_hook=` pour sérialiser et relire les types non natifs
 - `datetime.now(UTC)` et `isoformat()` pour produire, `fromisoformat()` pour relire
@@ -35,8 +35,8 @@ plan_path = data_dir / "runs" / f"{run_id}.json"
 plan_path.parent.mkdir(parents=True, exist_ok=True)
 plan_path.write_text(json.dumps(plan, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
-sys.stdout.write(json.dumps(event) + "\n")   # une ligne = un événement
-sys.stdout.flush()
+sys.stdout.reconfigure(line_buffering=True)  # une fois, au démarrage
+sys.stdout.write(json.dumps(event) + "\n")   # une ligne = un événement, vidée par le \n
 
 # ❌ encodage implicite, indent sur le flux, horodatage naive
 plan_path.write_text(json.dumps(plan, indent=2))

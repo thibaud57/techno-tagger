@@ -417,9 +417,9 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | Événement | Contenu |
 |---|---|
 | `version` | version du sidecar, comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)), et `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
-| `playlists_listed` | playlists du dump VLC : identifiant, nom, nombre de morceaux |
+| `playlists_listed` | format reconnu du fichier, et playlists du dump VLC : identifiant, nom, nombre de morceaux |
 | `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture |
-| `extraction_finished` | morceaux copiés ou déplacés, titres introuvables, doublons résolus avec leurs candidats écartés, chemin du rapport d'extraction |
+| `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
 | `arbitration_required` | morceau, candidats en zone grise avec leur score, source interrogée |
 | `arbitration_updated` | remplacement de la liste Beatport par la liste Bandcamp dans la modale ouverte, et retour en arrière |

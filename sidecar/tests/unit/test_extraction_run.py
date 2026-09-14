@@ -7,6 +7,7 @@ import pytest
 
 from tagger import extraction
 from tagger.extraction import (
+    DestinationFolderUnwritableError,
     ExtractionFailure,
     ExtractionFailureReason,
     ExtractionMode,
@@ -214,3 +215,16 @@ def test_reports_progress_once_per_track(music_library: Path, tmp_path: Path) ->
     )
 
     assert seen == [(1, 3), (2, 3), (3, 3)]
+
+
+def test_a_destination_that_cannot_be_created_becomes_a_business_error(
+    music_library: Path, tmp_path: Path
+) -> None:
+    occupied = tmp_path / "work"
+    occupied.write_bytes(b"")
+
+    with pytest.raises(DestinationFolderUnwritableError) as raised:
+        extract(["alpha.mp3"], music_library, occupied)
+
+    assert raised.value.code == "destination_folder_unwritable"
+    assert raised.value.params == {"folder": "work"}

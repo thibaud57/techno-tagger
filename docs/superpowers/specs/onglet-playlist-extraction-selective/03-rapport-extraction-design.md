@@ -139,7 +139,7 @@ Exclut le plan de run, la reprise et le rollback, qui relèvent de la Feature 6.
 ## Edge cases
 
 - **Résultat entièrement vide** : un rapport est tout de même écrit, avec ses décomptes à zéro. Un run qui n'a rien extrait est précisément un cas où l'utilisateur cherche une trace.
-- **Deux runs dans la même seconde** : l'horodatage étant à la seconde, deux rapports pourraient porter le même nom. Le second écraserait le premier. Le cas est théorique, une extraction prenant plus d'une seconde dès le premier fichier, et le coût d'une précision supérieure dans un nom de fichier ne le justifie pas.
+- **Deux runs dans la même seconde** : l'horodatage étant à la seconde, deux rapports pourraient porter le même nom. Le cas n'est pas théorique : un run qui ne trouve que des fichiers déjà présents se termine en quelques millisecondes, et le relancer aussitôt écrasait le premier rapport (observé au `/verify` du sub-project 04). Le second couple prend un suffixe `-2`, `-3`… plutôt qu'une précision supérieure dans tous les noms.
 - **Nom de fichier très long en destination** : le nom du rapport est court et fixe, seul le dossier destination peut porter le dépassement. L'échec remonte alors en `ReportWriteError`, erreur métier de code `report_write_failed` : les morceaux sont déjà extraits, seul le rapport manque, et la boucle NDJSON du sub-project 04 n'intercepte que les erreurs métier.
 - **Homonyme avec plus de deux candidats** : tous les écartés sont consignés, pas seulement le premier.
 

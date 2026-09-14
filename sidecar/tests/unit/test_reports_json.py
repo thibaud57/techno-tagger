@@ -1,7 +1,7 @@
 """Tests du rendu JSON du rapport d'extraction."""
 
 import json
-from dataclasses import replace
+from dataclasses import fields, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,9 +9,19 @@ from typing import TYPE_CHECKING
 import pytest
 from extraction_samples import CYRILLIC_TRACK, EXPECTED_STAMP, GENERATED_AT
 
+from tagger.extraction import (
+    DiscardedCandidate,
+    DuplicateResolution,
+    ExtractionFailure,
+    ExtractionResult,
+)
 from tagger.reports import (
     REPORT_KIND,
     SCHEMA_VERSION,
+    DiscardedEntry,
+    DuplicateEntry,
+    ExtractionReport,
+    FailureEntry,
     ReportContext,
     ReportWriteError,
     render_json,
@@ -19,7 +29,8 @@ from tagger.reports import (
 )
 
 if TYPE_CHECKING:
-    from tagger.extraction import ExtractionResult
+    from _typeshed import DataclassInstance
+    from pydantic import BaseModel
 
 
 def test_carries_its_schema_version(
@@ -191,6 +202,19 @@ def test_a_second_run_does_not_overwrite_the_first(
     assert second.markdown_path != first.markdown_path
 
 
+def test_two_runs_in_the_same_second_do_not_overwrite_each_other(
+    extraction_result: ExtractionResult, report_context: ReportContext
+) -> None:
+    first = write_extraction_report(extraction_result, report_context)
+
+    second = write_extraction_report(extraction_result, report_context)
+
+    assert second.json_path.name == f"extraction-report-{EXPECTED_STAMP}-2.json"
+    assert second.markdown_path.name == f"extraction-report-{EXPECTED_STAMP}-2.md"
+    assert first.json_path.is_file()
+    assert first.markdown_path.is_file()
+
+
 def test_rejects_a_naive_generated_at(report_context: ReportContext) -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         # Naive intentionnel : c'est precisement ce que le constructeur doit refuser.
@@ -278,3 +302,26 @@ def test_a_refused_markdown_write_names_the_markdown_file_not_the_json(
 
     reported = str(raised.value.params["filename"])
     assert reported.endswith(".md")
+
+
+def test_the_report_carries_every_category_of_the_extraction() -> None:
+    categories = {field.name for field in fields(ExtractionResult)}
+
+    assert categories <= set(ExtractionReport.model_fields)
+
+
+@pytest.mark.parametrize(
+    ("entry", "domain"),
+    [
+        (DuplicateEntry, DuplicateResolution),
+        (DiscardedEntry, DiscardedCandidate),
+        (FailureEntry, ExtractionFailure),
+    ],
+    ids=["duplicate", "discarded_candidate", "failure"],
+)
+def test_a_report_entry_carries_every_field_the_extraction_records(
+    entry: type[BaseModel], domain: type[DataclassInstance]
+) -> None:
+    carried = set(entry.model_fields)
+
+    assert carried == {field.name for field in fields(domain)}

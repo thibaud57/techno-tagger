@@ -5,7 +5,7 @@ parser texte ne fuit pas vers les appelants : ceux-ci passent un chemin, le form
 est reconnu a l'en-tete du fichier (cf. `.claude/rules/python/imports-modules.md`).
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from . import m3u8, vlc
 from .errors import (
@@ -17,7 +17,7 @@ from .errors import (
     UnreadablePlaylistFileError,
     UnsupportedPlaylistFormatError,
 )
-from .models import PlaylistFormat, PlaylistSummary
+from .models import PlaylistFormat, PlaylistListing, PlaylistSummary
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,6 +26,7 @@ __all__ = [
     "IncompatibleDumpSchemaError",
     "PlaylistError",
     "PlaylistFormat",
+    "PlaylistListing",
     "PlaylistNameRequiredError",
     "PlaylistNotFoundError",
     "PlaylistSummary",
@@ -43,8 +44,8 @@ def detect_format(path: Path) -> PlaylistFormat:
     return PlaylistFormat.VLC_DUMP if vlc.is_vlc_dump(path) else PlaylistFormat.M3U8
 
 
-def list_playlists(path: Path) -> tuple[PlaylistSummary, ...]:
-    """Liste les playlists d'un fichier de playlist.
+def list_playlists(path: Path) -> PlaylistListing:
+    """Liste les playlists d'un fichier de playlist, avec le format reconnu.
 
     Un M3U8 n'en contient qu'une et rend donc une liste vide, sans lever : cette
     commande sert aussi a faire reconnaitre le format par l'interface, qui n'a pas
@@ -53,12 +54,17 @@ def list_playlists(path: Path) -> tuple[PlaylistSummary, ...]:
     M3U8 valide. Le decodage est donc tente quand meme, son resultat ignore : seul un
     fichier reellement decodable rend `()`, un fichier binaire illisible (ex: JPEG)
     leve `UnsupportedPlaylistFormatError` comme `read_playlist` le ferait.
-    """
-    if detect_format(path) is not PlaylistFormat.VLC_DUMP:
-        m3u8.read_playlist(path)
-        return ()
 
-    return vlc.list_playlists(path)
+    Le format est rendu avec les playlists : l'appelant n'a pas a relire l'en-tete.
+    """
+    match detect_format(path):
+        case PlaylistFormat.VLC_DUMP:
+            return PlaylistListing(PlaylistFormat.VLC_DUMP, vlc.list_playlists(path))
+        case PlaylistFormat.M3U8:
+            m3u8.read_playlist(path)
+            return PlaylistListing(PlaylistFormat.M3U8, ())
+        case unknown:
+            assert_never(unknown)
 
 
 def read_playlist(path: Path, playlist_name: str | None = None) -> tuple[str, ...]:
@@ -72,10 +78,12 @@ def read_playlist(path: Path, playlist_name: str | None = None) -> tuple[str, ..
     l'ordre du fichier, doublons compris (ordre de lecture DJ, potentiellement
     intentionnel, jamais reordonne ni deduplique).
     """
-    if detect_format(path) is PlaylistFormat.VLC_DUMP:
-        if playlist_name is None:
-            raise PlaylistNameRequiredError()
-
-        return vlc.read_playlist(path, playlist_name)
-
-    return m3u8.read_playlist(path)
+    match detect_format(path):
+        case PlaylistFormat.VLC_DUMP:
+            if playlist_name is None:
+                raise PlaylistNameRequiredError()
+            return vlc.read_playlist(path, playlist_name)
+        case PlaylistFormat.M3U8:
+            return m3u8.read_playlist(path)
+        case unknown:
+            assert_never(unknown)
