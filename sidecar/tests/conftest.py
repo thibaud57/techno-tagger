@@ -15,10 +15,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from extraction_samples import sample_context, sample_result
 from vlc_dump import build_dump
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from tagger.extraction import ExtractionResult
+    from tagger.reports import ReportContext
 
 # TODO: implement — fixture de transport httpx2 mocke, fichiers audio des quatre
 # formats.
@@ -95,3 +99,15 @@ def music_library(tmp_path: Path) -> Path:
         path.write_bytes(b"\x00" * size)
 
     return library
+
+
+@pytest.fixture
+def extraction_result(tmp_path: Path) -> ExtractionResult:
+    """Resultat d'extraction couvrant les cinq categories."""
+    return sample_result(tmp_path / "library")
+
+
+@pytest.fixture
+def report_context(tmp_path: Path) -> ReportContext:
+    """Contexte de rapport pointant sur la meme arborescence."""
+    return sample_context(tmp_path / "library", tmp_path / "work")
