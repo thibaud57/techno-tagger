@@ -70,3 +70,28 @@ def unreadable_binary_file(tmp_path: Path) -> Path:
     binary = tmp_path / "cover.jpg"
     binary.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x02\x03\xfe\xfd")
     return binary
+
+
+@pytest.fixture
+def music_library(tmp_path: Path) -> Path:
+    """Arborescence source de test, morceaux repartis en sous-dossiers.
+
+    Les tailles sont controlees : le departage des homonymes retient le plus gros
+    fichier, et deux `gamma` de taille egale forcent le second critere, l'ordre
+    alphabetique du chemin.
+    """
+    library = tmp_path / "library"
+    files = {
+        library / "albums" / "alpha.mp3": 1_000,
+        library / "albums" / "beta.mp3": 5_000,
+        library / "singles" / "beta.mp3": 12_000,
+        library / "aaa" / "gamma.mp3": 3_000,
+        library / "zzz" / "gamma.mp3": 3_000,
+        library / "singles" / "DELTA.mp3": 2_000,
+    }
+
+    for path, size in files.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"\x00" * size)
+
+    return library
