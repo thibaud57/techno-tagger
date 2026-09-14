@@ -2,7 +2,7 @@
 feature: "Feature 1 — Onglet Playlist, extraction sélective"
 subproject: "resolution-extraction-fichiers"
 goal: "Retrouver sur disque les morceaux d'une playlist par leur nom de fichier et les copier ou les déplacer vers le dossier destination"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-parsing-playlists-design.md"]
