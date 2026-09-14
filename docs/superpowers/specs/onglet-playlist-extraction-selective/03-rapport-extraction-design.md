@@ -2,7 +2,7 @@
 feature: "Feature 1 — Onglet Playlist, extraction sélective"
 subproject: "rapport-extraction"
 goal: "Écrire dans le dossier destination le rapport d'extraction qui rend vérifiable chaque décision automatique prise pendant l'extraction"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-parsing-playlists-design.md", "02-resolution-extraction-fichiers-design.md"]
@@ -140,7 +140,7 @@ Exclut le plan de run, la reprise et le rollback, qui relèvent de la Feature 6.
 
 - **Résultat entièrement vide** : un rapport est tout de même écrit, avec ses décomptes à zéro. Un run qui n'a rien extrait est précisément un cas où l'utilisateur cherche une trace.
 - **Deux runs dans la même seconde** : l'horodatage étant à la seconde, deux rapports pourraient porter le même nom. Le second écraserait le premier. Le cas est théorique, une extraction prenant plus d'une seconde dès le premier fichier, et le coût d'une précision supérieure dans un nom de fichier ne le justifie pas.
-- **Nom de fichier très long en destination** : le nom du rapport est court et fixe, seul le dossier destination peut porter le dépassement. L'échec remonte alors en `ReportWriteFailed`, erreur métier de code `report_write_failed` : les morceaux sont déjà extraits, seul le rapport manque, et la boucle NDJSON du sub-project 04 n'intercepte que les erreurs métier.
+- **Nom de fichier très long en destination** : le nom du rapport est court et fixe, seul le dossier destination peut porter le dépassement. L'échec remonte alors en `ReportWriteError`, erreur métier de code `report_write_failed` : les morceaux sont déjà extraits, seul le rapport manque, et la boucle NDJSON du sub-project 04 n'intercepte que les erreurs métier.
 - **Homonyme avec plus de deux candidats** : tous les écartés sont consignés, pas seulement le premier.
 
 ## Architectural decisions
