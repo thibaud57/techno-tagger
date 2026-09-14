@@ -2,7 +2,7 @@
 feature: "Feature 1 — Onglet Playlist, extraction sélective"
 subproject: "protocole-ndjson-playlist"
 goal: "Figer et exposer sur les flux standard le contrat NDJSON des commandes et événements de l'extraction par playlist"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-parsing-playlists-design.md", "02-resolution-extraction-fichiers-design.md", "03-rapport-extraction-design.md"]
