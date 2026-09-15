@@ -9,7 +9,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from tagger import RELEASE
+from tagger import __version__
 from tagger.extraction import extract
 from tagger.playlists import list_playlists, read_playlist
 from tagger.protocol import (
@@ -40,7 +40,7 @@ def handle_get_version() -> Version:
     implementee : elle appartient au sub-project des Settings, et l'extraction par
     playlist n'appelle aucune API.
     """
-    return Version(event="version", version=RELEASE, api_key_configured=False)
+    return Version(event="version", version=__version__, api_key_configured=False)
 
 
 def handle_list_playlists(command: ListPlaylists) -> PlaylistsListed:

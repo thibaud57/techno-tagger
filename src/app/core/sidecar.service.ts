@@ -1,11 +1,225 @@
-import { Injectable } from "@angular/core"
+import { Injectable, computed, inject, signal } from "@angular/core"
+
+import {
+  ExtractPlaylistCommand,
+  ExtractionFinishedEvent,
+  ExtractionProgressEvent,
+  PlaylistsListedEvent,
+  SidecarCommand,
+  SidecarErrorEvent,
+  SidecarEvent,
+} from "./models/protocol"
+import { SIDECAR_TRANSPORT } from "./sidecar-transport"
+
+// Table indexee par le discriminant : oublier un evenement du contrat devient
+// une erreur de compilation ici, jamais une ligne silencieusement ignoree.
+const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
+  version: true,
+  playlists_listed: true,
+  progress: true,
+  extraction_finished: true,
+  error: true,
+}
+
+/** Seul code d'erreur que l'interface emet elle-meme : les autres viennent du sidecar. */
+export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
+
+const unavailableError = (): SidecarErrorEvent => ({
+  event: "error",
+  code: SIDECAR_UNAVAILABLE,
+  params: {},
+  message: "sidecar unavailable",
+})
 
 /**
- * Frontiere unique entre la webview et le metier. Detient l'etat du run et la
- * file d'arbitrage : les composants lisent et emettent, ils ne calculent rien.
+ * Frontiere unique entre la webview et le metier. Detient l'etat du run : les
+ * composants lisent et emettent, ils ne calculent rien. La file d'arbitrage
+ * n'existe pas ici, elle viendra avec le pipeline de tagging (Feature 2).
  */
 @Injectable({ providedIn: "root" })
 export class SidecarService {
-  // TODO: implement, Command.sidecar('binaries/tagger') puis spawn(), abonnement a
-  // command.stdout, etat du run et file d'arbitrage portes par des signals.
+  private readonly transport = inject(SIDECAR_TRANSPORT)
+
+  private readonly _available = signal(false)
+  private readonly _version = signal<string | null>(null)
+  private readonly _listing = signal<PlaylistsListedEvent | null>(null)
+  private readonly _progress = signal<ExtractionProgressEvent | null>(null)
+  private readonly _extraction = signal<ExtractionFinishedEvent | null>(null)
+  private readonly _extracting = signal(false)
+  private readonly _lastError = signal<SidecarErrorEvent | null>(null)
+
+  readonly available = this._available.asReadonly()
+  readonly version = this._version.asReadonly()
+  /** Non nul quand le sidecar et l'interface ne portent pas la meme version. */
+  readonly versionMismatch = computed(() => {
+    const sidecar = this._version()
+
+    return sidecar === null || sidecar === APP_VERSION ? null : { ui: APP_VERSION, sidecar }
+  })
+  /** Decide si l'interface propose un selecteur de playlist. */
+  readonly playlistFormat = computed(() => this._listing()?.playlist_format ?? null)
+  readonly playlists = computed(() => this._listing()?.playlists ?? [])
+  readonly progress = this._progress.asReadonly()
+  readonly extraction = this._extraction.asReadonly()
+  /** Vrai de l'envoi d'`extract_playlist` jusqu'a son resultat, son erreur ou la fin du process. */
+  readonly extracting = this._extracting.asReadonly()
+  readonly lastError = this._lastError.asReadonly()
+  /** Exige la version recue : absente, la divergence n'est pas encore controlee (ADR-018). */
+  readonly ready = computed(
+    () =>
+      this._available() &&
+      this._version() !== null &&
+      this.versionMismatch() === null &&
+      !this._extracting(),
+  )
+
+  private started = false
+
+  /**
+   * Lance le sidecar et lui demande sa version.
+   *
+   * Idempotent : le sidecar est un process long lance au demarrage, pas une
+   * invocation par action.
+   */
+  async start(): Promise<void> {
+    if (this.started) {
+      return
+    }
+    this.started = true
+
+    const available = await this.transport.start({
+      onLine: (line) => {
+        this.handleLine(line)
+      },
+      onStderr: (line) => {
+        console.error("[sidecar]", line)
+      },
+      onTerminated: () => {
+        this._available.set(false)
+        this.endRun()
+      },
+    })
+    this._available.set(available)
+
+    if (available) {
+      await this.send({ command: "get_version" })
+    }
+  }
+
+  async listPlaylists(playlistPath: string): Promise<void> {
+    // La reponse precedente decrivait un autre fichier : l'ecran attend la nouvelle.
+    this._listing.set(null)
+    await this.send({ command: "list_playlists", playlist_path: playlistPath })
+  }
+
+  async extractPlaylist(request: Omit<ExtractPlaylistCommand, "command">): Promise<void> {
+    this._extraction.set(null)
+    this._extracting.set(true)
+    await this.send({ command: "extract_playlist", ...request })
+  }
+
+  /**
+   * `Process.kill()` ne ciblerait que le bootloader d'un binaire PyInstaller et
+   * laisserait le process Python vivant : l'arret passe par le protocole.
+   */
+  async shutdown(): Promise<void> {
+    await this.send({ command: "shutdown" })
+  }
+
+  private async send(command: SidecarCommand): Promise<void> {
+    if (!this._available()) {
+      this.reportUnavailable()
+
+      return
+    }
+    // Une erreur ne vaut que pour la commande qui l'a provoquee.
+    this._lastError.set(null)
+    try {
+      // Une ligne, une commande : c'est ce que lit la boucle du sidecar.
+      await this.transport.send(`${JSON.stringify(command)}\n`)
+    } catch (error) {
+      // Pipe brisee entre le spawn et cette ecriture : `onTerminated` n'a pas
+      // encore tourne, sans ce catch la rejection remonterait jusqu'au bootstrap.
+      console.error("[sidecar] ecriture impossible", error)
+      this._available.set(false)
+      this.reportUnavailable()
+    }
+  }
+
+  /**
+   * Aucune reponse ne viendra : l'appelant lit l'echec dans lastError, au meme endroit
+   * qu'une erreur remontee par le protocole, et un run en attente s'arrete.
+   */
+  private reportUnavailable(): void {
+    this._lastError.set(unavailableError())
+    this.endRun()
+  }
+
+  private endRun(): void {
+    this._extracting.set(false)
+    this._progress.set(null)
+  }
+
+  /**
+   * Traite une ligne de `stdout`, deja decoupee par Tauri.
+   *
+   * Une ligne illisible ou d'un type inconnu n'interrompt pas la session, mais
+   * elle est tracee : c'est le symptome d'un contrat desynchronise entre les deux
+   * cotes, et l'absorber en silence le rendrait indiagnosticable.
+   */
+  private handleLine(line: string): void {
+    let event: SidecarEvent
+
+    try {
+      const parsed: unknown = JSON.parse(line)
+      if (!this.isKnownEvent(parsed)) {
+        console.error("[sidecar] evenement inconnu, contrat desynchronise", line)
+
+        return
+      }
+      event = parsed
+    } catch {
+      console.error("[sidecar] ligne illisible", line)
+
+      return
+    }
+
+    switch (event.event) {
+      case "version":
+        this._version.set(event.version)
+        break
+      case "playlists_listed":
+        this._listing.set(event)
+        break
+      case "progress":
+        this._progress.set(event)
+        break
+      case "extraction_finished":
+        this._extraction.set(event)
+        this.endRun()
+        break
+      case "error":
+        this._lastError.set(event)
+        // La boucle du sidecar est sequentielle : une erreur recue pendant un run l'a
+        // interrompu (ecriture du rapport apres le dernier `progress`, par exemple).
+        this.endRun()
+        break
+      default: {
+        // Ajouter un evenement cote sidecar sans le traiter ici devient une
+        // erreur de compilation, pas une ligne silencieusement perdue.
+        const exhaustive: never = event
+        console.error("[sidecar] evenement non traite", exhaustive)
+      }
+    }
+  }
+
+  private isKnownEvent(parsed: unknown): parsed is SidecarEvent {
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "event" in parsed &&
+      typeof parsed.event === "string" &&
+      Object.hasOwn(KNOWN_EVENTS, parsed.event)
+    )
+  }
 }

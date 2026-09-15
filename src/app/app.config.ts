@@ -15,6 +15,7 @@ import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
 import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/language"
+import { SidecarService } from "./core/sidecar.service"
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -51,6 +52,11 @@ export const appConfig: ApplicationConfig = {
       const translate = inject(TranslateService)
       translate.addLangs([...LANGUAGES])
       await firstValueFrom(translate.use(await resolveInitialLanguage()))
+    }),
+    // Sans attendre : l'ecran lit `available` et `ready` au fil de l'eau, et `start()` ne
+    // leve jamais.
+    provideAppInitializer(() => {
+      void inject(SidecarService).start()
     }),
   ],
 }

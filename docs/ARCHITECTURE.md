@@ -82,6 +82,7 @@ techno-tagger/
 │   ├── app/
 │   │   ├── core/
 │   │   │   ├── sidecar.service.ts        #   flux NDJSON <-> sidecar
+│   │   │   ├── sidecar-transport.ts      #   frontière Tauri du sidecar, remplacée en test
 │   │   │   ├── scrub.ts                  #   masquage PII avant envoi Sentry
 │   │   │   └── models/                   #   types miroir du contrat JSON
 │   │   ├── shared/components/            #   4 wrappers custom (cf. DESIGN.md § Composants Custom)
@@ -350,6 +351,7 @@ Via les plugins Tauri v2, déclarés dans `src-tauri/capabilities/default.json` 
 | `opener` | Bouton « ouvrir le dossier de logs » des Settings, et lien vers la fiche source du récapitulatif. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#-robustesse--modes-de-panne)) |
 | `updater` | Vérification du manifeste au démarrage, téléchargement et installation signés |
+| `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe le rechargement (`F5`, `Ctrl+R`) et le menu contextuel en release : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié |
 
 Le **signal sonore ne se déclenche qu'à la fin de la phase réseau**, quand l'écran d'arbitrage prend la main. Un son par arbitrage serait une vingtaine de bips sur un run de 100 morceaux, et la préférence serait coupée dès le premier usage. Le pipeline continuant de tourner pendant qu'une modale attend, rien n'oblige à arbitrer au fil de l'eau : tout se traite à la fin, et c'est ce moment-là qu'il faut signaler.
 
@@ -416,7 +418,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 
 | Événement | Contenu |
 |---|---|
-| `version` | version du sidecar, comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)), et `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
+| `version` | version du sidecar, nue (`X.Y.Z`, sans le préfixe `techno-tagger@` réservé à la release Sentry), comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)), et `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
 | `playlists_listed` | format reconnu du fichier, et playlists du dump VLC : identifiant, nom, nombre de morceaux |
 | `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture |
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
