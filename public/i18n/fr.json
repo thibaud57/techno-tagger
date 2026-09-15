@@ -1,0 +1,16 @@
+{
+  "nav": {
+    "playlist": "Playlist",
+    "tagging": "Tagging",
+    "settings": "Réglages"
+  },
+  "playlist": {
+    "title": "Playlist"
+  },
+  "tagging": {
+    "title": "Tagging"
+  },
+  "settings": {
+    "title": "Réglages"
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Recette de /verify pour techno-tagger. Pilote le sidecar Python par son protocole NDJSON sur stdin/stdout, sans interface, sur une arborescence de test isolée. Écrite et maintenue par /verify lui-même.
+description: Recette de /verify pour techno-tagger. Pilote le sidecar Python par son protocole NDJSON sur stdin/stdout sur une arborescence de test isolée, et l'interface sous ng serve (Playwright) ou dans la fenêtre Tauri (CDP de WebView2). Écrite et maintenue par /verify lui-même.
 ---
 
 # verify - Recette de vérification runtime
@@ -8,7 +8,7 @@ description: Recette de /verify pour techno-tagger. Pilote le sidecar Python par
 ## Surface
 
 - **Sidecar** : process `python -m tagger`, commandes NDJSON sur `stdin`, événements sur `stdout`, logs sur `stderr`. Handle : `just dev-sidecar` (recette `[working-directory('sidecar')]`), alimenté par un pipe
-- **Interface** (Angular + Tauri) : pas encore couverte par cette recette, à compléter au premier `/verify` qui touche `src/` ou `src-tauri/`
+- **Interface** (Angular + Tauri) : deux handles. `just dev-ui` sert la webview seule sur `http://localhost:4200`, pilotée par le MCP Playwright. `just dev` ouvre la vraie fenêtre Tauri : lancée avec `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222"`, WebView2 s'inspecte par CDP (`http://127.0.0.1:9222/json`, puis `Runtime.evaluate` et `Page.captureScreenshot` depuis un script Node, `WebSocket` natif)
 
 ## Fixture isolée
 
@@ -43,6 +43,24 @@ Relire `stdout` (chaque ligne doit se parser seule en objet JSON, sans indentati
 - Fin : `shutdown` suivi d'une commande (ignorée, sortie 0), `stdin` vide (sortie 0)
 - État : relancer la même extraction dans la même destination (catégorie `already_present`, rapports suffixés `-2`, `-3` dans la même seconde)
 
+## Pilotage de l'interface
+
+```bash
+just dev-ui                                                                    # en arrière-plan, prêt quand le log affiche localhost:4200
+WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  # en arrière-plan, port 4200 libéré avant
+```
+
+- Lire l'état dans la page : `document.documentElement.lang`, le texte des `p-tab` et du `h1`, `performance.getEntriesByType("resource")` pour les `/i18n/*.json`
+- Forcer une langue de navigateur : redéfinir `Navigator.prototype.language` par `addInitScript` (Playwright) ou `Page.addScriptToEvaluateOnNewDocument` (CDP), puis recharger
+- Simuler un fichier de langue absent : `page.route("**/i18n/fr.json", (r) => r.fulfill({ status: 404 }))`
+
+## Flux interface qui valent le coup
+
+- Nominal : `/playlist`, `/tagging`, `/settings` dans la langue de la machine, `lang` du `<html>` aligné
+- Chaîne de langue sous `ng serve` : `navigator.language` décide (`de-DE` → anglais, `fr-BE` → français, vide → anglais)
+- Sous Tauri : la locale système (`invoke("plugin:os|locale")`) l'emporte sur un `navigator.language` forcé
+- Développement : un `fr.json` en 404 laisse l'écran blanc, la cause en console (`failOnError`)
+
 ## Gotchas
 
 - `just` écrit la ligne de recette (`uv run python -m tagger`) sur `stderr` : ne pas la prendre pour une fuite du protocole
@@ -50,3 +68,8 @@ Relire `stdout` (chaque ligne doit se parser seule en objet JSON, sans indentati
 - Un octet non UTF-8 sur `stdin` fait tomber le process, et avec lui les commandes valides du même bloc lu : comportement documenté de `run_loop`, pas une régression
 - Le logger du point d'entrée s'appelle `__main__` et non `tagger.__main__` sous `python -m`
 - Mode `move` : ne le piloter que sur une copie de la bibliothèque de fixture
+- `just dev` lance lui-même `pnpm start` (`beforeDevCommand`) : arrêter `just dev-ui` avant, sinon le port 4200 est pris
+- Après arrêt, contrôler qu'aucun `techno-tagger.exe` ni port 4200 / 9222 ne reste (`tasklist`, `netstat -ano`), `just stop` sinon
+- Le MCP Playwright n'écrit ses captures que sous la racine du dépôt (`.playwright-mcp/` est git-ignoré, un nom de fichier nu atterrit à la racine) : les déplacer vers le scratchpad
+- Dans WebView2, `navigator.language` vaut `fr` et non `fr-FR`
+- L'onglet actif ne suit pas l'URL tant que le TODO d'`app.component.html` n'est pas traité : ne pas le prendre pour une régression

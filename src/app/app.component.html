@@ -1,11 +1,10 @@
 <!-- TODO: implement, deriver l'onglet actif de l'URL et naviguer sur
-     valueChange, p-tabs n'ayant aucun mode router. Libelles a passer par
-     ngx-translate. -->
+     valueChange, p-tabs n'ayant aucun mode router. -->
 <p-tabs value="playlist">
   <p-tablist>
-    <p-tab value="playlist">Playlist</p-tab>
-    <p-tab value="tagging">Tagging</p-tab>
-    <p-tab value="settings">Settings</p-tab>
+    <p-tab value="playlist">{{ "nav.playlist" | translate }}</p-tab>
+    <p-tab value="tagging">{{ "nav.tagging" | translate }}</p-tab>
+    <p-tab value="settings">{{ "nav.settings" | translate }}</p-tab>
   </p-tablist>
 </p-tabs>
 

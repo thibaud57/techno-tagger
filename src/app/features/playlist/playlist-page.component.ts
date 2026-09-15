@@ -1,7 +1,9 @@
 import { Component } from "@angular/core"
+import { TranslatePipe } from "@ngx-translate/core"
 
 @Component({
   selector: "app-playlist-page",
+  imports: [TranslatePipe],
   templateUrl: "./playlist-page.component.html",
 })
 export default class PlaylistPageComponent {
