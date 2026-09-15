@@ -2,7 +2,7 @@
 feature: "Feature 1 — Onglet Playlist, extraction sélective"
 subproject: "service-sidecar-angular"
 goal: "Établir depuis la webview la frontière unique vers le sidecar, en lançant le binaire et en transformant son flux NDJSON en état observable"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["04-protocole-ndjson-playlist-design.md"]
@@ -32,6 +32,8 @@ Exclut la file d'arbitrage et l'état du pipeline de tagging, qui relèvent de l
 - **À créer** : `src/app/core/sidecar.service.spec.ts`
 - **À créer** : `src/app/core/sidecar-transport.ts` (frontière vers Tauri, remplaçable en test)
 - **À modifier** : `src/app/app.config.ts` (initializer de démarrage du sidecar)
+- **À modifier** : `src-tauri/Cargo.toml` et `src-tauri/src/lib.rs` (rechargement de la webview coupé en release)
+- **À modifier** : `sidecar/src/tagger/handlers.py` et `sidecar/tests/unit/test_handlers.py` (version nue dans l'événement `version`)
 
 ## Architecture approach
 
@@ -41,12 +43,14 @@ Exclut la file d'arbitrage et l'état du pipeline de tagging, qui relèvent de l
 - **Aucun tampon de réassemblage** : Tauri livre déjà une ligne complète par événement `stdout`. Le parsing se limite à convertir une ligne JSON en événement typé.
 - **`stdout` porte le protocole, `stderr` les logs**, sans jamais les mélanger : les lignes de `stderr` sont journalisées, jamais interprétées comme des événements.
 - **Une ligne illisible ne casse pas le flux** : elle est journalisée et ignorée, l'abonnement continuant de vivre. Un sidecar qui émettrait une ligne non conforme ne doit pas rendre l'application muette pour le reste de la session.
-- **État exposé par signals natifs**, sans bibliothèque de store : version du sidecar, disponibilité, divergence de version, format de playlist reconnu, playlists listées, progression, résultat d'extraction, dernière erreur. Les composants lisent ces signaux et émettent des commandes, ils ne calculent rien.
+- **État exposé par signals natifs**, sans bibliothèque de store : version du sidecar, disponibilité, divergence de version, format de playlist reconnu, playlists listées, progression, résultat d'extraction, extraction en cours, dernière erreur, et `ready` qui dit si un run peut partir (sidecar lancé, version reçue et concordante, aucune extraction en cours). Les composants lisent ces signaux et émettent des commandes, ils ne calculent rien.
+- **Une commande efface ce qu'elle rend périmé** : toute commande efface la dernière erreur, `list_playlists` efface le format et les playlists du fichier précédent, `extract_playlist` le résultat précédent. Un écran n'affiche jamais la réponse d'une autre demande que la sienne.
 - **Aucune commande ne rend de promesse résolue sur « son » événement** : le contrat ne porte aucun identifiant de corrélation, et deviner l'appariement en attendant le prochain événement du bon type serait faux dès que deux commandes se croisent. Une commande écrit sur `stdin` et l'état arrive par le flux.
-- **Lancement par initializer applicatif**, comme la résolution de langue : le spawn et le `get_version` d'ouverture se font au bootstrap. ARCHITECTURE décrit le sidecar comme un process long lancé au démarrage et `get_version` comme émise avant toute autre commande.
-- **Contrôle de version au démarrage** : la version reçue est comparée à la constante de build `APP_VERSION`. Une divergence lève un signal dédié, l'interface devant alors refuser de lancer un run. Ce cas n'est pas théorique : l'installeur NSIS ne remplace pas le binaire du sidecar lors d'une réinstallation de même version, et une mise en quarantaine antivirus peut laisser une copie ancienne (cf. [ADR-018](../../../adrs/018-versionnement-plan-de-run.md) § Notes).
+- **Lancement par initializer applicatif**, comme la résolution de langue : le spawn et le `get_version` d'ouverture partent au bootstrap. Contrairement à la langue, le premier rendu ne les attend pas, l'écran lisant `available` et `ready` au fil de l'eau. ARCHITECTURE décrit le sidecar comme un process long lancé au démarrage et `get_version` comme émise avant toute autre commande.
+- **Contrôle de version au démarrage** : la version reçue, nue (`X.Y.Z`, jamais la release Sentry `techno-tagger@X.Y.Z`), est comparée à la constante de build `APP_VERSION`. Une divergence lève un signal dédié, l'interface devant alors refuser de lancer un run. Ce cas n'est pas théorique : l'installeur NSIS ne remplace pas le binaire du sidecar lors d'une réinstallation de même version, et une mise en quarantaine antivirus peut laisser une copie ancienne (cf. [ADR-018](../../../adrs/018-versionnement-plan-de-run.md) § Notes).
 - **Mode dégradé hors Tauri** : `Command.sidecar()` échoue sous le `ng serve` seul de `just dev-ui`, comme `locale()`. L'échec est capté, un signal d'indisponibilité est levé et l'interface reste navigable. C'est ce qui rend ce mode utilisable pour travailler la mise en page, son seul usage.
 - **Arrêt par la commande `shutdown`** et non par `Process.kill()`, qui ne cible que le bootloader d'un binaire PyInstaller et laisserait le process Python vivant.
+- **Rechargement de la webview coupé en release** par `tauri-plugin-prevent-default` (`RELOAD` et `CONTEXT_MENU` seulement) : chaque rechargement relance l'initializer, donc un sidecar de plus, sans arrêter le précédent. Le debug le garde, pour le live reload.
 
 ## Acceptance criteria
 
@@ -116,6 +120,12 @@ Exclut la file d'arbitrage et l'état du pipeline de tagging, qui relèvent de l
 **THEN** une ligne JSON unique est écrite sur `stdin`, terminée par un saut de ligne
 **AND** elle porte le champ discriminant attendu par le sidecar
 
+### Scénario 12 : Extraction en cours
+**GIVEN** un sidecar prêt
+**WHEN** une commande d'extraction est émise
+**THEN** le signal d'extraction en cours est levé et le service n'est plus prêt
+**AND** il le redevient au résultat, à une erreur ou à la fin du process
+
 ## Tests à écrire
 
 ### Unit
@@ -135,15 +145,22 @@ Exclut la file d'arbitrage et l'état du pipeline de tagging, qui relèvent de l
   - un événement de type inconnu est ignoré sans modifier aucun signal
   - une ligne de `stderr` ne modifie aucun signal
   - une commande émise écrit une ligne JSON unique terminée par un saut de ligne
+  - le service n'est pas prêt avant la version, l'est après une version concordante, ne l'est pas sur une divergence
+  - une commande émise sans sidecar ou dont l'écriture échoue pose l'erreur d'indisponibilité et arrête le run
+  - la fin du process, le résultat et une erreur arrêtent le run et remettent la progression au repos
+  - une commande d'extraction lève le signal d'extraction en cours
+  - une commande efface l'erreur précédente, et un nouveau listage la réponse du fichier précédent
 
 Le lancement réel du binaire, le découpage des lignes par Tauri et la sérialisation JSON ne sont pas testés : ce sont des comportements de bibliothèque ou de plateforme, qu'une mise à jour ferait échouer sans qu'aucune règle du projet ait bougé.
 
 ## Edge cases
 
-- **Sidecar qui se termine en cours de session** : l'événement `Terminated` fait repasser le service en indisponible, ce que l'interface peut alors signaler. Aucun redémarrage automatique n'est tenté : une reprise silencieuse masquerait un défaut qu'il vaut mieux voir.
+- **Sidecar qui se termine en cours de session** : l'événement `Terminated` fait repasser le service en indisponible et arrête le run en cours, ce que l'interface peut alors signaler. Aucun redémarrage automatique n'est tenté : une reprise silencieuse masquerait un défaut qu'il vaut mieux voir.
 - **Événement reçu avant la fin du démarrage** : les signaux sont initialisés à leur valeur de repos, un événement arrivant tôt est traité normalement.
 - **Deux extractions successives** : le signal de résultat est remplacé, pas accumulé. L'historique des runs passés vit dans les rapports sur disque, pas en mémoire.
-- **Commande émise alors que le sidecar est indisponible** : l'écriture est refusée sans lever, et le signal d'erreur porte un code d'indisponibilité. L'interface est censée avoir désactivé l'action, mais le service ne dépend pas de cette discipline.
+- **Commande émise alors que le sidecar est indisponible** : l'écriture est refusée sans lever, et le signal d'erreur porte le code `sidecar_unavailable`. L'interface est censée avoir désactivé l'action, mais le service ne dépend pas de cette discipline. Une écriture qui échoue sur un sidecar mort entre le lancement et la commande aboutit au même état, sans rejet remonté jusqu'au bootstrap.
+- **Erreur reçue pendant un run** : la boucle du sidecar étant séquentielle, elle a interrompu ce run (rapport impossible à écrire après le dernier `progress`, par exemple). La progression revient au repos au lieu de rester figée.
+- **Rechargement de la webview** : en debug, chaque rechargement ajoute un sidecar, tous tués à la fermeture de l'application. En release, le rechargement est coupé.
 
 ## Architectural decisions
 
