@@ -37,7 +37,9 @@
 | `src/app/features/playlist/playlist-page.component.ts` | État de l'écran, dérivations, commandes. |
 | `src/app/features/playlist/playlist-page.component.html` | Rendu. |
 | `src/app/features/playlist/playlist-page.component.spec.ts` | Conditions de disponibilité et commande émise. |
-| `public/i18n/fr.json`, `public/i18n/en.json` | Libellés de l'écran. |
+| `public/i18n/fr.json`, `public/i18n/en.json` | Libellés de l'écran, et l'espace `errors` qui traduit les `code` d'erreur. |
+| `sidecar/tests/unit/test_error_translations.py` | Chaque `code` d'erreur du sidecar a sa phrase dans les deux langues. |
+| `src/app/core/translations.spec.ts` | Idem pour `SIDECAR_UNAVAILABLE`, seul code émis par l'interface. |
 
 ---
 
@@ -420,10 +422,11 @@ git commit -m "feat(ui): preference de mode, logo VLC et icone de dossier"
 - Modify: `src/app/features/playlist/playlist-page.component.ts`
 - Test: `src/app/features/playlist/playlist-page.component.spec.ts`
 - Modify: `public/i18n/fr.json`, `public/i18n/en.json`
+- Test: `sidecar/tests/unit/test_error_translations.py`, `src/app/core/translations.spec.ts`
 
 **Interfaces:**
-- Consumes: `SidecarService`, `toExtractionRows`, `readExtractionMode`, `writeExtractionMode`
-- Produces: `PlaylistPageComponent` avec les signaux `sourceFolder`, `destinationFolder`, `playlistPath`, le signal de choix `choice` (`{ playlist, mode }`) et son `FieldTree` `fields`, et les dérivations `showsPlaylistSelector`, `canExtract`, `rows`
+- Consumes: `SidecarService` (signaux `ready`, `extracting`, `available`, `versionMismatch`, `playlistFormat`, `playlists`, `progress`, `extraction`, `lastError`, commandes `listPlaylists` et `extractPlaylist`, constante `SIDECAR_UNAVAILABLE`), `toExtractionRows`, `readExtractionMode`, `writeExtractionMode`
+- Produces: `PlaylistPageComponent` avec les signaux `sourceFolder`, `destinationFolder`, `playlistPath`, le signal de choix `choice` (`{ playlist, mode }`) et son `FieldTree` `fields`, et les dérivations `showsPlaylistSelector`, `awaitsPlaylists`, `canExtract`, `rows`
 
 - [ ] **Step 1: Écrire les tests**
 
@@ -453,6 +456,8 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
  */
 function mountWith(overrides: Partial<Record<string, unknown>> = {}) {
   const service = {
+    ready: signal(true),
+    extracting: signal(false),
     available: signal(true),
     version: signal("1.0.0"),
     versionMismatch: signal(null),
@@ -519,22 +524,20 @@ describe("PlaylistPageComponent", () => {
     expect(component["canExtract"]()).toBe(true)
   })
 
-  it("blocks extraction when the sidecar is unavailable", () => {
-    const { component } = mountWith({ available: signal(false) })
+  it("blocks extraction while the sidecar is not ready", () => {
+    const { component } = mountWith({ ready: signal(false) })
 
     withAllPathsChosen(component)
 
     expect(component["canExtract"]()).toBe(false)
   })
 
-  it("blocks extraction when the versions mismatch", () => {
-    const { component } = mountWith({
-      versionMismatch: signal({ ui: "1.0.0", sidecar: "0.9.0" }),
-    })
+  it("awaits the listing of a chosen file until the sidecar answers", () => {
+    const { component } = mountWith({ playlistFormat: signal(null), playlists: signal([]) })
 
-    withAllPathsChosen(component)
+    component["playlistPath"].set("C:/x/vlc_media.db")
 
-    expect(component["canExtract"]()).toBe(false)
+    expect(component["awaitsPlaylists"]()).toBe(true)
   })
 
   it("offers the playlist selector only for a VLC dump", () => {
@@ -669,6 +672,7 @@ export default class PlaylistPageComponent {
   protected readonly fields = form(this.choice)
 
   protected readonly available = this.sidecar.available
+  protected readonly extracting = this.sidecar.extracting
   protected readonly versionMismatch = this.sidecar.versionMismatch
   protected readonly playlists = this.sidecar.playlists
   protected readonly progress = this.sidecar.progress
@@ -679,9 +683,16 @@ export default class PlaylistPageComponent {
     () => this.sidecar.playlistFormat() === "vlc_dump",
   )
 
-  /** Le fichier est reconnu mais ses playlists ne sont pas encore arrivees. */
+  /**
+   * Un fichier est choisi et le sidecar n'a pas encore repondu. Le service efface la
+   * reponse precedente a chaque listage : un format nul signifie donc « en attente »,
+   * sauf si une erreur est venue a sa place.
+   */
   protected readonly awaitsPlaylists = computed(
-    () => this.showsPlaylistSelector() && this.playlists().length === 0,
+    () =>
+      this.playlistPath() !== null &&
+      this.sidecar.playlistFormat() === null &&
+      this.lastError() === null,
   )
 
   protected readonly rows = computed(() => {
@@ -690,10 +701,10 @@ export default class PlaylistPageComponent {
     return result === null ? [] : toExtractionRows(result)
   })
 
+  /** `ready` couvre le sidecar lance, la version controlee et aucune extraction en cours. */
   protected readonly canExtract = computed(
     () =>
-      this.available() &&
-      this.versionMismatch() === null &&
+      this.sidecar.ready() &&
       this.sourceFolder() !== null &&
       this.destinationFolder() !== null &&
       this.playlistPath() !== null &&
@@ -771,7 +782,7 @@ export default class PlaylistPageComponent {
 
 - [ ] **Step 4: Ajouter les clés de traduction**
 
-Dans `public/i18n/en.json`, ajouter l'objet `errors` et remplacer l'objet `playlist`. Les clés d'`errors` sont les `code` que le sidecar émet, un par un : c'est ici que le protocole devient une phrase, jamais dans le sidecar (cf. ARCHITECTURE.md § API).
+Dans `public/i18n/en.json`, ajouter l'objet `errors` et remplacer l'objet `playlist`. Les clés d'`errors` sont les `code` que le sidecar émet, un par un, plus `sidecar_unavailable` que le service émet lui-même : c'est ici que le protocole devient une phrase, jamais dans le sidecar (cf. ARCHITECTURE.md § API). Les paramètres interpolés sont ceux que chaque erreur porte dans `params`.
 
 ```json
   "errors": {
@@ -781,10 +792,15 @@ Dans `public/i18n/en.json`, ajouter l'objet `errors` et remplacer l'objet `playl
     "unsupported_playlist_format": "{{filename}} is neither a VLC dump nor a readable M3U8 playlist.",
     "vlc_schema_mismatch": "This VLC database does not carry the expected tables: {{missing}}.",
     "playlist_not_found": "No playlist named {{playlist_name}} in this database.",
+    "playlist_file_unreadable": "{{filename}} cannot be opened.",
+    "unreadable_dump": "{{filename}} is not a readable VLC database.",
+    "playlist_name_required": "Choose a playlist from this VLC database.",
     "extraction_error": "The extraction failed before it started.",
+    "report_error": "The extraction report could not be produced.",
     "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
     "source_folder_unreadable": "The source folder cannot be read: {{folder}}.",
-    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}."
+    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}.",
+    "sidecar_unavailable": "The sidecar is not running. Restart the application."
   },
   "playlist": {
     "title": "Playlist",
@@ -835,10 +851,15 @@ Dans `public/i18n/fr.json`, les mêmes objets traduits :
     "unsupported_playlist_format": "{{filename}} n'est ni un dump VLC ni une playlist M3U8 lisible.",
     "vlc_schema_mismatch": "Cette base VLC ne porte pas les tables attendues : {{missing}}.",
     "playlist_not_found": "Aucune playlist nommée {{playlist_name}} dans cette base.",
+    "playlist_file_unreadable": "{{filename}} ne peut pas être ouvert.",
+    "unreadable_dump": "{{filename}} n'est pas une base VLC lisible.",
+    "playlist_name_required": "Choisis une playlist de cette base VLC.",
     "extraction_error": "L'extraction a échoué avant de commencer.",
+    "report_error": "Le rapport d'extraction n'a pas pu être produit.",
     "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
     "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.",
-    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}."
+    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}.",
+    "sidecar_unavailable": "Le sidecar ne tourne pas. Relance l'application."
   },
   "playlist": {
     "title": "Playlist",
@@ -879,15 +900,59 @@ Dans `public/i18n/fr.json`, les mêmes objets traduits :
   },
 ```
 
+Garder ces clés par un test de cohérence : les codes vivent en Python, les phrases en JSON, et une clé manquante ne se verrait qu'à l'écran, en `errors.<code>` brut (règle « Une valeur, une source »). Créer `sidecar/tests/unit/test_error_translations.py` :
+
+```python
+"""Chaque code d'erreur du sidecar a sa phrase dans les deux fichiers de langue."""
+
+import importlib
+import json
+import pkgutil
+from pathlib import Path
+
+import pytest
+
+import tagger
+from tagger.errors import TaggerError
+from tagger.protocol import MALFORMED_COMMAND
+
+REPO = Path(__file__).parents[3]
+
+
+def _codes(base: type[TaggerError]) -> set[str]:
+    return {base.code}.union(*(_codes(sub) for sub in base.__subclasses__()))
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_every_error_code_has_a_translation(language: str) -> None:
+    """Importe tous les modules : une erreur ajoutee ailleurs est couverte d'office."""
+    for module in pkgutil.walk_packages(tagger.__path__, "tagger."):
+        importlib.import_module(module.name)
+    content = (REPO / "public" / "i18n" / f"{language}.json").read_text(encoding="utf-8")
+    errors: dict[str, str] = json.loads(content)["errors"]
+
+    missing = (_codes(TaggerError) | {MALFORMED_COMMAND}) - errors.keys()
+
+    assert not missing
+```
+
+Dans `src/app/core/translations.spec.ts`, importer `SIDECAR_UNAVAILABLE` depuis `./sidecar.service` et ajouter le test du seul code émis par l'interface :
+
+```typescript
+  it("translate the error the interface raises itself", () => {
+    expect([en.errors[SIDECAR_UNAVAILABLE], fr.errors[SIDECAR_UNAVAILABLE]]).not.toContain(undefined)
+  })
+```
+
 - [ ] **Step 5: Lancer les tests pour les voir passer**
 
-Run: `pnpm test --run src/app/features/playlist`
-Expected: PASS, 10 tests du composant et 6 de l'aplatissement
+Run: `pnpm test --run src/app/features/playlist src/app/core/translations.spec.ts` puis `cd sidecar && uv run pytest tests/unit/test_error_translations.py`
+Expected: PASS, 10 tests du composant, 6 de l'aplatissement, et les tests de cohérence des deux côtés
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/app/features/playlist/playlist-page.component.ts src/app/features/playlist/playlist-page.component.spec.ts public/i18n
+git add src/app/features/playlist/playlist-page.component.ts src/app/features/playlist/playlist-page.component.spec.ts public/i18n sidecar/tests/unit/test_error_translations.py src/app/core/translations.spec.ts
 git commit -m "feat(ui): etat et conditions de l onglet playlist"
 ```
 
@@ -963,25 +1028,23 @@ Remplacer `src/app/features/playlist/playlist-page.component.html` :
       </div>
     </div>
 
-    @if (showsPlaylistSelector()) {
-      @if (awaitsPlaylists()) {
-        <p-skeleton height="2.5rem" />
-      } @else {
-        <p-select
-          [formField]="fields.playlist"
-          [options]="playlists()"
-          optionLabel="name"
-          optionValue="name"
-          [placeholder]="'playlist.selector.label' | translate"
-        >
-          <ng-template #item let-playlist>
-            {{
-              "playlist.selector.option"
-                | translate: { name: playlist.name, count: playlist.track_count }
-            }}
-          </ng-template>
-        </p-select>
-      }
+    @if (awaitsPlaylists()) {
+      <p-skeleton height="2.5rem" />
+    } @else if (showsPlaylistSelector()) {
+      <p-select
+        [formField]="fields.playlist"
+        [options]="playlists()"
+        optionLabel="name"
+        optionValue="name"
+        [placeholder]="'playlist.selector.label' | translate"
+      >
+        <ng-template #item let-playlist>
+          {{
+            "playlist.selector.option"
+              | translate: { name: playlist.name, count: playlist.track_count }
+          }}
+        </ng-template>
+      </p-select>
     }
 
     <div class="flex flex-col gap-2">
@@ -1014,6 +1077,8 @@ Remplacer `src/app/features/playlist/playlist-page.component.html` :
         {{ "playlist.progress" | translate: running }}
       </span>
     </div>
+  } @else if (extracting()) {
+    <p-progressbar mode="indeterminate" />
   }
 
   @if (rows().length > 0) {

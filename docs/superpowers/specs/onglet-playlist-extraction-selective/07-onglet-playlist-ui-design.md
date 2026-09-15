@@ -23,8 +23,8 @@ Exclut toute règle métier : l'écran affiche ce qu'il reçoit et émet des com
 
 ## Dependencies
 
-- `05-cablage-i18n-design.md` (statut: draft) — fournit ngx-translate et les fichiers de langue que cet écran enrichit.
-- `06-service-sidecar-angular-design.md` (statut: draft) — fournit `SidecarService`, ses signaux et ses commandes.
+- `05-cablage-i18n-design.md` (statut: implemented) — fournit ngx-translate et les fichiers de langue que cet écran enrichit.
+- `06-service-sidecar-angular-design.md` (statut: implemented) — fournit `SidecarService`, ses signaux (dont `ready` et `extracting`), ses commandes et la constante `SIDECAR_UNAVAILABLE`.
 
 ### Amendement requis sur les sub-projects amont
 
@@ -45,6 +45,8 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 - **À modifier** : `src/app/shared/components/source-logo.component.ts` (implémente le rendu, logo VLC)
 - **À modifier** : `src/app/shared/components/icon.component.ts` (ajoute l'icône de dossier selon le motif documenté)
 - **À modifier** : `public/i18n/fr.json` et `public/i18n/en.json` (clés de l'écran, plus l'espace de noms `errors` qui traduit les `code` du sidecar)
+- **À créer** : `sidecar/tests/unit/test_error_translations.py` (chaque `code` d'erreur du sidecar a sa clé dans les deux langues)
+- **À modifier** : `src/app/core/translations.spec.ts` (la clé de `SIDECAR_UNAVAILABLE`, seul code émis par l'interface)
 
 ## Architecture approach
 
@@ -54,7 +56,9 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 - **Composants PrimeNG du mapping de DESIGN.md**, sans substitution : boutons outlined pour la sélection, `p-select` pour la playlist, `p-selectbutton` pour le mode, `p-progressbar` pour la progression, `p-table` dense, scrollable et à défilement virtuel pour le rapport, `p-message` inline pour une erreur contextuelle, `p-skeleton` pendant l'attente d'une liste de playlists.
 - **Rapport en table unique**, une ligne par morceau portant sa catégorie et son détail. Les cinq catégories du résultat sont aplaties en lignes par une fonction pure, testable sans monter le composant : trois d'entre elles ne portent qu'un nom, les doublons et les échecs portent une structure, et le détail les rend dans la même colonne.
 - **La couleur n'est jamais seule porteuse d'information** : chaque catégorie s'affiche avec une icône et un libellé traduit, conformément à DESIGN.md § Palette. Les familles employées sont celles du document, `warn` n'étant porté par aucune ligne.
-- **Action d'extraction conditionnée** : elle n'est disponible que si les deux dossiers et la playlist sont choisis, qu'une playlist est sélectionnée lorsque le fichier est un dump, que le sidecar est disponible et qu'aucune divergence de version n'a été constatée. Chacune de ces conditions est un signal calculé, ce qui rend le blocage lisible et testable.
+- **Action d'extraction conditionnée** : elle n'est disponible que si les deux dossiers et la playlist sont choisis, qu'une playlist est sélectionnée lorsque le fichier est un dump, et que `SidecarService.ready` est vrai : sidecar lancé, version reçue et concordante, aucune extraction en cours. Une divergence qui ne serait pas encore contrôlée faute de version reçue bloque donc aussi, et un double clic ne lance pas deux extractions. Chacune de ces conditions est un signal calculé, ce qui rend le blocage lisible et testable.
+- **Attente d'une liste de playlists** : le service efface la réponse précédente à chaque listage. Un fichier choisi dont le format n'est pas encore annoncé, sans erreur reçue, affiche le `p-skeleton` ; la réponse d'un fichier précédent ne reste jamais affichée. Une extraction lancée affiche une barre indéterminée jusqu'au premier `progress`.
+- **Traductions d'erreurs gardées par des tests de cohérence** : les `code` vivent en Python et leurs phrases en JSON. Un test du sidecar vérifie que chaque `code` d'erreur a sa clé dans `errors` des deux fichiers de langue, et le test des fichiers de langue fait de même pour `SIDECAR_UNAVAILABLE`. Sans eux, une clé manquante ne se verrait qu'à l'écran, en `errors.<code>` brut.
 - **Divergence de version signalée à l'écran** : un `p-message` d'erreur porte les deux versions et l'action reste bloquée. ARCHITECTURE impose de refuser de lancer un run dans ce cas.
 - **Préférence de mode dans le `store` de Tauri**, isolée dans un module dédié qui retombe silencieusement sur la valeur par défaut hors Tauri, comme la résolution de langue. La copie est le défaut, la source restant alors intacte.
 - **Libellés entièrement traduits**, aucune largeur fixe posée sur du texte traduit, et les motifs d'échec du sidecar affichés par des clés de traduction plutôt que par leur valeur brute : le sidecar n'émet jamais de phrase destinée à l'utilisateur.
@@ -133,6 +137,11 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 **THEN** l'écran reste navigable
 **AND** l'action d'extraction est indisponible
 
+### Scénario 13 : Extraction bloquée tant que le sidecar n'est pas prêt
+**GIVEN** tous les chemins choisis, mais une version pas encore reçue ou une extraction déjà en cours
+**WHEN** l'utilisateur regarde l'action d'extraction
+**THEN** elle est indisponible
+
 ## Tests à écrire
 
 ### Unit
@@ -149,11 +158,17 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
   - l'action d'extraction est indisponible tant qu'un chemin manque
   - l'action est indisponible sur un dump dont aucune playlist n'est sélectionnée
   - l'action est disponible sur un M3U8 sans playlist sélectionnée
-  - l'action est indisponible quand le sidecar est indisponible
-  - l'action est indisponible quand les versions divergent
+  - l'action est indisponible quand le sidecar n'est pas prêt (indisponible, version absente ou divergente, extraction en cours)
+  - un fichier choisi attend la réponse du sidecar tant que son format n'est pas annoncé
   - le sélecteur de playlist n'est proposé que pour un dump VLC
   - le mode copie est retenu par défaut
   - la commande émise porte les chemins, le nom de playlist et le mode courants
+
+- `sidecar/tests/unit/test_error_translations.py` :
+  - chaque `code` d'erreur du sidecar, `malformed_command` compris, a sa clé dans `errors` de chaque fichier de langue
+
+- `src/app/core/translations.spec.ts` :
+  - `SIDECAR_UNAVAILABLE` a sa clé dans `errors` des deux fichiers de langue
 
 Le rendu d'un composant PrimeNG, le masquage d'un bloc par un `@if` et la sérialisation d'une commande ne sont pas testés : ce sont des comportements de framework ou de bibliothèque, qu'une mise à jour ferait échouer sans qu'aucune règle du projet ait bougé.
 
@@ -161,6 +176,7 @@ Le rendu d'un composant PrimeNG, le masquage d'un bloc par un `@if` et la séria
 
 - **Playlist vide dans un dump** : l'option apparaît avec un compte de zéro, et l'extraction rend un rapport vide. Rien n'est masqué : un compte à zéro est une information.
 - **Fichier choisi qui n'est ni un dump ni un M3U8 lisible** : le sidecar émet une erreur, affichée en message inline, et aucun sélecteur n'apparaît.
+- **Second fichier choisi après un premier** : le sélecteur, le logo et l'erreur du fichier précédent disparaissent dès le choix, le squelette s'affiche jusqu'à la nouvelle réponse.
 - **Deux extractions successives** : le rapport précédent est remplacé dès le lancement de la seconde, pour qu'aucun résultat périmé ne reste affiché pendant que la nouvelle tourne.
 - **Rapport très long** : le défilement virtuel de la table couvre le cas, la page elle-même ne défilant jamais.
 - **Chemin très long** : la troncature par la gauche garde la fin du chemin lisible, qui est la partie utile.
