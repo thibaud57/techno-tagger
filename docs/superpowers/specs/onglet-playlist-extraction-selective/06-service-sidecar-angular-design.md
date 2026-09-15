@@ -43,6 +43,7 @@ Exclut la file d'arbitrage et l'état du pipeline de tagging, qui relèvent de l
 - **Aucun tampon de réassemblage** : Tauri livre déjà une ligne complète par événement `stdout`. Le parsing se limite à convertir une ligne JSON en événement typé.
 - **`stdout` porte le protocole, `stderr` les logs**, sans jamais les mélanger : les lignes de `stderr` sont journalisées, jamais interprétées comme des événements.
 - **Une ligne illisible ne casse pas le flux** : elle est journalisée et ignorée, l'abonnement continuant de vivre. Un sidecar qui émettrait une ligne non conforme ne doit pas rendre l'application muette pour le reste de la session.
+- **Le type guard ne vérifie que le discriminant `event`**, pas chaque champ : le sidecar est notre propre émetteur, dont Pydantic valide la sortie, et un validateur par événement écrirait le contrat une troisième fois. Coût assumé : un champ désynchronisé se verrait en `undefined` à l'écran plutôt qu'en trace console.
 - **État exposé par signals natifs**, sans bibliothèque de store : version du sidecar, disponibilité, divergence de version, format de playlist reconnu, playlists listées, progression, résultat d'extraction, extraction en cours, dernière erreur, et `ready` qui dit si un run peut partir (sidecar lancé, version reçue et concordante, aucune extraction en cours). Les composants lisent ces signaux et émettent des commandes, ils ne calculent rien.
 - **Une commande efface ce qu'elle rend périmé** : toute commande efface la dernière erreur, `list_playlists` efface le format et les playlists du fichier précédent, `extract_playlist` le résultat précédent. Un écran n'affiche jamais la réponse d'une autre demande que la sienne.
 - **Aucune commande ne rend de promesse résolue sur « son » événement** : le contrat ne porte aucun identifiant de corrélation, et deviner l'appariement en attendant le prochain événement du bon type serait faux dès que deux commandes se croisent. Une commande écrit sur `stdin` et l'état arrive par le flux.
@@ -202,3 +203,18 @@ Le lancement réel du binaire, le découpage des lignes par Tauri et la sériali
 - Les causes réelles d'un sidecar mort sont un binaire absent, remplacé ou mis en quarantaine par un antivirus, aucune ne se corrigeant par une nouvelle tentative
 - Une reprise silencieuse rendrait invisible exactement le défaut que le contrôle de version cherche à rendre visible
 - Le MVP n'a aucun run qui survive à un redémarrage : la reprise d'un run interrompu appartient à la Feature 6
+
+### Décision : Couper le rechargement de la webview plutôt que rendre le lancement idempotent
+
+**Options envisagées :**
+- **A. Couper `RELOAD` et `CONTEXT_MENU` en release par `tauri-plugin-prevent-default`** : l'utilisateur ne peut plus déclencher de rechargement, le debug le garde pour le live reload.
+- **B. Retrouver le sidecar précédent après un rechargement** (pid gardé en `sessionStorage`) pour le réutiliser ou l'arrêter avant d'en lancer un autre.
+- **C. Tuer les process enfants côté Rust au rechargement de la page.**
+
+**Choix : A**
+
+**Rationale :**
+- B ne peut pas réutiliser le process : son flux `stdout` était lié au contexte JS détruit par le rechargement, et le plugin `shell` ne permet pas de s'y réabonner
+- Arrêter l'ancien sidecar n'est pas sûr non plus. Le tuer pendant un déplacement laisse en destination un fichier tronqué que le run suivant classe « déjà présent ». Lui envoyer `shutdown` le laisse finir son run, la boucle étant séquentielle, pendant que le nouveau démarre sur la même bibliothèque
+- C a le même défaut de kill en plein transfert, et sort `src-tauri/src/` de la seule initialisation des plugins
+- A ne couvre que les raccourcis et le menu : aucun `location.reload()` ne doit apparaître dans le code (cf. `.claude/rules/tauri/sidecar.md`)

@@ -1,5 +1,10 @@
 # Service sidecar Angular — Implementation Plan
 
+> **Plan exécuté, conservé tel quel.** La référence de ce qui a été livré est le spec, pas ce plan. L'implémentation s'en écarte sur ces points :
+> - Champs privés en `private readonly` et non `#`, conformément aux rules `angular/services.md` et `angular/signals.md`
+> - `ready`, `extracting`, remises à zéro à chaque commande, erreur `SIDECAR_UNAVAILABLE` sur commande refusée ou écriture échouée
+> - Sidecar lancé sans attendre au bootstrap, version nue côté sidecar, rechargement de la webview coupé en release par `tauri-plugin-prevent-default`
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Établir depuis la webview la frontière unique vers le sidecar, en lançant le binaire et en transformant son flux NDJSON en état observable.

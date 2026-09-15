@@ -8,7 +8,7 @@ paths:
 # Angular CLI & Bootstrap — Règles
 
 ## À faire
-- Garder `app.config.ts` minimal : `provideRouter(routes)`, `providePrimeNG(...)`, les providers ngx-translate et Sentry, rien de plus
+- Garder `app.config.ts` minimal : `provideRouter(routes)`, `providePrimeNG(...)`, les providers ngx-translate et Sentry, plus les `provideAppInitializer()` de ce qui doit partir au bootstrap (résolution de la langue, lancement du sidecar), rien de plus
 - Ajouter `provideBrowserGlobalErrorListeners()` : sans zone.js, les rejets non gérés ne sont plus capturés
 - Configurer PrimeNG avec le preset `Aura` importé de `@primeuix/themes/aura`, `darkModeSelector: '.app-dark'` et `cssLayer: { name: 'primeng', order: 'theme, base, primeng' }` (valeurs exactes dans DESIGN.md)
 - Déclarer la configuration applicative par un `InjectionToken` avec factory, plutôt que par un objet importé

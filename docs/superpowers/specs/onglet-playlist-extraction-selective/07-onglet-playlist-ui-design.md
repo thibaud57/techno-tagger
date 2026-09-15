@@ -54,7 +54,7 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 - **Sélection des chemins par le plugin `dialog`** : `open({ directory: true })` pour les deux dossiers, `open()` pour le fichier de playlist. Chaque chemin retenu s'affiche à côté de son bouton en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible.
 - **Le choix du fichier de playlist déclenche `list_playlists`** : la réponse annonce le format et, pour un dump, la liste des playlists. Le sélecteur et le logo VLC en découlent, sans qu'aucune règle ne soit écrite côté interface.
 - **Composants PrimeNG du mapping de DESIGN.md**, sans substitution : boutons outlined pour la sélection, `p-select` pour la playlist, `p-selectbutton` pour le mode, `p-progressbar` pour la progression, `p-table` dense, scrollable et à défilement virtuel pour le rapport, `p-message` inline pour une erreur contextuelle, `p-skeleton` pendant l'attente d'une liste de playlists.
-- **Rapport en table unique**, une ligne par morceau portant sa catégorie et son détail. Les cinq catégories du résultat sont aplaties en lignes par une fonction pure, testable sans monter le composant : trois d'entre elles ne portent qu'un nom, les doublons et les échecs portent une structure, et le détail les rend dans la même colonne.
+- **Rapport en table unique**, une ligne par morceau portant sa catégorie et son détail, plus une ligne par doublon départagé : le sidecar range le fichier retenu dans sa catégorie de transfert et consigne à part le départage. Les cinq catégories du résultat sont aplaties en lignes par une fonction pure, testable sans monter le composant : trois d'entre elles ne portent qu'un nom, les doublons et les échecs portent une structure, et le détail les rend dans la même colonne.
 - **La couleur n'est jamais seule porteuse d'information** : chaque catégorie s'affiche avec une icône et un libellé traduit, conformément à DESIGN.md § Palette. Les familles employées sont celles du document, `warn` n'étant porté par aucune ligne.
 - **Action d'extraction conditionnée** : elle n'est disponible que si les deux dossiers et la playlist sont choisis, qu'une playlist est sélectionnée lorsque le fichier est un dump, et que `SidecarService.ready` est vrai : sidecar lancé, version reçue et concordante, aucune extraction en cours. Une divergence qui ne serait pas encore contrôlée faute de version reçue bloque donc aussi, et un double clic ne lance pas deux extractions. Chacune de ces conditions est un signal calculé, ce qui rend le blocage lisible et testable.
 - **Attente d'une liste de playlists** : le service efface la réponse précédente à chaque listage. Un fichier choisi dont le format n'est pas encore annoncé, sans erreur reçue, affiche le `p-skeleton` ; la réponse d'un fichier précédent ne reste jamais affichée. Une extraction lancée affiche une barre indéterminée jusqu'au premier `progress`.
@@ -126,7 +126,7 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 ### Scénario 11 : Rapport affiché
 **GIVEN** une extraction terminée portant des morceaux extraits, un déjà présent, un introuvable, un doublon départagé et un échec
 **WHEN** le résultat arrive
-**THEN** la table porte une ligne par morceau, avec sa catégorie
+**THEN** la table porte une ligne par morceau avec sa catégorie, plus une ligne par doublon départagé
 **AND** chaque catégorie s'affiche avec une icône et un libellé, jamais par la couleur seule
 **AND** la ligne d'un doublon montre le candidat écarté et le critère appliqué
 **AND** la ligne d'un échec montre son motif traduit
@@ -147,7 +147,7 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 ### Unit
 
 - `src/app/features/playlist/extraction-rows.spec.ts` :
-  - les cinq catégories sont aplaties en lignes, une par morceau
+  - les cinq catégories sont aplaties en lignes, une par entrée du résultat
   - une ligne porte la catégorie de son morceau
   - la ligne d'un doublon porte le chemin du candidat écarté, sa taille et le critère
   - la ligne d'un échec porte son motif

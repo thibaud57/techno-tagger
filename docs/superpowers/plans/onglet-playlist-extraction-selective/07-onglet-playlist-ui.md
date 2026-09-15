@@ -191,9 +191,13 @@ export interface ExtractionRow {
 
 const DETAIL_PREFIX = "playlist.report.detail"
 
-function plain(fileName: string, category: ExtractionCategory): ExtractionRow {
-  return { fileName, category, detailKey: null, detailParams: null, reasonKey: null }
-}
+const plain = (fileName: string, category: ExtractionCategory): ExtractionRow => ({
+  fileName,
+  category,
+  detailKey: null,
+  detailParams: null,
+  reasonKey: null,
+})
 
 /**
  * Aplatit les cinq categories en une liste unique, dans un ordre fixe.
@@ -202,30 +206,28 @@ function plain(fileName: string, category: ExtractionCategory): ExtractionRow {
  * rendent la meme liste, ce dont depend la stabilite d'affichage entre deux
  * rendus.
  */
-export function toExtractionRows(result: ExtractionFinishedEvent): readonly ExtractionRow[] {
-  return [
-    ...result.extracted.map((name) => plain(name, "extracted")),
-    ...result.already_present.map((name) => plain(name, "already_present")),
-    ...result.missing.map((name) => plain(name, "missing")),
-    ...result.duplicates.map((duplicate) => ({
-      fileName: duplicate.file_name,
-      category: "duplicate" as const,
-      detailKey: `${DETAIL_PREFIX}.duplicate`,
-      detailParams: {
-        kept: duplicate.kept_path,
-        discarded: duplicate.discarded.map((candidate) => candidate.path).join(", "),
-      },
-      reasonKey: `playlist.report.criterion.${duplicate.criterion}`,
-    })),
-    ...result.failures.map((failure) => ({
-      fileName: failure.file_name,
-      category: "failure" as const,
-      detailKey: null,
-      detailParams: null,
-      reasonKey: `playlist.report.reason.${failure.reason}`,
-    })),
-  ]
-}
+export const toExtractionRows = (result: ExtractionFinishedEvent): readonly ExtractionRow[] => [
+  ...result.extracted.map((name) => plain(name, "extracted")),
+  ...result.already_present.map((name) => plain(name, "already_present")),
+  ...result.missing.map((name) => plain(name, "missing")),
+  ...result.duplicates.map((duplicate) => ({
+    fileName: duplicate.file_name,
+    category: "duplicate" as const,
+    detailKey: `${DETAIL_PREFIX}.duplicate`,
+    detailParams: {
+      kept: duplicate.kept_path,
+      discarded: duplicate.discarded.map((candidate) => candidate.path).join(", "),
+    },
+    reasonKey: `playlist.report.criterion.${duplicate.criterion}`,
+  })),
+  ...result.failures.map((failure) => ({
+    fileName: failure.file_name,
+    category: "failure" as const,
+    detailKey: null,
+    detailParams: null,
+    reasonKey: `playlist.report.reason.${failure.reason}`,
+  })),
+]
 ```
 
 - [ ] **Step 4: Lancer les tests pour les voir passer**
@@ -279,7 +281,7 @@ export const DEFAULT_EXTRACTION_MODE: ExtractionMode = "copy"
  * Hors Tauri, `load` rejette comme tout appel au plugin : le defaut s'applique
  * sans lever, l'interface devant rester utilisable sous le `ng serve` seul.
  */
-export async function readExtractionMode(): Promise<ExtractionMode> {
+export const readExtractionMode = async (): Promise<ExtractionMode> => {
   try {
     const store = await load(STORE_FILE)
     const stored = await store.get<ExtractionMode>(EXTRACTION_MODE_KEY)
@@ -291,7 +293,7 @@ export async function readExtractionMode(): Promise<ExtractionMode> {
 }
 
 /** Une preference non enregistree n'est pas une panne : l'echec est silencieux. */
-export async function writeExtractionMode(mode: ExtractionMode): Promise<void> {
+export const writeExtractionMode = async (mode: ExtractionMode): Promise<void> => {
   try {
     const store = await load(STORE_FILE)
     await store.set(EXTRACTION_MODE_KEY, mode)
@@ -604,7 +606,7 @@ import { Select } from "primeng/select"
 import { SelectButton } from "primeng/selectbutton"
 import { Skeleton } from "primeng/skeleton"
 import { TableModule } from "primeng/table"
-import { Tag } from "primeng/tag"
+import { Tag, type TagSeverity } from "primeng/tag"
 
 import type { ExtractionMode } from "../../core/models/protocol"
 import { DEFAULT_EXTRACTION_MODE, readExtractionMode, writeExtractionMode } from "../../core/preferences"
@@ -621,7 +623,7 @@ interface PlaylistChoice {
 }
 
 /** Icone et severite par categorie : la couleur n'est jamais seule a informer. */
-const CATEGORY_STYLE: Record<ExtractionCategory, { severity: string; icon: IconName }> = {
+const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: IconName }> = {
   extracted: { severity: "success", icon: "check" },
   already_present: { severity: "secondary", icon: "clock" },
   missing: { severity: "danger", icon: "times" },
