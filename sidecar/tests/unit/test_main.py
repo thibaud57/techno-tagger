@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     import pytest
 
 
-def test_logging_et_sentry_sont_armes_avant_la_boucle() -> None:
+def test_logging_and_sentry_are_armed_before_the_loop() -> None:
     with (
         patch.object(__main__, "setup_logging", autospec=True) as setup,
         patch.object(__main__, "init_sentry", autospec=True) as sentry,
@@ -28,7 +28,7 @@ def test_logging_et_sentry_sont_armes_avant_la_boucle() -> None:
     sentry.assert_called_once()
 
 
-def test_les_flux_du_protocole_sont_forces_en_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_protocol_streams_are_forced_to_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
     """Tauri lance le sidecar avec des pipes, que Windows ouvre en cp1252 : un seul
     titre hors latin-1 tuerait le run des la premiere ligne lue ou ecrite.
     """
@@ -43,7 +43,7 @@ def test_les_flux_du_protocole_sont_forces_en_utf8(monkeypatch: pytest.MonkeyPat
     assert stdout.encoding == "utf-8"
 
 
-def test_le_flux_du_protocole_sort_en_lf_seul(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_protocol_stream_ends_lines_with_lf_only(monkeypatch: pytest.MonkeyPatch) -> None:
     """Le plugin shell de Tauri coupe ses lignes sur `\\r` seul quand un chunk de 8 Ko
     tombe avant le `\\n` : un CRLF tronque l'evenement et fait partir un evenement
     parasite vide. Le wrapper traduit `\\n` en `os.linesep` tant qu'on ne fixe pas
@@ -60,7 +60,7 @@ def test_le_flux_du_protocole_sort_en_lf_seul(monkeypatch: pytest.MonkeyPatch) -
     assert raw.getvalue() == b'{"type":"ready"}\n'
 
 
-def test_le_dossier_de_logs_suit_l_identifiant_de_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_log_folder_follows_the_bundle_identifier(monkeypatch: pytest.MonkeyPatch) -> None:
     """Tauri compose `appLocalDataDir()` avec l'identifiant du bundle, pas avec le
     nom de l'application : le sidecar ecrirait sinon hors des scopes de la webview.
     """
@@ -85,7 +85,7 @@ def _at(path: str, *keys: str) -> object:
     return node
 
 
-def test_l_identite_de_l_application_est_la_meme_partout() -> None:
+def test_the_application_identity_is_the_same_everywhere() -> None:
     """Le nom et l'identifiant sont recopies a la main dans cinq fichiers que rien ne
     synchronise, et chaque divergence est muette : un identifiant desaccorde envoie
     les deux cotes dans deux dossiers de donnees voisins, hors des scopes fs, et un
@@ -114,7 +114,7 @@ def _sidecar_name() -> str:
     return name
 
 
-def test_le_nom_du_binaire_du_sidecar_est_le_meme_des_deux_cotes() -> None:
+def test_the_sidecar_binary_name_is_the_same_on_both_sides() -> None:
     """`externalBin` et le scope de la capability se lisent a deux endroits : une
     divergence laisse passer `cargo check`, `just lint-tauri` et `just build`, et ne
     se voit qu'au premier spawn chez l'utilisateur, en SidecarNotAllowed.
@@ -131,7 +131,7 @@ def test_le_nom_du_binaire_du_sidecar_est_le_meme_des_deux_cotes() -> None:
     assert [entry["name"] for entry in spawn["allow"]] == [expected]
 
 
-def test_le_processus_du_sidecar_est_tue_sous_son_vrai_nom() -> None:
+def test_the_sidecar_process_is_killed_under_its_real_name() -> None:
     """Le hook NSIS et `just stop-app` tuent le sidecar par nom de processus, en
     dur : renomme, il survivrait a l'installeur et verrouillerait son propre
     fichier pendant l'ecrasement, sans qu'aucun build ne le signale.
@@ -146,7 +146,7 @@ def test_le_processus_du_sidecar_est_tue_sous_son_vrai_nom() -> None:
     assert f"taskkill //IM {APP_NAME}.exe" in justfile
 
 
-def test_le_nom_du_projet_angular_est_le_meme_dans_les_trois_manifestes() -> None:
+def test_the_angular_project_name_is_the_same_in_the_three_manifests() -> None:
     """Aucun `outputPath` n'est declare : Angular derive `dist/<projet>/` de son nom
     de projet. `frontendDist` et le script sourcemaps, qui lit `name` par
     `$npm_package_name`, pointent ce dossier par une chaine recopiee a la main.
@@ -160,7 +160,7 @@ def test_le_nom_du_projet_angular_est_le_meme_dans_les_trois_manifestes() -> Non
     assert _at("src-tauri/tauri.conf.json", "build", "frontendDist") == f"../dist/{project}/browser"
 
 
-def test_les_quatre_manifestes_portent_la_meme_version() -> None:
+def test_the_four_manifests_carry_the_same_version() -> None:
     """release-please les propage, rien ne verifie le resultat : desaccordes, sidecar
     et webview remontent deux releases pour une meme livraison.
     """

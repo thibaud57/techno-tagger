@@ -81,11 +81,11 @@ const EMPTY: ExtractionFinishedEvent = {
 }
 
 describe("toExtractionRows", () => {
-  it("ne rend aucune ligne sur un resultat vide", () => {
+  it("renders no row for an empty result", () => {
     expect(toExtractionRows(EMPTY)).toEqual([])
   })
 
-  it("rend une ligne par morceau, toutes categories confondues", () => {
+  it("renders one row per track across all categories", () => {
     const rows = toExtractionRows({
       ...EMPTY,
       extracted: ["a.mp3", "b.mp3"],
@@ -96,13 +96,13 @@ describe("toExtractionRows", () => {
     expect(rows).toHaveLength(4)
   })
 
-  it("porte la categorie de chaque morceau", () => {
+  it("carries the category of each track", () => {
     const rows = toExtractionRows({ ...EMPTY, extracted: ["a.mp3"], missing: ["d.mp3"] })
 
     expect(rows.map((row) => row.category)).toEqual(["extracted", "missing"])
   })
 
-  it("decrit un doublon par son candidat ecarte et son critere", () => {
+  it("describes a duplicate by its discarded candidate and criterion", () => {
     const rows = toExtractionRows({
       ...EMPTY,
       duplicates: [
@@ -125,7 +125,7 @@ describe("toExtractionRows", () => {
     expect(rows[0].reasonKey).toBe("playlist.report.criterion.largest_file")
   })
 
-  it("nomme le motif d un echec par une cle, jamais par sa valeur brute", () => {
+  it("names a failure reason by a key, never by its raw value", () => {
     const rows = toExtractionRows({
       ...EMPTY,
       failures: [{ file_name: "locked.mp3", reason: "file_locked" }],
@@ -135,7 +135,7 @@ describe("toExtractionRows", () => {
     expect(rows[0].reasonKey).toBe("playlist.report.reason.file_locked")
   })
 
-  it("rend un ordre stable d une execution a l autre", () => {
+  it("renders a stable order from one run to the next", () => {
     const result = {
       ...EMPTY,
       extracted: ["a.mp3"],
@@ -493,7 +493,7 @@ function choosePlaylist(component: PlaylistPageComponent, name: string | null): 
 }
 
 describe("PlaylistPageComponent", () => {
-  it("interdit l extraction tant qu un chemin manque", () => {
+  it("blocks extraction while a path is missing", () => {
     const { component } = mountWith()
 
     component["sourceFolder"].set("C:/lib")
@@ -501,7 +501,7 @@ describe("PlaylistPageComponent", () => {
     expect(component["canExtract"]()).toBe(false)
   })
 
-  it("interdit l extraction sur un dump dont aucune playlist n est choisie", () => {
+  it("blocks extraction on a dump with no playlist selected", () => {
     const { component } = mountWith()
     withAllPathsChosen(component)
 
@@ -510,7 +510,7 @@ describe("PlaylistPageComponent", () => {
     expect(component["canExtract"]()).toBe(false)
   })
 
-  it("autorise l extraction sur un M3U8 sans playlist choisie", () => {
+  it("allows extraction on an M3U8 without a selected playlist", () => {
     const { component } = mountWith({ playlistFormat: signal("m3u8"), playlists: signal([]) })
     withAllPathsChosen(component)
 
@@ -519,7 +519,7 @@ describe("PlaylistPageComponent", () => {
     expect(component["canExtract"]()).toBe(true)
   })
 
-  it("interdit l extraction quand le sidecar est indisponible", () => {
+  it("blocks extraction when the sidecar is unavailable", () => {
     const { component } = mountWith({ available: signal(false) })
 
     withAllPathsChosen(component)
@@ -527,7 +527,7 @@ describe("PlaylistPageComponent", () => {
     expect(component["canExtract"]()).toBe(false)
   })
 
-  it("interdit l extraction quand les versions divergent", () => {
+  it("blocks extraction when the versions mismatch", () => {
     const { component } = mountWith({
       versionMismatch: signal({ ui: "1.0.0", sidecar: "0.9.0" }),
     })
@@ -537,25 +537,25 @@ describe("PlaylistPageComponent", () => {
     expect(component["canExtract"]()).toBe(false)
   })
 
-  it("ne propose le selecteur de playlist que pour un dump VLC", () => {
+  it("offers the playlist selector only for a VLC dump", () => {
     const { component } = mountWith()
 
     expect(component["showsPlaylistSelector"]()).toBe(true)
   })
 
-  it("ne propose pas de selecteur pour un M3U8", () => {
+  it("offers no playlist selector for an M3U8", () => {
     const { component } = mountWith({ playlistFormat: signal("m3u8") })
 
     expect(component["showsPlaylistSelector"]()).toBe(false)
   })
 
-  it("retient la copie par defaut", () => {
+  it("defaults to copy", () => {
     const { component } = mountWith()
 
     expect(component["choice"]().mode).toBe("copy")
   })
 
-  it("demande le listage des playlists des qu un fichier est choisi", async () => {
+  it("requests the playlist listing as soon as a file is chosen", async () => {
     const { component, service } = mountWith()
 
     await component["choosePlaylistFile"]()
@@ -563,7 +563,7 @@ describe("PlaylistPageComponent", () => {
     expect(service.listPlaylists).toHaveBeenCalledWith("C:/x/vlc_media.db")
   })
 
-  it("emet une commande portant les chemins, la playlist et le mode", async () => {
+  it("sends a command carrying the paths, the playlist and the mode", async () => {
     const { component, service } = mountWith()
     withAllPathsChosen(component)
 

@@ -359,20 +359,20 @@ describe("SidecarService", () => {
     service = TestBed.inject(SidecarService)
   })
 
-  it("lance le sidecar une seule fois", async () => {
+  it("spawns the sidecar only once", async () => {
     await service.start()
     await service.start()
 
     expect(transport.starts).toBe(1)
   })
 
-  it("demande la version avant toute autre commande", async () => {
+  it("requests the version before any other command", async () => {
     await service.start()
 
     expect(JSON.parse(transport.sent[0])).toEqual({ command: "get_version" })
   })
 
-  it("alimente la version depuis l evenement recu", async () => {
+  it("feeds the version from the received event", async () => {
     await service.start()
 
     transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
@@ -380,7 +380,7 @@ describe("SidecarService", () => {
     expect(service.version()).toBe(APP_VERSION)
   })
 
-  it("ne signale aucune divergence quand les versions concordent", async () => {
+  it("reports no mismatch when the versions match", async () => {
     await service.start()
 
     transport.emit({ event: "version", version: APP_VERSION, api_key_configured: true })
@@ -388,7 +388,7 @@ describe("SidecarService", () => {
     expect(service.versionMismatch()).toBeNull()
   })
 
-  it("signale la divergence en portant les deux versions", async () => {
+  it("reports the mismatch with both versions", async () => {
     await service.start()
 
     transport.emit({ event: "version", version: "0.0.1-old", api_key_configured: false })
@@ -396,7 +396,7 @@ describe("SidecarService", () => {
     expect(service.versionMismatch()).toEqual({ ui: APP_VERSION, sidecar: "0.0.1-old" })
   })
 
-  it("reste indisponible sans lever quand le lancement echoue", async () => {
+  it("stays unavailable without throwing when the spawn fails", async () => {
     transport.startable = false
 
     await service.start()
@@ -404,7 +404,7 @@ describe("SidecarService", () => {
     expect(service.available()).toBe(false)
   })
 
-  it("alimente les playlists recues", async () => {
+  it("feeds the received playlists", async () => {
     await service.start()
 
     transport.emit({
@@ -417,7 +417,7 @@ describe("SidecarService", () => {
     expect(service.playlistFormat()).toBe("vlc_dump")
   })
 
-  it("alimente la progression recue", async () => {
+  it("feeds the received progress", async () => {
     await service.start()
 
     transport.emit({ event: "progress", phase: "extraction", processed: 2, total: 5 })
@@ -430,7 +430,7 @@ describe("SidecarService", () => {
     })
   })
 
-  it("alimente le resultat et remet la progression au repos", async () => {
+  it("feeds the result and resets the progress", async () => {
     await service.start()
     transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
 
@@ -448,7 +448,7 @@ describe("SidecarService", () => {
     expect(service.progress()).toBeNull()
   })
 
-  it("alimente l erreur sans interrompre le flux", async () => {
+  it("feeds the error without interrupting the stream", async () => {
     await service.start()
 
     transport.emit({ event: "error", code: "playlist_not_found", params: {}, message: "x" })
@@ -458,7 +458,7 @@ describe("SidecarService", () => {
     expect(service.version()).toBe(APP_VERSION)
   })
 
-  it("ignore une ligne qui n est pas du JSON", async () => {
+  it("ignores a line that is not JSON", async () => {
     await service.start()
 
     transport.emitRaw("pas du json")
@@ -467,7 +467,7 @@ describe("SidecarService", () => {
     expect(service.version()).toBe(APP_VERSION)
   })
 
-  it("ignore un evenement de type inconnu", async () => {
+  it("ignores an event of unknown type", async () => {
     await service.start()
 
     transport.emit({ event: "unheard_of" })
@@ -476,7 +476,7 @@ describe("SidecarService", () => {
     expect(service.lastError()).toBeNull()
   })
 
-  it("n interprete jamais une ligne de stderr comme un evenement", async () => {
+  it("never reads a stderr line as an event", async () => {
     await service.start()
 
     transport.handlers?.onStderr(
@@ -486,7 +486,7 @@ describe("SidecarService", () => {
     expect(service.version()).toBeNull()
   })
 
-  it("ecrit une commande sur une ligne terminee par un saut de ligne", async () => {
+  it("writes a command as a single newline-terminated line", async () => {
     await service.start()
 
     await service.extractPlaylist({
