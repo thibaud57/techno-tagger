@@ -2,7 +2,7 @@
 feature: "Feature 1 — Onglet Playlist, extraction sélective"
 subproject: "cablage-i18n"
 goal: "Rendre l'interface traduisible dès son premier écran, pour qu'aucun libellé n'ait à être repris ensuite"
-status: "draft"
+status: "implemented"
 complexity: "S"
 tdd_scope: "partial"
 depends_on: []

@@ -66,29 +66,29 @@ import { FALLBACK_LANGUAGE, languageFromTag, resolveInitialLanguage } from "./la
  * ngx-translate : c'est une regle du projet, donc a couvrir ici.
  */
 describe("languageFromTag", () => {
-  it("retient le francais sur un tag regional", () => {
+  it("resolves French from a regional tag", () => {
     expect(languageFromTag("fr-FR")).toBe("fr")
   })
 
-  it("retient le francais sur un tag sans region", () => {
+  it("resolves French from a tag without region", () => {
     expect(languageFromTag("fr")).toBe("fr")
   })
 
-  it("compare le prefixe et non l egalite", () => {
+  it("matches on the prefix, not on equality", () => {
     expect(languageFromTag("fr-BE")).toBe("fr")
     expect(languageFromTag("fr-Latn-FR")).toBe("fr")
   })
 
-  it("retient l anglais sur toute autre langue", () => {
+  it("resolves English for any other language", () => {
     expect(languageFromTag("de-DE")).toBe("en")
     expect(languageFromTag("en-US")).toBe("en")
   })
 
-  it("ignore la casse du tag", () => {
+  it("ignores the tag case", () => {
     expect(languageFromTag("FR-fr")).toBe("fr")
   })
 
-  it("retient l anglais sur une valeur absente ou vide", () => {
+  it("resolves English for a missing or empty value", () => {
     expect(languageFromTag(null)).toBe(FALLBACK_LANGUAGE)
     expect(languageFromTag(undefined)).toBe(FALLBACK_LANGUAGE)
     expect(languageFromTag("")).toBe(FALLBACK_LANGUAGE)
@@ -96,7 +96,7 @@ describe("languageFromTag", () => {
 })
 
 describe("resolveInitialLanguage", () => {
-  it("prefere la locale systeme quand elle repond", async () => {
+  it("prefers the system locale when it answers", async () => {
     const language = await resolveInitialLanguage(
       async () => "fr-FR",
       () => "de-DE",
@@ -105,7 +105,7 @@ describe("resolveInitialLanguage", () => {
     expect(language).toBe("fr")
   })
 
-  it("consulte le navigateur quand la locale systeme rend null", async () => {
+  it("falls back to the browser when the system locale is null", async () => {
     const language = await resolveInitialLanguage(
       async () => null,
       () => "fr-BE",
@@ -114,7 +114,7 @@ describe("resolveInitialLanguage", () => {
     expect(language).toBe("fr")
   })
 
-  it("consulte le navigateur quand l appel a Tauri rejette", async () => {
+  it("falls back to the browser when the Tauri call rejects", async () => {
     const language = await resolveInitialLanguage(
       () => Promise.reject(new TypeError("__TAURI_INTERNALS__ is undefined")),
       () => "fr-FR",
@@ -123,7 +123,7 @@ describe("resolveInitialLanguage", () => {
     expect(language).toBe("fr")
   })
 
-  it("retombe sur l anglais quand aucune source ne repond", async () => {
+  it("falls back to English when no source answers", async () => {
     const language = await resolveInitialLanguage(
       () => Promise.reject(new TypeError("hors Tauri")),
       () => "",
@@ -284,7 +284,7 @@ import fr from "../../../public/i18n/fr.json"
  * Les deux fichiers de langue se maintiennent a la main : rien n'empeche d'en
  * enrichir un seul, et le manque ne se verrait qu'a l'ecran, sur une cle brute.
  */
-describe("fichiers de langue", () => {
+describe("language files", () => {
   function leaves(source: object, prefix = ""): [string, unknown][] {
     return Object.entries(source).flatMap(([key, value]) =>
       typeof value === "object" && value !== null
@@ -297,11 +297,11 @@ describe("fichiers de langue", () => {
     return leaves(source).map(([key]) => key)
   }
 
-  it("portent exactement les memes cles", () => {
+  it("carry exactly the same keys", () => {
     expect(flatten(fr).sort()).toEqual(flatten(en).sort())
   })
 
-  it("ne laissent aucune valeur vide, a n importe quelle profondeur", () => {
+  it("leave no empty value at any depth", () => {
     const empties = [...leaves(fr), ...leaves(en)].filter(([, value]) => value === "")
 
     expect(empties).toEqual([])
