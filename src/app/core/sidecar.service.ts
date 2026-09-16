@@ -33,8 +33,7 @@ const unavailableError = (): SidecarErrorEvent => ({
 
 /**
  * Frontiere unique entre la webview et le metier. Detient l'etat du run : les
- * composants lisent et emettent, ils ne calculent rien. La file d'arbitrage
- * n'existe pas ici, elle viendra avec le pipeline de tagging (Feature 2).
+ * composants lisent et emettent, ils ne calculent rien.
  */
 @Injectable({ providedIn: "root" })
 export class SidecarService {
@@ -50,7 +49,6 @@ export class SidecarService {
 
   readonly available = this._available.asReadonly()
   readonly version = this._version.asReadonly()
-  /** Non nul quand le sidecar et l'interface ne portent pas la meme version. */
   readonly versionMismatch = computed(() => {
     const sidecar = this._version()
 
@@ -76,8 +74,6 @@ export class SidecarService {
   private started = false
 
   /**
-   * Lance le sidecar et lui demande sa version.
-   *
    * Idempotent : le sidecar est un process long lance au demarrage, pas une
    * invocation par action.
    */

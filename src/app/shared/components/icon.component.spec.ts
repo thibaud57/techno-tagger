@@ -2,10 +2,7 @@ import { TestBed } from "@angular/core/testing"
 
 import { ICON_NAMES, IconComponent } from "./icon.component"
 
-/**
- * Le `@switch` n'est pas verifie exhaustif par Angular : un nom ajoute a l'union
- * sans son `@case` rendrait une icone vide, sans erreur nulle part.
- */
+/** Parcourt `ICON_NAMES` : Angular ne verifie pas l'exhaustivite d'un `@switch`. */
 describe("IconComponent", () => {
   beforeEach(() => {
     TestBed.configureTestingModule({ imports: [IconComponent] })

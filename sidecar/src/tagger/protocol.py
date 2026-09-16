@@ -92,7 +92,7 @@ def parse_command(line: str) -> AnyCommand:
 
 @verify(UNIQUE)
 class Phase(StrEnum):
-    """Les quatre phases longues que couvre l'evenement `progress`."""
+    """Phases longues que couvre l'evenement `progress`."""
 
     EXTRACTION = auto()
     TAGGING = auto()
@@ -175,9 +175,9 @@ class FailurePayload(BaseModel):
 
 
 class ExtractionFinished(Event):
-    """Cinq categories, la ou ARCHITECTURE.md n'en decrivait que trois : un
-    transfert peut echouer sans que le morceau soit introuvable, et un fichier
-    deja present n'a pas ete extrait.
+    """Categories plus fines que celles d'ARCHITECTURE.md : un transfert peut
+    echouer sans que le morceau soit introuvable, et un fichier deja present n'a
+    pas ete extrait.
     """
 
     event: Literal["extraction_finished"]

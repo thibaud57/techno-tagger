@@ -70,7 +70,7 @@ class DuplicateResolution:
     """Trace d'un choix automatique entre homonymes.
 
     Ce que la CLI d'origine faisait silencieusement, et qui est la vraie regression
-    corrigee par ADR-020 : le choix reste automatique, mais il devient verifiable.
+    corrigee ici : le choix reste automatique, mais il devient verifiable.
     """
 
     file_name: str
@@ -140,7 +140,7 @@ class DestinationFolderUnwritableError(ExtractionError):
 def pick_file(file_name: str, candidates: Sequence[Path]) -> PickedFile:
     """Retient un chemin parmi des homonymes et rend la trace du choix.
 
-    Departage d'ADR-020, dans l'ordre : taille decroissante, puis ordre alphabetique
+    Departage dans l'ordre : taille decroissante, puis ordre alphabetique
     du chemin a taille egale. Ce second critere n'est pas cosmetique : sans lui, deux
     runs sur le meme dossier pourraient retenir deux fichiers differents.
 
@@ -181,7 +181,7 @@ def build_source_index(
 
     Une recherche par nom relirait l'arborescence autant de fois qu'il y a de
     morceaux, et devrait de toute facon la parcourir entierement pour reperer les
-    homonymes qu'ADR-020 impose de departager.
+    homonymes a departager.
 
     Les cles sont en minuscules : la cible est Windows, dont le systeme de fichiers
     est insensible a la casse. `excluded` ecarte un sous-dossier de `source`, compare

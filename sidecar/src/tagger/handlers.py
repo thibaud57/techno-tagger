@@ -1,8 +1,8 @@
 """Execution d'une commande validee : du modele du protocole au metier, puis a
 l'evenement.
 
-Separe de `__main__.py` pour que le point d'entree reste le moteur et le routage :
-le contrat compte quatre commandes ici et une quinzaine a terme.
+Separe de `__main__.py` pour que le point d'entree reste le moteur et le routage,
+le contrat etant appele a grandir bien au-dela des commandes actuelles.
 """
 
 import logging

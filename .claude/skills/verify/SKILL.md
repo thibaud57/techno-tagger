@@ -53,6 +53,8 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
 - Lire l'état dans la page : `document.documentElement.lang`, le texte des `p-tab` et du `h1`, `performance.getEntriesByType("resource")` pour les `/i18n/*.json`
 - Forcer une langue de navigateur : redéfinir `Navigator.prototype.language` par `addInitScript` (Playwright) ou `Page.addScriptToEvaluateOnNewDocument` (CDP), puis recharger
 - Simuler un fichier de langue absent : `page.route("**/i18n/fr.json", (r) => r.fulfill({ status: 404 }))`
+- Remplacer le sélecteur natif de l'onglet Playlist : `ng.getComponent(document.querySelector("app-playlist-page")).openPath = async () => file.shift() ?? null`, puis cliquer les vrais boutons (`button[pbutton]`, repérés par leur texte traduit). Le chemin ainsi fourni suit le handler réel, garde d'annulation comprise
+- Lire ou écrire le `store` depuis la page : `__TAURI_INTERNALS__.invoke("plugin:store|load", { path: "preferences.json" })` rend un `rid`, puis `plugin:store|get` avec `{ rid, key }` rend `[valeur, existe]`
 - Lire un service `providedIn: "root"` depuis la page (build de dev) : parcourir `ng.ɵgetInjectorResolutionPath(ng.getInjector(document.querySelector("app-root")))`, chercher dans `ng.ɵgetInjectorProviders(inj)` la classe dont le nom finit par `SidecarService` (`Object.values(record)`), puis `inj.get(classe)` et lire ses signals. Sous Tauri, même expression par CDP `Runtime.evaluate` avec `awaitPromise`, script Node écrit dans le scratchpad
 
 ## Flux interface qui valent le coup
@@ -65,6 +67,19 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
 - Sidecar sous `ng serve` : `available` faux, `[sidecar] lancement impossible` tracé en console, pages navigables par URL, une commande émise pose `lastError.code = "sidecar_unavailable"` sans lever
 - Extraction réelle par le service (`listPlaylists` puis `extractPlaylist` sur un dump et une bibliothèque de fixture) : `extracting` vrai et `ready` faux pendant le run, puis retour au repos, rapport dans `extraction()`, fichiers et rapports `.json` + `.md` en destination, bibliothèque intacte
 - Release sans rechargement : `pnpm exec tauri build --no-bundle`, lancer `src-tauri/target/release/techno-tagger.exe` avec `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, poser par CDP un marqueur `window.__marker` et un écouteur `keydown`, envoyer `^r` puis `{F5}` par `SendKeys` PowerShell (`AppActivate` sur le pid) : les touches arrivent, le marqueur survit, un seul `tagger.exe`
+- Onglet Playlist sous Tauri, fixture du § Fixture isolée plus un M3U8 à deux entrées, un M3U8 réduit à `#EXTM3U`, un faux JPEG et un morceau du dump absent de la bibliothèque :
+  - chemins affichés tronqués par la gauche, largeur des boutons de sélection identique avant et après sélection
+  - faux JPEG : bandeau d'erreur avec icône `times-circle`, « Extraire » désactivé ; M3U8 : icône `file`, aucun sélecteur ; dump : squelette, logo VLC, options « nom (N morceaux) », « Extraire » actif seulement une playlist choisie
+  - extraction : barre indéterminée puis déterminée, table Fichier | État | Détails, une ligne par morceau plus une par doublon, hauteur réelle du `<tr>` égale à `rowHeight` du composant, libellé de tag sur une ligne ; relancée dans la même destination, les morceaux passent en « Déjà présent »
+  - M3U8 vide vers une destination neuve : titre et table affichés, ligne « Aucun morceau dans cette playlist. » ; rapports `.json` + `.md` écrits, compteurs à zéro
+  - bascule « Déplacer » : `extraction_mode` vaut `move` dans le `store` et le choix survit à `Page.reload` ; remettre ensuite la valeur d'origine
+  - sous `ng serve` seul : bandeau « Le sidecar n'est pas démarré » avec icône, « Extraire » désactivé, un clic sur un sélecteur ne lève rien
+  - pendant un run (un `MutationObserver` note l'état tant qu'un `p-progressbar` est monté) : les trois boutons de sélection `disabled`, `p-select` et `p-selectbutton` en `p-disabled`
+- Conformité à DESIGN.md sur l'onglet Playlist :
+  - aucun défilement de page (`document.scrollingElement` et la `section`), la table remplit la hauteur restante, à 1280 × 800 puis au plancher 1024 × 700 par `Emulation.setDeviceMetricsOverride`
+  - « Extraire » dimensionné sur son contenu, `p-skeleton` à la hauteur du `p-select` qui le remplace, bloc vide (icône 24px `text-muted-color`, titre `text-base`, phrase `text-sm`)
+  - tags : familles de § Couleurs Sémantiques, lues sur la classe `p-tag-*` et l'icône `data-p-icon`
+  - tooltip : suivre `.p-tooltip` toutes les 100ms après un `Input.dispatchMouseEvent` : visible à 400ms sur un texte coupé, jamais sur un texte entier, retiré dès la sortie, classe `tt-tooltip-wide`, `pointer-events: none`
 - Fin de session : fermer la fenêtre par `taskkill //IM techno-tagger.exe` sans `/F` (message de fermeture), puis constater que `tagger.exe` a disparu
 
 ## Gotchas
@@ -84,4 +99,8 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
 - Le premier `SendKeys` après `AppActivate` peut partir avant le focus : envoyer d'abord une touche sans enjeu, et ne conclure que sur une touche vue par l'écouteur `keydown`
 - Ne pas lancer `just test` pendant `just build-sidecar` : le build pose un `_build_info.py` de production le temps de la compilation, et `test_build_info` échoue
 - Les hooks bloquent `curl` (exécution distante) et tout heredoc contenant le mot `token` (fichier sensible supposé) : interroger `http://127.0.0.1:9222/json` par `fetch` depuis Node, écrire le script CDP avec l'outil Write
+- `__TAURI_INTERNALS__.invoke` n'est ni réinscriptible ni reconfigurable : l'affecter échoue en silence et le clic ouvre le vrai sélecteur natif sur l'écran de l'utilisateur. Remplacer `openPath` sur l'instance du composant, et fermer l'app par `taskkill` si un sélecteur natif est resté ouvert
+- Échantillonner l'état d'un tooltip par des `Runtime.evaluate` espacés d'un `sleep` fixe fausse la mesure (latence de CDP, survol intermédiaire) : suivre une chronologie serrée depuis un seul point de survol
+- Cliquer « Extraire » juste après avoir choisi un fichier part avant la réponse du listage : `canExtract` le refuse à raison, le bouton n'étant pas encore repeint. Attendre que le bouton repasse actif avant de cliquer
+- Modifier un template pendant `just dev` recharge la page (sidecar en plus, état perdu) : arrêter l'app avant de corriger, puis relancer à froid
 - `ng.getInjectorResolutionPath` et `ng.getInjectorProviders` n'existent pas sans le préfixe `ɵ`, et la classe s'appelle `_SidecarService` en build de dev

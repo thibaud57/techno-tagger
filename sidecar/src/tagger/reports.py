@@ -106,7 +106,7 @@ class FailureEntry(BaseModel):
 
 
 class ReportCounts(BaseModel):
-    """Decomptes des cinq categories, lus sans parcourir les listes."""
+    """Decomptes des categories, lus sans parcourir les listes."""
 
     extracted: int
     already_present: int
@@ -128,7 +128,7 @@ class ExtractionReport(BaseModel):
     `BaseModel` et non un `dict` serialise a la main : le rapport franchit une
     frontiere et il est permanent, donc relu par une version ulterieure de
     l'application. C'est ce modele qui portera la migration d'un `schema_version`
-    anterieur, dans un `@model_validator(mode="before")` (ADR-018).
+    anterieur, dans un `@model_validator(mode="before")`.
     """
 
     schema_version: int = SCHEMA_VERSION
@@ -147,7 +147,6 @@ class ExtractionReport(BaseModel):
 
 
 def build_report(result: ExtractionResult, context: ReportContext) -> ExtractionReport:
-    """Assemble le rapport depuis le resultat d'extraction et le contexte du run."""
     return ExtractionReport(
         generated_at=context.generated_at,
         source_folder=context.source_folder,
@@ -206,7 +205,7 @@ def render_markdown(result: ExtractionResult, context: ReportContext) -> str:
     les listes viennent d'une unique passe sur `result`, jamais recalcules ici, pour
     qu'un changement de definition d'un decompte ne puisse pas desynchroniser les
     deux rendus. Une categorie sans contenu est omise : une section vide n'apprend
-    rien, le tableau de synthese portant deja les cinq decomptes.
+    rien, le tableau de synthese portant deja les decomptes.
     """
     return _render_markdown(build_report(result, context))
 
@@ -323,7 +322,7 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     """Depose le rapport dans le dossier destination et rend les deux chemins.
 
     Un couple de fichiers par run, horodate : le rapport est permanent et sert de
-    base a la relecture d'un run passe (ADR-018), un nom fixe ecraserait donc
+    base a la relecture d'un run passe, un nom fixe ecraserait donc
     exactement ce qu'il protege.
 
     Leve `ReportWriteError` si le disque refuse, en nommant le fichier ou le
@@ -346,7 +345,7 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     try:
         _write_report_file(markdown_path, _render_markdown(report))
     except ReportWriteError:
-        # Le JSON est deja durablement sur le disque (ADR-018) : sans cette trace,
+        # Le JSON est deja durablement sur le disque : sans cette trace,
         # rien ne le rattache plus au run qui l'a produit une fois l'erreur remontee.
         logger.warning("json report orphaned by a failed markdown write report=%s", json_path.name)
         raise

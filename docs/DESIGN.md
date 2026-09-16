@@ -187,7 +187,7 @@ Côté Tailwind v4, le variant est aligné sur le même sélecteur dans le CSS g
 | Tailwind CSS v4 | Styling utilitaire | Layout, espacement, typographie, états custom |
 | `tailwindcss-primeui` | Pont entre les deux | Expose les tokens du preset en classes et fournit les utilitaires d'animation. L'alignement du variant `dark:` reste à écrire à la main, cf. § Dark / Light Mode |
 | `@primeicons/angular` 8 | Icônes d'interface | Toutes les icônes UI, câblées d'office dans les composants PrimeNG. Composants SVG standalone, sous licence PrimeUI comme PrimeNG (cf. [ADR-003](adrs/003-primeng-community-license.md)) |
-| Simple Icons (4 SVG en assets) | Logos | Beatport, Bandcamp, SoundCloud, VLC media player |
+| Simple Icons (SVG en assets) | Logos | Beatport, Bandcamp, SoundCloud, VLC media player |
 
 ### Installation
 
@@ -226,6 +226,8 @@ providePrimeNG({
 
 Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de l'étape 5 de l'ordre de développement : ce mapping la précède et la contraint. Les features référencées sont celles de [ARCHITECTURE.md § Flux Fonctionnels](ARCHITECTURE.md#flux-fonctionnels-use-cases-critiques).
 
+> Les lignes qui nomment encore `p-button` se lisent avec la directive `pButton`, le composant étant déprécié depuis PrimeNG 22 (cf. [composants.md](../.claude/rules/primeng/composants.md)).
+
 ### Navigation
 
 | Catégorie | Composant | Librairie | Notes |
@@ -236,7 +238,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Sélection de dossier / de fichier | `p-button` (outlined) + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche à côté en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
+| Sélection de dossier / de fichier | `button pButton` (outlined) + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche à côté en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
 | Playlist détectée | Logo VLC (SVG) ou `file` | Simple Icons / PrimeIcons | Le logo signale un dump VLC reconnu. Un M3U8 tombe sur l'icône générique, le logiciel qui l'a exporté étant inconnu |
 | Sélecteur de playlist (dump VLC) | `p-select` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
 | Mode copie / déplacement | `p-selectbutton` | PrimeNG | Deux options, copie par défaut |
@@ -296,12 +298,12 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 ### Composants Custom
 
-Quatre wrappers, écrits une fois pour que ce qu'ils encapsulent ne soit pas recopié écran par écran.
+Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopié écran par écran.
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Icône d'interface | `IconComponent` | `@primeicons/angular` | Nom d'icône et token de taille en props. Le nom est une union littérale des icônes utilisées, jamais `string` : un nom ouvert imposerait un registre des 360 icônes de la 8.0.0 et casserait le tree-shaking. Un import et un `@case` par icône, plus un test qui parcourt la liste, Angular ne vérifiant pas l'exhaustivité d'un `@switch`. Le rendu passe par `data-p-icon` sur un `<svg>`, la taille se pose donc en `width` / `height` et non en `font-size`. Sans ce wrapper, les trois tailles 16 / 20 / 24 se recopient à la main partout |
-| Logo de source | `SourceLogoComponent` | Simple Icons | Les quatre logos en `currentColor`, même jeu de trois tailles |
+| Logo de source | `SourceLogoComponent` | Simple Icons | Les logos de source en `currentColor`, même jeu de tailles que les icônes |
 | État d'un morceau | `StateTagComponent` | PrimeNG (`p-tag`) | Porte le mapping `state` / `resolution` / `failure_reason` → famille, icône, libellé. Entièrement spécifié au § Couleurs Sémantiques : l'encoder une fois évite qu'il soit re-dérivé, de travers, écran par écran |
 | Bloc vide | `EmptyStateComponent` | — (from scratch) | Le bloc vide décrit au § États des Composants. PrimeNG n'a pas d'équivalent, il s'écrit from scratch |
 
@@ -342,7 +344,7 @@ La taille s'apparie à celle des éléments de la même rangée, pas à une pré
 
 **Librairie UI** : `@primeicons/angular` 8, tiré par PrimeNG v22. Des composants standalone rendant du **SVG inline**, et non plus la police et ses classes `pi pi-*` des versions antérieures. Aucun asset de police à copier, donc rien à embarquer pour l'affichage hors ligne
 
-**Librairie logos** : quatre SVG [Simple Icons](https://simpleicons.org) copiés dans `src/assets/icons/`, en `fill="currentColor"`
+**Librairie logos** : SVG [Simple Icons](https://simpleicons.org) copiés dans `src/assets/icons/`, en `fill="currentColor"`
 
 | Logo | Où |
 |------|-----|
@@ -352,7 +354,7 @@ La taille s'apparie à celle des éléments de la même rangée, pas à une pré
 **Règles** :
 
 - Taille cohérente par contexte : `16px` inline (tables, tags), `20px` UI standard (boutons, entêtes), `24px` standalone (écran bloquant, états vides), posées en `width` / `height` sur le SVG et non en `font-size`
-- PrimeIcons couvre toute l'interface. Ses 21 icônes de marques ne contiennent **aucune des quatre** dont le projet a besoin, d'où les SVG en assets
+- PrimeIcons couvre toute l'interface. Ses icônes de marques ne contiennent **aucun des logos** dont le projet a besoin, d'où les SVG en assets
 - Quatre fichiers copiés plutôt que le paquet `simple-icons` complet : on en extrairait quatre chemins sur plus de trois mille
 - `currentColor` obligatoire sur les SVG : la couleur vient du contexte, elle n'est jamais écrite dans le fichier
 - Aucune action destructive n'est signalée par une icône seule : rollback et confirmation d'écriture portent toujours un libellé traduit
@@ -400,7 +402,7 @@ C'est le seul `!important` toléré du projet (cf. § Anti-Patterns) : il ne cor
 | Ligne de table changeant d'état | Transition de couleur du tag 150ms | CSS | Événement `track_resolved` |
 | Vignette de pochette | Fondu à l'arrivée de l'image | `animate-fadein animate-duration-200` | Chargement terminé |
 | Contenu d'un onglet | Fondu, opacité seule, jamais de déplacement | `animate-fadein animate-duration-200` | Changement d'onglet |
-| Tooltip | Fondu 200ms à l'apparition, rien à la disparition | Preset + `showDelay` à 400ms, `undefined` par défaut | Survol maintenu : un survol de passage n'allume rien, un survol intentionnel oui |
+| Tooltip | Fondu de 250ms à l'apparition, rien à la disparition | Intégré à PrimeNG (`fadeIn` codé en dur, non réglable) + `showDelay` à 400ms, `undefined` par défaut | Survol maintenu : un survol de passage n'allume rien, un survol intentionnel oui |
 
 La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seul ce qu'elle commande se substitue.
 

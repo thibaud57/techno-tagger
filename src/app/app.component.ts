@@ -10,6 +10,8 @@ import { FALLBACK_LANGUAGE } from "./core/language"
   imports: [RouterOutlet, Tabs, TabList, Tab, TranslatePipe],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
+  // Onglets en haut, page sur le reste : la hauteur descend jusqu'a la table qui defile.
+  host: { class: "flex h-screen flex-col" },
 })
 export class AppComponent {
   private readonly translate = inject(TranslateService)

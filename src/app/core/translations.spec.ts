@@ -1,6 +1,8 @@
 import en from "../../../public/i18n/en.json"
 import fr from "../../../public/i18n/fr.json"
 
+import { SIDECAR_UNAVAILABLE } from "./sidecar.service"
+
 /** Enrichir un seul fichier ne casse rien : le manque ne se verrait qu'a l'ecran, en cle brute. */
 describe("language files", () => {
   function leaves(source: Record<string, unknown>, prefix = ""): [string, unknown][] {
@@ -23,5 +25,11 @@ describe("language files", () => {
     const empties = [...leaves(fr), ...leaves(en)].filter(([, value]) => value === "")
 
     expect(empties).toEqual([])
+  })
+
+  it("translate the error the interface raises itself", () => {
+    expect([en.errors[SIDECAR_UNAVAILABLE], fr.errors[SIDECAR_UNAVAILABLE]]).not.toContain(
+      undefined,
+    )
   })
 })

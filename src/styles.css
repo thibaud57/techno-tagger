@@ -15,6 +15,21 @@
   --font-sans: "Inter Variable", system-ui, sans-serif;
 }
 
+/* DESIGN.md § Tokens de Tooltip : jamais entre le curseur et ce qu'il decrit, et une largeur
+   `wide` pour une valeur de colonne coupee (cf. shared/tooltip.ts). Hors couche, ces regles
+   passent devant celles de PrimeNG, rangees dans la couche `primeng`. */
+:root {
+  --tt-tooltip-max-width-wide: 26rem;
+}
+
+.p-tooltip {
+  pointer-events: none;
+}
+
+.p-tooltip.tt-tooltip-wide {
+  max-width: var(--tt-tooltip-max-width-wide);
+}
+
 /* Le plugin pose une propriete `animation` sur les utilitaires, pas une variable
    interposee : la coupure surcharge donc la propriete elle-meme. Seul !important
    tolere du projet, il neutralise une preference systeme par-dessus des classes

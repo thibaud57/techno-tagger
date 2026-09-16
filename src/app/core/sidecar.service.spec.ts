@@ -5,10 +5,7 @@ import { SidecarEvent } from "./models/protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
 
-/**
- * Le protocole se mocke au niveau du transport, la frontiere que le service
- * expose : monter un vrai sidecar testerait Tauri et PyInstaller, pas notre code.
- */
+/** Mock a la frontiere du transport : un vrai sidecar testerait Tauri et PyInstaller. */
 class FakeTransport implements SidecarTransport {
   handlers: SidecarHandlers | null = null
   readonly sent: string[] = []

@@ -92,7 +92,7 @@ def _collate_filename(left: str, right: str) -> int:
 def _verify_schema(connection: sqlite3.Connection) -> None:
     """Leve `IncompatibleDumpSchemaError` en nommant tout ce qui manque.
 
-    Un schema partiellement compatible est traite comme incompatible (ADR-019).
+    Un schema partiellement compatible est traite comme incompatible.
     """
     present_tables = {
         str(row[0]).lower()
@@ -116,7 +116,7 @@ def _verify_schema(connection: sqlite3.Connection) -> None:
 # `count(DISTINCT ...)` et non `count(...)` : un morceau peut figurer deux fois dans
 # une playlist, et le `DISTINCT` de l'extraction les fusionnerait. Les compteurs
 # denormalises de `Playlist` sont ignores, releves a zero sur un dump reel.
-# `p.name` n'est pas declare `NOT NULL` (cf. docs/knowledges/vlc-media-db.md § DDL) :
+# `p.name` n'est pas declare `NOT NULL` :
 # sans le filtre, une playlist sans nom serait rendue avec `name="None"`, un
 # `str(None)` plutot qu'une absence de nom.
 LIST_PLAYLISTS_QUERY: Final = """
@@ -142,7 +142,7 @@ def list_playlists(dump_path: Path) -> tuple[PlaylistSummary, ...]:
 
 # Requete d'origine de la CLI, nom de playlist parametre et non plus code en dur.
 # Le `CAST(... AS TEXT) COLLATE NOCASE` impose l'ordre independamment de la
-# collation de colonne, ce qui rend le rapport lisible (ADR-019).
+# collation de colonne, ce qui rend le rapport lisible.
 # `m.filename` n'est pas declare `NOT NULL` (cf. docs/knowledges/vlc-media-db.md
 # § DDL) : sans le filtre, un media sans nom de fichier serait stringifie en
 # "None" par `str(row[0])` plutot que d'etre exclu.

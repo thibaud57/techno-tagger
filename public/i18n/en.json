@@ -4,8 +4,83 @@
     "tagging": "Tagging",
     "settings": "Settings"
   },
+  "errors": {
+    "malformed_command": "An internal error interrupted the operation. Restart the application.",
+    "unknown_error": "An unexpected error interrupted the operation. If it happens again, the details are in the logs folder.",
+    "playlist_error": "This playlist file could not be read.",
+    "unsupported_playlist_format": "{{filename}} is neither a VLC media library nor a readable M3U8 playlist.",
+    "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read (missing: {{missing}}).",
+    "playlist_not_found": "No playlist named {{playlist_name}} in this media library.",
+    "playlist_file_unreadable": "{{filename}} cannot be opened.",
+    "unreadable_dump": "{{filename}} is not a readable VLC media library.",
+    "playlist_name_required": "Choose a playlist from this VLC media library.",
+    "extraction_error": "The extraction failed before it started.",
+    "report_error": "The extraction report could not be produced.",
+    "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
+    "source_folder_unreadable": "The source folder cannot be read: {{folder}}.",
+    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}.",
+    "sidecar_unavailable": "The application engine is not responding. Restart the application."
+  },
   "playlist": {
-    "title": "Playlist"
+    "title": "Playlist",
+    "source": {
+      "label": "Source folder",
+      "choose": "Choose a folder"
+    },
+    "destination": {
+      "label": "Destination folder",
+      "choose": "Choose a folder"
+    },
+    "file": {
+      "label": "Playlist file",
+      "choose": "Choose a file"
+    },
+    "selector": {
+      "label": "Playlist",
+      "option": "{{name}} ({{count}})"
+    },
+    "mode": {
+      "label": "Mode",
+      "copy": "Copy",
+      "move": "Move"
+    },
+    "extract": "Extract",
+    "progress": "{{processed}} of {{total}}",
+    "versionMismatch": "The update is incomplete (versions {{ui}} and {{sidecar}}). Reinstall the application.",
+    "unavailable": "The application engine is not running: extraction is unavailable. Restart the application.",
+    "report": {
+      "title": "Extraction report",
+      "file": "File",
+      "status": "Status",
+      "details": "Details",
+      "empty": {
+        "heading": "Empty playlist",
+        "description": "This playlist has no track to extract."
+      },
+      "detail": {
+        "duplicate": "Kept {{kept}} ({{keptSize}}), discarded {{discarded}} ({{discardedSizes}})"
+      },
+      "criterion": {
+        "largest_file": "Largest file",
+        "path_order": "Same size, first path in alphabetical order"
+      },
+      "reason": {
+        "permission_denied": "Permission denied",
+        "disk_full": "No space left on the destination drive",
+        "path_too_long": "Destination path too long",
+        "file_locked": "File open in another program",
+        "file_missing": "File disappeared during the extraction",
+        "write_failed": "Write failed"
+      },
+      "category": {
+        "extracted": "Extracted",
+        "already_present": "Already present",
+        "missing": "Not found",
+        "duplicate": "Duplicate resolved",
+        "failure": "Transfer failed"
+      },
+      "separator": ": "
+    }
   },
   "tagging": {
     "title": "Tagging"

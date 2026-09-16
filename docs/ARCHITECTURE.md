@@ -81,63 +81,65 @@ techno-tagger/
 ├── src/                                  # Angular : UI uniquement
 │   ├── app/
 │   │   ├── core/
-│   │   │   ├── sidecar.service.ts        #   flux NDJSON <-> sidecar
-│   │   │   ├── sidecar-transport.ts      #   frontière Tauri du sidecar, remplacée en test
-│   │   │   ├── scrub.ts                  #   masquage PII avant envoi Sentry
-│   │   │   └── models/                   #   types miroir du contrat JSON
-│   │   ├── shared/components/            #   4 wrappers custom (cf. DESIGN.md § Composants Custom)
+│   │   │   ├── sidecar.service.ts        # flux NDJSON <-> sidecar
+│   │   │   ├── sidecar-transport.ts      # frontière Tauri du sidecar, remplacée en test
+│   │   │   ├── scrub.ts                  # masquage PII avant envoi Sentry
+│   │   │   └── models/                   # types miroir du contrat JSON
+│   │   ├── shared/
+│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Composants Custom)
+│   │   │   └── utils/                    # fonctions et constantes d'affichage sans état
 │   │   ├── features/
-│   │   │   ├── playlist/                 #   onglet 1 : dossiers, playlist, déplacement
-│   │   │   ├── tagging/                  #   onglet 2 : liste, arbitrage, récapitulatif
-│   │   │   └── settings/                 #   clé API, URL, langue, seuils, copie/déplacement,
-│   │   │                                 #   signal sonore, cache, logs
+│   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
+│   │   │   ├── tagging/                  # onglet 2 : liste, arbitrage, récapitulatif
+│   │   │   └── settings/                 # clé API, URL, langue, seuils, copie/déplacement,
+│   │   │                                 # signal sonore, cache, logs
 │   │   ├── app.component.ts
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
-│   ├── assets/icons/                     #   4 SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
+│   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
 │   ├── index.html
-│   ├── main.ts                           #   bootstrapApplication, init Sentry
-│   ├── build-constants.d.ts              #   constantes substituées par --define
-│   └── styles.css                        #   CSS pur, jamais SCSS
-├── public/i18n/                          #   JSON ngx-translate : Angular sert public/ à la racine
+│   ├── main.ts                           # bootstrapApplication, init Sentry
+│   ├── build-constants.d.ts              # constantes substituées par --define
+│   └── styles.css                        # CSS pur, jamais SCSS
+├── public/i18n/                          # JSON ngx-translate : Angular sert public/ à la racine
 ├── angular.json
 ├── .postcssrc.json                       # @tailwindcss/postcss
-├── package.json                          #   dépendances front, versions dans VERSIONS.md
+├── package.json                          # dépendances front, versions dans VERSIONS.md
 │
 ├── sidecar/                              # le métier Python
-│   ├── pyproject.toml                    #   pydantic, mutagen, rapidfuzz, httpx2, keyring, sentry-sdk
+│   ├── pyproject.toml                    # pydantic, mutagen, rapidfuzz, httpx2, keyring, sentry-sdk
 │   ├── uv.lock
 │   ├── src/tagger/
-│   │   ├── __main__.py                   #   boucle de commandes, émission d'événements
-│   │   ├── build_info.py                 #   façade des constantes gravées au packaging
-│   │   ├── logger.py                     #   fichier tournant + stderr, jamais stdout
-│   │   ├── observability.py              #   init Sentry durci, scrubbing PII
-│   │   ├── protocol.py                   #   modèles des commandes et des événements
-│   │   ├── playlists/                    #   parsing VLC SQLite et M3U8
-│   │   ├── files.py                      #   mutagen : lecture/écriture des tags
-│   │   ├── matching.py                   #   scoring rapidfuzz
-│   │   ├── scraper_client.py             #   appels techno-scraper + X-API-Key
-│   │   ├── cache.py                      #   réponses API et artworks
-│   │   └── plan.py                       #   plan de run, reprise, rapport
-│   ├── tests/                            #   pytest, seuil de couverture bloquant en CI
-│   │   ├── unit/                         #     un module isole, miroir de src/tagger/
-│   │   ├── integration/                  #     plusieurs modules, protocole NDJSON compris
-│   │   ├── fixtures/                     #     donnees figees : audio, vlc_media.db, M3U8
-│   │   └── helpers/                      #     constructeurs partages, importables a plat
-│   ├── tagger.spec                       #   hidden imports et métadonnées collectées
-│   └── build.py                          #   PyInstaller -> binaire
+│   │   ├── __main__.py                   # boucle de commandes, émission d'événements
+│   │   ├── build_info.py                 # façade des constantes gravées au packaging
+│   │   ├── logger.py                     # fichier tournant + stderr, jamais stdout
+│   │   ├── observability.py              # init Sentry durci, scrubbing PII
+│   │   ├── protocol.py                   # modèles des commandes et des événements
+│   │   ├── playlists/                    # parsing VLC SQLite et M3U8
+│   │   ├── files.py                      # mutagen : lecture/écriture des tags
+│   │   ├── matching.py                   # scoring rapidfuzz
+│   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
+│   │   ├── cache.py                      # réponses API et artworks
+│   │   └── plan.py                       # plan de run, reprise, rapport
+│   ├── tests/                            # pytest, seuil de couverture bloquant en CI
+│   │   ├── unit/                         # un module isole, miroir de src/tagger/
+│   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
+│   │   ├── fixtures/                     # donnees figees : audio, vlc_media.db, M3U8
+│   │   └── helpers/                      # constructeurs partages, importables a plat
+│   ├── tagger.spec                       # hidden imports et métadonnées collectées
+│   └── build.py                          # PyInstaller -> binaire
 │
 ├── src-tauri/
 │   ├── binaries/
 │   │   ├── tagger-x86_64-pc-windows-msvc.exe   # suffixe target-triple OBLIGATOIRE
 │   │   └── _internal/                          # deps PyInstaller --onedir -> bundle.resources
-│   ├── capabilities/default.json         #   permissions : shell(sidecar), dialog, fs, store, os, opener (updater s'ajoute à l'étape 9, pas encore câblé)
+│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, fs, store, os, opener (updater s'ajoute à l'étape 9, pas encore câblé)
 │   ├── icons/
 │   ├── src/
-│   │   ├── main.rs                       #   entrée desktop, généré, jamais modifié
-│   │   └── lib.rs                        #   init des plugins, rien d'autre
-│   ├── tauri.conf.json                   #   bundle.externalBin, frontendDist, assetProtocol
-│   ├── installer-hooks.nsh               #   hook NSIS : tue le sidecar avant l'écrasement par l'installeur
+│   │   ├── main.rs                       # entrée desktop, généré, jamais modifié
+│   │   └── lib.rs                        # init des plugins, rien d'autre
+│   ├── tauri.conf.json                   # bundle.externalBin, frontendDist, assetProtocol
+│   ├── installer-hooks.nsh               # hook NSIS : tue le sidecar avant l'écrasement par l'installeur
 │   └── Cargo.toml
 │
 ├── Justfile                               # recettes dev, qualité, build, setup
@@ -162,7 +164,7 @@ graph TB
     subgraph machine["Machine de l'utilisateur"]
         subgraph app["Application Tauri"]
             ui["Webview Angular + PrimeNG<br/>UI seule"]
-            rust["Coquille Rust<br/>8 plugins, cf. tableau Capacités Natives"]
+            rust["Coquille Rust<br/>plugins, cf. tableau Capacités Natives"]
             side["Sidecar Python<br/>process long"]
         end
         fs[("Bibliothèque musicale<br/>MP3 / WAV / AIFF / FLAC")]
@@ -321,7 +323,7 @@ Angular 22 fait d'**OnPush la stratégie de détection de changement par défaut
 - **Table à scroll virtuel** PrimeNG pour les listes de 100 lignes et le tableau récapitulatif filtrable
 - **Styling utilitaire** : **Tailwind CSS v4** avec le plugin officiel **`tailwindcss-primeui`**, qui expose les design tokens du preset en classes. L'alignement du variant `dark:` sur le `darkModeSelector` reste une ligne à écrire dans le CSS global. PrimeNG livre les composants, Tailwind couvre le layout et l'espacement qui restent à écrire. Contrainte à connaître : **Tailwind v4 ne compile ni SCSS ni LESS**, tout le styling du projet est donc en CSS pur
 - **Typographie** : **Inter**, paquet `@fontsource-variable/inter` embarqué dans le bundle. Aucun CDN de polices, l'application devant s'afficher identiquement hors ligne. Le preset Aura ne déclare aucune `font-family`
-- **Icônes** : **`@primeicons/angular`**, tiré par PrimeNG v22, qui rend des composants standalone en SVG inline et non plus une police avec des classes `pi pi-*`. S'y ajoutent quatre SVG **Simple Icons** dans `src/assets/icons/` pour les logos Beatport, Bandcamp, SoundCloud et VLC, absents du jeu
+- **Icônes** : **`@primeicons/angular`**, tiré par PrimeNG v22, qui rend des composants standalone en SVG inline et non plus une police avec des classes `pi pi-*`. S'y ajoutent des SVG **Simple Icons** dans `src/assets/icons/` pour les logos Beatport, Bandcamp, SoundCloud et VLC, absents du jeu
 
 Le détail (tokens, scale typographique, mapping composant par composant, conventions de style et anti-patterns) vit dans [DESIGN.md](DESIGN.md).
 

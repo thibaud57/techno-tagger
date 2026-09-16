@@ -1,5 +1,7 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/sidecar/.venv/Scripts/python.exe",
+  // L'analyseur CSS integre ne connait pas les at-rules de Tailwind 4.
+  "css.lint.unknownAtRules": "ignore",
   "files.exclude": {
     "**/.history": true
   },

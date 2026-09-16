@@ -1,6 +1,6 @@
 /**
  * Miroir manuel de `sidecar/src/tagger/protocol.py`. Pas de generation de code :
- * une vingtaine de types stables ne la rentabilisent pas.
+ * trop peu de types, et stables, pour la rentabiliser.
  */
 
 export type ExtractionMode = "copy" | "move"

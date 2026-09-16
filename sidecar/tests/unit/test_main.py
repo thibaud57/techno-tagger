@@ -1,4 +1,4 @@
-"""Un crash survenu pendant le parsing doit deja etre traçable : logging et Sentry
+"""Un crash survenu pendant le parsing doit deja etre tracable : logging et Sentry
 sont donc armes avant que la boucle de commandes ne lise quoi que ce soit.
 """
 

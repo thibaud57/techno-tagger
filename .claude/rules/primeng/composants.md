@@ -24,10 +24,11 @@ paths:
 - Un libellé en dur dans un template : tout passe par ngx-translate, y compris les messages d'erreur que le sidecar émet en `code` + `params`
 - Une largeur fixe sur du texte traduit : les libellés existent en FR et en EN, et le français est généralement le plus long
 - De la logique métier dans un composant : scores, seuils et classement des candidats viennent du sidecar
+- Le composant `p-button` : déprécié depuis la v22 (`@typescript-eslint/no-deprecated` fait échouer le lint), au profit de `<button pButton type="button">` avec libellé et icône en contenu
 
 ## Gotchas
 - `@primeicons/angular` rend des composants standalone en SVG inline, plus une police à classes. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 étant sous licence PrimeUI
-- Quatre logos absents du jeu (Beatport, Bandcamp, SoundCloud, VLC) viennent de Simple Icons, en SVG dans `src/assets/icons/`
+- Les logos absents du jeu (Beatport, Bandcamp, SoundCloud, VLC) viennent de Simple Icons, en SVG dans `src/assets/icons/`
 - Le scroll virtuel et le filtrage cohabitent, mais c'est le jeu de données filtré qui compte, pas le total
 - Le câblage tabs ↔ router est manuel, une dizaine de lignes dans le shell, sans aucune synchronisation automatique
 - `outline: none` est interdit : la modale d'arbitrage se traite entièrement au clavier et le focus doit rester visible
