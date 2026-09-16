@@ -1,5 +1,13 @@
 # Onglet Playlist — Implementation Plan
 
+> **Plan exécuté, conservé tel quel.** La référence de ce qui a été livré est le spec, pas ce plan. L'implémentation s'en écarte sur ces points :
+> - `<button pButton>` au lieu du composant `p-button`, déprécié depuis PrimeNG 22 ; `provideTranslateService()` au lieu de `TranslateModule`, absent de ngx-translate 18 ; tests ciblés par `ng test --watch=false --include`
+> - Ligne d'un doublon portant les tailles du fichier retenu et des écartés ; tests de repli de `preferences.ts`
+> - Action gardée par le format annoncé et par `canExtract()` jusque dans `extract()` ; sélecteur annulé sans effet ; choix figés pendant un run
+> - Rapport en trois colonnes à hauteur fixe, détail tronqué lisible par `pTooltip`, rapport vide par `EmptyStateComponent`, familles de couleurs de DESIGN.md (doublon en `success`, deux icônes pour les deux rouges)
+> - Tailles de fichier lisibles (Mo, Ko) par `Intl`, mise en forme passée à la fonction d aplatissement ; textes affichés au vouvoiement, sans terme d architecture
+> - Page sans défilement (shell en pleine hauteur, table en `scrollHeight="flex"`), boutons dimensionnés sur leur contenu, squelette aux dimensions du `p-select`, bandeaux d'erreur avec icône et `animate.enter`
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Livrer l'écran qui permet de lancer une extraction de playlist et d'en lire le résultat sans jamais quitter l'application.
