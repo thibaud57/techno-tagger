@@ -40,6 +40,7 @@ Base **16px**, imposée par l'import `@primeuix/themes/aura` en version non-`com
 | H3 (entête de modale, sous-section) | 1.125rem (18px) | 600 | `text-lg font-semibold` |
 | Body | 1rem (16px) | 400 | `text-base` |
 | Body dense (tables, listes de candidats) | 0.875rem (14px) | 400 | `text-sm` |
+| Label (libellé de champ) | 0.875rem (14px) | 400 | `label pLabel`, taille et poids posés par le preset |
 | Caption (scores, compteurs, aide) | 0.75rem (12px) | 400 | `text-xs` |
 
 Les écrans de données tournent en **body dense** : un run affiche 100 lignes, et chaque cran de taille en moins est une ligne de plus visible sans scroller.
@@ -88,13 +89,15 @@ Le tooltip se pose sur `--p-surface-700`, soit deux crans au-dessus du panneau. 
 | `--p-tooltip-padding` | `0.375rem 0.625rem` | Espacement interne |
 | `--p-tooltip-border-radius` | `--p-border-radius-md` (6px) | Coins, alignés sur le rayon de contenu |
 | `--p-tooltip-max-width` | `12.5rem` | Défaut : gloses et aides courtes |
-| `--tt-tooltip-max-width-wide` | `26rem` | Colonnes Avant et Après, lignes de candidats. Réservé : posé dans le CSS global avec le tooltip de colonne |
+| `--tt-tooltip-max-width-wide` | `26rem` | Texte tronqué (chemins, colonnes fluides, lignes de candidats) et détail d'une ligne du rapport |
 | `--p-tooltip-gutter` | `0.25rem` | Écart à l'élément décrit |
 | `--p-tooltip-shadow` | = `--p-overlay-popover-shadow` | Élévation, commune aux popovers |
 
-Les 12,5rem par défaut conviennent à une glose. Ils coupent en revanche exactement ce qu'un tooltip de colonne fluide est là pour montrer : les colonnes Avant et Après et les lignes de candidats passent donc en `--tt-tooltip-max-width-wide`.
+Les 12,5rem par défaut conviennent à une glose, mais coupent exactement ce qu'un texte tronqué ou un détail de ligne est là pour montrer.
 
-Un tooltip n'est jamais le seul porteur d'une information : il révèle ce qui est déjà à l'écran mais coupé. Ce qui n'existe que dans un tooltip est invisible au clavier, au tactile et à l'impression. Il ne remplace ni un libellé, ni une aide de formulaire, ni un message d'erreur : ceux-là sont des `p-message` inline.
+Un tooltip n'est jamais le seul porteur d'une information : il révèle ce qui est déjà à l'écran mais coupé. Ce qui n'existe qu'en tooltip est invisible au clavier, au tactile et à l'impression, il ne remplace donc ni un libellé, ni une aide de formulaire, ni un message d'erreur : ceux-là sont des `p-message` inline. Deux exceptions : la raison pour laquelle une action est désactivée, posée sur le bouton lui-même, et le détail d'une ligne du rapport d'extraction.
+
+Un tooltip se devine. L'ellipse annonce celui d'un texte coupé. Ailleurs, une icône `info-circle` en `text-muted-color` le signale, hors de tout tag pour ne pas se lire comme la famille Décision attendue.
 
 `pointer-events: none`, pour qu'il ne se mette jamais entre le curseur et ce qu'il décrit. Son délai et son fondu vivent au § Composants Animés.
 
@@ -218,7 +221,7 @@ providePrimeNG({
 })
 ```
 
-Le preset du projet dérive d'Aura et n'y change que ce que ce document décide ailleurs : les rayons du § Formes, qu'Aura dérive autrement pour la carte, le tag et le badge, et l'absence d'ombre sur la carte, l'élévation ne vivant que sur les overlays. La liste exacte vit dans le preset, pas ici. Un nouvel écart s'y range selon sa portée, `primitive` pour une rampe ou un rayon, `semantic` pour un rôle, `components` pour un composant.
+Le preset du projet dérive d'Aura et n'y change que ce que ce document décide ailleurs : les rayons du § Formes, qu'Aura dérive autrement pour la carte, le tag et le badge, l'absence d'ombre sur la carte, l'élévation ne vivant que sur les overlays, et le libellé de champ du § Scale Typographique. La liste exacte vit dans le preset, pas ici. Un nouvel écart s'y range selon sa portée, `primitive` pour une rampe ou un rayon, `semantic` pour un rôle, `components` pour un composant.
 
 > **Tailwind v4 ne compile ni SCSS ni LESS.** Le fichier global doit être un `.css`, sinon l'import échoue sur `Can't resolve './theme/colors.css'`. C'est la raison pour laquelle tout le styling du projet est en CSS pur (cf. § Conventions de Code).
 
@@ -240,11 +243,11 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Sélection de dossier / de fichier | `button pButton` (outlined) + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche à côté en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
+| Sélection de dossier / de fichier | `button pButton` primaire outlined + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche à côté en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
 | Playlist détectée | Logo VLC (SVG) ou `file` | Simple Icons / PrimeIcons | Le logo signale un dump VLC reconnu. Un M3U8 tombe sur l'icône générique, le logiciel qui l'a exporté étant inconnu |
 | Sélecteur de playlist (dump VLC) | `p-select` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
 | Mode copie / déplacement | `p-selectbutton` | PrimeNG | Deux options, copie par défaut |
-| Rapport d'extraction | `p-table` en `[size]="'small'"`, `[scrollable]`, `[virtualScroll]` | PrimeNG | Trois colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans sa colonne |
+| Rapport d'extraction | `p-table` en `[size]="'small'"`, `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du badge |
 
 ### Liste du run
 
@@ -309,6 +312,10 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Logo de source | `SourceLogoComponent` | Simple Icons | Les logos de source en `currentColor`, même jeu de tailles que les icônes |
 | État d'un morceau | `StateTagComponent` | PrimeNG (`p-tag`) | Porte le mapping `state` / `resolution` / `failure_reason` → famille, icône, libellé. Entièrement spécifié au § Couleurs Sémantiques : l'encoder une fois évite qu'il soit re-dérivé, de travers, écran par écran |
 | Bloc vide | `EmptyStateComponent` | — (from scratch) | Le bloc vide décrit au § États des Composants. PrimeNG n'a pas d'équivalent, il s'écrit from scratch |
+| Sélection de chemin | `PathPickerComponent` | PrimeNG (`pButton`, `pLabel`) | Libellé, bouton et chemin retenu, un par dossier ou fichier à choisir |
+| Progression d'une phase | `PhaseProgressComponent` | PrimeNG (`p-progressbar`) | Libellé et compteur au-dessus de la barre, que `p-progressbar` ne sait pas porter. Sans valeur, la barre passe en indéterminée |
+| Erreur contextuelle | `ErrorMessageComponent` | PrimeNG (`p-message`) | Erreur du sidecar traduite depuis son `code` et ses `params`, sous la forme décrite au § Feedback |
+| Texte tronqué | `TruncatedTextComponent` | PrimeNG (`pTooltip`) | Chemin ou valeur de colonne fluide coupé par l'ellipse. Le tooltip `wide` ne s'ouvre que sur un texte coupé, et `rtl` coupe un chemin par la gauche |
 
 ### Post-MVP (non installés)
 
@@ -420,7 +427,7 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 |---------|--------|-------|
 | Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond | Plancher dicté par le jeu de six colonnes ci-dessous. Réglages dans `tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
 | Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page elle-même ne défile jamais, le scroll vit dans la table. Le shell masque son débordement, et `overscroll-behavior: none` coupe le rebond de WebView2, qui fait trembler toute la fenêtre à la molette |
-| Container | Pleine largeur, `p-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
+| Container | Pleine largeur, `px-16 py-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
 | Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre : ne relève pas du container |
 | Densité | `[size]="'small'"` sur toutes les tables | Décide du nombre de lignes visibles sans scroller sur un run de 100 morceaux, et c'est la convention des outils DJ |
 | Rythme interne d'un groupe | `gap-2` | Éléments d'un même groupe |
@@ -447,9 +454,8 @@ Les trois colonnes fixes tiennent sur leur contenu le plus large et pas un pixel
 
 | Colonne | Largeur | Contenu |
 |---------|---------|---------|
-| Fichier | 2/5 de la table | Nom du fichier, tronqué et révélé au survol |
-| État | 160px | `p-tag`, cf. § Couleurs Sémantiques. Dimensionnée sur « Doublon départagé » plus son glyphe, le plus long des cinq libellés ; l'anglais est plus court |
-| Détails | **fluide** | Critère et candidats écartés d'un doublon, motif d'un échec. Vide pour les trois autres catégories |
+| Fichier | **fluide** | Nom du fichier, tronqué et révélé au survol |
+| État | 184px | `p-tag`, cf. § Couleurs Sémantiques, suivi de l'icône info quand la ligne porte un détail en tooltip : critère et candidats d'un doublon, motif d'un échec. Dimensionnée sur « Doublon départagé » plus son glyphe et l'icône, le plus long des cinq libellés ; l'anglais est plus court |
 
 Sans largeur figée sur État, la colonne se redimensionne au défilement selon les tags que le défilement virtuel a rendus, et la table bouge sous le curseur.
 

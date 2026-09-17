@@ -24,4 +24,4 @@ Le projet Claude Design « Techno Tagger Design System » porte dans `ui_kits/te
 ## Gotchas
 
 - La maquette rend les icônes par la police PrimeIcons (`pi pi-*`), que la v22 n'emploie plus : dans l'app, `IconComponent` et `SourceLogoComponent` rendent du SVG inline (cf. rule `primeng/composants.md`)
-- Une largeur fixe dans la maquette (colonne de libellés, sélecteur) ne s'importe pas telle quelle dès qu'elle porte du texte traduit : DESIGN.md § Conventions de Code l'interdit, les libellés existent en FR et en EN
+- Une largeur fixe dans la maquette (colonne de libellés, sélecteur) ne s'importe pas telle quelle dès qu'elle porte du texte traduit : elle se remesure sur le contenu le plus long en FR et en EN (DESIGN.md § Conventions de Code)

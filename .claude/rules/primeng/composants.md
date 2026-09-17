@@ -22,7 +22,7 @@ paths:
 - Attendre un mode router de `p-tabs`, ou se replier sur `p-tabMenu` qui n'est plus la voie recommandée
 - Les classes `pi pi-*` : la police n'est plus l'approche de la v22
 - Un libellé en dur dans un template : tout passe par ngx-translate, y compris les messages d'erreur que le sidecar émet en `code` + `params`
-- Une largeur fixe sur du texte traduit : les libellés existent en FR et en EN, et le français est généralement le plus long
+- Une largeur en dur sur un bouton ou un libellé traduit : les libellés existent en FR et en EN. Seule une colonne de table se fige, mesurée sur son contenu le plus long dans les deux langues (cf. DESIGN.md § Conventions de Code)
 - De la logique métier dans un composant : scores, seuils et classement des candidats viennent du sidecar
 - Le composant `p-button` : déprécié depuis la v22 (`@typescript-eslint/no-deprecated` fait échouer le lint), au profit de `<button pButton type="button">` avec libellé et icône en contenu
 

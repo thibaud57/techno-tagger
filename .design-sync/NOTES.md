@@ -57,18 +57,20 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   (`src/app/core/theme.ts`), qui impose 8px et aucune ombre à la carte, 4px au tag et 2px au
   badge. Les cartes de guidelines qui montrent ces rayons sont à revérifier.
 - **Un seul container, plein écran** : les deux régimes de largeur ont disparu. Le shell porte
-  `p-8` pour les trois onglets et une page ne pose plus de marge à elle. `AppShell.jsx` et les
+  `px-16 py-8` pour les trois onglets et une page ne pose plus de marge à elle. `AppShell.jsx` et les
   trois écrans de `ui_kits/techno-tagger/` posent encore leurs propres paddings, et
   `PlaylistScreen.jsx` un `max-width` de formulaire. La carte `space-regimes.card.html` des
   guidelines décrit un régime qui n'existe plus.
 - **La page ne défile jamais** : le shell masque son débordement, la maquette laisse défiler
   ses écrans (`overflowY: auto` dans `PlaylistScreen.jsx`).
-- **Table du rapport d'extraction** : trois colonnes, Fichier, État figée à 160px, Détails fluide.
+- **Table du rapport d'extraction** : deux colonnes, Fichier fluide et État figée à 184px. Le détail
+  d'un doublon ou d'un échec s'ouvre en tooltip sur le badge, signalé par une icône info.
   La maquette n'a aucune table sur cet écran, et la fiche `DataTable` ne décrit que la liste du run.
 - **Conventions de bureau** : curseur flèche partout sauf les champs, et rebond de défilement coupé.
   Rien de tout ça dans le kit.
-- **Sévérité des sélecteurs de dossier** : la maquette les rend en `secondary` outlined, DESIGN.md
-  dit seulement « outlined ». À trancher, puis à aligner dans DESIGN.md et dans le code.
+- **Sévérité des sélecteurs de dossier** : tranchée en primaire outlined, comme le code. La maquette
+  les rend encore en `secondary` outlined dans `PlaylistScreen.jsx`.
+- **Bannière d'erreur** : `ErrorMessageComponent` partagé, sans équivalent au catalogue.
 
 ## Journal
 
