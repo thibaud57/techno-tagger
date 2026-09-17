@@ -26,6 +26,8 @@ build_dump(root / "vlc_media.db")
 EOF
 ```
 
+Pour l'onglet Playlist, `just demo` bâtit `demo-data/` (git-ignoré) : 30 morceaux de plusieurs dizaines de Mo, qui couvrent les cinq catégories du rapport, dump `vlc_media.db` avec la playlist `test playlist`. L'échec de transfert demande `just demo --lock <secondes>` en arrière-plan pendant le run. `--lock` ne reconstruit rien : relancer `just demo` seul avant chaque run, verrou arrêté, sinon la destination garde le run précédent.
+
 ## Pilotage
 
 ```bash
@@ -69,14 +71,18 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
 - Release sans rechargement : `pnpm exec tauri build --no-bundle`, lancer `src-tauri/target/release/techno-tagger.exe` avec `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, poser par CDP un marqueur `window.__marker` et un écouteur `keydown`, envoyer `^r` puis `{F5}` par `SendKeys` PowerShell (`AppActivate` sur le pid) : les touches arrivent, le marqueur survit, un seul `tagger.exe`
 - Onglet Playlist sous Tauri, fixture du § Fixture isolée plus un M3U8 à deux entrées, un M3U8 réduit à `#EXTM3U`, un faux JPEG et un morceau du dump absent de la bibliothèque :
   - chemins affichés tronqués par la gauche, largeur des boutons de sélection identique avant et après sélection
-  - faux JPEG : bandeau d'erreur avec icône `times-circle`, « Extraire » désactivé ; M3U8 : icône `file`, aucun sélecteur ; dump : squelette, logo VLC, options « nom (N morceaux) », « Extraire » actif seulement une playlist choisie
-  - extraction : barre indéterminée puis déterminée, table Fichier | État | Détails, une ligne par morceau plus une par doublon, hauteur réelle du `<tr>` égale à `rowHeight` du composant, libellé de tag sur une ligne ; relancée dans la même destination, les morceaux passent en « Déjà présent »
+  - « Extraire » désactivé : au survol, tooltip qui nomme les choix manquants (« Choisissez le dossier source, le dossier destination et un fichier de playlist. »), réduit à ce qui reste à mesure des choix
+  - faux JPEG : bannière d'erreur (`app-error-message`, `p-message-error`, icône `times-circle`), « Extraire » désactivé et son tooltip redemande un fichier de playlist ; M3U8 : icône `file`, aucun sélecteur ; dump : squelette, logo VLC, options « nom (N) », « Extraire » actif seulement une playlist choisie
+  - libellés des sélecteurs de chemin : `label pLabel` à 14px et 400, `htmlFor` pointant sur le bouton
+  - extraction : barre indéterminée sans compteur, puis déterminée avec « N sur 30 », puis « Extraction terminée » conservée avec son compteur ; relancée, elle repart en indéterminée sans compteur
+  - rapport : deux colonnes, Fichier fluide et État à 184px, une ligne par morceau plus une par doublon, hauteur réelle du `<tr>` égale à `rowHeight`, libellé de tag sur une ligne ; icône `info-circle` sur les seuls doublons et échecs, dont le badge ouvre le détail en tooltip `wide` ; relancée dans la même destination, les morceaux passent en « Déjà présent »
   - M3U8 vide vers une destination neuve : titre et table affichés, ligne « Aucun morceau dans cette playlist. » ; rapports `.json` + `.md` écrits, compteurs à zéro
   - bascule « Déplacer » : `extraction_mode` vaut `move` dans le `store` et le choix survit à `Page.reload` ; remettre ensuite la valeur d'origine
-  - sous `ng serve` seul : bandeau « Le sidecar n'est pas démarré » avec icône, « Extraire » désactivé, un clic sur un sélecteur ne lève rien
+  - sous `ng serve` seul : écran bloquant en `p-card` centrée, sans barre d'onglets, action « Réessayer »
   - pendant un run (un `MutationObserver` note l'état tant qu'un `p-progressbar` est monté) : les trois boutons de sélection `disabled`, `p-select` et `p-selectbutton` en `p-disabled`
 - Conformité à DESIGN.md sur l'onglet Playlist :
-  - aucun défilement de page (`document.scrollingElement` et la `section`), la table remplit la hauteur restante, à 1280 × 800 puis au plancher 1024 × 700 par `Emulation.setDeviceMetricsOverride`
+  - container du shell sur les trois onglets, en cliquant les `p-tab` : padding `32px 64px`, `h1` à 64px du bord gauche et 32px du haut de `main`, l'URL suit l'onglet
+  - aucun défilement de page (`document.scrollingElement` et `main`), la table remplit la hauteur restante, à 1280 × 800 puis au plancher 1024 × 700 par `Emulation.setDeviceMetricsOverride`. Relever les lignes visibles du rapport : le 2026-09-17, formulaire et progression affichés, 2 lignes à 1280 × 800 et aucune au plancher
   - « Extraire » dimensionné sur son contenu, `p-skeleton` à la hauteur du `p-select` qui le remplace, bloc vide (icône 24px `text-muted-color`, titre `text-base`, phrase `text-sm`)
   - tags : familles de § Couleurs Sémantiques, lues sur la classe `p-tag-*` et l'icône `data-p-icon`
   - tooltip : suivre `.p-tooltip` toutes les 100ms après un `Input.dispatchMouseEvent` : visible à 400ms sur un texte coupé, jamais sur un texte entier, retiré dès la sortie, classe `tt-tooltip-wide`, `pointer-events: none`
@@ -93,7 +99,9 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
 - Après arrêt, contrôler qu'aucun `techno-tagger.exe` ni port 4200 / 9222 ne reste (`tasklist`, `netstat -ano`), `just stop` sinon
 - Le MCP Playwright n'écrit ses captures que sous la racine du dépôt (`.playwright-mcp/` est git-ignoré, un nom de fichier nu atterrit à la racine) : les déplacer vers le scratchpad
 - Dans WebView2, `navigator.language` vaut `fr` et non `fr-FR`
-- L'onglet actif ne suit pas l'URL tant que le TODO d'`app.component.html` n'est pas traité : ne pas le prendre pour une régression, naviguer par URL
+- Un faux JPEG en texte ASCII se lit comme un M3U8 valide et vide : écrire de vrais octets (`\xff\xd8\xff\xe0…`) pour obtenir `unsupported_playlist_format`
+- À 1280 × 800, la zone visible du scroll virtuel ne tient qu'une ou deux lignes : un survol calculé sur la position théorique d'une ligne tombe hors de la zone, sur `main`. Viser un tag dont `document.elementFromPoint` rend bien le badge
+- Fermer la fenêtre par `taskkill` sans `/F` emporte aussi les sidecars accumulés par les rechargements (38 vers 0 constaté) : repartir de là avant de compter les `tagger.exe`
 - `src-tauri/binaries/` garde le sidecar du dernier `just build-sidecar` : après toute modification de `sidecar/src`, reconstruire avant `just dev`, sinon la fenêtre parle à un binaire périmé (comparer la date du `.exe` au dernier commit de `sidecar/src`)
 - Chaque rechargement de la page sous `just dev` (live reload, `Page.reload` CDP) lance un sidecar de plus sans tuer le précédent : compter les `tagger.exe` sur une fenêtre fraîchement ouverte. En release, `F5`, `Ctrl+R` et le menu contextuel sont coupés par `tauri-plugin-prevent-default`, le debug les garde
 - Le premier `SendKeys` après `AppActivate` peut partir avant le focus : envoyer d'abord une touche sans enjeu, et ne conclure que sur une touche vue par l'écouteur `keydown`
