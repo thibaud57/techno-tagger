@@ -59,12 +59,20 @@
       "move": "Move"
     },
     "extract": "Extract",
+    "missing": {
+      "hint": "Choose {{items}}.",
+      "source": "the source folder",
+      "destination": "the destination folder",
+      "file": "a playlist file",
+      "playlist": "a playlist"
+    },
+    "running": "Extracting",
+    "finished": "Extraction finished",
     "progress": "{{processed}} of {{total}}",
     "report": {
       "title": "Extraction report",
       "file": "File",
       "status": "Status",
-      "details": "Details",
       "empty": {
         "heading": "Empty playlist",
         "description": "This playlist has no track to extract."

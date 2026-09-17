@@ -78,6 +78,40 @@ describe("PlaylistPageComponent", () => {
     expect(component["canExtract"]()).toBe(false)
   })
 
+  it("names every choice still missing", () => {
+    const { component } = mountWith({ playlistFormat: signal(null), playlists: signal([]) })
+
+    component["sourceFolder"].set("C:/lib")
+
+    expect(component["missingChoices"]()).toEqual([
+      "playlist.missing.destination",
+      "playlist.missing.file",
+    ])
+  })
+
+  it("asks for the file again when its listing failed", () => {
+    const { component } = mountWith({
+      playlistFormat: signal(null),
+      playlists: signal([]),
+      lastError: signal({ event: "error", code: "vlc_schema_mismatch", params: {}, message: "" }),
+    })
+    component["sourceFolder"].set("C:/lib")
+    component["destinationFolder"].set("C:/work")
+
+    component["playlistPath"].set("C:/x/vlc_media.db")
+
+    expect(component["missingChoices"]()).toEqual(["playlist.missing.file"])
+  })
+
+  it("asks for a playlist once a dump is listed", () => {
+    const { component } = mountWith()
+    withAllPathsChosen(component)
+
+    choosePlaylist(component, null)
+
+    expect(component["missingChoices"]()).toEqual(["playlist.missing.playlist"])
+  })
+
   it("blocks extraction on a dump with no playlist selected", () => {
     const { component } = mountWith()
     withAllPathsChosen(component)
@@ -167,20 +201,6 @@ describe("PlaylistPageComponent", () => {
     await component["choosePlaylistFile"]()
 
     expect(service.listPlaylists).not.toHaveBeenCalled()
-  })
-
-  it("joins a list param before it reaches the translation", () => {
-    const { component } = mountWith({
-      lastError: signal({
-        event: "error",
-        code: "vlc_schema_mismatch",
-        params: { missing: ["Media", "Playlist"] },
-      }),
-    })
-
-    const failure = component["lastError"]()
-
-    expect(failure?.params).toEqual({ missing: "Media, Playlist" })
   })
 
   it("keeps the chosen folder when the dialog is cancelled", async () => {

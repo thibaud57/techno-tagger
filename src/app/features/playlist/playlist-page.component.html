@@ -1,88 +1,43 @@
 <h1 class="text-2xl font-semibold">{{ "playlist.title" | translate }}</h1>
 
 <div class="flex flex-col gap-4">
-  <div class="flex flex-col gap-2">
-    <span class="text-xs text-muted-color">{{ "playlist.source.label" | translate }}</span>
-    <div class="flex items-center gap-2">
-      <button
-        pButton
-        type="button"
-        class="shrink-0"
-        [outlined]="true"
-        [disabled]="extracting()"
-        (click)="chooseFolder(sourceFolder)"
-      >
-        <app-icon name="folder" [size]="20" />{{ "playlist.source.choose" | translate }}
-      </button>
-      <span
-        class="truncate text-sm text-muted-color"
-        dir="rtl"
-        [pTooltip]="sourceFolder() ?? undefined"
-        [tooltipOptions]="truncatedValueTooltip"
-        [showOnEllipsis]="true"
-        >{{ sourceFolder() }}</span
-      >
-    </div>
-  </div>
+  <app-path-picker
+    [label]="'playlist.source.label' | translate"
+    [buttonLabel]="'playlist.source.choose' | translate"
+    [path]="sourceFolder()"
+    [disabled]="extracting()"
+    (pick)="chooseFolder(sourceFolder)"
+  >
+    <app-icon icon name="folder" [size]="20" />
+  </app-path-picker>
 
-  <div class="flex flex-col gap-2">
-    <span class="text-xs text-muted-color">{{ "playlist.destination.label" | translate }}</span>
-    <div class="flex items-center gap-2">
-      <button
-        pButton
-        type="button"
-        class="shrink-0"
-        [outlined]="true"
-        [disabled]="extracting()"
-        (click)="chooseFolder(destinationFolder)"
-      >
-        <app-icon name="folder" [size]="20" />{{ "playlist.destination.choose" | translate }}
-      </button>
-      <span
-        class="truncate text-sm text-muted-color"
-        dir="rtl"
-        [pTooltip]="destinationFolder() ?? undefined"
-        [tooltipOptions]="truncatedValueTooltip"
-        [showOnEllipsis]="true"
-        >{{ destinationFolder() }}</span
-      >
-    </div>
-  </div>
+  <app-path-picker
+    [label]="'playlist.destination.label' | translate"
+    [buttonLabel]="'playlist.destination.choose' | translate"
+    [path]="destinationFolder()"
+    [disabled]="extracting()"
+    (pick)="chooseFolder(destinationFolder)"
+  >
+    <app-icon icon name="folder" [size]="20" />
+  </app-path-picker>
 
-  <div class="flex flex-col gap-2">
-    <span class="text-xs text-muted-color">{{ "playlist.file.label" | translate }}</span>
-    <div class="flex items-center gap-2">
-      <button
-        pButton
-        type="button"
-        class="shrink-0"
-        [outlined]="true"
-        [disabled]="extracting()"
-        (click)="choosePlaylistFile()"
-      >
-        @if (showsPlaylistSelector()) {
-          <app-source-logo source="vlc" [size]="20" />
-        } @else {
-          <app-icon name="file" [size]="20" />
-        }
-        {{ "playlist.file.choose" | translate }}
-      </button>
-      <span
-        class="truncate text-sm text-muted-color"
-        dir="rtl"
-        [pTooltip]="playlistPath() ?? undefined"
-        [tooltipOptions]="truncatedValueTooltip"
-        [showOnEllipsis]="true"
-        >{{ playlistPath() }}</span
-      >
-    </div>
-  </div>
+  <app-path-picker
+    [label]="'playlist.file.label' | translate"
+    [buttonLabel]="'playlist.file.choose' | translate"
+    [path]="playlistPath()"
+    [disabled]="extracting()"
+    (pick)="choosePlaylistFile()"
+  >
+    @if (showsPlaylistSelector()) {
+      <app-source-logo icon source="vlc" [size]="20" />
+    } @else {
+      <app-icon icon name="file" [size]="20" />
+    }
+  </app-path-picker>
 
   @if (awaitsPlaylists() || showsPlaylistSelector()) {
     <div class="flex flex-col gap-2">
-      <span id="playlist-selector-label" class="text-xs text-muted-color">
-        {{ "playlist.selector.label" | translate }}
-      </span>
+      <label pLabel for="playlist-selector">{{ "playlist.selector.label" | translate }}</label>
       @if (awaitsPlaylists()) {
         <p-skeleton class="w-80" [height]="selectSkeletonHeight" />
       } @else {
@@ -93,7 +48,7 @@
           optionLabel="name"
           optionValue="name"
           [placeholder]="'playlist.selector.placeholder' | translate"
-          ariaLabelledBy="playlist-selector-label"
+          inputId="playlist-selector"
         >
           <ng-template #item let-playlist>
             {{
@@ -107,9 +62,8 @@
   }
 
   <div class="flex flex-col gap-2">
-    <span id="playlist-mode-label" class="text-xs text-muted-color">
-      {{ "playlist.mode.label" | translate }}
-    </span>
+    <!-- Un groupe de boutons ne prend pas de <label> : meme rendu que pLabel, lie par l'id. -->
+    <span id="playlist-mode-label" class="text-sm">{{ "playlist.mode.label" | translate }}</span>
     <p-selectbutton
       [formField]="fields.mode"
       [options]="modeOptions"
@@ -122,27 +76,31 @@
     </p-selectbutton>
   </div>
 
-  <button pButton type="button" class="self-start" [disabled]="!canExtract()" (click)="extract()">
+  <button
+    pButton
+    type="button"
+    class="self-start"
+    [disabled]="!canExtract()"
+    [pTooltip]="missingHint() ?? undefined"
+    [showDelay]="tooltipDelay"
+    tooltipPosition="right"
+    (click)="extract()"
+  >
     {{ "playlist.extract" | translate }}
   </button>
 </div>
 
-@if (progress(); as running) {
-  <div class="flex flex-col gap-2">
-    <p-progressbar [value]="(running.processed / running.total) * 100" />
-    <span class="text-xs text-muted-color">
-      {{ "playlist.progress" | translate: running }}
-    </span>
-  </div>
-} @else if (extracting()) {
-  <p-progressbar mode="indeterminate" />
+@if (extracting() || progress()) {
+  @let running = progress();
+  <app-phase-progress
+    [label]="(extracting() ? 'playlist.running' : 'playlist.finished') | translate"
+    [counter]="running ? ('playlist.progress' | translate: running) : undefined"
+    [value]="progressPercent()"
+  />
 }
 
 @if (lastError(); as failure) {
-  <p-message severity="error" [animate.enter]="fadeIn">
-    <ng-template #icon><app-icon name="times-circle" [size]="20" /></ng-template>
-    {{ "errors." + failure.code | translate: failure.params }}
-  </p-message>
+  <app-error-message [error]="failure" />
 }
 
 @if (extraction() !== null) {
@@ -159,18 +117,14 @@
     >
       <ng-template #header>
         <tr>
-          <!-- Details porte les chaines les plus longues : le reste de la largeur lui revient. -->
-          <th class="w-2/5">{{ "playlist.report.file" | translate }}</th>
-          <!-- Fixe, sinon la colonne se redimensionne au defilement selon les tags visibles.
-               Mesuree sur « Doublon departage » plus son glyphe, le plus long des cinq
-               libelles ; l'anglais est plus court. -->
-          <th class="w-40 whitespace-nowrap">{{ "playlist.report.status" | translate }}</th>
-          <th>{{ "playlist.report.details" | translate }}</th>
+          <th>{{ "playlist.report.file" | translate }}</th>
+          <!-- Largeur mesuree : cf. DESIGN.md § Layout, colonnes du rapport. -->
+          <th class="w-46 whitespace-nowrap">{{ "playlist.report.status" | translate }}</th>
         </tr>
       </ng-template>
       <ng-template #emptymessage>
         <tr>
-          <td [attr.colspan]="3">
+          <td [attr.colspan]="2">
             <app-empty-state
               icon="file"
               [heading]="'playlist.report.empty.heading' | translate"
@@ -181,21 +135,8 @@
       </ng-template>
       <ng-template #body let-row>
         <tr class="h-8">
-          <td
-            class="max-w-0 truncate"
-            [pTooltip]="row.fileName"
-            [tooltipOptions]="truncatedValueTooltip"
-            [showOnEllipsis]="true"
-          >
-            {{ row.fileName }}
-          </td>
-          <td class="w-40 whitespace-nowrap">
-            <p-tag
-              [severity]="row.severity"
-              [value]="'playlist.report.category.' + row.category | translate"
-            >
-              <app-icon [name]="row.icon" [size]="16" />
-            </p-tag>
+          <td class="max-w-0">
+            <app-truncated-text [text]="row.fileName" />
           </td>
           @let reasonText = row.reasonKey ? (row.reasonKey | translate) : "";
           @let detailText = row.detailKey ? (row.detailKey | translate: row.detailParams) : "";
@@ -204,13 +145,22 @@
             reasonText && detailText
               ? reasonText + separator + detailText
               : reasonText || detailText;
-          <td
-            class="max-w-0 truncate"
-            [pTooltip]="details"
-            [tooltipOptions]="truncatedValueTooltip"
-            [showOnEllipsis]="true"
-          >
-            {{ details }}
+          <td class="w-46 whitespace-nowrap">
+            <span
+              class="inline-flex items-center gap-2"
+              [pTooltip]="details || undefined"
+              [tooltipOptions]="wideTooltip"
+            >
+              <p-tag
+                [severity]="row.severity"
+                [value]="'playlist.report.category.' + row.category | translate"
+              >
+                <app-icon [name]="row.icon" [size]="16" />
+              </p-tag>
+              @if (details) {
+                <app-icon class="text-muted-color" name="info-circle" [size]="16" />
+              }
+            </span>
           </td>
         </tr>
       </ng-template>

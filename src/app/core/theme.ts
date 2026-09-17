@@ -17,5 +17,8 @@ export const TECHNO_TAGGER_PRESET = definePreset(Aura, {
     badge: {
       root: { borderRadius: "{border.radius.xs}" },
     },
+    label: {
+      root: { fontSize: "0.875rem", fontWeight: "400" },
+    },
   },
 })

@@ -3,8 +3,7 @@ import { FormField, disabled, form } from "@angular/forms/signals"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { ButtonDirective } from "primeng/button"
-import { Message } from "primeng/message"
-import { ProgressBar } from "primeng/progressbar"
+import { Label } from "primeng/label"
 import { Select } from "primeng/select"
 import { SelectButton } from "primeng/selectbutton"
 import { Skeleton } from "primeng/skeleton"
@@ -21,11 +20,15 @@ import {
 } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
+import { ErrorMessageComponent } from "../../shared/components/error-message.component"
 import { IconComponent, type IconName } from "../../shared/components/icon.component"
+import { PathPickerComponent } from "../../shared/components/path-picker.component"
+import { PhaseProgressComponent } from "../../shared/components/phase-progress.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
+import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
-import { TRUNCATED_VALUE_TOOLTIP } from "../../shared/utils/tooltip"
+import { TOOLTIP_DELAY, WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
 import { toExtractionRows, type ExtractionCategory } from "./extraction-rows"
 
@@ -53,17 +56,20 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
   imports: [
     TranslatePipe,
     ButtonDirective,
+    Label,
     Select,
     SelectButton,
-    ProgressBar,
+    PathPickerComponent,
+    PhaseProgressComponent,
     TableModule,
     Tag,
-    Message,
     Skeleton,
     FormField,
     EmptyStateComponent,
+    ErrorMessageComponent,
     IconComponent,
     SourceLogoComponent,
+    TruncatedTextComponent,
     Tooltip,
   ],
   templateUrl: "./playlist-page.component.html",
@@ -93,43 +99,18 @@ export default class PlaylistPageComponent {
     disabled(path, { when: () => this.sidecar.extracting() })
   })
 
-  /** Hauteur de la classe `h-8` posee sur les lignes du rapport, lue par le scroll virtuel. */
-  protected readonly rowHeight = 32
-
-  protected readonly truncatedValueTooltip = TRUNCATED_VALUE_TOOLTIP
-  protected readonly fadeIn = FADE_IN
-
-  /** Hauteur du `p-select` qu'il precede, derivee des memes tokens : aucun saut a son arrivee. */
-  protected readonly selectSkeletonHeight =
-    "calc(2 * var(--p-form-field-padding-y) + 1.5 * var(--p-form-field-font-size) + 2px)"
-
-  protected readonly modeOptions = [
-    { labelKey: "playlist.mode.copy", value: "copy" satisfies ExtractionMode },
-    { labelKey: "playlist.mode.move", value: "move" satisfies ExtractionMode },
-  ]
-
   protected readonly extracting = this.sidecar.extracting
   /** Copie mutable : `p-select` attend un tableau modifiable, le contrat NDJSON en lit lecture seule. */
   protected readonly playlists = computed(() => [...this.sidecar.playlists()])
   protected readonly progress = this.sidecar.progress
+  protected readonly progressPercent = computed(() => {
+    const running = this.sidecar.progress()
+
+    return running === null ? undefined : (running.processed / running.total) * 100
+  })
   protected readonly extraction = this.sidecar.extraction
 
-  /** Une liste de `params` est jointe avant l'interpolation, que ngx-translate ecrirait `a,b`. */
-  protected readonly lastError = computed(() => {
-    const failure = this.sidecar.lastError()
-
-    return failure === null
-      ? null
-      : {
-          code: failure.code,
-          params: Object.fromEntries(
-            Object.entries(failure.params).map(([key, value]) => [
-              key,
-              Array.isArray(value) ? value.join(", ") : value,
-            ]),
-          ),
-        }
-  })
+  protected readonly lastError = this.sidecar.lastError
 
   /** Un M3U8 ne contient qu'une playlist : rien a choisir. */
   protected readonly showsPlaylistSelector = computed(
@@ -165,6 +146,23 @@ export default class PlaylistPageComponent {
   })
 
   /**
+   * Source unique de l'action et de son aide. Un fichier dont le listage a echoue est a
+   * rechoisir ; un listage en cours n'y figure pas, le squelette le signale deja.
+   */
+  protected readonly missingChoices = computed(() =>
+    [
+      this.sourceFolder() === null && "playlist.missing.source",
+      this.destinationFolder() === null && "playlist.missing.destination",
+      (this.playlistPath() === null ||
+        (this.sidecar.playlistFormat() === null && !this.awaitsPlaylists())) &&
+        "playlist.missing.file",
+      this.showsPlaylistSelector() &&
+        this.choice().playlist === null &&
+        "playlist.missing.playlist",
+    ].filter((key): key is string => key !== false),
+  )
+
+  /**
    * `ready` couvre le sidecar lance, la version controlee et aucune extraction en cours.
    * Le format doit etre annonce : tant qu'il est nul, le dump peut encore se reveler
    * exiger une playlist, et une erreur de listage le laisse nul aussi.
@@ -172,12 +170,39 @@ export default class PlaylistPageComponent {
   protected readonly canExtract = computed(
     () =>
       this.sidecar.ready() &&
-      this.sourceFolder() !== null &&
-      this.destinationFolder() !== null &&
-      this.playlistPath() !== null &&
       this.sidecar.playlistFormat() !== null &&
-      (!this.showsPlaylistSelector() || this.choice().playlist !== null),
+      this.missingChoices().length === 0,
   )
+
+  /** `Intl.ListFormat` pose le « et » ou le « and » de la langue courante. */
+  protected readonly missingHint = computed(() => {
+    const missing = this.missingChoices()
+    if (missing.length === 0 || this.sidecar.extracting()) {
+      return null
+    }
+
+    const language = this.translate.currentLang() ?? FALLBACK_LANGUAGE
+    const items = new Intl.ListFormat(language, { type: "conjunction" }).format(
+      missing.map((key) => this.translate.instant(key) as string),
+    )
+
+    return this.translate.instant("playlist.missing.hint", { items }) as string
+  })
+
+  /** Hauteur de la classe `h-8` posee sur les lignes du rapport, lue par le scroll virtuel. */
+  protected readonly rowHeight = 32
+
+  protected readonly tooltipDelay = TOOLTIP_DELAY
+  protected readonly wideTooltip = WIDE_TOOLTIP
+
+  /** Hauteur du `p-select` qu'il precede, derivee des memes tokens : aucun saut a son arrivee. */
+  protected readonly selectSkeletonHeight =
+    "calc(2 * var(--p-form-field-padding-y) + 1.5 * var(--p-form-field-font-size) + 2px)"
+
+  protected readonly modeOptions = [
+    { labelKey: "playlist.mode.copy", value: "copy" satisfies ExtractionMode },
+    { labelKey: "playlist.mode.move", value: "move" satisfies ExtractionMode },
+  ]
 
   constructor() {
     void readExtractionMode().then((stored) => {

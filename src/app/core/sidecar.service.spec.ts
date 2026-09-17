@@ -250,7 +250,7 @@ describe("SidecarService", () => {
     })
   })
 
-  it("feeds the result and ends the run", async () => {
+  it("feeds the result and keeps the last progress", async () => {
     await service.start()
     await service.extractPlaylist(EXTRACTION)
     transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
@@ -266,8 +266,17 @@ describe("SidecarService", () => {
     })
 
     expect(service.extraction()?.report_path).toBe("C:/work/report.json")
-    expect(service.progress()).toBeNull()
+    expect(service.progress()?.processed).toBe(5)
     expect(service.extracting()).toBe(false)
+  })
+
+  it("clears the previous progress when a new extraction starts", async () => {
+    await service.start()
+    transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
+
+    await service.extractPlaylist(EXTRACTION)
+
+    expect(service.progress()).toBeNull()
   })
 
   it("feeds the error without interrupting the stream", async () => {

@@ -8,7 +8,7 @@
     "blocked": {
       "missing": {
         "title": "Le moteur de l'application est introuvable",
-        "text": "Le fichier {{file}} est attendu dans le dossier d'installation. Il a probablement été mis en quarantaine par l'antivirus : ajoutez-le aux exclusions, puis réessayez."
+        "text": "Le fichier {{file}} est attendu dans le dossier d'installation. Il a probablement été mis en quarantaine par l'antivirus : ajoutez-le aux exclusions, puis réessayez."
       },
       "versionMismatch": {
         "title": "La mise à jour est incomplète",
@@ -59,12 +59,20 @@
       "move": "Déplacer"
     },
     "extract": "Extraire",
+    "missing": {
+      "hint": "Choisissez {{items}}.",
+      "source": "le dossier source",
+      "destination": "le dossier destination",
+      "file": "un fichier de playlist",
+      "playlist": "une playlist"
+    },
+    "running": "Extraction en cours",
+    "finished": "Extraction terminée",
     "progress": "{{processed}} sur {{total}}",
     "report": {
       "title": "Rapport d'extraction",
       "file": "Fichier",
       "status": "État",
-      "details": "Détails",
       "empty": {
         "heading": "Playlist vide",
         "description": "Cette playlist ne contient aucun morceau à extraire."

@@ -36,7 +36,7 @@ textarea {
 }
 
 /* DESIGN.md § Tokens de Tooltip : jamais entre le curseur et ce qu'il decrit, et une largeur
-   `wide` pour une valeur de colonne coupee (cf. shared/tooltip.ts). Hors couche, ces regles
+   `wide` pour ce qu'il montre en entier (cf. WIDE_TOOLTIP). Hors couche, ces regles
    passent devant celles de PrimeNG, rangees dans la couche `primeng`. */
 :root {
   --tt-tooltip-max-width-wide: 26rem;

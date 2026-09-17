@@ -122,6 +122,7 @@ export class SidecarService {
 
   async extractPlaylist(request: Omit<ExtractPlaylistCommand, "command">): Promise<void> {
     this._extraction.set(null)
+    this._progress.set(null)
     this._extracting.set(true)
     await this.send({ command: "extract_playlist", ...request })
   }
@@ -204,7 +205,9 @@ export class SidecarService {
         break
       case "extraction_finished":
         this._extraction.set(event)
-        this.endRun()
+        // La progression reste sur son dernier palier : sans elle, une copie d'une seconde ne
+        // laisse aucune trace. Elle ne s'efface qu'au lancement suivant.
+        this._extracting.set(false)
         break
       case "error":
         this._lastError.set(event)

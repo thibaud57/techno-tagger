@@ -6,6 +6,7 @@ import { CheckCircle } from "@primeicons/angular/check-circle"
 import { ExclamationTriangle } from "@primeicons/angular/exclamation-triangle"
 import { File as FileIcon } from "@primeicons/angular/file"
 import { Folder } from "@primeicons/angular/folder"
+import { InfoCircle } from "@primeicons/angular/info-circle"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
 
@@ -25,6 +26,7 @@ export const ICON_NAMES = [
   "times",
   "times-circle",
   "exclamation-triangle",
+  "info-circle",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -42,6 +44,7 @@ export type IconSize = 16 | 20 | 24
     ExclamationTriangle,
     FileIcon,
     Folder,
+    InfoCircle,
     Times,
     TimesCircle,
   ],
@@ -73,6 +76,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("exclamation-triangle") {
         <svg data-p-icon="exclamation-triangle" [size]="size()" />
+      }
+      @case ("info-circle") {
+        <svg data-p-icon="info-circle" [size]="size()" />
       }
     }
   `,
