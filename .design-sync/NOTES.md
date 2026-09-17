@@ -63,7 +63,8 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   guidelines décrit un régime qui n'existe plus.
 - **La page ne défile jamais** : le shell masque son débordement, la maquette laisse défiler
   ses écrans (`overflowY: auto` dans `PlaylistScreen.jsx`).
-- **Table du rapport d'extraction** : deux colonnes, Fichier fluide et État figée à 184px. Le détail
+- **Tables** : taille par défaut de PrimeNG, à scroll virtuel. Le rapport d'extraction a
+  deux colonnes, Fichier fluide et État figée à 197px. Le détail
   d'un doublon ou d'un échec s'ouvre en tooltip sur le badge, signalé par une icône info. La table
   remplit toute la hauteur restante, vide ou remplie, et centre son bloc vide ; « Extraction
   terminée (N sur N) » s'affiche dessous, à droite. La maquette n'a aucune table sur cet écran, et
