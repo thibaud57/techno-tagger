@@ -107,14 +107,6 @@ describe("PlaylistPageComponent", () => {
     ])
   })
 
-  it("keeps the form collapsed while an extraction runs, even on request", () => {
-    const { component } = mountWith({ extracting: signal(true) })
-
-    component["expandForm"]()
-
-    expect(component["formCollapsed"]()).toBe(true)
-  })
-
   it("reopens the form on request once the extraction is over", () => {
     const { component } = mountWith({ extraction: signal({}) })
 
@@ -265,25 +257,6 @@ describe("PlaylistPageComponent", () => {
     await fixture.whenStable()
 
     expect(component["choice"]().mode).toBe("move")
-  })
-
-  it("locks the choices while an extraction runs", () => {
-    const { component } = mountWith({ extracting: signal(true) })
-
-    const locked = [
-      component["fields"].mode().disabled(),
-      component["fields"].playlist().disabled(),
-    ]
-
-    expect(locked).toEqual([true, true])
-  })
-
-  it("requests no listing while an extraction runs", async () => {
-    const { component, service } = mountWith({ extracting: signal(true) })
-
-    await component["choosePlaylistFile"]()
-
-    expect(service.listPlaylists).not.toHaveBeenCalled()
   })
 
   it("keeps the chosen folder when the dialog is cancelled", async () => {

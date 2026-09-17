@@ -40,7 +40,37 @@ describe("toExtractionRows", () => {
       formatSize,
     )
 
-    expect(rows.map((row) => row.category)).toEqual(["extracted", "missing"])
+    expect(rows.map((row) => row.category)).toEqual(["missing", "extracted"])
+  })
+
+  it("lists what needs a look before what went through", () => {
+    const rows = toExtractionRows(
+      {
+        ...EMPTY,
+        extracted: ["a.mp3"],
+        already_present: ["c.mp3"],
+        missing: ["d.mp3"],
+        duplicates: [
+          {
+            file_name: "beta.mp3",
+            kept_path: "C:/lib/beta.mp3",
+            kept_size: 12_000,
+            criterion: "largest_file",
+            discarded: [{ path: "C:/lib/albums/beta.mp3", size: 5_000 }],
+          },
+        ],
+        failures: [{ file_name: "locked.mp3", reason: "file_locked" }],
+      },
+      formatSize,
+    )
+
+    expect(rows.map((row) => row.category)).toEqual([
+      "failure",
+      "missing",
+      "duplicate",
+      "already_present",
+      "extracted",
+    ])
   })
 
   it("describes a duplicate by its discarded candidate and criterion", () => {

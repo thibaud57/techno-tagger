@@ -22,7 +22,6 @@ import { TruncatedTextComponent } from "./truncated-text.component"
       class="w-full"
       size="small"
       [outlined]="true"
-      [disabled]="disabled()"
       (click)="pick.emit()"
     >
       <ng-content select="[icon]" />{{ buttonLabel() }}
@@ -41,7 +40,6 @@ export class PathPickerComponent {
   readonly label = input.required<string>()
   readonly buttonLabel = input.required<string>()
   readonly path = input<string | null>(null)
-  readonly disabled = input(false)
 
   readonly pick = output()
 }

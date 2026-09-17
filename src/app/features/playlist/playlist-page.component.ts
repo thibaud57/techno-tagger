@@ -6,7 +6,7 @@ import {
   signal,
   type WritableSignal,
 } from "@angular/core"
-import { FormField, disabled, form } from "@angular/forms/signals"
+import { FormField, form } from "@angular/forms/signals"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { ButtonDirective } from "primeng/button"
@@ -109,10 +109,7 @@ export default class PlaylistPageComponent {
     mode: DEFAULT_EXTRACTION_MODE,
   })
 
-  /** Choix figes pendant un run : ils ne decriraient plus l'extraction en cours. */
-  protected readonly fields = form(this.choice, (path) => {
-    disabled(path, { when: () => this.sidecar.extracting() })
-  })
+  protected readonly fields = form(this.choice)
 
   protected readonly extracting = this.sidecar.extracting
   /** Copie mutable : `p-select` attend un tableau modifiable, le contrat NDJSON en lit lecture seule. */
@@ -192,7 +189,7 @@ export default class PlaylistPageComponent {
   /** `Intl.ListFormat` pose le « et » ou le « and » de la langue courante. */
   protected readonly missingHint = computed(() => {
     const missing = this.missingChoices()
-    if (missing.length === 0 || this.sidecar.extracting()) {
+    if (missing.length === 0) {
       return null
     }
 
@@ -224,8 +221,8 @@ export default class PlaylistPageComponent {
     return run === null ? null : (run.playlist_name ?? run.playlist_path.replace(/^.*[\\/]/, ""))
   })
 
-  /** Hauteur de la classe `h-8` posee sur les lignes du rapport, lue par le scroll virtuel. */
-  protected readonly rowHeight = 32
+  /** Hauteur de la classe `h-10.25` posee sur les lignes : le defilement virtuel la calcule, il ne la mesure pas. */
+  protected readonly rowHeight = 41
 
   protected readonly tablePt = computed(() => fullHeightTable(this.rows().length === 0))
 
@@ -249,18 +246,10 @@ export default class PlaylistPageComponent {
   }
 
   protected expandForm(): void {
-    if (this.extracting()) {
-      return
-    }
-
     this.manuallyExpanded.set(true)
   }
 
   protected async chooseFolder(target: WritableSignal<string | null>): Promise<void> {
-    if (this.sidecar.extracting()) {
-      return
-    }
-
     const chosen = await this.openPath({ directory: true })
     if (chosen !== null) {
       target.set(chosen)
@@ -269,14 +258,9 @@ export default class PlaylistPageComponent {
 
   /**
    * Le choix du fichier declenche le listage : c'est la reponse du sidecar qui
-   * annonce le format, l'interface n'ayant pas le droit de le deduire. Jamais
-   * pendant un run, le listage attendrait la fin de l'extraction en cours.
+   * annonce le format, l'interface n'ayant pas le droit de le deduire.
    */
   protected async choosePlaylistFile(): Promise<void> {
-    if (this.sidecar.extracting()) {
-      return
-    }
-
     const chosen = await this.openPath({ directory: false })
     if (chosen === null) {
       return

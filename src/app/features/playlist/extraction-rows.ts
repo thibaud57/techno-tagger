@@ -35,16 +35,24 @@ export type FormatSize = (bytes: number) => string
 /**
  * Aplatit les categories du resultat en une liste unique.
  *
- * Aucun tri : deux appels sur le meme resultat rendent la meme liste, ce dont
- * depend la stabilite d'affichage. La mise en forme des tailles arrive en
- * parametre, parce qu'elle depend d'une langue que cette fonction ignore.
+ * Ce qui demande un geste ouvre la liste, echecs puis introuvables puis doublons :
+ * un rapport de 300 morceaux se lit par le haut, et ce qui est passe tout seul
+ * n'attend rien de l'utilisateur. Aucun tri a l'interieur d'une categorie, deux
+ * appels sur le meme resultat rendent donc la meme liste. La mise en forme des
+ * tailles arrive en parametre, parce qu'elle depend d'une langue que cette
+ * fonction ignore.
  */
 export const toExtractionRows = (
   result: ExtractionFinishedEvent,
   formatSize: FormatSize,
 ): readonly ExtractionRow[] => [
-  ...result.extracted.map((name) => plain(name, "extracted")),
-  ...result.already_present.map((name) => plain(name, "already_present")),
+  ...result.failures.map((failure) => ({
+    fileName: failure.file_name,
+    category: "failure" as const,
+    detailKey: null,
+    detailParams: null,
+    reasonKey: `playlist.report.reason.${failure.reason}`,
+  })),
   ...result.missing.map((name) => plain(name, "missing")),
   ...result.duplicates.map((duplicate) => ({
     fileName: duplicate.file_name,
@@ -58,11 +66,6 @@ export const toExtractionRows = (
     },
     reasonKey: `playlist.report.criterion.${duplicate.criterion}`,
   })),
-  ...result.failures.map((failure) => ({
-    fileName: failure.file_name,
-    category: "failure" as const,
-    detailKey: null,
-    detailParams: null,
-    reasonKey: `playlist.report.reason.${failure.reason}`,
-  })),
+  ...result.already_present.map((name) => plain(name, "already_present")),
+  ...result.extracted.map((name) => plain(name, "extracted")),
 ]

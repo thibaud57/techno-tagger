@@ -60,7 +60,6 @@
       [label]="'playlist.source.label' | translate"
       [buttonLabel]="'playlist.source.choose' | translate"
       [path]="sourceFolder()"
-      [disabled]="extracting()"
       (pick)="chooseFolder(sourceFolder)"
     >
       <app-icon icon name="folder" [size]="20" />
@@ -70,7 +69,6 @@
       [label]="'playlist.destination.label' | translate"
       [buttonLabel]="'playlist.destination.choose' | translate"
       [path]="destinationFolder()"
-      [disabled]="extracting()"
       (pick)="chooseFolder(destinationFolder)"
     >
       <app-icon icon name="folder" [size]="20" />
@@ -80,7 +78,6 @@
       [label]="'playlist.file.label' | translate"
       [buttonLabel]="'playlist.file.choose' | translate"
       [path]="playlistPath()"
-      [disabled]="extracting()"
       (pick)="choosePlaylistFile()"
     >
       @if (showsPlaylistSelector()) {
@@ -163,7 +160,6 @@
   >
     <p-table
       [value]="rows()"
-      [size]="'small'"
       [scrollable]="true"
       [virtualScroll]="true"
       [virtualScrollItemSize]="rowHeight"
@@ -175,7 +171,7 @@
         <tr>
           <th>{{ "playlist.report.file" | translate }}</th>
           <!-- Largeur mesuree : cf. DESIGN.md § Layout, colonnes du rapport. -->
-          <th class="w-46 whitespace-nowrap">{{ "playlist.report.status" | translate }}</th>
+          <th class="w-49.25 whitespace-nowrap">{{ "playlist.report.status" | translate }}</th>
         </tr>
       </ng-template>
       <ng-template #emptymessage>
@@ -190,7 +186,7 @@
         </tr>
       </ng-template>
       <ng-template #body let-row>
-        <tr class="h-8">
+        <tr class="h-10.25">
           <td class="max-w-0">
             <app-truncated-text [text]="row.fileName" />
           </td>
@@ -201,7 +197,7 @@
             reasonText && detailText
               ? reasonText + separator + detailText
               : reasonText || detailText;
-          <td class="w-46 whitespace-nowrap">
+          <td class="w-49.25 whitespace-nowrap">
             <span
               class="inline-flex items-center gap-2"
               [pTooltip]="details || undefined"
