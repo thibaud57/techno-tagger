@@ -88,8 +88,9 @@ ignore = [
 # PLR0913/PLR0917 : les fixtures injectees sont des parametres, pas une signature a reduire
 "tests/**" = ["S101", "S105", "S106", "S107", "PLR2004", "PLR0913", "PLR0917"]
 "__init__.py" = ["F401"]
-# Script de build lance a la main : ses messages vont sur stderr, pas au protocole
+# Scripts lances a la main : leurs messages vont au terminal, pas au protocole
 "build.py" = ["T201"]
+"demo.py" = ["T201"]
 
 [tool.ruff.lint.pylint]
 # 5 par defaut : une fonction interne kw-only a souvent 6 ou 7 options legitimes,

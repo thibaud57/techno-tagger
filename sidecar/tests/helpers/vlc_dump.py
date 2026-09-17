@@ -47,10 +47,15 @@ PLAYLIST_OTHER: Final = "other playlist"
 def build_dump(
     path: Path,
     *,
+    tracks: tuple[str, ...] = TRACKS,
     omit_table: str | None = None,
     omit_column: str | None = None,
 ) -> Path:
     """Ecrit un dump de test a `path` et rend ce chemin.
+
+    `tracks` permet a la fixture de demonstration de poser ses propres morceaux sans
+    dupliquer le schema ; les tests gardent le jeu par defaut, dont les noms portent
+    l'ordre NOCASE et l'encodage.
 
     `omit_table` retire une table, `omit_column` retire une colonne designee sous la
     forme `Table.colonne` : de quoi couvrir la verification de schema sans maintenir
@@ -67,7 +72,7 @@ def build_dump(
             connection.execute(_without_column(ddl, table, omit_column))
 
         if omit_table is None and omit_column is None:
-            _fill(connection)
+            _fill(connection, tracks)
 
         connection.commit()
     finally:
@@ -90,7 +95,7 @@ def _without_column(ddl: str, table: str, omit_column: str | None) -> str:
     return ",".join(kept)
 
 
-def _fill(connection: sqlite3.Connection) -> None:
+def _fill(connection: sqlite3.Connection, tracks: tuple[str, ...]) -> None:
     """Deux playlists. La principale porte tous les morceaux plus une relation en
     double sur le premier, pour que le `DISTINCT` de l'extraction ait quelque chose a
     dedupliquer et que le comptage du listage doive l'etre aussi.
@@ -100,15 +105,15 @@ def _fill(connection: sqlite3.Connection) -> None:
     """
     connection.executemany(
         "INSERT INTO Media(id_media, filename, import_type) VALUES (?, ?, 0)",
-        list(enumerate(TRACKS, start=1)),
+        list(enumerate(tracks, start=1)),
     )
     connection.executemany(
         "INSERT INTO Playlist(id_playlist, name, creation_date, nb_audio) VALUES (?, ?, 0, 0)",
         [(1, PLAYLIST_MAIN), (2, PLAYLIST_OTHER)],
     )
 
-    relations = [(index, 1, index) for index in range(1, len(TRACKS) + 1)]
-    relations.append((1, 1, len(TRACKS) + 1))
+    relations = [(index, 1, index) for index in range(1, len(tracks) + 1)]
+    relations.append((1, 1, len(tracks) + 1))
     relations.append((1, 2, 1))
 
     connection.executemany(
