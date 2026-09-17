@@ -144,7 +144,7 @@ Les deux rouges partagent la couleur sans partager l'icône, leurs corrections �
 
 ### Border Radius
 
-Primitives du preset Aura, consommées telles quelles.
+Primitives du preset Aura. Cette table fait foi : là où Aura donne un autre cran à un composant, le preset du projet l'y ramène (§ Installation).
 
 | Token | Valeur | Usage |
 |-------|--------|-------|
@@ -209,7 +209,7 @@ L'ordre des couches CSS se règle côté TypeScript, pas dans le CSS :
 ```ts
 providePrimeNG({
   theme: {
-    preset: Aura,
+    preset: TECHNO_TAGGER_PRESET,
     options: {
       darkModeSelector: '.app-dark',
       cssLayer: { name: 'primeng', order: 'theme, base, primeng' }
@@ -217,6 +217,8 @@ providePrimeNG({
   }
 })
 ```
+
+Le preset du projet dérive d'Aura et n'y change que ce que ce document décide ailleurs : les rayons du § Formes, qu'Aura dérive autrement pour la carte, le tag et le badge, et l'absence d'ombre sur la carte, l'élévation ne vivant que sur les overlays. La liste exacte vit dans le preset, pas ici. Un nouvel écart s'y range selon sa portée, `primitive` pour une rampe ou un rayon, `semantic` pour un rôle, `components` pour un composant.
 
 > **Tailwind v4 ne compile ni SCSS ni LESS.** Le fichier global doit être un `.css`, sinon l'import échoue sur `Can't resolve './theme/colors.css'`. C'est la raison pour laquelle tout le styling du projet est en CSS pur (cf. § Conventions de Code).
 
@@ -242,6 +244,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Playlist détectée | Logo VLC (SVG) ou `file` | Simple Icons / PrimeIcons | Le logo signale un dump VLC reconnu. Un M3U8 tombe sur l'icône générique, le logiciel qui l'a exporté étant inconnu |
 | Sélecteur de playlist (dump VLC) | `p-select` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
 | Mode copie / déplacement | `p-selectbutton` | PrimeNG | Deux options, copie par défaut |
+| Rapport d'extraction | `p-table` en `[size]="'small'"`, `[scrollable]`, `[virtualScroll]` | PrimeNG | Trois colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans sa colonne |
 
 ### Liste du run
 
@@ -292,7 +295,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Sidecar absent ou en quarantaine | `p-message` `severity="error"` plein écran | PrimeNG | Écran bloquant, pas une modale : rien d'autre n'est utilisable tant que le binaire manque |
+| Sidecar absent ou en quarantaine | `p-card` centrée, action `secondary` outlined | PrimeNG | Écran bloquant, pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui explique comment s'en sortir. Même écran pour une divergence de version, sans action |
 | Notifications non bloquantes | `p-toast` | PrimeNG | Fin de phase, cache vidé, clé enregistrée |
 | Erreurs contextuelles | `p-message` inline | PrimeNG | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue |
 
@@ -328,6 +331,7 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier, `outline: none` est interdit |
 | Désactivé | `--p-disabled-opacity` (0.6) + `cursor: not-allowed` | Un bouton désactivé garde son libellé, il n'est jamais masqué |
 | Chargement | `p-skeleton` aux dimensions de la ligne finale | Évite le saut de layout à l'arrivée des événements |
+| Curseur | Flèche partout, `text` sur les seuls champs de saisie | Le curseur texte sur une table ou un libellé fait lire une page web |
 | Vide | Icône 24px en `text-muted-color`, titre en `text-base`, une phrase en `text-sm text-muted-color`, et l'action qui débloque quand elle existe | Quatre cas à couvrir : dossier sans fichier audio, playlist dont aucun morceau n'est retrouvé dans la source, aucun run passé, cache déjà vide. Pour la liste du run, le template `#emptymessage` de `p-table` porte ce bloc |
 
 ### Tailles de Badge
@@ -415,17 +419,16 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 | Élément | Valeur | Usage |
 |---------|--------|-------|
 | Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond | Plancher dicté par le jeu de six colonnes ci-dessous. Réglages dans `tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
-| Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page elle-même ne défile jamais, le scroll vit dans la table |
-| Container, écrans de données | Pleine largeur, `p-4` | Liste du run, récapitulatif |
-| Container, écrans de formulaire | `max-w-3xl mx-auto` (768px), `p-4` | Settings, sélection des dossiers de l'onglet Playlist |
-| Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre : ne relève d'aucun des deux régimes |
+| Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page elle-même ne défile jamais, le scroll vit dans la table. Le shell masque son débordement, et `overscroll-behavior: none` coupe le rebond de WebView2, qui fait trembler toute la fenêtre à la molette |
+| Container | Pleine largeur, `p-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
+| Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre : ne relève pas du container |
 | Densité | `[size]="'small'"` sur toutes les tables | Décide du nombre de lignes visibles sans scroller sur un run de 100 morceaux, et c'est la convention des outils DJ |
 | Rythme interne d'un groupe | `gap-2` | Éléments d'un même groupe |
 | Espacement entre groupes | `gap-4` | Groupes d'un même écran |
-| Espacement entre sections | `gap-6` ou `p-6`, `xl:` sur les paddings | Échelle Tailwind par 4px |
+| Espacement entre sections | `gap-6` | Échelle Tailwind par 4px |
 | Grid principal | Flexbox et CSS Grid natifs | Aucune librairie de grid |
 
-Les colonnes **Avant** et **Après** portent chacune un artiste plus un titre, souvent cinquante caractères. Ce sont exactement les deux colonnes que l'utilisateur compare, et les brider dans un container centré les envoie en ellipse sur les écrans larges. Un formulaire de réglages étiré sur 2560px n'a aucun intérêt inverse, d'où les deux régimes.
+**Un seul container, pour tous les écrans.** Un formulaire et une table qui ne partagent pas la même largeur ne s'alignent sur rien, et chaque onglet finissait par inventer ses marges. La pleine largeur sert les colonnes Avant et Après de la liste d'un run, qui portent chacune un artiste plus un titre et sont exactement ce que l'utilisateur compare.
 
 **Colonnes de la liste d'un run** :
 
@@ -439,6 +442,16 @@ Les colonnes **Avant** et **Après** portent chacune un artiste plus un titre, s
 | État | 124px | `p-tag`, cf. § Couleurs Sémantiques. Dimensionnée sur « Échec d'écriture » plus son glyphe, le plus long des cinq libellés, et à revérifier en anglais |
 
 Les trois colonnes fixes tiennent sur leur contenu le plus large et pas un pixel de plus : ce qui leur est repris va aux deux colonnes qu'on compare vraiment. Une colonne fixe surdimensionnée est de la largeur volée à la comparaison.
+
+**Colonnes du rapport d'extraction** :
+
+| Colonne | Largeur | Contenu |
+|---------|---------|---------|
+| Fichier | 2/5 de la table | Nom du fichier, tronqué et révélé au survol |
+| État | 160px | `p-tag`, cf. § Couleurs Sémantiques. Dimensionnée sur « Doublon départagé » plus son glyphe, le plus long des cinq libellés ; l'anglais est plus court |
+| Détails | **fluide** | Critère et candidats écartés d'un doublon, motif d'un échec. Vide pour les trois autres catégories |
+
+Sans largeur figée sur État, la colonne se redimensionne au défilement selon les tags que le défilement virtuel a rendus, et la table bouge sous le curseur.
 
 **Source dit d'où vient la donnée écrite, État dit par quel chemin on y est arrivé.** Un morceau résolu en collant une URL SoundCloud affiche donc SoundCloud en source et « URL » en état : c'est la seule voie par laquelle SoundCloud entre dans le produit, jamais la recherche automatique. C'est la même séparation que celle posée entre `state` et `resolution` dans le contrat NDJSON, portée cette fois côté affichage.
 
@@ -455,7 +468,6 @@ Deux choix qui portent le tableau. Le **nom de fichier est un sous-texte d'Avant
 | Breakpoint | Notation Tailwind | Largeur | Changements clés |
 |------------|-------------------|---------|------------------|
 | Base | (défaut) | ≥ 1024px, plancher de la fenêtre | Jeu de six colonnes au complet. Aucune colonne masquée : le redimensionnement est absorbé par Avant et Après |
-| xl | `xl:` | ≥ 1280px | Paddings de section élargis. Seul palier employé, et seulement pour le confort de lecture |
 
 Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : personne n'a à retenir quelle information disparaît à quelle taille.
 
@@ -482,7 +494,7 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - ✅ **Composant PrimeNG d'abord** : aucun composant custom tant que la bibliothèque en fournit un équivalent. Le catalogue large est la raison pour laquelle PrimeNG a été retenu (cf. [ADR-003](adrs/003-primeng-community-license.md))
 - ✅ **Trois niveaux de personnalisation, dans cet ordre** : `definePreset()` pour ce qui vaut partout (le thème, seule voie disponible sans le Theme Designer, cf. [ADR-003](adrs/003-primeng-community-license.md)), `[dt]` pour surcharger les design tokens d'une seule instance, `[pt]` pour attacher classes et attributs à ses éléments internes. La doc PrimeNG recommande explicitement cette voie contre `::ng-deep` (« This approach is recommended over the `::ng-deep` as it offers a cleaner API while avoiding the hassle of CSS rule overrides »)
 - ✅ **Tokens uniquement** : `bg-primary`, `text-muted-color`, `border-surface`. Aucune valeur de couleur écrite dans un composant
-- ✅ **Aucune largeur fixe sur du texte traduit** : les libellés existent en FR et en EN (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)), et le français est généralement le plus long des deux. Les boutons se dimensionnent sur leur contenu
+- ✅ **Une largeur se mesure sur le contenu le plus long, dans les deux langues** : les libellés existent en FR et en EN (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)), et le français est généralement le plus long des deux. Un bouton ou un libellé n'a donc aucune largeur en dur et se dimensionne sur son contenu. Une colonne de table se fige au contraire sur le plus long de ses libellés (§ Layout), sinon elle change de taille d'une ligne à l'autre au défilement
 - ✅ **Aucun libellé en dur dans un template** : tout passe par ngx-translate, y compris les messages d'erreur, que le sidecar émet en `code` + `params` et que l'interface traduit
 - ✅ **Densité compacte sur les tables** : `[size]="'small'"` systématique. La classe `p-datatable-sm` est générée par le composant, elle ne se pose jamais à la main
 - ✅ **Navigation clavier complète sur la modale d'arbitrage** : flèches entre arbitrages, entrée pour valider, focus visible en permanence
@@ -520,6 +532,7 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 
 ## Ressources Complémentaires
 
+- [Techno Tagger Design System](https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5) : ce document porté dans Claude Design, avec une maquette cliquable de chaque écran. À lire avant d'en implémenter un, elle fait foi sur l'apparence quand ce document fait foi sur les règles
 - [Preset Aura : source](https://github.com/primefaces/primeuix/blob/main/packages/themes/src/presets/aura/base/index.ts) : valeurs exactes des primitives et des tokens sémantiques
 - [primeng#17946](https://github.com/primefaces/primeng/issues/17946) et [tailwindcss-primeui#27](https://github.com/primefaces/tailwindcss-primeui/issues/27) : l'incompatibilité SCSS de Tailwind v4
 - [ARCHITECTURE.md](ARCHITECTURE.md) : stack, écrans, contrat NDJSON et modes de panne à couvrir visuellement
