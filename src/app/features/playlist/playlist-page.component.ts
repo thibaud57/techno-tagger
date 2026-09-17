@@ -1,4 +1,11 @@
-import { Component, computed, inject, signal, type WritableSignal } from "@angular/core"
+import {
+  Component,
+  computed,
+  inject,
+  linkedSignal,
+  signal,
+  type WritableSignal,
+} from "@angular/core"
 import { FormField, disabled, form } from "@angular/forms/signals"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
@@ -28,6 +35,7 @@ import { SourceLogoComponent } from "../../shared/components/source-logo.compone
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { fullHeightTable } from "../../shared/utils/table"
 import { TOOLTIP_DELAY, WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
 import { toExtractionRows, type ExtractionCategory } from "./extraction-rows"
@@ -79,9 +87,13 @@ export default class PlaylistPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly translate = inject(TranslateService)
 
-  protected readonly sourceFolder = signal<string | null>(null)
-  protected readonly destinationFolder = signal<string | null>(null)
-  protected readonly playlistPath = signal<string | null>(null)
+  /** Un onglet rouvert reprend les choix du dernier run, que le service garde avec son rapport. */
+  private readonly restoredRun = this.sidecar.extractionRequest()
+
+  protected readonly sourceFolder = signal(this.restoredRun?.source_folder ?? null)
+  protected readonly destinationFolder = signal(this.restoredRun?.destination_folder ?? null)
+  /** Le fichier du dernier listage, pas celui du run : c'est lui que decrivent les playlists recues. */
+  protected readonly playlistPath = signal(this.sidecar.listedPlaylistPath())
 
   /**
    * Les deux choix de l'ecran, dans un seul signal. `form()` en derive un arbre
@@ -90,7 +102,10 @@ export default class PlaylistPageComponent {
    * interopere. Aucun validateur n'est declare, il n'y a rien a valider ici.
    */
   protected readonly choice = signal<PlaylistChoice>({
-    playlist: null,
+    playlist:
+      this.restoredRun?.playlist_path === this.playlistPath()
+        ? this.restoredRun.playlist_name
+        : null,
     mode: DEFAULT_EXTRACTION_MODE,
   })
 
@@ -189,15 +204,38 @@ export default class PlaylistPageComponent {
     return this.translate.instant("playlist.missing.hint", { items }) as string
   })
 
+  /** Oublie a chaque debut et fin de run : le formulaire se replie de nouveau. */
+  protected readonly manuallyExpanded = linkedSignal(() => {
+    this.extracting()
+
+    return false
+  })
+
+  protected readonly formCollapsed = computed(
+    () => (this.extracting() || this.extraction() !== null) && !this.manuallyExpanded(),
+  )
+
+  protected readonly lastRun = this.sidecar.extractionRequest
+
+  /** Un M3U8 n'a pas de nom interne : son fichier le nomme, extension comprise faute de logo. */
+  protected readonly lastRunPlaylist = computed(() => {
+    const run = this.lastRun()
+
+    return run === null ? null : (run.playlist_name ?? run.playlist_path.replace(/^.*[\\/]/, ""))
+  })
+
   /** Hauteur de la classe `h-8` posee sur les lignes du rapport, lue par le scroll virtuel. */
   protected readonly rowHeight = 32
 
+  protected readonly tablePt = computed(() => fullHeightTable(this.rows().length === 0))
+
   protected readonly tooltipDelay = TOOLTIP_DELAY
   protected readonly wideTooltip = WIDE_TOOLTIP
+  protected readonly fadeIn = FADE_IN
 
   /** Hauteur du `p-select` qu'il precede, derivee des memes tokens : aucun saut a son arrivee. */
   protected readonly selectSkeletonHeight =
-    "calc(2 * var(--p-form-field-padding-y) + 1.5 * var(--p-form-field-font-size) + 2px)"
+    "calc(2 * var(--p-form-field-sm-padding-y) + 1.5 * var(--p-form-field-sm-font-size) + 2px)"
 
   protected readonly modeOptions = [
     { labelKey: "playlist.mode.copy", value: "copy" satisfies ExtractionMode },
@@ -208,6 +246,14 @@ export default class PlaylistPageComponent {
     void readExtractionMode().then((stored) => {
       this.choice.update((current) => ({ ...current, mode: stored }))
     })
+  }
+
+  protected expandForm(): void {
+    if (this.extracting()) {
+      return
+    }
+
+    this.manuallyExpanded.set(true)
   }
 
   protected async chooseFolder(target: WritableSignal<string | null>): Promise<void> {

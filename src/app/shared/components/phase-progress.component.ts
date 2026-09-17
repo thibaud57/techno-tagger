@@ -14,7 +14,7 @@ import { ProgressBar } from "primeng/progressbar"
     </div>
     <!-- Comparaison explicite : 0 % est une valeur, pas une absence. -->
     @if (value() !== undefined) {
-      <p-progressbar [value]="value()" />
+      <p-progressbar [value]="value()" [showValue]="false" [pt]="followsProgress" />
     } @else {
       <p-progressbar mode="indeterminate" />
     }
@@ -26,4 +26,7 @@ export class PhaseProgressComponent {
   readonly counter = input<string>()
   /** Pourcentage ; absent tant que le total n'est pas connu, la barre tourne alors en continu. */
   readonly value = input<number>()
+
+  /** Le `1s` de PrimeNG, relance a chaque evenement, laissait la barre a 5 % d'un run fini a 97 %. */
+  protected readonly followsProgress = { value: { class: "duration-200 ease-out" } }
 }

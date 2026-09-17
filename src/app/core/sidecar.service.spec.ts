@@ -68,6 +68,22 @@ describe("SidecarService", () => {
     vi.restoreAllMocks()
   })
 
+  it("keeps the choices of the extraction it launched", async () => {
+    await service.start()
+
+    await service.extractPlaylist(EXTRACTION)
+
+    expect(service.extractionRequest()).toEqual(EXTRACTION)
+  })
+
+  it("remembers the file whose playlists it lists", async () => {
+    await service.start()
+
+    await service.listPlaylists("C:/x.m3u8")
+
+    expect(service.listedPlaylistPath()).toBe("C:/x.m3u8")
+  })
+
   it("spawns the sidecar only once", async () => {
     await service.start()
     await service.start()

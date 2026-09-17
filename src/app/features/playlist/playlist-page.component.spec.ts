@@ -37,6 +37,8 @@ function mountWith(overrides: Partial<Record<string, unknown>> = {}) {
     playlists: signal([{ playlist_id: 1, name: "set", track_count: 8 }]),
     progress: signal(null),
     extraction: signal(null),
+    extractionRequest: signal(null),
+    listedPlaylistPath: signal(null),
     lastError: signal(null),
     listPlaylists: vi.fn(),
     extractPlaylist: vi.fn(),
@@ -65,9 +67,90 @@ function choosePlaylist(component: PlaylistPageComponent, name: string | null): 
   component["choice"].update((current) => ({ ...current, playlist: name }))
 }
 
+const LAST_RUN = {
+  source_folder: "C:/lib",
+  destination_folder: "C:/work",
+  playlist_path: "C:/x/vlc_media.db",
+  playlist_name: "set",
+  mode: "copy",
+} as const
+
 describe("PlaylistPageComponent", () => {
   afterEach(() => {
     vi.resetAllMocks()
+  })
+
+  it("restores the choices of the last extraction when the tab is reopened", () => {
+    const extractionRequest = signal(LAST_RUN)
+
+    const { component } = mountWith({
+      extractionRequest,
+      listedPlaylistPath: signal(LAST_RUN.playlist_path),
+    })
+
+    expect([
+      component["sourceFolder"](),
+      component["destinationFolder"](),
+      component["playlistPath"](),
+      component["choice"]().playlist,
+    ]).toEqual(["C:/lib", "C:/work", "C:/x/vlc_media.db", "set"])
+  })
+
+  it("restores the file listed since the last extraction, without its playlist", () => {
+    const listedPlaylistPath = signal("C:/x/samedi.m3u8")
+
+    const { component } = mountWith({ extractionRequest: signal(LAST_RUN), listedPlaylistPath })
+
+    expect([component["playlistPath"](), component["choice"]().playlist]).toEqual([
+      "C:/x/samedi.m3u8",
+      null,
+    ])
+  })
+
+  it("keeps the form collapsed while an extraction runs, even on request", () => {
+    const { component } = mountWith({ extracting: signal(true) })
+
+    component["expandForm"]()
+
+    expect(component["formCollapsed"]()).toBe(true)
+  })
+
+  it("reopens the form on request once the extraction is over", () => {
+    const { component } = mountWith({ extraction: signal({}) })
+
+    component["expandForm"]()
+
+    expect(component["formCollapsed"]()).toBe(false)
+  })
+
+  it("collapses the form again when the next extraction starts", () => {
+    const extracting = signal(false)
+    const { component } = mountWith({ extracting, extraction: signal({}) })
+    component["expandForm"]()
+
+    extracting.set(true)
+
+    expect(component["formCollapsed"]()).toBe(true)
+  })
+
+  it("names the playlist of the displayed run in the summary", () => {
+    const extractionRequest = signal(LAST_RUN)
+
+    const { component } = mountWith({ extractionRequest })
+
+    expect(component["lastRunPlaylist"]()).toBe("set")
+  })
+
+  it("names an M3U8 run by its file name", () => {
+    const extractionRequest = signal({
+      ...LAST_RUN,
+      playlist_path: "C:\\sets\\samedi.m3u8",
+      playlist_name: null,
+    })
+
+    const { component } = mountWith({ extractionRequest })
+
+    expect(component["lastRunPlaylist"]()).toBe("samedi.m3u8")
   })
 
   it("blocks extraction while a path is missing", () => {

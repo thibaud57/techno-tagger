@@ -5,28 +5,35 @@ import { UniqueComponentId } from "primeng/utils"
 
 import { TruncatedTextComponent } from "./truncated-text.component"
 
-/** L'icone du bouton se projette avec l'attribut `icon`. */
+/**
+ * Libelle, bouton et chemin se posent en trois cellules dans la grille de l'appelant, le
+ * composant n'ayant pas de boite (`contents`). L'icone du bouton se projette avec l'attribut
+ * `icon`.
+ */
 @Component({
   selector: "app-path-picker",
   imports: [ButtonDirective, Label, TruncatedTextComponent],
   template: `
-    <label pLabel [for]="id">{{ label() }}</label>
-    <div class="flex items-center gap-2">
-      <button
-        pButton
-        type="button"
-        [id]="id"
-        class="shrink-0"
-        [outlined]="true"
-        [disabled]="disabled()"
-        (click)="pick.emit()"
-      >
-        <ng-content select="[icon]" />{{ buttonLabel() }}
-      </button>
-      <app-truncated-text class="text-sm text-muted-color" direction="rtl" [text]="path()" />
-    </div>
+    <label pLabel class="col-start-1" [for]="id">{{ label() }}</label>
+    <button
+      pButton
+      type="button"
+      [id]="id"
+      class="w-full"
+      size="small"
+      [outlined]="true"
+      [disabled]="disabled()"
+      (click)="pick.emit()"
+    >
+      <ng-content select="[icon]" />{{ buttonLabel() }}
+    </button>
+    <app-truncated-text
+      class="max-w-full justify-self-end text-sm text-muted-color"
+      direction="rtl"
+      [text]="path()"
+    />
   `,
-  host: { class: "flex flex-col gap-2" },
+  host: { class: "contents" },
 })
 export class PathPickerComponent {
   protected readonly id = UniqueComponentId("path-picker-")

@@ -8,7 +8,7 @@ import { WIDE_TOOLTIP } from "../utils/tooltip"
   imports: [Tooltip],
   template: `
     <span
-      class="block truncate"
+      class="block truncate text-left"
       [attr.dir]="direction()"
       [pTooltip]="text() ?? undefined"
       [tooltipOptions]="tooltip"

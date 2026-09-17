@@ -64,6 +64,8 @@ export interface ExtractPlaylistCommand {
   readonly mode: ExtractionMode
 }
 
+export type ExtractionRequest = Omit<ExtractPlaylistCommand, "command">
+
 export type SidecarCommand =
   GetVersionCommand | ShutdownCommand | ListPlaylistsCommand | ExtractPlaylistCommand
 

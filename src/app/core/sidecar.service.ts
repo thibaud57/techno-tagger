@@ -1,9 +1,9 @@
 import { Injectable, computed, inject, signal } from "@angular/core"
 
 import {
-  ExtractPlaylistCommand,
   ExtractionFinishedEvent,
   ExtractionProgressEvent,
+  ExtractionRequest,
   PlaylistsListedEvent,
   SidecarCommand,
   SidecarErrorEvent,
@@ -43,8 +43,10 @@ export class SidecarService {
   private readonly _available = signal<boolean | null>(null)
   private readonly _version = signal<string | null>(null)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
+  private readonly _listedPlaylistPath = signal<string | null>(null)
   private readonly _progress = signal<ExtractionProgressEvent | null>(null)
   private readonly _extraction = signal<ExtractionFinishedEvent | null>(null)
+  private readonly _extractionRequest = signal<ExtractionRequest | null>(null)
   private readonly _extracting = signal(false)
   private readonly _lastError = signal<SidecarErrorEvent | null>(null)
 
@@ -58,8 +60,12 @@ export class SidecarService {
   /** Decide si l'interface propose un selecteur de playlist. */
   readonly playlistFormat = computed(() => this._listing()?.playlist_format ?? null)
   readonly playlists = computed(() => this._listing()?.playlists ?? [])
+  /** Le fichier que decrivent `playlistFormat` et `playlists`, l'evenement ne le nommant pas. */
+  readonly listedPlaylistPath = this._listedPlaylistPath.asReadonly()
   readonly progress = this._progress.asReadonly()
   readonly extraction = this._extraction.asReadonly()
+  /** Les choix du dernier run lance, gardes avec son rapport : l'onglet qui les a saisis peut etre demonte. */
+  readonly extractionRequest = this._extractionRequest.asReadonly()
   /** Vrai de l'envoi d'`extract_playlist` jusqu'a son resultat, son erreur ou la fin du process. */
   readonly extracting = this._extracting.asReadonly()
   readonly lastError = this._lastError.asReadonly()
@@ -117,10 +123,12 @@ export class SidecarService {
   async listPlaylists(playlistPath: string): Promise<void> {
     // La reponse precedente decrivait un autre fichier : l'ecran attend la nouvelle.
     this._listing.set(null)
+    this._listedPlaylistPath.set(playlistPath)
     await this.send({ command: "list_playlists", playlist_path: playlistPath })
   }
 
-  async extractPlaylist(request: Omit<ExtractPlaylistCommand, "command">): Promise<void> {
+  async extractPlaylist(request: ExtractionRequest): Promise<void> {
+    this._extractionRequest.set(request)
     this._extraction.set(null)
     this._progress.set(null)
     this._extracting.set(true)

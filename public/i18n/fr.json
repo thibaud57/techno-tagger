@@ -58,7 +58,7 @@
       "copy": "Copier",
       "move": "Déplacer"
     },
-    "extract": "Extraire",
+    "extract": "Extraire la playlist",
     "missing": {
       "hint": "Choisissez {{items}}.",
       "source": "le dossier source",
@@ -66,8 +66,12 @@
       "file": "un fichier de playlist",
       "playlist": "une playlist"
     },
+    "summary": {
+      "expand": "Modifier",
+      "expandDisabled": "Les choix sont figés pendant l'extraction."
+    },
     "running": "Extraction en cours",
-    "finished": "Extraction terminée",
+    "finished": "Extraction terminée ({{processed}} sur {{total}})",
     "progress": "{{processed}} sur {{total}}",
     "report": {
       "title": "Rapport d'extraction",

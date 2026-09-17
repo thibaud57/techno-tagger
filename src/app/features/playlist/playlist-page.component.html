@@ -1,48 +1,105 @@
 <h1 class="text-2xl font-semibold">{{ "playlist.title" | translate }}</h1>
 
-<div class="flex flex-col gap-4">
-  <app-path-picker
-    [label]="'playlist.source.label' | translate"
-    [buttonLabel]="'playlist.source.choose' | translate"
-    [path]="sourceFolder()"
-    [disabled]="extracting()"
-    (pick)="chooseFolder(sourceFolder)"
-  >
-    <app-icon icon name="folder" [size]="20" />
-  </app-path-picker>
+@if (formCollapsed()) {
+  <div class="flex flex-col gap-2" [animate.enter]="fadeIn">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex min-w-0 flex-1 items-center gap-2 text-sm">
+        @if (lastRun(); as run) {
+          <app-icon class="shrink-0 text-muted-color" name="folder" [size]="16" />
+          <app-truncated-text direction="rtl" [text]="run.source_folder" />
+          <app-icon class="shrink-0 text-muted-color" name="chevron-right" [size]="16" />
+          <app-truncated-text direction="rtl" [text]="run.destination_folder" />
+          <app-icon class="shrink-0 text-muted-color" name="chevron-right" [size]="16" />
+          <!-- Un M3U8 n'a pas de nom de playlist. -->
+          @if (run.playlist_name !== null) {
+            <app-source-logo class="shrink-0" source="vlc" [size]="16" />
+          } @else {
+            <app-icon class="shrink-0 text-muted-color" name="file" [size]="16" />
+          }
+          <app-truncated-text [text]="lastRunPlaylist()" />
+          <span class="shrink-0 text-muted-color">·</span>
+          <span class="shrink-0 text-muted-color">{{
+            "playlist.mode." + run.mode | translate
+          }}</span>
+        }
+      </div>
 
-  <app-path-picker
-    [label]="'playlist.destination.label' | translate"
-    [buttonLabel]="'playlist.destination.choose' | translate"
-    [path]="destinationFolder()"
-    [disabled]="extracting()"
-    (pick)="chooseFolder(destinationFolder)"
-  >
-    <app-icon icon name="folder" [size]="20" />
-  </app-path-picker>
+      <button
+        pButton
+        type="button"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        class="shrink-0"
+        [disabled]="extracting()"
+        [pTooltip]="extracting() ? ('playlist.summary.expandDisabled' | translate) : undefined"
+        [showDelay]="tooltipDelay"
+        tooltipPosition="left"
+        (click)="expandForm()"
+      >
+        {{ "playlist.summary.expand" | translate }}
+      </button>
+    </div>
 
-  <app-path-picker
-    [label]="'playlist.file.label' | translate"
-    [buttonLabel]="'playlist.file.choose' | translate"
-    [path]="playlistPath()"
-    [disabled]="extracting()"
-    (pick)="choosePlaylistFile()"
-  >
-    @if (showsPlaylistSelector()) {
-      <app-source-logo icon source="vlc" [size]="20" />
-    } @else {
-      <app-icon icon name="file" [size]="20" />
+    @if (extracting()) {
+      @let running = progress();
+      <app-phase-progress
+        [label]="'playlist.running' | translate"
+        [counter]="running ? ('playlist.progress' | translate: running) : undefined"
+        [value]="progressPercent()"
+      />
     }
-  </app-path-picker>
+  </div>
+} @else {
+  <!-- `col-start-1` sur chaque libelle : les lignes n'ont pas toutes trois cellules. -->
+  <div
+    class="grid grid-cols-[max-content_max-content_1fr] items-center gap-4"
+    [animate.enter]="fadeIn"
+  >
+    <app-path-picker
+      [label]="'playlist.source.label' | translate"
+      [buttonLabel]="'playlist.source.choose' | translate"
+      [path]="sourceFolder()"
+      [disabled]="extracting()"
+      (pick)="chooseFolder(sourceFolder)"
+    >
+      <app-icon icon name="folder" [size]="20" />
+    </app-path-picker>
 
-  @if (awaitsPlaylists() || showsPlaylistSelector()) {
-    <div class="flex flex-col gap-2">
-      <label pLabel for="playlist-selector">{{ "playlist.selector.label" | translate }}</label>
+    <app-path-picker
+      [label]="'playlist.destination.label' | translate"
+      [buttonLabel]="'playlist.destination.choose' | translate"
+      [path]="destinationFolder()"
+      [disabled]="extracting()"
+      (pick)="chooseFolder(destinationFolder)"
+    >
+      <app-icon icon name="folder" [size]="20" />
+    </app-path-picker>
+
+    <app-path-picker
+      [label]="'playlist.file.label' | translate"
+      [buttonLabel]="'playlist.file.choose' | translate"
+      [path]="playlistPath()"
+      [disabled]="extracting()"
+      (pick)="choosePlaylistFile()"
+    >
+      @if (showsPlaylistSelector()) {
+        <app-source-logo icon source="vlc" [size]="20" />
+      } @else {
+        <app-icon icon name="file" [size]="20" />
+      }
+    </app-path-picker>
+
+    @if (awaitsPlaylists() || showsPlaylistSelector()) {
+      <label pLabel class="col-start-1" for="playlist-selector">{{
+        "playlist.selector.label" | translate
+      }}</label>
       @if (awaitsPlaylists()) {
-        <p-skeleton class="w-80" [height]="selectSkeletonHeight" />
+        <p-skeleton class="w-full" [height]="selectSkeletonHeight" />
       } @else {
         <p-select
-          class="w-80"
+          class="w-full"
+          size="small"
           [formField]="fields.playlist"
           [options]="playlists()"
           optionLabel="name"
@@ -58,13 +115,15 @@
           </ng-template>
         </p-select>
       }
-    </div>
-  }
+    }
 
-  <div class="flex flex-col gap-2">
     <!-- Un groupe de boutons ne prend pas de <label> : meme rendu que pLabel, lie par l'id. -->
-    <span id="playlist-mode-label" class="text-sm">{{ "playlist.mode.label" | translate }}</span>
+    <span id="playlist-mode-label" class="col-start-1 text-sm">{{
+      "playlist.mode.label" | translate
+    }}</span>
     <p-selectbutton
+      class="w-full"
+      size="small"
       [formField]="fields.mode"
       [options]="modeOptions"
       optionValue="value"
@@ -74,29 +133,21 @@
     >
       <ng-template #item let-option>{{ option.labelKey | translate }}</ng-template>
     </p-selectbutton>
+
+    <button
+      pButton
+      type="button"
+      size="small"
+      class="col-span-2 col-start-1"
+      [disabled]="!canExtract()"
+      [pTooltip]="missingHint() ?? undefined"
+      [showDelay]="tooltipDelay"
+      tooltipPosition="right"
+      (click)="extract()"
+    >
+      {{ "playlist.extract" | translate }}
+    </button>
   </div>
-
-  <button
-    pButton
-    type="button"
-    class="self-start"
-    [disabled]="!canExtract()"
-    [pTooltip]="missingHint() ?? undefined"
-    [showDelay]="tooltipDelay"
-    tooltipPosition="right"
-    (click)="extract()"
-  >
-    {{ "playlist.extract" | translate }}
-  </button>
-</div>
-
-@if (extracting() || progress()) {
-  @let running = progress();
-  <app-phase-progress
-    [label]="(extracting() ? 'playlist.running' : 'playlist.finished') | translate"
-    [counter]="running ? ('playlist.progress' | translate: running) : undefined"
-    [value]="progressPercent()"
-  />
 }
 
 @if (lastError(); as failure) {
@@ -104,8 +155,12 @@
 }
 
 @if (extraction() !== null) {
-  <div class="flex min-h-0 flex-1 flex-col gap-2">
-    <h2 class="text-xl font-semibold">{{ "playlist.report.title" | translate }}</h2>
+  <!-- Titre en aria-label plutot qu'en <h2> : la ligne qu'il prendrait revient a la table. -->
+  <div
+    class="flex min-h-0 flex-1 flex-col gap-2"
+    role="region"
+    [attr.aria-label]="'playlist.report.title' | translate"
+  >
     <p-table
       [value]="rows()"
       [size]="'small'"
@@ -114,6 +169,7 @@
       [virtualScrollItemSize]="rowHeight"
       scrollHeight="flex"
       class="min-h-0 flex-1 text-sm"
+      [pt]="tablePt()"
     >
       <ng-template #header>
         <tr>
@@ -124,7 +180,7 @@
       </ng-template>
       <ng-template #emptymessage>
         <tr>
-          <td [attr.colspan]="2">
+          <td class="border-b-0" [attr.colspan]="2">
             <app-empty-state
               icon="file"
               [heading]="'playlist.report.empty.heading' | translate"
@@ -165,5 +221,10 @@
         </tr>
       </ng-template>
     </p-table>
+    @if (progress(); as finished) {
+      <span class="self-end text-sm text-muted-color tabular-nums">
+        {{ "playlist.finished" | translate: finished }}
+      </span>
+    }
   </div>
 }
