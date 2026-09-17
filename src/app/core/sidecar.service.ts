@@ -39,7 +39,8 @@ const unavailableError = (): SidecarErrorEvent => ({
 export class SidecarService {
   private readonly transport = inject(SIDECAR_TRANSPORT)
 
-  private readonly _available = signal(false)
+  /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
+  private readonly _available = signal<boolean | null>(null)
   private readonly _version = signal<string | null>(null)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _progress = signal<ExtractionProgressEvent | null>(null)
@@ -100,6 +101,17 @@ export class SidecarService {
     if (available) {
       await this.send({ command: "get_version" })
     }
+  }
+
+  /**
+   * Relance apres un echec de lancement ou une mort du process : c'est l'action de
+   * l'ecran bloquant, une fois le binaire restaure ou exclu de l'antivirus.
+   */
+  async restart(): Promise<void> {
+    this.started = false
+    this._available.set(null)
+    this._version.set(null)
+    await this.start()
   }
 
   async listPlaylists(playlistPath: string): Promise<void> {

@@ -15,6 +15,26 @@
   --font-sans: "Inter Variable", system-ui, sans-serif;
 }
 
+/* WebView2 fait rebondir toute la vue quand la molette tourne sur une page qui ne defile
+   pas : la barre d'onglets tremble puis revient. C'est le seul moyen de le couper, aucune
+   option Tauri ne le fait. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/* Le curseur texte sur une table ou un libelle fait lire une page web. Une application de
+   bureau montre une fleche partout, sauf la ou l'on saisit vraiment. Le curseur s'herite,
+   d'ou la remise a `text` sur les champs. */
+body {
+  cursor: default;
+}
+
+input,
+textarea {
+  cursor: text;
+}
+
 /* DESIGN.md § Tokens de Tooltip : jamais entre le curseur et ce qu'il decrit, et une largeur
    `wide` pour une valeur de colonne coupee (cf. shared/tooltip.ts). Hors couche, ces regles
    passent devant celles de PrimeNG, rangees dans la couche `primeng`. */

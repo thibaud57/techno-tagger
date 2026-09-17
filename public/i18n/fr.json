@@ -4,6 +4,19 @@
     "tagging": "Tagging",
     "settings": "Réglages"
   },
+  "app": {
+    "blocked": {
+      "missing": {
+        "title": "Le moteur de l'application est introuvable",
+        "text": "Le fichier {{file}} est attendu dans le dossier d'installation. Il a probablement été mis en quarantaine par l'antivirus : ajoutez-le aux exclusions, puis réessayez."
+      },
+      "versionMismatch": {
+        "title": "La mise à jour est incomplète",
+        "text": "L'interface est en version {{ui}} et le moteur en version {{sidecar}}. Réinstallez l'application."
+      },
+      "retry": "Réessayer"
+    }
+  },
   "errors": {
     "malformed_command": "Une erreur interne a interrompu l'opération. Relancez l'application.",
     "unknown_error": "Une erreur inattendue a interrompu l'opération. Si elle revient, le détail se trouve dans le dossier des logs.",
@@ -37,6 +50,7 @@
     },
     "selector": {
       "label": "Playlist",
+      "placeholder": "Choisir une playlist",
       "option": "{{name}} ({{count}})"
     },
     "mode": {
@@ -46,8 +60,6 @@
     },
     "extract": "Extraire",
     "progress": "{{processed}} sur {{total}}",
-    "versionMismatch": "La mise à jour est incomplète (versions {{ui}} et {{sidecar}}). Réinstallez l'application.",
-    "unavailable": "Le moteur de l'application n'est pas démarré : l'extraction est indisponible. Relancez l'application.",
     "report": {
       "title": "Rapport d'extraction",
       "file": "Fichier",

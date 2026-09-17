@@ -24,6 +24,7 @@ import { EmptyStateComponent } from "../../shared/components/empty-state.compone
 import { IconComponent, type IconName } from "../../shared/components/icon.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { formatFileSize } from "../../shared/utils/file-size"
+import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { TRUNCATED_VALUE_TOOLTIP } from "../../shared/utils/tooltip"
 
 import { toExtractionRows, type ExtractionCategory } from "./extraction-rows"
@@ -66,8 +67,7 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
     Tooltip,
   ],
   templateUrl: "./playlist-page.component.html",
-  // La page occupe la hauteur laissee par les onglets et ne defile jamais : la table si.
-  host: { class: "flex min-h-0 flex-1 flex-col" },
+  host: { class: PAGE_HOST, "animate.enter": FADE_IN },
 })
 export default class PlaylistPageComponent {
   private readonly sidecar = inject(SidecarService)
@@ -97,6 +97,7 @@ export default class PlaylistPageComponent {
   protected readonly rowHeight = 32
 
   protected readonly truncatedValueTooltip = TRUNCATED_VALUE_TOOLTIP
+  protected readonly fadeIn = FADE_IN
 
   /** Hauteur du `p-select` qu'il precede, derivee des memes tokens : aucun saut a son arrivee. */
   protected readonly selectSkeletonHeight =
@@ -107,9 +108,7 @@ export default class PlaylistPageComponent {
     { labelKey: "playlist.mode.move", value: "move" satisfies ExtractionMode },
   ]
 
-  protected readonly available = this.sidecar.available
   protected readonly extracting = this.sidecar.extracting
-  protected readonly versionMismatch = this.sidecar.versionMismatch
   /** Copie mutable : `p-select` attend un tableau modifiable, le contrat NDJSON en lit lecture seule. */
   protected readonly playlists = computed(() => [...this.sidecar.playlists()])
   protected readonly progress = this.sidecar.progress

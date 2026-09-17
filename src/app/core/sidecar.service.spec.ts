@@ -135,6 +135,22 @@ describe("SidecarService", () => {
     expect(service.available()).toBe(false)
   })
 
+  it("is undecided until the launch has answered", () => {
+    expect(service.available()).toBeNull()
+  })
+
+  it("relaunches on restart after a failed start", async () => {
+    transport.startable = false
+    await service.start()
+    transport.startable = true
+
+    await service.restart()
+
+    expect(transport.starts).toBe(2)
+    expect(service.available()).toBe(true)
+    expect(commandOf(transport.sent[0] ?? "")).toBe("get_version")
+  })
+
   it("reports unavailability when a command is sent without a sidecar", async () => {
     transport.startable = false
 

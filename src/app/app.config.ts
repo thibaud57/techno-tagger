@@ -8,7 +8,6 @@ import {
 import { provideRouter, withComponentInputBinding } from "@angular/router"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { provideTranslateHttpLoader } from "@ngx-translate/http-loader"
-import Aura from "@primeuix/themes/aura"
 import * as Sentry from "@sentry/angular"
 import { providePrimeNG } from "primeng/config"
 import { firstValueFrom } from "rxjs"
@@ -16,6 +15,7 @@ import { firstValueFrom } from "rxjs"
 import { routes } from "./app.routes"
 import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/language"
 import { SidecarService } from "./core/sidecar.service"
+import { TECHNO_TAGGER_PRESET } from "./core/theme"
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -24,7 +24,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     providePrimeNG({
       theme: {
-        preset: Aura,
+        preset: TECHNO_TAGGER_PRESET,
         options: {
           // Doit rester identique au @custom-variant dark de styles.css
           darkModeSelector: ".app-dark",

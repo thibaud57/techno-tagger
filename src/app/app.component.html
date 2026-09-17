@@ -1,11 +1,35 @@
-<!-- TODO: implement, deriver l'onglet actif de l'URL et naviguer sur
-     valueChange, p-tabs n'ayant aucun mode router. -->
-<p-tabs value="playlist">
-  <p-tablist>
-    <p-tab value="playlist">{{ "nav.playlist" | translate }}</p-tab>
-    <p-tab value="tagging">{{ "nav.tagging" | translate }}</p-tab>
-    <p-tab value="settings">{{ "nav.settings" | translate }}</p-tab>
-  </p-tablist>
-</p-tabs>
+@if (blocked(); as reason) {
+  <!-- Ecran bloquant, pas une modale : les onglets ne sont meme pas rendus. Carte sur
+       surface neutre plutot qu'un pave d'alerte : le rouge signale, il ne baigne pas
+       la phrase qu'il faut lire pour s'en sortir. -->
+  <div class="flex flex-1 items-center justify-center p-8">
+    <p-card class="max-w-lg border border-surface" [animate.enter]="fadeIn">
+      <div class="flex flex-col items-center gap-6 text-center">
+        <div class="flex flex-col gap-2">
+          <p class="text-lg font-semibold">{{ "app.blocked." + reason + ".title" | translate }}</p>
+          <p class="text-sm text-muted-color">
+            {{ "app.blocked." + reason + ".text" | translate: blockedParams() }}
+          </p>
+        </div>
+        @if (reason === "missing") {
+          <button pButton type="button" [outlined]="true" severity="secondary" (click)="retry()">
+            {{ "app.blocked.retry" | translate }}
+          </button>
+        }
+      </div>
+    </p-card>
+  </div>
+} @else {
+  <p-tabs [value]="activeTab()" (valueChange)="navigate($event)">
+    <p-tablist>
+      @for (tab of tabs; track tab) {
+        <p-tab [value]="tab">{{ "nav." + tab | translate }}</p-tab>
+      }
+    </p-tablist>
+  </p-tabs>
 
-<router-outlet />
+  <!-- Le layout est ici, une fois pour les trois onglets : une page ne pose que son contenu. -->
+  <main class="flex min-h-0 flex-1 flex-col p-8">
+    <router-outlet />
+  </main>
+}

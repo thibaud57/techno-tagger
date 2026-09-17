@@ -4,6 +4,19 @@
     "tagging": "Tagging",
     "settings": "Settings"
   },
+  "app": {
+    "blocked": {
+      "missing": {
+        "title": "The application engine cannot be found",
+        "text": "The file {{file}} is expected in the installation folder. It was probably quarantined by the antivirus: add it to the exclusions, then retry."
+      },
+      "versionMismatch": {
+        "title": "The update is incomplete",
+        "text": "The interface is at version {{ui}} and the engine at version {{sidecar}}. Reinstall the application."
+      },
+      "retry": "Retry"
+    }
+  },
   "errors": {
     "malformed_command": "An internal error interrupted the operation. Restart the application.",
     "unknown_error": "An unexpected error interrupted the operation. If it happens again, the details are in the logs folder.",
@@ -37,6 +50,7 @@
     },
     "selector": {
       "label": "Playlist",
+      "placeholder": "Choose a playlist",
       "option": "{{name}} ({{count}})"
     },
     "mode": {
@@ -46,8 +60,6 @@
     },
     "extract": "Extract",
     "progress": "{{processed}} of {{total}}",
-    "versionMismatch": "The update is incomplete (versions {{ui}} and {{sidecar}}). Reinstall the application.",
-    "unavailable": "The application engine is not running: extraction is unavailable. Restart the application.",
     "report": {
       "title": "Extraction report",
       "file": "File",
