@@ -1,6 +1,11 @@
 import { InjectionToken } from "@angular/core"
 import { Child, Command } from "@tauri-apps/plugin-shell"
 
+/** Nom d'`externalBin` et de la capability : un nom errone donne un `SidecarNotAllowed`. */
+export const SIDECAR_BINARY = "tagger"
+/** Tauri strippe le target triple au staging : c'est ce nom que l'ecran bloquant montre. */
+export const SIDECAR_FILE = `${SIDECAR_BINARY}.exe`
+
 /**
  * Frontiere vers Tauri, seul endroit qui connait `Command.sidecar`.
  *
@@ -30,16 +35,21 @@ class TauriSidecarTransport implements SidecarTransport {
       // Nom exact d'`externalBin`, sans suffixe target triple : c'est ce que
       // resout `Command.sidecar` cote JS, et un nom errone donne un
       // `SidecarNotAllowed` au premier lancement.
-      const command = Command.sidecar("binaries/tagger")
+      const command = Command.sidecar(`binaries/${SIDECAR_BINARY}`)
 
       command.stdout.on("data", handlers.onLine)
       command.stderr.on("data", handlers.onStderr)
-      const terminated = () => {
+
+      // Seul `close` est une sortie du process : il porte le code de sortie. `error`
+      // signale un incident du flux, le process peut tourner toujours, et le prendre
+      // pour une mort affiche l'ecran bloquant sur un moteur bien vivant.
+      command.on("close", () => {
         this.child = null
         handlers.onTerminated()
-      }
-      command.on("close", terminated)
-      command.on("error", terminated)
+      })
+      command.on("error", (error) => {
+        console.error("[sidecar] erreur du flux", error)
+      })
 
       // `spawn` et jamais `execute` : le protocole est un flux continu sur un
       // process long, `execute` attendrait sa fin.
