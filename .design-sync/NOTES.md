@@ -64,8 +64,15 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
 - **La page ne défile jamais** : le shell masque son débordement, la maquette laisse défiler
   ses écrans (`overflowY: auto` dans `PlaylistScreen.jsx`).
 - **Table du rapport d'extraction** : deux colonnes, Fichier fluide et État figée à 184px. Le détail
-  d'un doublon ou d'un échec s'ouvre en tooltip sur le badge, signalé par une icône info.
-  La maquette n'a aucune table sur cet écran, et la fiche `DataTable` ne décrit que la liste du run.
+  d'un doublon ou d'un échec s'ouvre en tooltip sur le badge, signalé par une icône info. La table
+  remplit toute la hauteur restante, vide ou remplie, et centre son bloc vide ; « Extraction
+  terminée (N sur N) » s'affiche dessous, à droite. La maquette n'a aucune table sur cet écran, et
+  la fiche `DataTable` ne décrit que la liste du run.
+- **Onglet Playlist en deux temps** : formulaire en grille compacte (libellés, contrôles `small` de
+  même largeur, chemins alignés à droite, « Extraire la playlist » seul sur sa ligne), replié dès
+  le lancement en une ligne de résumé avec « Modifier », barre de progression sous le résumé sans
+  valeur écrite, retirée à la fin. DESIGN.md § Layout le décrit. À reprendre dans
+  `PlaylistScreen.jsx`.
 - **Conventions de bureau** : curseur flèche partout sauf les champs, et rebond de défilement coupé.
   Rien de tout ça dans le kit.
 - **Sévérité des sélecteurs de dossier** : tranchée en primaire outlined, comme le code. La maquette
@@ -78,3 +85,7 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   `ui_kits/techno-tagger/PlaylistScreen.jsx`, écarts consignés dans la conversation de revue et
   ci-dessus. Création de ce dossier, de la rule et du lien dans DESIGN.md § Ressources. Aucun push
   encore effectué depuis ce dépôt.
+- **2026-09-17, variations de l'onglet Playlist** : neuf directions explorées par
+  `/swarm-ui-variations`, dont une calquée sur `PlaylistScreen.jsx`. Le mix retenu (grille compacte,
+  deux temps, résumé, table pleine hauteur) est livré en `2d3b10e` et consigné ci-dessus. Aucun
+  push vers le projet Claude Design.

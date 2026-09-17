@@ -14,7 +14,7 @@ paths:
 - Importer chaque icône `@primeicons/angular` individuellement dans les `imports` du composant, c'est ce qui permet le tree-shaking
 - Passer `[size]="'small'"` sur les tables : la densité compacte est la convention du projet, et `p-datatable-sm` est générée par le composant, jamais posée à la main
 - Apparier la taille d'un badge à celle des éléments de sa rangée, et garder neutre la puce portée par un bouton : un compteur n'est pas une action (cf. [DESIGN.md § États des Composants](../../../docs/DESIGN.md#états-des-composants))
-- Porter le bloc « état vide » de la liste d'un run par le template `#emptymessage` de `p-table`
+- Porter le bloc « état vide » d'une table par le template `#emptymessage` de `p-table`, avec `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur la table et `border-b-0` sur la cellule : le bloc se centre sur toute la hauteur, et le pass-through n'atteint pas la bordure de la ligne
 
 ## À éviter
 - `::ng-deep` : percer l'encapsulation d'un composant produit du style qui casse à la mise à jour et qu'aucune recherche ne retrouve. Passer par `[dt]` ou `[pt]`, voie explicitement recommandée par la doc PrimeNG

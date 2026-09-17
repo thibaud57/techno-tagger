@@ -243,11 +243,13 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Sélection de dossier / de fichier | `button pButton` primaire outlined + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche à côté en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
+| Sélection de dossier / de fichier | `button pButton` primaire outlined en `size="small"` + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche au bout de la ligne, aligné à droite, en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
 | Playlist détectée | Logo VLC (SVG) ou `file` | Simple Icons / PrimeIcons | Le logo signale un dump VLC reconnu. Un M3U8 tombe sur l'icône générique, le logiciel qui l'a exporté étant inconnu |
-| Sélecteur de playlist (dump VLC) | `p-select` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
-| Mode copie / déplacement | `p-selectbutton` | PrimeNG | Deux options, copie par défaut |
-| Rapport d'extraction | `p-table` en `[size]="'small'"`, `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du badge |
+| Sélecteur de playlist (dump VLC) | `p-select` en `size="small"` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
+| Mode copie / déplacement | `p-selectbutton` en `size="small"` | PrimeNG | Deux options, copie par défaut |
+| Lancement de l'extraction | `button pButton` primaire en `size="small"` | PrimeNG | Seul sur sa ligne, du bord des libellés au bout des contrôles. Désactivé, son tooltip nomme les choix manquants |
+| Résumé du run | Ligne de texte + `button pButton` secondary outlined en `size="small"` | PrimeNG | Remplace le formulaire dès le lancement (cf. § Layout). « Modifier » est figé pendant le run, puis rouvre le formulaire au-dessus du rapport |
+| Rapport d'extraction | `p-table` en `[size]="'small'"`, `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du badge. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
 
 ### Liste du run
 
@@ -312,8 +314,9 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Logo de source | `SourceLogoComponent` | Simple Icons | Les logos de source en `currentColor`, même jeu de tailles que les icônes |
 | État d'un morceau | `StateTagComponent` | PrimeNG (`p-tag`) | Porte le mapping `state` / `resolution` / `failure_reason` → famille, icône, libellé. Entièrement spécifié au § Couleurs Sémantiques : l'encoder une fois évite qu'il soit re-dérivé, de travers, écran par écran |
 | Bloc vide | `EmptyStateComponent` | — (from scratch) | Le bloc vide décrit au § États des Composants. PrimeNG n'a pas d'équivalent, il s'écrit from scratch |
-| Sélection de chemin | `PathPickerComponent` | PrimeNG (`pButton`, `pLabel`) | Libellé, bouton et chemin retenu, un par dossier ou fichier à choisir |
-| Progression d'une phase | `PhaseProgressComponent` | PrimeNG (`p-progressbar`) | Libellé et compteur au-dessus de la barre, que `p-progressbar` ne sait pas porter. Sans valeur, la barre passe en indéterminée |
+| Sélection de chemin | `PathPickerComponent` | PrimeNG (`pButton`, `pLabel`) | Libellé, bouton et chemin retenu, un par dossier ou fichier à choisir. Ses trois éléments sont des cellules de la grille de l'appelant (`display: contents`) : libellés, boutons et chemins s'alignent en colonnes d'un sélecteur à l'autre |
+| Progression d'une phase | `PhaseProgressComponent` | PrimeNG (`p-progressbar`) | Libellé et compteur au-dessus de la barre, que `p-progressbar` ne sait pas porter. La barre n'écrit aucune valeur, le compteur la porte. Sans valeur, elle passe en indéterminée |
+| Table pleine hauteur | `fullHeightTable` (`shared/utils/table.ts`) | PrimeNG (`[pt]` de `p-table`) | Fond de ligne sur toute la hauteur du conteneur, et table étirée quand elle est vide pour centrer son bloc vide. Jamais étirée remplie : ses lignes dépasseraient la hauteur du défilement virtuel |
 | Erreur contextuelle | `ErrorMessageComponent` | PrimeNG (`p-message`) | Erreur du sidecar traduite depuis son `code` et ses `params`, sous la forme décrite au § Feedback |
 | Texte tronqué | `TruncatedTextComponent` | PrimeNG (`pTooltip`) | Chemin ou valeur de colonne fluide coupé par l'ellipse. Le tooltip `wide` ne s'ouvre que sur un texte coupé, et `rtl` coupe un chemin par la gauche |
 
@@ -339,7 +342,7 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Désactivé | `--p-disabled-opacity` (0.6) + `cursor: not-allowed` | Un bouton désactivé garde son libellé, il n'est jamais masqué |
 | Chargement | `p-skeleton` aux dimensions de la ligne finale | Évite le saut de layout à l'arrivée des événements |
 | Curseur | Flèche partout, `text` sur les seuls champs de saisie | Le curseur texte sur une table ou un libellé fait lire une page web |
-| Vide | Icône 24px en `text-muted-color`, titre en `text-base`, une phrase en `text-sm text-muted-color`, et l'action qui débloque quand elle existe | Quatre cas à couvrir : dossier sans fichier audio, playlist dont aucun morceau n'est retrouvé dans la source, aucun run passé, cache déjà vide. Pour la liste du run, le template `#emptymessage` de `p-table` porte ce bloc |
+| Vide | Icône 24px en `text-muted-color`, titre en `text-base`, une phrase en `text-sm text-muted-color`, et l'action qui débloque quand elle existe | Quatre cas à couvrir : dossier sans fichier audio, playlist dont aucun morceau n'est retrouvé dans la source, aucun run passé, cache déjà vide. Dans une table, le template `#emptymessage` de `p-table` porte ce bloc, centré sur toute la hauteur par `fullHeightTable`, et sa cellule pose `border-b-0` : le pass-through n'atteint pas les lignes, et la bordure basse traînerait au pied de la table |
 
 ### Tailles de Badge
 
@@ -403,7 +406,7 @@ C'est le seul `!important` toléré du projet (cf. § Anti-Patterns) : il ne cor
 
 ## Composants Animés
 
-> Les transitions des composants PrimeNG (Dialog, Toast, Tabs, ProgressBar, Skeleton) sont intégrées et ne sont pas reprises ici. Ce tableau ne couvre que les éléments custom, plus deux composants PrimeNG dont les paramètres sont une décision projet : la modale d'arbitrage, dont l'absence d'animation en est une, et le tooltip, dont le délai n'a aucun défaut dans la bibliothèque.
+> Les transitions des composants PrimeNG (Dialog, Toast, Tabs, Skeleton) sont intégrées et ne sont pas reprises ici. Ce tableau ne couvre que les éléments custom, plus trois composants PrimeNG dont les paramètres sont une décision projet : la modale d'arbitrage, dont l'absence d'animation en est une, le tooltip, dont le délai n'a aucun défaut dans la bibliothèque, et la barre de progression, dont la transition par défaut retarde l'information.
 
 | Composant | Type d'animation | Mécanisme | Trigger |
 |-----------|-----------------|-----------|---------|
@@ -413,6 +416,8 @@ C'est le seul `!important` toléré du projet (cf. § Anti-Patterns) : il ne cor
 | Ligne de table changeant d'état | Transition de couleur du tag 150ms | CSS | Événement `track_resolved` |
 | Vignette de pochette | Fondu à l'arrivée de l'image | `animate-fadein animate-duration-200` | Chargement terminé |
 | Contenu d'un onglet | Fondu, opacité seule, jamais de déplacement | `animate-fadein animate-duration-200` | Changement d'onglet |
+| Formulaire et résumé de l'onglet Playlist | Fondu de celui qui entre | `animate-fadein animate-duration-200` + `animate.enter` | Repli au lancement, « Modifier » |
+| Barre de progression | Largeur suivie en 200ms `ease-out` | `[pt]` sur l'élément `value` de `p-progressbar` | Chaque événement `progress`. La transition de 1s de PrimeNG, relancée à chaque événement, laissait la barre à 5 % d'un run fini à 97 % |
 | Tooltip | Fondu de 250ms à l'apparition, rien à la disparition | Intégré à PrimeNG (`fadeIn` codé en dur, non réglable) + `showDelay` à 400ms, `undefined` par défaut | Survol maintenu : un survol de passage n'allume rien, un survol intentionnel oui |
 
 La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seul ce qu'elle commande se substitue.
@@ -459,6 +464,8 @@ Les trois colonnes fixes tiennent sur leur contenu le plus large et pas un pixel
 
 Sans largeur figée sur État, la colonne se redimensionne au défilement selon les tags que le défilement virtuel a rendus, et la table bouge sous le curseur.
 
+**Onglet Playlist en deux temps.** Le formulaire est une grille de trois colonnes, `grid-cols-[max-content_max-content_1fr]` en `gap-4` : libellés, contrôles, chemins alignés à droite. Les contrôles prennent la largeur du plus large d'entre eux, mesurée sur son contenu et non écrite en dur, et « Extraire la playlist » occupe seul la ligne suivante, du bord des libellés au bout des contrôles. Dès le lancement, le formulaire cède la place à une ligne de résumé, source › destination › playlist · mode, précédée du logo VLC ou de l'icône `file` d'un M3U8, que nomme son fichier. La barre de progression vit sous le résumé pendant le run, puis disparaît. Le rapport récupère la hauteur du formulaire : le 2026-09-17, 16 lignes visibles à 1280 × 800 et 13 au plancher, contre 2 et aucune formulaire affiché. « Modifier » rouvre le formulaire sans masquer le rapport, et le lancement suivant replie de nouveau.
+
 **Source dit d'où vient la donnée écrite, État dit par quel chemin on y est arrivé.** Un morceau résolu en collant une URL SoundCloud affiche donc SoundCloud en source et « URL » en état : c'est la seule voie par laquelle SoundCloud entre dans le produit, jamais la recherche automatique. C'est la même séparation que celle posée entre `state` et `resolution` dans le contrat NDJSON, portée cette fois côté affichage.
 
 Seules **Avant** et **Après** absorbent le redimensionnement, les autres restent à largeur fixe. Le détail champ par champ (label, BPM, key, année, genre) et la pochette en grand vivent dans la ligne dépliée.
@@ -500,7 +507,7 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - ✅ **Composant PrimeNG d'abord** : aucun composant custom tant que la bibliothèque en fournit un équivalent. Le catalogue large est la raison pour laquelle PrimeNG a été retenu (cf. [ADR-003](adrs/003-primeng-community-license.md))
 - ✅ **Trois niveaux de personnalisation, dans cet ordre** : `definePreset()` pour ce qui vaut partout (le thème, seule voie disponible sans le Theme Designer, cf. [ADR-003](adrs/003-primeng-community-license.md)), `[dt]` pour surcharger les design tokens d'une seule instance, `[pt]` pour attacher classes et attributs à ses éléments internes. La doc PrimeNG recommande explicitement cette voie contre `::ng-deep` (« This approach is recommended over the `::ng-deep` as it offers a cleaner API while avoiding the hassle of CSS rule overrides »)
 - ✅ **Tokens uniquement** : `bg-primary`, `text-muted-color`, `border-surface`. Aucune valeur de couleur écrite dans un composant
-- ✅ **Une largeur se mesure sur le contenu le plus long, dans les deux langues** : les libellés existent en FR et en EN (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)), et le français est généralement le plus long des deux. Un bouton ou un libellé n'a donc aucune largeur en dur et se dimensionne sur son contenu. Une colonne de table se fige au contraire sur le plus long de ses libellés (§ Layout), sinon elle change de taille d'une ligne à l'autre au défilement
+- ✅ **Une largeur se mesure sur le contenu le plus long, dans les deux langues** : les libellés existent en FR et en EN (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)), et le français est généralement le plus long des deux. Un bouton ou un libellé n'a donc aucune largeur en dur et se dimensionne sur son contenu, ou sur le plus large de sa colonne de grille. Une colonne de table se fige au contraire sur le plus long de ses libellés (§ Layout), sinon elle change de taille d'une ligne à l'autre au défilement
 - ✅ **Aucun libellé en dur dans un template** : tout passe par ngx-translate, y compris les messages d'erreur, que le sidecar émet en `code` + `params` et que l'interface traduit
 - ✅ **Densité compacte sur les tables** : `[size]="'small'"` systématique. La classe `p-datatable-sm` est générée par le composant, elle ne se pose jamais à la main
 - ✅ **Navigation clavier complète sur la modale d'arbitrage** : flèches entre arbitrages, entrée pour valider, focus visible en permanence
