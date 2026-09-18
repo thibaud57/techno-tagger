@@ -7,7 +7,7 @@ import { Card } from "primeng/card"
 import { Tab, TabList, Tabs } from "primeng/tabs"
 import { filter, map } from "rxjs"
 
-import { FALLBACK_LANGUAGE } from "./core/language"
+import { languageFromTag } from "./core/language"
 import { SIDECAR_FILE } from "./core/sidecar-transport"
 import { SidecarService } from "./core/sidecar.service"
 import { TABS, isTabName, tabFromUrl, type TabValue } from "./core/tabs"
@@ -56,7 +56,7 @@ export class AppComponent {
 
   constructor() {
     effect(() => {
-      this.document.documentElement.lang = this.translate.currentLang() ?? FALLBACK_LANGUAGE
+      this.document.documentElement.lang = languageFromTag(this.translate.currentLang())
     })
   }
 

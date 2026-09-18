@@ -53,6 +53,15 @@ def test_lists_the_playlists_of_a_dump(vlc_dump: Path) -> None:
     assert events[0]["playlists"]
 
 
+def test_a_listed_dump_carries_its_format_and_its_identifiers(vlc_dump: Path) -> None:
+    events = drive(json.dumps({"command": "list_playlists", "playlist_path": str(vlc_dump)}) + "\n")
+
+    playlists = events[0]["playlists"]
+    assert events[0]["playlist_format"] == "vlc_dump"
+    assert isinstance(playlists, list)
+    assert {entry["playlist_id"] for entry in playlists} == {1, 2}
+
+
 def test_runs_a_full_extraction(vlc_dump: Path, music_library: Path, tmp_path: Path) -> None:
     events = drive(extract_command(music_library, vlc_dump, tmp_path / "work"))
 
@@ -82,6 +91,21 @@ def test_a_rejected_line_does_not_stop_the_loop(rejected: str) -> None:
     assert events[0]["event"] == "error"
     assert events[0]["code"] == "malformed_command"
     assert events[1]["event"] == "version"
+
+
+def test_a_malformed_extraction_touches_no_file(
+    vlc_dump: Path, music_library: Path, tmp_path: Path
+) -> None:
+    """La validation precede l'execution : le handler n'est jamais atteint, donc meme
+    le dossier destination reste a creer.
+    """
+    destination = tmp_path / "work"
+    command = json.loads(extract_command(music_library, vlc_dump, destination))
+
+    events = drive(json.dumps({**command, "extra": 1}) + "\n")
+
+    assert events[0]["code"] == "malformed_command"
+    assert not destination.exists()
 
 
 def test_an_unknown_command_is_named_in_its_error() -> None:

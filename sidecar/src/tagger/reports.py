@@ -163,21 +163,14 @@ def build_report(result: ExtractionResult, context: ReportContext) -> Extraction
         extracted=result.extracted,
         already_present=result.already_present,
         missing=result.missing,
+        # Meme recopie que celle de l'evenement `extraction_finished` : les deux schemas
+        # restent libres d'evoluer separement (ADR-018), leur remplissage non.
         duplicates=tuple(
-            DuplicateEntry(
-                file_name=duplicate.file_name,
-                kept_path=duplicate.kept_path,
-                kept_size=duplicate.kept_size,
-                criterion=duplicate.criterion,
-                discarded=tuple(
-                    DiscardedEntry(path=candidate.path, size=candidate.size)
-                    for candidate in duplicate.discarded
-                ),
-            )
+            DuplicateEntry.model_validate(duplicate, from_attributes=True)
             for duplicate in result.duplicates
         ),
         failures=tuple(
-            FailureEntry(file_name=failure.file_name, reason=failure.reason)
+            FailureEntry.model_validate(failure, from_attributes=True)
             for failure in result.failures
         ),
     )
@@ -280,8 +273,11 @@ def _escape_markdown(value: object) -> str:
     """Neutralise ce qui casserait la structure Markdown dans une valeur venue de
     la playlist source : un nom introuvable n'est jamais confronte a un chemin
     Windows reel, rien ne garantit donc l'absence d'un `|` ou d'un retour ligne.
+
+    `splitlines()` plutot qu'une suite de `replace` : il couvre le `\\r` seul autant
+    que le `\\r\\n`, et un rendu Markdown traite le premier comme un saut de ligne.
     """
-    return str(value).replace("|", "\\|").replace("\r\n", " ").replace("\n", " ")
+    return " ".join(str(value).replace("|", "\\|").splitlines())
 
 
 def _bullet_section(title: str, entries: tuple[str, ...]) -> list[str]:
@@ -347,7 +343,8 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     except ReportWriteError:
         # Le JSON est deja durablement sur le disque : sans cette trace,
         # rien ne le rattache plus au run qui l'a produit une fois l'erreur remontee.
-        logger.warning("json report orphaned by a failed markdown write report=%s", json_path.name)
+        # Le nom du fichier reste en texte libre : aucune cle du jeu logfmt fixe ne le porte.
+        logger.warning("json report orphaned by a failed markdown write: %s", json_path.name)
         raise
 
     return ReportPaths(json_path=json_path, markdown_path=markdown_path)

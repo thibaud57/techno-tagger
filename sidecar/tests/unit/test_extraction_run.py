@@ -11,6 +11,7 @@ from tagger.extraction import (
     ExtractionFailure,
     ExtractionFailureReason,
     ExtractionMode,
+    SourceFolderUnreadableError,
     extract,
     failure_reason,
 )
@@ -48,6 +49,18 @@ def test_creates_the_destination_folder(music_library: Path, tmp_path: Path) -> 
     assert destination.is_dir()
 
 
+def test_raises_before_creating_the_destination(tmp_path: Path) -> None:
+    """L'ordre des deux etapes est la garantie : indexer la source leve avant que le
+    dossier destination ne soit cree, donc un run impossible ne laisse rien derriere lui.
+    """
+    destination = tmp_path / "work"
+
+    with pytest.raises(SourceFolderUnreadableError):
+        extract(["alpha.mp3"], tmp_path / "absent", destination)
+
+    assert not destination.exists()
+
+
 def test_finds_a_track_whatever_the_case_used(music_library: Path, tmp_path: Path) -> None:
     destination = tmp_path / "work"
 
@@ -55,6 +68,22 @@ def test_finds_a_track_whatever_the_case_used(music_library: Path, tmp_path: Pat
 
     assert result.extracted == ("delta.MP3",)
     assert len(list(destination.iterdir())) == 1
+
+
+def test_a_name_asked_twice_is_extracted_once_then_already_present(
+    music_library: Path, tmp_path: Path
+) -> None:
+    """`beta.mp3` a des homonymes : en deplacement, la seconde occurrence redepartagerait
+    des candidats dont le retenu a quitte la source. Les quatre categories partitionnent
+    les morceaux demandes, un meme nom ne peut pas sortir extrait et en echec.
+    """
+    result = extract(
+        ["beta.mp3", "beta.mp3"], music_library, tmp_path / "work", mode=ExtractionMode.MOVE
+    )
+
+    assert result.extracted == ("beta.mp3",)
+    assert result.already_present == ("beta.mp3",)
+    assert result.failures == ()
 
 
 def test_records_the_duplicate_it_resolved(music_library: Path, tmp_path: Path) -> None:

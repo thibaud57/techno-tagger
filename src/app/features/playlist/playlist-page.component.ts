@@ -18,7 +18,7 @@ import { TableModule } from "primeng/table"
 import { Tag, type TagSeverity } from "primeng/tag"
 import { Tooltip } from "primeng/tooltip"
 
-import { FALLBACK_LANGUAGE } from "../../core/language"
+import { languageFromTag } from "../../core/language"
 import type { ExtractionMode } from "../../core/models/protocol"
 import {
   DEFAULT_EXTRACTION_MODE,
@@ -147,7 +147,7 @@ export default class PlaylistPageComponent {
    */
   protected readonly rows = computed(() => {
     const result = this.sidecar.extraction()
-    const language = this.translate.currentLang() ?? FALLBACK_LANGUAGE
+    const language = languageFromTag(this.translate.currentLang())
 
     return result === null
       ? []
@@ -193,7 +193,7 @@ export default class PlaylistPageComponent {
       return null
     }
 
-    const language = this.translate.currentLang() ?? FALLBACK_LANGUAGE
+    const language = languageFromTag(this.translate.currentLang())
     const items = new Intl.ListFormat(language, { type: "conjunction" }).format(
       missing.map((key) => this.translate.instant(key) as string),
     )

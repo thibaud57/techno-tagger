@@ -101,6 +101,10 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
+    Une commande a la fois : la ligne suivante n'est lue qu'une fois la precedente
+    traitee. Rien ne justifie de les chevaucher tant que le protocole n'offre pas
+    d'annulation, et l'interface replie ses choix pendant un run.
+
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre
     exception fait tomber le processus, volontairement : l'avaler cacherait un bug que

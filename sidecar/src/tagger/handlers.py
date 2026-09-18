@@ -13,7 +13,6 @@ from tagger import __version__
 from tagger.extraction import extract
 from tagger.playlists import list_playlists, read_playlist
 from tagger.protocol import (
-    DiscardedCandidatePayload,
     DuplicatePayload,
     ExtractionFinished,
     ExtractPlaylist,
@@ -51,11 +50,7 @@ def handle_list_playlists(command: ListPlaylists) -> PlaylistsListed:
         event="playlists_listed",
         playlist_format=listing.playlist_format,
         playlists=tuple(
-            PlaylistEntry(
-                playlist_id=summary.playlist_id,
-                name=summary.name,
-                track_count=summary.track_count,
-            )
+            PlaylistEntry.model_validate(summary, from_attributes=True)
             for summary in listing.playlists
         ),
     )
@@ -104,21 +99,15 @@ def handle_extract_playlist(
         extracted=result.extracted,
         already_present=result.already_present,
         missing=result.missing,
+        # Les modeles de frontiere reprennent champ pour champ les dataclasses du
+        # metier : `from_attributes` les recopie, `discarded` compris, plutot qu'une
+        # enumeration a tenir a jour ici et dans le rapport (cf. `reports.py`).
         duplicates=tuple(
-            DuplicatePayload(
-                file_name=duplicate.file_name,
-                kept_path=duplicate.kept_path,
-                kept_size=duplicate.kept_size,
-                criterion=duplicate.criterion,
-                discarded=tuple(
-                    DiscardedCandidatePayload(path=candidate.path, size=candidate.size)
-                    for candidate in duplicate.discarded
-                ),
-            )
+            DuplicatePayload.model_validate(duplicate, from_attributes=True)
             for duplicate in result.duplicates
         ),
         failures=tuple(
-            FailurePayload(file_name=failure.file_name, reason=failure.reason)
+            FailurePayload.model_validate(failure, from_attributes=True)
             for failure in result.failures
         ),
         report_path=paths.json_path,

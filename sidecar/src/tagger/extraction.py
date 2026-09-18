@@ -224,18 +224,18 @@ def failure_reason(error: OSError) -> ExtractionFailureReason:
     return ExtractionFailureReason.WRITE_FAILED
 
 
-def extract(
-    file_names: Sequence[str],
-    source: Path,
-    destination: Path,
-    mode: ExtractionMode = ExtractionMode.COPY,
-    on_progress: Callable[[int, int], None] | None = None,
-) -> ExtractionResult:
-    """Extrait les morceaux nommes du dossier source vers le dossier destination.
+class PreparedRun(NamedTuple):
+    """Retour de `_prepare_run`."""
 
-    Copie par defaut : la bibliotheque source doit rester intacte pendant que le
-    re-tagging reecrit les fichiers de destination. Seuls un dossier source illisible
-    et un dossier destination impossible a creer levent, et avant tout transfert.
+    source_index: dict[str, tuple[Path, ...]]
+    extracts_in_place: bool
+
+
+def _prepare_run(file_names: Sequence[str], source: Path, destination: Path) -> PreparedRun:
+    """Indexe la source puis cree la destination, dans cet ordre.
+
+    L'ordre est la garantie : un dossier source illisible leve avant qu'aucun dossier
+    n'ait ete cree, donc un run impossible ne laisse rien derriere lui.
     """
     resolved_source, resolved_destination = source.resolve(), destination.resolve()
 
@@ -257,6 +257,24 @@ def extract(
         except OSError as error:
             raise DestinationFolderUnwritableError(destination) from error
 
+    return PreparedRun(source_index=index, extracts_in_place=extracts_in_place)
+
+
+def extract(
+    file_names: Sequence[str],
+    source: Path,
+    destination: Path,
+    mode: ExtractionMode = ExtractionMode.COPY,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> ExtractionResult:
+    """Extrait les morceaux nommes du dossier source vers le dossier destination.
+
+    Copie par defaut : la bibliotheque source doit rester intacte pendant que le
+    re-tagging reecrit les fichiers de destination. Seuls un dossier source illisible
+    et un dossier destination impossible a creer levent, et avant tout transfert.
+    """
+    index, extracts_in_place = _prepare_run(file_names, source, destination)
+
     extracted: list[str] = []
     already_present: list[str] = []
     missing: list[str] = []
@@ -265,6 +283,10 @@ def extract(
     # Un nom demande deux fois par la playlist ne porte qu'une seule ambiguite sur le
     # disque : le rapport ne la consigne qu'une fois.
     resolved_names: set[str] = set()
+    # Noms deja transferes par ce run. En mode deplacement, l'original a quitte la
+    # source : redepartager ses homonymes ferait echouer le `stat()` du candidat
+    # deplace, et le morceau sortirait a la fois extrait et en echec.
+    transferred: set[str] = set()
 
     total = len(file_names)
     for processed, file_name in enumerate(file_names, start=1):
@@ -273,6 +295,8 @@ def extract(
         if not candidates:
             logger.info("track missing track=%s status=missing", file_name)
             missing.append(file_name)
+        elif key in transferred:
+            already_present.append(file_name)
         else:
             # L'index est un instantane : un homonyme disparu depuis fait echouer le
             # `stat()` du departage comme le transfert, et se consigne de la meme facon.
@@ -292,6 +316,7 @@ def extract(
                     else:
                         kept_path.copy(target)
                     extracted.append(file_name)
+                    transferred.add(key)
             except OSError as error:
                 reason = failure_reason(error)
                 logger.warning("transfer failed track=%s reason=%s", file_name, reason)
