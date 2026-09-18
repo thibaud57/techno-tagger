@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/thibaud57/techno-tagger/compare/v0.1.0...v0.2.0) (2026-09-18)
+
+
+### Features
+
+* onglet Playlist et extraction selective ([#21](https://github.com/thibaud57/techno-tagger/issues/21)) ([8d50dc7](https://github.com/thibaud57/techno-tagger/commit/8d50dc7fd1230b4d1e817b4481289f7738951600))
+
 ## 0.1.0 (2026-08-31)
 
 
