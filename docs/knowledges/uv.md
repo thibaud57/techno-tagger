@@ -1,6 +1,6 @@
 ---
 title: "uv — Gestionnaire de paquets et d'environnement Python"
-version: "0.12.7"
+version: "0.12.16"
 description: "Référence technique pour uv : projet et dependency groups, lockfile et politique de versionnement, sync en CI, gestion des versions de Python et exécution des outils."
 date: "2026-08-29"
 keywords: ["uv", "python", "lockfile", "pep-735", "pyproject", "ci"]
@@ -62,12 +62,12 @@ Le lockfile fige la résolution complète. Son format est couvert par la politiq
 ```yaml
 - uses: astral-sh/setup-uv@v7
   with:
-    version: "0.12.7"   # patch exact : la compatibilité du lock n'est garantie qu'au sein d'une mineure
+    version: "0.12.16"   # patch exact : la compatibilité du lock n'est garantie qu'au sein d'une mineure
 ```
 
 ### Points Importants
 
-- **Un lockfile ne peut être rejeté qu'entre versions mineures** d'uv : `0.12.0` à `0.12.7` sont interchangeables de ce point de vue
+- **Un lockfile ne peut être rejeté qu'entre versions mineures** d'uv : tous les patchs `0.12.x` sont interchangeables de ce point de vue
 - **D'où l'épinglage du patch exact en CI** : ce n'est pas de la prudence excessive, c'est le seul moyen d'être certain qu'un run futur ne re-résout rien
 - `uv.lock` se commite, toujours
 - **uv préfère les versions déjà verrouillées** : une nouvelle version disponible en amont ne périme pas le lockfile tant que les contraintes du projet sont satisfaites. Il n'y a donc pas d'upgrade implicite
@@ -194,7 +194,7 @@ uv build                            # sdist + wheel dans dist/
 
 ## ✅ Recommandations
 
-- **Épingler le patch exact d'uv en CI** (`version: "0.12.7"` dans l'action de setup), la compatibilité du lock n'étant garantie qu'au sein d'une mineure
+- **Épingler le patch exact d'uv en CI** (`version: "0.12.16"` dans l'action de setup), la compatibilité du lock n'étant garantie qu'au sein d'une mineure
 - **Utiliser `uv sync --locked` en CI**, jamais `uv sync` nu
 - **Lancer tous les outils par `uv run`**, PyInstaller compris
 - **Séparer les groupes `dev` et `build`** : un job de test n'a pas besoin de PyInstaller

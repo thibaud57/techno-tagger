@@ -4,7 +4,7 @@ Application desktop Windows mono-utilisateur qui extrait les morceaux d'une play
 
 ## Stack
 
-Métier : Python 3.14 (sidecar autonome empaqueté par PyInstaller, protocole NDJSON sur stdin/stdout), pydantic 2.13, mutagen 1.48, rapidfuzz 3.14, httpx2 2.12, keyring 25.7 | Interface : Angular 22 + PrimeNG 22 (preset Aura, dark permanent) + Tailwind 4 + ngx-translate 18 | Coquille : Tauri v2 (Rust 1.98) | Gestionnaires : pnpm 11.24 (`src/`), uv 0.12.7 (`sidecar/`), cargo (`src-tauri/`)
+Métier : Python 3.14 (sidecar autonome empaqueté par PyInstaller, protocole NDJSON sur stdin/stdout), pydantic 2.13, mutagen 1.48, rapidfuzz 3.14, httpx2 2.12, keyring 25.7 | Interface : Angular 22 + PrimeNG 22 (preset Aura, dark permanent) + Tailwind 4 + ngx-translate 18 | Coquille : Tauri v2 (Rust 1.98) | Gestionnaires : pnpm 11.24 (`src/`), uv 0.12.16 (`sidecar/`), cargo (`src-tauri/`)
 
 ## Documentation
 
