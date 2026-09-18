@@ -66,7 +66,7 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 - **La couleur n'est jamais seule porteuse d'information** : chaque catégorie s'affiche avec une icône et un libellé traduit, conformément à DESIGN.md § Couleurs Sémantiques. Extrait et doublon départagé sont des issues positives en `success`, déjà présent est neutre en `secondary`, introuvable et transfert en échec sont en `danger` avec deux icônes distinctes, leurs corrections étant opposées. `info` et `warn` ne sont portés par aucune ligne : un doublon départagé n'attend aucun geste.
 - **Action d'extraction conditionnée** : elle n'est disponible que si les deux dossiers et la playlist sont choisis, qu'une playlist est sélectionnée lorsque le fichier est un dump, que le sidecar a annoncé le format du fichier et que `SidecarService.ready` est vrai : sidecar lancé, version reçue et concordante, aucune extraction en cours. La commande applique la même garde que le bouton. Une divergence qui ne serait pas encore contrôlée faute de version reçue bloque donc aussi, et un double clic ne lance pas deux extractions. Chacune de ces conditions est un signal calculé, ce qui rend le blocage lisible et testable.
 - **Attente d'une liste de playlists** : le service efface la réponse précédente à chaque listage. Un fichier choisi dont le format n'est pas encore annoncé, sans erreur reçue, affiche le `p-skeleton` ; la réponse d'un fichier précédent ne reste jamais affichée. Une extraction lancée affiche une barre indéterminée jusqu'au premier `progress`.
-- **Choix figés pendant un run** : boutons de sélection, sélecteur de playlist et bascule du mode sont désactivés tant qu'une extraction tourne. Un listage envoyé en plein run attendrait sa fin, la boucle du sidecar étant séquentielle, et les choix affichés ne décriraient plus l'extraction en cours.
+- **Choix figés pendant un run** : le formulaire entier cède la place à une ligne de résumé dès le lancement, et « Modifier » est désactivé tant que l'extraction tourne (cf. [DESIGN.md](../../../DESIGN.md) § Onglet Playlist en deux temps). Retirer les contrôles du DOM plutôt que les désactiver un à un rend le rapport plus haut et ferme le même risque : un listage envoyé en plein run attendrait sa fin, la boucle du sidecar étant séquentielle, et les choix affichés ne décriraient plus l'extraction en cours.
 - **Traductions d'erreurs gardées par des tests de cohérence** : les `code` vivent en Python et leurs phrases en JSON. Un test du sidecar vérifie que chaque `code` d'erreur a sa clé dans `errors` des deux fichiers de langue, et le test des fichiers de langue fait de même pour `SIDECAR_UNAVAILABLE`. Sans eux, une clé manquante ne se verrait qu'à l'écran, en `errors.<code>` brut. Un paramètre en liste est joint avant l'interpolation, que ngx-translate écrirait sans espace.
 - **Divergence de version signalée à l'écran** : un `p-message` d'erreur porte les deux versions et l'action reste bloquée. ARCHITECTURE impose de refuser de lancer un run dans ce cas.
 - **Préférence de mode dans le `store` de Tauri**, isolée dans un module dédié qui retombe silencieusement sur la valeur par défaut hors Tauri, comme la résolution de langue. La copie est le défaut, la source restant alors intacte.
@@ -153,8 +153,8 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
 
 ### Scénario 14 : Choix figés pendant une extraction
 **GIVEN** une extraction en cours
-**WHEN** l'utilisateur regarde les sélecteurs de chemins, de playlist et de mode
-**THEN** ils sont indisponibles
+**WHEN** l'utilisateur regarde l'écran
+**THEN** le formulaire est replié derrière sa ligne de résumé, et « Modifier » est indisponible
 **AND** aucun listage n'est envoyé au sidecar
 
 ## Tests à écrire
@@ -187,7 +187,7 @@ La reconnaissance du format ne peut pas vivre dans l'interface, où elle serait 
   - aucune commande n'est émise quand l'action est indisponible
   - un sélecteur de dossier annulé garde le dossier déjà choisi
   - le mode enregistré au run précédent est restauré à l'ouverture
-  - les choix sont figés et aucun listage n'est demandé pendant une extraction
+  - le formulaire se replie au lancement d'une extraction, et « Modifier » le rouvre une fois le run fini
   - un paramètre d'erreur en liste est joint avant la traduction
 
 - `src/app/core/preferences.spec.ts` :

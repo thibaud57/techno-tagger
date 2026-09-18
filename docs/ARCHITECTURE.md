@@ -401,7 +401,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Émise à la fermeture de la fenêtre : le sidecar finit d'écrire le plan de run en cours, puis sort. L'EOF sur stdin reste le filet si l'application est tuée, la reprise de run (use-case 6) couvre ce cas |
+| `shutdown` | aucune. Arrête la boucle une fois la commande en cours terminée. La fermeture de la fenêtre ne l'émet pas : Tauri arrête le sidecar à la sortie de l'application (mesuré le 2026-09-18), et une commande émise en plein run ne serait lue qu'à sa fin, la boucle traitant une commande à la fois. Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible, seuils de matching |

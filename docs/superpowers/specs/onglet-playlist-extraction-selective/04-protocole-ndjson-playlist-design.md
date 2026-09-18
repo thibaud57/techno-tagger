@@ -43,7 +43,7 @@ Exclut les commandes de tagging, d'arbitrage, d'écriture, de reprise et d'admin
 - **Discrimination par le champ `command` et le champ `event`** : chaque modèle porte un `Literal` qui l'identifie, et une union discriminée route la ligne vers le bon modèle. C'est ce qui permet de valider en une passe par `model_validate_json` sans essayer les modèles à tour de rôle.
 - **Une `ValidationError` devient un événement `error`**, jamais une trace remontée à l'écran : le `code` est stable, les `params` sont tirés de `.errors()` (`loc`, `type`), et l'interface traduit. Le sidecar n'émet aucune phrase destinée à l'utilisateur.
 - **Aucun effet de bord partiel sur commande malformée** : la validation précède toute exécution, donc une commande rejetée n'a rien touché.
-- **Moteur asynchrone dès ce sub-project** : `asyncio.run` et un `TaskGroup`, la lecture de `stdin` déléguée par `asyncio.to_thread(sys.stdin.readline)`. La lecture asynchrone native de `stdin` est impossible sous Windows, `loop.connect_read_pipe` y échouant sur `OSError: [WinError 6]` ; la délégation en thread est la voie que la rule `.claude/rules/python/asyncio.md` prescrit déjà pour tout appel bloquant. La Feature 2 branchera son pool borné sur cette même boucle sans réécrire le point d'entrée.
+- **Moteur asynchrone dès ce sub-project** : `asyncio.run` et une boucle qui traite une commande à la fois, la lecture de `stdin` déléguée par `asyncio.to_thread(sys.stdin.readline)`. Aucun `TaskGroup` : rien n'est concurrent tant qu'aucune commande ne peut en interrompre une autre, le protocole n'offrant pas d'annulation. Ce que `to_thread` achète ici, c'est que les `progress` partent pendant le traitement, pas que `stdin` continue d'être lu. La lecture asynchrone native de `stdin` est impossible sous Windows, `loop.connect_read_pipe` y échouant sur `OSError: [WinError 6]` ; la délégation en thread est la voie que la rule `.claude/rules/python/asyncio.md` prescrit déjà pour tout appel bloquant. La Feature 2 branchera son pool borné sur cette même boucle sans réécrire le point d'entrée.
 - **Les appels métier bloquants passent par `to_thread`** : lecture SQLite, parcours du dossier source, copie de fichiers, écriture du rapport. Sans quoi la boucle gèlerait et aucun `progress` ne partirait pendant une extraction.
 - **`progress` alimenté par le rappel du sub-project 02** : le module d'extraction ignore le protocole, la boucle lui passe une fonction qui émet l'événement. La phase est nommée, `progress` couvrant les quatre phases longues du projet.
 - **Émission d'une ligne par événement, suivie d'un flush** : `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON, et n'accepte jamais d'`indent`. Le `line_buffering` déjà posé sur `stdout` par `_force_utf8_streams()` dispense d'un flush explicite (cf. [ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)).
@@ -102,7 +102,7 @@ Exclut les commandes de tagging, d'arbitrage, d'écriture, de reprise et d'admin
 **GIVEN** une extraction portant plusieurs morceaux
 **WHEN** elle est en cours
 **THEN** les événements `progress` sont émis au fil de l'eau, avant l'événement de fin
-**AND** la boucle reste capable de lire `stdin`
+**AND** la boucle ne lit la commande suivante qu'une fois celle-ci terminée
 
 ### Scénario 9 : Arrêt demandé
 **GIVEN** un sidecar en attente de commande
