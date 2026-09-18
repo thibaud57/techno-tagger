@@ -15,7 +15,7 @@ Métier : Python 3.14 (sidecar autonome empaqueté par PyInstaller, protocole ND
 | [VERSIONS.md](../docs/VERSIONS.md) | Versions exactes, compatibilité croisée | Dépendances, pièges de packaging |
 | [DESIGN.md](../docs/DESIGN.md) | Design system, mapping composants | Conventions UI |
 | [PRODUCTION.md](../docs/PRODUCTION.md) | Release, distribution, observabilité | Publier, déboguer, gérer un incident |
-| [adrs/](../docs/adrs/) | 22 Architecture Decision Records | Justification des décisions actées |
+| [adrs/](../docs/adrs/) | Architecture Decision Records | Justification des décisions actées |
 | [knowledges/](../docs/knowledges/) | Fiches techniques par techno | Références détaillées par librairie |
 | [.claude/rules/](rules/) | Règles impératives par librairie | Conventions de code chargées dynamiquement |
 
@@ -30,7 +30,7 @@ Métier : Python 3.14 (sidecar autonome empaqueté par PyInstaller, protocole ND
 - **Une valeur, une source** : version, nom d'application, identifiant de bundle, nom du binaire du sidecar vivent à un seul endroit et sont dérivés partout ailleurs (`extra-files` de release-please, `define` esbuild, lecture du manifeste). Quand la dérivation est impossible (un JSON n'interpole rien, un `.spec` PyInstaller n'importe rien), la copie est **gardée par un test de cohérence**, jamais laissée à la vigilance : ces divergences-là sont muettes et ne se voient qu'à l'exécution du bundle.
 - **No-lib-test** : un test doit échouer contre une régression de notre code, jamais contre une mise à jour de dépendance. On ne teste ni que mutagen sait écrire un `TPE1`, ni qu'un `@if` masque un div, mais que **notre** table de correspondance envoie le bon champ au bon tag.
 - **Diagnostic SessionStart (hook `env-check`)** : respecter les instructions injectées via `additionalContext`, énumérer les blocages à l'utilisateur et proposer le correctif (`just install`, `just build-sidecar`, `cp .env.example .env`) avant toute tâche qui construit, lance ou empaquette le projet.
-- **Suivre l'ordre de développement** des 9 étapes d'[ARCHITECTURE.md](../docs/ARCHITECTURE.md#ordre-de-développement) : le métier avant l'interface, et le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
+- **Suivre l'ordre de développement** d'[ARCHITECTURE.md](../docs/ARCHITECTURE.md#ordre-de-développement) : le métier avant l'interface, et le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
 
 > Les règles techniques (Angular, PrimeNG, Tauri, pydantic, keyring, PyInstaller, Ruff, Mypy…) sont dans [.claude/rules/](rules/) et chargées dynamiquement selon les fichiers touchés.
 
@@ -46,7 +46,7 @@ Commits : `type(scope): description`, types `feat | feat! | fix | docs | refacto
 
 ## Gotchas
 
-- **Le mode développement ne prouve rien sur trois pièges** qui n'existent qu'en distribution : sidecar non remplacé à la mise à jour, backend keyring introuvable dans le binaire figé, sortie NDJSON bufferisée. Les valider demande un run sur le bundle, pas un `tauri dev`.
+- **Le mode développement ne prouve rien sur deux pièges** qui n'existent qu'en distribution : sidecar non remplacé à la mise à jour, backend keyring introuvable dans le binaire figé. Les valider demande un run sur le bundle, pas un `tauri dev`. La sortie NDJSON bufferisée, elle, se voit dès le développement : `tauri dev` lance le même binaire par un pipe (cf. [ADR-005](../docs/adrs/005-sidecar-python-protocole-ndjson.md)).
 - **Toute commande Tauri exige le binaire du sidecar** dans `src-tauri/binaries/` : Tauri valide `externalBin` dès la compilation, donc `cargo check` lui-même échoue sans lui. `just build-sidecar` d'abord.
 
 ## Commandes

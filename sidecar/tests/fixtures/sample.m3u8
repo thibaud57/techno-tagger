@@ -1,0 +1,13 @@
+﻿#EXTM3U
+#EXTINF:214,Artist One - Alpha Track
+C:\Users\dj\Music\Library\artist one - Alpha Track.mp3
+
+#EXTINF:198,Artist One - Beta Track
+/home/dj/music/library/Artist One - beta track.mp3
+   
+#EXTINF:301,Artist Two - Ambiance
+D:\Musique\Sets\Artist Two - Ambiance Éthérée.mp3
+#EXTINF:187,Artist Two - Doroga
+/mnt/usb/tracks/Artist Two - Дорога.mp3
+#EXTINF:245,Artist Three - Zulu
+artist three - Zulu.flac

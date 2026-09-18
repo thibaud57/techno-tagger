@@ -1,9 +1,9 @@
 ---
 title: "PrimeNG v22 — Bibliothèque de composants Angular"
 version: "22.1.0"
-description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table à scroll virtuel, tabs et icônes SVG."
+description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, tabs et icônes SVG."
 date: "2026-08-29"
-keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "virtual-scroll", "primeicons"]
+keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "table", "primeicons"]
 scope: ["docs"]
 technologies: ["Angular", "Tailwind CSS", "Tauri"]
 ---
@@ -146,11 +146,11 @@ const TaggerPreset = definePreset(Aura, {
 
 ---
 
-## Table à scroll virtuel
+## Table défilante
 
 ### Description
 
-Les listes du projet montent à une centaine de lignes, et le récapitulatif filtrable davantage. Le scroll virtuel ne rend que les lignes visibles.
+Les listes du projet montent à une centaine de lignes, le récapitulatif filtrable davantage. La table défile dans son cadre, la page jamais.
 
 ### Exemple
 
@@ -160,17 +160,18 @@ Les listes du projet montent à une centaine de lignes, et le récapitulatif fil
   [scrollable]="true"
   scrollHeight="flex"
   [virtualScroll]="true"
-  [virtualScrollItemSize]="46">
+  [virtualScrollItemSize]="41">
   <ng-template #body let-track>
-    <tr><td>{{ track.artist }}</td><td>{{ track.title }}</td></tr>
+    <tr class="h-10.25"><td>{{ track.artist }}</td><td>{{ track.title }}</td></tr>
   </ng-template>
 </p-table>
 ```
 
 ### Points Importants
 
-- **`virtualScrollItemSize` doit correspondre à la hauteur réelle de la ligne** : une valeur fausse produit un scroll qui saute ou des lignes coupées. C'est une hauteur fixe, donc pas de ligne à hauteur variable
 - `scrollHeight="flex"` laisse la table prendre la hauteur disponible, plus adapté qu'une valeur en pixels dans une fenêtre redimensionnable
+- **`virtualScrollItemSize` doit valoir la hauteur réelle de la ligne** : PrimeNG ne mesure rien, il multiplie ce nombre. Une valeur fausse produit un scroll qui saute ou des lignes coupées, donc une classe fixe la hauteur de la ligne et pas l'inverse
+- **Mesuré le 2026-09-17 en mode développement, sans défilement virtuel** : 0,6 s pour monter 500 lignes du rapport, 5 s pour 2 000, 29 s pour 5 000. C'est ce coût que le défilement virtuel supprime
 - Le scroll virtuel et le filtrage cohabitent, mais le filtrage recalcule la liste rendue : c'est le jeu de données filtré qui compte, pas le total
 
 ---

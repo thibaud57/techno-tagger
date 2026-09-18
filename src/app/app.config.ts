@@ -1,10 +1,21 @@
-import { ApplicationConfig, ErrorHandler, provideBrowserGlobalErrorListeners } from "@angular/core"
+import {
+  ApplicationConfig,
+  ErrorHandler,
+  inject,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from "@angular/core"
 import { provideRouter, withComponentInputBinding } from "@angular/router"
-import Aura from "@primeuix/themes/aura"
+import { TranslateService, provideTranslateService } from "@ngx-translate/core"
+import { provideTranslateHttpLoader } from "@ngx-translate/http-loader"
 import * as Sentry from "@sentry/angular"
 import { providePrimeNG } from "primeng/config"
+import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
+import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/language"
+import { SidecarService } from "./core/sidecar.service"
+import { TECHNO_TAGGER_PRESET } from "./core/theme"
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -13,7 +24,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     providePrimeNG({
       theme: {
-        preset: Aura,
+        preset: TECHNO_TAGGER_PRESET,
         options: {
           // Doit rester identique au @custom-variant dark de styles.css
           darkModeSelector: ".app-dark",
@@ -24,6 +35,28 @@ export const appConfig: ApplicationConfig = {
       // Substituee au build par `--define` (cf. build-constants.d.ts), jamais
       // commitee. Requise meme en Community License.
       license: PRIMENG_LICENSE_KEY,
+    }),
+    provideTranslateService({
+      fallbackLang: FALLBACK_LANGUAGE,
+      loader: provideTranslateHttpLoader({
+        prefix: "/i18n/",
+        suffix: ".json",
+        // Sinon un fichier absent rend `{}` en silence et l'interface affiche ses cles brutes.
+        // En dev, l'ecran reste blanc et la cause est en console.
+        failOnError: APP_ENVIRONMENT !== "production",
+      }),
+    }),
+    // Avant le premier rendu : `locale()` est asynchrone, et une bascule de langue apres
+    // affichage se verrait.
+    provideAppInitializer(async () => {
+      const translate = inject(TranslateService)
+      translate.addLangs([...LANGUAGES])
+      await firstValueFrom(translate.use(await resolveInitialLanguage()))
+    }),
+    // Sans attendre : l'ecran lit `available` et `ready` au fil de l'eau, et `start()` ne
+    // leve jamais.
+    provideAppInitializer(() => {
+      void inject(SidecarService).start()
     }),
   ],
 }

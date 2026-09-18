@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_aucun_handler_n_ecrit_sur_stdout(tmp_path: Path) -> None:
+def test_no_handler_writes_to_stdout(tmp_path: Path) -> None:
     setup_logging(tmp_path)
 
     root = logging.getLogger()
@@ -21,7 +21,7 @@ def test_aucun_handler_n_ecrit_sur_stdout(tmp_path: Path) -> None:
     assert sys.stdout not in streams
 
 
-def test_un_second_appel_ne_duplique_pas_les_handlers(tmp_path: Path) -> None:
+def test_a_second_call_does_not_duplicate_the_handlers(tmp_path: Path) -> None:
     """Deux handles sur le meme fichier tournant font echouer la rotation a 5 Mo :
     Windows refuse de renommer un fichier encore ouvert, et le log s'arrete la.
     """

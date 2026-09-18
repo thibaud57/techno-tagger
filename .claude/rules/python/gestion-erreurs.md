@@ -7,6 +7,7 @@ paths:
 
 ## À faire
 - Dériver toutes les erreurs métier d'une exception de base par domaine, elle-même héritée d'`Exception`
+- Suffixer `Error` **toute** classe d'exception, base comme feuille (N818) : sans ça chaque nouvelle exception traîne un `# noqa: N818`
 - Porter le `code` stable et les `params` structurés en attributs de l'exception, jamais dans le message : c'est ce que sérialise l'événement `error` NDJSON, l'interface traduit (cf. [ARCHITECTURE.md § API](../../../docs/ARCHITECTURE.md#api))
 - `raise MonErreur(...) from e` pour garder l'origine technique sous l'erreur métier, `from None` pour masquer un détail d'implémentation
 - Un logger par module via `logging.getLogger(__name__)`, la configuration se faisant une seule fois au point d'entrée
@@ -35,7 +36,7 @@ paths:
 class TaggerError(Exception):
     """Base de toutes les erreurs du sidecar."""
 
-class FileLocked(TaggerError):
+class FileLockedError(TaggerError):
     def __init__(self, path: Path):
         super().__init__(f"file locked: {path}")
         self.code = "file_locked"
@@ -44,7 +45,7 @@ class FileLocked(TaggerError):
 try:
     write_tags(path)
 except PermissionError as e:
-    raise FileLocked(path) from e
+    raise FileLockedError(path) from e
 
 # ❌ message destiné à l'écran, formaté côté Python
 raise TaggerError(f"Impossible d'écrire {path}, fichier verrouillé")

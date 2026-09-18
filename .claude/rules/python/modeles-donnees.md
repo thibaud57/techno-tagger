@@ -23,16 +23,15 @@ paths:
 
 ## Gotchas
 - 3.11+ : `str()` et `format()` d'un `StrEnum` / `IntEnum` rendent la valeur primitive, plus `NomEnum.MEMBRE` : un test qui parsait l'ancien format casse
-- Un `StrEnum` se sérialise tel quel, par `json.dumps` comme par `model_dump_json()`
-- `@dataclass(slots=True)` recrée la classe : une référence capturée avant le décorateur ne pointe pas sur la classe finale
+- Un `StrEnum` se sérialise tel quel, par `json.dumps` comme par `model_dump_json()`- `@dataclass(slots=True)` recrée la classe : une référence capturée avant le décorateur ne pointe pas sur la classe finale
 - `@dataclass` et `NamedTuple` génèrent `__match_args__`, dont dépendent les patterns positionnels (cf. [pattern-matching.md](pattern-matching.md))
 
 ## Exemples
 ```python
 # ✅ enum partagé, structure interne immuable
 class State(StrEnum):
-    RESOLVED = auto()      # "resolved"
-    WRITE_ERROR = auto()   # "write_error"
+    RESOLVED = auto()
+    WRITE_ERROR = auto()
 
 @dataclass(frozen=True, slots=True)
 class ScoredCandidate:

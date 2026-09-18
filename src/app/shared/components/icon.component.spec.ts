@@ -2,16 +2,13 @@ import { TestBed } from "@angular/core/testing"
 
 import { ICON_NAMES, IconComponent } from "./icon.component"
 
-/**
- * Le `@switch` n'est pas verifie exhaustif par Angular : un nom ajoute a l'union
- * sans son `@case` rendrait une icone vide, sans erreur nulle part.
- */
+/** Parcourt `ICON_NAMES` : Angular ne verifie pas l'exhaustivite d'un `@switch`. */
 describe("IconComponent", () => {
   beforeEach(() => {
     TestBed.configureTestingModule({ imports: [IconComponent] })
   })
 
-  it.each(ICON_NAMES)("rend un SVG pour %s", (name) => {
+  it.each(ICON_NAMES)("renders an SVG for %s", (name) => {
     const fixture = TestBed.createComponent(IconComponent)
     fixture.componentRef.setInput("name", name)
 
@@ -21,7 +18,7 @@ describe("IconComponent", () => {
     expect(host.querySelector(`svg[data-p-icon="${name}"]`)).not.toBeNull()
   })
 
-  it("pose le token de taille en largeur et hauteur du SVG", () => {
+  it("applies the size token to the SVG width and height", () => {
     const fixture = TestBed.createComponent(IconComponent)
     fixture.componentRef.setInput("name", "file")
     fixture.componentRef.setInput("size", 24)

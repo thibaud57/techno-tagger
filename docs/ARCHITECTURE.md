@@ -81,62 +81,65 @@ techno-tagger/
 ├── src/                                  # Angular : UI uniquement
 │   ├── app/
 │   │   ├── core/
-│   │   │   ├── sidecar.service.ts        #   flux NDJSON <-> sidecar
-│   │   │   ├── scrub.ts                  #   masquage PII avant envoi Sentry
-│   │   │   └── models/                   #   types miroir du contrat JSON
-│   │   ├── shared/components/            #   4 wrappers custom (cf. DESIGN.md § Composants Custom)
+│   │   │   ├── sidecar.service.ts        # flux NDJSON <-> sidecar
+│   │   │   ├── sidecar-transport.ts      # frontière Tauri du sidecar, remplacée en test
+│   │   │   ├── scrub.ts                  # masquage PII avant envoi Sentry
+│   │   │   └── models/                   # types miroir du contrat JSON
+│   │   ├── shared/
+│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Composants Custom)
+│   │   │   └── utils/                    # fonctions et constantes d'affichage sans état
 │   │   ├── features/
-│   │   │   ├── playlist/                 #   onglet 1 : dossiers, playlist, déplacement
-│   │   │   ├── tagging/                  #   onglet 2 : liste, arbitrage, récapitulatif
-│   │   │   └── settings/                 #   clé API, URL, langue, seuils, copie/déplacement,
-│   │   │                                 #   signal sonore, cache, logs
+│   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
+│   │   │   ├── tagging/                  # onglet 2 : liste, arbitrage, récapitulatif
+│   │   │   └── settings/                 # clé API, URL, langue, seuils, copie/déplacement,
+│   │   │                                 # signal sonore, cache, logs
 │   │   ├── app.component.ts
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
-│   ├── assets/icons/                     #   4 SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
+│   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
 │   ├── index.html
-│   ├── main.ts                           #   bootstrapApplication, init Sentry
-│   ├── build-constants.d.ts              #   constantes substituées par --define
-│   └── styles.css                        #   CSS pur, jamais SCSS
-├── public/i18n/                          #   JSON ngx-translate : Angular sert public/ à la racine
+│   ├── main.ts                           # bootstrapApplication, init Sentry
+│   ├── build-constants.d.ts              # constantes substituées par --define
+│   └── styles.css                        # CSS pur, jamais SCSS
+├── public/i18n/                          # JSON ngx-translate : Angular sert public/ à la racine
 ├── angular.json
 ├── .postcssrc.json                       # @tailwindcss/postcss
-├── package.json                          #   dépendances front, versions dans VERSIONS.md
+├── package.json                          # dépendances front, versions dans VERSIONS.md
 │
 ├── sidecar/                              # le métier Python
-│   ├── pyproject.toml                    #   pydantic, mutagen, rapidfuzz, httpx2, keyring, sentry-sdk
+│   ├── pyproject.toml                    # pydantic, mutagen, rapidfuzz, httpx2, keyring, sentry-sdk
 │   ├── uv.lock
 │   ├── src/tagger/
-│   │   ├── __main__.py                   #   boucle de commandes, émission d'événements
-│   │   ├── build_info.py                 #   façade des constantes gravées au packaging
-│   │   ├── logger.py                     #   fichier tournant + stderr, jamais stdout
-│   │   ├── observability.py              #   init Sentry durci, scrubbing PII
-│   │   ├── protocol.py                   #   modèles des commandes et des événements
-│   │   ├── playlists/                    #   parsing VLC SQLite et M3U8
-│   │   ├── files.py                      #   mutagen : lecture/écriture des tags
-│   │   ├── matching.py                   #   scoring rapidfuzz
-│   │   ├── scraper_client.py             #   appels techno-scraper + X-API-Key
-│   │   ├── cache.py                      #   réponses API et artworks
-│   │   └── plan.py                       #   plan de run, reprise, rapport
-│   ├── tests/                            #   pytest, seuil de couverture bloquant en CI
-│   │   ├── unit/                         #     un module isole, miroir de src/tagger/
-│   │   ├── integration/                  #     plusieurs modules, protocole NDJSON compris
-│   │   ├── fixtures/                     #     donnees figees : audio, vlc_media.db, M3U8
-│   │   └── helpers/                      #     constructeurs partages, importables a plat
-│   ├── tagger.spec                       #   hidden imports et métadonnées collectées
-│   └── build.py                          #   PyInstaller -> binaire
+│   │   ├── __main__.py                   # boucle de commandes, émission d'événements
+│   │   ├── build_info.py                 # façade des constantes gravées au packaging
+│   │   ├── logger.py                     # fichier tournant + stderr, jamais stdout
+│   │   ├── observability.py              # init Sentry durci, scrubbing PII
+│   │   ├── protocol.py                   # modèles des commandes et des événements
+│   │   ├── playlists/                    # parsing VLC SQLite et M3U8
+│   │   ├── files.py                      # mutagen : lecture/écriture des tags
+│   │   ├── matching.py                   # scoring rapidfuzz
+│   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
+│   │   ├── cache.py                      # réponses API et artworks
+│   │   └── plan.py                       # plan de run, reprise, rapport
+│   ├── tests/                            # pytest, seuil de couverture bloquant en CI
+│   │   ├── unit/                         # un module isole, miroir de src/tagger/
+│   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
+│   │   ├── fixtures/                     # donnees figees : audio, vlc_media.db, M3U8
+│   │   └── helpers/                      # constructeurs partages, importables a plat
+│   ├── tagger.spec                       # hidden imports et métadonnées collectées
+│   └── build.py                          # PyInstaller -> binaire
 │
 ├── src-tauri/
 │   ├── binaries/
 │   │   ├── tagger-x86_64-pc-windows-msvc.exe   # suffixe target-triple OBLIGATOIRE
 │   │   └── _internal/                          # deps PyInstaller --onedir -> bundle.resources
-│   ├── capabilities/default.json         #   permissions : shell(sidecar), dialog, fs, store, os, opener (updater s'ajoute à l'étape 9, pas encore câblé)
+│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, fs, store, os, opener (updater s'ajoute à l'étape 9, pas encore câblé)
 │   ├── icons/
 │   ├── src/
-│   │   ├── main.rs                       #   entrée desktop, généré, jamais modifié
-│   │   └── lib.rs                        #   init des plugins, rien d'autre
-│   ├── tauri.conf.json                   #   bundle.externalBin, frontendDist, assetProtocol
-│   ├── installer-hooks.nsh               #   hook NSIS : tue le sidecar avant l'écrasement par l'installeur
+│   │   ├── main.rs                       # entrée desktop, généré, jamais modifié
+│   │   └── lib.rs                        # init des plugins, rien d'autre
+│   ├── tauri.conf.json                   # bundle.externalBin, frontendDist, assetProtocol
+│   ├── installer-hooks.nsh               # hook NSIS : tue le sidecar avant l'écrasement par l'installeur
 │   └── Cargo.toml
 │
 ├── Justfile                               # recettes dev, qualité, build, setup
@@ -161,7 +164,7 @@ graph TB
     subgraph machine["Machine de l'utilisateur"]
         subgraph app["Application Tauri"]
             ui["Webview Angular + PrimeNG<br/>UI seule"]
-            rust["Coquille Rust<br/>8 plugins, cf. tableau Capacités Natives"]
+            rust["Coquille Rust<br/>plugins, cf. tableau Capacités Natives"]
             side["Sidecar Python<br/>process long"]
         end
         fs[("Bibliothèque musicale<br/>MP3 / WAV / AIFF / FLAC")]
@@ -317,10 +320,10 @@ Angular 22 fait d'**OnPush la stratégie de détection de changement par défaut
 - **Bibliothèque de composants** : **PrimeNG v22**, sous Community License gratuite, valable 12 mois avec 30 jours de grâce et renouvelable sans frais. Aucune limitation fonctionnelle sur la bibliothèque centrale ; le Theme Designer n'est pas inclus, toute personnalisation passe par `definePreset()` (cf. [ADR-003](adrs/003-primeng-community-license.md))
 - **Preset** : **Aura**, import `@primeuix/themes/aura` (base 16px, pas la variante `-compat`)
 - **Mode sombre par défaut**, forcé via `darkModeSelector` dans `providePrimeNG()` et une classe posée sur `<html>`. Cohérent avec les outils DJ (Rekordbox, Traktor, Serato) et avec un usage nocturne. Aucun sélecteur clair/sombre à maintenir au MVP.
-- **Table à scroll virtuel** PrimeNG pour les listes de 100 lignes et le tableau récapitulatif filtrable
+- **Table à scroll virtuel** PrimeNG, à sa taille par défaut, pour les listes de 100 lignes et le tableau récapitulatif filtrable
 - **Styling utilitaire** : **Tailwind CSS v4** avec le plugin officiel **`tailwindcss-primeui`**, qui expose les design tokens du preset en classes. L'alignement du variant `dark:` sur le `darkModeSelector` reste une ligne à écrire dans le CSS global. PrimeNG livre les composants, Tailwind couvre le layout et l'espacement qui restent à écrire. Contrainte à connaître : **Tailwind v4 ne compile ni SCSS ni LESS**, tout le styling du projet est donc en CSS pur
 - **Typographie** : **Inter**, paquet `@fontsource-variable/inter` embarqué dans le bundle. Aucun CDN de polices, l'application devant s'afficher identiquement hors ligne. Le preset Aura ne déclare aucune `font-family`
-- **Icônes** : **`@primeicons/angular`**, tiré par PrimeNG v22, qui rend des composants standalone en SVG inline et non plus une police avec des classes `pi pi-*`. S'y ajoutent quatre SVG **Simple Icons** dans `src/assets/icons/` pour les logos Beatport, Bandcamp, SoundCloud et VLC, absents du jeu
+- **Icônes** : **`@primeicons/angular`**, tiré par PrimeNG v22, qui rend des composants standalone en SVG inline et non plus une police avec des classes `pi pi-*`. S'y ajoutent des SVG **Simple Icons** dans `src/assets/icons/` pour les logos Beatport, Bandcamp, SoundCloud et VLC, absents du jeu
 
 Le détail (tokens, scale typographique, mapping composant par composant, conventions de style et anti-patterns) vit dans [DESIGN.md](DESIGN.md).
 
@@ -350,6 +353,7 @@ Via les plugins Tauri v2, déclarés dans `src-tauri/capabilities/default.json` 
 | `opener` | Bouton « ouvrir le dossier de logs » des Settings, et lien vers la fiche source du récapitulatif. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#-robustesse--modes-de-panne)) |
 | `updater` | Vérification du manifeste au démarrage, téléchargement et installation signés |
+| `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe le rechargement (`F5`, `Ctrl+R`) et le menu contextuel en release : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié |
 
 Le **signal sonore ne se déclenche qu'à la fin de la phase réseau**, quand l'écran d'arbitrage prend la main. Un son par arbitrage serait une vingtaine de bips sur un run de 100 morceaux, et la préférence serait coupée dès le premier usage. Le pipeline continuant de tourner pendant qu'une modale attend, rien n'oblige à arbitrer au fil de l'eau : tout se traite à la fin, et c'est ce moment-là qu'il faut signaler.
 
@@ -397,9 +401,9 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Émise à la fermeture de la fenêtre : le sidecar finit d'écrire le plan de run en cours, puis sort. L'EOF sur stdin reste le filet si l'application est tuée, la reprise de run (use-case 6) couvre ce cas |
+| `shutdown` | aucune. Arrête la boucle une fois la commande en cours terminée. La fermeture de la fenêtre ne l'émet pas : Tauri arrête le sidecar à la sortie de l'application (mesuré le 2026-09-18), et une commande émise en plein run ne serait lue qu'à sa fin, la boucle traitant une commande à la fois. Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
-| `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **identifiant de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
+| `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible, seuils de matching |
 | `resolve_arbitration` | identifiant du morceau, candidat choisi ou refus explicite |
 | `switch_arbitration_source` | identifiant du morceau, source demandée. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), et produit un `arbitration_updated` |
@@ -416,10 +420,10 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 
 | Événement | Contenu |
 |---|---|
-| `version` | version du sidecar, comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)), et `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
-| `playlists_listed` | playlists du dump VLC : identifiant, nom, nombre de morceaux |
+| `version` | version du sidecar, nue (`X.Y.Z`, sans le préfixe `techno-tagger@` réservé à la release Sentry), comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)), et `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
+| `playlists_listed` | format reconnu du fichier, et playlists du dump VLC : identifiant, nom, nombre de morceaux |
 | `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture |
-| `extraction_finished` | morceaux copiés ou déplacés, titres introuvables, doublons résolus avec leurs candidats écartés, chemin du rapport d'extraction |
+| `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
 | `arbitration_required` | morceau, candidats en zone grise avec leur score, source interrogée |
 | `arbitration_updated` | remplacement de la liste Beatport par la liste Bandcamp dans la modale ouverte, et retour en arrière |
@@ -677,7 +681,7 @@ Deux états de l'application, pas des branches.
 
 | Environnement | Origine | Sidecar |
 |---|---|---|
-| Développement | `tauri dev` en local | Lancé depuis les sources Python, sans PyInstaller |
+| Développement | `tauri dev` en local | Le binaire de `just build-sidecar`, que Tauri exige dès la compilation. Les sources se testent en CLI par `just dev-sidecar` |
 | Distribution | Tag `v*` | Empaqueté dans l'installeur signé, consommé par l'updater |
 
 Pas de staging : sans serveur ni base, il n'y a rien à déployer entre les deux. Un canal beta (pré-release sur un manifeste updater distinct) reste possible plus tard si la distribution s'élargit.

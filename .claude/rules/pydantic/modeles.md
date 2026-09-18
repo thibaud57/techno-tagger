@@ -3,6 +3,7 @@ paths:
   - "sidecar/src/tagger/protocol.py"
   - "sidecar/src/tagger/plan.py"
   - "sidecar/src/tagger/scraper_client.py"
+  - "sidecar/src/tagger/reports.py"
 ---
 
 # Pydantic — Modèles & validation
@@ -31,7 +32,7 @@ paths:
 - `pydantic-core` est une extension native Rust, seconde extension du sidecar après rapidfuzz : à valider sur le binaire PyInstaller figé, jamais sur les seules sources
 - `extra="ignore"` est le défaut : sans `forbid`, une commande portant un champ en trop passe silencieusement
 - `model_dump(by_alias=True)` n'émet un alias que si le champ déclare `alias` ou `serialization_alias` ; un `validation_alias` seul garde le nom Python en sortie
-- `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON : ne jamais y ajouter `indent`
+- `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON : ne jamais y ajouter `indent` sur le flux `stdin`/`stdout`. Exception : un rapport JSON déposé en fichier (`reports.py`) n'est pas ce flux, l'indentation y reste admise pour la lisibilité
 - Les types TypeScript sont maintenus à la main en miroir de `protocol.py` : tout changement de champ se répercute des deux côtés (cf. [ADR-005](../../../docs/adrs/005-sidecar-python-protocole-ndjson.md))
 
 ## Exemples
