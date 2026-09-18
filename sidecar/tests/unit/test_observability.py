@@ -16,14 +16,14 @@ if TYPE_CHECKING:
     from sentry_sdk.types import Event, Hint
 
 
-def test_dsn_vide_n_initialise_pas_le_sdk() -> None:
+def test_an_empty_dsn_does_not_initialise_the_sdk() -> None:
     with patch("sentry_sdk.init", autospec=True) as init:
         init_sentry("", RELEASE)
 
     init.assert_not_called()
 
 
-def test_dsn_renseigne_pose_les_reglages_de_durcissement() -> None:
+def test_a_set_dsn_applies_the_hardening_settings() -> None:
     with patch("sentry_sdk.init", autospec=True) as init:
         init_sentry(DSN, RELEASE)
 
@@ -39,7 +39,7 @@ def test_dsn_renseigne_pose_les_reglages_de_durcissement() -> None:
     assert kwargs["auto_enabling_integrations"] is False
 
 
-def test_echec_d_initialisation_ne_remonte_pas(caplog: pytest.LogCaptureFixture) -> None:
+def test_an_initialisation_failure_does_not_propagate(caplog: pytest.LogCaptureFixture) -> None:
     with patch(
         "sentry_sdk.init",
         autospec=True,
@@ -50,7 +50,7 @@ def test_echec_d_initialisation_ne_remonte_pas(caplog: pytest.LogCaptureFixture)
     assert "initialisation de Sentry impossible" in caplog.text
 
 
-def test_le_scrubbing_masque_le_nom_d_utilisateur_a_toute_profondeur(
+def test_scrubbing_masks_the_username_at_any_depth(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Le parcours doit atteindre les frames comme les champs libres : c'est la
@@ -87,7 +87,7 @@ def test_le_scrubbing_masque_le_nom_d_utilisateur_a_toute_profondeur(
     }
 
 
-def test_le_scrubbing_laisse_intacts_les_champs_d_enveloppe(
+def test_scrubbing_leaves_envelope_fields_intact(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\dev"})

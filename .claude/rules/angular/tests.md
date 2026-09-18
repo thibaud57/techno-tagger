@@ -8,6 +8,7 @@ paths:
 ## À faire
 - Écrire les tests pour Vitest, runner par défaut du builder `@angular/build:unit-test`
 - Vérifier une règle métier du projet : le plumbing du framework ou d'une librairie ne mérite pas de test
+- Nommer `describe` et `it` en anglais, comme les tests du sidecar ; les commentaires restent en français
 - Déclarer le composant testé dans `imports` de `TestBed.configureTestingModule()`
 - Alimenter un signal input par `fixture.componentRef.setInput(name, value)`
 - Tester un `effect()` dans `TestBed.runInInjectionContext()` puis forcer son exécution avec `TestBed.flushEffects()`
@@ -35,7 +36,7 @@ paths:
 ## Exemples
 ```typescript
 // ✅
-it('marque le morceau comme arbitré', () => {
+it('marks the track as arbitrated', () => {
   fixture.componentRef.setInput('track', aTrack({ pending: true }));
   fixture.detectChanges();
 

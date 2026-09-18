@@ -50,11 +50,14 @@ module.exports = defineConfig([
     },
   },
   {
-    // Un mock se lit par reference (`expect(service.method)`), jamais appele : aucun `this`
-    // a perdre. `vi.mocked()` ne suffit pas, la lecture de la methode est deja la reference.
     files: ["**/*.spec.ts"],
     rules: {
+      // Un mock se lit par reference (`expect(service.method)`), jamais appele : aucun `this`
+      // a perdre. `vi.mocked()` ne suffit pas, la lecture de la methode est deja la reference.
       "@typescript-eslint/unbound-method": "off",
+      // Les crochets sur un membre protected pilotent le composant depuis son test sans
+      // elargir sa surface publique.
+      "@typescript-eslint/dot-notation": ["error", { allowProtectedClassPropertyAccess: true }],
     },
   },
   {

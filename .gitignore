@@ -50,6 +50,16 @@ logs/
 # Espace de travail des plans d execution : journaux, briefs, rapports d agents
 .superpowers/
 
+# Bibliotheque de demonstration : plusieurs Go de fichiers generes, reconstruits par just demo
+demo-data/
+
+# design-sync : scripts, build et etat machine. Seuls config.json et NOTES.md sont versionnes
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+
 # --- IDE & OS ---
 **/.history/
 # On versionne ce qui decrit le projet, pas ce qui decrit la machine

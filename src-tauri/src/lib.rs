@@ -1,4 +1,6 @@
-use tauri::Manager;
+use tauri::plugin::TauriPlugin;
+use tauri::{Manager, Runtime};
+use tauri_plugin_prevent_default::Flags;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,6 +16,7 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
+        .plugin(prevent_reload())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -24,4 +27,18 @@ pub fn run() {
         // n'existe pas tant que la paire de cles n'est pas generee.
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Coupe le rechargement de la webview en release : chaque rechargement relance le
+/// sidecar sans arreter le precedent, qui poursuivrait un run que l'interface a oublie.
+/// Le menu contextuel porte aussi « Recharger ». Le debug garde les deux, pour le live
+/// reload, et les autres raccourcis restent actifs (`Shift+Tab`, zoom).
+fn prevent_reload<R: Runtime>() -> TauriPlugin<R> {
+    let flags = if cfg!(debug_assertions) {
+        Flags::empty()
+    } else {
+        Flags::RELOAD | Flags::CONTEXT_MENU
+    };
+
+    tauri_plugin_prevent_default::with_flags(flags)
 }

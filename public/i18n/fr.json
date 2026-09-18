@@ -1,0 +1,115 @@
+{
+  "nav": {
+    "playlist": "Playlist",
+    "tagging": "Tagging",
+    "settings": "Réglages"
+  },
+  "app": {
+    "blocked": {
+      "missing": {
+        "title": "Le moteur de l'application est introuvable",
+        "text": "Le fichier {{file}} est attendu dans le dossier d'installation. Il a probablement été mis en quarantaine par l'antivirus : ajoutez-le aux exclusions, puis réessayez."
+      },
+      "versionMismatch": {
+        "title": "La mise à jour est incomplète",
+        "text": "L'interface est en version {{ui}} et le moteur en version {{sidecar}}. Réinstallez l'application."
+      },
+      "retry": "Réessayer"
+    }
+  },
+  "errors": {
+    "malformed_command": "Une erreur interne a interrompu l'opération. Relancez l'application.",
+    "unknown_error": "Une erreur inattendue a interrompu l'opération. Si elle revient, le détail se trouve dans le dossier des logs.",
+    "playlist_error": "Ce fichier de playlist n'a pas pu être lu.",
+    "unsupported_playlist_format": "{{filename}} n'est ni une médiathèque VLC ni une playlist M3U8 lisible.",
+    "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire (éléments absents : {{missing}}).",
+    "playlist_not_found": "Aucune playlist nommée {{playlist_name}} dans cette médiathèque.",
+    "playlist_file_unreadable": "{{filename}} ne peut pas être ouvert.",
+    "unreadable_dump": "{{filename}} n'est pas une médiathèque VLC lisible.",
+    "playlist_name_required": "Choisissez une playlist de cette médiathèque VLC.",
+    "extraction_error": "L'extraction a échoué avant de commencer.",
+    "report_error": "Le rapport d'extraction n'a pas pu être produit.",
+    "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
+    "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.",
+    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}.",
+    "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application."
+  },
+  "playlist": {
+    "title": "Playlist",
+    "source": {
+      "label": "Dossier source",
+      "choose": "Choisir un dossier"
+    },
+    "destination": {
+      "label": "Dossier destination",
+      "choose": "Choisir un dossier"
+    },
+    "file": {
+      "label": "Fichier de playlist",
+      "choose": "Choisir un fichier"
+    },
+    "selector": {
+      "label": "Playlist",
+      "placeholder": "Choisir une playlist",
+      "option": "{{name}} ({{count}})"
+    },
+    "mode": {
+      "label": "Mode",
+      "copy": "Copier",
+      "move": "Déplacer"
+    },
+    "extract": "Extraire la playlist",
+    "missing": {
+      "hint": "Choisissez {{items}}.",
+      "source": "le dossier source",
+      "destination": "le dossier destination",
+      "file": "un fichier de playlist",
+      "playlist": "une playlist"
+    },
+    "summary": {
+      "expand": "Modifier",
+      "expandDisabled": "Les choix sont figés pendant l'extraction."
+    },
+    "running": "Extraction en cours",
+    "finished": "Extraction terminée ({{processed}} sur {{total}})",
+    "progress": "{{processed}} sur {{total}}",
+    "report": {
+      "title": "Rapport d'extraction",
+      "file": "Fichier",
+      "status": "État",
+      "empty": {
+        "heading": "Playlist vide",
+        "description": "Cette playlist ne contient aucun morceau à extraire."
+      },
+      "detail": {
+        "duplicate": "{{kept}} retenu ({{keptSize}}), {{discarded}} écarté ({{discardedSizes}})"
+      },
+      "criterion": {
+        "largest_file": "Plus volumineux",
+        "path_order": "Taille égale, premier chemin dans l'ordre alphabétique"
+      },
+      "reason": {
+        "permission_denied": "Accès refusé",
+        "disk_full": "Plus d'espace sur le disque de destination",
+        "path_too_long": "Chemin de destination trop long",
+        "file_locked": "Fichier ouvert dans un autre programme",
+        "file_missing": "Fichier disparu pendant l'extraction",
+        "write_failed": "Écriture en échec"
+      },
+      "category": {
+        "extracted": "Extrait",
+        "already_present": "Déjà présent",
+        "missing": "Introuvable",
+        "duplicate": "Doublon départagé",
+        "failure": "Transfert en échec"
+      },
+      "separator": " : "
+    }
+  },
+  "tagging": {
+    "title": "Tagging"
+  },
+  "settings": {
+    "title": "Réglages"
+  }
+}

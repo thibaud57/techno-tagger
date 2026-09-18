@@ -5,7 +5,7 @@ import { MASK, scrub } from "./scrub"
  * retirees, mais un message d'erreur formate autour d'un morceau porte son chemin.
  */
 describe("scrub", () => {
-  it("masque le nom d utilisateur des trois formes de chemin, a toute profondeur", () => {
+  it("masks the username in all three path forms, at any depth", () => {
     const event = {
       message: "cannot read C:\\Users\\thibaud\\Music\\set.flac",
       extra: {
@@ -25,7 +25,7 @@ describe("scrub", () => {
     })
   })
 
-  it("masque un nom de compte porteur d une espace", () => {
+  it("masks an account name containing a space", () => {
     const event = { message: "cannot read C:\\Users\\Jean Dupont\\Music\\set.flac" }
 
     const scrubbed = scrub(event as never, {}) as unknown as Record<string, unknown>
@@ -33,7 +33,7 @@ describe("scrub", () => {
     expect(scrubbed["message"]).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`)
   })
 
-  it("masque un nom de compte porteur d une apostrophe", () => {
+  it("masks an account name containing an apostrophe", () => {
     const event = { message: "cannot read C:\\Users\\O'Brien\\Music\\set.flac" }
 
     const scrubbed = scrub(event as never, {}) as unknown as Record<string, unknown>
@@ -41,7 +41,7 @@ describe("scrub", () => {
     expect(scrubbed["message"]).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`)
   })
 
-  it("masque la cle d un mapping autant que sa valeur", () => {
+  it("masks a mapping key as well as its value", () => {
     const event = { extra: { "C:\\Users\\thibaud\\Music": "locked" } }
 
     const scrubbed = scrub(event as never, {}) as unknown as Record<string, unknown>

@@ -24,6 +24,12 @@ dev-ui:
 dev-sidecar:
     uv run python -m tagger
 
+# Construire la bibliotheque de demonstration, hors du depot, pour piloter l'app a la main
+[group('dev')]
+[working-directory('sidecar')]
+demo *args:
+    uv run python demo.py {{ args }}
+
 # Arreter le dev server Angular (port 4200, aligne sur devUrl de tauri.conf.json)
 [group('dev')]
 stop-ui:

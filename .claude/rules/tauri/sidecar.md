@@ -3,6 +3,7 @@ paths:
   - "src-tauri/tauri.conf.json"
   - "src-tauri/src/lib.rs"
   - "src/app/core/sidecar.service.ts"
+  - "src/app/core/sidecar-transport.ts"
   - "sidecar/build.py"
 ---
 
@@ -23,6 +24,7 @@ paths:
 - Omettre le suffixe target triple : le binaire est introuvable au lancement et le message d'erreur n'oriente pas vers cette cause
 - Mettre de la logique métier dans les commandes Rust : la frontière du projet est le protocole, pas un appel de fonction
 - Compter sur un `Process.kill()` pour arrêter un sidecar PyInstaller `--onefile` : il ne cible que le PID du bootloader, pas le process Python
+- Laisser le rechargement de la webview actif en release : chaque rechargement relance `Command.sidecar` sans arrêter le sidecar précédent, qui poursuit un run que l'interface a oublié (mesuré : un `tagger.exe` de plus par rechargement). `tauri-plugin-prevent-default` coupe `RELOAD` et `CONTEXT_MENU` en release, le debug les garde pour le live reload. Même raison pour ne jamais appeler `location.reload()` : le plugin ne coupe que les raccourcis
 - Transporter les pochettes en base64 dans le flux NDJSON : l'asset protocol existe pour ça (cf. [config-bundle.md](config-bundle.md))
 
 ## Gotchas

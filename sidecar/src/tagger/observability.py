@@ -92,8 +92,8 @@ def init_sentry(dsn: str, release: str) -> None:
         return
 
     try:
-        # Importe ici et pas au sommet : le SDK tire 290 modules pour ~140 ms, payes
-        # a chaque lancement alors que le chemin nominal en developpement sort
+        # Importe ici et pas au sommet : le SDK tire plusieurs centaines de modules,
+        # payes a chaque lancement alors que le chemin nominal en developpement sort
         # ci-dessus. Dans le `try` car c'est precisement l'import qui peut manquer
         # du binaire fige, et un sidecar muet au demarrage n'a aucun diagnostic.
         import sentry_sdk  # noqa: PLC0415
@@ -114,8 +114,8 @@ def init_sentry(dsn: str, release: str) -> None:
             # breadcrumbs et ERROR pour les events issus d'un `logger.error`. Le
             # troisieme est inerte sans `enable_logs`, mais un ajout futur le rouvre.
             integrations=[LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)],
-            # Sonde une quarantaine d'integrations framework absentes d'ici : 90 ms
-            # au demarrage, et autant de modules embarques par le hook au build.
+            # Sonde des integrations framework toutes absentes d'ici : du temps au
+            # demarrage, et autant de modules embarques par le hook au build.
             auto_enabling_integrations=False,
         )
     except Exception:

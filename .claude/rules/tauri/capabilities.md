@@ -31,7 +31,7 @@ paths:
 - Un appel sans permission déclarée échoue côté frontend, souvent sans message clair : c'est la première piste quand une API Tauri « ne fait rien »
 - `deny` prime sur `allow` dans un scope : un chemin listé des deux côtés est refusé
 - La syntaxe `shell:allow-spawn` avec `"sidecar": true` n'est pas confirmée verbatim par la documentation, seul l'équivalent sur `allow-execute` l'est : vérifier dans les exemples du dépôt `plugins-workspace`. L'échec serait immédiat et explicite (`program not allowed on the configured shell scope`). Cela vaut pour le **nom du programme** ; un argument non autorisé, lui, est retiré en silence (gotcha ci-dessus)
-- `single-instance` n'a aucune permission à déclarer, et c'est le seul plugin retenu sans paquet npm
+- `single-instance` et `prevent-default` n'ont aucune permission à déclarer ni paquet npm : la règle d'alignement crate / npm ne les concerne pas
 - `updater` 2.5.0 supprime `UpdaterBuilder::new` au profit de `UpdaterExt::updater_builder` : concerne l'usage Rust bas niveau, pas l'API JS
 
 ## Exemples

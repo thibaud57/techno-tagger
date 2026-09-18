@@ -39,7 +39,7 @@ hotfix/*  → main → tag vX.Y.Z → build + GitHub Release → updater        
 
 | Étape | Branch | Environnement | Déclencheur |
 |-------|--------|---------------|-------------|
-| Développement | `feature/*` | Local (`tauri dev`, sidecar depuis les sources) | Manuel |
+| Développement | `feature/*` | Local (`tauri dev`, binaire de `just build-sidecar`) | Manuel |
 | Validation qualité | `feature/*` → PR | CI (GitHub Actions) | Push / PR : Ruff + Mypy + pytest, lint + typecheck + Vitest, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` |
 | Intégration | `develop` | Local | Merge `feature/*` → `develop` |
 | Intégration prod | `main` | Aucune publication | Merge `develop` → `main` (lot de features prêt) |
@@ -119,7 +119,7 @@ Conséquences par lock, très inégales :
 - [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `tauri build` + signature)
 - [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent. **Confirmé au premier run (v0.1.0)** : les source maps sont bien montées sur `techno-tagger@0.1.0`. Symptôme si cela régressait : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
 - [ ] Release GitHub porte bien **l'installeur ET `latest.json`** (sans le second, aucun client ne verra la mise à jour). **Ce point ne se délègue à rien** : sans artefact d'updater à traiter, `tauri-action` reste vert et n'émet aucun avertissement, `uploadUpdaterJson` fut-il à `true`. Constaté sur la v0.1.0, publiée avec le seul installeur
-- [ ] **Smoke test d'installation** sur une machine ou une VM propre : l'installeur passe, l'application démarre, le sidecar répond
+- [ ] **Smoke test d'installation** sur une machine ou une VM propre : l'installeur passe, l'application démarre, le sidecar répond, et `F5`, `Ctrl+R` comme le clic droit restent sans effet (un rechargement relancerait un second sidecar)
 - [ ] **Smoke test de mise à jour** : depuis une installation en version N-1, l'updater propose, télécharge, installe et relance, **et le sidecar a bien changé de version** (cf. § Remplacement du sidecar à la mise à jour)
 - [ ] Un run réel de bout en bout : playlist → arbitrage → écriture → rapport
 - [ ] Back-merge `main → develop` (fait redescendre le bump de version + le CHANGELOG)
@@ -210,12 +210,12 @@ Deux états de l'application, pas des branches ni des serveurs. **Aucun héberge
 
 | Env | Accès | Branch | Sidecar | Auto-publication |
 |-----|-------|--------|---------|------------------|
-| Développement | `tauri dev` en local | `develop`, `feature/*` | Lancé depuis les sources Python, sans PyInstaller | Non |
+| Développement | `tauri dev` en local | `develop`, `feature/*` | Binaire de `just build-sidecar`, exigé dès la compilation | Non |
 | Distribution | Installeur GitHub Releases | `main` (tags uniquement) | Binaire PyInstaller empaqueté, signature de l'updater à l'étape 9 | Oui, au tag (cf. § Pipelines) |
 
 Pas de staging : sans serveur ni base, il n'y a rien à déployer entre les deux. Le rôle du staging est tenu par la **VM propre** du smoke test d'installation.
 
-> ⚠️ **Trois pièges connus n'existent qu'en Distribution** et sont strictement invisibles en `tauri dev` : le sidecar non remplacé à la mise à jour, le backend keyring introuvable et la sortie NDJSON bufferisée (cf. § Bootstrap technique). À partir de l'étape 4, un run complet rejoué **sur le bundle** est donc la seule validation qui compte, le mode développement ne prouvant rien sur ces trois points.
+> ⚠️ **Deux pièges connus n'existent qu'en Distribution** et sont strictement invisibles en `tauri dev` : le sidecar non remplacé à la mise à jour et le backend keyring introuvable (cf. § Bootstrap technique). La sortie NDJSON bufferisée, elle, se voit dès le développement, qui lance le même binaire par un pipe ([ADR-005](adrs/005-sidecar-python-protocole-ndjson.md)). À partir de l'étape 4, un run complet rejoué **sur le bundle** est donc la seule validation qui compte, le mode développement ne prouvant rien sur ces trois points.
 
 ## Variables d'Environnement
 

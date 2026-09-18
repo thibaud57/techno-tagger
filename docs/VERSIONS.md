@@ -737,6 +737,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 - **`single-instance` doit être enregistré en premier**, verbatim : « The Single Instance plugin must be the first one to be registered to work well. This assures that it runs before other plugins can interfere ». Le `lib.rs` de cinq lignes doit donc respecter cet ordre
 - **`fs`** : « permissions alone do not grant a scope ». Activer `fs:allow-read` sans déclarer de chemin produit une erreur runtime `forbidden path`. Les variables `$HOME`, `$APPDATA`, `$TEMP` sont disponibles, et `deny` prime sur `allow`
 - **`updater` sur Windows** : signatures obligatoires et non désactivables, et l'application se ferme automatiquement à l'installation (limitation des installeurs Windows). Un hook `on_before_exit` permet de nettoyer avant. Trois modes : `passive` (défaut), `basicUi`, `quiet`
+- **`tauri-plugin-prevent-default` `5.0.2`** (plugin tiers, publié le 2026-09-14, exige `tauri` `2`, MSRV 1.77.2) : ni paquet npm ni permission. Seuls `Flags::RELOAD | Flags::CONTEXT_MENU` en release : le jeu par défaut coupe aussi `FOCUS_MOVE` (`Shift+Tab`), et l'option Windows `browser_accelerator_keys(false)` coupe aussi le zoom clavier
 - **`opener`** : `opener:allow-reveal-item-in-dir` pour le bouton « ouvrir le dossier de logs », `opener:allow-open-url` avec un scope glob pour le lien vers la fiche source
 - **`store`** : fichier JSON, chemin défini par l'appelant au `load()`, résolu dans le répertoire app data. API asynchrone en v2, `LazyStore` pour l'initialisation différée
 
@@ -1032,7 +1033,7 @@ npm install -g pnpm@11.24.0
 pnpm install
 pnpm exec ng build
 
-# 4. Coquille Tauri (dev, sidecar lancé depuis les sources)
+# 4. Coquille Tauri (dev, sidecar déjà construit par just build-sidecar)
 pnpm exec tauri dev
 
 # 5. Build complet local (ordre imposé : le sidecar avant tauri build)
