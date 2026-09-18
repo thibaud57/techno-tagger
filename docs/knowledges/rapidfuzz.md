@@ -1,6 +1,6 @@
 ---
 title: "RapidFuzz — Scoring de similarité des candidats"
-version: "3.14.5"
+version: "3.14.6"
 description: "Référence technique pour RapidFuzz : choix du scorer, processor explicite, seuils, extract/extractOne et différences de comportement avec fuzzywuzzy."
 date: "2026-08-29"
 keywords: ["rapidfuzz", "fuzzy-matching", "scoring", "fuzzywuzzy", "token-sort-ratio"]
