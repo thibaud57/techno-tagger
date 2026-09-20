@@ -7,10 +7,10 @@ paths:
 
 ## À faire
 - Passer `processor=utils.default_process` sur **tous** les appels de scoring : depuis la 3.0, aucune fonction ne préprocesse, et mélanger des appels avec et sans processor rend les scores incomparables
-- Choisir le scorer explicitement selon la règle métier : `token_sort_ratio` quand la requête artiste contient une virgule ou une esperluette, `ratio` sinon
+- Comparer les artistes un à un, jamais deux listes jointes : chaque artiste de la requête contre chaque crédit du candidat, le meilleur score par artiste, et le plus faible de ces meilleurs scores. Deux listes jointes voient leur score s'écrouler dès que leurs longueurs divergent, ce qu'un tag incomplet provoque sans cesse (mesuré le 2026-09-20 : « Adam Beyer » contre « Adam Beyer, Bart Skils, HNTR » rend 52,6). Cette comparaison par inclusion rend l'ordre des crédits sans effet, ce pour quoi `token_sort_ratio` servait auparavant
 - Traiter le plancher comme un **ET** sur le score artiste et le score titre, le seuil haut portant sur leur moyenne : un artiste à 95 et un titre à 40 est écarté
 - Lire les deux seuils depuis la configuration : les valeurs du code sont des défauts réglables dans les Settings, pas des constantes
-- Passer le plancher en `score_cutoff` : `extractOne` rend alors `None`, ce qui est le cas « vide » du pipeline, et le calcul est court-circuité sur les candidats hors-jeu
+- `process.extractOne` dès qu'une chaîne se compare à une liste sur un axe unique, plutôt qu'un `max()` écrit à la main, et `score_cutoff` quand un plancher s'y applique : la fonction rend alors `None`, ce qui est le cas « vide » du pipeline. L'exception est un candidat porteur de plusieurs scores combinés en ET, qu'aucun `score_cutoff` n'exprime
 - Remonter au candidat complet par l'index, troisième élément du tuple rendu
 - Consigner le score de chaque candidat dans le rapport : c'est ce qui permet de recalibrer les seuils après les premiers runs réels
 - Écarter en amont du scoring un candidat sans mention de remix quand la requête en contient une : cette règle précède le scoring, elle n'en fait pas partie
@@ -32,9 +32,13 @@ paths:
 
 ## Exemples
 ```python
-# ✅ scorer explicite, processor systématique
-scorer = fuzz.token_sort_ratio if ("," in query or "&" in query) else fuzz.ratio
-score = scorer(query, candidate, processor=utils.default_process)
+# ✅ artistes comparés un à un, processor systématique
+# un artiste absent du candidat n'est pas racheté par la présence des autres
+score = min(
+    process.extractOne(name, credits, scorer=fuzz.ratio,
+                       processor=utils.default_process)[1]
+    for name in asked_artists
+)
 
 # ✅ plancher en ET, seuil haut sur la moyenne
 if artist < FLOOR or title < FLOOR:
@@ -42,7 +46,7 @@ if artist < FLOOR or title < FLOOR:
 return "auto" if (artist + title) / 2 >= CEILING else "grey_zone"
 
 # ✅ le plancher passé en score_cutoff : None au lieu d'un tuple à score bas
-best = process.extractOne(query, choices, scorer=scorer,
+best = process.extractOne(query, choices, scorer=fuzz.ratio,
                           processor=utils.default_process, score_cutoff=FLOOR)
 
 # ❌ processor omis

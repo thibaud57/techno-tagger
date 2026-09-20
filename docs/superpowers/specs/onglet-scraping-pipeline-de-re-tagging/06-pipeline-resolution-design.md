@@ -172,6 +172,16 @@ Aucun test ne vérifie httpx2, rapidfuzz ni mutagen : l'API et le CDN sont mock�
 - **Même fichier audio à deux chemins** (lien, copie) : deux morceaux distincts, chaque `track_id` étant un chemin.
 - **Annulation du run** (fermeture de l'application) : `CancelledError` relevée après nettoyage, jamais avalée. L'état en mémoire est perdu, sa persistance relève de la Feature 6.
 
+## À trancher pendant ce sub-project
+
+- **Taille de page de la recherche Beatport, à choisir ici et non avant.** `/beatport/search` rend aujourd'hui 100 résultats par page, valeur en dur dans techno-scraper (`providers/beatport/client.py`, `_PER_PAGE`), sans paramètre pour en demander moins : mesuré le 2026-09-20, `per_page`, `limit`, `page_size` et `size` sortent tous en `422`, les modèles de paramètres étant en `extra="forbid"`. Beatport lui-même rend 25 par défaut et plafonne à 100.
+  - Coût mesuré le 2026-09-20 : 77 Ko par recherche, soit environ 38 Mo descendants pour une playlist de 500 morceaux, transférés deux fois puisque le VPS les reçoit puis les relaie.
+  - Aucun effet sur le risque de blocage : les sources limitent la concurrence et non le débit (`core/limits.py` de techno-scraper borne Bandcamp à 2 et Beatport à 3), et une page plus courte ne change pas le nombre de requêtes, qui reste d'une par morceau et par source.
+  - Ne concerne que Beatport : Bandcamp ne pagine pas et rend ce qu'il trouve.
+  - **Décision du propriétaire le 2026-09-20** : exposer `per_page` sur la route, avec le défaut de la source (25) et ses bornes (1 à 100), plutôt que de baisser la constante. La gateway est bas niveau et n'a pas à trancher pour ses consommateurs, qui n'ont pas les mêmes besoins : techno-dl ratisse, techno-tagger traque un morceau précis. C'est un changement dans le dépôt techno-scraper, côté modèle de `CatalogSearchQuery` et argument de `fetch_search`.
+  - **Dimensionner ici et pas plus tôt** : les rangs relevés le 2026-09-20 (candidat retenu aux rangs 1, 1, 1, 1 et 3 sur dix recherches) ont été mesurés avec le scoring du sub-project 03 avant correction de ses deux défauts. Remesurer une fois le scoring juste, sur des tags réels et non forgés, avant de fixer la valeur.
+  - **Piège à documenter sur le paramètre** : le curseur encode un numéro de page et non un offset (`_page_from_cursor`), donc changer `per_page` en cours de parcours saute ou répète des résultats.
+
 ## Architectural decisions
 
 ### Décision : Beatport injoignable après les nouvelles tentatives

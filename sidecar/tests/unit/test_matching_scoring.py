@@ -32,54 +32,107 @@ def _candidate(
     )
 
 
-def test_compares_the_candidate_title_with_its_mix_name() -> None:
-    query = TrackQuery("Adam Beyer", "Your Mind (Extended Mix)", QueryOrigin.TAGS)
+def test_rejects_a_different_title_sharing_only_its_version() -> None:
+    """Regression : la version partagee gonflait le score d'un titre sans rapport."""
+    waypoint = _candidate("Waypoint", "Original Mix", track_id="waypoint")
+
+    classification = classify(YOUR_MIND, [waypoint])
+
+    assert classification.outcome is Outcome.EMPTY
+
+
+def test_matches_a_candidate_crediting_more_artists_than_the_tag() -> None:
+    """Regression : un tag ne nomme qu'un artiste, la source les credite tous."""
+    query = TrackQuery("Adam Beyer", "Your Mind (HNTR Remix)", QueryOrigin.TAGS)
+    hntr = _candidate("Your Mind", "HNTR Remix", artists=("Adam Beyer", "Bart Skils", "HNTR"))
+
+    classification = classify(query, [hntr])
+
+    assert classification.outcome is Outcome.AUTO
+
+
+def test_cleans_the_candidate_title_like_the_query_before_comparing() -> None:
+    """Regression : un nettoyage applique d'un seul cote faussait la comparaison."""
+    query = TrackQuery("Sharam", "PATT (Green Velvet Remix)", QueryOrigin.TAGS)
+    patt = _candidate("PATT (Party All The Time)", "Green Velvet Remix", artists=("Sharam",))
+
+    classification = classify(query, [patt])
+
+    assert classification.outcome is Outcome.AUTO
+
+
+def test_ignores_spacing_around_a_version_label() -> None:
+    """Regression : « ( Original Mix ) » ne s'annulait pas et bloquait l'auto."""
+    query = TrackQuery("Adam Beyer", "Your Mind ( Original Mix )", QueryOrigin.TAGS)
+
+    classification = classify(query, [_candidate("Your Mind", "Original Mix")])
+
+    assert classification.outcome is Outcome.AUTO
+
+
+def test_keeps_every_version_group_of_a_title() -> None:
+    """Regression : un second groupe ecrasait le premier, « (Live) » disparaissait."""
+    query = TrackQuery("Adam Beyer", "Your Mind (Live) (Dub)", QueryOrigin.TAGS)
+
+    classification = classify(query, [_candidate("Your Mind", "Live Dub")])
+
+    assert classification.outcome is Outcome.AUTO
+
+
+def test_guards_a_remix_named_outside_any_group() -> None:
+    """Regression : sans parentheses, la garde ne voyait plus le remix demande."""
+    query = TrackQuery("Adam Beyer", "Your Mind Bart Skils Remix", QueryOrigin.TAGS)
+
+    classification = classify(query, [_candidate("Your Mind", "Original Mix")])
+
+    assert classification.scored == ()
+
+
+def test_keeps_a_collaboration_sharing_its_group_with_a_version() -> None:
+    """Regression : un groupe mixte partait en version, le featuring disparaissait."""
+    title = "Your Mind (Extended Mix feat. Roisin Murphy)"
+    query = TrackQuery("Adam Beyer", title, QueryOrigin.TAGS)
 
     classification = classify(query, [_candidate("Your Mind", "Extended Mix")])
+
+    assert classification.scored[0].title_score < 100
+
+
+@pytest.mark.parametrize(
+    ("query_title", "candidate_title", "mix_name"),
+    [
+        ("Your Mind (Extended Mix)", "Your Mind", "Extended Mix"),
+        ("Your Mind (Extended Mix)", "Your Mind (Extended Mix)", "Extended Mix"),
+        ("Your Mind (Extended Mix)", "Your Mind (extended mix)", "Extended Mix"),
+        ("Your Mind [Extended Mix]", "Your Mind", "Extended Mix"),
+    ],
+    ids=["mix-name-field", "inside-the-title", "another-case", "square-brackets"],
+)
+def test_matches_a_version_however_the_source_writes_it(
+    query_title: str, candidate_title: str, mix_name: str
+) -> None:
+    query = TrackQuery("Adam Beyer", query_title, QueryOrigin.TAGS)
+
+    classification = classify(query, [_candidate(candidate_title, mix_name)])
 
     assert classification.outcome is Outcome.AUTO
     assert classification.retained[0].title_score == 100
 
 
-def test_does_not_repeat_a_mix_name_already_in_the_title() -> None:
-    query = TrackQuery("Adam Beyer", "Your Mind (Extended Mix)", QueryOrigin.TAGS)
-
-    classification = classify(query, [_candidate("Your Mind (Extended Mix)", "Extended Mix")])
-
-    assert classification.retained[0].title_score == 100
-
-
-def test_does_not_repeat_a_mix_name_written_in_another_case() -> None:
-    query = TrackQuery("Adam Beyer", "Your Mind (Extended Mix)", QueryOrigin.TAGS)
-
-    classification = classify(query, [_candidate("Your Mind (extended mix)", "Extended Mix")])
-
-    assert classification.retained[0].title_score == 100
-
-
-def test_reads_a_version_written_between_square_brackets() -> None:
-    query = TrackQuery("Adam Beyer", "Your Mind [Extended Mix]", QueryOrigin.TAGS)
-
-    classification = classify(query, [_candidate("Your Mind", "Extended Mix")])
-
-    assert classification.outcome is Outcome.AUTO
-    assert classification.retained[0].title_score == 100
-
-
-def test_adds_original_mix_to_a_query_title_without_version() -> None:
+def test_matches_an_original_mix_against_a_query_without_version() -> None:
     classification = classify(YOUR_MIND, [_candidate("Your Mind", "Original Mix")])
 
     assert classification.outcome is Outcome.AUTO
-    assert classification.retained[0].via_bare_title is False
+    assert classification.retained[0].version_mismatch is False
 
 
-def test_keeps_a_candidate_matched_on_its_bare_title_in_the_grey_zone() -> None:
+def test_keeps_other_versions_in_the_grey_zone_for_a_query_without_version() -> None:
     candidates = [_candidate("Your Mind", "Extended Mix"), _candidate("Your Mind", "Radio Edit")]
 
     classification = classify(YOUR_MIND, candidates)
 
     assert classification.outcome is Outcome.GREY_ZONE
-    assert all(scored.via_bare_title for scored in classification.retained)
+    assert all(scored.version_mismatch for scored in classification.retained)
     assert all(scored.score == 100 for scored in classification.retained)
 
 
@@ -93,13 +146,13 @@ def test_validates_the_original_mix_automatically_when_an_extended_is_also_offer
     assert classification.retained[0].candidate.id == "original"
 
 
-def test_compares_a_candidate_without_mix_name_to_the_query_title_without_suffix() -> None:
+def test_matches_a_candidate_whose_source_carries_no_mix_name() -> None:
     bandcamp = _candidate("Your Mind", mix_name=None)
 
     classification = classify(YOUR_MIND, [bandcamp])
 
     assert classification.outcome is Outcome.AUTO
-    assert classification.retained[0].via_bare_title is False
+    assert classification.retained[0].version_mismatch is False
 
 
 def test_never_validates_automatically_when_auto_is_not_allowed() -> None:
@@ -109,7 +162,7 @@ def test_never_validates_automatically_when_auto_is_not_allowed() -> None:
     assert classification.retained[0].score == 100
 
 
-def test_joins_candidate_artists_without_remixers() -> None:
+def test_ignores_remixers_when_scoring_the_artist() -> None:
     candidate = _candidate("Your Mind", "Original Mix", remixers=("Bart Skils",))
 
     classification = classify(YOUR_MIND, [candidate])
@@ -117,7 +170,7 @@ def test_joins_candidate_artists_without_remixers() -> None:
     assert classification.retained[0].artist_score == 100
 
 
-def test_uses_token_sort_ratio_for_several_artists() -> None:
+def test_matches_several_artists_whatever_their_order() -> None:
     query = TrackQuery("Adam Beyer, Bart Skils", "Your Mind", QueryOrigin.TAGS)
     candidate = _candidate("Your Mind", artists=("Bart Skils", "Adam Beyer"))
 
@@ -126,7 +179,7 @@ def test_uses_token_sort_ratio_for_several_artists() -> None:
     assert classification.scored[0].artist_score == 100
 
 
-def test_uses_ratio_for_a_single_artist() -> None:
+def test_scores_a_swapped_artist_name_below_a_perfect_match() -> None:
     query = TrackQuery("Beyer Adam", "Your Mind", QueryOrigin.TAGS)
 
     classification = classify(query, [_candidate("Your Mind")])
@@ -181,19 +234,25 @@ def test_validates_automatically_at_the_ceiling() -> None:
 def test_does_not_validate_automatically_below_the_ceiling() -> None:
     thresholds = MatchingThresholds(floor=70, ceiling=100)
 
-    classification = classify(YOUR_MIND, [_candidate("Your Mind Tonight")], thresholds)
+    classification = classify(YOUR_MIND, [_candidate("Your Mindset")], thresholds)
 
     assert classification.outcome is Outcome.GREY_ZONE
 
 
+def test_rejects_a_title_that_only_starts_like_the_query() -> None:
+    classification = classify(YOUR_MIND, [_candidate("Your Mind Tonight")])
+
+    assert classification.outcome is Outcome.EMPTY
+
+
 def test_returns_grey_zone_candidates_sorted_by_score() -> None:
     thresholds = MatchingThresholds(floor=70, ceiling=100)
-    tonight = _candidate("Your Mind Tonight", track_id="tonight")
     mindset = _candidate("Your Mindset", track_id="mindset")
+    minds = _candidate("Your Minds", track_id="minds")
 
-    classification = classify(YOUR_MIND, [tonight, mindset], thresholds)
+    classification = classify(YOUR_MIND, [mindset, minds], thresholds)
 
-    assert [scored.candidate.id for scored in classification.retained] == ["mindset", "tonight"]
+    assert [scored.candidate.id for scored in classification.retained] == ["minds", "mindset"]
 
 
 def test_keeps_the_first_candidate_on_a_tie() -> None:
