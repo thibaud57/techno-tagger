@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "client-techno-scraper"
 goal: "Isoler tout le contrat techno-scraper derrière un client asynchrone qui cherche un morceau sur Beatport et Bandcamp et traduit chaque réponse en résultat typé"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
