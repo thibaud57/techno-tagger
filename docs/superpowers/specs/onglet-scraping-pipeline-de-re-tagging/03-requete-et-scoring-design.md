@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "requete-et-scoring"
 goal: "Construire la requête d'un morceau puis classer les candidats d'une source en auto, zone grise ou vide selon les seuils de matching"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["02-client-techno-scraper-design.md"]
@@ -53,7 +53,10 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
   - marqueurs d'encodage, retirés comme mots entiers : `NNNkbps` (2 ou 3 chiffres), `320`, `flac`, `wav`, `mp3` ;
   - groupes libres : tout groupe `[...]` ou `(...)` qui ne contient aucun mot de garde est retiré, ce qui couvre les labels (`[Drumcode]`) et les genres (`[HARD TECHNO]`) sans en tenir la liste (décision du 2026-09-19) ;
   - espaces multiples réduits, séparateurs orphelins en bord de chaîne retirés.
-- **Garde de version et de collaboration** : un groupe n'est jamais retiré s'il contient, comme mot entier et sans tenir compte de la casse, `mix`, `remix`, `edit`, `version`, `dub`, `extended`, `radio`, `rework`, `bootleg`, `vip`, `live`, `instrumental`, `acapella`, `reprise`, `re-edit`, `remaster`, ou `feat.`, `ft.`, `featuring`, `with`, `pres.`, `vs.`. La liste d'ARCHITECTURE.md est étendue de `rework` à `remaster` (décision du 2026-09-19) : sans eux, « Your Mind (Rework) » deviendrait « Your Mind » et validerait l'original.
+- **Garde de version et de collaboration** : un groupe n'est jamais retiré s'il contient, comme mot entier et sans tenir compte de la casse, `mix`, `remix`, `edit`, `version`, `dub`, `extended`, `radio`, `rework`, `bootleg`, `vip`, `live`, `instrumental`, `acapella`, `reprise`, `re-edit`, `remaster`, `tool`, `loop`, `intro`, `outro`, ou `feat.`, `ft.`, `featuring`, `with`, `pres.`, `vs.`. La liste d'ARCHITECTURE.md est étendue de `rework` à `remaster` (décision du 2026-09-19) : sans eux, « Your Mind (Rework) » deviendrait « Your Mind » et validerait l'original. Étendue une seconde fois le 2026-09-20 de `tool` à `outro`, et aux formes suffixées en `-ed` et `-s` des seules mentions de version (décision suivante).
+- **Un mot de garde soudé par un trait d'union reste reconnu** : la frontière du motif traite le tiret comme une limite de mot, `vip` et `mix` sont donc tous deux vus dans « (VIP-Mix) ». Relevé par la revue de fin d'implémentation, qui a mesuré le 2026-09-20 que « Your Mind (VIP-Mix) » perdait sa version au nettoyage puis validait l'Original Mix en auto à 100.
+- **Un titre dont la version est entre crochets porte bien une version** : `_lacks_version` regarde les deux familles de délimiteurs, sans quoi « Your Mind [Extended Mix] » recevait le suffixe « (Original Mix) » et tombait en zone grise au lieu de valider. Après nettoyage, un groupe qui a survécu contient forcément une mention gardée, quel que soit son délimiteur.
+- **Le `mix_name` d'un candidat se cherche dans son titre sans tenir compte de la casse** : une source qui écrit « (extended mix) » dans le titre et « Extended Mix » dans le champ se verrait sinon coller la version une seconde fois, ce qui dégrade le score d'un candidat pourtant juste.
 - **Requête depuis les tags d'abord** : artiste normalisé puis nettoyé, titre nettoyé. Un champ que le nettoyage vide reprend sa valeur brute, une requête bruitée valant mieux qu'une requête vide (ARCHITECTURE.md § Requête vide après nettoyage, point 1). Les tags ne servent que si l'artiste et le titre contiennent chacun au moins une lettre.
 - **Repli sur le nom de fichier**, dans cet ordre :
   1. extension retirée ;
@@ -174,6 +177,8 @@ Aucun test ne vérifie rapidfuzz lui-même : les scores attendus sont des bornes
 - **Titre de tag fait de bruit seul** (« [FREE DL] ») avec un artiste exploitable : le titre reprend sa valeur brute, la requête part bruitée plutôt que vide.
 - **Candidat sans artiste** : chaîne artiste vide, score artiste nul, écarté par le plancher.
 - **Requête « Your Mind » face à l'Original et à l'Extended** : l'Original Mix atteint 100 par le titre complet et valide en auto. L'Extended ne l'atteint que par son titre nu et ne compte pas pour l'auto.
+- **Candidat Bandcamp dont le titre contient déjà l'artiste** : mesuré sur l'API en production le 2026-09-20, Bandcamp rend « Charlotte de Witte - Sgadi Li Mi (Andreo Edit) » comme `title` d'un candidat dont le seul artiste est « Andreo », et « Adam Beyer & Bart Skils - Your Mind (Golpe ReWork) » pour l'artiste « Golpe ». Ce sont des edits non officiels réuploadés. Le titre de la requête se compare au titre brut du candidat, donc ces candidats tombent sous le plancher : c'est le comportement voulu, l'edit d'un tiers n'étant pas le morceau cherché.
+- **Pertinence de la source non fiable** : la même mesure montre que Beatport rend systématiquement 100 résultats, « Amelie Lens Basiel » plaçant « David Temessi - Lens Of Amelie » en deuxième position, et que Bandcamp place « Amelie Lens - Basiel » troisième derrière deux autres titres de la même artiste. Le classement de la source ne présélectionne rien, il ne sert qu'à départager deux candidats de score égal.
 - **Groupe imbriqué ou non fermé** (« Your Mind (Extended Mix »), « [Label (2023)] ») : seuls les groupes fermés et non imbriqués sont examinés, le reste de la chaîne est laissé tel quel.
 
 ## Architectural decisions
@@ -201,6 +206,23 @@ Aucun test ne vérifie rapidfuzz lui-même : les scores attendus sont des bornes
 **Rationale :**
 - Décision du propriétaire le 2026-09-19, rendue nécessaire par le retrait des groupes libres.
 - Une version retirée de la requête produit une validation fausse qui ne se voit pas, pire qu'un échec.
+
+### Décision : Seconde extension de la garde, aux outils de DJ et aux formes suffixées
+
+**Options envisagées :**
+- **A. Ajouter `tool`, `loop`, `intro`, `outro`, et accepter les suffixes `-ed` et `-s`** sur les seules mentions de version.
+- **B. N'ajouter que `tool`**, le seul cas dont une source contemporaine atteste.
+- **C. Ne rien ajouter** et recalibrer la liste au premier run réel, comme les seuils.
+
+**Choix : A**
+
+**Rationale :**
+- Décision du propriétaire le 2026-09-20, après recherche sur sources primaires plutôt que sur intuition.
+- `tool` est le trou le plus concret : « The Techno Code (DJ Tool) » d'Enrico Sangiuliano (NINETOZERO, 2025), et Beatport tient une catégorie « DJ Tools / Acapellas » entière. Aucun de ces titres ne contient `mix` ni `edit` : la garde d'avant les vidait, et un outil de DJ validait alors l'Original Mix.
+- **Vérifié en interrogeant l'API en production le 2026-09-20**, et non par la seule documentation : une recherche « Enrico Sangiuliano The Techno Code » rend « The Techno Code (DJ Tool) » en troisième position sur Beatport et en deuxième sur Bandcamp, et une recherche « Charlotte de Witte Sgadi Li Mi » rend « Sgadi Li Mi (Intro) » en deuxième position sur Beatport. `tool` et `intro` sont donc des mentions vivantes du catalogue cible, pas des cas de bord théoriques. La même campagne a relevé « Your Mind (Golpe ReWork) » sur Bandcamp, qui confirme `rework`.
+- Les formes suffixées sont rares mais gratuites. La recherche du 2026-09-20 les a trouvées presque toujours en composé déjà gardé (« Remastered Original Mix », « Slipmatt Remix Remastered », « Reworked Mix », « Edited Version »), et isolées seulement sur des rééditions de catalogue ancien (STL, John B sur Metalheadz, Coil). « Remixed » n'existe pas comme `mix_name` de piste, uniquement comme titre de compilation. MusicBrainz, Discogs et le guide de livraison Beatport imposent tous la forme nominale.
+- L'erreur est asymétrique, et c'est ce qui tranche : un mot de garde en trop laisse passer un groupe, donc une requête bruitée qui se score quand même ; un mot manquant fait écrire les mauvais tags sans aucun signal.
+- Les suffixes ne s'appliquent qu'aux mentions de version, jamais aux mentions de collaboration : « feated » n'existe pas.
 
 ### Décision : Découpe artiste et titre d'un nom de fichier
 
