@@ -35,7 +35,12 @@
     "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application.",
     "files_error": "La lecture des fichiers audio a échoué.",
     "tagging_folder_unreadable": "Le dossier à re-tagger est introuvable ou illisible : {{folder}}.",
-    "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus."
+    "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus.",
+    "scraper_error": "La recherche de métadonnées a répondu par une erreur.",
+    "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
+    "source_unavailable": "La source {{source}} n'a pas répondu.",
+    "track_not_found": "Le morceau n'existe plus sur {{source}}.",
+    "api_contract_error": "Réponse inattendue lors de la recherche de métadonnées. Si elle revient, le détail se trouve dans le dossier des logs."
   },
   "playlist": {
     "title": "Playlist",

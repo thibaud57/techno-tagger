@@ -35,7 +35,12 @@
     "sidecar_unavailable": "The application engine is not responding. Restart the application.",
     "files_error": "The audio files could not be read.",
     "tagging_folder_unreadable": "The folder to re-tag cannot be found or read: {{folder}}.",
-    "tags_unreadable": "The tags of {{file}} could not be read."
+    "tags_unreadable": "The tags of {{file}} could not be read.",
+    "scraper_error": "The metadata search answered with an error.",
+    "api_key_rejected": "The API key was rejected. Check it in the settings.",
+    "source_unavailable": "The source {{source}} did not respond.",
+    "track_not_found": "The track no longer exists on {{source}}.",
+    "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder."
   },
   "playlist": {
     "title": "Playlist",

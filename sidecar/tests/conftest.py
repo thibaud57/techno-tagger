@@ -22,12 +22,22 @@ from vlc_dump import build_dump
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
+    import httpx2
+
     from tagger.extraction import ExtractionResult
     from tagger.reports import ReportContext
 
-# TODO: implement — fixture de transport httpx2 mocke.
-
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture
+def requests() -> list[httpx2.Request]:
+    """Journal des requetes emises, rempli par le handler du `MockTransport`.
+
+    Une liste par test : c'est elle qui porte la route, les parametres, l'en-tete
+    et le nombre exact de requetes, que le client n'expose pas autrement.
+    """
+    return []
 
 
 @pytest.fixture(autouse=True)

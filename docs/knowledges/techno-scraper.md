@@ -2,7 +2,7 @@
 title: "techno-scraper — API gateway de métadonnées musicales"
 version: "3.1.3"
 description: "Référence technique pour techno-scraper : authentification, contrat Track normalisé, routes consommées, sémantique d'erreur et bornes de concurrence."
-date: "2026-09-04"
+date: "2026-09-20"
 keywords: ["techno-scraper", "api", "track", "beatport", "bandcamp", "soundcloud", "x-api-key"]
 scope: ["docs"]
 technologies: ["httpx2", "Python", "FastAPI", "Pydantic"]
@@ -57,33 +57,31 @@ Un modèle `Track` unique quel que soit le provider, avec un champ `source` qui 
 
 ```python
 {
+    "id": str | None,              # id Beatport, clé du refetch /beatport/tracks/{id}
     "title": str,
     "mix_name": str | None,        # séparé du titre, pas collé entre parenthèses
-    "artists": list[Artist],       # remixers exclus, par convention
-    "remixers": list[Artist],
-    "release": Release | None,
-    "label": Label | None,
-    "catalog_number": str | None,  # vient de la RELEASE Beatport, pas du track
-    "release_date": date | None,
+    "artists": list[Profile],      # remixers exclus, par convention
+    "remixers": list[Profile],
+    "release": Release | None,     # id, title, catalog_number, release_date, artwork_url
+    "label": Profile | None,
     "genre": str | None,
     "bpm": int | None,
-    "key": str | None,
+    "key": str | None,             # notation Camelot (« 4A »)
     "isrc": str | None,
-    "duration": int | None,
     "track_number": int | None,
-    "artwork_url": str | None,     # pointe le CDN de la source, pas l'API
-    "url": str,
+    "url": str | None,
     "source": "beatport" | "bandcamp" | "soundcloud",
 }
 ```
 
 ### Points Importants
 
+- **Forme vérifiée sur techno-scraper 3.1.3** (`src/technoscraper/shared/schemas.py`, lu le 2026-09-19) : la date, le numéro de catalogue et la pochette vivent sous `release`, jamais à la racine, et `duration` n'existe pas. `Profile` porte bien d'autres champs (`bio`, `followers`, `social_links`) que le sidecar ignore
 - **Un champ nul ne signale pas une erreur mais une source qui ne l'expose pas.** Bandcamp ne rend ni `bpm`, ni `key`, ni `genre`. `label` n'est rendu que si le morceau est sur un compte de label, `None` sinon, là où Beatport les remplit tous. La politique d'écriture doit traiter ces nuls comme « champ non écrit », jamais comme « champ à vider » (cf. [ADR-011](../adrs/011-politique-ecriture-tags.md))
 - **Convention consommateur : les remixers sont exclus de `artists[]`.** Reconstruire la chaîne artiste pour un tag suppose de décider si `remixers[]` y entre, l'API ne tranche pas à la place du consommateur
 - `mix_name` est un champ à part : le recoller au titre est un choix d'écriture, pas une donnée
-- **Sur `search`, les objets sont parfois abrégés** : un refetch par id (`GET /beatport/tracks/{id}`) est nécessaire pour des métadonnées complètes
-- `artwork_url` pointe le CDN de la source. Son téléchargement ne traverse donc pas l'API et ne consomme aucun de ses sémaphores, d'où le pool séparé de 6 côté sidecar (cf. [ADR-017](../adrs/017-taille-pool-concurrence.md))
+- **Sur `search`, les objets sont abrégés** : un refetch est nécessaire pour des métadonnées complètes, par id sur Beatport (`GET /beatport/tracks/{id}`), par URL sur Bandcamp (`GET /bandcamp/tracks?url=`), dont la recherche ne rend ni date, ni label, ni ISRC, ni numéro de piste
+- `release.artwork_url` pointe le CDN de la source. Son téléchargement ne traverse donc pas l'API et ne consomme aucun de ses sémaphores, d'où le pool séparé de 6 côté sidecar (cf. [ADR-017](../adrs/017-taille-pool-concurrence.md))
 
 ---
 
@@ -123,28 +121,37 @@ La distinction est contractuelle et conditionne toute la logique de fallback du 
 ### Exemple
 
 ```
-200 + { "items": [], "next_cursor": null }   → rien trouvé, on enchaîne sur la source suivante
-502  code=parse_error                        → structure de la source changée, côté API
-503  code=source_unavailable | stale_content → source injoignable après retries
-504  code=request_timeout                    → budget de 90 s dépassé, file saturée
-403                                          → clé absente ou invalide
-400  code=invalid_cursor                     → curseur illisible ou forgé
-404                                          → ressource absente (id inconnu)
+200 + { "items": [], "next_cursor": null }       → rien trouvé, on enchaîne sur la source suivante
+400  code=invalid_cursor | cursor_out_of_range   → curseur illisible, forgé ou hors fenêtre (Beatport)
+403                                              → clé absente ou invalide
+404  code=not_found                              → ressource absente (id inconnu)
+422                                              → paramètre de requête invalide, corps FastAPI standard
+500  code=internal_error                         → erreur non gérée côté API
+502  code=parse_error                            → structure de la source changée, côté API
+503  code=source_unavailable                     → source injoignable après retries
+503  code=stale_content                          → contenu périmé servi par un cache amont
+503  code=quota_exceeded (SoundCloud uniquement) → quota de génération de tokens épuisé
+504  code=request_timeout                        → budget de 90 s dépassé, file saturée
 
 Corps 404, 502, 503 : { "code": "...", "provider": "...", "request_id": "..." }
-Corps 400, 504     : { "code": "...", "request_id": "..." }, sans provider
-Corps 403          : { "detail": "Invalid API key" }, défaut FastAPI, ni code ni request_id
+Corps 400, 500, 504 : { "code": "...", "request_id": "..." }, sans provider
+Corps 403, 422      : { "detail": ... }, défaut FastAPI, ni code ni request_id
 En-tête sur toutes les réponses, succès compris : X-Request-ID
+(le 500 le porte aussi, posé par `ServerErrorMiddleware` et non par le middleware commun)
 ```
 
 ### Points Importants
 
+- **Forme vérifiée sur techno-scraper 3.1.3** (`core/errors.py`, `core/limits.py`, `core/security.py`, `shared/queries.py`, lus le 2026-09-20) : chaque code de statut ci-dessous correspond à un handler ou une garde nommée dans ces fichiers
 - **Une `Page[T]` vide n'est jamais une erreur.** C'est le signal « ce morceau n'existe pas sur cette source », qui déclenche le fallback, à distinguer d'une panne qui, elle, ne dit rien sur le morceau
 - **Un `504` ne se retry jamais immédiatement** : il signale une file saturée côté API, et un retry immédiat ne fait qu'y rajouter du travail
 - **Le `504` prime sur le `503`** quand les deux sont possibles : une route enchaînant plusieurs `fetch` dépasse le budget avant d'avoir épuisé ses tentatives. Les deux se traitent pareil (source indisponible), seul le code diffère
 - `502 parse_error` n'est pas actionnable côté application : c'est un parser à corriger côté API. Le morceau se traite comme non résolu, et le rapport doit le distinguer d'un « rien trouvé »
+- **`422` est un contrat cassé, tout `5xx` une source indisponible, `500` compris** : un `422` dit que le sidecar a mal formé sa requête, c'est son bug. Un `500` dit que l'API a planté : le classer en contrat cassé le ferait remonter dans le Sentry du sidecar pour un incident que l'API remonte déjà dans le sien, alors que du point de vue de l'utilisateur la source n'a simplement pas répondu et que le morceau se rejouera. Le `503` couvre trois causes distinctes, traitées pareil : `source_unavailable` (source injoignable après retries), `stale_content` (contenu périmé servi par un cache amont, atteignable sur n'importe quelle source) et `quota_exceeded` (quota de génération de tokens épuisé, **SoundCloud uniquement**)
+- **`cursor_out_of_range` est un `400`, pas un `422`** : même corps qu'`invalid_cursor`, sans `provider`, malgré le nom qui évoque une validation de paramètre
+- **Le `500` pose lui-même l'en-tête `X-Request-ID`** : il est rendu par `ServerErrorMiddleware`, hors du middleware qui pose cet en-tête pour toutes les autres réponses. C'est le seul code qui ne suit pas la règle générale ci-dessous
 - **Le retry est à la charge du consommateur** : l'API ne le fait pas pour lui, sa concurrence sortante étant mutualisée entre tous les consommateurs
-- **Le corps d'erreur ne porte ni message ni trace** : `{code, provider, request_id}` sur 404, 502 et 503, sans `provider` sur 400 et 504, et le `{"detail": ...}` par défaut de FastAPI sur 403. Inutile d'y chercher un texte à afficher, le libellé utilisateur appartient au sidecar. Le `request_id`, repris en en-tête `X-Request-ID` sur toutes les réponses, est le seul lien avec la ligne de log et l'issue Sentry côté API : le journaliser à chaque échec, depuis l'en-tête plutôt que le corps
+- **Le corps d'erreur ne porte ni message ni trace** : `{code, provider, request_id}` sur 404, 502 et 503, sans `provider` sur 400, 500 et 504, et le `{"detail": ...}` par défaut de FastAPI sur 403 et 422. Inutile d'y chercher un texte à afficher, le libellé utilisateur appartient au sidecar. Le `request_id`, repris en en-tête `X-Request-ID` sur toutes les réponses, est le seul lien avec la ligne de log et l'issue Sentry côté API : le journaliser à chaque échec, depuis l'en-tête plutôt que le corps
 
 ---
 
