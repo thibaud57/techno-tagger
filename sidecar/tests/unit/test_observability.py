@@ -24,18 +24,23 @@ def test_an_empty_dsn_does_not_initialise_the_sdk() -> None:
 
 
 def test_a_set_dsn_applies_the_hardening_settings() -> None:
-    with patch("sentry_sdk.init", autospec=True) as init:
+    with (
+        patch("sentry_sdk.init", autospec=True) as init,
+        patch(
+            "sentry_sdk.integrations.logging.LoggingIntegration", autospec=True
+        ) as logging_integration,
+    ):
         init_sentry(DSN, RELEASE)
 
     kwargs = init.call_args.kwargs
     assert kwargs["include_local_variables"] is False
     assert kwargs["server_name"] == APP_NAME
     assert kwargs["before_send"] is _scrub
-    # Les deux canaux que level=None et sentry_logs_level=None doivent fermer :
-    # sans eux, chemins et titres partent en breadcrumbs avec le prochain event.
-    integration = kwargs["integrations"][0]
-    assert integration._breadcrumb_handler is None
-    assert integration._sentry_logs_handler is None
+    # On verifie l'appel a LoggingIntegration, pas les attributs prives de l'objet
+    # que le SDK construit : ces trois arguments sont notre contrat, pas son rendu.
+    logging_integration.assert_called_once_with(
+        level=None, event_level=None, sentry_logs_level=None
+    )
     assert kwargs["auto_enabling_integrations"] is False
 
 

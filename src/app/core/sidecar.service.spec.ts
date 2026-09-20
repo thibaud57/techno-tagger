@@ -105,20 +105,19 @@ describe("SidecarService", () => {
     expect(service.version()).toBe(APP_VERSION)
   })
 
-  it("reports no mismatch when the versions match", async () => {
+  it.each([
+    { label: "matching versions", version: APP_VERSION, expected: null },
+    {
+      label: "mismatched versions",
+      version: "0.0.1-old",
+      expected: { ui: APP_VERSION, sidecar: "0.0.1-old" },
+    },
+  ] as const)("reports the mismatch for $label", async ({ version, expected }) => {
     await service.start()
 
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: true })
+    transport.emit({ event: "version", version, api_key_configured: false })
 
-    expect(service.versionMismatch()).toBeNull()
-  })
-
-  it("reports the mismatch with both versions", async () => {
-    await service.start()
-
-    transport.emit({ event: "version", version: "0.0.1-old", api_key_configured: false })
-
-    expect(service.versionMismatch()).toEqual({ ui: APP_VERSION, sidecar: "0.0.1-old" })
+    expect(service.versionMismatch()).toEqual(expected)
   })
 
   it("is not ready before the version is received", async () => {

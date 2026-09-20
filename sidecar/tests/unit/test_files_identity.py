@@ -14,8 +14,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "wav", "aiff"])
-def test_reads_artist_and_title_from_the_id3_frames(
+@pytest.mark.parametrize(
+    "audio_format",
+    ["mp3", "wav", "aiff", "flac"],
+    ids=["id3-mp3", "id3-wav", "id3-aiff", "vorbis-flac"],
+)
+def test_reads_artist_and_title_from_the_tags(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
@@ -24,17 +28,6 @@ def test_reads_artist_and_title_from_the_id3_frames(
     identity = read_identity(path)
 
     assert identity == IdentityTags(artist="Adam Beyer", title="Your Mind")
-
-
-def test_reads_artist_and_title_from_the_vorbis_keys_of_a_flac_file(
-    blank_audio: Callable[[str], Path],
-) -> None:
-    path = blank_audio("flac")
-    tag(path, artist=["Amelie Lens"], title=["Basiel"])
-
-    identity = read_identity(path)
-
-    assert identity == IdentityTags(artist="Amelie Lens", title="Basiel")
 
 
 @pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])

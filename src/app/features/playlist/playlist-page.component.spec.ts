@@ -4,6 +4,11 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { load, type Store } from "@tauri-apps/plugin-store"
 
+import type {
+  ExtractionFinishedEvent,
+  PlaylistFormat,
+  SidecarErrorEvent,
+} from "../../core/models/protocol"
 import { SidecarService } from "../../core/sidecar.service"
 
 import PlaylistPageComponent from "./playlist-page.component"
@@ -21,19 +26,38 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(() => Promise.reject(new TypeError("store unavailable"))),
 }))
 
+/** Sous-ensemble reellement mocke : une divergence avec `SidecarService` casse ici, jamais en silence. */
+type SidecarServiceStub = Pick<
+  SidecarService,
+  | "ready"
+  | "extracting"
+  | "available"
+  | "version"
+  | "versionMismatch"
+  | "playlistFormat"
+  | "playlists"
+  | "progress"
+  | "extraction"
+  | "extractionRequest"
+  | "listedPlaylistPath"
+  | "lastError"
+  | "listPlaylists"
+  | "extractPlaylist"
+>
+
 /**
  * Ce qui se teste ici est la disponibilite de l'action et la commande emise :
  * le reste de l'ecran affiche ce qu'il recoit, et tester qu'un `@if` masque un
  * bloc reviendrait a tester Angular.
  */
-function mountWith(overrides: Partial<Record<string, unknown>> = {}) {
-  const service = {
+function mountWith(overrides: Partial<SidecarServiceStub> = {}) {
+  const service: SidecarServiceStub = {
     ready: signal(true),
     extracting: signal(false),
     available: signal(true),
     version: signal("1.0.0"),
     versionMismatch: signal(null),
-    playlistFormat: signal<"vlc_dump" | "m3u8" | null>("vlc_dump"),
+    playlistFormat: signal<PlaylistFormat | null>("vlc_dump"),
     playlists: signal([{ playlist_id: 1, name: "set", track_count: 8 }]),
     progress: signal(null),
     extraction: signal(null),
@@ -75,6 +99,17 @@ const LAST_RUN = {
   mode: "copy",
 } as const
 
+/** Un resultat presence-only : ces tests ne regardent que l'effet de sa presence, jamais son contenu. */
+const SOME_EXTRACTION: ExtractionFinishedEvent = {
+  event: "extraction_finished",
+  extracted: [],
+  already_present: [],
+  missing: [],
+  duplicates: [],
+  failures: [],
+  report_path: "C:/work/report.json",
+}
+
 describe("PlaylistPageComponent", () => {
   afterEach(() => {
     vi.resetAllMocks()
@@ -108,7 +143,7 @@ describe("PlaylistPageComponent", () => {
   })
 
   it("reopens the form on request once the extraction is over", () => {
-    const { component } = mountWith({ extraction: signal({}) })
+    const { component } = mountWith({ extraction: signal(SOME_EXTRACTION) })
 
     component["expandForm"]()
 
@@ -117,7 +152,7 @@ describe("PlaylistPageComponent", () => {
 
   it("collapses the form again when the next extraction starts", () => {
     const extracting = signal(false)
-    const { component } = mountWith({ extracting, extraction: signal({}) })
+    const { component } = mountWith({ extracting, extraction: signal(SOME_EXTRACTION) })
     component["expandForm"]()
 
     extracting.set(true)
@@ -168,7 +203,12 @@ describe("PlaylistPageComponent", () => {
     const { component } = mountWith({
       playlistFormat: signal(null),
       playlists: signal([]),
-      lastError: signal({ event: "error", code: "vlc_schema_mismatch", params: {}, message: "" }),
+      lastError: signal<SidecarErrorEvent>({
+        event: "error",
+        code: "vlc_schema_mismatch",
+        params: {},
+        message: "",
+      }),
     })
     component["sourceFolder"].set("C:/lib")
     component["destinationFolder"].set("C:/work")
@@ -197,7 +237,10 @@ describe("PlaylistPageComponent", () => {
   })
 
   it("allows extraction on an M3U8 without a selected playlist", () => {
-    const { component } = mountWith({ playlistFormat: signal("m3u8"), playlists: signal([]) })
+    const { component } = mountWith({
+      playlistFormat: signal<PlaylistFormat>("m3u8"),
+      playlists: signal([]),
+    })
     withAllPathsChosen(component)
 
     choosePlaylist(component, null)
@@ -230,16 +273,13 @@ describe("PlaylistPageComponent", () => {
     expect(component["awaitsPlaylists"]()).toBe(true)
   })
 
-  it("offers the playlist selector only for a VLC dump", () => {
-    const { component } = mountWith()
+  it.each([
+    { format: "vlc_dump", outcome: "shows", expected: true },
+    { format: "m3u8", outcome: "hides", expected: false },
+  ] as const)("$outcome the playlist selector for a $format", ({ format, expected }) => {
+    const { component } = mountWith({ playlistFormat: signal(format) })
 
-    expect(component["showsPlaylistSelector"]()).toBe(true)
-  })
-
-  it("offers no playlist selector for an M3U8", () => {
-    const { component } = mountWith({ playlistFormat: signal("m3u8") })
-
-    expect(component["showsPlaylistSelector"]()).toBe(false)
+    expect(component["showsPlaylistSelector"]()).toBe(expected)
   })
 
   it("defaults to copy", () => {
