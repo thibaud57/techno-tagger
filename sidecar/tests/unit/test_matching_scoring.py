@@ -32,21 +32,21 @@ def _candidate(
     )
 
 
-def test_rejects_a_different_title_sharing_only_its_version() -> None:
-    """Regression : la version partagee gonflait le score d'un titre sans rapport."""
-    waypoint = _candidate("Waypoint", "Original Mix", track_id="waypoint")
+@pytest.mark.parametrize(
+    ("tagged", "title", "mix_name", "credited"),
+    [
+        ("Adam Beyer", "Your Mind", "HNTR Remix", ("Adam Beyer", "Bart Skils", "HNTR")),
+        ("Mython", "Abilene", "Original Mix", ("Mython", "BCCO")),
+    ],
+    ids=["other-artists", "label-credited-as-an-artist"],
+)
+def test_matches_a_candidate_crediting_more_than_the_tag(
+    tagged: str, title: str, mix_name: str, credited: tuple[str, ...]
+) -> None:
+    """Un tag ne nomme qu'un artiste la ou la source credite tout le monde, label compris."""
+    query = TrackQuery(tagged, f"{title} ({mix_name})", QueryOrigin.TAGS)
 
-    classification = classify(YOUR_MIND, [waypoint])
-
-    assert classification.outcome is Outcome.EMPTY
-
-
-def test_matches_a_candidate_crediting_more_artists_than_the_tag() -> None:
-    """Regression : un tag ne nomme qu'un artiste, la source les credite tous."""
-    query = TrackQuery("Adam Beyer", "Your Mind (HNTR Remix)", QueryOrigin.TAGS)
-    hntr = _candidate("Your Mind", "HNTR Remix", artists=("Adam Beyer", "Bart Skils", "HNTR"))
-
-    classification = classify(query, [hntr])
+    classification = classify(query, [_candidate(title, mix_name, artists=credited)])
 
     assert classification.outcome is Outcome.AUTO
 
@@ -170,6 +170,56 @@ def test_ignores_remixers_when_scoring_the_artist() -> None:
     assert classification.retained[0].artist_score == 100
 
 
+@pytest.mark.parametrize(
+    ("tagged_title", "tagged_artist"),
+    [
+        ("Biome", "BCCO, Tommy Sharp"),
+        ("Biome feat. BCCO", "Tommy Sharp"),
+        ("Biome (feat. BCCO)", "BCCO, Tommy Sharp"),
+    ],
+    ids=["tag-omits-it", "tag-repeats-it", "tag-parenthesises-it"],
+)
+def test_ignores_a_featuring_the_source_writes_into_the_title(
+    tagged_title: str, tagged_artist: str
+) -> None:
+    """Beatport ecrit l'invite dans le titre en plus de le crediter (« Biome feat. BCCO »)."""
+    query = TrackQuery(tagged_artist, tagged_title, QueryOrigin.TAGS)
+    biome = _candidate("Biome feat. BCCO", artists=("BCCO", "Tommy Sharp"))
+
+    classification = classify(query, [biome])
+
+    assert classification.outcome is Outcome.AUTO
+
+
+def test_matches_an_artist_carrying_a_regional_suffix() -> None:
+    """« SOSA (UK) » est le nom de l'artiste, pas « SOSA » suivi de bruit."""
+    query = TrackQuery("SOSA (UK)", "Bugbeat (Extended Mix)", QueryOrigin.TAGS)
+    sosa = _candidate("Bugbeat", "Extended Mix", artists=("SOSA (UK)",))
+
+    classification = classify(query, [sosa])
+
+    assert classification.outcome is Outcome.AUTO
+
+
+@pytest.mark.parametrize(
+    ("tagged", "credited"),
+    [
+        ("Hernan Cattaneo, Hicky & Kalo", ("Hernan Cattaneo", "Hicky & Kalo")),
+        ("Adam Beyer & Bart Skils", ("Adam Beyer", "Bart Skils")),
+    ],
+    ids=["ampersand-belongs-to-a-duo", "ampersand-joins-two-artists"],
+)
+def test_reads_an_ampersand_the_way_the_source_credits_it(
+    tagged: str, credited: tuple[str, ...]
+) -> None:
+    """La chaine seule ne dit pas si « A & B » est un duo : la source tranche."""
+    query = TrackQuery(tagged, "Voyage", QueryOrigin.TAGS)
+
+    classification = classify(query, [_candidate("Voyage", artists=credited)])
+
+    assert classification.outcome is Outcome.AUTO
+
+
 def test_matches_several_artists_whatever_their_order() -> None:
     query = TrackQuery("Adam Beyer, Bart Skils", "Your Mind", QueryOrigin.TAGS)
     candidate = _candidate("Your Mind", artists=("Bart Skils", "Adam Beyer"))
@@ -213,36 +263,35 @@ def test_drops_a_candidate_without_remix_when_the_query_holds_one() -> None:
     [
         _candidate("Totally Different"),
         _candidate("Your Mind", artists=("Adam Port",)),
+        _candidate("Waypoint", "Original Mix"),
+        _candidate("Your Mind Tonight"),
     ],
-    ids=["title-below-floor", "artist-below-floor"],
+    ids=[
+        "title-below-floor",
+        "artist-below-floor",
+        "shares-only-its-version",
+        "starts-like-the-query",
+    ],
 )
-def test_rejects_a_candidate_below_the_floor_on_either_score(candidate: TrackCandidate) -> None:
+def test_rejects_a_candidate_that_is_not_the_track(candidate: TrackCandidate) -> None:
+    """Un titre qui ne partage que sa version ou son debut n'est pas le morceau."""
     classification = classify(YOUR_MIND, [candidate])
 
     assert classification.outcome is Outcome.EMPTY
     assert classification.retained == ()
 
 
-def test_validates_automatically_at_the_ceiling() -> None:
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [("Your Mind", Outcome.AUTO), ("Your Mindset", Outcome.GREY_ZONE)],
+    ids=["at-the-ceiling", "below-the-ceiling"],
+)
+def test_validates_automatically_only_from_the_ceiling(title: str, expected: Outcome) -> None:
     thresholds = MatchingThresholds(floor=70, ceiling=100)
 
-    classification = classify(YOUR_MIND, [_candidate("Your Mind")], thresholds)
+    classification = classify(YOUR_MIND, [_candidate(title)], thresholds)
 
-    assert classification.outcome is Outcome.AUTO
-
-
-def test_does_not_validate_automatically_below_the_ceiling() -> None:
-    thresholds = MatchingThresholds(floor=70, ceiling=100)
-
-    classification = classify(YOUR_MIND, [_candidate("Your Mindset")], thresholds)
-
-    assert classification.outcome is Outcome.GREY_ZONE
-
-
-def test_rejects_a_title_that_only_starts_like_the_query() -> None:
-    classification = classify(YOUR_MIND, [_candidate("Your Mind Tonight")])
-
-    assert classification.outcome is Outcome.EMPTY
+    assert classification.outcome is expected
 
 
 def test_returns_grey_zone_candidates_sorted_by_score() -> None:

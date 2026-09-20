@@ -157,7 +157,6 @@ def test_leaves_an_unclosed_or_nested_group_as_is(title: str, expected: str) -> 
         ("Amelie Lens × Farrago", "Amelie Lens, Farrago"),  # noqa: RUF001
         ("Adam Beyer;Bart Skils", "Adam Beyer, Bart Skils"),
         ("Adam Beyer / Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Chase & Status", "Chase, Status"),
         ("Chase and Status", "Chase, Status"),
         ("Adam Beyer vs. Bart Skils", "Adam Beyer, Bart Skils"),
         ("Adam Beyer feat. Roisin Murphy", "Adam Beyer, Roisin Murphy"),
@@ -170,7 +169,6 @@ def test_leaves_an_unclosed_or_nested_group_as_is(title: str, expected: str) -> 
         "times",
         "semicolon",
         "slash",
-        "ampersand",
         "and",
         "vs",
         "feat",
@@ -184,7 +182,24 @@ def test_normalises_artist_separators_to_a_comma(artist: str, expected: str) -> 
     assert normalised == expected
 
 
-@pytest.mark.parametrize("artist", ["Jay-Z", "Jax Jones", "Axwell"])
+@pytest.mark.parametrize(
+    ("artist", "expected"),
+    [
+        ("SOSA (UK)", "SOSA (UK)"),
+        ("Mendez (ES)", "Mendez (ES)"),
+        ("Adam Beyer [Drumcode]", "Adam Beyer"),
+        ("Adam Beyer [FREE DL]", "Adam Beyer"),
+    ],
+    ids=["regional-suffix", "another-suffix", "label", "download-noise"],
+)
+def test_keeps_parentheses_of_an_artist_name_but_drops_brackets(artist: str, expected: str) -> None:
+    """Une parenthese designe l'artiste, un crochet porte un label ou du bruit."""
+    normalised = _artist(artist)
+
+    assert normalised == expected
+
+
+@pytest.mark.parametrize("artist", ["Jay-Z", "Jax Jones", "Axwell", "Pig & Dan"])
 def test_never_splits_a_name_without_spaced_separator(artist: str) -> None:
     normalised = _artist(artist)
 

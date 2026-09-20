@@ -35,12 +35,29 @@ _DOWNLOAD: Final = re.compile(r"\bfree[\s_-]*(?:dl|download)\b", re.IGNORECASE)
 _ENCODING: Final = re.compile(r"\b(?:\d{2,3}\s*kbps|320|flac|wav|mp3)\b", re.IGNORECASE)
 _GROUP: Final = re.compile(r"[\[(](?P<content>[^\[\]()]*)[\])]")
 _SPACES: Final = re.compile(r"\s+")
-# Entoures d'espaces sauf ; et / : « Jay-Z » ne doit jamais etre coupe. Le signe de
+# Entoures d'espaces sauf ; et / : « Jay-Z » ne doit jamais etre coupe. Pas de « & » :
+# il appartient au nom du duo bien plus souvent qu'il ne separe deux artistes (« Pig &
+# Dan », « Hicky & Kalo »), et Beatport ne joint jamais deux credits ainsi. Le signe de
 # multiplication est un vrai separateur, pas une faute de frappe pour x (d'ou le noqa).
 _ARTIST_SEPARATORS: Final = re.compile(
-    r"\s*[;/]\s*|\s+(?:&|and|x|×|vs\.?|feat\.?|ft\.?|featuring)\s+",  # noqa: RUF001
+    r"\s*[;/]\s*|\s+(?:and|x|×|vs\.?|feat\.?|ft\.?|featuring)\s+",  # noqa: RUF001
     re.IGNORECASE,
 )
+# Un nom d'artiste porte des parentheses qui le designent, jamais de crochets : releve
+# le 2026-09-20 sur 963 credits Beatport, les 22 groupes parenthesees tiennent tous un
+# code pays ou de genre (« SOSA (UK) », « Aeon (PSY) »). Seuls les crochets et le bruit
+# de tag partent, un fichier mal tague pouvant porter « Adam Beyer (320kbps) ».
+_ARTIST_NOISE: Final = re.compile(r"\[[^\[\]]*\]")
+# Beatport ecrit l'invite dans le titre (« Biome feat. BCCO ») en plus de le crediter
+# dans `artists[]`, la ou un tag de fichier ne le met qu'au champ artiste. Le titre se
+# coupe donc a sa mention d'invite, des deux cotes : ce que l'axe artiste score deja
+# ne doit ni aider ni penaliser l'axe titre.
+_FEATURING: Final = re.compile(
+    rf"(?<!\w)(?:feat\.?|ft\.?|featuring)(?!\w)(?:(?!{_VERSION_WORDS}).)*", re.IGNORECASE
+)
+_AMPERSAND: Final = re.compile(r"\s+&\s+")
+# Reste d'un groupe dont le nettoyage a emporte tout le contenu.
+_EMPTY_GROUP: Final = re.compile(r"[\[(]\s*[\])]")
 _LETTER: Final = re.compile(r"[^\W\d_]")
 # Deux chiffres au plus : « 808 State » et « 999999999 » restent des artistes.
 _TRACK_NUMBER: Final = re.compile(r"^\d{1,2}(?!\d)\s*[-._)]?\s*")
@@ -154,9 +171,9 @@ def build_query(artist: str, title: str, file_name: str) -> TrackQuery | None:
 
 
 def _from_tags(artist: str, title: str) -> TrackQuery | None:
-    # Un champ que le nettoyage vide reprend sa valeur brute : une requete bruitee
-    # vaut mieux qu'une requete vide.
-    query_artist = _normalise_artists(_clean(artist)) or _normalise_artists(artist)
+    # Un titre que le nettoyage vide reprend sa valeur brute, une requete bruitee
+    # valant mieux qu'une requete vide.
+    query_artist = _normalise_artists(artist)
     query_title = _clean(title) or title.strip()
     if not (_LETTER.search(query_artist) and _LETTER.search(query_title)):
         return None
@@ -189,7 +206,10 @@ def _keep_guarded_group(match: re.Match[str]) -> str:
 
 
 def _normalise_artists(artist: str) -> str:
-    parts = (part.strip() for part in _ARTIST_SEPARATORS.sub(",", artist).split(","))
+    """Separateurs ramenes a la virgule, crochets retires, parentheses conservees."""
+    cleaned = _ENCODING.sub(" ", _DOWNLOAD.sub(" ", _ARTIST_NOISE.sub(" ", artist)))
+    cleaned = _EMPTY_GROUP.sub(" ", cleaned)
+    parts = (part.strip() for part in _ARTIST_SEPARATORS.sub(",", cleaned).split(","))
     return ", ".join(part for part in parts if part)
 
 
@@ -252,7 +272,8 @@ def _comparable(title: str) -> _Parts:
     Unique pour que requete et candidat subissent le meme traitement : nettoyer un
     seul cote suffit a faire tomber un morceau identique sous le plancher (spec 03).
     """
-    return _split_version(_clean(title))
+    bare, version = _split_version(_clean(title))
+    return _Parts(_SPACES.sub(" ", _FEATURING.sub(" ", bare)).strip(_EDGE_NOISE + "(["), version)
 
 
 def _split_version(title: str) -> _Parts:
@@ -310,10 +331,24 @@ def _artist_score(asked: tuple[str, ...], candidate: TrackCandidate) -> float:
     Le minimum et non la moyenne : un artiste absent est un desaccord que la presence
     des autres ne rachete pas.
     """
-    credits = [credit.name for credit in candidate.artists]
+    credits = [_normalise_artists(credit.name) for credit in candidate.artists]
     if not credits or not asked:
         return 0.0
-    return min(_best_credit(name, credits) for name in asked)
+    return max(_credits_score(asked, credits), _credits_score(_split_duos(asked), credits))
+
+
+def _split_duos(asked: tuple[str, ...]) -> tuple[str, ...]:
+    """Seconde lecture d'une esperluette : celle qui separe deux artistes.
+
+    « A & B » nomme un duo (« Pig & Dan ») ou deux artistes qu'un logiciel a joints, et
+    la chaine seule ne le dit pas. Les deux lectures sont donc scorees et la meilleure
+    gagne : c'est la façon dont la source credite qui tranche, jamais une regle devinee.
+    """
+    return tuple(part.strip() for name in asked for part in _AMPERSAND.split(name) if part.strip())
+
+
+def _credits_score(asked: tuple[str, ...], credits: list[str]) -> float:
+    return min(_best_credit(name, credits) for name in asked) if asked else 0.0
 
 
 def _best_credit(name: str, credits: list[str]) -> float:
