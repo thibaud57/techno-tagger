@@ -197,6 +197,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 
 > Table de correspondance complète des 17 champs, conventions Vorbis et règles de titre : [ADR-011](adrs/011-politique-ecriture-tags.md).
 
+> **Reporté ici depuis la Feature 2** (décomposition du 2026-09-19) : la ligne dépliée de la liste du run, qui compare avant et après champ par champ selon la table de l'ADR-011, pochette en grand. La maquette la montre dans `ui_kits/techno-tagger/TaggingScreen.jsx` (`TrackDetail`), DESIGN.md dans § Liste du run (« Détail avant / après »). Elle revient à cette feature parce qu'elle projette le `Track` sur la table de correspondance que l'écriture construit.
+
 ### Feature 6 : Plan de run, reprise et rapport
 
 - Chaque décision (validation auto, arbitrage, URL manuelle, abandon) est écrite au fil de l'eau dans un plan JSON, dans le répertoire de données de l'app (`appLocalDataDir()`), pas dans le dossier de musique
