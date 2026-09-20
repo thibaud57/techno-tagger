@@ -63,11 +63,7 @@ def page_payload(*items: dict[str, object]) -> dict[str, object]:
 
 
 def recording(requests: list[httpx2.Request], response: httpx2.Response) -> Handler:
-    """Handler qui note chaque requete emise puis rend toujours la meme reponse.
-
-    La liste passee est relue par le test : c'est elle qui porte la route, les
-    parametres, l'en-tete et le nombre exact de requetes emises.
-    """
+    """Handler qui note chaque requete dans `requests` puis rend toujours `response`."""
 
     def handler(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)

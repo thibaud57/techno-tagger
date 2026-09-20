@@ -51,9 +51,7 @@ async def test_never_keeps_more_than_two_bandcamp_requests_in_flight() -> None:
 async def test_a_retrying_request_frees_its_slot_while_it_waits() -> None:
     """Sans ca, un morceau en attente bloquerait la source pendant trois secondes.
 
-    Borne Bandcamp a 2 et trois recherches : la premiere echoue sans reponse et part
-    attendre sa nouvelle tentative. Si elle gardait son jeton, les deux autres
-    passeraient l'une apres l'autre et le pic tomberait a 1.
+    Le pic tomberait a 1 si la premiere recherche gardait son jeton en attendant.
     """
     in_flight = _InFlight()
     peak_during_wait: list[int] = []

@@ -34,8 +34,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def requests() -> list[httpx2.Request]:
     """Journal des requetes emises, rempli par le handler du `MockTransport`.
 
-    Une liste par test : c'est elle qui porte la route, les parametres, l'en-tete
-    et le nombre exact de requetes, que le client n'expose pas autrement.
+    Une liste neuve par test : c'est la seule fenetre sur ce que le client a emis.
     """
     return []
 

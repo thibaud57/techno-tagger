@@ -111,9 +111,8 @@ class _ApiResponse(NamedTuple):
 class ScraperError(TaggerError):
     """Echec d'un appel a techno-scraper, traduit depuis sa reponse.
 
-    `request_id` est porte par la base et non par chaque feuille : c'est le seul
-    lien entre une ligne de log du sidecar et la ligne correspondante cote API, et
-    le pipeline le lit sur toute la famille sans savoir laquelle il a rattrapee.
+    `request_id` vit sur la base : le pipeline le logue sans savoir laquelle des
+    quatre il vient de rattraper.
     """
 
     code: ClassVar[str] = "scraper_error"
@@ -136,10 +135,8 @@ class SourceUnavailableError(ScraperError):
     """La source n'a pas repondu : 5xx, erreur reseau ou timeout local.
 
     `reason` distingue dans le log un `parse_error` d'une source injoignable, les
-    deux donnant le meme `failure_reason`. Il porte soit le `code` du corps
-    d'erreur de l'API (`parse_error`, `source_unavailable`, `stale_content`,
-    `quota_exceeded`, `request_timeout`, vide si le corps n'en a pas), soit, quand
-    aucune reponse n'est arrivee, le motif local rendu par `_failure_reason`.
+    deux donnant le meme `failure_reason`. Il porte le `code` du corps d'erreur de
+    l'API, ou le motif de `_failure_reason` quand aucune reponse n'est arrivee.
     """
 
     code: ClassVar[str] = "source_unavailable"
@@ -273,8 +270,7 @@ def _validate[M: BaseModel](model: type[M], response: _ApiResponse) -> M:
     try:
         return model.model_validate(response.payload)
     except ValidationError as exc:
-        # `removeprefix` : le souligne d'un modele interne n'apprend rien a qui lit
-        # le log, il signale une visibilite qui ne le concerne pas.
+        # Le souligne d'un modele interne n'apprend rien a qui lit le log.
         shape = model.__name__.removeprefix("_")
         raise ApiContractError(shape, request_id=response.request_id) from exc
 
@@ -292,8 +288,7 @@ def _api_code(response: httpx2.Response) -> str:
 def _failure_reason(error: httpx2.RequestError) -> str:
     """Motif d'un echec sans reponse, lu dans le log et dans le rapport.
 
-    `transport` couvre ce que ni le reseau ni le delai n'expliquent : proxy
-    injoignable, protocole local casse, redirections en boucle. Rare, mais
+    `transport` couvre le reste (proxy injoignable, protocole local casse) :
     l'etiqueter `timeout` ferait chercher une lenteur la ou il n'y en a pas.
     """
     if isinstance(error, _NETWORK_FAILURES):
