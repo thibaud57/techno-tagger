@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "lecture-tags-fichiers"
 goal: "Lire l'artiste et le titre des fichiers audio d'un dossier, dans les quatre formats supportés, sans jamais les modifier"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: []
@@ -19,7 +19,7 @@ Exclut toute écriture, le dump des tags d'origine et la lecture des autres cham
 
 ### État livré
 
-À la fin de ce sub-project, on peut : lancer `just test` et voir passer une suite qui liste récursivement les fichiers audio d'une arborescence de test en ignorant les autres, lit l'artiste et le titre d'un fichier de chacun des quatre formats, rend une identité vide pour un fichier sans tags et signale un fichier illisible par une erreur typée qui distingue le verrou de la corruption.
+À la fin de ce sub-project, on peut : lancer `just test` et voir passer une suite qui liste récursivement les fichiers audio d'une arborescence de test en ignorant les autres, lit l'artiste et le titre d'un fichier de chacun des quatre formats, rend une identité vide pour un fichier sans tags et signale par une erreur typée aussi bien un fichier illisible, en distinguant le verrou de la corruption, qu'un conteneur hors des quatre formats.
 
 ## Dependencies
 
@@ -38,16 +38,16 @@ Aucune : ce sub-project est autoporté.
 
 - **`files.py` reste le seul module qui ouvre un fichier audio**, en lecture ici et en écriture à la Feature 5 (ARCHITECTURE.md § Arborescence). La requête, le scoring et l'orchestration restent dans leurs modules, conformément à `.claude/rules/python/imports-modules.md`.
 - **Une seule table de correspondance** `IDENTITY_FIELDS`, du champ vers la paire (frame ID3, clé Vorbis) : `artist` vers `TPE1` / `ARTIST`, `title` vers `TIT2` / `TITLE` (ADR-011 § Correspondance des champs). La Feature 5 l'étend aux autres champs dans ce même module, jamais dans un second (cf. `.claude/rules/mutagen/tags.md`).
-- **La colonne se choisit sur le type des tags lus, pas sur l'extension** : `mutagen.File()` ouvre le fichier, puis un `match` sur le conteneur retenu (`ID3` pour MP3, WAV et AIFF, `VComment` pour FLAC) désigne la colonne de la table. Un `.mp3` qui contient en réalité du FLAC est donc lu correctement. Le `match` se ferme sur un cas « aucun tag » qui rend l'identité vide.
+- **La colonne se choisit sur le type des tags lus, pas sur l'extension** : `mutagen.File()` ouvre le fichier, puis un `match` sur le conteneur retenu (`ID3` pour MP3, WAV et AIFF, `VCFLACDict` pour FLAC) désigne la colonne de la table. Le contenu ne l'emporte que lorsque son signal est net (un en-tête RIFF/WAVE marque deux points et bat une extension `.mp3` erronée) : à égalité de score, `mutagen.File()` départage par nom de classe et non par contenu, si bien qu'un FLAC placé sous extension `.mp3` part chez le parser MP3 et ressort en `unreadable`. Le `match` distingue deux fins : `None`, l'absence de tags, rend une identité vide, tandis qu'un conteneur identifié mais hors des quatre formats (un WavPack tagué en APEv2 sous extension `.wav`, par exemple) lève `unreadable`. Ses tags existent sans que nous sachions les lire : les confondre avec un fichier non tagué effacerait la distinction avant que le pipeline puisse la loguer.
 - **Valeurs lues comme des listes** : le texte d'une frame ID3 par `.text`, toute valeur Vorbis comme une liste même pour un champ unique (`.claude/rules/mutagen/tags.md`). Chaque entrée est débarrassée de ses blancs, les entrées vides sont écartées, le reste est joint par `", "`. Ce séparateur est choisi pour le scoring : un artiste qui contient une virgule bascule sur `token_sort_ratio` (ARCHITECTURE.md § Use-case 2, `.claude/rules/rapidfuzz/matching.md`).
-- **Énumération récursive calquée sur `build_source_index`** (`extraction.py`) : un seul parcours `rglob("*")`, fichiers seuls, extension comparée en minuscules à `AUDIO_EXTENSIONS` (`.mp3`, `.wav`, `.aif`, `.aiff`, `.flac`). Le résultat est trié segment par segment du chemin relatif au dossier, sans tenir compte de la casse : deux runs sur le même dossier traitent les morceaux dans le même ordre, quel que soit le séparateur de chemin de la plateforme.
+- **Énumération récursive calquée sur `build_source_index`** (`extraction.py`) : un seul parcours `rglob("*")`, fichiers seuls, extension comparée en minuscules à `AUDIO_EXTENSIONS` (`.mp3`, `.wav`, `.aif`, `.aiff`, `.flac`). Le résultat est trié segment par segment du chemin relatif au dossier, sans tenir compte de la casse : deux runs sur le même dossier traitent les morceaux dans le même ordre, quel que soit le séparateur de chemin de la plateforme. Le dossier est revérifié après le parcours : `rglob` absorbant les `OSError` de son `scandir`, un support débranché en cours de route rendrait sinon une liste tronquée que rien ne distinguerait d'un dossier sans musique.
 - **Deux erreurs typées, famille `FilesError` héritée de `TaggerError`**, avec `code` stable et `params` en attributs (`.claude/rules/python/gestion-erreurs.md`) :
   - `TaggingFolderUnreadableError` (`tagging_folder_unreadable`, `folder` = nom du dossier) quand le dossier n'existe pas ou n'en est pas un. Elle porte sur le run entier et remonte jusqu'à l'interface, sur le modèle de `source_folder_unreadable`.
-  - `TagsUnreadableError` (`tags_unreadable`, `file` = nom du fichier, `reason` = `locked` ou `unreadable`) quand la lecture échoue. `MutagenError` et `OSError` sont captés ensemble, et `__cause__` distingue le verrou (`PermissionError`) de la corruption (`.claude/rules/mutagen/tags.md`). Un `mutagen.File()` qui rend `None` sur un contenu non reconnu donne `unreadable`.
+  - `TagsUnreadableError` (`tags_unreadable`, `file` = nom du fichier, `reason` = `locked` ou `unreadable`) quand la lecture échoue. `MutagenError` et `OSError` sont captés ensemble, et `__cause__` distingue le verrou (`PermissionError`) de la corruption (`.claude/rules/mutagen/tags.md`). Un `mutagen.File()` qui rend `None` sur un contenu non reconnu donne `unreadable`, comme un conteneur reconnu dont les tags ne sont ni ID3 ni Vorbis.
 - **Ce module ne logue pas l'incident de lecture** : il ne connaît ni le `run` ni le `track` que PRODUCTION.md § Logging exige sur chaque ligne. Le pipeline (sub-project 06) attrape `TagsUnreadableError`, logue en WARNING avec ces clés et le `reason`, puis garde le morceau avec une identité vide, ce qui fait retomber la requête sur le nom de fichier. L'erreur est ainsi loguée une seule fois, là où elle est traitée.
 - **API synchrone** : lecture de fichiers et parcours du disque sont bloquants, le pipeline les appellera par `asyncio.to_thread` (`.claude/rules/python/asyncio.md`).
 - **Modèle interne en dataclass gelée** `IdentityTags(artist, title)`, chaînes vides quand le tag est absent, jamais pydantic : rien ne traverse ici de frontière externe (`.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/type-hints.md`). `AUDIO_EXTENSIONS` et `IDENTITY_FIELDS` sont annotées `Final`.
-- **Fichiers audio de test générés, jamais commités** : un fichier vierge minimal par format, construit en octets par `audio_samples.py`, tagué ensuite par mutagen dans l'arrange du test. Même choix que le dump VLC, construit à l'exécution pour garder le dépôt sans binaire. Le WAV passe par le module `wave` de la stdlib, l'AIFF s'écrit à la main (`aifc` a quitté la stdlib en 3.13), le MP3 tient en une trame MPEG silencieuse, le FLAC en sa signature suivie d'un bloc `STREAMINFO` (`.claude/rules/pytest/tests.md`).
+- **Fichiers audio de test générés, jamais commités** : un fichier vierge minimal par format, construit en octets par `audio_samples.py`, tagué ensuite par mutagen dans l'arrange du test. Même choix que le dump VLC, construit à l'exécution pour garder le dépôt sans binaire. Le WAV passe par le module `wave` de la stdlib, l'AIFF s'écrit à la main (`aifc` a quitté la stdlib en 3.13), le MP3 tient en une trame MPEG silencieuse, le FLAC en sa signature suivie d'un bloc `STREAMINFO` (`.claude/rules/pytest/tests.md`). Un cinquième fichier, un WavPack tagué en APEv2, couvre le conteneur hors périmètre : il est construit de la même façon et n'est jamais lu comme un format supporté.
 
 ## Acceptance criteria
 
@@ -93,6 +93,19 @@ Aucune : ce sub-project est autoporté.
 **WHEN** son identité est lue
 **THEN** son contenu en octets est identique avant et après la lecture
 
+### Scénario 9 : Conteneur hors des quatre formats
+
+**GIVEN** un fichier portant une extension audio mais dont le contenu est un conteneur que mutagen identifie sans que le sidecar le supporte, tagué dans son propre système
+**WHEN** son identité est lue
+**THEN** une `TagsUnreadableError` est levée avec le motif `unreadable`
+**AND** aucune identité vide n'est rendue, qui le confondrait avec un fichier non tagué
+
+### Scénario 10 : Dossier disparu pendant le parcours
+
+**GIVEN** un dossier énuméré dont le support est débranché en cours de parcours
+**WHEN** l'énumération se termine
+**THEN** une `TaggingFolderUnreadableError` est levée plutôt qu'une liste tronquée rendue
+
 ## Tests à écrire
 
 ### Unit
@@ -104,6 +117,7 @@ Aucune : ce sub-project est autoporté.
   - raises a tagging folder error for a missing path
   - raises a tagging folder error for a path that is a file
   - ignores a folder named like an audio file
+  - raises a tagging folder error when the folder vanishes during the walk (parcours simulé, débranchement non simulé)
 - `sidecar/tests/unit/test_files_identity.py` :
   - reads artist and title from the id3 frames of mp3, wav and aiff files (paramétré, `ids` en anglais)
   - reads artist and title from the vorbis keys of a flac file
@@ -111,6 +125,8 @@ Aucune : ce sub-project est autoporté.
   - strips blanks and drops empty values
   - returns an empty identity for a file without tags
   - raises unreadable when the content matches no format
+  - raises unreadable when mutagen identifies no format at all (extension hors `AUDIO_EXTENSIONS`)
+  - raises unreadable when the container is not one of the four formats (WavPack tagué en APEv2)
   - raises locked when the read fails on a permission error (échec simulé avec une cause `PermissionError`)
   - leaves the file bytes unchanged after reading
 
@@ -123,7 +139,9 @@ Aucun test ne vérifie que mutagen sait lire une frame : chaque cas échoue cont
 - **Dossier très large choisi par erreur** : énuméré en entier. Risque accepté le 2026-09-19 au profit du parcours récursif, aucun garde-fou n'est ajouté ici.
 - **Tag présent mais vide ou fait de blancs** : identité vide pour ce champ, comme un tag absent. Le repli sur le nom de fichier se décide au sub-project 03.
 - **WAV ou AIFF sans chunk ID3** : `audio.tags` vaut `None`, identité vide, sans appeler `add_tags()`, réservé à l'écriture.
-- **Extension audio sur un contenu d'un autre format audio** : lu selon le conteneur réellement détecté.
+- **Extension audio sur un contenu d'un autre format audio** : pas garanti d'être lu selon le conteneur réel. `mutagen.File()` départage un score de format égal par nom de classe, pas par contenu : un FLAC sous extension `.mp3` part chez le parser MP3, échoue et ressort en `unreadable`. Dégradé acceptable, le pipeline retombe sur le nom de fichier au sub-project 03.
+- **Conteneur hors des quatre formats mais correctement identifié** : un WavPack tagué en APEv2 gagne sur son en-tête même sous extension `.wav`. Ses tags ne sont ni ID3 ni Vorbis, `unreadable` est levé plutôt qu'une identité vide rendue, pour que le pipeline logue l'incident au lieu de le confondre avec un fichier non tagué.
+- **Dossier qui disparaît pendant le parcours** : `TaggingFolderUnreadableError`, levée par la revérification d'après parcours. Sans elle, un support débranché en cours d'énumération rendrait une liste tronquée, sans erreur ni moyen de la distinguer d'un dossier sans musique. Le cas du sous-dossier illisible, lui, reste ignoré sans erreur.
 
 ## Architectural decisions
 
