@@ -15,17 +15,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from audio_samples import BLANK_WRITERS
 from extraction_samples import sample_context, sample_result
 from vlc_dump import build_dump
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from tagger.extraction import ExtractionResult
     from tagger.reports import ReportContext
 
-# TODO: implement — fixture de transport httpx2 mocke, fichiers audio des quatre
-# formats.
+# TODO: implement — fixture de transport httpx2 mocke.
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -56,6 +56,19 @@ def vlc_dump(tmp_path: Path) -> Path:
     est binaire : le DDL seul, versionnable, vit dans `helpers/vlc_dump.py`.
     """
     return build_dump(tmp_path / "vlc_media.db")
+
+
+@pytest.fixture
+def blank_audio(tmp_path: Path) -> Callable[[str], Path]:
+    """Fabrique de fichiers audio vierges, `"mp3"`, `"wav"`, `"aiff"` ou `"flac"`.
+
+    Construits en octets par `helpers/audio_samples.py` : aucun binaire commite.
+    """
+
+    def make(audio_format: str) -> Path:
+        return BLANK_WRITERS[audio_format](tmp_path / f"track.{audio_format}")
+
+    return make
 
 
 @pytest.fixture

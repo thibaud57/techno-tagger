@@ -32,7 +32,10 @@
     "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
     "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.",
     "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}.",
-    "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application."
+    "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application.",
+    "files_error": "La lecture des fichiers audio a échoué.",
+    "tagging_folder_unreadable": "Le dossier à re-tagger est introuvable ou illisible : {{folder}}.",
+    "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus."
   },
   "playlist": {
     "title": "Playlist",

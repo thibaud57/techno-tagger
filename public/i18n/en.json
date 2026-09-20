@@ -32,7 +32,10 @@
     "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
     "source_folder_unreadable": "The source folder cannot be read: {{folder}}.",
     "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}.",
-    "sidecar_unavailable": "The application engine is not responding. Restart the application."
+    "sidecar_unavailable": "The application engine is not responding. Restart the application.",
+    "files_error": "The audio files could not be read.",
+    "tagging_folder_unreadable": "The folder to re-tag cannot be found or read: {{folder}}.",
+    "tags_unreadable": "The tags of {{file}} could not be read."
   },
   "playlist": {
     "title": "Playlist",
