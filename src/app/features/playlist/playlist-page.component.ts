@@ -122,7 +122,14 @@ export default class PlaylistPageComponent {
   })
   protected readonly extraction = this.sidecar.extraction
 
-  protected readonly lastError = this.sidecar.lastError
+  /** Les deux commandes de cet ecran : l'echec d'un enregistrement de cle ne s'affiche pas ici. */
+  protected readonly lastError = computed(() => {
+    const command = this.sidecar.lastErrorCommand()
+
+    return command === "list_playlists" || command === "extract_playlist"
+      ? this.sidecar.lastError()
+      : null
+  })
 
   /** Un M3U8 ne contient qu'une playlist : rien a choisir. */
   protected readonly showsPlaylistSelector = computed(
@@ -138,7 +145,7 @@ export default class PlaylistPageComponent {
     () =>
       this.playlistPath() !== null &&
       this.sidecar.playlistFormat() === null &&
-      this.sidecar.lastError() === null,
+      this.lastError() === null,
   )
 
   /**

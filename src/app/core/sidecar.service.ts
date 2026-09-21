@@ -50,6 +50,7 @@ export class SidecarService {
   private readonly _extractionRequest = signal<ExtractionRequest | null>(null)
   private readonly _extracting = signal(false)
   private readonly _lastError = signal<SidecarErrorEvent | null>(null)
+  private readonly _lastErrorCommand = signal<SidecarCommand["command"] | null>(null)
 
   readonly available = this._available.asReadonly()
   readonly version = this._version.asReadonly()
@@ -72,6 +73,12 @@ export class SidecarService {
   /** Vrai de l'envoi d'`extract_playlist` jusqu'a son resultat, son erreur ou la fin du process. */
   readonly extracting = this._extracting.asReadonly()
   readonly lastError = this._lastError.asReadonly()
+  /**
+   * La commande que `lastError` a fait echouer : un ecran n'affiche que les erreurs
+   * des commandes qu'il emet. Sans elle, l'echec d'un enregistrement de cle
+   * s'afficherait en banniere sur l'onglet Playlist, ouvert ensuite.
+   */
+  readonly lastErrorCommand = this._lastErrorCommand.asReadonly()
   /** Exige la version recue : absente, la divergence n'est pas encore controlee (ADR-018). */
   readonly ready = computed(
     () =>
@@ -82,6 +89,7 @@ export class SidecarService {
   )
 
   private started = false
+  private pendingCommand: SidecarCommand["command"] | null = null
 
   /**
    * Idempotent : le sidecar est un process long lance au demarrage, pas une
@@ -156,13 +164,15 @@ export class SidecarService {
   }
 
   private async send(command: SidecarCommand): Promise<void> {
+    // La boucle du sidecar est sequentielle : l'erreur qui viendra ensuite est la sienne.
+    this.pendingCommand = command.command
     if (!this._available()) {
       this.reportUnavailable()
 
       return
     }
     // Une erreur ne vaut que pour la commande qui l'a provoquee.
-    this._lastError.set(null)
+    this.setLastError(null)
     try {
       // Une ligne, une commande : c'est ce que lit la boucle du sidecar.
       await this.transport.send(`${JSON.stringify(command)}\n`)
@@ -180,8 +190,13 @@ export class SidecarService {
    * qu'une erreur remontee par le protocole, et un run en attente s'arrete.
    */
   private reportUnavailable(): void {
-    this._lastError.set(unavailableError())
+    this.setLastError(unavailableError())
     this.endRun()
+  }
+
+  private setLastError(error: SidecarErrorEvent | null): void {
+    this._lastError.set(error)
+    this._lastErrorCommand.set(error === null ? null : this.pendingCommand)
   }
 
   private endRun(): void {
@@ -231,7 +246,7 @@ export class SidecarService {
         this._extracting.set(false)
         break
       case "error":
-        this._lastError.set(event)
+        this.setLastError(event)
         // La boucle du sidecar est sequentielle : une erreur recue pendant un run l'a
         // interrompu (ecriture du rapport apres le dernier `progress`, par exemple).
         this.endRun()

@@ -41,6 +41,7 @@ type SidecarServiceStub = Pick<
   | "extractionRequest"
   | "listedPlaylistPath"
   | "lastError"
+  | "lastErrorCommand"
   | "listPlaylists"
   | "extractPlaylist"
 >
@@ -64,6 +65,7 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
     extractionRequest: signal(null),
     listedPlaylistPath: signal(null),
     lastError: signal(null),
+    lastErrorCommand: signal(null),
     listPlaylists: vi.fn(),
     extractPlaylist: vi.fn(),
     ...overrides,
@@ -209,6 +211,7 @@ describe("PlaylistPageComponent", () => {
         params: {},
         message: "",
       }),
+      lastErrorCommand: signal("list_playlists"),
     })
     component["sourceFolder"].set("C:/lib")
     component["destinationFolder"].set("C:/work")
