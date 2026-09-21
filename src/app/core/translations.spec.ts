@@ -5,17 +5,14 @@ import { SIDECAR_UNAVAILABLE } from "./sidecar.service"
 
 /** Enrichir un seul fichier ne casse rien : le manque ne se verrait qu'a l'ecran, en cle brute. */
 describe("language files", () => {
-  function leaves(source: Record<string, unknown>, prefix = ""): [string, unknown][] {
-    return Object.entries(source).flatMap(([key, value]) =>
+  const leaves = (source: Record<string, unknown>, prefix = ""): [string, unknown][] =>
+    Object.entries(source).flatMap(([key, value]) =>
       typeof value === "object" && value !== null
         ? leaves(value as Record<string, unknown>, `${prefix}${key}.`)
         : ([[`${prefix}${key}`, value]] as [string, unknown][]),
     )
-  }
 
-  function flatten(source: Record<string, unknown>): string[] {
-    return leaves(source).map(([key]) => key)
-  }
+  const flatten = (source: Record<string, unknown>): string[] => leaves(source).map(([key]) => key)
 
   it("carry exactly the same keys", () => {
     expect(flatten(fr).sort()).toEqual(flatten(en).sort())

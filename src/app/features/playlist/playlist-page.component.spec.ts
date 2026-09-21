@@ -50,7 +50,7 @@ type SidecarServiceStub = Pick<
  * le reste de l'ecran affiche ce qu'il recoit, et tester qu'un `@if` masque un
  * bloc reviendrait a tester Angular.
  */
-function mountWith(overrides: Partial<SidecarServiceStub> = {}) {
+const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
   const service: SidecarServiceStub = {
     ready: signal(true),
     extracting: signal(false),
@@ -80,15 +80,15 @@ function mountWith(overrides: Partial<SidecarServiceStub> = {}) {
 }
 
 /** Acces par crochets aux membres `protected` : piloter l'ecran sans elargir sa surface. */
-function withAllPathsChosen(component: PlaylistPageComponent): void {
+const choosePlaylist = (component: PlaylistPageComponent, name: string | null): void => {
+  component["choice"].update((current) => ({ ...current, playlist: name }))
+}
+
+const withAllPathsChosen = (component: PlaylistPageComponent): void => {
   component["sourceFolder"].set("C:/lib")
   component["destinationFolder"].set("C:/work")
   component["playlistPath"].set("C:/x/vlc_media.db")
   choosePlaylist(component, "set")
-}
-
-function choosePlaylist(component: PlaylistPageComponent, name: string | null): void {
-  component["choice"].update((current) => ({ ...current, playlist: name }))
 }
 
 const LAST_RUN = {

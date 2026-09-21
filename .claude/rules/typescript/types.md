@@ -16,6 +16,7 @@ paths:
 - Utiliser `satisfies` pour valider la forme d'un littéral sans élargir ses types (tables de seuils, de configuration)
 - Déclarer explicitement les `types` nécessaires dans `tsconfig.json` : le scan automatique n'a plus lieu
 - Garder un job `tsc --noEmit` en CI, distinct du build et des tests
+- Écrire toute fonction en `const nom = (args) => ...`, exportée ou locale, helpers de test compris : la règle ESLint `func-style` fait échouer le lint sur une déclaration `function`
 - Exporter toute fonction en `export const nom: TypeDuContrat = (args) => ...`, jamais en `export function` : l'annoter par le type que le framework attend (`CanDeactivateFn`, `ResolveFn`, `BrowserOptions['beforeSend']`) fait échouer la compilation le jour où sa signature change, là où une signature réécrite à la main dérive en silence
 
 ## À éviter

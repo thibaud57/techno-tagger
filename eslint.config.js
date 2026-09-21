@@ -26,6 +26,9 @@ module.exports = defineConfig([
     // composant passe le lint sans que son template soit verifie.
     processor: angular.processInlineTemplates,
     rules: {
+      // Une seule forme de fonction dans tout le TypeScript, exportee ou locale : sans la regle,
+      // le style derive au premier fichier ecrit (cf. .claude/rules/typescript/types.md).
+      "func-style": ["error", "expression"],
       // Un composant sans logique est une classe vide decoree : legitime en Angular
       "@typescript-eslint/no-extraneous-class": ["error", { allowWithDecorator: true }],
       // Un nombre interpole n'a qu'un rendu possible, contrairement a un objet ou un nullish
