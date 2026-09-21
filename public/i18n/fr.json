@@ -31,6 +31,7 @@
     "report_error": "Le rapport d'extraction n'a pas pu être produit.",
     "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
     "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.",
+    "artwork_unavailable": "La pochette n'a pas été récupérée, elle sera retentée au prochain lancement.",
     "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}.",
     "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application.",
     "files_error": "La lecture des fichiers audio a échoué.",

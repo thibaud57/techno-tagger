@@ -31,6 +31,7 @@
     "report_error": "The extraction report could not be produced.",
     "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
     "source_folder_unreadable": "The source folder cannot be read: {{folder}}.",
+    "artwork_unavailable": "The artwork was not retrieved, it will be retried on the next run.",
     "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}.",
     "sidecar_unavailable": "The application engine is not responding. Restart the application.",
     "files_error": "The audio files could not be read.",

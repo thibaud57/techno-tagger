@@ -1,5 +1,7 @@
 """Tests des requetes emises et du mapping des reponses techno-scraper."""
 
+from typing import TYPE_CHECKING
+
 import httpx2
 import pytest
 from scraper_responses import (
@@ -11,7 +13,17 @@ from scraper_responses import (
     track_payload,
 )
 
-from tagger.scraper_client import Credit, SearchSource, Source
+from tagger.cache import DiskCache, ResponseCache
+from tagger.scraper_client import (
+    ApiContractError,
+    Credit,
+    SearchSource,
+    Source,
+    SourceUnavailableError,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytestmark = pytest.mark.asyncio
 
@@ -105,3 +117,83 @@ async def test_fetches_a_bandcamp_track_by_url(requests: list[httpx2.Request]) -
     assert requests[0].url.path == "/bandcamp/tracks"
     assert dict(requests[0].url.params) == {"url": url}
     assert candidate.source is Source.BANDCAMP
+
+
+def _cache(root: Path) -> ResponseCache:
+    return ResponseCache(DiskCache(root))
+
+
+async def test_serves_a_repeated_search_from_the_cache_without_a_request(
+    requests: list[httpx2.Request], tmp_path: Path
+) -> None:
+    handler = _recording(requests, page_payload(track_payload()))
+
+    async with make_client(handler, cache=_cache(tmp_path)) as client:
+        first = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        second = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+
+    assert second == first
+    assert len(requests) == 1
+
+
+async def test_caches_an_empty_result(requests: list[httpx2.Request], tmp_path: Path) -> None:
+    async with make_client(_recording(requests, page_payload()), cache=_cache(tmp_path)) as client:
+        await client.search(Source.BANDCAMP, "unknown track")
+        second = await client.search(Source.BANDCAMP, "unknown track")
+
+    assert second == ()
+    assert len(requests) == 1
+
+
+async def test_never_caches_an_error_response(
+    requests: list[httpx2.Request], tmp_path: Path
+) -> None:
+    def unavailable_then_found(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx2.Response(503, json={"code": "source_unavailable"})
+        return httpx2.Response(200, json=page_payload(track_payload()))
+
+    async with make_client(unavailable_then_found, cache=_cache(tmp_path)) as client:
+        with pytest.raises(SourceUnavailableError):
+            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        candidates = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+
+    assert len(candidates) == 1
+    assert len(requests) == 2
+
+
+async def test_never_caches_a_response_the_model_rejects(
+    requests: list[httpx2.Request], tmp_path: Path
+) -> None:
+    def broken_then_fixed(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        item = track_payload()
+        if len(requests) == 1:
+            del item["title"]
+        return httpx2.Response(200, json=page_payload(item))
+
+    async with make_client(broken_then_fixed, cache=_cache(tmp_path)) as client:
+        with pytest.raises(ApiContractError):
+            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        candidates = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+
+    assert len(candidates) == 1
+    assert len(requests) == 2
+
+
+async def test_discards_a_cached_response_the_model_rejects_and_retries(
+    requests: list[httpx2.Request], tmp_path: Path
+) -> None:
+    cache = _cache(tmp_path)
+    poisoned = track_payload()
+    del poisoned["title"]
+    params = {"q": "Adam Beyer Your Mind", "type": "tracks"}
+    cache.put("/beatport/search", params, page_payload(poisoned))
+    handler = _recording(requests, page_payload(track_payload()))
+
+    async with make_client(handler, cache=cache) as client:
+        candidates = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+
+    assert len(candidates) == 1
+    assert len(requests) == 1

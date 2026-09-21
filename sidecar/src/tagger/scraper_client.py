@@ -20,6 +20,8 @@ from tagger.errors import TaggerError
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping
 
+    from tagger.cache import ResponseCache
+
 logger = logging.getLogger(__name__)
 
 API_BASE_URL: Final = "https://techno-scraper.empiricmind.fr"
@@ -185,6 +187,7 @@ class TechnoScraperClient:
         *,
         transport: httpx2.AsyncBaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        cache: ResponseCache | None = None,
     ) -> None:
         self._http = httpx2.AsyncClient(
             base_url=API_BASE_URL,
@@ -193,6 +196,7 @@ class TechnoScraperClient:
             transport=transport,
         )
         self._sleep = sleep
+        self._cache = cache
         self._semaphores: dict[Source, asyncio.Semaphore] = {
             Source.BEATPORT: asyncio.Semaphore(BEATPORT_CONCURRENCY),
             Source.BANDCAMP: asyncio.Semaphore(BANDCAMP_CONCURRENCY),
@@ -207,23 +211,20 @@ class TechnoScraperClient:
     async def search(self, source: SearchSource, query: str) -> tuple[TrackCandidate, ...]:
         """Premiere page de candidats, vide quand la source ne connait pas le morceau."""
         params = {"q": query[:QUERY_MAX_LENGTH], "type": "tracks"}
-        response = await self._get(source, f"/{source}/search", params)
-        return _validate(_TrackPage, response).items
+        return (await self._get(source, f"/{source}/search", params, _TrackPage)).items
 
     async def fetch_beatport_track(self, track_id: str) -> TrackCandidate:
         """Metadonnees completes : les objets de recherche sont abreges."""
-        response = await self._get(Source.BEATPORT, f"/beatport/tracks/{track_id}", {})
-        return _validate(TrackCandidate, response)
+        return await self._get(Source.BEATPORT, f"/beatport/tracks/{track_id}", {}, TrackCandidate)
 
     async def fetch_bandcamp_track(self, url: str) -> TrackCandidate:
         """Metadonnees completes : la recherche Bandcamp ne rend ni date ni label."""
-        response = await self._get(Source.BANDCAMP, "/bandcamp/tracks", {"url": url})
-        return _validate(TrackCandidate, response)
+        return await self._get(Source.BANDCAMP, "/bandcamp/tracks", {"url": url}, TrackCandidate)
 
-    async def _get(
+    async def _request(
         self, source: SearchSource, path: str, params: Mapping[str, str]
     ) -> _ApiResponse:
-        """Point de passage unique de toute requete, ou le cache se branchera."""
+        """Emet la requete avec nouvelle tentative et semaphore ; le cache n'est pas son affaire."""
         delays = iter(RETRY_DELAYS)
         while True:
             try:
@@ -239,6 +240,29 @@ class TechnoScraperClient:
                 await self._sleep(delay)
             else:
                 return _translate(source, response)
+
+    async def _get[M: BaseModel](
+        self, source: SearchSource, path: str, params: Mapping[str, str], model: type[M]
+    ) -> M:
+        """Point de passage unique de toute requete, cache et validation compris.
+
+        Le cache est lu avant le semaphore : un hit ne prend aucune place du pool.
+        Invariant : une reponse n'entre au cache qu'apres validation reussie, et une
+        entree que le modele rejette est jetee puis rejouee en requete reelle, ce qui
+        lui evite de rejouer la meme erreur pendant trente jours.
+        """
+        if self._cache is not None:
+            cached = await asyncio.to_thread(self._cache.get, path, params)
+            if cached is not None:
+                try:
+                    return _validate(model, _ApiResponse(cached.payload, ""))
+                except ApiContractError:
+                    await asyncio.to_thread(self._cache.discard, cached.entry)
+        response = await self._request(source, path, params)
+        validated = _validate(model, response)
+        if self._cache is not None:
+            await asyncio.to_thread(self._cache.put, path, params, response.payload)
+        return validated
 
 
 def _translate(source: SearchSource, response: httpx2.Response) -> _ApiResponse:

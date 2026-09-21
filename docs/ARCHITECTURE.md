@@ -112,6 +112,7 @@ techno-tagger/
 │   ├── src/tagger/
 │   │   ├── __main__.py                   # boucle de commandes, émission d'événements
 │   │   ├── build_info.py                 # façade des constantes gravées au packaging
+│   │   ├── paths.py                      # racine des données applicatives : logs, futur cache
 │   │   ├── logger.py                     # fichier tournant + stderr, jamais stdout
 │   │   ├── observability.py              # init Sentry durci, scrubbing PII
 │   │   ├── protocol.py                   # modèles des commandes et des événements

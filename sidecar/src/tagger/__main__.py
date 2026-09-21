@@ -7,19 +7,18 @@ jamais melange au protocole.
 import asyncio
 import io
 import logging
-import os
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
 
 from pydantic import ValidationError
 
-from tagger import BUNDLE_IDENTIFIER, RELEASE
+from tagger import RELEASE
 from tagger.build_info import SENTRY_DSN
 from tagger.errors import TaggerError
 from tagger.handlers import handle_extract_playlist, handle_get_version, handle_list_playlists
 from tagger.logger import setup_logging
 from tagger.observability import init_sentry
+from tagger.paths import app_data_dir
 from tagger.protocol import (
     ExecutableCommand,
     ExtractPlaylist,
@@ -34,23 +33,19 @@ from tagger.protocol import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import TextIO
 
 logger = logging.getLogger(__name__)
 
 
 def log_dir() -> Path:
-    """Ou `appLocalDataDir()` de Tauri resout sous Windows. Jamais le repertoire
-    courant : pour une application installee, c'est celui d'ou l'utilisateur l'a
-    lancee, donc n'importe ou sur son disque.
-    """
+    """Dossier des logs, sous la racine des donnees de l'application."""
     # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
     # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
     # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
     # argument non conforme est retire en silence.
-    base = os.getenv("LOCALAPPDATA")
-    root = Path(base) if base else Path.home() / "AppData" / "Local"
-    return root / BUNDLE_IDENTIFIER / "logs"
+    return app_data_dir() / "logs"
 
 
 def _force_utf8_streams() -> None:

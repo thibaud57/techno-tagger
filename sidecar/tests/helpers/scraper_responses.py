@@ -14,6 +14,8 @@ from tagger.scraper_client import TechnoScraperClient
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
 
+    from tagger.cache import ResponseCache
+
 TEST_API_KEY: Final = "test-key"
 
 # Union de deux signatures (et non un retour union sur une seule) : c'est la forme
@@ -73,7 +75,12 @@ def recording(requests: list[httpx2.Request], response: httpx2.Response) -> Hand
 
 
 def make_client(
-    handler: Handler, *, sleep: Callable[[float], Awaitable[None]] = no_sleep
+    handler: Handler,
+    *,
+    sleep: Callable[[float], Awaitable[None]] = no_sleep,
+    cache: ResponseCache | None = None,
 ) -> TechnoScraperClient:
     """Client branche sur un `MockTransport`, sans aucun appel reseau reel."""
-    return TechnoScraperClient(TEST_API_KEY, transport=httpx2.MockTransport(handler), sleep=sleep)
+    return TechnoScraperClient(
+        TEST_API_KEY, transport=httpx2.MockTransport(handler), sleep=sleep, cache=cache
+    )
