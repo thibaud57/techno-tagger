@@ -66,8 +66,18 @@ export interface ExtractPlaylistCommand {
 
 export type ExtractionRequest = Omit<ExtractPlaylistCommand, "command">
 
+export interface SetApiKeyCommand {
+  readonly command: "set_api_key"
+  /** Seul passage de la cle vers le sidecar : elle ne revient jamais vers la webview. */
+  readonly api_key: string
+}
+
 export type SidecarCommand =
-  GetVersionCommand | ShutdownCommand | ListPlaylistsCommand | ExtractPlaylistCommand
+  | GetVersionCommand
+  | ShutdownCommand
+  | ListPlaylistsCommand
+  | ExtractPlaylistCommand
+  | SetApiKeyCommand
 
 export interface VersionEvent {
   readonly event: "version"

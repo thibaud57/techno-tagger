@@ -105,6 +105,14 @@ describe("SidecarService", () => {
     expect(service.version()).toBe(APP_VERSION)
   })
 
+  it("feeds the api key state from the version event", async () => {
+    await service.start()
+
+    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: true })
+
+    expect(service.apiKeyConfigured()).toBe(true)
+  })
+
   it.each([
     { label: "matching versions", version: APP_VERSION, expected: null },
     {
@@ -354,6 +362,17 @@ describe("SidecarService", () => {
     await service.shutdown()
 
     expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({ command: "shutdown" })
+  })
+
+  it("sends the api key command", async () => {
+    await service.start()
+
+    await service.setApiKey("k3y-t0k3n")
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+      command: "set_api_key",
+      api_key: "k3y-t0k3n",
+    })
   })
 
   it("writes a command as a single newline-terminated line", async () => {

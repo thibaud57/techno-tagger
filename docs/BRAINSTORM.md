@@ -220,6 +220,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 
 > ⚠️ **Décidé autrement depuis** : le motif de renommage n'est finalement pas une préférence des Settings. Il est fixé à `{artist} - {title}.{ext}` au MVP et n'a donc rien à persister dans le store (cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)).
 
+> ⚠️ **Décidé autrement depuis** : l'URL de l'API n'est pas un réglage. Elle est figée en constante du sidecar le 2026-09-19 et seule la clé se saisit dans les Settings, livrée avec la Feature 2.
+
 ### Feature 8 : Distribution et mise à jour
 
 - Installeur Windows produit par la CI au tag, publié sur les GitHub Releases

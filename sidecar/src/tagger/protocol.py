@@ -13,7 +13,7 @@ from enum import UNIQUE, StrEnum, auto, verify
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, ValidationError
 
 from tagger.extraction import DuplicateCriterion, ExtractionFailureReason, ExtractionMode
 from tagger.playlists import PlaylistFormat
@@ -69,14 +69,35 @@ class ExtractPlaylist(Command):
     mode: ExtractionMode = ExtractionMode.COPY
 
 
+# ASCII imprimable sans espace : contrainte du decodage latin-1 des en-tetes cote
+# API (PRODUCTION.md § Regles). 2560 : plafond du Credential Manager.
+_API_KEY_PATTERN: Final = r"^[\x21-\x7e]+$"
+_API_KEY_MAX_LENGTH: Final = 2560
+
+
+class SetApiKey(Command):
+    """Seul passage de la cle dans le protocole : elle ne revient jamais vers la webview.
+
+    Le format est controle, pas la validite : une cle revoquee arrete le run sur
+    ses 403 (ARCHITECTURE.md § Cle API invalide ou revoquee).
+    """
+
+    command: Literal["set_api_key"]
+    api_key: Annotated[
+        str,
+        StringConstraints(pattern=_API_KEY_PATTERN, max_length=_API_KEY_MAX_LENGTH),
+        Field(repr=False),
+    ]
+
+
 type AnyCommand = Annotated[
-    GetVersion | Shutdown | ListPlaylists | ExtractPlaylist,
+    GetVersion | Shutdown | ListPlaylists | ExtractPlaylist | SetApiKey,
     Field(discriminator="command"),
 ]
 
 # `shutdown` sort de la boucle sans rien executer : l'exclure ici permet au `match`
 # du dispatch de se fermer par `assert_never` sans laisser de cas non couvert.
-type ExecutableCommand = GetVersion | ListPlaylists | ExtractPlaylist
+type ExecutableCommand = GetVersion | ListPlaylists | ExtractPlaylist | SetApiKey
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
 

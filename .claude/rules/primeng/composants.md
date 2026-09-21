@@ -25,6 +25,7 @@ paths:
 - Une largeur en dur sur un bouton ou un libellé traduit : les libellés existent en FR et en EN. Seule une colonne de table se fige, mesurée sur son contenu le plus long dans les deux langues (cf. DESIGN.md § Conventions de Code)
 - De la logique métier dans un composant : scores, seuils et classement des candidats viennent du sidecar
 - Le composant `p-button` : déprécié depuis la v22 (`@typescript-eslint/no-deprecated` fait échouer le lint), au profit de `<button pButton type="button">` avec libellé et icône en contenu
+- Le composant `p-password` : déprécié depuis la v22 au profit de `<input pInputPassword>` (`primeng/inputpassword`), qui n'a ni œil de bascule ni `feedback` intégrés : seulement le model `mask` et `toggleMask()`, l'icône se compose à la main
 
 ## Gotchas
 - `@primeicons/angular` rend des composants standalone en SVG inline, plus une police à classes. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 étant sous licence PrimeUI

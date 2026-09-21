@@ -91,7 +91,7 @@ techno-tagger/
 │   │   ├── features/
 │   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
 │   │   │   ├── tagging/                  # onglet 2 : liste, arbitrage, récapitulatif
-│   │   │   └── settings/                 # clé API, URL, langue, seuils, copie/déplacement,
+│   │   │   └── settings/                 # clé API, langue, seuils, copie/déplacement,
 │   │   │                                 # signal sonore, cache, logs
 │   │   ├── app.component.ts
 │   │   ├── app.routes.ts
@@ -349,7 +349,7 @@ Via les plugins Tauri v2, déclarés dans `src-tauri/capabilities/default.json` 
 | `shell` | Lancement du sidecar via `Command.sidecar()`. Permission `shell:allow-spawn` et non `shell:allow-execute` : le sidecar est un process long démarré par `spawn()`, pas une exécution ponctuelle. La permission cible le chemin du sidecar avec `"sidecar": true`, aucune commande arbitraire n'est autorisée. |
 | `dialog` | Sélection des dossiers source, destination et du fichier de playlist |
 | `fs` | Restreint à `$APPLOCALDATA` (plans de run, cache, logs), en lecture et écriture récursives. La webview n'accède pas aux chemins de la bibliothèque musicale : le sidecar Python lit et écrit ces fichiers directement, hors du système de permissions Tauri |
-| `store` | Préférences : langue, seuils, mode copie / déplacement, signal sonore. **L'URL de l'API y est persistée mais transmise au sidecar par `set_api_url`**, seul à appeler techno-scraper |
+| `store` | Préférences : langue, seuils, mode copie / déplacement, signal sonore. L'URL de l'API n'y figure pas : c'est une constante du sidecar, seul à appeler techno-scraper (décision du 2026-09-19) |
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
 | `opener` | Bouton « ouvrir le dossier de logs » des Settings, et lien vers la fiche source du récapitulatif. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#-robustesse--modes-de-panne)) |
@@ -415,7 +415,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | `rollback` | identifiant du run, ou identifiant du morceau |
 | `list_runs` | aucune. Rend les runs passés relisibles depuis leurs rapports JSON, ce qui alimente l'état vide « aucun run passé » |
 | `load_run` | identifiant du run. Relit son rapport JSON et rend le récapitulatif, sans rejouer quoi que ce soit. C'est le point d'entrée que la politique de migration de l'[ADR-018](adrs/018-versionnement-plan-de-run.md) sert |
-| `set_api_key` / `set_api_url` / `clear_cache` | administration depuis les Settings. **L'URL de l'API est transmise au sidecar**, seul à appeler techno-scraper : la persister dans le `store` de la webview ne suffit pas |
+| `set_api_key` / `clear_cache` | administration depuis les Settings. `set_api_key` est le seul passage de la clé dans le protocole, sa réponse est l'événement `version`. Pas de `set_api_url` : l'URL est une constante du sidecar (décision du 2026-09-19) |
 
 **Événements (sidecar → UI, NDJSON sur stdout)**
 
@@ -916,7 +916,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 | 2 | Client techno-scraper + scoring rapidfuzz + cache, toujours en CLI | Deuxième moitié du métier, la plus incertaine |
 | 3 | Protocole NDJSON et plan de run | La frontière à figer avant d'écrire du TypeScript contre elle |
 | 4 | Coquille Tauri + build PyInstaller Windows | Le premier build est le seul moment coûteux, autant le passer tôt |
-| 5 | Onglet playlist, câblage i18n, **saisie et stockage keyring de la clé API** | La plus simple, valide la chaîne complète UI vers sidecar. L'i18n se câble au premier écran, l'ajouter après oblige à reprendre chaque libellé. La clé doit exister avant l'étape 6, qui ne peut pas tourner sans elle. |
+| 5 | Onglet playlist, câblage i18n | La plus simple, valide la chaîne complète UI vers sidecar. L'i18n se câble au premier écran, l'ajouter après oblige à reprendre chaque libellé. La clé API, prévue ici, a été livrée en tête de l'étape 6 (sub-project `cle-api` de la Feature 2), avant le pipeline qui ne peut pas tourner sans elle. |
 | 6 | Onglet scraping, pipeline et liste | Le cœur |
 | 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, récapitulatif, rapport | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
 | 8 | Reste des Settings, bouton de rollback, monitoring | Transversaux, une fois le flux principal stable |

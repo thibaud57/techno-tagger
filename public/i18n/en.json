@@ -41,7 +41,10 @@
     "api_key_rejected": "The API key was rejected. Check it in the settings.",
     "source_unavailable": "The source {{source}} did not respond.",
     "track_not_found": "The track no longer exists on {{source}}.",
-    "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder."
+    "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder.",
+    "api_key_error": "The API key could not be saved.",
+    "api_key_not_stored": "The key could not be stored in the Windows credential manager. Try again.",
+    "keyring_unavailable": "The Windows credential manager is unavailable. Restart the application."
   },
   "playlist": {
     "title": "Playlist",
@@ -119,6 +122,17 @@
     "title": "Tagging"
   },
   "settings": {
-    "title": "Settings"
+    "title": "Settings",
+    "api": {
+      "title": "API",
+      "key": {
+        "label": "X-API-Key",
+        "hint": "Stored securely on this computer. It is never shown again: to change it, enter a new one.",
+        "placeholder": "Enter the key you received",
+        "save": "Save",
+        "configured": "Key saved",
+        "missing": "No key"
+      }
+    }
   }
 }

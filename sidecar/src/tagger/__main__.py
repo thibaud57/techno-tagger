@@ -10,12 +10,19 @@ import logging
 import sys
 from typing import TYPE_CHECKING, assert_never
 
+import keyring
+from keyring.backends.Windows import WinVaultKeyring
 from pydantic import ValidationError
 
 from tagger import RELEASE
 from tagger.build_info import SENTRY_DSN
 from tagger.errors import TaggerError
-from tagger.handlers import handle_extract_playlist, handle_get_version, handle_list_playlists
+from tagger.handlers import (
+    handle_extract_playlist,
+    handle_get_version,
+    handle_list_playlists,
+    handle_set_api_key,
+)
 from tagger.logger import setup_logging
 from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
@@ -25,6 +32,7 @@ from tagger.protocol import (
     GetVersion,
     ListPlaylists,
     Progress,
+    SetApiKey,
     Shutdown,
     emit,
     error_from_business,
@@ -81,9 +89,10 @@ def main() -> None:
     # `logger.exception` doit avoir un handler autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
-    # TODO: implement a l'etape 5, keyring.set_keyring(WinVaultKeyring()) avant tout
-    # acces au secret : dans le binaire fige, la decouverte par entry points rend
-    # une liste vide et keyring bascule sur son backend `fail`.
+    # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
+    # points rend une liste vide et keyring basculerait sur son backend `fail`.
+    # `KeyringBackend.__init__` n'annote pas son retour (cf. memory_keyring.py).
+    keyring.set_keyring(WinVaultKeyring())  # type: ignore[no-untyped-call]
 
     asyncio.run(run_loop(sys.stdin, sys.stdout))
 
@@ -139,11 +148,14 @@ async def _dispatch(command: ExecutableCommand, stdout: TextIO) -> None:
     l'ajout d'une commande sans handler.
 
     Les handlers sont bloquants — SQLite, parcours du dossier source, copie de
-    fichiers — et passent donc par `to_thread`, sans quoi la boucle gelerait.
+    fichiers, trousseau Windows — et passent donc par `to_thread`, sans quoi la
+    boucle gelerait.
     """
     match command:
         case GetVersion():
-            _write(stdout, emit(handle_get_version()))
+            _write(stdout, emit(await asyncio.to_thread(handle_get_version)))
+        case SetApiKey():
+            _write(stdout, emit(await asyncio.to_thread(handle_set_api_key, command)))
         case ListPlaylists():
             event = await asyncio.to_thread(handle_list_playlists, command)
             _write(stdout, emit(event))

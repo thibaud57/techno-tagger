@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from tagger import __version__
+from tagger.api_key import read_api_key, store_api_key
 from tagger.extraction import extract
 from tagger.playlists import list_playlists, read_playlist
 from tagger.protocol import (
@@ -22,6 +23,7 @@ from tagger.protocol import (
     PlaylistEntry,
     PlaylistsListed,
     Progress,
+    SetApiKey,
     Version,
 )
 from tagger.reports import ReportContext, write_extraction_report
@@ -33,13 +35,18 @@ logger = logging.getLogger(__name__)
 
 
 def handle_get_version() -> Version:
-    """Rend la version du sidecar, comparee a celle de l'interface avant tout run.
+    """Version nue et presence d'une cle : jamais la cle elle-meme (ADR-012)."""
+    return Version(
+        event="version",
+        version=__version__,
+        api_key_configured=read_api_key() is not None,
+    )
 
-    `api_key_configured` reste faux tant que la lecture du trousseau n'est pas
-    implementee : elle appartient au sub-project des Settings, et l'extraction par
-    playlist n'appelle aucune API.
-    """
-    return Version(event="version", version=__version__, api_key_configured=False)
+
+def handle_set_api_key(command: SetApiKey) -> Version:
+    """Range la cle puis rend la version : l'interface y lit que la cle existe."""
+    store_api_key(command.api_key)
+    return handle_get_version()
 
 
 def handle_list_playlists(command: ListPlaylists) -> PlaylistsListed:

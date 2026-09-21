@@ -2,12 +2,23 @@
 
 from typing import TYPE_CHECKING
 
+import pytest
+from pydantic import ValidationError
+
 from tagger import __version__
-from tagger.handlers import handle_extract_playlist, handle_get_version, handle_list_playlists
-from tagger.protocol import ExtractPlaylist, ListPlaylists, Phase, Progress
+from tagger.api_key import SERVICE, USERNAME
+from tagger.handlers import (
+    handle_extract_playlist,
+    handle_get_version,
+    handle_list_playlists,
+    handle_set_api_key,
+)
+from tagger.protocol import ExtractPlaylist, ListPlaylists, Phase, Progress, SetApiKey
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from memory_keyring import MemoryKeyring
 
 
 def extract_command(library: Path, dump: Path, destination: Path) -> ExtractPlaylist:
@@ -67,3 +78,39 @@ def test_carries_the_five_categories(vlc_dump: Path, music_library: Path, tmp_pa
     assert isinstance(event.missing, tuple)
     assert isinstance(event.duplicates, tuple)
     assert isinstance(event.failures, tuple)
+
+
+def test_reports_whether_an_api_key_is_configured(memory_keyring: MemoryKeyring) -> None:
+    memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"
+
+    event = handle_get_version()
+
+    assert event.api_key_configured is True
+
+
+def test_answers_set_api_key_with_a_version_that_reports_the_key(
+    memory_keyring: MemoryKeyring,
+) -> None:
+    command = SetApiKey(command="set_api_key", api_key="k3y-t0k3n")
+
+    event = handle_set_api_key(command)
+
+    assert event.event == "version"
+    assert event.api_key_configured is True
+    assert memory_keyring.secrets[(SERVICE, USERNAME)] == "k3y-t0k3n"
+
+
+@pytest.mark.parametrize(
+    "api_key", ["", "k3y t0k3n", "clé", "x" * 2561], ids=["empty", "space", "non-ascii", "too-long"]
+)
+def test_rejects_an_api_key_out_of_format(api_key: str) -> None:
+    with pytest.raises(ValidationError):
+        SetApiKey(command="set_api_key", api_key=api_key)
+
+
+def test_never_shows_the_api_key_in_the_command_repr() -> None:
+    command = SetApiKey(command="set_api_key", api_key="k3y-t0k3n")
+
+    shown = repr(command)
+
+    assert "k3y-t0k3n" not in shown

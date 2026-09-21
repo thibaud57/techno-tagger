@@ -42,6 +42,7 @@ export class SidecarService {
   /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
   private readonly _available = signal<boolean | null>(null)
   private readonly _version = signal<string | null>(null)
+  private readonly _apiKeyConfigured = signal<boolean | null>(null)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _listedPlaylistPath = signal<string | null>(null)
   private readonly _progress = signal<ExtractionProgressEvent | null>(null)
@@ -52,6 +53,8 @@ export class SidecarService {
 
   readonly available = this._available.asReadonly()
   readonly version = this._version.asReadonly()
+  /** `null` tant que la version n'est pas arrivee : l'etat de la cle n'est pas encore connu. */
+  readonly apiKeyConfigured = this._apiKeyConfigured.asReadonly()
   readonly versionMismatch = computed(() => {
     const sidecar = this._version()
 
@@ -117,6 +120,7 @@ export class SidecarService {
     this.started = false
     this._available.set(null)
     this._version.set(null)
+    this._apiKeyConfigured.set(null)
     await this.start()
   }
 
@@ -141,6 +145,14 @@ export class SidecarService {
    */
   async shutdown(): Promise<void> {
     await this.send({ command: "shutdown" })
+  }
+
+  /**
+   * La cle part une fois vers le sidecar et n'est gardee dans aucun signal : seul
+   * son etat revient, par l'evenement `version`.
+   */
+  async setApiKey(apiKey: string): Promise<void> {
+    await this.send({ command: "set_api_key", api_key: apiKey })
   }
 
   private async send(command: SidecarCommand): Promise<void> {
@@ -204,6 +216,7 @@ export class SidecarService {
     switch (event.event) {
       case "version":
         this._version.set(event.version)
+        this._apiKeyConfigured.set(event.api_key_configured)
         break
       case "playlists_listed":
         this._listing.set(event)

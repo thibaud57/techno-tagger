@@ -239,7 +239,7 @@ GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 | Réglage | Emplacement | Pourquoi |
 |---|---|---|
 | Clé API techno-scraper | Trousseau de l'OS via keyring (Credential Manager Windows) | Chiffré par l'OS, jamais exposé au JavaScript de la webview ([ADR-012](adrs/012-securite-cle-api-keyring.md)) |
-| URL de l'API, langue, seuils, mode copie / déplacement, signal sonore | Store Tauri (fichier local) | Réglages non sensibles, l'URL étant publique et déjà présente en clair dans le binaire |
+| Langue, seuils, mode copie / déplacement, signal sonore | Store Tauri (fichier local) | Réglages non sensibles. L'URL de l'API n'en fait plus partie : constante du sidecar depuis le 2026-09-19 |
 
 Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
 

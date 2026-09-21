@@ -23,7 +23,7 @@ paths:
 - `shell:allow-execute` « au cas où » : ouvre l'exécution de commandes arbitraires sans bénéfice
 - Un scope `assetProtocol` large (`$HOME/**`) : la webview accéderait à toute la bibliothèque musicale de l'utilisateur
 - Déclarer une permission `fs` sans scope : « permissions alone do not grant a scope », l'appel échoue en `forbidden path` au runtime
-- Lire le `store` depuis le sidecar : l'URL de l'API y est persistée mais transmise au sidecar par une commande, Python n'y a pas accès
+- Lire le `store` depuis le sidecar : Python n'y a pas accès, une préférence que le sidecar doit connaître lui est transmise par une commande NDJSON
 
 ## Gotchas
 - `args` absent vaut `"args": false`, soit **aucun argument autorisé**, et non « arguments libres » : seul `"args": true` ouvre le passage, et poser `false` explicitement est un no-op. Corollaire : un argument passé malgré tout est **silencieusement retiré** du spawn, pas rejeté, le plugin construisant la ligne de commande depuis la liste autorisée et non depuis celle reçue

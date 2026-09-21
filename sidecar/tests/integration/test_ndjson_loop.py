@@ -7,22 +7,30 @@ est sa raison d'etre (ADR-005).
 import asyncio
 import io
 import json
+import logging
 from pathlib import Path
 from typing import NoReturn
 
+import keyring
 import pytest
+from memory_keyring import MemoryKeyring, RefusingKeyring
 
 from tagger import handlers
 from tagger.__main__ import run_loop
 from tagger.reports import ReportWriteError
 
 
-def drive(commands: str) -> list[dict[str, object]]:
-    """Injecte des commandes et rend les evenements emis, un par ligne."""
+def drive_raw(commands: str) -> str:
+    """Injecte des commandes et rend la sortie brute, pour y chercher une fuite."""
     stdout = io.StringIO()
     asyncio.run(run_loop(io.StringIO(commands), stdout))
 
-    return [json.loads(line) for line in stdout.getvalue().splitlines() if line]
+    return stdout.getvalue()
+
+
+def drive(commands: str) -> list[dict[str, object]]:
+    """Injecte des commandes et rend les evenements emis, un par ligne."""
+    return [json.loads(line) for line in drive_raw(commands).splitlines() if line]
 
 
 def extract_command(
@@ -191,3 +199,36 @@ def test_every_line_parses_on_its_own(vlc_dump: Path) -> None:
 
     for line in stdout.getvalue().splitlines():
         assert json.loads(line)
+
+
+SECRET = "sk-live-9f8e7d6c5b4a"
+
+
+def _set_api_key(api_key: str) -> str:
+    return json.dumps({"command": "set_api_key", "api_key": api_key}) + "\n"
+
+
+def test_never_echoes_the_api_key_on_stdout_nor_in_the_logs(
+    memory_keyring: MemoryKeyring, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    commands = _set_api_key(SECRET) + _set_api_key(f"{SECRET} with-space")
+
+    output = drive_raw(commands)
+
+    assert SECRET not in output
+    assert SECRET not in caplog.text
+    assert [json.loads(line)["event"] for line in output.splitlines()] == ["version", "error"]
+
+
+def test_never_echoes_the_api_key_when_the_keyring_refuses_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    keyring.set_keyring(RefusingKeyring())
+    caplog.set_level(logging.DEBUG)
+
+    output = drive_raw(_set_api_key(SECRET))
+
+    assert SECRET not in output
+    assert SECRET not in caplog.text
+    assert json.loads(output)["code"] == "api_key_not_stored"
