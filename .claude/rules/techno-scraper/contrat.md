@@ -26,7 +26,7 @@ paths:
 
 ## Gotchas
 - Clé absente et clé invalide rendent toutes deux `403`, jamais `401` : c'est une action utilisateur dans les Settings, pas une panne
-- `/soundcloud/search` n'accepte **pas** de `type` (SoundCloud ne cherche que des profils, la route rend `Page[Profile]`). Les modèles de paramètres de l'API sont en `extra="forbid"` : un paramètre inconnu rend `422`, jamais un résultat dégradé
+- `/soundcloud/search` n'accepte **pas** de `type` (SoundCloud ne cherche que des profils, la route rend `Page[Profile]`). Les modèles de paramètres de l'API sont en `extra="forbid"` : un paramètre inconnu y rend `422`, jamais un résultat dégradé. Sans Parameter Model (`/beatport/tracks/{id}`, `/bandcamp/tracks`), un paramètre en trop est ignoré en silence, pas rejeté
 - Le corps d'une erreur est `{code, provider, request_id}` sur 404, 502 et 503, sans `provider` sur 400 et 504, et le `{"detail": ...}` par défaut de FastAPI sur 403, jamais de message ni de trace : le diagnostic passe par le `request_id`, à lire dans l'en-tête `X-Request-ID`, présent sur **toutes** les réponses. Le reporter dans les logs, c'est lui qui relie un incident à sa ligne côté API
 - Le `504` prime sur le `503` quand les deux sont possibles, et se traite pareil : source indisponible, seul le code diffère. `502 parse_error` n'est pas actionnable côté application, mais le rapport doit le distinguer d'un « rien trouvé »
 - Beatport plafonne sa fenêtre de recherche à 10 000 résultats cumulés, au-delà `400 cursor_out_of_range`. Le `429` Bandcamp est constaté dès 3-4 requêtes simultanées côté API

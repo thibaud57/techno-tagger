@@ -22,6 +22,7 @@
 - **Aucun échec de refetch ni de pochette ne fait échouer un morceau.**
 - **Logs** : une ligne INFO par décision (`run`, `track` = position, `source`, `score`, `status`), `reason` pour un motif, `request_id` pour un échec de l'API. Aucun titre vers Sentry.
 - **Tests** : noms en anglais, AAA, API et CDN mockés par `FakeApi` et `FakeCdn`, jamais de réseau réel.
+- **Taille de page de la recherche** : `10`, décision du propriétaire du 2026-09-21. Elle dépend d'une release de techno-scraper non encore déployée à cette date : la Task 4 porte sa précondition et se saute sans dommage.
 - **Gate qualité vert à chaque commit** : `just test`, `just lint`, `just typecheck`. Commits `type(scope): description`, scope `tagging`.
 
 ---
@@ -35,6 +36,7 @@
 | `sidecar/tests/unit/test_tagging_outcomes.py` | Issues d'un morceau. |
 | `sidecar/tests/unit/test_tagging_run.py` | Événements, progression, garde des 403, Sentry. |
 | `docs/ARCHITECTURE.md`, `docs/adrs/009-enchainement-sources-et-arbitrage.md` | Beatport injoignable vers Bandcamp sans auto, prose et diagramme. |
+| `sidecar/src/tagger/scraper_client.py`, `sidecar/tests/unit/test_scraper_client_requests.py` | Taille de page de la recherche (Task 4, sous précondition de déploiement de la gateway). |
 | `docs/ARCHITECTURE.md`, `docs/adrs/010-ecriture-batch-et-plan-de-run.md` | État du run en mémoire jusqu'à la Feature 6 ; `tagging.py` dans l'arborescence. |
 
 ---
@@ -1062,4 +1064,86 @@ Dans l'arborescence § Organisation du Code, ajouter sous `cache.py` :
 ```bash
 git add docs/ARCHITECTURE.md docs/adrs/009-enchainement-sources-et-arbitrage.md docs/adrs/010-ecriture-batch-et-plan-de-run.md
 git commit -m "docs: repli sur Bandcamp sans validation automatique quand Beatport est injoignable"
+```
+
+---
+
+## Task 4: Taille de page de la recherche
+
+Décision du propriétaire du 2026-09-21 (spec § À trancher) : la recherche demande `10` candidats par page. Le scoring ne retient que les premiers rangs, et une page de 100 transférait 77 Ko par recherche pour n'en lire qu'une poignée.
+
+**Files:**
+- Modify: `sidecar/src/tagger/scraper_client.py` (`search`)
+- Modify: `sidecar/tests/unit/test_scraper_client_requests.py`
+
+- [ ] **Step 0: Précondition, à vérifier avant d'écrire une ligne**
+
+Le paramètre `limit` n'existe que dans une release de techno-scraper postérieure à la `3.1.4`. Celle-ci, en `extra="forbid"`, rejette tout paramètre inconnu : envoyer `limit` avant le déploiement rend `422` sur **chaque** recherche, donc un run entier sans aucun candidat.
+
+Le déploiement de techno-scraper est manuel (Deploy dans Dokploy après le tag). Demander au propriétaire de confirmer qu'une release portant `limit` est en production, puis le vérifier :
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -H "X-API-Key: <clé>" \
+  "https://techno-scraper.empiricmind.fr/beatport/search?q=test&limit=10"
+```
+
+`200` : la tâche peut commencer. `422` : la gateway n'est pas déployée, **laisser cette tâche non cochée et ne rien implémenter**. Les tâches 1 à 3 tiennent sans elle, le défaut de la gateway s'appliquant.
+
+- [ ] **Step 1: Write the failing test**
+
+Dans `sidecar/tests/unit/test_scraper_client_requests.py`, le test paramétré existant vérifie déjà les paramètres envoyés aux deux routes : y ajouter `limit` plutôt qu'écrire un second test qui ferait doublon. Le renommer pour qu'il dise ce qu'il vérifie :
+
+```python
+async def test_sends_a_search_to_its_source_route_with_the_query_type_and_page_size(
+    requests: list[httpx2.Request], source: SearchSource, query: str, route: str
+) -> None:
+    """La route porte la source, et l'en-tete de cle part sur chacune des deux."""
+    async with make_client(_recording(requests, page_payload())) as client:
+        await client.search(source, query)
+
+    assert requests[0].url.host == "techno-scraper.empiricmind.fr"
+    assert requests[0].url.path == route
+    assert dict(requests[0].url.params) == {"q": query, "type": "tracks", "limit": "10"}
+    assert requests[0].headers["X-API-Key"] == TEST_API_KEY
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `just test`
+Expected: FAIL sur les deux cas `beatport` et `bandcamp`, le dict reçu n'ayant pas la clé `limit`.
+
+- [ ] **Step 3: Write minimal implementation**
+
+Dans `sidecar/src/tagger/scraper_client.py`, à côté de `QUERY_MAX_LENGTH` :
+
+```python
+# Valeur de l'énumération fermée de la gateway (5/10/25/50/100), défaut 25. Le scoring ne retient
+# que les premiers rangs (mesuré le 2026-09-20 : candidat retenu aux rangs 1 à 3 sur dix recherches).
+SEARCH_PAGE_SIZE: Final = 10
+```
+
+Et dans `search` :
+
+```python
+        params = {
+            "q": query[:QUERY_MAX_LENGTH],
+            "type": "tracks",
+            "limit": str(SEARCH_PAGE_SIZE),
+        }
+```
+
+`limit` reste le même à chaque appel et le client ne lit que la première page, sans jamais renvoyer de curseur : il ne peut donc déclencher ni `cursor_limit_mismatch` ni `cursor_scope_mismatch` (`.claude/rules/techno-scraper/contrat.md`).
+
+Les entrées du cache disque sont indexées par route et paramètres (`cache.response_key`) : celles d'avant ce changement ne seront plus relues et expireront seules, le cache étant jetable (ADR-013).
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `just test && just lint && just typecheck`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add sidecar/src/tagger/scraper_client.py sidecar/tests/unit/test_scraper_client_requests.py
+git commit -m "feat(tagging): demander dix candidats par recherche"
 ```

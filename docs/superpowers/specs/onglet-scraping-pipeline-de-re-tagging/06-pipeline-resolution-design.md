@@ -38,6 +38,8 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Fe
 - **À modifier** : `docs/ARCHITECTURE.md` (§ Chaîne de résolution : prose et diagramme, Beatport injoignable vers Bandcamp sans auto ; § Flux d'un run : la décision n'est plus écrite dans un plan JSON ; arborescence : `tagging.py`)
 - **À modifier** : `docs/adrs/009-enchainement-sources-et-arbitrage.md` (note complémentaire sur la panne Beatport)
 - **À modifier** : `docs/adrs/010-ecriture-batch-et-plan-de-run.md` (note complémentaire : l'état du run reste en mémoire jusqu'à la Feature 6)
+- **À modifier** : `sidecar/src/tagger/scraper_client.py` (`search` demande `limit=10`, sous précondition de déploiement de la gateway, cf. § À trancher)
+- **À modifier** : `sidecar/tests/unit/test_scraper_client_requests.py` (paramètres envoyés aux deux routes de recherche)
 
 ## Architecture approach
 
@@ -138,9 +140,16 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Fe
 **THEN** `RunStarted` est émis en premier et liste les trois morceaux avec leur identité lue
 **AND** le dernier `RunProgress` vaut trois sur trois
 
+### Scénario 12 : Taille de page de la recherche
+**GIVEN** une gateway déployée qui accepte `limit` (cf. § À trancher, dépendance d'ordre)
+**WHEN** le pipeline cherche un morceau sur Beatport ou sur Bandcamp
+**THEN** la requête porte `limit=10`
+
 ## Tests à écrire
 
 ### Unit
+- `sidecar/tests/unit/test_scraper_client_requests.py` :
+  - sends a search to its source route with the query type and page size (test existant, élargi)
 - `sidecar/tests/unit/test_tagging_outcomes.py` :
   - validates automatically on beatport without calling bandcamp
   - validates automatically on bandcamp after an empty beatport search
