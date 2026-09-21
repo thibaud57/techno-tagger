@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "cache-et-pochettes"
 goal: "Mettre en cache disque les réponses de l'API et les pochettes téléchargées, avec expiration et plafond de taille"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["02-client-techno-scraper-design.md"]
