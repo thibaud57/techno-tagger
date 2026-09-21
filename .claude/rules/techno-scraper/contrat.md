@@ -11,6 +11,7 @@ paths:
 - Traiter `200` + `items: []` comme « ce morceau n'existe pas sur cette source » et enchaîner le fallback ; réserver l'échec aux `502`, `503` et `504`
 - Refetch par id (`GET /beatport/tracks/{id}`) avant d'écrire des tags : les objets rendus par `search` sont parfois abrégés
 - Renvoyer `next_cursor` tel quel, sans le lire, **sous le nom qu'attend la route** : `cursor` sur `/beatport/search` et `/soundcloud/users/{id}/likes`, mais `tracks_cursor` sur `/soundcloud/resolve` et `/soundcloud/users/{id}`, dont c'est une seconde collection
+- Garder `limit` strictement identique pendant toute l'itération d'une route paginée, et ne jamais rejouer un curseur sur une autre requête (`q`, `type`, id ou filtre de date différents) : les deux rendent `400` (`cursor_limit_mismatch` / `cursor_scope_mismatch`)
 - Traiter un champ nul comme « champ non écrit », jamais comme « champ à vider » : Bandcamp ne rend ni `bpm`, ni `key`, ni `genre`, ni `label` (cf. [ADR-011](../../../docs/adrs/011-politique-ecriture-tags.md))
 - Décider explicitement si `remixers[]` entre dans la chaîne artiste : ils sont exclus d'`artists[]` par convention, l'API ne tranche pas
 - Consigner le `source` de chaque morceau résolu dans le rapport, et vérifier `/health` (sans clé) avant d'incriminer la clé API

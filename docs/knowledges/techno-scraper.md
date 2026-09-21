@@ -1,8 +1,8 @@
 ---
 title: "techno-scraper — API gateway de métadonnées musicales"
-version: "3.1.3"
+version: "3.1.4"
 description: "Référence technique pour techno-scraper : authentification, contrat Track normalisé, routes consommées, sémantique d'erreur et bornes de concurrence."
-date: "2026-09-20"
+date: "2026-09-21"
 keywords: ["techno-scraper", "api", "track", "beatport", "bandcamp", "soundcloud", "x-api-key"]
 scope: ["docs"]
 technologies: ["httpx2", "Python", "FastAPI", "Pydantic"]
@@ -94,13 +94,13 @@ L'application n'utilise qu'un sous-ensemble des routes exposées. La recherche a
 ### Exemple
 
 ```
-GET /beatport/search?q=<artiste titre>&type=tracks&cursor=  → Page[Track]  (recherche auto, temps 1)
-GET /beatport/tracks/{id}                                   → Track        (refetch metadata complètes)
-GET /bandcamp/search?q=<artiste titre>&type=tracks          → Page[Track]  (recherche auto, temps 2)
-GET /bandcamp/tracks?url=<url bandcamp>                     → Track        (rattrapage par URL)
-GET /soundcloud/resolve?url=<url soundcloud>                → UserProfile  (rattrapage par URL uniquement)
+GET /beatport/search?q=<artiste titre>&type=tracks&cursor=&limit=  → Page[Track]  (recherche auto, temps 1)
+GET /beatport/tracks/{id}                                          → Track        (refetch metadata complètes)
+GET /bandcamp/search?q=<artiste titre>&type=tracks&cursor=&limit=  → Page[Track]  (recherche auto, temps 2)
+GET /bandcamp/tracks?url=<url bandcamp>                            → Track        (rattrapage par URL)
+GET /soundcloud/resolve?url=<url soundcloud>                       → UserProfile  (rattrapage par URL uniquement)
 # Beatport n'a pas de résolution par URL : extraire l'id de l'URL collée, puis /beatport/tracks/{id}
-GET /health                                                 → 200          (sans clé, diagnostic de joignabilité)
+GET /health                                                        → 200          (sans clé, diagnostic de joignabilité)
 ```
 
 ### Points Importants
@@ -109,6 +109,7 @@ GET /health                                                 → 200          (sa
 - **`/soundcloud/resolve` rend une enveloppe `UserProfile` (`{ profile, tracks }`), pas un `Track`** : le chemin de rattrapage SoundCloud ne se mappe pas comme les deux autres
 - SoundCloud n'est jamais interrogé en recherche automatique, ses métadonnées d'upload étant trop peu fiables (cf. [ADR-009](../adrs/009-enchainement-sources-et-arbitrage.md))
 - **Bandcamp n'est jamais appelé spéculativement** : l'appel n'est déclenché que par un résultat vide côté Beatport ou par un refus explicite de l'utilisateur en arbitrage
+- **`limit` et `cursor` arrivent sur `/beatport/search` et `/bandcamp/search`** dans la branche `feat/limit-taille-de-page` de techno-scraper, lue le 2026-09-21, non releasée à ce jour : la dernière version publiée (`3.1.4`) ne les inclut pas encore. Cf. § Pagination à curseur opaque pour le détail du paramètre
 
 ---
 
@@ -123,6 +124,8 @@ La distinction est contractuelle et conditionne toute la logique de fallback du 
 ```
 200 + { "items": [], "next_cursor": null }       → rien trouvé, on enchaîne sur la source suivante
 400  code=invalid_cursor | cursor_out_of_range   → curseur illisible, forgé ou hors fenêtre (Beatport)
+400  code=cursor_limit_mismatch                  → curseur rejoué avec une autre taille de page (limit)
+400  code=cursor_scope_mismatch                  → curseur rejoué sur une autre requête (q, type, id, filtre de date)
 403                                              → clé absente ou invalide
 404  code=not_found                              → ressource absente (id inconnu)
 422                                              → paramètre de requête invalide, corps FastAPI standard
@@ -149,6 +152,7 @@ En-tête sur toutes les réponses, succès compris : X-Request-ID
 - `502 parse_error` n'est pas actionnable côté application : c'est un parser à corriger côté API. Le morceau se traite comme non résolu, et le rapport doit le distinguer d'un « rien trouvé »
 - **`422` est un contrat cassé, tout `5xx` une source indisponible, `500` compris** : un `422` dit que le sidecar a mal formé sa requête, c'est son bug. Un `500` dit que l'API a planté : le classer en contrat cassé le ferait remonter dans le Sentry du sidecar pour un incident que l'API remonte déjà dans le sien, alors que du point de vue de l'utilisateur la source n'a simplement pas répondu et que le morceau se rejouera. Le `503` couvre trois causes distinctes, traitées pareil : `source_unavailable` (source injoignable après retries), `stale_content` (contenu périmé servi par un cache amont, atteignable sur n'importe quelle source) et `quota_exceeded` (quota de génération de tokens épuisé, **SoundCloud uniquement**)
 - **`cursor_out_of_range` est un `400`, pas un `422`** : même corps qu'`invalid_cursor`, sans `provider`, malgré le nom qui évoque une validation de paramètre
+- **`cursor_limit_mismatch` et `cursor_scope_mismatch` sont deux `400` distincts** : le premier sanctionne une taille de page (`limit`) qui change en cours d'itération, le second un curseur rejoué sur une autre requête (`q`, `type`, un autre id d'entité, un autre filtre de date). Sans cette garde la position pointerait en silence dans un tout autre ensemble de résultats. Lu sur la branche `feat/limit-taille-de-page` de techno-scraper (`shared/queries.py`, `core/pagination.py`, `core/errors.py`), non releasée à ce jour : la dernière version publiée (`3.1.4`) ne les rend pas
 - **Le `500` pose lui-même l'en-tête `X-Request-ID`** : il est rendu par `ServerErrorMiddleware`, hors du middleware qui pose cet en-tête pour toutes les autres réponses. C'est le seul code qui ne suit pas la règle générale ci-dessous
 - **Le retry est à la charge du consommateur** : l'API ne le fait pas pour lui, sa concurrence sortante étant mutualisée entre tous les consommateurs
 - **Le corps d'erreur ne porte ni message ni trace** : `{code, provider, request_id}` sur 404, 502 et 503, sans `provider` sur 400, 500 et 504, et le `{"detail": ...}` par défaut de FastAPI sur 403 et 422. Inutile d'y chercher un texte à afficher, le libellé utilisateur appartient au sidecar. Le `request_id`, repris en en-tête `X-Request-ID` sur toutes les réponses, est le seul lien avec la ligne de log et l'issue Sentry côté API : le journaliser à chaque échec, depuis l'en-tête plutôt que le corps
@@ -166,8 +170,9 @@ Toute route de liste rend une enveloppe `Page[T]` = `{ items, next_cursor }`. Le
 ```python
 async def search_all(client, query: str) -> list[dict]:
     items, cursor = [], None
+    limit = 25  # doit rester identique sur tout l'appel, sous peine de 400 cursor_limit_mismatch
     while True:
-        params = {"q": query, "type": "tracks"}
+        params = {"q": query, "type": "tracks", "limit": limit}
         if cursor:
             params["cursor"] = cursor
         page = (await client.get("/beatport/search", params=params)).json()
@@ -181,7 +186,9 @@ async def search_all(client, query: str) -> list[dict]:
 
 - **Le curseur est opaque et forward-only** : le décoder, le construire à la main ou le réutiliser sur une autre route est un contrat rompu
 - **Le paramètre ne s'appelle pas `cursor` partout** : c'est `cursor` sur `/beatport/search` et `/soundcloud/users/{id}/likes`, mais **`tracks_cursor`** sur `/soundcloud/resolve` et `/soundcloud/users/{id}`, où les morceaux sont une seconde collection à côté du profil. Les modèles de paramètres de l'API étant en `extra="forbid"`, se tromper de nom rend `422`, pas une première page
-- `next_cursor: null` signifie « fin de liste », y compris quand la source ne pagine pas du tout (c'est le cas de `/bandcamp/search`)
+- **`next_cursor: null` signifie « fin de liste » sur toutes les routes.** La source Bandcamp (`app_autocomplete`) n'accepte ni `limit` ni `offset` et rend tout d'un bloc, plafonné à 50 : c'est la gateway qui pagine `/bandcamp/search` par découpe après réception, avec un curseur d'offset, deux appels au plus vu ce plafond source. Lu sur la branche `feat/limit-taille-de-page`, non releasée à ce jour : la dernière version publiée (`3.1.4`) ne pagine toujours pas cette route
+- **`limit` est une énumération fermée `5/10/25/50/100`, défaut `25`**, sur les six routes rendant `Page[T]` (les trois `/search`, les deux discographies Beatport, `/soundcloud/users/{id}/likes`) : une valeur hors énumération rend `422`, jamais une page tronquée en silence. Il doit rester identique pendant toute l'itération, le curseur le porte et un écart rend `400 cursor_limit_mismatch`
+- **Le curseur porte aussi une empreinte des paramètres qui définissent l'ensemble de résultats** (`q`/`type` pour une recherche, genre d'entité, id et filtre de date pour une discographie Beatport, id de compte pour les likes SoundCloud) : le rejouer sur une autre requête rend `400 cursor_scope_mismatch`, distinct de `cursor_limit_mismatch`
 - **Le tagger ne pagine pas en recherche** : seuls les premiers candidats sont scorés, un morceau au-delà de la première page n'étant pas un candidat plausible. La boucle ci-dessus vaut pour les usages exhaustifs (discographie), pas pour le chemin de tagging
 - Beatport plafonne sa fenêtre de recherche à 10 000 résultats cumulés (mesuré côté API le 2026-08-09) : au-delà, `400 cursor_out_of_range`
 
