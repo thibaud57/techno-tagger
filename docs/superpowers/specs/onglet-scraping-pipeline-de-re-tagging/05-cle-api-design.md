@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "cle-api"
 goal: "Permettre à chaque utilisateur d'enregistrer une fois la clé API qui lui a été remise, rangée dans le trousseau Windows côté sidecar, pour que le pipeline puisse appeler techno-scraper"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: []
