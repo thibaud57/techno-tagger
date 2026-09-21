@@ -43,8 +43,8 @@
     "track_not_found": "The track no longer exists on {{source}}.",
     "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder.",
     "api_key_error": "The API key could not be saved.",
-    "api_key_not_stored": "The key could not be stored in the Windows credential manager. Try again.",
-    "keyring_unavailable": "The Windows credential manager is unavailable. Restart the application."
+    "api_key_not_stored": "The key could not be saved on this computer. Try again.",
+    "keyring_unavailable": "Windows secure storage is unavailable. Restart the application."
   },
   "playlist": {
     "title": "Playlist",
@@ -129,6 +129,8 @@
         "label": "X-API-Key",
         "hint": "Stored securely on this computer. It is never shown again: to change it, enter a new one.",
         "placeholder": "Enter the key you received",
+        "show": "Show the key",
+        "hide": "Hide the key",
         "save": "Save",
         "configured": "Key saved",
         "missing": "No key"

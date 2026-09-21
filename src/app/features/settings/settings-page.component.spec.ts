@@ -10,7 +10,7 @@ import SettingsPageComponent from "./settings-page.component"
 /** Sous-ensemble reellement mocke : une divergence avec `SidecarService` casse ici, jamais en silence. */
 type SidecarServiceStub = Pick<
   SidecarService,
-  "apiKeyConfigured" | "available" | "lastError" | "setApiKey"
+  "apiKeyConfigured" | "available" | "lastError" | "lastErrorCommand" | "setApiKey"
 >
 
 /**
@@ -22,6 +22,7 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
     apiKeyConfigured: signal<boolean | null>(false),
     available: signal(true),
     lastError: signal(null),
+    lastErrorCommand: signal(null),
     setApiKey: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
@@ -59,6 +60,7 @@ describe("SettingsPageComponent", () => {
         params: {},
         message: "",
       }),
+      lastErrorCommand: signal("set_api_key"),
     })
 
     const errorMessage = (fixture.nativeElement as HTMLElement).querySelector("app-error-message")
@@ -66,19 +68,41 @@ describe("SettingsPageComponent", () => {
     expect(errorMessage).not.toBeNull()
   })
 
-  it("ignores an error that does not concern the key", () => {
+  it("ignores an error raised by another screen", () => {
     const { fixture } = mountWith({
       lastError: signal<SidecarErrorEvent>({
         event: "error",
-        code: "vlc_schema_mismatch",
+        code: "malformed_command",
         params: {},
         message: "",
       }),
+      lastErrorCommand: signal("list_playlists"),
     })
 
     const errorMessage = (fixture.nativeElement as HTMLElement).querySelector("app-error-message")
 
     expect(errorMessage).toBeNull()
+  })
+
+  it("switches the visibility icon when the key is unmasked", () => {
+    const { fixture, component } = mountWith()
+
+    component["toggleMask"]()
+    fixture.detectChanges()
+
+    const host = fixture.nativeElement as HTMLElement
+    expect(host.querySelector('svg[data-p-icon="eye-slash"]')).not.toBeNull()
+    expect(host.querySelector('svg[data-p-icon="eye"]')).toBeNull()
+  })
+
+  it("masks the field again once the key is sent", async () => {
+    const { component } = mountWith()
+    component["entry"].set({ apiKey: "k3y-t0k3n" })
+    component["toggleMask"]()
+
+    await component["save"]()
+
+    expect(component["masked"]()).toBe(true)
   })
 
   it("disables saving while the field is empty", () => {

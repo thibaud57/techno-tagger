@@ -14,15 +14,33 @@
 
     <div class="flex min-w-0 flex-1 flex-col gap-2">
       <div class="flex items-center gap-2">
-        <!-- p-password est deprecie en PrimeNG 22 : input natif toujours masque, sans oeil de bascule (decision du 2026-09-21). -->
-        <input
-          pInputPassword
-          id="api-key"
-          pSize="small"
-          [formField]="fields.apiKey"
-          [fluid]="true"
-          [placeholder]="'settings.api.key.placeholder' | translate"
-        />
+        <!-- p-password est deprecie en PrimeNG 22 : `pInputPassword` ne fournit que le model
+             `mask`, l'oeil de bascule se compose ici (decision du 2026-09-21). -->
+        <p-iconfield class="min-w-0 flex-1">
+          <input
+            pInputPassword
+            id="api-key"
+            pSize="small"
+            [formField]="fields.apiKey"
+            [fluid]="true"
+            [mask]="masked()"
+            [placeholder]="'settings.api.key.placeholder' | translate"
+          />
+          <p-inputicon>
+            <!-- Une cle collee ne se relit nulle part ailleurs : sans cette bascule, une faute de
+                 copie ne se voit qu'au premier run, sur les 403 de l'API. -->
+            <button
+              type="button"
+              class="cursor-pointer text-muted-color"
+              [attr.aria-label]="
+                (masked() ? 'settings.api.key.show' : 'settings.api.key.hide') | translate
+              "
+              (click)="toggleMask()"
+            >
+              <app-icon [name]="masked() ? 'eye' : 'eye-slash'" [size]="16" />
+            </button>
+          </p-inputicon>
+        </p-iconfield>
         <button
           pButton
           type="button"

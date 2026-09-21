@@ -289,7 +289,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Clé API | `input pInputPassword`, toujours masqué, sans œil de bascule | PrimeNG | Jamais préremplie, jamais relue depuis le keyring vers la webview. `p-password` déprécié en PrimeNG 22, décision du 2026-09-21 |
+| Clé API | `input pInputPassword` dans un `p-iconfield`, masqué par défaut, œil de bascule composé à la main | PrimeNG | Jamais préremplie, jamais relue depuis le keyring vers la webview, remasquée après l'envoi. `p-password` déprécié en PrimeNG 22, et `pInputPassword` n'expose que le model `mask` : la bascule est un bouton du template (décisions du 2026-09-21) |
 | Seuils de matching | `p-slider` lié à un `p-inputnumber` | PrimeNG | Plancher et seuil haut, valeurs de départ 70 et 90 |
 | Langue | `p-select` | PrimeNG | FR / EN, force la locale détectée au premier lancement |
 | Bascules des Settings | `p-toggleswitch` | PrimeNG | Signal sonore, copie par défaut |

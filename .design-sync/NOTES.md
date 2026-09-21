@@ -88,11 +88,12 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
 - **Aide et placeholder de la clé réécrits** : le texte d'aide et le placeholder du champ Clé
   X-API-Key ne reprennent pas ceux de `SettingsScreen.jsx`, écrits pour un public non technique
   (décision du 2026-09-21).
-- **Clé X-API-Key sans bascule de visibilité** : le champ est un `input pInputPassword`, toujours
-  masqué, sans œil de bascule ni indicateur de robustesse (`p-password` déprécié en PrimeNG 22,
-  décision du 2026-09-21). La maquette et sa fiche `components/forms/Password.prompt.md` décrivent
-  encore `<Password>` / `p-password` avec `[feedback]="false"`, qui portent l'œil de bascule et le
-  mécanisme de robustesse en option.
+- **Bascule de visibilité de la clé composée à la main** : le champ est un `input pInputPassword`
+  dans un `p-iconfield`, masqué par défaut, remasqué après l'envoi, avec un œil porté par un bouton
+  du template. `p-password` est déprécié en PrimeNG 22 et son remplaçant n'expose que le model
+  `mask`, sans icône fournie (décisions du 2026-09-21). L'indicateur de robustesse n'est pas repris,
+  une clé reçue ne se choisit pas. La maquette et sa fiche `components/forms/Password.prompt.md`
+  décrivent encore `<Password>` / `p-password` avec `[feedback]="false"`.
 
 ## Journal
 
