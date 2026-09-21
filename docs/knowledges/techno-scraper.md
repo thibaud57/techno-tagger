@@ -1,8 +1,8 @@
 ---
 title: "techno-scraper — API gateway de métadonnées musicales"
-version: "3.1.3"
+version: "3.1.4"
 description: "Référence technique pour techno-scraper : authentification, contrat Track normalisé, routes consommées, sémantique d'erreur et bornes de concurrence."
-date: "2026-09-04"
+date: "2026-09-21"
 keywords: ["techno-scraper", "api", "track", "beatport", "bandcamp", "soundcloud", "x-api-key"]
 scope: ["docs"]
 technologies: ["httpx2", "Python", "FastAPI", "Pydantic"]
@@ -96,13 +96,13 @@ L'application n'utilise qu'un sous-ensemble des routes exposées. La recherche a
 ### Exemple
 
 ```
-GET /beatport/search?q=<artiste titre>&type=tracks&cursor=  → Page[Track]  (recherche auto, temps 1)
-GET /beatport/tracks/{id}                                   → Track        (refetch metadata complètes)
-GET /bandcamp/search?q=<artiste titre>&type=tracks          → Page[Track]  (recherche auto, temps 2)
-GET /bandcamp/tracks?url=<url bandcamp>                     → Track        (rattrapage par URL)
-GET /soundcloud/resolve?url=<url soundcloud>                → UserProfile  (rattrapage par URL uniquement)
+GET /beatport/search?q=<artiste titre>&type=tracks&limit=&cursor=  → Page[Track]  (recherche auto, temps 1)
+GET /beatport/tracks/{id}                                          → Track        (refetch metadata complètes)
+GET /bandcamp/search?q=<artiste titre>&type=tracks&limit=&cursor=  → Page[Track]  (recherche auto, temps 2)
+GET /bandcamp/tracks?url=<url bandcamp>                            → Track        (rattrapage par URL)
+GET /soundcloud/resolve?url=<url soundcloud>                       → UserProfile  (rattrapage par URL uniquement)
 # Beatport n'a pas de résolution par URL : extraire l'id de l'URL collée, puis /beatport/tracks/{id}
-GET /health                                                 → 200          (sans clé, diagnostic de joignabilité)
+GET /health                                                        → 200          (sans clé, diagnostic de joignabilité)
 ```
 
 ### Points Importants
@@ -128,7 +128,8 @@ La distinction est contractuelle et conditionne toute la logique de fallback du 
 503  code=source_unavailable | stale_content → source injoignable après retries
 504  code=request_timeout                    → budget de 90 s dépassé, file saturée
 403                                          → clé absente ou invalide
-400  code=invalid_cursor                     → curseur illisible ou forgé
+400  code=invalid_cursor | cursor_out_of_range
+     | cursor_limit_mismatch | cursor_scope_mismatch → curseur illisible, hors fenêtre, ou émis pour une autre taille de page / requête
 404                                          → ressource absente (id inconnu)
 
 Corps 404, 502, 503 : { "code": "...", "provider": "...", "request_id": "..." }
@@ -157,10 +158,10 @@ Toute route de liste rend une enveloppe `Page[T]` = `{ items, next_cursor }`. Le
 ### Exemple
 
 ```python
-async def search_all(client, query: str) -> list[dict]:
+async def search_all(client, query: str, limit: int = 25) -> list[dict]:
     items, cursor = [], None
     while True:
-        params = {"q": query, "type": "tracks"}
+        params = {"q": query, "type": "tracks", "limit": limit}
         if cursor:
             params["cursor"] = cursor
         page = (await client.get("/beatport/search", params=params)).json()
@@ -172,10 +173,13 @@ async def search_all(client, query: str) -> list[dict]:
 
 ### Points Importants
 
+- **Non déployé au 2026-09-21** : `limit` et l'empreinte de portée du curseur sont sur la branche `feat/limit-taille-de-page` de techno-scraper, postérieure à la dernière release `technoscraper-v3.1.4`. Le numéro de version qui les embarquera n'est pas encore attribué (décidé par release-please au merge)
 - **Le curseur est opaque et forward-only** : le décoder, le construire à la main ou le réutiliser sur une autre route est un contrat rompu
 - **Le paramètre ne s'appelle pas `cursor` partout** : c'est `cursor` sur `/beatport/search` et `/soundcloud/users/{id}/likes`, mais **`tracks_cursor`** sur `/soundcloud/resolve` et `/soundcloud/users/{id}`, où les morceaux sont une seconde collection à côté du profil. Les modèles de paramètres de l'API étant en `extra="forbid"`, se tromper de nom rend `422`, pas une première page
-- `next_cursor: null` signifie « fin de liste », y compris quand la source ne pagine pas du tout (c'est le cas de `/bandcamp/search`)
-- **Le tagger ne pagine pas en recherche** : seuls les premiers candidats sont scorés, un morceau au-delà de la première page n'étant pas un candidat plausible. La boucle ci-dessus vaut pour les usages exhaustifs (discographie), pas pour le chemin de tagging
+- **`limit` est une énumération fermée** (`5/10/25/50/100`, défaut `25`) sur les six routes rendant `Page[T]` : une valeur hors énumération rend `422`. Le curseur la porte et doit rester identique pendant toute l'itération, sous peine de `400 cursor_limit_mismatch`
+- **Le curseur lie aussi la pagination à la requête qui l'a produite** (empreinte de `q`/type en recherche, entité + id + filtre de date en discographie, id de compte en likes) : la rejouer avec un autre paramètre de portée rend `400 cursor_scope_mismatch`, distinct du mismatch de taille
+- **Bandcamp pagine désormais par découpe après réception** : `app_autocomplete` n'acceptant ni `limit` ni `offset`, le curseur porte l'offset absolu et la page suivante refait le GET complet (deux appels au plus, la source plafonnant à 50 résultats). `next_cursor: null` reste le seul signal de fin de liste, commun aux trois sources
+- **Le tagger ne pagine pas en recherche** : seuls les premiers candidats sont scorés, un morceau au-delà de la première page n'étant pas un candidat plausible. `scraper_client.py` ne transmettant pas `limit`, ça vaut désormais 25 candidats par défaut plutôt qu'une notion vague de « premiers résultats ». La boucle ci-dessus vaut pour les usages exhaustifs (discographie), pas pour le chemin de tagging
 - Beatport plafonne sa fenêtre de recherche à 10 000 résultats cumulés (mesuré côté API le 2026-08-09) : au-delà, `400 cursor_out_of_range`
 
 ---
