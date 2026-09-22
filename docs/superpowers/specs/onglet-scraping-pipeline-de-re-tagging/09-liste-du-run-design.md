@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "liste-du-run"
 goal: "Afficher les morceaux d'un run dans une table à six colonnes qui se met à jour événement par événement"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["08-service-sidecar-tagging-design.md"]
@@ -23,7 +23,7 @@ Exclut la page qui porte la table, le choix du dossier, le lancement et la progr
 
 ## Dependencies
 
-- `08-service-sidecar-tagging-design.md` (statut: draft) : fournit `TaggingTrack` et les signaux du run, que la page passera à ce composant.
+- `08-service-sidecar-tagging-design.md` (statut: implemented) : fournit `TaggingTrack` et les signaux du run, que la page passera à ce composant.
 
 ## Références de design
 
@@ -41,6 +41,7 @@ Exclut la page qui porte la table, le choix du dossier, le lancement et la progr
 - **À créer** : `src/app/features/tagging/run-list.component.spec.ts`
 - **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (en-têtes, états, bloc vide)
 - **À modifier** : `.design-sync/NOTES.md` (§ Reste ouvert : taille de la table)
+- **À modifier** : `docs/DESIGN.md` (§ Colonnes de la liste d'un run : largeur de la colonne Pochette, comportement de la colonne Avant)
 
 Aucun changement côté Tauri : `assetProtocol` est déjà activé avec le scope `$APPLOCALDATA/cache/artworks/**` et la CSP porte déjà `img-src asset:`, ce qui couvre exactement le dossier de cache du sub-project 04.
 
@@ -61,8 +62,8 @@ Aucun changement côté Tauri : `assetProtocol` est déjà activé avec le scope
 - **Un composant de liste séparé de la page** : la table se teste et se lit seule, la page gère le dossier, le lancement et la progression. Elle reçoit les lignes en `input.required` et ne connaît aucun service (`.claude/rules/angular/components.md`).
 - **Table PrimeNG à sa taille par défaut** (DESIGN.md § Layout), `[scrollable]` en `scrollHeight="flex"`, `[virtualScroll]` avec un `virtualScrollItemSize` égal à la hauteur réelle d'une ligne, posée par une classe : une valeur fausse fait sauter le défilement ou coupe les lignes (`.claude/rules/primeng/composants.md`). La hauteur est à revalider chaque fois que le style d'une ligne change.
 - **Écart à la maquette, tranché le 2026-09-20** : la fiche `DataTable` pose la table en `size="small"`, DESIGN.md § Layout la veut à sa taille par défaut. DESIGN.md prime (`.claude/rules/design/claude-design.md`), et l'écart est consigné dans `.design-sync/NOTES.md` § Reste ouvert pour le prochain push vers le design system.
-- **Colonnes** (DESIGN.md § Colonnes de la liste d'un run) : Pochette 32px, Avant et Après fluides, Source, Score et État figées, mesurées sur leur contenu le plus long dans les deux langues. Rien n'est masqué à aucune largeur, le plancher de la fenêtre étant dicté par ces six colonnes.
-  - **Avant** : artiste et titre lus, nom de fichier en sous-texte `text-xs text-muted-color`. Quand les tags sont vides, le nom de fichier passe en ligne principale, comme dans la maquette.
+- **Colonnes** (DESIGN.md § Colonnes de la liste d'un run) : Pochette figée à 48px pour une vignette de 32px, Avant et Après fluides, Source, Score et État figées, mesurées sur leur contenu le plus long dans les deux langues. Rien n'est masqué à aucune largeur, le plancher de la fenêtre étant dicté par ces six colonnes.
+  - **Avant** : artiste et titre lus, nom de fichier en sous-texte `text-xs text-muted-color`. La colonne garde ses deux lignes en toutes circonstances : quand les tags sont vides, c'est le nom de fichier privé de son extension qui passe en ligne principale, le sous-texte gardant le nom complet (décision du propriétaire, cf. § Architectural decisions).
   - **Après** : ce que la source écrira, déjà calculé par le sidecar. Un tiret discret tant que rien n'est résolu.
   - **Source** : `SourceLogoComponent` en 16px, plus le libellé. Le composant ne porte aujourd'hui que le tracé VLC, livré avec l'onglet Playlist : les trois logos de sources sont repris de `src/assets/icons/` en SVG inline et `currentColor`, jamais par `<img src>`, le build n'émettant que `public/`.
   - **Score** : moyenne en ligne principale, `A 96 · T 92` en `text-xs` dessous. Sans artiste, seul le score titre s'affiche.
@@ -100,7 +101,8 @@ Aucun changement côté Tauri : `assetProtocol` est déjà activé avec le scope
 ### Scénario 5 : Fichier sans tags
 **GIVEN** un morceau dont l'artiste et le titre lus sont vides
 **WHEN** sa ligne est rendue
-**THEN** la colonne Avant montre le nom de fichier en ligne principale, sans sous-texte répété
+**THEN** la colonne Avant montre le nom de fichier privé de son extension en ligne principale
+**AND** son sous-texte garde le nom de fichier complet, la cellule restant sur deux lignes
 
 ### Scénario 6 : Dossier sans fichier audio
 **GIVEN** un run démarré sur un dossier vide
@@ -149,3 +151,16 @@ Aucun test ne vérifie que `@for` produit des lignes ni que PrimeNG défile : ce
 **Rationale :**
 - Décision du propriétaire le 2026-09-20.
 - `.claude/rules/design/claude-design.md` : la maquette fait foi sur l'apparence là où DESIGN.md se tait, DESIGN.md gagne quand les deux se contredisent. L'écart est consigné plutôt que tranché en silence.
+
+### Décision : Colonne Avant sur un fichier sans tags
+
+**Options envisagées :**
+- **A. Nom de fichier complet seul en ligne principale** : la cellule perd son sous-texte, la même chaîne n'apparaît pas deux fois.
+- **B. Nom de fichier privé de son extension en ligne principale, nom complet en sous-texte** : la cellule garde ses deux lignes, comme la maquette le fait dans `runColumns`.
+
+**Choix : B**
+
+**Rationale :**
+- Décision du propriétaire le 2026-09-22, sur comparaison des deux rendus.
+- En A, la ligne unique se centre verticalement dans les 56px que fige le scroll virtuel : son texte ne s'aligne avec aucune de ses voisines, et le décrochage se lit sur toute la colonne dès qu'un fichier sur dix n'a pas de tags. La redite de B ne se voit que sur la ligne concernée.
+- La maquette fait foi sur l'apparence, et c'est déjà ce qu'elle rend.
