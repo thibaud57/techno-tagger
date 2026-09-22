@@ -75,14 +75,31 @@ def test_guards_a_remix_named_outside_any_group() -> None:
     assert classification.scored == ()
 
 
-def test_keeps_a_collaboration_sharing_its_group_with_a_version() -> None:
-    """Regression : un groupe mixte partait en version, le featuring disparaissait."""
-    title = "Your Mind (Extended Mix feat. Roisin Murphy)"
-    query = TrackQuery("Adam Beyer", title, QueryOrigin.TAGS)
+@pytest.mark.parametrize(
+    ("tagged_title", "mix_name"),
+    [
+        ("Your Mind (Extended Mix feat. Roisin Murphy)", "Extended Mix"),
+        ("Your Mind (Extended Mix with Roisin Murphy)", "Extended Mix with Roisin Murphy"),
+        ("Your Mind (Adam Beyer pres. Drumcode Remix)", "Adam Beyer pres. Drumcode Remix"),
+        ("Your Mind (Chris Liebing vs Speedy J Remix)", "Chris Liebing vs Speedy J Remix"),
+    ],
+    ids=["feat", "with", "pres", "vs"],
+)
+def test_reads_the_version_of_a_group_that_also_names_a_guest(
+    tagged_title: str, mix_name: str
+) -> None:
+    """Un credit de remix a deux noms reste une version, pas un morceau different.
 
-    classification = classify(query, [track_candidate("Your Mind", "Extended Mix")])
+    Regression : le groupe mixte etait laisse entier dans le titre pour ne pas emporter
+    l'invite avec la version, ce qui perdait la version et collait au titre compare une
+    parenthese jamais fermee. « X vs Y Remix » et « A pres. B Remix » sont des credits
+    courants, le morceau partait donc en non resolu contre son propre candidat.
+    """
+    query = TrackQuery("Adam Beyer", tagged_title, QueryOrigin.TAGS)
 
-    assert classification.scored[0].title_score < 100
+    classification = classify(query, [track_candidate("Your Mind", mix_name)])
+
+    assert classification.outcome is Outcome.AUTO
 
 
 @pytest.mark.parametrize(

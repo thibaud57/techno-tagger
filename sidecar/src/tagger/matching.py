@@ -294,10 +294,19 @@ def _split_version(title: str) -> _Parts:
 
     def take(match: re.Match[str]) -> str:
         content = match.group("content")
-        # Un groupe qui porte aussi une collaboration reste dans le titre : detacher
-        # « (Extended Mix feat. X) » emporterait le featuring avec la version.
-        if _VERSION_GUARD.search(content) is None or _COLLABORATION_GUARD.search(content):
+        if _VERSION_GUARD.search(content) is None:
             return match.group(0)
+        # Un groupe qui nomme aussi un invite reste une version : « (Extended Mix feat.
+        # X) » cede sa mention d'invite, « (A vs B Remix) » garde la sienne, le credit
+        # de remix etant le libelle meme de la version. Laisser le groupe entier dans le
+        # titre perdait la version et y collait une parenthese jamais fermee.
+        if _COLLABORATION_GUARD.search(content):
+            # `content` n'a pas de crochet, `_FEATURING` ne peut donc pas en emporter un.
+            without_guest = _FEATURING.sub(" ", content).strip()
+            if _VERSION_GUARD.search(without_guest) is None:
+                return match.group(0)
+            taken.append(_SPACES.sub(" ", without_guest))
+            return " "
         taken.append(content.strip())
         return " "
 
