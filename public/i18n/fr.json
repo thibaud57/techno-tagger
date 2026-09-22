@@ -121,7 +121,25 @@
     }
   },
   "tagging": {
-    "title": "Tagging"
+    "title": "Tagging",
+    "state": {
+      "pending": "En attente",
+      "awaiting": "À arbitrer",
+      "auto": "Auto",
+      "arbitrated": "Arbitré",
+      "url": "URL",
+      "unresolved": "Non résolu"
+    },
+    "list": {
+      "before": "Avant",
+      "after": "Après",
+      "source": "Source",
+      "score": "Score",
+      "scoreArtist": "A",
+      "scoreTitle": "T",
+      "state": "État",
+      "empty": "Aucun fichier audio dans ce dossier"
+    }
   },
   "settings": {
     "title": "Réglages",

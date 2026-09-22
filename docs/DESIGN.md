@@ -445,8 +445,8 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 
 | Colonne | Largeur | Contenu |
 |---------|---------|---------|
-| Pochette | 32px fixe | Vignette, `p-skeleton` tant que le morceau n'est pas résolu |
-| Avant | **fluide** | Artiste et titre lus dans le fichier, avec le **nom du fichier en sous-texte** `text-xs text-muted-color`. Quand les tags sont vides, le nom de fichier nettoyé passe en ligne principale |
+| Pochette | 48px fixe | Vignette de 32px, `p-skeleton` tant que le morceau n'est pas résolu. Mesurée sur la vignette plus sa gouttière |
+| Avant | **fluide** | Artiste et titre lus dans le fichier, avec le **nom du fichier en sous-texte** `text-xs text-muted-color`. Deux lignes en toutes circonstances : quand les tags sont vides, c'est le nom de fichier privé de son extension qui passe en ligne principale, le sous-texte gardant le nom complet. La colonne s'aligne ainsi d'une ligne à l'autre, au prix d'une redite sur les seuls fichiers sans tags |
 | Après | **fluide** | Ce que la source retenue va écrire |
 | Source | fixe | Logo 16px + libellé, Beatport / Bandcamp / SoundCloud. Mesurée sur « SoundCloud » |
 | Score | fixe | Moyenne des deux scores en ligne principale, `A 96 · T 92` en `text-xs` dessous. Mesurée sur `A 100 · T 100` |

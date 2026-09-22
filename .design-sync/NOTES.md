@@ -94,6 +94,13 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   `mask`, sans icône fournie (décisions du 2026-09-21). L'indicateur de robustesse n'est pas repris,
   une clé reçue ne se choisit pas. La maquette et sa fiche `components/forms/Password.prompt.md`
   décrivent encore `<Password>` / `p-password` avec `[feedback]="false"`.
+- **Taille de la table de la liste du run** : la fiche `DataTable` la pose en `size="small"`,
+  DESIGN.md § Layout la veut à sa taille par défaut, et c'est DESIGN.md qui a été suivi
+  (2026-09-20). La fiche et `TaggingScreen.jsx` sont à aligner au prochain push.
+- **Séparateur artiste / titre en tiret simple** : « Artiste - Titre » est la convention de nommage
+  des fichiers musicaux, celle que porteront les fichiers réécrits. Le code l'emploie dans les
+  colonnes Avant et Après, ainsi que pour le tiret d'une valeur absente (décision du 2026-09-22).
+  `runColumns` de `TaggingScreen.jsx` emploie encore un tiret cadratin.
 
 ## Journal
 

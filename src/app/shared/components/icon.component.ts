@@ -3,6 +3,7 @@ import { ChevronLeft } from "@primeicons/angular/chevron-left"
 import { ChevronRight } from "@primeicons/angular/chevron-right"
 import { Check } from "@primeicons/angular/check"
 import { CheckCircle } from "@primeicons/angular/check-circle"
+import { Clock } from "@primeicons/angular/clock"
 import { ExclamationTriangle } from "@primeicons/angular/exclamation-triangle"
 import { Eye } from "@primeicons/angular/eye"
 import { EyeSlash } from "@primeicons/angular/eye-slash"
@@ -25,6 +26,7 @@ export const ICON_NAMES = [
   "folder",
   "check",
   "check-circle",
+  "clock",
   "times",
   "times-circle",
   "exclamation-triangle",
@@ -45,6 +47,7 @@ export type IconSize = 16 | 20 | 24
     CheckCircle,
     ChevronLeft,
     ChevronRight,
+    Clock,
     ExclamationTriangle,
     Eye,
     EyeSlash,
@@ -73,6 +76,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("check-circle") {
         <svg data-p-icon="check-circle" [size]="size()" />
+      }
+      @case ("clock") {
+        <svg data-p-icon="clock" [size]="size()" />
       }
       @case ("times") {
         <svg data-p-icon="times" [size]="size()" />

@@ -1,0 +1,88 @@
+<p-table
+  [value]="rows()"
+  dataKey="trackId"
+  [scrollable]="true"
+  scrollHeight="flex"
+  [virtualScroll]="true"
+  [virtualScrollItemSize]="ROW_HEIGHT"
+  [pt]="tablePt()"
+>
+  <ng-template #header>
+    <tr>
+      <th class="w-12"></th>
+      <th>{{ "tagging.list.before" | translate }}</th>
+      <th>{{ "tagging.list.after" | translate }}</th>
+      <th class="w-36">{{ "tagging.list.source" | translate }}</th>
+      <th class="w-24 text-right">{{ "tagging.list.score" | translate }}</th>
+      <th class="w-40">{{ "tagging.list.state" | translate }}</th>
+    </tr>
+  </ng-template>
+
+  <ng-template #body let-track>
+    <tr class="h-14">
+      <td>
+        @if (track.artworkUrl; as url) {
+          <img
+            class="rounded-sm"
+            width="32"
+            height="32"
+            alt=""
+            [src]="url"
+            [animate.enter]="FADE_IN"
+          />
+        } @else if (track.state === null) {
+          <p-skeleton width="32px" height="32px" borderRadius="var(--p-border-radius-sm)" />
+        }
+      </td>
+      <td>
+        <app-truncated-text [text]="track.mainLine" />
+        <span class="block truncate text-xs text-muted-color">{{ track.fileName }}</span>
+      </td>
+      <td>
+        @if (track.afterLine; as afterLine) {
+          <app-truncated-text [text]="afterLine" />
+        } @else {
+          <span class="text-muted-color">-</span>
+        }
+      </td>
+      <td>
+        @if (track.source; as source) {
+          <span class="flex items-center gap-2">
+            <app-source-logo [source]="source" [size]="16" />
+            {{ track.sourceName }}
+          </span>
+        } @else {
+          <span class="text-muted-color">-</span>
+        }
+      </td>
+      <td class="text-right tabular-nums">
+        @if (track.scores; as scores) {
+          <span class="block">{{ scores.average }}</span>
+          <span class="block text-xs text-muted-color">
+            @if (scores.artist !== null) {
+              {{ "tagging.list.scoreArtist" | translate }} {{ scores.artist }} ·
+            }
+            {{ "tagging.list.scoreTitle" | translate }} {{ scores.title }}
+          </span>
+        } @else {
+          <span class="text-muted-color">-</span>
+        }
+      </td>
+      <td>
+        <app-state-tag
+          [state]="track.state"
+          [resolution]="track.resolution"
+          [awaiting]="track.arbitration !== null"
+        />
+      </td>
+    </tr>
+  </ng-template>
+
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="6" class="border-b-0">
+        <app-empty-state icon="folder" [heading]="'tagging.list.empty' | translate" />
+      </td>
+    </tr>
+  </ng-template>
+</p-table>
