@@ -22,7 +22,7 @@
 - **Aucun échec de refetch ni de pochette ne fait échouer un morceau.**
 - **Logs** : une ligne INFO par décision (`run`, `track` = position, `source`, `score`, `status`), `reason` pour un motif, `request_id` pour un échec de l'API. Aucun titre vers Sentry.
 - **Tests** : noms en anglais, AAA, API et CDN mockés par `FakeApi` et `FakeCdn`, jamais de réseau réel.
-- **Taille de page de la recherche** : `10`, décision du propriétaire du 2026-09-21. Elle dépend d'une release de techno-scraper non encore déployée à cette date : la Task 4 porte sa précondition et se saute sans dommage.
+- **Taille de page de la recherche** : `10`, décision du propriétaire du 2026-09-21. Portée par la `3.2.0` de techno-scraper, déployée le 2026-09-22 : la Task 4 garde sa vérification de précondition et se saute sans dommage si elle échoue.
 - **Gate qualité vert à chaque commit** : `just test`, `just lint`, `just typecheck`. Commits `type(scope): description`, scope `tagging`.
 
 ---
@@ -1078,9 +1078,7 @@ Décision du propriétaire du 2026-09-21 (spec § À trancher) : la recherche de
 
 - [ ] **Step 0: Précondition, à vérifier avant d'écrire une ligne**
 
-Le paramètre `limit` n'existe que dans une release de techno-scraper postérieure à la `3.1.4`. Celle-ci, en `extra="forbid"`, rejette tout paramètre inconnu : envoyer `limit` avant le déploiement rend `422` sur **chaque** recherche, donc un run entier sans aucun candidat.
-
-Le déploiement de techno-scraper est manuel (Deploy dans Dokploy après le tag). Demander au propriétaire de confirmer qu'une release portant `limit` est en production, puis le vérifier :
+Le paramètre `limit` existe depuis la `3.2.0` de techno-scraper, déployée le 2026-09-22. Une prod antérieure (`3.1.4`, `extra="forbid"`) rejette tout paramètre inconnu : `limit` y rend `422` sur **chaque** recherche, donc un run entier sans aucun candidat. Vérifier avant d'écrire une ligne :
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -H "X-API-Key: <clé>" \

@@ -1,8 +1,8 @@
 ---
 title: "techno-scraper — API gateway de métadonnées musicales"
-version: "3.1.4"
+version: "3.2.0"
 description: "Référence technique pour techno-scraper : authentification, contrat Track normalisé, routes consommées, sémantique d'erreur et bornes de concurrence."
-date: "2026-09-21"
+date: "2026-09-22"
 keywords: ["techno-scraper", "api", "track", "beatport", "bandcamp", "soundcloud", "x-api-key"]
 scope: ["docs"]
 technologies: ["httpx2", "Python", "FastAPI", "Pydantic"]
@@ -109,7 +109,7 @@ GET /health                                                        → 200      
 - **`/soundcloud/resolve` rend une enveloppe `UserProfile` (`{ profile, tracks }`), pas un `Track`** : le chemin de rattrapage SoundCloud ne se mappe pas comme les deux autres
 - SoundCloud n'est jamais interrogé en recherche automatique, ses métadonnées d'upload étant trop peu fiables (cf. [ADR-009](../adrs/009-enchainement-sources-et-arbitrage.md))
 - **Bandcamp n'est jamais appelé spéculativement** : l'appel n'est déclenché que par un résultat vide côté Beatport ou par un refus explicite de l'utilisateur en arbitrage
-- **`limit` arrive sur `/beatport/search` et `/bandcamp/search`**, où il n'existe pas en `3.1.4` (dernière version publiée). `/bandcamp/search` y gagne aussi un `cursor` réellement fonctionnel, absent de son modèle en `3.1.4` : Beatport en avait déjà un. Lu sur la branche `feat/limit-taille-de-page` de techno-scraper, non releasée à ce jour. Cf. § Pagination à curseur opaque pour le détail du paramètre
+- **`limit` arrive sur `/beatport/search` et `/bandcamp/search`**, depuis la `3.2.0` (déployée le 2026-09-22), absent en `3.1.4`. `/bandcamp/search` y gagne aussi un `cursor` réellement fonctionnel, absent de son modèle en `3.1.4` : Beatport en avait déjà un. Cf. § Pagination à curseur opaque pour le détail du paramètre
 
 ---
 
@@ -152,7 +152,7 @@ En-tête sur toutes les réponses, succès compris : X-Request-ID
 - `502 parse_error` n'est pas actionnable côté application : c'est un parser à corriger côté API. Le morceau se traite comme non résolu, et le rapport doit le distinguer d'un « rien trouvé »
 - **`422` est un contrat cassé, tout `5xx` une source indisponible, `500` compris** : un `422` dit que le sidecar a mal formé sa requête, c'est son bug. Un `500` dit que l'API a planté : le classer en contrat cassé le ferait remonter dans le Sentry du sidecar pour un incident que l'API remonte déjà dans le sien, alors que du point de vue de l'utilisateur la source n'a simplement pas répondu et que le morceau se rejouera. Le `503` couvre trois causes distinctes, traitées pareil : `source_unavailable` (source injoignable après retries), `stale_content` (contenu périmé servi par un cache amont, atteignable sur n'importe quelle source) et `quota_exceeded` (quota de génération de tokens épuisé, **SoundCloud uniquement**)
 - **`cursor_out_of_range` est un `400`, pas un `422`** : même corps qu'`invalid_cursor`, sans `provider`, malgré le nom qui évoque une validation de paramètre
-- **`cursor_limit_mismatch` et `cursor_scope_mismatch` sont deux `400` distincts** : le premier sanctionne une taille de page (`limit`) qui change en cours d'itération, le second un curseur rejoué sur une autre requête (`q`, `type`, un autre id d'entité, un autre filtre de date). Sans cette garde la position pointerait en silence dans un tout autre ensemble de résultats. Lu sur la branche `feat/limit-taille-de-page` de techno-scraper (`shared/queries.py`, `core/pagination.py`, `core/errors.py`), non releasée à ce jour : la dernière version publiée (`3.1.4`) ne les rend pas
+- **`cursor_limit_mismatch` et `cursor_scope_mismatch` sont deux `400` distincts** : le premier sanctionne une taille de page (`limit`) qui change en cours d'itération, le second un curseur rejoué sur une autre requête (`q`, `type`, un autre id d'entité, un autre filtre de date). Sans cette garde la position pointerait en silence dans un tout autre ensemble de résultats. Depuis la `3.2.0` (`shared/queries.py`, `core/pagination.py`, `core/errors.py`)
 - **Le `500` pose lui-même l'en-tête `X-Request-ID`** : il est rendu par `ServerErrorMiddleware`, hors du middleware qui pose cet en-tête pour toutes les autres réponses. C'est le seul code qui ne suit pas la règle générale ci-dessous
 - **Le retry est à la charge du consommateur** : l'API ne le fait pas pour lui, sa concurrence sortante étant mutualisée entre tous les consommateurs
 - **Le corps d'erreur ne porte ni message ni trace** : `{code, provider, request_id}` sur 404, 502 et 503, sans `provider` sur 400, 500 et 504, et le `{"detail": ...}` par défaut de FastAPI sur 403 et 422. Inutile d'y chercher un texte à afficher, le libellé utilisateur appartient au sidecar. Le `request_id`, repris en en-tête `X-Request-ID` sur toutes les réponses, est le seul lien avec la ligne de log et l'issue Sentry côté API : le journaliser à chaque échec, depuis l'en-tête plutôt que le corps
@@ -186,7 +186,7 @@ async def search_all(client, query: str) -> list[dict]:
 
 - **Le curseur est opaque et forward-only** : le décoder, le construire à la main ou le réutiliser sur une autre route est un contrat rompu
 - **Le paramètre ne s'appelle pas `cursor` partout** : c'est `cursor` sur `/beatport/search` et `/soundcloud/users/{id}/likes`, mais **`tracks_cursor`** sur `/soundcloud/resolve` et `/soundcloud/users/{id}`, où les morceaux sont une seconde collection à côté du profil. Les modèles de paramètres de l'API étant en `extra="forbid"`, se tromper de nom rend `422`, pas une première page
-- **`next_cursor: null` signifie « fin de liste » sur toutes les routes.** La source Bandcamp (`app_autocomplete`) n'accepte ni `limit` ni `offset` et rend tout d'un bloc, plafonné à 50 : c'est la gateway qui pagine `/bandcamp/search` par découpe après réception, avec un curseur d'offset : deux appels au plus à la taille par défaut (`25`), jusqu'à cinq à `limit=10`, dix à `limit=5`, vu ce plafond source. Lu sur la branche `feat/limit-taille-de-page`, non releasée à ce jour : la dernière version publiée (`3.1.4`) ne pagine toujours pas cette route
+- **`next_cursor: null` signifie « fin de liste » sur toutes les routes.** La source Bandcamp (`app_autocomplete`) n'accepte ni `limit` ni `offset` et rend tout d'un bloc, plafonné à 50 : c'est la gateway qui pagine `/bandcamp/search` par découpe après réception, avec un curseur d'offset : deux appels au plus à la taille par défaut (`25`), jusqu'à cinq à `limit=10`, dix à `limit=5`, vu ce plafond source. Depuis la `3.2.0`
 - **`limit` est une énumération fermée `5/10/25/50/100`, défaut `25`**, sur les six routes rendant `Page[T]` (les trois `/search`, les deux discographies Beatport, `/soundcloud/users/{id}/likes`) : une valeur hors énumération rend `422`, jamais une page tronquée en silence. Il doit rester identique pendant toute l'itération, le curseur le porte et un écart rend `400 cursor_limit_mismatch`
 - **Le curseur porte aussi une empreinte des paramètres qui définissent l'ensemble de résultats** (`q`/`type` pour une recherche, genre d'entité, id et filtre de date pour une discographie Beatport, id de compte et collection pour SoundCloud) : le rejouer sur une autre requête ou une autre collection rend `400 cursor_scope_mismatch`, distinct de `cursor_limit_mismatch`
 - **Le tagger ne pagine pas en recherche** : seuls les premiers candidats sont scorés, un morceau au-delà de la première page n'étant pas un candidat plausible. La boucle ci-dessus vaut pour les usages exhaustifs (discographie), pas pour le chemin de tagging
@@ -215,6 +215,7 @@ REQUEST_TIMEOUT = 100.0   # > 90 s de budget API, pour recevoir le 504 structur�
 
 - **Bandcamp est borné à 2 et Beatport à 3 côté API.** Émettre davantage n'accélère rien : les requêtes s'empilent derrière le sémaphore distant, consomment le budget de 90 s et sortent en `504`
 - Le `429` Bandcamp est constaté dès 3-4 requêtes simultanées côté API : la borne de 2 est mesurée, pas prudentielle
+- **Bandcamp a aussi un quota de volume** : environ 185 appels par fenêtre de 3 minutes, quel que soit le débit (mesuré côté API le 2026-09-22). Atteint, la source refuse tout et l'API coupe ses appels vers elle pendant 30 s (`3.2.0`). Un `503 source_unavailable` sur `provider: bandcamp` peut donc être un quota et non une panne : relancer les morceaux `unresolved` concernés au plus tôt 3 minutes après
 - **Le timeout client doit rester au-dessus du budget de l'API** (100 s pour 90 s), sinon on récolte un timeout local aveugle au lieu d'un `504` nommant la cause
 - Les bornes de l'API sont **par processus** : elles ne protègent pas d'une deuxième instance de l'application tournant en parallèle, ce que le plugin `single-instance` de Tauri empêche par ailleurs pour d'autres raisons
 - Le téléchargement des pochettes tape le CDN de la source, pas l'API : le compter dans le pool de 3 briderait les images pour rien
