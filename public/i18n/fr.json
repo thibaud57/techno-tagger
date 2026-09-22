@@ -44,7 +44,9 @@
     "api_contract_error": "Réponse inattendue lors de la recherche de métadonnées. Si elle revient, le détail se trouve dans le dossier des logs.",
     "api_key_error": "La clé API n'a pas pu être enregistrée.",
     "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",
-    "keyring_unavailable": "L'espace sécurisé de Windows est inaccessible. Relancez l'application."
+    "api_key_missing": "Aucune clé API enregistrée. Enregistrez-la dans les Réglages.",
+    "keyring_unavailable": "L'espace sécurisé de Windows est inaccessible. Relancez l'application.",
+    "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre."
   },
   "playlist": {
     "title": "Playlist",

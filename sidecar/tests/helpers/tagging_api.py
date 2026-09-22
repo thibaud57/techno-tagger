@@ -25,7 +25,7 @@ type Reply = Callable[[], httpx2.Response]
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 
 
-def _public(_host: str) -> list[str]:
+def public_resolver(_host: str) -> list[str]:
     """Resolveur injecte : aucun test n'interroge le DNS."""
     return ["93.184.216.34"]
 
@@ -102,7 +102,7 @@ async def run(
     async with (
         make_client(api.handler) as client,
         ArtworkFetcher(
-            artworks_cache, transport=httpx2.MockTransport(cdn.handler), resolve=_public
+            artworks_cache, transport=httpx2.MockTransport(cdn.handler), resolve=public_resolver
         ) as artworks,
     ):
         return await run_tagging(folder, client=client, artworks=artworks, on_event=sink.append)

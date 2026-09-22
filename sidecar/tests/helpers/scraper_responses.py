@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Final
 
 import httpx2
 
-from tagger.scraper_client import TechnoScraperClient
+from tagger.scraper_client import Credit, Source, TechnoScraperClient, TrackCandidate
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
@@ -57,6 +57,25 @@ def track_payload(**overrides: object) -> dict[str, object]:
         "source": "beatport",
     }
     return payload | overrides
+
+
+def track_candidate(
+    title: str = "Your Mind",
+    mix_name: str | None = "Original Mix",
+    artists: tuple[str, ...] = ("Adam Beyer",),
+    *,
+    remixers: tuple[str, ...] = (),
+    track_id: str = "1",
+) -> TrackCandidate:
+    """Candidat deja valide, pour les tests qui partent du modele et non du JSON."""
+    return TrackCandidate(
+        id=track_id,
+        title=title,
+        mix_name=mix_name,
+        artists=tuple(Credit(name=name) for name in artists),
+        remixers=tuple(Credit(name=name) for name in remixers),
+        source=Source.BEATPORT,
+    )
 
 
 def page_payload(*items: dict[str, object]) -> dict[str, object]:

@@ -11,12 +11,23 @@ inconnu ou mal type est une commande malformee, pas un detail a ignorer
 
 from enum import UNIQUE, StrEnum, auto, verify
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+    ValidationError,
+    model_validator,
+)
 
 from tagger.extraction import DuplicateCriterion, ExtractionFailureReason, ExtractionMode
+from tagger.matching import MatchingThresholds, check_thresholds
 from tagger.playlists import PlaylistFormat
+from tagger.scraper_client import Source
+from tagger.tagging import FailureReason, Resolution, TrackState
 
 if TYPE_CHECKING:
     from tagger.errors import TaggerError
@@ -90,14 +101,43 @@ class SetApiKey(Command):
     ]
 
 
+class ThresholdsPayload(BaseModel):
+    """Seuils envoyes par les Settings. Absents, le sidecar applique les siens."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    floor: float
+    ceiling: float
+
+    @model_validator(mode="after")
+    def _within_bounds(self) -> Self:
+        # Les bornes ne sont pas reecrites ici, `check_thresholds` les porte. Pydantic
+        # enveloppe en `ValidationError` ce que leve un validateur, d'ou le
+        # `malformed_command` des la validation plutot qu'une erreur en plein run.
+        check_thresholds(self.floor, self.ceiling)
+        return self
+
+    def to_matching(self) -> MatchingThresholds:
+        """Seuils du metier, deja valides a la construction de la commande."""
+        return MatchingThresholds(floor=self.floor, ceiling=self.ceiling)
+
+
+class StartTagging(Command):
+    """Dossier a re-tagger, et seuils de matching quand les Settings en imposent."""
+
+    command: Literal["start_tagging"]
+    folder: Path
+    thresholds: ThresholdsPayload | None = None
+
+
 type AnyCommand = Annotated[
-    GetVersion | Shutdown | ListPlaylists | ExtractPlaylist | SetApiKey,
+    GetVersion | Shutdown | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging,
     Field(discriminator="command"),
 ]
 
 # `shutdown` sort de la boucle sans rien executer : l'exclure ici permet au `match`
 # du dispatch de se fermer par `assert_never` sans laisser de cas non couvert.
-type ExecutableCommand = GetVersion | ListPlaylists | ExtractPlaylist | SetApiKey
+type ExecutableCommand = GetVersion | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
 
@@ -208,6 +248,99 @@ class ExtractionFinished(Event):
     duplicates: tuple[DuplicatePayload, ...]
     failures: tuple[FailurePayload, ...]
     report_path: Path
+
+
+@verify(UNIQUE)
+class RunPhase(StrEnum):
+    """Phase que `run_finished` cloture : la boucle reseau, puis l'ecriture."""
+
+    NETWORK = auto()
+    WRITE = auto()
+
+
+class TrackEntry(BaseModel):
+    """Un morceau du run tel que la liste l'affiche avant toute resolution."""
+
+    model_config = ConfigDict(frozen=True)
+
+    track_id: str
+    file_name: str
+    artist: str
+    title: str
+
+
+class RunStarted(Event):
+    """Toutes les lignes de la liste, des le depart : sans lui, l'ecran reste vide
+    jusqu'a la premiere resolution.
+    """
+
+    event: Literal["run_started"]
+    run_id: str
+    tracks: tuple[TrackEntry, ...]
+
+
+class TrackNames(BaseModel):
+    """Artiste et titre qu'une source ecrira, calcules cote sidecar (ADR-011)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artist: str
+    title: str
+
+
+class TrackScores(BaseModel):
+    """Scores arrondis pour l'affichage. `artist` nul : la requete n'en avait pas."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artist: int | None
+    title: int
+    average: int
+
+
+class TrackResolved(Event):
+    """Etat d'un morceau en trois champs, jamais en une valeur plate."""
+
+    event: Literal["track_resolved"]
+    track_id: str
+    state: TrackState
+    resolution: Resolution
+    failure_reason: FailureReason | None = None
+    source: Source | None = None
+    after: TrackNames | None = None
+    scores: TrackScores | None = None
+    artwork_path: Path | None = None
+
+
+class CandidatePayload(BaseModel):
+    """Un candidat en zone grise, avec ses scores."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artist: str
+    title: str
+    scores: TrackScores
+
+
+class ArbitrationRequired(Event):
+    """Morceau en attente d'une decision humaine. La Feature 3 etendra la charge."""
+
+    event: Literal["arbitration_required"]
+    track_id: str
+    source: Source
+    beatport_unavailable: bool
+    candidates: tuple[CandidatePayload, ...]
+
+
+class RunFinished(Event):
+    """Fin d'une phase du run. Les rapports arriveront avec la Feature 6."""
+
+    event: Literal["run_finished"]
+    phase: RunPhase
+    run_id: str
+    resolved: int
+    unresolved: int
+    awaiting_arbitration: int
 
 
 class Error(Event):

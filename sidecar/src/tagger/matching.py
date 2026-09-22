@@ -105,8 +105,17 @@ class MatchingThresholds:
     ceiling: float = 90
 
     def __post_init__(self) -> None:
-        if not 0 <= self.floor <= self.ceiling <= _MAX_SCORE:
-            raise ValueError(f"inconsistent thresholds: floor={self.floor} ceiling={self.ceiling}")
+        check_thresholds(self.floor, self.ceiling)
+
+
+def check_thresholds(floor: float, ceiling: float) -> None:
+    """Bornes des seuils, verifiees ici et nulle part ailleurs.
+
+    La commande `start_tagging` appelle la meme fonction sur sa charge, de facon a
+    refuser des seuils incoherents a la validation plutot qu'en plein run.
+    """
+    if not 0 <= floor <= ceiling <= _MAX_SCORE:
+        raise ValueError(f"inconsistent thresholds: floor={floor} ceiling={ceiling}")
 
 
 DEFAULT_THRESHOLDS: Final = MatchingThresholds()
@@ -379,3 +388,28 @@ def _passes_remix_guard(asked: _Parts, offered: _Parts) -> bool:
 
 def _mentions_remix(parts: _Parts) -> bool:
     return any(_REMIX_WORD.search(part) is not None for part in parts)
+
+
+def full_title(candidate: TrackCandidate) -> str:
+    """Titre tel que l'ADR-011 l'ecrit : titre et mix.
+
+    Distinct de la forme comparee par le scoring, qui separe au contraire titre et
+    version (`_comparable`) : afficher et scorer ne demandent pas la meme chaine.
+    """
+    mix_name = candidate.mix_name
+    if not mix_name or _mentions(candidate.title, mix_name):
+        return candidate.title
+    return f"{candidate.title} ({mix_name})"
+
+
+def _mentions(title: str, mix_name: str) -> bool:
+    """Mot entier : un mix court ne doit pas matcher un fragment d'un autre mot
+    (« Dub » dans « Dubplate »).
+    """
+    guard = re.compile(rf"(?<!\w){re.escape(mix_name)}(?!\w)", re.IGNORECASE)
+    return guard.search(title) is not None
+
+
+def credited_artists(candidate: TrackCandidate) -> str:
+    """Artistes joints comme dans la CLI, remixeurs exclus : ils vivent dans le mix."""
+    return ", ".join(credit.name for credit in candidate.artists)

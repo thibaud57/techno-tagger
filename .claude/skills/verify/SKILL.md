@@ -48,6 +48,74 @@ L'âge d'une entrée se force en renommant l'epoch de son nom (`<hash>.<epoch>.<
 
 Le faux CDN se scinde en deux, parce qu'`ArtworkFetcher` refuse toute URL qui n'est pas en `https` vers une adresse publique. Le garde-fou se vérifie contre le vrai serveur local, avec le résolveur réel : `https://localhost/...` doit partir en `blocked_url` par résolution DNS, et le serveur rester à zéro requête reçue. Le téléchargement, lui, ne peut plus le viser et passe par un `MockTransport` sous une URL `https` d'apparence publique, avec un `resolve=` injecté qui rend une adresse publique : client, streaming, cache et disque restent réels, seules la résolution et la couche TCP sont détournées.
 
+## Pilotage du run de re-tagging
+
+`start_tagging` part vers techno-scraper, dont l'URL est une constante du module
+(`scraper_client.API_BASE_URL`) : aucune variable d'environnement ne la détourne. Le run
+se pilote donc par un lanceur du scratchpad qui réaffecte cette constante vers un
+`http.server` local, puis appelle `run_loop` sur des flux en mémoire. Tout le reste
+reste celui de production : boucle, client httpx2 sur une vraie socket, caches disque,
+trousseau, lecture des tags, sortie NDJSON. Armer `setup_logging(log_dir())` comme le
+fait `main()`, sinon rien n'est écrit sous la racine des données.
+
+```python
+import fake_api
+from tagger import scraper_client
+server = fake_api.serve()
+scraper_client.API_BASE_URL = f"http://127.0.0.1:{server.server_address[1]}"
+from tagger.__main__ import log_dir, run_loop   # apres la reaffectation
+```
+
+Le faux serveur ne lit jamais l'en-tête `X-API-Key` : une vraie clé est enregistrée sur
+la machine de développement, le sidecar l'envoie telle quelle, et la journaliser la
+ferait fuir. Un `REJECT_ALL` dans l'environnement lui fait rendre 403 à tout, ce qui
+rejoue la garde des trois refus.
+
+Placer un candidat en zone grise demande de viser l'intervalle des seuils, pas de
+l'approcher au jugé : artiste exact donne 100, donc le titre doit scorer entre 70 et 80
+pour que la moyenne reste sous 90. `fuzz.ratio("Basiel", "Basielians",
+processor=utils.default_process)` rend 75, d'où un arbitrage ; « Basiel Reprise » rend
+60 et tombe sous le plancher.
+
+**Purger `appdata` entre deux runs** : le cache de réponses est réel, et une réponse
+changée côté faux serveur reste invisible tant que l'entrée précédente est valide. Un
+run qui ne bouge pas après modification du serveur est presque toujours ça.
+
+### Flux qui valent le coup
+
+- Séquence complète : `run_started` listant tous les morceaux, puis par morceau son
+  `track_resolved` ou son `arbitration_required` suivi d'un `progress` en phase
+  `tagging`, enfin `run_finished` en phase `network` avec les trois compteurs
+- Contenu d'un résolu : `state`/`resolution`/`failure_reason` en trois champs, `after`
+  portant le titre suivi du nom de mix, scores entiers, chemin de pochette
+- Commande servie pendant un run : `get_version` envoyé après `start_tagging` répond
+  avant `run_finished`, ce qui prouve que la boucle n'est pas bloquée
+- Second `start_tagging` pendant un run : `error` de code `tagging_in_progress`, et le
+  premier run poursuit jusqu'à son `run_finished`
+- Seuils hors bornes : `malformed_command` dont les `params` ne portent que `loc` et
+  `type`, jamais les valeurs envoyées, et la boucle continue
+- Clé refusée (`REJECT_ALL`) : `error` de code `api_key_rejected` en dernier événement,
+  aucun `run_finished`
+- `shutdown` pendant un run : tâche annulée, aucun `run_finished`, sortie 0, et la
+  commande suivante ignorée
+- Dossier vide : `run_started` à liste vide, aucun `progress`, `run_finished` à zéro
+- Racine des données : `cache/responses/` et `logs/tagger.log` sous
+  `<LOCALAPPDATA>/fr.empiricmind.techno-tagger/`, jamais dans le profil réel
+
+### Gotchas du run
+
+- **httpx2 journalise l'URL complète en INFO**, donc `q=Adam+Beyer+Your+Mind` : le log
+  local porte les artistes et les titres du run. C'est admis (les logs restent locaux),
+  et rien ne part vers Sentry tant qu'`observability.init_sentry` garde son
+  `LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)`. Contrôler
+  ce réglage avant de conclure sur une fuite, plutôt que la présence des titres
+- Un `artwork_url` nul dans les réponses du faux serveur rend `artwork_path` nul sans
+  rien casser : c'est le cas de bord « Pochette absente ». Pour exercer le chemin
+  complet, il faut un `MockTransport` et un `resolve=` injectés par `tagging_transports`,
+  `ArtworkFetcher` refusant toute URL qui n'est pas en `https` vers une adresse publique
+- L'ordre des `track_resolved` ne suit pas celui des morceaux : les tâches du run sont
+  concurrentes, seul l'ordre « événement du morceau puis son `progress` » est garanti
+
 ## Pilotage du trousseau
 
 `set_api_key` écrit dans le **vrai** Credential Manager de Windows (cible `techno-tagger`, utilisateur `x-api-key`) : aucun trousseau en mémoire hors pytest, et `LOCALAPPDATA` n'isole rien ici.

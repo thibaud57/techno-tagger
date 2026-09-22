@@ -45,6 +45,15 @@ class KeyringUnavailableError(ApiKeyError):
         super().__init__("no keyring backend")
 
 
+class ApiKeyMissingError(ApiKeyError):
+    """Aucune cle enregistree : rien ne peut etre demande a l'API."""
+
+    code: ClassVar[str] = "api_key_missing"
+
+    def __init__(self) -> None:
+        super().__init__("no api key configured")
+
+
 def read_api_key() -> str | None:
     """Cle enregistree, `None` au premier lancement ou si le trousseau est illisible.
 

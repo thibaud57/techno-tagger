@@ -8,7 +8,7 @@ import asyncio
 import io
 import logging
 import sys
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, ClassVar, assert_never
 
 import keyring
 from keyring.backends.Windows import WinVaultKeyring
@@ -22,18 +22,20 @@ from tagger.handlers import (
     handle_get_version,
     handle_list_playlists,
     handle_set_api_key,
+    handle_start_tagging,
 )
 from tagger.logger import setup_logging
 from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
 from tagger.protocol import (
+    Event,
     ExecutableCommand,
     ExtractPlaylist,
     GetVersion,
     ListPlaylists,
-    Progress,
     SetApiKey,
     Shutdown,
+    StartTagging,
     emit,
     error_from_business,
     error_from_validation,
@@ -82,6 +84,61 @@ def _force_utf8_streams() -> None:
             )
 
 
+class TaggingInProgressError(TaggerError):
+    """Un run tourne deja : le lancer deux fois ecrirait deux fois les memes fichiers."""
+
+    code: ClassVar[str] = "tagging_in_progress"
+
+    def __init__(self) -> None:
+        super().__init__("a tagging run is already in progress")
+
+
+class _Session:
+    """Etat de la session : le run de re-tagging tourne pendant que stdin est lu.
+
+    Seul ecrivain sur `stdout` : la boucle et la tache de fond passent toutes deux
+    par `send`, ce qui garde une ligne par evenement sans verrou.
+    """
+
+    def __init__(self, group: asyncio.TaskGroup, stdout: TextIO) -> None:
+        self._group = group
+        self._stdout = stdout
+        self._run: asyncio.Task[None] | None = None
+
+    def start_tagging(self, command: StartTagging) -> None:
+        """Lance le run en tache de fond : la boucle repart lire la commande suivante."""
+        if self._active_run() is not None:
+            raise TaggingInProgressError
+        self._run = self._group.create_task(self._tag(command), name="tagging")
+
+    def cancel_run(self) -> None:
+        """`shutdown` n'attend pas la fin d'un run, il l'annule."""
+        running = self._active_run()
+        if running is not None:
+            running.cancel()
+
+    def send(self, event: Event) -> None:
+        """Une ligne, un evenement. Le `line_buffering` pose par `_force_utf8_streams`
+        dispense de flusher ; un flux substitue en test n'en a pas besoin.
+        """
+        self._stdout.write(emit(event) + "\n")
+
+    def _active_run(self) -> asyncio.Task[None] | None:
+        """Le run en cours, `None` s'il n'y en a pas ou s'il est deja termine."""
+        if self._run is None or self._run.done():
+            return None
+        return self._run
+
+    async def _tag(self, command: StartTagging) -> None:
+        try:
+            finished = await handle_start_tagging(command, self.send)
+        except TaggerError as error:
+            logger.exception("tagging run failed reason=%s", error.code)
+            self.send(error_from_business(error))
+            return
+        self.send(finished)
+
+
 def main() -> None:
     _force_utf8_streams()
 
@@ -105,42 +162,47 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    Une commande a la fois : la ligne suivante n'est lue qu'une fois la precedente
-    traitee. Rien ne justifie de les chevaucher tant que le protocole n'offre pas
-    d'annulation, et l'interface replie ses choix pendant un run.
+    La boucle ne traite plus une commande a la fois quand un run de re-tagging est
+    lance : il tourne en tache de fond dans le `TaskGroup`, ce qui laisse la boucle
+    libre de lire les commandes suivantes pendant qu'il avance. `shutdown` l'annule,
+    l'EOF l'attend.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre
     exception fait tomber le processus, volontairement : l'avaler cacherait un bug que
     Sentry remonte comme crash du sidecar (cf. PRODUCTION.md § Alertes).
     """
-    while True:
-        line = await asyncio.to_thread(stdin.readline)
-        if not line:
-            return
+    async with asyncio.TaskGroup() as group:
+        session = _Session(group, stdout)
+        while True:
+            line = await asyncio.to_thread(stdin.readline)
+            if not line:
+                # EOF : on sort du groupe, qui attend la fin d'un run en cours.
+                return
 
-        stripped = line.strip()
-        if not stripped:
-            continue
+            stripped = line.strip()
+            if not stripped:
+                continue
 
-        try:
-            command = parse_command(stripped)
-        except ValidationError as error:
-            _write(stdout, emit(error_from_validation(error)))
-            continue
+            try:
+                command = parse_command(stripped)
+            except ValidationError as error:
+                session.send(error_from_validation(error))
+                continue
 
-        if isinstance(command, Shutdown):
-            return
-        # Mypy retire `Shutdown` de l'union a partir d'ici, ce dont `_dispatch` depend.
+            if isinstance(command, Shutdown):
+                session.cancel_run()
+                return
+            # Mypy retire `Shutdown` de l'union a partir d'ici, ce dont `_dispatch` depend.
 
-        try:
-            await _dispatch(command, stdout)
-        except TaggerError as error:
-            logger.exception("command failed reason=%s", error.code)
-            _write(stdout, emit(error_from_business(error)))
+            try:
+                await _dispatch(command, session)
+            except TaggerError as error:
+                logger.exception("command failed reason=%s", error.code)
+                session.send(error_from_business(error))
 
 
-async def _dispatch(command: ExecutableCommand, stdout: TextIO) -> None:
+async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
     """Route une commande validee vers son handler.
 
     `Shutdown` est traite par la boucle et n'arrive jamais ici, ce que le type dit :
@@ -153,28 +215,18 @@ async def _dispatch(command: ExecutableCommand, stdout: TextIO) -> None:
     """
     match command:
         case GetVersion():
-            _write(stdout, emit(await asyncio.to_thread(handle_get_version)))
+            session.send(await asyncio.to_thread(handle_get_version))
         case SetApiKey():
-            _write(stdout, emit(await asyncio.to_thread(handle_set_api_key, command)))
+            session.send(await asyncio.to_thread(handle_set_api_key, command))
         case ListPlaylists():
-            event = await asyncio.to_thread(handle_list_playlists, command)
-            _write(stdout, emit(event))
+            session.send(await asyncio.to_thread(handle_list_playlists, command))
         case ExtractPlaylist():
-
-            def on_progress(progress: Progress) -> None:
-                _write(stdout, emit(progress))
-
-            finished = await asyncio.to_thread(handle_extract_playlist, command, on_progress)
-            _write(stdout, emit(finished))
+            finished = await asyncio.to_thread(handle_extract_playlist, command, session.send)
+            session.send(finished)
+        case StartTagging():
+            session.start_tagging(command)
         case _:
             assert_never(command)
-
-
-def _write(stdout: TextIO, line: str) -> None:
-    """Une ligne, un evenement. Le `line_buffering` pose par `_force_utf8_streams`
-    dispense de flusher ; un flux substitue en test n'en a pas besoin.
-    """
-    stdout.write(line + "\n")
 
 
 if __name__ == "__main__":

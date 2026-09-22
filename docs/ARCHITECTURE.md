@@ -410,10 +410,10 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Arrête la boucle une fois la commande en cours terminée. La fermeture de la fenêtre ne l'émet pas : Tauri arrête le sidecar à la sortie de l'application (mesuré le 2026-09-18), et une commande émise en plein run ne serait lue qu'à sa fin, la boucle traitant une commande à la fois. Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
+| `shutdown` | aucune. Arrête la boucle une fois la commande en cours terminée, et annule le run de re-tagging s'il en tourne un ; l'EOF l'attend au contraire. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
-| `start_tagging` | dossier cible, seuils de matching |
+| `start_tagging` | dossier cible, et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source) |
 | `resolve_arbitration` | identifiant du morceau, candidat choisi ou refus explicite |
 | `switch_arbitration_source` | identifiant du morceau, source demandée. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), et produit un `arbitration_updated` |
 | `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud |
@@ -433,15 +433,18 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | `playlists_listed` | format reconnu du fichier, et playlists du dump VLC : identifiant, nom, nombre de morceaux |
 | `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture |
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
+| `run_started` | identifiant du run et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus. Sans lui, la liste resterait vide jusqu'à la première résolution |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
-| `arbitration_required` | morceau, candidats en zone grise avec leur score, source interrogée |
+| `arbitration_required` | morceau, candidats en zone grise avec leur score, source interrogée, et `beatport_unavailable` quand Bandcamp n'a été interrogé que parce que Beatport était en panne (§ Chaîne de résolution) |
 | `arbitration_updated` | remplacement de la liste Beatport par la liste Bandcamp dans la modale ouverte, et retour en arrière |
-| `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), récapitulatif, chemin des rapports |
+| `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs résolus, non résolus et en attente d'arbitrage, et chemin des rapports une fois la Feature 6 livrée |
 | `runs_listed` | runs passés : identifiant, date, dossier, compteurs du récapitulatif |
 | `run_loaded` | récapitulatif d'un run passé, relu depuis son rapport JSON |
 | `error` | `code`, `params`, `message` technique, morceau concerné le cas échéant |
 
 **`run_finished` porte une `phase`, il n'est pas émis une seule fois.** La fin de la boucle de résolution ouvre la phase de rattrapage par URL, la fin de l'écriture ouvre le récapitulatif : deux moments distincts, deux écrans différents, un seul événement. Sans ce champ, l'interface ne peut pas savoir lequel des deux elle reçoit.
+
+Deux axes de phase, deux enums : `Phase` (`extraction`, `tagging`, `url_recovery`, `write`) qualifie un `progress`, l'étape que la barre affiche ; `RunPhase` (`network`, `write`) qualifie un `run_finished`, la moitié du run qui vient de se clore. Elles partagent la valeur `write` sans être le même type, mypy refuse de les mélanger.
 
 **L'état d'un morceau tient en trois champs**, jamais en une liste plate de valeurs :
 
@@ -510,7 +513,7 @@ Ce qui rend la règle sûre est que ni `unresolved` ni `write_error` ne changent
 
 Ce découpage est ce que consomme la colonne État de l'interface, dont les couleurs sont regroupées en quatre familles (cf. [DESIGN.md § Couleurs Sémantiques](DESIGN.md#couleurs-sémantiques)).
 
-**Le sidecar n'émet jamais de phrase destinée à l'écran.** Il émet un `code` stable (`file_locked`, `invalid_api_key`, `vlc_schema_mismatch`…) et des `params` structurés (chemin, table manquante, nom du champ). L'interface traduit, via ngx-translate comme le reste des libellés. Le champ `message` reste du texte technique, écrit dans les logs, jamais affiché.
+**Le sidecar n'émet jamais de phrase destinée à l'écran.** Il émet un `code` stable (`file_locked`, `api_key_rejected`, `vlc_schema_mismatch`…) et des `params` structurés (chemin, table manquante, nom du champ). L'interface traduit, via ngx-translate comme le reste des libellés. Le champ `message` reste du texte technique, écrit dans les logs, jamais affiché.
 
 Sans cette règle, l'i18n serait à maintenir en double, côté Python et côté Angular, ou les erreurs s'afficheraient dans une langue différente du reste de l'interface. Elle vaut aussi pour les messages du § [Robustesse](#-robustesse--modes-de-panne), qui sont tous produits par le sidecar.
 
@@ -777,7 +780,7 @@ C'est le seul chemin par lequel un morceau atteint l'état non résolu sans qu'a
 
 Une clé fausse ou révoquée produirait 100 échecs identiques, indiscernables d'une panne réseau dans le rapport. Le sidecar **arrête le run après trois réponses 403 consécutives** et remonte une erreur nommant explicitement la clé, avec un renvoi vers les Settings. Un 403 n'est jamais retryé, contrairement à une erreur réseau.
 
-Un run avorté **se termine proprement sur le flux** : un `error` de code `invalid_api_key`, puis un `run_finished` de phase `network` portant le récapitulatif partiel. Sans ce second événement, l'interface attendrait indéfiniment une fin qui ne vient pas. Les morceaux non traités restent en « en attente » côté écran, aucun `track_resolved` ne les ayant tranchés, et le plan reste sur le disque : une fois la clé corrigée, le run se reprend par `resume_run` au lieu de repartir de zéro.
+Un run avorté **se termine par l'erreur elle-même** : un `error` de code `api_key_rejected`, sans `params`, et aucun `run_finished`, ce dernier étant réservé à une fin normale pour que le signal de fin de phase ne se déclenche jamais sur un échec (décision du 2026-09-20). L'interface arrête le run sur cette branche. Les morceaux non traités restent en « en attente » côté écran, aucun `track_resolved` ne les ayant tranchés. La reprise d'un run avorté, une fois la clé corrigée, arrive avec le plan de run de la Feature 6 (`resume_run`).
 
 ### Instance unique
 

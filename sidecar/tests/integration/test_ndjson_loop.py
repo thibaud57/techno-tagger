@@ -4,8 +4,6 @@ Aucune interface n'est lancee : le contrat se teste en ligne de commande, ce qui
 est sa raison d'etre (ADR-005).
 """
 
-import asyncio
-import io
 import json
 import logging
 from pathlib import Path
@@ -14,23 +12,10 @@ from typing import NoReturn
 import keyring
 import pytest
 from memory_keyring import MemoryKeyring, RefusingKeyring
+from ndjson_loop import drive, drive_raw
 
 from tagger import handlers
-from tagger.__main__ import run_loop
 from tagger.reports import ReportWriteError
-
-
-def drive_raw(commands: str) -> str:
-    """Injecte des commandes et rend la sortie brute, pour y chercher une fuite."""
-    stdout = io.StringIO()
-    asyncio.run(run_loop(io.StringIO(commands), stdout))
-
-    return stdout.getvalue()
-
-
-def drive(commands: str) -> list[dict[str, object]]:
-    """Injecte des commandes et rend les evenements emis, un par ligne."""
-    return [json.loads(line) for line in drive_raw(commands).splitlines() if line]
 
 
 def extract_command(
@@ -192,12 +177,11 @@ def test_the_loop_ends_without_answering_anything_further(stdin: str) -> None:
 
 
 def test_every_line_parses_on_its_own(vlc_dump: Path) -> None:
-    stdout = io.StringIO()
     command = json.dumps({"command": "list_playlists", "playlist_path": str(vlc_dump)})
 
-    asyncio.run(run_loop(io.StringIO(command + "\n"), stdout))
+    output = drive_raw(command + "\n")
 
-    for line in stdout.getvalue().splitlines():
+    for line in output.splitlines():
         assert json.loads(line)
 
 

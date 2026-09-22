@@ -44,7 +44,9 @@
     "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder.",
     "api_key_error": "The API key could not be saved.",
     "api_key_not_stored": "The key could not be saved on this computer. Try again.",
-    "keyring_unavailable": "Windows secure storage is unavailable. Restart the application."
+    "api_key_missing": "No API key saved. Save it in the settings.",
+    "keyring_unavailable": "Windows secure storage is unavailable. Restart the application.",
+    "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one."
   },
   "playlist": {
     "title": "Playlist",
