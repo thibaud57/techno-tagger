@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "service-sidecar-tagging"
 goal: "Porter côté webview l'état d'un run de re-tagging, alimenté par les événements du sidecar"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["07-protocole-ndjson-tagging-design.md"]
