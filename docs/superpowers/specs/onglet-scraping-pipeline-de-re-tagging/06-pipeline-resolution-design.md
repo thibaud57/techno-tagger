@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "pipeline-resolution"
 goal: "Résoudre tous les morceaux d'un dossier en parallèle borné, de la lecture des tags au candidat retenu, sans jamais bloquer sur une décision humaine"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-lecture-tags-fichiers-design.md", "02-client-techno-scraper-design.md", "03-requete-et-scoring-design.md", "04-cache-et-pochettes-design.md", "05-cle-api-design.md"]
