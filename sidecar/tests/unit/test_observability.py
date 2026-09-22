@@ -5,14 +5,17 @@ teste donc comme du code metier (cf. ADR-014).
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
+import httpx2
+import pytest
+
 from tagger import APP_NAME, RELEASE
 from tagger import observability as obs
-from tagger.observability import MASK, _scrub, init_sentry
+from tagger.observability import MASK, QUERY_MASK, _scrub, init_sentry
+from tagger.scraper_client import ApiContractError
 
 DSN = "https://key@o1.ingest.de.sentry.io/1"
 
 if TYPE_CHECKING:
-    import pytest
     from sentry_sdk.types import Event, Hint
 
 
@@ -90,6 +93,56 @@ def test_scrubbing_masks_the_username_at_any_depth(
         "tags": {"user": MASK},
         "extra": {rf"{MASK}\Music": "locked", "tracks": 42},
     }
+
+
+def _chained_contract_error(query: str) -> ApiContractError:
+    """La chaine d'exceptions reelle d'une reponse hors contrat sur une recherche.
+
+    Le message de `HTTPStatusError` est ecrit par httpx2 et porte l'URL entiere : le
+    fabriquer a la main ne prouverait rien sur ce que le SDK remonterait vraiment.
+    """
+    request = httpx2.Request(
+        "GET",
+        "https://techno-scraper.empiricmind.fr/beatport/search",
+        params={"q": query, "type": "tracks", "limit": "10"},
+    )
+    response = httpx2.Response(422, request=request)
+    try:
+        response.raise_for_status()
+    except httpx2.HTTPStatusError as exc:
+        error = ApiContractError("status 422", request_id="req-1")
+        # Ce que `raise ... from exc` pose dans `scraper_client`, et ce que le SDK
+        # remonte : `from` n'existe pas sur un `return`.
+        error.__cause__ = exc
+        return error
+    pytest.fail("raise_for_status n'a pas leve sur un 422")
+
+
+def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
+    """Un titre de morceau ne part jamais vers Sentry (ADR-014) : le SDK recopie le
+    message de chaque exception de la chaine `__cause__`, et celui d'httpx2 porte
+    l'URL de la recherche, donc l'artiste et le titre lus dans le fichier.
+    """
+    error = _chained_contract_error("Adam Beyer Your Mind")
+    assert error.__cause__ is not None
+    event = {
+        "exception": {
+            "values": [
+                {"type": "HTTPStatusError", "value": str(error.__cause__)},
+                {"type": "ApiContractError", "value": str(error)},
+            ]
+        }
+    }
+
+    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+
+    rendered = str(scrubbed)
+    # Par fragment d'un seul mot : l'URL encode les espaces, « Adam Beyer » n'y
+    # apparaitrait de toute facon pas tel quel et l'assertion passerait a vide.
+    assert "Beyer" not in rendered
+    assert "Mind" not in rendered
+    assert QUERY_MASK in rendered
+    assert "techno-scraper.empiricmind.fr/beatport/search" in rendered
 
 
 def test_scrubbing_leaves_envelope_fields_intact(

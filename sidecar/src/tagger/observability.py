@@ -7,8 +7,9 @@ d'envoyer, et les reglages ci-dessous sont a tester comme du code metier.
 
 import logging
 import os
+import re
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Final, cast
 
 from tagger import APP_NAME
 from tagger.build_info import ENVIRONMENT
@@ -19,6 +20,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 MASK = "<user>"
+QUERY_MASK = "<query>"
+
+# Une recherche part en parametre d'URL, donc l'artiste et le titre du morceau, et
+# httpx2 ecrit l'URL entiere dans le message de `HTTPStatusError`. Le SDK remonte la
+# chaine `__cause__` d'une exception et recopie chaque message tel quel : sans ce
+# masquage, un statut hors des cas traites emmenait le morceau vers Sentry, ce que
+# l'ADR-014 interdit. Le diagnostic tient au `request_id`, jamais a la requete.
+_URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>]*)\?[^\s'\"<>]*", re.IGNORECASE)
 
 # `USERNAME` sous Windows, `USER` sur les runners Linux de la CI.
 _USERNAME = os.getenv("USERNAME") or os.getenv("USER") or ""
@@ -29,6 +38,7 @@ _HOME_FORMS = {_HOME, _HOME.replace("\\", "/")}
 
 
 def _mask(text: str) -> str:
+    text = _URL_QUERY.sub(rf"\g<url>?{QUERY_MASK}", text)
     for home in _HOME_FORMS:
         text = text.replace(home, MASK)
     # Le nom nu apres les chemins : il reste dans `C:\Users\<nom>\...` tronque, dans

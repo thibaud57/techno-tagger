@@ -121,6 +121,7 @@ techno-tagger/
 │   │   ├── matching.py                   # scoring rapidfuzz
 │   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
 │   │   ├── cache.py                      # réponses API et artworks
+│   │   ├── tagging.py                    # pipeline de résolution d'un run, état en mémoire
 │   │   └── plan.py                       # plan de run, reprise, rapport
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
 │   │   ├── unit/                         # un module isole, miroir de src/tagger/
@@ -250,6 +251,10 @@ flowchart TD
     bpauto -->|"auto"| oka["resolved<br/>resolution = auto"]
     bpauto -->|"vide"| bc["Bandcamp (en fond)"]
     bpauto -->|"zone grise"| m1["MODALE temps 1<br/>candidats Beatport"]
+    bp -->|"injoignable"| bcp["Bandcamp, sans validation automatique"]
+    bcp -->|"candidats"| m3
+    bcp -->|"vide ou en panne"| kos["unresolved<br/>failure_reason = source_unavailable"]
+    kos --> url
 
     m1 -->|"choix"| okb["resolved<br/>resolution = arbitration"]
     m1 -->|"aucune"| bcd["appel Bandcamp déclenché ici"]
@@ -289,11 +294,14 @@ flowchart TD
     style kon fill:#4a2d2d,color:#fff
     style kou fill:#4a2d2d,color:#fff
     style kof fill:#4a2d2d,color:#fff
+    style kos fill:#4a2d2d,color:#fff
     style we fill:#4a2d2d,color:#fff
     style w fill:#3e2d4a,color:#fff
 ```
 
 Trois états après interrogation d'une source : **auto** (un candidat au-dessus du seuil haut), **zone grise** (candidats plausibles, décision humaine), **vide** (zéro résultat ou tout sous le plancher). Zéro résultat, candidats sous le plancher et refus utilisateur convergent tous vers **un seul `state`**, `unresolved`, le paquet que la phase URL rattrape. Leur `failure_reason` continue de les distinguer dans le rapport, la correction à apporter n'étant pas la même selon le motif.
+
+**Beatport injoignable** (décision du 2026-09-19) : une fois les nouvelles tentatives du client épuisées, ou sur une réponse hors contrat, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en validation automatique. L'utilisateur confirme en sachant que la source la plus riche n'a pas répondu. Si Bandcamp échoue aussi, le morceau part en `unresolved` / `source_unavailable`.
 
 
 ## Patterns Utilisés
@@ -610,7 +618,7 @@ sequenceDiagram
             API-->>S: candidats ou rien
             S-->>UI: track_resolved (resolved · auto, ou unresolved)
         end
-        S->>S: écriture de la décision dans le plan JSON
+        S->>S: décision gardée en mémoire (plan JSON : Feature 6)
         S-->>UI: progress
     end
 

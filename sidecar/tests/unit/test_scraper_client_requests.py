@@ -41,7 +41,7 @@ def _recording(requests: list[httpx2.Request], body: dict[str, object]) -> Handl
     ],
     ids=["beatport", "bandcamp"],
 )
-async def test_sends_a_search_to_its_source_route_with_the_query_and_type(
+async def test_sends_a_search_to_its_source_route_with_the_query_type_and_page_size(
     requests: list[httpx2.Request], source: SearchSource, query: str, route: str
 ) -> None:
     """La route porte la source, et l'en-tete de cle part sur chacune des deux."""
@@ -50,7 +50,7 @@ async def test_sends_a_search_to_its_source_route_with_the_query_and_type(
 
     assert requests[0].url.host == "techno-scraper.empiricmind.fr"
     assert requests[0].url.path == route
-    assert dict(requests[0].url.params) == {"q": query, "type": "tracks"}
+    assert dict(requests[0].url.params) == {"q": query, "type": "tracks", "limit": "10"}
     assert requests[0].headers["X-API-Key"] == TEST_API_KEY
 
 
@@ -188,7 +188,7 @@ async def test_discards_a_cached_response_the_model_rejects_and_retries(
     cache = _cache(tmp_path)
     poisoned = track_payload()
     del poisoned["title"]
-    params = {"q": "Adam Beyer Your Mind", "type": "tracks"}
+    params = {"q": "Adam Beyer Your Mind", "type": "tracks", "limit": "10"}
     cache.put("/beatport/search", params, page_payload(poisoned))
     handler = _recording(requests, page_payload(track_payload()))
 

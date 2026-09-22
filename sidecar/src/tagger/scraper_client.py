@@ -29,6 +29,11 @@ API_BASE_URL: Final = "https://techno-scraper.empiricmind.fr"
 # `q` est borne a 200 caracteres par l'API, qui rend 422 au-dela.
 QUERY_MAX_LENGTH: Final = 200
 
+# Valeur de l'enumeration fermee de la gateway (5/10/25/50/100), defaut 25. Le scoring
+# ne retient que les premiers rangs (mesure le 2026-09-20 : candidat retenu aux rangs 1 a 3
+# sur dix recherches).
+SEARCH_PAGE_SIZE: Final = 10
+
 # Miroir des semaphores de sortie de l'API, pas un reglage de performance local :
 # emettre davantage ne fait qu'empiler des requetes qui sortent en 504 (ADR-017).
 BEATPORT_CONCURRENCY: Final = 3
@@ -209,9 +214,23 @@ class TechnoScraperClient:
         await self._http.aclose()
 
     async def search(self, source: SearchSource, query: str) -> tuple[TrackCandidate, ...]:
-        """Premiere page de candidats, vide quand la source ne connait pas le morceau."""
-        params = {"q": query[:QUERY_MAX_LENGTH], "type": "tracks"}
-        return (await self._get(source, f"/{source}/search", params, _TrackPage)).items
+        """Premiere page de candidats, vide quand la source ne connait pas le morceau.
+
+        `limit` reste constant a chaque appel et le client ne relit jamais de curseur :
+        il ne peut donc declencher ni `cursor_limit_mismatch` ni `cursor_scope_mismatch`
+        (`.claude/rules/techno-scraper/contrat.md`).
+        """
+        params = {
+            "q": query[:QUERY_MAX_LENGTH],
+            "type": "tracks",
+            "limit": str(SEARCH_PAGE_SIZE),
+        }
+        try:
+            return (await self._get(source, f"/{source}/search", params, _TrackPage)).items
+        except TrackNotFoundError as exc:
+            # Une recherche sans resultat rend 200 et une page vide : le 404 est reserve
+            # au refetch d'un id ou d'une URL. Ici, c'est une derive de l'API.
+            raise ApiContractError("not found on a search", request_id=exc.request_id) from exc
 
     async def fetch_beatport_track(self, track_id: str) -> TrackCandidate:
         """Metadonnees completes : les objets de recherche sont abreges."""
