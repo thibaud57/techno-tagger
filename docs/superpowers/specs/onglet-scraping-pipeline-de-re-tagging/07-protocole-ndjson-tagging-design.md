@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "protocole-ndjson-tagging"
 goal: "Exposer le run de re-tagging sur le protocole NDJSON, la boucle restant à l'écoute pendant qu'il tourne"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["02-client-techno-scraper-design.md", "03-requete-et-scoring-design.md", "04-cache-et-pochettes-design.md", "05-cle-api-design.md", "06-pipeline-resolution-design.md"]
