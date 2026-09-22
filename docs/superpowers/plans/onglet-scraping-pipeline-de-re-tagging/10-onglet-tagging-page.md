@@ -33,8 +33,8 @@
 | `src/app/app.component.html` | `p-toast` du shell, partagé par les deux onglets. |
 | `src/app/app.config.ts` | `MessageService` fourni à la racine, là où un service `providedIn: 'root'` peut le voir. |
 | `src/app/features/tagging/tagging-page.component.{ts,html}` | Écran de l'onglet Tagging. |
-| `src/app/shared/components/icon.component.ts` | Icône `play` ajoutée à la liste fermée. |
-| `src/app/features/playlist/playlist-page.component.ts` | Annonce de fin d'extraction. |
+| `src/app/shared/components/icon.component.ts` | Icônes `play` et `arrow-right` ajoutées à la liste fermée. |
+| `src/app/features/playlist/playlist-page.component.{ts,html}` | Annonce de fin d'extraction, bouton « Passer au tagging ». |
 | `public/i18n/{fr,en}.json` | Libellés de l'écran et messages de fin. |
 | `docs/BRAINSTORM.md`, `.design-sync/NOTES.md` | Extension de la Feature 1, écarts à la maquette. |
 
@@ -721,13 +721,19 @@ git commit -m "feat(ui): ecran de l'onglet Tagging, du dossier a la fin du run"
 
 ---
 
-## Task 3: Annonce de fin d'extraction et traces
+## Task 3: Annonce de fin d'extraction, passage au tagging et traces
 
 **Files:**
-- Modify: `src/app/features/playlist/playlist-page.component.ts`
+- Modify: `src/app/features/playlist/playlist-page.component.ts`, `.html`
 - Modify: `src/app/features/playlist/playlist-page.component.spec.ts`
+- Modify: `src/app/shared/components/icon.component.ts` (icône `arrow-right`, à côté du `play` de la Task 2)
+- Modify: `public/i18n/fr.json`, `public/i18n/en.json` (`playlist.goTagging`)
 - Modify: `docs/BRAINSTORM.md`
 - Modify: `.design-sync/NOTES.md`
+
+**Interfaces:**
+- Consumes: `CompletionSignalService` (Task 1), `writeLastDestination` posé dans `extract()` (Task 2), `Router` du shell
+- Produces: `goTagging()` sur `PlaylistPageComponent`, clé i18n `playlist.goTagging`
 
 - [ ] **Step 1: Écrire le test**
 
@@ -774,12 +780,73 @@ Dans `src/app/features/playlist/playlist-page.component.ts`, injecter `Completio
 Run: `pnpm test --run src/app/features/playlist/playlist-page.component.spec.ts`
 Expected: PASS
 
-- [ ] **Step 5: Consigner l'extension et les écarts**
+- [ ] **Step 5: Écrire le test du passage au tagging**
+
+Dans le même spec, fournir un `Router` factice au `TestBed` (`{ provide: Router, useValue: { navigate: vi.fn(() => Promise.resolve(true)) } }`), le rendre par `mountWith`, puis :
+
+```typescript
+  it("navigates to the tagging tab when asked to go on with the extracted folder", () => {
+    const { component, router } = mountWith({ extraction: signal({ extracted: ["a.mp3"] }) })
+
+    component["goTagging"]()
+
+    expect(router.navigate).toHaveBeenCalledWith(["tagging"])
+  })
+```
+
+Le bouton ne transporte rien : le dossier est déjà mémorisé par `extract()` (Task 2) et relu par l'onglet Tagging. Aucun test ne vérifie la présence du bouton, rendu conditionnel exclu par la spec.
+
+- [ ] **Step 6: Vérifier que le test échoue**
+
+Run: `pnpm test --run src/app/features/playlist/playlist-page.component.spec.ts`
+Expected: FAIL, `goTagging` n'existe pas
+
+- [ ] **Step 7: Brancher le bouton**
+
+Dans `src/app/shared/components/icon.component.ts`, ajouter `arrow-right` à la liste fermée, sur le modèle de `play` (Task 2), tracé SVG inline en `currentColor`.
+
+Dans `src/app/features/playlist/playlist-page.component.ts`, injecter `Router` et exposer le résultat d'extraction, puis :
+
+```typescript
+  protected readonly extraction = this.sidecar.extraction
+
+  /** Le dossier suit par la destination memorisee a l'extraction : rien a transporter. */
+  protected goTagging(): void {
+    void this.router.navigate(["tagging"])
+  }
+```
+
+Dans `src/app/features/playlist/playlist-page.component.html`, à la place du seul `<span>` « Extraction terminée » sous la table, la même ligne portant le compteur et le bouton (spec § Architecture approach : à côté du compteur, le formulaire étant replié en deux temps) :
+
+```html
+    @if (progress(); as finished) {
+      <div class="flex items-center justify-end gap-4">
+        <span class="text-sm text-muted-color tabular-nums">
+          {{ "playlist.finished" | translate: finished }}
+        </span>
+        @if (extraction()) {
+          <button pButton type="button" size="small" severity="secondary" variant="outlined" (click)="goTagging()">
+            {{ "playlist.goTagging" | translate }}
+            <app-icon name="arrow-right" [size]="16" />
+          </button>
+        }
+      </div>
+    }
+```
+
+Dans `public/i18n/fr.json`, sous `playlist` : `"goTagging": "Passer au tagging"` ; dans `public/i18n/en.json` : `"goTagging": "Go to tagging"`. Infinitif pour l'action, comme les autres libellés de bouton.
+
+- [ ] **Step 8: Vérifier que les tests passent**
+
+Run: `pnpm test --run src/app/features/playlist/playlist-page.component.spec.ts`
+Expected: PASS
+
+- [ ] **Step 9: Consigner l'extension et les écarts**
 
 Dans `docs/BRAINSTORM.md`, sous la Feature 1 :
 
 ```markdown
-> **Ajouté depuis la Feature 2** (2026-09-20) : la fin d'une extraction annonce elle aussi le signal sonore et un toast, par le service partagé livré avec l'onglet Scraping. La bascule du son reste un réglage de la Feature 7.
+> **Ajouté depuis la Feature 2** (2026-09-20) : la fin d'une extraction annonce elle aussi le signal sonore et un toast, par le service partagé livré avec l'onglet Scraping. La bascule du son reste un réglage de la Feature 7. Une fois l'extraction terminée, un bouton « Passer au tagging » ouvre l'onglet Scraping sur le dossier tout juste extrait (2026-09-22) : c'est l'enchaînement normal des deux onglets.
 ```
 
 Dans `.design-sync/NOTES.md` § Reste ouvert :
@@ -787,16 +854,17 @@ Dans `.design-sync/NOTES.md` § Reste ouvert :
 ```markdown
 - **Onglet Tagging, choix du dossier** : la maquette n'a pas de sélecteur et renvoie vers l'onglet Playlist ; l'écran livré porte un `PathPicker` prérempli avec la destination de la dernière extraction (2026-09-20), BRAINSTORM demandant une sélection de dossier. À reprendre dans `TaggingScreen.jsx`.
 - **Toast de fin** : le toast de `AppShell.jsx` est livré pour les deux onglets, sonore compris, et non pour le seul run.
+- **Bouton « Passer au tagging »** : `PlaylistScreen.jsx` le place à côté de l'action d'extraction ; le formulaire livré étant replié en deux temps, il prend place à côté du compteur « Extraction terminée » (2026-09-22).
 ```
 
-- [ ] **Step 6: Gate qualité**
+- [ ] **Step 10: Gate qualité**
 
 Run: `just test && just lint && just typecheck`
 Expected: tout vert
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
-git add src/app/features/playlist/ docs/BRAINSTORM.md .design-sync/NOTES.md
-git commit -m "feat(ui): annoncer aussi la fin d'une extraction"
+git add src/app/features/playlist/ src/app/shared/components/icon.component.ts public/i18n/fr.json public/i18n/en.json docs/BRAINSTORM.md .design-sync/NOTES.md
+git commit -m "feat(ui): annoncer la fin d'une extraction et proposer d'enchainer le tagging"
 ```

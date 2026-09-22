@@ -13,13 +13,13 @@ date: "2026-09-20"
 
 ## Scope
 
-Couvre l'écran de l'onglet Tagging : choix du dossier à re-tagger, lancement du run et ses conditions, barre de progression de la phase réseau, liste du run, état vide, erreurs du sidecar. Couvre aussi le signal de fin, un service partagé qui joue deux notes courtes puis affiche un toast, branché sur la fin de la phase réseau **et** sur la fin de l'extraction de l'onglet Playlist, ainsi que la trace de cette extension dans BRAINSTORM.md.
+Couvre l'écran de l'onglet Tagging : choix du dossier à re-tagger, lancement du run et ses conditions, barre de progression de la phase réseau, liste du run, état vide, erreurs du sidecar. Couvre aussi le signal de fin, un service partagé qui joue deux notes courtes puis affiche un toast, branché sur la fin de la phase réseau **et** sur la fin de l'extraction de l'onglet Playlist, ainsi que la trace de cette extension dans BRAINSTORM.md. Couvre enfin le passage d'un onglet à l'autre : le bouton « Passer au tagging » que l'onglet Playlist affiche une fois l'extraction terminée, et qui ouvre l'onglet Tagging sur le dossier tout juste extrait.
 
 Exclut la bascule du signal sonore et les autres réglages (Feature 7), la modale d'arbitrage (Feature 3), le rattrapage par URL (Feature 4), la confirmation d'écriture (Feature 5), le récapitulatif et la reprise (Feature 6).
 
 ### État livré
 
-À la fin de ce sub-project, on peut : ouvrir la fenêtre Tauri, aller dans l'onglet Tagging, choisir un dossier (déjà prérempli si une extraction vient d'avoir lieu), lancer le run, voir les lignes se remplir et la barre avancer, puis entendre le signal et voir le toast une seule fois quand la phase réseau se termine.
+À la fin de ce sub-project, on peut : ouvrir la fenêtre Tauri, extraire une playlist puis cliquer « Passer au tagging », arriver dans l'onglet Tagging avec le dossier de destination déjà en place (ou y aller par l'onglet et choisir un dossier), lancer le run, voir les lignes se remplir et la barre avancer, puis entendre le signal et voir le toast une seule fois quand la phase réseau se termine.
 
 ## Dependencies
 
@@ -29,7 +29,7 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), la modal
 
 ## Références de design
 
-- **Maquette** : `ui_kits/techno-tagger/TaggingScreen.jsx`, composant `TaggingScreen` dans ses phases `idle` et `running` (en-tête, chemin, bouton de lancement, barre de progression, bloc vide), et `AppShell.jsx` pour l'onglet et le toast de fin de phase réseau. Les phases `urlRescue`, `writing` et `recap`, ainsi que `UrlRescue` et `Recap`, relèvent des Features 4 à 6.
+- **Maquette** : `ui_kits/techno-tagger/TaggingScreen.jsx`, composant `TaggingScreen` dans ses phases `idle` et `running` (en-tête, chemin, bouton de lancement, barre de progression, bloc vide), `AppShell.jsx` pour l'onglet et le toast de fin de phase réseau, et `PlaylistScreen.jsx` dans son état `done` pour le seul bouton « Passer au tagging » (le reste de cet écran est livré et arbitré, cf. `.design-sync/NOTES.md`). Les phases `urlRescue`, `writing` et `recap`, ainsi que `UrlRescue` et `Recap`, relèvent des Features 4 à 6.
 - **Design system** : `components/forms/Button.prompt.md`, `components/data/ProgressBar.prompt.md`, `components/feedback/EmptyState.prompt.md`, `components/feedback/Message.prompt.md`, `components/feedback/Toast.prompt.md`
 - Règle de lecture : `.claude/rules/design/claude-design.md`, arbitrages dans `.design-sync/NOTES.md` § Reste ouvert (container unique `px-16 py-8` porté par le shell, page qui ne défile jamais, le scroll vit dans la table)
 
@@ -37,11 +37,11 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), la modal
 
 - **À modifier** : `src/app/features/tagging/tagging-page.component.ts`, `.html` (remplacent le stub)
 - **À créer** : `src/app/features/tagging/tagging-page.component.spec.ts`
-- **À modifier** : `src/app/shared/components/icon.component.ts` (icône `play` du bouton de lancement, comme la maquette)
+- **À modifier** : `src/app/shared/components/icon.component.ts` (icônes `play` du bouton de lancement et `arrow-right` du passage au tagging, comme la maquette)
 - **À créer** : `src/app/core/completion-signal.service.ts` et `completion-signal.service.spec.ts`
 - **À modifier** : `src/app/core/preferences.ts` (préférence du signal sonore, dernier dossier de destination)
 - **À modifier** : `src/app/app.config.ts` (`MessageService` fourni à la racine : `CompletionSignalService` est `providedIn: 'root'`, un provider posé sur `AppComponent` lui serait invisible), `src/app/app.component.ts`, `src/app/app.component.html` (le `p-toast` du shell)
-- **À modifier** : `src/app/features/playlist/playlist-page.component.ts` (signal de fin d'extraction)
+- **À modifier** : `src/app/features/playlist/playlist-page.component.ts`, `.html` (signal de fin d'extraction, bouton « Passer au tagging »)
 - **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json`
 - **À modifier** : `docs/BRAINSTORM.md` (Feature 1 : signal de fin d'extraction, ajouté depuis la Feature 2)
 - **À modifier** : `.design-sync/NOTES.md` (écarts : sélecteur de dossier, toast partagé)
@@ -53,6 +53,7 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), la modal
 - **Déclenché par une transition, jamais par un rendu** : le passage de la fin de phase réseau de nul à renseigné déclenche l'annonce une seule fois, même si l'écran se recompose. BRAINSTORM l'exige : une fois, à la fin de la phase réseau, jamais par arbitrage.
 - **Branché des deux côtés** (décision du 2026-09-20) : fin de la phase réseau du run, et fin de l'extraction de l'onglet Playlist, qui n'avait ni son ni toast. C'est une extension de la Feature 1, consignée dans BRAINSTORM.md sous celle-ci. Le `p-toast` est posé une fois dans le shell, la Feature 4 le réutilisera pour le rattrapage.
 - **Choix du dossier par `PathPickerComponent`** (décision du 2026-09-20, écart à la maquette) : la maquette n'a pas de sélecteur et renvoie vers l'onglet Playlist, BRAINSTORM demande « la sélection d'un dossier ». Le sélecteur est prérempli avec la destination de la dernière extraction quand il y en a une, ce qui couvre le cas courant sans interdire de re-tagger un dossier qui ne vient pas d'une extraction. L'écart est consigné dans `.design-sync/NOTES.md`.
+- **Passage au tagging depuis l'onglet Playlist** (décision du 2026-09-22) : une fois l'extraction terminée, un bouton secondaire « Passer au tagging » navigue vers l'onglet Tagging par le `Router`, comme le shell le fait pour ses onglets. Il ne transporte aucune donnée : le dossier arrive par la destination mémorisée à l'extraction, celle-là même qui préremplit le sélecteur. Absent avant et pendant une extraction. La maquette le place à côté de l'action d'extraction ; l'écran livré ayant replié son formulaire en deux temps (arbitrage consigné dans `.design-sync/NOTES.md`), il prend place à côté de « Extraction terminée (N sur N) », sur la même ligne.
 - **Lancement conditionné**, comme le bouton d'extraction déjà livré : désactivé sans dossier, sans clé API (`apiKeyConfigured`), pendant un run, ou tant que le sidecar n'est pas prêt. Son tooltip nomme ce qui manque, seule exception admise par DESIGN.md à la règle « un tooltip n'est jamais seul porteur d'information ».
 - **Progression** par `PhaseProgressComponent`, alimentée par le signal du store : libellé de phase et compteur traités sur total. Elle disparaît à la fin du run, les états des lignes portant alors l'information.
 - **La page ne calcule rien** : lignes, états, scores et compteurs viennent du sidecar (`.claude/rules/angular/components.md`). Elle compose le sélecteur, le bouton, la progression, la liste et les messages.
@@ -104,6 +105,17 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), la modal
 **THEN** elle s'affiche traduite sous l'en-tête
 **AND** le bouton de lancement redevient actif
 
+### Scénario 8 : Passage au tagging
+**GIVEN** une extraction terminée vers `D:\Sets\Août` dans l'onglet Playlist
+**WHEN** l'utilisateur clique sur « Passer au tagging »
+**THEN** l'onglet Tagging s'ouvre
+**AND** son sélecteur de dossier affiche `D:\Sets\Août`
+
+### Scénario 9 : Pas de passage sans extraction terminée
+**GIVEN** aucune extraction lancée, ou une extraction en cours
+**WHEN** l'onglet Playlist est affiché
+**THEN** le bouton « Passer au tagging » est absent
+
 ## Tests à écrire
 
 ### Unit
@@ -117,6 +129,7 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), la modal
   - announces the end of the network phase only once
 - `src/app/features/playlist/playlist-page.component.spec.ts` (ajout) :
   - announces the end of the extraction
+  - navigates to the tagging tab when asked to go on with the extracted folder
 
 Aucun test ne vérifie le rendu conditionnel d'un bloc ni PrimeNG : ce qui est testé est la disponibilité de l'action, la commande émise et le déclenchement unique du signal.
 
