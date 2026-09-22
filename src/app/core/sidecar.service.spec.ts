@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { SidecarEvent } from "./models/protocol"
+import { RunStartedEvent, SidecarEvent, TrackResolvedEvent } from "./models/protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
 
@@ -51,6 +51,24 @@ const EXTRACTION = {
   playlist_name: null,
   mode: "copy",
 } as const
+
+const RUN_STARTED: RunStartedEvent = {
+  event: "run_started",
+  run_id: "a3f9c1",
+  tracks: [{ track_id: "a.mp3", file_name: "a.mp3", artist: "Adam Beyer", title: "Your Mind" }],
+}
+
+const TRACK_RESOLVED: TrackResolvedEvent = {
+  event: "track_resolved",
+  track_id: "a.mp3",
+  state: "resolved",
+  resolution: "auto",
+  failure_reason: null,
+  source: "beatport",
+  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
+  scores: { artist: 96, title: 92, average: 94 },
+  artwork_path: null,
+}
 
 describe("SidecarService", () => {
   let transport: FakeTransport
@@ -373,6 +391,93 @@ describe("SidecarService", () => {
       command: "set_api_key",
       api_key: "k3y-t0k3n",
     })
+  })
+
+  it("sends the start tagging command without thresholds", async () => {
+    await service.start()
+
+    await service.startTagging("C:/Sets")
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+      command: "start_tagging",
+      folder: "C:/Sets",
+    })
+  })
+
+  it("sends the thresholds when the settings impose them", async () => {
+    await service.start()
+
+    await service.startTagging("C:/Sets", { floor: 75, ceiling: 95 })
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+      command: "start_tagging",
+      folder: "C:/Sets",
+      thresholds: { floor: 75, ceiling: 95 },
+    })
+  })
+
+  it("replays a whole tagging run and reports every track", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+
+    transport.emit(RUN_STARTED)
+    transport.emit({ event: "progress", phase: "tagging", processed: 1, total: 1 })
+    transport.emit(TRACK_RESOLVED)
+    transport.emit({
+      event: "run_finished",
+      phase: "network",
+      run_id: "a3f9c1",
+      resolved: 1,
+      unresolved: 0,
+      awaiting_arbitration: 0,
+    })
+
+    expect(service.taggingTracks()[0]?.state).toBe("resolved")
+    expect(service.taggingProgress()).toEqual({ processed: 1, total: 1 })
+    expect(service.taggingFinished()?.resolved).toBe(1)
+    expect(service.tagging()).toBe(false)
+    expect(service.progress()).toBeNull()
+  })
+
+  it("keeps the extraction progress out of the tagging run", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+
+    transport.emit({ event: "progress", phase: "extraction", processed: 3, total: 10 })
+
+    expect(service.progress()?.processed).toBe(3)
+    expect(service.taggingProgress()).toBeNull()
+  })
+
+  it("leaves the tagging run alone when a write phase finishes", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    transport.emit({
+      event: "run_finished",
+      phase: "write",
+      run_id: "a3f9c1",
+      resolved: 1,
+      unresolved: 0,
+      awaiting_arbitration: 0,
+    })
+
+    expect(service.taggingFinished()).toBeNull()
+    expect(service.tagging()).toBe(true)
+  })
+
+  it("stops the tagging run on an error", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+    transport.emit(TRACK_RESOLVED)
+
+    transport.emit({ event: "error", code: "api_key_rejected", params: {}, message: "rejected" })
+
+    expect(service.tagging()).toBe(false)
+    expect(service.lastError()?.code).toBe("api_key_rejected")
+    expect(service.taggingTracks()[0]?.state).toBe("resolved")
   })
 
   it("writes a command as a single newline-terminated line", async () => {

@@ -72,12 +72,25 @@ export interface SetApiKeyCommand {
   readonly api_key: string
 }
 
+export interface ThresholdsPayload {
+  readonly floor: number
+  readonly ceiling: number
+}
+
+export interface StartTaggingCommand {
+  readonly command: "start_tagging"
+  readonly folder: string
+  /** Omise (non null) quand absent des Settings : le sidecar applique ses propres seuils. */
+  readonly thresholds?: ThresholdsPayload
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
   | ListPlaylistsCommand
   | ExtractPlaylistCommand
   | SetApiKeyCommand
+  | StartTaggingCommand
 
 export interface VersionEvent {
   readonly event: "version"
@@ -113,6 +126,82 @@ export interface ExtractionFinishedEvent {
   readonly report_path: string
 }
 
+/** Etat d'un morceau, en trois champs jamais interchangeables (ARCHITECTURE.md § API). */
+export type TrackState = "resolved" | "unresolved"
+
+export type TrackResolution = "auto" | "arbitration" | "url" | "none"
+
+export type TrackFailureReason =
+  "empty_query" | "no_result" | "below_threshold" | "user_refused" | "source_unavailable"
+
+export type TrackSource = "beatport" | "bandcamp" | "soundcloud"
+
+/** `run_finished` porte la phase close : la boucle reseau, puis l'ecriture. */
+export type RunPhase = "network" | "write"
+
+export interface TrackEntry {
+  readonly track_id: string
+  readonly file_name: string
+  readonly artist: string
+  readonly title: string
+}
+
+export interface RunStartedEvent {
+  readonly event: "run_started"
+  readonly run_id: string
+  readonly tracks: readonly TrackEntry[]
+}
+
+/** Artiste et titre que la source ecrira, calcules par le sidecar (ADR-011). */
+export interface TrackNames {
+  readonly artist: string
+  readonly title: string
+}
+
+/** Scores deja arrondis : l'ecran affiche « A 96 · T 92 ». */
+export interface TrackScores {
+  readonly artist: number | null
+  readonly title: number
+  readonly average: number
+}
+
+export interface TrackResolvedEvent {
+  readonly event: "track_resolved"
+  readonly track_id: string
+  readonly state: TrackState
+  readonly resolution: TrackResolution
+  readonly failure_reason: TrackFailureReason | null
+  readonly source: TrackSource | null
+  readonly after: TrackNames | null
+  readonly scores: TrackScores | null
+  /** Chemin dans le cache, lu par `convertFileSrc` : jamais l'image elle-meme. */
+  readonly artwork_path: string | null
+}
+
+export interface CandidatePayload {
+  readonly artist: string
+  readonly title: string
+  readonly scores: TrackScores
+}
+
+export interface ArbitrationRequiredEvent {
+  readonly event: "arbitration_required"
+  readonly track_id: string
+  readonly source: TrackSource
+  /** Beatport n'a pas repondu : aucun candidat ne peut valider seul. */
+  readonly beatport_unavailable: boolean
+  readonly candidates: readonly CandidatePayload[]
+}
+
+export interface RunFinishedEvent {
+  readonly event: "run_finished"
+  readonly phase: RunPhase
+  readonly run_id: string
+  readonly resolved: number
+  readonly unresolved: number
+  readonly awaiting_arbitration: number
+}
+
 /** `ErrorEvent` est un type DOM global : meme raison. */
 export interface SidecarErrorEvent {
   readonly event: "error"
@@ -126,4 +215,8 @@ export type SidecarEvent =
   | PlaylistsListedEvent
   | ExtractionProgressEvent
   | ExtractionFinishedEvent
+  | RunStartedEvent
+  | TrackResolvedEvent
+  | ArbitrationRequiredEvent
+  | RunFinishedEvent
   | SidecarErrorEvent

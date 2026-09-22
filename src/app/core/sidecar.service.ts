@@ -8,8 +8,10 @@ import {
   SidecarCommand,
   SidecarErrorEvent,
   SidecarEvent,
+  ThresholdsPayload,
 } from "./models/protocol"
 import { SIDECAR_TRANSPORT } from "./sidecar-transport"
+import { TaggingRunStore } from "./tagging-run.store"
 
 // Table indexee par le discriminant : oublier un evenement du contrat devient
 // une erreur de compilation ici, jamais une ligne silencieusement ignoree.
@@ -18,6 +20,10 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   playlists_listed: true,
   progress: true,
   extraction_finished: true,
+  run_started: true,
+  track_resolved: true,
+  arbitration_required: true,
+  run_finished: true,
   error: true,
 }
 
@@ -32,8 +38,8 @@ const unavailableError = (): SidecarErrorEvent => ({
 })
 
 /**
- * Frontiere unique entre la webview et le metier. Detient l'etat du run : les
- * composants lisent et emettent, ils ne calculent rien.
+ * Frontiere unique entre la webview et le metier (transport, version, erreurs).
+ * L'etat d'un run vit dans son store : `TaggingRunStore` pour le re-tagging.
  */
 @Injectable({ providedIn: "root" })
 export class SidecarService {
@@ -87,6 +93,14 @@ export class SidecarService {
       this.versionMismatch() === null &&
       !this._extracting(),
   )
+
+  private readonly taggingRun = inject(TaggingRunStore)
+
+  /** Delegation : les composants n'injectent que ce service, la frontiere du sidecar. */
+  readonly taggingTracks = this.taggingRun.tracks
+  readonly taggingProgress = this.taggingRun.progress
+  readonly tagging = this.taggingRun.running
+  readonly taggingFinished = this.taggingRun.finished
 
   private started = false
   private pendingCommand: SidecarCommand["command"] | null = null
@@ -147,6 +161,13 @@ export class SidecarService {
     await this.send({ command: "extract_playlist", ...request })
   }
 
+  /** Le run precedent disparait des l'envoi : l'ecran ne melange pas deux runs. */
+  async startTagging(folder: string, thresholds?: ThresholdsPayload): Promise<void> {
+    this.taggingRun.reset()
+    // `JSON.stringify` omet une cle `undefined` : la commande part sans `thresholds`.
+    await this.send({ command: "start_tagging", folder, thresholds })
+  }
+
   /**
    * `Process.kill()` ne ciblerait que le bootloader d'un binaire PyInstaller et
    * laisserait le process Python vivant : l'arret passe par le protocole.
@@ -202,6 +223,7 @@ export class SidecarService {
   private endRun(): void {
     this._extracting.set(false)
     this._progress.set(null)
+    this.taggingRun.failed()
   }
 
   /**
@@ -237,13 +259,29 @@ export class SidecarService {
         this._listing.set(event)
         break
       case "progress":
-        this._progress.set(event)
+        this.routeProgress(event)
         break
       case "extraction_finished":
         this._extraction.set(event)
         // La progression reste sur son dernier palier : sans elle, une copie d'une seconde ne
         // laisse aucune trace. Elle ne s'efface qu'au lancement suivant.
         this._extracting.set(false)
+        break
+      case "run_started":
+        this.taggingRun.started(event)
+        break
+      case "track_resolved":
+        this.taggingRun.resolved(event)
+        break
+      case "arbitration_required":
+        this.taggingRun.awaiting(event)
+        break
+      case "run_finished":
+        // Le service route par phase, comme pour `progress` : la Feature 5 branchera
+        // l'ecriture sur son propre store sans toucher a celui du run.
+        if (event.phase === "network") {
+          this.taggingRun.completed(event)
+        }
         break
       case "error":
         this.setLastError(event)
@@ -256,6 +294,29 @@ export class SidecarService {
         // erreur de compilation, pas une ligne silencieusement perdue.
         const exhaustive: never = event
         console.error("[sidecar] evenement non traite", exhaustive)
+      }
+    }
+  }
+
+  /**
+   * Une seule forme d'evenement pour toutes les phases longues. Le `never` final
+   * fait de l'ajout d'une phase au contrat une erreur de compilation ici.
+   */
+  private routeProgress(event: ExtractionProgressEvent): void {
+    switch (event.phase) {
+      case "extraction":
+        this._progress.set(event)
+        break
+      case "tagging":
+        this.taggingRun.advanced(event.processed, event.total)
+        break
+      case "url_recovery":
+      case "write":
+        // Features 4 et 5 : leur store lira cette phase, rien a suivre ici pour l'instant.
+        break
+      default: {
+        const exhaustive: never = event.phase
+        console.error("[sidecar] phase non traitee", exhaustive)
       }
     }
   }
