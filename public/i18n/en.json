@@ -52,15 +52,18 @@
     "title": "Playlist",
     "source": {
       "label": "Source folder",
-      "choose": "Choose a folder"
+      "choose": "Choose a folder",
+      "none": "No folder selected"
     },
     "destination": {
       "label": "Destination folder",
-      "choose": "Choose a folder"
+      "choose": "Choose a folder",
+      "none": "No folder selected"
     },
     "file": {
       "label": "Playlist file",
-      "choose": "Choose a file"
+      "choose": "Choose a file",
+      "none": "No file selected"
     },
     "selector": {
       "label": "Playlist",
@@ -73,6 +76,7 @@
       "move": "Move"
     },
     "extract": "Extract playlist",
+    "goTagging": "Go to tagging",
     "missing": {
       "hint": "Choose {{items}}.",
       "source": "the source folder",
@@ -86,6 +90,7 @@
     },
     "running": "Extracting",
     "finished": "Extraction finished ({{processed}} of {{total}})",
+    "extractionFinished": "Extraction complete",
     "progress": "{{processed}} of {{total}}",
     "report": {
       "title": "Extraction report",
@@ -122,6 +127,26 @@
   },
   "tagging": {
     "title": "Tagging",
+    "finished": "Network phase complete",
+    "start": "Start the run",
+    "phase": "Searching",
+    "progress": "{{processed}} of {{total}}",
+    "folder": {
+      "label": "Folder to re-tag",
+      "action": "Choose a folder",
+      "none": "No folder selected"
+    },
+    "blocked": {
+      "running": "Wait for the current run to finish.",
+      "api_key": "Save your API key in the settings first.",
+      "folder": "Choose the folder to re-tag first.",
+      "extracting": "Wait for the current extraction on the Playlist tab to finish.",
+      "sidecar": "The application engine is not ready yet."
+    },
+    "empty": {
+      "heading": "No run yet",
+      "description": "Choose the folder to re-tag, then start the run."
+    },
     "state": {
       "pending": "Waiting",
       "awaiting": "To arbitrate",

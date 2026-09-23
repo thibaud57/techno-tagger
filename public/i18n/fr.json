@@ -52,15 +52,18 @@
     "title": "Playlist",
     "source": {
       "label": "Dossier source",
-      "choose": "Choisir un dossier"
+      "choose": "Choisir un dossier",
+      "none": "Aucun dossier sélectionné"
     },
     "destination": {
       "label": "Dossier destination",
-      "choose": "Choisir un dossier"
+      "choose": "Choisir un dossier",
+      "none": "Aucun dossier sélectionné"
     },
     "file": {
       "label": "Fichier de playlist",
-      "choose": "Choisir un fichier"
+      "choose": "Choisir un fichier",
+      "none": "Aucun fichier sélectionné"
     },
     "selector": {
       "label": "Playlist",
@@ -73,6 +76,7 @@
       "move": "Déplacer"
     },
     "extract": "Extraire la playlist",
+    "goTagging": "Passer au tagging",
     "missing": {
       "hint": "Choisissez {{items}}.",
       "source": "le dossier source",
@@ -86,6 +90,7 @@
     },
     "running": "Extraction en cours",
     "finished": "Extraction terminée ({{processed}} sur {{total}})",
+    "extractionFinished": "Extraction terminée",
     "progress": "{{processed}} sur {{total}}",
     "report": {
       "title": "Rapport d'extraction",
@@ -122,6 +127,26 @@
   },
   "tagging": {
     "title": "Tagging",
+    "finished": "Phase réseau terminée",
+    "start": "Lancer le run",
+    "phase": "Recherche en cours",
+    "progress": "{{processed}} sur {{total}}",
+    "folder": {
+      "label": "Dossier à re-tagger",
+      "action": "Choisir un dossier",
+      "none": "Aucun dossier sélectionné"
+    },
+    "blocked": {
+      "running": "Attendez la fin du run en cours.",
+      "api_key": "Enregistrez d'abord votre clé API dans les Réglages.",
+      "folder": "Choisissez d'abord le dossier à re-tagger.",
+      "extracting": "Attendez la fin de l'extraction en cours sur l'onglet Playlist.",
+      "sidecar": "Le moteur de l'application n'est pas encore prêt."
+    },
+    "empty": {
+      "heading": "Aucun run lancé",
+      "description": "Choisissez le dossier à re-tagger, puis lancez le run."
+    },
     "state": {
       "pending": "En attente",
       "awaiting": "À arbitrer",

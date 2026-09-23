@@ -5,6 +5,7 @@ import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Card } from "primeng/card"
 import { Tab, TabList, Tabs } from "primeng/tabs"
+import { Toast } from "primeng/toast"
 import { filter, map } from "rxjs"
 
 import { languageFromTag } from "./core/language"
@@ -15,7 +16,7 @@ import { FADE_IN } from "./shared/utils/motion"
 
 @Component({
   selector: "app-root",
-  imports: [RouterOutlet, Tabs, TabList, Tab, TranslatePipe, ButtonDirective, Card],
+  imports: [RouterOutlet, Tabs, TabList, Tab, TranslatePipe, ButtonDirective, Card, Toast],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   // `overflow-hidden` tient la regle « la page ne defile jamais » : sans lui, un pixel de

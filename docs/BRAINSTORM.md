@@ -151,6 +151,8 @@ Les deux sont nécessaires : **VLC Android n'a aucune fonction d'export de playl
 
 **Résolution par nom de fichier, pas par chemin** : la base vient du téléphone, les fichiers sont sur le PC. Deux fichiers de même nom, le plus volumineux est retenu et le cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md)). Détail du flux : [ARCHITECTURE.md § Use-case 1](ARCHITECTURE.md#use-case-1--extraction-sélective-par-playlist).
 
+> **Ajouté depuis la Feature 2** (2026-09-20) : la fin d'une extraction annonce elle aussi le signal sonore et un toast, par le service partagé livré avec l'onglet Scraping. La bascule du son reste un réglage de la Feature 7. Une fois l'extraction terminée, un bouton « Passer au tagging » ouvre l'onglet Scraping sur le dossier tout juste extrait (2026-09-22) : c'est l'enchaînement normal des deux onglets.
+
 ### Feature 2 : Onglet Scraping, pipeline de re-tagging
 
 - Sélection d'un dossier (typiquement la destination de l'onglet 1)

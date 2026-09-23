@@ -7,8 +7,9 @@ import {
   type WritableSignal,
 } from "@angular/core"
 import { FormField, form } from "@angular/forms/signals"
+import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
-import { open } from "@tauri-apps/plugin-dialog"
+
 import { ButtonDirective } from "primeng/button"
 import { Label } from "primeng/label"
 import { Select } from "primeng/select"
@@ -18,12 +19,14 @@ import { TableModule } from "primeng/table"
 import { Tag, type TagSeverity } from "primeng/tag"
 import { Tooltip } from "primeng/tooltip"
 
+import { CompletionSignalService } from "../../core/completion-signal.service"
 import { languageFromTag } from "../../core/language"
 import type { ExtractionMode } from "../../core/models/protocol"
 import {
   DEFAULT_EXTRACTION_MODE,
   readExtractionMode,
   writeExtractionMode,
+  writeLastDestination,
 } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
@@ -33,6 +36,7 @@ import { PathPickerComponent } from "../../shared/components/path-picker.compone
 import { PhaseProgressComponent } from "../../shared/components/phase-progress.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+import { pickPath } from "../../shared/utils/dialog"
 import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { fullHeightTable } from "../../shared/utils/table"
@@ -86,6 +90,8 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
 export default class PlaylistPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly translate = inject(TranslateService)
+  private readonly completion = inject(CompletionSignalService)
+  private readonly router = inject(Router)
 
   /** Un onglet rouvert reprend les choix du dernier run, que le service garde avec son rapport. */
   private readonly restoredRun = this.sidecar.extractionRequest()
@@ -250,6 +256,7 @@ export default class PlaylistPageComponent {
     void readExtractionMode().then((stored) => {
       this.choice.update((current) => ({ ...current, mode: stored }))
     })
+    this.completion.announceOnTransition(this.sidecar.extraction, "playlist.extractionFinished")
   }
 
   protected expandForm(): void {
@@ -257,7 +264,7 @@ export default class PlaylistPageComponent {
   }
 
   protected async chooseFolder(target: WritableSignal<string | null>): Promise<void> {
-    const chosen = await this.openPath({ directory: true })
+    const chosen = await pickPath({ directory: true })
     if (chosen !== null) {
       target.set(chosen)
     }
@@ -268,7 +275,7 @@ export default class PlaylistPageComponent {
    * annonce le format, l'interface n'ayant pas le droit de le deduire.
    */
   protected async choosePlaylistFile(): Promise<void> {
-    const chosen = await this.openPath({ directory: false })
+    const chosen = await pickPath({ directory: false })
     if (chosen === null) {
       return
     }
@@ -295,6 +302,7 @@ export default class PlaylistPageComponent {
       return
     }
 
+    void writeLastDestination(destination)
     await this.sidecar.extractPlaylist({
       source_folder: source,
       destination_folder: destination,
@@ -304,14 +312,8 @@ export default class PlaylistPageComponent {
     })
   }
 
-  /** Hors Tauri, le plugin `dialog` rejette : l'ecran reste utilisable. */
-  private async openPath(options: { directory: boolean }): Promise<string | null> {
-    try {
-      const chosen = await open({ directory: options.directory, multiple: false })
-
-      return typeof chosen === "string" ? chosen : null
-    } catch {
-      return null
-    }
+  /** Le dossier suit par la destination memorisee a l'extraction : rien a transporter. */
+  protected goTagging(): void {
+    void this.router.navigate(["tagging"])
   }
 }

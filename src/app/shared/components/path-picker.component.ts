@@ -29,7 +29,7 @@ import { TruncatedTextComponent } from "./truncated-text.component"
     <app-truncated-text
       class="max-w-full justify-self-end text-sm text-muted-color"
       direction="rtl"
-      [text]="path()"
+      [text]="path() || placeholder()"
     />
   `,
   host: { class: "contents" },
@@ -40,6 +40,8 @@ export class PathPickerComponent {
   readonly label = input.required<string>()
   readonly buttonLabel = input.required<string>()
   readonly path = input<string | null>(null)
+  /** Une cellule vide laisserait croire a un defaut d'affichage plutot qu'a un choix a faire. */
+  readonly placeholder = input("")
 
   readonly pick = output()
 }

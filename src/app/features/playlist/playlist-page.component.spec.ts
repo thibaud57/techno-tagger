@@ -1,9 +1,11 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { Router } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { load, type Store } from "@tauri-apps/plugin-store"
 
+import { CompletionSignalService } from "../../core/completion-signal.service"
 import type {
   ExtractionFinishedEvent,
   PlaylistFormat,
@@ -70,15 +72,27 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
     extractPlaylist: vi.fn(),
     ...overrides,
   }
+  // `announceOnTransition` reste la vraie implementation du service : c'est elle qui porte
+  // la garde testee plus bas, et `this` a l'interieur s'y lie a cet objet (methode non liee).
+  const announce = {
+    announce: vi.fn(() => Promise.resolve()),
+    announceOnTransition: CompletionSignalService.prototype.announceOnTransition,
+  }
+  const router = { navigate: vi.fn(() => Promise.resolve(true)) }
 
   TestBed.configureTestingModule({
     imports: [PlaylistPageComponent],
-    providers: [provideTranslateService(), { provide: SidecarService, useValue: service }],
+    providers: [
+      provideTranslateService(),
+      { provide: SidecarService, useValue: service },
+      { provide: CompletionSignalService, useValue: announce },
+      { provide: Router, useValue: router },
+    ],
   })
 
   const fixture = TestBed.createComponent(PlaylistPageComponent)
 
-  return { fixture, component: fixture.componentInstance, service }
+  return { fixture, component: fixture.componentInstance, service, announce, router }
 }
 
 /** Acces par crochets aux membres `protected` : piloter l'ecran sans elargir sa surface. */
@@ -342,5 +356,55 @@ describe("PlaylistPageComponent", () => {
     await component["extract"]()
 
     expect(service.extractPlaylist).not.toHaveBeenCalled()
+  })
+
+  it("memorizes the destination as the last extraction target when starting an extraction", async () => {
+    const store = {
+      get: vi.fn(() => Promise.resolve(undefined)),
+      set: vi.fn(),
+      save: vi.fn(() => Promise.resolve()),
+    } as unknown as Store
+    // `mockResolvedValue` et non `Once` : le constructeur charge deja le store une
+    // premiere fois pour restaurer le mode d'extraction.
+    vi.mocked(load).mockResolvedValue(store)
+    const { component } = mountWith()
+    withAllPathsChosen(component)
+
+    await component["extract"]()
+
+    // `writeLastDestination` n'est pas attendue par `extract()` (fire-and-forget) :
+    // `waitFor` laisse sa chaine de promesses se resoudre avant l'assertion.
+    await vi.waitFor(() => {
+      expect(store.set).toHaveBeenCalledWith("last_destination", "C:/work")
+    })
+  })
+
+  it("announces the end of the extraction", () => {
+    const extraction = signal<ExtractionFinishedEvent | null>(null)
+    const { fixture, announce } = mountWith({ extraction })
+
+    extraction.set(SOME_EXTRACTION)
+    fixture.detectChanges()
+    fixture.detectChanges()
+
+    expect(announce.announce).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not announce an extraction that was already there when the tab mounts", () => {
+    const extraction = signal<ExtractionFinishedEvent | null>(SOME_EXTRACTION)
+    const { fixture, announce } = mountWith({ extraction })
+
+    fixture.detectChanges()
+    fixture.detectChanges()
+
+    expect(announce.announce).not.toHaveBeenCalled()
+  })
+
+  it("navigates to the tagging tab when asked to go on with the extracted folder", () => {
+    const { component, router } = mountWith({ extraction: signal(SOME_EXTRACTION) })
+
+    component["goTagging"]()
+
+    expect(router.navigate).toHaveBeenCalledWith(["tagging"])
   })
 })

@@ -60,6 +60,7 @@
       [label]="'playlist.source.label' | translate"
       [buttonLabel]="'playlist.source.choose' | translate"
       [path]="sourceFolder()"
+      [placeholder]="'playlist.source.none' | translate"
       (pick)="chooseFolder(sourceFolder)"
     >
       <app-icon icon name="folder" [size]="20" />
@@ -69,6 +70,7 @@
       [label]="'playlist.destination.label' | translate"
       [buttonLabel]="'playlist.destination.choose' | translate"
       [path]="destinationFolder()"
+      [placeholder]="'playlist.destination.none' | translate"
       (pick)="chooseFolder(destinationFolder)"
     >
       <app-icon icon name="folder" [size]="20" />
@@ -78,6 +80,7 @@
       [label]="'playlist.file.label' | translate"
       [buttonLabel]="'playlist.file.choose' | translate"
       [path]="playlistPath()"
+      [placeholder]="'playlist.file.none' | translate"
       (pick)="choosePlaylistFile()"
     >
       @if (showsPlaylistSelector()) {
@@ -218,9 +221,22 @@
       </ng-template>
     </p-table>
     @if (progress(); as finished) {
-      <span class="self-end text-sm text-muted-color tabular-nums">
-        {{ "playlist.finished" | translate: finished }}
-      </span>
+      <div class="flex items-center justify-end gap-4">
+        <span class="text-sm text-muted-color tabular-nums">
+          {{ "playlist.finished" | translate: finished }}
+        </span>
+        <button
+          pButton
+          type="button"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          (click)="goTagging()"
+        >
+          {{ "playlist.goTagging" | translate }}
+          <app-icon name="arrow-right" [size]="16" />
+        </button>
+      </div>
     }
   </div>
 }

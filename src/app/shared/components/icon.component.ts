@@ -1,4 +1,5 @@
 import { Component, input } from "@angular/core"
+import { ArrowRight } from "@primeicons/angular/arrow-right"
 import { ChevronLeft } from "@primeicons/angular/chevron-left"
 import { ChevronRight } from "@primeicons/angular/chevron-right"
 import { Check } from "@primeicons/angular/check"
@@ -10,6 +11,7 @@ import { EyeSlash } from "@primeicons/angular/eye-slash"
 import { File as FileIcon } from "@primeicons/angular/file"
 import { Folder } from "@primeicons/angular/folder"
 import { InfoCircle } from "@primeicons/angular/info-circle"
+import { Play } from "@primeicons/angular/play"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
 
@@ -27,6 +29,8 @@ export const ICON_NAMES = [
   "check",
   "check-circle",
   "clock",
+  "play",
+  "arrow-right",
   "times",
   "times-circle",
   "exclamation-triangle",
@@ -43,12 +47,14 @@ export type IconSize = 16 | 20 | 24
 @Component({
   selector: "app-icon",
   imports: [
+    ArrowRight,
     Check,
     CheckCircle,
     ChevronLeft,
     ChevronRight,
     Clock,
     ExclamationTriangle,
+    Play,
     Eye,
     EyeSlash,
     FileIcon,
@@ -79,6 +85,12 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("clock") {
         <svg data-p-icon="clock" [size]="size()" />
+      }
+      @case ("play") {
+        <svg data-p-icon="play" [size]="size()" />
+      }
+      @case ("arrow-right") {
+        <svg data-p-icon="arrow-right" [size]="size()" />
       }
       @case ("times") {
         <svg data-p-icon="times" [size]="size()" />

@@ -94,6 +94,9 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   `mask`, sans icône fournie (décisions du 2026-09-21). L'indicateur de robustesse n'est pas repris,
   une clé reçue ne se choisit pas. La maquette et sa fiche `components/forms/Password.prompt.md`
   décrivent encore `<Password>` / `p-password` avec `[feedback]="false"`.
+- **Largeur de la colonne Score** : mesurée sur « A 100 · T 100 », le détail le plus long, qui
+  passait à la ligne dans la largeur d'origine (2026-09-23). `runColumns` de `TaggingScreen.jsx`
+  pose `var(--tt-col-score)`, à revérifier sur ce contenu.
 - **Taille de la table de la liste du run** : la fiche `DataTable` la pose en `size="small"`,
   DESIGN.md § Layout la veut à sa taille par défaut, et c'est DESIGN.md qui a été suivi
   (2026-09-20). La fiche et `TaggingScreen.jsx` sont à aligner au prochain push.
@@ -101,6 +104,28 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   des fichiers musicaux, celle que porteront les fichiers réécrits. Le code l'emploie dans les
   colonnes Avant et Après, ainsi que pour le tiret d'une valeur absente (décision du 2026-09-22).
   `runColumns` de `TaggingScreen.jsx` emploie encore un tiret cadratin.
+- **Onglet Tagging, choix du dossier** : la maquette n'a pas de sélecteur et renvoie vers l'onglet
+  Playlist ; l'écran livré porte un `PathPicker` prérempli avec la destination de la dernière
+  extraction (2026-09-20), BRAINSTORM demandant une sélection de dossier. Le chemin ne s'affiche
+  donc qu'une fois, dans ce sélecteur : l'en-tête de `TaggingScreen.jsx` le porte aussi, et les
+  deux ensemble donnaient deux lignes quasi identiques (2026-09-23). À reprendre dans
+  `TaggingScreen.jsx`.
+- **Toast de fin** : le toast de `AppShell.jsx` est livré pour les deux onglets, sonore compris, et
+  non pour le seul run.
+- **Bouton « Passer au tagging »** : `PlaylistScreen.jsx` le place à côté de l'action d'extraction ;
+  le formulaire livré étant replié en deux temps, il prend place à côté du compteur « Extraction
+  terminée » (2026-09-22).
+- **Bouton de lancement visible pendant le run** : `TaggingScreen.jsx` le fait disparaître hors
+  phase `idle`, DESIGN.md § États des Composants veut qu'une action désactivée garde son libellé
+  et ne soit jamais masquée. DESIGN.md tranche, le bouton reste visible et grisé, son tooltip
+  nommant ce qui bloque (2026-09-23). À reprendre dans `TaggingScreen.jsx`.
+- **Bloc vide de l'onglet Tagging** : la maquette ne l'affiche que faute de dossier et y pose une
+  action « Aller à l'onglet Playlist » ; l'écran livré l'affiche tant qu'aucun run n'a tourné et
+  sans action, le sélecteur de dossier ayant remplacé ce renvoi (2026-09-23). Son cadre, lui, suit
+  la maquette : bordure, rayon et fond de contenu.
+- **Chemin vide des sélecteurs** : `PathPickerComponent` affiche « Aucun dossier sélectionné » quand
+  rien n'est choisi, comme `FolderRow` de `PlaylistScreen.jsx`. La cellule restait vide jusqu'au
+  2026-09-23, sur les deux onglets.
 
 ## Journal
 
