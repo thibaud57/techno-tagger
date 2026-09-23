@@ -2,7 +2,7 @@
 feature: "Feature 2 — Onglet Scraping, pipeline de re-tagging"
 subproject: "onglet-tagging-page"
 goal: "Livrer l'écran de l'onglet Tagging, du choix du dossier à la fin de la phase réseau"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["05-cle-api-design.md", "08-service-sidecar-tagging-design.md", "09-liste-du-run-design.md"]
