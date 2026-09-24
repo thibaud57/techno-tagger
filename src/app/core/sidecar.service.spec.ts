@@ -552,6 +552,23 @@ describe("SidecarService", () => {
     expect(service.extracting()).toBe(true)
   })
 
+  it("keeps the extraction going when a second one is refused", async () => {
+    await service.start()
+    await service.extractPlaylist(EXTRACTION)
+    transport.emit({ event: "progress", phase: "extraction", processed: 1, total: 5 })
+
+    transport.emit({
+      event: "error",
+      code: "extraction_in_progress",
+      params: {},
+      message: "an extraction is already in progress",
+      command: "extract_playlist",
+    })
+
+    expect(service.extracting()).toBe(true)
+    expect(service.progress()).not.toBeNull()
+  })
+
   it("keeps a tagging run going when an extraction fails", async () => {
     await service.start()
     await service.startTagging("C:/Sets")

@@ -43,6 +43,7 @@ from tagger.protocol import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
     from pathlib import Path
     from typing import TextIO
 
@@ -119,13 +120,15 @@ class _Session:
         """Lance le run en tache de fond : la boucle repart lire la commande suivante."""
         if self._active_run() is not None:
             raise TaggingInProgressError
-        self._run = self._group.create_task(self._tag(command), name="tagging")
+        work = handle_start_tagging(command, self.send)
+        self._run = self._group.create_task(self._phase(work, command), name="tagging")
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
         """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
         if self._active(self._extraction) is not None:
             raise ExtractionInProgressError
-        self._extraction = self._group.create_task(self._extract(command), name="extraction")
+        work = asyncio.to_thread(handle_extract_playlist, command, self.send)
+        self._extraction = self._group.create_task(self._phase(work, command), name="extraction")
 
     def cancel_run(self) -> None:
         """`shutdown` n'attend pas la fin d'un run, il l'annule.
@@ -154,20 +157,16 @@ class _Session:
             return None
         return task
 
-    async def _tag(self, command: StartTagging) -> None:
-        try:
-            finished = await handle_start_tagging(command, self.send)
-        except TaggerError as error:
-            logger.exception("tagging run failed reason=%s", error.code)
-            self.send(error_from_business(error, command.command))
-            return
-        self.send(finished)
+    async def _phase(self, work: Awaitable[Event], command: StartTagging | ExtractPlaylist) -> None:
+        """Deroule une phase de fond : son evenement de fin, ou son erreur metier.
 
-    async def _extract(self, command: ExtractPlaylist) -> None:
+        Une phase echouee ne remonte pas au `TaskGroup`, qui annulerait la session
+        entiere pour un dossier illisible.
+        """
         try:
-            finished = await asyncio.to_thread(handle_extract_playlist, command, self.send)
+            finished = await work
         except TaggerError as error:
-            logger.exception("extraction failed reason=%s", error.code)
+            logger.exception("background phase failed reason=%s", error.code)
             self.send(error_from_business(error, command.command))
             return
         self.send(finished)
@@ -196,10 +195,10 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    La boucle ne traite plus une commande a la fois quand un run de re-tagging est
-    lance : il tourne en tache de fond dans le `TaskGroup`, ce qui laisse la boucle
-    libre de lire les commandes suivantes pendant qu'il avance. `shutdown` l'annule,
-    l'EOF l'attend.
+    Les deux phases longues, extraction et re-tagging, tournent en tache de fond dans
+    le `TaskGroup` : la boucle lit les commandes suivantes pendant qu'elles avancent.
+    `shutdown` annule le run mais attend l'extraction, une copie coupee en vol laissant
+    un fichier a moitie ecrit ; l'EOF attend les deux.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre

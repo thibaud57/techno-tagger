@@ -165,7 +165,7 @@ export class SidecarService {
     await this.send({ command: "list_playlists", playlist_path: playlistPath })
   }
 
-  /** Meme garde que `startTagging` : le sidecar refuserait la seconde commande. */
+  /** Sans ce garde, l'effacement ci-dessous viderait l'ecran d'une extraction en cours. */
   async extractPlaylist(request: ExtractionRequest): Promise<void> {
     if (this._extracting()) {
       return
@@ -177,11 +177,7 @@ export class SidecarService {
     await this.send({ command: "extract_playlist", ...request })
   }
 
-  /**
-   * Ignore l'appel si un run tourne : le sidecar le refuserait par `tagging_in_progress`
-   * (releve le 2026-09-24) apres que `reset()` aurait vide la liste d'un run qui continue
-   * d'emettre. `canStart()` garde l'ecran, ceci tout autre appelant.
-   */
+  /** Sans ce garde, `reset()` viderait la liste d'un run en cours (releve le 2026-09-24). */
   async startTagging(folder: string, thresholds?: ThresholdsPayload): Promise<void> {
     if (this.taggingRun.running()) {
       return
