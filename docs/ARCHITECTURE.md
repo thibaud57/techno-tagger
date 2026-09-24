@@ -440,7 +440,11 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs résolus, non résolus et en attente d'arbitrage, et chemin des rapports une fois la Feature 6 livrée |
 | `runs_listed` | runs passés : identifiant, date, dossier, compteurs du récapitulatif |
 | `run_loaded` | récapitulatif d'un run passé, relu depuis son rapport JSON |
-| `error` | `code`, `params`, `message` technique, morceau concerné le cas échéant |
+| `error` | `code`, `params`, `message` technique, `command` ayant échoué, morceau concerné le cas échéant |
+
+**`error` nomme la commande qui a échoué, l'interface ne la déduit pas.** Un écran n'affiche que les erreurs des commandes qu'il émet, sans quoi l'échec d'un enregistrement de clé s'afficherait en bannière sur l'onglet Playlist ouvert ensuite. Tant que la boucle traitait une commande à la fois, l'interface pouvait retenir la dernière envoyée et lui attribuer l'erreur suivante. `start_tagging` rendant la main aussitôt (§ [Concurrence](#concurrence)), cette déduction est fausse : une commande courte émise pendant un run récupérerait l'échec du run, et le run l'échec de la commande courte. D'où le champ, que le sidecar remplit dans ses deux chemins d'émission. Il vaut `null` sur une ligne trop malformée pour désigner une commande du contrat, son nom éventuel restant dans les `params`.
+
+**Seul l'échec de la commande qui a ouvert un run le clôt.** L'interface arrête son run sur une erreur portant `extract_playlist` ou `start_tagging`, et le laisse courir sur toute autre : il tourne toujours côté sidecar, et l'effacer laisserait les événements suivants arriver sur une liste vide. Le code `tagging_in_progress` est l'exception qui confirme la règle : porté par `start_tagging`, il refuse un second lancement en affirmant précisément que le premier continue, et n'arrête donc rien (relevé par `/verify` le 2026-09-24).
 
 **`run_finished` porte une `phase`, il n'est pas émis une seule fois.** La fin de la boucle de résolution ouvre la phase de rattrapage par URL, la fin de l'écriture ouvre le récapitulatif : deux moments distincts, deux écrans différents, un seul événement. Sans ce champ, l'interface ne peut pas savoir lequel des deux elle reçoit.
 
@@ -535,6 +539,7 @@ La file d'arbitrage est une simple structure en mémoire, exposée à l'interfac
 - **Authentification sortante** : header `X-API-Key` vers techno-scraper, une clé par utilisateur, saisie dans les Settings et stockée via **keyring** dans le Credential Manager Windows (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md))
 - **Durcissement** : le plugin `shell` de Tauri n'autorise que le lancement du sidecar déclaré, pas de commande arbitraire. Le périmètre `fs` est restreint à `$APPLOCALDATA` ; les fichiers musicaux sont lus et écrits par le sidecar Python, jamais par la webview.
 - **Validation** : toute commande reçue sur `stdin` est validée contre son modèle Pydantic avant exécution, `extra="forbid"` rejetant tout champ non déclaré ; une commande malformée produit un événement `error`, jamais un effet de bord partiel.
+- **Requête sortante vers une adresse libre** : `release.artwork_url` est la seule valeur du contrat qui en déclenche une, et le CDN de la source n'est documenté nulle part, donc aucune liste blanche de domaines. Le garde juge l'hôte sur ce qu'il résout et non sur sa forme (`https` obligatoire, toute adresse non globale refusée), puis **relit l'adresse réellement connectée** : le client HTTP refaisant sa propre résolution, un DNS qui en rend une autre entre les deux ferait sinon sonder la machine ou le réseau de l'utilisateur, et les motifs d'échec suffiraient à dire ce qui y répond. Tous ces cas rendent un `blocked_url` unique. Reste hors de portée la connexion TCP elle-même, qu'exclure demanderait d'épingler l'adresse validée jusque dans le transport.
 
 ### Services Externes
 
