@@ -18,7 +18,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from ipaddress import ip_address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import TYPE_CHECKING, BinaryIO, ClassVar, Final, NamedTuple, Self
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -440,15 +440,16 @@ async def _check_artwork_url(url: str, resolve: HostResolver) -> None:
     except ValueError:
         pass
     else:
-        if not address.is_global:
-            raise ArtworkUnavailableError("blocked_url")
+        _refuse_unless_global(address)
         return
     try:
         resolved = await asyncio.to_thread(resolve, parsed.hostname)
     except OSError as exc:
         raise ArtworkUnavailableError("network") from exc
-    if not resolved or not all(ip_address(found).is_global for found in resolved):
+    if not resolved:
         raise ArtworkUnavailableError("blocked_url")
+    for found in resolved:
+        _refuse_unless_global(ip_address(found))
 
 
 def _check_connected_address(response: httpx2.Response) -> None:
@@ -470,6 +471,13 @@ def _check_connected_address(response: httpx2.Response) -> None:
         address = ip_address(connected[0])
     except ValueError:
         raise ArtworkUnavailableError("blocked_url") from None
+    _refuse_unless_global(address)
+
+
+def _refuse_unless_global(address: IPv4Address | IPv6Address) -> None:
+    """Un seul motif pour toutes les adresses refusees : un code par cause dirait a qui
+    a forge l'URL ce qui repond en interne.
+    """
     if not address.is_global:
         raise ArtworkUnavailableError("blocked_url")
 

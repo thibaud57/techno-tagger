@@ -541,6 +541,25 @@ describe("SidecarService", () => {
     expect(service.tagging()).toBe(true)
   })
 
+  it("keeps a tagging run going when an extraction fails", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    // Les deux phases longues tournent en parallele : l'echec de l'une ne dit rien
+    // de l'autre, et l'ecran du tagging ne doit pas perdre son run.
+    transport.emit({
+      event: "error",
+      code: "report_write_failed",
+      params: {},
+      message: "report not written",
+      command: "extract_playlist",
+    })
+
+    expect(service.tagging()).toBe(true)
+    expect(service.taggingTracks().length).toBeGreaterThan(0)
+  })
+
   it("keeps the run going when a second launch is refused", async () => {
     await service.start()
     await service.startTagging("C:/Sets")

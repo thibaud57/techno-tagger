@@ -62,14 +62,15 @@ def test_completes_a_group_that_names_the_mix_by_half(
         ("Extended Dreams", "Extended Mix"),
         ("Your Mind (Live)", "Extended Mix"),
         ("Your Mind (Dub)", "Dubplate Mix"),
+        ("Your Mind (Dub)", "Sunset Dub Edit"),
     ],
-    ids=["ordinary-word", "other-version", "fragment-of-a-word"],
+    ids=["ordinary-word", "other-version", "fragment-of-a-word", "named-mid-version"],
 )
 def test_still_appends_the_mix_name_when_no_group_announces_it(title: str, mix_name: str) -> None:
     """La completion ne vaut que pour un groupe qui prefixe la version.
 
-    Ailleurs, le mot est ordinaire, nomme une autre version, ou n'est qu'un fragment :
-    ecraser le groupe perdrait ce que la source dit.
+    Ailleurs, le mot est ordinaire, nomme une autre version, n'est qu'un fragment, ou
+    figure au milieu de la version : ecraser le groupe perdrait ce que la source dit.
     """
     candidate = track_candidate(title, mix_name)
 

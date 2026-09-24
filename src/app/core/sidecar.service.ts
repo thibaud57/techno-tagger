@@ -33,9 +33,6 @@ export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
 /** Seul echec de `start_tagging` qui laisse le run precedent tourner : l'arret l'epargne. */
 const TAGGING_IN_PROGRESS = "tagging_in_progress"
 
-/** Commandes dont l'echec clot le run qu'elles avaient ouvert. */
-const RUN_COMMANDS: readonly SidecarCommand["command"][] = ["extract_playlist", "start_tagging"]
-
 const unavailableError = (command: SidecarCommand["command"] | null): SidecarErrorEvent => ({
   event: "error",
   code: SIDECAR_UNAVAILABLE,
@@ -88,18 +85,6 @@ export class SidecarService {
   readonly lastError = this._lastError.asReadonly()
   /** Commande a l'origine de `lastError` : un ecran n'affiche que celles qu'il emet. */
   readonly lastErrorCommand = this._lastErrorCommand.asReadonly()
-
-  /**
-   * Lit les accesseurs publics et non les signals prives : un stub qui les fournit
-   * reutilise cette methode par son prototype, sans reecrire la regle.
-   */
-  errorFor(...commands: readonly SidecarCommand["command"][]): Signal<SidecarErrorEvent | null> {
-    return computed(() => {
-      const command = this.lastErrorCommand()
-
-      return command !== null && commands.includes(command) ? this.lastError() : null
-    })
-  }
   /** Exige la version recue : absente, la divergence n'est pas encore controlee (ADR-018). */
   readonly ready = computed(
     () =>
@@ -118,6 +103,18 @@ export class SidecarService {
   readonly taggingFinished = this.taggingRun.finished
 
   private started = false
+
+  /**
+   * Lit les accesseurs publics et non les signals prives : un stub qui les fournit
+   * reutilise cette methode par son prototype, sans reecrire la regle.
+   */
+  errorFor(...commands: readonly SidecarCommand["command"][]): Signal<SidecarErrorEvent | null> {
+    return computed(() => {
+      const command = this.lastErrorCommand()
+
+      return command !== null && commands.includes(command) ? this.lastError() : null
+    })
+  }
 
   /**
    * Idempotent : le sidecar est un process long lance au demarrage, pas une
@@ -239,10 +236,15 @@ export class SidecarService {
     this._lastErrorCommand.set(error?.command ?? null)
   }
 
+  /** Le process est perdu : les deux phases longues s'arretent, quelle qu'en soit la cause. */
   private endRun(): void {
+    this.endExtraction()
+    this.taggingRun.failed()
+  }
+
+  private endExtraction(): void {
     this._extracting.set(false)
     this._progress.set(null)
-    this.taggingRun.failed()
   }
 
   /**
@@ -304,14 +306,13 @@ export class SidecarService {
         break
       case "error":
         this.setLastError(event)
-        // `start_tagging` tourne en tache de fond : l'echec d'une commande emise par un
-        // autre onglet ne doit pas faire croire a l'ecran que le run est mort.
-        if (
-          event.command !== null &&
-          RUN_COMMANDS.includes(event.command) &&
-          event.code !== TAGGING_IN_PROGRESS
-        ) {
-          this.endRun()
+        // Chaque phase longue ne tombe que sur l'echec de la commande qui l'a ouverte :
+        // elles tournent en parallele, l'une ne dit rien de l'autre.
+        if (event.command === "extract_playlist") {
+          this.endExtraction()
+        }
+        if (event.command === "start_tagging" && event.code !== TAGGING_IN_PROGRESS) {
+          this.taggingRun.failed()
         }
         break
       default: {

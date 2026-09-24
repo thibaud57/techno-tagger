@@ -3,7 +3,7 @@
 import json
 from dataclasses import fields
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -17,6 +17,8 @@ from tagger.extraction import (
     ExtractionResult,
 )
 from tagger.protocol import (
+    AnyCommand,
+    CommandName,
     DiscardedCandidatePayload,
     DuplicatePayload,
     ExtractionFinished,
@@ -200,6 +202,18 @@ def test_a_business_error_keeps_its_code_and_params_and_names_its_command() -> N
     assert event.code == "playlist_not_found"
     assert event.params == {"playlist_name": "x"}
     assert event.command == "list_playlists"
+
+
+def test_command_name_lists_every_command() -> None:
+    """Une commande ajoutee sans sa valeur ici ne casserait qu'au premier appel de
+    `error_from_business`, loin de l'endroit ou elle a ete declaree.
+    """
+    declared = {
+        get_args(model.model_fields["command"].annotation)[0]
+        for model in get_args(get_args(AnyCommand.__value__)[0])
+    }
+
+    assert declared == set(get_args(CommandName.__value__))
 
 
 def test_a_malformed_command_names_no_command() -> None:

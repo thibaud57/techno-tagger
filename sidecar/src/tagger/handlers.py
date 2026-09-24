@@ -173,8 +173,12 @@ async def handle_start_tagging(command: StartTagging, emit: Callable[[Event], No
     # Deux scans independants, superposes plutot qu'enchaines. `TaskGroup` et non
     # `gather` : si l'un leve, il annule l'autre au lieu de le laisser courir seul.
     async with asyncio.TaskGroup() as opening:
-        responses_disk = opening.create_task(asyncio.to_thread(DiskCache, cache_root / "responses"))
-        artworks_disk = opening.create_task(asyncio.to_thread(DiskCache, cache_root / "artworks"))
+        responses_disk = opening.create_task(
+            asyncio.to_thread(DiskCache, cache_root / "responses"), name="cache:responses"
+        )
+        artworks_disk = opening.create_task(
+            asyncio.to_thread(DiskCache, cache_root / "artworks"), name="cache:artworks"
+        )
     responses = ResponseCache(responses_disk.result())
     artwork_cache = artworks_disk.result()
     transports = tagging_transports()

@@ -414,6 +414,14 @@ def full_title(candidate: TrackCandidate) -> str:
     return f"{candidate.title} ({mix_name})"
 
 
+def _prefixes(mix_name: str, opening: str) -> bool:
+    """Mot entier et en tete : « Dub » annonce « Dub Mix », jamais « Sunset Dub Edit »,
+    ou la source a place sa propre annotation.
+    """
+    guard = re.compile(rf"^{re.escape(opening)}(?!\w)", re.IGNORECASE)
+    return guard.search(mix_name) is not None
+
+
 def _mentions(title: str, mix_name: str) -> bool:
     """Mot entier : un mix court ne doit pas matcher un fragment d'un autre mot
     (« Dub » dans « Dubplate »).
@@ -434,7 +442,7 @@ def _complete_partial_mention(title: str, mix_name: str) -> str | None:
     """
     for group in _GROUP.finditer(title):
         inner = group.group("content").strip()
-        if inner and _mentions(mix_name, inner):
+        if inner and _prefixes(mix_name, inner):
             return f"{title[: group.start()]}({mix_name}){title[group.end() :]}"
     return None
 

@@ -139,6 +139,17 @@ type AnyCommand = Annotated[
 # du dispatch de se fermer par `assert_never` sans laisser de cas non couvert.
 type ExecutableCommand = GetVersion | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging
 
+# Recopie des six `command` declares ci-dessus : un `Literal` ne se compose pas depuis
+# une union a la compilation. `test_command_name_lists_every_command` garde la copie.
+type CommandName = Literal[
+    "get_version",
+    "shutdown",
+    "list_playlists",
+    "extract_playlist",
+    "set_api_key",
+    "start_tagging",
+]
+
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
 
 
@@ -357,7 +368,7 @@ class Error(Event):
     code: str
     params: dict[str, object]
     message: str
-    command: str | None = None
+    command: CommandName | None = None
 
 
 MALFORMED_COMMAND: Final = "malformed_command"
@@ -394,7 +405,7 @@ def error_from_validation(exc: ValidationError) -> Error:
     )
 
 
-def error_from_business(exc: TaggerError, command: str) -> Error:
+def error_from_business(exc: TaggerError, command: CommandName) -> Error:
     """Convertit une erreur metier en evenement, en gardant son code et ses params."""
     return Error(code=exc.code, params=dict(exc.params), message=str(exc), command=command)
 
