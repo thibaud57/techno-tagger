@@ -44,7 +44,11 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
 
 ## Reste ouvert
 
-Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain sync :
+Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain sync.
+
+> Le **design system** a été réaligné le 2026-09-24 (cf. Journal) : `readme.md`, la fiche
+> `Password` et cinq composants absents du catalogue. Ce qui suit ne concerne donc plus que
+> la **maquette**, que ce sync n'a pas touchée, faute de demande explicite.
 
 - **Écran bloquant en carte** : la maquette le rend en `Message fullScreen`, un pavé d'alerte
   rouge. Le code le rend en `p-card` neutre, sans icône, avec l'action de reprise. À reprendre
@@ -137,3 +141,12 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   `/swarm-ui-variations`, dont une calquée sur `PlaylistScreen.jsx`. Le mix retenu (grille compacte,
   deux temps, résumé, table pleine hauteur) est livré en `2d3b10e` et consigné ci-dessus. Aucun
   push vers le projet Claude Design.
+- **2026-09-24, premier push du design system** : `readme.md` réaligné sur `docs/DESIGN.md` après
+  la livraison des onglets Playlist et Tagging, avec sa réserve n° 8 datée. Les deux régimes de
+  largeur cèdent au container unique, les tables reviennent à leur taille par défaut, la colonne
+  Pochette passe à 48px et les trois colonnes fixes du run cessent d'annoncer des pixels. La fiche
+  `Password` dit enfin que `p-password` est déprécié et que l'app compose son champ à la main.
+  Cinq composants rejoignent le catalogue, chacun avec son `.jsx`, son `.d.ts` et sa fiche :
+  `Card`, `ErrorMessage`, `PathPicker`, `PhaseProgress`, `TruncatedText`. `_ds_needs_recompile`
+  posé en fin de push. **La maquette n'a pas été touchée** : elle est le fichier de design du
+  propriétaire, et son réalignement demande une demande explicite.
