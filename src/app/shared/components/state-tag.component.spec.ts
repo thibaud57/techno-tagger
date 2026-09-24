@@ -10,6 +10,7 @@ interface Case {
   readonly resolution: TrackResolution | null
   readonly awaiting: boolean
   readonly severity: string
+  readonly icon: string
   readonly label: string
 }
 
@@ -20,6 +21,7 @@ const CASES: readonly Case[] = [
     resolution: null,
     awaiting: true,
     severity: "info",
+    icon: "info-circle",
     label: "tagging.state.awaiting",
   },
   {
@@ -27,6 +29,7 @@ const CASES: readonly Case[] = [
     resolution: null,
     awaiting: false,
     severity: "secondary",
+    icon: "clock",
     label: "tagging.state.pending",
   },
   {
@@ -34,6 +37,7 @@ const CASES: readonly Case[] = [
     resolution: "auto",
     awaiting: false,
     severity: "success",
+    icon: "check",
     label: "tagging.state.auto",
   },
   {
@@ -41,6 +45,7 @@ const CASES: readonly Case[] = [
     resolution: "arbitration",
     awaiting: false,
     severity: "success",
+    icon: "check",
     label: "tagging.state.arbitrated",
   },
   {
@@ -48,6 +53,7 @@ const CASES: readonly Case[] = [
     resolution: "url",
     awaiting: false,
     severity: "success",
+    icon: "check",
     label: "tagging.state.url",
   },
   {
@@ -55,6 +61,7 @@ const CASES: readonly Case[] = [
     resolution: "none",
     awaiting: false,
     severity: "danger",
+    icon: "times",
     label: "tagging.state.unresolved",
   },
 ]
@@ -77,13 +84,14 @@ describe("StateTagComponent", () => {
     })
   })
 
-  it.each(CASES)("renders the family and the label of $label", (shown) => {
+  it.each(CASES)("renders the family, the icon and the label of $label", (shown) => {
     const fixture = mount(shown)
 
     const element = fixture.nativeElement as HTMLElement
 
     expect(element.textContent).toContain(shown.label)
     expect(element.querySelector(`[data-severity="${shown.severity}"]`)).not.toBeNull()
+    expect(element.querySelector(`[data-p-icon="${shown.icon}"]`)).not.toBeNull()
   })
 
   it("prefers the pending arbitration over the received state", () => {

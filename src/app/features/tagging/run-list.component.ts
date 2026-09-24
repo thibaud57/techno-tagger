@@ -22,10 +22,12 @@ const SOURCE_NAMES = { beatport: "Beatport", bandcamp: "Bandcamp", soundcloud: "
 
 const stripExtension = (fileName: string): string => fileName.replace(/\.[a-z0-9]+$/i, "")
 
+/** Un artiste ou un titre vide ne laisse pas de separateur orphelin. */
+const joinIdentity = (artist: string, title: string): string =>
+  [artist, title].filter((part) => part !== "").join(ARTIST_TITLE_SEPARATOR)
+
 const mainLineOf = (track: TaggingTrack): string => {
-  const identity = [track.artist, track.title]
-    .filter((part) => part !== "")
-    .join(ARTIST_TITLE_SEPARATOR)
+  const identity = joinIdentity(track.artist, track.title)
 
   return identity === "" ? stripExtension(track.fileName) : identity
 }
@@ -64,10 +66,7 @@ export class RunListComponent {
     this.tracks().map((track) => ({
       ...track,
       mainLine: mainLineOf(track),
-      afterLine:
-        track.after === null
-          ? null
-          : track.after.artist + ARTIST_TITLE_SEPARATOR + track.after.title,
+      afterLine: track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
       sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
       artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
     })),

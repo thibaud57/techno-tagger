@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from "@angular/core"
+import { Injectable, type Signal, computed, inject, signal } from "@angular/core"
 
 import {
   ExtractionFinishedEvent,
@@ -30,11 +30,21 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
 /** Seul code d'erreur que l'interface emet elle-meme : les autres viennent du sidecar. */
 export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
 
-const unavailableError = (): SidecarErrorEvent => ({
+/**
+ * Refus d'un second `start_tagging` : le seul echec de cette commande qui laisse le
+ * run precedent tourner, et qui l'affirme meme. L'arret de run doit l'epargner.
+ */
+const TAGGING_IN_PROGRESS = "tagging_in_progress"
+
+/** Commandes dont l'echec clot le run qu'elles avaient ouvert. */
+const RUN_COMMANDS: readonly SidecarCommand["command"][] = ["extract_playlist", "start_tagging"]
+
+const unavailableError = (command: SidecarCommand["command"] | null): SidecarErrorEvent => ({
   event: "error",
   code: SIDECAR_UNAVAILABLE,
   params: {},
   message: "sidecar unavailable",
+  command,
 })
 
 /**
@@ -85,6 +95,21 @@ export class SidecarService {
    * s'afficherait en banniere sur l'onglet Playlist, ouvert ensuite.
    */
   readonly lastErrorCommand = this._lastErrorCommand.asReadonly()
+
+  /**
+   * Erreur a afficher sur un ecran, filtree sur les commandes qu'il emet.
+   *
+   * Lit ses deux accesseurs publics et non les signals prives : un stub de test qui
+   * les fournit reutilise ainsi cette implementation par son prototype, au lieu de
+   * reecrire la regle qu'elle porte.
+   */
+  errorFor(...commands: readonly SidecarCommand["command"][]): Signal<SidecarErrorEvent | null> {
+    return computed(() => {
+      const command = this.lastErrorCommand()
+
+      return command !== null && commands.includes(command) ? this.lastError() : null
+    })
+  }
   /** Exige la version recue : absente, la divergence n'est pas encore controlee (ADR-018). */
   readonly ready = computed(
     () =>
@@ -103,7 +128,6 @@ export class SidecarService {
   readonly taggingFinished = this.taggingRun.finished
 
   private started = false
-  private pendingCommand: SidecarCommand["command"] | null = null
 
   /**
    * Idempotent : le sidecar est un process long lance au demarrage, pas une
@@ -161,8 +185,19 @@ export class SidecarService {
     await this.send({ command: "extract_playlist", ...request })
   }
 
-  /** Le run precedent disparait des l'envoi : l'ecran ne melange pas deux runs. */
+  /**
+   * Le run precedent disparait des l'envoi : l'ecran ne melange pas deux runs.
+   *
+   * Un run en cours est en revanche laisse intact, et la commande n'est pas emise : le
+   * sidecar la refuserait par `tagging_in_progress` (releve par /verify le 2026-09-24),
+   * apres que l'effacement local aurait vide la liste d'un run qui continue, et dont
+   * les evenements suivants ne retrouveraient plus leur ligne. L'ecran garde son propre
+   * garde sur `canStart()` ; celui-ci tient pour tout autre appelant.
+   */
   async startTagging(folder: string, thresholds?: ThresholdsPayload): Promise<void> {
+    if (this.taggingRun.running()) {
+      return
+    }
     this.taggingRun.reset()
     // `JSON.stringify` omet une cle `undefined` : la commande part sans `thresholds`.
     await this.send({ command: "start_tagging", folder, thresholds })
@@ -185,10 +220,8 @@ export class SidecarService {
   }
 
   private async send(command: SidecarCommand): Promise<void> {
-    // La boucle du sidecar est sequentielle : l'erreur qui viendra ensuite est la sienne.
-    this.pendingCommand = command.command
     if (!this._available()) {
-      this.reportUnavailable()
+      this.reportUnavailable(command.command)
 
       return
     }
@@ -202,22 +235,24 @@ export class SidecarService {
       // encore tourne, sans ce catch la rejection remonterait jusqu'au bootstrap.
       console.error("[sidecar] ecriture impossible", error)
       this._available.set(false)
-      this.reportUnavailable()
+      this.reportUnavailable(command.command)
     }
   }
 
   /**
    * Aucune reponse ne viendra : l'appelant lit l'echec dans lastError, au meme endroit
-   * qu'une erreur remontee par le protocole, et un run en attente s'arrete.
+   * qu'une erreur remontee par le protocole. Le sidecar etant injoignable, plus aucun
+   * evenement n'arrivera pour un run en cours : celui-ci s'arrete quelle que soit la
+   * commande refusee, contrairement a une erreur recue sur le flux.
    */
-  private reportUnavailable(): void {
-    this.setLastError(unavailableError())
+  private reportUnavailable(command: SidecarCommand["command"] | null): void {
+    this.setLastError(unavailableError(command))
     this.endRun()
   }
 
   private setLastError(error: SidecarErrorEvent | null): void {
     this._lastError.set(error)
-    this._lastErrorCommand.set(error === null ? null : this.pendingCommand)
+    this._lastErrorCommand.set(error?.command ?? null)
   }
 
   private endRun(): void {
@@ -285,9 +320,17 @@ export class SidecarService {
         break
       case "error":
         this.setLastError(event)
-        // La boucle du sidecar est sequentielle : une erreur recue pendant un run l'a
-        // interrompu (ecriture du rapport apres le dernier `progress`, par exemple).
-        this.endRun()
+        // Seule une erreur du run l'arrete. `start_tagging` tourne en tache de fond
+        // pendant que la boucle lit la suite : l'echec d'une commande emise par un
+        // autre onglet laisserait sinon l'ecran croire le run mort alors qu'il tourne
+        // toujours, et les evenements suivants arriveraient sur une liste effacee.
+        if (
+          event.command !== null &&
+          RUN_COMMANDS.includes(event.command) &&
+          event.code !== TAGGING_IN_PROGRESS
+        ) {
+          this.endRun()
+        }
         break
       default: {
         // Ajouter un evenement cote sidecar sans le traiter ici devient une

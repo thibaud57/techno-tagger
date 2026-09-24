@@ -10,7 +10,7 @@ import SettingsPageComponent from "./settings-page.component"
 /** Sous-ensemble reellement mocke : une divergence avec `SidecarService` casse ici, jamais en silence. */
 type SidecarServiceStub = Pick<
   SidecarService,
-  "apiKeyConfigured" | "available" | "lastError" | "lastErrorCommand" | "setApiKey"
+  "apiKeyConfigured" | "available" | "lastError" | "lastErrorCommand" | "errorFor" | "setApiKey"
 >
 
 /**
@@ -23,6 +23,7 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
     available: signal(true),
     lastError: signal(null),
     lastErrorCommand: signal(null),
+    errorFor: SidecarService.prototype.errorFor,
     setApiKey: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
@@ -59,6 +60,7 @@ describe("SettingsPageComponent", () => {
         code: "api_key_not_stored",
         params: {},
         message: "",
+        command: "set_api_key",
       }),
       lastErrorCommand: signal("set_api_key"),
     })
@@ -75,6 +77,7 @@ describe("SettingsPageComponent", () => {
         code: "malformed_command",
         params: {},
         message: "",
+        command: "list_playlists",
       }),
       lastErrorCommand: signal("list_playlists"),
     })

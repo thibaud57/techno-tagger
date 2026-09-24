@@ -50,10 +50,7 @@ export default class SettingsPageComponent {
   protected readonly canSave = computed(
     () => this.entry().apiKey !== "" && this.sidecar.available() === true,
   )
-  /** Seule commande de cet ecran : une erreur venue d'un autre onglet ne s'affiche pas ici. */
-  protected readonly error = computed(() =>
-    this.sidecar.lastErrorCommand() === "set_api_key" ? this.sidecar.lastError() : null,
-  )
+  protected readonly error = this.sidecar.errorFor("set_api_key")
 
   protected toggleMask(): void {
     this.masked.update((masked) => !masked)

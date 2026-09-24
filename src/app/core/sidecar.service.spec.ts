@@ -198,11 +198,14 @@ describe("SidecarService", () => {
     await service.start()
     await service.listPlaylists("C:/playlists.m3u8")
 
+    // Seule erreur que l'interface fabrique : elle nomme quand meme sa commande, que
+    // l'ecran qui l'a emise lise son echec au meme endroit que celles du protocole.
     expect(service.lastError()).toEqual({
       event: "error",
       code: "sidecar_unavailable",
       params: {},
       message: "sidecar unavailable",
+      command: "list_playlists",
     })
     expect(transport.sent).toEqual([])
   })
@@ -244,7 +247,13 @@ describe("SidecarService", () => {
 
   it("clears the previous error when a command is sent", async () => {
     await service.start()
-    transport.emit({ event: "error", code: "playlist_file_unreadable", params: {}, message: "x" })
+    transport.emit({
+      event: "error",
+      code: "playlist_file_unreadable",
+      params: {},
+      message: "x",
+      command: "list_playlists",
+    })
 
     await service.listPlaylists("C:/x.m3u8")
 
@@ -323,7 +332,13 @@ describe("SidecarService", () => {
   it("feeds the error without interrupting the stream", async () => {
     await service.start()
 
-    transport.emit({ event: "error", code: "playlist_not_found", params: {}, message: "x" })
+    transport.emit({
+      event: "error",
+      code: "playlist_not_found",
+      params: {},
+      message: "x",
+      command: "list_playlists",
+    })
     transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
 
     expect(service.lastError()?.code).toBe("playlist_not_found")
@@ -335,7 +350,13 @@ describe("SidecarService", () => {
     await service.extractPlaylist(EXTRACTION)
     transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
 
-    transport.emit({ event: "error", code: "report_write_failed", params: {}, message: "x" })
+    transport.emit({
+      event: "error",
+      code: "report_write_failed",
+      params: {},
+      message: "x",
+      command: "extract_playlist",
+    })
 
     expect(service.progress()).toBeNull()
     expect(service.extracting()).toBe(false)
@@ -473,11 +494,70 @@ describe("SidecarService", () => {
     transport.emit(RUN_STARTED)
     transport.emit(TRACK_RESOLVED)
 
-    transport.emit({ event: "error", code: "api_key_rejected", params: {}, message: "rejected" })
+    transport.emit({
+      event: "error",
+      code: "api_key_rejected",
+      params: {},
+      message: "rejected",
+      command: "start_tagging",
+    })
 
     expect(service.tagging()).toBe(false)
     expect(service.lastError()?.code).toBe("api_key_rejected")
     expect(service.taggingTracks()[0]?.state).toBe("resolved")
+  })
+
+  it("leaves a running tagging run alone when another command fails", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    // `start_tagging` tourne en tache de fond : la boucle du sidecar a lu et refuse une
+    // commande emise depuis un autre onglet pendant que le run continue.
+    transport.emit({
+      event: "error",
+      code: "api_key_not_stored",
+      params: {},
+      message: "keyring refused",
+      command: "set_api_key",
+    })
+
+    expect(service.tagging()).toBe(true)
+    expect(service.lastError()?.code).toBe("api_key_not_stored")
+  })
+
+  it("refuses to open a second run over a running one", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+    const sent = transport.sent.length
+
+    await service.startTagging("C:/Autre")
+
+    // Releve par /verify le 2026-09-24 : `reset()` vidait la liste du run en cours,
+    // que le sidecar laisse pourtant tourner en refusant la seconde commande.
+    expect(transport.sent.length).toBe(sent)
+    expect(service.taggingTracks().length).toBeGreaterThan(0)
+    expect(service.tagging()).toBe(true)
+  })
+
+  it("keeps the run going when a second launch is refused", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    // Releve par /verify le 2026-09-24 : le refus porte `start_tagging`, comme l'echec
+    // qui clot un run, mais ce code-la dit justement que le premier tourne toujours.
+    transport.emit({
+      event: "error",
+      code: "tagging_in_progress",
+      params: {},
+      message: "a run is already in progress",
+      command: "start_tagging",
+    })
+
+    expect(service.tagging()).toBe(true)
+    expect(service.lastError()?.code).toBe("tagging_in_progress")
   })
 
   it("writes a command as a single newline-terminated line", async () => {

@@ -208,6 +208,12 @@ export interface SidecarErrorEvent {
   readonly code: string
   readonly params: Record<string, unknown>
   readonly message: string
+  /**
+   * Commande qui a echoue, `null` sur une ligne trop malformee pour la designer.
+   * Le run de re-tagging tournant en tache de fond pendant que la boucle lit la
+   * suite, la derniere commande envoyee n'est pas forcement la fautive.
+   */
+  readonly command: SidecarCommand["command"] | null
 }
 
 export type SidecarEvent =

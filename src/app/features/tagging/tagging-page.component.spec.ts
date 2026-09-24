@@ -4,6 +4,7 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { load, type Store } from "@tauri-apps/plugin-store"
 
 import { CompletionSignalService } from "../../core/completion-signal.service"
+import type { SidecarErrorEvent } from "../../core/models/protocol"
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 
@@ -46,6 +47,7 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     taggingFinished: signal(null),
     lastError: signal(null),
     lastErrorCommand: signal(null),
+    errorFor: SidecarService.prototype.errorFor,
     startTagging: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
@@ -148,6 +150,27 @@ describe("TaggingPageComponent", () => {
     })
 
     expect(component["blockedReason"]()).toBe("tagging.blocked.running")
+  })
+
+  it.each([
+    ["shows an error raised by its own command", "start_tagging", "api_key_rejected"],
+    ["ignores an error raised by another screen", "set_api_key", null],
+  ] as const)("%s", async (_name, command, expected) => {
+    const failure: SidecarErrorEvent = {
+      event: "error",
+      code: "api_key_rejected",
+      params: {},
+      message: "",
+      command,
+    }
+    const { component } = await mountWith({
+      lastError: signal(failure),
+      lastErrorCommand: signal(command),
+    })
+
+    const shown = component["error"]()
+
+    expect(shown?.code ?? null).toBe(expected)
   })
 
   it("names the missing api key ahead of the folder", async () => {

@@ -39,6 +39,7 @@ import { TruncatedTextComponent } from "../../shared/components/truncated-text.c
 import { pickPath } from "../../shared/utils/dialog"
 import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { progressPercentage } from "../../shared/utils/progress"
 import { fullHeightTable } from "../../shared/utils/table"
 import { TOOLTIP_DELAY, WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
@@ -121,21 +122,10 @@ export default class PlaylistPageComponent {
   /** Copie mutable : `p-select` attend un tableau modifiable, le contrat NDJSON en lit lecture seule. */
   protected readonly playlists = computed(() => [...this.sidecar.playlists()])
   protected readonly progress = this.sidecar.progress
-  protected readonly progressPercent = computed(() => {
-    const running = this.sidecar.progress()
-
-    return running === null ? undefined : (running.processed / running.total) * 100
-  })
+  protected readonly progressPercent = computed(() => progressPercentage(this.sidecar.progress()))
   protected readonly extraction = this.sidecar.extraction
 
-  /** Les deux commandes de cet ecran : l'echec d'un enregistrement de cle ne s'affiche pas ici. */
-  protected readonly lastError = computed(() => {
-    const command = this.sidecar.lastErrorCommand()
-
-    return command === "list_playlists" || command === "extract_playlist"
-      ? this.sidecar.lastError()
-      : null
-  })
+  protected readonly lastError = this.sidecar.errorFor("list_playlists", "extract_playlist")
 
   /** Un M3U8 ne contient qu'une playlist : rien a choisir. */
   protected readonly showsPlaylistSelector = computed(

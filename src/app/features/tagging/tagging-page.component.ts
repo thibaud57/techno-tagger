@@ -13,6 +13,7 @@ import { PathPickerComponent } from "../../shared/components/path-picker.compone
 import { PhaseProgressComponent } from "../../shared/components/phase-progress.component"
 import { pickPath } from "../../shared/utils/dialog"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { progressPercentage } from "../../shared/utils/progress"
 import { TOOLTIP_DELAY } from "../../shared/utils/tooltip"
 
 import { RunListComponent } from "./run-list.component"
@@ -72,17 +73,8 @@ export default class TaggingPageComponent {
     return null
   })
   protected readonly canStart = computed(() => this.blockedReason() === null)
-  /** Un ecran n'affiche que les erreurs de la commande qu'il emet. */
-  protected readonly error = computed(() =>
-    this.sidecar.lastErrorCommand() === "start_tagging" ? this.sidecar.lastError() : null,
-  )
-  protected readonly percentage = computed(() => {
-    const progress = this.progress()
-
-    return progress === null || progress.total === 0
-      ? undefined
-      : Math.round((progress.processed / progress.total) * 100)
-  })
+  protected readonly error = this.sidecar.errorFor("start_tagging")
+  protected readonly percentage = computed(() => progressPercentage(this.progress()))
 
   constructor() {
     void this.prefill()

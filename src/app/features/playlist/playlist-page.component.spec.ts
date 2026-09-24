@@ -44,6 +44,7 @@ type SidecarServiceStub = Pick<
   | "listedPlaylistPath"
   | "lastError"
   | "lastErrorCommand"
+  | "errorFor"
   | "listPlaylists"
   | "extractPlaylist"
 >
@@ -68,6 +69,7 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
     listedPlaylistPath: signal(null),
     lastError: signal(null),
     lastErrorCommand: signal(null),
+    errorFor: SidecarService.prototype.errorFor,
     listPlaylists: vi.fn(),
     extractPlaylist: vi.fn(),
     ...overrides,
@@ -224,6 +226,7 @@ describe("PlaylistPageComponent", () => {
         code: "vlc_schema_mismatch",
         params: {},
         message: "",
+        command: "list_playlists",
       }),
       lastErrorCommand: signal("list_playlists"),
     })
