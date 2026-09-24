@@ -9,12 +9,15 @@
 >
   <ng-template #header>
     <tr>
+      <!-- Mesuree sur la vignette de 32px plus sa gouttiere. -->
       <th class="w-12"></th>
       <th>{{ "tagging.list.before" | translate }}</th>
       <th>{{ "tagging.list.after" | translate }}</th>
+      <!-- Mesuree sur « SoundCloud », le plus long des trois libelles de source. -->
       <th class="w-36">{{ "tagging.list.source" | translate }}</th>
       <!-- Mesuree sur « A 100 · T 100 », le detail le plus long : plus etroit, il passe a la ligne. -->
       <th class="w-32 text-right">{{ "tagging.list.score" | translate }}</th>
+      <!-- Mesuree sur « Echec d'ecriture », le plus long des cinq libelles d'etat. -->
       <th class="w-40">{{ "tagging.list.state" | translate }}</th>
     </tr>
   </ng-template>

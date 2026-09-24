@@ -22,7 +22,6 @@ const SOURCE_NAMES = { beatport: "Beatport", bandcamp: "Bandcamp", soundcloud: "
 
 const stripExtension = (fileName: string): string => fileName.replace(/\.[a-z0-9]+$/i, "")
 
-/** Un artiste ou un titre vide ne laisse pas de separateur orphelin. */
 const joinIdentity = (artist: string, title: string): string =>
   [artist, title].filter((part) => part !== "").join(ARTIST_TITLE_SEPARATOR)
 

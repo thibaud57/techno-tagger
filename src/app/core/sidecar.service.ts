@@ -30,10 +30,7 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
 /** Seul code d'erreur que l'interface emet elle-meme : les autres viennent du sidecar. */
 export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
 
-/**
- * Refus d'un second `start_tagging` : le seul echec de cette commande qui laisse le
- * run precedent tourner, et qui l'affirme meme. L'arret de run doit l'epargner.
- */
+/** Seul echec de `start_tagging` qui laisse le run precedent tourner : l'arret l'epargne. */
 const TAGGING_IN_PROGRESS = "tagging_in_progress"
 
 /** Commandes dont l'echec clot le run qu'elles avaient ouvert. */
@@ -89,19 +86,12 @@ export class SidecarService {
   /** Vrai de l'envoi d'`extract_playlist` jusqu'a son resultat, son erreur ou la fin du process. */
   readonly extracting = this._extracting.asReadonly()
   readonly lastError = this._lastError.asReadonly()
-  /**
-   * La commande que `lastError` a fait echouer : un ecran n'affiche que les erreurs
-   * des commandes qu'il emet. Sans elle, l'echec d'un enregistrement de cle
-   * s'afficherait en banniere sur l'onglet Playlist, ouvert ensuite.
-   */
+  /** Commande a l'origine de `lastError` : un ecran n'affiche que celles qu'il emet. */
   readonly lastErrorCommand = this._lastErrorCommand.asReadonly()
 
   /**
-   * Erreur a afficher sur un ecran, filtree sur les commandes qu'il emet.
-   *
-   * Lit ses deux accesseurs publics et non les signals prives : un stub de test qui
-   * les fournit reutilise ainsi cette implementation par son prototype, au lieu de
-   * reecrire la regle qu'elle porte.
+   * Lit les accesseurs publics et non les signals prives : un stub qui les fournit
+   * reutilise cette methode par son prototype, sans reecrire la regle.
    */
   errorFor(...commands: readonly SidecarCommand["command"][]): Signal<SidecarErrorEvent | null> {
     return computed(() => {
@@ -186,13 +176,9 @@ export class SidecarService {
   }
 
   /**
-   * Le run precedent disparait des l'envoi : l'ecran ne melange pas deux runs.
-   *
-   * Un run en cours est en revanche laisse intact, et la commande n'est pas emise : le
-   * sidecar la refuserait par `tagging_in_progress` (releve par /verify le 2026-09-24),
-   * apres que l'effacement local aurait vide la liste d'un run qui continue, et dont
-   * les evenements suivants ne retrouveraient plus leur ligne. L'ecran garde son propre
-   * garde sur `canStart()` ; celui-ci tient pour tout autre appelant.
+   * Ignore l'appel si un run tourne : le sidecar le refuserait par `tagging_in_progress`
+   * (releve le 2026-09-24) apres que `reset()` aurait vide la liste d'un run qui continue
+   * d'emettre. `canStart()` garde l'ecran, ceci tout autre appelant.
    */
   async startTagging(folder: string, thresholds?: ThresholdsPayload): Promise<void> {
     if (this.taggingRun.running()) {
@@ -240,10 +226,8 @@ export class SidecarService {
   }
 
   /**
-   * Aucune reponse ne viendra : l'appelant lit l'echec dans lastError, au meme endroit
-   * qu'une erreur remontee par le protocole. Le sidecar etant injoignable, plus aucun
-   * evenement n'arrivera pour un run en cours : celui-ci s'arrete quelle que soit la
-   * commande refusee, contrairement a une erreur recue sur le flux.
+   * Plus aucun evenement n'arrivera : un run en cours s'arrete quelle que soit la
+   * commande refusee, a la difference d'une erreur recue sur le flux.
    */
   private reportUnavailable(command: SidecarCommand["command"] | null): void {
     this.setLastError(unavailableError(command))
@@ -320,10 +304,8 @@ export class SidecarService {
         break
       case "error":
         this.setLastError(event)
-        // Seule une erreur du run l'arrete. `start_tagging` tourne en tache de fond
-        // pendant que la boucle lit la suite : l'echec d'une commande emise par un
-        // autre onglet laisserait sinon l'ecran croire le run mort alors qu'il tourne
-        // toujours, et les evenements suivants arriveraient sur une liste effacee.
+        // `start_tagging` tourne en tache de fond : l'echec d'une commande emise par un
+        // autre onglet ne doit pas faire croire a l'ecran que le run est mort.
         if (
           event.command !== null &&
           RUN_COMMANDS.includes(event.command) &&

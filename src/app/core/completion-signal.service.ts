@@ -33,16 +33,12 @@ export class CompletionSignalService {
   }
 
   /**
-   * Garde partage par les ecrans qui annoncent la fin d'une phase longue : `source`
-   * ne repasse a `null` qu'au lancement d'un nouveau run, jamais a la sortie de
-   * l'onglet, et le composant qui le lit est detruit et recree a chaque navigation.
-   * Partir de `null` reannoncerait donc une fin deja vue au premier rendu qui suit
-   * un remontage. Partir de la valeur courante de `source` neutralise ce faux
-   * positif sans manquer une vraie transition survenant pendant la vie du composant.
+   * Part de la valeur courante de `source` et non de `null` : le composant est recree
+   * a chaque navigation alors que `source` ne retombe qu'au run suivant, et partir de
+   * `null` reannoncerait une fin deja vue.
    *
-   * Appelee depuis le constructeur d'un composant, `effect()` herite de son contexte
-   * d'injection synchrone (`inject(Injector)` en interne lit l'injecteur ambiant du
-   * point d'appel, pas celui de ce service) : l'effet est detruit avec le composant.
+   * `effect()` herite du contexte d'injection de l'appelant, pas de celui de ce
+   * service : il meurt donc avec le composant.
    */
   announceOnTransition<T>(source: Signal<T | null>, messageKey: string): void {
     let announced = source()

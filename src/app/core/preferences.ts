@@ -5,14 +5,12 @@ import type { ExtractionMode } from "./models/protocol"
 const STORE_FILE = "preferences.json"
 
 /**
- * Une preference : sa lecture rend toujours une valeur, son ecriture n'echoue jamais.
+ * Ne leve jamais : hors Tauri `load` rejette, et une preference non enregistree n'est
+ * pas une panne. Les deux retombent sur le defaut, l'interface restant utilisable
+ * sous `ng serve` seul.
  *
- * Hors Tauri, `load` rejette comme tout appel au plugin, et une preference non
- * enregistree n'est pas une panne : les deux cas retombent silencieusement sur le
- * defaut, l'interface devant rester utilisable sous le `ng serve` seul.
- *
- * `accept` filtre ce que le store rend : un fichier edite a la main ou ecrit par une
- * version anterieure peut porter n'importe quoi sous une cle typee.
+ * `accept` filtre la valeur lue : un fichier edite a la main peut porter n'importe
+ * quoi sous une cle typee.
  */
 const definePreference = <T>(
   key: string,

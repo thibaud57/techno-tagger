@@ -45,16 +45,11 @@ export default class TaggingPageComponent {
   protected readonly tooltipDelay = TOOLTIP_DELAY
 
   /**
-   * Source unique de l'action et de son aide : le tooltip d'un bouton desactive
-   * nomme ce qui manque, seule exception admise. Ordre de priorite, du plus proche
-   * de l'utilisateur au plus lointain : run en cours, cle API manquante, dossier
-   * manquant, sidecar indisponible.
+   * Seule source de l'aide du bouton desactive, priorisee du plus proche de
+   * l'utilisateur au plus lointain.
    *
-   * `ready()` mele plusieurs causes (sidecar non disponible, version pas encore
-   * recue, divergence de version, extraction en cours sur l'onglet Playlist) :
-   * les trois premieres bloquent deja tout l'app via l'ecran bloquant de
-   * `app.component.html` (les onglets n'y sont meme pas rendus), seule
-   * l'extraction est observable depuis cet ecran-ci et merite un libelle propre.
+   * `ready()` mele plusieurs causes, mais toutes sauf l'extraction bloquent deja
+   * l'app entiere par son ecran bloquant : seule celle-ci merite un libelle ici.
    */
   protected readonly blockedReason = computed(() => {
     if (this.sidecar.tagging()) {

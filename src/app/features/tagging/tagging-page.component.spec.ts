@@ -25,15 +25,12 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 }))
 
 /**
- * Ce qui se teste ici est la disponibilite du lancement, la commande emise et le
- * declenchement unique du signal : le reste de l'ecran affiche ce qu'il recoit.
+ * Ce qui se teste ici : la disponibilite du lancement, la commande emise, le
+ * declenchement unique du signal. Le reste de l'ecran affiche ce qu'il recoit.
  *
- * Le constructeur declenche `prefill()` sans l'attendre. Rappeler `readLastDestination()`
- * ici, sur le meme mock, attend deterministement que cette promesse en vol se resolve avant
- * de rendre la main au test : sans cette barriere, elle peut se resoudre pendant la suite
- * d'un AUTRE fichier de spec (le builder unit-test d'Angular partage l'environnement entre
- * fichiers par defaut, `isolate` valant `false`) et perturber son mock de
- * `@tauri-apps/plugin-store`, par exemple celui de preferences.spec.ts.
+ * Rappeler `readLastDestination()` attend le `prefill()` que le constructeur lance sans
+ * l'attendre : sans cette barriere, la promesse se resout pendant un AUTRE fichier de
+ * spec (`isolate: false`) et y perturbe le mock de `@tauri-apps/plugin-store`.
  */
 const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
   const service = {
