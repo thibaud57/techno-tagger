@@ -6,16 +6,26 @@ est sa raison d'etre (ADR-005).
 
 import json
 import logging
+import threading
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import keyring
 import pytest
 from memory_keyring import MemoryKeyring, RefusingKeyring
 from ndjson_loop import drive, drive_raw
 
+from tagger import __main__ as main
 from tagger import handlers
 from tagger.reports import ReportWriteError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from tagger.protocol import Event, ExtractPlaylist
+
+# Large : il borne un deadlock, il ne cadence rien.
+WAIT_TIMEOUT = 10
 
 
 def extract_command(
@@ -132,13 +142,32 @@ def test_a_business_error_becomes_an_error_event(
 
 
 def test_answers_a_version_request_while_an_extraction_is_in_progress(
-    vlc_dump: Path, music_library: Path, tmp_path: Path
+    vlc_dump: Path, music_library: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """La copie ne gele plus la lecture de stdin : une commande courte passe devant.
 
     Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
     laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.
+
+    L'ordre est impose, pas espere : l'extraction attend que `get_version` ait
+    repondu. Si la boucle etait encore bloquee par la copie, cette reponse ne
+    viendrait jamais et l'attente expirerait.
     """
+    answered = threading.Event()
+    real_extract = handlers.handle_extract_playlist
+    real_version = handlers.handle_get_version
+
+    def blocked_extract(command: ExtractPlaylist, emit: Callable[[Event], None]) -> Event:
+        assert answered.wait(timeout=WAIT_TIMEOUT), "la boucle est restee bloquee par la copie"
+        return real_extract(command, emit)
+
+    def answering_version() -> Event:
+        version = real_version()
+        answered.set()
+        return version
+
+    monkeypatch.setattr(main, "handle_extract_playlist", blocked_extract)
+    monkeypatch.setattr(main, "handle_get_version", answering_version)
     extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
 
     events = drive(extraction + '{"command":"get_version"}\n')
