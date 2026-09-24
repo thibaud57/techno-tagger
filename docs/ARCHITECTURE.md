@@ -415,7 +415,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Arrête la boucle une fois la commande en cours terminée, et annule le run de re-tagging s'il en tourne un ; l'EOF l'attend au contraire. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
+| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible, et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source) |
@@ -535,6 +535,10 @@ Le contrat se teste en ligne de commande en injectant des commandes sur `stdin` 
 Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-httpx2.md)), dimensionné en miroir des sémaphores de sortie de techno-scraper : **3 requêtes Beatport en vol, 2 pour Bandcamp**, timeout client à **100 secondes**, au-dessus du budget de 90 secondes de l'API (cf. [ADR-017](adrs/017-taille-pool-concurrence.md)).
 
 **Le téléchargement des pochettes a son propre pool.** L'API fournit bien l'`artwork_url` dans le contrat `Track`, mais cette URL pointe vers le CDN de la source : le téléchargement de l'image ne passe donc pas par techno-scraper et ne consomme pas ses sémaphores. Le compter dans le pool de 3 briderait les images pour rien. **Sa taille est fixée à 6, et c'est un calibrage libre, pas une contrainte d'API** : contrairement aux deux autres, aucun sémaphore distant ne le dicte, seule la politesse envers le CDN. Un échec de téléchargement n'échoue jamais le morceau : les tags sont écrits sans pochette et le rapport le signale.
+
+**Les deux phases longues tournent en tâche de fond, la boucle ne les attend pas.** `extract_playlist` copie des fichiers et `start_tagging` interroge le réseau : les attendre dans la boucle gèlerait la lecture de `stdin`, et une fermeture de fenêtre pendant la copie d'une grosse bibliothèque laisserait son `shutdown` dans le pipe jusqu'au dernier transfert. Chacune refuse d'être relancée tant qu'elle tourne, par `extraction_in_progress` et `tagging_in_progress`, et ces deux refus ne closent rien : ils disent au contraire que la phase continue.
+
+**L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit.
 
 La file d'arbitrage est une simple structure en mémoire, exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process.
 

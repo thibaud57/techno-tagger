@@ -541,6 +541,17 @@ describe("SidecarService", () => {
     expect(service.tagging()).toBe(true)
   })
 
+  it("refuses to open a second extraction over a running one", async () => {
+    await service.start()
+    await service.extractPlaylist(EXTRACTION)
+    const sent = transport.sent.length
+
+    await service.extractPlaylist(EXTRACTION)
+
+    expect(transport.sent.length).toBe(sent)
+    expect(service.extracting()).toBe(true)
+  })
+
   it("keeps a tagging run going when an extraction fails", async () => {
     await service.start()
     await service.startTagging("C:/Sets")

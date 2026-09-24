@@ -46,7 +46,8 @@
     "api_key_not_stored": "The key could not be saved on this computer. Try again.",
     "api_key_missing": "No API key saved. Save it in the settings.",
     "keyring_unavailable": "Windows secure storage is unavailable. Restart the application.",
-    "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one."
+    "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one.",
+    "extraction_in_progress": "An extraction is already in progress. Wait for it to finish before starting another one."
   },
   "playlist": {
     "title": "Playlist",

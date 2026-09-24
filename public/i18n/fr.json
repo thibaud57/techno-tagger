@@ -46,7 +46,8 @@
     "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",
     "api_key_missing": "Aucune clé API enregistrée. Enregistrez-la dans les Réglages.",
     "keyring_unavailable": "L'espace sécurisé de Windows est inaccessible. Relancez l'application.",
-    "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre."
+    "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre.",
+    "extraction_in_progress": "Une extraction est déjà en cours. Attendez sa fin avant d'en lancer une autre."
   },
   "playlist": {
     "title": "Playlist",

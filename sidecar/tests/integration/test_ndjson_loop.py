@@ -124,9 +124,54 @@ def test_a_business_error_becomes_an_error_event(
 
     events = drive(unknown_playlist + '{"command":"get_version"}\n')
 
-    assert events[0]["event"] == "error"
-    assert events[0]["code"] == "playlist_not_found"
-    assert events[1]["event"] == "version"
+    # `version` passe devant : l'extraction tourne en tache de fond et la boucle a
+    # deja repris la lecture quand son echec remonte.
+    assert events[0]["event"] == "version"
+    assert events[1]["event"] == "error"
+    assert events[1]["code"] == "playlist_not_found"
+
+
+def test_answers_a_version_request_while_an_extraction_is_in_progress(
+    vlc_dump: Path, music_library: Path, tmp_path: Path
+) -> None:
+    """La copie ne gele plus la lecture de stdin : une commande courte passe devant.
+
+    Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
+    laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.
+    """
+    extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
+
+    events = drive(extraction + '{"command":"get_version"}\n')
+
+    names = [event["event"] for event in events]
+    assert names.index("version") < names.index("extraction_finished")
+
+
+def test_refuses_a_second_extraction_while_one_is_in_progress(
+    vlc_dump: Path, music_library: Path, tmp_path: Path
+) -> None:
+    extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
+
+    events = drive(extraction * 2)
+
+    refusals = [event for event in events if event["event"] == "error"]
+    assert [event["code"] for event in refusals] == ["extraction_in_progress"]
+    assert [event["event"] for event in events].count("extraction_finished") == 1
+
+
+def test_waits_for_an_extraction_before_leaving_on_shutdown(
+    vlc_dump: Path, music_library: Path, tmp_path: Path
+) -> None:
+    """`shutdown` annule un run de re-tagging mais attend une extraction.
+
+    Le run ne tient que du reseau et de la memoire ; une copie coupee en vol
+    laisserait un fichier a moitie ecrit dans la destination de l'utilisateur.
+    """
+    extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
+
+    events = drive(extraction + '{"command":"shutdown"}\n')
+
+    assert [event["event"] for event in events].count("extraction_finished") == 1
 
 
 def test_a_failed_report_write_becomes_an_error_event_without_extraction_finished(

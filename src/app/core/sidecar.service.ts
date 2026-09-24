@@ -30,8 +30,9 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
 /** Seul code d'erreur que l'interface emet elle-meme : les autres viennent du sidecar. */
 export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
 
-/** Seul echec de `start_tagging` qui laisse le run precedent tourner : l'arret l'epargne. */
+/** Refus d'une seconde commande : la phase en cours continue, l'arret les epargne. */
 const TAGGING_IN_PROGRESS = "tagging_in_progress"
+const EXTRACTION_IN_PROGRESS = "extraction_in_progress"
 
 const unavailableError = (command: SidecarCommand["command"] | null): SidecarErrorEvent => ({
   event: "error",
@@ -164,7 +165,11 @@ export class SidecarService {
     await this.send({ command: "list_playlists", playlist_path: playlistPath })
   }
 
+  /** Meme garde que `startTagging` : le sidecar refuserait la seconde commande. */
   async extractPlaylist(request: ExtractionRequest): Promise<void> {
+    if (this._extracting()) {
+      return
+    }
     this._extractionRequest.set(request)
     this._extraction.set(null)
     this._progress.set(null)
@@ -308,7 +313,7 @@ export class SidecarService {
         this.setLastError(event)
         // Chaque phase longue ne tombe que sur l'echec de la commande qui l'a ouverte :
         // elles tournent en parallele, l'une ne dit rien de l'autre.
-        if (event.command === "extract_playlist") {
+        if (event.command === "extract_playlist" && event.code !== EXTRACTION_IN_PROGRESS) {
           this.endExtraction()
         }
         if (event.command === "start_tagging" && event.code !== TAGGING_IN_PROGRESS) {

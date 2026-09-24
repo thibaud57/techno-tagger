@@ -93,6 +93,15 @@ class TaggingInProgressError(TaggerError):
         super().__init__("a tagging run is already in progress")
 
 
+class ExtractionInProgressError(TaggerError):
+    """Une extraction tourne deja : la relancer copierait deux fois vers la meme destination."""
+
+    code: ClassVar[str] = "extraction_in_progress"
+
+    def __init__(self) -> None:
+        super().__init__("an extraction is already in progress")
+
+
 class _Session:
     """Etat de la session : le run de re-tagging tourne pendant que stdin est lu.
 
@@ -104,6 +113,7 @@ class _Session:
         self._group = group
         self._stdout = stdout
         self._run: asyncio.Task[None] | None = None
+        self._extraction: asyncio.Task[None] | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
         """Lance le run en tache de fond : la boucle repart lire la commande suivante."""
@@ -111,8 +121,19 @@ class _Session:
             raise TaggingInProgressError
         self._run = self._group.create_task(self._tag(command), name="tagging")
 
+    def start_extraction(self, command: ExtractPlaylist) -> None:
+        """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
+        if self._active(self._extraction) is not None:
+            raise ExtractionInProgressError
+        self._extraction = self._group.create_task(self._extract(command), name="extraction")
+
     def cancel_run(self) -> None:
-        """`shutdown` n'attend pas la fin d'un run, il l'annule."""
+        """`shutdown` n'attend pas la fin d'un run, il l'annule.
+
+        L'extraction est au contraire attendue : le run ne tient que du reseau et de
+        la memoire, quand une copie coupee en vol laisserait un fichier a moitie ecrit
+        dans la destination de l'utilisateur.
+        """
         running = self._active_run()
         if running is not None:
             running.cancel()
@@ -125,15 +146,28 @@ class _Session:
 
     def _active_run(self) -> asyncio.Task[None] | None:
         """Le run en cours, `None` s'il n'y en a pas ou s'il est deja termine."""
-        if self._run is None or self._run.done():
+        return self._active(self._run)
+
+    @staticmethod
+    def _active(task: asyncio.Task[None] | None) -> asyncio.Task[None] | None:
+        if task is None or task.done():
             return None
-        return self._run
+        return task
 
     async def _tag(self, command: StartTagging) -> None:
         try:
             finished = await handle_start_tagging(command, self.send)
         except TaggerError as error:
             logger.exception("tagging run failed reason=%s", error.code)
+            self.send(error_from_business(error, command.command))
+            return
+        self.send(finished)
+
+    async def _extract(self, command: ExtractPlaylist) -> None:
+        try:
+            finished = await asyncio.to_thread(handle_extract_playlist, command, self.send)
+        except TaggerError as error:
+            logger.exception("extraction failed reason=%s", error.code)
             self.send(error_from_business(error, command.command))
             return
         self.send(finished)
@@ -211,7 +245,8 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
 
     Les handlers sont bloquants — SQLite, parcours du dossier source, copie de
     fichiers, trousseau Windows — et passent donc par `to_thread`, sans quoi la
-    boucle gelerait.
+    boucle gelerait. Les deux phases longues vont plus loin et partent en tache de
+    fond, `to_thread` seul laissant la boucle attendre leur retour.
     """
     match command:
         case GetVersion():
@@ -221,8 +256,7 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
         case ListPlaylists():
             session.send(await asyncio.to_thread(handle_list_playlists, command))
         case ExtractPlaylist():
-            finished = await asyncio.to_thread(handle_extract_playlist, command, session.send)
-            session.send(finished)
+            session.start_extraction(command)
         case StartTagging():
             session.start_tagging(command)
         case _:
