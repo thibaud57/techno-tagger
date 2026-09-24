@@ -408,6 +408,9 @@ def full_title(candidate: TrackCandidate) -> str:
     mix_name = candidate.mix_name
     if not mix_name or _mentions(candidate.title, mix_name):
         return candidate.title
+    completed = _complete_partial_mention(candidate.title, mix_name)
+    if completed is not None:
+        return completed
     return f"{candidate.title} ({mix_name})"
 
 
@@ -417,6 +420,26 @@ def _mentions(title: str, mix_name: str) -> bool:
     """
     guard = re.compile(rf"(?<!\w){re.escape(mix_name)}(?!\w)", re.IGNORECASE)
     return guard.search(title) is not None
+
+
+def _complete_partial_mention(title: str, mix_name: str) -> str | None:
+    """Complete un groupe du titre qui n'annonce la version qu'a moitie.
+
+    Le contrat separe titre et version des deux sources (Beatport la rend dans
+    `mix_name`, Bandcamp la laisse nulle et l'ecrit dans le titre) : un titre qui porte
+    « (Extended) » quand `mix_name` vaut « Extended Mix » sort de ce contrat. Sans ce
+    traitement le titre rendu serait « Song (Extended) (Extended Mix) », et c'est lui
+    qui part dans le tag.
+
+    Un seul cas traite, le groupe qui prefixe la version : ailleurs dans le titre,
+    « Extended » est un mot ordinaire (« Extended Dreams »), et un groupe qui nomme une
+    autre version (« (Live) » contre « Extended Mix ») n'annonce pas celle-ci.
+    """
+    for group in _GROUP.finditer(title):
+        inner = group.group("content").strip()
+        if inner and _mentions(mix_name, inner):
+            return f"{title[: group.start()]}({mix_name}){title[group.end() :]}"
+    return None
 
 
 def credited_artists(candidate: TrackCandidate) -> str:

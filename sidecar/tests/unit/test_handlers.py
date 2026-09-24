@@ -90,6 +90,15 @@ def test_reports_whether_an_api_key_is_configured(memory_keyring: MemoryKeyring)
     assert event.api_key_configured is True
 
 
+def test_reports_no_api_key_on_an_empty_keyring(memory_keyring: MemoryKeyring) -> None:
+    """Premier lancement : c'est ce `False` qui fait bloquer le lancement d'un run."""
+    assert memory_keyring.secrets == {}
+
+    event = handle_get_version()
+
+    assert event.api_key_configured is False
+
+
 def test_answers_set_api_key_with_a_version_that_reports_the_key(
     memory_keyring: MemoryKeyring,
 ) -> None:

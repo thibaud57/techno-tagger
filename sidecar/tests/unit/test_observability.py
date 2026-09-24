@@ -145,6 +145,24 @@ def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
     assert "techno-scraper.empiricmind.fr/beatport/search" in rendered
 
 
+def test_scrubbing_strips_a_query_that_carries_a_second_question_mark() -> None:
+    """Le motif d'URL ne s'arrete pas au dernier `?` de la chaine mais au premier.
+
+    Une valeur de parametre peut en porter un (une URL de redirection, un `Location`
+    recopie dans un message) : masquer depuis le dernier laisserait passer la
+    recherche elle-meme, donc l'artiste et le titre que l'ADR-014 interdit d'envoyer.
+    """
+    message = "HTTPStatusError for https://api/beatport/search?q=Beyer+Mind&next=http://cdn?w=1"
+    event = {"exception": {"values": [{"type": "HTTPStatusError", "value": message}]}}
+
+    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+
+    rendered = str(scrubbed)
+    assert "Beyer" not in rendered
+    assert "Mind" not in rendered
+    assert QUERY_MASK in rendered
+
+
 def test_scrubbing_leaves_envelope_fields_intact(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

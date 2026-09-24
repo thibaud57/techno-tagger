@@ -170,8 +170,15 @@ async def handle_start_tagging(command: StartTagging, emit: Callable[[Event], No
         raise ApiKeyMissingError
 
     cache_root = app_data_dir() / "cache"
-    responses = ResponseCache(await asyncio.to_thread(DiskCache, cache_root / "responses"))
-    artwork_cache = await asyncio.to_thread(DiskCache, cache_root / "artworks")
+    # Deux dossiers independants : `DiskCache.__init__` scanne le sien pour purger les
+    # entrees expirees, autant superposer les deux scans plutot que les enchainer.
+    # `TaskGroup` et non `gather` : si l'un leve, il annule l'autre au lieu de le
+    # laisser courir sans que personne ne le suive.
+    async with asyncio.TaskGroup() as opening:
+        responses_disk = opening.create_task(asyncio.to_thread(DiskCache, cache_root / "responses"))
+        artworks_disk = opening.create_task(asyncio.to_thread(DiskCache, cache_root / "artworks"))
+    responses = ResponseCache(responses_disk.result())
+    artwork_cache = artworks_disk.result()
     transports = tagging_transports()
 
     async with (

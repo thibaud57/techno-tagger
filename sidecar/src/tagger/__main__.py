@@ -134,7 +134,7 @@ class _Session:
             finished = await handle_start_tagging(command, self.send)
         except TaggerError as error:
             logger.exception("tagging run failed reason=%s", error.code)
-            self.send(error_from_business(error))
+            self.send(error_from_business(error, command.command))
             return
         self.send(finished)
 
@@ -199,7 +199,7 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
                 await _dispatch(command, session)
             except TaggerError as error:
                 logger.exception("command failed reason=%s", error.code)
-                session.send(error_from_business(error))
+                session.send(error_from_business(error, command.command))
 
 
 async def _dispatch(command: ExecutableCommand, session: _Session) -> None:

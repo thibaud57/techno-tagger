@@ -27,7 +27,9 @@ QUERY_MASK = "<query>"
 # chaine `__cause__` d'une exception et recopie chaque message tel quel : sans ce
 # masquage, un statut hors des cas traites emmenait le morceau vers Sentry, ce que
 # l'ADR-014 interdit. Le diagnostic tient au `request_id`, jamais a la requete.
-_URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>]*)\?[^\s'\"<>]*", re.IGNORECASE)
+# `?` exclu du groupe `url` : gourmand, il avalait les `?` intermediaires et seul
+# ce qui suivait le dernier etait masque, laissant passer la premiere requete.
+_URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>?]*)\?[^\s'\"<>]*", re.IGNORECASE)
 
 # `USERNAME` sous Windows, `USER` sur les runners Linux de la CI.
 _USERNAME = os.getenv("USERNAME") or os.getenv("USER") or ""

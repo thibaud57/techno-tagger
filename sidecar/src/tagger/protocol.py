@@ -346,12 +346,18 @@ class RunFinished(Event):
 class Error(Event):
     """Reserve a ce qui ne se rattache a aucun morceau. Le `message` est technique,
     destine aux logs ; l'interface traduit le `code`.
+
+    `command` nomme celle qui a echoue, `None` quand la ligne recue etait trop
+    malformee pour la designer. Le run de re-tagging tournant en tache de fond
+    pendant que la boucle lit la suite, l'interface ne peut pas la deduire de la
+    derniere commande envoyee : c'est au sidecar de la dire.
     """
 
     event: Literal["error"] = "error"
     code: str
     params: dict[str, object]
     message: str
+    command: str | None = None
 
 
 MALFORMED_COMMAND: Final = "malformed_command"
@@ -379,6 +385,8 @@ def error_from_validation(exc: ValidationError) -> Error:
         if error["type"] == UNKNOWN_COMMAND_ERROR and not error["loc"]:
             params["command"] = error.get("ctx", {}).get("tag")
 
+    # `command` reste nul : la ligne n'a pas valide, rien ne garantit qu'elle
+    # designe une commande du contrat. Son nom eventuel est dans `params`.
     return Error(
         code=MALFORMED_COMMAND,
         params=params,
@@ -386,9 +394,9 @@ def error_from_validation(exc: ValidationError) -> Error:
     )
 
 
-def error_from_business(exc: TaggerError) -> Error:
+def error_from_business(exc: TaggerError, command: str) -> Error:
     """Convertit une erreur metier en evenement, en gardant son code et ses params."""
-    return Error(code=exc.code, params=dict(exc.params), message=str(exc))
+    return Error(code=exc.code, params=dict(exc.params), message=str(exc), command=command)
 
 
 def emit(event: Event) -> str:

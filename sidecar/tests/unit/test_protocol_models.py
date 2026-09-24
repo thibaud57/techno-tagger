@@ -189,14 +189,29 @@ def test_a_malformed_known_command_names_no_command() -> None:
     assert "command" not in event.params
 
 
-def test_a_business_error_keeps_its_code_and_params() -> None:
+def test_a_business_error_keeps_its_code_and_params_and_names_its_command() -> None:
     class BoomError(TaggerError):
         code = "playlist_not_found"
 
-    event = error_from_business(BoomError("playlist not found: x", playlist_name="x"))
+    event = error_from_business(
+        BoomError("playlist not found: x", playlist_name="x"), "list_playlists"
+    )
 
     assert event.code == "playlist_not_found"
     assert event.params == {"playlist_name": "x"}
+    assert event.command == "list_playlists"
+
+
+def test_a_malformed_command_names_no_command() -> None:
+    """L'interface n'attribue une erreur a un ecran que si le sidecar l'a nommee : une
+    ligne qui n'a pas valide ne designe aucune commande du contrat.
+    """
+    with pytest.raises(ValidationError) as excinfo:
+        parse_command('{"command":"nope"}')
+
+    event = error_from_validation(excinfo.value)
+
+    assert event.command is None
 
 
 @pytest.mark.parametrize(

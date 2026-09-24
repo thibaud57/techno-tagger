@@ -197,6 +197,59 @@ async def test_refuses_an_url_that_does_not_name_a_public_cdn(tmp_path: Path, ur
     assert requests == []
 
 
+class _ConnectedTo:
+    """Le peu de `network_stream` que le garde lit : l'adresse reellement connectee."""
+
+    def __init__(self, address: str) -> None:
+        self._address = address
+
+    def get_extra_info(self, name: str) -> tuple[str, int] | None:
+        return (self._address, 443) if name == "server_addr" else None
+
+
+@pytest.mark.parametrize(
+    "connected",
+    ["127.0.0.1", "192.168.1.10", "10.0.0.5"],
+    ids=["loopback", "private-network", "private-range"],
+)
+async def test_refuses_a_response_from_an_address_the_guard_would_have_blocked(
+    tmp_path: Path, connected: str
+) -> None:
+    """Rebinding : le resolveur annonce une adresse publique, la connexion en joint une
+    autre. Relire l'adresse connectee refuse la reponse avant de la lire ou de la cacher.
+    """
+
+    def rebinding(_request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            content=IMAGE,
+            headers={"Content-Type": "image/jpeg"},
+            extensions={"network_stream": _ConnectedTo(connected)},
+        )
+
+    async with _fetcher(tmp_path, rebinding) as fetcher:
+        with pytest.raises(ArtworkUnavailableError) as error:
+            await fetcher.fetch(URL)
+
+    assert error.value.reason == "blocked_url"
+    assert _entries(tmp_path) == []
+
+
+async def test_accepts_a_response_from_the_public_address_it_resolved(tmp_path: Path) -> None:
+    def cdn(_request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            content=IMAGE,
+            headers={"Content-Type": "image/jpeg"},
+            extensions={"network_stream": _ConnectedTo("93.184.216.34")},
+        )
+
+    async with _fetcher(tmp_path, cdn) as fetcher:
+        stored = await fetcher.fetch(URL)
+
+    assert stored.read_bytes() == IMAGE
+
+
 async def test_refuses_a_redirection_towards_the_local_machine(tmp_path: Path) -> None:
     def redirecting(request: httpx2.Request) -> httpx2.Response:
         if request.url.host == "geo-media.beatport.com":

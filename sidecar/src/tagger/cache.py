@@ -343,6 +343,15 @@ class ArtworkFetcher:
         return self
 
     async def __aexit__(self, *_exc_info: object) -> None:
+        # `shield` detache les telechargements de l'annulation de leurs appelants : un
+        # run avorte les laisse en vol, et fermer le client sous eux leverait dans une
+        # tache que plus personne n'attend. Les solder d'abord, `gather` recuperant les
+        # exceptions de celles qui etaient trop avancees pour s'annuler.
+        pending = list(self._in_flight.values())
+        for running in pending:
+            running.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
         await self._http.aclose()
 
     async def fetch(self, url: str) -> Path:
@@ -371,6 +380,7 @@ class ArtworkFetcher:
         for _hop in range(_ARTWORK_MAX_REDIRECTS + 1):
             await _check_artwork_url(target, self._resolve)
             async with self._http.stream("GET", target) as response:
+                _check_connected_address(response)
                 if response.is_redirect:
                     location = response.headers.get("Location", "")
                     if not location:
@@ -418,9 +428,10 @@ async def _check_artwork_url(url: str, resolve: HostResolver) -> None:
 
     L'hote est resolu puis juge sur ses adresses, et non sur sa forme : un nom de
     domaine dont l'enregistrement pointe la boucle locale passerait un controle qui ne
-    regarderait que les adresses ecrites en clair. Reste hors de portee le rebinding,
-    ou le DNS rend une autre adresse entre ce controle et la connexion : l'exclure
-    demanderait d'epingler l'adresse validee jusque dans le transport.
+    regarderait que les adresses ecrites en clair. Le rebinding, ou le DNS rend une
+    autre adresse entre ce controle et la connexion, est rattrape apres coup par
+    `_check_connected_address` : seule la connexion TCP part alors, sans qu'aucune
+    reponse ne soit lue.
     """
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname:
@@ -438,6 +449,32 @@ async def _check_artwork_url(url: str, resolve: HostResolver) -> None:
     except OSError as exc:
         raise ArtworkUnavailableError("network") from exc
     if not resolved or not all(ip_address(found).is_global for found in resolved):
+        raise ArtworkUnavailableError("blocked_url")
+
+
+def _check_connected_address(response: httpx2.Response) -> None:
+    """Refuse une reponse venue d'une adresse que le controle prealable aurait refusee.
+
+    `_check_artwork_url` resout l'hote, mais httpx2 resout le sien a la connexion : un
+    DNS qui rend une adresse publique au premier appel et une adresse interne au second
+    passerait le garde. Relire l'adresse reellement connectee ferme ce rebinding pour le
+    corps de la reponse, qui n'est alors ni lu ni mis en cache, et rend tous ces cas
+    sous un `blocked_url` unique, qui n'apprend rien sur ce qui repond en interne.
+
+    La connexion TCP, elle, a bien eu lieu : l'exclure demanderait d'epingler l'adresse
+    validee jusque dans le transport, ce que httpx2 n'expose pas.
+    """
+    stream = response.extensions.get("network_stream")
+    if stream is None:
+        return
+    connected = stream.get_extra_info("server_addr")
+    if not connected:
+        return
+    try:
+        address = ip_address(connected[0])
+    except ValueError:
+        raise ArtworkUnavailableError("blocked_url") from None
+    if not address.is_global:
         raise ArtworkUnavailableError("blocked_url")
 
 
