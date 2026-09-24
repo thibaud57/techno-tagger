@@ -257,7 +257,7 @@ async def search_tracks(
 ## ✅ Recommandations
 
 - **Traiter la liste vide et l'erreur comme deux chemins distincts** : la première déclenche le fallback, la seconde marque le morceau non résolu avec son `failure_reason`
-- **Vérifier la joignabilité par `/health`** (sans clé) avant d'incriminer la clé API : ça sépare « API down » de « clé invalide » dans le diagnostic
+- **Incriminer la clé API sur un `403`, sans repasser par `/health`** : une clé absente comme une clé invalide rendent ce statut, qu'aucun autre cas ne produit, et une API injoignable rend un `5xx`. Compter les refus consécutifs plutôt que les interpréter un par un, une clé révoquée en produisant autant que de morceaux
 - **Dimensionner les pools en miroir des sémaphores de l'API**, et documenter dans le code que ces nombres viennent d'une contrainte distante, pas d'un réglage local
 - **Refetch par id après une recherche** avant d'écrire des tags, les objets de `search` pouvant être abrégés
 - **Consigner le `source` de chaque morceau résolu dans le rapport** : c'est ce qui explique a posteriori pourquoi un `bpm` manque

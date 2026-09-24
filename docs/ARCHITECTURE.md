@@ -112,11 +112,16 @@ techno-tagger/
 │   ├── src/tagger/
 │   │   ├── __main__.py                   # boucle de commandes, émission d'événements
 │   │   ├── build_info.py                 # façade des constantes gravées au packaging
-│   │   ├── paths.py                      # racine des données applicatives : logs, futur cache
+│   │   ├── paths.py                      # racine des données applicatives : logs, cache
 │   │   ├── logger.py                     # fichier tournant + stderr, jamais stdout
 │   │   ├── observability.py              # init Sentry durci, scrubbing PII
 │   │   ├── protocol.py                   # modèles des commandes et des événements
+│   │   ├── errors.py                     # erreurs métier : code stable et params structurés
+│   │   ├── handlers.py                   # un handler par commande, appelé par la boucle
 │   │   ├── playlists/                    # parsing VLC SQLite et M3U8
+│   │   ├── extraction.py                 # copie ou déplacement des morceaux d'une playlist
+│   │   ├── reports.py                    # rapports d'extraction, JSON et Markdown
+│   │   ├── api_key.py                    # clé API dans le trousseau, via keyring
 │   │   ├── files.py                      # mutagen : lecture/écriture des tags
 │   │   ├── matching.py                   # scoring rapidfuzz
 │   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
@@ -301,7 +306,7 @@ flowchart TD
 
 Trois états après interrogation d'une source : **auto** (un candidat au-dessus du seuil haut), **zone grise** (candidats plausibles, décision humaine), **vide** (zéro résultat ou tout sous le plancher). Zéro résultat, candidats sous le plancher et refus utilisateur convergent tous vers **un seul `state`**, `unresolved`, le paquet que la phase URL rattrape. Leur `failure_reason` continue de les distinguer dans le rapport, la correction à apporter n'étant pas la même selon le motif.
 
-**Beatport injoignable** (décision du 2026-09-19) : une fois les nouvelles tentatives du client épuisées, ou sur une réponse hors contrat, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en validation automatique. L'utilisateur confirme en sachant que la source la plus riche n'a pas répondu. Si Bandcamp échoue aussi, le morceau part en `unresolved` / `source_unavailable`.
+**Beatport injoignable** : une fois les nouvelles tentatives du client épuisées, ou sur une réponse hors contrat, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en validation automatique. Si Bandcamp échoue aussi, le morceau part en `unresolved` / `source_unavailable` (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)).
 
 
 ## Patterns Utilisés
@@ -357,7 +362,7 @@ Via les plugins Tauri v2, déclarés dans `src-tauri/capabilities/default.json` 
 | `shell` | Lancement du sidecar via `Command.sidecar()`. Permission `shell:allow-spawn` et non `shell:allow-execute` : le sidecar est un process long démarré par `spawn()`, pas une exécution ponctuelle. La permission cible le chemin du sidecar avec `"sidecar": true`, aucune commande arbitraire n'est autorisée. |
 | `dialog` | Sélection des dossiers source, destination et du fichier de playlist |
 | `fs` | Restreint à `$APPLOCALDATA` (plans de run, cache, logs), en lecture et écriture récursives. La webview n'accède pas aux chemins de la bibliothèque musicale : le sidecar Python lit et écrit ces fichiers directement, hors du système de permissions Tauri |
-| `store` | Préférences : langue, seuils, mode copie / déplacement, signal sonore. L'URL de l'API n'y figure pas : c'est une constante du sidecar, seul à appeler techno-scraper (décision du 2026-09-19) |
+| `store` | Préférences : langue, seuils, mode copie / déplacement, signal sonore. L'URL de l'API n'y figure pas : c'est une constante du sidecar, seul à appeler techno-scraper (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
 | `opener` | Bouton « ouvrir le dossier de logs » des Settings, et lien vers la fiche source du récapitulatif. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#-robustesse--modes-de-panne)) |
@@ -423,7 +428,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 | `rollback` | identifiant du run, ou identifiant du morceau |
 | `list_runs` | aucune. Rend les runs passés relisibles depuis leurs rapports JSON, ce qui alimente l'état vide « aucun run passé » |
 | `load_run` | identifiant du run. Relit son rapport JSON et rend le récapitulatif, sans rejouer quoi que ce soit. C'est le point d'entrée que la politique de migration de l'[ADR-018](adrs/018-versionnement-plan-de-run.md) sert |
-| `set_api_key` / `clear_cache` | administration depuis les Settings. `set_api_key` est le seul passage de la clé dans le protocole, sa réponse est l'événement `version`. Pas de `set_api_url` : l'URL est une constante du sidecar (décision du 2026-09-19) |
+| `set_api_key` / `clear_cache` | administration depuis les Settings. `set_api_key` est le seul passage de la clé dans le protocole, sa réponse est l'événement `version`. Pas de `set_api_url` : l'URL est une constante du sidecar (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 
 **Événements (sidecar → UI, NDJSON sur stdout)**
 
@@ -444,7 +449,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 
 **`error` nomme la commande qui a échoué, l'interface ne la déduit pas.** Un écran n'affiche que les erreurs des commandes qu'il émet, sans quoi l'échec d'un enregistrement de clé s'afficherait en bannière sur l'onglet Playlist ouvert ensuite. Tant que la boucle traitait une commande à la fois, l'interface pouvait retenir la dernière envoyée et lui attribuer l'erreur suivante. `start_tagging` rendant la main aussitôt (§ [Concurrence](#concurrence)), cette déduction est fausse : une commande courte émise pendant un run récupérerait l'échec du run, et le run l'échec de la commande courte. D'où le champ, que le sidecar remplit dans ses deux chemins d'émission. Il vaut `null` sur une ligne trop malformée pour désigner une commande du contrat, son nom éventuel restant dans les `params`.
 
-**Seul l'échec de la commande qui a ouvert un run le clôt.** L'interface arrête son run sur une erreur portant `extract_playlist` ou `start_tagging`, et le laisse courir sur toute autre : il tourne toujours côté sidecar, et l'effacer laisserait les événements suivants arriver sur une liste vide. Le code `tagging_in_progress` est l'exception qui confirme la règle : porté par `start_tagging`, il refuse un second lancement en affirmant précisément que le premier continue, et n'arrête donc rien (relevé par `/verify` le 2026-09-24).
+**Seul l'échec de la commande qui a ouvert un run le clôt.** L'interface arrête son run sur une erreur portant `extract_playlist` ou `start_tagging`, et le laisse courir sur toute autre : il tourne toujours côté sidecar, et l'effacer laisserait les événements suivants arriver sur une liste vide. Le code `tagging_in_progress` est l'exception qui confirme la règle : porté par `start_tagging`, il refuse un second lancement en affirmant précisément que le premier continue, et n'arrête donc rien.
 
 **`run_finished` porte une `phase`, il n'est pas émis une seule fois.** La fin de la boucle de résolution ouvre la phase de rattrapage par URL, la fin de l'écriture ouvre le récapitulatif : deux moments distincts, deux écrans différents, un seul événement. Sans ce champ, l'interface ne peut pas savoir lequel des deux elle reçoit.
 

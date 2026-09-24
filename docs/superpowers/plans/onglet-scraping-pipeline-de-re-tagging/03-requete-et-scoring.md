@@ -10,6 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/onglet-scraping-pipeline-de-re-tagging/03-requete-et-scoring-design.md`
 
+> Ce plan est anterieur aux revisions du 2026-09-20, que la spec porte et que le code
+> livre suit : titre et version scores separement plutot que concatenes, `version_mismatch`
+> a la place de `via_bare_title`, et score artiste par inclusion, ce qui fait disparaitre
+> le choix entre `ratio` et `token_sort_ratio`. Les contraintes ci-dessous qui les
+> mentionnent sont caduques, la spec fait foi.
+
 ## Global Constraints
 
 - **Dépend du sub-project 02** : `tagger.scraper_client.TrackCandidate`, `Credit`, `Source` existent (`TrackCandidate(title, mix_name, artists: tuple[Credit, ...], remixers, ..., source)`).

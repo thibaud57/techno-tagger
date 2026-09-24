@@ -14,7 +14,8 @@ paths:
 - Appeler `raise_for_status()` sur chaque réponse : sans lui, un `500` passe pour un succès et le mapping ne s'exécute jamais
 - Distinguer `HTTPStatusError` (réponse reçue, statut d'erreur) de `RequestError` (aucune réponse : DNS, connexion, timeout local), le diagnostic utilisateur n'étant pas le même
 - Télécharger une pochette par `stream()` en context manager, écrite au fil de `aiter_bytes()` vers le cache disque
-- Juger une URL venue du réseau sur ce qu'elle résout et non sur sa forme, puis **relire l'adresse réellement connectée** (`response.extensions["network_stream"].get_extra_info("server_addr")`) : le client refait sa propre résolution après le contrôle, et un DNS qui en rend une autre entre les deux ferait sonder la machine ou le réseau local (cf. [ARCHITECTURE.md § Sécurité Backend](../../../docs/ARCHITECTURE.md#sécurité-backend))
+- Juger une URL venue du réseau sur les adresses qu'elle résout, jamais sur sa forme : un nom de domaine peut pointer la boucle locale
+- Relire l'adresse réellement connectée sur `network_stream` après la réponse : le client refait sa propre résolution après le contrôle, et un DNS qui en rend une autre entre les deux ferait sonder la machine (cf. [ARCHITECTURE.md § Sécurité Backend](../../../docs/ARCHITECTURE.md#sécurité-backend))
 - Injecter le transport en paramètre du constructeur : c'est ce qui rend `MockTransport` utilisable en test sans monkeypatch
 
 ## À éviter

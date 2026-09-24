@@ -23,7 +23,7 @@ Exclut le bouton « vider le cache » et l'affichage de sa taille dans les Setti
 
 ## Dependencies
 
-- `02-client-techno-scraper-design.md` (statut: draft) : fournit `TechnoScraperClient` et sa méthode privée `_get`, point de passage unique où le cache des réponses se branche.
+- `02-client-techno-scraper-design.md` (statut: implemented) : fournit `TechnoScraperClient` et sa méthode privée `_get`, point de passage unique où le cache des réponses se branche.
 
 ## Files touched
 

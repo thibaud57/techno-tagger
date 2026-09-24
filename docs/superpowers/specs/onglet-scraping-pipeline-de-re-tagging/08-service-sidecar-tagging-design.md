@@ -23,7 +23,7 @@ Exclut l'affichage (sub-projects 09 et 10), la famille visuelle d'un état, dér
 
 ## Dependencies
 
-- `07-protocole-ndjson-tagging-design.md` (statut: draft) : la forme exacte des messages, dont ce miroir TypeScript est la copie maintenue à la main.
+- `07-protocole-ndjson-tagging-design.md` (statut: implemented) : la forme exacte des messages, dont ce miroir TypeScript est la copie maintenue à la main.
 
 ## Files touched
 

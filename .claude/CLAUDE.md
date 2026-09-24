@@ -23,14 +23,12 @@ Métier : Python 3.14 (sidecar autonome empaqueté par PyInstaller, protocole ND
 
 ### Standards
 
-- **Tout le métier vit dans le sidecar Python** : scoring, seuils, classement des candidats, lecture et écriture des tags, plan de run. L'interface affiche ce qu'elle reçoit et émet des commandes, `src-tauri/src/` se limite à l'initialisation des plugins. Une règle métier écrite en TypeScript ou en Rust est au mauvais endroit, quelle que soit sa taille.
+- **Tout le métier vit dans le sidecar Python** : scoring, seuils, classement des candidats, lecture et écriture des tags, plan de run. L'interface affiche ce qu'elle reçoit et émet des commandes, `src-tauri/src/` se limite à l'initialisation des plugins. Une règle métier écrite en TypeScript ou en Rust est au mauvais endroit, quelle que soit sa taille. C'est aussi ce qui gouverne l'[ordre de développement](../docs/ARCHITECTURE.md#ordre-de-développement) : le métier avant l'interface, et le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
 - **Aucune ligne de scraping dans ce dépôt** : techno-scraper est la seule source de données, via son API et le header `X-API-Key`. Le dépôt est public, et c'est ce qui rend la distribution anonyme possible.
 - **Aucun fichier musical n'est modifié avant la confirmation globale du run**, et les tags d'origine sont sauvegardés avant toute réécriture. Le coût d'une erreur ici est la bibliothèque de l'utilisateur, pas un test rouge.
 - **Rien de personnel ne quitte la machine** : SDK Sentry durci, aucun événement métier envoyé, et aucun titre de morceau ne part sans un geste manuel explicite. Les rapports et les logs restent en local.
 - **Une valeur, une source** : version, nom d'application, identifiant de bundle, nom du binaire du sidecar vivent à un seul endroit et sont dérivés partout ailleurs (`extra-files` de release-please, `define` esbuild, lecture du manifeste). Quand la dérivation est impossible (un JSON n'interpole rien, un `.spec` PyInstaller n'importe rien), la copie est **gardée par un test de cohérence**, jamais laissée à la vigilance : ces divergences-là sont muettes et ne se voient qu'à l'exécution du bundle.
 - **No-lib-test** : un test doit échouer contre une régression de notre code, jamais contre une mise à jour de dépendance. On ne teste ni que mutagen sait écrire un `TPE1`, ni qu'un `@if` masque un div, mais que **notre** table de correspondance envoie le bon champ au bon tag.
-- **Diagnostic SessionStart (hook `env-check`)** : respecter les instructions injectées via `additionalContext`, énumérer les blocages à l'utilisateur et proposer le correctif (`just install`, `just build-sidecar`, `cp .env.example .env`) avant toute tâche qui construit, lance ou empaquette le projet.
-- **Suivre l'ordre de développement** d'[ARCHITECTURE.md](../docs/ARCHITECTURE.md#ordre-de-développement) : le métier avant l'interface, et le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
 
 > Les règles techniques (Angular, PrimeNG, Tauri, pydantic, keyring, PyInstaller, Ruff, Mypy…) sont dans [.claude/rules/](rules/) et chargées dynamiquement selon les fichiers touchés.
 
@@ -50,6 +48,8 @@ Commits : `type(scope): description`, types `feat | feat! | fix | docs | refacto
 - **Toute commande Tauri exige le binaire du sidecar** dans `src-tauri/binaries/` : Tauri valide `externalBin` dès la compilation, donc `cargo check` lui-même échoue sans lui. `just build-sidecar` d'abord.
 
 ## Commandes
+
+**Diagnostic au démarrage (hook `env-check`)** : respecter les instructions injectées via `additionalContext`, énumérer les blocages à l'utilisateur et proposer le correctif (`just install`, `just build-sidecar`, copie du fichier d'environnement d'exemple) avant toute tâche qui construit, lance ou empaquette le projet.
 
 **`just` et les scripts pnpm exigent bash** : le `Justfile` pose `set shell := ["bash", "-cu"]` et `pnpm-workspace.yaml` pose `scriptShell: bash`. Le hook `env-check` vérifie au démarrage que `bash` résout bien vers Git Bash et non vers le lanceur WSL.
 

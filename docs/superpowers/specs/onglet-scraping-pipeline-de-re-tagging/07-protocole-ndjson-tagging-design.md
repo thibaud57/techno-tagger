@@ -23,10 +23,10 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (Feature 3), `resolv
 
 ## Dependencies
 
-- `06-pipeline-resolution-design.md` (statut: draft) : `run_tagging`, `TaggingRun`, `TrackRecord`, événements internes, `ApiKeyRejectedRunError`.
-- `05-cle-api-design.md` (statut: draft) : `read_api_key`.
-- `04-cache-et-pochettes-design.md` (statut: draft) : `DiskCache`, `ResponseCache`, `ArtworkFetcher`, `app_data_dir`.
-- `02-client-techno-scraper-design.md` (statut: draft) : `TechnoScraperClient`.
+- `06-pipeline-resolution-design.md` (statut: implemented) : `run_tagging`, `TaggingRun`, `TrackRecord`, événements internes, `ApiKeyRejectedRunError`.
+- `05-cle-api-design.md` (statut: implemented) : `read_api_key`.
+- `04-cache-et-pochettes-design.md` (statut: implemented) : `DiskCache`, `ResponseCache`, `ArtworkFetcher`, `app_data_dir`.
+- `02-client-techno-scraper-design.md` (statut: implemented) : `TechnoScraperClient`.
 
 ## Files touched
 

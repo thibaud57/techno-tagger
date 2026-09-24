@@ -23,7 +23,7 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
 
 ## Dependencies
 
-- `02-client-techno-scraper-design.md` (statut: draft) : fournit `TrackCandidate` et `Credit`, les candidats que ce module score.
+- `02-client-techno-scraper-design.md` (statut: implemented) : fournit `TrackCandidate` et `Credit`, les candidats que ce module score.
 
 ## Files touched
 
@@ -156,13 +156,12 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
   - returns no query for a file name reduced to noise
 - `sidecar/tests/unit/test_matching_scoring.py` :
   - compares the candidate title with its mix name
-  - adds original mix to a query title without version
-  - keeps a candidate matched on its bare title in the grey zone
+  - keeps other versions in the grey zone for a query without version
   - validates the original mix automatically when an extended mix is also offered
   - compares a candidate without mix name to the query title without suffix
   - never validates automatically when auto is not allowed
   - joins candidate artists without remixers
-  - uses token sort ratio for several artists and ratio otherwise
+  - matches several artists whatever their order
   - drops a candidate without remix when the query holds one
   - rejects a candidate below the floor on either score
   - validates automatically at the ceiling and not below it

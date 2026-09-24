@@ -9,7 +9,7 @@ paths:
 ## À faire
 - Écrire les formulaires en Signal Forms (`form()` plus un schéma), stables depuis Angular 22 et alignés sur l'architecture signals du projet
 - Faire du modèle `signal<T>()` la source de vérité, jamais une copie tenue à part
-- Déclarer la validation par les validateurs natifs (`required()`, `min()`, `pattern()`, `minDate()`, `maxDate()`) plutôt que par des fonctions maison, **quand un champ a quelque chose à valider et un message à afficher**. Un écran dont la seule règle est « le bouton s'active quand le champ est rempli » n'a pas de validation : un `computed()` le dit, et `form()` n'est là que pour lier les composants par `[formField]` (les composants PrimeNG n'exposent leur valeur que par `ControlValueAccessor`)
+- Déclarer la validation par les validateurs natifs (`required()`, `min()`, `pattern()`, `minDate()`, `maxDate()`) plutôt que par des fonctions maison, dès qu'un champ a quelque chose à valider et un message à afficher
 - Isoler la validation conditionnelle avec `applyWhen()`
 - Debouncer au niveau du validateur avec `validateAsync({ debounce })`, chaque validateur async ayant sa propre fenêtre
 - Soumettre par `submit()` **quand la réponse du serveur revient de l'appel lui-même**, et remonter les erreurs sous forme `{ kind, message }`. Ce n'est pas le cas ici : une commande part sur le protocole NDJSON, rend la main aussitôt, et son échec arrive plus tard par le flux d'événements dans `lastError`. `submit()` n'attraperait rien, l'envoi est une méthode du composant
@@ -23,6 +23,7 @@ paths:
 - Mélanger Reactive et Signal Forms sur un même écran sans passer par `SignalFormControl` ou `FormControlValue`
 
 ## Gotchas
+- Un écran dont la seule règle est « le bouton s'active quand le champ est rempli » n'a rien à valider : un `computed()` le dit, et `form()` n'est là que pour lier les composants par `[formField]`, les composants PrimeNG n'exposant leur valeur que par `ControlValueAccessor`
 - Angular 22 : `touched` n'est plus un model bidirectionnel ; un custom control le lit par un `input` et le déclenche par l'output `touch()`
 - Angular 22 : `markAsTouched()` marque le champ et tous ses descendants, ce qui change le comportement des soumissions partielles
 - Angular 21 zoneless : `FormArray.push()` ne déclenche plus la détection de changements
@@ -50,6 +51,6 @@ protected readonly canSave = computed(() => this.entry().apiKey !== '');
 
 // ❌ Formulaire construit dans ngOnInit, contrôles nullables
 ngOnInit() {
-  this.form = this.fb.group({ apiUrl: ['', Validators.required] });
+  this.form = this.fb.group({ apiKey: ['', Validators.required] });
 }
 ```

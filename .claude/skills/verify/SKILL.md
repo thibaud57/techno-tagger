@@ -101,6 +101,12 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
 - Dossier vide : `run_started` à liste vide, aucun `progress`, `run_finished` à zéro
 - Racine des données : `cache/responses/` et `logs/tagger.log` sous
   `<LOCALAPPDATA>/fr.empiricmind.techno-tagger/`, jamais dans le profil réel
+- Erreur d'une **autre** commande pendant un run : son `command` la désigne, le run
+  poursuit jusqu'à son `run_finished`, et l'interface garde ses lignes. Deux régressions
+  relevées ici le 2026-09-24, à ne jamais laisser revenir : un `tagging_in_progress`
+  arrêtait le run affiché alors que ce code dit justement que le premier continue, et
+  `SidecarService.startTagging()` vidait la liste d'un run en cours avant que le sidecar
+  ne refuse la seconde commande
 
 ### Gotchas du run
 
@@ -115,6 +121,10 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   `ArtworkFetcher` refusant toute URL qui n'est pas en `https` vers une adresse publique
 - L'ordre des `track_resolved` ne suit pas celui des morceaux : les tâches du run sont
   concurrentes, seul l'ordre « événement du morceau puis son `progress` » est garanti
+- **Une course ne se pilote pas sur un cache chaud** : un run de trois morceaux déjà en
+  cache se termine avant que la commande concurrente ne parte, et le scénario passe en
+  rendant un faux vert. Bâtir un dossier de titres inédits (« Verify Probe N ») pour que
+  chaque morceau paie son aller-retour et que le run dure assez
 
 ## Pilotage du trousseau
 
@@ -224,3 +234,4 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
 - Cliquer « Extraire » juste après avoir choisi un fichier part avant la réponse du listage : `canExtract` le refuse à raison, le bouton n'étant pas encore repeint. Attendre que le bouton repasse actif avant de cliquer
 - Modifier un template pendant `just dev` recharge la page (sidecar en plus, état perdu) : arrêter l'app avant de corriger, puis relancer à froid
 - `ng.getInjectorResolutionPath` et `ng.getInjectorProviders` n'existent pas sans le préfixe `ɵ`, et la classe s'appelle `_SidecarService` en build de dev
+- Le pilote CDP tient en un module Node du scratchpad : `fetch` sur `http://127.0.0.1:9222/json` pour trouver la page, `WebSocket` natif vers son `webSocketDebuggerUrl`, puis `Runtime.evaluate` avec `awaitPromise` et `returnByValue` sur le contenu d'un `.js` lu par `readFileSync`. Le sonder par fichier plutôt que par argument évite les deux pièges déjà notés, les backslashes perdus et l'expression que le hook intercepte

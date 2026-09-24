@@ -23,11 +23,11 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Fe
 
 ## Dependencies
 
-- `01-lecture-tags-fichiers-design.md` (statut: draft) : `list_audio_files`, `read_identity`, `TagsUnreadableError`, `TaggingFolderUnreadableError`, et le helper des fichiers audio de test.
-- `02-client-techno-scraper-design.md` (statut: draft) : `TechnoScraperClient`, `TrackCandidate`, `Source`, `ApiKeyRejectedError`, `SourceUnavailableError`, `TrackNotFoundError`, `ApiContractError`, helpers de réponses.
-- `03-requete-et-scoring-design.md` (statut: draft) : `build_query`, `classify`, `MatchingThresholds`, `Outcome`, `ScoredCandidate`.
-- `04-cache-et-pochettes-design.md` (statut: draft) : `ArtworkFetcher`, `ArtworkUnavailableError`.
-- `05-cle-api-design.md` (statut: draft) : la clé que le handler du sub-project 07 lira pour construire le client.
+- `01-lecture-tags-fichiers-design.md` (statut: implemented) : `list_audio_files`, `read_identity`, `TagsUnreadableError`, `TaggingFolderUnreadableError`, et le helper des fichiers audio de test.
+- `02-client-techno-scraper-design.md` (statut: implemented) : `TechnoScraperClient`, `TrackCandidate`, `Source`, `ApiKeyRejectedError`, `SourceUnavailableError`, `TrackNotFoundError`, `ApiContractError`, helpers de réponses.
+- `03-requete-et-scoring-design.md` (statut: implemented) : `build_query`, `classify`, `MatchingThresholds`, `Outcome`, `ScoredCandidate`.
+- `04-cache-et-pochettes-design.md` (statut: implemented) : `ArtworkFetcher`, `ArtworkUnavailableError`.
+- `05-cle-api-design.md` (statut: implemented) : la clé que le handler du sub-project 07 lira pour construire le client.
 
 ## Files touched
 
@@ -181,9 +181,11 @@ Aucun test ne vérifie httpx2, rapidfuzz ni mutagen : l'API et le CDN sont mock�
 - **Même fichier audio à deux chemins** (lien, copie) : deux morceaux distincts, chaque `track_id` étant un chemin.
 - **Annulation du run** (fermeture de l'application) : `CancelledError` relevée après nettoyage, jamais avalée. L'état en mémoire est perdu, sa persistance relève de la Feature 6.
 
-## À trancher pendant ce sub-project
+## Architectural decisions
 
-- **Taille de page de la recherche Beatport, à choisir ici et non avant.** `/beatport/search` rend aujourd'hui 100 résultats par page, valeur en dur dans techno-scraper (`providers/beatport/client.py`, `_PER_PAGE`), sans paramètre pour en demander moins : mesuré le 2026-09-20, `per_page`, `limit`, `page_size` et `size` sortent tous en `422`, les modèles de paramètres étant en `extra="forbid"`. Beatport lui-même rend 25 par défaut et plafonne à 100.
+### Décision : Taille de page de la recherche Beatport
+
+- **À choisir ici et non avant.** `/beatport/search` rend aujourd'hui 100 résultats par page, valeur en dur dans techno-scraper (`providers/beatport/client.py`, `_PER_PAGE`), sans paramètre pour en demander moins : mesuré le 2026-09-20, `per_page`, `limit`, `page_size` et `size` sortent tous en `422`, les modèles de paramètres étant en `extra="forbid"`. Beatport lui-même rend 25 par défaut et plafonne à 100.
   - Coût mesuré le 2026-09-20 : 77 Ko par recherche, soit environ 38 Mo descendants pour une playlist de 500 morceaux, transférés deux fois puisque le VPS les reçoit puis les relaie.
   - Aucun effet sur le risque de blocage : les sources limitent la concurrence et non le débit (`core/limits.py` de techno-scraper borne Bandcamp à 2 et Beatport à 3), et une page plus courte ne change pas le nombre de requêtes, qui reste d'une par morceau et par source.
   - Ne concerne que Beatport : Bandcamp ne pagine pas et rend ce qu'il trouve.
@@ -194,8 +196,6 @@ Aucun test ne vérifie httpx2, rapidfuzz ni mutagen : l'API et le CDN sont mock�
   - **Décision du propriétaire le 2026-09-21** : la taille de page retenue pour la recherche du tagger est `10`, valeur légale de l'énumération, en dessous du défaut de la source (`25`).
   - **Vérifié le 2026-09-22 à travers la gateway** (même branche) : la tête de liste Beatport ne dépend pas de la taille de page, top 10 identique entre `limit=10` et `limit=100` sur deux recherches. Un candidat relevé aux rangs 1 à 3 sur une page de 100 reste donc dans la page de 10. Côté Bandcamp la découpe est locale : la page de 10 est par construction la tête des 50.
   - **Dépendance d'ordre avant implémentation** : le contrat est porté par la `3.2.0` de techno-scraper, déployée en production le 2026-09-22. Une prod antérieure (`3.1.4`, Parameter Models en `extra="forbid"`) rend `422` sur tout `limit`, donc un run entier sans candidat : la Task 4 du plan garde sa vérification par `curl` avant d'écrire une ligne.
-
-## Architectural decisions
 
 ### Décision : Beatport injoignable après les nouvelles tentatives
 

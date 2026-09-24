@@ -7,7 +7,7 @@ paths:
 
 ## À faire
 - Passer `processor=utils.default_process` sur **tous** les appels de scoring : depuis la 3.0, aucune fonction ne préprocesse, et mélanger des appels avec et sans processor rend les scores incomparables
-- Comparer les artistes un à un, jamais deux listes jointes : chaque artiste de la requête contre chaque crédit du candidat, le meilleur score par artiste, et le plus faible de ces meilleurs scores. Deux listes jointes voient leur score s'écrouler dès que leurs longueurs divergent, ce qu'un tag incomplet provoque sans cesse (mesuré le 2026-09-20 : « Adam Beyer » contre « Adam Beyer, Bart Skils, HNTR » rend 52,6). Cette comparaison par inclusion rend l'ordre des crédits sans effet, ce pour quoi `token_sort_ratio` servait auparavant
+- Comparer les artistes un à un, jamais deux listes jointes : chaque artiste de la requête contre chaque crédit du candidat, le meilleur score par artiste, et le plus faible de ces meilleurs scores. Deux listes jointes s'écroulent dès que leurs longueurs divergent, ce qu'un tag incomplet provoque sans cesse
 - Traiter le plancher comme un **ET** sur le score artiste et le score titre, le seuil haut portant sur leur moyenne : un artiste à 95 et un titre à 40 est écarté
 - Lire les deux seuils depuis la configuration : les valeurs du code sont des défauts réglables dans les Settings, pas des constantes
 - `process.extractOne` dès qu'une chaîne se compare à une liste sur un axe unique, plutôt qu'un `max()` écrit à la main, et `score_cutoff` quand un plancher s'y applique : la fonction rend alors `None`, ce qui est le cas « vide » du pipeline. L'exception est un candidat porteur de plusieurs scores combinés en ET, qu'aucun `score_cutoff` n'exprime

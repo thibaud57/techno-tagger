@@ -14,7 +14,9 @@ paths:
 - Garder `limit` strictement identique pendant toute l'itération d'une route paginée, et ne jamais rejouer un curseur sur une autre requête (`q`, `type`, id ou filtre de date différents) : les deux rendent `400` (`cursor_limit_mismatch` / `cursor_scope_mismatch`)
 - Traiter un champ nul comme « champ non écrit », jamais comme « champ à vider » : Bandcamp ne rend ni `bpm`, ni `key`, ni `genre`, ni `label` (cf. [ADR-011](../../../docs/adrs/011-politique-ecriture-tags.md))
 - Décider explicitement si `remixers[]` entre dans la chaîne artiste : ils sont exclus d'`artists[]` par convention, l'API ne tranche pas
-- Consigner le `source` de chaque morceau résolu dans le rapport, et incriminer la clé API sur un `403` sans passer par `/health` : le gotcha ci-dessous rend ce statut non ambigu, et une seconde requête sur une API qui refuse déjà la clé n'apprendrait rien. Compter les `403` consécutifs plutôt que les interpréter un par un, une clé révoquée en produisant autant que de morceaux
+- Consigner le `source` de chaque morceau résolu dans le rapport
+- Incriminer la clé API sur un `403` sans repasser par `/health` : le gotcha ci-dessous rend ce statut non ambigu
+- Compter les `403` consécutifs plutôt que les interpréter un par un : une clé révoquée en produit autant que de morceaux
 
 ## À éviter
 - Retryer un `504` : la file de l'API est déjà saturée, le retry l'allonge. Retryer un `403` : la clé ne redeviendra pas valide seule

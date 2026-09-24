@@ -23,9 +23,9 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), la modal
 
 ## Dependencies
 
-- `08-service-sidecar-tagging-design.md` (statut: draft) : `startTagging`, `taggingTracks`, `taggingProgress`, `tagging`, `taggingFinished`.
-- `09-liste-du-run-design.md` (statut: draft) : `RunListComponent`.
-- `05-cle-api-design.md` (statut: draft) : `apiKeyConfigured`, sans quoi le lancement reste bloqué.
+- `08-service-sidecar-tagging-design.md` (statut: implemented) : `startTagging`, `taggingTracks`, `taggingProgress`, `tagging`, `taggingFinished`.
+- `09-liste-du-run-design.md` (statut: implemented) : `RunListComponent`.
+- `05-cle-api-design.md` (statut: implemented) : `apiKeyConfigured`, sans quoi le lancement reste bloqué.
 
 ## Références de design
 
