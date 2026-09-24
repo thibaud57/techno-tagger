@@ -132,7 +132,7 @@ class DiskCache:
 
         Sous Windows, un antivirus qui tient un fichier ouvert fait lever
         `PermissionError` a `unlink`. L'entree reste alors en place et sera reprise a
-        l'eviction suivante : elle ne doit pas faire echouer l'appel en cours (ADR-013).
+        l'eviction suivante : elle ne doit pas faire echouer l'appel en cours.
         """
         with self._lock:
             size = _size_of(path)
@@ -169,7 +169,7 @@ class DiskCache:
         Ne leve jamais : `abort` est appele depuis un `except`, et une erreur de
         nettoyage y remplacerait l'echec qu'on est en train de traiter. Un `.tmp`
         verrouille ferait sinon sortir un `OSError` brut la ou l'appelant attend une
-        erreur metier, et le morceau echouerait pour un residu de cache (ADR-013).
+        erreur metier, et le morceau echouerait pour un residu de cache.
         """
         with contextlib.suppress(OSError):
             pending.file.close()
@@ -268,7 +268,7 @@ class CachedResponse(NamedTuple):
 
 
 class ResponseCache:
-    """Reponses 2xx de techno-scraper, resultat vide compris (ADR-013)."""
+    """Reponses 2xx de techno-scraper, resultat vide compris."""
 
     def __init__(self, disk: DiskCache) -> None:
         self._disk = disk
@@ -345,8 +345,7 @@ class ArtworkFetcher:
     async def __aexit__(self, *_exc_info: object) -> None:
         # `shield` detache les telechargements de l'annulation de leurs appelants : un
         # run avorte les laisse en vol, et fermer le client sous eux leverait dans une
-        # tache que plus personne n'attend. Les solder d'abord, `gather` recuperant les
-        # exceptions de celles qui etaient trop avancees pour s'annuler.
+        # tache que plus personne n'attend.
         pending = list(self._in_flight.values())
         for running in pending:
             running.cancel()
@@ -455,14 +454,11 @@ async def _check_artwork_url(url: str, resolve: HostResolver) -> None:
 def _check_connected_address(response: httpx2.Response) -> None:
     """Refuse une reponse venue d'une adresse que le controle prealable aurait refusee.
 
-    `_check_artwork_url` resout l'hote, mais httpx2 resout le sien a la connexion : un
-    DNS qui rend une adresse publique au premier appel et une adresse interne au second
-    passerait le garde. Relire l'adresse reellement connectee ferme ce rebinding pour le
-    corps de la reponse, qui n'est alors ni lu ni mis en cache, et rend tous ces cas
-    sous un `blocked_url` unique, qui n'apprend rien sur ce qui repond en interne.
-
-    La connexion TCP, elle, a bien eu lieu : l'exclure demanderait d'epingler l'adresse
-    validee jusque dans le transport, ce que httpx2 n'expose pas.
+    httpx2 resout l'hote une seconde fois a la connexion : un DNS qui rend une adresse
+    publique au controle et une interne ensuite passerait le garde. Le corps n'est alors
+    ni lu ni mis en cache, sous un `blocked_url` unique qui n'apprend rien sur ce qui
+    repond en interne. La connexion TCP, elle, a eu lieu : l'epingler demanderait un
+    transport que httpx2 n'expose pas.
     """
     stream = response.extensions.get("network_stream")
     if stream is None:
@@ -506,7 +502,7 @@ def _size_of(statable: Path | os.DirEntry[str]) -> int:
 
 
 def _unlink(path: Path) -> bool:
-    """Supprime une entree et dit si elle a cede, sans jamais lever (ADR-013)."""
+    """Supprime une entree et dit si elle a cede, sans jamais lever."""
     try:
         path.unlink(missing_ok=True)
     except OSError:

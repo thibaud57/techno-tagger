@@ -22,13 +22,11 @@ logger = logging.getLogger(__name__)
 MASK = "<user>"
 QUERY_MASK = "<query>"
 
-# Une recherche part en parametre d'URL, donc l'artiste et le titre du morceau, et
-# httpx2 ecrit l'URL entiere dans le message de `HTTPStatusError`. Le SDK remonte la
-# chaine `__cause__` d'une exception et recopie chaque message tel quel : sans ce
-# masquage, un statut hors des cas traites emmenait le morceau vers Sentry, ce que
-# l'ADR-014 interdit. Le diagnostic tient au `request_id`, jamais a la requete.
-# `?` exclu du groupe `url` : gourmand, il avalait les `?` intermediaires et seul
-# ce qui suivait le dernier etait masque, laissant passer la premiere requete.
+# httpx2 ecrit l'URL entiere, donc l'artiste et le titre, dans le message de
+# `HTTPStatusError`, que le SDK recopie via la chaine `__cause__` : sans masquage le
+# morceau partait vers Sentry, ce que l'ADR-014 interdit. Le diagnostic tient au
+# `request_id`. `?` exclu du groupe `url`, sinon gourmand : il avalait les `?`
+# intermediaires et laissait passer tout ce qui precedait le dernier.
 _URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>?]*)\?[^\s'\"<>]*", re.IGNORECASE)
 
 # `USERNAME` sous Windows, `USER` sur les runners Linux de la CI.

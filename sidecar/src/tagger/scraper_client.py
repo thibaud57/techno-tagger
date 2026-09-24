@@ -40,7 +40,7 @@ BEATPORT_CONCURRENCY: Final = 3
 BANDCAMP_CONCURRENCY: Final = 2
 
 # `read` au-dessus du budget de 90 s de l'API : on recoit son 504 structure plutot
-# qu'un timeout local aveugle (ADR-017).
+# qu'un timeout local aveugle.
 _TIMEOUT: Final = httpx2.Timeout(connect=10.0, read=100.0, write=10.0, pool=10.0)
 
 # Deux nouvelles tentatives sur erreur reseau sans reponse, rien d'autre : un 503 a

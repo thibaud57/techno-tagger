@@ -12,8 +12,6 @@ pytestmark = pytest.mark.asyncio
 
 
 class _InFlight:
-    """Compte les requetes en vol et retient le maximum atteint."""
-
     def __init__(self) -> None:
         self.current = 0
         self.peak = 0

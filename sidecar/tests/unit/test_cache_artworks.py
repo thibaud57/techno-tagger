@@ -147,7 +147,6 @@ async def test_sends_no_api_key_to_the_cdn(tmp_path: Path) -> None:
 
 
 async def test_downloads_once_when_two_tracks_share_an_artwork(tmp_path: Path) -> None:
-    """Deux morceaux d'une meme sortie portent la meme URL et partent en parallele."""
     requests: list[httpx2.Request] = []
 
     async def slow_cdn(request: httpx2.Request) -> httpx2.Response:
@@ -327,8 +326,6 @@ async def test_refuses_a_hostname_that_resolves_to_a_private_address(
 async def test_reports_artwork_unavailable_even_when_the_cleanup_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Une erreur de nettoyage ne doit pas remplacer l'echec qu'on est en train de traiter."""
-
     def locked(*_args: object, **_kwargs: object) -> None:
         raise PermissionError(13, "locked by another process")
 

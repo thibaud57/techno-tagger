@@ -11,12 +11,10 @@ from tagger import BUNDLE_IDENTIFIER
 
 
 def app_data_dir() -> Path:
-    """Ou `appLocalDataDir()` de Tauri resout sous Windows.
+    """Racine de `appLocalDataDir()` de Tauri, composee avec l'identifiant du bundle.
 
-    Tauri compose ce dossier avec l'identifiant du bundle, pas avec le nom de
-    l'application : le sidecar ecrirait sinon hors des scopes de la webview. Jamais
-    le repertoire courant : pour une application installee, c'est celui d'ou
-    l'utilisateur l'a lancee, donc n'importe ou sur son disque.
+    Pas le nom de l'application, sinon le sidecar ecrirait hors des scopes de la
+    webview ; jamais le repertoire courant, arbitraire pour une app installee.
     """
     base = os.getenv("LOCALAPPDATA")
     root = Path(base) if base else Path.home() / "AppData" / "Local"

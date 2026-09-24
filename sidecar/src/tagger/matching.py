@@ -279,7 +279,7 @@ def _comparable(title: str) -> _Parts:
     """Titre nu et version, seul chemin vers la forme comparable.
 
     Unique pour que requete et candidat subissent le meme traitement : nettoyer un
-    seul cote suffit a faire tomber un morceau identique sous le plancher (spec 03).
+    seul cote suffit a faire tomber un morceau identique sous le plancher.
     """
     bare, version = _split_version(_clean(title))
     return _Parts(_SPACES.sub(" ", _FEATURING.sub(" ", bare)).strip(_EDGE_NOISE + "(["), version)
@@ -315,7 +315,7 @@ def _split_version(title: str) -> _Parts:
 
 
 def _score(asked: _AskedFor, candidate: TrackCandidate, offered: _Parts) -> ScoredCandidate:
-    """Score un candidat : titre et version separement, jamais concatenes (spec 03)."""
+    """Score un candidat : titre et version separement, jamais concatenes."""
     title_score = fuzz.ratio(asked.title, offered.title, processor=utils.default_process)
     mismatch = not _versions_agree(asked.version, offered.version)
     if not asked.artists:
@@ -330,7 +330,7 @@ def _versions_agree(asked: str, offered: str) -> bool:
     """Deux morceaux portent-ils la meme version ?
 
     « Original Mix » vaut absence de version, un tag l'omettant presque toujours : une
-    requete muette s'accorde donc avec un original, jamais avec un Extended (spec 03).
+    requete muette s'accorde donc avec un original, jamais avec un Extended.
     """
     left, right = _normalise_version(asked), _normalise_version(offered)
     if not left or not right:
@@ -344,7 +344,7 @@ def _normalise_version(version: str) -> str:
 
 
 def _artist_score(asked: tuple[str, ...], candidate: TrackCandidate) -> float:
-    """Chaque artiste demande doit se retrouver parmi les credits du candidat (spec 03).
+    """Chaque artiste demande doit se retrouver parmi les credits du candidat.
 
     Le minimum et non la moyenne : un artiste absent est un desaccord que la presence
     des autres ne rachete pas.
@@ -425,15 +425,12 @@ def _mentions(title: str, mix_name: str) -> bool:
 def _complete_partial_mention(title: str, mix_name: str) -> str | None:
     """Complete un groupe du titre qui n'annonce la version qu'a moitie.
 
-    Le contrat separe titre et version des deux sources (Beatport la rend dans
-    `mix_name`, Bandcamp la laisse nulle et l'ecrit dans le titre) : un titre qui porte
-    « (Extended) » quand `mix_name` vaut « Extended Mix » sort de ce contrat. Sans ce
-    traitement le titre rendu serait « Song (Extended) (Extended Mix) », et c'est lui
-    qui part dans le tag.
+    Les deux sources separent titre et version, donc un titre en « (Extended) » avec un
+    `mix_name` « Extended Mix » sort du contrat : sans ce traitement, le tag recevrait
+    « Song (Extended) (Extended Mix) ».
 
-    Un seul cas traite, le groupe qui prefixe la version : ailleurs dans le titre,
-    « Extended » est un mot ordinaire (« Extended Dreams »), et un groupe qui nomme une
-    autre version (« (Live) » contre « Extended Mix ») n'annonce pas celle-ci.
+    Seul le groupe qui prefixe la version est traite : ailleurs « Extended » est un mot
+    ordinaire, et « (Live) » contre « Extended Mix » nomme une autre version.
     """
     for group in _GROUP.finditer(title):
         inner = group.group("content").strip()
