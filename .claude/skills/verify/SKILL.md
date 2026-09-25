@@ -98,6 +98,9 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   aucun `run_finished`
 - `shutdown` pendant un run : tâche annulée, aucun `run_finished`, sortie 0, et la
   commande suivante ignorée
+- `cancel_run` pendant un run : tâche annulée, aucun `run_finished`, et la boucle
+  répond à la commande suivante, contrairement à `shutdown` qui en sort. Sans run en
+  cours, la commande ne rend rien et ne lève rien
 - Dossier vide : `run_started` à liste vide, aucun `progress`, `run_finished` à zéro
 - Racine des données : `cache/responses/` et `logs/tagger.log` sous
   `<LOCALAPPDATA>/fr.empiricmind.techno-tagger/`, jamais dans le profil réel
@@ -125,6 +128,17 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   cache se termine avant que la commande concurrente ne parte, et le scénario passe en
   rendant un faux vert. Bâtir un dossier de titres inédits (« Verify Probe N ») pour que
   chaque morceau paie son aller-retour et que le run dure assez
+- **Une annulation envoyée dans le même bloc que `start_tagging` tombe pendant le parcours
+  du dossier**, avant `run_started`, et n'exerce rien : un fichier de commandes arrive d'un
+  coup. Délivrer `cancel_run` en différé par un vrai pipe, alimenté par un thread qui
+  attend entre deux lignes (`drive-timed.py` du scratchpad), avec `FAKE_DELAY` sur le faux
+  serveur pour tenir les requêtes en vol
+- **La course d'une relance juste après `cancel_run` ne se reproduit pas contre le faux
+  serveur** : il rend `artwork_url` nul, aucune pochette n'est donc en téléchargement, et
+  c'est leur attente sous `shield` dans `__aexit__` du cache qui fait mourir le run
+  lentement. Relevé le 2026-09-25 : contre-épreuve sans l'attente de `cancel_run`, zéro
+  erreur aussi. La preuve vit dans `test_a_run_started_right_after_a_cancellation_is_not_refused`,
+  dont la fixture meurt lentement ; ici, vérifier seulement l'absence de régression
 
 ## Pilotage du trousseau
 
@@ -203,6 +217,7 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
   - dossier introuvable : `lastError` de code `tagging_folder_unreadable`, bannière traduite sous l'en-tête, bouton de lancement réactivé. L'écran filtre par `lastErrorCommand() === "start_tagging"`, pas par une liste de codes
   - états vides, relevés le 2026-09-25 : sans run, bloc encadré « Aucun run lancé » dont la phrase suit `folder` (vide : « Choisissez… », posé : « Lancez le run… ») ; pendant le parcours du dossier, avant `run_started` (`taggingRunId()` nul), la liste montée avec des lignes squelette sur toute la hauteur, jamais « Aucun run lancé » ; run fini sur un dossier sans audio, « Aucun fichier audio dans ce dossier » dans la table. Un gros dossier sans audio (`node_modules` du dépôt, vérifié sans fichier audio) donne six secondes de parcours sans rien envoyer à l'API
   - run coupé après `run_started` (rejouer `run_started`, un `track_resolved` puis un `error` `api_key_rejected` par `svc.handleLine`, après `svc.send` neutralisé et `svc.startTagging`) : les morceaux jamais atteints passent en « Non traité », tag `secondary` et icône `minus-circle`, cadre de pochette et non squelette
+  - interruption à la demande, relevée le 2026-09-25 : pendant un run, un bouton « Interrompre » `secondary` outlined à icône `stop` paraît à **gauche** du lancement, qui reste visible et grisé ; absent avant et après le run. Au clic, la commande `cancel_run` part, la barre disparaît, les morceaux déjà résolus gardent source, scores et pochette, les suivants passent en « Non traité », et « Lancer le run » redevient actif. Aucune modale : rien n'est irréversible avant l'écriture. Le relancer ensuite doit repartir d'une liste vide, sans `tagging_in_progress`
   - motif d'un non résolu : icône `info-circle` après le tag, texte `tagging.reason.<failure_reason>` au survol (`mouseenter` sur le `span.inline-flex` de la cellule, puis `.p-tooltip`)
   - en anglais : colonnes « Before / After / Source / Score / State », bouton « Start the run », aucune clé brute
   - à 1280 × 800 puis au plancher 1024 × 700 : aucun défilement de page ni de `main`, en-tête sans débordement

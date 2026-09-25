@@ -164,6 +164,8 @@ Les deux sont nécessaires : **VLC Android n'a aucune fonction d'export de playl
 - Liste scrollable affichant `Artiste - Titre` et un état par ligne : vert validé (coche), rouge sans correspondance (croix), bleu en attente d'arbitrage (i)
 - Barre de progression, **signal sonore de fin** (désactivable) : se déclenche une seule fois, à la fin de cette phase réseau, pas par arbitrage
 
+> **Ajouté en cours de route** (2026-09-25) : un run s'interrompt depuis l'écran, sans fermer l'application, pour qu'un dossier lancé par erreur cesse de consommer le quota de l'API. Les morceaux déjà résolus gardent leurs résultats, les autres passent en « Non traité ».
+
 ### Feature 3 : Arbitrage utilisateur
 
 Le pipeline ne s'arrête jamais. Les morceaux ambigus s'empilent en file, la modale s'ouvre dès qu'il y en a un et qu'aucune n'est déjà ouverte.
