@@ -53,7 +53,7 @@
 } @else {
   <!-- `col-start-1` sur chaque libelle : les lignes n'ont pas toutes trois cellules. -->
   <div
-    class="grid grid-cols-[max-content_max-content_1fr] items-center gap-4"
+    class="@container grid grid-cols-[max-content_max-content_1fr] items-center gap-4"
     [animate.enter]="fadeIn"
   >
     <app-path-picker
@@ -134,15 +134,17 @@
       <ng-template #item let-option>{{ option.labelKey | translate }}</ng-template>
     </p-selectbutton>
 
+    <!-- Sur la ligne du mode, a la largeur des libelles et des controles reunis : la
+         grille moins la colonne des chemins (le `100%` d'un item de grille) et un gap. -->
     <button
       pButton
       type="button"
       size="small"
-      class="col-span-2 col-start-1"
+      class="col-start-3 w-[calc(100cqw-100%-var(--spacing)*4)] justify-self-end"
       [disabled]="!canExtract()"
       [pTooltip]="missingHint() ?? undefined"
       [showDelay]="tooltipDelay"
-      tooltipPosition="right"
+      tooltipPosition="left"
       (click)="extract()"
     >
       {{ "playlist.extract" | translate }}
