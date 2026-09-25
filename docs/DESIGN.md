@@ -132,7 +132,7 @@ Un morceau validé automatiquement à 94 est l'endroit le plus probable d'un mau
 
 Les deux rouges partagent la couleur sans partager l'icône, leurs corrections étant opposées : l'un se rattrape par une URL, l'autre en relançant l'écriture (cf. [ARCHITECTURE.md § Robustesse](ARCHITECTURE.md#-robustesse--modes-de-panne)).
 
-**Le libellé d'échec d'écriture reste générique, le motif vit dans la ligne dépliée.** Le verrou n'est qu'un `failure_reason` parmi plusieurs, et la colonne État est dimensionnée sur le plus long des cinq libellés d'état : nommer chaque cause obligerait à l'élargir ou à tronquer. Un motif est du diagnostic, pas de la colonne de balayage.
+**Le libellé d'échec d'écriture reste générique, le motif vit dans la ligne dépliée.** Le verrou n'est qu'un `failure_reason` parmi plusieurs, et la colonne État est dimensionnée sur le plus long des libellés livrés : nommer chaque cause obligerait à l'élargir ou à tronquer. Un motif est du diagnostic, pas de la colonne de balayage.
 
 > **Deux pièges d'orthographe sur les sévérités.** C'est `warn`, jamais `warning`, sur `p-tag`, `p-badge`, `p-message` et `p-button` (seul `badgeSeverity` de `p-button` attend `warning`). Et `p-message` n'accepte pas `danger` : sa sévérité d'erreur est `error`.
 
@@ -141,7 +141,7 @@ Les deux rouges partagent la couleur sans partager l'icône, leurs corrections �
 - ✅ Toujours référencer une couleur par token ou par classe du plugin : jamais de hex, jamais de couleur Tailwind brute (`bg-emerald-500`)
 - ✅ **La couleur ne porte jamais seule l'information** : chaque état est toujours accompagné d'une icône et d'un libellé traduit
 - ✅ L'accent `primary` reste réservé aux actions et à la sélection. Un écran où tout est vert ne signale plus rien
-- ✅ Le `danger` est réservé aux trois actions qui touchent aux fichiers musicaux : la confirmation globale de l'écriture, la relance de l'écriture en échec, et le rollback
+- ✅ Le `danger` **d'une action** est réservé aux trois qui touchent aux fichiers musicaux : la confirmation globale de l'écriture, la relance de l'écriture en échec, et le rollback. La même sévérité sur un `p-tag` ou un `p-message` ne décide de rien, elle rapporte la famille Échec ci-dessus
 
 ## Formes
 
@@ -249,12 +249,14 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Mode copie / déplacement | `p-selectbutton` en `size="small"` | PrimeNG | Deux options, copie par défaut |
 | Lancement de l'extraction | `button pButton` primaire en `size="small"` | PrimeNG | Seul sur sa ligne, du bord des libellés au bout des contrôles. Désactivé, son tooltip nomme les choix manquants |
 | Résumé du run | Ligne de texte + `button pButton` secondary outlined en `size="small"` | PrimeNG | Remplace le formulaire dès le lancement (cf. § Layout). « Modifier » est figé pendant le run, puis rouvre le formulaire au-dessus du rapport |
+| Passage au tagging | `button pButton` `severity="secondary"` outlined en `size="small"` + icône `arrow-right` | PrimeNG | Sous le rapport, une fois l'extraction terminée. Mémorise la destination, qui préremplit l'onglet suivant |
 | Rapport d'extraction | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du badge. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
 
 ### Liste du run
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
+| Lancement du run | `button pButton` primaire en `size="small"` | PrimeNG | Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
 | Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
 | État d'un morceau | `p-tag` | PrimeNG | Familles du § Couleurs Sémantiques |
@@ -300,7 +302,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Sidecar absent ou en quarantaine | `p-card` centrée, action `secondary` outlined | PrimeNG | Écran bloquant, pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui explique comment s'en sortir. Même écran pour une divergence de version, sans action |
-| Notifications non bloquantes | `p-toast` | PrimeNG | Fin de phase, cache vidé, clé enregistrée |
+| Notifications non bloquantes | `p-toast` | PrimeNG | Fin d'une phase longue. Une clé enregistrée se confirme au contraire par un `p-tag` persistant : l'état de la clé se relit, il ne s'annonce pas |
 | Erreurs contextuelles | `p-message` inline | PrimeNG | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue |
 
 ### Composants Custom
@@ -450,7 +452,7 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 | Après | **fluide** | Ce que la source retenue va écrire |
 | Source | fixe | Logo 16px + libellé, Beatport / Bandcamp / SoundCloud. Mesurée sur « SoundCloud » |
 | Score | fixe | Moyenne des deux scores en ligne principale, `A 96 · T 92` en `text-xs` dessous. Mesurée sur `A 100 · T 100` |
-| État | fixe | `p-tag`, cf. § Couleurs Sémantiques. Mesurée sur « Échec d'écriture », le plus long des cinq libellés |
+| État | fixe | `p-tag`, cf. § Couleurs Sémantiques. Mesurée sur le plus long des libellés livrés, et à remesurer quand l'écriture ajoute le sien, plus long que tous |
 
 Ces trois colonnes se figent pour la raison du rapport, doublée ici : leur contenu arrive pendant le run. Chacune se mesure à l'implémentation sur son contenu le plus large, dans les deux langues, et pas un pixel de plus : ce qui leur est repris va aux deux colonnes qu'on compare vraiment.
 
@@ -527,6 +529,12 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 ---
 
 # 🔗 Ressources
+
+## Maquette et design system externes
+
+- **Design system** : [Techno Tagger Design System](https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5) : les composants du mapping ci-dessus, chacun avec son miroir JSX, son typage et sa fiche d'usage, plus les tokens et les guidelines. Fait foi sur les composants, quand ce document fait foi sur les règles
+- **Maquette** : le même projet, dossier `ui_kits/techno-tagger/` : un écran cliquable par onglet, plus le shell. Fait foi sur l'apparence d'un écran là où ce document se tait
+- **Synchronisation** : fichier par fichier, procédure et journal dans `.design-sync/NOTES.md`. Le convertisseur automatique ne s'applique pas, l'interface étant Angular sans point d'entrée de librairie : les composants du projet distant sont des recréations React bâties depuis ce document, jamais depuis le code livré
 
 ## Documentation Officielle
 

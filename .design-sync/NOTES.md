@@ -44,92 +44,12 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
 
 ## Reste ouvert
 
-Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain sync.
+Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-> Le **design system** a été réaligné le 2026-09-24 (cf. Journal) : `readme.md`, la fiche
-> `Password` et cinq composants absents du catalogue. Ce qui suit ne concerne donc plus que
-> la **maquette**, que ce sync n'a pas touchée, faute de demande explicite.
-
-- **Écran bloquant en carte** : la maquette le rend en `Message fullScreen`, un pavé d'alerte
-  rouge. Le code le rend en `p-card` neutre, sans icône, avec l'action de reprise. À reprendre
-  dans `ui_kits/techno-tagger/AppShell.jsx`, et `Card` manque au catalogue de composants.
-- **Paires de sévérité du `Message`** : la maquette recalcule ses teintes (fond `red-400` à 90 %,
-  texte `red-300`) là où le preset donne `red-500` à 84 % et `red-500` en texte. Le `readme.md`
-  du projet annonce déjà que ses tokens de composant ne sont pas vérifiés : ceux-là sont à
-  aligner sur le preset.
-- **Preset du projet** : l'application ne consomme plus Aura nu mais `TECHNO_TAGGER_PRESET`
-  (`src/app/core/theme.ts`), qui impose 8px et aucune ombre à la carte, 4px au tag et 2px au
-  badge. Les cartes de guidelines qui montrent ces rayons sont à revérifier.
-- **Un seul container, plein écran** : les deux régimes de largeur ont disparu. Le shell porte
-  `px-16 py-8` pour les trois onglets et une page ne pose plus de marge à elle. `AppShell.jsx` et les
-  trois écrans de `ui_kits/techno-tagger/` posent encore leurs propres paddings, et
-  `PlaylistScreen.jsx` un `max-width` de formulaire. La carte `space-regimes.card.html` des
-  guidelines décrit un régime qui n'existe plus.
-- **La page ne défile jamais** : le shell masque son débordement, la maquette laisse défiler
-  ses écrans (`overflowY: auto` dans `PlaylistScreen.jsx`).
-- **Tables** : taille par défaut de PrimeNG, à scroll virtuel. Le rapport d'extraction a
-  deux colonnes, Fichier fluide et État figée à 197px. Le détail
-  d'un doublon ou d'un échec s'ouvre en tooltip sur le badge, signalé par une icône info. La table
-  remplit toute la hauteur restante, vide ou remplie, et centre son bloc vide ; « Extraction
-  terminée (N sur N) » s'affiche dessous, à droite. La maquette n'a aucune table sur cet écran, et
-  la fiche `DataTable` ne décrit que la liste du run.
-- **Onglet Playlist en deux temps** : formulaire en grille compacte (libellés, contrôles `small` de
-  même largeur, chemins alignés à droite, « Extraire la playlist » seul sur sa ligne), replié dès
-  le lancement en une ligne de résumé avec « Modifier », barre de progression sous le résumé sans
-  valeur écrite, retirée à la fin. DESIGN.md § Layout le décrit. À reprendre dans
-  `PlaylistScreen.jsx`.
-- **Conventions de bureau** : curseur flèche partout sauf les champs, et rebond de défilement coupé.
-  Rien de tout ça dans le kit.
-- **Sévérité des sélecteurs de dossier** : tranchée en primaire outlined, comme le code. La maquette
-  les rend encore en `secondary` outlined dans `PlaylistScreen.jsx`.
-- **Bannière d'erreur** : `ErrorMessageComponent` partagé, sans équivalent au catalogue.
-- **État de la clé API** : un `p-tag` après le bouton Enregistrer (succès « Clé enregistrée »,
-  neutre « Aucune clé », rien tant que l'état n'est pas connu). Absent de `SettingsScreen.jsx`,
-  qui ne rend que `<Password>` et `<Button>` sur cette rangée.
-- **Rangée « URL de l'API » non construite** : l'URL de techno-scraper est figée en constante
-  côté sidecar (décision du 2026-09-19), là où `SettingsScreen.jsx` la rend éditable en
-  `InputText`. À reprendre si la constante redevient un réglage.
-- **Aide et placeholder de la clé réécrits** : le texte d'aide et le placeholder du champ Clé
-  X-API-Key ne reprennent pas ceux de `SettingsScreen.jsx`, écrits pour un public non technique
-  (décision du 2026-09-21).
-- **Bascule de visibilité de la clé composée à la main** : le champ est un `input pInputPassword`
-  dans un `p-iconfield`, masqué par défaut, remasqué après l'envoi, avec un œil porté par un bouton
-  du template. `p-password` est déprécié en PrimeNG 22 et son remplaçant n'expose que le model
-  `mask`, sans icône fournie (décisions du 2026-09-21). L'indicateur de robustesse n'est pas repris,
-  une clé reçue ne se choisit pas. La maquette et sa fiche `components/forms/Password.prompt.md`
-  décrivent encore `<Password>` / `p-password` avec `[feedback]="false"`.
-- **Largeur de la colonne Score** : mesurée sur « A 100 · T 100 », le détail le plus long, qui
-  passait à la ligne dans la largeur d'origine (2026-09-23). `runColumns` de `TaggingScreen.jsx`
-  pose `var(--tt-col-score)`, à revérifier sur ce contenu.
-- **Taille de la table de la liste du run** : la fiche `DataTable` la pose en `size="small"`,
-  DESIGN.md § Layout la veut à sa taille par défaut, et c'est DESIGN.md qui a été suivi
-  (2026-09-20). La fiche et `TaggingScreen.jsx` sont à aligner au prochain push.
-- **Séparateur artiste / titre en tiret simple** : « Artiste - Titre » est la convention de nommage
-  des fichiers musicaux, celle que porteront les fichiers réécrits. Le code l'emploie dans les
-  colonnes Avant et Après, ainsi que pour le tiret d'une valeur absente (décision du 2026-09-22).
-  `runColumns` de `TaggingScreen.jsx` emploie encore un tiret cadratin.
-- **Onglet Tagging, choix du dossier** : la maquette n'a pas de sélecteur et renvoie vers l'onglet
-  Playlist ; l'écran livré porte un `PathPicker` prérempli avec la destination de la dernière
-  extraction (2026-09-20), BRAINSTORM demandant une sélection de dossier. Le chemin ne s'affiche
-  donc qu'une fois, dans ce sélecteur : l'en-tête de `TaggingScreen.jsx` le porte aussi, et les
-  deux ensemble donnaient deux lignes quasi identiques (2026-09-23). À reprendre dans
-  `TaggingScreen.jsx`.
-- **Toast de fin** : le toast de `AppShell.jsx` est livré pour les deux onglets, sonore compris, et
-  non pour le seul run.
-- **Bouton « Passer au tagging »** : `PlaylistScreen.jsx` le place à côté de l'action d'extraction ;
-  le formulaire livré étant replié en deux temps, il prend place à côté du compteur « Extraction
-  terminée » (2026-09-22).
-- **Bouton de lancement visible pendant le run** : `TaggingScreen.jsx` le fait disparaître hors
-  phase `idle`, DESIGN.md § États des Composants veut qu'une action désactivée garde son libellé
-  et ne soit jamais masquée. DESIGN.md tranche, le bouton reste visible et grisé, son tooltip
-  nommant ce qui bloque (2026-09-23). À reprendre dans `TaggingScreen.jsx`.
-- **Bloc vide de l'onglet Tagging** : la maquette ne l'affiche que faute de dossier et y pose une
-  action « Aller à l'onglet Playlist » ; l'écran livré l'affiche tant qu'aucun run n'a tourné et
-  sans action, le sélecteur de dossier ayant remplacé ce renvoi (2026-09-23). Son cadre, lui, suit
-  la maquette : bordure, rayon et fond de contenu.
-- **Chemin vide des sélecteurs** : `PathPickerComponent` affiche « Aucun dossier sélectionné » quand
-  rien n'est choisi, comme `FolderRow` de `PlaylistScreen.jsx`. La cellule restait vide jusqu'au
-  2026-09-23, sur les deux onglets.
+> **Vidé le 2026-09-24** : les vingt-trois arbitrages qui vivaient ici ont été poussés, écrans
+> compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
+> les garder ici en ferait deux sources pour une même règle. La section reprendra au premier
+> écart suivant.
 
 ## Journal
 
@@ -148,5 +68,20 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   `Password` dit enfin que `p-password` est déprécié et que l'app compose son champ à la main.
   Cinq composants rejoignent le catalogue, chacun avec son `.jsx`, son `.d.ts` et sa fiche :
   `Card`, `ErrorMessage`, `PathPicker`, `PhaseProgress`, `TruncatedText`. `_ds_needs_recompile`
-  posé en fin de push. **La maquette n'a pas été touchée** : elle est le fichier de design du
-  propriétaire, et son réalignement demande une demande explicite.
+  posé en fin de push.
+- **2026-09-24, alignement des écrans** : les quatre écrans de `ui_kits/techno-tagger/` suivent
+  désormais l'interface livrée. `TaggingScreen` reçoit son sélecteur de dossier, garde son bouton
+  de lancement visible et grisé plutôt que de le masquer, et son bloc vide dit « Aucun run lancé ».
+  `SettingsScreen` perd la rangée « URL de l'API », devenue une constante du sidecar, et gagne le
+  tag d'état de la clé. `PlaylistScreen` passe en deux temps, résumé puis rapport en table à deux
+  colonnes, sélecteurs en primaire outlined. `AppShell` rend l'écran bloquant en carte neutre et
+  non plus en pavé d'alerte. Container unique et tiret simple entre artiste et titre appliqués
+  partout. Les composants ajoutés au catalogue n'étant pas encore dans le bundle compilé, que la
+  recompilation régénère, les écrans composent leur motif avec les primitives déjà exportées.
+- **2026-09-25, audit de DESIGN.md contre le code** : cinq écarts corrigés à la source, dont deux
+  que le readme distant héritait. La règle du `danger` distingue désormais une action destructive
+  d'une sévérité qui rapporte un état, le décompte figé des libellés d'état disparaît, le toast
+  « clé enregistrée » cède au tag persistant qu'affiche réellement l'écran, et les deux boutons de
+  lancement rejoignent leur famille du Mapping. `DESIGN.md` reçoit sa rubrique « Maquette et design
+  system externes », que le skill `design-doc` réclame : sans elle, les commandes de décomposition
+  et d'implémentation ne savent pas qu'une maquette existe ni où la lire.
