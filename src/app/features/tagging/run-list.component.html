@@ -51,7 +51,7 @@
       </td>
       <td>
         <app-truncated-text [text]="track.mainLine" />
-        <span class="block truncate text-xs text-muted-color">{{ track.fileName }}</span>
+        <app-truncated-text class="text-xs text-muted-color" [text]="track.fileName" />
       </td>
       <td>
         @if (track.afterLine; as afterLine) {
