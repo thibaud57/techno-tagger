@@ -1,7 +1,7 @@
 ---
 title: "DESIGN — techno-tagger"
 description: "Design system : typographie, couleurs, librairies UI, mapping composants et conventions de style de l'interface Angular + PrimeNG."
-date: "2026-08-29"
+date: "2026-09-25"
 keywords: ["design", "ui", "design-system", "typography", "colors", "animations", "layout", "dark-mode", "icons", "desktop", "components", "spacing", "primeng", "tailwind"]
 scope: ["docs", "frontend"]
 technologies: ["Angular", "PrimeNG", "Tailwind CSS", "PrimeIcons", "Simple Icons", "Inter", "Tauri"]
@@ -103,7 +103,7 @@ Le tooltip se pose sur `--p-surface-700`, soit deux crans au-dessus du panneau. 
 
 Les 12,5rem par défaut conviennent à une glose, mais coupent exactement ce qu'un texte tronqué ou un détail de ligne est là pour montrer.
 
-Un tooltip n'est jamais le seul porteur d'une information : il révèle ce qui est déjà à l'écran mais coupé. Ce qui n'existe qu'en tooltip est invisible au clavier, au tactile et à l'impression, il ne remplace donc ni un libellé, ni une aide de formulaire, ni un message d'erreur : ceux-là sont des `p-message` inline. Deux exceptions : la raison pour laquelle une action est désactivée, posée sur le bouton lui-même, et le détail d'une ligne du rapport d'extraction.
+Un tooltip n'est jamais le seul porteur d'une information : il révèle ce qui est déjà à l'écran mais coupé. Ce qui n'existe qu'en tooltip est invisible au clavier, au tactile et à l'impression, il ne remplace donc ni un libellé, ni une aide de formulaire, ni un message d'erreur : ceux-là sont des `p-message` inline. Trois exceptions : la raison pour laquelle une action est désactivée, posée sur le bouton lui-même, le détail d'une ligne du rapport d'extraction, et le motif d'un morceau non résolu.
 
 Un tooltip se devine. L'ellipse annonce celui d'un texte coupé. Ailleurs, une icône `info-circle` en `text-muted-color` le signale, hors de tout tag pour ne pas se lire comme la famille Décision attendue.
 
@@ -143,7 +143,7 @@ Un morceau validé automatiquement à 94 est l'endroit le plus probable d'un mau
 
 Les deux rouges partagent la couleur sans partager l'icône, leurs corrections étant opposées : l'un se rattrape par une URL, l'autre en relançant l'écriture (cf. [ARCHITECTURE.md § Robustesse](ARCHITECTURE.md#-robustesse--modes-de-panne)).
 
-**Le libellé d'échec d'écriture reste générique, le motif vit dans la ligne dépliée.** Le verrou n'est qu'un `failure_reason` parmi plusieurs, et la colonne État est dimensionnée sur le plus long des libellés livrés : nommer chaque cause obligerait à l'élargir ou à tronquer. Un motif est du diagnostic, pas de la colonne de balayage.
+**Le libellé d'un échec reste générique, son motif se lit au survol.** « Non résolu » couvre cinq `failure_reason` et « Échec d'écriture » plusieurs autres : nommer chaque cause obligerait à élargir la colonne État ou à tronquer. L'icône `info-circle` suit le tag et le motif s'ouvre en tooltip, comme au rapport d'extraction. Un motif est du diagnostic, pas de la colonne de balayage.
 
 > **Deux pièges d'orthographe sur les sévérités.** C'est `warn`, jamais `warning`, sur `p-tag`, `p-badge`, `p-message` et `pButton` (seul `badgeSeverity` de `pButton` attend `warning`). Et `p-message` n'accepte pas `danger` : sa sévérité d'erreur est `error`.
 
@@ -252,23 +252,23 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Sélection de dossier / de fichier | `button pButton` primaire outlined en `size="small"` + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche au bout de la ligne, aligné à droite, en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
+| Sélection de dossier / de fichier | `button pButton` `primary` outlined en `size="small"` + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche au bout de la ligne, aligné à droite, en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
 | Playlist détectée | Logo VLC (SVG) ou `file` | Simple Icons / PrimeIcons | Le logo signale un dump VLC reconnu. Un M3U8 tombe sur l'icône générique, le logiciel qui l'a exporté étant inconnu |
 | Sélecteur de playlist (dump VLC) | `p-select` en `size="small"` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
 | Mode copie / déplacement | `p-selectbutton` en `size="small"` | PrimeNG | Deux options, copie par défaut |
-| Lancement de l'extraction | `button pButton` primaire en `size="small"` | PrimeNG | Seul sur sa ligne, du bord des libellés au bout des contrôles. Désactivé, son tooltip nomme les choix manquants |
+| Lancement de l'extraction | `button pButton` `primary` en `size="small"` | PrimeNG | Seul sur sa ligne, du bord des libellés au bout des contrôles. Désactivé, son tooltip nomme les choix manquants |
 | Résumé du run | Ligne de texte + `button pButton` secondary outlined en `size="small"` | PrimeNG | Remplace le formulaire dès le lancement (cf. § Layout). « Modifier » est figé pendant le run, puis rouvre le formulaire au-dessus du rapport |
-| Passage au tagging | `button pButton` `severity="secondary"` outlined en `size="small"` + icône `arrow-right` | PrimeNG | Sous le rapport, une fois l'extraction terminée. Mémorise la destination, qui préremplit l'onglet suivant |
+| Passage au tagging | `button pButton` `primary` outlined en `size="small"` + icône `arrow-right` | PrimeNG | Sous le rapport, une fois l'extraction terminée. `primary` : c'est l'étape suivante du parcours, outlined pour laisser le plein aux deux lancements. Mémorise la destination, qui préremplit l'onglet suivant |
 | Rapport d'extraction | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du badge. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
 
 ### Liste du run
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Lancement du run | `button pButton` primaire, taille par défaut | PrimeNG | Taille appariée à l'entête qui le porte et non à un formulaire dense, contrairement à celui de l'extraction. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
+| Lancement du run | `button pButton` `primary`, taille par défaut | PrimeNG | Taille appariée à l'entête qui le porte et non à un formulaire dense, contrairement à celui de l'extraction. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
 | Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image, le squelette tant que le morceau attend son tour, et un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
-| État d'un morceau | `p-tag` | PrimeNG | Familles du § Couleurs Sémantiques |
+| État d'un morceau | `p-tag` + `pTooltip` | PrimeNG | Familles du § Couleurs Sémantiques. Un non résolu porte l'icône info et son motif au survol |
 | Source retenue | SVG Simple Icons + libellé | Simple Icons | Beatport / Bandcamp / SoundCloud |
 | Détail avant / après | `[expandedRowKeys]` + `<ng-template #expandedrow>` | PrimeNG | Comparaison champ par champ, pochette en grand, sur le morceau déplié |
 | Texte tronqué d'une colonne fluide | `pTooltip` | PrimeNG | Avant et Après sont fluides et tronquent en permanence, et ce sont exactement les deux chaînes que l'utilisateur compare. Jamais seul porteur d'une information, cf. § Tokens de Tooltip |
@@ -311,7 +311,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Sidecar absent ou en quarantaine | `p-card` centrée, action `secondary` outlined | PrimeNG | Écran bloquant, pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui explique comment s'en sortir. Même écran pour une divergence de version, sans action |
-| Notifications non bloquantes | `p-toast` | PrimeNG | Fin d'une phase longue. Une clé enregistrée se confirme au contraire par un `p-tag` persistant : l'état de la clé se relit, il ne s'annonce pas |
+| Notifications non bloquantes | `p-toast` en bas à droite | PrimeNG | Fin d'une phase longue, quel que soit l'onglet affiché. Il couvre 4s le pied de page de Playlist, accepté : il se ferme d'un clic. Une clé enregistrée se confirme au contraire par un `p-tag` persistant : l'état de la clé se relit, il ne s'annonce pas |
 | Erreurs contextuelles | `p-message` inline | PrimeNG | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue |
 
 ### Composants Custom
@@ -398,7 +398,7 @@ Le peu qui reste à animer passe par les **utilitaires du plugin** `tailwindcss-
 ## Principes Directeurs
 
 - **Intensité** : `subtile`. L'application est un outil de production, pas une vitrine
-- **Durée standard** : `animate-duration-200`, jamais au-delà
+- **Durée standard** : `animate-duration-200`, jamais au-delà pour ce que le projet anime lui-même. Le fondu du tooltip, codé en dur par PrimeNG, est la seule exception (§ Composants Animés)
 - **Easing** : `animate-ease-out`
 - **Intention** : rendre lisible un changement d'état. Une animation qui ne fait que décorer est du délai ajouté
 - **Mouvement réduit** : les animations sont coupées sous `prefers-reduced-motion: reduce`. Le mouvement est un confort ici, il ne porte aucune information : rien ne casse quand il s'éteint
@@ -445,6 +445,7 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 | Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond | Plancher dicté par le jeu de six colonnes ci-dessous. Réglages dans `tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
 | Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page elle-même ne défile jamais, le scroll vit dans la table. Le shell masque son débordement, et `overscroll-behavior: none` coupe le rebond de WebView2, qui fait trembler toute la fenêtre à la molette |
 | Container | Pleine largeur, `px-16 py-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
+| Densité | Body dense (`text-sm`) dans les tables et les listes de candidats | Un run affiche 100 lignes : chaque cran de taille en moins est une ligne de plus sans défiler (§ Scale Typographique) |
 | Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre : ne relève pas du container |
 | Tables | `p-table` à sa taille par défaut, `[scrollable]` en `scrollHeight="flex"`, `[virtualScroll]` | Seules les lignes visibles sont montées : une playlist de plusieurs milliers de morceaux s'affiche aussi vite qu'une de trente, là où tout monter prend des secondes. En contrepartie, `virtualScrollItemSize` doit valoir la hauteur exacte d'une ligne, posée par une classe et à remesurer quand leur style change |
 | Rythme interne d'un groupe | `gap-2` | Éléments d'un même groupe |
@@ -452,7 +453,7 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 | Espacement entre sections | `gap-6` | Échelle Tailwind par 4px |
 | Grid principal | Flexbox et CSS Grid natifs | Aucune librairie de grid |
 
-**Un seul container, pour tous les écrans.** Un formulaire et une table qui ne partagent pas la même largeur ne s'alignent sur rien, et chaque onglet finissait par inventer ses marges. La pleine largeur sert les colonnes Avant et Après de la liste d'un run, qui portent chacune un artiste plus un titre et sont exactement ce que l'utilisateur compare.
+Un formulaire et une table qui ne partagent pas la même largeur ne s'alignent sur rien, et chaque onglet finissait par inventer ses marges : d'où le container unique. La pleine largeur sert les colonnes Avant et Après de la liste d'un run, qui portent chacune un artiste plus un titre et sont exactement ce que l'utilisateur compare.
 
 **Colonnes de la liste d'un run** :
 
