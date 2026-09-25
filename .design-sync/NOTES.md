@@ -55,8 +55,11 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   `ErrorMessage`, `PathPicker`, `TruncatedText`), plus les fiches de `Card`, `ErrorMessage` et
   `TruncatedText`. Le reste a été réaligné le 2026-09-25. Rien ne signale un fichier absent ni
   périmé à la lecture : vérifier la présence du fichier avant de conclure qu'une règle manque.
-  Un export complet se refait par `/design-sync`, l'outil `DesignSync` ne sachant que rendre un
-  fichier à la fois dans le contexte, pas l'écrire sur le disque.
+  **L'export ne se refait pas depuis une session Claude** : l'outil `DesignSync` rend un fichier
+  dans le contexte, il ne l'écrit pas sur le disque, et un fichier ainsi lu doit être retapé pour
+  atterrir ici. C'est `/design-sync`, lancé par le propriétaire, qui a produit l'export du
+  2026-09-19, et lui seul sait le refaire en entier. Le manque ne bloque rien : le distant fait
+  foi, l'export n'est qu'un cache de lecture.
 
 ## Journal
 
