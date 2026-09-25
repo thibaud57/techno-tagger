@@ -6,7 +6,7 @@ import { UniqueComponentId } from "primeng/utils"
 import { TruncatedTextComponent } from "./truncated-text.component"
 
 /**
- * Libelle, bouton et chemin se posent en trois cellules dans la grille de l'appelant, le
+ * Libelle facultatif, bouton et chemin se posent en cellules dans la grille de l'appelant, le
  * composant n'ayant pas de boite (`contents`). L'icone du bouton se projette avec l'attribut
  * `icon`.
  */
@@ -14,7 +14,9 @@ import { TruncatedTextComponent } from "./truncated-text.component"
   selector: "app-path-picker",
   imports: [ButtonDirective, Label, TruncatedTextComponent],
   template: `
-    <label pLabel class="col-start-1" [for]="id">{{ label() }}</label>
+    @if (label(); as text) {
+      <label pLabel class="col-start-1" [for]="id">{{ text }}</label>
+    }
     <button
       pButton
       type="button"
@@ -27,7 +29,9 @@ import { TruncatedTextComponent } from "./truncated-text.component"
       <ng-content select="[icon]" />{{ buttonLabel() }}
     </button>
     <app-truncated-text
-      class="max-w-full justify-self-end text-sm text-muted-color"
+      class="max-w-full text-sm text-muted-color"
+      [class.justify-self-end]="pathAlign() === 'end'"
+      [class.justify-self-start]="pathAlign() === 'start'"
       direction="rtl"
       [text]="path() || placeholder()"
     />
@@ -37,11 +41,15 @@ import { TruncatedTextComponent } from "./truncated-text.component"
 export class PathPickerComponent {
   protected readonly id = UniqueComponentId("path-picker-")
 
-  readonly label = input.required<string>()
+  /** `null` quand le bouton se suffit : la cellule disparait de la grille de l'appelant. Requis
+   * pour qu'un oubli ne decale pas les colonnes en silence. */
+  readonly label = input.required<string | null>()
   readonly buttonLabel = input.required<string>()
   readonly path = input<string | null>(null)
-  /** Une cellule vide laisserait croire a un defaut d'affichage plutot qu'a un choix a faire. */
+  /** Omis, la cellule reste vide : a reserver a un ecran dont le bloc vide dit deja quoi faire. */
   readonly placeholder = input("")
+  /** `start` colle le chemin a son bouton, quand aucune colonne de chemins n'est a aligner. */
+  readonly pathAlign = input<"start" | "end">("end")
 
   readonly pick = output()
 }

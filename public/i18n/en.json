@@ -139,9 +139,7 @@
     "phase": "Searching",
     "progress": "{{processed}} of {{total}}",
     "folder": {
-      "label": "Folder to re-tag",
-      "action": "Choose a folder",
-      "none": "No folder selected"
+      "action": "Choose a folder"
     },
     "blocked": {
       "running": "Wait for the current run to finish.",

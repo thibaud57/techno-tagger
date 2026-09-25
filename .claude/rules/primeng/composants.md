@@ -15,7 +15,7 @@ paths:
 - Importer chaque icône `@primeicons/angular` individuellement dans les `imports` du composant, c'est ce qui permet le tree-shaking
 - Apparier la taille d'un badge à celle des éléments de sa rangée, et garder neutre la puce portée par un bouton : un compteur n'est pas une action (cf. [DESIGN.md § États des Composants](../../../docs/DESIGN.md#états-des-composants))
 - Nommer en commentaire ce sur quoi une largeur figée a été mesurée : sans lui, la valeur ressemble à un chiffre choisi au hasard et personne n'ose la reprendre
-- Porter le bloc « état vide » d'une table par le template `#emptymessage` de `p-table`, avec `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur la table et `border-b-0` sur la cellule : le bloc se centre sur toute la hauteur, et le pass-through n'atteint pas la bordure de la ligne
+- Poser `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur toute `p-table` : il fige les colonnes sur l'en-tête (`table-layout: fixed`, sans quoi elles suivent le contenu des lignes montées) et centre sur toute la hauteur le bloc « état vide » du template `#emptymessage`, dont la cellule pose `border-b-0` : le pass-through n'atteint pas la bordure de la ligne
 
 ## À éviter
 - `::ng-deep` : percer l'encapsulation d'un composant produit du style qui casse à la mise à jour et qu'aucune recherche ne retrouve. Passer par `[dt]` ou `[pt]`, voie explicitement recommandée par la doc PrimeNG
