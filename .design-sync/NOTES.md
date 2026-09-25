@@ -22,10 +22,15 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
 
 ## Comment ce dépôt se synchronise
 
-- **Le convertisseur de `/design-sync` ne s'applique pas** : le skill ne traite que des design
-  systems React, avec un `dist/` empaquetable ou un Storybook. L'interface est Angular + PrimeNG,
-  sans point d'entrée de librairie. Les composants du projet Claude Design sont des recréations
-  React bâties depuis DESIGN.md (son `readme.md` § Réserves), pas le code livré.
+- **Le convertisseur de `/design-sync` ne s'applique pas, et le lancer détruirait le projet
+  distant** : le skill empaquette un `dist/` React ou un Storybook pour que l'agent de design rende
+  les composants compilés du dépôt. Ici il n'y a ni l'un ni l'autre, `package.json` étant
+  `private` sans `main`, `module`, `exports` ni `types`, et les composants étant Angular. Le
+  danger n'est pas qu'il échoue : sa clôture **supprime du distant tout ce que le build local ne
+  contient pas** sous `components/`, `tokens/`, `guidelines/`, `_preview/`, `fonts/` et `_vendor/`.
+  Avec un build vide, elle efface le design system et la maquette. Les composants du projet Claude
+  Design sont des recréations React bâties depuis DESIGN.md (son `readme.md` § Réserves), pas le
+  code livré.
 - **Le design system s'écrit donc fichier par fichier** : `components/<groupe>/<Nom>.{jsx,d.ts,prompt.md}`,
   une carte `<groupe>.card.html` par dossier, `ui_kits/techno-tagger/<Écran>.jsx` pour la
   maquette, via `finalize_plan` puis `write_files` de l'outil `DesignSync`.
@@ -50,16 +55,9 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 > compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
 > les garder ici en ferait deux sources pour une même règle.
 
-- **L'export local `.design-sync/design-system/` est incomplet de treize fichiers** : les `.jsx`
-  et les `.d.ts` des cinq composants poussés le 2026-09-24 (`PhaseProgress`, `Card`,
-  `ErrorMessage`, `PathPicker`, `TruncatedText`), plus les fiches de `Card`, `ErrorMessage` et
-  `TruncatedText`. Le reste a été réaligné le 2026-09-25. Rien ne signale un fichier absent ni
-  périmé à la lecture : vérifier la présence du fichier avant de conclure qu'une règle manque.
-  **L'export ne se refait pas depuis une session Claude** : l'outil `DesignSync` rend un fichier
-  dans le contexte, il ne l'écrit pas sur le disque, et un fichier ainsi lu doit être retapé pour
-  atterrir ici. C'est `/design-sync`, lancé par le propriétaire, qui a produit l'export du
-  2026-09-19, et lui seul sait le refaire en entier. Le manque ne bloque rien : le distant fait
-  foi, l'export n'est qu'un cache de lecture.
+> Rien à pousser au 2026-09-25 : l'export local est un miroir exact du distant, vérifié fichier
+> par fichier (`list_files` contre `find`), à l'ancre `_ds_needs_recompile` près, qui est un
+> état machine éphémère que l'app efface et n'a donc pas à vivre ici.
 
 ## Journal
 
@@ -106,6 +104,10 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   passage livre « Non traité » : la famille Neutre gagne un second glyphe, `minus-circle`, pour
   le morceau qu'un run interrompu n'a jamais atteint, l'horloge y promettant une suite qui ne
   viendra pas. Et un bloc vide porte désormais un titre **et** une phrase, jamais un titre seul.
+- **2026-09-25, export local complété** : les treize fichiers que la passe du 24 avait laissés
+  absents ont été tirés du distant (`.jsx` et `.d.ts` de `PhaseProgress`, `Card`, `ErrorMessage`,
+  `PathPicker`, `TruncatedText`, plus trois fiches). Aucune ne portait de règle périmée. L'export
+  est désormais un miroir exact, ce qui rend de nouveau fiable une lecture locale.
 - **2026-09-25, audit de DESIGN.md contre le code** : cinq écarts corrigés à la source, dont deux
   que le readme distant héritait. La règle du `danger` distingue désormais une action destructive
   d'une sévérité qui rapporte un état, le décompte figé des libellés d'état disparaît, le toast
@@ -113,3 +115,12 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   lancement rejoignent leur famille du Mapping. `DESIGN.md` reçoit sa rubrique « Maquette et design
   system externes », que le skill `design-doc` réclame : sans elle, les commandes de décomposition
   et d'implémentation ne savent pas qu'une maquette existe ni où la lire.
+- **2026-09-25, états vides et motifs** : réserve n° 10. Le motif d'un non résolu se lit au
+  survol de son état (icône `info-circle`), `failure_reason` gagne `source_unavailable`. Les deux
+  écrans couvrent tous leurs cas vides : bloc encadré avant la première extraction ou le premier
+  run, dont la phrase suit le dossier choisi, lignes en squelette pendant une phase, bloc de table
+  une fois la phase finie. `EmptyState` gagne `framed`, `DataTable` gagne `loading` (miroir de
+  `SkeletonRows`) et perd le commentaire qui la disait toujours `small`, la fiche d'`EmptyState`
+  passe au vouvoiement. « Passer au tagging » passe en `primary` outlined, aligné à droite avec la
+  ligne de fin. Le tooltip compte trois exceptions et un fondu de 250ms. Les huit fichiers poussés
+  sont recopiés dans l'export local, `_ds_needs_recompile` posé.
