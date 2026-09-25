@@ -23,26 +23,12 @@ export class CompletionSignalService {
   private readonly translate = inject(TranslateService)
   private readonly sidecar = inject(SidecarService)
 
-  async announce(messageKey: string): Promise<void> {
-    if (await readSoundSignal()) {
-      this.beep()
-    }
-    this.messages.add({
-      severity: "success",
-      summary: this.translate.instant(messageKey) as string,
-      life: 4000,
-    })
-  }
-
   /**
-   * Appele une seule fois, au demarrage de l'app (cf. app.config.ts) : branche sur un
-   * ecran, l'`effect()` mourait avec lui, et une phase finie pendant que l'utilisateur
-   * regardait l'autre onglet ne s'annoncait pas.
-   *
-   * Un signal ne notifie que sur une nouvelle valeur : chaque fin s'annonce une fois, et
-   * sa remise a `null` au lancement suivant ne dit rien.
+   * Dans le service racine, construit une seule fois : branche sur un ecran, l'`effect()`
+   * mourait avec lui. Un signal ne notifiant que sur une nouvelle valeur, chaque fin
+   * s'annonce une fois.
    */
-  announcePhaseEnds(): void {
+  constructor() {
     const ends = [
       [this.sidecar.extraction, "playlist.extractionFinished"],
       [this.sidecar.taggingFinished, "tagging.finished"],
@@ -54,6 +40,17 @@ export class CompletionSignalService {
         }
       })
     }
+  }
+
+  async announce(messageKey: string): Promise<void> {
+    if (await readSoundSignal()) {
+      this.beep()
+    }
+    this.messages.add({
+      severity: "success",
+      summary: this.translate.instant(messageKey) as string,
+      life: 4000,
+    })
   }
 
   /** Un contexte refuse par la webview ne doit jamais empecher le toast. */

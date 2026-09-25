@@ -61,12 +61,9 @@ describe("CompletionSignalService", () => {
   let extraction: WritableSignal<object | null>
   let taggingFinished: WritableSignal<object | null>
 
-  /** Branche la surveillance comme au demarrage de l'app, `announce` espionne. */
+  /** Les effets du constructeur passent une premiere fois, `announce` espionne. */
   const watchPhaseEnds = () => {
     const announce = vi.spyOn(service, "announce").mockResolvedValue()
-    TestBed.runInInjectionContext(() => {
-      service.announcePhaseEnds()
-    })
     TestBed.tick()
 
     return announce

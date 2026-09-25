@@ -63,9 +63,9 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       void inject(SidecarService).start()
     }),
-    // Au niveau de l'app et non d'un ecran : une phase s'annonce quel que soit l'onglet affiche.
+    // Construit des le demarrage, hors de tout ecran : une phase s'annonce quel que soit l'onglet.
     provideAppInitializer(() => {
-      inject(CompletionSignalService).announcePhaseEnds()
+      inject(CompletionSignalService)
     }),
   ],
 }
