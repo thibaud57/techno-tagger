@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/thibaud57/techno-tagger/compare/v0.3.0...v0.3.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* ajustements des onglets Playlist et Tagging ([#29](https://github.com/thibaud57/techno-tagger/issues/29)) ([11f740e](https://github.com/thibaud57/techno-tagger/commit/11f740e8c273d01e0c42aff4e0dd7a152b47f751))
+
 ## [0.3.0](https://github.com/thibaud57/techno-tagger/compare/v0.2.0...v0.3.0) (2026-09-25)
 
 
