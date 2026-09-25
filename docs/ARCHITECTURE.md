@@ -369,7 +369,7 @@ Via les plugins Tauri v2, déclarés dans `src-tauri/capabilities/default.json` 
 | `updater` | Vérification du manifeste au démarrage, téléchargement et installation signés |
 | `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe le rechargement (`F5`, `Ctrl+R`) et le menu contextuel en release : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié |
 
-Le **signal sonore ne se déclenche qu'à la fin de la phase réseau**, quand l'écran d'arbitrage prend la main. Un son par arbitrage serait une vingtaine de bips sur un run de 100 morceaux, et la préférence serait coupée dès le premier usage. Le pipeline continuant de tourner pendant qu'une modale attend, rien n'oblige à arbitrer au fil de l'eau : tout se traite à la fin, et c'est ce moment-là qu'il faut signaler.
+Le **signal sonore marque la fin d'une phase longue** : la fin d'une extraction, et la fin de la phase réseau d'un run, quand l'écran d'arbitrage prend la main. Il part quel que soit l'onglet affiché, l'utilisateur qui regarde ailleurs étant celui qu'il doit prévenir. Jamais par arbitrage : un son par arbitrage serait une vingtaine de bips sur un run de 100 morceaux, et la préférence serait coupée dès le premier usage. Le pipeline continuant de tourner pendant qu'une modale attend, rien n'oblige à arbitrer au fil de l'eau : tout se traite à la fin, et c'est ce moment-là qu'il faut signaler.
 
 Le **motif de renommage n'est pas une préférence** : il est fixé à `{artist} - {title}.{ext}` au MVP (cf. use-case 5), et n'a donc rien à persister dans le `store`.
 
