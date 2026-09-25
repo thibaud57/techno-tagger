@@ -1,4 +1,4 @@
-"""Pilote la vraie boucle NDJSON contre le faux techno-scraper, et rend un verdict JSON.
+"""Pilote la vraie boucle NDJSON contre le faux techno-scraper et rend un verdict JSON.
 
 Boucle, client httpx2 sur une vraie socket, caches disque, trousseau, lecture des tags et
 sortie NDJSON sont ceux de production : seule l'URL de l'API est detournee, constante du
@@ -94,7 +94,8 @@ def feed() -> None:
 
 threading.Thread(target=feed, daemon=True).start()
 stdout = io.StringIO()
-asyncio.run(run_loop(stdin, stdout))
+with stdin:
+    asyncio.run(run_loop(stdin, stdout))
 
 raw_output = stdout.getvalue()
 if output_path:
