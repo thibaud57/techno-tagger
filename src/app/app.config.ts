@@ -15,6 +15,7 @@ import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
 import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/language"
+import { CompletionSignalService } from "./core/completion-signal.service"
 import { SidecarService } from "./core/sidecar.service"
 import { TECHNO_TAGGER_PRESET } from "./core/theme"
 
@@ -61,6 +62,10 @@ export const appConfig: ApplicationConfig = {
     // leve jamais.
     provideAppInitializer(() => {
       void inject(SidecarService).start()
+    }),
+    // Au niveau de l'app et non d'un ecran : une phase s'annonce quel que soit l'onglet affiche.
+    provideAppInitializer(() => {
+      inject(CompletionSignalService).announcePhaseEnds()
     }),
   ],
 }

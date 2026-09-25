@@ -3,7 +3,6 @@ import { TranslatePipe } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
-import { CompletionSignalService } from "../../core/completion-signal.service"
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
@@ -36,7 +35,6 @@ import { RunListComponent } from "./run-list.component"
 })
 export default class TaggingPageComponent {
   private readonly sidecar = inject(SidecarService)
-  private readonly completion = inject(CompletionSignalService)
 
   protected readonly folder = signal("")
   protected readonly tracks = this.sidecar.taggingTracks
@@ -73,7 +71,6 @@ export default class TaggingPageComponent {
 
   constructor() {
     void this.prefill()
-    this.completion.announceOnTransition(this.sidecar.taggingFinished, "tagging.finished")
   }
 
   protected async choose(): Promise<void> {

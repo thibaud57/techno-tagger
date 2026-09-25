@@ -19,7 +19,6 @@ import { TableModule } from "primeng/table"
 import { Tag, type TagSeverity } from "primeng/tag"
 import { Tooltip } from "primeng/tooltip"
 
-import { CompletionSignalService } from "../../core/completion-signal.service"
 import { languageFromTag } from "../../core/language"
 import type { ExtractionMode } from "../../core/models/protocol"
 import {
@@ -91,7 +90,6 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
 export default class PlaylistPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly translate = inject(TranslateService)
-  private readonly completion = inject(CompletionSignalService)
   private readonly router = inject(Router)
 
   /** Un onglet rouvert reprend les choix du dernier run, que le service garde avec son rapport. */
@@ -246,7 +244,6 @@ export default class PlaylistPageComponent {
     void readExtractionMode().then((stored) => {
       this.choice.update((current) => ({ ...current, mode: stored }))
     })
-    this.completion.announceOnTransition(this.sidecar.extraction, "playlist.extractionFinished")
   }
 
   protected expandForm(): void {

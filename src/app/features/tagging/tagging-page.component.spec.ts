@@ -3,7 +3,6 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { load, type Store } from "@tauri-apps/plugin-store"
 
-import { CompletionSignalService } from "../../core/completion-signal.service"
 import type { SidecarErrorEvent } from "../../core/models/protocol"
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
@@ -25,8 +24,8 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 }))
 
 /**
- * Ce qui se teste ici : la disponibilite du lancement, la commande emise, le
- * declenchement unique du signal. Le reste de l'ecran affiche ce qu'il recoit.
+ * Ce qui se teste ici : la disponibilite du lancement et la commande emise. Le reste de
+ * l'ecran affiche ce qu'il recoit ; le signal de fin vit dans `CompletionSignalService`.
  *
  * Rappeler `readLastDestination()` attend le `prefill()` que le constructeur lance sans
  * l'attendre : sans cette barriere, la promesse se resout pendant un AUTRE fichier de
@@ -48,30 +47,19 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     startTagging: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
-  // `announceOnTransition` reste la vraie implementation du service : c'est elle qui porte
-  // la garde testee plus bas, et `this` a l'interieur s'y lie a cet objet (methode non liee).
-  const announce = {
-    announce: vi.fn(() => Promise.resolve()),
-    announceOnTransition: CompletionSignalService.prototype.announceOnTransition,
-  }
-
   vi.mocked(load).mockResolvedValue({
     get: vi.fn(() => Promise.resolve("D:/Sets/Aout")),
   } as unknown as Store)
 
   TestBed.configureTestingModule({
     imports: [TaggingPageComponent],
-    providers: [
-      provideTranslateService(),
-      { provide: SidecarService, useValue: service },
-      { provide: CompletionSignalService, useValue: announce },
-    ],
+    providers: [provideTranslateService(), { provide: SidecarService, useValue: service }],
   })
 
   const fixture = TestBed.createComponent(TaggingPageComponent)
   await readLastDestination()
 
-  return { fixture, component: fixture.componentInstance, service, announce }
+  return { fixture, component: fixture.componentInstance, service }
 }
 
 describe("TaggingPageComponent", () => {
@@ -108,36 +96,6 @@ describe("TaggingPageComponent", () => {
     await component["start"]()
 
     expect(service.startTagging).toHaveBeenCalledWith("D:/Sets/Aout")
-  })
-
-  it("announces the end of the network phase only once", async () => {
-    const finished = signal<{ resolved: number } | null>(null)
-    const { fixture, announce } = await mountWith({ taggingFinished: finished })
-
-    finished.set({ resolved: 1 })
-    fixture.detectChanges()
-    fixture.detectChanges()
-
-    expect(announce.announce).toHaveBeenCalledTimes(1)
-
-    // Nouveau run : le store remet `taggingFinished` a null (`reset()`) avant de le
-    // reposer a la fin de la phase reseau suivante (`completed()`).
-    finished.set(null)
-    fixture.detectChanges()
-    finished.set({ resolved: 2 })
-    fixture.detectChanges()
-
-    expect(announce.announce).toHaveBeenCalledTimes(2)
-  })
-
-  it("does not announce a finished run that was already there when the tab mounts", async () => {
-    const finished = signal<{ resolved: number } | null>({ resolved: 1 })
-    const { fixture, announce } = await mountWith({ taggingFinished: finished })
-
-    fixture.detectChanges()
-    fixture.detectChanges()
-
-    expect(announce.announce).not.toHaveBeenCalled()
   })
 
   it("names the run in progress first, ahead of every other cause", async () => {

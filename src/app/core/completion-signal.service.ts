@@ -1,8 +1,9 @@
-import { Injectable, effect, inject, type Signal } from "@angular/core"
+import { Injectable, effect, inject } from "@angular/core"
 import { TranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 
 import { readSoundSignal } from "./preferences"
+import { SidecarService } from "./sidecar.service"
 
 /** Deux notes courtes : une fin de phase s'entend sans couvrir ce qui se passe a l'ecran. */
 const NOTES = [880, 1174.66] as const
@@ -20,6 +21,7 @@ const PEAK_GAIN = 0.15
 export class CompletionSignalService {
   private readonly messages = inject(MessageService)
   private readonly translate = inject(TranslateService)
+  private readonly sidecar = inject(SidecarService)
 
   async announce(messageKey: string): Promise<void> {
     if (await readSoundSignal()) {
@@ -33,22 +35,25 @@ export class CompletionSignalService {
   }
 
   /**
-   * Part de la valeur courante de `source` et non de `null` : le composant est recree
-   * a chaque navigation alors que `source` ne retombe qu'au run suivant, et partir de
-   * `null` reannoncerait une fin deja vue.
+   * Appele une seule fois, au demarrage de l'app (cf. app.config.ts) : branche sur un
+   * ecran, l'`effect()` mourait avec lui, et une phase finie pendant que l'utilisateur
+   * regardait l'autre onglet ne s'annoncait pas.
    *
-   * `effect()` herite du contexte d'injection de l'appelant, pas de celui de ce
-   * service : il meurt donc avec le composant.
+   * Un signal ne notifie que sur une nouvelle valeur : chaque fin s'annonce une fois, et
+   * sa remise a `null` au lancement suivant ne dit rien.
    */
-  announceOnTransition<T>(source: Signal<T | null>, messageKey: string): void {
-    let announced = source()
-    effect(() => {
-      const value = source()
-      if (value !== null && value !== announced) {
-        announced = value
-        void this.announce(messageKey)
-      }
-    })
+  announcePhaseEnds(): void {
+    const ends = [
+      [this.sidecar.extraction, "playlist.extractionFinished"],
+      [this.sidecar.taggingFinished, "tagging.finished"],
+    ] as const
+    for (const [end, messageKey] of ends) {
+      effect(() => {
+        if (end() !== null) {
+          void this.announce(messageKey)
+        }
+      })
+    }
   }
 
   /** Un contexte refuse par la webview ne doit jamais empecher le toast. */

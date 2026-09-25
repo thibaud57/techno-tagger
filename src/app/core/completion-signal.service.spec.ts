@@ -1,9 +1,11 @@
+import { signal, type WritableSignal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import { MessageService } from "primeng/api"
 
 import { CompletionSignalService } from "./completion-signal.service"
+import { SidecarService } from "./sidecar.service"
 
 // `readSoundSignal` ne lit pas la preference lui-meme, il la lit par `load()` de ce
 // paquet npm : le piloter ici est le pattern deja eprouve par preferences.spec.ts et
@@ -56,11 +58,32 @@ class FakeAudioContext {
 describe("CompletionSignalService", () => {
   let service: CompletionSignalService
   let messages: MessageService
+  let extraction: WritableSignal<object | null>
+  let taggingFinished: WritableSignal<object | null>
+
+  /** Branche la surveillance comme au demarrage de l'app, `announce` espionne. */
+  const watchPhaseEnds = () => {
+    const announce = vi.spyOn(service, "announce").mockResolvedValue()
+    TestBed.runInInjectionContext(() => {
+      service.announcePhaseEnds()
+    })
+    TestBed.tick()
+
+    return announce
+  }
 
   beforeEach(() => {
     FakeAudioContext.oscillators.length = 0
     vi.stubGlobal("AudioContext", FakeAudioContext)
-    TestBed.configureTestingModule({ providers: [provideTranslateService(), MessageService] })
+    extraction = signal(null)
+    taggingFinished = signal(null)
+    TestBed.configureTestingModule({
+      providers: [
+        provideTranslateService(),
+        MessageService,
+        { provide: SidecarService, useValue: { extraction, taggingFinished } },
+      ],
+    })
     service = TestBed.inject(CompletionSignalService)
     messages = TestBed.inject(MessageService)
   })
@@ -88,6 +111,30 @@ describe("CompletionSignalService", () => {
 
     expect(FakeAudioContext.oscillators).toEqual([])
     expect(add).toHaveBeenCalled()
+  })
+
+  it("announces each phase end once, without any screen mounted", () => {
+    const announce = watchPhaseEnds()
+
+    extraction.set({})
+    TestBed.tick()
+    taggingFinished.set({})
+    TestBed.tick()
+
+    expect(announce.mock.calls).toEqual([["playlist.extractionFinished"], ["tagging.finished"]])
+  })
+
+  it("announces the next run once its end replaces the reset one", () => {
+    const announce = watchPhaseEnds()
+
+    taggingFinished.set({ resolved: 1 })
+    TestBed.tick()
+    taggingFinished.set(null)
+    TestBed.tick()
+    taggingFinished.set({ resolved: 2 })
+    TestBed.tick()
+
+    expect(announce).toHaveBeenCalledTimes(2)
   })
 
   it("shows the toast even when the audio context is unavailable", async () => {
