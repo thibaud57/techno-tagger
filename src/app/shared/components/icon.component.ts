@@ -10,7 +10,9 @@ import { Eye } from "@primeicons/angular/eye"
 import { EyeSlash } from "@primeicons/angular/eye-slash"
 import { File as FileIcon } from "@primeicons/angular/file"
 import { Folder } from "@primeicons/angular/folder"
+import { Image as ImageIcon } from "@primeicons/angular/image"
 import { InfoCircle } from "@primeicons/angular/info-circle"
+import { MinusCircle } from "@primeicons/angular/minus-circle"
 import { Play } from "@primeicons/angular/play"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
@@ -26,9 +28,11 @@ export const ICON_NAMES = [
   "chevron-right",
   "file",
   "folder",
+  "image",
   "check",
   "check-circle",
   "clock",
+  "minus-circle",
   "play",
   "arrow-right",
   "times",
@@ -59,7 +63,9 @@ export type IconSize = 16 | 20 | 24
     EyeSlash,
     FileIcon,
     Folder,
+    ImageIcon,
     InfoCircle,
+    MinusCircle,
     Times,
     TimesCircle,
   ],
@@ -77,6 +83,9 @@ export type IconSize = 16 | 20 | 24
       @case ("folder") {
         <svg data-p-icon="folder" [size]="size()" />
       }
+      @case ("image") {
+        <svg data-p-icon="image" [size]="size()" />
+      }
       @case ("check") {
         <svg data-p-icon="check" [size]="size()" />
       }
@@ -85,6 +94,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("clock") {
         <svg data-p-icon="clock" [size]="size()" />
+      }
+      @case ("minus-circle") {
+        <svg data-p-icon="minus-circle" [size]="size()" />
       }
       @case ("play") {
         <svg data-p-icon="play" [size]="size()" />

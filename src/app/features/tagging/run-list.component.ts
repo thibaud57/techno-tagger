@@ -3,14 +3,18 @@ import { TranslatePipe } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { Skeleton } from "primeng/skeleton"
 import { TableModule } from "primeng/table"
+import { Tooltip } from "primeng/tooltip"
 
 import type { TaggingTrack } from "../../core/tagging-run.store"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
+import { IconComponent } from "../../shared/components/icon.component"
+import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { FADE_IN } from "../../shared/utils/motion"
 import { fullHeightTable } from "../../shared/utils/table"
+import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
 /** PrimeNG ne mesure pas ses lignes : a remesurer si `h-14` change sur le `<tr>`. */
 const ROW_HEIGHT = 56
@@ -36,6 +40,7 @@ interface RunRow extends TaggingTrack {
   readonly afterLine: string | null
   readonly sourceName: string | null
   readonly artworkUrl: string | null
+  readonly reasonKey: string | null
 }
 
 @Component({
@@ -43,11 +48,14 @@ interface RunRow extends TaggingTrack {
   imports: [
     TableModule,
     Skeleton,
+    Tooltip,
     TranslatePipe,
     StateTagComponent,
     SourceLogoComponent,
+    IconComponent,
     TruncatedTextComponent,
     EmptyStateComponent,
+    SkeletonRowsComponent,
   ],
   templateUrl: "./run-list.component.html",
   host: { class: "block h-full min-h-0" },
@@ -55,8 +63,12 @@ interface RunRow extends TaggingTrack {
 export class RunListComponent {
   protected readonly ROW_HEIGHT = ROW_HEIGHT
   protected readonly FADE_IN = FADE_IN
+  protected readonly WIDE_TOOLTIP = WIDE_TOOLTIP
 
   readonly tracks = input.required<readonly TaggingTrack[]>()
+  /** Le sidecar parcourt encore le dossier : aucune ligne n'est connue. */
+  readonly loading = input(false)
+  readonly interrupted = input(false)
 
   protected readonly empty = computed(() => this.tracks().length === 0)
   protected readonly tablePt = computed(() => fullHeightTable(this.empty()))
@@ -68,6 +80,7 @@ export class RunListComponent {
       afterLine: track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
       sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
       artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
+      reasonKey: track.failureReason === null ? null : `tagging.reason.${track.failureReason}`,
     })),
   )
 }

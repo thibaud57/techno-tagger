@@ -57,6 +57,9 @@ const mountWith = async (tracks: readonly TaggingTrack[]) => {
 /** Les six colonnes de la seule ligne montee, dans l'ordre du template. */
 const ART = 0
 const BEFORE = 1
+const AFTER = 2
+const SOURCE = 3
+const SCORE = 4
 
 const cellOf = (fixture: { nativeElement: unknown }, column: number): HTMLElement | undefined =>
   (fixture.nativeElement as HTMLElement).querySelectorAll("td")[column]
@@ -82,13 +85,44 @@ describe("RunListComponent", () => {
     expect(image?.getAttribute("src")).toBe(`asset://localhost/${TRACK.artworkPath}`)
   })
 
-  it("renders an empty artwork cell, with neither an image nor a skeleton, when a resolved track has no artwork", async () => {
+  it("falls back to a placeholder when a resolved track has no artwork", async () => {
     const fixture = await mountWith([{ ...TRACK, artworkPath: null }])
 
     const artCell = cellOf(fixture, ART)
 
     expect(artCell?.querySelector("img")).toBeNull()
     expect(artCell?.querySelector("p-skeleton")).toBeNull()
+    expect(artCell?.querySelector('[data-p-icon="image"]')).not.toBeNull()
+  })
+
+  it("shows the placeholder and not the skeleton on a track without a source", async () => {
+    const fixture = await mountWith([
+      { ...TRACK, state: "unresolved", resolution: "none", artworkPath: null, after: null },
+    ])
+
+    const artCell = cellOf(fixture, ART)
+
+    expect(artCell?.querySelector("p-skeleton")).toBeNull()
+    expect(artCell?.querySelector('[data-p-icon="image"]')).not.toBeNull()
+  })
+
+  it("marks every valueless cell of an unresolved track with an em dash", async () => {
+    const fixture = await mountWith([
+      {
+        ...TRACK,
+        state: "unresolved",
+        resolution: "none",
+        source: null,
+        after: null,
+        scores: null,
+      },
+    ])
+
+    const valueless = [AFTER, SOURCE, SCORE].map((column) =>
+      cellOf(fixture, column)?.textContent.trim(),
+    )
+
+    expect(valueless).toEqual(["—", "—", "—"])
   })
 
   it("shows the file name without its extension as the main line when the tags are empty", async () => {

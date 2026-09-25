@@ -6,6 +6,7 @@
   [virtualScroll]="true"
   [virtualScrollItemSize]="ROW_HEIGHT"
   [pt]="tablePt()"
+  class="text-sm"
 >
   <ng-template #header>
     <tr>
@@ -17,7 +18,7 @@
       <th class="w-36">{{ "tagging.list.source" | translate }}</th>
       <!-- Mesuree sur « A 100 · T 100 », le detail le plus long : plus etroit, il passe a la ligne. -->
       <th class="w-32 text-right">{{ "tagging.list.score" | translate }}</th>
-      <!-- Mesuree sur « En attente », le plus long des six etats livres. L'etat
+      <!-- Mesuree sur « Not processed », le plus long des sept etats livres. L'etat
            d'ecriture de la Feature 5 est plus long : a remesurer en l'ajoutant. -->
       <th class="w-40">{{ "tagging.list.state" | translate }}</th>
     </tr>
@@ -35,8 +36,17 @@
             [src]="url"
             [animate.enter]="FADE_IN"
           />
-        } @else if (track.state === null) {
+        } @else if (track.state === null && !interrupted()) {
           <p-skeleton width="32px" height="32px" borderRadius="var(--p-border-radius-sm)" />
+        } @else {
+          <!-- Ni image ni squelette : la source n'en fournit pas, ou le morceau n'a pas de
+               source. Une cellule vide laisserait un trou dans la colonne, que l'oeil lit
+               comme un chargement qui n'arrive jamais. -->
+          <div
+            class="flex size-8 items-center justify-center rounded-sm border border-surface bg-surface-800 text-muted-color"
+          >
+            <app-icon name="image" [size]="16" />
+          </div>
         }
       </td>
       <td>
@@ -47,7 +57,7 @@
         @if (track.afterLine; as afterLine) {
           <app-truncated-text [text]="afterLine" />
         } @else {
-          <span class="text-muted-color">-</span>
+          <span class="text-muted-color">—</span>
         }
       </td>
       <td>
@@ -57,7 +67,7 @@
             {{ track.sourceName }}
           </span>
         } @else {
-          <span class="text-muted-color">-</span>
+          <span class="text-muted-color">—</span>
         }
       </td>
       <td class="text-right tabular-nums">
@@ -70,24 +80,45 @@
             {{ "tagging.list.scoreTitle" | translate }} {{ scores.title }}
           </span>
         } @else {
-          <span class="text-muted-color">-</span>
+          <span class="text-muted-color">—</span>
         }
       </td>
       <td>
-        <app-state-tag
-          [state]="track.state"
-          [resolution]="track.resolution"
-          [awaiting]="track.arbitration !== null"
-        />
+        <!-- Meme motif que le rapport d'extraction : le motif du non resolu au survol. -->
+        <span
+          class="inline-flex items-center gap-2"
+          [pTooltip]="track.reasonKey ? (track.reasonKey | translate) : undefined"
+          [tooltipOptions]="WIDE_TOOLTIP"
+        >
+          <app-state-tag
+            [state]="track.state"
+            [resolution]="track.resolution"
+            [awaiting]="track.arbitration !== null"
+            [interrupted]="interrupted()"
+          />
+          @if (track.reasonKey) {
+            <app-icon class="text-muted-color" name="info-circle" [size]="16" />
+          }
+        </span>
       </td>
     </tr>
   </ng-template>
 
   <ng-template #emptymessage>
     <tr>
-      <td colspan="6" class="border-b-0">
-        <app-empty-state icon="folder" [heading]="'tagging.list.empty' | translate" />
-      </td>
+      @if (loading()) {
+        <td colspan="6" class="relative border-b-0">
+          <app-skeleton-rows [rowHeight]="ROW_HEIGHT" />
+        </td>
+      } @else {
+        <td colspan="6" class="border-b-0">
+          <app-empty-state
+            icon="folder"
+            [heading]="'tagging.list.empty.heading' | translate"
+            [description]="'tagging.list.empty.description' | translate"
+          />
+        </td>
+      }
     </tr>
   </ng-template>
 </p-table>
