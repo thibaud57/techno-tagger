@@ -55,9 +55,16 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 > compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
 > les garder ici en ferait deux sources pour une même règle.
 
-> Rien à pousser au 2026-09-25 : l'export local est un miroir exact du distant, vérifié fichier
-> par fichier (`list_files` contre `find`), à l'ancre `_ds_needs_recompile` près, qui est un
-> état machine éphémère que l'app efface et n'a donc pas à vivre ici.
+> L'export local est un miroir exact du distant au 2026-09-25, vérifié fichier par fichier
+> (`list_files` contre `find`), à l'ancre `_ds_needs_recompile` près, qui est un état machine
+> éphémère que l'app efface et n'a donc pas à vivre ici.
+
+- **L'interruption d'un run n'existe pas dans la maquette** : `TaggingScreen` fait disparaître
+  le bouton de lancement hors phase `idle` et n'offre aucun arrêt. L'écran livré ajoute
+  « Interrompre », `secondary` outlined à icône `stop`, à gauche du lancement qui reste
+  visible et grisé. Raison : un dossier lancé par erreur consommait le quota de l'API
+  jusqu'au bout, la seule sortie étant de fermer la fenêtre. À pousser au prochain sync
+  (spec `11-interruption-du-run-design.md`).
 
 ## Journal
 

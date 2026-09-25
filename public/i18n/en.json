@@ -135,6 +135,7 @@
     "title": "Tagging",
     "finished": "Search complete",
     "start": "Start the run",
+    "cancel": "Stop the run",
     "phase": "Searching",
     "progress": "{{processed}} of {{total}}",
     "folder": {

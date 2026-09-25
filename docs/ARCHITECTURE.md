@@ -416,6 +416,7 @@ Imposé par deux besoins du MVP : la barre de progression, et le pipeline qui co
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
 | `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
+| `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run, et sans événement de fin, l'interface sachant qu'elle l'a demandé. L'extraction reste attendue jusqu'à son terme, comme sous `shutdown` |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible, et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source) |
@@ -538,7 +539,7 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 
 **Les deux phases longues tournent en tâche de fond, la boucle ne les attend pas.** `extract_playlist` copie des fichiers et `start_tagging` interroge le réseau : les attendre dans la boucle gèlerait la lecture de `stdin`, et une fermeture de fenêtre pendant la copie d'une grosse bibliothèque laisserait son `shutdown` dans le pipe jusqu'au dernier transfert. Chacune refuse d'être relancée tant qu'elle tourne, par `extraction_in_progress` et `tagging_in_progress`, et ces deux refus ne closent rien : ils disent au contraire que la phase continue.
 
-**L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit.
+**L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
 
 La file d'arbitrage est une simple structure en mémoire, exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process.
 

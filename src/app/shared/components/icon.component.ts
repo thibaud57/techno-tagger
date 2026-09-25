@@ -14,6 +14,7 @@ import { Image as ImageIcon } from "@primeicons/angular/image"
 import { InfoCircle } from "@primeicons/angular/info-circle"
 import { MinusCircle } from "@primeicons/angular/minus-circle"
 import { Play } from "@primeicons/angular/play"
+import { Stop } from "@primeicons/angular/stop"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
 
@@ -34,6 +35,7 @@ export const ICON_NAMES = [
   "clock",
   "minus-circle",
   "play",
+  "stop",
   "arrow-right",
   "times",
   "times-circle",
@@ -59,6 +61,7 @@ export type IconSize = 16 | 20 | 24
     Clock,
     ExclamationTriangle,
     Play,
+    Stop,
     Eye,
     EyeSlash,
     FileIcon,
@@ -100,6 +103,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("play") {
         <svg data-p-icon="play" [size]="size()" />
+      }
+      @case ("stop") {
+        <svg data-p-icon="stop" [size]="size()" />
       }
       @case ("arrow-right") {
         <svg data-p-icon="arrow-right" [size]="size()" />

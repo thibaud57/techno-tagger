@@ -5,6 +5,11 @@
     <!-- Le bouton reste visible et desactive pendant le run : `TaggingScreen.jsx` le fait
          disparaitre hors phase `idle`, mais DESIGN.md interdit de masquer une action
          desactivee, et c'est DESIGN.md qui tranche quand les deux se contredisent. -->
+    @if (running()) {
+      <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel()">
+        <app-icon name="stop" [size]="16" />{{ "tagging.cancel" | translate }}
+      </button>
+    }
     @let blockedText = blockedReason() ? (blockedReason() | translate) : undefined;
     <button
       pButton

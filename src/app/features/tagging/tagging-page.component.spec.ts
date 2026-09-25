@@ -46,6 +46,7 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     lastErrorCommand: signal(null),
     errorFor: SidecarService.prototype.errorFor,
     startTagging: vi.fn(() => Promise.resolve()),
+    cancelTagging: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
   vi.mocked(load).mockResolvedValue({
@@ -64,6 +65,25 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
 }
 
 describe("TaggingPageComponent", () => {
+  const cancelButton = (fixture: { nativeElement: unknown }): HTMLElement | null =>
+    (fixture.nativeElement as HTMLElement).querySelector('[data-p-icon="stop"]')
+
+  it("offers no way to interrupt before a run starts", async () => {
+    const { fixture } = await mountWith()
+    fixture.detectChanges()
+
+    expect(cancelButton(fixture)).toBeNull()
+  })
+
+  it("interrupts the run in progress", async () => {
+    const { fixture, service } = await mountWith({ tagging: signal(true) })
+    fixture.detectChanges()
+
+    cancelButton(fixture)?.closest("button")?.click()
+
+    expect(service.cancelTagging).toHaveBeenCalled()
+  })
+
   afterEach(() => {
     vi.resetAllMocks()
   })

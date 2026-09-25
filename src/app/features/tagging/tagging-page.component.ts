@@ -90,6 +90,10 @@ export default class TaggingPageComponent {
     }
   }
 
+  protected async cancel(): Promise<void> {
+    await this.sidecar.cancelTagging()
+  }
+
   protected async start(): Promise<void> {
     if (!this.canStart()) {
       return
