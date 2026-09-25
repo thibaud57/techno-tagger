@@ -22,7 +22,7 @@
     "unknown_error": "Une erreur inattendue a interrompu l'opération. Si elle revient, le détail se trouve dans le dossier des logs.",
     "playlist_error": "Ce fichier de playlist n'a pas pu être lu.",
     "unsupported_playlist_format": "{{filename}} n'est ni une médiathèque VLC ni une playlist M3U8 lisible.",
-    "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire (éléments absents : {{missing}}).",
+    "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire. Installez la dernière version de l'application.",
     "playlist_not_found": "Aucune playlist nommée {{playlist_name}} dans cette médiathèque.",
     "playlist_file_unreadable": "{{filename}} ne peut pas être ouvert.",
     "unreadable_dump": "{{filename}} n'est pas une médiathèque VLC lisible.",
@@ -31,22 +31,45 @@
     "report_error": "Le rapport d'extraction n'a pas pu être produit.",
     "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
     "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.",
+    "artwork_unavailable": "La pochette n'a pas été récupérée, elle sera retentée au prochain lancement.",
     "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}.",
-    "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application."
+    "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application.",
+    "files_error": "La lecture des fichiers audio a échoué.",
+    "tagging_folder_unreadable": "Le dossier à re-tagger est introuvable ou illisible : {{folder}}.",
+    "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus.",
+    "scraper_error": "La recherche de métadonnées a répondu par une erreur.",
+    "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
+    "source_unavailable": "La source {{source}} n'a pas répondu.",
+    "track_not_found": "Le morceau n'existe plus sur {{source}}.",
+    "api_contract_error": "Réponse inattendue lors de la recherche de métadonnées. Si elle revient, le détail se trouve dans le dossier des logs.",
+    "api_key_error": "La clé API n'a pas pu être enregistrée.",
+    "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",
+    "api_key_malformed": "Cette clé contient un espace ou un caractère non accepté. Recopiez-la sans rien autour.",
+    "api_key_missing": "Aucune clé API enregistrée. Enregistrez-la dans les Réglages.",
+    "keyring_unavailable": "L'espace sécurisé de Windows est inaccessible. Relancez l'application.",
+    "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre.",
+    "extraction_in_progress": "Une extraction est déjà en cours. Attendez sa fin avant d'en lancer une autre."
   },
   "playlist": {
     "title": "Playlist",
+    "idle": {
+      "heading": "Aucune extraction lancée",
+      "description": "Choisissez la source, la destination et la playlist, puis lancez l'extraction."
+    },
     "source": {
       "label": "Dossier source",
-      "choose": "Choisir un dossier"
+      "choose": "Choisir un dossier",
+      "none": "Aucun dossier sélectionné"
     },
     "destination": {
       "label": "Dossier destination",
-      "choose": "Choisir un dossier"
+      "choose": "Choisir un dossier",
+      "none": "Aucun dossier sélectionné"
     },
     "file": {
       "label": "Fichier de playlist",
-      "choose": "Choisir un fichier"
+      "choose": "Choisir un fichier",
+      "none": "Aucun fichier sélectionné"
     },
     "selector": {
       "label": "Playlist",
@@ -59,6 +82,7 @@
       "move": "Déplacer"
     },
     "extract": "Extraire la playlist",
+    "goTagging": "Passer au tagging",
     "missing": {
       "hint": "Choisissez {{items}}.",
       "source": "le dossier source",
@@ -72,6 +96,7 @@
     },
     "running": "Extraction en cours",
     "finished": "Extraction terminée ({{processed}} sur {{total}})",
+    "extractionFinished": "Extraction terminée",
     "progress": "{{processed}} sur {{total}}",
     "report": {
       "title": "Rapport d'extraction",
@@ -107,9 +132,73 @@
     }
   },
   "tagging": {
-    "title": "Tagging"
+    "title": "Tagging",
+    "finished": "Recherche terminée",
+    "start": "Lancer le run",
+    "cancel": "Interrompre",
+    "phase": "Recherche en cours",
+    "progress": "{{processed}} sur {{total}}",
+    "folder": {
+      "label": "Dossier à re-tagger",
+      "action": "Choisir un dossier",
+      "none": "Aucun dossier sélectionné"
+    },
+    "blocked": {
+      "running": "Attendez la fin du run en cours.",
+      "api_key": "Enregistrez d'abord votre clé API dans les Réglages.",
+      "folder": "Choisissez d'abord le dossier à re-tagger.",
+      "extracting": "Attendez la fin de l'extraction en cours sur l'onglet Playlist.",
+      "sidecar": "Le moteur de l'application n'est pas encore prêt."
+    },
+    "empty": {
+      "heading": "Aucun run lancé",
+      "description": "Choisissez le dossier à re-tagger, puis lancez le run.",
+      "ready": "Lancez le run pour rechercher ce dossier sur Beatport et Bandcamp."
+    },
+    "state": {
+      "pending": "En attente",
+      "awaiting": "À arbitrer",
+      "auto": "Auto",
+      "arbitrated": "Arbitré",
+      "url": "URL",
+      "unresolved": "Non résolu",
+      "notProcessed": "Non traité"
+    },
+    "reason": {
+      "empty_query": "Ni les tags ni le nom du fichier ne donnent d'artiste ou de titre. Renommez le fichier en « Artiste - Titre ».",
+      "no_result": "Aucun résultat sur Beatport ni sur Bandcamp.",
+      "below_threshold": "Les résultats trouvés ne ressemblent pas assez au fichier.",
+      "source_unavailable": "Beatport et Bandcamp n'ont pas répondu. Relancez le run plus tard.",
+      "user_refused": "Aucun candidat n'a été retenu à l'arbitrage."
+    },
+    "list": {
+      "before": "Avant",
+      "after": "Après",
+      "source": "Source",
+      "score": "Score",
+      "scoreArtist": "A",
+      "scoreTitle": "T",
+      "state": "État",
+      "empty": {
+        "heading": "Aucun fichier audio dans ce dossier",
+        "description": "Choisissez un dossier contenant des MP3, WAV, AIFF ou FLAC."
+      }
+    }
   },
   "settings": {
-    "title": "Réglages"
+    "title": "Réglages",
+    "api": {
+      "title": "API",
+      "key": {
+        "label": "Clé X-API-Key",
+        "hint": "Enregistrée de façon sécurisée sur cet ordinateur. Elle ne s'affiche plus ensuite : pour la changer, saisissez-en une nouvelle.",
+        "placeholder": "Saisir la clé reçue",
+        "show": "Afficher la clé",
+        "hide": "Masquer la clé",
+        "save": "Enregistrer",
+        "configured": "Clé enregistrée",
+        "missing": "Aucune clé"
+      }
+    }
   }
 }

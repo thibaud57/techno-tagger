@@ -3,38 +3,73 @@ import { load } from "@tauri-apps/plugin-store"
 import type { ExtractionMode } from "./models/protocol"
 
 const STORE_FILE = "preferences.json"
-const EXTRACTION_MODE_KEY = "extraction_mode"
+
+/**
+ * Ne leve jamais : hors Tauri `load` rejette, et une preference non enregistree n'est
+ * pas une panne. Les deux retombent sur le defaut, l'interface restant utilisable
+ * sous `ng serve` seul.
+ *
+ * `accept` filtre la valeur lue : un fichier edite a la main peut porter n'importe
+ * quoi sous une cle typee.
+ */
+const definePreference = <T>(
+  key: string,
+  fallback: T,
+  accept: (stored: unknown) => stored is T,
+) => ({
+  read: async (): Promise<T> => {
+    try {
+      const store = await load(STORE_FILE)
+      const stored = await store.get<unknown>(key)
+
+      return accept(stored) ? stored : fallback
+    } catch {
+      return fallback
+    }
+  },
+  write: async (value: T): Promise<void> => {
+    try {
+      const store = await load(STORE_FILE)
+      await store.set(key, value)
+      await store.save()
+    } catch {
+      return
+    }
+  },
+})
 
 /**
  * La copie est le defaut : la bibliotheque source reste intacte pendant que le
  * re-tagging reecrit les fichiers de destination.
  */
 export const DEFAULT_EXTRACTION_MODE: ExtractionMode = "copy"
+/** Le signal sonore est actif par defaut : BRAINSTORM le decrit comme desactivable. */
+export const DEFAULT_SOUND_SIGNAL = true
 
-/**
- * Lit le mode retenu au dernier run.
- *
- * Hors Tauri, `load` rejette comme tout appel au plugin : le defaut s'applique
- * sans lever, l'interface devant rester utilisable sous le `ng serve` seul.
- */
-export const readExtractionMode = async (): Promise<ExtractionMode> => {
-  try {
-    const store = await load(STORE_FILE)
-    const stored = await store.get<ExtractionMode>(EXTRACTION_MODE_KEY)
+const extractionMode = definePreference<ExtractionMode>(
+  "extraction_mode",
+  DEFAULT_EXTRACTION_MODE,
+  (stored): stored is ExtractionMode => stored === "copy" || stored === "move",
+)
+const soundSignal = definePreference<boolean>(
+  "sound_signal",
+  DEFAULT_SOUND_SIGNAL,
+  (stored): stored is boolean => typeof stored === "boolean",
+)
+const lastDestination = definePreference<string | null>(
+  "last_destination",
+  null,
+  (stored): stored is string => typeof stored === "string",
+)
 
-    return stored === "move" ? "move" : DEFAULT_EXTRACTION_MODE
-  } catch {
-    return DEFAULT_EXTRACTION_MODE
-  }
-}
+/** Lit le mode retenu au dernier run. */
+export const readExtractionMode = extractionMode.read
+export const writeExtractionMode = extractionMode.write
 
-/** Une preference non enregistree n'est pas une panne : l'echec est silencieux. */
-export const writeExtractionMode = async (mode: ExtractionMode): Promise<void> => {
-  try {
-    const store = await load(STORE_FILE)
-    await store.set(EXTRACTION_MODE_KEY, mode)
-    await store.save()
-  } catch {
-    return
-  }
-}
+export const readSoundSignal = soundSignal.read
+/** Ecrit par les Reglages (Feature 7). */
+export const writeSoundSignal = soundSignal.write
+
+/** Le dossier re-taggue est presque toujours la destination de la derniere extraction. */
+export const readLastDestination = lastDestination.read
+export const writeLastDestination = lastDestination.write

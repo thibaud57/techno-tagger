@@ -14,20 +14,31 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import keyring
 import pytest
+from audio_samples import BLANK_WRITERS
 from extraction_samples import sample_context, sample_result
+from memory_keyring import MemoryKeyring
 from vlc_dump import build_dump
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
+
+    import httpx2
 
     from tagger.extraction import ExtractionResult
     from tagger.reports import ReportContext
 
-# TODO: implement — fixture de transport httpx2 mocke, fichiers audio des quatre
-# formats.
-
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture
+def requests() -> list[httpx2.Request]:
+    """Journal des requetes emises, rempli par le handler du `MockTransport`.
+
+    Une liste neuve par test : c'est la seule fenetre sur ce que le client a emis.
+    """
+    return []
 
 
 @pytest.fixture(autouse=True)
@@ -48,6 +59,22 @@ def _isolate_root_logger() -> Iterator[None]:
     root.setLevel(level)
 
 
+@pytest.fixture(autouse=True)
+def memory_keyring() -> Iterator[MemoryKeyring]:
+    """Trousseau en memoire pose pour chaque test, backend precedent restaure apres.
+
+    Autouse : `get_version` lit desormais le trousseau, et un test qui l'oublierait
+    toucherait le Credential Manager de la machine qui fait tourner la suite.
+    """
+    previous = keyring.get_keyring()
+    backend = MemoryKeyring()
+    keyring.set_keyring(backend)
+
+    yield backend
+
+    keyring.set_keyring(previous)
+
+
 @pytest.fixture
 def vlc_dump(tmp_path: Path) -> Path:
     """Dump `vlc_media.db` de test, bati sur le DDL reel de VLC Android.
@@ -56,6 +83,19 @@ def vlc_dump(tmp_path: Path) -> Path:
     est binaire : le DDL seul, versionnable, vit dans `helpers/vlc_dump.py`.
     """
     return build_dump(tmp_path / "vlc_media.db")
+
+
+@pytest.fixture
+def blank_audio(tmp_path: Path) -> Callable[[str], Path]:
+    """Fabrique de fichiers audio vierges, `"mp3"`, `"wav"`, `"aiff"` ou `"flac"`.
+
+    Construits en octets par `helpers/audio_samples.py` : aucun binaire commite.
+    """
+
+    def make(audio_format: str) -> Path:
+        return BLANK_WRITERS[audio_format](tmp_path / f"track.{audio_format}")
+
+    return make
 
 
 @pytest.fixture

@@ -1,2 +1,73 @@
-<!-- TODO: implement, cle API, URL, langue, seuils, mode, cache, logs -->
 <h1 class="text-2xl font-semibold">{{ "settings.title" | translate }}</h1>
+
+<section class="flex flex-col gap-4">
+  <h2 class="text-xl font-semibold">{{ "settings.api.title" | translate }}</h2>
+
+  <div class="flex items-start gap-4 border-b border-surface-800 py-3">
+    <!-- Largeur mesuree a l'ecran sur le texte d'aide le plus long (FR) : trois lignes au plus. -->
+    <div class="flex w-64 shrink-0 flex-col gap-2">
+      <label pLabel for="api-key">{{ "settings.api.key.label" | translate }}</label>
+      <span class="text-xs text-pretty text-muted-color">{{
+        "settings.api.key.hint" | translate
+      }}</span>
+    </div>
+
+    <div class="flex min-w-0 flex-1 flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <!-- p-password est deprecie en PrimeNG 22 : `pInputPassword` ne fournit que le model
+             `mask`, l'oeil de bascule se compose ici (decision du 2026-09-21). -->
+        <p-iconfield class="min-w-0 flex-1">
+          <input
+            pInputPassword
+            id="api-key"
+            pSize="small"
+            [formField]="fields.apiKey"
+            [fluid]="true"
+            [mask]="masked()"
+            [placeholder]="'settings.api.key.placeholder' | translate"
+          />
+          <p-inputicon>
+            <!-- Une cle collee ne se relit nulle part ailleurs : sans cette bascule, une faute de
+                 copie ne se voit qu'au premier run, sur les 403 de l'API. -->
+            <button
+              type="button"
+              class="cursor-pointer text-muted-color"
+              [attr.aria-label]="
+                (masked() ? 'settings.api.key.show' : 'settings.api.key.hide') | translate
+              "
+              (click)="toggleMask()"
+            >
+              <app-icon [name]="masked() ? 'eye' : 'eye-slash'" [size]="16" />
+            </button>
+          </p-inputicon>
+        </p-iconfield>
+        <button
+          pButton
+          type="button"
+          size="small"
+          class="shrink-0"
+          [disabled]="!canSave()"
+          (click)="save()"
+        >
+          {{ "settings.api.key.save" | translate }}
+        </button>
+        <!-- Rien tant que l'etat vaut `null` : la version n'est pas encore arrivee. -->
+        @let configured = apiKeyConfigured();
+        @if (configured !== null) {
+          <!-- shrink-0 : sinon le tag retrecit avec le champ fluide et son libelle passe sur deux lignes. -->
+          <p-tag
+            class="shrink-0"
+            [severity]="configured ? 'success' : 'secondary'"
+            [value]="
+              (configured ? 'settings.api.key.configured' : 'settings.api.key.missing') | translate
+            "
+          />
+        }
+      </div>
+
+      @if (error(); as shown) {
+        <app-error-message [error]="shown" />
+      }
+    </div>
+  </div>
+</section>

@@ -26,6 +26,7 @@ from typing import Final
 
 sys.path.insert(0, str(Path(__file__).parent / "tests" / "helpers"))
 
+from audio_samples import BLANK_WRITERS, tag
 from vlc_dump import build_dump
 
 # Noms inventes mais realistes, et qui couvrent ce qui casse en vrai : accents, cyrillique,
@@ -70,6 +71,18 @@ MISSING: Final = (7, 13, 22)  # absents de la bibliotheque
 DUPLICATED: Final = (0, 16, 17)  # homonyme plus petit dans un sous-dossier
 ALREADY_PRESENT: Final = (4, 18)  # deja poses en destination
 LOCKED: Final = 9  # tenu par un autre process au moment du run
+# Vrais conteneurs tagues, pour que le re-tagging exerce son chemin nominal (tags vers
+# requete) et pas seulement le repli sur le nom de fichier que les blobs imposent. Disjoints
+# des doublons : un conteneur minimal pese quelques kilo-octets, l'homonyme doit rester le
+# plus petit. Les quatre extensions y passent.
+TAGGED: Final = (1, 2, 3, 5, 11, 19, 20, 26)
+
+
+def _write_tagged(path: Path) -> None:
+    """Conteneur reel et tague, artiste et titre pris au nom comme sur un vrai fichier."""
+    artist, title = path.stem.split(" - ", 1)
+    BLANK_WRITERS[path.suffix.lstrip(".")](path)
+    tag(path, artist=[artist], title=[title])
 
 
 def build(root: Path, size_mb: int) -> None:
@@ -88,6 +101,9 @@ def build(root: Path, size_mb: int) -> None:
     chunk = b"\0" * (1024 * 1024)
     for index, name in enumerate(TRACKS):
         if index in MISSING:
+            continue
+        if index in TAGGED:
+            _write_tagged(library / name)
             continue
         with (library / name).open("wb") as handle:
             for _ in range(size_mb):
@@ -112,7 +128,7 @@ def build(root: Path, size_mb: int) -> None:
     print(f"Dump VLC     : {dump}")
     print(f"Playlist M3U8: {root / 'set-du-samedi.m3u8'}")
     print()
-    print(f"{len(TRACKS)} morceaux, {written / 1e9:.2f} Go")
+    print(f"{len(TRACKS)} morceaux, {written / 1e9:.2f} Go, dont {len(TAGGED)} tagues")
     print(
         f"attendu : {len(TRACKS) - len(MISSING) - len(ALREADY_PRESENT) - 1} extraits, "
         f"{len(ALREADY_PRESENT)} deja presents, {len(MISSING)} introuvables, "

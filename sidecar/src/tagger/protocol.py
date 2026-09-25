@@ -11,12 +11,23 @@ inconnu ou mal type est une commande malformee, pas un detail a ignorer
 
 from enum import UNIQUE, StrEnum, auto, verify
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Final, Literal, Self, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+    ValidationError,
+    model_validator,
+)
 
 from tagger.extraction import DuplicateCriterion, ExtractionFailureReason, ExtractionMode
+from tagger.matching import MatchingThresholds, check_thresholds
 from tagger.playlists import PlaylistFormat
+from tagger.scraper_client import Source
+from tagger.tagging import FailureReason, Resolution, TrackState
 
 if TYPE_CHECKING:
     from tagger.errors import TaggerError
@@ -49,6 +60,12 @@ class Shutdown(Command):
     command: Literal["shutdown"]
 
 
+class CancelRun(Command):
+    """Un dossier lance par erreur cesse de consommer le quota de l'API."""
+
+    command: Literal["cancel_run"]
+
+
 class ListPlaylists(Command):
     """Sans objet pour un M3U8, qui ne contient qu'une playlist."""
 
@@ -69,16 +86,83 @@ class ExtractPlaylist(Command):
     mode: ExtractionMode = ExtractionMode.COPY
 
 
+# ASCII imprimable sans espace : contrainte du decodage latin-1 des en-tetes cote
+# API (PRODUCTION.md § Regles). 2560 : plafond du Credential Manager.
+_API_KEY_PATTERN: Final = r"^[\x21-\x7e]+$"
+_API_KEY_MAX_LENGTH: Final = 2560
+
+
+class SetApiKey(Command):
+    """Seul passage de la cle dans le protocole : elle ne revient jamais vers la webview.
+
+    Le format est controle, pas la validite : une cle revoquee arrete le run sur
+    ses 403 (ARCHITECTURE.md § Cle API invalide ou revoquee).
+    """
+
+    command: Literal["set_api_key"]
+    api_key: Annotated[
+        str,
+        StringConstraints(pattern=_API_KEY_PATTERN, max_length=_API_KEY_MAX_LENGTH),
+        Field(repr=False),
+    ]
+
+
+class ThresholdsPayload(BaseModel):
+    """Seuils envoyes par les Settings. Absents, le sidecar applique les siens."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    floor: float
+    ceiling: float
+
+    @model_validator(mode="after")
+    def _within_bounds(self) -> Self:
+        # Les bornes ne sont pas reecrites ici, `check_thresholds` les porte. Pydantic
+        # enveloppe en `ValidationError` ce que leve un validateur, d'ou le
+        # `malformed_command` des la validation plutot qu'une erreur en plein run.
+        check_thresholds(self.floor, self.ceiling)
+        return self
+
+    def to_matching(self) -> MatchingThresholds:
+        """Seuils du metier, deja valides a la construction de la commande."""
+        return MatchingThresholds(floor=self.floor, ceiling=self.ceiling)
+
+
+class StartTagging(Command):
+    """Dossier a re-tagger, et seuils de matching quand les Settings en imposent."""
+
+    command: Literal["start_tagging"]
+    folder: Path
+    thresholds: ThresholdsPayload | None = None
+
+
 type AnyCommand = Annotated[
-    GetVersion | Shutdown | ListPlaylists | ExtractPlaylist,
+    GetVersion | Shutdown | CancelRun | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging,
     Field(discriminator="command"),
 ]
 
 # `shutdown` sort de la boucle sans rien executer : l'exclure ici permet au `match`
 # du dispatch de se fermer par `assert_never` sans laisser de cas non couvert.
-type ExecutableCommand = GetVersion | ListPlaylists | ExtractPlaylist
+type ExecutableCommand = (
+    GetVersion | CancelRun | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging
+)
+
+# Recopie des six `command` declares ci-dessus : un `Literal` ne se compose pas depuis
+# une union a la compilation. `test_command_name_lists_every_command` garde la copie.
+type CommandName = Literal[
+    "get_version",
+    "shutdown",
+    "cancel_run",
+    "list_playlists",
+    "extract_playlist",
+    "set_api_key",
+    "start_tagging",
+]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
+_COMMAND_NAMES: Final[dict[str, CommandName]] = {
+    name: name for name in get_args(CommandName.__value__)
+}
 
 
 def parse_command(line: str) -> AnyCommand:
@@ -189,18 +273,126 @@ class ExtractionFinished(Event):
     report_path: Path
 
 
+@verify(UNIQUE)
+class RunPhase(StrEnum):
+    """Phase que `run_finished` cloture : la boucle reseau, puis l'ecriture."""
+
+    NETWORK = auto()
+    WRITE = auto()
+
+
+class TrackEntry(BaseModel):
+    """Un morceau du run tel que la liste l'affiche avant toute resolution."""
+
+    model_config = ConfigDict(frozen=True)
+
+    track_id: str
+    file_name: str
+    artist: str
+    title: str
+
+
+class RunStarted(Event):
+    """Toutes les lignes de la liste, des le depart : sans lui, l'ecran reste vide
+    jusqu'a la premiere resolution.
+    """
+
+    event: Literal["run_started"]
+    run_id: str
+    tracks: tuple[TrackEntry, ...]
+
+
+class TrackNames(BaseModel):
+    """Artiste et titre qu'une source ecrira, calcules cote sidecar (ADR-011)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artist: str
+    title: str
+
+
+class TrackScores(BaseModel):
+    """Scores arrondis pour l'affichage. `artist` nul : la requete n'en avait pas."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artist: int | None
+    title: int
+    average: int
+
+
+class TrackResolved(Event):
+    """Etat d'un morceau en trois champs, jamais en une valeur plate."""
+
+    event: Literal["track_resolved"]
+    track_id: str
+    state: TrackState
+    resolution: Resolution
+    failure_reason: FailureReason | None = None
+    source: Source | None = None
+    after: TrackNames | None = None
+    scores: TrackScores | None = None
+    artwork_path: Path | None = None
+
+
+class CandidatePayload(BaseModel):
+    """Un candidat en zone grise, avec ses scores."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artist: str
+    title: str
+    scores: TrackScores
+
+
+class ArbitrationRequired(Event):
+    """Morceau en attente d'une decision humaine. La Feature 3 etendra la charge."""
+
+    event: Literal["arbitration_required"]
+    track_id: str
+    source: Source
+    beatport_unavailable: bool
+    candidates: tuple[CandidatePayload, ...]
+
+
+class RunFinished(Event):
+    """Fin d'une phase du run. Les rapports arriveront avec la Feature 6."""
+
+    event: Literal["run_finished"]
+    phase: RunPhase
+    run_id: str
+    resolved: int
+    unresolved: int
+    awaiting_arbitration: int
+
+
 class Error(Event):
     """Reserve a ce qui ne se rattache a aucun morceau. Le `message` est technique,
     destine aux logs ; l'interface traduit le `code`.
+
+    `command` nomme celle qui a echoue, `None` quand la ligne recue etait trop
+    malformee pour la designer. Le run de re-tagging tournant en tache de fond
+    pendant que la boucle lit la suite, l'interface ne peut pas la deduire de la
+    derniere commande envoyee : c'est au sidecar de la dire.
     """
 
     event: Literal["error"] = "error"
     code: str
     params: dict[str, object]
     message: str
+    command: CommandName | None = None
 
 
 MALFORMED_COMMAND: Final = "malformed_command"
+API_KEY_MALFORMED: Final = "api_key_malformed"
+# Les champs du contrat saisis a la main : leur refus dit quoi corriger, quand une autre
+# commande mal formee ne peut venir que d'un defaut de l'application. Une table plutot
+# qu'une branche, pour que le prochain champ tape par l'utilisateur soit une ligne ici.
+# Cle typee comme `loc`, qui porte un index numerique des qu'une erreur vise un element
+# de liste : la restreindre a deux chaines obligerait a un `cast()`.
+_TYPED_BY_HAND: Final[dict[tuple[int | str, ...], str]] = {
+    ("set_api_key", "api_key"): API_KEY_MALFORMED
+}
 
 # Type Pydantic d'une valeur de discriminant hors union : la commande est inconnue.
 UNKNOWN_COMMAND_ERROR: Final = "union_tag_invalid"
@@ -218,23 +410,33 @@ def error_from_validation(exc: ValidationError) -> Error:
     """
     details: list[dict[str, object]] = []
     params: dict[str, object] = {"errors": details}
+    command: CommandName | None = None
+    code = MALFORMED_COMMAND
     for error in exc.errors():
-        details.append({"loc": list(error["loc"]), "type": error["type"]})
+        loc = error["loc"]
+        details.append({"loc": list(loc), "type": error["type"]})
+        code = _TYPED_BY_HAND.get(loc[:2], code)
         # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union
         # imbriquee qu'un futur modele pourrait declarer.
-        if error["type"] == UNKNOWN_COMMAND_ERROR and not error["loc"]:
+        if error["type"] == UNKNOWN_COMMAND_ERROR and not loc:
             params["command"] = error.get("ctx", {}).get("tag")
+        # Un champ refuse sur une commande connue : Pydantic ouvre `loc` par son
+        # discriminant. La nommer rend l'erreur a l'ecran qui l'a envoyee, sans quoi
+        # aucun ne l'affiche (une cle API collee avec un espace se perdait ainsi).
+        elif loc and isinstance(loc[0], str):
+            command = _COMMAND_NAMES.get(loc[0], command)
 
     return Error(
-        code=MALFORMED_COMMAND,
+        code=code,
         params=params,
         message="command rejected by validation",
+        command=command,
     )
 
 
-def error_from_business(exc: TaggerError) -> Error:
+def error_from_business(exc: TaggerError, command: CommandName) -> Error:
     """Convertit une erreur metier en evenement, en gardant son code et ses params."""
-    return Error(code=exc.code, params=dict(exc.params), message=str(exc))
+    return Error(code=exc.code, params=dict(exc.params), message=str(exc), command=command)
 
 
 def emit(event: Event) -> str:

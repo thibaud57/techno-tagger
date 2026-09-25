@@ -144,14 +144,9 @@ describe("toExtractionRows", () => {
     expect(row?.detailParams?.["discardedSizes"]).toBe("3000 o, 5500 o")
   })
 
-  it("renders a stable order from one run to the next", () => {
-    const result = {
-      ...EMPTY,
-      extracted: ["a.mp3"],
-      already_present: ["c.mp3"],
-      missing: ["d.mp3"],
-    }
+  it("keeps two files of the same category in their input order", () => {
+    const rows = toExtractionRows({ ...EMPTY, extracted: ["zebra.mp3", "alpha.mp3"] }, formatSize)
 
-    expect(toExtractionRows(result, formatSize)).toEqual(toExtractionRows(result, formatSize))
+    expect(rows.map((row) => row.fileName)).toEqual(["zebra.mp3", "alpha.mp3"])
   })
 })

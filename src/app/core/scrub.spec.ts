@@ -48,4 +48,18 @@ describe("scrub", () => {
 
     expect(scrubbed["extra"]).toEqual({ [`C:\\Users\\${MASK}\\Music`]: "locked" })
   })
+
+  it("masks every path in an array", () => {
+    const event = {
+      extra: {
+        paths: ["C:\\Users\\thibaud\\Music\\a.flac", "C:\\Users\\thibaud\\Music\\b.flac"],
+      },
+    }
+
+    const scrubbed = scrub(event as never, {}) as unknown as Record<string, unknown>
+
+    expect(scrubbed["extra"]).toEqual({
+      paths: [`C:\\Users\\${MASK}\\Music\\a.flac`, `C:\\Users\\${MASK}\\Music\\b.flac`],
+    })
+  })
 })

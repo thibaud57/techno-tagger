@@ -20,11 +20,9 @@ export const MASK = "<user>"
 // `Jean Dupont` et `O'Brien` ne laisseraient fuir que leur seconde moitie.
 const HOME = /((?:[A-Za-z]:)?[\\/](?:Users|home)[\\/])[^\\/:*?"<>|\n\r]+/gi
 
-function mask(text: string): string {
-  return text.replace(HOME, `$1${MASK}`)
-}
+const mask = (text: string): string => text.replace(HOME, `$1${MASK}`)
 
-function maskDeep(value: unknown): unknown {
+const maskDeep = (value: unknown): unknown => {
   if (typeof value === "string") return mask(value)
   if (Array.isArray(value)) return value.map(maskDeep)
   if (value && typeof value === "object") {

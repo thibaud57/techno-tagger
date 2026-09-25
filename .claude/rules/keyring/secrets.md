@@ -13,7 +13,7 @@ paths:
 - Traiter `get_password() is None` comme un état normal : premier lancement, ou clé effacée par l'utilisateur
 - Rendre la suppression idempotente en capturant `PasswordDeleteError`, que `delete_password` lève sur une entrée absente
 - Mapper `PasswordSetError` et `NoKeyringError` sur des erreurs métier distinctes : le message utilisateur n'est pas le même
-- Valider une clé par un appel à `/health` puis à une route authentifiée, jamais par sa forme : une clé bien formée peut être révoquée
+- Ne jamais valider une clé par sa forme au-delà d'un contrôle de saisie : une clé bien formée peut être révoquée. La preuve vient de l'API, à l'usage (garde des trois 403 du pipeline), pas d'un appel à l'enregistrement (décision du 2026-09-19, spec de la clé API)
 - Tester la lecture du secret sur le binaire PyInstaller, jamais seulement sur les sources : c'est le seul endroit où le bug se manifeste
 
 ## À éviter

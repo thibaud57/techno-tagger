@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { SidecarEvent } from "./models/protocol"
+import { RunStartedEvent, SidecarEvent, TrackResolvedEvent } from "./models/protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
 
@@ -51,6 +51,24 @@ const EXTRACTION = {
   playlist_name: null,
   mode: "copy",
 } as const
+
+const RUN_STARTED: RunStartedEvent = {
+  event: "run_started",
+  run_id: "a3f9c1",
+  tracks: [{ track_id: "a.mp3", file_name: "a.mp3", artist: "Adam Beyer", title: "Your Mind" }],
+}
+
+const TRACK_RESOLVED: TrackResolvedEvent = {
+  event: "track_resolved",
+  track_id: "a.mp3",
+  state: "resolved",
+  resolution: "auto",
+  failure_reason: null,
+  source: "beatport",
+  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
+  scores: { artist: 96, title: 92, average: 94 },
+  artwork_path: null,
+}
 
 describe("SidecarService", () => {
   let transport: FakeTransport
@@ -105,20 +123,27 @@ describe("SidecarService", () => {
     expect(service.version()).toBe(APP_VERSION)
   })
 
-  it("reports no mismatch when the versions match", async () => {
+  it("feeds the api key state from the version event", async () => {
     await service.start()
 
     transport.emit({ event: "version", version: APP_VERSION, api_key_configured: true })
 
-    expect(service.versionMismatch()).toBeNull()
+    expect(service.apiKeyConfigured()).toBe(true)
   })
 
-  it("reports the mismatch with both versions", async () => {
+  it.each([
+    { label: "matching versions", version: APP_VERSION, expected: null },
+    {
+      label: "mismatched versions",
+      version: "0.0.1-old",
+      expected: { ui: APP_VERSION, sidecar: "0.0.1-old" },
+    },
+  ] as const)("reports the mismatch for $label", async ({ version, expected }) => {
     await service.start()
 
-    transport.emit({ event: "version", version: "0.0.1-old", api_key_configured: false })
+    transport.emit({ event: "version", version, api_key_configured: false })
 
-    expect(service.versionMismatch()).toEqual({ ui: APP_VERSION, sidecar: "0.0.1-old" })
+    expect(service.versionMismatch()).toEqual(expected)
   })
 
   it("is not ready before the version is received", async () => {
@@ -173,11 +198,14 @@ describe("SidecarService", () => {
     await service.start()
     await service.listPlaylists("C:/playlists.m3u8")
 
+    // Seule erreur que l'interface fabrique : elle nomme quand meme sa commande, que
+    // l'ecran qui l'a emise lise son echec au meme endroit que celles du protocole.
     expect(service.lastError()).toEqual({
       event: "error",
       code: "sidecar_unavailable",
       params: {},
       message: "sidecar unavailable",
+      command: "list_playlists",
     })
     expect(transport.sent).toEqual([])
   })
@@ -219,7 +247,13 @@ describe("SidecarService", () => {
 
   it("clears the previous error when a command is sent", async () => {
     await service.start()
-    transport.emit({ event: "error", code: "playlist_file_unreadable", params: {}, message: "x" })
+    transport.emit({
+      event: "error",
+      code: "playlist_file_unreadable",
+      params: {},
+      message: "x",
+      command: "list_playlists",
+    })
 
     await service.listPlaylists("C:/x.m3u8")
 
@@ -298,7 +332,13 @@ describe("SidecarService", () => {
   it("feeds the error without interrupting the stream", async () => {
     await service.start()
 
-    transport.emit({ event: "error", code: "playlist_not_found", params: {}, message: "x" })
+    transport.emit({
+      event: "error",
+      code: "playlist_not_found",
+      params: {},
+      message: "x",
+      command: "list_playlists",
+    })
     transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
 
     expect(service.lastError()?.code).toBe("playlist_not_found")
@@ -310,7 +350,13 @@ describe("SidecarService", () => {
     await service.extractPlaylist(EXTRACTION)
     transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
 
-    transport.emit({ event: "error", code: "report_write_failed", params: {}, message: "x" })
+    transport.emit({
+      event: "error",
+      code: "report_write_failed",
+      params: {},
+      message: "x",
+      command: "extract_playlist",
+    })
 
     expect(service.progress()).toBeNull()
     expect(service.extracting()).toBe(false)
@@ -355,6 +401,229 @@ describe("SidecarService", () => {
     await service.shutdown()
 
     expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({ command: "shutdown" })
+  })
+
+  it("sends the api key command", async () => {
+    await service.start()
+
+    await service.setApiKey("k3y-t0k3n")
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+      command: "set_api_key",
+      api_key: "k3y-t0k3n",
+    })
+  })
+
+  it("sends the start tagging command without thresholds", async () => {
+    await service.start()
+
+    await service.startTagging("C:/Sets")
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+      command: "start_tagging",
+      folder: "C:/Sets",
+    })
+  })
+
+  it("cancels a running run and stops it locally", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+
+    await service.cancelTagging()
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({ command: "cancel_run" })
+    expect(service.tagging()).toBe(false)
+  })
+
+  it("sends nothing when there is no run to cancel", async () => {
+    await service.start()
+    const before = transport.sent.length
+
+    await service.cancelTagging()
+
+    expect(transport.sent.length).toBe(before)
+  })
+
+  it("sends the thresholds when the settings impose them", async () => {
+    await service.start()
+
+    await service.startTagging("C:/Sets", { floor: 75, ceiling: 95 })
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+      command: "start_tagging",
+      folder: "C:/Sets",
+      thresholds: { floor: 75, ceiling: 95 },
+    })
+  })
+
+  it("replays a whole tagging run and reports every track", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+
+    transport.emit(RUN_STARTED)
+    transport.emit({ event: "progress", phase: "tagging", processed: 1, total: 1 })
+    transport.emit(TRACK_RESOLVED)
+    transport.emit({
+      event: "run_finished",
+      phase: "network",
+      run_id: "a3f9c1",
+      resolved: 1,
+      unresolved: 0,
+      awaiting_arbitration: 0,
+    })
+
+    expect(service.taggingTracks()[0]?.state).toBe("resolved")
+    expect(service.taggingProgress()).toEqual({ processed: 1, total: 1 })
+    expect(service.taggingFinished()?.resolved).toBe(1)
+    expect(service.tagging()).toBe(false)
+    expect(service.progress()).toBeNull()
+  })
+
+  it("keeps the extraction progress out of the tagging run", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+
+    transport.emit({ event: "progress", phase: "extraction", processed: 3, total: 10 })
+
+    expect(service.progress()?.processed).toBe(3)
+    expect(service.taggingProgress()).toBeNull()
+  })
+
+  it("leaves the tagging run alone when a write phase finishes", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    transport.emit({
+      event: "run_finished",
+      phase: "write",
+      run_id: "a3f9c1",
+      resolved: 1,
+      unresolved: 0,
+      awaiting_arbitration: 0,
+    })
+
+    expect(service.taggingFinished()).toBeNull()
+    expect(service.tagging()).toBe(true)
+  })
+
+  it("stops the tagging run on an error", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+    transport.emit(TRACK_RESOLVED)
+
+    transport.emit({
+      event: "error",
+      code: "api_key_rejected",
+      params: {},
+      message: "rejected",
+      command: "start_tagging",
+    })
+
+    expect(service.tagging()).toBe(false)
+    expect(service.lastError()?.code).toBe("api_key_rejected")
+    expect(service.taggingTracks()[0]?.state).toBe("resolved")
+  })
+
+  it("leaves a running tagging run alone when another command fails", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    // `start_tagging` tourne en tache de fond : la boucle du sidecar a lu et refuse une
+    // commande emise depuis un autre onglet pendant que le run continue.
+    transport.emit({
+      event: "error",
+      code: "api_key_not_stored",
+      params: {},
+      message: "keyring refused",
+      command: "set_api_key",
+    })
+
+    expect(service.tagging()).toBe(true)
+    expect(service.lastError()?.code).toBe("api_key_not_stored")
+  })
+
+  it("refuses to open a second run over a running one", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+    const sent = transport.sent.length
+
+    await service.startTagging("C:/Autre")
+
+    // Releve par /verify le 2026-09-24 : `reset()` vidait la liste du run en cours,
+    // que le sidecar laisse pourtant tourner en refusant la seconde commande.
+    expect(transport.sent.length).toBe(sent)
+    expect(service.taggingTracks().length).toBeGreaterThan(0)
+    expect(service.tagging()).toBe(true)
+  })
+
+  it("refuses to open a second extraction over a running one", async () => {
+    await service.start()
+    await service.extractPlaylist(EXTRACTION)
+    const sent = transport.sent.length
+
+    await service.extractPlaylist(EXTRACTION)
+
+    expect(transport.sent.length).toBe(sent)
+    expect(service.extracting()).toBe(true)
+  })
+
+  it("keeps the extraction going when a second one is refused", async () => {
+    await service.start()
+    await service.extractPlaylist(EXTRACTION)
+    transport.emit({ event: "progress", phase: "extraction", processed: 1, total: 5 })
+
+    transport.emit({
+      event: "error",
+      code: "extraction_in_progress",
+      params: {},
+      message: "an extraction is already in progress",
+      command: "extract_playlist",
+    })
+
+    expect(service.extracting()).toBe(true)
+    expect(service.progress()).not.toBeNull()
+  })
+
+  it("keeps a tagging run going when an extraction fails", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    // Les deux phases longues tournent en parallele : l'echec de l'une ne dit rien
+    // de l'autre, et l'ecran du tagging ne doit pas perdre son run.
+    transport.emit({
+      event: "error",
+      code: "report_write_failed",
+      params: {},
+      message: "report not written",
+      command: "extract_playlist",
+    })
+
+    expect(service.tagging()).toBe(true)
+    expect(service.taggingTracks().length).toBeGreaterThan(0)
+  })
+
+  it("keeps the run going when a second launch is refused", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+
+    // Releve par /verify le 2026-09-24 : le refus porte `start_tagging`, comme l'echec
+    // qui clot un run, mais ce code-la dit justement que le premier tourne toujours.
+    transport.emit({
+      event: "error",
+      code: "tagging_in_progress",
+      params: {},
+      message: "a run is already in progress",
+      command: "start_tagging",
+    })
+
+    expect(service.tagging()).toBe(true)
+    expect(service.lastError()?.code).toBe("tagging_in_progress")
   })
 
   it("writes a command as a single newline-terminated line", async () => {

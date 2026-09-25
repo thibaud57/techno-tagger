@@ -118,3 +118,5 @@ Comportements de la modale retenus au MVP :
 - Tentative de quitter l'application avec des morceaux encore en cours : modale de confirmation
 
 Post-MVP, l'agent IA s'insère avant l'ouverture de la modale sur la zone grise (cf. [ADR-008](008-matching-rapidfuzz-et-agent-ia.md)), sans modifier cet enchaînement.
+
+**Panne Beatport** (2026-09-19) : l'ADR ne déclenche Bandcamp que sur un vide ou un refus. Une panne Beatport n'est ni l'un ni l'autre, et l'appel n'a rien de spéculatif puisque Beatport n'a rien pu dire : Bandcamp est donc interrogé, mais sans validation automatique, chaque candidat passant par l'arbitrage. Une panne touche en général tout le run : sans repli, tout le run resterait en échec ; avec un repli automatique, il serait écrit en silence avec la source la moins riche.

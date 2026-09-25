@@ -14,6 +14,8 @@ paths:
 - Appeler `raise_for_status()` sur chaque réponse : sans lui, un `500` passe pour un succès et le mapping ne s'exécute jamais
 - Distinguer `HTTPStatusError` (réponse reçue, statut d'erreur) de `RequestError` (aucune réponse : DNS, connexion, timeout local), le diagnostic utilisateur n'étant pas le même
 - Télécharger une pochette par `stream()` en context manager, écrite au fil de `aiter_bytes()` vers le cache disque
+- Juger une URL venue du réseau sur les adresses qu'elle résout, jamais sur sa forme : un nom de domaine peut pointer la boucle locale
+- Relire l'adresse réellement connectée sur `network_stream` après la réponse : le client refait sa propre résolution après le contrôle, et un DNS qui en rend une autre entre les deux ferait sonder la machine (cf. [ARCHITECTURE.md § Sécurité Backend](../../../docs/ARCHITECTURE.md#sécurité-backend))
 - Injecter le transport en paramètre du constructeur : c'est ce qui rend `MockTransport` utilisable en test sans monkeypatch
 
 ## À éviter
@@ -23,6 +25,7 @@ paths:
 - Retryer une requête dont le corps a été consommé : c'est `StreamConsumed`, il faut la reconstruire
 - Sortir d'un `stream()` sans fermer le contexte : la connexion reste en vol
 - Laisser un échec de téléchargement de pochette échouer le morceau : les tags s'écrivent sans image et le rapport le signale
+- Distinguer les motifs de refus d'une URL contrôlée : un code par cause dirait à qui l'a forgée ce qui répond en interne. Un seul motif pour tous
 
 ## Gotchas
 - httpx2 est le fork de httpx par Pydantic Services : API identique mais import `httpx2` et transport `httpcore2`, ce n'est pas un drop-in silencieux

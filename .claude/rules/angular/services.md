@@ -10,7 +10,7 @@ paths:
 - Déclarer tout service avec `@Injectable({ providedIn: 'root' })`, ou son alias court `@Service()` (Angular 22)
 - Exposer l'état en lecture seule (`asReadonly()`, `computed()`) et le muter uniquement par des méthodes du service
 - Injecter avec `inject()` en champ `private readonly`
-- Un service d'état par feature, alimenté par le flux d'événements du sidecar ; `SidecarService` détient l'état du run et la file d'arbitrage
+- Créer un service d'état par phase et ne jamais l'injecter dans un composant : `SidecarService` route les événements et délègue leur lecture, `TaggingRunStore` porte l'état du re-tagging
 - Garder dans `core/models/` les types miroir du contrat NDJSON, maintenus à la main faute de package partagé avec le sidecar
 - Réserver `providers` sur un composant aux cas où l'état doit être isolé et réinitialisé avec lui
 - Utiliser `injectAsync(() => import('./x.service'), { prefetch: 'onIdle' })` pour un service lourd chargé à la demande

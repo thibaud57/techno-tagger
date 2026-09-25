@@ -1,2 +1,63 @@
-<!-- TODO: implement, liste du run et recapitulatif -->
-<h1 class="text-2xl font-semibold">{{ "tagging.title" | translate }}</h1>
+<div class="flex h-full min-h-0 flex-col gap-4">
+  <div class="flex items-center gap-4">
+    <h1 class="text-2xl font-semibold">{{ "tagging.title" | translate }}</h1>
+    <span class="flex-1"></span>
+    <!-- Le bouton reste visible et desactive pendant le run : `TaggingScreen.jsx` le fait
+         disparaitre hors phase `idle`, mais DESIGN.md interdit de masquer une action
+         desactivee, et c'est DESIGN.md qui tranche quand les deux se contredisent. -->
+    @if (running()) {
+      <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel()">
+        <app-icon name="stop" [size]="16" />{{ "tagging.cancel" | translate }}
+      </button>
+    }
+    @let blockedText = blockedReason() ? (blockedReason() | translate) : undefined;
+    <button
+      pButton
+      type="button"
+      [disabled]="!canStart()"
+      [pTooltip]="blockedText"
+      [showDelay]="tooltipDelay"
+      (click)="start()"
+    >
+      <app-icon name="play" [size]="16" />{{ "tagging.start" | translate }}
+    </button>
+  </div>
+
+  <div class="grid grid-cols-[max-content_max-content_1fr] items-center gap-4">
+    <app-path-picker
+      [label]="'tagging.folder.label' | translate"
+      [buttonLabel]="'tagging.folder.action' | translate"
+      [path]="folder()"
+      [placeholder]="'tagging.folder.none' | translate"
+      (pick)="choose()"
+    >
+      <app-icon icon name="folder" [size]="16" />
+    </app-path-picker>
+  </div>
+
+  @if (error(); as shown) {
+    <app-error-message [error]="shown" />
+  }
+
+  @if (running()) {
+    @let current = progress();
+    <app-phase-progress
+      [label]="'tagging.phase' | translate"
+      [counter]="current ? ('tagging.progress' | translate: current) : undefined"
+      [value]="percentage()"
+    />
+  }
+
+  @if (showsRun()) {
+    <div class="min-h-0 flex-1">
+      <app-run-list [tracks]="tracks()" [loading]="listing()" [interrupted]="interrupted()" />
+    </div>
+  } @else {
+    <app-empty-state
+      framed
+      icon="folder"
+      [heading]="'tagging.empty.heading' | translate"
+      [description]="idleDescription() | translate"
+    />
+  }
+</div>

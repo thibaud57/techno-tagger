@@ -1,6 +1,6 @@
 ---
 title: "RapidFuzz — Scoring de similarité des candidats"
-version: "3.14.5"
+version: "3.14.6"
 description: "Référence technique pour RapidFuzz : choix du scorer, processor explicite, seuils, extract/extractOne et différences de comportement avec fuzzywuzzy."
 date: "2026-08-29"
 keywords: ["rapidfuzz", "fuzzy-matching", "scoring", "fuzzywuzzy", "token-sort-ratio"]
@@ -22,25 +22,29 @@ Bibliothèque de similarité de chaînes qui score les candidats renvoyés par t
 
 ### Description
 
-Trois scorers couvrent les cas du projet, du plus strict au plus tolérant. La règle métier est reprise telle quelle de la CLI : `token_sort_ratio` quand l'artiste contient une virgule ou une esperluette, `ratio` sinon.
+Trois scorers couvrent les cas courants, du plus strict au plus tolérant. Le projet s'en tient à `ratio` : chaque artiste demandé se compare un à un aux crédits du candidat, ce qui absorbe déjà un ordre différent selon la source.
 
 ### Exemple
 
 ```python
-from rapidfuzz import fuzz, utils
+from rapidfuzz import fuzz, process, utils
 
-def artist_score(query: str, candidate: str) -> float:
-    scorer = fuzz.token_sort_ratio if ("," in query or "&" in query) else fuzz.ratio
-    return scorer(query, candidate, processor=utils.default_process)
+def artist_score(asked: list[str], credits: list[str]) -> float:
+    # un artiste absent n'est pas racheté par la présence des autres
+    return min(
+        process.extractOne(name, credits, scorer=fuzz.ratio, processor=utils.default_process)[1]
+        for name in asked
+    )
 ```
 
 ### Points Importants
 
-- **`ratio`** : similarité caractère par caractère, sensible à l'ordre. Le défaut quand la requête est déjà propre
-- **`token_sort_ratio`** : trie les mots avant de comparer, donc insensible à l'ordre. C'est ce qu'il faut quand plusieurs artistes sont listés dans un ordre différent selon la source
+- **`ratio`** : similarité caractère par caractère, sensible à l'ordre. Le scorer du projet, sur le titre comme sur chaque artiste
+- **`token_sort_ratio`** : trie les mots avant de comparer, donc insensible à l'ordre. Sur deux listes d'artistes jointes, il s'écroule dès que leurs longueurs divergent, ce qu'un tag incomplet provoque sans cesse : d'où la comparaison un à un
 - **`token_set_ratio`** : compare les ensembles de tokens et rend 100 si l'un est inclus dans l'autre. Le plus tolérant, donc le plus générateur de faux positifs : à ne pas utiliser seul comme critère d'auto-validation
 - `WRatio` est le scorer par défaut de `process.extract` : il combine plusieurs ratios avec pondération, pratique mais moins prévisible qu'un choix explicite
 - **Un candidat sans mention de remix est écarté quand la requête en contient une** : cette règle est en amont du scoring, pas dedans
+- **Une version ou un nombre du titre qui diffère bloque la validation automatique**, sans toucher au score : « Pt. 1 » contre « Pt. 2 » ne coûte qu'un caractère au `ratio`
 
 ---
 
@@ -109,7 +113,7 @@ from rapidfuzz import fuzz, process, utils
 best = process.extractOne(
     query,
     [c.title for c in candidates],
-    scorer=fuzz.token_sort_ratio,
+    scorer=fuzz.ratio,
     processor=utils.default_process,
     score_cutoff=FLOOR,
 )

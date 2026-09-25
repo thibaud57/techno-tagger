@@ -8,7 +8,7 @@ import sys
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, __main__, __version__
 
@@ -17,15 +17,20 @@ if TYPE_CHECKING:
 
 
 def test_logging_and_sentry_are_armed_before_the_loop() -> None:
+    parent = Mock()
     with (
         patch.object(__main__, "setup_logging", autospec=True) as setup,
         patch.object(__main__, "init_sentry", autospec=True) as sentry,
-        patch("sys.stdin", io.StringIO("")),
+        patch.object(__main__, "run_loop", autospec=True) as run_loop,
     ):
+        parent.attach_mock(setup, "setup_logging")
+        parent.attach_mock(sentry, "init_sentry")
+        parent.attach_mock(run_loop, "run_loop")
+
         __main__.main()
 
-    setup.assert_called_once()
-    sentry.assert_called_once()
+    order = [call[0] for call in parent.mock_calls]
+    assert order == ["setup_logging", "init_sentry", "run_loop"]
 
 
 def test_the_protocol_streams_are_forced_to_utf8(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -11,7 +11,7 @@ paths:
 - Nommer `describe` et `it` en anglais, comme les tests du sidecar ; les commentaires restent en français
 - Déclarer le composant testé dans `imports` de `TestBed.configureTestingModule()`
 - Alimenter un signal input par `fixture.componentRef.setInput(name, value)`
-- Tester un `effect()` dans `TestBed.runInInjectionContext()` puis forcer son exécution avec `TestBed.flushEffects()`
+- Tester un `effect()` dans `TestBed.runInInjectionContext()`, ou via le service qui le crée, puis forcer son exécution avec `TestBed.tick()` : `flushEffects()` est déprécié en Angular 22
 - Mocker avec `vi.fn()` et `vi.spyOn()`, et contrôler le temps par `vi.useFakeTimers()` / `vi.advanceTimersByTime()`
 - Récupérer la valeur d'un `output()` par `firstValueFrom()`
 - Assertions DOM : `not.toBeNull()` ou `toBeTruthy()`
