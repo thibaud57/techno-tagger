@@ -252,9 +252,9 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Sélection de dossier / de fichier | `button pButton` `primary` outlined en `size="small"` + plugin `dialog` de Tauri | PrimeNG + Tauri | Le chemin retenu s'affiche au bout de la ligne, aligné à droite, en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible |
+| Sélection de dossier / de fichier | `button pButton` `primary` outlined en `size="small"` + plugin `dialog` de Tauri | PrimeNG + Tauri | Chemin retenu en `text-muted-color`, tronqué par la gauche pour garder le nom du dossier visible. Aligné à droite sur Playlist, où trois chemins font colonne ; collé au bouton sur Tagging, seul sur sa ligne, et absent tant qu'aucun dossier n'est choisi |
 | Playlist détectée | Logo VLC (SVG) ou `file` | Simple Icons / PrimeIcons | Le logo signale un dump VLC reconnu. Un M3U8 tombe sur l'icône générique, le logiciel qui l'a exporté étant inconnu |
-| Sélecteur de playlist (dump VLC) | `p-select` en `size="small"` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une |
+| Sélecteur de playlist (dump VLC) | `p-select` en `size="small"` | PrimeNG | Option = nom de la playlist + nombre de morceaux. Masqué pour un M3U8, qui n'en contient qu'une. Fermé, un nom long se coupe à la largeur des contrôles et se lit au survol : `contain: inline-size` l'empêche d'élargir la colonne |
 | Mode copie / déplacement | `p-selectbutton` en `size="small"` | PrimeNG | Deux options, copie par défaut |
 | Lancement de l'extraction | `button pButton` `primary` en `size="small"` | PrimeNG | Sur la ligne du mode, calé sur le bord droit des chemins, à la largeur des libellés et des contrôles réunis. Désactivé, son tooltip nomme les choix manquants |
 | Résumé du run | Ligne de texte + `button pButton` secondary outlined en `size="small"` | PrimeNG | Remplace le formulaire dès le lancement (cf. § Layout). « Modifier » est figé pendant le run, puis rouvre le formulaire au-dessus du rapport |
@@ -265,14 +265,14 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Lancement du run | `button pButton` `primary`, taille par défaut | PrimeNG | Taille appariée à l'entête qui le porte et non à un formulaire dense, contrairement à celui de l'extraction. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
+| Lancement du run | `button pButton` `primary`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
 | Interruption du run | `button pButton` `severity="secondary"` outlined, icône `stop`, taille par défaut | PrimeNG | Visible seulement pendant un run, à gauche du lancement qui reste grisé : masquer une action désactivée est interdit. Ni `danger` ni confirmation : la phase réseau n'écrit aucun fichier et rien n'est irréversible avant l'écriture |
 | Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image ; le squelette tant que le morceau attend son tour ; un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
 | État d'un morceau | `p-tag` + `pTooltip` | PrimeNG | Familles du § Couleurs Sémantiques. Un non résolu porte l'icône info et son motif au survol |
 | Source retenue | SVG Simple Icons + libellé | Simple Icons | Beatport / Bandcamp / SoundCloud |
 | Détail avant / après | `[expandedRowKeys]` + `<ng-template #expandedrow>` | PrimeNG | Comparaison champ par champ, pochette en grand, sur le morceau déplié |
-| Texte tronqué d'une colonne fluide | `pTooltip` | PrimeNG | Avant et Après sont fluides et tronquent en permanence et ce sont exactement les deux chaînes que l'utilisateur compare. Jamais seul porteur d'une information, cf. § Tokens de Tooltip |
+| Texte tronqué d'une colonne fluide | `pTooltip` | PrimeNG | Avant, nom de fichier compris, et Après sont fluides et tronquent en permanence : ce sont exactement les deux chaînes que l'utilisateur compare. Jamais seul porteur d'une information, cf. § Tokens de Tooltip |
 | Progression d'une phase | `p-progressbar` + compteur | PrimeNG | Alimentée par l'événement `progress` du sidecar |
 | Chargement | `SkeletonRowsComponent`, puis `p-skeleton` | PrimeNG | Deux temps. Tant que la table est vide, `SkeletonRowsComponent` en remplit la hauteur de lignes entières, par le template `#emptymessage`. Dès la première ligne reçue, le squelette ne tient plus que la vignette d'un morceau qui attend son tour, les autres cellules portant le cadratin du § Séparateurs : un squelette par cellule ferait clignoter la table à chaque événement |
 
@@ -325,7 +325,7 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Logo de source | `SourceLogoComponent` | Simple Icons | Les logos de source en `currentColor`, même jeu de tailles que les icônes |
 | État d'un morceau | `StateTagComponent` | PrimeNG (`p-tag`) | Porte le mapping `state` / `resolution` / `failure_reason` → famille, icône, libellé. Entièrement spécifié au § Couleurs Sémantiques : l'encoder une fois évite qu'il soit re-dérivé, de travers, écran par écran |
 | Bloc vide | `EmptyStateComponent` | — (from scratch) | Le bloc vide décrit au § États des Composants. PrimeNG n'a pas d'équivalent, il s'écrit from scratch |
-| Sélection de chemin | `PathPickerComponent` | PrimeNG (`pButton`, `pLabel`) | Libellé, bouton et chemin retenu, un par dossier ou fichier à choisir. Ses trois éléments sont des cellules de la grille de l'appelant (`display: contents`) : libellés, boutons et chemins s'alignent en colonnes d'un sélecteur à l'autre |
+| Sélection de chemin | `PathPickerComponent` | PrimeNG (`pButton`, `pLabel`) | Libellé facultatif, bouton et chemin retenu, un par dossier ou fichier à choisir. Ses éléments sont des cellules de la grille de l'appelant (`display: contents`) : libellés, boutons et chemins s'alignent en colonnes d'un sélecteur à l'autre. `pathAlign` colle le chemin au bouton quand aucune colonne de chemins n'est à aligner |
 | Progression d'une phase | `PhaseProgressComponent` | PrimeNG (`p-progressbar`) | Libellé et compteur au-dessus de la barre, que `p-progressbar` ne sait pas porter. La barre n'écrit aucune valeur, le compteur la porte. Sans valeur, elle passe en indéterminée |
 | Table pleine hauteur | `fullHeightTable` (`shared/utils/table.ts`) | PrimeNG (`[pt]` de `p-table`) | Fond de ligne sur toute la hauteur du conteneur et table étirée quand elle est vide pour centrer son bloc vide. Jamais étirée remplie : ses lignes dépasseraient la hauteur attendue par le défilement virtuel |
 | Lignes en attente | `SkeletonRowsComponent` | PrimeNG (`p-skeleton`) | Lignes entières en squelette, à la hauteur et au filet des vraies, posées dans la cellule du `#emptymessage` qu'elles remplissent. `p-table` ne sait pas rendre une table en chargement : sans elles, la table vide affiche son bloc vide avant le premier événement, ce qui annonce l'inverse de ce qui se passe |
@@ -351,10 +351,10 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Survol d'une zone cliquable custom | `bg-emphasis`, transition `background-color 150ms ease-out` | Jamais de déplacement ni de scale : les lignes de la liste ne bougent pas sous le curseur |
 | Sélection | `bg-highlight` | Cohérent avec la sélection des composants PrimeNG |
 | Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier, `outline: none` est interdit |
-| Désactivé | `--p-disabled-opacity` (0.6) + `cursor: not-allowed` | Un bouton désactivé garde son libellé, il n'est jamais masqué |
+| Désactivé | `--p-disabled-opacity` (0.6), curseur flèche | Un bouton désactivé garde son libellé, il n'est jamais masqué. La flèche comme sur les boutons PrimeNG et dans une application Windows, `not-allowed` étant une convention web : le grisé et le tooltip disent déjà pourquoi |
 | Chargement | `p-skeleton` aux dimensions de l'élément final | Évite le saut de layout à l'arrivée des événements. Une table encore vide se couvre de lignes entières, une table déjà peuplée n'en garde que sur la vignette (§ Mapping Composants) |
 | Sans valeur | Cadratin en `text-muted-color`, cf. § Séparateurs | Cellule d'une ligne qui existe, mais dont la source ne fournit pas la donnée : Après, Source et Score d'un morceau non résolu. Un trait d'union se lirait comme un caractère du contenu, une cellule vide comme un rendu manqué |
-| Curseur | Flèche partout, `text` sur les seuls champs de saisie | Le curseur texte sur une table ou un libellé fait lire une page web |
+| Curseur | Flèche partout, contrôles désactivés compris, `text` sur les seuls champs de saisie | Le curseur texte sur une table ou un libellé fait lire une page web |
 | Vide | Icône 24px en `text-muted-color`, titre en `text-base`, une phrase en `text-sm text-muted-color` et l'action qui débloque quand elle existe | Les cas à couvrir : aucune extraction lancée, dossier sans fichier audio, playlist dont aucun morceau n'est retrouvé dans la source, aucun run lancé, cache déjà vide. Titre et phrase sont deux libellés distincts, la phrase disant le geste qui débloque. Dans une table, le template `#emptymessage` de `p-table` porte ce bloc, centré sur toute la hauteur par `fullHeightTable`. Sa cellule pose `border-b-0` : le pass-through n'atteint pas les lignes et la bordure basse traînerait au pied de la table |
 
 ### Tailles de Badge
@@ -478,9 +478,13 @@ Ces trois colonnes se figent pour la raison du rapport, doublée ici : leur cont
 
 Sans largeur figée sur État, la colonne se redimensionne au défilement selon les tags que le défilement virtuel a montés et la table bouge sous le curseur.
 
+Les deux tables sont en `table-layout: fixed`. En disposition auto, les largeurs de l'en-tête ne sont qu'indicatives : les colonnes suivaient le contenu et bougeaient à chaque morceau résolu.
+
 **Ce qui demande un geste ouvre le rapport** : échecs de transfert, introuvables, puis doublons départagés et enfin les déjà présents et les extraits. Un rapport de plusieurs centaines de lignes se lit par le haut et ce qui est passé tout seul n'attend rien de l'utilisateur.
 
 **Onglet Playlist en deux temps.** Le formulaire est une grille de trois colonnes, `grid-cols-[max-content_max-content_1fr]` en `gap-4` : libellés, contrôles de même largeur, chemins alignés à droite et « Extraire la playlist » sur la ligne du mode, calé à droite. Dès le lancement, il cède la place à une ligne de résumé, source › destination › playlist · mode, avec la barre de progression dessous pendant le run. Le rapport récupère ainsi la hauteur du formulaire (le 2026-09-17 : 12 lignes visibles à 1280 × 800, 10 au plancher). « Modifier » rouvre le formulaire sans masquer le rapport et le lancement suivant replie de nouveau.
+
+**Onglet Tagging** : le titre seul, puis la ligne du dossier en `grid-cols-[max-content_1fr_max-content]` : bouton de sélection, chemin collé à lui, actions du run calées à droite. Ni libellé ni « Aucun dossier sélectionné » : le bloc vide dit déjà quoi faire.
 
 **Source dit d'où vient la donnée écrite, État dit par quel chemin on y est arrivé.** Un morceau résolu en collant une URL SoundCloud affiche donc SoundCloud en source et « URL » en état : c'est la seule voie par laquelle SoundCloud entre dans le produit, jamais la recherche automatique. C'est la même séparation que celle posée entre `state` et `resolution` dans le contrat NDJSON, portée cette fois côté affichage.
 

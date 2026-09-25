@@ -27,7 +27,7 @@ paths:
 ## Gotchas
 - La classe `rounded-border` du plugin applique le rayon de contenu sans passer par la variable
 - Les rayons viennent des primitives du preset Aura, consommées telles quelles : le tableau des usages est dans [DESIGN.md § Formes](../../../docs/DESIGN.md#formes)
-- Un bouton désactivé garde son libellé et n'est jamais masqué : opacité du token `--p-disabled-opacity` plus `cursor: not-allowed`
+- Un bouton désactivé garde son libellé et n'est jamais masqué : opacité du token `--p-disabled-opacity`, curseur flèche comme `p-button`, jamais `cursor: not-allowed`
 - Un `p-skeleton` aux dimensions de la ligne finale évite le saut de layout à l'arrivée des événements
 
 ## Exemples

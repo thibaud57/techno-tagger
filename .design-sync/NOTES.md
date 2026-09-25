@@ -141,4 +141,9 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 - **2026-09-25, « Extraire la playlist » sur la ligne du mode** : réserve n° 12. Le bouton quitte
   sa ligne pour celle du mode, calé à droite, sans changer de largeur : la grille devient un
   container et la largeur vaut `100cqw` moins la colonne des chemins et un gap. `PlaylistScreen`
-  et `readme.md` poussés après relecture du distant, `_ds_needs_recompile` posé.
+  et `readme.md` poussés après relecture du distant, `_ds_needs_recompile` posé. Même jour, un
+  contrôle désactivé garde la flèche du curseur comme l'application : `not-allowed` quitte six
+  composants, la carte « Focus et désactivé » et le readme, relus sur le distant avant envoi.
+  Puis Tagging perd son libellé et son « Aucun dossier sélectionné », le lancement descend sur
+  la ligne du dossier : `TaggingScreen`, `PathPicker` (libellé facultatif, `pathAlign`), `Select`
+  (libellé long coupé avec tooltip) et le readme poussés après relecture du distant.
