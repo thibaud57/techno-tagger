@@ -187,7 +187,7 @@ def test_refuses_a_second_extraction_while_one_is_in_progress(
     vlc_dump: Path, music_library: Path, tmp_path: Path
 ) -> None:
     """Regression : sans extraction retenue, la premiere finissait parfois avant la
-    lecture de la seconde, et rien n'etait refuse.
+    lecture de la seconde et rien n'etait refuse.
     """
     extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
 

@@ -17,7 +17,7 @@
 - **Aucun événement de fin au contrat** : l'interface pose l'état après avoir émis la commande, comme `endRun()` le fait déjà quand le process meurt. Un événement de confirmation laisserait une fenêtre où le bouton est cliqué mais où l'écran tourne encore (décision de la spec).
 - **Aucun état de morceau nouveau** : les morceaux non atteints portent « Non traité », `secondary` et `minus-circle`, livré le 2026-09-25. La cause de l'arrêt appartient au run, pas à la ligne.
 - **Le bouton s'ajoute, il ne remplace pas** : DESIGN.md interdit de masquer une action désactivée, arbitrage déjà tranché dans le sub-project 10 contre la maquette. « Lancer le run » reste visible et grisé pendant le run.
-- **`secondary` outlined, jamais `danger`** : le rouge est réservé aux trois actions qui touchent aux fichiers musicaux, et la phase réseau n'écrit rien. Sans confirmation pour la même raison.
+- **`secondary` outlined, jamais `danger`** : le rouge est réservé aux trois actions qui touchent aux fichiers musicaux et la phase réseau n'écrit rien. Sans confirmation pour la même raison.
 - **`assert_never` du dispatch** : ajouter la commande à `ExecutableCommand` sans son `case` casse la compilation, ce qui est le bon symptôme (cf. `.claude/rules/python/type-hints.md`).
 - **i18n** : aucun libellé en dur, FR et EN dans le même commit, action à l'infinitif.
 - **Tests** : noms en anglais, AAA séparé par une ligne vide, règle no-lib-test. Ni `Task.cancel` ni `pButton` ne se testent, seule notre logique le fait.
@@ -32,7 +32,7 @@
 | `sidecar/src/tagger/protocol.py` | Modèle `CancelRun`, littéral dans `CommandName` et les deux unions. |
 | `sidecar/src/tagger/__main__.py` | Branche `CancelRun` du dispatch, `cancel_run()` asynchrone qui attend le run annulé. |
 | `sidecar/tests/unit/test_protocol_models.py` | La commande se parse. |
-| `sidecar/tests/integration/test_ndjson_loop.py` | Un run annulé libère la boucle, et la relance qui suit n'est pas refusée. |
+| `sidecar/tests/integration/test_ndjson_loop.py` | Un run annulé libère la boucle et la relance qui suit n'est pas refusée. |
 | `src/app/core/models/protocol.ts` | Miroir de la commande dans l'union. |
 | `src/app/core/sidecar.service.ts` | `cancelTagging()` : émission puis état local. |
 | `src/app/core/sidecar.service.spec.ts` | Commande émise, run arrêté, rien sans run. |
@@ -87,7 +87,7 @@ class CancelRun(Command):
     command: Literal["cancel_run"]
 ```
 
-Puis l'ajouter à `AnyCommand`, à `ExecutableCommand` — contrairement à `Shutdown`, qui en est exclu parce que la boucle le traite elle-même — et `"cancel_run"` à `CommandName`, après `"shutdown"`.
+Puis l'ajouter à `AnyCommand`, à `ExecutableCommand` (contrairement à `Shutdown`, qui en est exclu parce que la boucle le traite elle-même) et `"cancel_run"` à `CommandName`, après `"shutdown"`.
 
 Le test de cohérence déjà en place dans ce fichier apparie les littéraux de `CommandName` aux modèles de l'union : il couvre l'ajout sans modification.
 
@@ -97,18 +97,34 @@ Dans `sidecar/src/tagger/__main__.py`, rendre `_Session.cancel_run()` asynchrone
 
 ```python
     async def cancel_run(self) -> None:
+        """`shutdown` n'attend pas la fin d'un run, il l'annule.
+
+        L'extraction est au contraire attendue : le run ne tient que du reseau et de
+        la memoire, quand une copie coupee en vol laisserait un fichier a moitie ecrit
+        dans la destination de l'utilisateur.
+        """
         running = self._active_run()
         if running is not None:
             running.cancel()
+            # Attendu avant la commande suivante : sa sortie du cache attend les
+            # telechargements en vol et une relance lue entre-temps le trouverait
+            # vivant, refusee en `tagging_in_progress` que l'interface lit comme un run
+            # qui continue. `wait` ne releve pas l'annulation, il la laisse a la tache.
             await asyncio.wait({running})
+```
+
+Le docstring préexiste, seuls `async` et l'attente sont nouveaux. Dans la boucle et le dispatch :
+
+```python
+            if isinstance(command, Shutdown):
+                await session.cancel_run()
+                return
 ```
 
 ```python
         case CancelRun():
             await session.cancel_run()
 ```
-
-`asyncio.wait` et non `await running` : il ne relève pas l'annulation de la tâche attendue, qu'il laisse à celle-ci, et propage celle de la boucle si elle arrive pendant l'attente.
 
 Sans ce `case`, `assert_never` fait échouer mypy : c'est le filet qui garantit qu'aucune commande n'entre au contrat sans handler.
 
@@ -242,11 +258,7 @@ export interface CancelRunCommand {
 Dans `src/app/core/sidecar.service.ts`, au-dessus de `shutdown()` :
 
 ```typescript
-  /**
-   * Arrete le run en cours : le dossier lance par erreur cesse de consommer le quota
-   * de l'API. L'etat se pose ici sans attendre d'evenement, l'interface etant la source
-   * du geste : c'est ce que `endRun` fait deja quand le process meurt.
-   */
+  /** Pose l'etat sans attendre d'evenement, comme `endRun` a la mort du process : rien ne le confirmera. */
   async cancelTagging(): Promise<void> {
     if (!this.taggingRun.running()) {
       return
@@ -310,7 +322,7 @@ Dans `src/app/features/tagging/tagging-page.component.spec.ts`, ajouter `cancelT
   })
 ```
 
-La requête passe par l'icône plutôt que par le libellé : les tests montent `provideTranslateService()` sans catalogue, et les clés s'y rendent brutes.
+La requête passe par l'icône plutôt que par le libellé : les tests montent `provideTranslateService()` sans catalogue et les clés s'y rendent brutes.
 
 - [ ] **Step 2: Vérifier que les tests échouent**
 
@@ -327,11 +339,11 @@ Dans `src/app/shared/components/icon.component.ts` : importer `Stop` depuis `@pr
       }
 ```
 
-`stop` plutôt que `times` ou `ban` : c'est le pendant du `play` du lancement, et `times` porte déjà l'échec dans les tags d'état. Le test existant parcourt `ICON_NAMES` et couvre l'ajout sans modification.
+`stop` plutôt que `times` ou `ban` : c'est le pendant du `play` du lancement et `times` porte déjà l'échec dans les tags d'état. Le test existant parcourt `ICON_NAMES` et couvre l'ajout sans modification.
 
 - [ ] **Step 4: Ajouter les libellés**
 
-Dans `public/i18n/fr.json` et `en.json`, sous `tagging`, juste après `start` pour que les deux actions de l'en-tête voisinent : `"cancel": "Interrompre"` et `"cancel": "Stop"`.
+Dans `public/i18n/fr.json` et `en.json`, sous `tagging`, juste après `start` pour que les deux actions de l'en-tête voisinent : `"cancel": "Interrompre"` et `"cancel": "Stop the run"`, symétrique du « Start the run » voisin.
 
 - [ ] **Step 5: Poser le bouton**
 
@@ -347,7 +359,7 @@ Dans `.html`, avant le `@let` du tooltip de blocage, donc à gauche du bouton de
 
 ```html
     @if (running()) {
-      <button pButton type="button" severity="secondary" outlined (click)="cancel()">
+      <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel()">
         <app-icon name="stop" [size]="16" />{{ "tagging.cancel" | translate }}
       </button>
     }
@@ -361,7 +373,7 @@ Expected: PASS
 - [ ] **Step 7: Vérifier l'écran**
 
 Run: `just dev`, puis lancer un run sur un dossier et cliquer « Interrompre »
-Expected: la progression s'arrête, les morceaux déjà résolus gardent source, scores et pochette, les suivants passent à « Non traité », et « Lancer le run » redevient actif
+Expected: la progression s'arrête, les morceaux déjà résolus gardent source, scores et pochette, les suivants passent à « Non traité » et « Lancer le run » redevient actif
 
 - [ ] **Step 8: Documenter**
 

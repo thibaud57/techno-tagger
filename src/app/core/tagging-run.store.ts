@@ -126,7 +126,7 @@ export class TaggingRunStore {
   /** Erreur du sidecar ou process mort : le run s'arrete, les lignes restent. */
   failed(): void {
     this._running.set(false)
-    // Avant `run_started` aucune ligne n'existe, et apres `run_finished` le run a sa fin :
+    // Avant `run_started` aucune ligne n'existe et apres `run_finished` le run a sa fin :
     // dans les deux cas il n'y a rien a etiqueter « non traite ». Le process peut mourir
     // apres la fin du run, pendant l'ecriture.
     this._interrupted.set(this._runId() !== null && this._finished() === null)

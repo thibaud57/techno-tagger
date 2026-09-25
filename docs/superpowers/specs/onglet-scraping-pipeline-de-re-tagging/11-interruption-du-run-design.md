@@ -18,13 +18,13 @@ date: "2026-09-25"
 
 ## Scope
 
-Couvre l'arrêt d'un run de re-tagging à la demande de l'utilisateur : la commande `cancel_run` du contrat NDJSON, son émission par le service, et le bouton qui la déclenche dans l'onglet Tagging. Le run s'arrête là où il en est, les morceaux déjà résolus gardent leurs résultats, et ceux que le run n'a pas atteints portent l'état « Non traité » déjà livré.
+Couvre l'arrêt d'un run de re-tagging à la demande de l'utilisateur : la commande `cancel_run` du contrat NDJSON, son émission par le service et le bouton qui la déclenche dans l'onglet Tagging. Le run s'arrête là où il en est, les morceaux déjà résolus gardent leurs résultats et ceux que le run n'a pas atteints portent l'état « Non traité » déjà livré.
 
-Exclut la reprise d'un run arrêté (Feature 6), l'interruption d'une extraction, qui est au contraire attendue jusqu'à son terme (cf. `cancel_run` de `_Session`, décision de l'[ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)), et la confirmation d'écriture, que le run interrompu laisse disponible sur ses morceaux résolus (Feature 5).
+Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (Feature 5), que le run interrompu laisse disponible sur ses morceaux résolus. Exclut aussi l'interruption d'une extraction, attendue au contraire jusqu'à son terme (cf. `cancel_run` de `_Session`, décision de l'[ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)).
 
 ### État livré
 
-À la fin de ce sub-project, on peut : lancer un run sur un dossier, voir les premières lignes se résoudre, cliquer « Interrompre », constater que la progression s'arrête immédiatement, que les lignes déjà résolues gardent leur source et leurs scores, et que les suivantes affichent « Non traité ».
+À la fin de ce sub-project, on peut : lancer un run sur un dossier, voir les premières lignes se résoudre, cliquer « Interrompre », constater que la progression s'arrête immédiatement, que les lignes déjà résolues gardent leur source et leurs scores et que les suivantes affichent « Non traité ».
 
 ## Dependencies
 
@@ -57,12 +57,12 @@ Exclut la reprise d'un run arrêté (Feature 6), l'interruption d'une extraction
 
 ## Architecture approach
 
-- **La mécanique d'annulation existe déjà** : `_Session.cancel_run()` annule la tâche du run, et `shutdown` s'en sert depuis le sub-project 07. Ce sub-project l'expose comme commande et la rend **asynchrone** : elle attend que le run ait fini de mourir avant de rendre la main, sa sortie du cache attendant les téléchargements en vol. Sans cette attente, une relance lue entre-temps trouvait la tâche vivante et partait en `tagging_in_progress`, code que l'interface lit comme un run qui continue : l'écran restait bloqué en chargement. `run_tagging` étant une coroutine et non un `to_thread`, l'annulation atteint réellement les requêtes en vol : le quota techno-scraper cesse d'être consommé, ce qui est la raison d'être de la commande.
+- **La mécanique d'annulation existe déjà** : `_Session.cancel_run()` annule la tâche du run et `shutdown` s'en sert depuis le sub-project 07. Ce sub-project l'expose comme commande et la rend **asynchrone** : elle attend que le run ait fini de mourir avant de rendre la main, sa sortie du cache attendant les téléchargements en vol. Sans cette attente, une relance lue entre-temps trouvait la tâche vivante et partait en `tagging_in_progress`, code que l'interface lit comme un run qui continue : l'écran restait bloqué en chargement. `run_tagging` étant une coroutine et non un `to_thread`, l'annulation atteint réellement les requêtes en vol : le quota techno-scraper cesse d'être consommé, ce qui est la raison d'être de la commande.
 - **Aucun événement de fin n'est ajouté au contrat.** L'interface sait que le run s'est arrêté puisqu'elle l'a demandé : lui renvoyer l'information serait un aller-retour pour une chose déjà connue. `cancelTagging()` envoie la commande puis appelle `TaggingRunStore.failed()`, exactement ce que `endRun()` fait déjà quand le process meurt.
-- **Commande sans champ**, sur le modèle de `Shutdown` et `GetVersion` : le sidecar n'a qu'un run à la fois (`TaggingInProgressError` le garantit), il n'y a donc pas de `run_id` à désigner. Idempotente : `cancel_run()` ne fait rien si aucun run ne tourne, et l'interface ne montre le bouton que pendant un run.
-- **Traitée par le `_dispatch` et non par la boucle**, contrairement à `Shutdown` qui doit en sortir : l'annulation laisse la session vivante, et le `assert_never` du `match` verrouille l'oubli d'un handler (cf. `.claude/rules/python/type-hints.md`).
-- **Aucun état de morceau nouveau** : un morceau que le run n'a pas atteint porte « Non traité », `secondary` et `minus-circle`, livré le 2026-09-25. Du point de vue de la ligne, un run annulé et un run planté disent la même chose — rien ne lui est arrivé. La cause appartient au run, qui la porte une fois, en haut de l'écran : un bandeau d'erreur quand il a planté, rien quand l'utilisateur a cliqué (décision ci-dessous).
-- **Le bouton s'ajoute à gauche de celui du lancement**, qui reste visible et grisé : DESIGN.md interdit de masquer une action désactivée, arbitrage déjà tranché dans le sub-project 10 contre la maquette, qui fait disparaître le lancement hors phase `idle`. `secondary` outlined et non `danger` : le rouge est réservé aux trois actions qui touchent aux fichiers musicaux, et la phase réseau n'écrit rien.
+- **Commande sans champ**, sur le modèle de `Shutdown` et `GetVersion` : le sidecar n'a qu'un run à la fois (`TaggingInProgressError` le garantit), il n'y a donc pas de `run_id` à désigner. Idempotente : `cancel_run()` ne fait rien si aucun run ne tourne et l'interface ne montre le bouton que pendant un run.
+- **Traitée par le `_dispatch` et non par la boucle**, contrairement à `Shutdown` qui doit en sortir : l'annulation laisse la session vivante et le `assert_never` du `match` verrouille l'oubli d'un handler (cf. `.claude/rules/python/type-hints.md`).
+- **Aucun état de morceau nouveau** : un morceau que le run n'a pas atteint porte « Non traité », `secondary` et `minus-circle`, livré le 2026-09-25. Du point de vue de la ligne, un run annulé et un run planté disent la même chose : rien ne lui est arrivé. La cause appartient au run, qui la porte une fois, en haut de l'écran : un bandeau d'erreur quand il a planté, rien quand l'utilisateur a cliqué (décision ci-dessous).
+- **Le bouton s'ajoute à gauche de celui du lancement**, qui reste visible et grisé : DESIGN.md interdit de masquer une action désactivée, arbitrage déjà tranché dans le sub-project 10 contre la maquette, qui fait disparaître le lancement hors phase `idle`. `secondary` outlined et non `danger` : le rouge est réservé aux trois actions qui touchent aux fichiers musicaux et la phase réseau n'écrit rien.
 - **Sans confirmation** : rien d'irréversible ne se produit, aucun fichier n'étant modifié avant la confirmation globale de l'écriture (`.claude/CLAUDE.md` § Standards). Une modale à l'instant où l'utilisateur veut que ça s'arrête ajouterait un clic à un geste déjà décidé.
 - **i18n** : `tagging.cancel` dans les deux langues au même commit, libellé d'action à l'infinitif (cf. `.claude/rules/ngx-translate/i18n.md`).
 
@@ -119,7 +119,7 @@ Exclut la reprise d'un run arrêté (Feature 6), l'interruption d'une extraction
 ## Edge cases
 
 - **Aucun run en cours** : `cancel_run()` ne trouve pas de tâche active et ne fait rien. Aucune erreur n'est émise, l'interface n'exposant pas le bouton hors run.
-- **Interruption pendant le parcours du dossier**, avant `run_started` : la lecture des tags passe par des `to_thread` dont l'annulation attend la fin, quelques centaines de millisecondes sur un gros dossier. Le run s'arrête ensuite sans émettre `run_started`, et `TaggingRunStore.failed()` n'étiquette rien, aucune ligne n'existant encore.
+- **Interruption pendant le parcours du dossier**, avant `run_started` : la lecture des tags passe par des `to_thread` dont l'annulation attend la fin, quelques centaines de millisecondes sur un gros dossier. Le run s'arrête ensuite sans émettre `run_started` et `TaggingRunStore.failed()` n'étiquette rien, aucune ligne n'existant encore.
 - **Arbitrages déjà tranchés** : perdus avec le run, la Feature 3 n'ayant pas de persistance d'arbitrage. Rien ne les recharge à la relance.
 
 ## Architectural decisions
@@ -135,7 +135,7 @@ Exclut la reprise d'un run arrêté (Feature 6), l'interruption d'une extraction
 
 **Rationale :**
 
-- L'interface ne devine rien ici : elle est la source du geste, et l'état qu'elle pose est la conséquence directe de sa propre commande. C'est le cas inverse du champ `command` ajouté à `Error` le 2026-09-25, où elle devinait la commande fautive d'une chose qu'elle n'avait pas émise.
+- L'interface ne devine rien ici : elle est la source du geste et l'état qu'elle pose est la conséquence directe de sa propre commande. C'est le cas inverse du champ `command` ajouté à `Error` le 2026-09-25, où elle devinait la commande fautive d'une chose qu'elle n'avait pas émise.
 - `endRun()` applique déjà ce patron pour la mort du process : `failed()` est appelé sans qu'aucun événement l'annonce, faute d'un sidecar pour l'émettre.
 - Un événement de confirmation laisserait une fenêtre où le bouton a été cliqué mais où l'écran tourne encore, avec la question de son état pendant ce temps. Rien ne justifie cette latence pour un geste dont l'effet local est certain.
 
@@ -143,8 +143,8 @@ Exclut la reprise d'un run arrêté (Feature 6), l'interruption d'une extraction
 
 **Options envisagées :**
 
-- **A. Un état « Annulé »** : distingue le morceau que l'utilisateur a choisi de ne pas traiter de celui que le run a raté. Demande une clé i18n, une ligne dans le tableau des libellés de DESIGN.md, et un glyphe de plus dans la famille Neutre.
-- **B. Le « Non traité » existant** : les deux causes partagent l'état, et la cause vit au niveau du run.
+- **A. Un état « Annulé »** : distingue le morceau que l'utilisateur a choisi de ne pas traiter de celui que le run a raté. Demande une clé i18n, une ligne dans le tableau des libellés de DESIGN.md et un glyphe de plus dans la famille Neutre.
+- **B. Le « Non traité » existant** : les deux causes partagent l'état et la cause vit au niveau du run.
 
 **Choix : B**
 
@@ -152,4 +152,4 @@ Exclut la reprise d'un run arrêté (Feature 6), l'interruption d'une extraction
 
 - `state` / `resolution` / `failure_reason` décrivent ce qui est arrivé **au morceau**. Un run annulé et un run planté lui disent la même chose : il n'a pas eu son tour. La cause est une propriété du run, la répéter sur chaque ligne en ferait cent copies d'une information unique.
 - Elle est déjà à l'écran une fois, au bon endroit : un run planté affiche son bandeau d'erreur traduit, un run arrêté n'affiche rien parce que l'utilisateur vient de cliquer. Dans les deux cas il sait avant de lire la colonne.
-- Deux pastilles neutres à glyphe voisin ne se distinguent pas au balayage d'un tableau de cent lignes, et DESIGN.md interdit par ailleurs `warn` sur un état de morceau, ce qui exclut de les séparer par la couleur.
+- Deux pastilles neutres à glyphe voisin ne se distinguent pas au balayage d'un tableau de cent lignes et DESIGN.md interdit par ailleurs `warn` sur un état de morceau, ce qui exclut de les séparer par la couleur.

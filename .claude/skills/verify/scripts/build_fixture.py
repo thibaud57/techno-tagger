@@ -1,4 +1,4 @@
-"""Batit une fixture de test sous un dossier jetable, et rend son chemin en JSON.
+"""Batit une fixture de test sous un dossier jetable et rend son chemin en JSON.
 
 Le script vit dans le skill, sa sortie dans le scratchpad : jamais un mp3 dans le depot,
 jamais une vraie bibliotheque touchee. Usage, depuis la racine du depot :
