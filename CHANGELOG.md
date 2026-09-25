@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/thibaud57/techno-tagger/compare/v0.2.0...v0.3.0) (2026-09-25)
+
+
+### Features
+
+* onglet Tagging et pipeline de re-tagging ([#26](https://github.com/thibaud57/techno-tagger/issues/26)) ([4db2271](https://github.com/thibaud57/techno-tagger/commit/4db2271e19233c7028e71a2467d13c8b0fb2956f))
+
 ## [0.2.0](https://github.com/thibaud57/techno-tagger/compare/v0.1.0...v0.2.0) (2026-09-18)
 
 
