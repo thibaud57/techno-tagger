@@ -55,16 +55,14 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 > compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
 > les garder ici en ferait deux sources pour une même règle.
 
-> L'export local est un miroir exact du distant au 2026-09-25, vérifié fichier par fichier
-> (`list_files` contre `find`), à l'ancre `_ds_needs_recompile` près, qui est un état machine
-> éphémère que l'app efface et n'a donc pas à vivre ici.
+- **L'export local n'est un miroir que fichier par fichier vérifié.** Une session peut pousser au
+  distant sans mettre l'export à jour, et rien ne le signale : le 2026-09-25, une autre session a
+  réécrit `readme.md` et `TaggingScreen.jsx` après qu'un premier alignement l'eut déclaré exact.
+  **Relire le fichier distant avant d'en pousser un**, jamais une copie locale : renvoyer la copie
+  aurait écrasé ce travail. Les fichiers touchés ce jour-là sont alignés et vérifiés ; les autres
+  n'ont pas été comparés un à un. Une comparaison complète se fait depuis la session principale,
+  seule à disposer de `DesignSync` : un sous-agent ne l'a pas.
 
-- **L'interruption d'un run n'existe pas dans la maquette** : `TaggingScreen` fait disparaître
-  le bouton de lancement hors phase `idle` et n'offre aucun arrêt. L'écran livré ajoute
-  « Interrompre », `secondary` outlined à icône `stop`, à gauche du lancement qui reste
-  visible et grisé. Raison : un dossier lancé par erreur consommait le quota de l'API
-  jusqu'au bout, la seule sortie étant de fermer la fenêtre. À pousser au prochain sync
-  (spec `11-interruption-du-run-design.md`).
 
 ## Journal
 
@@ -111,6 +109,15 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   passage livre « Non traité » : la famille Neutre gagne un second glyphe, `minus-circle`, pour
   le morceau qu'un run interrompu n'a jamais atteint, l'horloge y promettant une suite qui ne
   viendra pas. Et un bloc vide porte désormais un titre **et** une phrase, jamais un titre seul.
+- **2026-09-25, interruption d'un run et fiches contradictoires** : `TaggingScreen` reçoit
+  « Interrompre » à gauche du lancement, et `AppShell` arrête le run simulé au clic. `StateTag` rend
+  enfin « Non traité » par sa prop `interrupted` : le readme l'annonçait, le composant s'arrêtait
+  à « En attente ». Le toast du kit dit « Recherche terminée ». Cinq fiches contredisaient
+  DESIGN.md des deux côtés, local comme distant : `Tooltip` annonçait un fondu de 200ms là où
+  PrimeNG code 250, ignorait ses trois exceptions et écrivait un cadratin entre artiste et titre,
+  `motion.css` et sa carte oubliaient l'exception du tooltip et un quatrième usage du fondu,
+  `DataTable` taisait la prop `loading` qu'il porte, et `StateTag.d.ts` le `source_unavailable` du
+  contrat. Réserve n° 11 datée, `_ds_needs_recompile` posé.
 - **2026-09-25, export local complété** : les treize fichiers que la passe du 24 avait laissés
   absents ont été tirés du distant (`.jsx` et `.d.ts` de `PhaseProgress`, `Card`, `ErrorMessage`,
   `PathPicker`, `TruncatedText`, plus trois fiches). Aucune ne portait de règle périmée. L'export
