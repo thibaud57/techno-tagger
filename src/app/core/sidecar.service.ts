@@ -189,6 +189,15 @@ export class SidecarService {
     await this.send({ command: "start_tagging", folder, thresholds })
   }
 
+  /** Pose l'etat sans attendre d'evenement, comme `endRun` a la mort du process : rien ne le confirmera. */
+  async cancelTagging(): Promise<void> {
+    if (!this.taggingRun.running()) {
+      return
+    }
+    await this.send({ command: "cancel_run" })
+    this.taggingRun.failed()
+  }
+
   /**
    * `Process.kill()` ne ciblerait que le bootloader d'un binaire PyInstaller et
    * laisserait le process Python vivant : l'arret passe par le protocole.

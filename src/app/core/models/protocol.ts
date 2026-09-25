@@ -49,6 +49,10 @@ export interface ShutdownCommand {
   readonly command: "shutdown"
 }
 
+export interface CancelRunCommand {
+  readonly command: "cancel_run"
+}
+
 export interface ListPlaylistsCommand {
   readonly command: "list_playlists"
   readonly playlist_path: string
@@ -87,6 +91,7 @@ export interface StartTaggingCommand {
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
+  | CancelRunCommand
   | ListPlaylistsCommand
   | ExtractPlaylistCommand
   | SetApiKeyCommand

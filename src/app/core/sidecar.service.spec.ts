@@ -425,6 +425,25 @@ describe("SidecarService", () => {
     })
   })
 
+  it("cancels a running run and stops it locally", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+
+    await service.cancelTagging()
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({ command: "cancel_run" })
+    expect(service.tagging()).toBe(false)
+  })
+
+  it("sends nothing when there is no run to cancel", async () => {
+    await service.start()
+    const before = transport.sent.length
+
+    await service.cancelTagging()
+
+    expect(transport.sent.length).toBe(before)
+  })
+
   it("sends the thresholds when the settings impose them", async () => {
     await service.start()
 
