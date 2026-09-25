@@ -69,6 +69,8 @@ _ORIGINAL_MIX: Final = "Original Mix"
 _VERSION_MATCH_FLOOR: Final = 70
 # Mot entier : sinon "remix" matche dans "Premix" ou "Extremixed".
 _REMIX_WORD: Final = re.compile(r"\bremix\b", re.IGNORECASE)
+# « Pt. 1 » et « Pt. 2 » sont deux morceaux, mais ne different que d'un caractere au score.
+_NUMBER: Final = re.compile(r"\d+")
 _MAX_SCORE: Final = 100
 
 
@@ -125,8 +127,9 @@ DEFAULT_THRESHOLDS: Final = MatchingThresholds()
 class ScoredCandidate:
     """Scores d'un candidat, gardes pour le rapport et le recalibrage des seuils.
 
-    `artist_score` vaut `None` sans artiste dans la requete. `version_mismatch` bloque
-    l'auto : seul l'utilisateur tranche entre deux versions d'un meme morceau.
+    `artist_score` vaut `None` sans artiste dans la requete. `version_mismatch` et
+    `number_mismatch` bloquent l'auto : seul l'utilisateur tranche entre deux versions d'un
+    meme morceau, ou entre deux morceaux que seul un nombre distingue.
     """
 
     candidate: TrackCandidate
@@ -134,6 +137,7 @@ class ScoredCandidate:
     title_score: float
     score: float
     version_mismatch: bool
+    number_mismatch: bool
 
 
 class _Parts(NamedTuple):
@@ -150,6 +154,7 @@ class _AskedFor:
     title: str
     version: str
     artists: tuple[str, ...]
+    numbers: tuple[int, ...]
 
 
 @verify(UNIQUE)
@@ -254,7 +259,8 @@ def classify(
             (
                 entry
                 for entry in in_play
-                if not entry.version_mismatch and entry.score >= thresholds.ceiling
+                if not (entry.version_mismatch or entry.number_mismatch)
+                and entry.score >= thresholds.ceiling
             ),
             None,
         )
@@ -272,7 +278,7 @@ def _prepare(query: TrackQuery) -> _AskedFor:
     """Ce que la requete demande, derive une fois par morceau et non par candidat."""
     title, version = _comparable(query.title)
     artists = tuple(part.strip() for part in query.artist.split(",") if part.strip())
-    return _AskedFor(title, version, artists)
+    return _AskedFor(title, version, artists, _numbers(title))
 
 
 def _comparable(title: str) -> _Parts:
@@ -318,12 +324,17 @@ def _score(asked: _AskedFor, candidate: TrackCandidate, offered: _Parts) -> Scor
     """Score un candidat : titre et version separement, jamais concatenes."""
     title_score = fuzz.ratio(asked.title, offered.title, processor=utils.default_process)
     mismatch = not _versions_agree(asked.version, offered.version)
+    renumbered = asked.numbers != _numbers(offered.title)
     if not asked.artists:
-        return ScoredCandidate(candidate, None, title_score, title_score, mismatch)
+        return ScoredCandidate(candidate, None, title_score, title_score, mismatch, renumbered)
     artist_score = _artist_score(asked.artists, candidate)
-    return ScoredCandidate(
-        candidate, artist_score, title_score, (artist_score + title_score) / 2, mismatch
-    )
+    average = (artist_score + title_score) / 2
+    return ScoredCandidate(candidate, artist_score, title_score, average, mismatch, renumbered)
+
+
+def _numbers(title: str) -> tuple[int, ...]:
+    """Nombres du titre nu, en valeur : « 01 » et « 1 » designent la meme partie."""
+    return tuple(int(number) for number in _NUMBER.findall(title))
 
 
 def _versions_agree(asked: str, offered: str) -> bool:

@@ -143,6 +143,46 @@ def test_keeps_other_versions_in_the_grey_zone_for_a_query_without_version() -> 
     assert all(scored.score == 100 for scored in classification.retained)
 
 
+@pytest.mark.parametrize(
+    ("asked", "offered"),
+    [
+        ("Klonk Pt. 1", "Klonk Pt. 2"),
+        ("Sequence 4", "Sequence 3"),
+        ("Minimal Nation", "Minimal Nation 2"),
+        ("X0000000X", "X0004000X"),
+    ],
+    ids=["other-part", "other-number", "number-added", "digits-inside-a-word"],
+)
+def test_keeps_titles_that_only_a_number_tells_apart_in_the_grey_zone(
+    asked: str, offered: str
+) -> None:
+    """Regression : un chiffre coutait trop peu au score, le mauvais morceau passait en auto."""
+    query = TrackQuery("Adam Beyer", asked, QueryOrigin.TAGS)
+
+    classification = classify(query, [track_candidate(offered)])
+
+    assert classification.outcome is Outcome.GREY_ZONE
+    assert classification.retained[0].number_mismatch is True
+
+
+@pytest.mark.parametrize(
+    ("asked", "offered", "mix_name"),
+    [
+        ("Sequence 04", "Sequence 4", "Original Mix"),
+        ("Your Mind (2019 Remaster)", "Your Mind", "2019 Remaster"),
+    ],
+    ids=["leading-zero", "number-of-the-version"],
+)
+def test_validates_automatically_when_the_title_numbers_agree(
+    asked: str, offered: str, mix_name: str
+) -> None:
+    query = TrackQuery("Adam Beyer", asked, QueryOrigin.TAGS)
+
+    classification = classify(query, [track_candidate(offered, mix_name)])
+
+    assert classification.outcome is Outcome.AUTO
+
+
 def test_validates_the_original_mix_automatically_when_an_extended_is_also_offered() -> None:
     extended = track_candidate("Your Mind", "Extended Mix", track_id="extended")
     original = track_candidate("Your Mind", "Original Mix", track_id="original")

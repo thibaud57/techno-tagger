@@ -14,6 +14,7 @@ paths:
 - Remonter au candidat complet par l'index, troisième élément du tuple rendu
 - Consigner le score de chaque candidat dans le rapport : c'est ce qui permet de recalibrer les seuils après les premiers runs réels
 - Écarter en amont du scoring un candidat sans mention de remix quand la requête en contient une : cette règle précède le scoring, elle n'en fait pas partie
+- Refuser l'auto, sans toucher au score, quand la version ou un nombre du titre diffère de la requête : « Pt. 1 » contre « Pt. 2 » ne coûte qu'un caractère au `ratio`. Zone grise, jamais écarté
 
 ## À éviter
 - Omettre le `processor` en supposant le comportement de fuzzywuzzy : la casse et la ponctuation des tags ID3 tirent tous les scores vers le bas et les seuils hérités deviennent trop stricts
