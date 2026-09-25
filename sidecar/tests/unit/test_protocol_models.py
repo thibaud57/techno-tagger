@@ -18,6 +18,7 @@ from tagger.extraction import (
 )
 from tagger.protocol import (
     AnyCommand,
+    CancelRun,
     CommandName,
     DiscardedCandidatePayload,
     DuplicatePayload,
@@ -227,6 +228,12 @@ def test_a_malformed_known_command_is_attributed_to_its_command() -> None:
 
     assert event.command == "list_playlists"
     assert event.code == "malformed_command"
+
+
+def test_parses_a_run_cancellation() -> None:
+    command = parse_command('{"command":"cancel_run"}')
+
+    assert isinstance(command, CancelRun)
 
 
 def test_an_api_key_pasted_with_a_space_says_what_to_fix() -> None:

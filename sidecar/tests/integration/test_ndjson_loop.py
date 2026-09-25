@@ -4,6 +4,7 @@ Aucune interface n'est lancee : le contrat se teste en ligne de commande, ce qui
 est sa raison d'etre (ADR-005).
 """
 
+import asyncio
 import json
 import logging
 import threading
@@ -22,10 +23,12 @@ from tagger.reports import ReportWriteError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from tagger.protocol import Event, ExtractPlaylist
+    from tagger.protocol import Event, ExtractPlaylist, StartTagging
 
 # Large : il borne un deadlock, il ne cadence rien.
 WAIT_TIMEOUT = 10
+# Assez long pour que la boucle lise la commande suivante pendant que le run meurt.
+STOP_DELAY = 0.2
 
 
 def extract_command(
@@ -193,6 +196,46 @@ def test_refuses_a_second_extraction_while_one_is_in_progress(
     refusals = [event for event in events if event["event"] == "error"]
     assert [event["code"] for event in refusals] == ["extraction_in_progress"]
     assert [event["event"] for event in events].count("extraction_finished") == 1
+
+
+@pytest.fixture
+def tagging_slow_to_stop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un run sans fin qui met du temps a mourir, comme le vrai dont la sortie du cache
+    attend les telechargements en vol. Borne : une annulation perdue echoue, sans geler.
+    """
+
+    async def endless(command: StartTagging, emit: Callable[[Event], None]) -> Event:
+        try:
+            await asyncio.wait_for(asyncio.Event().wait(), timeout=WAIT_TIMEOUT)
+        finally:
+            await asyncio.sleep(STOP_DELAY)
+        raise AssertionError("un run annule ne rend jamais son evenement de fin")
+
+    monkeypatch.setattr(main, "handle_start_tagging", endless)
+
+
+def _start(folder: Path) -> str:
+    return json.dumps({"command": "start_tagging", "folder": str(folder)}) + "\n"
+
+
+@pytest.mark.usefixtures("tagging_slow_to_stop")
+def test_a_cancelled_run_leaves_the_loop_alive(tmp_path: Path) -> None:
+    """`CancelledError` termine la tache sans remonter au TaskGroup, qui l'ignore."""
+    events = drive(_start(tmp_path) + '{"command":"cancel_run"}\n{"command":"get_version"}\n')
+
+    assert [event["event"] for event in events] == ["version"]
+
+
+@pytest.mark.usefixtures("tagging_slow_to_stop")
+def test_a_run_started_right_after_a_cancellation_is_not_refused(tmp_path: Path) -> None:
+    """Regression : le run annule mourait encore quand la relance arrivait, qui repartait
+    en `tagging_in_progress`, code que l'interface lit comme un run qui continue.
+    """
+    commands = _start(tmp_path) + '{"command":"cancel_run"}\n' + _start(tmp_path)
+
+    events = drive(commands + '{"command":"shutdown"}\n')
+
+    assert [event for event in events if event["event"] == "error"] == []
 
 
 def test_waits_for_an_extraction_before_leaving_on_shutdown(

@@ -28,6 +28,7 @@ from tagger.logger import setup_logging
 from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
 from tagger.protocol import (
+    CancelRun,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
@@ -130,7 +131,7 @@ class _Session:
         work = asyncio.to_thread(handle_extract_playlist, command, self.send)
         self._extraction = self._group.create_task(self._phase(work, command), name="extraction")
 
-    def cancel_run(self) -> None:
+    async def cancel_run(self) -> None:
         """`shutdown` n'attend pas la fin d'un run, il l'annule.
 
         L'extraction est au contraire attendue : le run ne tient que du reseau et de
@@ -140,6 +141,11 @@ class _Session:
         running = self._active_run()
         if running is not None:
             running.cancel()
+            # Attendu avant la commande suivante : sa sortie du cache attend les
+            # telechargements en vol, et une relance lue entre-temps le trouverait
+            # vivant, refusee en `tagging_in_progress` que l'interface lit comme un run
+            # qui continue. `wait` ne releve pas l'annulation, il la laisse a la tache.
+            await asyncio.wait({running})
 
     def send(self, event: Event) -> None:
         """Une ligne, un evenement. Le `line_buffering` pose par `_force_utf8_streams`
@@ -224,7 +230,7 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
                 continue
 
             if isinstance(command, Shutdown):
-                session.cancel_run()
+                await session.cancel_run()
                 return
             # Mypy retire `Shutdown` de l'union a partir d'ici, ce dont `_dispatch` depend.
 
@@ -254,6 +260,8 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
             session.send(await asyncio.to_thread(handle_set_api_key, command))
         case ListPlaylists():
             session.send(await asyncio.to_thread(handle_list_playlists, command))
+        case CancelRun():
+            await session.cancel_run()
         case ExtractPlaylist():
             session.start_extraction(command)
         case StartTagging():

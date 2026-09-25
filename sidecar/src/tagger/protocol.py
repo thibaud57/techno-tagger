@@ -60,6 +60,12 @@ class Shutdown(Command):
     command: Literal["shutdown"]
 
 
+class CancelRun(Command):
+    """Un dossier lance par erreur cesse de consommer le quota de l'API."""
+
+    command: Literal["cancel_run"]
+
+
 class ListPlaylists(Command):
     """Sans objet pour un M3U8, qui ne contient qu'une playlist."""
 
@@ -131,19 +137,22 @@ class StartTagging(Command):
 
 
 type AnyCommand = Annotated[
-    GetVersion | Shutdown | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging,
+    GetVersion | Shutdown | CancelRun | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging,
     Field(discriminator="command"),
 ]
 
 # `shutdown` sort de la boucle sans rien executer : l'exclure ici permet au `match`
 # du dispatch de se fermer par `assert_never` sans laisser de cas non couvert.
-type ExecutableCommand = GetVersion | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging
+type ExecutableCommand = (
+    GetVersion | CancelRun | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging
+)
 
 # Recopie des six `command` declares ci-dessus : un `Literal` ne se compose pas depuis
 # une union a la compilation. `test_command_name_lists_every_command` garde la copie.
 type CommandName = Literal[
     "get_version",
     "shutdown",
+    "cancel_run",
     "list_playlists",
     "extract_playlist",
     "set_api_key",
