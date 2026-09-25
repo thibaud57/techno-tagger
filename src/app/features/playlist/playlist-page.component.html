@@ -154,7 +154,7 @@
   <app-error-message [error]="failure" />
 }
 
-@if (extraction() !== null) {
+@if (extracting() || extraction() !== null) {
   <!-- Titre en aria-label plutot qu'en <h2> : la ligne qu'il prendrait revient a la table. -->
   <div
     class="flex min-h-0 flex-1 flex-col gap-2"
@@ -179,13 +179,20 @@
       </ng-template>
       <ng-template #emptymessage>
         <tr>
-          <td class="border-b-0" [attr.colspan]="2">
-            <app-empty-state
-              icon="file"
-              [heading]="'playlist.report.empty.heading' | translate"
-              [description]="'playlist.report.empty.description' | translate"
-            />
-          </td>
+          <!-- Le rapport n'arrive qu'a la fin, d'un bloc : rien a montrer ligne a ligne avant. -->
+          @if (extracting()) {
+            <td class="relative border-b-0" [attr.colspan]="2">
+              <app-skeleton-rows [rowHeight]="rowHeight" />
+            </td>
+          } @else {
+            <td class="border-b-0" [attr.colspan]="2">
+              <app-empty-state
+                icon="file"
+                [heading]="'playlist.report.empty.heading' | translate"
+                [description]="'playlist.report.empty.description' | translate"
+              />
+            </td>
+          }
         </tr>
       </ng-template>
       <ng-template #body let-row>
@@ -220,23 +227,23 @@
         </tr>
       </ng-template>
     </p-table>
-    @if (progress(); as finished) {
+    @if (extraction() !== null ? progress() : null; as finished) {
       <div class="flex items-center justify-end gap-4">
         <span class="text-sm text-muted-color tabular-nums">
           {{ "playlist.finished" | translate: finished }}
         </span>
-        <button
-          pButton
-          type="button"
-          size="small"
-          severity="secondary"
-          [outlined]="true"
-          (click)="goTagging()"
-        >
+        <button pButton type="button" size="small" [outlined]="true" (click)="goTagging()">
           {{ "playlist.goTagging" | translate }}
           <app-icon name="arrow-right" [size]="16" />
         </button>
       </div>
     }
   </div>
+} @else {
+  <app-empty-state
+    framed
+    icon="file"
+    [heading]="'playlist.idle.heading' | translate"
+    [description]="'playlist.idle.description' | translate"
+  />
 }

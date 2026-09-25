@@ -43,19 +43,16 @@
     />
   }
 
-  @if (tracks().length > 0) {
+  @if (showsRun()) {
     <div class="min-h-0 flex-1">
-      <app-run-list [tracks]="tracks()" />
+      <app-run-list [tracks]="tracks()" [loading]="listing()" [interrupted]="interrupted()" />
     </div>
   } @else {
-    <div
-      class="flex flex-1 items-center justify-center rounded-border border border-surface bg-surface-900"
-    >
-      <app-empty-state
-        icon="folder"
-        [heading]="'tagging.empty.heading' | translate"
-        [description]="'tagging.empty.description' | translate"
-      />
-    </div>
+    <app-empty-state
+      framed
+      icon="folder"
+      [heading]="'tagging.empty.heading' | translate"
+      [description]="idleDescription() | translate"
+    />
   }
 </div>

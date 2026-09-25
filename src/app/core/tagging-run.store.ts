@@ -75,6 +75,10 @@ export class TaggingRunStore {
   /** Vrai de l'envoi de `start_tagging` jusqu'a `run_finished` ou une erreur. */
   readonly running = this._running.asReadonly()
   readonly finished = this._finished.asReadonly()
+  /** Arrete par une erreur apres `run_started` : ses morceaux non tranches ne le seront plus. */
+  readonly interrupted = computed(
+    () => this._runId() !== null && !this._running() && this._finished() === null,
+  )
 
   /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {

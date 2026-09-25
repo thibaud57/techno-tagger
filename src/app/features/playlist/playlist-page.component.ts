@@ -29,6 +29,7 @@ import {
 } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
+import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.component"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
 import { IconComponent, type IconName } from "../../shared/components/icon.component"
 import { PathPickerComponent } from "../../shared/components/path-picker.component"
@@ -78,6 +79,7 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
     Skeleton,
     FormField,
     EmptyStateComponent,
+    SkeletonRowsComponent,
     ErrorMessageComponent,
     IconComponent,
     SourceLogoComponent,

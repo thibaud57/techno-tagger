@@ -22,7 +22,7 @@
     "unknown_error": "An unexpected error interrupted the operation. If it happens again, the details are in the logs folder.",
     "playlist_error": "This playlist file could not be read.",
     "unsupported_playlist_format": "{{filename}} is neither a VLC media library nor a readable M3U8 playlist.",
-    "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read (missing: {{missing}}).",
+    "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read. Install the latest version of the application.",
     "playlist_not_found": "No playlist named {{playlist_name}} in this media library.",
     "playlist_file_unreadable": "{{filename}} cannot be opened.",
     "unreadable_dump": "{{filename}} is not a readable VLC media library.",
@@ -44,6 +44,7 @@
     "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder.",
     "api_key_error": "The API key could not be saved.",
     "api_key_not_stored": "The key could not be saved on this computer. Try again.",
+    "api_key_malformed": "This key contains a space or a character that is not accepted. Paste it again with nothing around it.",
     "api_key_missing": "No API key saved. Save it in the settings.",
     "keyring_unavailable": "Windows secure storage is unavailable. Restart the application.",
     "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one.",
@@ -51,6 +52,10 @@
   },
   "playlist": {
     "title": "Playlist",
+    "idle": {
+      "heading": "No extraction yet",
+      "description": "Choose the source, the destination and the playlist, then start the extraction."
+    },
     "source": {
       "label": "Source folder",
       "choose": "Choose a folder",
@@ -128,7 +133,7 @@
   },
   "tagging": {
     "title": "Tagging",
-    "finished": "Network phase complete",
+    "finished": "Search complete",
     "start": "Start the run",
     "phase": "Searching",
     "progress": "{{processed}} of {{total}}",
@@ -146,7 +151,8 @@
     },
     "empty": {
       "heading": "No run yet",
-      "description": "Choose the folder to re-tag, then start the run."
+      "description": "Choose the folder to re-tag, then start the run.",
+      "ready": "Start the run to look this folder up on Beatport and Bandcamp."
     },
     "state": {
       "pending": "Waiting",
@@ -154,7 +160,15 @@
       "auto": "Auto",
       "arbitrated": "Arbitrated",
       "url": "URL",
-      "unresolved": "Unresolved"
+      "unresolved": "Unresolved",
+      "notProcessed": "Not processed"
+    },
+    "reason": {
+      "empty_query": "Neither the tags nor the file name give an artist or a title. Rename the file as \"Artist - Title\".",
+      "no_result": "No result on Beatport or Bandcamp.",
+      "below_threshold": "The results found are not close enough to the file.",
+      "source_unavailable": "Beatport and Bandcamp did not respond. Run it again later.",
+      "user_refused": "No candidate was kept during arbitration."
     },
     "list": {
       "before": "Before",
@@ -164,7 +178,10 @@
       "scoreArtist": "A",
       "scoreTitle": "T",
       "state": "State",
-      "empty": "No audio file in this folder"
+      "empty": {
+        "heading": "No audio file in this folder",
+        "description": "Choose a folder holding MP3, WAV, AIFF or FLAC files."
+      }
     }
   },
   "settings": {

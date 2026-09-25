@@ -17,6 +17,12 @@ interface StateStyle {
  * `state` : rien ne circule sur le flux tant qu'un morceau n'est pas tranche.
  */
 const PENDING: StateStyle = { severity: "secondary", icon: "clock", label: "tagging.state.pending" }
+/** Run interrompu : l'horloge promettrait une suite qui ne viendra pas. */
+const NOT_PROCESSED: StateStyle = {
+  severity: "secondary",
+  icon: "minus-circle",
+  label: "tagging.state.notProcessed",
+}
 const AWAITING: StateStyle = {
   severity: "info",
   icon: "info-circle",
@@ -49,6 +55,7 @@ export class StateTagComponent {
   readonly state = input<TrackState | null>(null)
   readonly resolution = input<TrackResolution | null>(null)
   readonly awaiting = input(false)
+  readonly interrupted = input(false)
 
   protected readonly style = computed<StateStyle>(() => {
     if (this.awaiting()) {
@@ -60,7 +67,7 @@ export class StateTagComponent {
       case "unresolved":
         return UNRESOLVED
       default:
-        return PENDING
+        return this.interrupted() ? NOT_PROCESSED : PENDING
     }
   })
 }

@@ -40,7 +40,8 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     extracting: signal(false),
     taggingTracks: signal([]),
     taggingProgress: signal(null),
-    taggingFinished: signal(null),
+    taggingRunId: signal<string | null>(null),
+    taggingInterrupted: signal(false),
     lastError: signal(null),
     lastErrorCommand: signal(null),
     errorFor: SidecarService.prototype.errorFor,
@@ -96,6 +97,30 @@ describe("TaggingPageComponent", () => {
     await component["start"]()
 
     expect(service.startTagging).toHaveBeenCalledWith("D:/Sets/Aout")
+  })
+
+  it.each([
+    ["while the sidecar lists the folder", true, null, true],
+    ["once an interrupted run has listed its tracks", false, "a3f9c1", true],
+    ["before any run", false, null, false],
+  ])("decides whether to show the run list %s", async (_name, running, runId, expected) => {
+    const { component } = await mountWith({ tagging: signal(running), taggingRunId: signal(runId) })
+
+    const shown = component["showsRun"]()
+
+    expect(shown).toBe(expected)
+  })
+
+  it.each([
+    ["without a folder", "", "tagging.empty.description"],
+    ["with a folder already chosen", "D:/Sets/Aout", "tagging.empty.ready"],
+  ])("adapts the idle hint %s", async (_name, folder, expected) => {
+    const { component } = await mountWith()
+    component["folder"].set(folder)
+
+    const hint = component["idleDescription"]()
+
+    expect(hint).toBe(expected)
   })
 
   it("names the run in progress first, ahead of every other cause", async () => {

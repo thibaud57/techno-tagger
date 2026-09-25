@@ -22,7 +22,7 @@
     "unknown_error": "Une erreur inattendue a interrompu l'opération. Si elle revient, le détail se trouve dans le dossier des logs.",
     "playlist_error": "Ce fichier de playlist n'a pas pu être lu.",
     "unsupported_playlist_format": "{{filename}} n'est ni une médiathèque VLC ni une playlist M3U8 lisible.",
-    "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire (éléments absents : {{missing}}).",
+    "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire. Installez la dernière version de l'application.",
     "playlist_not_found": "Aucune playlist nommée {{playlist_name}} dans cette médiathèque.",
     "playlist_file_unreadable": "{{filename}} ne peut pas être ouvert.",
     "unreadable_dump": "{{filename}} n'est pas une médiathèque VLC lisible.",
@@ -44,6 +44,7 @@
     "api_contract_error": "Réponse inattendue lors de la recherche de métadonnées. Si elle revient, le détail se trouve dans le dossier des logs.",
     "api_key_error": "La clé API n'a pas pu être enregistrée.",
     "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",
+    "api_key_malformed": "Cette clé contient un espace ou un caractère non accepté. Recopiez-la sans rien autour.",
     "api_key_missing": "Aucune clé API enregistrée. Enregistrez-la dans les Réglages.",
     "keyring_unavailable": "L'espace sécurisé de Windows est inaccessible. Relancez l'application.",
     "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre.",
@@ -51,6 +52,10 @@
   },
   "playlist": {
     "title": "Playlist",
+    "idle": {
+      "heading": "Aucune extraction lancée",
+      "description": "Choisissez la source, la destination et la playlist, puis lancez l'extraction."
+    },
     "source": {
       "label": "Dossier source",
       "choose": "Choisir un dossier",
@@ -128,7 +133,7 @@
   },
   "tagging": {
     "title": "Tagging",
-    "finished": "Phase réseau terminée",
+    "finished": "Recherche terminée",
     "start": "Lancer le run",
     "phase": "Recherche en cours",
     "progress": "{{processed}} sur {{total}}",
@@ -146,7 +151,8 @@
     },
     "empty": {
       "heading": "Aucun run lancé",
-      "description": "Choisissez le dossier à re-tagger, puis lancez le run."
+      "description": "Choisissez le dossier à re-tagger, puis lancez le run.",
+      "ready": "Lancez le run pour rechercher ce dossier sur Beatport et Bandcamp."
     },
     "state": {
       "pending": "En attente",
@@ -154,7 +160,15 @@
       "auto": "Auto",
       "arbitrated": "Arbitré",
       "url": "URL",
-      "unresolved": "Non résolu"
+      "unresolved": "Non résolu",
+      "notProcessed": "Non traité"
+    },
+    "reason": {
+      "empty_query": "Ni les tags ni le nom du fichier ne donnent d'artiste ou de titre. Renommez le fichier en « Artiste - Titre ».",
+      "no_result": "Aucun résultat sur Beatport ni sur Bandcamp.",
+      "below_threshold": "Les résultats trouvés ne ressemblent pas assez au fichier.",
+      "source_unavailable": "Beatport et Bandcamp n'ont pas répondu. Relancez le run plus tard.",
+      "user_refused": "Aucun candidat n'a été retenu à l'arbitrage."
     },
     "list": {
       "before": "Avant",
@@ -164,7 +178,10 @@
       "scoreArtist": "A",
       "scoreTitle": "T",
       "state": "État",
-      "empty": "Aucun fichier audio dans ce dossier"
+      "empty": {
+        "heading": "Aucun fichier audio dans ce dossier",
+        "description": "Choisissez un dossier contenant des MP3, WAV, AIFF ou FLAC."
+      }
     }
   },
   "settings": {

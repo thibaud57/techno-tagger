@@ -94,6 +94,18 @@ describe("StateTagComponent", () => {
     expect(element.querySelector(`[data-p-icon="${shown.icon}"]`)).not.toBeNull()
   })
 
+  it("shows a track left behind by an interrupted run as not processed", () => {
+    const fixture = TestBed.createComponent(StateTagComponent)
+    fixture.componentRef.setInput("interrupted", true)
+
+    fixture.detectChanges()
+
+    const element = fixture.nativeElement as HTMLElement
+    expect(element.textContent).toContain("tagging.state.notProcessed")
+    expect(element.querySelector('[data-severity="secondary"]')).not.toBeNull()
+    expect(element.querySelector('[data-p-icon="minus-circle"]')).not.toBeNull()
+  })
+
   it("prefers the pending arbitration over the received state", () => {
     const fixture = mount({ state: "unresolved", resolution: "none", awaiting: true })
 

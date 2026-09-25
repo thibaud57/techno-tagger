@@ -135,6 +135,38 @@ describe("TaggingRunStore", () => {
     expect(store.running()).toBe(false)
   })
 
+  it.each([
+    [
+      "stopped after its listing",
+      (run: TaggingRunStore) => {
+        run.started(STARTED)
+        run.failed()
+      },
+      true,
+    ],
+    [
+      "stopped before its listing",
+      (run: TaggingRunStore) => {
+        run.failed()
+      },
+      false,
+    ],
+    [
+      "finished normally",
+      (run: TaggingRunStore) => {
+        run.started(STARTED)
+        run.completed(FINISHED)
+      },
+      false,
+    ],
+  ] as const)("tells whether a run %s is interrupted", (_name, play, expected) => {
+    store.reset()
+
+    play(store)
+
+    expect(store.interrupted()).toBe(expected)
+  })
+
   it("ignores a track the run does not know", () => {
     store.reset()
     store.started(STARTED)
