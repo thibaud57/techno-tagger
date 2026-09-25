@@ -139,9 +139,7 @@
     "phase": "Recherche en cours",
     "progress": "{{processed}} sur {{total}}",
     "folder": {
-      "label": "Dossier à re-tagger",
-      "action": "Choisir un dossier",
-      "none": "Aucun dossier sélectionné"
+      "action": "Choisir un dossier"
     },
     "blocked": {
       "running": "Attendez la fin du run en cours.",
