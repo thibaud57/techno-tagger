@@ -4,6 +4,7 @@ branche corrompt le protocole (cf. ARCHITECTURE.md § API).
 
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING
 
 from tagger.logger import setup_logging
@@ -21,13 +22,19 @@ def test_no_handler_writes_to_stdout(tmp_path: Path) -> None:
     assert sys.stdout not in streams
 
 
-def test_a_second_call_does_not_duplicate_the_handlers(tmp_path: Path) -> None:
+def test_a_second_call_closes_the_previous_handlers_without_duplicating_them(
+    tmp_path: Path,
+) -> None:
     """Deux handles sur le meme fichier tournant font echouer la rotation a 5 Mo :
     Windows refuse de renommer un fichier encore ouvert, et le log s'arrete la.
     """
     setup_logging(tmp_path)
-    apres_un_appel = list(logging.getLogger().handlers)
+    previous_handlers = list(logging.getLogger().handlers)
+    previous_file_handler = next(h for h in previous_handlers if isinstance(h, RotatingFileHandler))
 
     setup_logging(tmp_path)
 
-    assert len(logging.getLogger().handlers) == len(apres_un_appel)
+    assert len(logging.getLogger().handlers) == len(previous_handlers)
+    # `close()` remet `stream` a None (logging.FileHandler.close) : un handler
+    # simplement retire de `root.handlers` sans etre ferme le laisserait ouvert.
+    assert previous_file_handler.stream is None

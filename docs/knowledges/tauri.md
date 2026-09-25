@@ -139,7 +139,7 @@ Huit plugins officiels couvrent les besoins natifs. Chacun a sa crate Rust et so
 | `shell` | Lancement du sidecar via `spawn()`, permission restreinte au binaire |
 | `dialog` | Sélection des dossiers source et destination, et du fichier de playlist |
 | `fs` | Accès aux chemins choisis, périmètre restreint |
-| `store` | Préférences : langue, seuils, mode copie/déplacement, signal sonore, URL de l'API |
+| `store` | Préférences : langue, seuils, mode copie/déplacement, signal sonore |
 | `os` | Lecture de la locale système au premier lancement (`locale()`, BCP-47) |
 | `opener` | Ouverture du dossier de logs, liens vers la fiche source |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante |
@@ -150,7 +150,7 @@ Huit plugins officiels couvrent les besoins natifs. Chacun a sa crate Rust et so
 
 - **`single-instance` doit être le premier plugin enregistré** dans le builder, avant tout autre `.plugin()`. Enregistré plus loin, il ne fonctionne pas de façon fiable
 - **Ouvrir un chemin ou une URL relève de `opener`, plus de `shell`** en v2. La permission `shell` du projet étant `allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre
-- **L'URL de l'API est persistée dans le `store` mais transmise au sidecar par une commande**, le `store` n'étant pas lisible depuis Python
+- **Le `store` n'est pas lisible depuis Python** : une préférence que le sidecar doit connaître lui est transmise par une commande NDJSON, jamais lue dans le fichier. L'URL de l'API, elle, est une constante du sidecar (ADR-012, note du 2026-09-19)
 - **Un rechargement de la webview relance le sidecar sans arrêter le précédent** : l'initializer rejoue `Command.sidecar().spawn()` et l'ancien process vit jusqu'à la fermeture de l'application. `tauri-plugin-prevent-default` coupe `Flags::RELOAD | Flags::CONTEXT_MENU` en release, jamais son jeu par défaut qui coupe aussi `Shift+Tab`
 - Le plugin `os` rend un tag BCP-47 complet (`fr-FR`) : extraire les deux premières lettres pour choisir la langue
 

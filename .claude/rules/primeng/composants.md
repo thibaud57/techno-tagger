@@ -14,6 +14,7 @@ paths:
 - Dériver l'onglet actif de l'URL et naviguer sur `valueChange` : `p-tabs` n'a aucun mode router en v22, et dériver dans ce sens garde le deep-link fonctionnel
 - Importer chaque icône `@primeicons/angular` individuellement dans les `imports` du composant, c'est ce qui permet le tree-shaking
 - Apparier la taille d'un badge à celle des éléments de sa rangée, et garder neutre la puce portée par un bouton : un compteur n'est pas une action (cf. [DESIGN.md § États des Composants](../../../docs/DESIGN.md#états-des-composants))
+- Nommer en commentaire ce sur quoi une largeur figée a été mesurée : sans lui, la valeur ressemble à un chiffre choisi au hasard et personne n'ose la reprendre
 - Porter le bloc « état vide » d'une table par le template `#emptymessage` de `p-table`, avec `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur la table et `border-b-0` sur la cellule : le bloc se centre sur toute la hauteur, et le pass-through n'atteint pas la bordure de la ligne
 
 ## À éviter
@@ -22,9 +23,10 @@ paths:
 - Attendre un mode router de `p-tabs`, ou se replier sur `p-tabMenu` qui n'est plus la voie recommandée
 - Les classes `pi pi-*` : la police n'est plus l'approche de la v22
 - Un libellé en dur dans un template : tout passe par ngx-translate, y compris les messages d'erreur que le sidecar émet en `code` + `params`
-- Une largeur en dur sur un bouton ou un libellé traduit : les libellés existent en FR et en EN. Seule une colonne de table se fige, mesurée sur son contenu le plus long dans les deux langues (cf. DESIGN.md § Conventions de Code)
+- Une largeur en dur sur un bouton ou un libellé traduit : les libellés existent en FR et en EN. Seule se fige une colonne qui aligne plusieurs lignes, de table comme de libellés, mesurée sur son contenu le plus long dans les deux langues (cf. DESIGN.md § Conventions de Code)
 - De la logique métier dans un composant : scores, seuils et classement des candidats viennent du sidecar
 - Le composant `p-button` : déprécié depuis la v22 (`@typescript-eslint/no-deprecated` fait échouer le lint), au profit de `<button pButton type="button">` avec libellé et icône en contenu
+- Le composant `p-password` : déprécié depuis la v22 au profit de `<input pInputPassword>` (`primeng/inputpassword`), qui n'a ni œil de bascule ni `feedback` intégrés : seulement le model `mask` et `toggleMask()`, l'icône se compose à la main
 
 ## Gotchas
 - `@primeicons/angular` rend des composants standalone en SVG inline, plus une police à classes. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 étant sous licence PrimeUI

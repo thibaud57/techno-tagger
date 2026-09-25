@@ -117,3 +117,5 @@ Cycle de vie du plan retenu au MVP :
 - **Le dump des tags d'origine ne suit pas cette purge** : il vit 30 jours quel que soit l'état du run. Le lier au plan reviendrait à ne proposer le rollback que dans la session qui vient d'écrire, alors que c'est justement au lancement suivant, en réécoutant sa bibliothèque, qu'on s'aperçoit qu'un run s'est mal passé. Le coût est négligeable, les tags de 100 morceaux pesant quelques centaines de kilooctets
 
 Le **rapport**, lui, est un livrable et va dans le dossier destination, en JSON (source de vérité, relue par l'application pour rouvrir un run passé) et en Markdown (lisible hors application). Cf. [ADR-014](014-observabilite-sentry-et-rgpd.md).
+
+**État du run en mémoire jusqu'à la Feature 6** (2026-09-19) : le pipeline de la Feature 2 tient ses décisions dans des dataclasses gelées, sans écrire de plan JSON. La règle de l'ADR tient, aucun fichier musical n'est touché avant la confirmation globale ; seule l'écriture du plan au fil de l'eau recule jusqu'à la feature qui en a les lecteurs, la reprise et le rapport. Le versionnement d'[ADR-018](018-versionnement-plan-de-run.md) s'applique à ce moment-là.

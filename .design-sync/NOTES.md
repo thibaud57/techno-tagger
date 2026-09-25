@@ -1,10 +1,10 @@
 # Notes de sync du design system
 
-## Le projet Claude Design, et ce qui fait foi
+## Le projet Claude Design et ce qui fait foi
 
 | Projet | Lien | Rôle |
 | --- | --- | --- |
-| Techno Tagger Design System (`66daf6c5-f225-4dcc-bf7d-1d792e633ee5`) | https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5 | Les **composants** (miroir JSX, `.d.ts`, fiche `.prompt.md` et carte par composant), les tokens, les guidelines, les quatre logos, et la **maquette** cliquable de l'application dans `ui_kits/techno-tagger/` (un fichier par écran, `AppShell.jsx` pour le shell) |
+| Techno Tagger Design System (`66daf6c5-f225-4dcc-bf7d-1d792e633ee5`) | https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5 | Les **composants** (miroir JSX, `.d.ts`, fiche `.prompt.md` et carte par composant), les tokens, les guidelines, les quatre logos et la **maquette** cliquable de l'application dans `ui_kits/techno-tagger/` (un fichier par écran, `AppShell.jsx` pour le shell) |
 
 Un seul projet ici, composants et maquette ensemble. Trois sources se lisent dans cet ordre avant
 d'implémenter un écran :
@@ -22,10 +22,15 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
 
 ## Comment ce dépôt se synchronise
 
-- **Le convertisseur de `/design-sync` ne s'applique pas** : le skill ne traite que des design
-  systems React, avec un `dist/` empaquetable ou un Storybook. L'interface est Angular + PrimeNG,
-  sans point d'entrée de librairie. Les composants du projet Claude Design sont des recréations
-  React bâties depuis DESIGN.md (son `readme.md` § Réserves), pas le code livré.
+- **Le convertisseur de `/design-sync` ne s'applique pas et le lancer détruirait le projet
+  distant** : le skill empaquette un `dist/` React ou un Storybook pour que l'agent de design rende
+  les composants compilés du dépôt. Ici il n'y a ni l'un ni l'autre : les composants sont Angular
+  et `package.json` est `private` sans `main`, `module`, `exports` ni `types`. Le
+  danger n'est pas qu'il échoue : sa clôture **supprime du distant tout ce que le build local ne
+  contient pas** sous `components/`, `tokens/`, `guidelines/`, `_preview/`, `fonts/` et `_vendor/`.
+  Avec un build vide, elle efface le design system et la maquette. Les composants du projet Claude
+  Design sont des recréations React bâties depuis DESIGN.md (son `readme.md` § Réserves), pas le
+  code livré.
 - **Le design system s'écrit donc fichier par fichier** : `components/<groupe>/<Nom>.{jsx,d.ts,prompt.md}`,
   une carte `<groupe>.card.html` par dossier, `ui_kits/techno-tagger/<Écran>.jsx` pour la
   maquette, via `finalize_plan` puis `write_files` de l'outil `DesignSync`.
@@ -44,41 +49,20 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
 
 ## Reste ouvert
 
-Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain sync :
+Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- **Écran bloquant en carte** : la maquette le rend en `Message fullScreen`, un pavé d'alerte
-  rouge. Le code le rend en `p-card` neutre, sans icône, avec l'action de reprise. À reprendre
-  dans `ui_kits/techno-tagger/AppShell.jsx`, et `Card` manque au catalogue de composants.
-- **Paires de sévérité du `Message`** : la maquette recalcule ses teintes (fond `red-400` à 90 %,
-  texte `red-300`) là où le preset donne `red-500` à 84 % et `red-500` en texte. Le `readme.md`
-  du projet annonce déjà que ses tokens de composant ne sont pas vérifiés : ceux-là sont à
-  aligner sur le preset.
-- **Preset du projet** : l'application ne consomme plus Aura nu mais `TECHNO_TAGGER_PRESET`
-  (`src/app/core/theme.ts`), qui impose 8px et aucune ombre à la carte, 4px au tag et 2px au
-  badge. Les cartes de guidelines qui montrent ces rayons sont à revérifier.
-- **Un seul container, plein écran** : les deux régimes de largeur ont disparu. Le shell porte
-  `px-16 py-8` pour les trois onglets et une page ne pose plus de marge à elle. `AppShell.jsx` et les
-  trois écrans de `ui_kits/techno-tagger/` posent encore leurs propres paddings, et
-  `PlaylistScreen.jsx` un `max-width` de formulaire. La carte `space-regimes.card.html` des
-  guidelines décrit un régime qui n'existe plus.
-- **La page ne défile jamais** : le shell masque son débordement, la maquette laisse défiler
-  ses écrans (`overflowY: auto` dans `PlaylistScreen.jsx`).
-- **Tables** : taille par défaut de PrimeNG, à scroll virtuel. Le rapport d'extraction a
-  deux colonnes, Fichier fluide et État figée à 197px. Le détail
-  d'un doublon ou d'un échec s'ouvre en tooltip sur le badge, signalé par une icône info. La table
-  remplit toute la hauteur restante, vide ou remplie, et centre son bloc vide ; « Extraction
-  terminée (N sur N) » s'affiche dessous, à droite. La maquette n'a aucune table sur cet écran, et
-  la fiche `DataTable` ne décrit que la liste du run.
-- **Onglet Playlist en deux temps** : formulaire en grille compacte (libellés, contrôles `small` de
-  même largeur, chemins alignés à droite, « Extraire la playlist » seul sur sa ligne), replié dès
-  le lancement en une ligne de résumé avec « Modifier », barre de progression sous le résumé sans
-  valeur écrite, retirée à la fin. DESIGN.md § Layout le décrit. À reprendre dans
-  `PlaylistScreen.jsx`.
-- **Conventions de bureau** : curseur flèche partout sauf les champs, et rebond de défilement coupé.
-  Rien de tout ça dans le kit.
-- **Sévérité des sélecteurs de dossier** : tranchée en primaire outlined, comme le code. La maquette
-  les rend encore en `secondary` outlined dans `PlaylistScreen.jsx`.
-- **Bannière d'erreur** : `ErrorMessageComponent` partagé, sans équivalent au catalogue.
+> **Vidé le 2026-09-24** : les vingt-trois arbitrages qui vivaient ici ont été poussés, écrans
+> compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
+> les garder ici en ferait deux sources pour une même règle.
+
+- **L'export local n'est un miroir que fichier par fichier vérifié.** Une session peut pousser au
+  distant sans mettre l'export à jour et rien ne le signale : le 2026-09-25, une autre session a
+  réécrit `readme.md` et `TaggingScreen.jsx` après qu'un premier alignement l'eut déclaré exact.
+  **Relire le fichier distant avant d'en pousser un**, jamais une copie locale : renvoyer la copie
+  aurait écrasé ce travail. Les fichiers touchés ce jour-là sont alignés et vérifiés ; les autres
+  n'ont pas été comparés un à un. Une comparaison complète se fait depuis la session principale,
+  seule à disposer de `DesignSync` : un sous-agent ne l'a pas.
+
 
 ## Journal
 
@@ -90,3 +74,67 @@ Ce que le code livre et que la maquette n'a pas encore, à pousser au prochain s
   `/swarm-ui-variations`, dont une calquée sur `PlaylistScreen.jsx`. Le mix retenu (grille compacte,
   deux temps, résumé, table pleine hauteur) est livré en `2d3b10e` et consigné ci-dessus. Aucun
   push vers le projet Claude Design.
+- **2026-09-24, premier push du design system** : `readme.md` réaligné sur `docs/DESIGN.md` après
+  la livraison des onglets Playlist et Tagging, avec sa réserve n° 8 datée. Les deux régimes de
+  largeur cèdent au container unique, les tables reviennent à leur taille par défaut, la colonne
+  Pochette passe à 48px et les trois colonnes fixes du run cessent d'annoncer des pixels. La fiche
+  `Password` dit enfin que `p-password` est déprécié et que l'app compose son champ à la main.
+  Cinq composants rejoignent le catalogue, chacun avec son `.jsx`, son `.d.ts` et sa fiche :
+  `Card`, `ErrorMessage`, `PathPicker`, `PhaseProgress`, `TruncatedText`. `_ds_needs_recompile`
+  posé en fin de push.
+- **2026-09-24, alignement des écrans** : les quatre écrans de `ui_kits/techno-tagger/` suivent
+  désormais l'interface livrée. `TaggingScreen` reçoit son sélecteur de dossier, garde son bouton
+  de lancement visible et grisé plutôt que de le masquer et son bloc vide dit « Aucun run lancé ».
+  `SettingsScreen` perd la rangée « URL de l'API » (devenue une constante du sidecar) et gagne le
+  tag d'état de la clé. `PlaylistScreen` passe en deux temps, résumé puis rapport en table à deux
+  colonnes, sélecteurs en primaire outlined. `AppShell` rend l'écran bloquant en carte neutre et
+  non plus en pavé d'alerte. Container unique et tiret simple entre artiste et titre appliqués
+  partout. Les composants ajoutés au catalogue n'étant pas encore dans le bundle compilé, que la
+  recompilation régénère, les écrans composent leur motif avec les primitives déjà exportées.
+- **2026-09-25, ce que la passe du 24 avait manqué** : le push du 24 avait réaligné `readme.md`,
+  les cartes et les écrans, mais ni `tokens/spacing.css` ni les fiches de composant, qui
+  annonçaient encore le régime formulaire à 768px, la colonne Pochette à 32px, les trois colonnes
+  fixes à des largeurs que le code ne porte pas et les tables en `[size]="'small'"`. Les tokens
+  reçoivent le container unique et les largeurs réellement livrées (48 / 144 / 128 / 160px, plus
+  197px pour l'État du rapport), `DataTable` passe au cran par défaut en gardant sa police dense,
+  sa fiche gagne la cellule sans valeur et les trois états de pochette et la carte « Deux régimes
+  de largeur » cède la place à « Un seul container ». Deux règles du readme qui contredisaient le
+  code tombent : le cadratin rejoint le point médian parmi les glyphes Unicode admis et la
+  vignette compte trois états. `TaggingScreen` corrige « Phase réseau terminée » en « Recherche
+  terminée » et porte les trois états. Réserve n° 9 datée, `_ds_needs_recompile` posé.
+  Second passage le même jour : `SkeletonRows`, livré entre-temps côté application, remet deux
+  temps là où la règle du chargement n'en voyait qu'un. Une table encore vide se couvre de
+  lignes entières en squelette et non de son bloc vide, qui annoncerait l'inverse de ce qui se
+  passe ; le squelette ne se réduit à la vignette qu'une fois la première ligne reçue. Le même
+  passage livre « Non traité » : la famille Neutre gagne un second glyphe, `minus-circle`, pour
+  le morceau qu'un run interrompu n'a jamais atteint, l'horloge y promettant une suite qui ne
+  viendra pas. Et un bloc vide porte désormais un titre **et** une phrase, jamais un titre seul.
+- **2026-09-25, interruption d'un run et fiches contradictoires** : `TaggingScreen` reçoit
+  « Interrompre » à gauche du lancement et `AppShell` arrête le run simulé au clic. `StateTag` rend
+  enfin « Non traité » par sa prop `interrupted` : le readme l'annonçait, le composant s'arrêtait
+  à « En attente ». Le toast du kit dit « Recherche terminée ». Cinq fiches contredisaient
+  DESIGN.md des deux côtés, local comme distant : `Tooltip` annonçait un fondu de 200ms là où
+  PrimeNG code 250, ignorait ses trois exceptions et écrivait un cadratin entre artiste et titre,
+  `motion.css` et sa carte oubliaient l'exception du tooltip et un quatrième usage du fondu,
+  `DataTable` taisait la prop `loading` qu'il porte, `StateTag.d.ts` le `source_unavailable` du
+  contrat. Réserve n° 11 datée, `_ds_needs_recompile` posé.
+- **2026-09-25, export local complété** : les treize fichiers que la passe du 24 avait laissés
+  absents ont été tirés du distant (`.jsx` et `.d.ts` de `PhaseProgress`, `Card`, `ErrorMessage`,
+  `PathPicker`, `TruncatedText`, plus trois fiches). Aucune ne portait de règle périmée. L'export
+  est désormais un miroir exact, ce qui rend de nouveau fiable une lecture locale.
+- **2026-09-25, audit de DESIGN.md contre le code** : cinq écarts corrigés à la source, dont deux
+  que le readme distant héritait. La règle du `danger` distingue désormais une action destructive
+  d'une sévérité qui rapporte un état, le décompte figé des libellés d'état disparaît, le toast
+  « clé enregistrée » cède au tag persistant qu'affiche réellement l'écran et les deux boutons de
+  lancement rejoignent leur famille du Mapping. `DESIGN.md` reçoit sa rubrique « Maquette et design
+  system externes », que le skill `design-doc` réclame : sans elle, les commandes de décomposition
+  et d'implémentation ne savent pas qu'une maquette existe ni où la lire.
+- **2026-09-25, états vides et motifs** : réserve n° 10. Le motif d'un non résolu se lit au
+  survol de son état (icône `info-circle`), `failure_reason` gagne `source_unavailable`. Les deux
+  écrans couvrent tous leurs cas vides : bloc encadré avant la première extraction ou le premier
+  run, dont la phrase suit le dossier choisi, lignes en squelette pendant une phase, bloc de table
+  une fois la phase finie. `EmptyState` gagne `framed`, `DataTable` gagne `loading` (miroir de
+  `SkeletonRows`) et perd le commentaire qui la disait toujours `small`, la fiche d'`EmptyState`
+  passe au vouvoiement. « Passer au tagging » passe en `primary` outlined, aligné à droite avec la
+  ligne de fin. Le tooltip compte trois exceptions et un fondu de 250ms. Les huit fichiers poussés
+  sont recopiés dans l'export local, `_ds_needs_recompile` posé.

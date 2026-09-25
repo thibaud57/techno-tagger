@@ -66,9 +66,15 @@ def test_converts_a_missing_file_into_a_business_error_on_detection(tmp_path: Pa
 
 
 def test_accepts_a_dump_carrying_the_expected_schema(vlc_dump: Path) -> None:
+    """Le cas positif face aux deux rejets : sans lui, une implementation qui
+    refuserait tout dump passerait les tests de table et de colonne manquantes.
+    """
     connection = vlc.connect(vlc_dump)
 
+    media_count = connection.execute("SELECT count(*) FROM Media").fetchone()[0]
     connection.close()
+
+    assert media_count == len(TRACKS)
 
 
 def test_reports_a_missing_table_by_name(tmp_path: Path) -> None:
@@ -100,7 +106,10 @@ def test_accepts_table_and_column_names_whatever_their_case(tmp_path: Path) -> N
 
     verified = vlc.connect(shouting)
 
+    tables = verified.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
     verified.close()
+
+    assert ("MEDIA",) in tables
 
 
 def test_opens_the_dump_read_only(vlc_dump: Path) -> None:
@@ -157,9 +166,9 @@ def test_opens_a_dump_whose_directory_name_contains_special_uri_characters(
     special_dir.mkdir(parents=True)
     dump = build_dump(special_dir / "vlc_media.db")
 
-    connection = vlc.connect(dump)
+    summaries = vlc.list_playlists(dump)
 
-    connection.close()
+    assert [summary.name for summary in summaries] == [PLAYLIST_OTHER, PLAYLIST_MAIN]
 
 
 def test_lists_every_playlist_of_the_dump(vlc_dump: Path) -> None:

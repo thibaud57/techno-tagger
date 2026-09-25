@@ -9,11 +9,13 @@ import { provideRouter, withComponentInputBinding } from "@angular/router"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { provideTranslateHttpLoader } from "@ngx-translate/http-loader"
 import * as Sentry from "@sentry/angular"
+import { MessageService } from "primeng/api"
 import { providePrimeNG } from "primeng/config"
 import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
 import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/language"
+import { CompletionSignalService } from "./core/completion-signal.service"
 import { SidecarService } from "./core/sidecar.service"
 import { TECHNO_TAGGER_PRESET } from "./core/theme"
 
@@ -22,6 +24,9 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
     provideRouter(routes, withComponentInputBinding()),
+    // CompletionSignalService est providedIn: 'root' : un provider pose sur AppComponent
+    // lui serait invisible et leverait NullInjectorError.
+    MessageService,
     providePrimeNG({
       theme: {
         preset: TECHNO_TAGGER_PRESET,
@@ -57,6 +62,10 @@ export const appConfig: ApplicationConfig = {
     // leve jamais.
     provideAppInitializer(() => {
       void inject(SidecarService).start()
+    }),
+    // Construit des le demarrage, hors de tout ecran : une phase s'annonce quel que soit l'onglet.
+    provideAppInitializer(() => {
+      inject(CompletionSignalService)
     }),
   ],
 }

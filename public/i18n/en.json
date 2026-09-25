@@ -22,7 +22,7 @@
     "unknown_error": "An unexpected error interrupted the operation. If it happens again, the details are in the logs folder.",
     "playlist_error": "This playlist file could not be read.",
     "unsupported_playlist_format": "{{filename}} is neither a VLC media library nor a readable M3U8 playlist.",
-    "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read (missing: {{missing}}).",
+    "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read. Install the latest version of the application.",
     "playlist_not_found": "No playlist named {{playlist_name}} in this media library.",
     "playlist_file_unreadable": "{{filename}} cannot be opened.",
     "unreadable_dump": "{{filename}} is not a readable VLC media library.",
@@ -31,22 +31,45 @@
     "report_error": "The extraction report could not be produced.",
     "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
     "source_folder_unreadable": "The source folder cannot be read: {{folder}}.",
+    "artwork_unavailable": "The artwork was not retrieved, it will be retried on the next run.",
     "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}.",
-    "sidecar_unavailable": "The application engine is not responding. Restart the application."
+    "sidecar_unavailable": "The application engine is not responding. Restart the application.",
+    "files_error": "The audio files could not be read.",
+    "tagging_folder_unreadable": "The folder to re-tag cannot be found or read: {{folder}}.",
+    "tags_unreadable": "The tags of {{file}} could not be read.",
+    "scraper_error": "The metadata search answered with an error.",
+    "api_key_rejected": "The API key was rejected. Check it in the settings.",
+    "source_unavailable": "The source {{source}} did not respond.",
+    "track_not_found": "The track no longer exists on {{source}}.",
+    "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder.",
+    "api_key_error": "The API key could not be saved.",
+    "api_key_not_stored": "The key could not be saved on this computer. Try again.",
+    "api_key_malformed": "This key contains a space or a character that is not accepted. Paste it again with nothing around it.",
+    "api_key_missing": "No API key saved. Save it in the settings.",
+    "keyring_unavailable": "Windows secure storage is unavailable. Restart the application.",
+    "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one.",
+    "extraction_in_progress": "An extraction is already in progress. Wait for it to finish before starting another one."
   },
   "playlist": {
     "title": "Playlist",
+    "idle": {
+      "heading": "No extraction yet",
+      "description": "Choose the source, the destination and the playlist, then start the extraction."
+    },
     "source": {
       "label": "Source folder",
-      "choose": "Choose a folder"
+      "choose": "Choose a folder",
+      "none": "No folder selected"
     },
     "destination": {
       "label": "Destination folder",
-      "choose": "Choose a folder"
+      "choose": "Choose a folder",
+      "none": "No folder selected"
     },
     "file": {
       "label": "Playlist file",
-      "choose": "Choose a file"
+      "choose": "Choose a file",
+      "none": "No file selected"
     },
     "selector": {
       "label": "Playlist",
@@ -59,6 +82,7 @@
       "move": "Move"
     },
     "extract": "Extract playlist",
+    "goTagging": "Go to tagging",
     "missing": {
       "hint": "Choose {{items}}.",
       "source": "the source folder",
@@ -72,6 +96,7 @@
     },
     "running": "Extracting",
     "finished": "Extraction finished ({{processed}} of {{total}})",
+    "extractionFinished": "Extraction complete",
     "progress": "{{processed}} of {{total}}",
     "report": {
       "title": "Extraction report",
@@ -107,9 +132,73 @@
     }
   },
   "tagging": {
-    "title": "Tagging"
+    "title": "Tagging",
+    "finished": "Search complete",
+    "start": "Start the run",
+    "cancel": "Stop the run",
+    "phase": "Searching",
+    "progress": "{{processed}} of {{total}}",
+    "folder": {
+      "label": "Folder to re-tag",
+      "action": "Choose a folder",
+      "none": "No folder selected"
+    },
+    "blocked": {
+      "running": "Wait for the current run to finish.",
+      "api_key": "Save your API key in the settings first.",
+      "folder": "Choose the folder to re-tag first.",
+      "extracting": "Wait for the current extraction on the Playlist tab to finish.",
+      "sidecar": "The application engine is not ready yet."
+    },
+    "empty": {
+      "heading": "No run yet",
+      "description": "Choose the folder to re-tag, then start the run.",
+      "ready": "Start the run to look this folder up on Beatport and Bandcamp."
+    },
+    "state": {
+      "pending": "Waiting",
+      "awaiting": "To arbitrate",
+      "auto": "Auto",
+      "arbitrated": "Arbitrated",
+      "url": "URL",
+      "unresolved": "Unresolved",
+      "notProcessed": "Not processed"
+    },
+    "reason": {
+      "empty_query": "Neither the tags nor the file name give an artist or a title. Rename the file as \"Artist - Title\".",
+      "no_result": "No result on Beatport or Bandcamp.",
+      "below_threshold": "The results found are not close enough to the file.",
+      "source_unavailable": "Beatport and Bandcamp did not respond. Run it again later.",
+      "user_refused": "No candidate was kept during arbitration."
+    },
+    "list": {
+      "before": "Before",
+      "after": "After",
+      "source": "Source",
+      "score": "Score",
+      "scoreArtist": "A",
+      "scoreTitle": "T",
+      "state": "State",
+      "empty": {
+        "heading": "No audio file in this folder",
+        "description": "Choose a folder holding MP3, WAV, AIFF or FLAC files."
+      }
+    }
   },
   "settings": {
-    "title": "Settings"
+    "title": "Settings",
+    "api": {
+      "title": "API",
+      "key": {
+        "label": "X-API-Key",
+        "hint": "Stored securely on this computer. It is never shown again: to change it, enter a new one.",
+        "placeholder": "Enter the key you received",
+        "show": "Show the key",
+        "hide": "Hide the key",
+        "save": "Save",
+        "configured": "Key saved",
+        "missing": "No key"
+      }
+    }
   }
 }

@@ -83,7 +83,7 @@ Où publier l'installeur et le manifeste de l'updater, sachant que les destinata
 
 La contrainte décisive est humaine : des utilisateurs non développeurs, sans compte GitHub. Le dépôt public est le seul canal où ils n'ont strictement rien à faire d'autre que cliquer.
 
-L'argument de confidentialité ne tient pas à l'examen. Ce que le dépôt révélerait, l'URL de l'API et la carte de ses routes, **est déjà public par trois canaux indépendants** : le binaire distribué, où un `strings` suffit sur un exécutable PyInstaller ; les logs de **Certificate Transparency**, où tout certificat TLS émis pour le domaine est inscrit et interrogeable publiquement, ce qui rend l'énumération des sous-domaines triviale sans jamais ouvrir le dépôt ; et le code source lui-même, l'URL étant la valeur par défaut du champ Settings. Garder le dépôt privé relèverait de la sécurité par l'obscurité, tout en cassant la distribution.
+L'argument de confidentialité ne tient pas à l'examen. Ce que le dépôt révélerait, l'URL de l'API et la carte de ses routes, **est déjà public par trois canaux indépendants** : le binaire distribué, où un `strings` suffit sur un exécutable PyInstaller ; les logs de **Certificate Transparency**, où tout certificat TLS émis pour le domaine est inscrit et interrogeable publiquement, ce qui rend l'énumération des sous-domaines triviale sans jamais ouvrir le dépôt ; et le code source lui-même, l'URL étant une constante du sidecar. Garder le dépôt privé relèverait de la sécurité par l'obscurité, tout en cassant la distribution.
 
 Ce qui protège réellement l'API reste intact, et ne dépend d'aucun secret sur son adresse :
 
@@ -117,5 +117,7 @@ Quelqu'un qui lirait tout le code n'aurait toujours aucun moyen d'appeler l'API.
 Le risque résiduel est de **visibilité, pas de technique**. Un dépôt public qui annonce consommer une API de scraping Beatport est plus facile à trouver qu'un dépôt privé. Aucun précédent documenté de retrait GitHub sur un cas comparable n'a été trouvé (recherche sur la politique DMCA de GitHub et les signalements publiés), le risque reste donc théorique. Il se réduit encore si le README reste factuel : « récupère des métadonnées via une API » plutôt que « scrape Beatport ».
 
 Les options d'auto-hébergement restent documentées et applicables sans changement d'architecture : l'updater Tauri accepte n'importe quel endpoint statique, seul `plugins.updater.endpoints` dans `tauri.conf.json` change. Bascule possible à tout moment si la visibilité devient un problème.
+
+L'URL de l'API, d'abord prévue comme valeur par défaut d'un champ des Settings, est figée en constante du sidecar depuis le 2026-09-19 (ADR-012). L'argument ne change pas : elle reste lisible dans le code source public.
 
 Références : [Tauri v2 : Updater](https://v2.tauri.app/plugin/updater/), [Dokploy : MinIO](https://docs.dokploy.com/docs/templates/minio), [Dokploy : Garage S3](https://docs.dokploy.com/docs/templates/garage), [GitHub : DMCA Takedown Policy](https://docs.github.com/articles/dmca-takedown-policy), [GitHub Actions : Billing](https://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions).

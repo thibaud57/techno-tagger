@@ -145,7 +145,7 @@ def clear_api_key() -> None:
 - **Rendre `delete_password` idempotent** en capturant `PasswordDeleteError`
 - **Traiter `get_password() is None` comme un état normal** : premier lancement, ou clé effacée par l'utilisateur
 - **Nommer le service avec le nom de l'application** pour que l'entrée soit identifiable dans le Credential Manager
-- **Vérifier la clé par un appel à `/health` puis une route authentifiée** plutôt que par sa forme : une clé bien formée peut être révoquée
+- **Ne pas vérifier une clé à l'enregistrement** : une route authentifiée consommerait la capacité de l'API sans rien garantir de plus que le premier `403` du run, et une clé bien formée peut être révoquée entre les deux
 
 ## ❌ Anti-Patterns
 

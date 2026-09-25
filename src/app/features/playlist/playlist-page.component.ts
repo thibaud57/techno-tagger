@@ -7,8 +7,9 @@ import {
   type WritableSignal,
 } from "@angular/core"
 import { FormField, form } from "@angular/forms/signals"
+import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
-import { open } from "@tauri-apps/plugin-dialog"
+
 import { ButtonDirective } from "primeng/button"
 import { Label } from "primeng/label"
 import { Select } from "primeng/select"
@@ -24,17 +25,21 @@ import {
   DEFAULT_EXTRACTION_MODE,
   readExtractionMode,
   writeExtractionMode,
+  writeLastDestination,
 } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
+import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.component"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
 import { IconComponent, type IconName } from "../../shared/components/icon.component"
 import { PathPickerComponent } from "../../shared/components/path-picker.component"
 import { PhaseProgressComponent } from "../../shared/components/phase-progress.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+import { pickPath } from "../../shared/utils/dialog"
 import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { progressPercentage } from "../../shared/utils/progress"
 import { fullHeightTable } from "../../shared/utils/table"
 import { TOOLTIP_DELAY, WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
@@ -74,6 +79,7 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
     Skeleton,
     FormField,
     EmptyStateComponent,
+    SkeletonRowsComponent,
     ErrorMessageComponent,
     IconComponent,
     SourceLogoComponent,
@@ -86,6 +92,7 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
 export default class PlaylistPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly translate = inject(TranslateService)
+  private readonly router = inject(Router)
 
   /** Un onglet rouvert reprend les choix du dernier run, que le service garde avec son rapport. */
   private readonly restoredRun = this.sidecar.extractionRequest()
@@ -115,14 +122,10 @@ export default class PlaylistPageComponent {
   /** Copie mutable : `p-select` attend un tableau modifiable, le contrat NDJSON en lit lecture seule. */
   protected readonly playlists = computed(() => [...this.sidecar.playlists()])
   protected readonly progress = this.sidecar.progress
-  protected readonly progressPercent = computed(() => {
-    const running = this.sidecar.progress()
-
-    return running === null ? undefined : (running.processed / running.total) * 100
-  })
+  protected readonly progressPercent = computed(() => progressPercentage(this.sidecar.progress()))
   protected readonly extraction = this.sidecar.extraction
 
-  protected readonly lastError = this.sidecar.lastError
+  protected readonly lastError = this.sidecar.errorFor("list_playlists", "extract_playlist")
 
   /** Un M3U8 ne contient qu'une playlist : rien a choisir. */
   protected readonly showsPlaylistSelector = computed(
@@ -138,7 +141,7 @@ export default class PlaylistPageComponent {
     () =>
       this.playlistPath() !== null &&
       this.sidecar.playlistFormat() === null &&
-      this.sidecar.lastError() === null,
+      this.lastError() === null,
   )
 
   /**
@@ -250,7 +253,7 @@ export default class PlaylistPageComponent {
   }
 
   protected async chooseFolder(target: WritableSignal<string | null>): Promise<void> {
-    const chosen = await this.openPath({ directory: true })
+    const chosen = await pickPath({ directory: true })
     if (chosen !== null) {
       target.set(chosen)
     }
@@ -261,7 +264,7 @@ export default class PlaylistPageComponent {
    * annonce le format, l'interface n'ayant pas le droit de le deduire.
    */
   protected async choosePlaylistFile(): Promise<void> {
-    const chosen = await this.openPath({ directory: false })
+    const chosen = await pickPath({ directory: false })
     if (chosen === null) {
       return
     }
@@ -288,6 +291,7 @@ export default class PlaylistPageComponent {
       return
     }
 
+    void writeLastDestination(destination)
     await this.sidecar.extractPlaylist({
       source_folder: source,
       destination_folder: destination,
@@ -297,14 +301,8 @@ export default class PlaylistPageComponent {
     })
   }
 
-  /** Hors Tauri, le plugin `dialog` rejette : l'ecran reste utilisable. */
-  private async openPath(options: { directory: boolean }): Promise<string | null> {
-    try {
-      const chosen = await open({ directory: options.directory, multiple: false })
-
-      return typeof chosen === "string" ? chosen : null
-    } catch {
-      return null
-    }
+  /** Le dossier suit par la destination memorisee a l'extraction : rien a transporter. */
+  protected goTagging(): void {
+    void this.router.navigate(["tagging"])
   }
 }

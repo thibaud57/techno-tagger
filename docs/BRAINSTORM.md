@@ -151,6 +151,8 @@ Les deux sont nécessaires : **VLC Android n'a aucune fonction d'export de playl
 
 **Résolution par nom de fichier, pas par chemin** : la base vient du téléphone, les fichiers sont sur le PC. Deux fichiers de même nom, le plus volumineux est retenu et le cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md)). Détail du flux : [ARCHITECTURE.md § Use-case 1](ARCHITECTURE.md#use-case-1--extraction-sélective-par-playlist).
 
+> **Ajouté depuis la Feature 2** (2026-09-20) : la fin d'une extraction annonce elle aussi le signal sonore et un toast, par le service partagé livré avec l'onglet Scraping. La bascule du son reste un réglage de la Feature 7. Une fois l'extraction terminée, un bouton « Passer au tagging » ouvre l'onglet Scraping sur le dossier tout juste extrait (2026-09-22) : c'est l'enchaînement normal des deux onglets.
+
 ### Feature 2 : Onglet Scraping, pipeline de re-tagging
 
 - Sélection d'un dossier (typiquement la destination de l'onglet 1)
@@ -161,6 +163,8 @@ Les deux sont nécessaires : **VLC Android n'a aucune fonction d'export de playl
 - Cache disque des réponses de l'API et des pochettes téléchargées, TTL 30 jours, plafond 500 Mo en éviction LRU
 - Liste scrollable affichant `Artiste - Titre` et un état par ligne : vert validé (coche), rouge sans correspondance (croix), bleu en attente d'arbitrage (i)
 - Barre de progression, **signal sonore de fin** (désactivable) : se déclenche une seule fois, à la fin de cette phase réseau, pas par arbitrage
+
+> **Ajouté en cours de route** (2026-09-25) : un run s'interrompt depuis l'écran, sans fermer l'application, pour qu'un dossier lancé par erreur cesse de consommer le quota de l'API. Les morceaux déjà résolus gardent leurs résultats, les autres passent en « Non traité ».
 
 ### Feature 3 : Arbitrage utilisateur
 
@@ -197,6 +201,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 
 > Table de correspondance complète des 17 champs, conventions Vorbis et règles de titre : [ADR-011](adrs/011-politique-ecriture-tags.md).
 
+> **Reporté ici depuis la Feature 2** (décomposition du 2026-09-19) : la ligne dépliée de la liste du run, qui compare avant et après champ par champ selon la table de l'ADR-011, pochette en grand. La maquette la montre dans `ui_kits/techno-tagger/TaggingScreen.jsx` (`TrackDetail`), DESIGN.md dans § Liste du run (« Détail avant / après »). Elle revient à cette feature parce qu'elle projette le `Track` sur la table de correspondance que l'écriture construit.
+
 ### Feature 6 : Plan de run, reprise et rapport
 
 - Chaque décision (validation auto, arbitrage, URL manuelle, abandon) est écrite au fil de l'eau dans un plan JSON, dans le répertoire de données de l'app (`appLocalDataDir()`), pas dans le dossier de musique
@@ -217,6 +223,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Bouton « vider le cache »
 
 > ⚠️ **Décidé autrement depuis** : le motif de renommage n'est finalement pas une préférence des Settings. Il est fixé à `{artist} - {title}.{ext}` au MVP et n'a donc rien à persister dans le store (cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)).
+
+> ⚠️ **Décidé autrement depuis** : l'URL de l'API n'est pas un réglage. Elle est figée en constante du sidecar le 2026-09-19 et seule la clé se saisit dans les Settings, livrée avec la Feature 2.
 
 ### Feature 8 : Distribution et mise à jour
 

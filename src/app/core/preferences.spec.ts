@@ -1,6 +1,11 @@
 import { load, type Store } from "@tauri-apps/plugin-store"
 
-import { DEFAULT_EXTRACTION_MODE, readExtractionMode } from "./preferences"
+import {
+  DEFAULT_EXTRACTION_MODE,
+  DEFAULT_SOUND_SIGNAL,
+  readExtractionMode,
+  readSoundSignal,
+} from "./preferences"
 
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(),
@@ -41,5 +46,13 @@ describe("preferences", () => {
     const result = await readExtractionMode()
 
     expect(result).toBe(DEFAULT_EXTRACTION_MODE)
+  })
+
+  it("falls back to the sound signal default when the store cannot be loaded", async () => {
+    vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
+
+    const result = await readSoundSignal()
+
+    expect(result).toBe(DEFAULT_SOUND_SIGNAL)
   })
 })
