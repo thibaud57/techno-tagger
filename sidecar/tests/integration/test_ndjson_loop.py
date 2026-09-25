@@ -132,26 +132,18 @@ def test_a_business_error_becomes_an_error_event(
         music_library, vlc_dump, tmp_path / "work", "aucune playlist de ce nom"
     )
 
-    events = drive(unknown_playlist + '{"command":"get_version"}\n')
+    events = drive(unknown_playlist)
 
-    # `version` passe devant : l'extraction tourne en tache de fond et la boucle a
-    # deja repris la lecture quand son echec remonte.
-    assert events[0]["event"] == "version"
-    assert events[1]["event"] == "error"
-    assert events[1]["code"] == "playlist_not_found"
+    assert [(event["code"], event["command"]) for event in events] == [
+        ("playlist_not_found", "extract_playlist")
+    ]
 
 
-def test_answers_a_version_request_while_an_extraction_is_in_progress(
-    vlc_dump: Path, music_library: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """La copie ne gele plus la lecture de stdin : une commande courte passe devant.
-
-    Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
-    laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.
-
-    L'ordre est impose, pas espere : l'extraction attend que `get_version` ait
-    repondu. Si la boucle etait encore bloquee par la copie, cette reponse ne
-    viendrait jamais et l'attente expirerait.
+@pytest.fixture
+def extraction_waits_for_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L'extraction ne part qu'une fois `get_version` repondu : l'ordre est impose, pas
+    espere. Si la boucle restait bloquee par la copie, la reponse ne viendrait jamais et
+    l'attente expirerait.
     """
     answered = threading.Event()
     real_extract = handlers.handle_extract_playlist
@@ -168,6 +160,17 @@ def test_answers_a_version_request_while_an_extraction_is_in_progress(
 
     monkeypatch.setattr(main, "handle_extract_playlist", blocked_extract)
     monkeypatch.setattr(main, "handle_get_version", answering_version)
+
+
+@pytest.mark.usefixtures("extraction_waits_for_version")
+def test_answers_a_version_request_while_an_extraction_is_in_progress(
+    vlc_dump: Path, music_library: Path, tmp_path: Path
+) -> None:
+    """La copie ne gele plus la lecture de stdin : une commande courte passe devant.
+
+    Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
+    laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.
+    """
     extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
 
     events = drive(extraction + '{"command":"get_version"}\n')
@@ -176,12 +179,16 @@ def test_answers_a_version_request_while_an_extraction_is_in_progress(
     assert names.index("version") < names.index("extraction_finished")
 
 
+@pytest.mark.usefixtures("extraction_waits_for_version")
 def test_refuses_a_second_extraction_while_one_is_in_progress(
     vlc_dump: Path, music_library: Path, tmp_path: Path
 ) -> None:
+    """Regression : sans extraction retenue, la premiere finissait parfois avant la
+    lecture de la seconde, et rien n'etait refuse.
+    """
     extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
 
-    events = drive(extraction * 2)
+    events = drive(extraction * 2 + '{"command":"get_version"}\n')
 
     refusals = [event for event in events if event["event"] == "error"]
     assert [event["code"] for event in refusals] == ["extraction_in_progress"]
