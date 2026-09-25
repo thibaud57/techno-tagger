@@ -49,6 +49,7 @@ const unavailableError = (command: SidecarCommand["command"] | null): SidecarErr
 @Injectable({ providedIn: "root" })
 export class SidecarService {
   private readonly transport = inject(SIDECAR_TRANSPORT)
+  private readonly taggingRun = inject(TaggingRunStore)
 
   /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
   private readonly _available = signal<boolean | null>(null)
@@ -94,8 +95,6 @@ export class SidecarService {
       this.versionMismatch() === null &&
       !this._extracting(),
   )
-
-  private readonly taggingRun = inject(TaggingRunStore)
 
   /** Delegation : les composants n'injectent que ce service, la frontiere du sidecar. */
   readonly taggingTracks = this.taggingRun.tracks

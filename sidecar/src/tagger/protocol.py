@@ -375,10 +375,15 @@ class Error(Event):
 
 
 MALFORMED_COMMAND: Final = "malformed_command"
-# Seul champ du contrat saisi a la main : son refus dit quoi corriger, quand une autre
-# commande mal formee ne peut venir que d'un defaut de l'application.
 API_KEY_MALFORMED: Final = "api_key_malformed"
-_API_KEY_FIELD: Final = ("set_api_key", "api_key")
+# Les champs du contrat saisis a la main : leur refus dit quoi corriger, quand une autre
+# commande mal formee ne peut venir que d'un defaut de l'application. Une table plutot
+# qu'une branche, pour que le prochain champ tape par l'utilisateur soit une ligne ici.
+# Cle typee comme `loc`, qui porte un index numerique des qu'une erreur vise un element
+# de liste : la restreindre a deux chaines obligerait a un `cast()`.
+_TYPED_BY_HAND: Final[dict[tuple[int | str, ...], str]] = {
+    ("set_api_key", "api_key"): API_KEY_MALFORMED
+}
 
 # Type Pydantic d'une valeur de discriminant hors union : la commande est inconnue.
 UNKNOWN_COMMAND_ERROR: Final = "union_tag_invalid"
@@ -401,8 +406,7 @@ def error_from_validation(exc: ValidationError) -> Error:
     for error in exc.errors():
         loc = error["loc"]
         details.append({"loc": list(loc), "type": error["type"]})
-        if loc[:2] == _API_KEY_FIELD:
-            code = API_KEY_MALFORMED
+        code = _TYPED_BY_HAND.get(loc[:2], code)
         # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union
         # imbriquee qu'un futur modele pourrait declarer.
         if error["type"] == UNKNOWN_COMMAND_ERROR and not loc:

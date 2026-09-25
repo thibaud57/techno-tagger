@@ -12,12 +12,14 @@ const ROWS = Array.from({ length: 60 }, (_, index) => index)
 @Component({
   selector: "app-skeleton-rows",
   imports: [Skeleton],
-  host: { class: "absolute inset-0 overflow-hidden" },
+  host: {
+    class: "absolute inset-0 overflow-hidden",
+    "[style.--tt-skeleton-row]": "rowHeight() + 'px'",
+  },
   template: `
     @for (row of rows; track row) {
       <div
-        class="flex items-center border-b border-(--p-datatable-body-cell-border-color) px-4"
-        [style.height.px]="rowHeight()"
+        class="flex h-(--tt-skeleton-row) items-center border-b border-(--p-datatable-body-cell-border-color) px-4"
       >
         <p-skeleton height="1rem" />
       </div>
@@ -25,7 +27,7 @@ const ROWS = Array.from({ length: 60 }, (_, index) => index)
   `,
 })
 export class SkeletonRowsComponent {
-  readonly rowHeight = input.required<number>()
-
   protected readonly rows = ROWS
+
+  readonly rowHeight = input.required<number>()
 }

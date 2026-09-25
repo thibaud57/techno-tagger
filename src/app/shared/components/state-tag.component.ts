@@ -19,7 +19,7 @@ interface StateStyle {
 const PENDING: StateStyle = { severity: "secondary", icon: "clock", label: "tagging.state.pending" }
 /** Run interrompu : l'horloge promettrait une suite qui ne viendra pas. */
 const NOT_PROCESSED: StateStyle = {
-  severity: "secondary",
+  ...PENDING,
   icon: "minus-circle",
   label: "tagging.state.notProcessed",
 }

@@ -67,6 +67,7 @@ export class TaggingRunStore {
   private readonly _progress = signal<RunProgress | null>(null)
   private readonly _running = signal(false)
   private readonly _finished = signal<RunFinishedEvent | null>(null)
+  private readonly _interrupted = signal(false)
 
   readonly runId = this._runId.asReadonly()
   /** Les lignes dans l'ordre du run, pretes pour la table. */
@@ -75,10 +76,10 @@ export class TaggingRunStore {
   /** Vrai de l'envoi de `start_tagging` jusqu'a `run_finished` ou une erreur. */
   readonly running = this._running.asReadonly()
   readonly finished = this._finished.asReadonly()
-  /** Arrete par une erreur apres `run_started` : ses morceaux non tranches ne le seront plus. */
-  readonly interrupted = computed(
-    () => this._runId() !== null && !this._running() && this._finished() === null,
-  )
+  /** Arrete par une erreur ou par la mort du process : ses morceaux non tranches ne le
+   * seront plus. Pose par `failed()`, au moment ou le fait est connu : le deduire d'un
+   * `running` retombe le rendrait faux le jour ou un arret volontaire l'eteindrait aussi. */
+  readonly interrupted = this._interrupted.asReadonly()
 
   /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {
@@ -86,6 +87,7 @@ export class TaggingRunStore {
     this._rows.set(new Map())
     this._progress.set(null)
     this._finished.set(null)
+    this._interrupted.set(false)
     this._running.set(true)
   }
 
@@ -124,6 +126,10 @@ export class TaggingRunStore {
   /** Erreur du sidecar ou process mort : le run s'arrete, les lignes restent. */
   failed(): void {
     this._running.set(false)
+    // Avant `run_started` aucune ligne n'existe, et apres `run_finished` le run a sa fin :
+    // dans les deux cas il n'y a rien a etiqueter « non traite ». Le process peut mourir
+    // apres la fin du run, pendant l'ecriture.
+    this._interrupted.set(this._runId() !== null && this._finished() === null)
   }
 
   private patch(trackId: string, update: (row: TaggingTrack) => TaggingTrack): void {

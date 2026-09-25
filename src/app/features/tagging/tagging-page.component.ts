@@ -37,17 +37,20 @@ export default class TaggingPageComponent {
   private readonly sidecar = inject(SidecarService)
 
   protected readonly folder = signal("")
+  protected readonly tooltipDelay = TOOLTIP_DELAY
+
   protected readonly tracks = this.sidecar.taggingTracks
   protected readonly progress = this.sidecar.taggingProgress
   protected readonly running = this.sidecar.tagging
   /** Nul pendant le parcours du dossier : la liste s'affiche en squelette, jamais « aucun run ». */
   protected readonly listing = computed(() => this.sidecar.taggingRunId() === null)
-  protected readonly showsRun = computed(() => this.running() || !this.listing())
+  protected readonly showsRun = computed(
+    () => this.running() || this.sidecar.taggingRunId() !== null,
+  )
   protected readonly interrupted = this.sidecar.taggingInterrupted
   protected readonly idleDescription = computed(() =>
     this.folder() === "" ? "tagging.empty.description" : "tagging.empty.ready",
   )
-  protected readonly tooltipDelay = TOOLTIP_DELAY
 
   /**
    * Seule source de l'aide du bouton desactive, priorisee du plus proche de

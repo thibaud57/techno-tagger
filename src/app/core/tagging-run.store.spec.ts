@@ -159,6 +159,17 @@ describe("TaggingRunStore", () => {
       },
       false,
     ],
+    // Le process peut mourir apres `run_finished`, pendant l'ecriture : le run a sa fin,
+    // rien n'est a etiqueter « non traite ».
+    [
+      "whose process died after finishing",
+      (run: TaggingRunStore) => {
+        run.started(STARTED)
+        run.completed(FINISHED)
+        run.failed()
+      },
+      false,
+    ],
   ] as const)("tells whether a run %s is interrupted", (_name, play, expected) => {
     store.reset()
 

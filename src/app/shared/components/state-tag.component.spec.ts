@@ -9,6 +9,7 @@ interface Case {
   readonly state: TrackState | null
   readonly resolution: TrackResolution | null
   readonly awaiting: boolean
+  readonly interrupted?: boolean
   readonly severity: string
   readonly icon: string
   readonly label: string
@@ -71,6 +72,7 @@ const mount = (shown: Partial<Case>) => {
   fixture.componentRef.setInput("state", shown.state ?? null)
   fixture.componentRef.setInput("resolution", shown.resolution ?? null)
   fixture.componentRef.setInput("awaiting", shown.awaiting ?? false)
+  fixture.componentRef.setInput("interrupted", shown.interrupted ?? false)
   fixture.detectChanges()
 
   return fixture
@@ -95,10 +97,7 @@ describe("StateTagComponent", () => {
   })
 
   it("shows a track left behind by an interrupted run as not processed", () => {
-    const fixture = TestBed.createComponent(StateTagComponent)
-    fixture.componentRef.setInput("interrupted", true)
-
-    fixture.detectChanges()
+    const fixture = mount({ interrupted: true })
 
     const element = fixture.nativeElement as HTMLElement
     expect(element.textContent).toContain("tagging.state.notProcessed")

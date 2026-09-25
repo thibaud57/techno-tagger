@@ -240,6 +240,18 @@ def test_an_api_key_pasted_with_a_space_says_what_to_fix() -> None:
     assert event.command == "set_api_key"
 
 
+def test_a_refused_value_never_travels_with_its_error() -> None:
+    """La cle refusee est un secret : rien en aval ne la masquerait. Le scrubbing Sentry
+    de la webview n'efface que des chemins, et `loc` plus `type` suffisent aux logs.
+    """
+    with pytest.raises(ValidationError) as excinfo:
+        parse_command('{"command":"set_api_key","api_key":"sk live do-not-leak"}')
+
+    event = error_from_validation(excinfo.value)
+
+    assert "do-not-leak" not in event.model_dump_json()
+
+
 def test_a_malformed_command_names_no_command() -> None:
     """L'interface n'attribue une erreur a un ecran que si le sidecar l'a nommee : une
     ligne qui n'a pas valide ne designe aucune commande du contrat.

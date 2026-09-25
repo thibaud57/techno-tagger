@@ -70,6 +70,11 @@ _VERSION_MATCH_FLOOR: Final = 70
 # Mot entier : sinon "remix" matche dans "Premix" ou "Extremixed".
 _REMIX_WORD: Final = re.compile(r"\bremix\b", re.IGNORECASE)
 # « Pt. 1 » et « Pt. 2 » sont deux morceaux, mais ne different que d'un caractere au score.
+# Toute divergence compte, un nombre ajoute d'un seul cote y compris : Beatport desambigue
+# parfois « Acperience » en « Acperience 1 » pour le meme morceau, qui passe donc en zone
+# grise a tort. C'est le cout assume du choix inverse, ou « Minimal Nation 2 » se validerait
+# tout seul sur le tag « Minimal Nation » : un arbitrage de plus coute une seconde, un
+# mauvais tag ecrit sans relecture coute un fichier de la bibliotheque.
 _NUMBER: Final = re.compile(r"\d+")
 _MAX_SCORE: Final = 100
 
@@ -127,9 +132,9 @@ DEFAULT_THRESHOLDS: Final = MatchingThresholds()
 class ScoredCandidate:
     """Scores d'un candidat, gardes pour le rapport et le recalibrage des seuils.
 
-    `artist_score` vaut `None` sans artiste dans la requete. `version_mismatch` et
-    `number_mismatch` bloquent l'auto : seul l'utilisateur tranche entre deux versions d'un
-    meme morceau, ou entre deux morceaux que seul un nombre distingue.
+    `artist_score` vaut `None` sans artiste dans la requete. Les deux `_mismatch`
+    nomment la cause, pour le rapport ; c'est `blocks_auto` que la classification lit,
+    de sorte qu'une troisieme cause n'ait pas a rouvrir sa condition.
     """
 
     candidate: TrackCandidate
@@ -138,6 +143,12 @@ class ScoredCandidate:
     score: float
     version_mismatch: bool
     number_mismatch: bool
+
+    @property
+    def blocks_auto(self) -> bool:
+        """Seul l'utilisateur tranche entre deux versions d'un meme morceau, ou entre deux
+        morceaux que seul un nombre distingue. Le candidat reste en lice, sans son score."""
+        return self.version_mismatch or self.number_mismatch
 
 
 class _Parts(NamedTuple):
@@ -259,8 +270,7 @@ def classify(
             (
                 entry
                 for entry in in_play
-                if not (entry.version_mismatch or entry.number_mismatch)
-                and entry.score >= thresholds.ceiling
+                if not entry.blocks_auto and entry.score >= thresholds.ceiling
             ),
             None,
         )
@@ -325,11 +335,9 @@ def _score(asked: _AskedFor, candidate: TrackCandidate, offered: _Parts) -> Scor
     title_score = fuzz.ratio(asked.title, offered.title, processor=utils.default_process)
     mismatch = not _versions_agree(asked.version, offered.version)
     renumbered = asked.numbers != _numbers(offered.title)
-    if not asked.artists:
-        return ScoredCandidate(candidate, None, title_score, title_score, mismatch, renumbered)
-    artist_score = _artist_score(asked.artists, candidate)
-    average = (artist_score + title_score) / 2
-    return ScoredCandidate(candidate, artist_score, title_score, average, mismatch, renumbered)
+    artist_score = _artist_score(asked.artists, candidate) if asked.artists else None
+    score = title_score if artist_score is None else (artist_score + title_score) / 2
+    return ScoredCandidate(candidate, artist_score, title_score, score, mismatch, renumbered)
 
 
 def _numbers(title: str) -> tuple[int, ...]:

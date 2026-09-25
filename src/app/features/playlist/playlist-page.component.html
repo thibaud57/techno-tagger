@@ -227,7 +227,7 @@
         </tr>
       </ng-template>
     </p-table>
-    @if (extraction() !== null ? progress() : null; as finished) {
+    @if (extraction() !== null && progress(); as finished) {
       <div class="flex items-center justify-end gap-4">
         <span class="text-sm text-muted-color tabular-nums">
           {{ "playlist.finished" | translate: finished }}
