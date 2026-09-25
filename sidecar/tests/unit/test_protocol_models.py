@@ -216,6 +216,30 @@ def test_command_name_lists_every_command() -> None:
     assert declared == set(get_args(CommandName.__value__))
 
 
+def test_a_malformed_known_command_is_attributed_to_its_command() -> None:
+    """Regression : une commande refusee sur un champ n'etait nommee nulle part, et aucun
+    ecran n'affichait son erreur.
+    """
+    with pytest.raises(ValidationError) as excinfo:
+        parse_command('{"command":"list_playlists","playlist_path":"C:/x","extra":1}')
+
+    event = error_from_validation(excinfo.value)
+
+    assert event.command == "list_playlists"
+    assert event.code == "malformed_command"
+
+
+def test_an_api_key_pasted_with_a_space_says_what_to_fix() -> None:
+    """Regression : ce refus sortait en erreur interne, la ou la cle seule est a corriger."""
+    with pytest.raises(ValidationError) as excinfo:
+        parse_command('{"command":"set_api_key","api_key":"abc def"}')
+
+    event = error_from_validation(excinfo.value)
+
+    assert event.code == "api_key_malformed"
+    assert event.command == "set_api_key"
+
+
 def test_a_malformed_command_names_no_command() -> None:
     """L'interface n'attribue une erreur a un ecran que si le sidecar l'a nommee : une
     ligne qui n'a pas valide ne designe aucune commande du contrat.

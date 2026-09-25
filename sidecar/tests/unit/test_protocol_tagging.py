@@ -59,7 +59,9 @@ def _scored(
 ) -> ScoredCandidate:
     picked = candidate if candidate is not None else track_candidate()
     average = title if artist is None else (artist + title) / 2
-    return ScoredCandidate(picked, artist, title, average, version_mismatch=False)
+    return ScoredCandidate(
+        picked, artist, title, average, version_mismatch=False, number_mismatch=False
+    )
 
 
 _BASE_RECORD: Final = TrackRecord(

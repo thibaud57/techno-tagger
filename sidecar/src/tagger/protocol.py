@@ -11,7 +11,7 @@ inconnu ou mal type est une commande malformee, pas un detail a ignorer
 
 from enum import UNIQUE, StrEnum, auto, verify
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Final, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Final, Literal, Self, get_args
 
 from pydantic import (
     BaseModel,
@@ -151,6 +151,9 @@ type CommandName = Literal[
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
+_COMMAND_NAMES: Final[dict[str, CommandName]] = {
+    name: name for name in get_args(CommandName.__value__)
+}
 
 
 def parse_command(line: str) -> AnyCommand:
@@ -372,6 +375,10 @@ class Error(Event):
 
 
 MALFORMED_COMMAND: Final = "malformed_command"
+# Seul champ du contrat saisi a la main : son refus dit quoi corriger, quand une autre
+# commande mal formee ne peut venir que d'un defaut de l'application.
+API_KEY_MALFORMED: Final = "api_key_malformed"
+_API_KEY_FIELD: Final = ("set_api_key", "api_key")
 
 # Type Pydantic d'une valeur de discriminant hors union : la commande est inconnue.
 UNKNOWN_COMMAND_ERROR: Final = "union_tag_invalid"
@@ -389,19 +396,28 @@ def error_from_validation(exc: ValidationError) -> Error:
     """
     details: list[dict[str, object]] = []
     params: dict[str, object] = {"errors": details}
+    command: CommandName | None = None
+    code = MALFORMED_COMMAND
     for error in exc.errors():
-        details.append({"loc": list(error["loc"]), "type": error["type"]})
+        loc = error["loc"]
+        details.append({"loc": list(loc), "type": error["type"]})
+        if loc[:2] == _API_KEY_FIELD:
+            code = API_KEY_MALFORMED
         # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union
         # imbriquee qu'un futur modele pourrait declarer.
-        if error["type"] == UNKNOWN_COMMAND_ERROR and not error["loc"]:
+        if error["type"] == UNKNOWN_COMMAND_ERROR and not loc:
             params["command"] = error.get("ctx", {}).get("tag")
+        # Un champ refuse sur une commande connue : Pydantic ouvre `loc` par son
+        # discriminant. La nommer rend l'erreur a l'ecran qui l'a envoyee, sans quoi
+        # aucun ne l'affiche (une cle API collee avec un espace se perdait ainsi).
+        elif loc and isinstance(loc[0], str):
+            command = _COMMAND_NAMES.get(loc[0], command)
 
-    # `command` reste nul : la ligne n'a pas valide, rien ne garantit qu'elle
-    # designe une commande du contrat. Son nom eventuel est dans `params`.
     return Error(
-        code=MALFORMED_COMMAND,
+        code=code,
         params=params,
         message="command rejected by validation",
+        command=command,
     )
 
 
