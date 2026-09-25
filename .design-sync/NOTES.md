@@ -138,3 +138,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   passe au vouvoiement. « Passer au tagging » passe en `primary` outlined, aligné à droite avec la
   ligne de fin. Le tooltip compte trois exceptions et un fondu de 250ms. Les huit fichiers poussés
   sont recopiés dans l'export local, `_ds_needs_recompile` posé.
+- **2026-09-25, « Extraire la playlist » sur la ligne du mode** : réserve n° 12. Le bouton quitte
+  sa ligne pour celle du mode, calé à droite, sans changer de largeur : la grille devient un
+  container et la largeur vaut `100cqw` moins la colonne des chemins et un gap. `PlaylistScreen`
+  et `readme.md` poussés après relecture du distant, `_ds_needs_recompile` posé.
