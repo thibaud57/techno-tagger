@@ -5,6 +5,7 @@ jamais melange au protocole.
 """
 
 import asyncio
+import functools
 import io
 import logging
 import sys
@@ -44,7 +45,7 @@ from tagger.protocol import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
+    from collections.abc import Awaitable, Callable
     from pathlib import Path
     from typing import TextIO
 
@@ -121,15 +122,19 @@ class _Session:
         """Lance le run en tache de fond : la boucle repart lire la commande suivante."""
         if self._active_run() is not None:
             raise TaggingInProgressError
-        work = handle_start_tagging(command, self.send)
-        self._run = self._group.create_task(self._phase(work, command), name="tagging")
+        start_work = functools.partial(handle_start_tagging, command, self.send)
+        self._run = self._group.create_task(self._phase(start_work, command), name="tagging")
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
         """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
         if self._active(self._extraction) is not None:
             raise ExtractionInProgressError
-        work = asyncio.to_thread(handle_extract_playlist, command, self.send)
-        self._extraction = self._group.create_task(self._phase(work, command), name="extraction")
+        start_work = functools.partial(
+            asyncio.to_thread, handle_extract_playlist, command, self.send
+        )
+        self._extraction = self._group.create_task(
+            self._phase(start_work, command), name="extraction"
+        )
 
     async def cancel_run(self) -> None:
         """`shutdown` n'attend pas la fin d'un run, il l'annule.
@@ -142,7 +147,7 @@ class _Session:
         if running is not None:
             running.cancel()
             # Attendu avant la commande suivante : sa sortie du cache attend les
-            # telechargements en vol, et une relance lue entre-temps le trouverait
+            # telechargements en vol et une relance lue entre-temps le trouverait
             # vivant, refusee en `tagging_in_progress` que l'interface lit comme un run
             # qui continue. `wait` ne releve pas l'annulation, il la laisse a la tache.
             await asyncio.wait({running})
@@ -163,14 +168,18 @@ class _Session:
             return None
         return task
 
-    async def _phase(self, work: Awaitable[Event], command: StartTagging | ExtractPlaylist) -> None:
+    async def _phase(
+        self, start_work: Callable[[], Awaitable[Event]], command: StartTagging | ExtractPlaylist
+    ) -> None:
         """Deroule une phase de fond : son evenement de fin, ou son erreur metier.
 
         Une phase echouee ne remonte pas au `TaskGroup`, qui annulerait la session
         entiere pour un dossier illisible.
         """
+        # Une factory, parce qu'un run annule avant son premier pas n'entre jamais ici :
+        # une coroutine creee d'avance ne serait jamais attendue.
         try:
-            finished = await work
+            finished = await start_work()
         except TaggerError as error:
             logger.exception("background phase failed reason=%s", error.code)
             self.send(error_from_business(error, command.command))
