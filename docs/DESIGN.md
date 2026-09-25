@@ -45,9 +45,17 @@ Base **16px**, imposée par l'import `@primeuix/themes/aura` en version non-`com
 
 Les écrans de données tournent en **body dense** : un run affiche 100 lignes, et chaque cran de taille en moins est une ligne de plus visible sans scroller.
 
-### Chiffres
+### Séparateurs
 
-Le point médian sépare deux valeurs de même rang, jamais un total de son détail. Le score a donc deux notations selon la place disponible :
+Trois glyphes, trois rôles qui ne se recouvrent pas. Un seul employé pour deux rôles et la ligne cesse de se lire d'un coup d'œil.
+
+| Glyphe | Rôle | Exemple |
+|--------|------|---------|
+| `-` entouré d'espaces | Artiste et titre d'un même morceau | `Adam Beyer - Your Mind` |
+| `·` | Deux valeurs de même rang | `A 96 · T 92`, `Beatport · 2024` |
+| `—` seul | Cellule sans valeur (cf. § États des Composants) | la colonne Source d'un morceau non résolu |
+
+Le point médian ne sépare jamais un total de son détail. Le score a donc deux notations selon la place disponible :
 
 - **En table** : `94` sur la ligne principale, `A 96 · T 92` en `text-xs` dessous
 - **Sur une seule ligne** : `94 (A 96 · T 92)`
@@ -107,12 +115,12 @@ Le design system ne connaît pas la liste des états d'un morceau, seulement **q
 
 | Famille | Sévérité | Icône type | Source | Ce qu'elle couvre |
 |---------|----------|------------|--------|-------------------|
-| Neutre | `secondary` | `clock` | dérivée | Rien n'est encore arrivé sur ce morceau, il attend son tour dans la file |
+| Neutre | `secondary` | `clock`, `minus-circle` | dérivée | Rien n'est encore arrivé sur ce morceau : il attend son tour dans la file, ou le run s'est arrêté avant lui |
 | Décision attendue | `info` | `info-circle` | dérivée | `arbitration_required` reçu sans `track_resolved` derrière : le morceau attend un geste humain |
 | Résolu | `success` | `check` | `state` | `resolved` et `written` |
 | Échec | `danger` | `times` | `state` | `unresolved` et `write_error` |
 
-Les sévérités sont déjà câblées dans `p-tag`, `p-badge`, `p-message` et `p-button`, et suivent le preset sans maintenance.
+Les sévérités sont déjà câblées dans `p-tag`, `p-badge`, `p-message` et `pButton`, et suivent le preset sans maintenance.
 
 **Deux familles sur quatre sont dérivées par l'interface** et ne correspondent à aucune valeur de `state` : rien ne circule sur le flux tant qu'un morceau n'est pas tranché, l'interface affiche donc « en attente » ce qu'elle n'a pas reçu et « à arbitrer » ce pour quoi elle a reçu une demande sans réponse.
 
@@ -126,7 +134,10 @@ Le bleu plutôt que l'orange sur la décision attendue : un arbitrage qui attend
 | `resolved` ou `written` | `arbitration` | vert, `check`, « Arbitré » |
 | `resolved` ou `written` | `url` | vert, `check`, « URL » |
 | `unresolved` | `none` | rouge, `times`, « Non résolu » |
+| absent du flux | — | neutre, `minus-circle`, « Non traité », sur un run interrompu |
 | `write_error` | — | rouge, `exclamation-triangle`, « Échec d'écriture » |
+
+**La famille Neutre change de glyphe quand le run s'arrête.** Une horloge promet une suite : sur un morceau qu'un run interrompu n'a jamais atteint, elle promettrait ce qui ne viendra pas. Le `minus-circle` dit l'inverse sans changer de famille, le morceau n'ayant rien à se reprocher.
 
 Un morceau validé automatiquement à 94 est l'endroit le plus probable d'un mauvais match, puisque personne ne l'a regardé. Distinguer « Auto » d'« Arbitré » dit à l'utilisateur où porter son attention, et un glyphe ne se décode pas assez vite dans un tableau dense pour porter cette information.
 
@@ -134,7 +145,7 @@ Les deux rouges partagent la couleur sans partager l'icône, leurs corrections �
 
 **Le libellé d'échec d'écriture reste générique, le motif vit dans la ligne dépliée.** Le verrou n'est qu'un `failure_reason` parmi plusieurs, et la colonne État est dimensionnée sur le plus long des libellés livrés : nommer chaque cause obligerait à l'élargir ou à tronquer. Un motif est du diagnostic, pas de la colonne de balayage.
 
-> **Deux pièges d'orthographe sur les sévérités.** C'est `warn`, jamais `warning`, sur `p-tag`, `p-badge`, `p-message` et `p-button` (seul `badgeSeverity` de `p-button` attend `warning`). Et `p-message` n'accepte pas `danger` : sa sévérité d'erreur est `error`.
+> **Deux pièges d'orthographe sur les sévérités.** C'est `warn`, jamais `warning`, sur `p-tag`, `p-badge`, `p-message` et `pButton` (seul `badgeSeverity` de `pButton` attend `warning`). Et `p-message` n'accepte pas `danger` : sa sévérité d'erreur est `error`.
 
 ### Règles
 
@@ -231,8 +242,6 @@ Le preset du projet dérive d'Aura et n'y change que ce que ce document décide 
 
 Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de l'étape 5 de l'ordre de développement : ce mapping la précède et la contraint. Les features référencées sont celles de [ARCHITECTURE.md § Flux Fonctionnels](ARCHITECTURE.md#flux-fonctionnels-use-cases-critiques).
 
-> Les lignes qui nomment encore `p-button` se lisent avec la directive `pButton`, le composant étant déprécié depuis PrimeNG 22 (cf. [composants.md](../.claude/rules/primeng/composants.md)).
-
 ### Navigation
 
 | Catégorie | Composant | Librairie | Notes |
@@ -256,15 +265,15 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Lancement du run | `button pButton` primaire en `size="small"` | PrimeNG | Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
+| Lancement du run | `button pButton` primaire, taille par défaut | PrimeNG | Taille appariée à l'entête qui le porte et non à un formulaire dense, contrairement à celui de l'extraction. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
 | Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes |
-| Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
+| Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image, le squelette tant que le morceau attend son tour, et un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
 | État d'un morceau | `p-tag` | PrimeNG | Familles du § Couleurs Sémantiques |
 | Source retenue | SVG Simple Icons + libellé | Simple Icons | Beatport / Bandcamp / SoundCloud |
 | Détail avant / après | `[expandedRowKeys]` + `<ng-template #expandedrow>` | PrimeNG | Comparaison champ par champ, pochette en grand, sur le morceau déplié |
 | Texte tronqué d'une colonne fluide | `pTooltip` | PrimeNG | Avant et Après sont fluides et tronquent en permanence, et ce sont exactement les deux chaînes que l'utilisateur compare. Jamais seul porteur d'une information, cf. § Tokens de Tooltip |
 | Progression d'une phase | `p-progressbar` + compteur | PrimeNG | Alimentée par l'événement `progress` du sidecar |
-| Chargement | `p-skeleton` | PrimeNG | Lignes de table en attente du premier événement |
+| Chargement | `SkeletonRowsComponent`, puis `p-skeleton` | PrimeNG | Deux temps. Tant que la table est vide, `SkeletonRowsComponent` en remplit la hauteur de lignes entières, par le template `#emptymessage`. Dès la première ligne reçue, le squelette ne tient plus que la vignette d'un morceau qui attend son tour, les autres cellules portant le cadratin du § Séparateurs : un squelette par cellule ferait clignoter la table à chaque événement |
 
 ### Arbitrage
 
@@ -272,9 +281,9 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 |-----------|-----------|-----------|-------|
 | Modale d'arbitrage | `p-dialog` modal, largeur et hauteur figées | PrimeNG | S'ouvre dès qu'un morceau entre en zone grise et qu'aucune autre n'est ouverte. Dimensions fixes, cf. § Layout |
 | Candidats en zone grise | `p-listbox` à hauteur fixe, scroll interne | PrimeNG | Sélection simple, scores en `text-xs` par ligne. La liste Bandcamp remplace celle de Beatport dans la même fenêtre après un refus, sans que rien ne se déplace |
-| Navigation entre arbitrages | `p-button` icon (`chevron-left` / `chevron-right`) + `p-badge` | PrimeNG | Compteur du type 1/3, la file se réduisant au fil des décisions |
-| Refus explicite | `p-button` `severity="secondary"` outlined | PrimeNG | Action distincte de la fermeture de la modale, qui ne décide rien |
-| Rattrapage par URL | `p-inputgroup` + `input pInputText` + `p-button` | PrimeNG | Une ligne par morceau non résolu, validation de l'hôte avant envoi |
+| Navigation entre arbitrages | `button pButton` à icône seule (`chevron-left` / `chevron-right`) + `p-badge` | PrimeNG | Compteur du type 1/3, la file se réduisant au fil des décisions |
+| Refus explicite | `button pButton` `severity="secondary"` outlined | PrimeNG | Action distincte de la fermeture de la modale, qui ne décide rien |
+| Rattrapage par URL | `p-inputgroup` + `input pInputText` + `button pButton` | PrimeNG | Une ligne par morceau non résolu, validation de l'hôte avant envoi |
 
 ### Écriture et récapitulatif
 
@@ -282,10 +291,10 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 |-----------|-----------|-----------|-------|
 | Confirmation globale de l'écriture | `p-confirmdialog`, bouton `danger` | PrimeNG | Le point de non-retour du run : seule modale dont le bouton principal est destructif |
 | Récapitulatif filtrable | `p-table` + `p-selectbutton` + `p-iconfield` | PrimeNG | Filtres tout / validés / arbitrés / échecs, plus une recherche texte. « Échecs » lit `state`, les deux autres `resolution` (cf. § Conventions de Code) |
-| Relance de l'écriture en échec | `p-button` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Dans le récapitulatif, actif seulement s'il reste des `write_error`. Rejoue l'écriture sur ces seuls fichiers, sans refaire ni la phase réseau ni les arbitrages. Destructif comme la confirmation globale, donc même traitement |
+| Relance de l'écriture en échec | `button pButton` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Dans le récapitulatif, actif seulement s'il reste des `write_error`. Rejoue l'écriture sur ces seuls fichiers, sans refaire ni la phase réseau ni les arbitrages. Destructif comme la confirmation globale, donc même traitement |
 | Reprise d'un run interrompu | `p-dialog` au démarrage | PrimeNG | Deux actions : reprendre, repartir de zéro |
-| Rollback | `p-button` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Par run ou par morceau |
-| Envoi du rapport | `p-button` `severity="secondary"` | PrimeNG | Geste explicite, seul endroit d'où des titres quittent la machine |
+| Rollback | `button pButton` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Par run ou par morceau |
+| Envoi du rapport | `button pButton` `severity="secondary"` | PrimeNG | Geste explicite, seul endroit d'où des titres quittent la machine |
 
 ### Settings
 
@@ -295,7 +304,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Seuils de matching | `p-slider` lié à un `p-inputnumber` | PrimeNG | Plancher et seuil haut, valeurs de départ 70 et 90 |
 | Langue | `p-select` | PrimeNG | FR / EN, force la locale détectée au premier lancement |
 | Bascules des Settings | `p-toggleswitch` | PrimeNG | Signal sonore, copie par défaut |
-| Actions d'administration | `p-button` `severity="secondary"` outlined | PrimeNG | Vider le cache, ouvrir le dossier de logs |
+| Actions d'administration | `button pButton` `severity="secondary"` outlined | PrimeNG | Vider le cache, ouvrir le dossier de logs |
 
 ### Feedback
 
@@ -318,6 +327,7 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Sélection de chemin | `PathPickerComponent` | PrimeNG (`pButton`, `pLabel`) | Libellé, bouton et chemin retenu, un par dossier ou fichier à choisir. Ses trois éléments sont des cellules de la grille de l'appelant (`display: contents`) : libellés, boutons et chemins s'alignent en colonnes d'un sélecteur à l'autre |
 | Progression d'une phase | `PhaseProgressComponent` | PrimeNG (`p-progressbar`) | Libellé et compteur au-dessus de la barre, que `p-progressbar` ne sait pas porter. La barre n'écrit aucune valeur, le compteur la porte. Sans valeur, elle passe en indéterminée |
 | Table pleine hauteur | `fullHeightTable` (`shared/utils/table.ts`) | PrimeNG (`[pt]` de `p-table`) | Fond de ligne sur toute la hauteur du conteneur, et table étirée quand elle est vide pour centrer son bloc vide. Jamais étirée remplie : ses lignes dépasseraient la hauteur attendue par le défilement virtuel |
+| Lignes en attente | `SkeletonRowsComponent` | PrimeNG (`p-skeleton`) | Lignes entières en squelette, à la hauteur et au filet des vraies, posées dans la cellule du `#emptymessage` qu'elles remplissent. `p-table` ne sait pas rendre une table en chargement : sans elles, la table vide affiche son bloc vide avant le premier événement, ce qui annonce l'inverse de ce qui se passe |
 | Erreur contextuelle | `ErrorMessageComponent` | PrimeNG (`p-message`) | Erreur du sidecar traduite depuis son `code` et ses `params`, sous la forme décrite au § Feedback |
 | Texte tronqué | `TruncatedTextComponent` | PrimeNG (`pTooltip`) | Chemin ou valeur de colonne fluide coupé par l'ellipse. Le tooltip `wide` ne s'ouvre que sur un texte coupé, et `rtl` coupe un chemin par la gauche |
 
@@ -341,9 +351,10 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Sélection | `bg-highlight` | Cohérent avec la sélection des composants PrimeNG |
 | Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier, `outline: none` est interdit |
 | Désactivé | `--p-disabled-opacity` (0.6) + `cursor: not-allowed` | Un bouton désactivé garde son libellé, il n'est jamais masqué |
-| Chargement | `p-skeleton` aux dimensions de la ligne finale | Évite le saut de layout à l'arrivée des événements |
+| Chargement | `p-skeleton` aux dimensions de l'élément final | Évite le saut de layout à l'arrivée des événements. Une table encore vide se couvre de lignes entières, une table déjà peuplée n'en garde que sur la vignette (§ Mapping Composants) |
+| Sans valeur | Cadratin en `text-muted-color`, cf. § Séparateurs | Cellule d'une ligne qui existe, mais dont la source ne fournit pas la donnée : Après, Source et Score d'un morceau non résolu. Un trait d'union se lirait comme un caractère du contenu, une cellule vide comme un rendu manqué |
 | Curseur | Flèche partout, `text` sur les seuls champs de saisie | Le curseur texte sur une table ou un libellé fait lire une page web |
-| Vide | Icône 24px en `text-muted-color`, titre en `text-base`, une phrase en `text-sm text-muted-color`, et l'action qui débloque quand elle existe | Quatre cas à couvrir : dossier sans fichier audio, playlist dont aucun morceau n'est retrouvé dans la source, aucun run passé, cache déjà vide. Dans une table, le template `#emptymessage` de `p-table` porte ce bloc, centré sur toute la hauteur par `fullHeightTable`, et sa cellule pose `border-b-0` : le pass-through n'atteint pas les lignes, et la bordure basse traînerait au pied de la table |
+| Vide | Icône 24px en `text-muted-color`, titre en `text-base`, une phrase en `text-sm text-muted-color`, et l'action qui débloque quand elle existe | Les cas à couvrir : aucune extraction lancée, dossier sans fichier audio, playlist dont aucun morceau n'est retrouvé dans la source, aucun run lancé, cache déjà vide. Titre et phrase sont deux libellés distincts, la phrase disant le geste qui débloque. Dans une table, le template `#emptymessage` de `p-table` porte ce bloc, centré sur toute la hauteur par `fullHeightTable`, et sa cellule pose `border-b-0` : le pass-through n'atteint pas les lignes, et la bordure basse traînerait au pied de la table |
 
 ### Tailles de Badge
 
@@ -351,7 +362,7 @@ Deux tailles, celle par défaut (20px, aucune prop `size`) et `large` (24px, `si
 
 La taille s'apparie à celle des éléments de la même rangée, pas à une préférence : défaut à côté de boutons `small`, `large` à côté de boutons `normal`. Dans le footer d'arbitrage, le compteur est encadré de boutons `small`, il reste donc en taille par défaut. Un badge plus court que ce qui l'entoure sur une même ligne est un défaut, pas une variante.
 
-**La puce portée par un `p-button` est neutre par défaut**, avec les mêmes paires de couleurs que `p-badge`. Un compteur de file n'est pas une action, et l'accent reste réservé aux actions et à la sélection (cf. § Palette de Couleurs). Un compteur porté par un bouton doit par ailleurs être indiscernable du même compteur posé à côté, sinon `1/3` et `2/3` ne se ressemblent pas.
+**La puce portée par un `pButton` est neutre par défaut**, avec les mêmes paires de couleurs que `p-badge`. Un compteur de file n'est pas une action, et l'accent reste réservé aux actions et à la sélection (cf. § Palette de Couleurs). Un compteur porté par un bouton doit par ailleurs être indiscernable du même compteur posé à côté, sinon `1/3` et `2/3` ne se ressemblent pas.
 
 ---
 
@@ -447,7 +458,7 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 
 | Colonne | Largeur | Contenu |
 |---------|---------|---------|
-| Pochette | 48px fixe | Vignette de 32px, `p-skeleton` tant que le morceau n'est pas résolu. Mesurée sur la vignette plus sa gouttière |
+| Pochette | 48px fixe | Vignette de 32px, ses trois états au § Mapping Composants. Mesurée sur la vignette plus sa gouttière |
 | Avant | **fluide** | Artiste et titre lus dans le fichier, avec le **nom du fichier en sous-texte** `text-xs text-muted-color`. Deux lignes en toutes circonstances : quand les tags sont vides, c'est le nom de fichier privé de son extension qui passe en ligne principale, le sous-texte gardant le nom complet. La colonne s'aligne ainsi d'une ligne à l'autre, au prix d'une redite sur les seuls fichiers sans tags |
 | Après | **fluide** | Ce que la source retenue va écrire |
 | Source | fixe | Logo 16px + libellé, Beatport / Bandcamp / SoundCloud. Mesurée sur « SoundCloud » |
@@ -461,7 +472,7 @@ Ces trois colonnes se figent pour la raison du rapport, doublée ici : leur cont
 | Colonne | Largeur | Contenu |
 |---------|---------|---------|
 | Fichier | **fluide** | Nom du fichier, tronqué et révélé au survol |
-| État | 197px | `p-tag`, cf. § Couleurs Sémantiques, suivi de l'icône info quand la ligne porte un détail en tooltip : critère et candidats d'un doublon, motif d'un échec. Mesurée sur « Doublon départagé » plus son glyphe et l'icône, le plus long des cinq libellés ; l'anglais est plus court |
+| État | 197px | `p-tag`, cf. § Couleurs Sémantiques, suivi de l'icône info quand la ligne porte un détail en tooltip : critère et candidats d'un doublon, motif d'un échec. Mesurée sur « Doublon départagé » plus son glyphe et l'icône, le plus long des libellés du rapport ; l'anglais est plus court |
 
 Sans largeur figée sur État, la colonne se redimensionne au défilement selon les tags que le défilement virtuel a montés, et la table bouge sous le curseur.
 
@@ -535,6 +546,17 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Design system** : [Techno Tagger Design System](https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5) : les composants du mapping ci-dessus, chacun avec son miroir JSX, son typage et sa fiche d'usage, plus les tokens et les guidelines. Fait foi sur les composants, quand ce document fait foi sur les règles
 - **Maquette** : le même projet, dossier `ui_kits/techno-tagger/` : un écran cliquable par onglet, plus le shell. Fait foi sur l'apparence d'un écran là où ce document se tait
 - **Synchronisation** : fichier par fichier, procédure et journal dans `.design-sync/NOTES.md`. Le convertisseur automatique ne s'applique pas, l'interface étant Angular sans point d'entrée de librairie : les composants du projet distant sont des recréations React bâties depuis ce document, jamais depuis le code livré
+- **Lecture locale** : export dans `.design-sync/design-system/`, ignoré par git. Un écran ou une fiche se lit là plutôt qu'à distance, la lecture distante coûtant un appel par fichier. À refaire après chaque push, et avant toute comparaison au code : l'export ne s'invalide pas tout seul et un fichier périmé se lit exactement comme un fichier à jour
+
+### Arbitrages
+
+Écarts au design system ou à la maquette tranchés par le propriétaire. Ils priment sur eux pour tous les écrans.
+
+- **Icônes** : SVG inline par `IconComponent` et `SourceLogoComponent`, là où le design system rend les mêmes glyphes par la police PrimeIcons. Écart définitif : React ne peut pas importer un composant d'icône Angular, et la v22 n'emploie plus la police
+- **Largeurs** : une largeur se remesure sur le contenu le plus long en FR et en EN, là où le design system en donne une en pixels. Design system réaligné le 2026-09-24 sur les trois colonnes fixes du run, qui cessent d'annoncer des valeurs
+- **Container** : un seul container pleine largeur pour tous les écrans, là où le design system posait deux régimes de largeur, données en pleine largeur et formulaires centrés. Réaligné le 2026-09-24
+- **Densité des tables** : `p-table` à sa taille par défaut, là où le design system les donnait en `small`. Réaligné le 2026-09-24
+- **Séparateur artiste / titre** : un tiret simple, là où la maquette employait un cadratin, que le produit réserve à la cellule sans valeur (§ Séparateurs). Réaligné le 2026-09-24
 
 ## Documentation Officielle
 
@@ -553,7 +575,6 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 
 ## Ressources Complémentaires
 
-- [Techno Tagger Design System](https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5) : ce document porté dans Claude Design, avec une maquette cliquable de chaque écran. À lire avant d'en implémenter un, elle fait foi sur l'apparence quand ce document fait foi sur les règles
 - [Preset Aura : source](https://github.com/primefaces/primeuix/blob/main/packages/themes/src/presets/aura/base/index.ts) : valeurs exactes des primitives et des tokens sémantiques
 - [primeng#17946](https://github.com/primefaces/primeng/issues/17946) et [tailwindcss-primeui#27](https://github.com/primefaces/tailwindcss-primeui/issues/27) : l'incompatibilité SCSS de Tailwind v4
 - [ARCHITECTURE.md](ARCHITECTURE.md) : stack, écrans, contrat NDJSON et modes de panne à couvrir visuellement

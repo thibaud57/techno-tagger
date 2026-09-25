@@ -48,8 +48,15 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 
 > **Vidé le 2026-09-24** : les vingt-trois arbitrages qui vivaient ici ont été poussés, écrans
 > compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
-> les garder ici en ferait deux sources pour une même règle. La section reprendra au premier
-> écart suivant.
+> les garder ici en ferait deux sources pour une même règle.
+
+- **L'export local `.design-sync/design-system/` est incomplet de treize fichiers** : les `.jsx`
+  et les `.d.ts` des cinq composants poussés le 2026-09-24 (`PhaseProgress`, `Card`,
+  `ErrorMessage`, `PathPicker`, `TruncatedText`), plus les fiches de `Card`, `ErrorMessage` et
+  `TruncatedText`. Le reste a été réaligné le 2026-09-25. Rien ne signale un fichier absent ni
+  périmé à la lecture : vérifier la présence du fichier avant de conclure qu'une règle manque.
+  Un export complet se refait par `/design-sync`, l'outil `DesignSync` ne sachant que rendre un
+  fichier à la fois dans le contexte, pas l'écrire sur le disque.
 
 ## Journal
 
@@ -78,6 +85,24 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   non plus en pavé d'alerte. Container unique et tiret simple entre artiste et titre appliqués
   partout. Les composants ajoutés au catalogue n'étant pas encore dans le bundle compilé, que la
   recompilation régénère, les écrans composent leur motif avec les primitives déjà exportées.
+- **2026-09-25, ce que la passe du 24 avait manqué** : le push du 24 avait réaligné `readme.md`,
+  les cartes et les écrans, mais ni `tokens/spacing.css` ni les fiches de composant, qui
+  annonçaient encore le régime formulaire à 768px, la colonne Pochette à 32px, les trois colonnes
+  fixes à des largeurs que le code ne porte pas, et les tables en `[size]="'small'"`. Les tokens
+  reçoivent le container unique et les largeurs réellement livrées (48 / 144 / 128 / 160px, plus
+  197px pour l'État du rapport), `DataTable` passe au cran par défaut en gardant sa police dense,
+  sa fiche gagne la cellule sans valeur et les trois états de pochette, et la carte « Deux régimes
+  de largeur » cède la place à « Un seul container ». Deux règles du readme qui contredisaient le
+  code tombent : le cadratin rejoint le point médian parmi les glyphes Unicode admis, et la
+  vignette compte trois états. `TaggingScreen` corrige « Phase réseau terminée » en « Recherche
+  terminée » et porte les trois états. Réserve n° 9 datée, `_ds_needs_recompile` posé.
+  Second passage le même jour : `SkeletonRows`, livré entre-temps côté application, remet deux
+  temps là où la règle du chargement n'en voyait qu'un. Une table encore vide se couvre de
+  lignes entières en squelette et non de son bloc vide, qui annoncerait l'inverse de ce qui se
+  passe ; le squelette ne se réduit à la vignette qu'une fois la première ligne reçue. Le même
+  passage livre « Non traité » : la famille Neutre gagne un second glyphe, `minus-circle`, pour
+  le morceau qu'un run interrompu n'a jamais atteint, l'horloge y promettant une suite qui ne
+  viendra pas. Et un bloc vide porte désormais un titre **et** une phrase, jamais un titre seul.
 - **2026-09-25, audit de DESIGN.md contre le code** : cinq écarts corrigés à la source, dont deux
   que le readme distant héritait. La règle du `danger` distingue désormais une action destructive
   d'une sévérité qui rapporte un état, le décompte figé des libellés d'état disparaît, le toast
