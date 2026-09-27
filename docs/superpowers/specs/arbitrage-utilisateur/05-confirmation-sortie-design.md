@@ -2,7 +2,7 @@
 feature: "Feature 3 : Arbitrage utilisateur"
 subproject: "confirmation-sortie"
 goal: "Demander confirmation à la fermeture de la fenêtre dès qu'un travail n'est pas terminé, quel que soit l'onglet qui l'a lancé : extraction de playlist, run de tagging ou arbitrages en attente"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["03-service-arbitrage-ui-design.md"]
