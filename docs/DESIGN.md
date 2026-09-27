@@ -280,10 +280,14 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Modale d'arbitrage | `p-dialog` modal, largeur et hauteur figées | PrimeNG | S'ouvre dès qu'un morceau entre en zone grise et qu'aucune autre n'est ouverte. Dimensions fixes, cf. § Layout |
+| Modale d'arbitrage | `p-dialog` modal, largeur et hauteur figées | PrimeNG | S'ouvre dès qu'un morceau entre en zone grise, depuis n'importe quel onglet. La croix ne décide rien : l'arbitrage reste en file et l'ouverture automatique est suspendue jusqu'au badge de file. Dimensions fixes, cf. § Layout |
 | Candidats en zone grise | `p-listbox` à hauteur fixe, scroll interne | PrimeNG | Sélection simple, scores en `text-xs` par ligne. La liste Bandcamp remplace celle de Beatport dans la même fenêtre après un refus, sans que rien ne se déplace |
 | Navigation entre arbitrages | `button pButton` à icône seule (`chevron-left` / `chevron-right`) + `p-badge` | PrimeNG | Compteur du type 1/3, la file se réduisant au fil des décisions |
 | Refus explicite | `button pButton` `severity="secondary"` outlined | PrimeNG | Action distincte de la fermeture de la modale, qui ne décide rien |
+| Badge de file | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | « N à arbitrer », aligné à droite de la barre d'onglets tant que la file n'est pas vide. Rouvre la modale après la croix |
+| Beatport injoignable | `p-message` `warn` | PrimeNG | Au-dessus de la liste Bandcamp quand Beatport n'a pas répondu : aucun candidat n'a été validé seul |
+| Liste Bandcamp vide | message de liste + bouton « Passer » | PrimeNG | Le message dit le motif de Bandcamp ; « Passer » remplace « Aucune correspondance » et c'est la seule action |
+| Refus d'un geste | `app-error-message` sous la liste | Custom | Seulement pour le morceau affiché |
 | Rattrapage par URL | `p-inputgroup` + `input pInputText` + `button pButton` | PrimeNG | Une ligne par morceau non résolu, validation de l'hôte avant envoi |
 
 ### Écriture et récapitulatif
@@ -563,6 +567,9 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Container** : un seul container pleine largeur pour tous les écrans, là où le design system posait deux régimes de largeur, données en pleine largeur et formulaires centrés. Réaligné le 2026-09-24
 - **Densité des tables** : `p-table` à sa taille par défaut, là où le design system les donnait en `small`. Réaligné le 2026-09-24
 - **Séparateur artiste / titre** : un tiret simple, là où la maquette employait un cadratin, que le produit réserve à la cellule sans valeur (§ Séparateurs). Réaligné le 2026-09-24
+- **Candidat d'arbitrage** : « Artiste - Titre » du candidat et score sur une ligne « 94 (A 96 · T 92) », là où la maquette ne montre que le titre et « A · T ». C'est souvent l'artiste qui fait tomber un candidat en zone grise. Décidé le 2026-09-26
+- **Croix de la modale d'arbitrage** : l'arbitrage reste en file et la modale ne revient que par le badge de file, là où la maquette le retirait de la file. Décidé le 2026-09-26
+- **Vocabulaire « zone grise »** : jamais affiché à l'écran, resté interne au scoring ; l'interface dit « correspondances incertaines », là où le `SettingsScreen` de la maquette l'emploie encore dans l'indice du Seuil haut (« Entre les deux, zone grise. »). Décidé le 2026-09-27
 
 ## Documentation Officielle
 

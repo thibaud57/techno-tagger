@@ -41,9 +41,7 @@ class _Inbox(io.StringIO):
         self._lines = lines
 
     @override
-    # `_TextIOBase.readline` rend deja `str`, mais son propre override de
-    # `_IOBase.readline` (`bytes`) porte un `type: ignore` que typeshed ne
-    # propage pas aux sous-classes suivantes : celle-ci doit le repeter.
+    # Le `type: ignore` de l'override `_IOBase.readline` (bytes) n'est pas propage par typeshed.
     def readline(self, size: int | None = -1, /) -> str:  # type: ignore[override]
         return self._lines.get()
 
@@ -67,10 +65,9 @@ class _Outbox(io.StringIO):
 
 
 class Conversation:
-    """Dialogue avec la boucle : une commande ne part qu'apres l'evenement qui la rend valide.
+    """Dialogue avec la boucle ; l'extraction seule emet depuis `to_thread`, pas la boucle.
 
-    Les evenements sont recus dans le thread de la boucle d'evenements : c'est vrai du
-    run et de l'arbitrage, pas de l'extraction, qui emet depuis `to_thread`.
+    Une commande ne part qu'apres l'evenement qui la rend valide.
     """
 
     def __init__(self) -> None:
@@ -89,11 +86,7 @@ class Conversation:
         self._lines.put("")
 
     async def expect(self, event: str, **fields: object) -> dict[str, object]:
-        """Prochain evenement `event` portant `fields`, dans l'ordre d'arrivee.
-
-        Les evenements qui le precedent sont depasses : une attente suivante ne les
-        voit plus.
-        """
+        """Prochain evenement `event`/`fields` ; les precedents sont depasses, jamais revus."""
         async with asyncio.timeout(EXPECT_TIMEOUT):
             while True:
                 for index in range(self._read, len(self.events)):

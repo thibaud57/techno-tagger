@@ -80,11 +80,8 @@ class SourceList:
 
 @dataclass(frozen=True, slots=True)
 class PendingArbitration:
-    """Candidats en zone grise de la source affichee, en attente d'une decision humaine.
-
-    `other` garde la liste de l'autre source une fois obtenue : revenir en arriere
-    ne rappelle rien. `empty_reason` dit pourquoi une liste Bandcamp affichee est vide.
-    """
+    """Candidats de la source affichee ; `other` evite de rappeler l'API au retour arriere,
+    `empty_reason` dit pourquoi une liste Bandcamp est vide."""
 
     source: Source
     candidates: tuple[ScoredCandidate, ...]
@@ -156,11 +153,7 @@ class TaggingRun:
 
 
 class LiveRun:
-    """Etat vivant d'un run : le pipeline y ecrit chaque morceau des qu'il est traite.
-
-    Il survit a la phase reseau comme a son interruption : l'arbitrage continue d'y
-    trancher les morceaux en attente jusqu'a ce qu'un autre run le remplace.
-    """
+    """Etat vivant d'un run : l'arbitrage y tranche apres la phase reseau, jusqu'au run suivant."""
 
     def __init__(self, run_id: str, folder: Path, records: Sequence[TrackRecord]) -> None:
         self.run_id = run_id
@@ -248,12 +241,7 @@ async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> Liv
 async def resolve_run(
     live: LiveRun, sources: RunSources, *, on_event: Callable[[RunEvent], None]
 ) -> None:
-    """Phase reseau : chaque morceau est ecrit dans `live` des qu'il est traite.
-
-    Le pipeline ne s'arrete jamais sur un morceau : une zone grise est mise en
-    attente, un incident devient un motif d'echec. Seuls trois 403 consecutifs
-    arretent le run, par `ApiKeyRejectedRunError`.
-    """
+    """Ne s'arrete jamais sur un morceau : seuls trois 403 consecutifs arretent le run."""
     tracks = live.snapshot().tracks
     runner = _Runner(len(tracks), sources, live, on_event)
     try:

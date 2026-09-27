@@ -41,10 +41,7 @@ const EXTRACTION_IN_PROGRESS = "extraction_in_progress"
 
 type ArbitrationCommand = ResolveArbitrationCommand | SwitchArbitrationSourceCommand
 
-/**
- * Commandes dont l'echec leve l'attente du morceau que `params.track_id` designe.
- * Indexee comme `KNOWN_EVENTS` : un geste ajoute sans son entree ne compile pas.
- */
+/** Commandes dont l'echec leve l'attente d'un morceau ; indexee comme `KNOWN_EVENTS` pour l'exhaustivite. */
 const ARBITRATION_COMMANDS: Record<ArbitrationCommand["command"], true> = {
   resolve_arbitration: true,
   switch_arbitration_source: true,

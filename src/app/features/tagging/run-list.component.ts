@@ -12,6 +12,7 @@ import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.com
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+import { joinIdentity } from "../../shared/utils/identity"
 import { FADE_IN } from "../../shared/utils/motion"
 import { fullHeightTable } from "../../shared/utils/table"
 import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
@@ -19,15 +20,10 @@ import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 /** PrimeNG ne mesure pas ses lignes : a remesurer si `h-14` change sur le `<tr>`. */
 const ROW_HEIGHT = 56
 
-const ARTIST_TITLE_SEPARATOR = " - "
-
 /** Noms de marque : identiques dans les deux langues, aucune cle i18n a tenir. */
 const SOURCE_NAMES = { beatport: "Beatport", bandcamp: "Bandcamp", soundcloud: "SoundCloud" }
 
 const stripExtension = (fileName: string): string => fileName.replace(/\.[a-z0-9]+$/i, "")
-
-const joinIdentity = (artist: string, title: string): string =>
-  [artist, title].filter((part) => part !== "").join(ARTIST_TITLE_SEPARATOR)
 
 const mainLineOf = (track: TaggingTrack): string => {
   const identity = joinIdentity(track.artist, track.title)

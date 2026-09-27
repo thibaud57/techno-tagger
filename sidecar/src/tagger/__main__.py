@@ -125,11 +125,7 @@ class _Session:
         self._current: CurrentRun | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
-        """Lance le run en tache de fond : la boucle repart lire la commande suivante.
-
-        Le run courant cesse de l'etre des maintenant : un geste lu ensuite vise un
-        morceau que l'interface a quitte.
-        """
+        """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant."""
         if self._active_run() is not None:
             raise TaggingInProgressError
         replaced, self._current = self._current, None
@@ -178,9 +174,8 @@ class _Session:
         current.arbitration.show(command.track_id, command.source)
 
     async def close(self, *, cancel: bool) -> None:
-        """Fin de session : `shutdown` annule la phase reseau, l'EOF l'attend. Le run
-        courant est ferme ensuite, ses gestes en vol annules.
-        """
+        """Fin de session : `shutdown` annule la phase reseau, l'EOF l'attend ; le run courant
+        est ferme ensuite, ses gestes en vol annules."""
         await self._settle_run(cancel=cancel)
         current, self._current = self._current, None
         if current is not None:
@@ -206,10 +201,8 @@ class _Session:
             return
         if cancel:
             running.cancel()
-        # Attendu avant la commande suivante : sa sortie du cache attend les
-        # telechargements en vol et une relance lue entre-temps le trouverait
-        # vivant, refusee en `tagging_in_progress` que l'interface lit comme un run
-        # qui continue. `wait` ne releve pas l'annulation, il la laisse a la tache.
+        # Attendu ici (`wait` ne releve pas l'annulation) : une relance trop tot serait
+        # refusee en `tagging_in_progress`.
         await asyncio.wait({running})
 
     def send(self, event: Event) -> None:
@@ -233,14 +226,8 @@ class _Session:
         start_work: Callable[[], Awaitable[Event | None]],
         command: StartTagging | ExtractPlaylist | ResolveArbitration,
     ) -> None:
-        """Deroule une tache de fond : son evenement de fin s'il en a un, ou son erreur
-        metier.
-
-        Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait la session
-        entiere pour un dossier illisible ou un geste refuse.
-        """
-        # Une factory, parce qu'une tache annulee avant son premier pas n'entre jamais
-        # ici : une coroutine creee d'avance ne serait jamais attendue.
+        """Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait toute la session."""
+        # Factory : une coroutine creee d'avance ne serait jamais attendue si annulee avant.
         try:
             finished = await start_work()
         except TaggerError as error:

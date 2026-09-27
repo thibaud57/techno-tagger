@@ -169,11 +169,7 @@ def tagging_transports() -> TaggingTransports:
 
 
 class CurrentRun:
-    """Run arbitrable jusqu'au suivant, proprietaire du client et du fetcher de pochettes.
-
-    Distinct de la phase reseau : `cancel_run` arrete celle-ci et laisse le run
-    arbitrable (decision du 2026-09-26).
-    """
+    """Run arbitrable jusqu'au suivant : `cancel_run` arrete la phase reseau, pas l'arbitrage."""
 
     def __init__(
         self,
@@ -198,12 +194,7 @@ class CurrentRun:
         gesture.add_done_callback(self._gestures.discard)
 
     async def close(self) -> None:
-        """Annule les gestes en vol, les attend, puis ferme le client et le fetcher.
-
-        `finally` : si la tache qui attend `close()` est elle-meme annulee pendant
-        le `gather`, le client et le fetcher doivent quand meme se fermer, sans quoi
-        rien n'en garde plus de reference pour les fermer plus tard.
-        """
+        """`finally` : une annulation du `gather` en attente ne doit pas empecher la fermeture."""
         try:
             for gesture in self._gestures:
                 gesture.cancel()
@@ -213,12 +204,8 @@ class CurrentRun:
 
 
 async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> CurrentRun:
-    """Ouvre caches et client, lit les identites (`run_started`) et branche l'arbitrage.
-
-    Le client et le fetcher entrent dans une pile rendue au `CurrentRun` : ils
-    survivent a la phase reseau, le temps des arbitrages. Une ouverture qui echoue
-    referme ce qu'elle a deja ouvert.
-    """
+    """Ouvre caches et client, branche l'arbitrage ; client et fetcher survivent dans la pile
+    rendue au `CurrentRun`, et une ouverture ratee referme ce qu'elle a deja ouvert."""
     api_key = await asyncio.to_thread(read_api_key)
     if api_key is None:
         raise ApiKeyMissingError
@@ -258,10 +245,7 @@ async def handle_start_tagging(
     emit: Callable[[Event], None],
     adopt: Callable[[CurrentRun], None],
 ) -> RunFinished:
-    """Ouvre le run, le confie a la session, puis deroule sa phase reseau.
-
-    Confie avant la phase reseau : un morceau se tranche des qu'il attend.
-    """
+    """Confie le run a la session avant la phase reseau : un morceau se tranche des qu'il attend."""
     current = await open_tagging(command, emit)
     adopt(current)
     await resolve_run(current.live, current.sources, on_event=_relay(emit))
@@ -279,9 +263,7 @@ def _relay(emit: Callable[[Event], None]) -> Callable[[tagging.RunEvent | Arbitr
 
 
 def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent) -> Event:
-    """Traduit un evenement du pipeline ou de l'arbitrage. Un cas oublie est une erreur
-    de typage.
-    """
+    """Traduit un evenement pipeline ou arbitrage ; un cas oublie est une erreur de typage."""
     match event:
         case tagging.RunStarted():
             return RunStarted(

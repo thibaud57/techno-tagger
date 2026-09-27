@@ -9,15 +9,10 @@ import type {
 /** Seul refus qui retire un arbitrage : le sidecar ne le tient plus, la file etait desynchronisee. */
 const NOT_PENDING = "arbitration_not_pending"
 
-/**
- * File des arbitrages en attente, dans l'ordre d'arrivee : un nouvel arbitrage
- * s'ajoute en fin et ne decale jamais celui que l'utilisateur regarde.
- * `SidecarService` l'alimente et en delegue la lecture.
- */
+/** File des arbitrages dans l'ordre d'arrivee : un nouvel arbitrage n'y decale jamais celui affiche. */
 @Injectable({ providedIn: "root" })
 export class ArbitrationStore {
-  // L'ordre d'insertion de la Map est l'ordre d'arrivee, et `set` sur une cle
-  // existante la remplace en place : c'est ce qui garde la position a la bascule.
+  // Map garde l'ordre d'insertion ; `set` sur une cle existante la remplace en place.
   private readonly _entries = signal<ReadonlyMap<string, ArbitrationState>>(new Map())
   private readonly _busy = signal<ReadonlySet<string>>(new Set())
   private readonly trackIds = computed<readonly string[]>(() => [...this._entries().keys()])
@@ -31,9 +26,8 @@ export class ArbitrationStore {
       if (kept === null || previous === undefined) {
         return ids[0] ?? null
       }
-      // Le courant a quitte la file : son premier suivant encore present, sinon son
-      // dernier precedent. Le recalcul est paresseux et peut suivre plusieurs evenements :
-      // son ancien index designerait un morceau saute, voire un nouvel arrive.
+      // Suivant encore present sinon precedent ; recalcul paresseux, l'ancien index peut
+      // viser un morceau deja saute ou un nouvel arrive.
       const at = previous.source.indexOf(kept)
       const following = previous.source.slice(at + 1).find((id) => ids.includes(id))
       const preceding = previous.source

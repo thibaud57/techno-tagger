@@ -164,11 +164,7 @@ def app_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def api(monkeypatch: pytest.MonkeyPatch) -> FakeApi:
-    """API et CDN simules, poses a la place des transports de production.
-
-    Le resolveur d'hote est aussi remplace : sans lui, `ArtworkFetcher` ferait un
-    vrai `socket.getaddrinfo` sur l'hote du CDN simule avant chaque telechargement.
-    """
+    """API/CDN simules ; resolveur remplace aussi, sinon `ArtworkFetcher` ferait un vrai DNS."""
     fake = FakeApi()
     cdn = FakeCdn()
     monkeypatch.setattr(

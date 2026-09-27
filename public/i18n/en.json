@@ -187,6 +187,29 @@
       }
     }
   },
+  "arbitration": {
+    "close": "Close without deciding",
+    "uncertain": "Uncertain matches: {{count}}",
+    "switched": "The Beatport candidates were refused. The Bandcamp list replaces them here.",
+    "backToBeatport": "Back to Beatport",
+    "beatportUnavailable": "Beatport did not answer: these candidates come from Bandcamp and none was validated on its own.",
+    "empty": {
+      "no_result": "Bandcamp finds nothing for this track.",
+      "below_threshold": "Bandcamp only offers candidates that are too far off.",
+      "source_unavailable": "Bandcamp did not answer."
+    },
+    "candidates": "Candidates",
+    "score": "{{average}} (A {{artist}} · T {{title}})",
+    "scoreTitleOnly": "{{average}} (T {{title}})",
+    "previous": "Previous arbitration",
+    "next": "Next arbitration",
+    "refuse": "No match",
+    "pass": "Skip",
+    "validate": "Validate",
+    "help": "Left and right arrows to switch arbitration, Enter to validate. The cross decides nothing: the arbitration stays in the queue.",
+    "badge": "{{count}} to arbitrate",
+    "reopen": "Reopen the arbitrations"
+  },
   "settings": {
     "title": "Settings",
     "api": {

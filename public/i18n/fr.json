@@ -187,6 +187,29 @@
       }
     }
   },
+  "arbitration": {
+    "close": "Fermer sans décider",
+    "uncertain": "Correspondances incertaines : {{count}}",
+    "switched": "Les candidats Beatport ont été refusés. La liste Bandcamp les remplace ici même.",
+    "backToBeatport": "Revenir à Beatport",
+    "beatportUnavailable": "Beatport ne répond pas : ces candidats viennent de Bandcamp et aucun n'a été validé seul.",
+    "empty": {
+      "no_result": "Bandcamp ne trouve rien pour ce morceau.",
+      "below_threshold": "Bandcamp ne propose que des candidats trop éloignés.",
+      "source_unavailable": "Bandcamp ne répond pas."
+    },
+    "candidates": "Candidats",
+    "score": "{{average}} (A {{artist}} · T {{title}})",
+    "scoreTitleOnly": "{{average}} (T {{title}})",
+    "previous": "Arbitrage précédent",
+    "next": "Arbitrage suivant",
+    "refuse": "Aucune correspondance",
+    "pass": "Passer",
+    "validate": "Valider",
+    "help": "Flèches gauche et droite pour changer d'arbitrage, Entrée pour valider. La croix ne décide rien : l'arbitrage reste en file.",
+    "badge": "{{count}} à arbitrer",
+    "reopen": "Rouvrir les arbitrages"
+  },
   "settings": {
     "title": "Réglages",
     "api": {

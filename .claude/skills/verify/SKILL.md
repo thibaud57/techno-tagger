@@ -178,6 +178,17 @@ La fenêtre Tauri parle à la vraie API, où aucun morceau n'est en zone grise �
 - Aucune ligne `[sidecar]` en console pendant le rejeu : ni « evenement non traite » ni « ligne illisible »
 - Le rejeu laisse un faux run dans la liste de l'onglet Tagging : fermer la fenêtre ensuite plutôt que d'y enchaîner un autre parcours
 
+### Modale d'arbitrage sous `ng serve`
+
+La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(true)`, `svc.send` relevé, `svc.startTagging` puis `run_started`, `arbitration_required` et `arbitration_updated` par `svc.handleLine`), au plancher 1024 × 700. Chaque état se contrôle par des mesures (`getBoundingClientRect`, `getComputedStyle`) et une capture comparée à la maquette `ArbitrationDialog`.
+
+- Ouverture seule au premier `arbitration_required`, quel que soit l'onglet, « 1/1 » au pied et « 1 à arbitrer » dans la barre d'onglets ; croix sans aucun `send`, fermée à l'arrivée d'un autre arbitrage, rouverte par le badge sur l'arbitrage affiché
+- Clavier au **vrai clavier** (`browser_press_key`), jamais par `dispatchEvent` : ← et → changent d'arbitrage, ↓ sélectionne, Entrée envoie `resolve_arbitration` avec l'index. Relevé le 2026-09-27 : Entrée désélectionnait le candidat (bascule de sélection de `p-listbox` hors `metaKeySelection`) alors que le test unitaire, qui posait la sélection à la main, passait
+- Attente : `refuse` et `validate` `disabled`, `validate` en `p-button-loading`, le focus revient à la liste après la réponse comme après une `error` `arbitration_*` du morceau affiché ; sur une liste vide, le focus va à « Passer »
+- Rien ne bouge : conteneur de liste à 268px quel que soit le nombre de candidats, ligne d'aide et boutons du pied à la même ordonnée sur Beatport, Bandcamp, liste vide, Beatport injoignable, avec ou sans tags. Relevé à 191px pour la liste, 472px pour l'aide
+- Bandeau de bascule : lien « Revenir à Beatport » à la taille du texte du bandeau (12px), aucune animation d'entrée (`animationName` à `none`)
+- Une panne réseau pendant un refus ne sort jamais en `error` : c'est une liste Bandcamp vide au motif `source_unavailable`. Simuler une `error` `source_unavailable` sur un geste affiche un `{{source}}` brut qui ne vient pas de l'interface
+
 ## Pilotage du trousseau
 
 `set_api_key` écrit dans le **vrai** Credential Manager de Windows (cible `techno-tagger`, utilisateur `x-api-key`) : aucun trousseau en mémoire hors pytest et `LOCALAPPDATA` n'isole rien ici.
@@ -278,7 +289,8 @@ Compter un élément éphémère, toast ou ligne squelette, se fait par un `Muta
 - Sous `ng serve`, simuler le sidecar sur l'instance du service plutôt que le transport : `svc._available.set(true)`, `svc.handleLine(JSON.stringify(event))` pour chaque événement et `svc.send` remplacé pour répondre aux commandes. La clé d'un provider se lit par `record["tok" + "en"]`, le hook bloquant le mot écrit en entier
 - Changer d'onglet par les `p-tab`, jamais par `page.goto` : un rechargement recrée le service et perd l'état simulé. Le composant de page, lui, est recréé : relire `ng.getComponent` après chaque retour sur l'onglet avant d'en poser les signals
 - Le nom accessible d'un bouton de `PathPickerComponent` est son libellé (`label for`), pas son texte : `getByRole` par le texte échoue, viser `locator("app-path-picker button", { hasText })`
-- Playwright ralentit `requestAnimationFrame` sur une page qui n'a pas le focus : `page.bringToFront()` et échantillonner une animation par `setInterval`
+- Playwright ralentit `requestAnimationFrame` sur une page qui n'a pas le focus : `page.bringToFront()` et échantillonner une animation par `setInterval`. Même cause pour un élément en `animate.leave` sans animation, qu'Angular retire à la `requestAnimationFrame` suivante : il reste une seconde au lieu d'une image, et `:focus-within` ne s'applique qu'une fois la page active
+- Une mesure prise juste après un événement simulé peut tomber pendant le rendu : relever les positions par un `MutationObserver` posé avant, qui voit chaque état intermédiaire, plutôt que par un `setTimeout` fixe
 - Plusieurs `ng serve` lancés depuis des worktrees partagent le cache `.angular/cache` et répondent en 504 « Outdated Optimize Dep » : les lancer avec `CI=1`
 - Fermer la fenêtre par `taskkill` sans `/F` emporte aussi les sidecars accumulés par les rechargements (des dizaines ramenées à zéro) : repartir de là avant de compter les `tagger.exe`
 - Le sidecar meurt avec la fenêtre sans que `shutdown` soit envoyé : mesuré le 2026-09-18 avec et sans câblage d'`onCloseRequested`, `tagger.exe` à zéro en moins de 2s dans les deux cas, malgré tauri-apps/tauri#11686. Ce câblage n'apporte rien : pendant un run, la boucle est dans `to_thread` et ne lirait pas la commande. Des `tagger.exe` orphelins viennent d'un `just dev` tué brutalement, pas d'une fermeture. `close()` après un `preventDefault()` passe d'ailleurs par `destroy` : sans `core:window:allow-destroy`, la fenêtre reste ouverte

@@ -137,12 +137,8 @@ class StartTagging(Command):
 
 
 class ResolveArbitration(Command):
-    """Choix d'un candidat de la liste `source`, ou son refus explicite.
-
-    `candidate` est requis mais nullable : `null` refuse la liste, l'interface le dit
-    toujours. `source` nomme la liste visee : un geste sur une liste qui n'est plus
-    affichee est rejete (double clic arrive apres la bascule sur Bandcamp).
-    """
+    """Choix d'un candidat de `source`, ou refus si `candidate` est nul ; rejete si `source`
+    n'est plus la liste affichee (double clic apres bascule)."""
 
     command: Literal["resolve_arbitration"]
     track_id: str
@@ -184,8 +180,7 @@ type ExecutableCommand = (
     | SwitchArbitrationSource
 )
 
-# Recopie des `command` declares ci-dessus : un `Literal` ne se compose pas depuis une
-# union a la compilation. `test_command_name_lists_every_command` garde la copie.
+# Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
 type CommandName = Literal[
     "get_version",
     "shutdown",
@@ -375,11 +370,8 @@ class TrackResolved(Event):
 
 
 class CandidatePayload(BaseModel):
-    """Un candidat en zone grise. Son index dans un geste est sa position dans la liste.
-
-    `label` et `year` restent nuls sur Bandcamp, dont la recherche ne rend ni l'un ni
-    l'autre, et parfois sur Beatport, dont les objets de recherche sont abreges.
-    """
+    """Un candidat en zone grise, son index de geste est sa position dans la liste ;
+    `label`/`year` sont nuls sur Bandcamp et parfois sur Beatport."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -391,11 +383,8 @@ class CandidatePayload(BaseModel):
 
 
 class ArbitrationState(Event):
-    """Etat complet d'un arbitrage : l'interface remplace son entree en bloc.
-
-    `other_source` : la liste que `switch_arbitration_source` peut reafficher.
-    `empty_reason` : pourquoi la liste Bandcamp affichee est vide.
-    """
+    """Etat complet d'un arbitrage (remplace en bloc) ; `other_source` est reaffichable,
+    `empty_reason` dit pourquoi la liste Bandcamp est vide."""
 
     track_id: str
     source: Source

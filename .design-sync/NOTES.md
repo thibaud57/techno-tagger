@@ -55,6 +55,17 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 > compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
 > les garder ici en ferait deux sources pour une même règle.
 
+- **Modale d'arbitrage (Feature 3, 2026-09-26)**, à pousser dans `ArbitrationDialog` et
+  `AppShell` : la croix garde l'arbitrage en file ; le tag « N à arbitrer » de la barre d'onglets
+  est cliquable et rouvre la modale ; boutons en attente (`loading`) pendant un geste ; message
+  warn quand Beatport n'a pas répondu ; liste Bandcamp vide avec son motif et l'action « Passer » ;
+  « Artiste - Titre » et score « 94 (A 96 · T 92) » par candidat ; ligne au-dessus de la liste
+  Beatport « Correspondances incertaines : N », sans les seuils ; ligne d'aide clavier « Flèches
+  gauche et droite pour changer d'arbitrage, Entrée pour valider. La croix ne décide rien :
+  l'arbitrage reste en file. » ; message de la liste Bandcamp vide selon le motif (« Bandcamp ne
+  trouve rien pour ce morceau. », « Bandcamp ne propose que des candidats trop éloignés. »,
+  « Bandcamp ne répond pas. »). L'indice du Seuil haut du `SettingsScreen` dit encore « zone
+  grise ».
 - **L'export local n'est un miroir que fichier par fichier vérifié.** Une session peut pousser au
   distant sans mettre l'export à jour et rien ne le signale : le 2026-09-25, une autre session a
   réécrit `readme.md` et `TaggingScreen.jsx` après qu'un premier alignement l'eut déclaré exact.

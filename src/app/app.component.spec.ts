@@ -1,0 +1,110 @@
+import { Component, input, output, signal } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { provideRouter } from "@angular/router"
+import { provideTranslateService } from "@ngx-translate/core"
+import { MessageService } from "primeng/api"
+
+import { AppComponent } from "./app.component"
+import { SidecarService } from "./core/sidecar.service"
+import { ArbitrationDialogComponent } from "./features/tagging/arbitration-dialog.component"
+
+/** jsdom n'implemente pas `ResizeObserver` qu'observe `p-tablist` (jsdom/jsdom#3368). */
+class ResizeObserverStub {
+  observe(): void {
+    return
+  }
+  unobserve(): void {
+    return
+  }
+  disconnect(): void {
+    return
+  }
+}
+;(globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver ??=
+  ResizeObserverStub as unknown as typeof ResizeObserver
+
+/** La modale elle-meme a ses tests : ici, seule sa visibilite compte. */
+@Component({ selector: "app-arbitration-dialog", template: "" })
+class DialogStub {
+  readonly visible = input.required<boolean>()
+  readonly dismissed = output()
+}
+
+const mount = () => {
+  const service = {
+    available: signal<boolean | null>(true),
+    versionMismatch: signal(null),
+    arbitrationCount: signal(0),
+  }
+  TestBed.configureTestingModule({
+    imports: [AppComponent],
+    providers: [
+      provideRouter([]),
+      provideTranslateService(),
+      // `p-toast` du shell l'injecte ; l'application le fournit a la racine (app.config.ts).
+      MessageService,
+      { provide: SidecarService, useValue: service },
+    ],
+  })
+  TestBed.overrideComponent(AppComponent, {
+    remove: { imports: [ArbitrationDialogComponent] },
+    add: { imports: [DialogStub] },
+  })
+  const fixture = TestBed.createComponent(AppComponent)
+  fixture.detectChanges()
+
+  return { fixture, component: fixture.componentInstance, service }
+}
+
+const badge = (root: HTMLElement): HTMLButtonElement | null =>
+  root.querySelector<HTMLButtonElement>("[data-arbitration-badge]")
+
+describe("AppComponent", () => {
+  it("opens the arbitration dialog as soon as the queue fills", () => {
+    const { component, service } = mount()
+    const before = component["arbitrationVisible"]()
+
+    service.arbitrationCount.set(1)
+
+    expect(before).toBe(false)
+    expect(component["arbitrationVisible"]()).toBe(true)
+  })
+
+  it("keeps it closed after the cross until the queue badge is clicked", () => {
+    const { fixture, component, service } = mount()
+    service.arbitrationCount.set(1)
+    component["dismissArbitration"]()
+    service.arbitrationCount.set(2)
+    fixture.detectChanges()
+    const suspended = component["arbitrationVisible"]()
+    const label = badge(fixture.nativeElement as HTMLElement)?.textContent
+
+    badge(fixture.nativeElement as HTMLElement)?.click()
+
+    expect(suspended).toBe(false)
+    expect(label).toContain("arbitration.badge")
+    expect(component["arbitrationVisible"]()).toBe(true)
+  })
+
+  it("opens it again once the queue has emptied and filled again", () => {
+    const { fixture, component, service } = mount()
+    service.arbitrationCount.set(1)
+    component["dismissArbitration"]()
+    service.arbitrationCount.set(0)
+    // Rendu intermediaire : sans lecture pendant que la file est vide, `linkedSignal`
+    // ne voit pas passer le zero.
+    fixture.detectChanges()
+
+    service.arbitrationCount.set(1)
+
+    expect(component["arbitrationVisible"]()).toBe(true)
+  })
+
+  it("hides the queue badge on an empty queue", () => {
+    const { fixture } = mount()
+
+    const found = badge(fixture.nativeElement as HTMLElement)
+
+    expect(found).toBeNull()
+  })
+})

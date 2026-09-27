@@ -1,8 +1,4 @@
-"""Arbitrage d'un morceau en zone grise (use-case 3, ADR-009).
-
-Gestes sur un run vivant, pendant sa phase reseau comme apres. Ignore le protocole
-NDJSON : les evenements sortent par un rappel, que le handler traduit.
-"""
+"""Arbitrage en zone grise (use-case 3, ADR-009), hors protocole NDJSON : rendu par rappel."""
 
 import logging
 from contextlib import contextmanager
@@ -90,11 +86,8 @@ class _Pending(NamedTuple):
 
 
 class Arbitration:
-    """Gestes d'arbitrage sur un run vivant.
-
-    Un second geste sur un morceau dont le premier est en vol est refuse, jamais mis
-    en file : les clics rapides de la modale lanceraient sinon deux appels reseau.
-    """
+    """Second geste refuse (pas mis en file) si le premier est deja en vol sur ce morceau :
+    des clics rapides lanceraient sinon deux appels reseau."""
 
     def __init__(
         self,
@@ -143,10 +136,8 @@ class Arbitration:
         )
 
     async def refuse(self, track_id: str, source: Source) -> None:
-        """Refuse la liste `source` : Bandcamp apres Beatport, non resolu apres Bandcamp.
-
-        `source` doit etre la liste affichee : un double clic arrive apres la bascule
-        refuserait sinon Bandcamp sans que l'utilisateur l'ait vue.
+        """Refuse `source` : Bandcamp apres Beatport, non resolu apres Bandcamp ; `source` doit
+        matcher la liste affichee, sinon un double clic en pleine bascule la validerait a tort.
         """
         current = self._pending(track_id)
         shown = current.arbitration

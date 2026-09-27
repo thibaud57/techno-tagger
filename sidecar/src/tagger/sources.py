@@ -1,7 +1,5 @@
-"""Acces aux sources d'un run, partage par le pipeline et l'arbitrage.
-
-Une seule garde des 403 par run : un refus d'arbitrage qui recoit un 403 compte
-comme une requete du pipeline (ARCHITECTURE.md § Cle API invalide ou revoquee).
+"""Acces aux sources d'un run : une seule garde des 403, partagee par pipeline et arbitrage
+(ARCHITECTURE.md § Cle API invalide ou revoquee).
 """
 
 import logging
@@ -29,7 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Trois 403 consecutifs arretent le run (ARCHITECTURE.md § Cle API invalide ou revoquee).
+# Trois 403 consecutifs arretent le run.
 API_KEY_REJECTION_LIMIT: Final = 3
 
 
@@ -96,8 +94,7 @@ class RunSources:
         source: Source,
         exc: SourceUnavailableError | ApiContractError,
     ) -> None:
-        # ApiContractError est deja loguee et remontee a Sentry par `_call` : sans ce
-        # log, c'est une source injoignable qui ne laisserait aucune trace.
+        # ApiContractError est deja loguee et remontee a Sentry par `_call` : rien a refaire ici.
         if isinstance(exc, SourceUnavailableError):
             logger.warning(
                 "source unavailable run=%s track=%d source=%s status=%s reason=%s request_id=%s",
