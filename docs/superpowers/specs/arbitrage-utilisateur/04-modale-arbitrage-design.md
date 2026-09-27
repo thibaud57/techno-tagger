@@ -2,7 +2,7 @@
 feature: "Feature 3 : Arbitrage utilisateur"
 subproject: "modale-arbitrage"
 goal: "Afficher la modale qui laisse choisir un candidat en zone grise, refuser pour basculer sur Bandcamp, revenir à Beatport et parcourir la file au clavier"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["03-service-arbitrage-ui-design.md"]
