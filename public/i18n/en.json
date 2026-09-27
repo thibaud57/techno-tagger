@@ -15,6 +15,14 @@
         "text": "The interface is at version {{ui}} and the engine at version {{sidecar}}. Reinstall the application."
       },
       "retry": "Retry"
+    },
+    "close": {
+      "title": "Quit the application?",
+      "extraction": "An extraction is in progress: the copy will be cut short, and a file may be left half-written in the destination.",
+      "tagging": "A tagging run is in progress: the search stops here and its results will be lost.",
+      "arbitration": "Arbitrations awaiting a decision: {{count}}. They will be lost.",
+      "stay": "Stay",
+      "leave": "Quit anyway"
     }
   },
   "errors": {

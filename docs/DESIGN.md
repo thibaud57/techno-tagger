@@ -247,6 +247,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | PrimeNG v22 ne fournit aucun mode router et `p-tabMenu` a été supprimé. L'onglet actif se dérive de l'URL, la navigation se déclenche au changement de valeur |
+| Confirmation de sortie | `p-dialog` modal, « Rester » primary et focus à l'ouverture, « Quitter quand même » outlined secondary | PrimeNG | À la fermeture de la fenêtre tant qu'une extraction, un run ou des arbitrages sont en cours. Pas de `p-confirmdialog` ni de `danger` : la sortie ne touche aucun fichier musical. Nomme chaque travail perdu et le fichier qu'une copie coupée peut laisser à moitié écrit |
 
 ### Playlist et fichiers
 

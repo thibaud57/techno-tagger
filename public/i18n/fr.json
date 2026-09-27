@@ -15,6 +15,14 @@
         "text": "L'interface est en version {{ui}} et le moteur en version {{sidecar}}. Réinstallez l'application."
       },
       "retry": "Réessayer"
+    },
+    "close": {
+      "title": "Quitter l'application ?",
+      "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut rester à moitié écrit dans la destination.",
+      "tagging": "Un run de tagging est en cours : la recherche s'arrête là et ses résultats seront perdus.",
+      "arbitration": "Arbitrages en attente : {{count}}. Ils seront perdus.",
+      "stay": "Rester",
+      "leave": "Quitter quand même"
     }
   },
   "errors": {

@@ -9,11 +9,13 @@ import { Tag } from "primeng/tag"
 import { Toast } from "primeng/toast"
 import { filter, map } from "rxjs"
 
+import { CloseGuard } from "./core/close-guard.service"
 import { languageFromTag } from "./core/language"
 import { SIDECAR_FILE } from "./core/sidecar-transport"
 import { SidecarService } from "./core/sidecar.service"
 import { TABS, isTabName, tabFromUrl, type TabValue } from "./core/tabs"
 import { ArbitrationDialogComponent } from "./features/tagging/arbitration-dialog.component"
+import { CloseConfirmationComponent } from "./shared/components/close-confirmation.component"
 import { IconComponent } from "./shared/components/icon.component"
 import { FADE_IN } from "./shared/utils/motion"
 
@@ -30,6 +32,7 @@ import { FADE_IN } from "./shared/utils/motion"
     Card,
     Toast,
     ArbitrationDialogComponent,
+    CloseConfirmationComponent,
     IconComponent,
   ],
   templateUrl: "./app.component.html",
@@ -43,6 +46,7 @@ export class AppComponent {
   private readonly document = inject(DOCUMENT)
   private readonly router = inject(Router)
   private readonly sidecar = inject(SidecarService)
+  private readonly closeGuard = inject(CloseGuard)
 
   protected readonly tabs = TABS
   protected readonly fadeIn = FADE_IN
@@ -82,6 +86,9 @@ export class AppComponent {
   )
 
   constructor() {
+    // Une fois, au demarrage : la fermeture est retenue tant qu'un travail est en cours.
+    void this.closeGuard.install()
+
     effect(() => {
       this.document.documentElement.lang = languageFromTag(this.translate.currentLang())
     })

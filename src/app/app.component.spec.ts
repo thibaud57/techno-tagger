@@ -5,6 +5,7 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 
 import { AppComponent } from "./app.component"
+import { CloseGuard } from "./core/close-guard.service"
 import { SidecarService } from "./core/sidecar.service"
 import { ArbitrationDialogComponent } from "./features/tagging/arbitration-dialog.component"
 
@@ -36,6 +37,12 @@ const mount = () => {
     versionMismatch: signal(null),
     arbitrationCount: signal(0),
   }
+  const closeGuard = {
+    install: vi.fn(() => Promise.resolve()),
+    request: signal(null),
+    stay: vi.fn(),
+    leave: vi.fn(() => Promise.resolve()),
+  }
   TestBed.configureTestingModule({
     imports: [AppComponent],
     providers: [
@@ -44,6 +51,7 @@ const mount = () => {
       // `p-toast` du shell l'injecte ; l'application le fournit a la racine (app.config.ts).
       MessageService,
       { provide: SidecarService, useValue: service },
+      { provide: CloseGuard, useValue: closeGuard },
     ],
   })
   TestBed.overrideComponent(AppComponent, {
@@ -53,7 +61,7 @@ const mount = () => {
   const fixture = TestBed.createComponent(AppComponent)
   fixture.detectChanges()
 
-  return { fixture, component: fixture.componentInstance, service }
+  return { fixture, component: fixture.componentInstance, service, closeGuard }
 }
 
 const badge = (root: HTMLElement): HTMLButtonElement | null =>
@@ -106,5 +114,11 @@ describe("AppComponent", () => {
     const found = badge(fixture.nativeElement as HTMLElement)
 
     expect(found).toBeNull()
+  })
+
+  it("installs the close guard at startup", () => {
+    const { closeGuard } = mount()
+
+    expect(closeGuard.install).toHaveBeenCalledOnce()
   })
 })

@@ -52,4 +52,7 @@
   <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
 }
 
+<!-- Hors des deux branches : l'ecran bloquant peut coexister avec une demande de sortie. -->
+<app-close-confirmation />
+
 <p-toast position="bottom-right" />

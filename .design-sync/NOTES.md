@@ -73,6 +73,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   aurait écrasé ce travail. Les fichiers touchés ce jour-là sont alignés et vérifiés ; les autres
   n'ont pas été comparés un à un. Une comparaison complète se fait depuis la session principale,
   seule à disposer de `DesignSync` : un sous-agent ne l'a pas.
+- **Confirmation de sortie (Feature 3, 2026-09-26)**, absente de la maquette, à ajouter à `AppShell` : `p-dialog` « Quitter l'application ? », une phrase par travail en cours (extraction, run, arbitrages), « Quitter quand même » outlined secondary et « Rester » primary.
 
 
 ## Journal

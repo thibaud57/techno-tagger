@@ -20,7 +20,8 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, `--arbitration` un seul morceau en zone grise, ou `--vlc-dump` un dump `vlc_media.db` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --arbitration \| --vlc-dump]` |
 | `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout | importé par `drive.py` |
 | `drive.py` | Vraie boucle NDJSON contre le faux serveur. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
-| `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
+| `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` ; `--key <touche>` frappe une vraie touche (`Input.dispatchKeyEvent`), `--screenshot <png>` capture la fenêtre ; une page qui meurt pendant l'appel rend `{"success": true, "pageClosed": true}` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
+| `page/close-guard.js` | Garde de fermeture : pose un travail en cours (`pending extraction`, `pending run-arbitrations`), lit la confirmation (`state`), clique `stay`, `leave` ou `cross`, bascule la langue (`lang en`) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/close-guard.js <action> [cible]` |
 | `page/sidecar-service.js` | `__sidecarService()`, le service vivant de la page | préalable injecté par `cdp.mjs` devant chaque script de page |
 | `page/cancel-run.js` | Interruption d'un run puis relance immédiate, de bout en bout | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/cancel-run.js <dossier>`, dossier de `build_fixture.py --unique 20` |
 | `page/arbitration-replay.js` | Rejoue dans la fenêtre le flux réel d'un run d'arbitrage (sortie de `drive.py`) en intercalant les gestes du service, `send` relevé au lieu d'envoyé | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-replay.js "$(cat <sortie.ndjson>)" '<gestes JSON>'` |
@@ -189,6 +190,22 @@ La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(
 - Bandeau de bascule : lien « Revenir à Beatport » à la taille du texte du bandeau (12px), aucune animation d'entrée (`animationName` à `none`)
 - Une panne réseau pendant un refus ne sort jamais en `error` : c'est une liste Bandcamp vide au motif `source_unavailable`. Simuler une `error` `source_unavailable` sur un geste affiche un `{{source}}` brut qui ne vient pas de l'interface
 
+## Pilotage de la garde de fermeture
+
+La fermeture part de l'extérieur de la page, par `taskkill //IM techno-tagger.exe` **sans** `/F` : c'est le message de fermeture de Windows, le même que la croix ou Alt+F4, qui déclenche `onCloseRequested`. Un `close()` depuis la page ne passerait pas par l'OS. Une fenêtre retenue laisse `techno-tagger.exe` en vie après le `taskkill`, qui annonce pourtant son signal envoyé : compter le process, pas lire le message.
+
+Le travail en cours se pose sur le service vivant par `page/close-guard.js` (l'extraction de fixture dure une fraction de seconde, le run tape la vraie API) : la garde ne lit que les signals du service, la fenêtre, la modale et la capability restent réelles.
+
+### Flux qui valent le coup
+
+- Rien en cours : la fenêtre se ferme au premier `taskkill`, `tagger.exe` part avec elle
+- Extraction en cours : fenêtre retenue, confirmation au titre `h3` « Quitter l'application ? », une phrase par travail, focus sur « Rester », pied calé à droite (« Quitter quand même » `p-button-outlined p-button-secondary`, puis « Rester » primary), aucun `p-button-danger`, largeur 512px en FR comme en EN, rayon 12px, masque `rgba(0, 0, 0, 0.6)`. Échap au vrai clavier (`cdp.mjs --key Escape`), la croix et « Rester » la referment sans fermer la fenêtre, l'extraction toujours en cours
+- Run et deux arbitrages en plus : ordre extraction, run, arbitrages ; la confirmation passe au-dessus de la modale d'arbitrage ouverte d'office (masque 1103 contre 1101) et garde le focus. « Quitter quand même » ferme la fenêtre et le sidecar, preuve que `core:window:allow-destroy` est accordée
+- Instantané : un travail ajouté pendant la confirmation ne change pas la liste affichée, un second `taskkill` la remplace par l'état du moment
+- Écran bloquant : extraction en cours, `taskkill //F //IM tagger.exe` fait tomber le sidecar et l'état, puis la fenêtre se ferme au premier `taskkill` sans confirmation
+
+Parcours relevé le 2026-09-27 sur les cinq scénarios du spec `05-confirmation-sortie`, tous verts.
+
 ## Pilotage du trousseau
 
 `set_api_key` écrit dans le **vrai** Credential Manager de Windows (cible `techno-tagger`, utilisateur `x-api-key`) : aucun trousseau en mémoire hors pytest et `LOCALAPPDATA` n'isole rien ici.
@@ -268,7 +285,7 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
 - Onglet Réglages sous `ng serve`, sidecar simulé (`svc.send` remplacé, réponse par `svc.handleLine`) : aucun tag tant que `version` n'est pas arrivée, puis « Aucune clé » ; « Enregistrer » désactivé champ vide ; envoi, champ vidé, tag « Clé enregistrée » et commande `set_api_key` relevée dans `send` ; erreur `api_key_not_stored` rendue sous la rangée ; en FR et en EN au plancher 1024 × 700, sans défilement, texte d'aide sur trois lignes au plus
 - Clé mal formée, sous Tauri et sans risque pour la clé réelle (la validation refuse avant le trousseau) : saisir `abc def`, « Enregistrer » → message `errors.api_key_malformed` sous la rangée, `api_key_configured` inchangé. Régression du 2026-09-25 : ce refus sortait en `malformed_command` sans `command` et aucun écran ne l'affichait
 - Onglet Playlist, états vides : avant toute extraction, bloc encadré « Aucune extraction lancée » ; pendant l'extraction, lignes squelette dans la table du rapport (l'extraction de la démo dure une fraction de seconde : les compter par un `MutationObserver`) ; « Passer au tagging » en `primary` outlined (`p-button-outlined` sans `p-button-secondary`)
-- Fin de session : fermer la fenêtre par `taskkill //IM techno-tagger.exe` sans `/F` (message de fermeture), puis constater que `tagger.exe` a disparu
+- Fin de session : fermer la fenêtre par `taskkill //IM techno-tagger.exe` sans `/F` (message de fermeture), puis constater que `tagger.exe` a disparu. Un travail encore en cours (run rejoué, file d'arbitrage non vide) fait retenir la fenêtre par la garde de fermeture : cliquer « Quitter quand même » par `page/close-guard.js click leave`
 
 Compter un élément éphémère, toast ou ligne squelette, se fait par un `MutationObserver` posé avant le geste, qui cherche la classe dans les **descendants** du nœud ajouté : PrimeNG insère le toast dans un conteneur et tester le seul nœud ajouté compte zéro.
 

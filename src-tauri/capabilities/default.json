@@ -1,11 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions de la fenetre principale : lancement du sidecar, selection de chemins, preferences, locale et ouverture de dossiers.",
+  "description": "Permissions de la fenetre principale : lancement du sidecar, selection de chemins, preferences, locale, ouverture de dossiers et fermeture de la fenetre apres confirmation.",
   "windows": ["main"],
   "platforms": ["windows"],
   "permissions": [
     "core:default",
+    "core:window:allow-destroy",
     {
       "identifier": "shell:allow-spawn",
       "allow": [{ "name": "binaries/tagger", "sidecar": true }]
