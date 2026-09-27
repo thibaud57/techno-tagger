@@ -1,6 +1,7 @@
 ---
 paths:
   - "src/app/**/*.spec.ts"
+  - "src/fixtures/**/*.ts"
 ---
 
 # Angular Tests unitaires — Règles
@@ -17,8 +18,10 @@ paths:
 - Assertions DOM : `not.toBeNull()` ou `toBeTruthy()`
 - Appeler `fixture.detectChanges()` dans le `it()` quand des blocs `@if` conditionnent l'élément cherché
 - Mocker le protocole NDJSON au niveau du service qui l'expose, pas les plugins Tauri sous-jacents
+- Chercher dans `src/fixtures/` un stub, un jeu d'événements ou un helper de requête DOM avant d'en écrire un, et l'importer de là : ce dossier porte ce que plusieurs specs partagent, compilé pour les tests (`tsconfig.spec.json`) et exclu du build (`tsconfig.app.json`)
 
 ## À éviter
+- Recopier un stub ou un helper d'une spec à l'autre : dès la deuxième spec qui s'en sert, il rejoint `src/fixtures/`. Un stub à usage unique reste local à sa spec
 - `toBeDefined()` sur un élément du DOM : vrai même quand la requête retourne `null`
 - `fakeAsync`, `tick` et `flush` : ils exigent zone.js et le patch `zone.js/plugins/vitest-patch`, absents d'un projet zoneless
 - `compileComponents()`, inutile pour un composant standalone

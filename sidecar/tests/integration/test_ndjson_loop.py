@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, NoReturn
 import keyring
 import pytest
 from memory_keyring import MemoryKeyring, RefusingKeyring
-from ndjson_loop import drive, drive_raw
+from ndjson_loop import drive, drive_raw, start_tagging
 
 from tagger import __main__ as main
 from tagger import handlers
@@ -219,14 +219,12 @@ def tagging_slow_to_stop(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(main, "handle_start_tagging", endless)
 
 
-def _start(folder: Path) -> str:
-    return json.dumps({"command": "start_tagging", "folder": str(folder)}) + "\n"
-
-
 @pytest.mark.usefixtures("tagging_slow_to_stop")
 def test_a_cancelled_run_leaves_the_loop_alive(tmp_path: Path) -> None:
     """`CancelledError` termine la tache sans remonter au TaskGroup, qui l'ignore."""
-    events = drive(_start(tmp_path) + '{"command":"cancel_run"}\n{"command":"get_version"}\n')
+    events = drive(
+        start_tagging(tmp_path) + '{"command":"cancel_run"}\n{"command":"get_version"}\n'
+    )
 
     assert [event["event"] for event in events] == ["version"]
 
@@ -236,7 +234,7 @@ def test_a_run_started_right_after_a_cancellation_is_not_refused(tmp_path: Path)
     """Regression : le run annule mourait encore quand la relance arrivait, qui repartait
     en `tagging_in_progress`, code que l'interface lit comme un run qui continue.
     """
-    commands = _start(tmp_path) + '{"command":"cancel_run"}\n' + _start(tmp_path)
+    commands = start_tagging(tmp_path) + '{"command":"cancel_run"}\n' + start_tagging(tmp_path)
 
     events = drive(commands + '{"command":"shutdown"}\n')
 

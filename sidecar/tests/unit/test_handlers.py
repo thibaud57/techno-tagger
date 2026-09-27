@@ -87,9 +87,8 @@ def test_carries_the_five_categories(vlc_dump: Path, music_library: Path, tmp_pa
     assert isinstance(event.failures, tuple)
 
 
-def test_reports_whether_an_api_key_is_configured(memory_keyring: MemoryKeyring) -> None:
-    memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"
-
+@pytest.mark.usefixtures("_key")
+def test_reports_whether_an_api_key_is_configured() -> None:
     event = handle_get_version()
 
     assert event.api_key_configured is True

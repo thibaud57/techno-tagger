@@ -4,16 +4,12 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
-from ndjson_loop import drive
+from ndjson_loop import drive, start_tagging
 from scraper_responses import BASIEL, YOUR_MIND
 from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, basiel, failing, found, three_tracks
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-
-def start_tagging(folder: Path, **payload: object) -> str:
-    return json.dumps({"command": "start_tagging", "folder": str(folder), **payload}) + "\n"
 
 
 @pytest.fixture

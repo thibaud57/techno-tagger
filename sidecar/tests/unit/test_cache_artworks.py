@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
+from tagging_api import JPEG, public_resolver
 
 from tagger.cache import (
     ARTWORK_CONCURRENCY,
@@ -22,24 +23,20 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.asyncio
 
 URL = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
-IMAGE = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 
 
 def _image(content_type: str = "image/jpeg") -> httpx2.Response:
-    return httpx2.Response(200, content=IMAGE, headers={"Content-Type": content_type})
+    return httpx2.Response(200, content=JPEG, headers={"Content-Type": content_type})
 
 
 def _entries(root: Path) -> list[Path]:
     return list(root.iterdir())
 
 
-def _public(_host: str) -> list[str]:
-    """Resolveur injecte : aucun test n'interroge le DNS."""
-    return ["93.184.216.34"]
-
-
 def _fetcher(root: Path, handler: Handler) -> ArtworkFetcher:
-    return ArtworkFetcher(DiskCache(root), transport=httpx2.MockTransport(handler), resolve=_public)
+    return ArtworkFetcher(
+        DiskCache(root), transport=httpx2.MockTransport(handler), resolve=public_resolver
+    )
 
 
 def _recording(requests: list[httpx2.Request]) -> Callable[[httpx2.Request], httpx2.Response]:
@@ -62,7 +59,7 @@ async def test_downloads_an_artwork_once_and_serves_it_from_the_cache(tmp_path: 
         second = await fetcher.fetch(URL)
 
     assert second == first
-    assert first.read_bytes() == IMAGE
+    assert first.read_bytes() == JPEG
     assert len(requests) == 1
 
 
@@ -221,7 +218,7 @@ async def test_refuses_a_response_from_an_address_the_guard_would_have_blocked(
     def rebinding(_request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(
             200,
-            content=IMAGE,
+            content=JPEG,
             headers={"Content-Type": "image/jpeg"},
             extensions={"network_stream": _ConnectedTo(connected)},
         )
@@ -238,7 +235,7 @@ async def test_accepts_a_response_from_the_public_address_it_resolved(tmp_path: 
     def cdn(_request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(
             200,
-            content=IMAGE,
+            content=JPEG,
             headers={"Content-Type": "image/jpeg"},
             extensions={"network_stream": _ConnectedTo("93.184.216.34")},
         )
@@ -246,7 +243,7 @@ async def test_accepts_a_response_from_the_public_address_it_resolved(tmp_path: 
     async with _fetcher(tmp_path, cdn) as fetcher:
         stored = await fetcher.fetch(URL)
 
-    assert stored.read_bytes() == IMAGE
+    assert stored.read_bytes() == JPEG
 
 
 async def test_refuses_a_redirection_towards_the_local_machine(tmp_path: Path) -> None:
@@ -271,7 +268,7 @@ async def test_follows_a_redirection_towards_another_public_host(tmp_path: Path)
     async with _fetcher(tmp_path, redirecting) as fetcher:
         artwork = await fetcher.fetch(URL)
 
-    assert artwork.read_bytes() == IMAGE
+    assert artwork.read_bytes() == JPEG
 
 
 async def test_gives_up_on_a_redirection_loop(tmp_path: Path) -> None:

@@ -3,17 +3,15 @@
 import json
 from dataclasses import replace
 from datetime import date
-from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
 from scraper_responses import track_candidate
+from tagging_records import RECORD, scored_candidate
 
 from tagger import arbitration, tagging
-from tagger.files import IdentityTags
 from tagger.handlers import to_protocol_event
-from tagger.matching import ScoredCandidate
 from tagger.protocol import (
     ArbitrationRequired,
     ArbitrationUpdated,
@@ -26,21 +24,9 @@ from tagger.tagging import FailureReason, PendingArbitration, SourceList, TrackR
 if TYPE_CHECKING:
     from tagger.scraper_client import TrackCandidate
 
-_RECORD: Final = TrackRecord(
-    track_id="a.mp3",
-    path=Path("music/a.mp3"),
-    identity=IdentityTags(artist="Adam Beyer", title="Your Mind"),
-)
-
-
-def _scored(candidate: TrackCandidate) -> ScoredCandidate:
-    return ScoredCandidate(
-        candidate, 96.4, 91.6, 94.0, version_mismatch=False, number_mismatch=False
-    )
-
 
 def _awaiting(pending: PendingArbitration) -> TrackRecord:
-    return replace(_RECORD, arbitration=pending)
+    return replace(RECORD, arbitration=pending)
 
 
 def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> None:
@@ -49,7 +35,7 @@ def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> No
         (),
         beatport_unavailable=False,
         empty_reason=FailureReason.NO_RESULT,
-        other=SourceList(Source.BEATPORT, (_scored(track_candidate()),)),
+        other=SourceList(Source.BEATPORT, (scored_candidate(),)),
     )
 
     event = to_protocol_event(arbitration.ArbitrationUpdated(_awaiting(pending)))
@@ -82,7 +68,9 @@ def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> No
 def test_translates_the_label_and_the_release_year(
     candidate: TrackCandidate, expected: tuple[str | None, int | None]
 ) -> None:
-    pending = PendingArbitration(Source.BEATPORT, (_scored(candidate),), beatport_unavailable=False)
+    pending = PendingArbitration(
+        Source.BEATPORT, (scored_candidate(candidate=candidate),), beatport_unavailable=False
+    )
 
     event = to_protocol_event(tagging.ArbitrationRequired(_awaiting(pending)))
 

@@ -1,17 +1,15 @@
 """Tests des modeles du run et de la traduction des evenements du pipeline."""
 
 from dataclasses import replace
-from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
 from scraper_responses import track_candidate
+from tagging_records import RECORD, scored_candidate
 
 from tagger import tagging
-from tagger.files import IdentityTags
 from tagger.handlers import to_protocol_event
-from tagger.matching import ScoredCandidate
 from tagger.protocol import (
     ArbitrationRequired,
     Progress,
@@ -23,6 +21,9 @@ from tagger.protocol import (
 )
 from tagger.scraper_client import Source, TrackCandidate
 from tagger.tagging import PendingArbitration, Resolution, TrackRecord, TrackState
+
+if TYPE_CHECKING:
+    from tagger.matching import ScoredCandidate
 
 
 def test_accepts_a_start_tagging_command_without_thresholds() -> None:
@@ -54,23 +55,6 @@ def test_rejects_thresholds_out_of_bounds(thresholds: str) -> None:
         parse_command(line)
 
 
-def _scored(
-    *, artist: float | None = 96.4, title: float = 91.6, candidate: TrackCandidate | None = None
-) -> ScoredCandidate:
-    picked = candidate if candidate is not None else track_candidate()
-    average = title if artist is None else (artist + title) / 2
-    return ScoredCandidate(
-        picked, artist, title, average, version_mismatch=False, number_mismatch=False
-    )
-
-
-_BASE_RECORD: Final = TrackRecord(
-    track_id="a.mp3",
-    path=Path("music/a.mp3"),
-    identity=IdentityTags(artist="Adam Beyer", title="Your Mind"),
-)
-
-
 def _record(
     *,
     state: TrackState | None = None,
@@ -81,7 +65,7 @@ def _record(
     arbitration: PendingArbitration | None = None,
 ) -> TrackRecord:
     return replace(
-        _BASE_RECORD,
+        RECORD,
         state=state,
         resolution=resolution,
         source=source,
@@ -105,7 +89,7 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
         resolution=Resolution.AUTO,
         source=Source.BEATPORT,
         candidate=track_candidate(),
-        scored=_scored(),
+        scored=scored_candidate(),
     )
 
     event = to_protocol_event(tagging.TrackResolved(record))
@@ -133,7 +117,7 @@ def test_renders_the_artist_and_the_title_a_source_will_write(
         resolution=Resolution.AUTO,
         source=Source.BEATPORT,
         candidate=track_candidate(title, mix_name),
-        scored=_scored(),
+        scored=scored_candidate(),
     )
 
     event = to_protocol_event(tagging.TrackResolved(record))
@@ -149,7 +133,7 @@ def test_reports_no_artist_score_for_a_query_without_artist() -> None:
         resolution=Resolution.AUTO,
         source=Source.BANDCAMP,
         candidate=track_candidate(),
-        scored=_scored(artist=None, title=100),
+        scored=scored_candidate(artist=None, title=100),
     )
 
     event = to_protocol_event(tagging.TrackResolved(record))
@@ -161,7 +145,9 @@ def test_reports_no_artist_score_for_a_query_without_artist() -> None:
 
 def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
     record = _record(
-        arbitration=PendingArbitration(Source.BANDCAMP, (_scored(),), beatport_unavailable=True)
+        arbitration=PendingArbitration(
+            Source.BANDCAMP, (scored_candidate(),), beatport_unavailable=True
+        )
     )
 
     event = to_protocol_event(tagging.ArbitrationRequired(record))

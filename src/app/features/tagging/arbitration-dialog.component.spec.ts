@@ -2,6 +2,8 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
+import { action, page } from "../../../fixtures/dialog"
+import { PENDING_TRACK } from "../../../fixtures/tagging"
 import type {
   ArbitrationState,
   SidecarCommand,
@@ -11,21 +13,6 @@ import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 
 import { ArbitrationDialogComponent } from "./arbitration-dialog.component"
-
-const ROW: TaggingTrack = {
-  trackId: "a.mp3",
-  fileName: "a.mp3",
-  artist: "Adam Beyer",
-  title: "Your Mind",
-  state: null,
-  resolution: null,
-  failureReason: null,
-  source: null,
-  after: null,
-  scores: null,
-  artworkPath: null,
-  arbitration: null,
-}
 
 const ON_BEATPORT: ArbitrationState = {
   track_id: "a.mp3",
@@ -73,7 +60,7 @@ const stub = () => ({
   arbitrationBusy: signal(false),
   hasPreviousArbitration: signal(false),
   hasNextArbitration: signal(true),
-  taggingTracks: signal<readonly TaggingTrack[]>([ROW]),
+  taggingTracks: signal<readonly TaggingTrack[]>([PENDING_TRACK]),
   lastError: signal<SidecarErrorEvent | null>(null),
   lastErrorCommand: signal<SidecarCommand["command"] | null>(null),
   errorFor: SidecarService.prototype.errorFor,
@@ -97,12 +84,6 @@ const mountWith = (overrides: Partial<ReturnType<typeof stub>> = {}) => {
 
   return { fixture, component: fixture.componentInstance, service }
 }
-
-/** Le dialog peut etre rendu hors de l'hote : la page entiere est interrogee. */
-const page = (): HTMLElement => document.body
-
-const action = (name: string): HTMLButtonElement | null =>
-  page().querySelector<HTMLButtonElement>(`[data-action="${name}"]`)
 
 describe("ArbitrationDialogComponent", () => {
   afterEach(() => {
@@ -146,7 +127,7 @@ describe("ArbitrationDialogComponent", () => {
 
   it("shows the file name only once when the run row has no tags", () => {
     const { fixture, service } = mountWith()
-    service.taggingTracks.set([{ ...ROW, artist: "", title: "" }])
+    service.taggingTracks.set([{ ...PENDING_TRACK, artist: "", title: "" }])
     fixture.detectChanges()
 
     const title = page().querySelector("[data-title]")

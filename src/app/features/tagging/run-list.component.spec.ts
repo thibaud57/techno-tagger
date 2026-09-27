@@ -2,6 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
 
+import { PENDING_TRACK } from "../../../fixtures/tagging"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 
 import { RunListComponent } from "./run-list.component"
@@ -12,18 +13,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 }))
 
 const TRACK: TaggingTrack = {
-  trackId: "a.mp3",
-  fileName: "a.mp3",
-  artist: "Adam Beyer",
-  title: "Your Mind",
+  ...PENDING_TRACK,
   state: "resolved",
   resolution: "auto",
-  failureReason: null,
   source: "beatport",
   after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
-  arbitration: null,
 }
 
 /**

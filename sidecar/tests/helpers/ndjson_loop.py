@@ -15,9 +15,15 @@ from tagger.__main__ import run_loop
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
+    from pathlib import Path
 
 # Borne de chaque attente : un evenement qui n'arrive pas echoue au lieu de geler la suite.
 EXPECT_TIMEOUT = 10
+
+
+def start_tagging(folder: Path, **payload: object) -> str:
+    """Ligne `start_tagging` prete a injecter."""
+    return json.dumps({"command": "start_tagging", "folder": str(folder), **payload}) + "\n"
 
 
 def drive_raw(commands: str) -> str:

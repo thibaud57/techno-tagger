@@ -3,6 +3,7 @@ import type {
   RunStartedEvent,
   TrackResolvedEvent,
 } from "../app/core/models/protocol"
+import type { TaggingTrack } from "../app/core/tagging-run.store"
 
 // Evenements d'un run de re-tagging partages par les specs, comme `helpers/` cote sidecar :
 // un seul jeu de donnees, ce qui est verifie est la reaction du store ou du service.
@@ -26,6 +27,22 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
   after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artwork_path: "C:/AppData/cache/artworks/abc.jpg",
+}
+
+/** Ligne du run avant resolution, le premier morceau de `RUN_STARTED`. Un test pose son etat par spread. */
+export const PENDING_TRACK: TaggingTrack = {
+  trackId: "a.mp3",
+  fileName: "a.mp3",
+  artist: "Adam Beyer",
+  title: "Your Mind",
+  state: null,
+  resolution: null,
+  failureReason: null,
+  source: null,
+  after: null,
+  scores: null,
+  artworkPath: null,
+  arbitration: null,
 }
 
 /** Zone grise nominale : Beatport a repondu, un candidat. Un test pose ses ecarts par spread. */
