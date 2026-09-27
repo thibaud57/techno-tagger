@@ -17,7 +17,7 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 
 | Script | Rôle | Lancement |
 |---|---|---|
-| `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, ou `--vlc-dump` un dump `vlc_media.db` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --vlc-dump]` |
+| `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, `--arbitration` un seul morceau en zone grise, ou `--vlc-dump` un dump `vlc_media.db` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --arbitration \| --vlc-dump]` |
 | `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout | importé par `drive.py` |
 | `drive.py` | Vraie boucle NDJSON contre le faux serveur. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
 | `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
@@ -152,6 +152,22 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   commande suivante soit lue. `_Session._phase` reçoit une factory pour que ce cas ne
   laisse aucune coroutine jamais attendue ; relevé le 2026-09-25, la contre-épreuve
   sur le code d'avant ne l'a montré ni par `drive.py` ni en quatre passes de pytest
+
+## Pilotage de l'arbitrage
+
+`build_fixture.py --arbitration` pose « Amelie Lens - Basielians », en zone grise sur les deux sources du faux serveur (titre à 75, moyenne 88). Son `track_id` est le nom du fichier, `01 amelie lens - basielians.mp3`, connu d'avance : les gestes s'écrivent dans le fichier de commandes de `drive.py` sans relire `run_started`. `FAKE_DELAY` tient aussi l'appel Bandcamp d'un refus, ce qui met un geste en vol.
+
+Le faux serveur rend le même objet complet sur `/beatport/search` et `/bandcamp/search` : `label` et `year` sortent donc renseignés sur la liste Bandcamp, alors que la vraie recherche Bandcamp ne les rend jamais. Un `null` attendu côté Bandcamp se vérifie par les tests, pas ici.
+
+### Flux qui valent le coup
+
+- `arbitration_required` : candidats avec `label` et `year`, `empty_reason` et `other_source` à `null`, puis `run_finished` à `awaiting_arbitration: 1`
+- Après `run_finished` : refus de Beatport (`candidate: null`) puis `arbitration_updated` en `bandcamp` avec `other_source` à `beatport` ; `switch_arbitration_source` vers Beatport, `arbitration_updated` inverse ; un second `switch` vers la liste déjà affichée rend `arbitration_candidate_unknown` qui nomme `switch_arbitration_source` ; choix de l'index 0, `track_resolved` en `resolved` / `arbitration` ; un geste répété ensuite rend `arbitration_not_pending`
+- Gestes malformés (`candidate` à -1, à `true` ou absent, source `soundcloud`) : `malformed_command` dont les `params` ne portent que `loc` et `type`
+- Boucle réactive : sous `FAKE_DELAY=1`, un `get_version` envoyé 0,2s après le refus répond avant l'`arbitration_updated`
+- `shutdown` pendant un refus en vol, sous `FAKE_DELAY=3` : sortie immédiate (relevé le 2026-09-27, `elapsed` 5,01s pour un refus parti à 4,5s), aucun `arbitration_updated`, la commande suivante ignorée
+- Nouveau `start_tagging` (dossier vide) pendant un refus en vol : aucun `arbitration_updated` de l'ancien run, puis un geste sur l'ancien morceau rend `arbitration_not_pending`
+- Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason` : ni titre ni chemin, et ni `never awaited` ni client non fermé
 
 ## Pilotage du trousseau
 

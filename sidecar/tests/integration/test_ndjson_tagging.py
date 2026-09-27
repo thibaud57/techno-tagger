@@ -3,29 +3,13 @@
 import json
 from typing import TYPE_CHECKING
 
-import httpx2
 import pytest
 from ndjson_loop import drive
 from scraper_responses import BASIEL, YOUR_MIND
-from tagging_api import (
-    ORIGINAL,
-    ORIGINAL_REFETCH,
-    FakeApi,
-    FakeCdn,
-    basiel,
-    failing,
-    found,
-    public_resolver,
-    three_tracks,
-)
-
-from tagger import handlers
-from tagger.api_key import SERVICE, USERNAME
+from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, basiel, failing, found, three_tracks
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from memory_keyring import MemoryKeyring
 
 
 def start_tagging(folder: Path, **payload: object) -> str:
@@ -33,34 +17,9 @@ def start_tagging(folder: Path, **payload: object) -> str:
 
 
 @pytest.fixture
-def run_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def run_folder(tmp_path: Path, app_data: None) -> Path:
     """Trois morceaux, et un dossier de donnees d'application isole."""
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
     return three_tracks(tmp_path)
-
-
-@pytest.fixture
-def api(monkeypatch: pytest.MonkeyPatch) -> FakeApi:
-    """API et CDN simules, poses a la place des transports de production.
-
-    Le resolveur d'hote est aussi remplace : sans lui, `ArtworkFetcher` ferait un
-    vrai `socket.getaddrinfo` sur l'hote du CDN simule avant chaque telechargement.
-    """
-    fake = FakeApi()
-    cdn = FakeCdn()
-    monkeypatch.setattr(
-        handlers,
-        "tagging_transports",
-        lambda: handlers.TaggingTransports(
-            httpx2.MockTransport(fake.handler), httpx2.MockTransport(cdn.handler), public_resolver
-        ),
-    )
-    return fake
-
-
-@pytest.fixture
-def _key(memory_keyring: MemoryKeyring) -> None:
-    memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"
 
 
 @pytest.fixture

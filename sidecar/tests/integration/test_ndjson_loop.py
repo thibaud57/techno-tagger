@@ -23,6 +23,7 @@ from tagger.reports import ReportWriteError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from tagger.handlers import CurrentRun
     from tagger.protocol import Event, ExtractPlaylist, StartTagging
 
 # Large : il borne un deadlock, il ne cadence rien.
@@ -204,7 +205,11 @@ def tagging_slow_to_stop(monkeypatch: pytest.MonkeyPatch) -> None:
     attend les telechargements en vol. Borne : une annulation perdue echoue, sans geler.
     """
 
-    async def endless(command: StartTagging, emit: Callable[[Event], None]) -> Event:
+    async def endless(
+        command: StartTagging,
+        emit: Callable[[Event], None],
+        adopt: Callable[[CurrentRun], None],
+    ) -> Event:
         try:
             await asyncio.wait_for(asyncio.Event().wait(), timeout=WAIT_TIMEOUT)
         finally:

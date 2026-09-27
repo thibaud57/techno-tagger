@@ -420,13 +420,13 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
+| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
 | `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. L'extraction reste attendue jusqu'à son terme, comme sous `shutdown` |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source) |
-| `resolve_arbitration` | identifiant du morceau, candidat choisi ou refus explicite |
-| `switch_arbitration_source` | identifiant du morceau, source demandée. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)) et produit un `arbitration_updated` |
+| `resolve_arbitration` | identifiant du morceau, `source` (`beatport` ou `bandcamp`, la liste visée) et `candidate` : index dans cette liste, ou `null` pour un refus explicite, jamais implicite. Un geste sur une liste qui n'est plus affichée est refusé en `arbitration_candidate_unknown` : un double clic arrivé après la bascule refuserait sinon Bandcamp. Tranché en tâche de fond, la boucle continuant de lire stdin pendant l'appel Bandcamp |
+| `switch_arbitration_source` | identifiant du morceau, `source` à réafficher. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), sans appel réseau et produit un `arbitration_updated` |
 | `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud |
 | `commit_run` | identifiant du run, confirmation globale de l'écriture |
 | `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages |
@@ -446,8 +446,8 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `run_started` | identifiant du run et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus. Sans lui, la liste resterait vide jusqu'à la première résolution |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
-| `arbitration_required` | morceau, candidats en zone grise avec leur score, source interrogée et `beatport_unavailable` quand Bandcamp n'a été interrogé que parce que Beatport était en panne (§ Chaîne de résolution) |
-| `arbitration_updated` | remplacement de la liste Beatport par la liste Bandcamp dans la modale ouverte et retour en arrière |
+| `arbitration_required` | état complet de l'arbitrage d'un morceau entré dans la file : source affichée, candidats en zone grise avec leur score, leur label et leur année (nuls sur Bandcamp, dont la recherche ne rend ni l'un ni l'autre), `beatport_unavailable` quand Bandcamp n'a été interrogé que parce que Beatport était en panne (§ Chaîne de résolution), `empty_reason` d'une liste Bandcamp vide et `other_source`, la liste que `switch_arbitration_source` peut réafficher. L'index d'un candidat est sa position dans la liste |
+| `arbitration_updated` | mêmes champs qu'`arbitration_required`, pour un morceau déjà dans la file : l'interface remplace son entrée en bloc. Émis à la bascule sur Bandcamp et au retour à Beatport |
 | `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs résolus, non résolus et en attente d'arbitrage ; chemin des rapports une fois la Feature 6 livrée |
 | `runs_listed` | runs passés : identifiant, date, dossier, compteurs du récapitulatif |
 | `run_loaded` | récapitulatif d'un run passé, relu depuis son rapport JSON |
@@ -548,6 +548,8 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 **L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
 
 La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en mémoire exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process. Les gestes d'arbitrage avancent en parallèle d'un morceau à l'autre et partagent les sémaphores du client avec le pipeline. Un seul geste est en vol par morceau : le second est refusé en `arbitration_busy`, jamais mis en file, sans quoi les clics rapides de la modale lanceraient deux appels Bandcamp.
+
+**Le run courant survit à sa phase réseau.** `start_tagging` ouvre un run dont le client et le fetcher de pochettes restent ouverts après `run_finished` comme après `cancel_run`, le temps des arbitrages. Ils ne se ferment qu'au run suivant, au `shutdown` ou à l'EOF, qui annulent aussi les gestes en vol. Un choix ou un refus attend le réseau, un refetch ou un appel Bandcamp : il part en tâche de fond comme les deux phases longues, pour la même raison. `switch_arbitration_source` n'attend rien et s'exécute dans la boucle.
 
 ### Sécurité Backend
 
