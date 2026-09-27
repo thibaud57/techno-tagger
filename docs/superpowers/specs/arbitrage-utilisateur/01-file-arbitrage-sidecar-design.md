@@ -2,7 +2,7 @@
 feature: "Feature 3 : Arbitrage utilisateur"
 subproject: "file-arbitrage-sidecar"
 goal: "Tenir dans le sidecar la file des morceaux en zone grise d'un run et les faire avancer sur décision de l'utilisateur : choix d'un candidat, refus qui déclenche Bandcamp, retour à la liste Beatport"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
