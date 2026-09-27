@@ -2,7 +2,7 @@
 feature: "Feature 3 : Arbitrage utilisateur"
 subproject: "service-arbitrage-ui"
 goal: "Porter côté webview la file des arbitrages en attente, alimentée par les événements du sidecar, et émettre les décisions de l'utilisateur"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["02-protocole-ndjson-arbitrage-design.md"]
