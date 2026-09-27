@@ -4,18 +4,27 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from scraper_responses import track_payload
-from tagging_api import FakeApi, failing, found, run, tagged_mp3
+from scraper_responses import BASIEL, YOUR_MIND, track_payload
+from tagging_api import (
+    ORIGINAL,
+    FakeApi,
+    basiel,
+    failing,
+    found,
+    one_track,
+    run,
+    tagged_mp3,
+    three_tracks,
+)
 
 from tagger.files import TaggingFolderUnreadableError
+from tagger.sources import ApiKeyRejectedRunError, _RejectionGuard
 from tagger.tagging import (
-    ApiKeyRejectedRunError,
     ArbitrationRequired,
     RunProgress,
     RunStarted,
     TrackResolved,
     TrackState,
-    _RejectionGuard,
 )
 
 if TYPE_CHECKING:
@@ -26,18 +35,10 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.asyncio
 
 
-def _three_tracks(tmp_path: Path) -> Path:
-    folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
-    tagged_mp3(folder, "c.mp3", "Sara Landry", "The Void")
-    return folder
-
-
 async def test_emits_run_started_first_with_every_track_and_its_identity(tmp_path: Path) -> None:
     events: list[RunEvent] = []
 
-    await run(_three_tracks(tmp_path), FakeApi(), events=events)
+    await run(three_tracks(tmp_path), FakeApi(), events=events)
 
     first = events[0]
     assert isinstance(first, RunStarted)
@@ -49,21 +50,11 @@ async def test_counts_a_track_as_processed_once_resolved_unresolved_or_on_hold(
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on(
-        "/beatport/search", "Adam Beyer Your Mind", found(track_payload(mix_name="Original Mix"))
-    )
-    api.on(
-        "/beatport/search",
-        "Amelie Lens Basiel",
-        found(
-            track_payload(
-                artists=[{"name": "Amelie Lens"}], title="Basiel", mix_name="Extended Mix"
-            )
-        ),
-    )
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    api.on("/beatport/search", BASIEL, found(basiel(mix_name="Extended Mix")))
     events: list[RunEvent] = []
 
-    await run(_three_tracks(tmp_path), api, events=events)
+    await run(three_tracks(tmp_path), api, events=events)
 
     progress = [event for event in events if isinstance(event, RunProgress)]
     assert [(event.processed, event.total) for event in progress] == [(1, 3), (2, 3), (3, 3)]
@@ -113,14 +104,12 @@ async def test_resets_the_rejection_count_on_any_other_answer() -> None:
 
 
 async def test_reports_an_api_contract_error_to_sentry(tmp_path: Path) -> None:
-    folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
     broken = track_payload()
     del broken["title"]
     api = FakeApi()
     api.on("/beatport/search", "*", found(broken))
 
-    with patch("tagger.tagging.sentry_sdk.capture_exception", autospec=True) as capture:
-        await run(folder, api)
+    with patch("tagger.sources.sentry_sdk.capture_exception", autospec=True) as capture:
+        await run(one_track(tmp_path), api)
 
     capture.assert_called_once()

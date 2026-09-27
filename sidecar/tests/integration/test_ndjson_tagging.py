@@ -6,8 +6,18 @@ from typing import TYPE_CHECKING
 import httpx2
 import pytest
 from ndjson_loop import drive
-from scraper_responses import track_payload
-from tagging_api import FakeApi, FakeCdn, failing, found, public_resolver, tagged_mp3
+from scraper_responses import BASIEL, YOUR_MIND
+from tagging_api import (
+    ORIGINAL,
+    ORIGINAL_REFETCH,
+    FakeApi,
+    FakeCdn,
+    basiel,
+    failing,
+    found,
+    public_resolver,
+    three_tracks,
+)
 
 from tagger import handlers
 from tagger.api_key import SERVICE, USERNAME
@@ -16,9 +26,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from memory_keyring import MemoryKeyring
-
-QUERY = "Adam Beyer Your Mind"
-ORIGINAL = track_payload(mix_name="Original Mix")
 
 
 def start_tagging(folder: Path, **payload: object) -> str:
@@ -29,11 +36,7 @@ def start_tagging(folder: Path, **payload: object) -> str:
 def run_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Trois morceaux, et un dossier de donnees d'application isole."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
-    folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
-    tagged_mp3(folder, "c.mp3", "Sara Landry", "The Void")
-    return folder
+    return three_tracks(tmp_path)
 
 
 @pytest.fixture
@@ -63,8 +66,8 @@ def _key(memory_keyring: MemoryKeyring) -> None:
 @pytest.fixture
 def api_knowing_your_mind(api: FakeApi) -> FakeApi:
     """API qui valide « Adam Beyer - Your Mind », recherche et refetch compris."""
-    api.on("/beatport/search", QUERY, found(ORIGINAL))
-    api.on("/beatport/tracks/17492013", "*", found(ORIGINAL))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    api.on(ORIGINAL_REFETCH, "*", found(ORIGINAL))
     return api
 
 
@@ -72,13 +75,7 @@ def api_knowing_your_mind(api: FakeApi) -> FakeApi:
 def test_emits_the_whole_sequence_of_a_tagging_run(
     run_folder: Path, api_knowing_your_mind: FakeApi
 ) -> None:
-    api_knowing_your_mind.on(
-        "/beatport/search",
-        "Amelie Lens Basiel",
-        found(
-            track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel", mix_name="Club Mix")
-        ),
-    )
+    api_knowing_your_mind.on("/beatport/search", BASIEL, found(basiel(mix_name="Club Mix")))
 
     events = drive(start_tagging(run_folder))
 

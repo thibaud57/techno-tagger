@@ -48,7 +48,11 @@
     "api_key_missing": "No API key saved. Save it in the settings.",
     "keyring_unavailable": "Windows secure storage is unavailable. Restart the application.",
     "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one.",
-    "extraction_in_progress": "An extraction is already in progress. Wait for it to finish before starting another one."
+    "extraction_in_progress": "An extraction is already in progress. Wait for it to finish before starting another one.",
+    "arbitration_error": "This decision could not be taken into account. Try again.",
+    "arbitration_not_pending": "This track is no longer awaiting a decision. Move on to the next track.",
+    "arbitration_candidate_unknown": "This candidate is no longer offered for this track. Choose one from the list shown.",
+    "arbitration_busy": "A decision is already in progress for this track. Wait for it to finish before making another one."
   },
   "playlist": {
     "title": "Playlist",

@@ -126,7 +126,9 @@ techno-tagger/
 │   │   ├── matching.py                   # scoring rapidfuzz
 │   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
 │   │   ├── cache.py                      # réponses API et artworks
-│   │   ├── tagging.py                    # pipeline de résolution d'un run, état en mémoire
+│   │   ├── tagging.py                    # pipeline de résolution, run vivant en mémoire
+│   │   ├── sources.py                    # accès aux sources d'un run, garde des 403
+│   │   ├── arbitration.py                # gestes d'arbitrage sur un run vivant
 │   │   └── plan.py                       # plan de run, reprise, rapport
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
 │   │   ├── unit/                         # un module isole, miroir de src/tagger/
@@ -266,7 +268,8 @@ flowchart TD
     bcd --> m2["MODALE temps 2<br/>la liste Bandcamp remplace celle de Beatport"]
     m2 -->|"choix"| okb
     m2 -->|"aucune"| kou["unresolved<br/>failure_reason = user_refused"]
-    m2 -->|"vide"| kon["unresolved<br/>failure_reason = no_result<br/>ou below_threshold"]
+    m2 -->|"vide, au geste « passer »"| kon["unresolved<br/>failure_reason = no_result<br/>ou below_threshold"]
+    m2 -->|"en panne, au geste « passer »"| kos
 
     bc --> bcauto{"score ?"}
     bcauto -->|"auto"| oka
@@ -307,6 +310,8 @@ flowchart TD
 Trois états après interrogation d'une source : **auto** (un candidat au-dessus du seuil haut), **zone grise** (candidats plausibles, décision humaine), **vide** (zéro résultat ou tout sous le plancher). Zéro résultat, candidats sous le plancher et refus utilisateur convergent tous vers **un seul `state`**, `unresolved`, le paquet que la phase URL rattrape. Leur `failure_reason` continue de les distinguer dans le rapport, la correction à apporter n'étant pas la même selon le motif.
 
 **Beatport injoignable** : une fois les nouvelles tentatives du client épuisées, ou sur une réponse hors contrat, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en validation automatique. Si Bandcamp échoue aussi, le morceau part en `unresolved` / `source_unavailable` (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)).
+
+**Liste Bandcamp vide après un refus** : le morceau reste à arbitrer, la modale affichant la liste vide, jusqu'au geste « passer ». Il part alors en `unresolved` avec le motif de Bandcamp (`no_result`, `below_threshold` ou `source_unavailable`), jamais `user_refused` : la correction à apporter est celle de Bandcamp. Après un refus, Bandcamp ne valide jamais seul, l'utilisateur étant en train de décider.
 
 
 ## Patterns Utilisés
@@ -483,6 +488,7 @@ stateDiagram-v2
     a_arbitrer --> a_arbitrer : refus Beatport, la liste Bandcamp remplace la précédente
     a_arbitrer --> resolved : choix dans la modale, resolution = arbitration
     a_arbitrer --> unresolved : refus Bandcamp, failure_reason = user_refused
+    a_arbitrer --> unresolved : « passer » sur une liste Bandcamp vide, motif de Bandcamp
     unresolved --> resolved : URL collée en fin de run, resolution = url
 
     resolved --> written : commit_run
@@ -541,7 +547,7 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 
 **L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
 
-La file d'arbitrage est une simple structure en mémoire, exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process.
+La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en mémoire exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process. Les gestes d'arbitrage avancent en parallèle d'un morceau à l'autre et partagent les sémaphores du client avec le pipeline. Un seul geste est en vol par morceau : le second est refusé en `arbitration_busy`, jamais mis en file, sans quoi les clics rapides de la modale lanceraient deux appels Bandcamp.
 
 ### Sécurité Backend
 

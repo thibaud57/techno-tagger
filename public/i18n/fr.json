@@ -48,7 +48,11 @@
     "api_key_missing": "Aucune clé API enregistrée. Enregistrez-la dans les Réglages.",
     "keyring_unavailable": "L'espace sécurisé de Windows est inaccessible. Relancez l'application.",
     "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre.",
-    "extraction_in_progress": "Une extraction est déjà en cours. Attendez sa fin avant d'en lancer une autre."
+    "extraction_in_progress": "Une extraction est déjà en cours. Attendez sa fin avant d'en lancer une autre.",
+    "arbitration_error": "Cette décision n'a pas pu être prise en compte. Réessayez.",
+    "arbitration_not_pending": "Ce morceau n'attend plus de décision. Passez au morceau suivant.",
+    "arbitration_candidate_unknown": "Ce candidat n'est plus proposé pour ce morceau. Choisissez-en un dans la liste affichée.",
+    "arbitration_busy": "Une décision est déjà en cours sur ce morceau. Attendez sa fin avant d'en prendre une autre."
   },
   "playlist": {
     "title": "Playlist",

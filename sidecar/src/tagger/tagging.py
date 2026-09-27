@@ -10,12 +10,8 @@ import logging
 import secrets
 from dataclasses import dataclass, replace
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, ClassVar, Final
+from typing import TYPE_CHECKING, override
 
-import sentry_sdk
-
-from tagger.cache import ArtworkUnavailableError
-from tagger.errors import TaggerError
 from tagger.files import IdentityTags, TagsUnreadableError, list_audio_files, read_identity
 from tagger.matching import (
     DEFAULT_THRESHOLDS,
@@ -31,20 +27,17 @@ from tagger.scraper_client import (
     ApiKeyRejectedError,
     Source,
     SourceUnavailableError,
-    TrackNotFoundError,
 )
+from tagger.sources import ApiKeyRejectedRunError, RunSources
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
     from tagger.cache import ArtworkFetcher
     from tagger.scraper_client import TechnoScraperClient, TrackCandidate
 
 logger = logging.getLogger(__name__)
-
-# Trois 403 consecutifs arretent le run (ARCHITECTURE.md § Cle API invalide ou revoquee).
-API_KEY_REJECTION_LIMIT: Final = 3
 
 
 @verify(UNIQUE)
@@ -77,12 +70,27 @@ class FailureReason(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class SourceList:
+    """Liste d'une source mise de cote pendant qu'une autre est affichee."""
+
+    source: Source
+    candidates: tuple[ScoredCandidate, ...]
+    empty_reason: FailureReason | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PendingArbitration:
-    """Candidats en zone grise d'une source, en attente d'une decision humaine."""
+    """Candidats en zone grise de la source affichee, en attente d'une decision humaine.
+
+    `other` garde la liste de l'autre source une fois obtenue : revenir en arriere
+    ne rappelle rien. `empty_reason` dit pourquoi une liste Bandcamp affichee est vide.
+    """
 
     source: Source
     candidates: tuple[ScoredCandidate, ...]
     beatport_unavailable: bool
+    empty_reason: FailureReason | None = None
+    other: SourceList | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,14 +115,77 @@ class TrackRecord:
         """Nom du fichier, sous-texte de la colonne Avant."""
         return self.path.name
 
+    def resolved(
+        self,
+        resolution: Resolution,
+        source: Source,
+        candidate: TrackCandidate,
+        scored: ScoredCandidate,
+        artwork: Path | None,
+    ) -> TrackRecord:
+        """Morceau resolu, sorti de l'attente d'arbitrage s'il y etait."""
+        return replace(
+            self,
+            state=TrackState.RESOLVED,
+            resolution=resolution,
+            source=source,
+            candidate=candidate,
+            scored=scored,
+            artwork=artwork,
+            arbitration=None,
+        )
+
+    def unresolved(self, reason: FailureReason) -> TrackRecord:
+        """Morceau non resolu, sorti de l'attente d'arbitrage s'il y etait."""
+        return replace(
+            self,
+            state=TrackState.UNRESOLVED,
+            resolution=Resolution.NONE,
+            failure_reason=reason,
+            arbitration=None,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class TaggingRun:
-    """Etat complet d'un run en fin de phase reseau, que la Feature 6 persistera."""
+    """Etat gele d'un run, que la Feature 6 persistera."""
 
     run_id: str
     folder: Path
     tracks: tuple[TrackRecord, ...]
+
+
+class LiveRun:
+    """Etat vivant d'un run : le pipeline y ecrit chaque morceau des qu'il est traite.
+
+    Il survit a la phase reseau comme a son interruption : l'arbitrage continue d'y
+    trancher les morceaux en attente jusqu'a ce qu'un autre run le remplace.
+    """
+
+    def __init__(self, run_id: str, folder: Path, records: Sequence[TrackRecord]) -> None:
+        self.run_id = run_id
+        self.folder = folder
+        self._records = {record.track_id: record for record in records}
+        self._positions = {
+            record.track_id: position for position, record in enumerate(records, start=1)
+        }
+
+    @override
+    def __repr__(self) -> str:
+        return f"LiveRun(run_id={self.run_id!r}, tracks={len(self._records)})"
+
+    def record(self, track_id: str) -> TrackRecord | None:
+        return self._records.get(track_id)
+
+    def position(self, track_id: str) -> int:
+        """Rang du morceau dans le dossier, la cle `track` des logs."""
+        return self._positions[track_id]
+
+    def update(self, record: TrackRecord) -> None:
+        self._records[record.track_id] = record
+
+    def snapshot(self) -> TaggingRun:
+        return TaggingRun(self.run_id, self.folder, tuple(self._records.values()))
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,15 +221,6 @@ class RunProgress:
 type RunEvent = RunStarted | TrackResolved | ArbitrationRequired | RunProgress
 
 
-class ApiKeyRejectedRunError(TaggerError):
-    """Run arrete apres trois 403 consecutifs : la cle est a corriger dans les Settings."""
-
-    code: ClassVar[str] = "api_key_rejected"
-
-    def __init__(self) -> None:
-        super().__init__("run stopped after repeated api key rejections")
-
-
 async def run_tagging(
     folder: Path,
     *,
@@ -167,28 +229,39 @@ async def run_tagging(
     on_event: Callable[[RunEvent], None],
     thresholds: MatchingThresholds = DEFAULT_THRESHOLDS,
 ) -> TaggingRun:
-    """Resout tous les morceaux du dossier et rend l'etat du run.
+    """Ouvre le run, resout tous ses morceaux et rend son etat gele."""
+    live = await open_run(folder, on_event=on_event)
+    sources = RunSources(live.run_id, client, artworks, thresholds)
+    await resolve_run(live, sources, on_event=on_event)
+    return live.snapshot()
+
+
+async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> LiveRun:
+    """Liste les fichiers et lit leur identite, avant tout appel reseau."""
+    paths = await asyncio.to_thread(list_audio_files, folder)
+    run_id = secrets.token_hex(3)
+    records = await _read_identities(run_id, folder, paths)
+    on_event(RunStarted(run_id, tuple(records)))
+    return LiveRun(run_id, folder, records)
+
+
+async def resolve_run(
+    live: LiveRun, sources: RunSources, *, on_event: Callable[[RunEvent], None]
+) -> None:
+    """Phase reseau : chaque morceau est ecrit dans `live` des qu'il est traite.
 
     Le pipeline ne s'arrete jamais sur un morceau : une zone grise est mise en
     attente, un incident devient un motif d'echec. Seuls trois 403 consecutifs
     arretent le run, par `ApiKeyRejectedRunError`.
     """
-    paths = await asyncio.to_thread(list_audio_files, folder)
-    run_id = secrets.token_hex(3)
-    records = await _read_identities(run_id, folder, paths)
-    on_event(RunStarted(run_id, tuple(records)))
-
-    runner = _Runner(run_id, len(records), client, artworks, thresholds, on_event)
+    tracks = live.snapshot().tracks
+    runner = _Runner(len(tracks), sources, live, on_event)
     try:
         async with asyncio.TaskGroup() as group:
-            tasks = [
+            for position, record in enumerate(tracks, start=1):
                 group.create_task(runner.process(position, record), name=f"track:{position}")
-                for position, record in enumerate(records, start=1)
-            ]
     except* ApiKeyRejectedRunError:
         raise ApiKeyRejectedRunError from None
-
-    return TaggingRun(run_id, folder, tuple(task.result() for task in tasks))
 
 
 async def _read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -> list[TrackRecord]:
@@ -222,51 +295,29 @@ async def _read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -
     return records
 
 
-class _RejectionGuard:
-    """Compte les 403 consecutifs, remis a zero par toute autre reponse de l'API."""
-
-    def __init__(self) -> None:
-        self._consecutive = 0
-
-    def rejected(self) -> None:
-        """Un 403 de plus ; au troisieme d'affilee, le run s'arrete."""
-        self._consecutive += 1
-        if self._consecutive >= API_KEY_REJECTION_LIMIT:
-            raise ApiKeyRejectedRunError()
-
-    def answered(self) -> None:
-        """Toute reponse de l'API qui n'est pas un 403 prouve que la cle est acceptee."""
-        self._consecutive = 0
-
-
 class _Runner:
-    """Etat partage par les taches d'un run : compteur et garde."""
+    """Etat partage par les taches d'un run : compteur et acces aux sources."""
 
     def __init__(
         self,
-        run_id: str,
         total: int,
-        client: TechnoScraperClient,
-        artworks: ArtworkFetcher,
-        thresholds: MatchingThresholds,
+        sources: RunSources,
+        live: LiveRun,
         on_event: Callable[[RunEvent], None],
     ) -> None:
-        self._run_id = run_id
         self._total = total
-        self._client = client
-        self._artworks = artworks
-        self._thresholds = thresholds
+        self._sources = sources
+        self._live = live
         self._on_event = on_event
-        self._guard = _RejectionGuard()
         self._processed = 0
 
-    async def process(self, position: int, record: TrackRecord) -> TrackRecord:
+    async def process(self, position: int, record: TrackRecord) -> None:
         done = await self._resolve(position, record)
+        self._live.update(done)
         event = ArbitrationRequired(done) if done.arbitration else TrackResolved(done)
         self._on_event(event)
         self._processed += 1
         self._on_event(RunProgress(self._processed, self._total))
-        return done
 
     # PLR0911 : une sortie par issue de la cascade (deux sources, trois classements
     # chacune) est plus lisible qu'un decoupage en sous-fonctions qui eclaterait l'etat.
@@ -280,15 +331,15 @@ class _Runner:
         beatport_unavailable = False
         had_candidates = False
         try:
-            found = await self._call(self._client.search(Source.BEATPORT, query.text))
+            found = await self._sources.search(Source.BEATPORT, query)
         except ApiKeyRejectedError:
             return self._unresolved(position, record, FailureReason.SOURCE_UNAVAILABLE)
         except (SourceUnavailableError, ApiContractError) as exc:
-            self._log_source_failure(position, Source.BEATPORT, exc)
+            self._sources.log_source_failure(position, Source.BEATPORT, exc)
             beatport_unavailable = True
         else:
             had_candidates = bool(found)
-            classification = classify(query, found, self._thresholds)
+            classification = classify(query, found, self._sources.thresholds)
             match classification.outcome:
                 case Outcome.AUTO:
                     return await self._accept(
@@ -306,16 +357,16 @@ class _Runner:
                     pass
 
         try:
-            found = await self._call(self._client.search(Source.BANDCAMP, query.text))
+            found = await self._sources.search(Source.BANDCAMP, query)
         except ApiKeyRejectedError:
             return self._unresolved(position, record, FailureReason.SOURCE_UNAVAILABLE)
         except (SourceUnavailableError, ApiContractError) as exc:
-            self._log_source_failure(position, Source.BANDCAMP, exc)
+            self._sources.log_source_failure(position, Source.BANDCAMP, exc)
             return self._unresolved(position, record, FailureReason.SOURCE_UNAVAILABLE)
         had_candidates = had_candidates or bool(found)
         # Beatport injoignable : Bandcamp ne valide jamais seul (decision du 2026-09-19).
         classification = classify(
-            query, found, self._thresholds, allow_auto=not beatport_unavailable
+            query, found, self._sources.thresholds, allow_auto=not beatport_unavailable
         )
         match classification.outcome:
             case Outcome.AUTO:
@@ -341,24 +392,15 @@ class _Runner:
     async def _accept(
         self, position: int, record: TrackRecord, source: Source, chosen: ScoredCandidate
     ) -> TrackRecord:
-        candidate = await self._refetch(position, source, chosen.candidate)
-        artwork = await self._artwork(position, candidate)
+        candidate, artwork = await self._sources.retained(position, source, chosen)
         logger.info(
             "candidate retained run=%s track=%d source=%s score=%.0f status=resolved",
-            self._run_id,
+            self._sources.run_id,
             position,
             source,
             chosen.score,
         )
-        return replace(
-            record,
-            state=TrackState.RESOLVED,
-            resolution=Resolution.AUTO,
-            source=source,
-            candidate=candidate,
-            scored=chosen,
-            artwork=artwork,
-        )
+        return record.resolved(Resolution.AUTO, source, candidate, chosen, artwork)
 
     def _hold(
         self,
@@ -371,7 +413,7 @@ class _Runner:
     ) -> TrackRecord:
         logger.info(
             "arbitration required run=%s track=%d source=%s score=%.0f status=grey_zone",
-            self._run_id,
+            self._sources.run_id,
             position,
             source,
             candidates[0].score,
@@ -383,99 +425,8 @@ class _Runner:
     def _unresolved(self, position: int, record: TrackRecord, reason: FailureReason) -> TrackRecord:
         logger.info(
             "track unresolved run=%s track=%d status=unresolved reason=%s",
-            self._run_id,
+            self._sources.run_id,
             position,
             reason,
         )
-        return replace(
-            record,
-            state=TrackState.UNRESOLVED,
-            resolution=Resolution.NONE,
-            failure_reason=reason,
-        )
-
-    async def _refetch(
-        self, position: int, source: Source, candidate: TrackCandidate
-    ) -> TrackCandidate:
-        """Metadonnees completes ; l'objet de recherche est garde si le refetch echoue."""
-        try:
-            match source:
-                case Source.BEATPORT if candidate.id:
-                    return await self._call(self._client.fetch_beatport_track(candidate.id))
-                case Source.BANDCAMP if candidate.url:
-                    return await self._call(self._client.fetch_bandcamp_track(candidate.url))
-                case _:
-                    return candidate
-        except (
-            ApiKeyRejectedError,
-            SourceUnavailableError,
-            TrackNotFoundError,
-            ApiContractError,
-        ) as exc:
-            logger.warning(
-                "refetch failed, search candidate kept run=%s track=%d source=%s reason=%s",
-                self._run_id,
-                position,
-                source,
-                exc.code,
-            )
-            return candidate
-
-    async def _artwork(self, position: int, candidate: TrackCandidate) -> Path | None:
-        url = candidate.release.artwork_url if candidate.release else None
-        if url is None:
-            return None
-        try:
-            return await self._artworks.fetch(url)
-        except ArtworkUnavailableError as exc:
-            logger.warning(
-                "artwork unavailable run=%s track=%d reason=%s",
-                self._run_id,
-                position,
-                exc.reason,
-            )
-            return None
-
-    async def _call[T](self, request: Awaitable[T]) -> T:
-        """Passe chaque appel par la garde des 403 et remonte un contrat casse a Sentry."""
-        try:
-            result = await request
-        except ApiKeyRejectedError:
-            self._guard.rejected()
-            raise
-        except ApiContractError as exc:
-            self._guard.answered()
-            logger.exception(
-                "api contract broken run=%s request_id=%s", self._run_id, exc.request_id
-            )
-            sentry_sdk.capture_exception(exc)
-            raise
-        except SourceUnavailableError as exc:
-            # Une erreur reseau n'est pas une reponse : elle ne remet pas la garde a zero.
-            if exc.status is not None:
-                self._guard.answered()
-            raise
-        except TrackNotFoundError:
-            self._guard.answered()
-            raise
-        self._guard.answered()
-        return result
-
-    def _log_source_failure(
-        self,
-        position: int,
-        source: Source,
-        exc: SourceUnavailableError | ApiContractError,
-    ) -> None:
-        # ApiContractError est deja loguee et remontee a Sentry par `_call` : sans ce
-        # log, c'est une source injoignable qui ne laisserait aucune trace.
-        if isinstance(exc, SourceUnavailableError):
-            logger.warning(
-                "source unavailable run=%s track=%d source=%s status=%s reason=%s request_id=%s",
-                self._run_id,
-                position,
-                source,
-                exc.status,
-                exc.reason,
-                exc.request_id,
-            )
+        return record.unresolved(reason)
