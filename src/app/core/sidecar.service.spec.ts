@@ -1,7 +1,8 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { RunStartedEvent, SidecarEvent, TrackResolvedEvent } from "./models/protocol"
+import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
+import { SidecarEvent } from "./models/protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
 
@@ -51,24 +52,6 @@ const EXTRACTION = {
   playlist_name: null,
   mode: "copy",
 } as const
-
-const RUN_STARTED: RunStartedEvent = {
-  event: "run_started",
-  run_id: "a3f9c1",
-  tracks: [{ track_id: "a.mp3", file_name: "a.mp3", artist: "Adam Beyer", title: "Your Mind" }],
-}
-
-const TRACK_RESOLVED: TrackResolvedEvent = {
-  event: "track_resolved",
-  track_id: "a.mp3",
-  state: "resolved",
-  resolution: "auto",
-  failure_reason: null,
-  source: "beatport",
-  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
-  scores: { artist: 96, title: 92, average: 94 },
-  artwork_path: null,
-}
 
 describe("SidecarService", () => {
   let transport: FakeTransport
@@ -634,5 +617,146 @@ describe("SidecarService", () => {
     const line = transport.sent.at(-1) ?? ""
     expect(line.endsWith("\n")).toBe(true)
     expect(commandOf(line)).toBe("extract_playlist")
+  })
+
+  it.each<[string, (target: SidecarService) => Promise<void>, unknown]>([
+    [
+      "choice",
+      (target) => target.chooseCandidate("a.mp3", "bandcamp", 1),
+      { command: "resolve_arbitration", track_id: "a.mp3", source: "bandcamp", candidate: 1 },
+    ],
+    [
+      "refusal",
+      (target) => target.refuseCandidates("a.mp3", "beatport"),
+      { command: "resolve_arbitration", track_id: "a.mp3", source: "beatport", candidate: null },
+    ],
+    [
+      "switch",
+      (target) => target.showArbitrationSource("a.mp3", "beatport"),
+      { command: "switch_arbitration_source", track_id: "a.mp3", source: "beatport" },
+    ],
+  ])("sends a %s with its command", async (_gesture, gesture, expected) => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+
+    await gesture(service)
+
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual(expected)
+  })
+
+  it("ignores a second gesture on a track awaiting an answer", async () => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+    await service.refuseCandidates("a.mp3", "beatport")
+    const before = transport.sent.length
+
+    await service.refuseCandidates("a.mp3", "beatport")
+
+    expect(transport.sent.length).toBe(before)
+    expect(service.arbitrationBusy()).toBe(true)
+  })
+
+  it("routes the arbitration events to the queue", async () => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+    transport.emit(arbitrationRequired("b.mp3"))
+
+    transport.emit({
+      ...arbitrationRequired("b.mp3"),
+      event: "arbitration_updated",
+      source: "bandcamp",
+      other_source: "beatport",
+    })
+    transport.emit(TRACK_RESOLVED)
+
+    expect(service.arbitrations().map((entry) => entry.track_id)).toEqual(["b.mp3"])
+    expect(service.currentArbitration()?.source).toBe("bandcamp")
+    expect(service.taggingTracks()[0]?.state).toBe("resolved")
+  })
+
+  it("releases a gesture the sidecar refuses", async () => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+    await service.chooseCandidate("a.mp3", "beatport", 0)
+    const refusal = {
+      event: "error",
+      code: "arbitration_busy",
+      params: { track_id: "a.mp3" },
+      message: "a gesture is already in flight for this track",
+      command: "resolve_arbitration",
+    } as const
+
+    transport.emit(refusal)
+
+    expect(service.arbitrationBusy()).toBe(false)
+    expect(service.errorFor("resolve_arbitration")()).toEqual(refusal)
+  })
+
+  it("keeps a gesture waiting when the error names no track", async () => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+    await service.chooseCandidate("a.mp3", "beatport", 0)
+
+    transport.emit({
+      event: "error",
+      code: "arbitration_busy",
+      params: {},
+      message: "a gesture is already in flight for this track",
+      command: "resolve_arbitration",
+    })
+
+    expect(service.arbitrationBusy()).toBe(true)
+  })
+
+  it("leaves the queue alone on the error of another command", async () => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+
+    transport.emit({
+      event: "error",
+      code: "arbitration_not_pending",
+      params: { track_id: "a.mp3" },
+      message: "track not awaiting arbitration",
+      command: "start_tagging",
+    })
+
+    expect(service.arbitrationCount()).toBe(1)
+  })
+
+  it.each<[string, (target: SidecarService, fake: FakeTransport) => Promise<void>]>([
+    ["a new run starts", (target) => target.startTagging("C:/Sets")],
+    [
+      "the process dies",
+      (_target, fake) => {
+        fake.handlers?.onTerminated()
+
+        return Promise.resolve()
+      },
+    ],
+  ])("clears the queue when %s", async (_when, end) => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+
+    await end(service, transport)
+
+    expect(service.arbitrationCount()).toBe(0)
+  })
+
+  it("keeps the queue after a cancellation", async () => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+    transport.emit(arbitrationRequired("a.mp3"))
+
+    await service.cancelTagging()
+
+    expect(service.arbitrationCount()).toBe(1)
   })
 })

@@ -23,6 +23,7 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
 | `page/sidecar-service.js` | `__sidecarService()`, le service vivant de la page | préalable injecté par `cdp.mjs` devant chaque script de page |
 | `page/cancel-run.js` | Interruption d'un run puis relance immédiate, de bout en bout | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/cancel-run.js <dossier>`, dossier de `build_fixture.py --unique 20` |
+| `page/arbitration-replay.js` | Rejoue dans la fenêtre le flux réel d'un run d'arbitrage (sortie de `drive.py`) en intercalant les gestes du service, `send` relevé au lieu d'envoyé | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-replay.js "$(cat <sortie.ndjson>)" '<gestes JSON>'` |
 
 Chaque script rend `{"success": true, ...}` ou `{"error": true, "message": "..."}` sur `stdout`, code de sortie 1 en erreur. Rapporter le message tel quel : il nomme le geste qui répare, lancer par `uv run --directory sidecar` ou ouvrir la fenêtre avec le port de débogage.
 
@@ -168,6 +169,14 @@ Le faux serveur rend le même objet complet sur `/beatport/search` et `/bandcamp
 - `shutdown` pendant un refus en vol, sous `FAKE_DELAY=3` : sortie immédiate (relevé le 2026-09-27, `elapsed` 5,01s pour un refus parti à 4,5s), aucun `arbitration_updated`, la commande suivante ignorée
 - Nouveau `start_tagging` (dossier vide) pendant un refus en vol : aucun `arbitration_updated` de l'ancien run, puis un geste sur l'ancien morceau rend `arbitration_not_pending`
 - Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason` : ni titre ni chemin, et ni `never awaited` ni client non fermé
+
+### Côté webview
+
+La fenêtre Tauri parle à la vraie API, où aucun morceau n'est en zone grise à coup sûr : la file de `SidecarService` se prouve en rejouant dans la fenêtre le flux que `drive.py` a obtenu du faux serveur, par `page/arbitration-replay.js`. Les gestes y sont intercalés avant chacune de leurs réponses et `send` est relevé : les commandes relevées doivent être **identiques** à celles du fichier de `drive.py`, ce qui ferme la boucle entre les deux côtés.
+
+- Parcours relevé le 2026-09-27 (fichier de `drive.py` : refus Beatport, `switch` vers Beatport, choix 0, choix 0 répété ; gestes `[[refuse, refuse], [showArbitrationSource], [chooseCandidate], [chooseCandidate]]`) : file à `1/1` dès `arbitration_required`, `busy` vrai du geste à sa réponse, le refus doublé part zéro fois, `arbitration_updated` remplace en place (`bandcamp` puis `beatport`, `other_source` croisé), `track_resolved` vide la file (`0/0`, ligne du run en `resolved` / `arbitration`), le geste répété rend `arbitration_not_pending` lisible par `errorFor("resolve_arbitration")`
+- Aucune ligne `[sidecar]` en console pendant le rejeu : ni « evenement non traite » ni « ligne illisible »
+- Le rejeu laisse un faux run dans la liste de l'onglet Tagging : fermer la fenêtre ensuite plutôt que d'y enchaîner un autre parcours
 
 ## Pilotage du trousseau
 

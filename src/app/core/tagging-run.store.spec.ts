@@ -1,43 +1,14 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import {
-  ArbitrationRequiredEvent,
-  RunFinishedEvent,
-  RunStartedEvent,
-  TrackResolvedEvent,
-} from "./models/protocol"
+import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
+import { ArbitrationRequiredEvent, RunFinishedEvent } from "./models/protocol"
 import { TaggingRunStore } from "./tagging-run.store"
 
-const STARTED: RunStartedEvent = {
-  event: "run_started",
-  run_id: "a3f9c1",
-  tracks: [
-    { track_id: "a.mp3", file_name: "a.mp3", artist: "Adam Beyer", title: "Your Mind" },
-    { track_id: "b.mp3", file_name: "b.mp3", artist: "Amelie Lens", title: "Basiel" },
-  ],
-}
-
-const RESOLVED: TrackResolvedEvent = {
-  event: "track_resolved",
-  track_id: "a.mp3",
-  state: "resolved",
-  resolution: "auto",
-  failure_reason: null,
-  source: "beatport",
-  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
-  scores: { artist: 96, title: 92, average: 94 },
-  artwork_path: "C:/AppData/cache/artworks/abc.jpg",
-}
-
 const AWAITING: ArbitrationRequiredEvent = {
-  event: "arbitration_required",
-  track_id: "b.mp3",
+  ...arbitrationRequired("b.mp3"),
   source: "bandcamp",
   beatport_unavailable: true,
-  candidates: [
-    { artist: "Amelie Lens", title: "Basiel", scores: { artist: 94, title: 95, average: 95 } },
-  ],
 }
 
 const FINISHED: RunFinishedEvent = {
@@ -63,7 +34,7 @@ describe("TaggingRunStore", () => {
   it("lists every track of a started run in order", () => {
     store.reset()
 
-    store.started(STARTED)
+    store.started(RUN_STARTED)
 
     expect(store.tracks().map((track) => track.trackId)).toEqual(["a.mp3", "b.mp3"])
     expect(store.tracks()[0]?.state).toBeNull()
@@ -72,9 +43,9 @@ describe("TaggingRunStore", () => {
 
   it("updates a track with its state, source, names, scores and artwork", () => {
     store.reset()
-    store.started(STARTED)
+    store.started(RUN_STARTED)
 
-    store.resolved(RESOLVED)
+    store.resolved(TRACK_RESOLVED)
 
     const track = store.tracks()[0]
     expect(track?.state).toBe("resolved")
@@ -86,7 +57,7 @@ describe("TaggingRunStore", () => {
 
   it("marks a track as awaiting arbitration", () => {
     store.reset()
-    store.started(STARTED)
+    store.started(RUN_STARTED)
 
     store.awaiting(AWAITING)
 
@@ -97,7 +68,7 @@ describe("TaggingRunStore", () => {
 
   it("exposes the counters of a finished network phase", () => {
     store.reset()
-    store.started(STARTED)
+    store.started(RUN_STARTED)
 
     store.completed(FINISHED)
 
@@ -107,7 +78,7 @@ describe("TaggingRunStore", () => {
 
   it("clears the previous run when a new one starts", () => {
     store.reset()
-    store.started(STARTED)
+    store.started(RUN_STARTED)
     store.completed(FINISHED)
 
     store.reset()
@@ -119,7 +90,7 @@ describe("TaggingRunStore", () => {
 
   it("keeps the progress of the run", () => {
     store.reset()
-    store.started(STARTED)
+    store.started(RUN_STARTED)
 
     store.advanced(1, 2)
 
@@ -128,7 +99,7 @@ describe("TaggingRunStore", () => {
 
   it("stops the run on failure", () => {
     store.reset()
-    store.started(STARTED)
+    store.started(RUN_STARTED)
 
     store.failed()
 
@@ -139,7 +110,7 @@ describe("TaggingRunStore", () => {
     [
       "stopped after its listing",
       (run: TaggingRunStore) => {
-        run.started(STARTED)
+        run.started(RUN_STARTED)
         run.failed()
       },
       true,
@@ -154,7 +125,7 @@ describe("TaggingRunStore", () => {
     [
       "finished normally",
       (run: TaggingRunStore) => {
-        run.started(STARTED)
+        run.started(RUN_STARTED)
         run.completed(FINISHED)
       },
       false,
@@ -164,7 +135,7 @@ describe("TaggingRunStore", () => {
     [
       "whose process died after finishing",
       (run: TaggingRunStore) => {
-        run.started(STARTED)
+        run.started(RUN_STARTED)
         run.completed(FINISHED)
         run.failed()
       },
@@ -180,10 +151,10 @@ describe("TaggingRunStore", () => {
 
   it("ignores a track the run does not know", () => {
     store.reset()
-    store.started(STARTED)
+    store.started(RUN_STARTED)
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined)
 
-    store.resolved({ ...RESOLVED, track_id: "ghost.mp3" })
+    store.resolved({ ...TRACK_RESOLVED, track_id: "ghost.mp3" })
 
     expect(store.tracks().every((track) => track.state === null)).toBe(true)
     expect(spy).toHaveBeenCalled()

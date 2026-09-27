@@ -88,6 +88,21 @@ export interface StartTaggingCommand {
   readonly thresholds?: ThresholdsPayload
 }
 
+export interface ResolveArbitrationCommand {
+  readonly command: "resolve_arbitration"
+  readonly track_id: string
+  /** La liste visee : un geste sur une liste qui n'est plus affichee est refuse. */
+  readonly source: ArbitrationSource
+  /** Index dans cette liste, `null` pour un refus explicite. */
+  readonly candidate: number | null
+}
+
+export interface SwitchArbitrationSourceCommand {
+  readonly command: "switch_arbitration_source"
+  readonly track_id: string
+  readonly source: ArbitrationSource
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
@@ -96,6 +111,8 @@ export type SidecarCommand =
   | ExtractPlaylistCommand
   | SetApiKeyCommand
   | StartTaggingCommand
+  | ResolveArbitrationCommand
+  | SwitchArbitrationSourceCommand
 
 export interface VersionEvent {
   readonly event: "version"
@@ -183,19 +200,38 @@ export interface TrackResolvedEvent {
   readonly artwork_path: string | null
 }
 
+/** Les deux seules sources qu'un arbitrage met en jeu : celles que le pipeline interroge. */
+export type ArbitrationSource = "beatport" | "bandcamp"
+
+/** Un candidat en zone grise. Son index dans un geste est sa position dans la liste. */
 export interface CandidatePayload {
   readonly artist: string
   readonly title: string
+  /** Nuls sur Bandcamp, dont la recherche ne rend ni l'un ni l'autre. */
+  readonly label: string | null
+  readonly year: number | null
   readonly scores: TrackScores
 }
 
-export interface ArbitrationRequiredEvent {
-  readonly event: "arbitration_required"
+/** Etat complet d'un arbitrage, commun aux deux evenements : l'entree se remplace en bloc. */
+export interface ArbitrationState {
   readonly track_id: string
-  readonly source: TrackSource
+  readonly source: ArbitrationSource
   /** Beatport n'a pas repondu : aucun candidat ne peut valider seul. */
   readonly beatport_unavailable: boolean
   readonly candidates: readonly CandidatePayload[]
+  /** Pourquoi la liste Bandcamp affichee est vide, `null` sinon. */
+  readonly empty_reason: TrackFailureReason | null
+  /** La liste que `switch_arbitration_source` peut reafficher, `null` sinon. */
+  readonly other_source: ArbitrationSource | null
+}
+
+export interface ArbitrationRequiredEvent extends ArbitrationState {
+  readonly event: "arbitration_required"
+}
+
+export interface ArbitrationUpdatedEvent extends ArbitrationState {
+  readonly event: "arbitration_updated"
 }
 
 export interface RunFinishedEvent {
@@ -229,5 +265,6 @@ export type SidecarEvent =
   | RunStartedEvent
   | TrackResolvedEvent
   | ArbitrationRequiredEvent
+  | ArbitrationUpdatedEvent
   | RunFinishedEvent
   | SidecarErrorEvent

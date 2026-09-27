@@ -50,7 +50,16 @@ try {
 } catch {
   fail(`prealable illisible : ${join(here, "page", "sidecar-service.js")}`)
 }
-const expression = [preamble, `const __args = ${JSON.stringify(args)};`, body].join("\n")
+// Dans un bloc : un `const` de premier niveau survit a l'evaluation dans la portee globale
+// de la page, et un second script sur la meme fenetre leverait « already been declared ».
+// La valeur du bloc reste celle de sa derniere expression, la promesse du script.
+const expression = [
+  "{",
+  preamble,
+  `const __args = ${JSON.stringify(args)};`,
+  body,
+  "}",
+].join("\n")
 
 const page = await target()
 const socket = new WebSocket(page.webSocketDebuggerUrl)

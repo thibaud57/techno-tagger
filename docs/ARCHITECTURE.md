@@ -97,6 +97,7 @@ techno-tagger/
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
+│   ├── fixtures/                         # événements du contrat partagés par les specs, hors build
 │   ├── index.html
 │   ├── main.ts                           # bootstrapApplication, init Sentry
 │   ├── build-constants.d.ts              # constantes substituées par --define
@@ -871,6 +872,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 
 - **CI** : GitHub Actions, une version fixe de Python et de Node par job (pas de matrice), aucun service container nécessaire (pas de base de données)
 - **Local** : fixtures de fichiers audio des quatre formats, base `vlc_media.db` de test, playlists M3U8 d'exemple
+- **Fixtures de l'UI** : un événement du contrat réutilisé par plusieurs specs vit dans `src/fixtures/`, pendant de `sidecar/tests/helpers/`, et chaque spec y pose ses écarts par spread. Un événement qu'une seule spec emploie reste dans cette spec. Le dossier est exclu de `tsconfig.app.json` et déclaré dans `tsconfig.spec.json`, faute de quoi ESLint ne le rattache à aucun projet
 - **Services externes** : techno-scraper et Sentry **toujours mockés**. Aucun test ne consomme le quota de l'API ni ne pollue le projet Sentry.
 
 ### Coverage

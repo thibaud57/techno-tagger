@@ -1,13 +1,17 @@
 import { Injectable, type Signal, computed, inject, signal } from "@angular/core"
 
+import { ArbitrationStore } from "./arbitration.store"
 import {
+  ArbitrationSource,
   ExtractionFinishedEvent,
   ExtractionProgressEvent,
   ExtractionRequest,
   PlaylistsListedEvent,
+  ResolveArbitrationCommand,
   SidecarCommand,
   SidecarErrorEvent,
   SidecarEvent,
+  SwitchArbitrationSourceCommand,
   ThresholdsPayload,
 } from "./models/protocol"
 import { SIDECAR_TRANSPORT } from "./sidecar-transport"
@@ -23,6 +27,7 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   run_started: true,
   track_resolved: true,
   arbitration_required: true,
+  arbitration_updated: true,
   run_finished: true,
   error: true,
 }
@@ -33,6 +38,17 @@ export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
 /** Refus d'une seconde commande : la phase en cours continue, l'arret les epargne. */
 const TAGGING_IN_PROGRESS = "tagging_in_progress"
 const EXTRACTION_IN_PROGRESS = "extraction_in_progress"
+
+type ArbitrationCommand = ResolveArbitrationCommand | SwitchArbitrationSourceCommand
+
+/**
+ * Commandes dont l'echec leve l'attente du morceau que `params.track_id` designe.
+ * Indexee comme `KNOWN_EVENTS` : un geste ajoute sans son entree ne compile pas.
+ */
+const ARBITRATION_COMMANDS: Record<ArbitrationCommand["command"], true> = {
+  resolve_arbitration: true,
+  switch_arbitration_source: true,
+}
 
 const unavailableError = (command: SidecarCommand["command"] | null): SidecarErrorEvent => ({
   event: "error",
@@ -50,6 +66,7 @@ const unavailableError = (command: SidecarCommand["command"] | null): SidecarErr
 export class SidecarService {
   private readonly transport = inject(SIDECAR_TRANSPORT)
   private readonly taggingRun = inject(TaggingRunStore)
+  private readonly arbitration = inject(ArbitrationStore)
 
   /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
   private readonly _available = signal<boolean | null>(null)
@@ -104,6 +121,13 @@ export class SidecarService {
   /** Nul jusqu'a `run_started` : la page distingue ainsi le parcours du dossier d'un dossier vide. */
   readonly taggingRunId = this.taggingRun.runId
   readonly taggingInterrupted = this.taggingRun.interrupted
+  readonly arbitrations = this.arbitration.entries
+  readonly currentArbitration = this.arbitration.current
+  readonly arbitrationPosition = this.arbitration.position
+  readonly arbitrationCount = this.arbitration.count
+  readonly arbitrationBusy = this.arbitration.currentBusy
+  readonly hasPreviousArbitration = this.arbitration.hasPrevious
+  readonly hasNextArbitration = this.arbitration.hasNext
 
   private started = false
 
@@ -185,6 +209,8 @@ export class SidecarService {
       return
     }
     this.taggingRun.reset()
+    // Le sidecar jette les arbitrages de l'ancien run a la reception de la commande.
+    this.arbitration.clear()
     // `JSON.stringify` omet une cle `undefined` : la commande part sans `thresholds`.
     await this.send({ command: "start_tagging", folder, thresholds })
   }
@@ -196,6 +222,36 @@ export class SidecarService {
     }
     await this.send({ command: "cancel_run" })
     this.taggingRun.failed()
+  }
+
+  async chooseCandidate(trackId: string, source: ArbitrationSource, index: number): Promise<void> {
+    await this.gesture(trackId, {
+      command: "resolve_arbitration",
+      track_id: trackId,
+      source,
+      candidate: index,
+    })
+  }
+
+  async refuseCandidates(trackId: string, source: ArbitrationSource): Promise<void> {
+    await this.gesture(trackId, {
+      command: "resolve_arbitration",
+      track_id: trackId,
+      source,
+      candidate: null,
+    })
+  }
+
+  async showArbitrationSource(trackId: string, source: ArbitrationSource): Promise<void> {
+    await this.gesture(trackId, { command: "switch_arbitration_source", track_id: trackId, source })
+  }
+
+  previousArbitration(): void {
+    this.arbitration.previous()
+  }
+
+  nextArbitration(): void {
+    this.arbitration.next()
   }
 
   /**
@@ -234,6 +290,27 @@ export class SidecarService {
     }
   }
 
+  /** Un geste par morceau a la fois : un double clic ne repart pas avant la reponse. */
+  private async gesture(trackId: string, command: ArbitrationCommand): Promise<void> {
+    if (this.arbitration.isBusy(trackId)) {
+      return
+    }
+    this.arbitration.sent(trackId)
+    await this.send(command)
+  }
+
+  /** Le store decide, selon le code, de lever l'attente seule ou de retirer l'arbitrage. */
+  private routeArbitrationError(event: SidecarErrorEvent): void {
+    const trackId = event.params["track_id"]
+    if (
+      event.command !== null &&
+      Object.hasOwn(ARBITRATION_COMMANDS, event.command) &&
+      typeof trackId === "string"
+    ) {
+      this.arbitration.rejected(trackId, event.code)
+    }
+  }
+
   /**
    * Plus aucun evenement n'arrivera : un run en cours s'arrete quelle que soit la
    * commande refusee, a la difference d'une erreur recue sur le flux.
@@ -252,6 +329,7 @@ export class SidecarService {
   private endRun(): void {
     this.endExtraction()
     this.taggingRun.failed()
+    this.arbitration.clear()
   }
 
   private endExtraction(): void {
@@ -305,9 +383,14 @@ export class SidecarService {
         break
       case "track_resolved":
         this.taggingRun.resolved(event)
+        this.arbitration.resolved(event.track_id)
         break
       case "arbitration_required":
         this.taggingRun.awaiting(event)
+        this.arbitration.required(event)
+        break
+      case "arbitration_updated":
+        this.arbitration.updated(event)
         break
       case "run_finished":
         // Le service route par phase, comme pour `progress` : la Feature 5 branchera
@@ -326,6 +409,7 @@ export class SidecarService {
         if (event.command === "start_tagging" && event.code !== TAGGING_IN_PROGRESS) {
           this.taggingRun.failed()
         }
+        this.routeArbitrationError(event)
         break
       default: {
         // Ajouter un evenement cote sidecar sans le traiter ici devient une
