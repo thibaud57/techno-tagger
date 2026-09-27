@@ -2,7 +2,7 @@
 feature: "Feature 3 : Arbitrage utilisateur"
 subproject: "protocole-ndjson-arbitrage"
 goal: "Exposer l'arbitrage sur le protocole NDJSON et garder le run arbitrable, client compris, au-delà de sa phase réseau"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-file-arbitrage-sidecar-design.md"]
