@@ -7,8 +7,8 @@ paths:
 
 ## À faire
 - Garder RxJS pour ce qui est un flux dans le temps (événements NDJSON du sidecar, événements de navigation) et exposer le résultat en signals pour les composants
-- Interposer un `Subject` entre la source d'événements et les signals dès qu'un opérateur s'applique au flux : filtrage, projection, fenêtrage, annulation, retry. Sans opérateur, écrire directement dans les signals depuis le handler est plus court et se lit mieux, et un `Subject` qui ne fait que réalimenter le même `switch` n'apporte rien
-- Vérifier la surface exacte du transport avant de coder contre elle : le découpage des lignes de `stdout` est déjà fait par Tauri, et un service testable hors Tauri reçoit son transport par un jeton d'injection plutôt que d'appeler l'API du plugin en direct
+- Interposer un `Subject` entre la source et les signals seulement si un opérateur s'applique au flux (filtre, projection, annulation, retry) ; sinon écrire dans les signals depuis le handler
+- Injecter le transport par un jeton plutôt qu'appeler le plugin Tauri en direct : le service reste testable hors Tauri. Tauri découpe déjà `stdout` en lignes
 - Convertir avec `toSignal()` pour l'affichage et `toObservable()` pour appliquer des opérateurs à un signal
 - Fournir un `initialValue` à `toSignal()` ; ne passer `requireSync: true` que sur une source qui émet à la souscription (`BehaviorSubject`, `of()`)
 - Se désabonner par `takeUntilDestroyed()` sur toute souscription manuelle
