@@ -25,6 +25,20 @@
       @for (tab of tabs; track tab) {
         <p-tab [value]="tab">{{ "nav." + tab | translate }}</p-tab>
       }
+      @if (arbitrationCount() > 0) {
+        <button
+          type="button"
+          class="ml-auto cursor-pointer self-center px-4"
+          data-arbitration-badge
+          [attr.aria-label]="'arbitration.reopen' | translate"
+          (click)="reopenArbitration()"
+        >
+          <p-tag severity="info">
+            <app-icon name="info-circle" [size]="16" />
+            {{ "arbitration.badge" | translate: { count: arbitrationCount() } }}
+          </p-tag>
+        </button>
+      }
     </p-tablist>
   </p-tabs>
 
@@ -32,6 +46,12 @@
   <main class="flex min-h-0 flex-1 flex-col px-16 py-8">
     <router-outlet />
   </main>
+
+  <!-- Hors du router-outlet : la modale suit l'utilisateur sur tous les onglets. -->
+  <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
 }
+
+<!-- Hors des deux branches : l'ecran bloquant peut coexister avec une demande de sortie. -->
+<app-close-confirmation />
 
 <p-toast position="bottom-right" />

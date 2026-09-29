@@ -1,0 +1,180 @@
+<!-- Figee : la bascule sur Bandcamp ne deplace aucun bouton. -->
+<p-dialog
+  [visible]="visible() && current() !== null"
+  (visibleChange)="onVisibleChange($event)"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="true"
+  [closeOnEscape]="true"
+  [focusOnShow]="false"
+  [motionOptions]="noMotion"
+  [maskMotionOptions]="noMotion"
+  styleClass="h-140 w-180"
+  [closeAriaLabel]="'arbitration.close' | translate"
+>
+  <ng-template #header>
+    <div class="flex min-w-0 flex-1 items-center gap-3">
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h3 class="m-0 min-w-0 text-lg font-semibold" data-title>
+          <app-truncated-text [text]="title()" />
+        </h3>
+        <!-- Ligne gardee meme vide : d'un morceau a l'autre, la liste ne se decale pas sous le curseur. -->
+        <app-truncated-text class="min-h-4 text-xs text-muted-color" [text]="fileName()" />
+      </div>
+      @if (current(); as shown) {
+        <app-source-logo [source]="shown.source" [size]="20" />
+      }
+    </div>
+  </ng-template>
+
+  @if (current(); as shown) {
+    <div class="flex h-full flex-col gap-3" data-keys tabindex="-1" (keydown)="onKeydown($event)">
+      <!--
+        Hauteur mesuree sur un p-message small : la liste reste a sa place quand la source change.
+        Une seule cellule : le bandeau sortant reste une image de plus (animate.leave), superpose et non a cote.
+      -->
+      <div class="grid min-h-6.5 items-center *:col-start-1 *:row-start-1">
+        <!-- `animate-none` : l'entree de p-message fait glisser la liste sur le chemin de decision. -->
+        @if (shown.beatport_unavailable) {
+          <p-message class="w-full animate-none" severity="warn" size="small">
+            {{ "arbitration.beatportUnavailable" | translate }}
+          </p-message>
+        } @else if (shown.other_source === "beatport") {
+          <p-message class="w-full animate-none" severity="info" size="small">
+            {{ "arbitration.switched" | translate }}
+            <button
+              pButton
+              type="button"
+              [link]="true"
+              class="p-0 text-xs"
+              data-action="back"
+              [disabled]="busy()"
+              (click)="goBack()"
+            >
+              {{ "arbitration.backToBeatport" | translate }}
+            </button>
+          </p-message>
+        } @else {
+          <p class="text-xs text-muted-color">
+            {{ "arbitration.uncertain" | translate: { count: options().length } }}
+          </p>
+        }
+      </div>
+
+      <div #list>
+        <!-- `selectOnFocus` sert aux fleches ; sans `focusOnHover` coupe, le survol selectionnerait aussi. -->
+        <p-listbox
+          [formField]="fields.candidate"
+          [options]="options()"
+          optionValue="index"
+          [selectOnFocus]="true"
+          [focusOnHover]="false"
+          [metaKeySelection]="true"
+          [autoOptionFocus]="false"
+          [readonly]="busy()"
+          scrollHeight="268px"
+          [pt]="listboxPt"
+          [emptyMessage]="emptyMessage() | translate"
+          [ariaLabel]="'arbitration.candidates' | translate"
+        >
+          <ng-template #item let-option>
+            <div class="flex w-full min-w-0 items-center gap-3">
+              <div class="flex min-w-0 flex-1 flex-col">
+                <app-truncated-text class="text-sm" [text]="option.names" />
+                @if (option.release; as release) {
+                  <app-truncated-text
+                    class="text-xs text-muted-color"
+                    data-release
+                    [text]="release"
+                  />
+                }
+              </div>
+              <span class="shrink-0 text-xs text-muted-color tabular-nums">
+                {{
+                  (option.scores.artist === null
+                    ? "arbitration.scoreTitleOnly"
+                    : "arbitration.score"
+                  ) | translate: option.scores
+                }}
+              </span>
+            </div>
+          </ng-template>
+        </p-listbox>
+      </div>
+
+      @if (error(); as refused) {
+        <app-error-message [error]="refused" />
+      }
+
+      <p class="text-xs text-surface-500">{{ "arbitration.help" | translate }}</p>
+    </div>
+  }
+
+  <ng-template #footer>
+    <div class="flex w-full items-stretch gap-2" tabindex="-1" (keydown)="onKeydown($event)">
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        severity="secondary"
+        [disabled]="!hasPrevious()"
+        [attr.aria-label]="'arbitration.previous' | translate"
+        [attr.title]="'arbitration.previous' | translate"
+        (click)="previous()"
+      >
+        <app-icon name="chevron-left" [size]="16" />
+      </button>
+      <p-badge
+        class="h-auto tabular-nums"
+        severity="secondary"
+        [value]="position() + '/' + count()"
+      />
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        severity="secondary"
+        [disabled]="!hasNext()"
+        [attr.aria-label]="'arbitration.next' | translate"
+        [attr.title]="'arbitration.next' | translate"
+        (click)="next()"
+      >
+        <app-icon name="chevron-right" [size]="16" />
+      </button>
+      <span class="flex-1"></span>
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        severity="secondary"
+        data-action="refuse"
+        #refuseButton
+        [disabled]="busy()"
+        (click)="refuse()"
+      >
+        <!-- Spinner enfant : `[loading]` de pButton est deprecie depuis PrimeNG 22. -->
+        @if (pendingGesture() === "refuse") {
+          <app-icon name="spinner" [size]="16" />
+        }
+        {{ (empty() ? "arbitration.pass" : "arbitration.refuse") | translate }}
+      </button>
+      <button
+        pButton
+        type="button"
+        size="small"
+        data-action="validate"
+        [disabled]="busy() || empty() || choice().candidate === null"
+        (click)="validate()"
+      >
+        @if (pendingGesture() === "choose") {
+          <app-icon name="spinner" [size]="16" />
+        }
+        {{ "arbitration.validate" | translate }}
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

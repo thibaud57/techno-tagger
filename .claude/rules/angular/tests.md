@@ -1,6 +1,7 @@
 ---
 paths:
   - "src/app/**/*.spec.ts"
+  - "src/fixtures/**/*.ts"
 ---
 
 # Angular Tests unitaires — Règles
@@ -13,10 +14,11 @@ paths:
 - Alimenter un signal input par `fixture.componentRef.setInput(name, value)`
 - Tester un `effect()` dans `TestBed.runInInjectionContext()`, ou via le service qui le crée, puis forcer son exécution avec `TestBed.tick()` : `flushEffects()` est déprécié en Angular 22
 - Mocker avec `vi.fn()` et `vi.spyOn()`, et contrôler le temps par `vi.useFakeTimers()` / `vi.advanceTimersByTime()`
-- Récupérer la valeur d'un `output()` par `firstValueFrom()`
+- Écouter un `output()` par `subscribe(vi.fn())` : `firstValueFrom()` exige `outputToObservable()` et ne prouve pas qu'il n'a rien émis
 - Assertions DOM : `not.toBeNull()` ou `toBeTruthy()`
 - Appeler `fixture.detectChanges()` dans le `it()` quand des blocs `@if` conditionnent l'élément cherché
 - Mocker le protocole NDJSON au niveau du service qui l'expose, pas les plugins Tauri sous-jacents
+- Chercher dans `src/fixtures/` le stub, le jeu d'événements ou le helper DOM avant d'en écrire un. Dès qu'une deuxième spec en a besoin, il y rejoint les autres ; à usage unique, il reste dans sa spec
 
 ## À éviter
 - `toBeDefined()` sur un élément du DOM : vrai même quand la requête retourne `null`
@@ -31,6 +33,7 @@ paths:
 - Angular 22 : `TestBed.getLastFixture()` récupère le dernier fixture créé sans en garder la référence
 - `jsdom` est l'environnement par défaut, `happy-dom` est détecté automatiquement s'il est installé
 - L'option `providersFile` centralise les providers communs à tous les tests
+- `src/fixtures/` est exclu de `tsconfig.app.json` et déclaré dans `tsconfig.spec.json` : un dossier de helpers de test absent des deux n'est rattaché à aucun projet et ESLint échoue à le parser
 - La limitation « configuration Vitest personnalisée non supportée », documentée pour Angular 20, n'a pas été reconfirmée en 22 : à vérifier si les tests du flux NDJSON demandent une configuration particulière
 
 ## Exemples

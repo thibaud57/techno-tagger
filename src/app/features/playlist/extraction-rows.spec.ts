@@ -1,29 +1,19 @@
-import type { ExtractionFinishedEvent } from "../../core/models/protocol"
+import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
 
 import { toExtractionRows, type FormatSize } from "./extraction-rows"
-
-const EMPTY: ExtractionFinishedEvent = {
-  event: "extraction_finished",
-  extracted: [],
-  already_present: [],
-  missing: [],
-  duplicates: [],
-  failures: [],
-  report_path: "C:/work/report.json",
-}
 
 /** Mise en forme reconnaissable : ce qui se teste ici est ou la taille atterrit, pas son unite. */
 const formatSize: FormatSize = (bytes) => `${bytes} o`
 
 describe("toExtractionRows", () => {
   it("renders no row for an empty result", () => {
-    expect(toExtractionRows(EMPTY, formatSize)).toEqual([])
+    expect(toExtractionRows(EMPTY_EXTRACTION, formatSize)).toEqual([])
   })
 
   it("renders one row per track across all categories", () => {
     const rows = toExtractionRows(
       {
-        ...EMPTY,
+        ...EMPTY_EXTRACTION,
         extracted: ["a.mp3", "b.mp3"],
         already_present: ["c.mp3"],
         missing: ["d.mp3"],
@@ -36,7 +26,7 @@ describe("toExtractionRows", () => {
 
   it("carries the category of each track", () => {
     const rows = toExtractionRows(
-      { ...EMPTY, extracted: ["a.mp3"], missing: ["d.mp3"] },
+      { ...EMPTY_EXTRACTION, extracted: ["a.mp3"], missing: ["d.mp3"] },
       formatSize,
     )
 
@@ -46,7 +36,7 @@ describe("toExtractionRows", () => {
   it("lists what needs a look before what went through", () => {
     const rows = toExtractionRows(
       {
-        ...EMPTY,
+        ...EMPTY_EXTRACTION,
         extracted: ["a.mp3"],
         already_present: ["c.mp3"],
         missing: ["d.mp3"],
@@ -76,7 +66,7 @@ describe("toExtractionRows", () => {
   it("describes a duplicate by its discarded candidate and criterion", () => {
     const rows = toExtractionRows(
       {
-        ...EMPTY,
+        ...EMPTY_EXTRACTION,
         duplicates: [
           {
             file_name: "beta.mp3",
@@ -106,7 +96,7 @@ describe("toExtractionRows", () => {
   it("names a failure reason by a key, never by its raw value", () => {
     const rows = toExtractionRows(
       {
-        ...EMPTY,
+        ...EMPTY_EXTRACTION,
         failures: [{ file_name: "locked.mp3", reason: "file_locked" }],
       },
       formatSize,
@@ -121,7 +111,7 @@ describe("toExtractionRows", () => {
   it("keeps discarded paths and sizes in the same order", () => {
     const rows = toExtractionRows(
       {
-        ...EMPTY,
+        ...EMPTY_EXTRACTION,
         duplicates: [
           {
             file_name: "track.mp3",
@@ -145,7 +135,10 @@ describe("toExtractionRows", () => {
   })
 
   it("keeps two files of the same category in their input order", () => {
-    const rows = toExtractionRows({ ...EMPTY, extracted: ["zebra.mp3", "alpha.mp3"] }, formatSize)
+    const rows = toExtractionRows(
+      { ...EMPTY_EXTRACTION, extracted: ["zebra.mp3", "alpha.mp3"] },
+      formatSize,
+    )
 
     expect(rows.map((row) => row.fileName)).toEqual(["zebra.mp3", "alpha.mp3"])
   })

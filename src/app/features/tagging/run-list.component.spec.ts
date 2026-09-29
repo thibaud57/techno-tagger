@@ -2,6 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
 
+import { PENDING_TRACK, arbitrationRequired } from "../../../fixtures/tagging"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 
 import { RunListComponent } from "./run-list.component"
@@ -12,18 +13,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 }))
 
 const TRACK: TaggingTrack = {
-  trackId: "a.mp3",
-  fileName: "a.mp3",
-  artist: "Adam Beyer",
-  title: "Your Mind",
+  ...PENDING_TRACK,
   state: "resolved",
   resolution: "auto",
-  failureReason: null,
   source: "beatport",
   after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
-  arbitration: null,
 }
 
 /**
@@ -123,6 +119,28 @@ describe("RunListComponent", () => {
     )
 
     expect(valueless).toEqual(["—", "—", "—"])
+  })
+
+  it("asks for the arbitration of a row that awaits one when it is clicked", async () => {
+    const fixture = await mountWith([
+      { ...PENDING_TRACK, arbitration: arbitrationRequired(PENDING_TRACK.trackId) },
+    ])
+    const asked = vi.fn()
+    fixture.componentInstance.arbitrate.subscribe(asked)
+
+    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
+
+    expect(asked).toHaveBeenCalledWith(PENDING_TRACK.trackId)
+  })
+
+  it("asks for nothing when a row without arbitration is clicked", async () => {
+    const fixture = await mountWith([TRACK])
+    const asked = vi.fn()
+    fixture.componentInstance.arbitrate.subscribe(asked)
+
+    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
+
+    expect(asked).not.toHaveBeenCalled()
   })
 
   it("shows the file name without its extension as the main line when the tags are empty", async () => {

@@ -115,7 +115,7 @@ Comportements de la modale retenus au MVP :
 - Navigation entre arbitrages en attente par flèches, avec compteur (1/3, 2/3), la file se réduisant au fil des décisions
 - Fermeture possible par la croix, l'arbitrage restant en file
 - Si Bandcamp ne renvoie rien : message dans la modale, une seule action pour passer au suivant, le morceau part en non résolu
-- Tentative de quitter l'application avec des morceaux encore en cours : modale de confirmation
+- Tentative de quitter l'application avec un travail en cours : modale de confirmation, étendue le 2026-09-26 de l'arbitrage à l'extraction et au run
 
 Post-MVP, l'agent IA s'insère avant l'ouverture de la modale sur la zone grise (cf. [ADR-008](008-matching-rapidfuzz-et-agent-ia.md)), sans modifier cet enchaînement.
 

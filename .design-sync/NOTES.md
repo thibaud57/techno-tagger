@@ -46,22 +46,17 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
   convertisseur avec un message nommant la clé. C'est voulu, il n'a rien à faire ici.
 - **Ne jamais modifier la maquette sans demande explicite** : c'est le fichier de design du
   propriétaire, pas un artefact généré.
+- **L'export local n'est un miroir que comparé au distant** : une session peut pousser sans le
+  mettre à jour, et rien ne le signale. Relire le fichier distant avant d'en pousser un, jamais
+  une copie locale. `DesignSync` n'est disponible que dans la session principale et les agents
+  lancés au premier plan : un agent en arrière-plan ne l'a pas.
 
 ## Reste ouvert
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-> **Vidé le 2026-09-24** : les vingt-trois arbitrages qui vivaient ici ont été poussés, écrans
-> compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
-> les garder ici en ferait deux sources pour une même règle.
-
-- **L'export local n'est un miroir que fichier par fichier vérifié.** Une session peut pousser au
-  distant sans mettre l'export à jour et rien ne le signale : le 2026-09-25, une autre session a
-  réécrit `readme.md` et `TaggingScreen.jsx` après qu'un premier alignement l'eut déclaré exact.
-  **Relire le fichier distant avant d'en pousser un**, jamais une copie locale : renvoyer la copie
-  aurait écrasé ce travail. Les fichiers touchés ce jour-là sont alignés et vérifiés ; les autres
-  n'ont pas été comparés un à un. Une comparaison complète se fait depuis la session principale,
-  seule à disposer de `DesignSync` : un sous-agent ne l'a pas.
+- **Modale d'arbitrage, refus d'un geste** : le code affiche l'erreur du morceau affiché sous la liste (DESIGN.md § Mapping Composants, « Refus d'un geste »), `ArbitrationDialog.jsx` n'a aucun état d'erreur alors que `ErrorMessage` est au kit. Relevé le 2026-09-29 à la clôture de l'epic
+- **Modale d'arbitrage, en-tête** : titre et nom de fichier coupés sur une ligne avec tooltip dans le code, deux `div` bruts dans `ArbitrationDialog.jsx`, qui passent à la ligne sur un titre long alors que `TruncatedText` est au kit. Relevé le 2026-09-29 à la clôture de l'epic
 
 
 ## Journal
@@ -147,3 +142,10 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   Puis Tagging perd son libellé et son « Aucun dossier sélectionné », le lancement descend sur
   la ligne du dossier : `TaggingScreen`, `PathPicker` (libellé facultatif, `pathAlign`), `Select`
   (libellé long coupé avec tooltip) et le readme poussés après relecture du distant.
+- **2026-09-29, arbitrage utilisateur** : export local comparé en entier au distant, où
+  `SettingsScreen.jsx` et `Password.prompt.md` étaient plus récents. Poussés : la modale
+  d'arbitrage et la confirmation de sortie dans la maquette, la colonne Pochette à 60px, les
+  icônes des boutons à 16px, `Listbox` sans sélection au survol, `DataTable.rowClickable`,
+  `Button.loading`, `Message` sans plein écran, `TruncatedText` par `Tooltip`, `PhaseProgress`
+  indéterminée sans compteur, tirets simples, point médian entre les deux seuils et `app-dark`
+  dans les cartes. Réserve n° 13, `_ds_needs_recompile` posé.

@@ -14,17 +14,20 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import httpx2
 import keyring
 import pytest
 from audio_samples import BLANK_WRITERS
 from extraction_samples import sample_context, sample_result
 from memory_keyring import MemoryKeyring
+from tagging_api import FakeApi, FakeCdn, public_resolver
 from vlc_dump import build_dump
+
+from tagger import handlers
+from tagger.api_key import SERVICE, USERNAME
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-
-    import httpx2
 
     from tagger.extraction import ExtractionResult
     from tagger.reports import ReportContext
@@ -151,3 +154,31 @@ def extraction_result(tmp_path: Path) -> ExtractionResult:
 def report_context(tmp_path: Path) -> ReportContext:
     """Contexte de rapport pointant sur la meme arborescence."""
     return sample_context(tmp_path / "library", tmp_path / "work")
+
+
+@pytest.fixture
+def app_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isole le dossier de donnees d'application sous `tmp_path`."""
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
+
+
+@pytest.fixture
+def api(monkeypatch: pytest.MonkeyPatch) -> FakeApi:
+    """API/CDN simules ; resolveur remplace aussi, sinon `ArtworkFetcher` ferait un vrai DNS."""
+    fake = FakeApi()
+    cdn = FakeCdn()
+    monkeypatch.setattr(
+        handlers,
+        "tagging_transports",
+        lambda: handlers.TaggingTransports(
+            httpx2.MockTransport(fake.gated_handler),
+            httpx2.MockTransport(cdn.handler),
+            public_resolver,
+        ),
+    )
+    return fake
+
+
+@pytest.fixture
+def _key(memory_keyring: MemoryKeyring) -> None:
+    memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"
