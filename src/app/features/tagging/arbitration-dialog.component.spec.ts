@@ -101,12 +101,14 @@ describe("ArbitrationDialogComponent", () => {
     expect(text).toContain("arbitration.scoreTitleOnly")
   })
 
-  it("omits the label line of a candidate that has none", () => {
+  it("keeps an empty label line under a candidate that has none", () => {
     mountWith()
 
-    const releases = page().querySelectorAll("[data-release]")
+    const releases = [...page().querySelectorAll("[data-release]")].map((line) =>
+      line.textContent.trim(),
+    )
 
-    expect(releases.length).toBe(1)
+    expect(releases).toEqual(["Drumcode · 2023", ""])
   })
 
   it("falls back on the track id without a run row", () => {

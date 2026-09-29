@@ -44,22 +44,18 @@ const LISTBOX_PT: ListBoxPassThrough = {
 interface CandidateOption {
   readonly index: number
   readonly names: string
-  readonly release: string | null
+  readonly release: string
   readonly scores: TrackScores
 }
 
 type Gesture = "choose" | "refuse" | "switch"
 
-const toOption = (candidate: CandidatePayload, index: number): CandidateOption => {
-  const release = [candidate.label, candidate.year].filter((part) => part !== null).join(" · ")
-
-  return {
-    index,
-    names: joinIdentity(candidate.artist, candidate.title),
-    release: release === "" ? null : release,
-    scores: candidate.scores,
-  }
-}
+const toOption = (candidate: CandidatePayload, index: number): CandidateOption => ({
+  index,
+  names: joinIdentity(candidate.artist, candidate.title),
+  release: [candidate.label, candidate.year].filter((part) => part !== null).join(" · "),
+  scores: candidate.scores,
+})
 
 /** Modale d'arbitrage : sa visibilite appartient au shell, qui la suspend a la croix. */
 @Component({
