@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/thibaud57/techno-tagger/compare/v0.3.1...v0.4.0) (2026-09-29)
+
+
+### Features
+
+* arbitrage utilisateur des morceaux en zone grise ([#33](https://github.com/thibaud57/techno-tagger/issues/33)) ([0f5bf42](https://github.com/thibaud57/techno-tagger/commit/0f5bf421eb9d44fd7ba212970016737b7cf79dcd))
+
 ## [0.3.1](https://github.com/thibaud57/techno-tagger/compare/v0.3.0...v0.3.1) (2026-09-25)
 
 
