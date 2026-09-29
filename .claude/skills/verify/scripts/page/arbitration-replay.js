@@ -3,7 +3,10 @@
 //   node cdp.mjs page/arbitration-replay.js "<flux ndjson>" "<gestes JSON>"
 // Les gestes sont des groupes `[[methode, ...arguments], ...]` : le groupe i part juste
 // avant la i-eme reponse qui suit `run_finished` (arbitration_updated, track_resolved ou
-// error). `send` est remplace le temps du rejeu : les commandes sont relevees pour etre
+// error), les groupes en surplus apres la derniere ligne, geste encore sans reponse.
+// `["click", "<selecteur>"]` clique un element de la page au lieu d'appeler le service
+// (bouton de la modale pendant l'attente d'un geste). `send` est remplace le temps du
+// rejeu : les commandes sont relevees pour etre
 // comparees a celles que drive.py a envoyees, et ne partent pas vers le sidecar de la
 // fenetre, qui parle a la vraie API. Les `version` du flux sont sautes : ceux du sidecar
 // Python des sources ne disent rien de la fenetre et pourraient poser un faux ecart.
@@ -49,22 +52,36 @@
   try {
     await service.startTagging("verify-arbitration-replay")
     const timeline = [state("startTagging")]
+    const play = async (group) => {
+      for (const [method, ...args] of group ?? []) {
+        const before = sent.length
+        let target
+        if (method === "click") {
+          const element = document.querySelector(args[0])
+          target = element ? { disabled: element.disabled } : null
+          element?.click()
+          await wait(200)
+        } else {
+          await service[method](...args)
+        }
+        timeline.push({ ...state(`${method}(${args.join(", ")})`), sentNow: sent.length - before, target })
+      }
+    }
     let finished = false
     let answer = 0
     for (const line of stream.split(/\r?\n/).filter(Boolean)) {
       const event = JSON.parse(line).event
       if (event === "version") continue
       if (finished && answers.includes(event)) {
-        for (const [method, ...args] of groups[answer] ?? []) {
-          const before = sent.length
-          await service[method](...args)
-          timeline.push({ ...state(`${method}(${args.join(", ")})`), sentNow: sent.length - before })
-        }
+        await play(groups[answer])
         answer += 1
       }
       service.handleLine(line)
       timeline.push(state(event))
       if (event === "run_finished") finished = true
+    }
+    for (; answer < groups.length; answer += 1) {
+      await play(groups[answer])
     }
     return {
       success: true,

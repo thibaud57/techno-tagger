@@ -4,6 +4,8 @@
 //   node cdp.mjs page/arbitration-dialog.js state     taille, selection, options et leurs rectangles
 //   node cdp.mjs page/arbitration-dialog.js footer    boutons du pied, badge compris
 //   node cdp.mjs page/arbitration-dialog.js covers    vignettes de la liste du run et leur cellule
+//   node cdp.mjs page/arbitration-dialog.js rows      lignes du run, onglet Tagging ouvert au besoin,
+//                                                     pour viser l'une d'elles par `--click`
 //   node cdp.mjs page/arbitration-dialog.js state-icons  centres du tag d'etat et de l'icone
 //                                                     d'info, fond et transition du tag
 //   node cdp.mjs page/arbitration-dialog.js tag-demo  couleur du premier tag alternee, avec
@@ -85,6 +87,19 @@
         cover: rect(cover),
       }
     })
+  }
+
+  if (action === "rows") {
+    // Un rejeu laisse la fenetre sur l'onglet ou elle etait : la liste ne vit que sur Tagging.
+    if (!document.querySelector("app-run-list")) {
+      ;[...document.querySelectorAll("p-tab")].find((tab) => /tagging/i.test(tab.textContent))?.click()
+      await until(() => document.querySelector("app-run-list tbody tr") !== null, 5000)
+    }
+    return [...document.querySelectorAll("app-run-list tbody tr")].map((row) => ({
+      text: row.textContent.trim().replace(/\s+/g, " ").slice(0, 60),
+      cursor: getComputedStyle(row).cursor,
+      ...rect(row),
+    }))
   }
 
   if (action === "state-icons") {
