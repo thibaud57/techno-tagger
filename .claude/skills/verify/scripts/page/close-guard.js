@@ -8,7 +8,6 @@
 //   node cdp.mjs page/close-guard.js click <stay|leave|cross>
 //   node cdp.mjs page/close-guard.js lang <fr|en>    largeur a remesurer dans les deux langues
 ;(async () => {
-  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   const [action, target] = __args
   const service = __sidecarService()
 

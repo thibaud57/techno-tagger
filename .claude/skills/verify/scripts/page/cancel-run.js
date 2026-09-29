@@ -3,16 +3,6 @@
 // Le dossier doit faire durer le run : des titres inedits (build_fixture.py --unique) qui
 // paient chacun leur aller-retour vers l'API, sans quoi il finit avant le clic.
 ;(async () => {
-  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-  const until = async (check, timeout = 30000) => {
-    const started = Date.now()
-    while (Date.now() - started < timeout) {
-      if (check()) return true
-      await wait(100)
-    }
-    return false
-  }
-
   const [folder] = __args
   if (!folder) throw new Error("dossier a re-tagger manquant")
   const service = __sidecarService()

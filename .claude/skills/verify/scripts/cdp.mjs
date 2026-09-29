@@ -3,7 +3,10 @@
 //   node cdp.mjs <script-de-page.js> [argument ...]
 //   node cdp.mjs --key <touche>              vraie touche clavier (Escape, Enter, ArrowDown...)
 //   node cdp.mjs --screenshot <sortie.png>   capture de la fenetre
-// Le script recoit ses arguments dans `__args` et `__sidecarService()` en prealable.
+//   node cdp.mjs --click <x> <y>             vrai clic souris, coordonnees CSS de la page
+//   node cdp.mjs --move <x> <y>              survol seul, sans clic
+// Le script recoit ses arguments dans `__args`, et le prealable `page/preamble.js` devant lui
+// (`wait`, `until`, `__sidecarService()`).
 //
 // `fetch` et `WebSocket` natifs plutot que curl, que les hooks bloquent.
 import { readFileSync, writeFileSync } from "node:fs"
@@ -17,7 +20,10 @@ const fail = (message) => {
 
 const [scriptPath, ...args] = process.argv.slice(2)
 if (!scriptPath) {
-  fail("usage : node cdp.mjs <script-de-page.js> [argument ...] | --key <touche> | --screenshot <sortie.png>")
+  fail(
+    "usage : node cdp.mjs <script-de-page.js> [argument ...] | --key <touche> | " +
+      "--screenshot <sortie.png> | --click <x> <y> | --move <x> <y>",
+  )
 }
 
 // `Input.dispatchKeyEvent` passe par le navigateur comme une frappe reelle, la ou un
@@ -62,9 +68,9 @@ const evaluation = () => {
   // le code perdrait ses backslashes.
   let preamble
   try {
-    preamble = readFileSync(join(here, "page", "sidecar-service.js"), "utf8")
+    preamble = readFileSync(join(here, "page", "preamble.js"), "utf8")
   } catch {
-    fail(`prealable illisible : ${join(here, "page", "sidecar-service.js")}`)
+    fail(`prealable illisible : ${join(here, "page", "preamble.js")}`)
   }
   // Dans un bloc : un `const` de premier niveau survit a l'evaluation dans la portee globale
   // de la page, et un second script sur la meme fenetre leverait « already been declared ».
@@ -84,17 +90,24 @@ try {
 }
 
 let nextId = 0
-// Une page qui meurt pendant l'appel (clic sur « Quitter quand meme ») ferme la socket sans
-// jamais repondre : sans ce cas, la promesse reste pendante et Node sort sur un avertissement.
+// Une page qui meurt pendant l'appel ferme la socket sans repondre : sans ce cas, la promesse
+// resterait pendante.
 const call = (method, params) =>
   new Promise((resolve) => {
     nextId += 1
     const id = nextId
-    socket.addEventListener("message", (message) => {
+    const settle = (value) => {
+      socket.removeEventListener("message", onMessage)
+      socket.removeEventListener("close", onClose)
+      resolve(value)
+    }
+    const onMessage = (message) => {
       const payload = JSON.parse(message.data)
-      if (payload.id === id) resolve(payload)
-    })
-    socket.addEventListener("close", () => resolve({ pageClosed: true }))
+      if (payload.id === id) settle(payload)
+    }
+    const onClose = () => settle({ pageClosed: true })
+    socket.addEventListener("message", onMessage)
+    socket.addEventListener("close", onClose)
     socket.send(JSON.stringify({ id, method, params }))
   })
 
@@ -119,6 +132,22 @@ if (scriptPath === "--key") {
   check(await call("Input.dispatchKeyEvent", { type: "keyUp", ...base }))
   socket.close()
   console.log(JSON.stringify({ success: true, key }))
+  process.exit(0)
+}
+
+// Pression puis relachement : un `element.click()` de page ne produit ni `mousedown` ni
+// deplacement du focus, ce qu'un composant peut ecouter a la place du `click`.
+if (scriptPath === "--click" || scriptPath === "--move") {
+  const [x, y] = args.map(Number)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) fail(`usage : node cdp.mjs ${scriptPath} <x> <y>`)
+  check(await call("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }))
+  if (scriptPath === "--click") {
+    const base = { x, y, button: "left", clickCount: 1 }
+    check(await call("Input.dispatchMouseEvent", { type: "mousePressed", ...base }))
+    check(await call("Input.dispatchMouseEvent", { type: "mouseReleased", ...base }))
+  }
+  socket.close()
+  console.log(JSON.stringify({ success: true, [scriptPath.slice(2)]: [x, y] }))
   process.exit(0)
 }
 
