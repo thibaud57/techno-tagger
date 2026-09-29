@@ -8,7 +8,8 @@ paths:
 
 ## À faire
 - Charger chaque feature par `loadComponent`, et grouper un ensemble de routes liées par `loadChildren` vers son `*.routes.ts`
-- Différer avec `@defer` les blocs lourds qui ne sont pas visibles au premier rendu, et toujours fournir un `@placeholder`
+- Différer avec `@defer` les blocs lourds absents du premier rendu, avec un `@placeholder` s'ils occupent une place dans le layout
+- Différer toute modale du shell : `@defer (when <visible>; prefetch on idle)`, sinon elle part dans le bundle initial avec ses dépendances
 - Combiner affichage et préchargement quand l'ouverture est déclenchée par l'utilisateur : `@defer (on interaction; prefetch on idle)`
 - Utiliser `on idle(timeout)` (Angular 22) pour garantir le chargement même si le navigateur n'atteint jamais l'idle
 - Extraire dans son propre fichier un composant destiné à être différé
