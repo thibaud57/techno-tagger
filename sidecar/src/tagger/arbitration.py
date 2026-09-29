@@ -34,8 +34,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class ArbitrationUpdated:
-    """La liste affichee d'un morceau en attente a change."""
-
     record: TrackRecord
 
 
@@ -43,8 +41,6 @@ type ArbitrationEvent = ArbitrationUpdated | TrackResolved
 
 
 class ArbitrationError(TaggerError):
-    """Geste d'arbitrage impossible sur ce morceau."""
-
     code: ClassVar[str] = "arbitration_error"
 
     def __init__(self, message: str, track_id: str) -> None:
@@ -70,8 +66,6 @@ class ArbitrationCandidateUnknownError(ArbitrationError):
 
 
 class ArbitrationBusyError(ArbitrationError):
-    """Un geste est deja en vol sur ce morceau."""
-
     code: ClassVar[str] = "arbitration_busy"
 
     def __init__(self, track_id: str) -> None:
@@ -166,7 +160,6 @@ class Arbitration:
         try:
             found = await self._sources.search(Source.BANDCAMP, query)
         except ApiKeyRejectedError, ApiKeyRejectedRunError:
-            # Le 403 ne concerne que ce morceau : arreter le run revient au pipeline.
             return SourceList(Source.BANDCAMP, (), FailureReason.SOURCE_UNAVAILABLE)
         except (SourceUnavailableError, ApiContractError) as exc:
             self._sources.log_source_failure(position, Source.BANDCAMP, exc)

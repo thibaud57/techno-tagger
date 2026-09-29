@@ -318,7 +318,6 @@ def _resolved(record: TrackRecord) -> TrackResolved:
 def _arbitration_state(
     kind: type[ArbitrationRequired | ArbitrationUpdated], record: TrackRecord
 ) -> ArbitrationRequired | ArbitrationUpdated:
-    """Etat complet d'un arbitrage, commun aux deux evenements."""
     pending = record.arbitration
     if pending is None:
         logger.error("track without arbitration track=%s", record.track_id)

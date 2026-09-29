@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Trois 403 consecutifs arretent le run.
 API_KEY_REJECTION_LIMIT: Final = 3
 
 
@@ -47,7 +46,6 @@ class _RejectionGuard:
         self._consecutive = 0
 
     def rejected(self) -> None:
-        """Un 403 de plus ; au troisieme d'affilee, le run s'arrete."""
         self._consecutive += 1
         if self._consecutive >= API_KEY_REJECTION_LIMIT:
             raise ApiKeyRejectedRunError()
@@ -78,7 +76,6 @@ class RunSources:
         return f"RunSources(run_id={self.run_id!r})"
 
     async def search(self, source: SearchSource, query: TrackQuery) -> tuple[TrackCandidate, ...]:
-        """Premiere page de la source, sous la garde des 403."""
         return await self._call(self._client.search(source, query.text))
 
     async def retained(

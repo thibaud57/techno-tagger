@@ -276,7 +276,6 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
         while True:
             line = await asyncio.to_thread(stdin.readline)
             if not line:
-                # EOF : la phase reseau en cours est attendue, puis le run courant ferme.
                 await session.close(cancel=False)
                 return
 

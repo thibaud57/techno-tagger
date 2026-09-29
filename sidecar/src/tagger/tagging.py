@@ -145,7 +145,7 @@ class TrackRecord:
 
 @dataclass(frozen=True, slots=True)
 class TaggingRun:
-    """Etat gele d'un run, que la Feature 6 persistera."""
+    """Etat gele d'un run."""
 
     run_id: str
     folder: Path
@@ -222,7 +222,6 @@ async def run_tagging(
     on_event: Callable[[RunEvent], None],
     thresholds: MatchingThresholds = DEFAULT_THRESHOLDS,
 ) -> TaggingRun:
-    """Ouvre le run, resout tous ses morceaux et rend son etat gele."""
     live = await open_run(folder, on_event=on_event)
     sources = RunSources(live.run_id, client, artworks, thresholds)
     await resolve_run(live, sources, on_event=on_event)

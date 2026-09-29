@@ -395,8 +395,6 @@ class ArbitrationState(Event):
 
 
 class ArbitrationRequired(ArbitrationState):
-    """Morceau entre dans la file des arbitrages."""
-
     event: Literal["arbitration_required"] = "arbitration_required"
 
 
