@@ -17,10 +17,9 @@ paths:
 - `@pytest.mark.parametrize(..., ids=[...])` pour les jeux de données, un cas par échec localisé
 - `pytest.raises(MonErreur, match=...)`, et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
 - Mettre les fixtures partagées dans `conftest.py`, avec teardown après `yield`
-- Chercher dans `sidecar/tests/helpers/` un fake, un jeu de réponses ou un pilote de boucle avant d'en écrire un, et l'importer de là : ce dossier porte ce que plusieurs tests partagent, `conftest.py` n'en gardant que les fixtures
+- Chercher dans `sidecar/tests/helpers/` le fake, le jeu de réponses ou le pilote de boucle avant d'en écrire un. Dès qu'un deuxième test en a besoin, il y rejoint les autres ; à usage unique, il reste dans son test. `conftest.py` ne garde que les fixtures
 
 ## À éviter
-- Recopier un fake ou un helper d'un test à l'autre : dès le deuxième test qui s'en sert, il rejoint `helpers/`. Un fake à usage unique reste local à son test
 - Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer
 - `respx` et `pytest-httpx` : ni l'un ni l'autre ne supporte httpx2, les PR de support sont ouvertes et non mergées
 - Un appel réseau ou Sentry réel : les deux sont toujours mockés, aucun test ne consomme le quota

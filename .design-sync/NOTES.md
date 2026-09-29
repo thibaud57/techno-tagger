@@ -46,34 +46,16 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
   convertisseur avec un message nommant la clé. C'est voulu, il n'a rien à faire ici.
 - **Ne jamais modifier la maquette sans demande explicite** : c'est le fichier de design du
   propriétaire, pas un artefact généré.
+- **L'export local n'est un miroir que comparé au distant** : une session peut pousser sans le
+  mettre à jour, et rien ne le signale. Relire le fichier distant avant d'en pousser un, jamais
+  une copie locale. `DesignSync` n'est disponible que dans la session principale et les agents
+  lancés au premier plan : un agent en arrière-plan ne l'a pas.
 
 ## Reste ouvert
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-> **Vidé le 2026-09-24** : les vingt-trois arbitrages qui vivaient ici ont été poussés, écrans
-> compris (cf. Journal). Leur détail vit désormais dans le projet distant et dans `DESIGN.md` ;
-> les garder ici en ferait deux sources pour une même règle.
-
-- **Modale d'arbitrage (Feature 3, 2026-09-26)**, à pousser dans `ArbitrationDialog` et
-  `AppShell` : la croix garde l'arbitrage en file ; le tag « N à arbitrer » de la barre d'onglets
-  est cliquable et rouvre la modale ; boutons en attente (`loading`) pendant un geste ; message
-  warn quand Beatport n'a pas répondu ; liste Bandcamp vide avec son motif et l'action « Passer » ;
-  « Artiste - Titre » et score « 94 (A 96 · T 92) » par candidat ; ligne au-dessus de la liste
-  Beatport « Correspondances incertaines : N », sans les seuils ; ligne d'aide clavier « Flèches
-  gauche et droite pour changer d'arbitrage, Entrée pour valider. La croix ne décide rien :
-  l'arbitrage reste en file. » ; message de la liste Bandcamp vide selon le motif (« Bandcamp ne
-  trouve rien pour ce morceau. », « Bandcamp ne propose que des candidats trop éloignés. »,
-  « Bandcamp ne répond pas. »). L'indice du Seuil haut du `SettingsScreen` dit encore « zone
-  grise ».
-- **L'export local n'est un miroir que fichier par fichier vérifié.** Une session peut pousser au
-  distant sans mettre l'export à jour et rien ne le signale : le 2026-09-25, une autre session a
-  réécrit `readme.md` et `TaggingScreen.jsx` après qu'un premier alignement l'eut déclaré exact.
-  **Relire le fichier distant avant d'en pousser un**, jamais une copie locale : renvoyer la copie
-  aurait écrasé ce travail. Les fichiers touchés ce jour-là sont alignés et vérifiés ; les autres
-  n'ont pas été comparés un à un. Une comparaison complète se fait depuis la session principale,
-  seule à disposer de `DesignSync` : un sous-agent ne l'a pas.
-- **Confirmation de sortie (Feature 3, 2026-09-26)**, absente de la maquette, à ajouter à `AppShell` : `p-dialog` « Quitter l'application ? », une phrase par travail en cours (extraction, run, arbitrages), « Quitter quand même » outlined secondary et « Rester » primary.
+> **Vide au 2026-09-29** : tout a été poussé (cf. Journal).
 
 
 ## Journal
@@ -159,3 +141,10 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   Puis Tagging perd son libellé et son « Aucun dossier sélectionné », le lancement descend sur
   la ligne du dossier : `TaggingScreen`, `PathPicker` (libellé facultatif, `pathAlign`), `Select`
   (libellé long coupé avec tooltip) et le readme poussés après relecture du distant.
+- **2026-09-29, arbitrage utilisateur** : export local comparé en entier au distant, où
+  `SettingsScreen.jsx` et `Password.prompt.md` étaient plus récents. Poussés : la modale
+  d'arbitrage et la confirmation de sortie dans la maquette, la colonne Pochette à 60px, les
+  icônes des boutons à 16px, `Listbox` sans sélection au survol, `DataTable.rowClickable`,
+  `Button.loading`, `Message` sans plein écran, `TruncatedText` par `Tooltip`, `PhaseProgress`
+  indéterminée sans compteur, tirets simples, point médian entre les deux seuils et `app-dark`
+  dans les cartes. Réserve n° 13, `_ds_needs_recompile` posé.

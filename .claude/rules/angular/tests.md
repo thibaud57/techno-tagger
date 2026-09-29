@@ -14,14 +14,13 @@ paths:
 - Alimenter un signal input par `fixture.componentRef.setInput(name, value)`
 - Tester un `effect()` dans `TestBed.runInInjectionContext()`, ou via le service qui le crée, puis forcer son exécution avec `TestBed.tick()` : `flushEffects()` est déprécié en Angular 22
 - Mocker avec `vi.fn()` et `vi.spyOn()`, et contrôler le temps par `vi.useFakeTimers()` / `vi.advanceTimersByTime()`
-- Récupérer la valeur d'un `output()` par `firstValueFrom()`
+- Écouter un `output()` par `subscribe(vi.fn())` : `firstValueFrom()` exige `outputToObservable()` et ne prouve pas qu'il n'a rien émis
 - Assertions DOM : `not.toBeNull()` ou `toBeTruthy()`
 - Appeler `fixture.detectChanges()` dans le `it()` quand des blocs `@if` conditionnent l'élément cherché
 - Mocker le protocole NDJSON au niveau du service qui l'expose, pas les plugins Tauri sous-jacents
-- Chercher dans `src/fixtures/` un stub, un jeu d'événements ou un helper de requête DOM avant d'en écrire un, et l'importer de là : ce dossier porte ce que plusieurs specs partagent, compilé pour les tests (`tsconfig.spec.json`) et exclu du build (`tsconfig.app.json`)
+- Chercher dans `src/fixtures/` le stub, le jeu d'événements ou le helper DOM avant d'en écrire un. Dès qu'une deuxième spec en a besoin, il y rejoint les autres ; à usage unique, il reste dans sa spec
 
 ## À éviter
-- Recopier un stub ou un helper d'une spec à l'autre : dès la deuxième spec qui s'en sert, il rejoint `src/fixtures/`. Un stub à usage unique reste local à sa spec
 - `toBeDefined()` sur un élément du DOM : vrai même quand la requête retourne `null`
 - `fakeAsync`, `tick` et `flush` : ils exigent zone.js et le patch `zone.js/plugins/vitest-patch`, absents d'un projet zoneless
 - `compileComponents()`, inutile pour un composant standalone
