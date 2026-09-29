@@ -18,6 +18,10 @@ if TYPE_CHECKING:
 
 TEST_API_KEY: Final = "test-key"
 
+# Requetes des deux morceaux des tests ; `track_payload` rend « Your Mind » par defaut.
+YOUR_MIND: Final = "Adam Beyer Your Mind"
+BASIEL: Final = "Amelie Lens Basiel"
+
 # Union de deux signatures (et non un retour union sur une seule) : c'est la forme
 # qu'attend `httpx2.MockTransport`, covariance du retour oblige.
 type Handler = (

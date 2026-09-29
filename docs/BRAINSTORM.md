@@ -176,7 +176,9 @@ Le pipeline ne s'arrête jamais. Les morceaux ambigus s'empilent en file, la mod
 - Si Bandcamp ne renvoie rien : message dans la modale, une seule action pour passer au suivant, le morceau part en non résolu
 - Navigation entre les arbitrages en attente par flèches, avec compteur (1/3, 2/3), la file se réduisant au fil des décisions
 - Fermeture possible par la croix, l'arbitrage restant en file
-- Tentative de quitter avec des morceaux encore en cours : modale de confirmation
+- Tentative de quitter avec un travail en cours : modale de confirmation qui nomme ce qui sera perdu
+
+> **Étendu en cours de route** (2026-09-26) : la confirmation, prévue pour les seuls arbitrages en attente, couvre aussi une extraction et un run en cours.
 
 ### Feature 4 : Rattrapage par URL manuelle
 

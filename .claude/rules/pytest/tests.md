@@ -17,6 +17,7 @@ paths:
 - `@pytest.mark.parametrize(..., ids=[...])` pour les jeux de données, un cas par échec localisé
 - `pytest.raises(MonErreur, match=...)`, et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
 - Mettre les fixtures partagées dans `conftest.py`, avec teardown après `yield`
+- Chercher dans `sidecar/tests/helpers/` le fake, le jeu de réponses ou le pilote de boucle avant d'en écrire un. Dès qu'un deuxième test en a besoin, il y rejoint les autres ; à usage unique, il reste dans son test. `conftest.py` ne garde que les fixtures
 
 ## À éviter
 - Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer

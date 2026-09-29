@@ -26,7 +26,7 @@ from pydantic import (
 from tagger.extraction import DuplicateCriterion, ExtractionFailureReason, ExtractionMode
 from tagger.matching import MatchingThresholds, check_thresholds
 from tagger.playlists import PlaylistFormat
-from tagger.scraper_client import Source
+from tagger.scraper_client import SearchSource, Source
 from tagger.tagging import FailureReason, Resolution, TrackState
 
 if TYPE_CHECKING:
@@ -136,19 +136,51 @@ class StartTagging(Command):
     thresholds: ThresholdsPayload | None = None
 
 
+class ResolveArbitration(Command):
+    """Choix d'un candidat de `source`, ou refus si `candidate` est nul ; rejete si `source`
+    n'est plus la liste affichee (double clic apres bascule)."""
+
+    command: Literal["resolve_arbitration"]
+    track_id: str
+    source: SearchSource
+    candidate: Annotated[int, Field(ge=0)] | None
+
+
+class SwitchArbitrationSource(Command):
+    """Reaffiche la liste deja obtenue de `source`, sans appel reseau."""
+
+    command: Literal["switch_arbitration_source"]
+    track_id: str
+    source: SearchSource
+
+
 type AnyCommand = Annotated[
-    GetVersion | Shutdown | CancelRun | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging,
+    GetVersion
+    | Shutdown
+    | CancelRun
+    | ListPlaylists
+    | ExtractPlaylist
+    | SetApiKey
+    | StartTagging
+    | ResolveArbitration
+    | SwitchArbitrationSource,
     Field(discriminator="command"),
 ]
 
 # `shutdown` sort de la boucle sans rien executer : l'exclure ici permet au `match`
 # du dispatch de se fermer par `assert_never` sans laisser de cas non couvert.
 type ExecutableCommand = (
-    GetVersion | CancelRun | ListPlaylists | ExtractPlaylist | SetApiKey | StartTagging
+    GetVersion
+    | CancelRun
+    | ListPlaylists
+    | ExtractPlaylist
+    | SetApiKey
+    | StartTagging
+    | ResolveArbitration
+    | SwitchArbitrationSource
 )
 
-# Recopie des six `command` declares ci-dessus : un `Literal` ne se compose pas depuis
-# une union a la compilation. `test_command_name_lists_every_command` garde la copie.
+# Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
 type CommandName = Literal[
     "get_version",
     "shutdown",
@@ -157,6 +189,8 @@ type CommandName = Literal[
     "extract_playlist",
     "set_api_key",
     "start_tagging",
+    "resolve_arbitration",
+    "switch_arbitration_source",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -336,23 +370,38 @@ class TrackResolved(Event):
 
 
 class CandidatePayload(BaseModel):
-    """Un candidat en zone grise, avec ses scores."""
+    """Un candidat en zone grise, son index de geste est sa position dans la liste ;
+    `label`/`year` sont nuls sur Bandcamp et parfois sur Beatport."""
 
     model_config = ConfigDict(frozen=True)
 
     artist: str
     title: str
+    label: str | None
+    year: int | None
     scores: TrackScores
 
 
-class ArbitrationRequired(Event):
-    """Morceau en attente d'une decision humaine. La Feature 3 etendra la charge."""
+class ArbitrationState(Event):
+    """Etat complet d'un arbitrage (remplace en bloc) ; `other_source` est reaffichable,
+    `empty_reason` dit pourquoi la liste Bandcamp est vide."""
 
-    event: Literal["arbitration_required"]
     track_id: str
     source: Source
     beatport_unavailable: bool
     candidates: tuple[CandidatePayload, ...]
+    empty_reason: FailureReason | None
+    other_source: Source | None
+
+
+class ArbitrationRequired(ArbitrationState):
+    event: Literal["arbitration_required"] = "arbitration_required"
+
+
+class ArbitrationUpdated(ArbitrationState):
+    """Liste affichee remplacee : bascule sur Bandcamp ou retour a Beatport."""
+
+    event: Literal["arbitration_updated"] = "arbitration_updated"
 
 
 class RunFinished(Event):

@@ -50,7 +50,12 @@
 
   @if (showsRun()) {
     <div class="min-h-0 flex-1">
-      <app-run-list [tracks]="tracks()" [loading]="listing()" [interrupted]="interrupted()" />
+      <app-run-list
+        [tracks]="tracks()"
+        [loading]="listing()"
+        [interrupted]="interrupted()"
+        (arbitrate)="openArbitration($event)"
+      />
     </div>
   } @else {
     <app-empty-state

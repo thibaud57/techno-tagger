@@ -8,11 +8,13 @@ le contrat etant appele a grandir bien au-dela des commandes actuelles.
 import asyncio
 import logging
 from collections import Counter
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, NamedTuple, assert_never
+from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
-from tagger import __version__, tagging
+from tagger import __version__, arbitration, tagging
 from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
+from tagger.arbitration import Arbitration
 from tagger.cache import ArtworkFetcher, DiskCache, ResponseCache, resolve_host
 from tagger.extraction import extract
 from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
@@ -20,6 +22,7 @@ from tagger.paths import app_data_dir
 from tagger.playlists import list_playlists, read_playlist
 from tagger.protocol import (
     ArbitrationRequired,
+    ArbitrationUpdated,
     CandidatePayload,
     DuplicatePayload,
     ExtractionFinished,
@@ -43,18 +46,20 @@ from tagger.protocol import (
 )
 from tagger.reports import ReportContext, write_extraction_report
 from tagger.scraper_client import TechnoScraperClient
-from tagger.tagging import run_tagging
+from tagger.sources import RunSources
+from tagger.tagging import open_run, resolve_run
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     import httpx2
 
+    from tagger.arbitration import ArbitrationEvent
     from tagger.cache import HostResolver
     from tagger.matching import ScoredCandidate
     from tagger.protocol import Event
     from tagger.scraper_client import TrackCandidate
-    from tagger.tagging import TaggingRun, TrackRecord
+    from tagger.tagging import LiveRun, TaggingRun, TrackRecord
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +168,44 @@ def tagging_transports() -> TaggingTransports:
     return TaggingTransports(None, None, resolve_host)
 
 
-async def handle_start_tagging(command: StartTagging, emit: Callable[[Event], None]) -> RunFinished:
-    """Ouvre les caches, construit le client, lance le run et traduit ses evenements."""
+class CurrentRun:
+    """Run arbitrable jusqu'au suivant : `cancel_run` arrete la phase reseau, pas l'arbitrage."""
+
+    def __init__(
+        self,
+        stack: AsyncExitStack,
+        live: LiveRun,
+        sources: RunSources,
+        arbitration: Arbitration,
+    ) -> None:
+        self.live = live
+        self.sources = sources
+        self.arbitration = arbitration
+        self._stack = stack
+        self._gestures: set[asyncio.Task[None]] = set()
+
+    @override
+    def __repr__(self) -> str:
+        return f"CurrentRun(run_id={self.live.run_id!r}, gestures={len(self._gestures)})"
+
+    def track(self, gesture: asyncio.Task[None]) -> None:
+        """Reference forte sur un geste en vol, relachee a sa fin."""
+        self._gestures.add(gesture)
+        gesture.add_done_callback(self._gestures.discard)
+
+    async def close(self) -> None:
+        """`finally` : une annulation du `gather` en attente ne doit pas empecher la fermeture."""
+        try:
+            for gesture in self._gestures:
+                gesture.cancel()
+            await asyncio.gather(*self._gestures, return_exceptions=True)
+        finally:
+            await self._stack.aclose()
+
+
+async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> CurrentRun:
+    """Ouvre caches et client, branche l'arbitrage ; client et fetcher survivent dans la pile
+    rendue au `CurrentRun`, et une ouverture ratee referme ce qu'elle a deja ouvert."""
     api_key = await asyncio.to_thread(read_api_key)
     if api_key is None:
         raise ApiKeyMissingError
@@ -179,25 +220,36 @@ async def handle_start_tagging(command: StartTagging, emit: Callable[[Event], No
         artworks_disk = opening.create_task(
             asyncio.to_thread(DiskCache, cache_root / "artworks"), name="cache:artworks"
         )
-    responses = ResponseCache(responses_disk.result())
-    artwork_cache = artworks_disk.result()
     transports = tagging_transports()
 
-    async with (
-        TechnoScraperClient(api_key, transport=transports.api, cache=responses) as client,
-        ArtworkFetcher(
-            artwork_cache, transport=transports.cdn, resolve=transports.resolve
-        ) as artworks,
-    ):
-        run = await run_tagging(
-            command.folder,
-            client=client,
-            artworks=artworks,
-            thresholds=_thresholds(command),
-            on_event=lambda event: emit(to_protocol_event(event)),
+    async with AsyncExitStack() as stack:
+        client = await stack.enter_async_context(
+            TechnoScraperClient(
+                api_key, transport=transports.api, cache=ResponseCache(responses_disk.result())
+            )
         )
+        artworks = await stack.enter_async_context(
+            ArtworkFetcher(
+                artworks_disk.result(), transport=transports.cdn, resolve=transports.resolve
+            )
+        )
+        relay = _relay(emit)
+        live = await open_run(command.folder, on_event=relay)
+        sources = RunSources(live.run_id, client, artworks, _thresholds(command))
+        desk = Arbitration(live, sources, relay)
+        return CurrentRun(stack.pop_all(), live, sources, desk)
 
-    return _run_finished(run)
+
+async def handle_start_tagging(
+    command: StartTagging,
+    emit: Callable[[Event], None],
+    adopt: Callable[[CurrentRun], None],
+) -> RunFinished:
+    """Confie le run a la session avant la phase reseau : un morceau se tranche des qu'il attend."""
+    current = await open_tagging(command, emit)
+    adopt(current)
+    await resolve_run(current.live, current.sources, on_event=_relay(emit))
+    return _run_finished(current.live.snapshot())
 
 
 def _thresholds(command: StartTagging) -> MatchingThresholds:
@@ -206,8 +258,12 @@ def _thresholds(command: StartTagging) -> MatchingThresholds:
     return DEFAULT_THRESHOLDS if sent is None else sent.to_matching()
 
 
-def to_protocol_event(event: tagging.RunEvent) -> Event:
-    """Traduit un evenement du pipeline. Un cas oublie est une erreur de typage."""
+def _relay(emit: Callable[[Event], None]) -> Callable[[tagging.RunEvent | ArbitrationEvent], None]:
+    return lambda event: emit(to_protocol_event(event))
+
+
+def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent) -> Event:
+    """Traduit un evenement pipeline ou arbitrage ; un cas oublie est une erreur de typage."""
     match event:
         case tagging.RunStarted():
             return RunStarted(
@@ -218,7 +274,9 @@ def to_protocol_event(event: tagging.RunEvent) -> Event:
         case tagging.TrackResolved():
             return _resolved(event.record)
         case tagging.ArbitrationRequired():
-            return _arbitration(event.record)
+            return _arbitration_state(ArbitrationRequired, event.record)
+        case arbitration.ArbitrationUpdated():
+            return _arbitration_state(ArbitrationUpdated, event.record)
         case tagging.RunProgress():
             return Progress(
                 event="progress",
@@ -257,24 +315,32 @@ def _resolved(record: TrackRecord) -> TrackResolved:
     )
 
 
-def _arbitration(record: TrackRecord) -> ArbitrationRequired:
-    arbitration = record.arbitration
-    if arbitration is None:
+def _arbitration_state(
+    kind: type[ArbitrationRequired | ArbitrationUpdated], record: TrackRecord
+) -> ArbitrationRequired | ArbitrationUpdated:
+    pending = record.arbitration
+    if pending is None:
         logger.error("track without arbitration track=%s", record.track_id)
         raise ValueError("track without arbitration")
-    return ArbitrationRequired(
-        event="arbitration_required",
+    return kind(
         track_id=record.track_id,
-        source=arbitration.source,
-        beatport_unavailable=arbitration.beatport_unavailable,
-        candidates=tuple(
-            CandidatePayload(
-                artist=credited_artists(scored.candidate),
-                title=full_title(scored.candidate),
-                scores=_scores(scored),
-            )
-            for scored in arbitration.candidates
-        ),
+        source=pending.source,
+        beatport_unavailable=pending.beatport_unavailable,
+        candidates=tuple(_candidate(scored) for scored in pending.candidates),
+        empty_reason=pending.empty_reason,
+        other_source=None if pending.other is None else pending.other.source,
+    )
+
+
+def _candidate(scored: ScoredCandidate) -> CandidatePayload:
+    candidate = scored.candidate
+    released = candidate.release.release_date if candidate.release else None
+    return CandidatePayload(
+        artist=credited_artists(candidate),
+        title=full_title(candidate),
+        label=None if candidate.label is None else candidate.label.name,
+        year=None if released is None else released.year,
+        scores=_scores(scored),
     )
 
 

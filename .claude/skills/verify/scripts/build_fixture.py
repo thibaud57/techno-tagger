@@ -11,6 +11,8 @@ l'API, pour qu'un run dure assez longtemps qu'une commande concurrente parte pen
 Un suffixe par appel les rend inedits d'une passe a l'autre, le cache de reponses etant
 reel : relancer sur les memes titres rendrait un run instantane et un faux vert.
 `--vlc-dump` : un dump `vlc_media.db`, playlists « test playlist » et « other playlist ».
+`--arbitration` : un seul morceau, « Amelie Lens - Basielians », que le faux serveur met
+en zone grise sur ses deux sources (titre a 75 contre « Basiel »).
 La fixture complete de l'onglet Playlist, homonymes et echecs de transfert compris, est
 celle de `just demo`.
 """
@@ -43,7 +45,7 @@ except ImportError as error:
 
 args = sys.argv[1:]
 if not args or args[0].startswith("--"):
-    fail("usage : build_fixture.py <dossier> [--unique N | --vlc-dump]")
+    fail("usage : build_fixture.py <dossier> [--unique N | --vlc-dump | --arbitration]")
 
 root = Path(args[0])
 if root.exists():
@@ -63,6 +65,8 @@ if "--unique" in args:
         fail("--unique attend un nombre entier de morceaux apres lui")
     run = uuid.uuid4().hex[:6]
     tracks = [("Verify Probe", f"Untitled {run} {n:02d}") for n in range(1, count + 1)]
+elif "--arbitration" in args:
+    tracks = [("Amelie Lens", "Basielians")]
 else:
     tracks = [
         ("Adam Beyer", "Your Mind"),
@@ -74,7 +78,7 @@ for index, (artist, title) in enumerate(tracks, start=1):
     path = root / f"{index:02d} {artist.lower()} - {title.lower()}.mp3"
     write_blank_mp3(path)
     tag(path, artist=artist, title=title)
-if "--unique" not in args:
+if "--unique" not in args and "--arbitration" not in args:
     (root / "notes.txt").write_text("pas un fichier audio", encoding="utf-8")
 
 emit({"success": True, "folder": root.as_posix(), "tracks": len(tracks)})

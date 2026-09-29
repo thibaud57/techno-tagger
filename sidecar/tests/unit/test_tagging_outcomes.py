@@ -4,8 +4,22 @@ from typing import TYPE_CHECKING
 
 import pytest
 from audio_samples import write_blank_mp3
-from scraper_responses import track_payload
-from tagging_api import FakeApi, FakeCdn, failing, found, ok, run, tagged_mp3
+from scraper_responses import YOUR_MIND, track_payload
+from tagging_api import (
+    ON_BANDCAMP,
+    ORIGINAL,
+    ORIGINAL_REFETCH,
+    FakeApi,
+    FakeCdn,
+    basiel,
+    beatport_down,
+    failing,
+    found,
+    hold_on_beatport,
+    ok,
+    one_track,
+    run,
+)
 
 from tagger.scraper_client import Source
 from tagger.tagging import FailureReason, Resolution, TrackState
@@ -15,30 +29,19 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-QUERY = "Adam Beyer Your Mind"
-ORIGINAL = track_payload(mix_name="Original Mix")
-BANDCAMP_URL = "https://adambeyer.bandcamp.com/track/your-mind"
-ON_BANDCAMP = track_payload(id="42", source="bandcamp", mix_name=None, url=BANDCAMP_URL)
-
-
-def _music(tmp_path: Path) -> Path:
-    folder = tmp_path / "music"
-    tagged_mp3(folder, "your mind.mp3", "Adam Beyer", "Your Mind")
-    return folder
-
 
 async def test_validates_automatically_on_beatport_without_calling_bandcamp(
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", QUERY, found(ORIGINAL))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
     api.on(
-        "/beatport/tracks/17492013",
+        ORIGINAL_REFETCH,
         "*",
         ok(track_payload(mix_name="Original Mix", isrc="REFETCHED")),
     )
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     record = result.tracks[0]
     assert (record.state, record.resolution, record.source) == (
@@ -56,9 +59,9 @@ async def test_validates_automatically_on_bandcamp_after_an_empty_beatport_searc
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on("/bandcamp/search", QUERY, found(ON_BANDCAMP))
+    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     record = result.tracks[0]
     assert (record.state, record.resolution, record.source) == (
@@ -70,11 +73,9 @@ async def test_validates_automatically_on_bandcamp_after_an_empty_beatport_searc
 
 async def test_puts_a_grey_zone_track_on_hold_without_resolving_it(tmp_path: Path) -> None:
     api = FakeApi()
-    extended = track_payload(id="1", mix_name="Extended Mix")
-    radio = track_payload(id="2", mix_name="Radio Edit")
-    api.on("/beatport/search", QUERY, found(extended, radio))
+    hold_on_beatport(api)
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     record = result.tracks[0]
     assert record.state is None
@@ -93,10 +94,9 @@ async def test_sends_bandcamp_candidates_to_arbitration_when_beatport_is_unavail
 ) -> None:
     """Un 404 en recherche est une derive de l'API, traitee comme une panne de la source."""
     api = FakeApi()
-    api.on("/beatport/search", "*", failing(status, api_code))
-    api.on("/bandcamp/search", QUERY, found(ON_BANDCAMP))
+    beatport_down(api, status, api_code)
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     record = result.tracks[0]
     assert record.state is None
@@ -108,7 +108,7 @@ async def test_sends_bandcamp_candidates_to_arbitration_when_beatport_is_unavail
 async def test_marks_a_track_unknown_to_both_sources_as_no_result(tmp_path: Path) -> None:
     api = FakeApi()
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     record = result.tracks[0]
     assert (record.state, record.resolution, record.failure_reason) == (
@@ -122,10 +122,9 @@ async def test_marks_a_track_whose_candidates_are_below_the_floor_as_below_thres
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    stranger = track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel")
-    api.on("/beatport/search", QUERY, found(stranger))
+    api.on("/beatport/search", YOUR_MIND, found(basiel()))
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     assert result.tracks[0].failure_reason is FailureReason.BELOW_THRESHOLD
 
@@ -159,17 +158,17 @@ async def test_marks_a_track_as_source_unavailable_when_both_sources_fail(
     api.on("/beatport/search", "*", failing(*beatport))
     api.on("/bandcamp/search", "*", failing(*bandcamp))
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     assert result.tracks[0].failure_reason is FailureReason.SOURCE_UNAVAILABLE
 
 
 async def test_keeps_the_search_candidate_when_the_refetch_fails(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", QUERY, found(ORIGINAL))
-    api.on("/beatport/tracks/17492013", "*", failing(503, "source_unavailable"))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    api.on(ORIGINAL_REFETCH, "*", failing(503, "source_unavailable"))
 
-    result = await run(_music(tmp_path), api)
+    result = await run(one_track(tmp_path), api)
 
     record = result.tracks[0]
     assert record.state is TrackState.RESOLVED
@@ -179,13 +178,13 @@ async def test_keeps_the_search_candidate_when_the_refetch_fails(tmp_path: Path)
 
 async def test_resolves_a_track_without_artwork_when_the_cdn_refuses_it(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", QUERY, found(ORIGINAL))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
     cdn = FakeCdn()
     release = ORIGINAL["release"]
     assert isinstance(release, dict)
     cdn.refused.add(str(release["artwork_url"]))
 
-    result = await run(_music(tmp_path), api, cdn=cdn)
+    result = await run(one_track(tmp_path), api, cdn=cdn)
 
     record = result.tracks[0]
     assert record.state is TrackState.RESOLVED
@@ -197,11 +196,11 @@ async def test_falls_back_on_the_file_name_when_the_tags_are_unreadable(tmp_path
     folder.mkdir()
     (folder / "Adam Beyer - Your Mind.mp3").write_bytes(b"not an audio file" * 16)
     api = FakeApi()
-    api.on("/beatport/search", QUERY, found(ORIGINAL))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
 
     result = await run(folder, api)
 
     record = result.tracks[0]
     assert record.state is TrackState.RESOLVED
     assert record.query is not None
-    assert record.query.text == QUERY
+    assert record.query.text == YOUR_MIND

@@ -1,14 +1,19 @@
 """Tests de l'execution des commandes, sans passer par la boucle."""
 
+import asyncio
+from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
+from tagging_api import FakeApi, one_track, opened_run
 
 from tagger import __version__
 from tagger.api_key import SERVICE, USERNAME
+from tagger.arbitration import Arbitration
 from tagger.cache import resolve_host
 from tagger.handlers import (
+    CurrentRun,
     handle_extract_playlist,
     handle_get_version,
     handle_list_playlists,
@@ -82,9 +87,8 @@ def test_carries_the_five_categories(vlc_dump: Path, music_library: Path, tmp_pa
     assert isinstance(event.failures, tuple)
 
 
-def test_reports_whether_an_api_key_is_configured(memory_keyring: MemoryKeyring) -> None:
-    memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"
-
+@pytest.mark.usefixtures("_key")
+def test_reports_whether_an_api_key_is_configured() -> None:
     event = handle_get_version()
 
     assert event.api_key_configured is True
@@ -136,3 +140,41 @@ def test_leaves_the_tagging_transports_to_the_real_network() -> None:
     assert transports.api is None
     assert transports.cdn is None
     assert transports.resolve is resolve_host
+
+
+@pytest.mark.asyncio
+async def test_closes_the_client_even_when_closing_is_cancelled(tmp_path: Path) -> None:
+    """Sans `finally`, annuler la tache qui attend `close()` sautait `stack.aclose()`."""
+    closed = False
+
+    async def record_closed() -> None:
+        nonlocal closed
+        closed = True
+
+    async def gesture(cancelled_seen: asyncio.Event, released: asyncio.Event) -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled_seen.set()
+            await released.wait()
+            raise
+
+    stack = AsyncExitStack()
+    stack.push_async_callback(record_closed)
+    async with opened_run(one_track(tmp_path), FakeApi()) as opened:
+        live, sources = opened.live, opened.sources
+    arbitration = Arbitration(live, sources, lambda _event: None)
+    current = CurrentRun(stack, live, sources, arbitration)
+    cancelled_seen, released = asyncio.Event(), asyncio.Event()
+    current.track(asyncio.create_task(gesture(cancelled_seen, released), name="gesture"))
+
+    close_task = asyncio.create_task(current.close(), name="close")
+    async with asyncio.timeout(5):
+        await cancelled_seen.wait()
+    close_task.cancel()
+    released.set()
+    with pytest.raises(asyncio.CancelledError):
+        async with asyncio.timeout(5):
+            await close_task
+
+    assert closed

@@ -5,11 +5,8 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { load, type Store } from "@tauri-apps/plugin-store"
 
-import type {
-  ExtractionFinishedEvent,
-  PlaylistFormat,
-  SidecarErrorEvent,
-} from "../../core/models/protocol"
+import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
+import type { PlaylistFormat, SidecarErrorEvent } from "../../core/models/protocol"
 import { SidecarService } from "../../core/sidecar.service"
 
 import PlaylistPageComponent from "./playlist-page.component"
@@ -109,17 +106,6 @@ const LAST_RUN = {
   mode: "copy",
 } as const
 
-/** Un resultat presence-only : ces tests ne regardent que l'effet de sa presence, jamais son contenu. */
-const SOME_EXTRACTION: ExtractionFinishedEvent = {
-  event: "extraction_finished",
-  extracted: [],
-  already_present: [],
-  missing: [],
-  duplicates: [],
-  failures: [],
-  report_path: "C:/work/report.json",
-}
-
 describe("PlaylistPageComponent", () => {
   afterEach(() => {
     vi.resetAllMocks()
@@ -153,7 +139,7 @@ describe("PlaylistPageComponent", () => {
   })
 
   it("reopens the form on request once the extraction is over", () => {
-    const { component } = mountWith({ extraction: signal(SOME_EXTRACTION) })
+    const { component } = mountWith({ extraction: signal(EMPTY_EXTRACTION) })
 
     component["expandForm"]()
 
@@ -162,7 +148,7 @@ describe("PlaylistPageComponent", () => {
 
   it("collapses the form again when the next extraction starts", () => {
     const extracting = signal(false)
-    const { component } = mountWith({ extracting, extraction: signal(SOME_EXTRACTION) })
+    const { component } = mountWith({ extracting, extraction: signal(EMPTY_EXTRACTION) })
     component["expandForm"]()
 
     extracting.set(true)
@@ -375,7 +361,7 @@ describe("PlaylistPageComponent", () => {
   })
 
   it("navigates to the tagging tab when asked to go on with the extracted folder", () => {
-    const { component, router } = mountWith({ extraction: signal(SOME_EXTRACTION) })
+    const { component, router } = mountWith({ extraction: signal(EMPTY_EXTRACTION) })
 
     component["goTagging"]()
 

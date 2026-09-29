@@ -16,6 +16,7 @@ from keyring.backends.Windows import WinVaultKeyring
 from pydantic import ValidationError
 
 from tagger import RELEASE
+from tagger.arbitration import ArbitrationNotPendingError
 from tagger.build_info import SENTRY_DSN
 from tagger.errors import TaggerError
 from tagger.handlers import (
@@ -35,9 +36,11 @@ from tagger.protocol import (
     ExtractPlaylist,
     GetVersion,
     ListPlaylists,
+    ResolveArbitration,
     SetApiKey,
     Shutdown,
     StartTagging,
+    SwitchArbitrationSource,
     emit,
     error_from_business,
     error_from_validation,
@@ -48,6 +51,8 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from pathlib import Path
     from typing import TextIO
+
+    from tagger.handlers import CurrentRun
 
 logger = logging.getLogger(__name__)
 
@@ -117,12 +122,14 @@ class _Session:
         self._stdout = stdout
         self._run: asyncio.Task[None] | None = None
         self._extraction: asyncio.Task[None] | None = None
+        self._current: CurrentRun | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
-        """Lance le run en tache de fond : la boucle repart lire la commande suivante."""
+        """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant."""
         if self._active_run() is not None:
             raise TaggingInProgressError
-        start_work = functools.partial(handle_start_tagging, command, self.send)
+        replaced, self._current = self._current, None
+        start_work = functools.partial(self._replace, replaced, command)
         self._run = self._group.create_task(self._phase(start_work, command), name="tagging")
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
@@ -143,14 +150,60 @@ class _Session:
         la memoire, quand une copie coupee en vol laisserait un fichier a moitie ecrit
         dans la destination de l'utilisateur.
         """
+        await self._settle_run(cancel=True)
+
+    def resolve_arbitration(self, command: ResolveArbitration) -> None:
+        """Choix ou refus en tache de fond : un appel Bandcamp ne gele pas stdin."""
+        current = self._arbitrable(command.track_id)
+        start_gesture: Callable[[], Awaitable[None]]
+        if command.candidate is None:
+            start_gesture = functools.partial(
+                current.arbitration.refuse, command.track_id, command.source
+            )
+        else:
+            start_gesture = functools.partial(
+                current.arbitration.choose, command.track_id, command.source, command.candidate
+            )
+        current.track(
+            self._group.create_task(self._phase(start_gesture, command), name="arbitration")
+        )
+
+    def switch_arbitration_source(self, command: SwitchArbitrationSource) -> None:
+        """Sans I/O : s'execute dans la boucle."""
+        current = self._arbitrable(command.track_id)
+        current.arbitration.show(command.track_id, command.source)
+
+    async def close(self, *, cancel: bool) -> None:
+        """Fin de session : `shutdown` annule la phase reseau, l'EOF l'attend ; le run courant
+        est ferme ensuite, ses gestes en vol annules."""
+        await self._settle_run(cancel=cancel)
+        current, self._current = self._current, None
+        if current is not None:
+            await current.close()
+
+    def _arbitrable(self, track_id: str) -> CurrentRun:
+        if self._current is None:
+            raise ArbitrationNotPendingError(track_id)
+        return self._current
+
+    async def _replace(self, replaced: CurrentRun | None, command: StartTagging) -> Event:
+        if replaced is not None:
+            await replaced.close()
+        return await handle_start_tagging(command, self.send, self._adopt)
+
+    def _adopt(self, current: CurrentRun) -> None:
+        self._current = current
+
+    async def _settle_run(self, *, cancel: bool) -> None:
+        """Attend la fin de la phase reseau en cours, apres l'avoir annulee si `cancel`."""
         running = self._active_run()
-        if running is not None:
+        if running is None:
+            return
+        if cancel:
             running.cancel()
-            # Attendu avant la commande suivante : sa sortie du cache attend les
-            # telechargements en vol et une relance lue entre-temps le trouverait
-            # vivant, refusee en `tagging_in_progress` que l'interface lit comme un run
-            # qui continue. `wait` ne releve pas l'annulation, il la laisse a la tache.
-            await asyncio.wait({running})
+        # Attendu ici (`wait` ne releve pas l'annulation) : une relance trop tot serait
+        # refusee en `tagging_in_progress`.
+        await asyncio.wait({running})
 
     def send(self, event: Event) -> None:
         """Une ligne, un evenement. Le `line_buffering` pose par `_force_utf8_streams`
@@ -169,22 +222,20 @@ class _Session:
         return task
 
     async def _phase(
-        self, start_work: Callable[[], Awaitable[Event]], command: StartTagging | ExtractPlaylist
+        self,
+        start_work: Callable[[], Awaitable[Event | None]],
+        command: StartTagging | ExtractPlaylist | ResolveArbitration,
     ) -> None:
-        """Deroule une phase de fond : son evenement de fin, ou son erreur metier.
-
-        Une phase echouee ne remonte pas au `TaskGroup`, qui annulerait la session
-        entiere pour un dossier illisible.
-        """
-        # Une factory, parce qu'un run annule avant son premier pas n'entre jamais ici :
-        # une coroutine creee d'avance ne serait jamais attendue.
+        """Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait toute la session."""
+        # Factory : une coroutine creee d'avance ne serait jamais attendue si annulee avant.
         try:
             finished = await start_work()
         except TaggerError as error:
             logger.exception("background phase failed reason=%s", error.code)
             self.send(error_from_business(error, command.command))
             return
-        self.send(finished)
+        if finished is not None:
+            self.send(finished)
 
 
 def main() -> None:
@@ -225,7 +276,7 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
         while True:
             line = await asyncio.to_thread(stdin.readline)
             if not line:
-                # EOF : on sort du groupe, qui attend la fin d'un run en cours.
+                await session.close(cancel=False)
                 return
 
             stripped = line.strip()
@@ -239,7 +290,7 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
                 continue
 
             if isinstance(command, Shutdown):
-                await session.cancel_run()
+                await session.close(cancel=True)
                 return
             # Mypy retire `Shutdown` de l'union a partir d'ici, ce dont `_dispatch` depend.
 
@@ -275,6 +326,10 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
             session.start_extraction(command)
         case StartTagging():
             session.start_tagging(command)
+        case ResolveArbitration():
+            session.resolve_arbitration(command)
+        case SwitchArbitrationSource():
+            session.switch_arbitration_source(command)
         case _:
             assert_never(command)
 

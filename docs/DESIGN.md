@@ -1,7 +1,7 @@
 ---
 title: "DESIGN — techno-tagger"
 description: "Design system : typographie, couleurs, librairies UI, mapping composants et conventions de style de l'interface Angular + PrimeNG."
-date: "2026-09-25"
+date: "2026-09-29"
 keywords: ["design", "ui", "design-system", "typography", "colors", "animations", "layout", "dark-mode", "icons", "desktop", "components", "spacing", "primeng", "tailwind"]
 scope: ["docs", "frontend"]
 technologies: ["Angular", "PrimeNG", "Tailwind CSS", "PrimeIcons", "Simple Icons", "Inter", "Tauri"]
@@ -201,7 +201,7 @@ Côté Tailwind v4, le variant est aligné sur le même sélecteur dans le CSS g
 | Tailwind CSS v4 | Styling utilitaire | Layout, espacement, typographie, états custom |
 | `tailwindcss-primeui` | Pont entre les deux | Expose les tokens du preset en classes et fournit les utilitaires d'animation. L'alignement du variant `dark:` reste à écrire à la main, cf. § Dark / Light Mode |
 | `@primeicons/angular` 8 | Icônes d'interface | Toutes les icônes UI, câblées d'office dans les composants PrimeNG. Composants SVG standalone, sous licence PrimeUI comme PrimeNG (cf. [ADR-003](adrs/003-primeng-community-license.md)) |
-| Simple Icons (SVG en assets) | Logos | Beatport, Bandcamp, SoundCloud, VLC media player |
+| Simple Icons (SVG inline) | Logos | Beatport, Bandcamp, SoundCloud, VLC media player |
 
 ### Installation
 
@@ -247,6 +247,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | PrimeNG v22 ne fournit aucun mode router et `p-tabMenu` a été supprimé. L'onglet actif se dérive de l'URL, la navigation se déclenche au changement de valeur |
+| Confirmation de sortie | `p-dialog` modal, « Rester » primary et focus à l'ouverture, « Quitter quand même » outlined secondary | PrimeNG | À la fermeture de la fenêtre tant qu'une extraction, un run ou des arbitrages sont en cours. Pas de `p-confirmdialog` ni de `danger` : la sortie ne touche aucun fichier musical. Nomme chaque travail perdu et le fichier qu'une copie coupée peut laisser à moitié écrit |
 
 ### Playlist et fichiers
 
@@ -259,16 +260,16 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Lancement de l'extraction | `button pButton` `primary` en `size="small"` | PrimeNG | Sur la ligne du mode, calé sur le bord droit des chemins, à la largeur des libellés et des contrôles réunis. Désactivé, son tooltip nomme les choix manquants |
 | Résumé du run | Ligne de texte + `button pButton` secondary outlined en `size="small"` | PrimeNG | Remplace le formulaire dès le lancement (cf. § Layout). « Modifier » est figé pendant le run, puis rouvre le formulaire au-dessus du rapport |
 | Passage au tagging | `button pButton` `primary` outlined en `size="small"` + icône `arrow-right` | PrimeNG | Sous le rapport, une fois l'extraction terminée. `primary` : c'est l'étape suivante du parcours, outlined pour laisser le plein aux deux lancements. Mémorise la destination, qui préremplit l'onglet suivant |
-| Rapport d'extraction | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du badge. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
+| Rapport d'extraction | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du tag. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
 
 ### Liste du run
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Lancement du run | `button pButton` `primary`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
+| Lancement du run | `button pButton` `primary`, icône `play`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
 | Interruption du run | `button pButton` `severity="secondary"` outlined, icône `stop`, taille par défaut | PrimeNG | Visible seulement pendant un run, à gauche du lancement qui reste grisé : masquer une action désactivée est interdit. Ni `danger` ni confirmation : la phase réseau n'écrit aucun fichier et rien n'est irréversible avant l'écriture |
-| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes |
-| Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image ; le squelette tant que le morceau attend son tour ; un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
+| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage |
+| Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image ; le squelette tant que le morceau attend son tour ou son arbitrage ; un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
 | État d'un morceau | `p-tag` + `pTooltip` | PrimeNG | Familles du § Couleurs Sémantiques. Un non résolu porte l'icône info et son motif au survol |
 | Source retenue | SVG Simple Icons + libellé | Simple Icons | Beatport / Bandcamp / SoundCloud |
 | Détail avant / après | `[expandedRowKeys]` + `<ng-template #expandedrow>` | PrimeNG | Comparaison champ par champ, pochette en grand, sur le morceau déplié |
@@ -280,10 +281,14 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Modale d'arbitrage | `p-dialog` modal, largeur et hauteur figées | PrimeNG | S'ouvre dès qu'un morceau entre en zone grise et qu'aucune autre n'est ouverte. Dimensions fixes, cf. § Layout |
-| Candidats en zone grise | `p-listbox` à hauteur fixe, scroll interne | PrimeNG | Sélection simple, scores en `text-xs` par ligne. La liste Bandcamp remplace celle de Beatport dans la même fenêtre après un refus, sans que rien ne se déplace |
-| Navigation entre arbitrages | `button pButton` à icône seule (`chevron-left` / `chevron-right`) + `p-badge` | PrimeNG | Compteur du type 1/3, la file se réduisant au fil des décisions |
+| Modale d'arbitrage | `p-dialog` modal, largeur et hauteur figées | PrimeNG | S'ouvre dès qu'un morceau entre en zone grise, depuis n'importe quel onglet. La croix ne décide rien : l'arbitrage reste en file et l'ouverture automatique est suspendue jusqu'au badge de file ou à un clic sur une ligne à arbitrer. En-tête comme la colonne Avant et dimensions fixes, cf. § Layout |
+| Candidats en zone grise | `p-listbox` à hauteur fixe, scroll interne | PrimeNG | Sélection simple, au clic ou aux flèches, jamais au survol : le pointeur qui rejoint « Valider » changerait le choix. Scores en `text-xs` par ligne. La liste Bandcamp remplace celle de Beatport dans la même fenêtre après un refus, sans que rien ne se déplace |
+| Navigation entre arbitrages | `button pButton` à icône seule (`chevron-left` / `chevron-right`) + `p-badge` | PrimeNG | Compteur du type 1/3, la file se réduisant au fil des décisions. Flèches et compteur à la hauteur des boutons à libellé du pied |
 | Refus explicite | `button pButton` `severity="secondary"` outlined | PrimeNG | Action distincte de la fermeture de la modale, qui ne décide rien |
+| Badge de file | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | « N à arbitrer », aligné à droite de la barre d'onglets tant que la file n'est pas vide. Rouvre la modale après la croix |
+| Beatport injoignable | `p-message` `warn` | PrimeNG | Au-dessus de la liste Bandcamp quand Beatport n'a pas répondu : aucun candidat n'a été validé seul |
+| Liste Bandcamp vide | message de liste + bouton « Passer » | PrimeNG | Le message dit le motif de Bandcamp, centré dans la hauteur de la liste comme les autres états vides ; « Passer » remplace « Aucune correspondance » et c'est la seule action |
+| Refus d'un geste | `app-error-message` sous la liste | Custom | Seulement pour le morceau affiché |
 | Rattrapage par URL | `p-inputgroup` + `input pInputText` + `button pButton` | PrimeNG | Une ligne par morceau non résolu, validation de l'hôte avant envoi |
 
 ### Écriture et récapitulatif
@@ -348,13 +353,13 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 
 | État | Style / Comportement | Contexte |
 |------|---------------------|----------|
-| Survol d'une zone cliquable custom | `bg-emphasis`, transition `background-color 150ms ease-out` | Jamais de déplacement ni de scale : les lignes de la liste ne bougent pas sous le curseur |
+| Survol d'une zone cliquable custom | `bg-emphasis`, transition `background-color 150ms ease-out` | Jamais de déplacement ni de scale : les lignes de la liste ne bougent pas sous le curseur. Sauf le badge de file : son tag porte déjà un fond, la main suffit |
 | Sélection | `bg-highlight` | Cohérent avec la sélection des composants PrimeNG |
 | Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier, `outline: none` est interdit |
 | Désactivé | `--p-disabled-opacity` (0.6), curseur flèche | Un bouton désactivé garde son libellé, il n'est jamais masqué. La flèche comme sur les boutons PrimeNG et dans une application Windows, `not-allowed` étant une convention web : le grisé et le tooltip disent déjà pourquoi |
-| Chargement | `p-skeleton` aux dimensions de l'élément final | Évite le saut de layout à l'arrivée des événements. Une table encore vide se couvre de lignes entières, une table déjà peuplée n'en garde que sur la vignette (§ Mapping Composants) |
+| Chargement | `p-skeleton` aux dimensions de l'élément final ; icône `spinner` dans le bouton d'un geste en attente de réponse | Évite le saut de layout à l'arrivée des événements. Une table encore vide se couvre de lignes entières, une table déjà peuplée n'en garde que sur la vignette (§ Mapping Composants). Le spinner remplace `[loading]` de `pButton`, déprécié en v22 |
 | Sans valeur | Cadratin en `text-muted-color`, cf. § Séparateurs | Cellule d'une ligne qui existe, mais dont la source ne fournit pas la donnée : Après, Source et Score d'un morceau non résolu. Un trait d'union se lirait comme un caractère du contenu, une cellule vide comme un rendu manqué |
-| Curseur | Flèche partout, contrôles désactivés compris, `text` sur les seuls champs de saisie | Le curseur texte sur une table ou un libellé fait lire une page web |
+| Curseur | La main sur ce qui est cliquable et actif, la flèche ailleurs et sur un contrôle désactivé, `text` sur les seuls champs de saisie | La main comme sur les composants PrimeNG, qui la posent d'eux-mêmes : un élément custom cliquable sous la flèche passerait pour inerte. Le curseur texte sur une table ou un libellé fait lire une page web |
 | Vide | Icône 24px en `text-muted-color`, titre en `text-base`, une phrase en `text-sm text-muted-color` et l'action qui débloque quand elle existe | Les cas à couvrir : aucune extraction lancée, dossier sans fichier audio, playlist dont aucun morceau n'est retrouvé dans la source, aucun run lancé, cache déjà vide. Titre et phrase sont deux libellés distincts, la phrase disant le geste qui débloque. Dans une table, le template `#emptymessage` de `p-table` porte ce bloc, centré sur toute la hauteur par `fullHeightTable`. Sa cellule pose `border-b-0` : le pass-through n'atteint pas les lignes et la bordure basse traînerait au pied de la table |
 
 ### Tailles de Badge
@@ -371,7 +376,7 @@ La taille s'apparie à celle des éléments de la même rangée, pas à une pré
 
 **Librairie UI** : `@primeicons/angular` 8, tiré par PrimeNG v22. Des composants standalone rendant du **SVG inline** et non plus la police et ses classes `pi pi-*` des versions antérieures. Aucun asset de police à copier, donc rien à embarquer pour l'affichage hors ligne
 
-**Librairie logos** : SVG [Simple Icons](https://simpleicons.org) copiés dans `src/assets/icons/`, en `fill="currentColor"`
+**Librairie logos** : SVG [Simple Icons](https://simpleicons.org) gardés dans `src/assets/icons/`, leurs tracés rendus inline par `SourceLogoComponent` en `currentColor` : le build n'émet que `public/`
 
 | Logo | Où |
 |------|-----|
@@ -380,8 +385,8 @@ La taille s'apparie à celle des éléments de la même rangée, pas à une pré
 
 **Règles** :
 
-- Taille cohérente par contexte : `16px` inline (tables, tags), `20px` UI standard (boutons, entêtes), `24px` standalone (écran bloquant, états vides), posées en `width` / `height` sur le SVG et non en `font-size`
-- PrimeIcons couvre toute l'interface. Ses icônes de marques ne contiennent **aucun des logos** dont le projet a besoin, d'où les SVG en assets
+- Taille cohérente par contexte : `16px` inline (tables, tags) et dans les boutons, `20px` entêtes et messages d'erreur, `24px` états vides, posées en `width` / `height` sur le SVG et non en `font-size`
+- PrimeIcons couvre toute l'interface. Ses icônes de marques ne contiennent **aucun des logos** dont le projet a besoin, d'où les SVG Simple Icons
 - Quatre fichiers copiés plutôt que le paquet `simple-icons` complet : on en extrairait quatre chemins sur plus de trois mille
 - `currentColor` obligatoire sur les SVG : la couleur vient du contexte, elle n'est jamais écrite dans le fichier
 - Aucune action destructive n'est signalée par une icône seule : rollback et confirmation d'écriture portent toujours un libellé traduit
@@ -426,7 +431,7 @@ C'est le seul `!important` toléré du projet (cf. § Anti-Patterns) : il ne cor
 | Modale d'arbitrage | **Aucune** | — | La décision est sur le chemin critique du run, une transition d'entrée ne fait que la retarder |
 | Bandeau d'erreur, invite de reprise | `animate-fadein animate-duration-200` | Plugin + `animate.enter` | Montage |
 | Zone cliquable custom | Transition de fond 150ms | CSS | Hover |
-| Ligne de table changeant d'état | Transition de couleur du tag 150ms | CSS | Événement `track_resolved` |
+| Ligne de table changeant d'état | Transition de couleur du tag 150ms | CSS | Événements `arbitration_required` et `track_resolved` |
 | Vignette de pochette | Fondu à l'arrivée de l'image | `animate-fadein animate-duration-200` | Chargement terminé |
 | Contenu d'un onglet | Fondu, opacité seule, jamais de déplacement | `animate-fadein animate-duration-200` | Changement d'onglet |
 | Formulaire et résumé de l'onglet Playlist | Fondu de celui qui entre | `animate-fadein animate-duration-200` + `animate.enter` | Repli au lancement, « Modifier » |
@@ -460,7 +465,7 @@ Un formulaire et une table qui ne partagent pas la même largeur ne s'alignent s
 
 | Colonne | Largeur | Contenu |
 |---------|---------|---------|
-| Pochette | 48px fixe | Vignette de 32px, ses trois états au § Mapping Composants. Mesurée sur la vignette plus sa gouttière |
+| Pochette | 60px fixe | Vignette de 32px, ses trois états au § Mapping Composants. Mesurée sur la vignette plus les marges de la cellule : plus étroite, la pochette se réduit et le cadre vide déborde |
 | Avant | **fluide** | Artiste et titre lus dans le fichier, avec le **nom du fichier en sous-texte** `text-xs text-muted-color`. Deux lignes en toutes circonstances : quand les tags sont vides, c'est le nom de fichier privé de son extension qui passe en ligne principale, le sous-texte gardant le nom complet. La colonne s'aligne ainsi d'une ligne à l'autre, au prix d'une redite sur les seuls fichiers sans tags |
 | Après | **fluide** | Ce que la source retenue va écrire |
 | Source | fixe | Logo 16px + libellé, Beatport / Bandcamp / SoundCloud. Mesurée sur « SoundCloud » |
@@ -563,6 +568,9 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Container** : un seul container pleine largeur pour tous les écrans, là où le design system posait deux régimes de largeur, données en pleine largeur et formulaires centrés. Réaligné le 2026-09-24
 - **Densité des tables** : `p-table` à sa taille par défaut, là où le design system les donnait en `small`. Réaligné le 2026-09-24
 - **Séparateur artiste / titre** : un tiret simple, là où la maquette employait un cadratin, que le produit réserve à la cellule sans valeur (§ Séparateurs). Réaligné le 2026-09-24
+- **Candidat d'arbitrage** : « Artiste - Titre » du candidat et score sur une ligne « 94 (A 96 · T 92) », là où la maquette ne montrait que le titre et « A · T ». C'est souvent l'artiste qui fait tomber un candidat en zone grise. Décidé le 2026-09-26, réaligné le 2026-09-29
+- **Croix de la modale d'arbitrage** : l'arbitrage reste en file, la modale revient par le badge de file ou par la ligne du morceau, là où la maquette le retirait de la file. Décidé le 2026-09-26, retour par la ligne et réaligné le 2026-09-29
+- **Vocabulaire « zone grise »** : jamais affiché à l'écran, resté interne au scoring ; l'interface dit « correspondances incertaines », là où le `SettingsScreen` de la maquette l'employait dans l'indice du Seuil haut (« Entre les deux, zone grise. »). Décidé le 2026-09-27, réaligné au plus tard le 2026-09-29
 
 ## Documentation Officielle
 

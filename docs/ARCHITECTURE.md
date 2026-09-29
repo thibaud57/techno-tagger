@@ -97,6 +97,7 @@ techno-tagger/
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
+│   ├── fixtures/                         # événements du contrat partagés par les specs, hors build
 │   ├── index.html
 │   ├── main.ts                           # bootstrapApplication, init Sentry
 │   ├── build-constants.d.ts              # constantes substituées par --define
@@ -117,7 +118,7 @@ techno-tagger/
 │   │   ├── observability.py              # init Sentry durci, scrubbing PII
 │   │   ├── protocol.py                   # modèles des commandes et des événements
 │   │   ├── errors.py                     # erreurs métier : code stable et params structurés
-│   │   ├── handlers.py                   # un handler par commande, appelé par la boucle
+│   │   ├── handlers.py                   # handlers des commandes, run courant, événements traduits
 │   │   ├── playlists/                    # parsing VLC SQLite et M3U8
 │   │   ├── extraction.py                 # copie ou déplacement des morceaux d'une playlist
 │   │   ├── reports.py                    # rapports d'extraction, JSON et Markdown
@@ -126,7 +127,9 @@ techno-tagger/
 │   │   ├── matching.py                   # scoring rapidfuzz
 │   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
 │   │   ├── cache.py                      # réponses API et artworks
-│   │   ├── tagging.py                    # pipeline de résolution d'un run, état en mémoire
+│   │   ├── tagging.py                    # pipeline de résolution, run vivant en mémoire
+│   │   ├── sources.py                    # accès aux sources d'un run, garde des 403
+│   │   ├── arbitration.py                # gestes d'arbitrage sur un run vivant
 │   │   └── plan.py                       # plan de run, reprise, rapport
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
 │   │   ├── unit/                         # un module isole, miroir de src/tagger/
@@ -266,7 +269,8 @@ flowchart TD
     bcd --> m2["MODALE temps 2<br/>la liste Bandcamp remplace celle de Beatport"]
     m2 -->|"choix"| okb
     m2 -->|"aucune"| kou["unresolved<br/>failure_reason = user_refused"]
-    m2 -->|"vide"| kon["unresolved<br/>failure_reason = no_result<br/>ou below_threshold"]
+    m2 -->|"vide, au geste « passer »"| kon["unresolved<br/>failure_reason = no_result<br/>ou below_threshold"]
+    m2 -->|"en panne, au geste « passer »"| kos
 
     bc --> bcauto{"score ?"}
     bcauto -->|"auto"| oka
@@ -307,6 +311,8 @@ flowchart TD
 Trois états après interrogation d'une source : **auto** (un candidat au-dessus du seuil haut), **zone grise** (candidats plausibles, décision humaine), **vide** (zéro résultat ou tout sous le plancher). Zéro résultat, candidats sous le plancher et refus utilisateur convergent tous vers **un seul `state`**, `unresolved`, le paquet que la phase URL rattrape. Leur `failure_reason` continue de les distinguer dans le rapport, la correction à apporter n'étant pas la même selon le motif.
 
 **Beatport injoignable** : une fois les nouvelles tentatives du client épuisées, ou sur une réponse hors contrat, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en validation automatique. Si Bandcamp échoue aussi, le morceau part en `unresolved` / `source_unavailable` (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)).
+
+**Liste Bandcamp vide après un refus** : le morceau reste à arbitrer, la modale affichant la liste vide, jusqu'au geste « passer ». Il part alors en `unresolved` avec le motif de Bandcamp (`no_result`, `below_threshold` ou `source_unavailable`), jamais `user_refused` : la correction à apporter est celle de Bandcamp. Après un refus, Bandcamp ne valide jamais seul, l'utilisateur étant en train de décider.
 
 
 ## Patterns Utilisés
@@ -415,13 +421,13 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6) |
+| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
 | `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. L'extraction reste attendue jusqu'à son terme, comme sous `shutdown` |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source) |
-| `resolve_arbitration` | identifiant du morceau, candidat choisi ou refus explicite |
-| `switch_arbitration_source` | identifiant du morceau, source demandée. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)) et produit un `arbitration_updated` |
+| `resolve_arbitration` | identifiant du morceau, `source` (`beatport` ou `bandcamp`, la liste visée) et `candidate` : index dans cette liste, ou `null` pour un refus explicite, jamais implicite |
+| `switch_arbitration_source` | identifiant du morceau, `source` à réafficher. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), sans appel réseau et produit un `arbitration_updated` |
 | `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud |
 | `commit_run` | identifiant du run, confirmation globale de l'écriture |
 | `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages |
@@ -441,8 +447,8 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `run_started` | identifiant du run et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus. Sans lui, la liste resterait vide jusqu'à la première résolution |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
-| `arbitration_required` | morceau, candidats en zone grise avec leur score, source interrogée et `beatport_unavailable` quand Bandcamp n'a été interrogé que parce que Beatport était en panne (§ Chaîne de résolution) |
-| `arbitration_updated` | remplacement de la liste Beatport par la liste Bandcamp dans la modale ouverte et retour en arrière |
+| `arbitration_required` | état complet de l'arbitrage d'un morceau entré dans la file : source affichée, candidats en zone grise avec leur score, leur label et leur année (nuls sur Bandcamp, dont la recherche ne rend ni l'un ni l'autre), `beatport_unavailable` quand Bandcamp n'a été interrogé que parce que Beatport était en panne (§ Chaîne de résolution), `empty_reason` d'une liste Bandcamp vide et `other_source`, la liste que `switch_arbitration_source` peut réafficher. L'index d'un candidat est sa position dans la liste |
+| `arbitration_updated` | mêmes champs qu'`arbitration_required`, pour un morceau déjà dans la file : l'interface remplace son entrée en bloc. Émis à la bascule sur Bandcamp et au retour à Beatport |
 | `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs résolus, non résolus et en attente d'arbitrage ; chemin des rapports une fois la Feature 6 livrée |
 | `runs_listed` | runs passés : identifiant, date, dossier, compteurs du récapitulatif |
 | `run_loaded` | récapitulatif d'un run passé, relu depuis son rapport JSON |
@@ -483,6 +489,7 @@ stateDiagram-v2
     a_arbitrer --> a_arbitrer : refus Beatport, la liste Bandcamp remplace la précédente
     a_arbitrer --> resolved : choix dans la modale, resolution = arbitration
     a_arbitrer --> unresolved : refus Bandcamp, failure_reason = user_refused
+    a_arbitrer --> unresolved : « passer » sur une liste Bandcamp vide, motif de Bandcamp
     unresolved --> resolved : URL collée en fin de run, resolution = url
 
     resolved --> written : commit_run
@@ -541,7 +548,9 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 
 **L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
 
-La file d'arbitrage est une simple structure en mémoire, exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process.
+La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en mémoire exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process. Les gestes d'arbitrage avancent en parallèle d'un morceau à l'autre et partagent les sémaphores du client avec le pipeline. Un seul geste est en vol par morceau : le second est refusé en `arbitration_busy`, jamais mis en file, sans quoi les clics rapides de la modale lanceraient deux appels Bandcamp. Un geste sur une liste qui n'est plus affichée est refusé en `arbitration_candidate_unknown` : un double clic arrivé après la bascule refuserait sinon Bandcamp.
+
+**Le run courant survit à sa phase réseau.** `start_tagging` ouvre un run dont le client et le fetcher de pochettes restent ouverts après `run_finished` comme après `cancel_run`, le temps des arbitrages. Ils ne se ferment qu'au run suivant, au `shutdown` ou à l'EOF, qui annulent aussi les gestes en vol. Un choix ou un refus attend le réseau, un refetch ou un appel Bandcamp : il part en tâche de fond comme les deux phases longues, pour la même raison. `switch_arbitration_source` n'attend rien et s'exécute dans la boucle.
 
 ### Sécurité Backend
 
@@ -743,7 +752,7 @@ Surface d'attaque volontairement minimale : aucun port en écoute, aucune donné
 
 Aucune authentification côté application : ni compte, ni rôle, ni port en écoute. La seule qui existe est celle de l'application **vers** techno-scraper.
 
-Une clé par utilisateur, saisie dans les Settings, jamais compilée dans le binaire : une clé compilée serait extractible et sa révocation obligerait à rediffuser l'application à tout le monde (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)). Côté API, la garde compare aujourd'hui contre une clé unique et passe à un jeu de clés nommées, avec repli temporaire sur `api_key` pour ne pas rompre la compatibilité d'une API en production (cf. [ADR-016](adrs/016-multi-cles-techno-scraper.md)).
+Une clé par utilisateur, saisie dans les Settings, jamais compilée dans le binaire : une clé compilée serait extractible et sa révocation obligerait à rediffuser l'application à tout le monde (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)). Côté API, la garde comparait au 2026-08-29 contre une clé unique ; l'[ADR-016](adrs/016-multi-cles-techno-scraper.md) acte le passage à un jeu de clés nommées, avec repli temporaire sur `api_key` pour ne pas rompre la compatibilité d'une API en production.
 
 ### Protection Données
 
@@ -863,6 +872,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 
 - **CI** : GitHub Actions, une version fixe de Python et de Node par job (pas de matrice), aucun service container nécessaire (pas de base de données)
 - **Local** : fixtures de fichiers audio des quatre formats, base `vlc_media.db` de test, playlists M3U8 d'exemple
+- **Fixtures de l'UI** : événements du contrat partagés par plusieurs specs, dans `src/fixtures/`, pendant de `sidecar/tests/helpers/`
 - **Services externes** : techno-scraper et Sentry **toujours mockés**. Aucun test ne consomme le quota de l'API ni ne pollue le projet Sentry.
 
 ### Coverage
@@ -919,7 +929,7 @@ Décisions tranchées ne justifiant pas un ADR à part entière.
 - **Formats de playlist : VLC SQLite + M3U8**, pas le TXT Rekordbox. Le M3U8 couvre Rekordbox, Traktor, foobar et VLC desktop avec un seul parser ; le TXT dépend de la langue d'export, donc fragile. Le dump SQLite est incontournable côté VLC Android, qui **n'a aucune fonction d'export de playlist** : les scripts tiers type `vlc-to-m3u` ne font rien d'autre que lire cette base.
 - **Copie par défaut, déplacement en option.** La bibliothèque source reste intacte pendant que le re-tagging réécrit les fichiers de destination. Une ligne de différence à l'implémentation.
 - **Dépôt neuf plutôt qu'évolution de `BeatportScrapper-TrackTagger`.** La CLI sert de référence à lire, rien n'est porté tel quel, son arborescence à plat ne correspond pas à la structure Tauri.
-- **Types TypeScript maintenus à la main** en miroir de `protocol.py`, sans génération de code. Le contrat est petit et stable une fois figé à l'étape 3 ; une chaîne de génération coûterait plus cher que la vingtaine de types concernés.
+- **Types TypeScript maintenus à la main** en miroir de `protocol.py`, sans génération de code (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md)).
 
 ## Questions ouvertes
 

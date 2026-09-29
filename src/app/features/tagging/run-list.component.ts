@@ -1,4 +1,4 @@
-import { Component, computed, input } from "@angular/core"
+import { Component, computed, input, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { Skeleton } from "primeng/skeleton"
@@ -12,6 +12,7 @@ import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.com
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
 import { FADE_IN } from "../../shared/utils/motion"
 import { fullHeightTable } from "../../shared/utils/table"
 import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
@@ -19,21 +20,8 @@ import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 /** PrimeNG ne mesure pas ses lignes : a remesurer si `h-14` change sur le `<tr>`. */
 const ROW_HEIGHT = 56
 
-const ARTIST_TITLE_SEPARATOR = " - "
-
 /** Noms de marque : identiques dans les deux langues, aucune cle i18n a tenir. */
 const SOURCE_NAMES = { beatport: "Beatport", bandcamp: "Bandcamp", soundcloud: "SoundCloud" }
-
-const stripExtension = (fileName: string): string => fileName.replace(/\.[a-z0-9]+$/i, "")
-
-const joinIdentity = (artist: string, title: string): string =>
-  [artist, title].filter((part) => part !== "").join(ARTIST_TITLE_SEPARATOR)
-
-const mainLineOf = (track: TaggingTrack): string => {
-  const identity = joinIdentity(track.artist, track.title)
-
-  return identity === "" ? stripExtension(track.fileName) : identity
-}
 
 interface RunRow extends TaggingTrack {
   readonly mainLine: string
@@ -41,6 +29,7 @@ interface RunRow extends TaggingTrack {
   readonly sourceName: string | null
   readonly artworkUrl: string | null
   readonly reasonKey: string | null
+  readonly arbitrable: boolean
 }
 
 @Component({
@@ -69,6 +58,7 @@ export class RunListComponent {
   /** Le sidecar parcourt encore le dossier : aucune ligne n'est connue. */
   readonly loading = input(false)
   readonly interrupted = input(false)
+  readonly arbitrate = output<string>()
 
   protected readonly empty = computed(() => this.tracks().length === 0)
   protected readonly tablePt = computed(() => fullHeightTable(this.empty()))
@@ -76,11 +66,12 @@ export class RunListComponent {
   protected readonly rows = computed<RunRow[]>(() =>
     this.tracks().map((track) => ({
       ...track,
-      mainLine: mainLineOf(track),
+      mainLine: trackMainLine(track.artist, track.title, track.fileName),
       afterLine: track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
       sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
       artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
       reasonKey: track.failureReason === null ? null : `tagging.reason.${track.failureReason}`,
+      arbitrable: track.arbitration !== null,
     })),
   )
 }
