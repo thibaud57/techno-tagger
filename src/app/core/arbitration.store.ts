@@ -15,6 +15,7 @@ export class ArbitrationStore {
   // Map garde l'ordre d'insertion ; `set` sur une cle existante la remplace en place.
   private readonly _entries = signal<ReadonlyMap<string, ArbitrationState>>(new Map())
   private readonly _busy = signal<ReadonlySet<string>>(new Set())
+  private readonly _openings = signal(0)
   private readonly trackIds = computed<readonly string[]>(() => [...this._entries().keys()])
   private readonly _currentId = linkedSignal<readonly string[], string | null>({
     source: this.trackIds,
@@ -54,7 +55,8 @@ export class ArbitrationStore {
   })
   readonly hasPrevious = computed(() => this.position() > 1)
   readonly hasNext = computed(() => this.position() < this.count())
-  /** Vrai de l'envoi d'un geste sur l'arbitrage affiche jusqu'a sa reponse. */
+  /** Un compteur : rouvrir deux fois le meme morceau doit se voir. */
+  readonly openings = this._openings.asReadonly()
   readonly currentBusy = computed(() => {
     const trackId = this._currentId()
 
@@ -99,6 +101,14 @@ export class ArbitrationStore {
 
   next(): void {
     this.step(1)
+  }
+
+  /** Un morceau hors de la file ne deplace rien : sa ligne a pu etre resolue entre-temps. */
+  open(trackId: string): void {
+    if (this._entries().has(trackId)) {
+      this._currentId.set(trackId)
+      this._openings.update((count) => count + 1)
+    }
   }
 
   clear(): void {

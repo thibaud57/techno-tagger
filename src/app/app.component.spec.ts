@@ -36,6 +36,7 @@ const mount = () => {
     available: signal<boolean | null>(true),
     versionMismatch: signal(null),
     arbitrationCount: signal(0),
+    arbitrationOpenings: signal(0),
   }
   const closeGuard = {
     install: vi.fn(() => Promise.resolve()),
@@ -104,6 +105,17 @@ describe("AppComponent", () => {
     fixture.detectChanges()
 
     service.arbitrationCount.set(1)
+
+    expect(component["arbitrationVisible"]()).toBe(true)
+  })
+
+  it("opens it again when a run row asks for its arbitration after the cross", () => {
+    const { fixture, component, service } = mount()
+    service.arbitrationCount.set(2)
+    component["dismissArbitration"]()
+    fixture.detectChanges()
+
+    service.arbitrationOpenings.update((count) => count + 1)
 
     expect(component["arbitrationVisible"]()).toBe(true)
   })

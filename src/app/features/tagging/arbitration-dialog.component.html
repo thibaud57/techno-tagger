@@ -1,3 +1,4 @@
+<!-- Figee : la bascule sur Bandcamp ne deplace aucun bouton. -->
 <p-dialog
   [visible]="visible() && current() !== null"
   (visibleChange)="onVisibleChange($event)"
@@ -9,7 +10,7 @@
   [focusOnShow]="false"
   [motionOptions]="noMotion"
   [maskMotionOptions]="noMotion"
-  [style]="dialogSize"
+  styleClass="h-140 w-180"
   [closeAriaLabel]="'arbitration.close' | translate"
 >
   <ng-template #header>
@@ -19,7 +20,7 @@
           <app-truncated-text [text]="title()" />
         </h3>
         <!-- Ligne gardee meme vide : d'un morceau a l'autre, la liste ne se decale pas sous le curseur. -->
-        <app-truncated-text class="min-h-4 text-xs text-muted-color" [text]="fileName() ?? null" />
+        <app-truncated-text class="min-h-4 text-xs text-muted-color" [text]="fileName()" />
       </div>
       @if (current(); as shown) {
         <app-source-logo [source]="shown.source" [size]="20" />
@@ -62,11 +63,13 @@
       </div>
 
       <div #list>
+        <!-- `selectOnFocus` sert aux fleches ; sans `focusOnHover` coupe, le survol selectionnerait aussi. -->
         <p-listbox
           [formField]="fields.candidate"
           [options]="options()"
           optionValue="index"
           [selectOnFocus]="true"
+          [focusOnHover]="false"
           [metaKeySelection]="true"
           [autoOptionFocus]="false"
           [readonly]="busy()"
@@ -109,7 +112,7 @@
   }
 
   <ng-template #footer>
-    <div class="flex w-full items-center gap-2" tabindex="-1" (keydown)="onKeydown($event)">
+    <div class="flex w-full items-stretch gap-2" tabindex="-1" (keydown)="onKeydown($event)">
       <button
         pButton
         type="button"
@@ -123,7 +126,11 @@
       >
         <app-icon name="chevron-left" [size]="16" />
       </button>
-      <p-badge class="tabular-nums" severity="secondary" [value]="position() + '/' + count()" />
+      <p-badge
+        class="h-auto tabular-nums"
+        severity="secondary"
+        [value]="position() + '/' + count()"
+      />
       <button
         pButton
         type="button"

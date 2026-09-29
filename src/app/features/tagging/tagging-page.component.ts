@@ -101,6 +101,10 @@ export default class TaggingPageComponent {
     await this.sidecar.startTagging(this.folder())
   }
 
+  protected openArbitration(trackId: string): void {
+    this.sidecar.openArbitration(trackId)
+  }
+
   private async prefill(): Promise<void> {
     const destination = await readLastDestination()
     if (destination !== null && this.folder() === "") {

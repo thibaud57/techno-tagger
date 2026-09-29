@@ -10,8 +10,8 @@
 >
   <ng-template #header>
     <tr>
-      <!-- Mesuree sur la vignette de 32px plus sa gouttiere. -->
-      <th class="w-12"></th>
+      <!-- Vignette de 32px plus les marges de la cellule. -->
+      <th class="w-15"></th>
       <th>{{ "tagging.list.before" | translate }}</th>
       <th>{{ "tagging.list.after" | translate }}</th>
       <!-- Mesuree sur « SoundCloud », le plus long des trois libelles de source. -->
@@ -25,7 +25,11 @@
   </ng-template>
 
   <ng-template #body let-track>
-    <tr class="h-14">
+    <tr
+      class="h-14 transition-colors duration-150 ease-out data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis"
+      [attr.data-arbitrable]="track.arbitrable ? '' : null"
+      (click)="track.arbitrable && arbitrate.emit(track.trackId)"
+    >
       <td>
         @if (track.artworkUrl; as url) {
           <img

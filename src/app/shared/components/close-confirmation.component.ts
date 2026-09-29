@@ -5,20 +5,12 @@ import { Dialog } from "primeng/dialog"
 
 import { CloseGuard } from "../../core/close-guard.service"
 
-/**
- * Bornee : les phrases passent a la ligne au lieu d'etirer la modale. 32rem tient le titre
- * et les deux boutons cote a cote en francais, la plus longue des deux langues.
- */
-const DIALOG_SIZE = { width: "32rem" } as const
-
-/**
- * Confirmation de sortie : un `p-dialog` et non un `p-confirmdialog`, reserve aux trois
- * actions qui touchent aux fichiers musicaux (fiche ConfirmDialog). Aucun `danger`.
- */
+/** `p-dialog` et non `p-confirmdialog`, reserve aux actions qui touchent aux fichiers musicaux. */
 @Component({
   selector: "app-close-confirmation",
   imports: [Dialog, ButtonDirective, TranslatePipe],
   template: `
+    <!-- Mesuree sur le titre et les deux boutons en francais. -->
     <p-dialog
       [visible]="request() !== null"
       (visibleChange)="onVisibleChange($event)"
@@ -27,7 +19,7 @@ const DIALOG_SIZE = { width: "32rem" } as const
       [resizable]="false"
       [closeOnEscape]="true"
       [focusOnShow]="false"
-      [style]="dialogSize"
+      styleClass="w-128"
       [closeAriaLabel]="'app.close.stay' | translate"
     >
       <ng-template #header>
@@ -62,7 +54,6 @@ const DIALOG_SIZE = { width: "32rem" } as const
 export class CloseConfirmationComponent {
   private readonly guard = inject(CloseGuard)
 
-  protected readonly dialogSize = DIALOG_SIZE
   protected readonly request = this.guard.request
 
   private readonly stayButton = viewChild("stay", { read: ElementRef })

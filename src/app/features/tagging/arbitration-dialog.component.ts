@@ -25,13 +25,10 @@ import { ErrorMessageComponent } from "../../shared/components/error-message.com
 import { IconComponent } from "../../shared/components/icon.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
-import { joinIdentity } from "../../shared/utils/identity"
+import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
 
 /** Aucune animation : la decision est sur le chemin critique du run (DESIGN.md § Composants Animes). */
 const NO_MOTION = { disabled: true } as const
-
-/** DESIGN.md § Layout : figee, pour que la bascule sur Bandcamp ne deplace aucun bouton. */
-const DIALOG_SIZE = { width: "720px", height: "560px" } as const
 
 /**
  * `scrollHeight` ne pose qu'un max-height : la hauteur fixe tient la ligne d'aide en place.
@@ -39,8 +36,8 @@ const DIALOG_SIZE = { width: "720px", height: "560px" } as const
  */
 const LISTBOX_PT: ListBoxPassThrough = {
   root: { class: "focus-within:border-primary" },
-  listContainer: { class: "h-[268px]" },
-  emptyMessage: { class: "text-center text-sm text-muted-color" },
+  listContainer: { class: "h-67" },
+  emptyMessage: { class: "flex h-full items-center justify-center text-sm text-muted-color" },
 }
 
 /** Option de la liste. `index` est la position dans la liste recue : c'est ce que le geste envoie. */
@@ -86,11 +83,9 @@ export class ArbitrationDialogComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly document = inject(DOCUMENT)
 
-  /** Porte le `[loading]` du bouton qui attend sa reponse. */
   protected readonly lastGesture = signal<Gesture | null>(null)
 
   protected readonly noMotion = NO_MOTION
-  protected readonly dialogSize = DIALOG_SIZE
   protected readonly listboxPt = LISTBOX_PT
 
   readonly visible = input.required<boolean>()
@@ -116,21 +111,14 @@ export class ArbitrationDialogComponent {
 
     return this.sidecar.taggingTracks().find((row) => row.trackId === trackId) ?? null
   })
-  private readonly hasTags = computed(() => {
-    const row = this.track()
-
-    return row !== null && row.artist !== "" && row.title !== ""
-  })
   protected readonly title = computed(() => {
     const row = this.track()
-    if (row === null) {
-      return this.current()?.track_id ?? ""
-    }
 
-    return this.hasTags() ? joinIdentity(row.artist, row.title) : row.fileName
+    return row === null
+      ? (this.current()?.track_id ?? "")
+      : trackMainLine(row.artist, row.title, row.fileName)
   })
-  /** Sans tags, le titre est deja le nom du fichier : pas de sous-ligne qui le repete. */
-  protected readonly fileName = computed(() => (this.hasTags() ? this.track()?.fileName : null))
+  protected readonly fileName = computed(() => this.track()?.fileName ?? null)
   /** Copie mutable : `p-listbox` attend un tableau modifiable, le contrat est en lecture seule. */
   protected readonly options = computed(() => (this.current()?.candidates ?? []).map(toOption))
   protected readonly empty = computed(() => this.options().length === 0)

@@ -45,11 +45,17 @@ const RESOLVED: Record<TrackResolution, StateStyle> = {
   selector: "app-state-tag",
   imports: [Tag, TranslatePipe, IconComponent],
   template: `
-    <p-tag [severity]="style().severity" [attr.data-severity]="style().severity">
+    <p-tag
+      class="transition-colors duration-150 ease-out"
+      [severity]="style().severity"
+      [attr.data-severity]="style().severity"
+    >
       <app-icon [name]="style().icon" [size]="16" />
       {{ style().label | translate }}
     </p-tag>
   `,
+  // En bloc, l'hote prendrait la hauteur de la ligne de texte et decentrerait l'icone voisine.
+  host: { class: "inline-flex" },
 })
 export class StateTagComponent {
   readonly state = input<TrackState | null>(null)

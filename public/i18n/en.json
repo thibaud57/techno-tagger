@@ -12,14 +12,14 @@
       },
       "versionMismatch": {
         "title": "The update is incomplete",
-        "text": "The interface is at version {{ui}} and the engine at version {{sidecar}}. Reinstall the application."
+        "text": "The application is at version {{ui}}, but its engine is at version {{sidecar}}. Reinstall the application."
       },
       "retry": "Retry"
     },
     "close": {
       "title": "Quit the application?",
-      "extraction": "An extraction is in progress: the copy will be cut short, and a file may be left half-written in the destination.",
-      "tagging": "A tagging run is in progress: the search stops here and its results will be lost.",
+      "extraction": "An extraction is in progress: the copy will be cut short and a file may end up corrupted.",
+      "tagging": "A tagging run is in progress: the search results will be lost.",
       "arbitration": "Arbitrations awaiting a decision: {{count}}. They will be lost.",
       "stay": "Stay",
       "leave": "Quit anyway"
@@ -28,39 +28,39 @@
   "errors": {
     "malformed_command": "An internal error interrupted the operation. Restart the application.",
     "unknown_error": "An unexpected error interrupted the operation. If it happens again, the details are in the logs folder.",
-    "playlist_error": "This playlist file could not be read.",
+    "playlist_error": "This playlist file could not be read. Choose another one.",
     "unsupported_playlist_format": "{{filename}} is neither a VLC media library nor a readable M3U8 playlist.",
     "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read. Install the latest version of the application.",
     "playlist_not_found": "No playlist named {{playlist_name}} in this media library.",
     "playlist_file_unreadable": "{{filename}} cannot be opened.",
     "unreadable_dump": "{{filename}} is not a readable VLC media library.",
     "playlist_name_required": "Choose a playlist from this VLC media library.",
-    "extraction_error": "The extraction failed before it started.",
+    "extraction_error": "The extraction failed before it started. Try again.",
     "report_error": "The extraction report could not be produced.",
     "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
-    "source_folder_unreadable": "The source folder cannot be read: {{folder}}.",
-    "artwork_unavailable": "The artwork was not retrieved, it will be retried on the next run.",
-    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}.",
+    "source_folder_unreadable": "The source folder cannot be read: {{folder}}. Check that it still exists.",
+    "artwork_unavailable": "The artwork could not be downloaded. Start the run again to retry.",
+    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}. Choose another one.",
     "sidecar_unavailable": "The application engine is not responding. Restart the application.",
     "files_error": "The audio files could not be read.",
     "tagging_folder_unreadable": "The folder to re-tag cannot be found or read: {{folder}}.",
     "tags_unreadable": "The tags of {{file}} could not be read.",
-    "scraper_error": "The metadata search answered with an error.",
+    "scraper_error": "The search failed. Try again later.",
     "api_key_rejected": "The API key was rejected. Check it in the settings.",
-    "source_unavailable": "The source {{source}} did not respond.",
+    "source_unavailable": "{{source}} is not responding. Try again later.",
     "track_not_found": "The track no longer exists on {{source}}.",
-    "api_contract_error": "Unexpected answer while fetching metadata. If it happens again, the details are in the logs folder.",
-    "api_key_error": "The API key could not be saved.",
+    "api_contract_error": "The search received an unexpected response. If the problem comes back, the details are in the logs folder.",
+    "api_key_error": "The API key could not be saved. Try again.",
     "api_key_not_stored": "The key could not be saved on this computer. Try again.",
     "api_key_malformed": "This key contains a space or a character that is not accepted. Paste it again with nothing around it.",
-    "api_key_missing": "No API key saved. Save it in the settings.",
-    "keyring_unavailable": "Windows secure storage is unavailable. Restart the application.",
+    "api_key_missing": "No API key saved. Add one in the settings.",
+    "keyring_unavailable": "Windows Credential Manager is unavailable. Restart the application.",
     "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one.",
     "extraction_in_progress": "An extraction is already in progress. Wait for it to finish before starting another one.",
     "arbitration_error": "This decision could not be taken into account. Try again.",
-    "arbitration_not_pending": "This track is no longer awaiting a decision. Move on to the next track.",
-    "arbitration_candidate_unknown": "This candidate is no longer offered for this track. Choose one from the list shown.",
-    "arbitration_busy": "A decision is already in progress for this track. Wait for it to finish before making another one."
+    "arbitration_not_pending": "This track is no longer awaiting a decision. Move on to the next one.",
+    "arbitration_candidate_unknown": "Candidate unavailable. Choose another one from the list shown.",
+    "arbitration_busy": "A decision is already in progress for this track. Please wait a moment."
   },
   "playlist": {
     "title": "Playlist",
@@ -163,7 +163,7 @@
     "empty": {
       "heading": "No run yet",
       "description": "Choose the folder to re-tag, then start the run.",
-      "ready": "Start the run to look this folder up on Beatport and Bandcamp."
+      "ready": "Start the run to look up this folder's tracks on Beatport or Bandcamp."
     },
     "state": {
       "pending": "Waiting",
@@ -177,9 +177,9 @@
     "reason": {
       "empty_query": "Neither the tags nor the file name give an artist or a title. Rename the file as \"Artist - Title\".",
       "no_result": "No result on Beatport or Bandcamp.",
-      "below_threshold": "The results found are not close enough to the file.",
+      "below_threshold": "No result matches the track.",
       "source_unavailable": "Beatport and Bandcamp did not respond. Run it again later.",
-      "user_refused": "No candidate was kept during arbitration."
+      "user_refused": "You refused every candidate."
     },
     "list": {
       "before": "Before",
@@ -196,14 +196,14 @@
     }
   },
   "arbitration": {
-    "close": "Close without deciding",
+    "close": "Close",
     "uncertain": "Uncertain matches: {{count}}",
-    "switched": "The Beatport candidates were refused. The Bandcamp list replaces them here.",
+    "switched": "The Beatport candidates were refused. See the Bandcamp list below.",
     "backToBeatport": "Back to Beatport",
-    "beatportUnavailable": "Beatport did not answer: these candidates come from Bandcamp and none was validated on its own.",
+    "beatportUnavailable": "Beatport is not responding. See the Bandcamp candidates below.",
     "empty": {
-      "no_result": "Bandcamp finds nothing for this track.",
-      "below_threshold": "Bandcamp only offers candidates that are too far off.",
+      "no_result": "No candidate found.",
+      "below_threshold": "No candidate matches.",
       "source_unavailable": "Bandcamp did not answer."
     },
     "candidates": "Candidates",
@@ -214,7 +214,7 @@
     "refuse": "No match",
     "pass": "Skip",
     "validate": "Validate",
-    "help": "Left and right arrows to switch arbitration, Enter to validate. The cross decides nothing: the arbitration stays in the queue.",
+    "help": "Switch arbitration with the arrows, select with a click, confirm with Enter.",
     "badge": "{{count}} to arbitrate",
     "reopen": "Reopen the arbitrations"
   },
@@ -223,7 +223,7 @@
     "api": {
       "title": "API",
       "key": {
-        "label": "X-API-Key",
+        "label": "API key",
         "hint": "Stored securely on this computer. It is never shown again: to change it, enter a new one.",
         "placeholder": "Enter the key you received",
         "show": "Show the key",

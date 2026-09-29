@@ -126,6 +126,34 @@ describe("ArbitrationStore", () => {
     expect([store.hasPrevious(), store.hasNext()]).toEqual([true, false])
   })
 
+  it("jumps to the arbitration of a given track", () => {
+    queue("a.mp3", "b.mp3", "c.mp3")
+
+    store.open("c.mp3")
+
+    expect(store.current()?.track_id).toBe("c.mp3")
+    expect(store.position()).toBe(3)
+  })
+
+  it("stays on the current arbitration when asked for a track outside the queue", () => {
+    queue("a.mp3", "b.mp3")
+    store.next()
+
+    store.open("ghost.mp3")
+
+    expect(store.current()?.track_id).toBe("b.mp3")
+    expect(store.openings()).toBe(0)
+  })
+
+  it("counts every request to open, even twice for the same track", () => {
+    queue("a.mp3")
+
+    store.open("a.mp3")
+    store.open("a.mp3")
+
+    expect(store.openings()).toBe(2)
+  })
+
   it.each<[string, (store: ArbitrationStore) => void]>([
     [
       "update",

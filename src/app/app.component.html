@@ -25,11 +25,10 @@
       @for (tab of tabs; track tab) {
         <p-tab [value]="tab">{{ "nav." + tab | translate }}</p-tab>
       }
-      <!-- Seul chemin de retour vers la modale apres la croix (decision du 2026-09-26). -->
       @if (arbitrationCount() > 0) {
         <button
           type="button"
-          class="ml-auto self-center px-4"
+          class="ml-auto cursor-pointer self-center px-4"
           data-arbitration-badge
           [attr.aria-label]="'arbitration.reopen' | translate"
           (click)="reopenArbitration()"

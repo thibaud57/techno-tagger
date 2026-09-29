@@ -1,14 +1,11 @@
 import { InjectionToken } from "@angular/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 
-/** Ce que la garde fait d'une demande de fermeture : la retenir. */
 export interface CloseRequest {
   preventDefault(): void
 }
 
-/** La fenetre vue par la garde de fermeture : testable sans Tauri, comme le transport du sidecar. */
 export interface AppWindow {
-  /** Hors Tauri, l'inscription echoue sans lever : l'ecran reste utilisable. */
   onCloseRequested(handler: (request: CloseRequest) => void): Promise<void>
   destroy(): Promise<void>
 }

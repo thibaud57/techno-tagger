@@ -5,8 +5,7 @@ import type {
 } from "../app/core/models/protocol"
 import type { TaggingTrack } from "../app/core/tagging-run.store"
 
-// Evenements d'un run de re-tagging partages par les specs, comme `helpers/` cote sidecar :
-// un seul jeu de donnees, ce qui est verifie est la reaction du store ou du service.
+// Evenements d'un run de re-tagging partages par les specs.
 
 export const RUN_STARTED: RunStartedEvent = {
   event: "run_started",

@@ -12,14 +12,14 @@
       },
       "versionMismatch": {
         "title": "La mise à jour est incomplète",
-        "text": "L'interface est en version {{ui}} et le moteur en version {{sidecar}}. Réinstallez l'application."
+        "text": "L'application est en version {{ui}}, mais son moteur en version {{sidecar}}. Réinstallez l'application."
       },
       "retry": "Réessayer"
     },
     "close": {
       "title": "Quitter l'application ?",
-      "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut rester à moitié écrit dans la destination.",
-      "tagging": "Un run de tagging est en cours : la recherche s'arrête là et ses résultats seront perdus.",
+      "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut se retrouver corrompu.",
+      "tagging": "Un run de tagging est en cours : les résultats de la recherche seront perdus.",
       "arbitration": "Arbitrages en attente : {{count}}. Ils seront perdus.",
       "stay": "Rester",
       "leave": "Quitter quand même"
@@ -28,39 +28,39 @@
   "errors": {
     "malformed_command": "Une erreur interne a interrompu l'opération. Relancez l'application.",
     "unknown_error": "Une erreur inattendue a interrompu l'opération. Si elle revient, le détail se trouve dans le dossier des logs.",
-    "playlist_error": "Ce fichier de playlist n'a pas pu être lu.",
+    "playlist_error": "Ce fichier de playlist n'a pas pu être lu. Choisissez-en un autre.",
     "unsupported_playlist_format": "{{filename}} n'est ni une médiathèque VLC ni une playlist M3U8 lisible.",
     "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire. Installez la dernière version de l'application.",
     "playlist_not_found": "Aucune playlist nommée {{playlist_name}} dans cette médiathèque.",
     "playlist_file_unreadable": "{{filename}} ne peut pas être ouvert.",
     "unreadable_dump": "{{filename}} n'est pas une médiathèque VLC lisible.",
     "playlist_name_required": "Choisissez une playlist de cette médiathèque VLC.",
-    "extraction_error": "L'extraction a échoué avant de commencer.",
+    "extraction_error": "L'extraction a échoué avant de commencer. Réessayez.",
     "report_error": "Le rapport d'extraction n'a pas pu être produit.",
     "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
-    "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.",
-    "artwork_unavailable": "La pochette n'a pas été récupérée, elle sera retentée au prochain lancement.",
-    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}.",
+    "source_folder_unreadable": "Le dossier source est illisible : {{folder}}. Vérifiez qu'il existe toujours.",
+    "artwork_unavailable": "La pochette n'a pas pu être téléchargée. Relancez le run pour réessayer.",
+    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}. Choisissez-en un autre.",
     "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application.",
     "files_error": "La lecture des fichiers audio a échoué.",
     "tagging_folder_unreadable": "Le dossier à re-tagger est introuvable ou illisible : {{folder}}.",
     "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus.",
-    "scraper_error": "La recherche de métadonnées a répondu par une erreur.",
+    "scraper_error": "La recherche a échoué. Réessayez plus tard.",
     "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
-    "source_unavailable": "La source {{source}} n'a pas répondu.",
+    "source_unavailable": "{{source}} ne répond pas. Réessayez plus tard.",
     "track_not_found": "Le morceau n'existe plus sur {{source}}.",
-    "api_contract_error": "Réponse inattendue lors de la recherche de métadonnées. Si elle revient, le détail se trouve dans le dossier des logs.",
-    "api_key_error": "La clé API n'a pas pu être enregistrée.",
+    "api_contract_error": "La recherche a reçu une réponse inattendue. Si le problème revient, le détail se trouve dans le dossier des logs.",
+    "api_key_error": "La clé API n'a pas pu être enregistrée. Réessayez.",
     "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",
     "api_key_malformed": "Cette clé contient un espace ou un caractère non accepté. Recopiez-la sans rien autour.",
-    "api_key_missing": "Aucune clé API enregistrée. Enregistrez-la dans les Réglages.",
-    "keyring_unavailable": "L'espace sécurisé de Windows est inaccessible. Relancez l'application.",
+    "api_key_missing": "Aucune clé API enregistrée. Ajoutez-en une dans les Réglages.",
+    "keyring_unavailable": "Le Gestionnaire d'identification de Windows est inaccessible. Relancez l'application.",
     "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre.",
     "extraction_in_progress": "Une extraction est déjà en cours. Attendez sa fin avant d'en lancer une autre.",
     "arbitration_error": "Cette décision n'a pas pu être prise en compte. Réessayez.",
-    "arbitration_not_pending": "Ce morceau n'attend plus de décision. Passez au morceau suivant.",
-    "arbitration_candidate_unknown": "Ce candidat n'est plus proposé pour ce morceau. Choisissez-en un dans la liste affichée.",
-    "arbitration_busy": "Une décision est déjà en cours sur ce morceau. Attendez sa fin avant d'en prendre une autre."
+    "arbitration_not_pending": "Ce morceau n'attend plus de décision. Passez au suivant.",
+    "arbitration_candidate_unknown": "Candidat indisponible. Choisissez-en un autre dans la liste affichée.",
+    "arbitration_busy": "Une décision est déjà en cours pour ce morceau. Patientez un instant."
   },
   "playlist": {
     "title": "Playlist",
@@ -131,14 +131,14 @@
         "path_too_long": "Chemin de destination trop long",
         "file_locked": "Fichier ouvert dans un autre programme",
         "file_missing": "Fichier disparu pendant l'extraction",
-        "write_failed": "Écriture en échec"
+        "write_failed": "Échec de l'écriture"
       },
       "category": {
         "extracted": "Extrait",
         "already_present": "Déjà présent",
         "missing": "Introuvable",
         "duplicate": "Doublon départagé",
-        "failure": "Transfert en échec"
+        "failure": "Échec du transfert"
       },
       "separator": " : "
     }
@@ -163,7 +163,7 @@
     "empty": {
       "heading": "Aucun run lancé",
       "description": "Choisissez le dossier à re-tagger, puis lancez le run.",
-      "ready": "Lancez le run pour rechercher ce dossier sur Beatport et Bandcamp."
+      "ready": "Lancez le run pour rechercher les morceaux de ce dossier sur Beatport ou Bandcamp."
     },
     "state": {
       "pending": "En attente",
@@ -177,9 +177,9 @@
     "reason": {
       "empty_query": "Ni les tags ni le nom du fichier ne donnent d'artiste ou de titre. Renommez le fichier en « Artiste - Titre ».",
       "no_result": "Aucun résultat sur Beatport ni sur Bandcamp.",
-      "below_threshold": "Les résultats trouvés ne ressemblent pas assez au fichier.",
+      "below_threshold": "Aucun résultat ne correspond au morceau.",
       "source_unavailable": "Beatport et Bandcamp n'ont pas répondu. Relancez le run plus tard.",
-      "user_refused": "Aucun candidat n'a été retenu à l'arbitrage."
+      "user_refused": "Vous avez refusé tous les candidats."
     },
     "list": {
       "before": "Avant",
@@ -196,14 +196,14 @@
     }
   },
   "arbitration": {
-    "close": "Fermer sans décider",
+    "close": "Fermer",
     "uncertain": "Correspondances incertaines : {{count}}",
-    "switched": "Les candidats Beatport ont été refusés. La liste Bandcamp les remplace ici même.",
+    "switched": "Les candidats Beatport ont été refusés. Voir la liste Bandcamp ci-dessous.",
     "backToBeatport": "Revenir à Beatport",
-    "beatportUnavailable": "Beatport ne répond pas : ces candidats viennent de Bandcamp et aucun n'a été validé seul.",
+    "beatportUnavailable": "Beatport ne répond pas. Voir les candidats Bandcamp ci-dessous.",
     "empty": {
-      "no_result": "Bandcamp ne trouve rien pour ce morceau.",
-      "below_threshold": "Bandcamp ne propose que des candidats trop éloignés.",
+      "no_result": "Aucun candidat trouvé.",
+      "below_threshold": "Aucun candidat ne correspond.",
       "source_unavailable": "Bandcamp ne répond pas."
     },
     "candidates": "Candidats",
@@ -214,7 +214,7 @@
     "refuse": "Aucune correspondance",
     "pass": "Passer",
     "validate": "Valider",
-    "help": "Flèches gauche et droite pour changer d'arbitrage, Entrée pour valider. La croix ne décide rien : l'arbitrage reste en file.",
+    "help": "Changez d'arbitrage avec les flèches, sélectionnez d'un clic, validez avec Entrée.",
     "badge": "{{count}} à arbitrer",
     "reopen": "Rouvrir les arbitrages"
   },
@@ -223,7 +223,7 @@
     "api": {
       "title": "API",
       "key": {
-        "label": "Clé X-API-Key",
+        "label": "Clé API",
         "hint": "Enregistrée de façon sécurisée sur cet ordinateur. Elle ne s'affiche plus ensuite : pour la changer, saisissez-en une nouvelle.",
         "placeholder": "Saisir la clé reçue",
         "show": "Afficher la clé",

@@ -125,6 +125,7 @@ export class SidecarService {
   readonly arbitrationBusy = this.arbitration.currentBusy
   readonly hasPreviousArbitration = this.arbitration.hasPrevious
   readonly hasNextArbitration = this.arbitration.hasNext
+  readonly arbitrationOpenings = this.arbitration.openings
 
   private started = false
 
@@ -251,6 +252,10 @@ export class SidecarService {
     this.arbitration.next()
   }
 
+  openArbitration(trackId: string): void {
+    this.arbitration.open(trackId)
+  }
+
   /**
    * `Process.kill()` ne ciblerait que le bootloader d'un binaire PyInstaller et
    * laisserait le process Python vivant : l'arret passe par le protocole.
@@ -296,7 +301,6 @@ export class SidecarService {
     await this.send(command)
   }
 
-  /** Le store decide, selon le code, de lever l'attente seule ou de retirer l'arbitrage. */
   private routeArbitrationError(event: SidecarErrorEvent): void {
     const trackId = event.params["track_id"]
     if (

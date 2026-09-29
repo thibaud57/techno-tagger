@@ -76,9 +76,8 @@ export class AppComponent {
 
   protected readonly arbitrationCount = this.sidecar.arbitrationCount
   private readonly queueEmpty = computed(() => this.sidecar.arbitrationCount() === 0)
-  /** `linkedSignal` remet la suspension a zero a chaque bascule de `queueEmpty`. */
   private readonly arbitrationDismissed = linkedSignal({
-    source: this.queueEmpty,
+    source: () => [this.queueEmpty(), this.sidecar.arbitrationOpenings()],
     computation: () => false,
   })
   protected readonly arbitrationVisible = computed(
@@ -86,7 +85,6 @@ export class AppComponent {
   )
 
   constructor() {
-    // Une fois, au demarrage : la fermeture est retenue tant qu'un travail est en cours.
     void this.closeGuard.install()
 
     effect(() => {

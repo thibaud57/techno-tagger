@@ -63,7 +63,7 @@
       [placeholder]="'playlist.source.none' | translate"
       (pick)="chooseFolder(sourceFolder)"
     >
-      <app-icon icon name="folder" [size]="20" />
+      <app-icon icon name="folder" [size]="16" />
     </app-path-picker>
 
     <app-path-picker
@@ -73,7 +73,7 @@
       [placeholder]="'playlist.destination.none' | translate"
       (pick)="chooseFolder(destinationFolder)"
     >
-      <app-icon icon name="folder" [size]="20" />
+      <app-icon icon name="folder" [size]="16" />
     </app-path-picker>
 
     <app-path-picker
@@ -84,9 +84,9 @@
       (pick)="choosePlaylistFile()"
     >
       @if (showsPlaylistSelector()) {
-        <app-source-logo icon source="vlc" [size]="20" />
+        <app-source-logo icon source="vlc" [size]="16" />
       } @else {
-        <app-icon icon name="file" [size]="20" />
+        <app-icon icon name="file" [size]="16" />
       }
     </app-path-picker>
 

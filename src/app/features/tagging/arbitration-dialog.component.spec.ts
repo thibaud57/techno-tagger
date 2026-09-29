@@ -125,15 +125,25 @@ describe("ArbitrationDialogComponent", () => {
     expect(subtitle).toBe("a.mp3")
   })
 
-  it("shows the file name only once when the run row has no tags", () => {
+  it("titles an untagged track like the run list, file name below", () => {
     const { fixture, service } = mountWith()
     service.taggingTracks.set([{ ...PENDING_TRACK, artist: "", title: "" }])
     fixture.detectChanges()
 
     const title = page().querySelector("[data-title]")
 
-    expect(title?.textContent.trim()).toBe("a.mp3")
-    expect(title?.nextElementSibling?.textContent.trim()).toBe("")
+    expect(title?.textContent.trim()).toBe("a")
+    expect(title?.nextElementSibling?.textContent.trim()).toBe("a.mp3")
+  })
+
+  it("titles a half-tagged track with the tag it has", () => {
+    const { fixture, service } = mountWith()
+    service.taggingTracks.set([{ ...PENDING_TRACK, title: "" }])
+    fixture.detectChanges()
+
+    const title = page().querySelector("[data-title]")
+
+    expect(title?.textContent.trim()).toBe("Adam Beyer")
   })
 
   it("replaces the Beatport list by the Bandcamp list and offers to go back", () => {
@@ -255,6 +265,20 @@ describe("ArbitrationDialogComponent", () => {
     )
 
     expect(service.chooseCandidate).toHaveBeenCalledWith("a.mp3", "beatport", 0)
+  })
+
+  it("keeps the clicked candidate when the pointer then passes over another one", () => {
+    const { fixture, component } = mountWith()
+    TestBed.tick()
+    const options = page().querySelectorAll<HTMLElement>('[role="option"]')
+    options[0]?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))
+    options[0]?.click()
+    fixture.detectChanges()
+
+    options[1]?.dispatchEvent(new MouseEvent("mouseenter"))
+    fixture.detectChanges()
+
+    expect(component["choice"]().candidate).toBe(0)
   })
 
   it("ignores Enter pressed on a button", () => {

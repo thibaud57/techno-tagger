@@ -5,7 +5,6 @@ import { APP_WINDOW, type AppWindow, type CloseRequest } from "./app-window"
 import { CloseGuard } from "./close-guard.service"
 import { SidecarService } from "./sidecar.service"
 
-/** Fenetre simulee a sa frontiere, comme le transport du sidecar. */
 class FakeWindow implements AppWindow {
   handler: ((request: CloseRequest) => void) | null = null
   registrations = 0
