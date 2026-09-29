@@ -222,6 +222,20 @@ describe("ArbitrationDialogComponent", () => {
     expect(actions).toEqual([true, true, true])
   })
 
+  it("keeps browsing the queue while a gesture awaits its answer", () => {
+    const { service } = mountWith({
+      arbitrationBusy: signal(true),
+      hasPreviousArbitration: signal(true),
+    })
+
+    for (const direction of ["previous", "next"]) {
+      page().querySelector<HTMLButtonElement>(`[aria-label="arbitration.${direction}"]`)?.click()
+    }
+
+    expect(service.previousArbitration).toHaveBeenCalledOnce()
+    expect(service.nextArbitration).toHaveBeenCalledOnce()
+  })
+
   it("shows the wait on the button of the pending gesture only", () => {
     const { fixture, component, service } = mountWith()
     component["choice"].set({ candidate: 0 })

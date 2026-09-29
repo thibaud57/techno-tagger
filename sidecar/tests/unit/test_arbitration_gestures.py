@@ -332,6 +332,25 @@ async def test_keeps_the_bandcamp_reason_when_an_empty_list_is_passed(
     assert (record.state, record.failure_reason) == (TrackState.UNRESOLVED, reason)
 
 
+async def test_keeps_the_bandcamp_reason_of_an_empty_list_across_a_return_to_beatport(
+    tmp_path: Path,
+) -> None:
+    api = FakeApi()
+    hold_on_beatport(api)
+
+    async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
+        await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
+        arbitration.show(ONE_TRACK, Source.BEATPORT)
+        await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
+
+        await arbitration.refuse(ONE_TRACK, Source.BANDCAMP)
+
+        record = opened.live.record(ONE_TRACK)
+    assert record is not None
+    assert (record.state, record.failure_reason) == (TrackState.UNRESOLVED, FailureReason.NO_RESULT)
+    assert _bandcamp_searches(api) == 1
+
+
 async def test_refuses_a_track_without_calling_anything_when_beatport_was_unavailable(
     tmp_path: Path,
 ) -> None:

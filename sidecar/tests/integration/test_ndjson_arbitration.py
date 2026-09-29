@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 import pytest
-from ndjson_loop import conversation
+from ndjson_loop import Conversation, conversation
 from scraper_responses import BASIEL, YOUR_MIND
 from tagging_api import (
     ON_BANDCAMP,
@@ -16,10 +16,10 @@ from tagging_api import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from memory_keyring import MemoryKeyring
-    from ndjson_loop import Conversation
     from tagging_api import Gate
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
@@ -128,6 +128,25 @@ async def test_answers_an_awaiting_track_after_the_run_is_cancelled(
     assert resolved["resolution"] == "arbitration"
 
 
+async def test_keeps_the_current_run_arbitrable_when_a_second_run_is_refused(
+    tmp_path: Path, app_data: None, api: FakeApi
+) -> None:
+    folder = two_tracks(tmp_path)
+    slow = api.gate("/beatport/search", BASIEL)
+
+    async with conversation() as talk:
+        talk.send(**_start(folder))
+        await talk.expect("arbitration_required", track_id="a.mp3")
+        await slow.reached.wait()
+        talk.send(**_start(folder))
+        await talk.expect("error", code="tagging_in_progress")
+        talk.send(command="resolve_arbitration", track_id="a.mp3", source="beatport", candidate=0)
+        resolved = await talk.expect("track_resolved", track_id="a.mp3")
+        slow.release.set()
+
+    assert resolved["resolution"] == "arbitration"
+
+
 async def test_drops_the_arbitrations_of_a_run_replaced_by_a_new_one(
     folder: Path, empty: Path, api: FakeApi
 ) -> None:
@@ -184,12 +203,17 @@ async def test_rejects_a_gesture_before_any_run() -> None:
     assert (error["code"], error["command"]) == ("arbitration_not_pending", "resolve_arbitration")
 
 
+@pytest.mark.parametrize(
+    "leave",
+    [lambda talk: talk.send(command="shutdown"), Conversation.hang_up],
+    ids=["shutdown", "end-of-input"],
+)
 async def test_shuts_down_without_waiting_for_a_refusal_in_flight(
-    folder: Path, api: FakeApi
+    folder: Path, api: FakeApi, leave: Callable[[Conversation], None]
 ) -> None:
     async with conversation() as talk:
         await _refusal_in_flight(talk, folder, api)
-        talk.send(command="shutdown")
+        leave(talk)
 
     assert all(event["event"] != "arbitration_updated" for event in talk.events)
 
