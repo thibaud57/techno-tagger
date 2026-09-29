@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/thibaud57/techno-tagger/compare/v0.4.1...v0.4.2) (2026-09-29)
+
+
+### Bug Fixes
+
+* lignes de candidats à hauteur fixe dans la modale d'arbitrage ([#40](https://github.com/thibaud57/techno-tagger/issues/40)) ([fa5e2d2](https://github.com/thibaud57/techno-tagger/commit/fa5e2d2b59b7d468d8ccc4a5c0a74431d890d7a6))
+
 ## [0.4.1](https://github.com/thibaud57/techno-tagger/compare/v0.4.0...v0.4.1) (2026-09-29)
 
 
