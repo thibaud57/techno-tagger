@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/thibaud57/techno-tagger/compare/v0.4.0...v0.4.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* modales du shell différées, bundle initial ramené sous son budget ([#37](https://github.com/thibaud57/techno-tagger/issues/37)) ([e0e1582](https://github.com/thibaud57/techno-tagger/commit/e0e15823a8ad5af0ac5395b5d8dfc4227aa544a7))
+
 ## [0.4.0](https://github.com/thibaud57/techno-tagger/compare/v0.3.1...v0.4.0) (2026-09-29)
 
 
