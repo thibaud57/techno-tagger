@@ -82,13 +82,13 @@
             <div class="flex w-full min-w-0 items-center gap-3">
               <div class="flex min-w-0 flex-1 flex-col">
                 <app-truncated-text class="text-sm" [text]="option.names" />
-                @if (option.release; as release) {
-                  <app-truncated-text
-                    class="text-xs text-muted-color"
-                    data-release
-                    [text]="release"
-                  />
-                }
+                <!-- Ligne gardee meme vide : Bandcamp ne rend ni label ni annee, et ses lignes
+                     garderaient sinon une autre hauteur que celles de Beatport. -->
+                <app-truncated-text
+                  class="min-h-4 text-xs text-muted-color"
+                  data-release
+                  [text]="option.release"
+                />
               </div>
               <span class="shrink-0 text-xs text-muted-color tabular-nums">
                 {{
