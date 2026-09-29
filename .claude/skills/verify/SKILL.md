@@ -174,8 +174,9 @@ Les options de `build_fixture.py` s'excluent et chacune vide son dossier : un ru
 - `shutdown` pendant un refus en vol, sous `FAKE_DELAY=3` : sortie immédiate (relevé le 2026-09-27, `elapsed` 5,01s pour un refus parti à 4,5s), aucun `arbitration_updated`, la commande suivante ignorée
 - Nouveau `start_tagging` (dossier vide) pendant un refus en vol : aucun `arbitration_updated` de l'ancien run, puis un geste sur l'ancien morceau rend `arbitration_not_pending`
 - Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason` : ni titre ni chemin, et ni `never awaited` ni client non fermé
-- Relevé le 2026-09-29 à la clôture de l'epic, dossier mixte sous `FAKE_DELAY=1.5` : un second `start_tagging` à 2,3s rend `tagging_in_progress`, puis un choix sur le morceau en attente rend `track_resolved` en `arbitration` et le run finit seul ; même dossier, `cancel_run` à 2,3s puis un choix, `track_resolved` sans `run_finished`. Refus, retour à Beatport, second refus : un seul `bandcamp/search` dans `tagger.log`, la liste connue est réaffichée
-- EOF pendant un refus en vol, sous `FAKE_DELAY=3` : sortie immédiate comme `shutdown` (relevé le 2026-09-29, `elapsed` 4,51s pour un refus parti à 4,5s, dernière ligne du fichier de `drive.py`), aucun `arbitration_updated`
+- Dossier mixte sous `FAKE_DELAY=1.5` : un second `start_tagging` à 2,3s rend `tagging_in_progress`, puis un choix sur le morceau en attente rend `track_resolved` en `arbitration` et le run finit seul ; `cancel_run` à 2,3s puis un choix, `track_resolved` sans `run_finished`
+- Refus, retour à Beatport, second refus : un seul `bandcamp/search` dans `tagger.log`
+- EOF pendant un refus en vol, sous `FAKE_DELAY=3` : sortie immédiate comme `shutdown`, aucun `arbitration_updated`
 - Un `cancel_run` qui coupe des requêtes en vol laisse des `ConnectionAbortedError` dans `stderr` : c'est `http.server` du faux serveur qui écrit dans une socket fermée, pas le sidecar
 
 ### Côté webview
@@ -183,8 +184,7 @@ Les options de `build_fixture.py` s'excluent et chacune vide son dossier : un ru
 La fenêtre Tauri parle à la vraie API, où aucun morceau n'est en zone grise à coup sûr : la file de `SidecarService` se prouve en rejouant dans la fenêtre le flux que `drive.py` a obtenu du faux serveur, par `page/arbitration-replay.js`. Les gestes y sont intercalés avant chacune de leurs réponses et `send` est relevé : les commandes relevées doivent être **identiques** à celles du fichier de `drive.py`, ce qui ferme la boucle entre les deux côtés.
 
 - Parcours relevé le 2026-09-27 (fichier de `drive.py` : refus Beatport, `switch` vers Beatport, choix 0, choix 0 répété ; gestes `[[refuse, refuse], [showArbitrationSource], [chooseCandidate], [chooseCandidate]]`) : file à `1/1` dès `arbitration_required`, `busy` vrai du geste à sa réponse, le refus doublé part zéro fois, `arbitration_updated` remplace en place (`bandcamp` puis `beatport`, `other_source` croisé), `track_resolved` vide la file (`0/0`, ligne du run en `resolved` / `arbitration`), le geste répété rend `arbitration_not_pending` lisible par `errorFor("resolve_arbitration")`
-- Rejoué de nouveau le 2026-09-29 avec deux `switch` vers Beatport et un second refus (gestes `[[refuse, refuse], [show], [show], [refuse], [choose], [choose]]`) : commandes relevées identiques à celles de `drive.py`
-- Navigation pendant l'attente, relevée le 2026-09-29 sur deux arbitrages (flux de `drive.py` sans geste, un groupe en surplus : refus sur le premier puis clics) : `busy` vrai sur `1/2`, « précédent » `disabled` faute de morceau avant, « suivant » actif mène à `2/2` dont `busy` est faux. Sélecteurs indépendants de la langue : `app-arbitration-dialog .p-dialog-footer button:has(+ p-badge)` et `p-badge + button`. Le premier clic d'un groupe peut tomber avant le rendu de la modale (`target` nul) : ne conclure que sur un clic dont `target` est relevé
+- Navigation pendant l'attente, sur deux arbitrages (flux de `drive.py` sans geste, un groupe en surplus : refus sur le premier puis clics) : « précédent » `disabled` à `1/2`, « suivant » actif mène à `2/2`. Sélecteurs indépendants de la langue : `app-arbitration-dialog .p-dialog-footer button:has(+ p-badge)` et `p-badge + button`. Le premier clic d'un groupe peut tomber avant le rendu de la modale (`target` nul) : commencer le groupe par `["click", "body"]`
 - Aucune ligne `[sidecar]` en console pendant le rejeu : ni « evenement non traite » ni « ligne illisible »
 - Le rejeu laisse un faux run dans la liste de l'onglet Tagging : fermer la fenêtre ensuite plutôt que d'y enchaîner un autre parcours
 - Sur un vrai run de la démo (`page/demo-run.js run <demo-data>\Extraction`, deux arbitrages, relevé le 2026-09-29), souris réelle par `cdp.mjs --click` / `--move` : un clic sélectionne le candidat et le survol des autres ne change pas la sélection ; après la croix, un clic sur une ligne « À arbitrer » rouvre la modale sur ce morceau ; flèches, compteur et boutons du pied à 27px ; message de liste vide centré dans les 268px de la liste ; vignettes à 32px dans des cellules de 60px
@@ -215,7 +215,7 @@ Le travail en cours se pose sur le service vivant par `page/close-guard.js` (l'e
 - Instantané : un travail ajouté pendant la confirmation ne change pas la liste affichée, un second `taskkill` la remplace par l'état du moment
 - Écran bloquant : extraction en cours, `taskkill //F //IM tagger.exe` fait tomber le sidecar et l'état, puis la fenêtre se ferme au premier `taskkill` sans confirmation
 
-Parcours relevé le 2026-09-27 sur les cinq scénarios du spec `05-confirmation-sortie`, tous verts. Rejoué le 2026-09-29 à la clôture de l'epic, sur une fenêtre laissée par un rejeu à deux arbitrages : arbitrages seuls, puis extraction et arbitrages, puis run et arbitrages, chaque fois retenue, « Rester » puis « Quitter quand même » jusqu'à zéro `techno-tagger.exe` et zéro `tagger.exe`.
+Parcours relevé le 2026-09-27 sur les cinq scénarios du spec `05-confirmation-sortie`, tous verts.
 
 ## Pilotage du trousseau
 

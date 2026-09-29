@@ -7,9 +7,9 @@ paths:
 
 ## À faire
 - Déclarer `select` explicitement plutôt que d'hériter du jeu par défaut de la version installée
-- En local, enchaîner `ruff check --select I --fix` puis `ruff format` : `--select I` restreint l'auto-fix aux seuls imports (pas un `--fix` généralisé sur tout le `select` global), le formateur ne les trie pas lui-même, et l'ordre inverse laisse du code corrigé mais mal formaté. La CI, elle, ne corrige rien : `just lint-sidecar` ne fait que vérifier (`ruff check .`, `ruff format --check .`)
+- En local, `ruff check --select I --fix` puis `ruff format` : le formateur ne trie pas les imports, et l'ordre inverse laisse du code mal formaté. La CI ne fait que vérifier
 - Utiliser `per-file-ignores` pour les tests (`S101`) et les `__init__.py` (`F401`) plutôt que de désactiver une règle globalement
-- Bannir `asyncio.get_event_loop` et `sqlite3.version` dans `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, avec un message renvoyant au remplaçant : Python 3.14 les rejette, et la garantie passe par la CI plutôt que par la mémoire
+- Bannir `asyncio.get_event_loop` et `sqlite3.version` dans `banned-api`, avec le remplaçant en message : Python 3.14 les rejette
 - Épingler la version de Ruff en CI comme en pre-commit, et laisser Dependabot proposer la montée
 - Cadrer une montée de version par `ruff check --statistics` avant de regarder le diff
 - Produire des annotations natives en CI par `--output-format github`, et interdire le `--fix` implicite par `--exit-non-zero-on-fix`
@@ -24,10 +24,6 @@ paths:
 - Ajouter Black ou isort à côté : Ruff couvre les deux, et deux formatters se contredisent
 
 ## Gotchas
-- Ne pas poser `target-version` : Ruff le derive de `project.requires-python`, et la cle en ferait une seconde source a synchroniser
-
-- La 0.16.0 retire aussi 18 règles du jeu par défaut (`E401`, `E402`, `E701`, `F403`, `F405`…) sans les déprécier ni le documenter dans les notes de rupture : une règle qui « ne se déclenche plus » après montée de version vient peut-être de là
-- Codes de sortie : 0 rien à signaler, 1 violations restantes, 2 erreur de configuration. Distinguer les deux derniers en CI
-- `ruff format` est compatible Black à plus de 99,9 % sur du code déjà formaté : la migration ne produit pas de diff significatif
-- Ruff n'est pas un type checker : aucun recouvrement avec le gate Mypy, les deux sont nécessaires (cf. [mypy/strict.md](../mypy/strict.md))
-- La configuration Ruff de techno-scraper n'est pas transposable si elle date d'avant la 0.16.0 : partir du défaut de la 0.16.x, ajouter `I`, retirer `COM812`, ne pas copier-coller
+- Ne pas poser `target-version` : Ruff le dérive de `project.requires-python`
+- La 0.16.0 retire aussi 18 règles du jeu par défaut (`E401`, `E402`, `E701`, `F403`, `F405`…) sans le documenter : une règle qui ne se déclenche plus après montée vient peut-être de là
+- Codes de sortie : 0 rien à signaler, 1 violations, 2 erreur de configuration

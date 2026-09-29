@@ -7,14 +7,14 @@ paths:
 # Angular Forms — Règles
 
 ## À faire
-- Écrire les formulaires en Signal Forms (`form()` plus un schéma), stables depuis Angular 22 et alignés sur l'architecture signals du projet
+- Écrire les formulaires en Signal Forms (`form()` plus un schéma), stables depuis Angular 22
 - Faire du modèle `signal<T>()` la source de vérité, jamais une copie tenue à part
-- Déclarer la validation par les validateurs natifs (`required()`, `min()`, `pattern()`, `minDate()`, `maxDate()`) plutôt que par des fonctions maison, dès qu'un champ a quelque chose à valider et un message à afficher
+- Valider par les validateurs natifs (`required()`, `min()`, `pattern()`…) plutôt que par des fonctions maison
 - Isoler la validation conditionnelle avec `applyWhen()`
-- Debouncer au niveau du validateur avec `validateAsync({ debounce })`, chaque validateur async ayant sa propre fenêtre
-- Soumettre par `submit()` **quand la réponse du serveur revient de l'appel lui-même**, et remonter les erreurs sous forme `{ kind, message }`. Ce n'est pas le cas ici : une commande part sur le protocole NDJSON, rend la main aussitôt, et son échec arrive plus tard par le flux d'événements dans `lastError`. `submit()` n'attraperait rien, l'envoi est une méthode du composant
-- Traduire les messages d'erreur par ngx-translate, aucun libellé en dur dans un template
-- Si un formulaire reste en Reactive Forms : initialiser en champ de classe avec `inject(FormBuilder)`, marquer les champs obligatoires `nonNullable` et se désabonner par `takeUntilDestroyed()`
+- Debouncer au niveau du validateur avec `validateAsync({ debounce })`
+- Envoyer une commande par une méthode du composant, pas par `submit()` : la commande NDJSON rend la main aussitôt et son échec arrive plus tard dans `lastError`
+- Traduire les messages d'erreur par ngx-translate
+- En Reactive Forms : `inject(FormBuilder)` en champ de classe, champs obligatoires `nonNullable`, `takeUntilDestroyed()`
 
 ## À éviter
 - Les template-driven forms
@@ -23,7 +23,7 @@ paths:
 - Mélanger Reactive et Signal Forms sur un même écran sans passer par `SignalFormControl` ou `FormControlValue`
 
 ## Gotchas
-- Un écran dont la seule règle est « le bouton s'active quand le champ est rempli » n'a rien à valider : un `computed()` le dit, et `form()` n'est là que pour lier les composants par `[formField]`, les composants PrimeNG n'exposant leur valeur que par `ControlValueAccessor`
+- Un écran dont la seule règle est « bouton actif quand le champ est rempli » n'a rien à valider : un `computed()` suffit, `form()` ne sert qu'à lier les composants PrimeNG par `[formField]`
 - Angular 22 : `touched` n'est plus un model bidirectionnel ; un custom control le lit par un `input` et le déclenche par l'output `touch()`
 - Angular 22 : `markAsTouched()` marque le champ et tous ses descendants, ce qui change le comportement des soumissions partielles
 - Angular 21 zoneless : `FormArray.push()` ne déclenche plus la détection de changements

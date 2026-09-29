@@ -25,10 +25,10 @@ paths:
 - `deepcopy` des objets frame pour le dump : certains ne se copient pas proprement selon la version
 
 ## Gotchas
-- La conversion v2.4 → v2.3 n'est pas neutre : le texte UTF-8 repasse en UTF-16, les valeurs multiples sont jointes par `v23_sep` (`/` par défaut, à choisir explicitement), et `TDRC` est éclaté en `TYER` + `TDAT` + `TIME`. `v23_sep=None` est déconseillé par la doc
-- `EasyID3` combiné à `v2_version=3` a historiquement produit une frame `TDRC` vide en plus du `TYER` attendu : écrire l'assertion sur le contenu réel du fichier relu, pas sur le retour de l'API
-- 1.48.0 : l'attribut `salt` sur `APIC` change la `HashKey` en `APIC:<desc><salt>`, l'unicité ne se comporte plus comme avant ; l'ordre des frames `APIC` est désormais préservé à la sauvegarde. 1.48.1 annule une régression qui dupliquait les `COMM` écrites depuis `EasyID3`
-- WAV : seul le chunk ID3v2 est supporté (pas RIFF/INFO), et il est écrit en minuscules `id3 ` là où d'autres implémentations attendent `ID3 `. mutagen relit sans tenir compte de la casse, les autres logiciels pas forcément
+- La conversion v2.4 → v2.3 n'est pas neutre : UTF-8 repasse en UTF-16, les valeurs multiples sont jointes par `v23_sep` (à choisir explicitement), `TDRC` est éclaté en `TYER` + `TDAT` + `TIME`
+- `EasyID3` avec `v2_version=3` peut produire une frame `TDRC` vide en plus du `TYER` : asserter sur le fichier relu, pas sur le retour de l'API
+- 1.48.0 : l'attribut `salt` d'`APIC` change la `HashKey` en `APIC:<desc><salt>`, donc l'unicité
+- WAV : seul le chunk ID3v2 est supporté (pas RIFF/INFO), écrit `id3 ` en minuscules que d'autres logiciels peuvent ignorer
 - `mutagen.File()` rend `None` sur un format non reconnu, il ne lève pas : le cas se traite
 
 ## Exemples

@@ -47,11 +47,18 @@
     <router-outlet />
   </main>
 
-  <!-- Hors du router-outlet : la modale suit l'utilisateur sur tous les onglets. -->
-  <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
+  <!-- Hors du router-outlet : la modale suit l'utilisateur sur tous les onglets. Differee a
+       son premier affichage : son listbox tire les formulaires et le CDK, un tiers du bundle
+       initial pour un ecran qu'un run sans zone grise n'ouvre jamais. -->
+  @defer (when arbitrationVisible(); prefetch on idle) {
+    <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
+  }
 }
 
-<!-- Hors des deux branches : l'ecran bloquant peut coexister avec une demande de sortie. -->
-<app-close-confirmation />
+<!-- Hors des deux branches : l'ecran bloquant peut coexister avec une demande de sortie.
+     Differee comme la modale d'arbitrage : `p-dialog` n'a rien a faire au demarrage. -->
+@defer (when closeRequested(); prefetch on idle) {
+  <app-close-confirmation />
+}
 
 <p-toast position="bottom-right" />

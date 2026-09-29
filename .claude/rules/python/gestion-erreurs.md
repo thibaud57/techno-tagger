@@ -8,12 +8,12 @@ paths:
 ## À faire
 - Dériver toutes les erreurs métier d'une exception de base par domaine, elle-même héritée d'`Exception`
 - Suffixer `Error` **toute** classe d'exception, base comme feuille (N818) : sans ça chaque nouvelle exception traîne un `# noqa: N818`
-- Porter le `code` stable et les `params` structurés en attributs de l'exception, jamais dans le message : c'est ce que sérialise l'événement `error` NDJSON, l'interface traduit (cf. [ARCHITECTURE.md § API](../../../docs/ARCHITECTURE.md#api))
+- Porter le `code` stable et les `params` en attributs de l'exception, jamais dans le message : l'événement `error` les sérialise, l'interface traduit
 - `raise MonErreur(...) from e` pour garder l'origine technique sous l'erreur métier, `from None` pour masquer un détail d'implémentation
 - Un logger par module via `logging.getLogger(__name__)`, la configuration se faisant une seule fois au point d'entrée
 - `logger.exception(...)` dans un `except` (traceback inclus), avec formatage lazy `%s`, pas de f-string
 - Trier les erreurs d'un `TaskGroup` par `except*`, une clause par famille
-- Structurer les logs en logfmt, champs `clé=valeur` appendés au message, jeu de clés fixe (`run`, `track`, `source`, `score`, `status`, `reason`, `request_id`) : une clé inventée au fil des commits rend un `grep` faux sans que rien ne casse ni ne se voie (cf. [PRODUCTION.md](../../../docs/PRODUCTION.md) § Logging)
+- Structurer les logs en logfmt avec le jeu de clés fixe (`run`, `track`, `source`, `score`, `status`, `reason`, `request_id`) : une clé inventée fausse un `grep` sans que rien ne casse
 - Rattacher un incident propre à un morceau à son `failure_reason`, pas à un message libre
 
 ## À éviter

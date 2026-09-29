@@ -7,7 +7,7 @@ paths:
 # GitHub Actions — Secrets & variables
 
 ## À faire
-- Stocker en secrets GitHub tout ce qui signe ou identifie : clé privée de l'updater et son mot de passe, DSN Sentry, clé de licence PrimeNG, token Sentry (liste, usage et conséquence de perte : [PRODUCTION.md](../../../docs/PRODUCTION.md) § Variables d'Environnement)
+- Stocker en secrets GitHub tout ce qui signe ou identifie : clé updater et son mot de passe, DSN et token Sentry, licence PrimeNG (cf. [PRODUCTION.md](../../../docs/PRODUCTION.md) § Variables d'Environnement)
 - Passer un secret par `env:` au niveau du step qui en a besoin, et le lire en `$VAR` dans le shell
 - Réserver `vars` (UI GitHub) aux valeurs non sensibles qui varient, et `env:` YAML aux constantes du workflow
 - Consommer le `GITHUB_TOKEN` fourni automatiquement pour publier la Release : aucun secret à créer pour cela
