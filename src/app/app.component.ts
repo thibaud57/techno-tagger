@@ -84,6 +84,8 @@ export class AppComponent {
     () => !this.queueEmpty() && !this.arbitrationDismissed(),
   )
 
+  protected readonly closeRequested = computed(() => this.closeGuard.request() !== null)
+
   constructor() {
     void this.closeGuard.install()
 

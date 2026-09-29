@@ -1,5 +1,5 @@
-import { Component, input, output, signal } from "@angular/core"
-import { TestBed } from "@angular/core/testing"
+import { signal } from "@angular/core"
+import { DeferBlockBehavior, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
@@ -7,7 +7,6 @@ import { MessageService } from "primeng/api"
 import { AppComponent } from "./app.component"
 import { CloseGuard } from "./core/close-guard.service"
 import { SidecarService } from "./core/sidecar.service"
-import { ArbitrationDialogComponent } from "./features/tagging/arbitration-dialog.component"
 
 /** jsdom n'implemente pas `ResizeObserver` qu'observe `p-tablist` (jsdom/jsdom#3368). */
 class ResizeObserverStub {
@@ -24,13 +23,6 @@ class ResizeObserverStub {
 ;(globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver ??=
   ResizeObserverStub as unknown as typeof ResizeObserver
 
-/** La modale elle-meme a ses tests : ici, seule sa visibilite compte. */
-@Component({ selector: "app-arbitration-dialog", template: "" })
-class DialogStub {
-  readonly visible = input.required<boolean>()
-  readonly dismissed = output()
-}
-
 const mount = () => {
   const service = {
     available: signal<boolean | null>(true),
@@ -46,6 +38,8 @@ const mount = () => {
   }
   TestBed.configureTestingModule({
     imports: [AppComponent],
+    // Les deux modales ont leurs propres tests : ici, seule leur visibilite compte.
+    deferBlockBehavior: DeferBlockBehavior.Manual,
     providers: [
       provideRouter([]),
       provideTranslateService(),
@@ -54,10 +48,6 @@ const mount = () => {
       { provide: SidecarService, useValue: service },
       { provide: CloseGuard, useValue: closeGuard },
     ],
-  })
-  TestBed.overrideComponent(AppComponent, {
-    remove: { imports: [ArbitrationDialogComponent] },
-    add: { imports: [DialogStub] },
   })
   const fixture = TestBed.createComponent(AppComponent)
   fixture.detectChanges()
