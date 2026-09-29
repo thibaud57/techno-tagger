@@ -14,8 +14,6 @@ from typing import TYPE_CHECKING, override
 
 from tagger.files import IdentityTags, TagsUnreadableError, list_audio_files, read_identity
 from tagger.matching import (
-    DEFAULT_THRESHOLDS,
-    MatchingThresholds,
     Outcome,
     ScoredCandidate,
     TrackQuery,
@@ -28,14 +26,14 @@ from tagger.scraper_client import (
     Source,
     SourceUnavailableError,
 )
-from tagger.sources import ApiKeyRejectedRunError, RunSources
+from tagger.sources import ApiKeyRejectedRunError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
-    from tagger.cache import ArtworkFetcher
-    from tagger.scraper_client import TechnoScraperClient, TrackCandidate
+    from tagger.scraper_client import TrackCandidate
+    from tagger.sources import RunSources
 
 logger = logging.getLogger(__name__)
 
@@ -212,20 +210,6 @@ class RunProgress:
 
 
 type RunEvent = RunStarted | TrackResolved | ArbitrationRequired | RunProgress
-
-
-async def run_tagging(
-    folder: Path,
-    *,
-    client: TechnoScraperClient,
-    artworks: ArtworkFetcher,
-    on_event: Callable[[RunEvent], None],
-    thresholds: MatchingThresholds = DEFAULT_THRESHOLDS,
-) -> TaggingRun:
-    live = await open_run(folder, on_event=on_event)
-    sources = RunSources(live.run_id, client, artworks, thresholds)
-    await resolve_run(live, sources, on_event=on_event)
-    return live.snapshot()
 
 
 async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> LiveRun:

@@ -17,7 +17,7 @@ from scraper_responses import YOUR_MIND, make_client, page_payload, track_payloa
 from tagger.cache import ArtworkFetcher, DiskCache
 from tagger.matching import DEFAULT_THRESHOLDS
 from tagger.sources import RunSources
-from tagger.tagging import open_run, run_tagging
+from tagger.tagging import open_run, resolve_run
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
@@ -211,7 +211,10 @@ async def run(
     """Lance un run complet sur l'API et le CDN simules."""
     sink: list[RunEvent] = events if events is not None else []
     async with _wired(folder, api.handler, cdn) as (client, artworks):
-        return await run_tagging(folder, client=client, artworks=artworks, on_event=sink.append)
+        live = await open_run(folder, on_event=sink.append)
+        sources = RunSources(live.run_id, client, artworks, DEFAULT_THRESHOLDS)
+        await resolve_run(live, sources, on_event=sink.append)
+        return live.snapshot()
 
 
 class OpenedRun(NamedTuple):
