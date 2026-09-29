@@ -7,23 +7,23 @@ paths:
 # GitHub Actions — Événements déclencheurs
 
 ## À faire
-- Déclencher le gate qualité sur `push` filtré par `branches: [main]` et `pull_request` filtré par `branches: [main, develop]` : tout atteint `develop` par PR, un push direct n'y déclenche rien (même réglage que techno-scraper et le portfolio)
+- Déclencher le gate qualité sur `push` vers `main` et `pull_request` vers `main` et `develop` : tout atteint `develop` par PR
 - Déclencher le build de release **depuis le workflow release-please**, par `needs:` conditionné à l'output `release_created`, jamais depuis un fichier séparé
 - Ajouter `workflow_dispatch` sur un workflow qu'il faut pouvoir rejouer à la main sans pousser un commit
 - Filtrer par `paths:` un workflow qui ne concerne qu'une zone du dépôt
 - Laisser les activity types par défaut de `pull_request` (`opened`, `synchronize`, `reopened`) sauf besoin explicite
 
 ## À éviter
-- `on: push: tags: 'v*'` pour le build de release : le tag créé par release-please via `GITHUB_TOKEN` ne déclenche **aucun** workflow, le build ne partirait jamais et sans erreur, laissant une Release vide qu'aucun updater ne verrait
+- `on: push: tags: 'v*'` pour le build de release : le tag créé par release-please via `GITHUB_TOKEN` ne déclenche aucun workflow, et la Release resterait vide sans erreur
 - `pull_request_target` avec checkout du code de la PR : le code du fork s'exécuterait avec accès aux secrets du dépôt
 - `branches` et `branches-ignore` sur le même event (mutuellement exclusifs), idem `paths` / `paths-ignore`
 - Mettre une expression `${{ }}` sous `on:` : aucun contexte n'y est disponible
 - Exclure `.github/workflows/**` d'un `paths-ignore` au point de ne plus jamais tester une modification de la CI elle-même
 
 ## Gotchas
-- Verbatim GitHub : « events triggered by the `GITHUB_TOKEN` will not create a new workflow run, **with the following exceptions** ». Les exceptions sont `workflow_dispatch`, `repository_dispatch`, et les `pull_request` de type `opened` / `synchronize` / `reopened`, ces derniers créant des runs **en état approval-required**. Un push de **tag** n'en fait pas partie : `on: push: tags` ne partirait toujours jamais, et le chaînage `needs:` reste le contournement du projet. PAT et token de GitHub App restent les alternatives, au prix d'un secret à faire tourner
-- La PR de release, et tout commit qu'un job y pousse, produisent des runs `pull_request` **bloqués en attente d'approbation**, pas des runs absents. Sans clic « Approve workflows to run », rien ne valide la tête de cette PR
-- Le flux `develop` → `main` n'est pas documenté côté release-please, qui raisonne sur une branche de vérité unique pilotée par `target-branch`. Il marche : le squash-merge de la PR `develop → main` est un commit ordinaire de `main`, et le premier run (tag `v0.1.0`) l'a confirmé (cf. [VERSIONS.md](../../../docs/VERSIONS.md) § release-please)
+- Un event émis par le `GITHUB_TOKEN` ne lance aucun workflow, sauf `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, qui partent en attente d'approbation. Un push de tag n'en fait pas partie
+- Les runs de la PR de release attendent une approbation (« Approve workflows to run ») : sans elle, rien ne valide la tête de la PR
+- Le flux `develop → main` convient à release-please : le squash-merge est un commit ordinaire de `main`
 - Un workflow `schedule` est désactivé après 60 jours sans activité sur le dépôt
 
 ## Exemples

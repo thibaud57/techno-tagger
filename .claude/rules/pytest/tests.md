@@ -7,7 +7,7 @@ paths:
 
 ## À faire
 - N'écrire un test que s'il vérifie une règle métier du projet : une régression de notre code doit le faire échouer
-- Garder par un test toute valeur recopiée à la main entre deux manifestes du dépôt, quand aucune dérivation n'est possible : lire les deux fichiers et les comparer. Ce test n'implique aucune dépendance, il ne casse que sur une édition unilatérale de notre propre code, et couvre des divergences qui ne se verraient qu'à l'exécution du bundle. `test_main.py` porte celles du nom, de l'identifiant, du binaire et des quatre versions
+- Garder par un test toute valeur recopiée entre deux manifestes quand aucune dérivation n'est possible : la divergence ne se verrait qu'à l'exécution du bundle. `test_main.py` porte nom, identifiant, binaire et versions
 - Structurer en Arrange / Act / Assert séparés par une ligne vide, sans commentaire de section
 - Nommer les tests en anglais, fonctions `test_*` comme `ids` de parametrize ; docstrings et commentaires en français
 - Mocker le client techno-scraper par le `MockTransport` natif d'httpx2, injecté via le paramètre `transport` du client
@@ -17,7 +17,7 @@ paths:
 - `@pytest.mark.parametrize(..., ids=[...])` pour les jeux de données, un cas par échec localisé
 - `pytest.raises(MonErreur, match=...)`, et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
 - Mettre les fixtures partagées dans `conftest.py`, avec teardown après `yield`
-- Chercher dans `sidecar/tests/helpers/` le fake, le jeu de réponses ou le pilote de boucle avant d'en écrire un. Dès qu'un deuxième test en a besoin, il y rejoint les autres ; à usage unique, il reste dans son test. `conftest.py` ne garde que les fixtures
+- Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin. `conftest.py` ne garde que les fixtures
 
 ## À éviter
 - Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer

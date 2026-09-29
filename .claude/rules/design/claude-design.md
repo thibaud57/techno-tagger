@@ -18,10 +18,10 @@ Le projet Claude Design « Techno Tagger Design System » porte dans `ui_kits/te
 ## À éviter
 
 - Recopier des valeurs de la maquette dans une spec, une rule ou un commentaire : elle continue d'évoluer. On nomme son écran, on ne décrit pas son contenu ailleurs qu'en elle
-- Transposer son React tel quel : la maquette est une recréation bâtie depuis DESIGN.md, jamais diffée contre le code Angular. Ses styles inline désignent des tokens à retrouver dans les classes du plugin `tailwindcss-primeui`, pas du CSS à copier
+- Transposer son React tel quel : ses styles inline désignent des tokens à retrouver dans les classes de `tailwindcss-primeui`, pas du CSS à copier
 - Modifier la maquette sans demande explicite : c'est le fichier de design du propriétaire, pas un artefact généré
 
 ## Gotchas
 
 - La maquette rend les icônes par la police PrimeIcons (`pi pi-*`), que la v22 n'emploie plus : dans l'app, `IconComponent` et `SourceLogoComponent` rendent du SVG inline (cf. rule `primeng/composants.md`)
-- Une largeur fixe dans la maquette (colonne de libellés, sélecteur) ne s'importe pas telle quelle dès qu'elle porte du texte traduit : elle se remesure sur le contenu le plus long en FR et en EN (DESIGN.md § Conventions de Code)
+- Une largeur fixe de la maquette qui porte du texte traduit se remesure sur le contenu le plus long en FR et en EN

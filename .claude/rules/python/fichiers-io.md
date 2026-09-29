@@ -8,7 +8,7 @@ paths:
 ## À faire
 - `encoding="utf-8"` explicite à chaque `open()`, `read_text()` et `write_text()` : la cible est Windows, dont la locale par défaut est `cp1252`
 - `pathlib.Path` et l'opérateur `/` pour tout chemin, `mkdir(parents=True, exist_ok=True)` et `unlink(missing_ok=True)` pour les créations et suppressions
-- Émettre chaque événement NDJSON sur une seule ligne, `model_dump_json()` pour les modèles du protocole et `json.dumps` sans `indent` ailleurs, vidée à chaque ligne par le `line_buffering=True` posé sur `stdout` au démarrage, pas par un `flush()` répété à chaque point d'émission (cf. [ADR-005](../../../docs/adrs/005-sidecar-python-protocole-ndjson.md))
+- Émettre chaque événement NDJSON sur une seule ligne (`model_dump_json()`, ou `json.dumps` sans `indent`), vidée par le `line_buffering=True` posé sur `stdout` au démarrage, pas par des `flush()` (cf. [ADR-005](../../../docs/adrs/005-sidecar-python-protocole-ndjson.md))
 - `ensure_ascii=False` pour les rapports JSON lisibles, `sort_keys=True` quand un rendu déterministe est attendu
 - `default=` et `object_hook=` pour sérialiser et relire les types non natifs
 - `datetime.now(UTC)` et `isoformat()` pour produire, `fromisoformat()` pour relire

@@ -7,11 +7,11 @@ paths:
 # Sentry — SDK Python
 
 ## À faire
-- Forcer `include_local_variables=False` : le défaut est `True`, et le SDK joint alors un instantané des variables locales de chaque frame, donc les chemins complets, l'artiste et le titre en cours, voire la clé API si elle transite par une variable locale
+- Forcer `include_local_variables=False` : à `True` (le défaut), chaque frame joint ses variables locales, chemins, titres et clé API compris
 - Fixer `server_name` sur une constante : sans valeur, le nom de la machine de l'utilisateur part avec chaque événement
 - Laisser `send_default_pii` à son défaut : il s'agit de ne pas l'activer, pas de le régler
 - Poser un `before_send` qui masque les chemins utilisateur, et l'étendre chaque fois qu'un nouveau champ transporte une donnée locale
-- Poser la même `release` que côté Angular, **préfixe compris** : `techno-tagger@X.Y.Z`, jamais la version nue. Le paquet Python s'appelle `tagger`, laisser chaque SDK dériver son nom donnerait deux chaînes incomparables, et le préfixe `nom@` conditionne le classement sémantique côté Sentry, donc la détection de régression et le tri `release:latest`
+- Poser la même `release` que côté Angular, préfixe compris (`techno-tagger@X.Y.Z`) : le paquet s'appelle `tagger`, et sans le préfixe `nom@` Sentry ne classe plus les versions
 - Renseigner `environment` pour que les runs de développement ne consomment pas le quota des utilisateurs
 - Couvrir l'appel à `init()` d'un `try/except` : une remontée d'erreurs cassée ne doit jamais empêcher l'application de démarrer
 - Déclarer `pyinstaller-hooks-contrib` en dépendance de build et vérifier la présence de `hook-sentry_sdk.py`

@@ -8,7 +8,7 @@ paths:
 ## À faire
 - `re.compile()` hors boucle, motifs en raw strings, groupes nommés `(?P<nom>...)` relus par `groupdict()`
 - `re.fullmatch` pour valider un format complet, `re.finditer` pour parcourir un gros texte
-- Se replier sur la chaîne d'origine quand le nettoyage d'une requête la vide : une requête inexploitable est un motif d'échec distinct de « rien trouvé » (ce que le nettoyage doit préserver est dans [matching.md](../rapidfuzz/matching.md))
+- Se replier sur la chaîne d'origine quand le nettoyage d'une requête la vide : une requête inexploitable n'est pas « rien trouvé »
 - `Counter` pour les compteurs du récapitulatif, `defaultdict(list)` pour regrouper, les doublons de noms de fichiers notamment (cf. [ADR-020](../../../docs/adrs/020-doublons-noms-de-fichiers.md))
 - Trier sur la clé de groupe avant `itertools.groupby`, et matérialiser chaque sous-itérateur avant d'avancer
 - `itertools.batched(it, n)` pour découper un flux en lots

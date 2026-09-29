@@ -24,12 +24,12 @@ paths:
 - `dark:` sans le `@custom-variant` : le variant suivrait le thème système, en désaccord avec l'interface
 
 ## Gotchas
-- Un fichier PostCSS maison désactive l'intégration Tailwind automatique du builder Angular et fait passer toutes les feuilles de style, globales comme composants, par PostCSS : coût possible sur les temps de build et de rebuild
+- Un fichier PostCSS maison désactive l'intégration Tailwind du builder Angular et fait passer toutes les feuilles de style par PostCSS
 - La racine du projet prime sur celle du workspace quand les deux portent un fichier PostCSS, et un fichier mal nommé est ignoré silencieusement
 - Sans le sélecteur aligné des deux côtés, les composants PrimeNG sont sombres pendant que les utilitaires Tailwind suivent le réglage système : l'écart est visuel et difficile à diagnostiquer
-- `tailwindcss-primeui` n'a pas été republié depuis mars 2025, donc avant PrimeNG 22 et Tailwind 4.3 : il ne consomme que des variables CSS générées, mais aucune correction rapide n'est à attendre si un token nouveau n'est pas exposé. Le repli est de déclarer les tokens directement dans `@theme`
+- `tailwindcss-primeui` n'est plus maintenu activement : un token absent se déclare directement dans `@theme`
 - `tailwindStylesheet` remplace `tailwindConfig` de la v3 : sans lui, le plugin ne résout ni le thème ni les plugins et le tri devient approximatif. Il exige Prettier ≥ 3.7 et le paquet est ESM-only
-- Dependabot régénère le lockfile par la CLI pnpm, qui applique `minimumReleaseAge` elle-même : un bot qui résoudrait sans cette fenêtre ferait échouer `pnpm install --frozen-lockfile` sur une transitive trop fraîche (cas documenté sur `caniuse-lite`)
+- Un outil qui résout le lockfile sans passer par la CLI pnpm ignore `minimumReleaseAge` : `pnpm install --frozen-lockfile` échoue alors sur une transitive trop fraîche
 
 ## Exemples
 ```css

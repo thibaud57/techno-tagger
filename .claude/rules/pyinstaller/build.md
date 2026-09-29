@@ -12,12 +12,13 @@ paths:
 - Construire en `--onedir` et déclarer l'exe en `bundle.externalBin`, le dossier `_internal/` en `bundle.resources` ([ARCHITECTURE.md § Arborescence](../../../docs/ARCHITECTURE.md#arborescence))
 - Rester en mode console : `--windowed` détache `stdin`/`stdout` sous Windows et casse le protocole NDJSON
 - Déclarer `pyinstaller-hooks-contrib` dans le groupe de dépendances de build : sans lui, sentry-sdk perd ses intégrations, silencieusement ou par `ImportError` selon la version
-- Forcer le backend keyring en code : `hook-keyring.py` résout le backend par `collect_submodules` et `copy_metadata`, mais `set_keyring()` reste la ceinture, une régression du hook ne se voyant que dans le binaire figé (cf. [keyring/secrets.md](../keyring/secrets.md))
+- Forcer le backend keyring en code par `set_keyring()` : une régression du hook ne se verrait que dans le binaire figé (cf. [keyring/secrets.md](../keyring/secrets.md))
 - Lire le target triple depuis `rustc --print host-tuple` dans `build.py`, jamais en dur, et copier le binaire suffixé dans `src-tauri/binaries/`
 - Passer `--noconfirm` en CI, sans exception
-- Garder `--clean` systématique dans `build.py` : le runner de CI n'a aucun cache PyInstaller ni `build/` à vider, le coût y est nul, et l'analyse repart d'un arbre propre alors que `_build_info.py` est créé puis supprimé à chaque build, DSN de production compris. Le coût réel est local, sur les builds répétés. `--clean` reste par ailleurs le premier réflexe quand un hidden import ajouté ne semble pas pris en compte
+- Garder `--clean` dans `build.py` : l'analyse repart d'un arbre propre, `_build_info.py` (DSN compris) étant créé puis supprimé à chaque build. C'est aussi le premier réflexe quand un hidden import semble ignoré
 - Garder `--noupx` et réduire la taille par `--exclude-module` sur les paquets non utilisés
-- Valider chaque chargement dynamique **sur le binaire figé** : clé keyring lue, event Sentry envoyé, scoring rapidfuzz exécuté, ligne NDJSON validée par un modèle Pydantic. Trois cas distincts : `pydantic` a un hook (`hook-pydantic.py` de `pyinstaller-hooks-contrib`) qui collecte ses sous-modules ; `pydantic-core`, l'extension native qu'il embarque, n'a pas de hook propre et n'en a pas besoin, l'analyse statique la traçant via les imports de `pydantic` ; `rapidfuzz`, l'autre extension native de la stack, n'a aucun hook du tout, son entry point `pyinstaller40` pointant vers sa suite de tests et non vers des `hiddenimports` : `collect_submodules("rapidfuzz")` est donc explicite dans le `.spec`
+- Valider chaque chargement dynamique **sur le binaire figé** : clé keyring lue, event Sentry envoyé, scoring rapidfuzz, ligne NDJSON validée par Pydantic
+- Garder `collect_submodules("rapidfuzz")` explicite dans le `.spec` : rapidfuzz n'a aucun hook utile, contrairement à `pydantic` (hook de `pyinstaller-hooks-contrib`, `pydantic-core` tracé par l'analyse statique)
 
 ## À éviter
 - `--windowed` : le protocole passe par les flux standards
@@ -28,10 +29,8 @@ paths:
 - Déclarer `[project.scripts]` dans le `pyproject.toml` du sidecar : `uv init --package` le génère, mais le point d'entrée est le script du `.spec` et rien ne consomme la commande console
 
 ## Gotchas
-- Le `.spec` reçoit `SPEC`, `SPECPATH`, `DISTPATH` et `workpath` de PyInstaller, mais **pas** son dossier sur `sys.path` : il ne peut importer aucun module voisin sous l'entry point `pyinstaller`, qui retire `sys.path[0]` quand c'est `Scripts`. Toute valeur partagée avec `build.py` passe par ces globals ou par le nom du fichier
-- Tout ce qui s'importe par une chaîne de caractères est invisible à l'analyse statique : c'est la règle qui explique les trois cas du projet (sentry-sdk par `importlib`, keyring par entry points, l'extension C++ de rapidfuzz)
-- `--debug=imports` est le premier outil face à un `ModuleNotFoundError` qui n'existe qu'en binaire ; le fichier sous `build/<nom>/` liste les modules analysés
-- 6.22.2 corrige la collecte de DLL pour des paquets installés par uv plutôt que pip : la combinaison est maintenue mais demande de suivre les versions
-- Un exécutable non signé est régulièrement signalé par Defender et SmartScreen. La seule mitigation fiable est la signature Authenticode, écartée par le budget : `--onedir` et `--noupx` sont ce qui reste, et la mesure appartient à la checklist post-MEP
-- La version du sidecar est propagée par release-please via `extra-files` : un bump oublié fausse le tri Sentry et rend une mise à jour invisible
-- `--onefile` s'auto-extrait dans `%TEMP%\_MEIxxxxxx` à chaque lancement et ne laisse tuer que son bootloader : le projet est en `--onedir`, dont `externalBin` ne prend que l'exe, `_internal/` passant par `bundle.resources`
+- Le `.spec` ne voit pas son dossier sur `sys.path` : il n'importe aucun module voisin, tout partage avec `build.py` passe par `SPEC`, `SPECPATH`, `DISTPATH`, `workpath` ou le nom du fichier
+- Tout import par chaîne de caractères échappe à l'analyse statique : sentry-sdk (`importlib`), keyring (entry points), rapidfuzz (extension C++)
+- `--debug=imports` est le premier outil face à un `ModuleNotFoundError` propre au binaire ; `build/<nom>/` liste les modules analysés
+- Un exécutable non signé est signalé par Defender et SmartScreen : la signature étant écartée par le budget, restent `--onedir` et `--noupx`
+- `--onefile` s'auto-extrait dans `%TEMP%` à chaque lancement et ne laisse tuer que son bootloader : d'où `--onedir`

@@ -26,11 +26,10 @@ paths:
 - Passer par Corepack, y compris là où il existe encore : il installe un shim JavaScript à la place de pnpm, donc chaque appel démarre Node avant pnpm
 
 ## Gotchas
-- Les scripts tournent sous `bash` (`scriptShell`), donc `$npm_package_name` et `$npm_package_version` y sont exploitables : les préférer à un chemin ou une version recopiés
-
-- `packageManager` et `devEngines.packageManager` sont les deux seuls déclencheurs du lockfile multi-document sur ce projet, format qui casse le graphe de dépendances GitHub et donc les alertes de sécurité que Dependabot consomme. C'est l'inverse de ce que recommande la doc pnpm, et c'est assumé (cf. [VERSIONS.md § Conflits Potentiels](../../../docs/VERSIONS.md#conflits-potentiels))
-- Corepack est retiré des binaires officiels Node depuis la 25.x et absent de la 26.0.0
-- Depuis la v10, les scripts de cycle de vie des dépendances ne s'exécutent plus à l'installation : le symptôme d'un paquet non approuvé est un module manquant **à l'exécution**, pas une erreur d'installation
-- `pnpm/setup` v2 exige pnpm 11 ou plus et rejette explicitement les versions antérieures ; la 2.0.1 corrige la normalisation des chemins du store sous Windows, et le tag flottant `@v2` peut rester en deçà (cf. [github-actions/security-permissions.md](../github-actions/security-permissions.md))
+- Les scripts tournent sous `bash` (`scriptShell`) : utiliser `$npm_package_name` et `$npm_package_version` plutôt qu'une valeur recopiée
+- `packageManager` et `devEngines.packageManager` déclenchent le lockfile multi-document, qui casse le graphe de dépendances GitHub et les alertes Dependabot : à l'inverse de la doc pnpm, ils restent absents
+- Corepack est retiré des binaires Node depuis la 25.x
+- Depuis la v10, les scripts de cycle de vie des dépendances ne tournent plus à l'installation : un paquet non approuvé se voit en module manquant **à l'exécution**
+- `pnpm/setup` v2 exige pnpm 11 ; le tag flottant `@v2` peut précéder le correctif des chemins du store sous Windows
 - `exec` lance ce qui est installé, `dlx` récupère depuis le registre à la volée : ce ne sont pas des synonymes
 - `hoist=true` par défaut hoiste dans `node_modules/.pnpm/node_modules`, zone interne qui ne casse pas l'isolation de la racine
