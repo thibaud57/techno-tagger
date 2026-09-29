@@ -55,7 +55,8 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-> **Vide au 2026-09-29** : tout a été poussé (cf. Journal).
+- **Modale d'arbitrage, refus d'un geste** : le code affiche l'erreur du morceau affiché sous la liste (DESIGN.md § Mapping Composants, « Refus d'un geste »), `ArbitrationDialog.jsx` n'a aucun état d'erreur alors que `ErrorMessage` est au kit. Relevé le 2026-09-29 à la clôture de l'epic
+- **Modale d'arbitrage, en-tête** : titre et nom de fichier coupés sur une ligne avec tooltip dans le code, deux `div` bruts dans `ArbitrationDialog.jsx`, qui passent à la ligne sur un titre long alors que `TruncatedText` est au kit. Relevé le 2026-09-29 à la clôture de l'epic
 
 
 ## Journal

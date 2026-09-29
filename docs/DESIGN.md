@@ -1,7 +1,7 @@
 ---
 title: "DESIGN — techno-tagger"
 description: "Design system : typographie, couleurs, librairies UI, mapping composants et conventions de style de l'interface Angular + PrimeNG."
-date: "2026-09-25"
+date: "2026-09-29"
 keywords: ["design", "ui", "design-system", "typography", "colors", "animations", "layout", "dark-mode", "icons", "desktop", "components", "spacing", "primeng", "tailwind"]
 scope: ["docs", "frontend"]
 technologies: ["Angular", "PrimeNG", "Tailwind CSS", "PrimeIcons", "Simple Icons", "Inter", "Tauri"]
@@ -568,9 +568,9 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Container** : un seul container pleine largeur pour tous les écrans, là où le design system posait deux régimes de largeur, données en pleine largeur et formulaires centrés. Réaligné le 2026-09-24
 - **Densité des tables** : `p-table` à sa taille par défaut, là où le design system les donnait en `small`. Réaligné le 2026-09-24
 - **Séparateur artiste / titre** : un tiret simple, là où la maquette employait un cadratin, que le produit réserve à la cellule sans valeur (§ Séparateurs). Réaligné le 2026-09-24
-- **Candidat d'arbitrage** : « Artiste - Titre » du candidat et score sur une ligne « 94 (A 96 · T 92) », là où la maquette ne montre que le titre et « A · T ». C'est souvent l'artiste qui fait tomber un candidat en zone grise. Décidé le 2026-09-26
-- **Croix de la modale d'arbitrage** : l'arbitrage reste en file, la modale revient par le badge de file ou par la ligne du morceau, là où la maquette le retirait de la file. Décidé le 2026-09-26, retour par la ligne le 2026-09-29
-- **Vocabulaire « zone grise »** : jamais affiché à l'écran, resté interne au scoring ; l'interface dit « correspondances incertaines », là où le `SettingsScreen` de la maquette l'emploie encore dans l'indice du Seuil haut (« Entre les deux, zone grise. »). Décidé le 2026-09-27
+- **Candidat d'arbitrage** : « Artiste - Titre » du candidat et score sur une ligne « 94 (A 96 · T 92) », là où la maquette ne montrait que le titre et « A · T ». C'est souvent l'artiste qui fait tomber un candidat en zone grise. Décidé le 2026-09-26, réaligné le 2026-09-29
+- **Croix de la modale d'arbitrage** : l'arbitrage reste en file, la modale revient par le badge de file ou par la ligne du morceau, là où la maquette le retirait de la file. Décidé le 2026-09-26, retour par la ligne et réaligné le 2026-09-29
+- **Vocabulaire « zone grise »** : jamais affiché à l'écran, resté interne au scoring ; l'interface dit « correspondances incertaines », là où le `SettingsScreen` de la maquette l'employait dans l'indice du Seuil haut (« Entre les deux, zone grise. »). Décidé le 2026-09-27, réaligné au plus tard le 2026-09-29
 
 ## Documentation Officielle
 
