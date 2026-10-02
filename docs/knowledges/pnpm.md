@@ -52,7 +52,7 @@ Le champ `packageManager` fixe la version exacte pour tout le monde, mais **ce p
 ### Exemple
 
 ```yaml
-- uses: pnpm/setup@v2.1.0
+- uses: pnpm/setup@v3.0.0
   with:
     version: 11.24.0
     runtime: node@24
@@ -121,7 +121,7 @@ Une seule action installe pnpm et Node, la version étant passée en input.
 ### Exemple
 
 ```yaml
-- uses: pnpm/setup@v2.1.0
+- uses: pnpm/setup@v3.0.0
   with:
     runtime: node@24
 

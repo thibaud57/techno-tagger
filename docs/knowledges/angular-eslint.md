@@ -1,6 +1,6 @@
 ---
 title: "angular-eslint — Lint du frontend"
-version: "22.2.0"
+version: "22.5.0"
 description: "Référence technique pour angular-eslint : flat config obligatoire, blocs TS et HTML, typed linting par projectService, règles Angular notables et cohabitation avec Prettier."
 date: "2026-08-29"
 keywords: ["angular-eslint", "eslint", "flat-config", "typed-linting", "a11y", "prettier"]

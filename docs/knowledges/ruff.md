@@ -1,6 +1,6 @@
 ---
 title: "Ruff — Linter et formatter du sidecar"
-version: "0.16.6"
+version: "0.16.9"
 description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0, select vs extend-select et ordre lint/format."
 date: "2026-08-29"
 keywords: ["ruff", "lint", "format", "pyproject", "regles", "pre-commit"]

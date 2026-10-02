@@ -7,7 +7,7 @@ scope: ["docs", "frontend"]
 technologies: ["Angular", "PrimeNG", "Tailwind CSS", "PrimeIcons", "Simple Icons", "Inter", "Tauri"]
 ---
 
-> Versions de référence : PrimeNG **22.1.0**, `@primeuix/themes` **3.0.0**, `@primeicons/angular` **8.0.0**, Tailwind CSS **4.3.3**, `@fontsource-variable/inter` **5.3.0**. Détail et compatibilité croisée dans [VERSIONS.md](VERSIONS.md).
+> Versions de référence : PrimeNG **22.1.1**, `@primeuix/themes` **3.0.1**, `@primeicons/angular` **8.0.2**, Tailwind CSS **4.3.3**, `@fontsource-variable/inter` **5.3.0**. Détail et compatibilité croisée dans [VERSIONS.md](VERSIONS.md).
 
 # 🎨 Identité Visuelle
 
