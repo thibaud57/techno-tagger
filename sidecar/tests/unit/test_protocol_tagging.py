@@ -104,10 +104,8 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
     [
         ("Your Mind", "Original Mix", "Your Mind (Original Mix)"),
         ("Your Mind", None, "Your Mind"),
-        ("Your Mind (Extended Mix)", "Extended Mix", "Your Mind (Extended Mix)"),
-        ("Dubplate Killer", "Dub", "Dubplate Killer (Dub)"),
     ],
-    ids=["with-mix", "without-mix", "mix-already-in-title", "mix-name-inside-another-word"],
+    ids=["with-mix", "without-mix"],
 )
 def test_renders_the_artist_and_the_title_a_source_will_write(
     title: str, mix_name: str | None, expected: str

@@ -15,12 +15,14 @@ TRACKS = {
     "Your Mind": {
         "id": "17492013",
         "title": "Your Mind",
+        "source_title": "Your Mind",
         "mix_name": "Extended Mix",
         "artists": [{"id": "1", "name": "Adam Beyer", "kind": "artist", "social_links": []}],
         "remixers": [],
         "release": {
             "id": "4200",
             "title": "Your Mind",
+            "source_title": "Your Mind",
             "catalog_number": "DC287",
             "release_date": "2023-06-16",
             "artwork_url": None,
@@ -34,17 +36,19 @@ TRACKS = {
         "url": "https://www.beatport.com/track/your-mind/17492013",
         "source": "beatport",
     },
-    # Le titre de la source n'annonce la version qu'a moitie : c'est le cas que
-    # `_complete_partial_mention` traite, verifie ici de bout en bout.
+    # La gateway rend `title` sans version, rangee dans `mix_name` : la composition
+    # « Titre (Mix Name) » se verifie ici de bout en bout.
     "Basiel": {
         "id": "20001",
-        "title": "Basiel (Extended)",
+        "title": "Basiel",
+        "source_title": "Basiel",
         "mix_name": "Extended Mix",
         "artists": [{"id": "2", "name": "Amelie Lens", "kind": "artist", "social_links": []}],
         "remixers": [],
         "release": {
             "id": "4201",
             "title": "Basiel",
+            "source_title": "Basiel",
             "catalog_number": "LENS02",
             "release_date": "2024-02-02",
             "artwork_url": None,
@@ -66,7 +70,8 @@ class _Handler(BaseHTTPRequestHandler):
         # Tient les requetes en vol : une annulation doit tomber pendant le run.
         time.sleep(float(os.getenv("FAKE_DELAY", "0")))
         if os.getenv("REJECT_ALL"):
-            self._reply(403, {"code": "forbidden"})
+            # Corps FastAPI par defaut : un 403 de la gateway ne porte ni code ni request_id.
+            self._reply(403, {"detail": "Invalid API key"})
             return
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
@@ -79,7 +84,8 @@ class _Handler(BaseHTTPRequestHandler):
             if parsed.path.endswith(f"/tracks/{track['id']}"):
                 self._reply(200, track)
                 return
-        self._reply(404, {"code": "not_found"})
+        provider = parsed.path.strip("/").split("/")[0]
+        self._reply(404, {"code": "not_found", "provider": provider, "request_id": "verify-1"})
 
     def _reply(self, status: int, body: dict[str, object]) -> None:
         payload = json.dumps(body).encode()

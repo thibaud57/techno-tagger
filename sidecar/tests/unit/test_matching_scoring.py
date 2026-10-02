@@ -39,7 +39,8 @@ def test_matches_a_candidate_crediting_more_than_the_tag(
 
 
 def test_cleans_the_candidate_title_like_the_query_before_comparing() -> None:
-    """Regression : un nettoyage applique d'un seul cote faussait la comparaison."""
+    """techno-scraper garde un sous-titre que la requete retire : sans le meme `_clean` sur
+    le candidat, la comparaison tomberait sous le plancher."""
     query = TrackQuery("Sharam", "PATT (Green Velvet Remix)", QueryOrigin.TAGS)
     patt = track_candidate("PATT (Party All The Time)", "Green Velvet Remix", artists=("Sharam",))
 
@@ -79,11 +80,12 @@ def test_guards_a_remix_named_outside_any_group() -> None:
     ("tagged_title", "mix_name"),
     [
         ("Your Mind (Extended Mix feat. Roisin Murphy)", "Extended Mix"),
+        ("Your Mind (Extended Mix feat. Radio Slave)", "Extended Mix"),
         ("Your Mind (Extended Mix with Roisin Murphy)", "Extended Mix with Roisin Murphy"),
         ("Your Mind (Adam Beyer pres. Drumcode Remix)", "Adam Beyer pres. Drumcode Remix"),
         ("Your Mind (Chris Liebing vs Speedy J Remix)", "Chris Liebing vs Speedy J Remix"),
     ],
-    ids=["feat", "with", "pres", "vs"],
+    ids=["feat", "feat-guest-first-word-is-a-version", "with", "pres", "vs"],
 )
 def test_reads_the_version_of_a_group_that_also_names_a_guest(
     tagged_title: str, mix_name: str
@@ -106,13 +108,11 @@ def test_reads_the_version_of_a_group_that_also_names_a_guest(
     ("query_title", "candidate_title", "mix_name"),
     [
         ("Your Mind (Extended Mix)", "Your Mind", "Extended Mix"),
-        ("Your Mind (Extended Mix)", "Your Mind (Extended Mix)", "Extended Mix"),
-        ("Your Mind (Extended Mix)", "Your Mind (extended mix)", "Extended Mix"),
         ("Your Mind [Extended Mix]", "Your Mind", "Extended Mix"),
     ],
-    ids=["mix-name-field", "inside-the-title", "another-case", "square-brackets"],
+    ids=["parentheses", "square-brackets"],
 )
-def test_matches_a_version_however_the_source_writes_it(
+def test_matches_a_version_however_the_tag_writes_it(
     query_title: str, candidate_title: str, mix_name: str
 ) -> None:
     query = TrackQuery("Adam Beyer", query_title, QueryOrigin.TAGS)
@@ -223,15 +223,27 @@ def test_ignores_remixers_when_scoring_the_artist() -> None:
         ("Biome", "BCCO, Tommy Sharp"),
         ("Biome feat. BCCO", "Tommy Sharp"),
         ("Biome (feat. BCCO)", "BCCO, Tommy Sharp"),
+        ("Biome feat. Dubfire", "Tommy Sharp"),
+        ("Biome feat. Radio Slave", "Tommy Sharp"),
+        ("Biome feat. Mixhell", "Tommy Sharp"),
     ],
-    ids=["tag-omits-it", "tag-repeats-it", "tag-parenthesises-it"],
+    ids=[
+        "tag-omits-it",
+        "tag-repeats-it",
+        "tag-parenthesises-it",
+        "guest-named-like-a-version-dub",
+        "guest-named-like-a-version-radio",
+        "guest-named-like-a-version-mix",
+    ],
 )
-def test_ignores_a_featuring_the_source_writes_into_the_title(
+def test_ignores_a_featuring_the_tag_writes_into_the_title(
     tagged_title: str, tagged_artist: str
 ) -> None:
-    """Beatport ecrit l'invite dans le titre en plus de le crediter (« Biome feat. BCCO »)."""
+    """techno-scraper sort l'invite du titre et le credite, un tag peut l'y laisser en plus
+    du champ artiste. Regression : la coupe s'arretait devant un nom commencant par un mot
+    de version (« Dubfire ») et en laissait la fin dans le titre."""
     query = TrackQuery(tagged_artist, tagged_title, QueryOrigin.TAGS)
-    biome = track_candidate("Biome feat. BCCO", artists=("BCCO", "Tommy Sharp"))
+    biome = track_candidate("Biome", artists=("BCCO", "Tommy Sharp"))
 
     classification = classify(query, [biome])
 

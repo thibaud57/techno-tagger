@@ -220,6 +220,8 @@ L'utilisateur choisit un dossier, typiquement la destination du use-case 1. Pour
 
 **Règles de scoring** : chaque artiste demandé se compare un à un aux crédits du candidat (`ratio`) et le plus faible de ces meilleurs scores l'emporte, un artiste absent n'étant pas racheté par les autres ; une esperluette se lit des deux façons, duo ou deux artistes et la meilleure lecture gagne. Titre et version se comparent séparément. Un candidat sans mention de remix est écarté quand la requête en contient une. Une version ou un nombre du titre qui diffère (« Pt. 1 » contre « Pt. 2 », ajouté le 2026-09-25) interdit la validation automatique sans écarter le candidat : un seul chiffre coûte trop peu au score pour que le seuil haut suffise.
 
+**Candidat comparé tel que techno-scraper le rend** (depuis sa normalisation des champs texte, son ADR-012 du 2026-09-30 ; décision côté tagger du 2026-10-02) : titre sans version ni invité, version dans `mix_name`, crédits déjà découpés, pour les trois sources. Le sidecar ne les redécoupe pas : seul un sous-titre que la gateway garde (« PATT (Party All The Time) ») est retiré du titre du candidat, comme il l'est de la requête, pour comparer les deux sous la même forme.
+
 **Nettoyage de la requête** avant envoi. Il s'applique à la **chaîne interrogée**, jamais aux tags du fichier : que la source soit les tags ID3 ou le nom de fichier, le bruit est le même. Le motif porte sur le **contenu, pas sur le délimiteur**, `[FREE DL]` et `(Free DL)` devant tomber ensemble. La liste de départ des motifs (mentions de téléchargement, marqueurs d'encodage, numéro de piste en tête du nom de fichier, groupes entre crochets ou parenthèses sans mention de version ni de collaboration, qui couvrent les labels) est fixée le 2026-09-19 dans le spec du sub-project 03 de la Feature 2 et s'ajustera au premier run réel.
 
 > **Garde absolue** : un groupe n'est jamais retiré s'il contient une **mention de version** (`mix`, `remix`, `edit`, `version`, `dub`, `extended`, `radio`, étendue le 2026-09-19 à `rework`, `bootleg`, `vip`, `live`, `instrumental`, `acapella`, `reprise`, `re-edit`, `remaster`, puis le 2026-09-20 à `tool`, `loop`, `intro`, `outro` et aux formes suffixées en `-ed` et `-s` de ces mentions : les groupes sans mention étant retirés, une version absente de cette liste disparaîtrait de la requête) ou de **collaboration** (`feat.`, `ft.`, `featuring`, `with`, `pres.`, `vs.`). `(Adam Beyer Remix)` et `feat. Roisin Murphy` **identifient le morceau** : Beatport traite le featuring comme un artiste à part entière et supprimer une mention de version casserait la règle de scoring ci-dessus, qui écarte un candidat sans remix quand la requête en contient un. Cette garde contraint donc deux modules, pas seulement le nettoyage.
@@ -654,7 +656,7 @@ sequenceDiagram
     U->>UI: colle une URL
     UI->>S: resolve_by_url
     S->>API: GET /bandcamp/tracks?url=, /soundcloud/resolve?url=<br/>ou /beatport/tracks/{id} après extraction de l'id
-    API-->>S: Track (ou UserProfile côté SoundCloud)
+    API-->>S: Track (UserProfile si l'URL SoundCloud est un profil)
     S-->>UI: track_resolved (resolved · url)
 
     U->>UI: confirmation globale
@@ -994,6 +996,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 - [techno-scraper : README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md) : routes, contrat `Page[T]`, sémantique des erreurs
 - [techno-scraper : ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
 - [techno-scraper : ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
+- [techno-scraper : ADR-012](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/012-normalisation-des-champs-texte-en-sortie.md) : champs texte normalisés par la gateway, `source_title` pour le texte brut
 - [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : implémentation CLI de référence (parsing des playlists, matching, déplacement)
 - [BRAINSTORM.md](BRAINSTORM.md) : vision, features et décisions d'origine
 - [DESIGN.md](DESIGN.md) : design system, tokens, mapping composants et conventions de style

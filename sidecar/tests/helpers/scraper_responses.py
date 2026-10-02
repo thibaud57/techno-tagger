@@ -1,4 +1,4 @@
-"""Corps de reponse conformes au contrat techno-scraper 3.1.3 et client mocke.
+"""Corps de reponse conformes au contrat techno-scraper 4.0.0 et client mocke.
 
 Le contrat vit dans `src/technoscraper/shared/schemas.py` du depot techno-scraper.
 Les champs de profil que le sidecar ne lit pas (bio, followers, social_links...)
@@ -39,6 +39,7 @@ def track_payload(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "id": "17492013",
         "title": "Your Mind",
+        "source_title": "Your Mind",
         "mix_name": "Extended Mix",
         "artists": [
             {"id": "1", "name": "Adam Beyer", "kind": "artist", "social_links": []},
@@ -47,6 +48,7 @@ def track_payload(**overrides: object) -> dict[str, object]:
         "release": {
             "id": "4200",
             "title": "Your Mind",
+            "source_title": "Your Mind",
             "catalog_number": "DC287",
             "release_date": "2023-06-16",
             "artwork_url": "https://geo-media.beatport.com/image_size/500x500/cover.jpg",
