@@ -1,6 +1,6 @@
 ---
 title: "PyInstaller — Empaquetage du sidecar Python"
-version: "6.22.2"
+version: "6.22.3"
 description: "Référence technique pour PyInstaller : mode onedir, fichier .spec, hooks et hidden imports, nommage sidecar Tauri, absence de cross-compilation et faux positifs antivirus."
 date: "2026-08-29"
 keywords: ["pyinstaller", "sidecar", "onedir", "spec", "hooks", "hidden-imports", "windows"]

@@ -9,7 +9,7 @@ paths:
 ## À faire
 - Déclarer `permissions:` explicitement : `contents: read` sur le workflow, les écritures sur le seul job qui en a l'usage
 - Épingler chaque action tierce sur un SHA de commit, avec la version en commentaire
-- Épingler à la version exacte quand un tag flottant traîne : `pnpm/setup` doit être posé sur la v2.1.0, le tag `@v2` restant sur une version antérieure au correctif de chemin de cache Windows
+- Épingler chaque action sur le SHA de son tag, jamais sur un tag flottant : un tag flottant peut traîner sur une version antérieure à un correctif, et seul le SHA laisse Dependabot proposer la montée
 - Laisser Dependabot (écosystème `github-actions`) faire remonter les bumps d'actions en PR mensuelle, gate qualité compris
 - Passer toute valeur contrôlée par un tiers (titre de PR, corps d'issue, `client_payload`) par `env:` avant de la lire dans un `run:`
 - Laisser « Dependency graph » et « Dependabot alerts » actifs côté dépôt : les mises à jour de sécurité de Dependabot s'appuient dessus
