@@ -30,7 +30,7 @@ Zone `sidecar/`, gestionnaire **uv**, fichier `sidecar/pyproject.toml` + `sideca
 | RapidFuzz | `3.14.6` | ⚠️ | MIT, wheels Windows précompilées. **Aucun hook PyInstaller ne le couvre**, ni le paquet ni `pyinstaller-hooks-contrib`. La 3.14.6 abandonne Python 3.10, sans effet sur la cible `cp314` |
 | httpx2 | `2.13.1` | ⚠️ | Fork de `httpx` par Pydantic Services. Import `httpx2`, pas `httpx`. **Aucun mock (`respx`, `pytest-httpx`) ne le supporte encore** |
 | keyring | `25.7.0` | ⚠️ | Backends chargés par entry points : casse sous PyInstaller sans forçage explicite du backend |
-| sentry-sdk | `2.70.0` | ✅ | Intégrations chargées par `importlib` : le hook `pyinstaller-hooks-contrib` est indispensable |
+| sentry-sdk | `2.71.0` | ✅ | Intégrations chargées par `importlib` : le hook `pyinstaller-hooks-contrib` est indispensable |
 | PyInstaller | `6.22.3` | ✅ | Supporte Python 3.8 à 3.15. Ne cross-compile pas, runner Windows obligatoire |
 | pyinstaller-hooks-contrib | `2026.7` | ✅ | Hooks `sentry_sdk`, `pydantic` et `keyring` : sans eux les intégrations chargées par `importlib` manquent du binaire |
 | pytest | `9.1.1` | ✅ | Les `PytestRemovedIn9Warning` sont des erreurs depuis la 9.0 |
@@ -116,7 +116,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | rapidfuzz 3.14.6 | classifiers 3.11 à 3.14 | **Wheels `cp314` publiées pour `win_amd64`**, une des deux dépendances à extension native |
 | pydantic 2.13.5 | `>=3.9`, et `>=3.10` pour `pydantic-core` | Compatibilité 3.14 annoncée en 2.12, **wheels `cp314` et `cp314t` de `pydantic-core` pour `win_amd64`** |
 | httpx2 2.13.1 | classifiers 3.10 à 3.15 | Explicite |
-| sentry-sdk 2.70.0 | classifiers jusqu'à 3.15 | Explicite |
+| sentry-sdk 2.71.0 | classifiers jusqu'à 3.15 | Explicite |
 | mypy 2.3.1 | classifiers jusqu'à 3.15 | Wheels `cp314` |
 | pytest 9.1.1 | `>=3.10` | Support de 3.14 depuis pytest 8.4.0 |
 | Ruff 0.16.9 | dérivé de `requires-python` du projet | Pas de `target-version` posé : Ruff le lit dans `pyproject.toml` |
@@ -266,11 +266,12 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Recommandation** : ⚠️ Le risque n'est pas la version mais l'empaquetage : voir [Conflits Potentiels](#conflits-potentiels). Le test de sécurité déjà prévu (« la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ») doit être doublé d'un **test de fumée sur le binaire figé**, pas seulement sur les sources.
 
 ### 8. sentry-sdk
-**Version actuelle** : `2.70.0` (2026-09-22)
+**Version actuelle** : `2.71.0` (2026-09-28)
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** :
 - **2.68.0** : `enable_logs` et `enable_metrics` deviennent des no-op, suppression à la prochaine majeure
+- **2.71.0** : les notes annoncent « Keep event if processor raises », mais `before_send` se comporte comme en 2.70.0 : s'il lève, l'événement est jeté (lu dans `_Client._prepare_event` des deux versions le 2026-10-02). Le `_scrub` du sidecar reste un filet fermé
 - **Ce qui invalide les exemples en 1.x** : `with_locals` s'appelle désormais `include_local_variables`, et l'API Hub a cédé la place aux scopes. Pas de ligne 3.x à ce jour
 
 **Compatibilité Écosystème** :
@@ -888,7 +889,7 @@ Trois contournements, dans l'ordre de préférence :
 | Python 3.14.7 | rapidfuzz 3.14.6 | ✅ | **Wheels `cp314` pour `win_amd64`**, une des deux extensions natives de la stack |
 | Python 3.14.7 | pydantic 2.13.5 | ✅ | Wheels `cp314` et `cp314t` de `pydantic-core` pour `win_amd64`, compatibilité 3.14 annoncée depuis pydantic 2.12 |
 | Python 3.14.7 | httpx2 2.13.1 | ✅ | Classifiers 3.10 à 3.15, et zstd natif à partir de 3.14 |
-| Python 3.14.7 | sentry-sdk 2.70.0 | ✅ | Classifier 3.14 explicite |
+| Python 3.14.7 | sentry-sdk 2.71.0 | ✅ | Classifier 3.14 explicite |
 | Python 3.14.7 | mypy 2.3.1 / pytest 9.1.1 | ✅ | Wheels `cp314` pour mypy, support pytest depuis 8.4.0 |
 | Python 3.14.7 | mutagen 1.48.1 | ✅ | `>=3.10,<4`. Classifiers non détaillés, mais pur Python sans dépendance |
 | Python 3.14.7 | `asyncio.get_event_loop()` | ❌ | Lève `RuntimeError` hors loop. À bannir par le lint, `asyncio.run()` à la place |
@@ -897,7 +898,7 @@ Trois contournements, dans l'ordre de préférence :
 | httpx2 2.13.1 | pytest-httpx 0.36.2 | ❌ | Dépend de `httpx==0.28.*`, PR #239 ouverte non mergée |
 | httpx2 2.13.1 | truststore + PyInstaller | ⚠️ | Appels `ctypes` vers l'API OS dans un binaire figé, non documenté |
 | keyring 25.7.0 | PyInstaller 6.22.3 | ⚠️ | Backends par entry points, aucun hook contrib. Forçage explicite requis |
-| sentry-sdk 2.70.0 | PyInstaller 6.22.3 | ✅ | `hook-sentry_sdk.py` fourni par `pyinstaller-hooks-contrib` |
+| sentry-sdk 2.71.0 | PyInstaller 6.22.3 | ✅ | `hook-sentry_sdk.py` fourni par `pyinstaller-hooks-contrib` |
 | rapidfuzz 3.14.6 | PyInstaller 6.22.3 | ⚠️ | **Aucun hook**, ni du paquet ni de `hooks-contrib` : son entry point `pyinstaller40` est `tests`, pas `hook-dirs`. Couvrir par `collect_submodules("rapidfuzz")` à cause des cibles SIMD |
 | pydantic 2.13.5 | PyInstaller 6.22.3 | ⚠️ | Hook `pydantic` livré par `pyinstaller-hooks-contrib`, mais le couple `pydantic-core` + interpréteur géré par uv reste à vérifier au premier build |
 | mutagen 1.48.1 | PyInstaller 6.22.3 | ✅ | Pur Python, aucun hook nécessaire |
@@ -949,7 +950,7 @@ Trois contournements, dans l'ordre de préférence :
 
 Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilotée par release-please via `extra-files`. La borne haute existe pour que PyInstaller empaquette exactement l'interpréteur testé, pas pour exclure 3.15. Un `.python-version` à côté fige la version qu'`uv` installe et que la CI reprend, et c'est le fichier que vise la procédure de bump de [PRODUCTION.md § Composants applicatifs](PRODUCTION.md#composants-applicatifs).
 
-**Dépendances d'exécution** : `pydantic>=2.13.5,<3`, `mutagen>=1.48.1,<2`, `rapidfuzz>=3.14.6,<4`, `httpx2>=2.13.1,<3`, `keyring>=25.7.0,<26`, `sentry-sdk>=2.70.0,<3`.
+**Dépendances d'exécution** : `pydantic>=2.13.5,<3`, `mutagen>=1.48.1,<2`, `rapidfuzz>=3.14.6,<4`, `httpx2>=2.13.1,<3`, `keyring>=25.7.0,<26`, `sentry-sdk>=2.71.0,<3`.
 
 **Groupe `dev`** (via `[dependency-groups]`, PEP 735) : `pytest>=9.1.1`, `pytest-asyncio>=1.4.0`, `pytest-cov>=7.1.0`, `ruff>=0.16.9`, `mypy>=2.3.1`.
 
