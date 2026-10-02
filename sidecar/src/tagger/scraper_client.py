@@ -2,7 +2,7 @@
 
 Couche anti-corruption : URL, routes, codes HTTP et noms de champs ne sortent pas
 de ce module (ARCHITECTURE.md § Patterns Utilises). Contrat de reference :
-techno-scraper 3.1.3, `src/technoscraper/shared/schemas.py`.
+techno-scraper 4.0.0, `src/technoscraper/shared/schemas.py`.
 """
 
 import asyncio
@@ -233,7 +233,7 @@ class TechnoScraperClient:
             raise ApiContractError("not found on a search", request_id=exc.request_id) from exc
 
     async def fetch_beatport_track(self, track_id: str) -> TrackCandidate:
-        """Metadonnees completes : les objets de recherche sont abreges."""
+        """Metadonnees completes : seul `track_number` manque en recherche Beatport."""
         return await self._get(Source.BEATPORT, f"/beatport/tracks/{track_id}", {}, TrackCandidate)
 
     async def fetch_bandcamp_track(self, url: str) -> TrackCandidate:

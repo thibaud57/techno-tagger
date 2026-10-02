@@ -19,7 +19,7 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 |---|---|---|
 | `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, `--arbitration` un seul morceau en zone grise, ou `--vlc-dump` un dump `vlc_media.db` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --arbitration \| --vlc-dump]` |
 | `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout | importé par `drive.py` |
-| `drive.py` | Vraie boucle NDJSON contre le faux serveur. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
+| `drive.py` | Vraie boucle NDJSON contre le faux serveur, ou contre une vraie gateway locale si `GATEWAY_URL` et `GATEWAY_KEY` sont posées. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
 | `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` ; `--key <touche>` frappe une vraie touche (`Input.dispatchKeyEvent`), `--screenshot <png>` capture la fenêtre, `--click <x> <y>` et `--move <x> <y>` donnent un vrai clic ou un survol souris (coordonnées CSS) ; une page qui meurt pendant l'appel rend `{"success": true, "pageClosed": true}` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
 | `page/demo-run.js` | Parcours de la démo pour une revue à l'écran : `playlist <demo-data>` pose les chemins et la playlist, `extract` clique « Extraire », `tagging` passe au tagging et lance le run, `run <dossier>` lance un run sans extraction dans la session, `state` compte les issues, `last-destination [clear]` lit la préférence, ou l'efface quand la démo l'a posée, `tag-widths <clé>` mesure en pixels les libellés d'une clé, FR et EN, dans la police d'un tag affiché | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/demo-run.js <action> [cible]` |
 | `page/arbitration-dialog.js` | Mesures de la modale d'arbitrage et de la liste du run, sans geste envoyé : `open` (par le badge), `state` (taille de la modale, sélection, options, message vide et leurs rectangles), `footer`, `covers`, `rows` (lignes du run et leurs rectangles, onglet Tagging ouvert au besoin, pour viser l'une d'elles par `--click`), `state-icons` (centres du tag d'état et de l'icône d'info, fond et transition du tag), `tag-demo` (couleur du premier tag alternée avec puis sans sa transition, pour la juger à l'œil), `cursors` (curseur des éléments cliquables), `trace` puis `trace-read` (journal souris et valeurs de `choice`) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-dialog.js <action>` |
@@ -93,6 +93,22 @@ processor=utils.default_process)` rend 75, d'où un arbitrage ; « Basiel Repris
 changée côté faux serveur reste invisible tant que l'entrée précédente est valide. Un
 run qui ne bouge pas après modification du serveur est presque toujours ça.
 
+**Contre une vraie gateway locale** : lancer techno-scraper depuis son dépôt
+(`API_KEY=verify-local-key just dev` dans `../techno-scraper`, prêt quand `/health` rend
+200), puis `GATEWAY_URL=http://localhost:8000 GATEWAY_KEY=verify-local-key` devant
+`drive.py`. La clé de test remplace celle du trousseau, qui ne part jamais vers un serveur
+de dev. C'est le seul moyen d'exercer le matching sur les réponses réelles d'une version
+de la gateway pas encore déployée ; `just stop` dans `../techno-scraper` ensuite.
+
+**Non-régression du matching** : premier run du code courant sur
+`demo-data/Bibliotheque` (fraîchement bâtie par `just demo`) contre la gateway locale, puis
+copie de son `appdata` et second run du code de référence
+(`git archive HEAD sidecar/src | tar -x -C <scratch>/base`, puis
+`PYTHONPATH=<scratch>/base/sidecar/src` devant `drive.py`) sur cette copie. Le second run
+lit tout dans le cache (zéro requête dans son log) : mêmes réponses, seul le code diffère.
+Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores compris,
+`artwork_path` ramené à son nom de fichier : le dossier du cache diffère d'un run à l'autre.
+
 ### Flux qui valent le coup
 
 - Séquence complète : `run_started` listant tous les morceaux, puis par morceau son
@@ -100,6 +116,21 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   `tagging`, enfin `run_finished` en phase `network` avec les trois compteurs
 - Contenu d'un résolu : `state`/`resolution`/`failure_reason` en trois champs, `after`
   portant le titre suivi du nom de mix, scores entiers, chemin de pochette
+- Titre composé depuis les champs séparés : le faux serveur rend `title` sans sa version et
+  `mix_name` à part, comme la gateway (ADR-012 de techno-scraper). Les deux morceaux connus de
+  la fixture partent en arbitrage à 100/100 par la garde de version (le fichier ne nomme pas la
+  version, le candidat dit « Extended Mix ») ; `resolve_arbitration` à l'index 0 rend leur
+  `track_resolved` avec `after.title` à « Your Mind (Extended Mix) » et « Basiel (Extended
+  Mix) ». Relevé le 2026-10-02, identique sur le code d'avant la simplification de `full_title`
+  (rejeu par `PYTHONPATH=<scratch>/base/sidecar/src` sur un `git archive HEAD sidecar/src`)
+- Candidat comparé tel que la gateway le rend (titre, `mix_name` et crédits non
+  redécoupés) : non-régression du matching sur la démo, relevée le 2026-10-02 contre la
+  gateway locale 4.0.0, 30 morceaux, zéro écart avec le code d'avant (8 auto, 19 non
+  résolus, 3 arbitrages, scores identiques) ; mêmes chiffres en production 4.0.0 par le
+  binaire figé
+- Invité au nom de version écrit dans le tag : « Tommy Sharp » / « Biome feat. Dubfire »
+  (copie d'un `.mp3` de la démo retaguée par mutagen) contre la gateway 4.0.0, auto à 100 ;
+  le code d'avant le laissait en `below_threshold` (relevé le 2026-10-02)
 - Commande servie pendant un run : `get_version` envoyé après `start_tagging` répond
   avant `run_finished`, ce qui prouve que la boucle n'est pas bloquée
 - Second `start_tagging` pendant un run : `error` de code `tagging_in_progress` et le
@@ -145,6 +176,9 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   coup. Glisser un `{"wait": 1.5}` avant `cancel_run` dans le fichier de `drive.py`, qui
   alimente `stdin` par un vrai pipe, avec `FAKE_DELAY` sur le faux serveur pour tenir les
   requêtes en vol
+- **Un `{"wait": N}` en dernière ligne ne retient rien** : le fichier finit, l'EOF tombe et
+  annule un geste encore en vol, `resolve_arbitration` compris. Le faire suivre d'une
+  commande, `get_version` par exemple
 - **La course d'une relance juste après `cancel_run` ne se reproduit pas contre le faux
   serveur** : il rend `artwork_url` nul, aucune pochette n'est donc en téléchargement, et
   c'est leur attente sous `shield` dans `__aexit__` du cache qui fait mourir le run
@@ -273,7 +307,7 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
   - grille du formulaire : boutons de sélection, `p-select` et `p-selectbutton` à la même largeur, chemins alignés sur le bord droit de la grille, « Extraire la playlist » sur la ligne du mode, calé sur le bord droit de la grille, à la largeur des libellés et des contrôles réunis, `p-skeleton` à la hauteur du `p-select` qui le remplace, bloc vide (icône 24px `text-muted-color`, titre `text-base`, phrase `text-sm`)
   - tags : familles de § Couleurs Sémantiques, lues sur la classe `p-tag-*` et l'icône `data-p-icon`
   - tooltip : suivre `.p-tooltip` toutes les 100ms après un `Input.dispatchMouseEvent` : visible à 400ms sur un texte coupé, jamais sur un texte entier, retiré dès la sortie, classe `tt-tooltip-wide`, `pointer-events: none`
-- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Robert Hood - Minimal Nation », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
+- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Robert Hood - Minimal Nation », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Relevé le 2026-10-02 contre la production 4.0.0 : 8 auto, 17 non résolus, 2 arbitrages, candidats affichés « Titre (Mix Name) » ; choix au clic puis Entrée passe la ligne en « Arbitré », refus de « Minimal Nation » rend une liste Bandcamp vide puis « Passer ». Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
   - « Passer au tagging » absent avant toute extraction, pendant l'extraction et après une playlist vide (aucun `progress` émis, comportement voulu), présent à la fin d'une extraction non vide
   - pendant le run, retour sur Playlist, « Modifier » puis « Extraire » : l'extraction part et finit, le run continue et au retour sur Tagging les 27 lignes et la barre sont toujours là
   - pendant une extraction, « Lancer le run » désactivé, `blockedReason()` à `tagging.blocked.extracting`, réactivé à la fin. L'extraction de la démo dure une fraction de seconde : lancer `svc.extractPlaylist(svc.extractionRequest())` depuis l'onglet Tagging et échantillonner toutes les 5ms
@@ -327,6 +361,7 @@ Compter un élément éphémère, toast ou ligne squelette, se fait par un `Muta
 - Le premier `SendKeys` après `AppActivate` peut partir avant le focus : envoyer d'abord une touche sans enjeu et ne conclure que sur une touche vue par l'écouteur `keydown`
 - Ne pas lancer `just test` pendant `just build-sidecar` : le build pose un `_build_info.py` de production le temps de la compilation et `test_build_info` échoue
 - Les hooks bloquent `curl` (exécution distante) et tout heredoc contenant le mot `token` (fichier sensible supposé) : `cdp.mjs` interroge `http://127.0.0.1:9222/json` par `fetch`. Le même hook attrape l'expression qui parcourt les providers d'un injecteur, `record["tok" + "en"]` n'y suffisant pas quand elle passe en argument de commande : c'est pourquoi elle vit dans `page/preamble.js` (lu par `cdp.mjs`) et jamais dans une commande. Un nouveau script de page s'écrit par l'outil Write, dans `scripts/page/`
+- Un dossier passé à `start_tagging` sous sa forme Git Bash (`/c/Users/...`, celle de `$PWD`) rend `tagging_folder_unreadable` : Python sous Windows ne le lit pas, écrire `C:/Users/...`
 - Un chemin Windows passé en argument shell à `Runtime.evaluate` perd ses backslashes et le sidecar répond `tagging_folder_unreadable` sur un chemin amputé : le passer en argument de `cdp.mjs`, qui le transmet par `__args` sans jamais l'écrire dans l'expression
 - Le run de re-tagging sous Tauri tape la **vraie** API techno-scraper avec la clé enregistrée sur la machine, `API_BASE_URL` étant une constante du module qu'aucune variable d'environnement ne détourne. Les trente morceaux de la démo tiennent sans peine sous le seul plafond connu (Bandcamp, environ 185 appels par 3 minutes, cf. `docs/knowledges/techno-scraper.md`). La phase réseau n'écrit aucun tag, l'écriture appartenant à la Feature 5
 - Relever les issues que la vraie API rend avant de piloter l'interface : `start_tagging` sur `demo-data/Bibliotheque` envoyé au binaire figé par un pipe, sous un `LOCALAPPDATA` du scratchpad. Le cache réel reste froid pour le run sous Tauri et les réponses brutes se relisent dans `cache/responses/*.json` pour trancher entre un catalogue qui n'a pas le titre et un matching fautif
