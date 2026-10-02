@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 # Mots qui rendent un groupe intouchable au nettoyage. Deux familles distinctes : une
 # version se compare a celle du candidat, une collaboration fait partie du titre.
 # Bornes, suffixes et liste : spec 03 § Garde de version et de collaboration.
+# Jumeau cote techno-scraper (`shared/normalize/`, ADR-012 de techno-scraper), qui nettoie
+# la sortie des sources la ou ce module nettoie la requete : une correction sur une brique
+# commune se reporte de l'autre cote, les politiques restent distinctes.
 _VERSION_WORDS: Final = (
     r"(?:re-edit|remix|mix|edit|rework|remaster|version|dub|extended|radio|bootleg"
     r"|vip|live|instrumental|acapella|reprise|tool|loop|intro|outro)(?:ed|s)?"
@@ -37,8 +40,8 @@ _GROUP: Final = re.compile(r"[\[(](?P<content>[^\[\]()]*)[\])]")
 _SPACES: Final = re.compile(r"\s+")
 # Entoures d'espaces sauf ; et / : « Jay-Z » ne doit jamais etre coupe. Pas de « & » :
 # il appartient au nom du duo bien plus souvent qu'il ne separe deux artistes (« Pig &
-# Dan », « Hicky & Kalo »), et Beatport ne joint jamais deux credits ainsi. Le signe de
-# multiplication est un vrai separateur, pas une faute de frappe pour x (d'ou le noqa).
+# Dan », « Hicky & Kalo »). Le signe de multiplication est un vrai separateur, pas une
+# faute de frappe pour x (d'ou le noqa).
 _ARTIST_SEPARATORS: Final = re.compile(
     r"\s*[;/]\s*|\s+(?:and|x|×|vs\.?|feat\.?|ft\.?|featuring)\s+",  # noqa: RUF001
     re.IGNORECASE,
@@ -48,12 +51,12 @@ _ARTIST_SEPARATORS: Final = re.compile(
 # code pays ou de genre (« SOSA (UK) », « Aeon (PSY) »). Seuls les crochets et le bruit
 # de tag partent, un fichier mal tague pouvant porter « Adam Beyer (320kbps) ».
 _ARTIST_NOISE: Final = re.compile(r"\[[^\[\]]*\]")
-# Beatport ecrit l'invite dans le titre (« Biome feat. BCCO ») en plus de le crediter
-# dans `artists[]`, la ou un tag de fichier ne le met qu'au champ artiste. Le titre se
-# coupe donc a sa mention d'invite, des deux cotes : ce que l'axe artiste score deja
-# ne doit ni aider ni penaliser l'axe titre.
+# Un tag peut ecrire l'invite dans le titre (« Biome feat. BCCO ») en plus du champ artiste :
+# le titre de la requete se coupe a sa mention, l'axe artiste le scorant deja. Premier mot
+# toujours pris, arret devant un mot de version entier seulement (« feat. Dubfire »).
 _FEATURING: Final = re.compile(
-    rf"(?<!\w)(?:feat\.?|ft\.?|featuring)(?!\w)(?:(?!{_VERSION_WORDS}).)*", re.IGNORECASE
+    rf"(?<!\w)(?:feat\.?|ft\.?|featuring)(?!\w)\s*\S*(?:(?!{_VERSION_GUARD.pattern}).)*",
+    re.IGNORECASE,
 )
 _AMPERSAND: Final = re.compile(r"\s+&\s+")
 # Reste d'un groupe dont le nettoyage a emporte tout le contenu.
@@ -219,7 +222,7 @@ def _from_file_name(file_name: str) -> TrackQuery | None:
 
 
 def _clean(text: str) -> str:
-    """Retire le bruit de la chaine interrogee, jamais des tags ecrits."""
+    """Retire le bruit d'une chaine interrogee ou comparee, jamais des tags ecrits."""
     text = _DOWNLOAD.sub(" ", text)
     text = _ENCODING.sub(" ", text)
     text = _GROUP.sub(_keep_guarded_group, text)
@@ -253,8 +256,10 @@ def classify(
     asked = _prepare(query)
     scored: list[ScoredCandidate] = []
     for candidate in candidates:
-        bare, in_title = _comparable(candidate.title)
-        offered = _Parts(bare, candidate.mix_name or in_title)
+        # Candidat deja normalise par techno-scraper. Seul le sous-titre qu'il garde (« PATT
+        # (Party All The Time) ») part, comme de la requete : nettoyer un seul cote fait
+        # tomber un morceau identique sous le plancher.
+        offered = _Parts(_clean(candidate.title), candidate.mix_name or "")
         if not _passes_remix_guard(_Parts(asked.title, asked.version), offered):
             continue
         scored.append(_score(asked, candidate, offered))
@@ -285,26 +290,21 @@ def classify(
 
 
 def _prepare(query: TrackQuery) -> _AskedFor:
-    """Ce que la requete demande, derive une fois par morceau et non par candidat."""
-    title, version = _comparable(query.title)
+    """Ce que la requete demande, derive une fois par morceau et non par candidat.
+
+    Titre nu, version et invite se separent ici, sur le tag local que techno-scraper ne voit
+    jamais : le candidat arrive deja sous cette forme.
+    """
+    bare, version = _split_version(_clean(query.title))
+    title = _SPACES.sub(" ", _FEATURING.sub(" ", bare)).strip(_EDGE_NOISE + "([")
     artists = tuple(part.strip() for part in query.artist.split(",") if part.strip())
     return _AskedFor(title, version, artists, _numbers(title))
-
-
-def _comparable(title: str) -> _Parts:
-    """Titre nu et version, seul chemin vers la forme comparable.
-
-    Unique pour que requete et candidat subissent le meme traitement : nettoyer un
-    seul cote suffit a faire tomber un morceau identique sous le plancher.
-    """
-    bare, version = _split_version(_clean(title))
-    return _Parts(_SPACES.sub(" ", _FEATURING.sub(" ", bare)).strip(_EDGE_NOISE + "(["), version)
 
 
 def _split_version(title: str) -> _Parts:
     """Detache la version du titre, sans toucher aux groupes de collaboration.
 
-    « (feat. X) » identifie le morceau autant que son nom et reste dans le titre.
+    « (feat. X) » n'est pas une version et reste dans le titre.
     """
     taken: list[str] = []
 
@@ -366,9 +366,10 @@ def _artist_score(asked: tuple[str, ...], candidate: TrackCandidate) -> float:
     """Chaque artiste demande doit se retrouver parmi les credits du candidat.
 
     Le minimum et non la moyenne : un artiste absent est un desaccord que la presence
-    des autres ne rachete pas.
+    des autres ne rachete pas. Les credits arrivent decoupes par techno-scraper et se
+    comparent tels quels.
     """
-    credits = [_normalise_artists(credit.name) for credit in candidate.artists]
+    credits = [credit.name for credit in candidate.artists]
     if not credits or not asked:
         return 0.0
     return max(_credits_score(asked, credits), _credits_score(_split_duos(asked), credits))
@@ -419,51 +420,14 @@ def _mentions_remix(parts: _Parts) -> bool:
 
 
 def full_title(candidate: TrackCandidate) -> str:
-    """Titre tel que l'ADR-011 l'ecrit : titre et mix.
+    """Titre tel que l'ADR-011 l'ecrit : titre et mix, que techno-scraper rend separes.
 
-    Distinct de la forme comparee par le scoring, qui separe au contraire titre et
-    version (`_comparable`) : afficher et scorer ne demandent pas la meme chaine.
+    Distinct de la forme comparee par le scoring (`classify`) : afficher et scorer ne
+    demandent pas la meme chaine.
     """
-    mix_name = candidate.mix_name
-    if not mix_name or _mentions(candidate.title, mix_name):
+    if not candidate.mix_name:
         return candidate.title
-    completed = _complete_partial_mention(candidate.title, mix_name)
-    if completed is not None:
-        return completed
-    return f"{candidate.title} ({mix_name})"
-
-
-def _prefixes(mix_name: str, opening: str) -> bool:
-    """Mot entier et en tete : « Dub » annonce « Dub Mix », jamais « Sunset Dub Edit »,
-    ou la source a place sa propre annotation.
-    """
-    guard = re.compile(rf"^{re.escape(opening)}(?!\w)", re.IGNORECASE)
-    return guard.search(mix_name) is not None
-
-
-def _mentions(title: str, mix_name: str) -> bool:
-    """Mot entier : un mix court ne doit pas matcher un fragment d'un autre mot
-    (« Dub » dans « Dubplate »).
-    """
-    guard = re.compile(rf"(?<!\w){re.escape(mix_name)}(?!\w)", re.IGNORECASE)
-    return guard.search(title) is not None
-
-
-def _complete_partial_mention(title: str, mix_name: str) -> str | None:
-    """Complete un groupe du titre qui n'annonce la version qu'a moitie.
-
-    Les deux sources separent titre et version, donc un titre en « (Extended) » avec un
-    `mix_name` « Extended Mix » sort du contrat : sans ce traitement, le tag recevrait
-    « Song (Extended) (Extended Mix) ».
-
-    Seul le groupe qui prefixe la version est traite : ailleurs « Extended » est un mot
-    ordinaire, et « (Live) » contre « Extended Mix » nomme une autre version.
-    """
-    for group in _GROUP.finditer(title):
-        inner = group.group("content").strip()
-        if inner and _prefixes(mix_name, inner):
-            return f"{title[: group.start()]}({mix_name}){title[group.end() :]}"
-    return None
+    return f"{candidate.title} ({candidate.mix_name})"
 
 
 def credited_artists(candidate: TrackCandidate) -> str:
