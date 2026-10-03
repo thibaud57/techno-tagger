@@ -49,6 +49,7 @@
     "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
     "source_unavailable": "{{source}} ne répond pas. Réessayez plus tard.",
     "track_not_found": "Le morceau n'existe plus sur {{source}}.",
+    "unsupported_url": "Ce lien ne désigne pas un morceau Beatport, Bandcamp ou SoundCloud. Copiez l'adresse de la page du morceau.",
     "api_contract_error": "La recherche a reçu une réponse inattendue. Si le problème revient, le détail se trouve dans le dossier des logs.",
     "api_key_error": "La clé API n'a pas pu être enregistrée. Réessayez.",
     "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",

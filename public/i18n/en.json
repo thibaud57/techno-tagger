@@ -49,6 +49,7 @@
     "api_key_rejected": "The API key was rejected. Check it in the settings.",
     "source_unavailable": "{{source}} is not responding. Try again later.",
     "track_not_found": "The track no longer exists on {{source}}.",
+    "unsupported_url": "This link is not a Beatport, Bandcamp or SoundCloud track. Copy the address of the track page.",
     "api_contract_error": "The search received an unexpected response. If the problem comes back, the details are in the logs folder.",
     "api_key_error": "The API key could not be saved. Try again.",
     "api_key_not_stored": "The key could not be saved on this computer. Try again.",

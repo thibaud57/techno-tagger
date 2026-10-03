@@ -111,6 +111,7 @@ GET /health                                                        → 200      
 
 - **`/bandcamp/tracks` prend une `url`, pas un id**, validée par le pattern `^https://[a-z0-9][a-z0-9-]*\.bandcamp\.com/track/[\w-]+/?$` (garde anti-SSRF de la gateway) : `https` obligatoire, sous-domaine en minuscules, chemin `/track/<slug>` seul, aucune query string. Une URL collée avec `?from=…`, en `http://` ou vers un `/album/` rend `422` : la ramener à cette forme avant l'appel
 - **`/soundcloud/resolve` rend `UserProfile | Track` selon l'URL** : la clé `profile` signale un profil, à traiter comme « pas un morceau » ; un `Track` se mappe comme les deux autres sources. La gateway n'impose aucun pattern sur cette `url`, elle part telle quelle à l'API SoundCloud : une URL de playlist, de set ou inconnue rend `404 not_found`, pas `422`. Passer `tracks_cursor` sur l'URL d'un morceau rend `400 cursor_scope_mismatch`
+- **Une URL collée se normalise avant l'appel** : query, fragment et `/` final retirés, schéma `https`, hôte en minuscules, et `www.`/`m.` réécrits sur SoundCloud. `/bandcamp/tracks` rend `422` sur une query, un `http://` ou un `/album/` ; SoundCloud rend `404` sur `www.`, `m.` et un `/` final (techno-scraper [`docs/knowledges/soundcloud.md`](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/knowledges/soundcloud.md), constat du 2026-09-30). Un lien court `on.soundcloud.com` peut viser une playlist (`404`) ou un profil (clé `profile`)
 - SoundCloud n'est jamais interrogé en recherche automatique, ses métadonnées d'upload étant trop peu fiables (cf. [ADR-009](../adrs/009-enchainement-sources-et-arbitrage.md))
 - **Bandcamp n'est jamais appelé spéculativement** : l'appel n'est déclenché que par un résultat vide côté Beatport ou par un refus explicite de l'utilisateur en arbitrage
 - **`limit` et `cursor` existent sur les deux `/search`** : le sidecar fixe `limit=10` et ne relit jamais `cursor` (cf. § Pagination à curseur opaque)
@@ -198,6 +199,7 @@ L'API est le point de sortie IP unique vers les trois sources, et borne donc sa 
 # Miroir des sémaphores de sortie de l'API, pas un réglage de performance local
 BEATPORT_CONCURRENCY = 3
 BANDCAMP_CONCURRENCY = 2
+SOUNDCLOUD_CONCURRENCY = 5
 ARTWORK_CONCURRENCY = 6   # CDN direct, ne traverse pas l'API : calibrage libre
 
 REQUEST_TIMEOUT = 100.0   # > 90 s de budget API, pour recevoir le 504 structuré
@@ -206,6 +208,7 @@ REQUEST_TIMEOUT = 100.0   # > 90 s de budget API, pour recevoir le 504 structur�
 ### Points Importants
 
 - **Bandcamp est borné à 2 et Beatport à 3 côté API.** Émettre davantage n'accélère rien : les requêtes s'empilent derrière le sémaphore distant, consomment le budget de 90 s et sortent en `504`
+- **SoundCloud est borné à 5 côté API**, appelé par le sidecar au seul rattrapage par URL
 - Le `429` Bandcamp est constaté dès 3-4 requêtes simultanées côté API : la borne de 2 est mesurée, pas prudentielle
 - **Bandcamp a aussi un quota de volume** : environ 185 appels par fenêtre de 3 minutes, quel que soit le débit (mesuré côté API le 2026-09-22). Atteint, la source refuse tout et l'API coupe ses appels vers elle pendant 30 s. Un `503 source_unavailable` sur `provider: bandcamp` peut donc être un quota et non une panne : relancer les morceaux `unresolved` concernés au plus tôt 3 minutes après
 - **Le timeout client doit rester au-dessus du budget de l'API** (100 s pour 90 s), sinon on récolte un timeout local aveugle au lieu d'un `504` nommant la cause

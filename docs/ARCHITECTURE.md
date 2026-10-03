@@ -542,7 +542,7 @@ Le contrat se teste en ligne de commande en injectant des commandes sur `stdin` 
 
 ### Concurrence
 
-Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-httpx2.md)), dimensionné en miroir des sémaphores de sortie de techno-scraper : **3 requêtes Beatport en vol, 2 pour Bandcamp**, timeout client à **100 secondes**, au-dessus du budget de 90 secondes de l'API (cf. [ADR-017](adrs/017-taille-pool-concurrence.md)).
+Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-httpx2.md)), dimensionné en miroir des sémaphores de sortie de techno-scraper : **3 requêtes Beatport en vol, 2 pour Bandcamp, 5 pour SoundCloud**, appelé au seul rattrapage par URL, timeout client à **100 secondes**, au-dessus du budget de 90 secondes de l'API (cf. [ADR-017](adrs/017-taille-pool-concurrence.md)).
 
 **Le téléchargement des pochettes a son propre pool.** L'API fournit bien l'`artwork_url` dans le contrat `Track`, mais cette URL pointe vers le CDN de la source : le téléchargement de l'image ne passe donc pas par techno-scraper et ne consomme pas ses sémaphores. Le compter dans le pool de 3 briderait les images pour rien. **Sa taille est fixée à 6 et c'est un calibrage libre, pas une contrainte d'API** : contrairement aux deux autres, aucun sémaphore distant ne le dicte, seule la politesse envers le CDN. Un échec de téléchargement n'échoue jamais le morceau : les tags sont écrits sans pochette et le rapport le signale.
 
