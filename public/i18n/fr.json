@@ -61,7 +61,10 @@
     "arbitration_error": "Cette décision n'a pas pu être prise en compte. Réessayez.",
     "arbitration_not_pending": "Ce morceau n'attend plus de décision. Passez au suivant.",
     "arbitration_candidate_unknown": "Candidat indisponible. Choisissez-en un autre dans la liste affichée.",
-    "arbitration_busy": "Une décision est déjà en cours pour ce morceau. Patientez un instant."
+    "arbitration_busy": "Une décision est déjà en cours pour ce morceau. Patientez un instant.",
+    "url_recovery_error": "Le lien n'a pas pu être résolu. Réessayez.",
+    "url_recovery_not_eligible": "Ce morceau a déjà une correspondance et n'attend plus de lien.",
+    "url_recovery_busy": "Un lien est déjà en cours de résolution pour ce morceau. Patientez un instant."
   },
   "playlist": {
     "title": "Playlist",

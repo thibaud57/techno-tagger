@@ -236,6 +236,10 @@ Dernière phase réseau, entièrement **facultative**. Une fois le pipeline term
 
 L'URL est résolue via la route correspondante de l'API, avec sa propre barre de progression. **Les trois sources n'ont pas la même voie** : Bandcamp et SoundCloud résolvent l'URL directement, Beatport n'expose pas de résolution par URL et impose d'extraire l'identifiant du morceau de l'URL collée pour appeler la route par id. L'étape se passe intégralement.
 
+**Morceaux éligibles** : un morceau `unresolved` accepte une URL, un morceau déjà résolu par URL aussi, recoller remplaçant alors l'URL précédente pour corriger un mauvais lien avant l'écriture. Les morceaux résolus automatiquement, par arbitrage, en attente d'arbitrage ou jamais traités n'en acceptent pas.
+
+La barre de la phase compte les morceaux rattrapés sur les morceaux à rattraper (non résolus + rattrapés), le tout calculé sur l'état du run : une correction ne compte pas deux fois, un refus d'arbitrage tardif grossit le total. Un morceau rattrapé n'a pas de score (décisions du propriétaire du 2026-10-02).
+
 ### Use-case 5 : Écriture et renommage
 
 **Le point de non-retour du run** et la seule phase qui touche aux fichiers musicaux. Déclenchée par la confirmation globale, jamais avant (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
@@ -551,6 +555,8 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 **L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
 
 La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en mémoire exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process. Les gestes d'arbitrage avancent en parallèle d'un morceau à l'autre et partagent les sémaphores du client avec le pipeline. Un seul geste est en vol par morceau : le second est refusé en `arbitration_busy`, jamais mis en file, sans quoi les clics rapides de la modale lanceraient deux appels Bandcamp. Un geste sur une liste qui n'est plus affichée est refusé en `arbitration_candidate_unknown` : un double clic arrivé après la bascule refuserait sinon Bandcamp.
+
+**Le rattrapage par URL vit dans le même run vivant.** Ses gestes partagent les sémaphores du client et la garde des 403 du run avec le pipeline et l'arbitrage. Un seul geste est en vol par morceau : le second est refusé en `url_recovery_busy`, par le même principe que `arbitration_busy`.
 
 **Le run courant survit à sa phase réseau.** `start_tagging` ouvre un run dont le client et le fetcher de pochettes restent ouverts après `run_finished` comme après `cancel_run`, le temps des arbitrages. Ils ne se ferment qu'au run suivant, au `shutdown` ou à l'EOF, qui annulent aussi les gestes en vol. Un choix ou un refus attend le réseau, un refetch ou un appel Bandcamp : il part en tâche de fond comme les deux phases longues, pour la même raison. `switch_arbitration_source` n'attend rien et s'exécute dans la boucle.
 

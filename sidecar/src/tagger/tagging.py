@@ -115,14 +115,19 @@ class TrackRecord:
         resolution: Resolution,
         source: Source,
         candidate: TrackCandidate,
-        scored: ScoredCandidate,
+        scored: ScoredCandidate | None,
         artwork: Path | None,
     ) -> TrackRecord:
-        """Morceau resolu, sorti de l'attente d'arbitrage s'il y etait."""
+        """Morceau resolu, sorti de l'attente d'arbitrage s'il y etait.
+
+        `scored` nul : une URL collee n'a traverse aucun scoring. Le motif d'echec tombe,
+        un non resolu rattrape ne doit pas garder son `no_result`.
+        """
         return replace(
             self,
             state=TrackState.RESOLVED,
             resolution=resolution,
+            failure_reason=None,
             source=source,
             candidate=candidate,
             scored=scored,
