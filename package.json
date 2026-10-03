@@ -37,7 +37,7 @@
     "@tauri-apps/plugin-shell": "2.4.0",
     "@tauri-apps/plugin-store": "2.5.0",
     "@tauri-apps/plugin-updater": "2.13.1",
-    "primeng": "22.1.1",
+    "primeng": "22.1.2",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
@@ -59,7 +59,7 @@
     "tailwindcss": "4.3.3",
     "tailwindcss-primeui": "0.6.1",
     "typescript": "~6.0.0",
-    "typescript-eslint": "^8.70.1",
+    "typescript-eslint": "^8.71.0",
     "vitest": "4.1.11"
   }
 }
