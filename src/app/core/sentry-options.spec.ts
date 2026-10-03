@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/angular"
 
 import { sentryOptions } from "./sentry-options"
 
-type SentEvent = {
+interface SentEvent {
   sdk?: { settings?: { infer_ip?: string } }
   breadcrumbs?: { category?: string }[]
 }

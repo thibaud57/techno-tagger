@@ -60,7 +60,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | @ngx-translate/core | `18.0.0` | ✅ | `TranslateModule` supprimé, `defaultLang` renommé `fallbackLang`, `currentLang` devient un Signal |
 | @ngx-translate/http-loader | `18.0.0` | ✅ | `provideTranslateHttpLoader({ prefix, suffix })` remplace le pattern `useFactory` |
 | @tauri-apps/api | `2.12.1` | ✅ | Même mineure que la crate `tauri` : `tauri build` contrôle l'accord des paquets npm et des crates |
-| @sentry/angular | `10.73.0` | ✅ | `peerDependency` : `@angular/core >= 14.x <= 22.x` |
+| @sentry/angular | `11.0.0` | ⚠️ | `dataCollection` absent collecte tout, IP comprise : chaque catégorie est fermée explicitement. `peerDependency` : `@angular/core >= 14.x <= 22.x` |
 | @sentry/cli | `3.8.0` | ✅ | Script `sourcemaps` de `package.json` : upload des source maps `hidden` puis suppression de `dist/` |
 | rxjs | `7.8.2` | ✅ | Réservé aux flux dans le temps (événements NDJSON, navigation), exposés aux composants en signals par `toSignal()` |
 | jsdom | `30.1.1` | ✅ | Environnement par défaut de Vitest sous `@angular/build:unit-test`. Plancher Node `^24.15.0` depuis la 30.0.0, identique à l'`engines` du projet |
@@ -623,22 +623,23 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 **Recommandation** : ✅
 
 ### 13. @sentry/angular
-**Version actuelle** : `10.73.0` (2026-08-31)
+**Version actuelle** : `11.0.0` (2026-09-23)
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** :
 - **v8** : `@sentry/angular-ivy` supprimé, fusionné dans `@sentry/angular`. Les intégrations deviennent des fonctions `xxxIntegration()` au lieu de classes `Integrations.XXX`
 - **v9** : `getCurrentHub()`, `Hub`, `enableTracing` et `autoSessionTracking` supprimés au profit des scopes. ES2020 et TypeScript ≥ 5.0.4 requis
 - **v10** : la capture de l'IP est entièrement pilotée par `sendDefaultPii`. Renommages `BaseClient` → `Client`, `logger` → `debug`
+- **v11** : `sendDefaultPii` remplacé par `dataCollection`, **dont l'absence collecte tout** : `userInfo` (IP inférée par `infer_ip: auto`), cookies, en-têtes, corps HTTP, paramètres d'URL. Les breadcrumbs de console passent par une intégration `Console` distincte de `Breadcrumbs`. `attachStacktrace` passe à `true`, le span streaming devient le défaut, `enableLogs` disparaît, Node 20.19 minimum
 
 **Compatibilité Écosystème** :
 - `peerDependencies` : `@angular/core >= 14.x <= 22.x`. Angular 22 est dans la fenêtre
-- **Intégrations actives par défaut** : `breadcrumbs`, `browserApiErrors`, `browserSession`, `dedupe`, `functionToString`, `globalHandlers`, `httpContext`, `inboundFilters`, `linkedErrors`. `browserTracing` et `replay` sont **opt-in** : ne pas les ajouter suffit à ce qu'aucun tracing ni replay ne parte
+- **Intégrations actives par défaut en v11** (relevé le 2026-10-02 par `getDefaultIntegrations`) : `EventFilters`, `FunctionToString`, `ConversationId`, `BrowserApiErrors`, `Breadcrumbs`, `Console`, `GlobalHandlers`, `LinkedErrors`, `Dedupe`, `HttpContext`, `CultureContext`, `BrowserSession`. `browserTracing` et `replay` sont **opt-in** : ne pas les ajouter suffit à ce qu'aucun tracing ni replay ne parte
 - `httpContextIntegration` envoie toujours l'URL complète de la requête, soit ici `tauri://localhost/...`. Pas de donnée personnelle, mais la route interne est exposée. `beforeSend` la retire si besoin
 - **Zoneless** : aucune déclaration officielle de Sentry sur le comportement en Angular zoneless. L'`ErrorHandler` ne dépend pas de Zone.js, donc le cas d'usage retenu ici n'est pas concerné. L'issue `sentry-javascript#8983` (le `finalTimeout` du tracing bloque la stabilisation de `NgZone`) ne s'applique qu'avec `browserTracingIntegration`, non utilisée
 - Aucune documentation Sentry ne couvre Tauri : le SDK fonctionne comme dans n'importe quelle webview, sans enrichissement du contexte machine côté Rust
 
-**Recommandation** : ✅ Ne pas activer `browserTracing`, ne pas activer `sendDefaultPii`. Les deux défauts sont déjà les bons.
+**Recommandation** : ⚠️ Ne pas activer `browserTracing`, fermer explicitement chaque catégorie de `dataCollection` et retirer `Breadcrumbs`, `Console`, `Replay` et `CultureContext`. En v11 les défauts ne sont plus les bons : la config vit dans `core/sentry-options.ts`, dont le test lit l'événement réellement envoyé.
 
 ### 14. Vitest
 **Version actuelle** : `4.1.11` (2026-08-18)
@@ -862,7 +863,7 @@ Trois contournements, dans l'ordre de préférence :
 | Angular 22.2.0 | PrimeNG 22.1.1 | ✅ | `peerDependency` en `^22.1.0`, pas `22.x` |
 | Angular 22.2.0 | Vitest 4.1.11 | ✅ | Runner par défaut du CLI depuis la v21 |
 | Angular 22.2.0 | ngx-translate 18.0.0 | ✅ | « Tested against Angular 18, 19, 20, 21, and 22 » |
-| Angular 22.2.0 | @sentry/angular 10.73.0 | ✅ | `>= 14.x <= 22.x` |
+| Angular 22.2.0 | @sentry/angular 11.0.0 | ✅ | `>= 14.x <= 22.x` |
 | Angular 22.2.0 | angular-eslint 22.5.0 | ✅ | Alignement de majeure, contrôlé à l'exécution depuis que la 22.2.0 a retiré la peer `@angular/cli` |
 | Angular 22.2.0 | Tauri 2.12.1 | ✅ | `ng build` → `dist/<app>/browser` en `frontendDist`, aucun SSR |
 | jsdom 30.1.1 | Node 24.15+ | ✅ | `engines` : `^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`, plancher identique à celui du projet |
@@ -976,7 +977,7 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 > 🔴 **Retirer le `devEngines.packageManager` que `pnpm init` écrit par défaut, et ne pas déclarer `packageManager` non plus.** C'est contre-intuitif, mais ces deux champs sont les seuls déclencheurs du lockfile multi-document sur ce projet, et ce format casse le graphe de dépendances GitHub, donc les alertes de sécurité. Dependabot **lit** ces alertes, il ne les produit pas : les perdre reviendrait à n'avoir aucune veille CVE tout en croyant le contraire. La version de pnpm se déclare à la place en input `version` de `pnpm/setup`, ce qui la place dans le workflow plutôt que dans `package.json`. C'est l'inverse de ce que recommande la doc pnpm, et c'est assumé : le graphe de dépendances vaut plus cher ici que la centralisation de la version.
 
-**Dépendances** : les paquets runtime `@angular/*` en `22.2.0` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.2.0`), `primeng` en `22.1.1`, `@primeuix/themes` en `3.0.1` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `10.73.0`, `@tauri-apps/api` en `2.12.1`, plus les sept paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`).
+**Dépendances** : les paquets runtime `@angular/*` en `22.2.0` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.2.0`), `primeng` en `22.1.1`, `@primeuix/themes` en `3.0.1` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `11.0.0`, `@tauri-apps/api` en `2.12.1`, plus les sept paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`).
 
 **devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `4.1.11`, `angular-eslint` en `22.5.0`, `eslint` en `^10`, `typescript-eslint` en `^8`, `eslint-config-prettier`, `prettier` en `3.9.9`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.12.1`.
 
@@ -1104,7 +1105,6 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 | TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` et `typescript-eslint` refusent TS 7 (cf. § TypeScript) | Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
 | pnpm | `11.24.0` | `12.1.0` | Aucun blocage technique identifié : la 12 vit sous le dist-tag `next-12` | `latest` pointant la ligne 12 |
 | Node.js | `24.x` | `26.x` | Aucun blocage technique identifié : outil de build, rien de la 26 n'est exploité (cf. § Node.js) | Passage LTS de la 26, annoncé au 2026-10-28 |
-| @sentry/angular | `10.73.0` | `11.0.0` | Aucun blocage technique identifié, CI verte sur la PR Dependabot. Ses notes de version annoncent une collecte de données « more permissive » par défaut, à confronter au durcissement de l'[ADR-014](adrs/014-observabilite-sentry-et-rgpd.md) | Revue des nouveaux défauts de collecte contre l'ADR-014 |
 
 ---
 

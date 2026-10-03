@@ -8,7 +8,11 @@ import { scrub } from "./scrub"
 const PRIVATE_INTEGRATIONS = new Set(["Breadcrumbs", "Console", "Replay", "CultureContext"])
 
 /** Options de `Sentry.init`, durcies selon l'ADR-014 : rien de personnel ne part. */
-export const sentryOptions = (dsn: string, release: string, environment: string): BrowserOptions => ({
+export const sentryOptions = (
+  dsn: string,
+  release: string,
+  environment: string,
+): BrowserOptions => ({
   dsn,
   release,
   environment,
