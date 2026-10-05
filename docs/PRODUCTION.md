@@ -266,7 +266,7 @@ Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `build_info.py` le 
 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
-| Push `main`, PR vers `main` ou `develop` | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | Gate qualité |
+| Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | Gate qualité |
 | Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release | GitHub Releases |
 
