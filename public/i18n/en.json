@@ -64,7 +64,8 @@
     "arbitration_busy": "A decision is already in progress for this track. Please wait a moment.",
     "url_recovery_error": "The link could not be resolved. Try again.",
     "url_recovery_not_eligible": "This track already has a match and no longer takes a link.",
-    "url_recovery_busy": "A link is already being resolved for this track. Please wait a moment."
+    "url_recovery_busy": "A link is already being resolved for this track. Please wait a moment.",
+    "url_recovery_not_open": "Links can be pasted once the search has finished."
   },
   "playlist": {
     "title": "Playlist",

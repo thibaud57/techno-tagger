@@ -235,6 +235,22 @@ La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(
 - Bandeau de bascule : lien « Revenir à Beatport » à la taille du texte du bandeau (12px), aucune animation d'entrée (`animationName` à `none`)
 - Une panne réseau pendant un refus ne sort jamais en `error` : c'est une liste Bandcamp vide au motif `source_unavailable`. Simuler une `error` `source_unavailable` sur un geste affiche un `{{source}}` brut qui ne vient pas de l'interface
 
+## Pilotage du rattrapage par URL
+
+`resolve_by_url` se pilote par `drive.py` sur un `--unique 1` : son morceau finit `unresolved` et son `track_id` se lit sur le nom de fichier rendu par `build_fixture.py`. Le faux serveur sert `/beatport/tracks/<id>` des morceaux connus : coller `https://www.beatport.com/track/your-mind/17492013` rattrape le morceau de bout en bout. Il ne sert pas `/bandcamp/tracks` (404) : une URL Bandcamp se vérifie par les tests.
+
+### Flux qui valent le coup
+
+- Avant tout run : `url_recovery_not_open`, `command` à `resolve_by_url`, `params.track_id` au morceau
+- Commande malformée (`url` vide, champ en trop) : `malformed_command`, la boucle continue
+- Fin de run : `run_finished` en `network` suivi d'un seul `progress` en `url_recovery` à `0/1`
+- URL YouTube : `unsupported_url` portant `params.track_id`, puis URL Beatport : `track_resolved` en `resolved` / `url`, `scores` nul, suivi de `progress` à `1/1`. Un second collage sur le même morceau le rattrape de nouveau (un morceau rattrapé reste éligible)
+- `cancel_run` après la fin du run : aucun événement
+- `cancel_run` sous `FAKE_DELAY=1` à 1,5s sur un `--unique 3` : `progress` en `url_recovery` sans `run_finished`, à `0/0` (les morceaux jamais cherchés ne sont pas à rattraper), puis la boucle répond
+- Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason`
+
+Parcours relevé le 2026-10-05, tous verts.
+
 ## Pilotage de la garde de fermeture
 
 La fermeture part de l'extérieur de la page, par `taskkill //IM techno-tagger.exe` **sans** `/F` : c'est le message de fermeture de Windows, le même que la croix ou Alt+F4, qui déclenche `onCloseRequested`. Un `close()` depuis la page ne passerait pas par l'OS. Une fenêtre retenue laisse `techno-tagger.exe` en vie après le `taskkill`, qui annonce pourtant son signal envoyé : compter le process, pas lire le message.

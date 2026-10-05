@@ -428,13 +428,13 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
 | `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
-| `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. L'extraction reste attendue jusqu'à son terme, comme sous `shutdown` |
+| `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. Quand il interrompt la phase réseau d'un run courant, il ouvre le rattrapage par URL et en émet la progression, toujours sans événement de fin. L'extraction reste attendue jusqu'à son terme, comme sous `shutdown` |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source) |
 | `resolve_arbitration` | identifiant du morceau, `source` (`beatport` ou `bandcamp`, la liste visée) et `candidate` : index dans cette liste, ou `null` pour un refus explicite, jamais implicite |
 | `switch_arbitration_source` | identifiant du morceau, `source` à réafficher. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), sans appel réseau et produit un `arbitration_updated` |
-| `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud |
+| `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud collée telle quelle (chaîne non vide). Acceptée une fois la phase de rattrapage ouverte, c'est-à-dire sur un run courant dont la phase réseau ne tourne plus (terminée ou interrompue), sinon `url_recovery_not_open`. Un morceau non éligible lève `url_recovery_not_eligible`, un second geste en vol sur le même morceau `url_recovery_busy` |
 | `commit_run` | identifiant du run, confirmation globale de l'écriture |
 | `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages |
 | `resume_run` / `discard_run` | identifiant du plan détecté au lancement |
@@ -449,7 +449,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 |---|---|
 | `version` | version du sidecar, nue (`X.Y.Z`, sans le préfixe `techno-tagger@` réservé à la release Sentry), comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)) ; `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
 | `playlists_listed` | format reconnu du fichier et playlists du dump VLC : identifiant, nom, nombre de morceaux |
-| `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture |
+| `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture. En phase `url_recovery`, émis à l'ouverture du rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), après chaque rattrapage réussi et après chaque geste d'arbitrage hors phase réseau ; mesure les morceaux rattrapés sur les morceaux à rattraper |
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `run_started` | identifiant du run et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus. Sans lui, la liste resterait vide jusqu'à la première résolution |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
@@ -458,7 +458,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs résolus, non résolus et en attente d'arbitrage ; chemin des rapports une fois la Feature 6 livrée |
 | `runs_listed` | runs passés : identifiant, date, dossier, compteurs du récapitulatif |
 | `run_loaded` | récapitulatif d'un run passé, relu depuis son rapport JSON |
-| `error` | `code`, `params`, `message` technique, `command` ayant échoué, morceau concerné le cas échéant |
+| `error` | `code`, `params`, `message` technique, `command` ayant échoué, morceau concerné le cas échéant. Toute erreur d'un geste sur un morceau (`resolve_arbitration`, `resolve_by_url`) porte `params.track_id`, y compris une erreur du client, pour que l'interface la place sur la bonne ligne |
 
 **`error` nomme la commande qui a échoué, l'interface ne la déduit pas.** Un écran n'affiche que les erreurs des commandes qu'il émet, sans quoi l'échec d'un enregistrement de clé s'afficherait en bannière sur l'onglet Playlist ouvert ensuite. Tant que la boucle traitait une commande à la fois, l'interface pouvait retenir la dernière envoyée et lui attribuer l'erreur suivante. `start_tagging` rendant la main aussitôt (§ [Concurrence](#concurrence)), cette déduction est fausse : une commande courte émise pendant un run récupérerait l'échec du run et le run l'échec de la commande courte. D'où le champ, que le sidecar remplit dans ses deux chemins d'émission. Il vaut `null` sur une ligne trop malformée pour désigner une commande du contrat, son nom éventuel restant dans les `params`.
 

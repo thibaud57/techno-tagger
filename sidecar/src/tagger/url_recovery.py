@@ -52,6 +52,15 @@ class UrlRecoveryBusyError(UrlRecoveryError):
         super().__init__("a url is already being resolved for this track", track_id)
 
 
+class UrlRecoveryNotOpenError(UrlRecoveryError):
+    """Aucun run courant, ou sa phase reseau tourne encore : le rattrapage vient apres."""
+
+    code: ClassVar[str] = "url_recovery_not_open"
+
+    def __init__(self, track_id: str) -> None:
+        super().__init__("url recovery is not open", track_id)
+
+
 class UrlRecovery:
     """Second geste refuse (pas mis en file) si le premier est deja en vol sur ce morceau :
     des clics rapides lanceraient sinon deux appels reseau."""
