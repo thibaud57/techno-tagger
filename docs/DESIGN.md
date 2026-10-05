@@ -170,7 +170,6 @@ Primitives du preset Aura. Cette table fait foi : là où Aura donne un autre cr
 | `--p-border-radius-xl` | `12px` | Modales, conteneurs larges |
 
 La classe `rounded-border` du plugin applique le rayon de contenu sans passer par la variable.
-
 ## Dark / Light Mode
 
 **Stratégie** : dark permanent, aucun sélecteur dans l'interface.
@@ -524,7 +523,7 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 **Ordre des classes** : réordonné automatiquement par `prettier-plugin-tailwindcss` au format, selon l'ordre officiel du plugin. Aucune convention manuelle à retenir, rien à relire en review sur ce point et aucun diff parasite venant de deux fichiers rangés différemment.
 
 ```html
-<div class="flex items-center justify-between gap-4 rounded-border border-surface bg-surface-900 px-4 py-2 text-sm font-medium text-color xl:px-6">
+<div class="flex items-center justify-between gap-4 rounded-lg border-surface bg-surface-900 px-4 py-2 text-sm font-medium text-color xl:px-6">
 ```
 
 ## Règles
@@ -576,6 +575,8 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Lignes rattrapées** : conservées dans le bloc avec « Rattrapé sur `<Source>` » et leur lien, pour corriger, là où la maquette les retirait. Décidé le 2026-10-02
 - **Bloc après interruption** : affiché aussi quand le run a été interrompu, là où la maquette ne montrait rien en phase `interrupted`. Décidé le 2026-10-02
 - **Bouton « Lancer le run » pendant la phase** : conservé, bloqué seulement pendant un geste en vol, là où la maquette le remplaçait par « Confirmer l'écriture », qui arrive avec la Feature 5. Décidé le 2026-10-03
+- **Espacement entre sections** : `gap-6` (24px) entre les blocs d'un écran, sur les trois onglets, là où la maquette les espaçait de 16px. Décidé le 2026-10-05
+- **Gris de légende et séparateurs** : tokens nommés, `text-muted-color` pour l'aide de la modale d'arbitrage et `border-surface` pour le séparateur des Réglages, là où la maquette posait `--p-surface-500` et `--p-surface-800`. Décidé le 2026-10-05
 
 ## Documentation Officielle
 
