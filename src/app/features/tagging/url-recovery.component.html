@@ -1,4 +1,4 @@
-<header class="flex flex-col gap-1">
+<header class="flex flex-col gap-2">
   <h2 class="text-xl font-semibold">{{ "tagging.recovery.title" | translate }}</h2>
   <p class="text-sm text-muted-color">{{ "tagging.recovery.help" | translate }}</p>
 </header>
@@ -12,7 +12,8 @@
 } @else {
   <ul class="flex min-h-0 flex-col gap-4 overflow-y-auto">
     @for (row of rows(); track row.trackId) {
-      <li class="flex flex-col gap-2">
+      <!-- gap-4 comme entre les lignes : l'erreur garde le meme ecart au-dessus et en dessous. -->
+      <li class="flex flex-col gap-4">
         <div class="flex items-center gap-4">
           <!-- w-72 : largeur fixe pour aligner les champs d'une ligne a l'autre, mesuree en Inter
                sur l'identite (14px, "Adam Beyer, Bart Skils - Your Mind (Extended Mix)" = 335px,

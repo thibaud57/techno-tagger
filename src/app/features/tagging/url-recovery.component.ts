@@ -11,7 +11,7 @@ import { EmptyStateComponent } from "../../shared/components/empty-state.compone
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
 import { IconComponent } from "../../shared/components/icon.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
-import { trackMainLine } from "../../shared/utils/identity"
+import { failureReasonKey, trackMainLine } from "../../shared/utils/identity"
 import { SOURCE_NAMES } from "../../shared/utils/sources"
 
 interface RecoveryDetail {
@@ -34,7 +34,7 @@ const detail = (track: TaggingTrack): RecoveryDetail | null => {
     return { key: "tagging.recovery.recovered", params: { source: SOURCE_NAMES[track.source] } }
   }
 
-  return track.failureReason === null ? null : { key: `tagging.reason.${track.failureReason}` }
+  return track.failureReason === null ? null : { key: failureReasonKey(track.failureReason) }
 }
 
 /** Une ligne par morceau a rattraper ; le sidecar juge l'URL, l'ecran ne la verifie pas. */

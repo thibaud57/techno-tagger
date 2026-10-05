@@ -22,6 +22,7 @@ TEST_API_KEY: Final = "test-key"
 YOUR_MIND: Final = "Adam Beyer Your Mind"
 BASIEL: Final = "Amelie Lens Basiel"
 SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2"
+BANDCAMP_TRACK: Final = "https://amelielens.bandcamp.com/track/basiel"
 
 # Union de deux signatures (et non un retour union sur une seule) : c'est la forme
 # qu'attend `httpx2.MockTransport`, covariance du retour oblige.
@@ -88,6 +89,12 @@ def track_candidate(
 def page_payload(*items: dict[str, object]) -> dict[str, object]:
     """Enveloppe `Page[Track]`, sans curseur : le sidecar ne pagine pas."""
     return {"items": list(items), "next_cursor": None}
+
+
+def bandcamp_track_payload(**overrides: object) -> dict[str, object]:
+    """Un `Track` tel que `/bandcamp/tracks` le rend pour `BANDCAMP_TRACK`."""
+    payload = track_payload(id="7", source="bandcamp", mix_name=None, url=BANDCAMP_TRACK)
+    return payload | overrides
 
 
 def soundcloud_track_payload(**overrides: object) -> dict[str, object]:

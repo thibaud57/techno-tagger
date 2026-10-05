@@ -12,7 +12,7 @@ import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.com
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
-import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
+import { failureReasonKey, joinIdentity, trackMainLine } from "../../shared/utils/identity"
 import { FADE_IN } from "../../shared/utils/motion"
 import { SOURCE_NAMES } from "../../shared/utils/sources"
 import { fullHeightTable } from "../../shared/utils/table"
@@ -68,7 +68,7 @@ export class RunListComponent {
       afterLine: track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
       sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
       artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
-      reasonKey: track.failureReason === null ? null : `tagging.reason.${track.failureReason}`,
+      reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
       arbitrable: track.arbitration !== null,
     })),
   )

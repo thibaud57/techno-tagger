@@ -3,6 +3,7 @@
 import httpx2
 import pytest
 from scraper_responses import (
+    BANDCAMP_TRACK,
     SOUNDCLOUD_TRACK,
     Handler,
     make_client,
@@ -15,8 +16,6 @@ from scraper_responses import (
 from tagger.scraper_client import Source, TrackNotFoundError, UnsupportedTrackUrlError
 
 pytestmark = pytest.mark.asyncio
-
-BANDCAMP_TRACK = "https://amelielens.bandcamp.com/track/basiel"
 
 
 def _response(requests: list[httpx2.Request], body: dict[str, object]) -> Handler:

@@ -48,8 +48,8 @@
     "scraper_error": "La recherche a échoué. Réessayez plus tard.",
     "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
     "source_unavailable": "{{source}} ne répond pas. Réessayez plus tard.",
-    "track_not_found": "Ce lien ne mène à aucun morceau sur {{source}}. Vérifiez l'adresse.",
-    "unsupported_url": "Ce lien ne désigne pas un morceau Beatport, Bandcamp ou SoundCloud. Copiez l'adresse de la page du morceau.",
+    "track_not_found": "Ce lien ne mène à aucun morceau sur {{source}}. Vérifiez le lien.",
+    "unsupported_url": "Ce lien ne désigne pas un morceau Beatport, Bandcamp ou SoundCloud. Copiez le lien de la page du morceau.",
     "api_contract_error": "La recherche a reçu une réponse inattendue. Si le problème revient, le détail se trouve dans le dossier des logs.",
     "api_key_error": "La clé API n'a pas pu être enregistrée. Réessayez.",
     "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",
@@ -63,7 +63,7 @@
     "arbitration_candidate_unknown": "Candidat indisponible. Choisissez-en un autre dans la liste affichée.",
     "arbitration_busy": "Une décision est déjà en cours pour ce morceau. Patientez un instant.",
     "url_recovery_error": "Le lien n'a pas pu être résolu. Réessayez.",
-    "url_recovery_not_eligible": "Ce morceau a déjà une correspondance et n'attend plus de lien.",
+    "url_recovery_not_eligible": "Ce morceau a déjà une correspondance et n'attend plus de lien. Passez au morceau suivant.",
     "url_recovery_busy": "Un lien est déjà en cours de résolution pour ce morceau. Patientez un instant.",
     "url_recovery_not_open": "Vous pourrez coller un lien une fois la recherche terminée."
   },
@@ -202,7 +202,7 @@
     },
     "recovery": {
       "title": "Rattrapage par URL",
-      "help": "Étape facultative : collez l'adresse d'un morceau Beatport, Bandcamp ou SoundCloud.",
+      "help": "Étape facultative : collez le lien d'un morceau Beatport, Bandcamp ou SoundCloud.",
       "phase": "Rattrapage par URL",
       "progress": "{{processed}} sur {{total}} rattrapés",
       "placeholder": "https://www.beatport.com/track/…",

@@ -4,7 +4,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import conversation
-from scraper_responses import BASIEL, YOUR_MIND, track_payload
+from scraper_responses import (
+    BANDCAMP_TRACK,
+    BASIEL,
+    YOUR_MIND,
+    bandcamp_track_payload,
+)
 from tagging_api import (
     ONE_TRACK,
     ORIGINAL,
@@ -20,9 +25,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
-
-BANDCAMP_URL = "https://amelielens.bandcamp.com/track/basiel"
-PASTED_TRACK = track_payload(id="7", source="bandcamp", mix_name=None, url=BANDCAMP_URL)
 
 
 @pytest.fixture
@@ -42,7 +44,7 @@ def empty(tmp_path: Path) -> Path:
 @pytest.fixture
 def api(api: FakeApi) -> FakeApi:
     """L'URL Bandcamp collee designe un morceau connu de l'API."""
-    api.on("/bandcamp/tracks", BANDCAMP_URL, ok(PASTED_TRACK))
+    api.on("/bandcamp/tracks", BANDCAMP_TRACK, ok(bandcamp_track_payload()))
     return api
 
 
@@ -50,7 +52,7 @@ def _start(folder: Path) -> dict[str, object]:
     return {"command": "start_tagging", "folder": str(folder)}
 
 
-def _recover(url: str = BANDCAMP_URL, track_id: str = ONE_TRACK) -> dict[str, object]:
+def _recover(url: str = BANDCAMP_TRACK, track_id: str = ONE_TRACK) -> dict[str, object]:
     return {"command": "resolve_by_url", "track_id": track_id, "url": url}
 
 
@@ -117,7 +119,7 @@ async def test_refuses_a_url_while_the_network_phase_is_running(folder: Path, ap
 async def test_cancels_a_url_gesture_in_flight_when_a_new_run_starts(
     folder: Path, empty: Path, api: FakeApi
 ) -> None:
-    fetch = api.gate("/bandcamp/tracks", BANDCAMP_URL)
+    fetch = api.gate("/bandcamp/tracks", BANDCAMP_TRACK)
 
     async with conversation() as talk:
         talk.send(**_start(folder))

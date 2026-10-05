@@ -51,23 +51,13 @@ export class UrlRecoveryStore {
 
   private release(trackId: string): void {
     if (this._busy().has(trackId)) {
-      this._busy.update((busy) => {
-        const next = new Set(busy)
-        next.delete(trackId)
-
-        return next
-      })
+      this._busy.update((busy) => new Set([...busy].filter((id) => id !== trackId)))
     }
   }
 
   private forget(trackId: string): void {
     if (this._errors().has(trackId)) {
-      this._errors.update((errors) => {
-        const next = new Map(errors)
-        next.delete(trackId)
-
-        return next
-      })
+      this._errors.update((errors) => new Map([...errors].filter(([id]) => id !== trackId)))
     }
   }
 }
