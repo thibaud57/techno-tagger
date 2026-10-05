@@ -16,11 +16,20 @@ d'implémenter un écran :
    DESIGN.md gagne.
 3. La spec du sub-project dit ce que l'écran fait.
 
-L'onglet Playlist a été écrit depuis DESIGN.md et sa spec, sans ouvrir la maquette : les écarts
-relevés ensuite (régime de largeur du rapport, sévérité des sélecteurs, libellés, états vides) ont
-tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour ça.
+La rule `.claude/rules/design/claude-design.md` impose cette lecture : un écran écrit sans ouvrir
+la maquette en diverge (constat du 2026-09-16 sur l'onglet Playlist, cf. Journal).
 
 ## Comment ce dépôt se synchronise
+
+Un push, dans l'ordre :
+
+1. Relire sur le distant (`get_file`) chaque fichier à modifier et le comparer à l'export local
+   `.design-sync/design-system/`, ignoré par git et donc absent après un clone : le distant fait foi
+2. Modifier l'export local, puis `finalize_plan` sur la liste exacte des chemins et `write_files`
+   depuis l'export (`localPath`)
+3. Ajouter à `readme.md` § Réserves l'entrée datée de l'alignement
+4. Poser `_ds_needs_recompile`, puis dater dans `docs/DESIGN.md` § Arbitrages les écarts réalignés,
+   vider le Reste ouvert ci-dessous et écrire l'entrée du Journal
 
 - **Le convertisseur de `/design-sync` ne s'applique pas et le lancer détruirait le projet
   distant** : le skill empaquette un `dist/` React ou un Storybook pour que l'agent de design rende
@@ -55,20 +64,16 @@ tous cette origine. La rule `.claude/rules/design/claude-design.md` existe pour 
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- **Modale d'arbitrage, refus d'un geste** : le code affiche l'erreur du morceau affiché sous la liste (DESIGN.md § Mapping Composants, « Refus d'un geste »), `ArbitrationDialog.jsx` n'a aucun état d'erreur alors que `ErrorMessage` est au kit
-- **Modale d'arbitrage, en-tête** : titre et nom de fichier coupés sur une ligne avec tooltip dans le code, deux `div` bruts dans `ArbitrationDialog.jsx`, qui passent à la ligne sur un titre long alors que `TruncatedText` est au kit
-- **Rattrapage par URL (`UrlRescue`)** : le code livre ce que la maquette n'a pas encore. Barre de phase « rattrapés sur à rattraper » à la place de la barre réseau figée, erreur et spinner par ligne, lignes rattrapées conservées avec « Rattrapé sur `<Source>` », zone hôte et bouton grisé retirés (reconnaissance dans le sidecar), bloc affiché aussi après une interruption, bloc borné sous la liste. Libellé local : l'aide de l'en-tête dit « Étape facultative : collez l'adresse d'un morceau Beatport, Bandcamp ou SoundCloud. » là où la maquette en a un autre
-
+Rien en attente depuis le push du 2026-10-05.
 
 ## Journal
 
 - **2026-09-16, audit de l'onglet Playlist** : comparaison de l'écran livré contre DESIGN.md et
-  `ui_kits/techno-tagger/PlaylistScreen.jsx`, écarts consignés dans la conversation de revue et
-  ci-dessus. Création de ce dossier, de la rule et du lien dans DESIGN.md § Ressources. Aucun push
+  `ui_kits/techno-tagger/PlaylistScreen.jsx`, écarts consignés dans la conversation de revue. Création de ce dossier, de la rule et du lien dans DESIGN.md § Ressources. Aucun push
   encore effectué depuis ce dépôt.
 - **2026-09-17, variations de l'onglet Playlist** : neuf directions explorées par
   `/swarm-ui-variations`, dont une calquée sur `PlaylistScreen.jsx`. Le mix retenu (grille compacte,
-  deux temps, résumé, table pleine hauteur) est livré en `2d3b10e` et consigné ci-dessus. Aucun
+  deux temps, résumé, table pleine hauteur) est livré en `2d3b10e`. Aucun
   push vers le projet Claude Design.
 - **2026-09-24, premier push du design system** : `readme.md` réaligné sur `docs/DESIGN.md` après
   la livraison des onglets Playlist et Tagging, avec sa réserve n° 8 datée. Les deux régimes de
@@ -79,7 +84,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   `Card`, `ErrorMessage`, `PathPicker`, `PhaseProgress`, `TruncatedText`. `_ds_needs_recompile`
   posé en fin de push.
 - **2026-09-24, alignement des écrans** : les quatre écrans de `ui_kits/techno-tagger/` suivent
-  désormais l'interface livrée. `TaggingScreen` reçoit son sélecteur de dossier, garde son bouton
+  l'interface livrée à cette date. `TaggingScreen` reçoit son sélecteur de dossier, garde son bouton
   de lancement visible et grisé plutôt que de le masquer et son bloc vide dit « Aucun run lancé ».
   `SettingsScreen` perd la rangée « URL de l'API » (devenue une constante du sidecar) et gagne le
   tag d'état de la clé. `PlaylistScreen` passe en deux temps, résumé puis rapport en table à deux
@@ -104,7 +109,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   passe ; le squelette ne se réduit à la vignette qu'une fois la première ligne reçue. Le même
   passage livre « Non traité » : la famille Neutre gagne un second glyphe, `minus-circle`, pour
   le morceau qu'un run interrompu n'a jamais atteint, l'horloge y promettant une suite qui ne
-  viendra pas. Et un bloc vide porte désormais un titre **et** une phrase, jamais un titre seul.
+  viendra pas. Et un bloc vide porte dès lors un titre **et** une phrase, jamais un titre seul.
 - **2026-09-25, interruption d'un run et fiches contradictoires** : `TaggingScreen` reçoit
   « Interrompre » à gauche du lancement et `AppShell` arrête le run simulé au clic. `StateTag` rend
   enfin « Non traité » par sa prop `interrupted` : le readme l'annonçait, le composant s'arrêtait
@@ -117,9 +122,9 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 - **2026-09-25, export local complété** : les treize fichiers que la passe du 24 avait laissés
   absents ont été tirés du distant (`.jsx` et `.d.ts` de `PhaseProgress`, `Card`, `ErrorMessage`,
   `PathPicker`, `TruncatedText`, plus trois fiches). Aucune ne portait de règle périmée. L'export
-  est désormais un miroir exact, ce qui rend de nouveau fiable une lecture locale.
+  est alors un miroir exact, ce qui rend de nouveau fiable une lecture locale.
 - **2026-09-25, audit de DESIGN.md contre le code** : cinq écarts corrigés à la source, dont deux
-  que le readme distant héritait. La règle du `danger` distingue désormais une action destructive
+  que le readme distant héritait. La règle du `danger` distingue dès lors une action destructive
   d'une sévérité qui rapporte un état, le décompte figé des libellés d'état disparaît, le toast
   « clé enregistrée » cède au tag persistant qu'affiche réellement l'écran et les deux boutons de
   lancement rejoignent leur famille du Mapping. `DESIGN.md` reçoit sa rubrique « Maquette et design
@@ -150,3 +155,19 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   `Button.loading`, `Message` sans plein écran, `TruncatedText` par `Tooltip`, `PhaseProgress`
   indéterminée sans compteur, tirets simples, point médian entre les deux seuils et `app-dark`
   dans les cartes. Réserve n° 13, `_ds_needs_recompile` posé.
+- **2026-10-05, rattrapage par URL** : les cinq points du Reste ouvert poussés après relecture du
+  distant, identique à l'export pour chaque fichier touché. `TaggingScreen` suit le bloc livré :
+  aucune reconnaissance d'hôte, « Résoudre » actif dès le champ rempli, spinner, erreur sous la
+  ligne, lignes rattrapées conservées, bloc borné et affiché après une interruption, barre « N sur
+  M rattrapés », « Lancer le run » à la place de « Confirmer l'écriture ». `AppShell` joue le
+  sidecar qui juge l'URL et ouvre la confirmation d'écriture de la Feature 5 par un lien
+  `écriture ?` de la barre d'onglets. `ArbitrationDialog` coupe son en-tête par `TruncatedText` et
+  gagne l'état d'erreur d'un geste. `gap-6` entre sections sur les trois onglets, gris nommés dans
+  la modale et les Réglages. Réserve n° 14, README du kit et § Layout du readme à jour,
+  `_ds_needs_recompile` posé. Second push le même jour : les fiches `InputGroup` et
+  `ErrorMessage` et la carte des formulaires faisaient encore valider l'hôte par l'écran, elles
+  suivent la règle du sidecar. Export local ensuite comparé fichier par fichier au distant et
+  réaligné, `_ds_bundle.js`, `_ds_manifest.json` et `_adherence.oxlintrc.json` compris : miroir
+  exact au 2026-10-05, hors binaires
+  Troisième push après la revue en direct : un message d'erreur garde le même écart au-dessus et
+  en dessous (DESIGN.md § Feedback), `TaggingScreen`, la fiche `ErrorMessage` et le readme suivent

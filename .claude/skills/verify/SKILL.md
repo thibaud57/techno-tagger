@@ -18,7 +18,7 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | Script | Rôle | Lancement |
 |---|---|---|
 | `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, `--arbitration` un seul morceau en zone grise, ou `--vlc-dump` un dump `vlc_media.db` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --arbitration \| --vlc-dump]` |
-| `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout | importé par `drive.py` |
+| `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout. `BY_URL` sert les routes par URL du rattrapage (`/bandcamp/tracks`, `/soundcloud/resolve`, morceau ou profil), `FAILING_IDS` fait rendre 403 ou 503 à un id Beatport précis | importé par `drive.py` |
 | `drive.py` | Vraie boucle NDJSON contre le faux serveur, ou contre une vraie gateway locale si `GATEWAY_URL` et `GATEWAY_KEY` sont posées. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
 | `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` ; `--key <touche>` frappe une vraie touche (`Input.dispatchKeyEvent`), `--screenshot <png>` capture la fenêtre, `--click <x> <y>` et `--move <x> <y>` donnent un vrai clic ou un survol souris (coordonnées CSS) ; une page qui meurt pendant l'appel rend `{"success": true, "pageClosed": true}` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
 | `page/demo-run.js` | Parcours de la démo pour une revue à l'écran : `playlist <demo-data>` pose les chemins et la playlist, `extract` clique « Extraire », `tagging` passe au tagging et lance le run, `run <dossier>` lance un run sans extraction dans la session, `state` compte les issues, `last-destination [clear]` lit la préférence, ou l'efface quand la démo l'a posée, `tag-widths <clé>` mesure en pixels les libellés d'une clé, FR et EN, dans la police d'un tag affiché | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/demo-run.js <action> [cible]` |
@@ -27,6 +27,7 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `page/preamble.js` | Ce que toutes les sondes partagent : `wait`, `until` (attente d'une condition de page) et `__sidecarService()`, le service vivant de la page | préalable injecté par `cdp.mjs` devant chaque script de page, jamais recopié dans une sonde |
 | `page/cancel-run.js` | Interruption d'un run puis relance immédiate, de bout en bout | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/cancel-run.js <dossier>`, dossier de `build_fixture.py --unique 20` |
 | `page/arbitration-replay.js` | Rejoue dans la fenêtre le flux réel d'un run d'arbitrage (sortie de `drive.py`) en intercalant les gestes du service, `send` relevé au lieu d'envoyé ; les groupes en surplus partent après la dernière ligne, geste encore sans réponse, et `["click", "<sélecteur>"]` y clique un élément de la page | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-replay.js "$(cat <sortie.ndjson>)" '<gestes JSON>'` |
+| `page/url-recovery.js` | Bloc de rattrapage dans la fenêtre : `paste <ligne> <url>` envoie l'URL par le vrai service comme « Résoudre » et attend la réponse, `state` relève les lignes, la barre et, pour chaque erreur, son écart à ce qui la précède et la suit (attendu égal, DESIGN.md § Feedback) | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/url-recovery.js <action> [ligne] [url]` |
 
 Chaque script rend `{"success": true, ...}` ou `{"error": true, "message": "..."}` sur `stdout`, code de sortie 1 en erreur. Rapporter le message tel quel : il nomme le geste qui répare, lancer par `uv run --directory sidecar` ou ouvrir la fenêtre avec le port de débogage.
 
@@ -237,7 +238,18 @@ La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(
 
 ## Pilotage du rattrapage par URL
 
-`resolve_by_url` se pilote par `drive.py` sur un `--unique 1` : son morceau finit `unresolved` et son `track_id` se lit sur le nom de fichier rendu par `build_fixture.py`. Le faux serveur sert `/beatport/tracks/<id>` des morceaux connus : coller `https://www.beatport.com/track/your-mind/17492013` rattrape le morceau de bout en bout. Il ne sert pas `/bandcamp/tracks` (404) : une URL Bandcamp se vérifie par les tests.
+`resolve_by_url` se pilote par `drive.py` sur un `--unique 1` : son morceau finit `unresolved` et son `track_id` se lit sur le nom de fichier rendu par `build_fixture.py`. URL servies par le faux serveur :
+
+| URL collée | Réponse |
+|---|---|
+| `https://www.beatport.com/track/your-mind/17492013` | morceau Beatport |
+| `https://amelielens.bandcamp.com/track/basiel` (et ses variantes `http://`, majuscules, query, fragment, `/` final) | morceau Bandcamp |
+| `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2` (et `m.`, `www.`, query) | morceau SoundCloud |
+| `https://on.soundcloud.com/verifyprofile` | profil, que le sidecar refuse en `unsupported_url` |
+| `https://www.beatport.com/track/x/403403` / `.../503503` | 403 / 503 de la gateway |
+| toute autre URL Bandcamp ou SoundCloud de forme valide, tout autre id Beatport | 404, `track_not_found` |
+
+Chaque requête partie se relit dans `logs/tagger.log` (httpx2 journalise l'URL complète) : c'est là que se vérifie la normalisation.
 
 ### Flux qui valent le coup
 
@@ -248,6 +260,32 @@ La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(
 - `cancel_run` après la fin du run : aucun événement
 - `cancel_run` sous `FAKE_DELAY=1` à 1,5s sur un `--unique 3` : `progress` en `url_recovery` sans `run_finished`, à `0/0` (les morceaux jamais cherchés ne sont pas à rattraper), puis la boucle répond
 - Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason`
+- Formes d'URL : la variante Bandcamp `http://Amelielens.bandcamp.com/track/basiel/?from=search#lyrics` part en `url=https://amelielens.bandcamp.com/track/basiel`, la SoundCloud `m.` sans query ni `tracks_cursor` ; lien court résolu en profil → `unsupported_url` ; 404 → `track_not_found` avec `params.source` ; 503 → `source_unavailable` avec `status` et `reason` ; `soundcloud.com/<user>/sets` passe le contrôle local et revient en 404 du faux serveur
+- Non éligible, sans aucune requête émise par le geste : morceau en attente d'arbitrage, morceau arbitré (fixture par défaut, choix de l'index 0), `track_id` inconnu, morceau jamais atteint d'un run interrompu
+- Second geste sous `FAKE_DELAY=1`, 0,2s après le premier sur le même morceau : `url_recovery_busy`, puis le premier aboutit
+- Garde des 403 : trois gestes sur `403403` et trois morceaux d'un `--unique 3`, trois `api_key_rejected` dont le dernier au message `run stopped after repeated api key rejections`, la boucle répond ensuite
+- Interruption avec des non résolus : `--unique 5` sous `FAKE_DELAY=1`, `cancel_run` à 2,4s, `progress` à `0/2` sans `run_finished`, puis un rattrapage aboutit à `1/2`
+- Refus d'arbitrage tardif : `.mp3` d'un `--unique 1` copié dans le dossier d'un `--arbitration`, refus Beatport puis refus Bandcamp (`candidate: null`, source `bandcamp`) après la fin du run, le total passe de 1 à 2
+- Geste en vol sous `FAKE_DELAY=1` : un nouveau `start_tagging` l'abandonne sans `track_resolved` et l'ancien morceau devient non éligible ; `shutdown` ou EOF sortent aussitôt, sans `track_resolved` ni coroutine orpheline sur `stderr`. Un `ConnectionAbortedError` sur `stderr` vient du faux serveur, pas du sidecar
+
+**Contre la vraie gateway** (§ Pilotage du run de re-tagging) : URL réelles relevées dans les tests de techno-scraper, `https://www.beatport.com/track/abilene/23382450`, `https://deestricted.bandcamp.com/track/good-question`, `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2`. Les trois aboutissent en `resolved` / `url`, pochette téléchargée dans `cache/artworks/` ; `soundcloud.com/drumcode/sets`, que la gateway résout en playlist ou profil, revient en `unsupported_url`. Relevé le 2026-10-05 contre la gateway locale 4.0.1. La gateway charge ses clés SoundCloud depuis son propre fichier d'environnement : sans elles, `/soundcloud/resolve` échoue.
+
+Parcours relevé le 2026-10-05, tous verts.
+
+### Côté webview
+
+Sous `ng serve`, service simulé (§ Gotchas) : `svc.startTagging("C:/x")`, puis par `svc.handleLine` un `run_started` à deux morceaux, leurs `track_resolved` en `unresolved`, `run_finished` et `progress` en `url_recovery` à `0/2`. Le collage se fait sur l'`input` de la ligne (valeur posée puis événement `input`), le clic sur son bouton « Résoudre ».
+
+- Bloc sous la liste du run, une ligne par morceau avec son motif, « Résoudre » désactivé champ vide ; barre « Rattrapage par URL » à la place de la barre de recherche
+- Pendant l'attente : `resolve_by_url` relevé une fois dans `send`, bouton désactivé avec spinner, `blockedReason()` à `tagging.blocked.recovering`, levé à la réponse
+- `error` `unsupported_url` sur un morceau : `app-error-message` dans le `li` de ce seul morceau, URL gardée dans le champ, aucun toast de plus que celui de fin de recherche (compté par `MutationObserver` posé avant `startTagging`) ; un nouvel envoi efface l'erreur
+- `track_resolved` en `url` puis `progress` à `1/2` : « Rattrapé sur Beatport » sous la ligne, URL gardée, tag « URL » dans la liste, barre à « 1 sur 2 rattrapés »
+- Au plancher 1024 × 700 : aucun défilement de page ni de `main`
+- Écart d'une erreur sous sa ligne : 16px au-dessus et en dessous (`page/url-recovery.js state`), relevé le 2026-10-05 dans la fenêtre Tauri sur la démo après un `paste` YouTube
+- Rien à rattraper (run tout résolu, `progress` à `0/0`) : bloc vide « Aucun morceau non résolu », aucune barre
+- `error` `source_unavailable` dont `params.source` vaut `bandcamp` sur une ligne : « Bandcamp ne répond pas. Réessayez plus tard. »
+- En anglais (`use("en")` sur le `TranslateService` trouvé comme le service sidecar) : en-tête « Recovery by URL », motif, « Resolve », barre « 0 of 1 recovered »
+- Cycle de vie : `svc.startTagging` ferme la phase et vide les erreurs ; `svc._available.set(false)` puis `svc["endRun"]()`, le chemin de `onTerminated`, la ferme et libère le geste en vol
 
 Parcours relevé le 2026-10-05, tous verts.
 
