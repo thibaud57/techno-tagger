@@ -4,6 +4,7 @@ import { Message } from "primeng/message"
 
 import type { SidecarErrorEvent } from "../../core/models/protocol"
 import { FADE_IN } from "../utils/motion"
+import { brandName } from "../utils/sources"
 
 import { IconComponent } from "./icon.component"
 
@@ -22,13 +23,21 @@ import { IconComponent } from "./icon.component"
 export class ErrorMessageComponent {
   readonly error = input.required<SidecarErrorEvent>()
 
-  /** Une liste est jointe avant l'interpolation, que ngx-translate ecrirait `a,b`. */
+  /**
+   * Une liste est jointe avant l'interpolation, que ngx-translate ecrirait `a,b` ; une
+   * source arrive en valeur du contrat et s'affiche par son nom de marque.
+   */
   protected readonly params = computed(() =>
     Object.fromEntries(
-      Object.entries(this.error().params).map(([key, value]) => [
-        key,
-        Array.isArray(value) ? value.join(", ") : value,
-      ]),
+      Object.entries(this.error().params).map(([key, value]) => [key, displayed(key, value)]),
     ),
   )
+}
+
+const displayed = (key: string, value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.join(", ")
+  }
+
+  return key === "source" ? brandName(value) : value
 }

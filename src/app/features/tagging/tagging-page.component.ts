@@ -16,6 +16,7 @@ import { progressPercentage } from "../../shared/utils/progress"
 import { TOOLTIP_DELAY } from "../../shared/utils/tooltip"
 
 import { RunListComponent } from "./run-list.component"
+import { UrlRecoveryComponent } from "./url-recovery.component"
 
 @Component({
   selector: "app-tagging-page",
@@ -29,6 +30,7 @@ import { RunListComponent } from "./run-list.component"
     RunListComponent,
     EmptyStateComponent,
     ErrorMessageComponent,
+    UrlRecoveryComponent,
   ],
   templateUrl: "./tagging-page.component.html",
   host: { class: PAGE_HOST, "animate.enter": FADE_IN },
@@ -63,6 +65,11 @@ export default class TaggingPageComponent {
     if (this.sidecar.tagging()) {
       return "tagging.blocked.running"
     }
+    // Un nouveau run fermerait la phase et couperait l'appel en vol : seule chose que le
+    // lancement protege pendant la phase.
+    if (this.sidecar.urlRecoveryBusy().size > 0) {
+      return "tagging.blocked.recovering"
+    }
     if (this.sidecar.apiKeyConfigured() !== true) {
       return "tagging.blocked.api_key"
     }
@@ -78,6 +85,9 @@ export default class TaggingPageComponent {
   protected readonly canStart = computed(() => this.blockedReason() === null)
   protected readonly error = this.sidecar.errorFor("start_tagging")
   protected readonly percentage = computed(() => progressPercentage(this.progress()))
+  protected readonly recoveryOpen = this.sidecar.urlRecoveryOpen
+  protected readonly recovery = this.sidecar.urlRecoveryProgress
+  protected readonly recoveryPercentage = computed(() => progressPercentage(this.recovery()))
 
   constructor() {
     void this.prefill()

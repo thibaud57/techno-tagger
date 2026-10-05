@@ -57,6 +57,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 
 - **Modale d'arbitrage, refus d'un geste** : le code affiche l'erreur du morceau affiché sous la liste (DESIGN.md § Mapping Composants, « Refus d'un geste »), `ArbitrationDialog.jsx` n'a aucun état d'erreur alors que `ErrorMessage` est au kit
 - **Modale d'arbitrage, en-tête** : titre et nom de fichier coupés sur une ligne avec tooltip dans le code, deux `div` bruts dans `ArbitrationDialog.jsx`, qui passent à la ligne sur un titre long alors que `TruncatedText` est au kit
+- **Rattrapage par URL (`UrlRescue`)** : le code livre ce que la maquette n'a pas encore. Barre de phase « rattrapés sur à rattraper » à la place de la barre réseau figée, erreur et spinner par ligne, lignes rattrapées conservées avec « Rattrapé sur `<Source>` », zone hôte et bouton grisé retirés (reconnaissance dans le sidecar), bloc affiché aussi après une interruption, bloc borné sous la liste. Libellé local : l'aide de l'en-tête dit « Étape facultative : collez l'adresse d'un morceau Beatport, Bandcamp ou SoundCloud. » là où la maquette en a un autre
 
 
 ## Journal

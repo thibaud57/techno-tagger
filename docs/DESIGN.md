@@ -289,7 +289,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Beatport injoignable | `p-message` `warn` | PrimeNG | Au-dessus de la liste Bandcamp quand Beatport n'a pas répondu : aucun candidat n'a été validé seul |
 | Liste Bandcamp vide | message de liste + bouton « Passer » | PrimeNG | Le message dit le motif de Bandcamp, centré dans la hauteur de la liste comme les autres états vides ; « Passer » remplace « Aucune correspondance » et c'est la seule action |
 | Refus d'un geste | `app-error-message` sous la liste | Custom | Seulement pour le morceau affiché |
-| Rattrapage par URL | `p-inputgroup` + `input pInputText` + `button pButton` | PrimeNG | Une ligne par morceau non résolu, validation de l'hôte avant envoi |
+| Rattrapage par URL | `p-inputgroup` + `input pInputText` + `button pButton` | PrimeNG | Une ligne par morceau non résolu ou déjà rattrapé (correction), bouton actif dès que le champ est rempli ; l'URL est jugée par le sidecar, un refus revient sous la ligne |
 
 ### Écriture et récapitulatif
 
@@ -489,7 +489,7 @@ Les deux tables sont en `table-layout: fixed`. En disposition auto, les largeurs
 
 **Onglet Playlist en deux temps.** Le formulaire est une grille de trois colonnes, `grid-cols-[max-content_max-content_1fr]` en `gap-4` : libellés, contrôles de même largeur, chemins alignés à droite et « Extraire la playlist » sur la ligne du mode, calé à droite. Dès le lancement, il cède la place à une ligne de résumé, source › destination › playlist · mode, avec la barre de progression dessous pendant le run. Le rapport récupère ainsi la hauteur du formulaire (le 2026-09-17 : 12 lignes visibles à 1280 × 800, 10 au plancher). « Modifier » rouvre le formulaire sans masquer le rapport et le lancement suivant replie de nouveau.
 
-**Onglet Tagging** : le titre seul, puis la ligne du dossier en `grid-cols-[max-content_1fr_max-content]` : bouton de sélection, chemin collé à lui, actions du run calées à droite. Ni libellé ni « Aucun dossier sélectionné » : le bloc vide dit déjà quoi faire.
+**Onglet Tagging** : le titre seul, puis la ligne du dossier en `grid-cols-[max-content_1fr_max-content]` : bouton de sélection, chemin collé à lui, actions du run calées à droite. Ni libellé ni « Aucun dossier sélectionné » : le bloc vide dit déjà quoi faire. Le bloc de rattrapage par URL se place sous la liste du run une fois la phase ouverte (fin de recherche ou interruption), borné en hauteur (`max-h-2/5`) et ses lignes défilent dans le bloc. La barre de la phase de rattrapage prend l'emplacement de celle du run.
 
 **Source dit d'où vient la donnée écrite, État dit par quel chemin on y est arrivé.** Un morceau résolu en collant une URL SoundCloud affiche donc SoundCloud en source et « URL » en état : c'est la seule voie par laquelle SoundCloud entre dans le produit, jamais la recherche automatique. C'est la même séparation que celle posée entre `state` et `resolution` dans le contrat NDJSON, portée cette fois côté affichage.
 
@@ -571,6 +571,11 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Candidat d'arbitrage** : « Artiste - Titre » du candidat et score sur une ligne « 94 (A 96 · T 92) », là où la maquette ne montrait que le titre et « A · T ». C'est souvent l'artiste qui fait tomber un candidat en zone grise. Décidé le 2026-09-26, réaligné le 2026-09-29
 - **Croix de la modale d'arbitrage** : l'arbitrage reste en file, la modale revient par le badge de file ou par la ligne du morceau, là où la maquette le retirait de la file. Décidé le 2026-09-26, retour par la ligne et réaligné le 2026-09-29
 - **Vocabulaire « zone grise »** : jamais affiché à l'écran, resté interne au scoring ; l'interface dit « correspondances incertaines », là où le `SettingsScreen` de la maquette l'employait dans l'indice du Seuil haut (« Entre les deux, zone grise. »). Décidé le 2026-09-27, réaligné au plus tard le 2026-09-29
+- **Zone hôte du rattrapage** : aucun logo ni message d'hôte à la frappe, le sidecar juge l'URL et un refus revient sous la ligne, là où `UrlRescue` reconnaissait l'hôte dans l'écran et grisait le bouton. Décidé le 2026-09-29
+- **Barre de la phase de rattrapage** : « rattrapés sur à rattraper » dans l'emplacement de la barre du run, masquée sur 0 sur 0, là où la maquette gardait la barre réseau figée à 100 %. Décidé le 2026-10-03
+- **Lignes rattrapées** : conservées dans le bloc avec « Rattrapé sur `<Source>` » et leur lien, pour corriger, là où la maquette les retirait. Décidé le 2026-10-02
+- **Bloc après interruption** : affiché aussi quand le run a été interrompu, là où la maquette ne montrait rien en phase `interrupted`. Décidé le 2026-10-02
+- **Bouton « Lancer le run » pendant la phase** : conservé, bloqué seulement pendant un geste en vol, là où la maquette le remplaçait par « Confirmer l'écriture », qui arrive avec la Feature 5. Décidé le 2026-10-03
 
 ## Documentation Officielle
 

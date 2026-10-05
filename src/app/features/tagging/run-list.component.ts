@@ -14,14 +14,12 @@ import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
 import { FADE_IN } from "../../shared/utils/motion"
+import { SOURCE_NAMES } from "../../shared/utils/sources"
 import { fullHeightTable } from "../../shared/utils/table"
 import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
 /** PrimeNG ne mesure pas ses lignes : a remesurer si `h-14` change sur le `<tr>`. */
 const ROW_HEIGHT = 56
-
-/** Noms de marque : identiques dans les deux langues, aucune cle i18n a tenir. */
-const SOURCE_NAMES = { beatport: "Beatport", bandcamp: "Bandcamp", soundcloud: "SoundCloud" }
 
 interface RunRow extends TaggingTrack {
   readonly mainLine: string

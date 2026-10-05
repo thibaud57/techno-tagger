@@ -48,7 +48,7 @@
     "scraper_error": "La recherche a échoué. Réessayez plus tard.",
     "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
     "source_unavailable": "{{source}} ne répond pas. Réessayez plus tard.",
-    "track_not_found": "Le morceau n'existe plus sur {{source}}.",
+    "track_not_found": "Ce lien ne mène à aucun morceau sur {{source}}. Vérifiez l'adresse.",
     "unsupported_url": "Ce lien ne désigne pas un morceau Beatport, Bandcamp ou SoundCloud. Copiez l'adresse de la page du morceau.",
     "api_contract_error": "La recherche a reçu une réponse inattendue. Si le problème revient, le détail se trouve dans le dossier des logs.",
     "api_key_error": "La clé API n'a pas pu être enregistrée. Réessayez.",
@@ -160,6 +160,7 @@
     },
     "blocked": {
       "running": "Attendez la fin du run en cours.",
+      "recovering": "Attendez la réponse du rattrapage en cours.",
       "api_key": "Enregistrez d'abord votre clé API dans les Réglages.",
       "folder": "Choisissez d'abord le dossier à re-tagger.",
       "extracting": "Attendez la fin de l'extraction en cours sur l'onglet Playlist.",
@@ -197,6 +198,20 @@
       "empty": {
         "heading": "Aucun fichier audio dans ce dossier",
         "description": "Choisissez un dossier contenant des MP3, WAV, AIFF ou FLAC."
+      }
+    },
+    "recovery": {
+      "title": "Rattrapage par URL",
+      "help": "Étape facultative : collez l'adresse d'un morceau Beatport, Bandcamp ou SoundCloud.",
+      "phase": "Rattrapage par URL",
+      "progress": "{{processed}} sur {{total}} rattrapés",
+      "placeholder": "https://www.beatport.com/track/…",
+      "field": "Lien du morceau {{track}}",
+      "resolve": "Résoudre",
+      "recovered": "Rattrapé sur {{source}}",
+      "empty": {
+        "heading": "Aucun morceau non résolu",
+        "description": "Tous les morceaux du run ont trouvé une source."
       }
     }
   },

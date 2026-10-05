@@ -48,7 +48,7 @@
     "scraper_error": "The search failed. Try again later.",
     "api_key_rejected": "The API key was rejected. Check it in the settings.",
     "source_unavailable": "{{source}} is not responding. Try again later.",
-    "track_not_found": "The track no longer exists on {{source}}.",
+    "track_not_found": "This link leads to no track on {{source}}. Check the address.",
     "unsupported_url": "This link is not a Beatport, Bandcamp or SoundCloud track. Copy the address of the track page.",
     "api_contract_error": "The search received an unexpected response. If the problem comes back, the details are in the logs folder.",
     "api_key_error": "The API key could not be saved. Try again.",
@@ -160,6 +160,7 @@
     },
     "blocked": {
       "running": "Wait for the current run to finish.",
+      "recovering": "Wait for the current recovery to answer.",
       "api_key": "Save your API key in the settings first.",
       "folder": "Choose the folder to re-tag first.",
       "extracting": "Wait for the current extraction on the Playlist tab to finish.",
@@ -197,6 +198,20 @@
       "empty": {
         "heading": "No audio file in this folder",
         "description": "Choose a folder holding MP3, WAV, AIFF or FLAC files."
+      }
+    },
+    "recovery": {
+      "title": "Recovery by URL",
+      "help": "Optional step: paste the address of a Beatport, Bandcamp or SoundCloud track.",
+      "phase": "Recovery by URL",
+      "progress": "{{processed}} of {{total}} recovered",
+      "placeholder": "https://www.beatport.com/track/…",
+      "field": "Link for {{track}}",
+      "resolve": "Resolve",
+      "recovered": "Recovered on {{source}}",
+      "empty": {
+        "heading": "No unresolved track",
+        "description": "Every track in the run found a source."
       }
     }
   },

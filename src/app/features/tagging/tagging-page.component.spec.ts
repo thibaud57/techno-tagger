@@ -47,6 +47,12 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     errorFor: SidecarService.prototype.errorFor,
     startTagging: vi.fn(() => Promise.resolve()),
     cancelTagging: vi.fn(() => Promise.resolve()),
+    urlRecoveryOpen: signal(false),
+    urlRecoveryProgress: signal<{ processed: number; total: number } | null>(null),
+    recoverableTracks: signal([]),
+    urlRecoveryBusy: signal(new Set<string>()),
+    urlRecoveryErrors: signal(new Map()),
+    resolveByUrl: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
   vi.mocked(load).mockResolvedValue({
@@ -67,6 +73,80 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
 describe("TaggingPageComponent", () => {
   const cancelButton = (fixture: { nativeElement: unknown }): HTMLElement | null =>
     (fixture.nativeElement as HTMLElement).querySelector('[data-p-icon="stop"]')
+
+  const host = (fixture: { nativeElement: unknown }): HTMLElement =>
+    fixture.nativeElement as HTMLElement
+
+  it.each<[string, boolean]>([
+    ["open", true],
+    ["closed", false],
+  ])("mounts the url recovery block once the phase is %s", async (_phase, open) => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      urlRecoveryOpen: signal(open),
+      urlRecoveryProgress: signal(open ? { processed: 0, total: 2 } : null),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-url-recovery") !== null).toBe(open)
+  })
+
+  it("mounts the url recovery block after an interrupted run", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      taggingInterrupted: signal(true),
+      urlRecoveryOpen: signal(true),
+      urlRecoveryProgress: signal({ processed: 0, total: 1 }),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-url-recovery")).not.toBeNull()
+  })
+
+  it.each<[string, boolean, string]>([
+    ["finished", false, "tagging.recovery.phase"],
+    ["running", true, "tagging.phase"],
+  ])(
+    "shows the url recovery progress in place of the run progress (%s)",
+    async (_run, running, label) => {
+      const { fixture } = await mountWith({
+        tagging: signal(running),
+        taggingRunId: signal("a3f9c1"),
+        urlRecoveryOpen: signal(true),
+        urlRecoveryProgress: signal({ processed: 1, total: 2 }),
+      })
+
+      fixture.detectChanges()
+
+      const bars = host(fixture).querySelectorAll("app-phase-progress")
+      expect(bars).toHaveLength(1)
+      expect(bars[0]?.textContent).toContain(label)
+    },
+  )
+
+  it("hides the url recovery progress when nothing is left to recover", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      urlRecoveryOpen: signal(true),
+      urlRecoveryProgress: signal({ processed: 0, total: 0 }),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+  })
+
+  it("blocks a new run while a url recovery waits", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      urlRecoveryOpen: signal(true),
+      urlRecoveryBusy: signal(new Set(["a.mp3"])),
+    })
+
+    expect(component["blockedReason"]()).toBe("tagging.blocked.recovering")
+  })
 
   it("offers no way to interrupt before a run starts", async () => {
     const { fixture } = await mountWith()

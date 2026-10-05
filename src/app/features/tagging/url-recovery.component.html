@@ -1,0 +1,61 @@
+<header class="flex flex-col gap-1">
+  <h2 class="text-xl font-semibold">{{ "tagging.recovery.title" | translate }}</h2>
+  <p class="text-sm text-muted-color">{{ "tagging.recovery.help" | translate }}</p>
+</header>
+
+@if (rows().length === 0) {
+  <app-empty-state
+    icon="check-circle"
+    [heading]="'tagging.recovery.empty.heading' | translate"
+    [description]="'tagging.recovery.empty.description' | translate"
+  />
+} @else {
+  <ul class="flex min-h-0 flex-col gap-4 overflow-y-auto">
+    @for (row of rows(); track row.trackId) {
+      <li class="flex flex-col gap-2">
+        <div class="flex items-center gap-4">
+          <!-- w-72 : largeur fixe pour aligner les champs d'une ligne a l'autre, mesuree en Inter
+               sur l'identite (14px, "Adam Beyer, Bart Skils - Your Mind (Extended Mix)" = 335px,
+               coupee en ellipse avec son tooltip) : l'elargir prendrait la place du champ. Le
+               detail (12px) passe a la ligne, jusqu'a 608px pour le motif empty_query FR. -->
+          <div class="w-72 min-w-0 shrink-0 text-sm">
+            <app-truncated-text [text]="row.mainLine" />
+            @if (row.detail; as detail) {
+              <p class="text-xs text-muted-color">{{ detail.key | translate: detail.params }}</p>
+            }
+          </div>
+          <p-inputgroup class="min-w-0 flex-1">
+            <input
+              #field
+              pInputText
+              type="url"
+              [value]="row.url"
+              [placeholder]="'tagging.recovery.placeholder' | translate"
+              [attr.aria-label]="'tagging.recovery.field' | translate: { track: row.mainLine }"
+              (input)="edit(row.trackId, field.value)"
+              (keydown.enter)="resolve(row)"
+            />
+            <button
+              pButton
+              type="button"
+              [outlined]="true"
+              severity="secondary"
+              data-action="resolve-url"
+              [disabled]="row.busy || row.url === ''"
+              (click)="resolve(row)"
+            >
+              <!-- Spinner enfant : `[loading]` de pButton est deprecie depuis PrimeNG 22. -->
+              @if (row.busy) {
+                <app-icon name="spinner" [size]="16" />
+              }
+              {{ "tagging.recovery.resolve" | translate }}
+            </button>
+          </p-inputgroup>
+        </div>
+        @if (row.error; as refused) {
+          <app-error-message [error]="refused" />
+        }
+      </li>
+    }
+  </ul>
+}
