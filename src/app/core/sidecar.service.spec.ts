@@ -2,6 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
 import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
+import { resolvedByUrl, urlProgress, urlRecoveryError } from "../../fixtures/url-recovery"
 import { SidecarEvent } from "./models/protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
@@ -758,5 +759,154 @@ describe("SidecarService", () => {
     await service.cancelTagging()
 
     expect(service.arbitrationCount()).toBe(1)
+  })
+
+  describe("url recovery", () => {
+    const URL = "https://amelielens.bandcamp.com/track/basiel"
+
+    const openPhase = async (): Promise<void> => {
+      await service.start()
+      transport.emit(RUN_STARTED)
+      transport.emit(urlProgress(0, 2))
+    }
+
+    it("sends a url recovery command with its track and its url", async () => {
+      await openPhase()
+
+      await service.resolveByUrl("a.mp3", URL)
+
+      expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+        command: "resolve_by_url",
+        track_id: "a.mp3",
+        url: URL,
+      })
+      expect(service.urlRecoveryBusy().has("a.mp3")).toBe(true)
+    })
+
+    it("ignores a second gesture while the first one waits", async () => {
+      await openPhase()
+      await service.resolveByUrl("a.mp3", URL)
+      const sent = transport.sent.length
+
+      await service.resolveByUrl("a.mp3", "https://www.beatport.com/track/your-mind/22708005")
+
+      expect(transport.sent).toHaveLength(sent)
+    })
+
+    it("ignores an empty url", async () => {
+      await openPhase()
+      const sent = transport.sent.length
+
+      await service.resolveByUrl("a.mp3", "")
+
+      expect(transport.sent).toHaveLength(sent)
+      expect(service.urlRecoveryBusy().has("a.mp3")).toBe(false)
+    })
+
+    it("routes the url recovery progress to its phase only", async () => {
+      await service.start()
+      transport.emit(RUN_STARTED)
+      transport.emit({ event: "progress", phase: "tagging", processed: 1, total: 2 })
+      const closed = service.urlRecoveryOpen()
+
+      transport.emit(urlProgress(0, 2))
+
+      expect(closed).toBe(false)
+      expect(service.urlRecoveryOpen()).toBe(true)
+      expect(service.urlRecoveryProgress()).toEqual({ processed: 0, total: 2 })
+      expect(service.taggingProgress()).toEqual({ processed: 1, total: 2 })
+    })
+
+    it("releases a gesture on its resolution", async () => {
+      await openPhase()
+      await service.resolveByUrl("a.mp3", URL)
+
+      transport.emit(resolvedByUrl("a.mp3"))
+
+      expect(service.urlRecoveryBusy().has("a.mp3")).toBe(false)
+      expect(service.taggingTracks()[0]?.resolution).toBe("url")
+    })
+
+    it("attaches a url recovery error to its track", async () => {
+      await openPhase()
+      await service.resolveByUrl("a.mp3", URL)
+      const error = urlRecoveryError("a.mp3")
+
+      transport.emit(error)
+
+      expect(service.urlRecoveryBusy().has("a.mp3")).toBe(false)
+      expect(service.urlRecoveryErrors().get("a.mp3")).toEqual(error)
+      expect(service.urlRecoveryErrors().has("b.mp3")).toBe(false)
+      expect(service.errorFor("resolve_by_url")()).toEqual(error)
+    })
+
+    it("keeps a url error without track out of the phase", async () => {
+      await openPhase()
+      await service.resolveByUrl("a.mp3", URL)
+      const malformed = { ...urlRecoveryError("a.mp3", "malformed_command"), params: {} }
+
+      transport.emit(malformed)
+
+      expect(service.urlRecoveryErrors().size).toBe(0)
+      expect(service.urlRecoveryBusy().has("a.mp3")).toBe(true)
+      expect(service.lastError()).toEqual(malformed)
+    })
+
+    it("lists the unresolved tracks and those resolved by url", async () => {
+      await service.start()
+      transport.emit({
+        ...RUN_STARTED,
+        tracks: [
+          ...RUN_STARTED.tracks,
+          { track_id: "c.mp3", file_name: "c.mp3", artist: "Sara Landry", title: "The Void" },
+          { track_id: "d.mp3", file_name: "d.mp3", artist: "Kasia", title: "Tarantula" },
+        ],
+      })
+      transport.emit(TRACK_RESOLVED)
+      transport.emit({
+        ...TRACK_RESOLVED,
+        track_id: "b.mp3",
+        state: "unresolved",
+        resolution: "none",
+        failure_reason: "no_result",
+        source: null,
+        after: null,
+        scores: null,
+        artwork_path: null,
+      })
+      transport.emit(resolvedByUrl("c.mp3"))
+      transport.emit(arbitrationRequired("d.mp3"))
+
+      const listed = service.recoverableTracks()
+
+      expect(listed.map((track) => track.trackId)).toEqual(["b.mp3", "c.mp3"])
+    })
+
+    it.each<[string, () => Promise<void>]>([
+      [
+        "a new run starts",
+        async () => {
+          await service.startTagging("C:/music")
+        },
+      ],
+      [
+        "the process ends",
+        () => {
+          transport.handlers?.onTerminated()
+
+          return Promise.resolve()
+        },
+      ],
+    ])("closes the phase when %s", async (_moment, close) => {
+      await openPhase()
+      await service.resolveByUrl("a.mp3", URL)
+      transport.emit(urlRecoveryError("b.mp3"))
+
+      await close()
+
+      expect(service.urlRecoveryOpen()).toBe(false)
+      expect(service.urlRecoveryBusy().size).toBe(0)
+      expect(service.urlRecoveryErrors().size).toBe(0)
+    })
   })
 })

@@ -355,7 +355,7 @@ Le détail (tokens, scale typographique, mapping composant par composant, conven
 
 ### State Management
 
-**Services injectés + signals natifs Angular**, aucune bibliothèque de store. Un service par feature expose des `signal()` writable et des `computed()`, alimentés par le flux d'événements du sidecar. `SidecarService` détient l'état du run et la file d'arbitrage, les composants ne font que lire et émettre des commandes.
+**Services injectés + signals natifs Angular**, aucune bibliothèque de store. Un service par feature expose des `signal()` writable et des `computed()`, alimentés par le flux d'événements du sidecar. `SidecarService` détient l'état du run et la file d'arbitrage, ainsi que la phase de rattrapage par URL par un store de phase (`UrlRecoveryStore`), ouverte à la première progression `url_recovery` reçue et jamais déduite par l'interface. Les composants ne font que lire et émettre des commandes.
 
 Trois écrans et une file d'arbitrage ne justifient pas la cérémonie d'un NgRx. À réévaluer si le récapitulatif et le rollback multiplient les transitions d'état.
 
