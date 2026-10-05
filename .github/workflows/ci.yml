@@ -14,13 +14,36 @@ concurrency:
 
 permissions:
   contents: read
+  # Lecture des fichiers de la PR par paths-filter
+  pull-requests: read
 
 jobs:
+  # Markdown seul : les trois zones sont sautees et `ci` passe quand meme. Un filtre
+  # `paths-ignore` natif laisserait `ci`, exige par la protection, sans resultat.
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      source: ${{ steps.filter.outputs.source }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            source:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+
   sidecar:
     # Exception documentee au defaut ubuntu-24.04 : le sidecar cible Windows par
     # ce qu'il touche, backend keyring WinVault, encodage cp1252 des flux standard
     # et %LOCALAPPDATA%. Sur Linux ces regressions passeraient le gate sans bruit.
     name: Sidecar (ruff, mypy, pytest)
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
     runs-on: windows-2025
     timeout-minutes: 15
     steps:
@@ -46,6 +69,8 @@ jobs:
 
   ui:
     name: Webview (eslint, tsc, build, vitest)
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -77,6 +102,8 @@ jobs:
 
   tauri:
     name: Coquille Tauri (check, clippy)
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -103,13 +130,18 @@ jobs:
   # ci-dessus peuvent changer sans toucher aux reglages du depot, et un job
   # ajoute plus tard est couvert des qu'il entre dans `needs`.
   ci:
-    needs: [sidecar, ui, tauri]
+    needs: [changes, sidecar, ui, tauri]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
+      # Zone sautee (`skipped`) = PR de markdown seul, acceptee ; detection en echec, refusee
       - name: Verifier les trois zones
         run: |
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "::error::La detection des fichiers modifies n'est pas passee"
+            exit 1
+          fi
           echo "sidecar=${{ needs.sidecar.result }} ui=${{ needs.ui.result }} tauri=${{ needs.tauri.result }}"
           for r in "${{ needs.sidecar.result }}" "${{ needs.ui.result }}" "${{ needs.tauri.result }}"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then

@@ -266,7 +266,7 @@ Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `build_info.py` le 
 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
-| Push `main`, PR vers `main` ou `develop` | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | Gate qualité |
+| Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | Gate qualité |
 | Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release | GitHub Releases |
 
@@ -417,7 +417,7 @@ Surface d'attaque volontairement minimale : **aucun port en écoute, aucun compt
 | `PRIMENG_LICENSE_KEY` | Secrets GitHub Actions | `providePrimeNG({ license })`, gravée dans le bundle par `--define` | Bandeau de licence chez les utilisateurs, renouvellement gratuit (échéance au § Rotation) |
 | `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Upload des source maps de la webview par `pnpm build` et création de la release Sentry au tag, **Organization Auth Token**, scope `org:ci` imposé et non modifiable, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
 | Clé API techno-scraper (utilisateur) | Trousseau de l'OS via keyring, machine de l'utilisateur | Header `X-API-Key` posé par le sidecar | L'utilisateur en ressaisit une, révocation individuelle côté API |
-| Jeu `API_KEYS` (`user-N` → clé) | Variables d'environnement côté techno-scraper (Dokploy) + sauvegarde chiffrée | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
+| Variables `API_KEYS__USER_N` (une par clé) | Variables d'environnement côté techno-scraper (Dokploy), nom de la personne en commentaire + sauvegarde chiffrée | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
 
 La clé publique de l'updater est compilée dans `tauri.conf.json` et publiée avec le dépôt, c'est son rôle. La clé privée ne quitte jamais les secrets GitHub et la sauvegarde.
 
@@ -428,16 +428,10 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 | Opération | Procédure |
 |---|---|
 | **Générer** | `python -c "import secrets; print(secrets.token_urlsafe(32))"` : ASCII imprimable sans espace, contrainte imposée par le décodage latin-1 des en-têtes HTTP côté API |
-| **Enregistrer** | Ajouter `user-N:<clé>` au jeu `API_KEYS` côté techno-scraper, redéployer l'API. **Identifiant non nominatif** : un prénom finirait chez Sentry via la `LoggingIntegration`, seule donnée nominative de la chaîne |
+| **Enregistrer** | Ajouter une variable `API_KEYS__USER_N=<clé>` côté techno-scraper, le nom de la personne en commentaire au-dessus, redéployer l'API. **Identifiant non nominatif** : il part dans les logs et en tag Sentry (`key_id`), un prénom y serait la seule donnée nominative de la chaîne |
 | **Transmettre** | Canal privé direct (messagerie), jamais par email en clair, jamais dans une issue ou un commit |
-| **Suivre** | Tenir la table `user-N` → personne → clé dans la sauvegarde chiffrée, seul endroit où la correspondance existe. Sans elle, un `user-3` qui sature l'API reste anonyme |
-| **Révoquer** | Retirer l'entrée du jeu `API_KEYS`, redéployer. L'utilisateur concerné reçoit alors des `403` et le run s'arrête après trois consécutifs, avec un message nommant la clé |
-
-> 🔴 **Cette procédure décrit une capacité que techno-scraper n'a pas encore.** Vérifié dans son code le 2026-08-27, release `3.1.2` : `core/security.py` compare en temps constant contre `settings.api_key`, et `core/config.py` ne déclare que ce champ. L'API n'accepte donc **qu'une seule clé** ; le jeu de clés nommées `API_KEYS` est un chantier de son backlog, suivi dans [techno-scraper#73](https://github.com/thibaud57/techno-scraper/issues/73) et décidé en [ADR-016](adrs/016-multi-cles-techno-scraper.md).
->
-> **Rien ne bloque côté techno-tagger** : l'application envoie en header ce qu'on lui donne, indifférente à la façon dont l'API le vérifie. Ce qui est bloqué, c'est **l'opérationnel de la distribution** : tant que `API_KEYS` n'est pas livré, tout le monde partage la même clé, donc aucune révocation individuelle, aucune attribution de consommation. Livrer côté API **avant l'étape 9**, sinon la première distribution à des tiers se fait avec le modèle que l'[ADR-012](adrs/012-securite-cle-api-keyring.md) rejette.
->
-> `api_key` reste accepté en repli le temps d'une version mineure côté API, ce qui permet de migrer sans fenêtre d'indisponibilité.
+| **Suivre** | Tenir la table `USER_N` → personne → clé dans la sauvegarde chiffrée, seul endroit hors Dokploy où la correspondance existe. Sans elle, un `user_3` qui sature l'API reste anonyme |
+| **Révoquer** | Supprimer la variable `API_KEYS__USER_N` de la personne, redéployer. L'utilisateur concerné reçoit alors des `403` et le run s'arrête après trois consécutifs, avec un message nommant la clé |
 
 > Volume attendu : **une dizaine d'utilisateurs**, cinq runs simultanés au plus. Aucune automatisation ne se justifie à cette échelle, mais **la liste doit exister** : sans elle, une clé qui fuite ne peut être ni attribuée ni révoquée sans couper tout le monde.
 
@@ -445,7 +439,7 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 
 | Secret | Fréquence | Procédure |
 |--------|-----------|-----------|
-| Clé API d'un utilisateur | Sur suspicion de fuite, ou au départ de la personne | Générer, remplacer l'entrée dans `API_KEYS`, redéployer l'API, transmettre la nouvelle clé, la personne la ressaisit dans les Settings |
+| Clé API d'un utilisateur | Sur suspicion de fuite, ou au départ de la personne | Générer, remplacer la valeur de sa variable `API_KEYS__USER_N`, redéployer l'API, transmettre la nouvelle clé, la personne la ressaisit dans les Settings |
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret GitHub, **publier une nouvelle version** : le DSN est compilé, les installations existantes gardent l'ancien jusqu'à leur mise à jour |
 | `PRIMENG_LICENSE_KEY` | Annuelle, **valide jusqu'au 2027-08-30** | Émise le 2026-08-30, tier Community, 4 sièges. Grâce de 30 jours au-delà, soit jusqu'au 2027-09-29. Renouvellement gratuit par reconfirmation d'éligibilité sur [primeui.dev/licenses/community](https://primeui.dev/licenses/community), puis mise à jour du secret. **Effectif à la prochaine release seulement** : une version déjà distribuée garde la clé expirée et affiche la notice |
 | `SENTRY_AUTH_TOKEN` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret. Effet immédiat, ce token n'est jamais compilé dans un binaire |
@@ -635,7 +629,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Ressource | Fréquence | Rétention | Localisation |
 |-----------|-----------|-----------|--------------|
 | **Clé privée updater + son mot de passe** | À la génération, revérifié avant chaque release | Permanente | Archive **7-Zip chiffrée AES-256** déposée sur Google Drive **et** sur une clé USB |
-| **Jeu `API_KEYS` (`user-N` → clé)** | À chaque ajout ou révocation d'utilisateur | Permanente | Même archive chiffrée |
+| **Variables `API_KEYS__USER_N` (`USER_N` → personne → clé)** | À chaque ajout ou révocation d'utilisateur | Permanente | Même archive chiffrée |
 | Secrets GitHub Actions (DSN, licence PrimeNG) | Sur changement | Permanente | Même archive, régénérables par ailleurs |
 | Code, historique, CHANGELOG | Continu | Permanente | GitHub (dépôt public) |
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
@@ -655,7 +649,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | **Clé de signature perdue** | ♾️ **irrécupérable** | — | Aucune procédure de retour. Générer une nouvelle paire, publier un installeur avec la nouvelle `pubkey`, et **le faire installer à la main par chaque utilisateur** : les installations existantes n'accepteront plus jamais aucune mise à jour automatique |
 | Clé de signature compromise (fuite, pas perte) | ~1 release | — | Séquence de transition de la § Rotation : version signée avec l'ancienne clé portant la nouvelle `pubkey`, attendre que tout le monde l'ait prise, puis basculer |
 | Release cassée en ligne | ~30 min | — | Dépublier, roll-forward `PATCH` (cf. § Rollback) |
-| Liste `API_KEYS` perdue | ~1 h | — | Regénérer une clé par utilisateur connu, redéployer l'API, retransmettre. Coût réel : recontacter tout le monde |
+| Variables `API_KEYS__*` perdues | ~1 h | — | Regénérer une clé par utilisateur connu, redéployer l'API, retransmettre. Coût réel : recontacter tout le monde |
 | Run interrompu (côté utilisateur) | Immédiat | 0 fichier touché | Reprise depuis le plan de run persisté au fil de l'eau, aucun fichier musical n'ayant été modifié avant confirmation globale |
 | Tags écrits par erreur (côté utilisateur) | Quelques minutes | 0 | Rollback par run ou par morceau depuis le dump des tags d'origine, tant que le plan n'a pas été purgé (30 jours) |
 

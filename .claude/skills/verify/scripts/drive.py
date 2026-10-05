@@ -15,7 +15,7 @@ commandes arriveraient d'un bloc et une annulation tomberait avant `run_started`
 Environnement : `LOCALAPPDATA` isole la racine des donnees (a purger entre deux runs, le
 cache de reponses etant reel), `FAKE_DELAY` tient chaque requete en vol, `REJECT_ALL`
 fait rendre 403 a tout. `GATEWAY_URL` et `GATEWAY_KEY` visent a la place une vraie
-gateway lancee en local (techno-scraper, `API_KEY=<cle> just dev`) : la cle de test
+gateway lancee en local (techno-scraper, `API_KEYS__VERIFY=<cle> just dev`) : la cle de test
 remplace celle du trousseau, qui ne part donc jamais vers un serveur de developpement.
 """
 

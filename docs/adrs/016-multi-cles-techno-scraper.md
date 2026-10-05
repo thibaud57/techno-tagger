@@ -125,3 +125,8 @@ Points de mise en œuvre retenus :
 Cet ADR concerne techno-scraper, pas techno-tagger. Il est consigné ici parce que la décision est motivée par un besoin de l'application cliente et qu'il conditionne toute distribution à plus d'une personne.
 
 Le changement porte sur une API en production : l'ajout de `api_keys` avec repli sur `api_key` est rétrocompatible et relève d'une version mineure.
+
+**Mise à jour 2026-10-05** : livré côté techno-scraper par son ADR-013 ([techno-scraper#73](https://github.com/thibaud57/techno-scraper/issues/73)). Trois écarts avec les points ci-dessus :
+- **Format** : une variable d'environnement par clé, `API_KEYS__USER_N=<clé>`, le nom de la personne en commentaire au-dessus. L'identifiant sort en minuscules (`user_1`).
+- **Aucun repli** sur `api_key` : l'opérateur de l'API en était le seul consommateur, la cohabitation ne protégeait personne. La version reste mineure, le contrat HTTP ne bougeant pas.
+- **Identifiant** (`key_id`) journalisé dans la ligne d'accès **et posé en tag Sentry**, d'où l'exigence d'un identifiant non nominatif.
