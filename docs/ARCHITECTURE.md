@@ -754,7 +754,7 @@ Surface d'attaque volontairement minimale : aucun port en écoute, aucune donné
 
 Aucune authentification côté application : ni compte, ni rôle, ni port en écoute. La seule qui existe est celle de l'application **vers** techno-scraper.
 
-Une clé par utilisateur, saisie dans les Settings, jamais compilée dans le binaire : une clé compilée serait extractible et sa révocation obligerait à rediffuser l'application à tout le monde (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)). Côté API, la garde comparait au 2026-08-29 contre une clé unique ; l'[ADR-016](adrs/016-multi-cles-techno-scraper.md) acte le passage à un jeu de clés nommées, avec repli temporaire sur `api_key` pour ne pas rompre la compatibilité d'une API en production.
+Une clé par utilisateur, saisie dans les Settings, jamais compilée dans le binaire : une clé compilée serait extractible et sa révocation obligerait à rediffuser l'application à tout le monde (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)). Côté API, la garde comparait au 2026-08-29 contre une clé unique ; l'[ADR-016](adrs/016-multi-cles-techno-scraper.md) acte le passage à un jeu de clés nommées, livré par techno-scraper le 2026-10-05.
 
 ### Protection Données
 
@@ -959,8 +959,6 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 | 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, récapitulatif, rapport | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
 | 8 | Reste des Settings, bouton de rollback, monitoring | Transversaux, une fois le flux principal stable |
 | 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers |
-
-> ⚠️ **L'étape 9 a une dépendance externe bloquante** : le jeu de clés nommées côté techno-scraper ([ADR-016](adrs/016-multi-cles-techno-scraper.md), [techno-scraper#73](https://github.com/thibaud57/techno-scraper/issues/73)). Rien ne bloque côté techno-tagger jusque-là, ce qui rend l'oubli facile : sans lui, la première distribution se fait avec une clé partagée. Procédure dans [PRODUCTION.md](PRODUCTION.md#gestion-des-clés-utilisateurs).
 
 ---
 

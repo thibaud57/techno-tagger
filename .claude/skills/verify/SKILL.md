@@ -94,8 +94,8 @@ changée côté faux serveur reste invisible tant que l'entrée précédente est
 run qui ne bouge pas après modification du serveur est presque toujours ça.
 
 **Contre une vraie gateway locale** : lancer techno-scraper depuis son dépôt
-(`API_KEY=verify-local-key just dev` dans `../techno-scraper`, prêt quand `/health` rend
-200), puis `GATEWAY_URL=http://localhost:8000 GATEWAY_KEY=verify-local-key` devant
+(`API_KEYS__VERIFY=verify-local-key just dev` dans `../techno-scraper`, prêt quand
+`/health` rend 200), puis `GATEWAY_URL=http://localhost:8000 GATEWAY_KEY=verify-local-key` devant
 `drive.py`. La clé de test remplace celle du trousseau, qui ne part jamais vers un serveur
 de dev. C'est le seul moyen d'exercer le matching sur les réponses réelles d'une version
 de la gateway pas encore déployée ; `just stop` dans `../techno-scraper` ensuite.
