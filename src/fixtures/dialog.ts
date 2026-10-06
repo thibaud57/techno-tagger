@@ -5,3 +5,15 @@ export const page = (): HTMLElement => document.body
 
 export const action = (name: string): HTMLButtonElement | null =>
   page().querySelector<HTMLButtonElement>(`[data-action="${name}"]`)
+
+/** Champ de lien du rattrapage, dans la modale du lien comme dans l'etape lien de l'arbitrage. */
+export const linkField = (): HTMLInputElement | null =>
+  page().querySelector<HTMLInputElement>('input[data-field="url"]')
+
+export const pasteLink = (url: string): void => {
+  const input = linkField()
+  if (input) {
+    input.value = url
+    input.dispatchEvent(new Event("input"))
+  }
+}

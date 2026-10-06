@@ -4,7 +4,7 @@ import asyncio
 
 import httpx2
 import pytest
-from scraper_responses import make_client, page_payload
+from scraper_responses import make_client, page_payload, soundcloud_track_payload
 
 from tagger.scraper_client import BANDCAMP_CONCURRENCY, SearchSource, Source
 
@@ -12,16 +12,17 @@ pytestmark = pytest.mark.asyncio
 
 
 class _InFlight:
-    def __init__(self) -> None:
+    def __init__(self, body: dict[str, object] | None = None) -> None:
         self.current = 0
         self.peak = 0
+        self.body = page_payload() if body is None else body
 
     async def handler(self, _request: httpx2.Request) -> httpx2.Response:
         self.current += 1
         self.peak = max(self.peak, self.current)
         await asyncio.sleep(0.01)
         self.current -= 1
-        return httpx2.Response(200, json=page_payload())
+        return httpx2.Response(200, json=self.body)
 
 
 async def _search_ten_times(source: SearchSource, in_flight: _InFlight) -> None:
@@ -76,3 +77,16 @@ async def test_a_retrying_request_frees_its_slot_while_it_waits() -> None:
             )
 
     assert peak_during_wait == [BANDCAMP_CONCURRENCY]
+
+
+async def test_never_keeps_more_than_five_soundcloud_requests_in_flight() -> None:
+    in_flight = _InFlight(soundcloud_track_payload())
+
+    async with make_client(in_flight.handler) as client, asyncio.TaskGroup() as group:
+        for index in range(10):
+            group.create_task(
+                client.fetch_by_url(f"https://soundcloud.com/drumcode/track-{index}"),
+                name=f"resolve:{index}",
+            )
+
+    assert in_flight.peak == 5

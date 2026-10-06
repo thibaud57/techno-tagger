@@ -103,6 +103,13 @@ export interface SwitchArbitrationSourceCommand {
   readonly source: ArbitrationSource
 }
 
+export interface ResolveByUrlCommand {
+  readonly command: "resolve_by_url"
+  readonly track_id: string
+  /** URL collee telle quelle : sa forme est jugee par le sidecar. */
+  readonly url: string
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
@@ -113,6 +120,7 @@ export type SidecarCommand =
   | StartTaggingCommand
   | ResolveArbitrationCommand
   | SwitchArbitrationSourceCommand
+  | ResolveByUrlCommand
 
 export interface VersionEvent {
   readonly event: "version"

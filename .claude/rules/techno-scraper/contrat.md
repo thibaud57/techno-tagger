@@ -19,6 +19,7 @@ paths:
 - Incriminer la clé API sur un `403` sans repasser par `/health` : le gotcha ci-dessous rend ce statut non ambigu
 - Compter les `403` consécutifs plutôt que les interpréter un par un : une clé révoquée en produit autant que de morceaux
 - Lire `title`, `artists`, `mix_name`, `remixers`, `label` tels que techno-scraper les rend : ils sont déjà normalisés, ne les redécouper ni avant écriture ni avant scoring. Seul le sous-titre gardé par la gateway sort du titre comparé, comme de la requête ; le nettoyage de requête reste réservé à la chaîne interrogée
+- Normaliser une URL collée avant de l'envoyer (query, fragment et `/` final retirés, `https`, hôte en minuscules, `www.` et `m.` SoundCloud réécrits) et refuser sans appel ce qui n'est pas un morceau, en `unsupported_url`
 
 ## À éviter
 - Retryer un `504` : la file de l'API est déjà saturée, le retry l'allonge. Retryer un `403` : la clé ne redeviendra pas valide seule
@@ -31,7 +32,7 @@ paths:
 ## Gotchas
 - Clé absente et clé invalide rendent toutes deux `403`, jamais `401` : c'est une action utilisateur dans les Settings, pas une panne
 - `/soundcloud/search` n'accepte pas de `type` : un paramètre inconnu rend `422` là où l'API a un modèle de paramètres, et passe en silence ailleurs (`/beatport/tracks/{id}`, `/bandcamp/tracks`)
-- `/bandcamp/tracks?url=` n'accepte que `https://<compte>.bandcamp.com/track/<slug>`, sans query string ni `/album/` : une URL collée telle quelle rend `422`. `/soundcloud/resolve` n'impose rien sur l'URL et rend `404 not_found` sur une playlist ou une URL inconnue
+- `/bandcamp/tracks?url=` n'accepte que `https://<compte>.bandcamp.com/track/<slug>`, sans query string ni `/album/` : une URL collée telle quelle rend `422`. `/soundcloud/resolve` n'impose rien sur l'URL et rend `404 not_found` sur une playlist ou une URL inconnue. SoundCloud rend aussi `404` sur `www.`, `m.` et un `/` final
 - Une erreur n'a ni message ni trace : le diagnostic passe par l'en-tête `X-Request-ID`, présent sur toutes les réponses, à reporter dans les logs
 - `504` et `503` se traitent pareil (source indisponible). `502 parse_error` se distingue d'un « rien trouvé » dans le rapport
 - Bandcamp a un quota d'environ 185 appels par 3 minutes : un `503 source_unavailable` peut être ce quota, ne pas relancer le morceau avant 3 minutes

@@ -2,6 +2,7 @@
 paths:
   - "src/app/**/*.html"
   - "src/app/**/*.css"
+  - "src/app/**/*.ts"
 ---
 
 # Tailwind CSS — Utilitaires dans les templates
@@ -33,7 +34,7 @@ paths:
 ## Exemples
 ```html
 <!-- ✅ tokens du preset, classes triées par Prettier -->
-<div class="bg-surface-900 border-surface rounded-border flex items-center justify-between gap-4 px-4 py-2 text-sm">
+<div class="bg-surface-900 border-surface rounded-lg flex items-center justify-between gap-4 px-4 py-2 text-sm">
   <span class="text-muted-color">{{ 'run.subtitle' | translate }}</span>
 </div>
 

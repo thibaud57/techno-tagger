@@ -12,7 +12,7 @@ from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
-from tagger import __version__, arbitration, tagging
+from tagger import __version__, arbitration, tagging, url_recovery
 from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.arbitration import Arbitration
 from tagger.cache import ArtworkFetcher, DiskCache, ResponseCache, resolve_host
@@ -48,6 +48,7 @@ from tagger.reports import ReportContext, write_extraction_report
 from tagger.scraper_client import TechnoScraperClient
 from tagger.sources import RunSources
 from tagger.tagging import open_run, resolve_run
+from tagger.url_recovery import UrlRecovery
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -60,6 +61,7 @@ if TYPE_CHECKING:
     from tagger.protocol import Event
     from tagger.scraper_client import TrackCandidate
     from tagger.tagging import LiveRun, TaggingRun, TrackRecord
+    from tagger.url_recovery import UrlRecoveryEvent
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +171,8 @@ def tagging_transports() -> TaggingTransports:
 
 
 class CurrentRun:
-    """Run arbitrable jusqu'au suivant : `cancel_run` arrete la phase reseau, pas l'arbitrage."""
+    """Run arbitrable et rattrapable jusqu'au suivant : `cancel_run` arrete la phase reseau,
+    pas les gestes."""
 
     def __init__(
         self,
@@ -177,10 +180,12 @@ class CurrentRun:
         live: LiveRun,
         sources: RunSources,
         arbitration: Arbitration,
+        url_recovery: UrlRecovery,
     ) -> None:
         self.live = live
         self.sources = sources
         self.arbitration = arbitration
+        self.url_recovery = url_recovery
         self._stack = stack
         self._gestures: set[asyncio.Task[None]] = set()
 
@@ -237,19 +242,29 @@ async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> 
         live = await open_run(command.folder, on_event=relay)
         sources = RunSources(live.run_id, client, artworks, _thresholds(command))
         desk = Arbitration(live, sources, relay)
-        return CurrentRun(stack.pop_all(), live, sources, desk)
+        recovery = UrlRecovery(live, sources, relay)
+        return CurrentRun(stack.pop_all(), live, sources, desk, recovery)
+
+
+def url_progress(current: CurrentRun) -> Event:
+    """Progression du rattrapage, calculee sur l'etat du run a l'instant de l'appel."""
+    return to_protocol_event(current.url_recovery.progress())
 
 
 async def handle_start_tagging(
     command: StartTagging,
     emit: Callable[[Event], None],
     adopt: Callable[[CurrentRun], None],
-) -> RunFinished:
-    """Confie le run a la session avant la phase reseau : un morceau se tranche des qu'il attend."""
+) -> None:
+    """Confie le run a la session avant la phase reseau : un morceau se tranche des qu'il attend.
+
+    La fin de la phase reseau ouvre le rattrapage : sa progression suit `run_finished`.
+    """
     current = await open_tagging(command, emit)
     adopt(current)
     await resolve_run(current.live, current.sources, on_event=_relay(emit))
-    return _run_finished(current.live.snapshot())
+    emit(_run_finished(current.live.snapshot()))
+    emit(url_progress(current))
 
 
 def _thresholds(command: StartTagging) -> MatchingThresholds:
@@ -258,12 +273,15 @@ def _thresholds(command: StartTagging) -> MatchingThresholds:
     return DEFAULT_THRESHOLDS if sent is None else sent.to_matching()
 
 
-def _relay(emit: Callable[[Event], None]) -> Callable[[tagging.RunEvent | ArbitrationEvent], None]:
+def _relay(
+    emit: Callable[[Event], None],
+) -> Callable[[tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent], None]:
     return lambda event: emit(to_protocol_event(event))
 
 
-def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent) -> Event:
-    """Traduit un evenement pipeline ou arbitrage ; un cas oublie est une erreur de typage."""
+def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent) -> Event:
+    """Traduit un evenement pipeline, arbitrage ou rattrapage ; un cas oublie est une erreur
+    de typage."""
     match event:
         case tagging.RunStarted():
             return RunStarted(
@@ -281,6 +299,13 @@ def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent) -> Event:
             return Progress(
                 event="progress",
                 phase=Phase.TAGGING,
+                processed=event.processed,
+                total=event.total,
+            )
+        case url_recovery.UrlProgress():
+            return Progress(
+                event="progress",
+                phase=Phase.URL_RECOVERY,
                 processed=event.processed,
                 total=event.total,
             )

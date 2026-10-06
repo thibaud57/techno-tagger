@@ -25,10 +25,17 @@
   </ng-template>
 
   <ng-template #body let-track>
+    <!-- Ligne actionnable atteignable au clavier, Entree ou Espace comme le clic. Anneau du
+         preset (--p-focus-ring-*) pose vers l'interieur : la table defile et rognerait un
+         anneau exterieur. -->
     <tr
-      class="h-14 transition-colors duration-150 ease-out data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis"
+      class="h-14 transition-colors duration-150 ease-out focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis"
       [attr.data-arbitrable]="track.arbitrable ? '' : null"
-      (click)="track.arbitrable && arbitrate.emit(track.trackId)"
+      [attr.data-recoverable]="track.recoverable ? '' : null"
+      [attr.tabindex]="track.arbitrable || track.recoverable ? 0 : null"
+      (click)="activate(track)"
+      (keydown.enter)="activate(track)"
+      (keydown.space)="activate(track, $event)"
     >
       <td>
         @if (track.artworkUrl; as url) {
@@ -60,6 +67,15 @@
       <td>
         @if (track.afterLine; as afterLine) {
           <app-truncated-text [text]="afterLine" />
+        } @else if (track.recoverable) {
+          <!-- Point d'entree du rattrapage : le clic sur la ligne ouvre la modale du lien. -->
+          <span
+            class="inline-flex items-center gap-2 font-semibold text-muted-color"
+            data-recover-hint
+          >
+            {{ "tagging.list.addLink" | translate }}
+            <app-icon name="arrow-right" [size]="16" />
+          </span>
         } @else {
           <span class="text-muted-color">—</span>
         }

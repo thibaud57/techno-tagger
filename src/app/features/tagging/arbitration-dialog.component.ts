@@ -26,9 +26,11 @@ import { IconComponent } from "../../shared/components/icon.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
+import { NO_MOTION } from "../../shared/utils/motion"
 
-/** Aucune animation : la decision est sur le chemin critique du run (DESIGN.md § Composants Animes). */
-const NO_MOTION = { disabled: true } as const
+import { RecoveryUiStore } from "./recovery-ui.store"
+import { UrlLinkActionsComponent } from "./url-link-actions.component"
+import { UrlLinkFormComponent } from "./url-link-form.component"
 
 /**
  * `scrollHeight` ne pose qu'un max-height : la hauteur fixe tient la ligne d'aide en place.
@@ -72,12 +74,15 @@ const toOption = (candidate: CandidatePayload, index: number): CandidateOption =
     IconComponent,
     SourceLogoComponent,
     TruncatedTextComponent,
+    UrlLinkFormComponent,
+    UrlLinkActionsComponent,
   ],
   templateUrl: "./arbitration-dialog.component.html",
 })
 export class ArbitrationDialogComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly document = inject(DOCUMENT)
+  private readonly recovery = inject(RecoveryUiStore)
 
   protected readonly lastGesture = signal<Gesture | null>(null)
 
@@ -101,9 +106,15 @@ export class ArbitrationDialogComponent {
     "switch_arbitration_source",
   )
 
+  /**
+   * Troisieme etape apres les listes Beatport et Bandcamp : le morceau refuse, sorti de la
+   * file, reste affiche le temps de coller son lien ou de le passer.
+   */
+  protected readonly linkStep = this.recovery.linkStep
+
   /** Ligne du run : l'identite lue sur le fichier, que l'etat d'arbitrage ne porte pas. */
   protected readonly track = computed(() => {
-    const trackId = this.current()?.track_id
+    const trackId = this.linkStep() ?? this.current()?.track_id
 
     return this.sidecar.taggingTracks().find((row) => row.trackId === trackId) ?? null
   })
@@ -111,7 +122,7 @@ export class ArbitrationDialogComponent {
     const row = this.track()
 
     return row === null
-      ? (this.current()?.track_id ?? "")
+      ? (this.linkStep() ?? this.current()?.track_id ?? "")
       : trackMainLine(row.artist, row.title, row.fileName)
   })
   protected readonly fileName = computed(() => this.track()?.fileName ?? null)
@@ -144,7 +155,7 @@ export class ArbitrationDialogComponent {
     afterRenderEffect({
       write: () => {
         this.shownList()
-        if (this.visible()) {
+        if (this.visible() && this.linkStep() === null) {
           this.focusList()
         }
       },
@@ -155,7 +166,11 @@ export class ArbitrationDialogComponent {
       write: () => {
         this.busy()
         const active = this.document.activeElement
-        if (this.visible() && (active === null || active === this.document.body)) {
+        if (
+          this.visible() &&
+          this.linkStep() === null &&
+          (active === null || active === this.document.body)
+        ) {
           this.focusList()
         }
       },
@@ -174,6 +189,7 @@ export class ArbitrationDialogComponent {
     if (shown === null || index === null) {
       return
     }
+    this.recovery.leaveLinkStep()
     this.lastGesture.set("choose")
     void this.sidecar.chooseCandidate(shown.track_id, shown.source, index)
   }
@@ -183,6 +199,7 @@ export class ArbitrationDialogComponent {
     if (shown === null) {
       return
     }
+    this.recovery.refused(shown.track_id)
     this.lastGesture.set("refuse")
     void this.sidecar.refuseCandidates(shown.track_id, shown.source)
   }
@@ -197,6 +214,11 @@ export class ArbitrationDialogComponent {
     void this.sidecar.showArbitrationSource(shown.track_id, other)
   }
 
+  /** Le morceau reste a rattraper, par sa ligne du run ou par le badge. */
+  protected skipLink(): void {
+    this.recovery.leaveLinkStep()
+  }
+
   protected previous(): void {
     this.sidecar.previousArbitration()
   }
@@ -207,6 +229,10 @@ export class ArbitrationDialogComponent {
 
   /** Entree sur un bouton appartient au bouton : elle ne valide jamais en plus de son clic. */
   protected onKeydown(event: KeyboardEvent): void {
+    // Sur l'etape lien, les fleches restent au champ et Entree part par le formulaire.
+    if (this.linkStep() !== null) {
+      return
+    }
     switch (event.key) {
       case "ArrowLeft":
         event.preventDefault()

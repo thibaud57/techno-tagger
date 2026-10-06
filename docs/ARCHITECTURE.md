@@ -234,7 +234,11 @@ Dès qu'un morceau entre en zone grise et qu'aucune modale n'est ouverte, la mod
 
 Dernière phase réseau, entièrement **facultative**. Une fois le pipeline terminé, l'utilisateur peut coller une URL Beatport, Bandcamp ou SoundCloud sur chaque morceau resté non résolu, quelle qu'en soit la cause. C'est le seul point d'entrée de SoundCloud, dont les métadonnées d'upload sont trop peu fiables pour une recherche automatique.
 
-L'URL est résolue via la route correspondante de l'API, avec sa propre barre de progression. **Les trois sources n'ont pas la même voie** : Bandcamp et SoundCloud résolvent l'URL directement, Beatport n'expose pas de résolution par URL et impose d'extraire l'identifiant du morceau de l'URL collée pour appeler la route par id. L'étape se passe intégralement.
+L'URL se colle dans la modale du lien, ou dans l'étape lien qui suit le refus de tous les candidats d'un arbitrage (cf. [DESIGN.md](DESIGN.md)). Elle est résolue via la route correspondante de l'API, avec sa propre barre de progression. **Les trois sources n'ont pas la même voie** : Bandcamp et SoundCloud résolvent l'URL directement, Beatport n'expose pas de résolution par URL et impose d'extraire l'identifiant du morceau de l'URL collée pour appeler la route par id. L'étape se passe intégralement.
+
+**Morceaux éligibles** : un morceau `unresolved` accepte une URL, un morceau déjà résolu par URL aussi, recoller remplaçant alors l'URL précédente pour corriger un mauvais lien avant l'écriture. Les morceaux résolus automatiquement, par arbitrage, en attente d'arbitrage ou jamais traités n'en acceptent pas.
+
+La barre de la phase compte les morceaux rattrapés sur les morceaux à rattraper (non résolus + rattrapés), le tout calculé sur l'état du run : une correction ne compte pas deux fois, un refus d'arbitrage tardif grossit le total. Un morceau rattrapé n'a pas de score (décisions du propriétaire du 2026-10-02).
 
 ### Use-case 5 : Écriture et renommage
 
@@ -351,7 +355,7 @@ Le détail (tokens, scale typographique, mapping composant par composant, conven
 
 ### State Management
 
-**Services injectés + signals natifs Angular**, aucune bibliothèque de store. Un service par feature expose des `signal()` writable et des `computed()`, alimentés par le flux d'événements du sidecar. `SidecarService` détient l'état du run et la file d'arbitrage, les composants ne font que lire et émettre des commandes.
+**Services injectés + signals natifs Angular**, aucune bibliothèque de store. Un service par feature expose des `signal()` writable et des `computed()`, alimentés par le flux d'événements du sidecar. `SidecarService` détient l'état du run et la file d'arbitrage, ainsi que la phase de rattrapage par URL par un store de phase (`UrlRecoveryStore`), ouverte à la première progression `url_recovery` reçue et jamais déduite par l'interface. `RecoveryUiStore` porte le seul état propre à l'interface (liens collés, modale ouverte), sans rien du sidecar. Les composants ne font que lire et émettre des commandes.
 
 Trois écrans et une file d'arbitrage ne justifient pas la cérémonie d'un NgRx. À réévaluer si le récapitulatif et le rollback multiplient les transitions d'état.
 
@@ -424,13 +428,13 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
 | `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction** si elle est en cours ; l'EOF attend les deux. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
-| `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. L'extraction reste attendue jusqu'à son terme, comme sous `shutdown` |
+| `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. Quand il interrompt la phase réseau d'un run courant, il ouvre le rattrapage par URL et en émet la progression, toujours sans événement de fin. L'extraction reste attendue jusqu'à son terme, comme sous `shutdown` |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement |
 | `start_tagging` | dossier cible et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source) |
 | `resolve_arbitration` | identifiant du morceau, `source` (`beatport` ou `bandcamp`, la liste visée) et `candidate` : index dans cette liste, ou `null` pour un refus explicite, jamais implicite |
 | `switch_arbitration_source` | identifiant du morceau, `source` à réafficher. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), sans appel réseau et produit un `arbitration_updated` |
-| `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud |
+| `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud collée telle quelle (chaîne non vide). Acceptée une fois la phase de rattrapage ouverte, c'est-à-dire sur un run courant dont la phase réseau ne tourne plus (terminée ou interrompue), sinon `url_recovery_not_open`. Un morceau non éligible lève `url_recovery_not_eligible`, un second geste en vol sur le même morceau `url_recovery_busy` |
 | `commit_run` | identifiant du run, confirmation globale de l'écriture |
 | `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages |
 | `resume_run` / `discard_run` | identifiant du plan détecté au lancement |
@@ -445,7 +449,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 |---|---|
 | `version` | version du sidecar, nue (`X.Y.Z`, sans le préfixe `techno-tagger@` réservé à la release Sentry), comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)) ; `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
 | `playlists_listed` | format reconnu du fichier et playlists du dump VLC : identifiant, nom, nombre de morceaux |
-| `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture |
+| `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture. En phase `url_recovery`, émis à l'ouverture du rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), après chaque rattrapage réussi et après chaque geste d'arbitrage hors phase réseau ; mesure les morceaux rattrapés sur les morceaux à rattraper |
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `run_started` | identifiant du run et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus. Sans lui, la liste resterait vide jusqu'à la première résolution |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
@@ -454,7 +458,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs résolus, non résolus et en attente d'arbitrage ; chemin des rapports une fois la Feature 6 livrée |
 | `runs_listed` | runs passés : identifiant, date, dossier, compteurs du récapitulatif |
 | `run_loaded` | récapitulatif d'un run passé, relu depuis son rapport JSON |
-| `error` | `code`, `params`, `message` technique, `command` ayant échoué, morceau concerné le cas échéant |
+| `error` | `code`, `params`, `message` technique, `command` ayant échoué, morceau concerné le cas échéant. Toute erreur d'un geste sur un morceau (`resolve_arbitration`, `resolve_by_url`) porte `params.track_id`, y compris une erreur du client, pour que l'interface la place sur la bonne ligne |
 
 **`error` nomme la commande qui a échoué, l'interface ne la déduit pas.** Un écran n'affiche que les erreurs des commandes qu'il émet, sans quoi l'échec d'un enregistrement de clé s'afficherait en bannière sur l'onglet Playlist ouvert ensuite. Tant que la boucle traitait une commande à la fois, l'interface pouvait retenir la dernière envoyée et lui attribuer l'erreur suivante. `start_tagging` rendant la main aussitôt (§ [Concurrence](#concurrence)), cette déduction est fausse : une commande courte émise pendant un run récupérerait l'échec du run et le run l'échec de la commande courte. D'où le champ, que le sidecar remplit dans ses deux chemins d'émission. Il vaut `null` sur une ligne trop malformée pour désigner une commande du contrat, son nom éventuel restant dans les `params`.
 
@@ -542,7 +546,7 @@ Le contrat se teste en ligne de commande en injectant des commandes sur `stdin` 
 
 ### Concurrence
 
-Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-httpx2.md)), dimensionné en miroir des sémaphores de sortie de techno-scraper : **3 requêtes Beatport en vol, 2 pour Bandcamp**, timeout client à **100 secondes**, au-dessus du budget de 90 secondes de l'API (cf. [ADR-017](adrs/017-taille-pool-concurrence.md)).
+Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-httpx2.md)), dimensionné en miroir des sémaphores de sortie de techno-scraper : **3 requêtes Beatport en vol, 2 pour Bandcamp, 5 pour SoundCloud**, appelé au seul rattrapage par URL, timeout client à **100 secondes**, au-dessus du budget de 90 secondes de l'API (cf. [ADR-017](adrs/017-taille-pool-concurrence.md)).
 
 **Le téléchargement des pochettes a son propre pool.** L'API fournit bien l'`artwork_url` dans le contrat `Track`, mais cette URL pointe vers le CDN de la source : le téléchargement de l'image ne passe donc pas par techno-scraper et ne consomme pas ses sémaphores. Le compter dans le pool de 3 briderait les images pour rien. **Sa taille est fixée à 6 et c'est un calibrage libre, pas une contrainte d'API** : contrairement aux deux autres, aucun sémaphore distant ne le dicte, seule la politesse envers le CDN. Un échec de téléchargement n'échoue jamais le morceau : les tags sont écrits sans pochette et le rapport le signale.
 
@@ -551,6 +555,8 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 **L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction : une copie coupée en vol laisserait un fichier à moitié écrit dans la destination de l'utilisateur, ce que la garantie sur la bibliothèque interdit. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
 
 La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en mémoire exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process. Les gestes d'arbitrage avancent en parallèle d'un morceau à l'autre et partagent les sémaphores du client avec le pipeline. Un seul geste est en vol par morceau : le second est refusé en `arbitration_busy`, jamais mis en file, sans quoi les clics rapides de la modale lanceraient deux appels Bandcamp. Un geste sur une liste qui n'est plus affichée est refusé en `arbitration_candidate_unknown` : un double clic arrivé après la bascule refuserait sinon Bandcamp.
+
+**Le rattrapage par URL vit dans le même run vivant.** Ses gestes partagent les sémaphores du client et la garde des 403 du run avec le pipeline et l'arbitrage. Un seul geste est en vol par morceau : le second est refusé en `url_recovery_busy`, par le même principe que `arbitration_busy`.
 
 **Le run courant survit à sa phase réseau.** `start_tagging` ouvre un run dont le client et le fetcher de pochettes restent ouverts après `run_finished` comme après `cancel_run`, le temps des arbitrages. Ils ne se ferment qu'au run suivant, au `shutdown` ou à l'EOF, qui annulent aussi les gestes en vol. Un choix ou un refus attend le réseau, un refetch ou un appel Bandcamp : il part en tâche de fond comme les deux phases longues, pour la même raison. `switch_arbitration_source` n'attend rien et s'exécute dans la boucle.
 
@@ -641,6 +647,10 @@ sequenceDiagram
                 API-->>S: candidats
                 S-->>UI: arbitration_updated (la liste Bandcamp remplace la précédente)
                 UI->>U: modale, temps 2
+                opt refus de la liste Bandcamp, ou « Passer » sur une liste vide
+                    S-->>UI: track_resolved (unresolved · user_refused, ou motif de la liste vide)
+                    UI->>U: modale, temps 3 : lien (facultatif, une fois la recherche finie)
+                end
             end
         else vide
             S->>API: GET /bandcamp/search
@@ -652,7 +662,7 @@ sequenceDiagram
     end
 
     S-->>UI: run_finished (phase = network, non résolus)
-    UI->>U: phase URL manuelle (facultative)
+    UI->>U: badge « à rattraper », modale du lien (facultative)
     U->>UI: colle une URL
     UI->>S: resolve_by_url
     S->>API: GET /bandcamp/tracks?url=, /soundcloud/resolve?url=<br/>ou /beatport/tracks/{id} après extraction de l'id

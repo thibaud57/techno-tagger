@@ -154,6 +154,14 @@ class SwitchArbitrationSource(Command):
     source: SearchSource
 
 
+class ResolveByUrl(Command):
+    """URL collee sur un morceau en fin de run ; sa forme est jugee par le client."""
+
+    command: Literal["resolve_by_url"]
+    track_id: str
+    url: Annotated[str, Field(min_length=1)]
+
+
 type AnyCommand = Annotated[
     GetVersion
     | Shutdown
@@ -163,7 +171,8 @@ type AnyCommand = Annotated[
     | SetApiKey
     | StartTagging
     | ResolveArbitration
-    | SwitchArbitrationSource,
+    | SwitchArbitrationSource
+    | ResolveByUrl,
     Field(discriminator="command"),
 ]
 
@@ -178,6 +187,7 @@ type ExecutableCommand = (
     | StartTagging
     | ResolveArbitration
     | SwitchArbitrationSource
+    | ResolveByUrl
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -191,6 +201,7 @@ type CommandName = Literal[
     "start_tagging",
     "resolve_arbitration",
     "switch_arbitration_source",
+    "resolve_by_url",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -483,9 +494,18 @@ def error_from_validation(exc: ValidationError) -> Error:
     )
 
 
-def error_from_business(exc: TaggerError, command: CommandName) -> Error:
-    """Convertit une erreur metier en evenement, en gardant son code et ses params."""
-    return Error(code=exc.code, params=dict(exc.params), message=str(exc), command=command)
+def error_from_business(
+    exc: TaggerError, command: CommandName, track_id: str | None = None
+) -> Error:
+    """Convertit une erreur metier en evenement, en gardant son code et ses params.
+
+    `track_id` : le morceau d'un geste, que les erreurs du client ne portent pas et sans
+    lequel l'interface ne saurait sur quelle ligne afficher l'erreur.
+    """
+    params = dict(exc.params)
+    if track_id is not None:
+        params["track_id"] = track_id
+    return Error(code=exc.code, params=params, message=str(exc), command=command)
 
 
 def emit(event: Event) -> str:

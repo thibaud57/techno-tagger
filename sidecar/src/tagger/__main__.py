@@ -25,6 +25,7 @@ from tagger.handlers import (
     handle_list_playlists,
     handle_set_api_key,
     handle_start_tagging,
+    url_progress,
 )
 from tagger.logger import setup_logging
 from tagger.observability import init_sentry
@@ -37,6 +38,7 @@ from tagger.protocol import (
     GetVersion,
     ListPlaylists,
     ResolveArbitration,
+    ResolveByUrl,
     SetApiKey,
     Shutdown,
     StartTagging,
@@ -46,6 +48,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
+from tagger.url_recovery import UrlRecoveryNotOpenError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -149,8 +152,14 @@ class _Session:
         L'extraction est au contraire attendue : le run ne tient que du reseau et de
         la memoire, quand une copie coupee en vol laisserait un fichier a moitie ecrit
         dans la destination de l'utilisateur.
+
+        Une phase reseau interrompue ouvre le rattrapage : sa progression part, sans
+        evenement de fin, l'interface sachant qu'elle a demande l'arret.
         """
+        interrupted = self._active_run() is not None
         await self._settle_run(cancel=True)
+        if interrupted and self._current is not None:
+            self.send(url_progress(self._current))
 
     def resolve_arbitration(self, command: ResolveArbitration) -> None:
         """Choix ou refus en tache de fond : un appel Bandcamp ne gele pas stdin."""
@@ -164,14 +173,21 @@ class _Session:
             start_gesture = functools.partial(
                 current.arbitration.choose, command.track_id, command.source, command.candidate
             )
-        current.track(
-            self._group.create_task(self._phase(start_gesture, command), name="arbitration")
-        )
+        settle = functools.partial(self._then_url_progress, current, start_gesture)
+        self._spawn_gesture(current, settle, command, name="arbitration")
 
     def switch_arbitration_source(self, command: SwitchArbitrationSource) -> None:
         """Sans I/O : s'execute dans la boucle."""
         current = self._arbitrable(command.track_id)
         current.arbitration.show(command.track_id, command.source)
+
+    def resolve_by_url(self, command: ResolveByUrl) -> None:
+        """Geste en tache de fond, comme l'arbitrage : l'appel a l'API ne gele pas stdin."""
+        current = self._recoverable(command.track_id)
+        start_gesture = functools.partial(
+            current.url_recovery.resolve, command.track_id, command.url
+        )
+        self._spawn_gesture(current, start_gesture, command, name="url_recovery")
 
     async def close(self, *, cancel: bool) -> None:
         """Fin de session : `shutdown` annule la phase reseau, l'EOF l'attend ; le run courant
@@ -181,15 +197,44 @@ class _Session:
         if current is not None:
             await current.close()
 
+    def _spawn_gesture(
+        self,
+        current: CurrentRun,
+        start_gesture: Callable[[], Awaitable[Event | None]],
+        command: ResolveArbitration | ResolveByUrl,
+        *,
+        name: str,
+    ) -> None:
+        """Le morceau du geste suit son erreur : celles du client ne le portent pas."""
+        task = self._phase(start_gesture, command, command.track_id)
+        current.track(self._group.create_task(task, name=name))
+
     def _arbitrable(self, track_id: str) -> CurrentRun:
         if self._current is None:
             raise ArbitrationNotPendingError(track_id)
         return self._current
 
-    async def _replace(self, replaced: CurrentRun | None, command: StartTagging) -> Event:
+    def _recoverable(self, track_id: str) -> CurrentRun:
+        """Phase ouverte : un run courant dont la phase reseau ne tourne plus, finie ou
+        interrompue (un run interrompu garde son ecriture, donc son rattrapage)."""
+        if self._current is None or self._active_run() is not None:
+            raise UrlRecoveryNotOpenError(track_id)
+        return self._current
+
+    async def _replace(self, replaced: CurrentRun | None, command: StartTagging) -> None:
         if replaced is not None:
             await replaced.close()
-        return await handle_start_tagging(command, self.send, self._adopt)
+        await handle_start_tagging(command, self.send, self._adopt)
+
+    async def _then_url_progress(
+        self, current: CurrentRun, gesture: Callable[[], Awaitable[None]]
+    ) -> Event | None:
+        """Hors phase reseau, un refus d'arbitrage grossit le total du rattrapage : sa
+        progression suit le geste, calculee plutot que comparee a l'emission precedente."""
+        await gesture()
+        if self._active_run() is not None:
+            return None
+        return url_progress(current)
 
     def _adopt(self, current: CurrentRun) -> None:
         self._current = current
@@ -224,7 +269,8 @@ class _Session:
     async def _phase(
         self,
         start_work: Callable[[], Awaitable[Event | None]],
-        command: StartTagging | ExtractPlaylist | ResolveArbitration,
+        command: StartTagging | ExtractPlaylist | ResolveArbitration | ResolveByUrl,
+        track_id: str | None = None,
     ) -> None:
         """Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait toute la session."""
         # Factory : une coroutine creee d'avance ne serait jamais attendue si annulee avant.
@@ -232,7 +278,7 @@ class _Session:
             finished = await start_work()
         except TaggerError as error:
             logger.exception("background phase failed reason=%s", error.code)
-            self.send(error_from_business(error, command.command))
+            self.send(error_from_business(error, command.command, track_id))
             return
         if finished is not None:
             self.send(finished)
@@ -330,6 +376,8 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
             session.resolve_arbitration(command)
         case SwitchArbitrationSource():
             session.switch_arbitration_source(command)
+        case ResolveByUrl():
+            session.resolve_by_url(command)
         case _:
             assert_never(command)
 

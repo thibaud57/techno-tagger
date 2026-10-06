@@ -125,4 +125,6 @@ Une piste pour supprimer la duplication, hors périmètre MVP : exposer les vale
 
 Le téléchargement des pochettes a son propre pool, distinct de celui des requêtes API, sa taille fixée à **6**. Ce n'est pas une contrainte de sémaphore côté techno-scraper comme les valeurs ci-dessus : les CDN de pochettes ne sont pas concernés par `_MAX_CONCURRENCY`, c'est un calibrage libre.
 
+> **Borne SoundCloud ajoutée le 2026-10-03.** Le rattrapage par URL de la Feature 4 appelle SoundCloud, absent du périmètre initial de cet ADR. Même décision, même miroir : la borne client est **5**, celle de `_MAX_CONCURRENCY[Source.SOUNDCLOUD]` dans `core/limits.py` de techno-scraper. La décision « pool client aligné sur les sémaphores de l'API » ne change pas, elle s'étend à une troisième source.
+
 Le cache disque (cf. [ADR-013](013-cache-disque-jetable.md)) supprime la charge d'un re-run, mais ne change rien au premier passage sur un dossier neuf, qui est le cas dimensionnant.

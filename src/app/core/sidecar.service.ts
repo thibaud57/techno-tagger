@@ -16,6 +16,7 @@ import {
 } from "./models/protocol"
 import { SIDECAR_TRANSPORT } from "./sidecar-transport"
 import { TaggingRunStore } from "./tagging-run.store"
+import { UrlRecoveryStore } from "./url-recovery.store"
 
 // Table indexee par le discriminant : oublier un evenement du contrat devient
 // une erreur de compilation ici, jamais une ligne silencieusement ignoree.
@@ -64,6 +65,7 @@ export class SidecarService {
   private readonly transport = inject(SIDECAR_TRANSPORT)
   private readonly taggingRun = inject(TaggingRunStore)
   private readonly arbitration = inject(ArbitrationStore)
+  private readonly urlRecovery = inject(UrlRecoveryStore)
 
   /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
   private readonly _available = signal<boolean | null>(null)
@@ -126,6 +128,23 @@ export class SidecarService {
   readonly hasPreviousArbitration = this.arbitration.hasPrevious
   readonly hasNextArbitration = this.arbitration.hasNext
   readonly arbitrationOpenings = this.arbitration.openings
+  readonly urlRecoveryProgress = this.urlRecovery.progress
+  readonly urlRecoveryBusy = this.urlRecovery.busy
+  readonly urlRecoveryErrors = this.urlRecovery.errors
+  /**
+   * Lignes a afficher dans la phase : non resolues, ou deja rattrapees pour corriger un
+   * mauvais lien. Filtre d'affichage sur des etats recus ; le sidecar reste seul juge de
+   * l'eligibilite et refuse tout autre morceau.
+   */
+  readonly recoverableTracks = computed(() =>
+    this.taggingRun
+      .tracks()
+      .filter(
+        (track) =>
+          track.state === "unresolved" ||
+          (track.state === "resolved" && track.resolution === "url"),
+      ),
+  )
 
   private started = false
 
@@ -209,6 +228,7 @@ export class SidecarService {
     this.taggingRun.reset()
     // Le sidecar jette les arbitrages de l'ancien run a la reception de la commande.
     this.arbitration.clear()
+    this.urlRecovery.clear()
     // `JSON.stringify` omet une cle `undefined` : la commande part sans `thresholds`.
     await this.send({ command: "start_tagging", folder, thresholds })
   }
@@ -254,6 +274,15 @@ export class SidecarService {
 
   openArbitration(trackId: string): void {
     this.arbitration.open(trackId)
+  }
+
+  /** Une URL vide partirait en `malformed_command` sans `track_id` : l'attente ne se leverait plus. */
+  async resolveByUrl(trackId: string, url: string): Promise<void> {
+    if (url.length === 0 || this.urlRecovery.isBusy(trackId)) {
+      return
+    }
+    this.urlRecovery.sent(trackId)
+    await this.send({ command: "resolve_by_url", track_id: trackId, url })
   }
 
   /**
@@ -312,6 +341,13 @@ export class SidecarService {
     }
   }
 
+  private routeUrlRecoveryError(event: SidecarErrorEvent): void {
+    const trackId = event.params["track_id"]
+    if (event.command === "resolve_by_url" && typeof trackId === "string") {
+      this.urlRecovery.rejected(trackId, event)
+    }
+  }
+
   /**
    * Plus aucun evenement n'arrivera : un run en cours s'arrete quelle que soit la
    * commande refusee, a la difference d'une erreur recue sur le flux.
@@ -331,6 +367,7 @@ export class SidecarService {
     this.endExtraction()
     this.taggingRun.failed()
     this.arbitration.clear()
+    this.urlRecovery.clear()
   }
 
   private endExtraction(): void {
@@ -385,6 +422,7 @@ export class SidecarService {
       case "track_resolved":
         this.taggingRun.resolved(event)
         this.arbitration.resolved(event.track_id)
+        this.urlRecovery.resolved(event.track_id)
         break
       case "arbitration_required":
         this.taggingRun.awaiting(event)
@@ -411,6 +449,7 @@ export class SidecarService {
           this.taggingRun.failed()
         }
         this.routeArbitrationError(event)
+        this.routeUrlRecoveryError(event)
         break
       default: {
         // Ajouter un evenement cote sidecar sans le traiter ici devient une
@@ -434,8 +473,10 @@ export class SidecarService {
         this.taggingRun.advanced(event.processed, event.total)
         break
       case "url_recovery":
+        this.urlRecovery.advanced(event.processed, event.total)
+        break
       case "write":
-        // Features 4 et 5 : leur store lira cette phase, rien a suivre ici pour l'instant.
+        // Feature 5 : son store lira cette phase, rien a suivre ici pour l'instant.
         break
       default: {
         const exhaustive: never = event.phase

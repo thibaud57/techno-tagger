@@ -1,7 +1,7 @@
 ---
 title: "DESIGN — techno-tagger"
 description: "Design system : typographie, couleurs, librairies UI, mapping composants et conventions de style de l'interface Angular + PrimeNG."
-date: "2026-09-29"
+date: "2026-10-05"
 keywords: ["design", "ui", "design-system", "typography", "colors", "animations", "layout", "dark-mode", "icons", "desktop", "components", "spacing", "primeng", "tailwind"]
 scope: ["docs", "frontend"]
 technologies: ["Angular", "PrimeNG", "Tailwind CSS", "PrimeIcons", "Simple Icons", "Inter", "Tauri"]
@@ -266,15 +266,20 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Lancement du run | `button pButton` `primary`, icône `play`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, clé API, dossier, sidecar |
+| Lancement du run | `button pButton` `primary`, icône `play`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, geste de rattrapage en vol, clé API, dossier, extraction ou sidecar |
 | Interruption du run | `button pButton` `severity="secondary"` outlined, icône `stop`, taille par défaut | PrimeNG | Visible seulement pendant un run, à gauche du lancement qui reste grisé : masquer une action désactivée est interdit. Ni `danger` ni confirmation : la phase réseau n'écrit aucun fichier et rien n'est irréversible avant l'écriture |
-| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage |
+| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage, celle d'un morceau non résolu ou rattrapé la modale du lien. Une ligne actionnable s'ouvre aussi au clavier (cf. § États des Composants) |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image ; le squelette tant que le morceau attend son tour ou son arbitrage ; un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
 | État d'un morceau | `p-tag` + `pTooltip` | PrimeNG | Familles du § Couleurs Sémantiques. Un non résolu porte l'icône info et son motif au survol |
 | Source retenue | SVG Simple Icons + libellé | Simple Icons | Beatport / Bandcamp / SoundCloud |
 | Détail avant / après | `[expandedRowKeys]` + `<ng-template #expandedrow>` | PrimeNG | Comparaison champ par champ, pochette en grand, sur le morceau déplié |
 | Texte tronqué d'une colonne fluide | `pTooltip` | PrimeNG | Avant, nom de fichier compris, et Après sont fluides et tronquent en permanence : ce sont exactement les deux chaînes que l'utilisateur compare. Jamais seul porteur d'une information, cf. § Tokens de Tooltip |
 | Progression d'une phase | `p-progressbar` + compteur | PrimeNG | Alimentée par l'événement `progress` du sidecar |
+| Indice de rattrapage | `font-semibold text-muted-color` + icône `arrow-right` | Custom | « Coller un lien → » dans la colonne Après d'un non résolu, y compris pendant la recherche : la modale s'ouvre alors champ désactivé |
+| Modale du lien | `p-dialog` modal | PrimeNG | Ouverte par la ligne ou le badge du rattrapage. En-tête comme l'arbitrage, logo de la source sur un rattrapé. ‹ N/M › et ← → (Alt dans un champ rempli) sur les non résolus et rattrapés ; « Passer » ferme au dernier. Dimensions au § Layout |
+| Champ de lien | `input pInputText` `type="url"` + `app-error-message` | PrimeNG + Custom | Commun à la modale du lien et à l'étape lien : motif ou « Rattrapé sur `<Source>` », champ focalisé à chaque morceau. « Résoudre » actif champ rempli, spinner pendant le geste, refus sous le champ. Désactivé pendant la recherche (refusé par le sidecar), focus alors sur « Passer » |
+| Badge du rattrapage | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | « N à rattraper », à droite du badge de file et groupé avec lui en `gap-2`, masqué pendant la recherche et sur 0. Ouvre Tagging et la modale du lien |
+| Rien à rattraper | ligne `check-circle` en `text-sm` | Custom | À la place de la barre de rattrapage sur 0 sur 0 |
 | Chargement | `SkeletonRowsComponent`, puis `p-skeleton` | PrimeNG | Deux temps. Tant que la table est vide, `SkeletonRowsComponent` en remplit la hauteur de lignes entières, par le template `#emptymessage`. Dès la première ligne reçue, le squelette ne tient plus que la vignette d'un morceau qui attend son tour, les autres cellules portant le cadratin du § Séparateurs : un squelette par cellule ferait clignoter la table à chaque événement |
 
 ### Arbitrage
@@ -289,7 +294,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Beatport injoignable | `p-message` `warn` | PrimeNG | Au-dessus de la liste Bandcamp quand Beatport n'a pas répondu : aucun candidat n'a été validé seul |
 | Liste Bandcamp vide | message de liste + bouton « Passer » | PrimeNG | Le message dit le motif de Bandcamp, centré dans la hauteur de la liste comme les autres états vides ; « Passer » remplace « Aucune correspondance » et c'est la seule action |
 | Refus d'un geste | `app-error-message` sous la liste | Custom | Seulement pour le morceau affiché |
-| Rattrapage par URL | `p-inputgroup` + `input pInputText` + `button pButton` | PrimeNG | Une ligne par morceau non résolu, validation de l'hôte avant envoi |
+| Étape lien | champ de lien + « Passer » et « Résoudre » | PrimeNG | Même morceau, sans compteur ; déclencheurs au § Arbitrages. « Passer » ou un lien accepté mène à l'arbitrage suivant. La croix quitte l'étape : le morceau revient par sa ligne ou le badge du rattrapage, pas par le badge de file |
 
 ### Écriture et récapitulatif
 
@@ -318,7 +323,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 |-----------|-----------|-----------|-------|
 | Sidecar absent ou en quarantaine | `p-card` centrée, action `secondary` outlined | PrimeNG | Écran bloquant, pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui explique comment s'en sortir. Même écran pour une divergence de version, sans action |
 | Notifications non bloquantes | `p-toast` en bas à droite | PrimeNG | Fin d'une phase longue, quel que soit l'onglet affiché. Il couvre 4s le pied de page de Playlist, accepté : il se ferme d'un clic. Une clé enregistrée se confirme au contraire par un `p-tag` persistant : l'état de la clé se relit, il ne s'annonce pas |
-| Erreurs contextuelles | `p-message` inline | PrimeNG | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue |
+| Erreurs contextuelles | `p-message` inline | PrimeNG | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue. Même écart au-dessus et en dessous du message, celui de son conteneur : `gap-6` sous l'en-tête d'un écran, `gap-4` sous le champ de lien, 12px sous le champ des Réglages, aligné sur le `py-3` de sa rangée. Un message plus près de ce qui précède que de ce qui suit se lit comme une marge ratée |
 
 ### Composants Custom
 
@@ -353,9 +358,9 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 
 | État | Style / Comportement | Contexte |
 |------|---------------------|----------|
-| Survol d'une zone cliquable custom | `bg-emphasis`, transition `background-color 150ms ease-out` | Jamais de déplacement ni de scale : les lignes de la liste ne bougent pas sous le curseur. Sauf le badge de file : son tag porte déjà un fond, la main suffit |
+| Survol d'une zone cliquable custom | `bg-emphasis`, transition `background-color 150ms ease-out` | Jamais de déplacement ni de scale : les lignes de la liste ne bougent pas sous le curseur. Sauf les badges de file et de rattrapage : leur tag porte déjà un fond, la main suffit |
 | Sélection | `bg-highlight` | Cohérent avec la sélection des composants PrimeNG |
-| Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier, `outline: none` est interdit |
+| Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier. Une ligne actionnable du run s'ouvre par Entrée ou Espace, anneau posé vers l'intérieur pour ne pas être rogné par le défilement. `outline: none` est interdit |
 | Désactivé | `--p-disabled-opacity` (0.6), curseur flèche | Un bouton désactivé garde son libellé, il n'est jamais masqué. La flèche comme sur les boutons PrimeNG et dans une application Windows, `not-allowed` étant une convention web : le grisé et le tooltip disent déjà pourquoi |
 | Chargement | `p-skeleton` aux dimensions de l'élément final ; icône `spinner` dans le bouton d'un geste en attente de réponse | Évite le saut de layout à l'arrivée des événements. Une table encore vide se couvre de lignes entières, une table déjà peuplée n'en garde que sur la vignette (§ Mapping Composants). Le spinner remplace `[loading]` de `pButton`, déprécié en v22 |
 | Sans valeur | Cadratin en `text-muted-color`, cf. § Séparateurs | Cellule d'une ligne qui existe, mais dont la source ne fournit pas la donnée : Après, Source et Score d'un morceau non résolu. Un trait d'union se lirait comme un caractère du contenu, une cellule vide comme un rendu manqué |
@@ -374,7 +379,7 @@ La taille s'apparie à celle des éléments de la même rangée, pas à une pré
 
 # 🖼️ Icônes
 
-**Librairie UI** : `@primeicons/angular` 8, tiré par PrimeNG v22. Des composants standalone rendant du **SVG inline** et non plus la police et ses classes `pi pi-*` des versions antérieures. Aucun asset de police à copier, donc rien à embarquer pour l'affichage hors ligne
+**Librairie UI** : `@primeicons/angular` 8, tiré par PrimeNG v22. Des composants standalone rendant du **SVG inline**, sans police ni classes `pi pi-*`. Aucun asset de police à copier, donc rien à embarquer pour l'affichage hors ligne
 
 **Librairie logos** : SVG [Simple Icons](https://simpleicons.org) gardés dans `src/assets/icons/`, leurs tracés rendus inline par `SourceLogoComponent` en `currentColor` : le build n'émet que `public/`
 
@@ -397,7 +402,7 @@ La taille s'apparie à celle des éléments de la même rangée, pas à une pré
 
 ## Librairie
 
-**Aucune dépendance d'animation.** Les entrées et sorties passent par `animate.enter` / `animate.leave` natifs d'Angular et PrimeNG anime en CSS. Ses props `showTransitionOptions` / `hideTransitionOptions` ne sont plus fonctionnelles : les régler ne produit rien, sans erreur.
+**Aucune dépendance d'animation.** Les entrées et sorties passent par `animate.enter` / `animate.leave` natifs d'Angular et PrimeNG anime en CSS. Ses props `showTransitionOptions` / `hideTransitionOptions` sont sans effet : les régler ne produit rien, sans erreur.
 
 Le peu qui reste à animer passe par les **utilitaires du plugin** `tailwindcss-primeui` : `animate-fadein`, `animate-duration-{75..3000}`, `animate-delay-*`, `animate-ease-out`, `animate-fill-*`, combinables avec les variants Tailwind.
 
@@ -452,7 +457,8 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 | Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page elle-même ne défile jamais, le scroll vit dans la table. Le shell masque son débordement et `overscroll-behavior: none` coupe le rebond de WebView2, qui fait trembler toute la fenêtre à la molette |
 | Container | Pleine largeur, `px-16 py-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
 | Densité | Body dense (`text-sm`) dans les tables et les listes de candidats | Un run affiche 100 lignes : chaque cran de taille en moins est une ligne de plus sans défiler (§ Scale Typographique) |
-| Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre : ne relève pas du container |
+| Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre : ne relève pas du container. L'étape lien garde ce cadre |
+| Modale du lien | 720px, hauteur au contenu, erreur réservée `min-h-13.5`, contenu en `pb-4` | Largeur de l'arbitrage. `min-h-13.5` (54px) : une erreur sur deux lignes en FR, le pied ne bouge pas. `pb-4` : l'erreur garde 16px au champ et au pied |
 | Tables | `p-table` à sa taille par défaut, `[scrollable]` en `scrollHeight="flex"`, `[virtualScroll]` | Seules les lignes visibles sont montées : une playlist de plusieurs milliers de morceaux s'affiche aussi vite qu'une de trente, là où tout monter prend des secondes. En contrepartie, `virtualScrollItemSize` doit valoir la hauteur exacte d'une ligne, posée par une classe et à remesurer quand leur style change |
 | Rythme interne d'un groupe | `gap-2` | Éléments d'un même groupe |
 | Espacement entre groupes | `gap-4` | Groupes d'un même écran |
@@ -489,7 +495,7 @@ Les deux tables sont en `table-layout: fixed`. En disposition auto, les largeurs
 
 **Onglet Playlist en deux temps.** Le formulaire est une grille de trois colonnes, `grid-cols-[max-content_max-content_1fr]` en `gap-4` : libellés, contrôles de même largeur, chemins alignés à droite et « Extraire la playlist » sur la ligne du mode, calé à droite. Dès le lancement, il cède la place à une ligne de résumé, source › destination › playlist · mode, avec la barre de progression dessous pendant le run. Le rapport récupère ainsi la hauteur du formulaire (le 2026-09-17 : 12 lignes visibles à 1280 × 800, 10 au plancher). « Modifier » rouvre le formulaire sans masquer le rapport et le lancement suivant replie de nouveau.
 
-**Onglet Tagging** : le titre seul, puis la ligne du dossier en `grid-cols-[max-content_1fr_max-content]` : bouton de sélection, chemin collé à lui, actions du run calées à droite. Ni libellé ni « Aucun dossier sélectionné » : le bloc vide dit déjà quoi faire.
+**Onglet Tagging** : le titre seul, puis la ligne du dossier en `grid-cols-[max-content_1fr_max-content]` : bouton de sélection, chemin collé à lui, actions du run calées à droite. Ni libellé ni « Aucun dossier sélectionné » : le bloc vide dit déjà quoi faire. Une fois la phase de rattrapage ouverte (fin de recherche ou interruption), sa barre prend l'emplacement de celle du run et la liste garde toute la hauteur.
 
 **Source dit d'où vient la donnée écrite, État dit par quel chemin on y est arrivé.** Un morceau résolu en collant une URL SoundCloud affiche donc SoundCloud en source et « URL » en état : c'est la seule voie par laquelle SoundCloud entre dans le produit, jamais la recherche automatique. C'est la même séparation que celle posée entre `state` et `resolution` dans le contrat NDJSON, portée cette fois côté affichage.
 
@@ -524,7 +530,7 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 **Ordre des classes** : réordonné automatiquement par `prettier-plugin-tailwindcss` au format, selon l'ordre officiel du plugin. Aucune convention manuelle à retenir, rien à relire en review sur ce point et aucun diff parasite venant de deux fichiers rangés différemment.
 
 ```html
-<div class="flex items-center justify-between gap-4 rounded-border border-surface bg-surface-900 px-4 py-2 text-sm font-medium text-color xl:px-6">
+<div class="flex items-center justify-between gap-4 rounded-lg border-surface bg-surface-900 px-4 py-2 text-sm font-medium text-color xl:px-6">
 ```
 
 ## Règles
@@ -561,16 +567,28 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 
 ### Arbitrages
 
-Écarts au design system ou à la maquette tranchés par le propriétaire. Ils priment sur eux pour tous les écrans.
+Écarts au design system ou à la maquette tranchés par le propriétaire. Ils priment sur eux pour tous les écrans. Une ligne datée « réaligné » décrit une source déjà mise à jour : elle reste ici parce que la règle tient toujours.
 
-- **Icônes** : SVG inline par `IconComponent` et `SourceLogoComponent`, là où le design system rend les mêmes glyphes par la police PrimeIcons. Écart définitif : React ne peut pas importer un composant d'icône Angular et la v22 n'emploie plus la police
+- **Icônes** : SVG inline par `IconComponent` et `SourceLogoComponent`, là où le design system rend les mêmes glyphes par la police PrimeIcons. Écart définitif : React ne peut pas importer un composant d'icône Angular et la v22 rend ses icônes en SVG
 - **Largeurs** : une largeur se remesure sur le contenu le plus long en FR et en EN, là où le design system en donne une en pixels. Design system réaligné le 2026-09-24 sur les trois colonnes fixes du run, qui cessent d'annoncer des valeurs
 - **Container** : un seul container pleine largeur pour tous les écrans, là où le design system posait deux régimes de largeur, données en pleine largeur et formulaires centrés. Réaligné le 2026-09-24
 - **Densité des tables** : `p-table` à sa taille par défaut, là où le design system les donnait en `small`. Réaligné le 2026-09-24
 - **Séparateur artiste / titre** : un tiret simple, là où la maquette employait un cadratin, que le produit réserve à la cellule sans valeur (§ Séparateurs). Réaligné le 2026-09-24
 - **Candidat d'arbitrage** : « Artiste - Titre » du candidat et score sur une ligne « 94 (A 96 · T 92) », là où la maquette ne montrait que le titre et « A · T ». C'est souvent l'artiste qui fait tomber un candidat en zone grise. Décidé le 2026-09-26, réaligné le 2026-09-29
 - **Croix de la modale d'arbitrage** : l'arbitrage reste en file, la modale revient par le badge de file ou par la ligne du morceau, là où la maquette le retirait de la file. Décidé le 2026-09-26, retour par la ligne et réaligné le 2026-09-29
-- **Vocabulaire « zone grise »** : jamais affiché à l'écran, resté interne au scoring ; l'interface dit « correspondances incertaines », là où le `SettingsScreen` de la maquette l'employait dans l'indice du Seuil haut (« Entre les deux, zone grise. »). Décidé le 2026-09-27, réaligné au plus tard le 2026-09-29
+- **Vocabulaire « zone grise »** : jamais affiché à l'écran, resté interne au scoring ; l'interface dit « correspondances incertaines », là où le `SettingsScreen` de la maquette l'employait dans l'indice du Seuil haut (« Entre les deux, zone grise. »). Décidé le 2026-09-27, réalignement constaté le 2026-10-05
+- **Zone hôte du rattrapage** : aucun logo ni message d'hôte à la frappe, le sidecar juge l'URL et un refus revient sous le champ, là où `UrlRescue` reconnaissait l'hôte dans l'écran et grisait le bouton. Décidé le 2026-09-29, réaligné le 2026-10-05
+- **Barre de la phase de rattrapage** : « rattrapés sur à rattraper » dans l'emplacement de la barre du run, masquée sur 0 sur 0, là où la maquette gardait la barre réseau figée à 100 %. Décidé le 2026-10-03, réaligné le 2026-10-05
+- **Lignes rattrapées** : gardées dans la navigation de la modale du lien avec « Rattrapé sur `<Source>` » et leur lien, pour corriger, là où la maquette les retirait. Décidé le 2026-10-02, réaligné le 2026-10-06
+- **Rattrapage après interruption** : ouvert aussi quand le run a été interrompu, là où la maquette ne montrait rien en phase `interrupted`. Décidé le 2026-10-02, réaligné le 2026-10-05
+- **Rattrapage par modale** : modale du lien par morceau, 720px de large et hauteur au contenu, ouverte par la ligne du run ou le badge, là où `UrlRescue` empilait un bloc de lignes sous la table. Décidé et réaligné le 2026-10-06
+- **Badge du rattrapage** : « N à rattraper » à droite du badge de file, les deux groupés en `gap-2`, là où la maquette n'en avait pas. Décidé et réaligné le 2026-10-06
+- **Étape lien de l'arbitrage** : après le refus de la liste Bandcamp, ou « Passer » quand elle est vide, la modale enchaîne sur le lien du même morceau dans le même cadre, là où `ArbitrationDialog` fermait. Décidé et réaligné le 2026-10-06
+- **Indice de rattrapage** : « Coller un lien → » en gras dans la colonne Après, là où la maquette laissait la cellule vide ; poids 600 hors des titres, seul écart à la Scale Typographique. Décidé et réaligné le 2026-10-06
+- **Rien à rattraper** : ligne `check-circle` à la place de la barre, là où `UrlRescue` posait un `EmptyState` dans le bloc. Décidé et réaligné le 2026-10-06
+- **Bouton « Lancer le run » pendant la phase** : conservé, bloqué seulement pendant un geste en vol, là où la maquette le remplaçait par « Confirmer l'écriture », qui arrive avec la Feature 5. Décidé le 2026-10-03, réaligné le 2026-10-05
+- **Espacement entre sections** : `gap-6` (24px) entre les blocs d'un écran, sur les trois onglets, là où la maquette les espaçait de 16px. Décidé et réaligné le 2026-10-05
+- **Gris de légende et séparateurs** : tokens nommés, `text-muted-color` pour l'aide de la modale d'arbitrage et `border-surface` pour le séparateur des Réglages, là où la maquette posait `--p-surface-500` et `--p-surface-800`. Décidé et réaligné le 2026-10-05
 
 ## Documentation Officielle
 

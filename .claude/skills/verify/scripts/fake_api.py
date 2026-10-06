@@ -65,6 +65,56 @@ TRACKS = {
 }
 
 
+# Rattrapage par URL : ce que les routes par URL rendent, cle par URL normalisee. Une URL
+# Bandcamp ou SoundCloud absente d'ici prend le 404 de la gateway (`track_not_found`).
+BY_URL = {
+    "/bandcamp/tracks": {
+        "https://amelielens.bandcamp.com/track/basiel": {
+            **TRACKS["Basiel"],
+            "id": "7",
+            "mix_name": None,
+            "label": None,
+            "url": "https://amelielens.bandcamp.com/track/basiel",
+            "source": "bandcamp",
+        },
+    },
+    "/soundcloud/resolve": {
+        "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2": {
+            **TRACKS["Your Mind"],
+            "id": "2407606665",
+            "title": "Tarantula",
+            "source_title": "KASIA & Faithless - Tarantula - Drumcode - DCX017",
+            "mix_name": None,
+            "artists": [
+                {"id": "318628", "name": "KASIA & Faithless", "kind": "artist", "social_links": []}
+            ],
+            "url": "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2",
+            "source": "soundcloud",
+        },
+        # Lien court qu'une vraie gateway resout en profil : le sidecar doit le refuser.
+        "https://on.soundcloud.com/verifyprofile": {
+            "profile": {
+                "id": "318628",
+                "name": "Drumcode",
+                "url": "https://soundcloud.com/drumcode",
+                "social_links": [],
+            },
+            "tracks": {"items": [], "next_cursor": None},
+        },
+    },
+}
+
+# Ids Beatport qui rendent une erreur de la gateway au lieu d'un morceau : un geste de
+# rattrapage vise ainsi une panne precise sans couper le run entier comme `REJECT_ALL`.
+FAILING_IDS = {
+    "403403": (403, {"detail": "Invalid API key"}),
+    "503503": (
+        503,
+        {"code": "upstream_unavailable", "provider": "beatport", "request_id": "verify-1"},
+    ),
+}
+
+
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         # Tient les requetes en vol : une annulation doit tomber pendant le run.
@@ -80,6 +130,15 @@ class _Handler(BaseHTTPRequestHandler):
             items = [track for name, track in TRACKS.items() if name.lower() in asked.lower()]
             self._reply(200, {"items": items, "next_cursor": None})
             return
+        if parsed.path in BY_URL:
+            found = BY_URL[parsed.path].get((query.get("url") or [""])[0])
+            if found is not None:
+                self._reply(200, found)
+                return
+        for failing_id, (status, body) in FAILING_IDS.items():
+            if parsed.path.endswith(f"/tracks/{failing_id}"):
+                self._reply(status, body)
+                return
         for track in TRACKS.values():
             if parsed.path.endswith(f"/tracks/{track['id']}"):
                 self._reply(200, track)

@@ -21,6 +21,8 @@ TEST_API_KEY: Final = "test-key"
 # Requetes des deux morceaux des tests ; `track_payload` rend « Your Mind » par defaut.
 YOUR_MIND: Final = "Adam Beyer Your Mind"
 BASIEL: Final = "Amelie Lens Basiel"
+SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2"
+BANDCAMP_TRACK: Final = "https://amelielens.bandcamp.com/track/basiel"
 
 # Union de deux signatures (et non un retour union sur une seule) : c'est la forme
 # qu'attend `httpx2.MockTransport`, covariance du retour oblige.
@@ -87,6 +89,57 @@ def track_candidate(
 def page_payload(*items: dict[str, object]) -> dict[str, object]:
     """Enveloppe `Page[Track]`, sans curseur : le sidecar ne pagine pas."""
     return {"items": list(items), "next_cursor": None}
+
+
+def bandcamp_track_payload(**overrides: object) -> dict[str, object]:
+    """Un `Track` tel que `/bandcamp/tracks` le rend pour `BANDCAMP_TRACK`."""
+    payload = track_payload(id="7", source="bandcamp", mix_name=None, url=BANDCAMP_TRACK)
+    return payload | overrides
+
+
+def soundcloud_track_payload(**overrides: object) -> dict[str, object]:
+    """Un `Track` tel que `/soundcloud/resolve` le rend pour l'URL d'un morceau.
+
+    Titre et credit deja normalises par la gateway (ADR-012 de techno-scraper) : le
+    texte source survit dans `source_title`, jamais decoupe sur `&`.
+    """
+    payload = track_payload(
+        id="2407606665",
+        title="Tarantula",
+        source_title="KASIA & Faithless - Tarantula - Drumcode - DCX017",
+        mix_name=None,
+        artists=[{"id": "318628", "name": "KASIA & Faithless", "social_links": []}],
+        genre=None,
+        bpm=None,
+        key=None,
+        isrc=None,
+        track_number=None,
+        url=SOUNDCLOUD_TRACK,
+        source="soundcloud",
+        # Catalogue et pochette d'une release SoundCloud, pas ceux du gabarit Beatport.
+        release={
+            "id": "2407606665",
+            "title": "Tarantula",
+            "catalog_number": "DCX017",
+            "release_date": "2026-09-19",
+            "artwork_url": "https://i1.sndcdn.com/artworks-DCX017-t500x500.jpg",
+        },
+    )
+    return payload | overrides
+
+
+def profile_payload() -> dict[str, object]:
+    """`UserProfile` de `/soundcloud/resolve` : un profil et la premiere page de ses morceaux."""
+    return {
+        "profile": {
+            "id": "318628",
+            "name": "Drumcode",
+            "url": "https://soundcloud.com/drumcode",
+            "followers": 1000,
+            "social_links": [],
+        },
+        "tracks": page_payload(),
+    }
 
 
 def recording(requests: list[httpx2.Request], response: httpx2.Response) -> Handler:

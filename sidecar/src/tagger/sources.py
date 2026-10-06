@@ -85,6 +85,14 @@ class RunSources:
         candidate = await self._refetch(position, source, chosen.candidate)
         return candidate, await self._artwork(position, candidate)
 
+    async def from_url(self, position: int, url: str) -> tuple[TrackCandidate, Path | None]:
+        """Morceau designe par une URL collee et sa pochette ; seule la pochette peut manquer.
+
+        L'appel passe par `_call` : la garde des 403 du run compte aussi ces gestes.
+        """
+        candidate = await self._call(self._client.fetch_by_url(url))
+        return candidate, await self._artwork(position, candidate)
+
     def log_source_failure(
         self,
         position: int,
