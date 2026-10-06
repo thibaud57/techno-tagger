@@ -180,4 +180,7 @@ Rien en attente depuis le push du 2026-10-06.
   rattraper » groupé avec celui de la file, `ArbitrationDialog` gagne l'étape lien. `readme.md`
   (§ Layout, `ErrorMessage`, réserve n° 15), le README du kit et les fiches `ErrorMessage` et
   `InputGroup`, passé en réservé, suivent. Maquette rejouée en local avant le push.
-  `_ds_needs_recompile` posé en fin de push.
+  `_ds_needs_recompile` posé en fin de push. Second push après audit : la fiche `DataTable`
+  ouvre la modale du lien depuis une ligne non résolue, la carte des formulaires marque
+  `InputGroup` réservé, et le readme et le README du kit disent le badge masqué et la modale
+  désactivée pendant la recherche.
