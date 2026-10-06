@@ -22,6 +22,16 @@ const TRACK: TaggingTrack = {
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
 }
 
+const UNRESOLVED: TaggingTrack = {
+  ...TRACK,
+  state: "unresolved",
+  resolution: "none",
+  source: null,
+  after: null,
+  scores: null,
+  artworkPath: null,
+}
+
 /**
  * Sans ces mesures, JSDOM n'en calculant aucune, `[virtualScroll]` ne monte pas une seule ligne.
  * Par `vi.spyOn` et non `Object.defineProperty` : le builder tourne en `isolate: false`, un stub
@@ -33,13 +43,17 @@ const stubOffscreenLayout = (): void => {
   vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800)
 }
 
-const mountWith = async (tracks: readonly TaggingTrack[]) => {
+const mountWith = async (
+  tracks: readonly TaggingTrack[],
+  recoverable: ReadonlySet<string> = new Set(),
+) => {
   TestBed.configureTestingModule({
     imports: [RunListComponent],
     providers: [provideTranslateService()],
   })
   const fixture = TestBed.createComponent(RunListComponent)
   fixture.componentRef.setInput("tracks", tracks)
+  fixture.componentRef.setInput("recoverable", recoverable)
   fixture.detectChanges()
 
   // Le scroller s'initialise sur un microtask puis calcule ses lignes dans un `setTimeout(…, 1)`.
@@ -141,6 +155,60 @@ describe("RunListComponent", () => {
     ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
 
     expect(asked).not.toHaveBeenCalled()
+  })
+
+  it("asks to recover a recoverable row when it is clicked", async () => {
+    const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+    const asked = vi.fn()
+    fixture.componentInstance.recover.subscribe(asked)
+
+    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
+
+    expect(asked).toHaveBeenCalledWith(UNRESOLVED.trackId)
+  })
+
+  it("asks to recover nothing when a row that is not recoverable is clicked", async () => {
+    const fixture = await mountWith([UNRESOLVED])
+    const asked = vi.fn()
+    fixture.componentInstance.recover.subscribe(asked)
+
+    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
+
+    expect(asked).not.toHaveBeenCalled()
+  })
+
+  it.each(["Enter", " "])(
+    "asks to recover a recoverable row from the keyboard (%j)",
+    async (key) => {
+      const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+      const asked = vi.fn()
+      fixture.componentInstance.recover.subscribe(asked)
+      const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")
+
+      row?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))
+
+      expect(row?.tabIndex).toBe(0)
+      expect(asked).toHaveBeenCalledWith(UNRESOLVED.trackId)
+    },
+  )
+
+  it("keeps a row without action out of the tab order", async () => {
+    const fixture = await mountWith([UNRESOLVED])
+
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")
+
+    expect(row?.hasAttribute("tabindex")).toBe(false)
+  })
+
+  it("hints at pasting a link on an unresolved recoverable row only", async () => {
+    const recoverable = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+    const hinted = cellOf(recoverable, AFTER)?.querySelector("[data-recover-hint]")
+    TestBed.resetTestingModule()
+    stubOffscreenLayout()
+    const plain = await mountWith([UNRESOLVED])
+
+    expect(hinted).not.toBeNull()
+    expect(cellOf(plain, AFTER)?.querySelector("[data-recover-hint]")).toBeNull()
   })
 
   it("shows the file name without its extension as the main line when the tags are empty", async () => {

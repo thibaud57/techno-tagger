@@ -38,12 +38,12 @@ def test_emits_the_whole_sequence_of_a_tagging_run(
     assert events[0]["event"] == "run_started"
     assert isinstance(tracks, list)
     assert [track["track_id"] for track in tracks] == ["a.mp3", "b.mp3", "c.mp3"]
-    assert {event["event"] for event in events[1:-1]} <= {
+    assert {event["event"] for event in events[1:-2]} <= {
         "track_resolved",
         "arbitration_required",
         "progress",
     }
-    assert events[-1] == {
+    assert events[-2] == {
         "event": "run_finished",
         "phase": "network",
         "run_id": events[0]["run_id"],
@@ -51,6 +51,7 @@ def test_emits_the_whole_sequence_of_a_tagging_run(
         "unresolved": 1,
         "awaiting_arbitration": 1,
     }
+    assert events[-1] == {"event": "progress", "phase": "url_recovery", "processed": 0, "total": 1}
 
 
 @pytest.mark.usefixtures("_key")
@@ -91,7 +92,7 @@ def test_refuses_a_second_tagging_run_while_one_is_in_progress(
 
     errors = [event for event in events if event["event"] == "error"]
     assert [error["code"] for error in errors] == ["tagging_in_progress"]
-    assert events[-1]["event"] == "run_finished"
+    assert [event["event"] for event in events[-2:]] == ["run_finished", "progress"]
 
 
 def test_reports_a_missing_api_key_without_calling_the_api(run_folder: Path, api: FakeApi) -> None:

@@ -1,6 +1,6 @@
 ---
 title: "Tauri v2 — Coquille desktop et pont vers le sidecar"
-version: "2.11.5"
+version: "2.12.1"
 description: "Référence technique pour Tauri v2 : sidecar, capabilities et permissions, plugins officiels, asset protocol, updater et configuration de fenêtre."
 date: "2026-08-29"
 keywords: ["tauri", "desktop", "sidecar", "capabilities", "permissions", "updater", "asset-protocol"]
@@ -14,7 +14,7 @@ Framework desktop qui empaquette une webview système et un binaire Rust. Ici, T
 
 Aucune logique métier ne vit côté Rust : le calcul des scores, la construction des requêtes et l'écriture des tags sont dans le sidecar.
 
-Versions du projet (cf. [VERSIONS.md](../VERSIONS.md)) : crate `tauri` 2.11.5, `tauri-build` 2.6.3, `@tauri-apps/cli` 2.11.4, `@tauri-apps/api` 2.11.1. **Les quatre paquets ont chacun leur cadence de patch** : un décalage de numéro entre la crate et le paquet npm est normal, pas un défaut d'alignement à corriger.
+Versions du projet (cf. [VERSIONS.md](../VERSIONS.md)) : crate `tauri` 2.12.1, `tauri-build` 2.7.1, `@tauri-apps/cli` 2.12.1, `@tauri-apps/api` 2.12.1. **Les patchs sont libres, pas la mineure** : `tauri build` refuse un paquet npm et une crate de mineures différentes, `@tauri-apps/api` face à `tauri` comme chaque plugin face au sien. Depuis la 2.12, toutes les crates Tauri exigent Rust 1.90, porté par le `rust-version` de `src-tauri/Cargo.toml`.
 
 ---
 

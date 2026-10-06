@@ -18,8 +18,8 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | Script | Rôle | Lancement |
 |---|---|---|
 | `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, `--arbitration` un seul morceau en zone grise, ou `--vlc-dump` un dump `vlc_media.db` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --arbitration \| --vlc-dump]` |
-| `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout | importé par `drive.py` |
-| `drive.py` | Vraie boucle NDJSON contre le faux serveur. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
+| `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout. `BY_URL` sert les routes par URL du rattrapage (`/bandcamp/tracks`, `/soundcloud/resolve`, morceau ou profil), `FAILING_IDS` fait rendre 403 ou 503 à un id Beatport précis | importé par `drive.py` |
+| `drive.py` | Vraie boucle NDJSON contre le faux serveur, ou contre une vraie gateway locale si `GATEWAY_URL` et `GATEWAY_KEY` sont posées. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
 | `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` ; `--key <touche>` frappe une vraie touche (`Input.dispatchKeyEvent`), `--screenshot <png>` capture la fenêtre, `--click <x> <y>` et `--move <x> <y>` donnent un vrai clic ou un survol souris (coordonnées CSS) ; une page qui meurt pendant l'appel rend `{"success": true, "pageClosed": true}` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
 | `page/demo-run.js` | Parcours de la démo pour une revue à l'écran : `playlist <demo-data>` pose les chemins et la playlist, `extract` clique « Extraire », `tagging` passe au tagging et lance le run, `run <dossier>` lance un run sans extraction dans la session, `state` compte les issues, `last-destination [clear]` lit la préférence, ou l'efface quand la démo l'a posée, `tag-widths <clé>` mesure en pixels les libellés d'une clé, FR et EN, dans la police d'un tag affiché | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/demo-run.js <action> [cible]` |
 | `page/arbitration-dialog.js` | Mesures de la modale d'arbitrage et de la liste du run, sans geste envoyé : `open` (par le badge), `state` (taille de la modale, sélection, options, message vide et leurs rectangles), `footer`, `covers`, `rows` (lignes du run et leurs rectangles, onglet Tagging ouvert au besoin, pour viser l'une d'elles par `--click`), `state-icons` (centres du tag d'état et de l'icône d'info, fond et transition du tag), `tag-demo` (couleur du premier tag alternée avec puis sans sa transition, pour la juger à l'œil), `cursors` (curseur des éléments cliquables), `trace` puis `trace-read` (journal souris et valeurs de `choice`) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-dialog.js <action>` |
@@ -27,6 +27,9 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `page/preamble.js` | Ce que toutes les sondes partagent : `wait`, `until` (attente d'une condition de page) et `__sidecarService()`, le service vivant de la page | préalable injecté par `cdp.mjs` devant chaque script de page, jamais recopié dans une sonde |
 | `page/cancel-run.js` | Interruption d'un run puis relance immédiate, de bout en bout | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/cancel-run.js <dossier>`, dossier de `build_fixture.py --unique 20` |
 | `page/arbitration-replay.js` | Rejoue dans la fenêtre le flux réel d'un run d'arbitrage (sortie de `drive.py`) en intercalant les gestes du service, `send` relevé au lieu d'envoyé ; les groupes en surplus partent après la dernière ligne, geste encore sans réponse, et `["click", "<sélecteur>"]` y clique un élément de la page | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-replay.js "$(cat <sortie.ndjson>)" '<gestes JSON>'` |
+| `page/url-recovery-modal.js` | Rattrapage par modale sous `ng serve`, sidecar simulé : tout le parcours de § Pilotage du rattrapage par URL > Côté webview, un contrôle par règle, captures dans `.playwright-mcp/verify-recovery/` | MCP Playwright `browser_run_code_unsafe` avec `filename` sur ce fichier, `just dev-ui` lancé |
+| `page/url-recovery.js` | Modale du lien dans la fenêtre Tauri : `open <n>` l'ouvre par la ligne rattrapable d'index `n` (base 0), `paste <url>` colle, clique « Résoudre » et attend la réponse, `state` relève la barre, le badge, la modale et l'écart de l'erreur au champ et au pied (attendu égal, DESIGN.md § Feedback) | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/url-recovery.js <action> [n \| url]` |
+| `page/recovery-demo.js` | Démo vivante pour une revue à l'écran : un run simulé défile dans la fenêtre Tauri, puis chaque geste reçoit une réponse plausible (lien Beatport, Bandcamp ou SoundCloud rattrapé, autre lien refusé, refus Beatport puis Bandcamp vers l'étape lien) sans rien envoyer au sidecar ni à l'API. Perdue au moindre rechargement : ne rien éditer pendant la démo | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/recovery-demo.js` |
 
 Chaque script rend `{"success": true, ...}` ou `{"error": true, "message": "..."}` sur `stdout`, code de sortie 1 en erreur. Rapporter le message tel quel : il nomme le geste qui répare, lancer par `uv run --directory sidecar` ou ouvrir la fenêtre avec le port de débogage.
 
@@ -93,6 +96,22 @@ processor=utils.default_process)` rend 75, d'où un arbitrage ; « Basiel Repris
 changée côté faux serveur reste invisible tant que l'entrée précédente est valide. Un
 run qui ne bouge pas après modification du serveur est presque toujours ça.
 
+**Contre une vraie gateway locale** : lancer techno-scraper depuis son dépôt
+(`API_KEYS__VERIFY=verify-local-key just dev` dans `../techno-scraper`, prêt quand
+`/health` rend 200), puis `GATEWAY_URL=http://localhost:8000 GATEWAY_KEY=verify-local-key` devant
+`drive.py`. La clé de test remplace celle du trousseau, qui ne part jamais vers un serveur
+de dev. C'est le seul moyen d'exercer le matching sur les réponses réelles d'une version
+de la gateway pas encore déployée ; `just stop` dans `../techno-scraper` ensuite.
+
+**Non-régression du matching** : premier run du code courant sur
+`demo-data/Bibliotheque` (fraîchement bâtie par `just demo`) contre la gateway locale, puis
+copie de son `appdata` et second run du code de référence
+(`git archive HEAD sidecar/src | tar -x -C <scratch>/base`, puis
+`PYTHONPATH=<scratch>/base/sidecar/src` devant `drive.py`) sur cette copie. Le second run
+lit tout dans le cache (zéro requête dans son log) : mêmes réponses, seul le code diffère.
+Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores compris,
+`artwork_path` ramené à son nom de fichier : le dossier du cache diffère d'un run à l'autre.
+
 ### Flux qui valent le coup
 
 - Séquence complète : `run_started` listant tous les morceaux, puis par morceau son
@@ -100,6 +119,21 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   `tagging`, enfin `run_finished` en phase `network` avec les trois compteurs
 - Contenu d'un résolu : `state`/`resolution`/`failure_reason` en trois champs, `after`
   portant le titre suivi du nom de mix, scores entiers, chemin de pochette
+- Titre composé depuis les champs séparés : le faux serveur rend `title` sans sa version et
+  `mix_name` à part, comme la gateway (ADR-012 de techno-scraper). Les deux morceaux connus de
+  la fixture partent en arbitrage à 100/100 par la garde de version (le fichier ne nomme pas la
+  version, le candidat dit « Extended Mix ») ; `resolve_arbitration` à l'index 0 rend leur
+  `track_resolved` avec `after.title` à « Your Mind (Extended Mix) » et « Basiel (Extended
+  Mix) ». Relevé le 2026-10-02, identique sur le code d'avant la simplification de `full_title`
+  (rejeu par `PYTHONPATH=<scratch>/base/sidecar/src` sur un `git archive HEAD sidecar/src`)
+- Candidat comparé tel que la gateway le rend (titre, `mix_name` et crédits non
+  redécoupés) : non-régression du matching sur la démo, relevée le 2026-10-02 contre la
+  gateway locale 4.0.0, 30 morceaux, zéro écart avec le code d'avant (8 auto, 19 non
+  résolus, 3 arbitrages, scores identiques) ; mêmes chiffres en production 4.0.0 par le
+  binaire figé
+- Invité au nom de version écrit dans le tag : « Tommy Sharp » / « Biome feat. Dubfire »
+  (copie d'un `.mp3` de la démo retaguée par mutagen) contre la gateway 4.0.0, auto à 100 ;
+  le code d'avant le laissait en `below_threshold` (relevé le 2026-10-02)
 - Commande servie pendant un run : `get_version` envoyé après `start_tagging` répond
   avant `run_finished`, ce qui prouve que la boucle n'est pas bloquée
 - Second `start_tagging` pendant un run : `error` de code `tagging_in_progress` et le
@@ -145,6 +179,9 @@ run qui ne bouge pas après modification du serveur est presque toujours ça.
   coup. Glisser un `{"wait": 1.5}` avant `cancel_run` dans le fichier de `drive.py`, qui
   alimente `stdin` par un vrai pipe, avec `FAKE_DELAY` sur le faux serveur pour tenir les
   requêtes en vol
+- **Un `{"wait": N}` en dernière ligne ne retient rien** : le fichier finit, l'EOF tombe et
+  annule un geste encore en vol, `resolve_arbitration` compris. Le faire suivre d'une
+  commande, `get_version` par exemple
 - **La course d'une relance juste après `cancel_run` ne se reproduit pas contre le faux
   serveur** : il rend `artwork_url` nul, aucune pochette n'est donc en téléchargement, et
   c'est leur attente sous `shield` dans `__aexit__` du cache qui fait mourir le run
@@ -200,6 +237,55 @@ La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(
 - Rien ne bouge : conteneur de liste à 268px quel que soit le nombre de candidats, ligne d'aide et boutons du pied à la même ordonnée sur Beatport, Bandcamp, liste vide, Beatport injoignable, avec ou sans tags. Relevé à 191px pour la liste, 472px pour l'aide
 - Bandeau de bascule : lien « Revenir à Beatport » à la taille du texte du bandeau (12px), aucune animation d'entrée (`animationName` à `none`)
 - Une panne réseau pendant un refus ne sort jamais en `error` : c'est une liste Bandcamp vide au motif `source_unavailable`. Simuler une `error` `source_unavailable` sur un geste affiche un `{{source}}` brut qui ne vient pas de l'interface
+
+## Pilotage du rattrapage par URL
+
+`resolve_by_url` se pilote par `drive.py` sur un `--unique 1` : son morceau finit `unresolved` et son `track_id` se lit sur le nom de fichier rendu par `build_fixture.py`. URL servies par le faux serveur :
+
+| URL collée | Réponse |
+|---|---|
+| `https://www.beatport.com/track/your-mind/17492013` | morceau Beatport |
+| `https://amelielens.bandcamp.com/track/basiel` (et ses variantes `http://`, majuscules, query, fragment, `/` final) | morceau Bandcamp |
+| `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2` (et `m.`, `www.`, query) | morceau SoundCloud |
+| `https://on.soundcloud.com/verifyprofile` | profil, que le sidecar refuse en `unsupported_url` |
+| `https://www.beatport.com/track/x/403403` / `.../503503` | 403 / 503 de la gateway |
+| toute autre URL Bandcamp ou SoundCloud de forme valide, tout autre id Beatport | 404, `track_not_found` |
+
+Chaque requête partie se relit dans `logs/tagger.log` (httpx2 journalise l'URL complète) : c'est là que se vérifie la normalisation.
+
+### Flux qui valent le coup
+
+- Avant tout run : `url_recovery_not_open`, `command` à `resolve_by_url`, `params.track_id` au morceau
+- Commande malformée (`url` vide, champ en trop) : `malformed_command`, la boucle continue
+- Fin de run : `run_finished` en `network` suivi d'un seul `progress` en `url_recovery` à `0/1`
+- URL YouTube : `unsupported_url` portant `params.track_id`, puis URL Beatport : `track_resolved` en `resolved` / `url`, `scores` nul, suivi de `progress` à `1/1`. Un second collage sur le même morceau le rattrape de nouveau (un morceau rattrapé reste éligible)
+- `cancel_run` après la fin du run : aucun événement
+- `cancel_run` sous `FAKE_DELAY=1` à 1,5s sur un `--unique 3` : `progress` en `url_recovery` sans `run_finished`, à `0/0` (les morceaux jamais cherchés ne sont pas à rattraper), puis la boucle répond
+- Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason`
+- Formes d'URL : la variante Bandcamp `http://Amelielens.bandcamp.com/track/basiel/?from=search#lyrics` part en `url=https://amelielens.bandcamp.com/track/basiel`, la SoundCloud `m.` sans query ni `tracks_cursor` ; lien court résolu en profil → `unsupported_url` ; 404 → `track_not_found` avec `params.source` ; 503 → `source_unavailable` avec `status` et `reason` ; `soundcloud.com/<user>/sets` passe le contrôle local et revient en 404 du faux serveur
+- Non éligible, sans aucune requête émise par le geste : morceau en attente d'arbitrage, morceau arbitré (fixture par défaut, choix de l'index 0), `track_id` inconnu, morceau jamais atteint d'un run interrompu
+- Second geste sous `FAKE_DELAY=1`, 0,2s après le premier sur le même morceau : `url_recovery_busy`, puis le premier aboutit
+- Garde des 403 : trois gestes sur `403403` et trois morceaux d'un `--unique 3`, trois `api_key_rejected` dont le dernier au message `run stopped after repeated api key rejections`, la boucle répond ensuite
+- Interruption avec des non résolus : `--unique 5` sous `FAKE_DELAY=1`, `cancel_run` à 2,4s, `progress` à `0/2` sans `run_finished`, puis un rattrapage aboutit à `1/2`
+- Refus d'arbitrage tardif : `.mp3` d'un `--unique 1` copié dans le dossier d'un `--arbitration`, refus Beatport puis refus Bandcamp (`candidate: null`, source `bandcamp`) après la fin du run, le total passe de 1 à 2
+- Geste en vol sous `FAKE_DELAY=1` : un nouveau `start_tagging` l'abandonne sans `track_resolved` et l'ancien morceau devient non éligible ; `shutdown` ou EOF sortent aussitôt, sans `track_resolved` ni coroutine orpheline sur `stderr`. Un `ConnectionAbortedError` sur `stderr` vient du faux serveur, pas du sidecar
+
+**Contre la vraie gateway** (§ Pilotage du run de re-tagging) : URL réelles relevées dans les tests de techno-scraper, `https://www.beatport.com/track/abilene/23382450`, `https://deestricted.bandcamp.com/track/good-question`, `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2`. Les trois aboutissent en `resolved` / `url`, pochette téléchargée dans `cache/artworks/` ; `soundcloud.com/drumcode/sets`, que la gateway résout en playlist ou profil, revient en `unsupported_url`. Relevé le 2026-10-05 contre la gateway locale 4.0.1. La gateway charge ses clés SoundCloud depuis son propre fichier d'environnement : sans elles, `/soundcloud/resolve` échoue.
+
+Parcours relevé le 2026-10-05, tous verts.
+
+### Côté webview
+
+Le bloc sous la liste a cédé la place à la modale du lien (variations du 2026-10-06, DESIGN.md § Arbitrages). `page/url-recovery-modal.js` rejoue tout le parcours sous `ng serve` et rend un contrôle par règle :
+
+- Badge « N à rattraper » à 8px de « N à arbitrer » (`gap-2`), masqué pendant la recherche et à 0 ; depuis Playlist, il bascule sur Tagging et ouvre la modale sur le premier non résolu, champ focalisé, 720px de large, « 1/N »
+- Indice « Coller un lien → » à 14px et 600 dans la colonne Après ; un clic sur la ligne, ou Entrée sur la ligne focalisée (anneau visible), ouvre la modale sur ce morceau
+- Entrée envoie `resolve_by_url` une fois, spinner et « Lancer le run » bloqué pendant le geste ; une `error` `unsupported_url` s'affiche sous le champ à 16px du champ et du pied, lien gardé, hauteur de la modale et ordonnée du pied inchangées
+- Étape lien de l'arbitrage : refus Beatport puis Bandcamp et `track_resolved` en `unresolved` / `user_refused`, la modale garde son cadre, sans compteur, champ focalisé ; un lien accepté ou « Passer » mène à l'arbitrage suivant, puis ferme au dernier ; pendant la recherche, champ désactivé, aide « Disponible à la fin de la recherche », focus sur « Passer »
+- Un lien collé n'est pas repris au run suivant, même `track_id` ; sur `progress` à `0/0`, la ligne « Aucun morceau non résolu » remplace la barre
+- Aucun défilement de page à 1280 × 800 ni à 1024 × 700
+
+Parcours relevé le 2026-10-06, 27 contrôles verts. Un vrai run sous Tauri le même jour a montré qu'un « Passer » sur une liste Bandcamp vide rend le motif de la liste (`below_threshold`) et non `user_refused` : l'étape lien ne filtre pas sur le motif. L'animation d'entrée de `p-message` est ralentie par Playwright hors focus (§ Gotchas) : mesurer l'erreur après 2s ou `page.bringToFront()`.
 
 ## Pilotage de la garde de fermeture
 
@@ -273,7 +359,7 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
   - grille du formulaire : boutons de sélection, `p-select` et `p-selectbutton` à la même largeur, chemins alignés sur le bord droit de la grille, « Extraire la playlist » sur la ligne du mode, calé sur le bord droit de la grille, à la largeur des libellés et des contrôles réunis, `p-skeleton` à la hauteur du `p-select` qui le remplace, bloc vide (icône 24px `text-muted-color`, titre `text-base`, phrase `text-sm`)
   - tags : familles de § Couleurs Sémantiques, lues sur la classe `p-tag-*` et l'icône `data-p-icon`
   - tooltip : suivre `.p-tooltip` toutes les 100ms après un `Input.dispatchMouseEvent` : visible à 400ms sur un texte coupé, jamais sur un texte entier, retiré dès la sortie, classe `tt-tooltip-wide`, `pointer-events: none`
-- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Robert Hood - Minimal Nation », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
+- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Robert Hood - Minimal Nation », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Relevé le 2026-10-02 contre la production 4.0.0 : 8 auto, 17 non résolus, 2 arbitrages, candidats affichés « Titre (Mix Name) » ; choix au clic puis Entrée passe la ligne en « Arbitré », refus de « Minimal Nation » rend une liste Bandcamp vide puis « Passer ». Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
   - « Passer au tagging » absent avant toute extraction, pendant l'extraction et après une playlist vide (aucun `progress` émis, comportement voulu), présent à la fin d'une extraction non vide
   - pendant le run, retour sur Playlist, « Modifier » puis « Extraire » : l'extraction part et finit, le run continue et au retour sur Tagging les 27 lignes et la barre sont toujours là
   - pendant une extraction, « Lancer le run » désactivé, `blockedReason()` à `tagging.blocked.extracting`, réactivé à la fin. L'extraction de la démo dure une fraction de seconde : lancer `svc.extractPlaylist(svc.extractionRequest())` depuis l'onglet Tagging et échantillonner toutes les 5ms
@@ -327,6 +413,7 @@ Compter un élément éphémère, toast ou ligne squelette, se fait par un `Muta
 - Le premier `SendKeys` après `AppActivate` peut partir avant le focus : envoyer d'abord une touche sans enjeu et ne conclure que sur une touche vue par l'écouteur `keydown`
 - Ne pas lancer `just test` pendant `just build-sidecar` : le build pose un `_build_info.py` de production le temps de la compilation et `test_build_info` échoue
 - Les hooks bloquent `curl` (exécution distante) et tout heredoc contenant le mot `token` (fichier sensible supposé) : `cdp.mjs` interroge `http://127.0.0.1:9222/json` par `fetch`. Le même hook attrape l'expression qui parcourt les providers d'un injecteur, `record["tok" + "en"]` n'y suffisant pas quand elle passe en argument de commande : c'est pourquoi elle vit dans `page/preamble.js` (lu par `cdp.mjs`) et jamais dans une commande. Un nouveau script de page s'écrit par l'outil Write, dans `scripts/page/`
+- Un dossier passé à `start_tagging` sous sa forme Git Bash (`/c/Users/...`, celle de `$PWD`) rend `tagging_folder_unreadable` : Python sous Windows ne le lit pas, écrire `C:/Users/...`
 - Un chemin Windows passé en argument shell à `Runtime.evaluate` perd ses backslashes et le sidecar répond `tagging_folder_unreadable` sur un chemin amputé : le passer en argument de `cdp.mjs`, qui le transmet par `__args` sans jamais l'écrire dans l'expression
 - Le run de re-tagging sous Tauri tape la **vraie** API techno-scraper avec la clé enregistrée sur la machine, `API_BASE_URL` étant une constante du module qu'aucune variable d'environnement ne détourne. Les trente morceaux de la démo tiennent sans peine sous le seul plafond connu (Bandcamp, environ 185 appels par 3 minutes, cf. `docs/knowledges/techno-scraper.md`). La phase réseau n'écrit aucun tag, l'écriture appartenant à la Feature 5
 - Relever les issues que la vraie API rend avant de piloter l'interface : `start_tagging` sur `demo-data/Bibliotheque` envoyé au binaire figé par un pipe, sous un `LOCALAPPDATA` du scratchpad. Le cache réel reste froid pour le run sous Tauri et les réponses brutes se relisent dans `cache/responses/*.json` pour trancher entre un catalogue qui n'a pas le titre et un matching fautif

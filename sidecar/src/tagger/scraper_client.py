@@ -2,18 +2,20 @@
 
 Couche anti-corruption : URL, routes, codes HTTP et noms de champs ne sortent pas
 de ce module (ARCHITECTURE.md § Patterns Utilises). Contrat de reference :
-techno-scraper 3.1.3, `src/technoscraper/shared/schemas.py`.
+techno-scraper 4.0.0, `src/technoscraper/shared/schemas.py`.
 """
 
 import asyncio
 import logging
+import re
 from datetime import date
 from enum import UNIQUE, StrEnum, auto, verify
 from http import HTTPStatus
-from typing import TYPE_CHECKING, ClassVar, Final, Literal, NamedTuple, Self
+from typing import TYPE_CHECKING, ClassVar, Final, Literal, NamedTuple, Self, assert_never
+from urllib.parse import urlsplit
 
 import httpx2
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, RootModel, ValidationError
 
 from tagger.errors import TaggerError
 
@@ -38,6 +40,7 @@ SEARCH_PAGE_SIZE: Final = 10
 # emettre davantage ne fait qu'empiler des requetes qui sortent en 504 (ADR-017).
 BEATPORT_CONCURRENCY: Final = 3
 BANDCAMP_CONCURRENCY: Final = 2
+SOUNDCLOUD_CONCURRENCY: Final = 5
 
 # `read` au-dessus du budget de 90 s de l'API : on recoit son 504 structure plutot
 # qu'un timeout local aveugle.
@@ -51,6 +54,21 @@ RETRY_DELAYS: Final = (1.0, 2.0)
 # Aucune reponse recue : DNS, connexion refusee ou coupee, delai de connexion depasse.
 # Un timeout de lecture, lui, survient apres 100 s et ne se retente pas.
 _NETWORK_FAILURES: Final = (httpx2.NetworkError, httpx2.ConnectTimeout, httpx2.RemoteProtocolError)
+
+# Formes d'URL de morceau acceptees au rattrapage. Bandcamp recopie le pattern de
+# `/bandcamp/tracks`, qui rend 422 sur une query, `http://` ou `/album/` ; Beatport
+# n'a pas de route par URL, l'id se lit dans l'URL publique que l'API elle-meme rend.
+_BEATPORT_HOSTS: Final = frozenset({"www.beatport.com", "beatport.com"})
+_BEATPORT_TRACK_PATH: Final = re.compile(r"/track/[^/]+/(?P<id>\d+)")
+_BANDCAMP_HOST: Final = re.compile(r"[a-z0-9][a-z0-9-]*\.bandcamp\.com")
+_BANDCAMP_TRACK_PATH: Final = re.compile(r"/track/[\w-]+")
+
+# SoundCloud rend 404 sur `www.`, `m.` et un `/` final (constat techno-scraper du
+# 2026-09-30) ; un lien court se resout de son cote, parfois vers une playlist.
+_SOUNDCLOUD_HOSTS: Final = frozenset({"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"})
+_SOUNDCLOUD_TRACK_PATH: Final = re.compile(r"/[^/]+/[^/]+")
+_SOUNDCLOUD_SHORT_HOST: Final = "on.soundcloud.com"
+_SOUNDCLOUD_SHORT_PATH: Final = re.compile(r"/[^/]+")
 
 
 @verify(UNIQUE)
@@ -110,9 +128,26 @@ class _TrackPage(_ApiModel):
     items: tuple[TrackCandidate, ...] = ()
 
 
+class _ProfileEnvelope(_ApiModel):
+    """`UserProfile` de `/soundcloud/resolve` : seule sa cle `profile` le distingue d'un `Track`."""
+
+    profile: dict[str, object]
+
+
+class _Resolved(RootModel[TrackCandidate | _ProfileEnvelope]):
+    """Reponse de `/soundcloud/resolve`, morceau ou profil selon l'URL."""
+
+
 class _ApiResponse(NamedTuple):
     payload: object
     request_id: str
+
+
+class _TrackUrl(NamedTuple):
+    """Cible d'une URL de morceau : id Beatport, ou URL normalisee pour les autres."""
+
+    source: Source
+    reference: str
 
 
 class ScraperError(TaggerError):
@@ -179,8 +214,20 @@ class ApiContractError(ScraperError):
         super().__init__(f"api contract broken: {detail}", request_id=request_id)
 
 
+class UnsupportedTrackUrlError(TaggerError):
+    """URL collee qui ne designe pas un morceau d'une source acceptee, refusee sans appel.
+
+    Sans `params` : l'URL peut nommer l'artiste et le morceau.
+    """
+
+    code: ClassVar[str] = "unsupported_url"
+
+    def __init__(self) -> None:
+        super().__init__("unsupported track url")
+
+
 class TechnoScraperClient:
-    """Recherche et refetch de morceaux sur techno-scraper.
+    """Recherche, refetch et resolution d'URL de morceaux sur techno-scraper.
 
     Le transport et l'attente entre deux tentatives sont injectables : c'est ce
     qui rend le client testable sous `MockTransport` sans dormir.
@@ -205,6 +252,7 @@ class TechnoScraperClient:
         self._semaphores: dict[Source, asyncio.Semaphore] = {
             Source.BEATPORT: asyncio.Semaphore(BEATPORT_CONCURRENCY),
             Source.BANDCAMP: asyncio.Semaphore(BANDCAMP_CONCURRENCY),
+            Source.SOUNDCLOUD: asyncio.Semaphore(SOUNDCLOUD_CONCURRENCY),
         }
 
     async def __aenter__(self) -> Self:
@@ -233,16 +281,41 @@ class TechnoScraperClient:
             raise ApiContractError("not found on a search", request_id=exc.request_id) from exc
 
     async def fetch_beatport_track(self, track_id: str) -> TrackCandidate:
-        """Metadonnees completes : les objets de recherche sont abreges."""
+        """Metadonnees completes : seul `track_number` manque en recherche Beatport."""
         return await self._get(Source.BEATPORT, f"/beatport/tracks/{track_id}", {}, TrackCandidate)
 
     async def fetch_bandcamp_track(self, url: str) -> TrackCandidate:
         """Metadonnees completes : la recherche Bandcamp ne rend ni date ni label."""
         return await self._get(Source.BANDCAMP, "/bandcamp/tracks", {"url": url}, TrackCandidate)
 
-    async def _request(
-        self, source: SearchSource, path: str, params: Mapping[str, str]
-    ) -> _ApiResponse:
+    async def fetch_by_url(self, url: str) -> TrackCandidate:
+        """Morceau designe par une URL collee par l'utilisateur.
+
+        Leve `UnsupportedTrackUrlError` sans aucun appel quand l'URL ne designe pas un
+        morceau d'une source acceptee : envoyee telle quelle, elle prendrait un 422 lu
+        comme un contrat casse.
+        """
+        target = _parse_track_url(url)
+        match target.source:
+            case Source.BEATPORT:
+                return await self.fetch_beatport_track(target.reference)
+            case Source.BANDCAMP:
+                return await self.fetch_bandcamp_track(target.reference)
+            case Source.SOUNDCLOUD:
+                return await self._resolve_soundcloud(target.reference)
+            case unreachable:
+                assert_never(unreachable)
+
+    async def _resolve_soundcloud(self, url: str) -> TrackCandidate:
+        """`tracks_cursor` n'est jamais envoye : sur un morceau, l'API le refuse en 400."""
+        resolved = await self._get(
+            Source.SOUNDCLOUD, "/soundcloud/resolve", {"url": url}, _Resolved
+        )
+        if isinstance(resolved.root, _ProfileEnvelope):
+            raise UnsupportedTrackUrlError
+        return resolved.root
+
+    async def _request(self, source: Source, path: str, params: Mapping[str, str]) -> _ApiResponse:
         """Emet la requete avec nouvelle tentative et semaphore ; le cache n'est pas son affaire."""
         delays = iter(RETRY_DELAYS)
         while True:
@@ -261,7 +334,7 @@ class TechnoScraperClient:
                 return _translate(source, response)
 
     async def _get[M: BaseModel](
-        self, source: SearchSource, path: str, params: Mapping[str, str], model: type[M]
+        self, source: Source, path: str, params: Mapping[str, str], model: type[M]
     ) -> M:
         """Point de passage unique de toute requete, cache et validation compris.
 
@@ -284,7 +357,7 @@ class TechnoScraperClient:
         return validated
 
 
-def _translate(source: SearchSource, response: httpx2.Response) -> _ApiResponse:
+def _translate(source: Source, response: httpx2.Response) -> _ApiResponse:
     """Seul endroit ou un code HTTP de l'API est lu."""
     request_id = response.headers.get("X-Request-ID", "")
     try:
@@ -339,3 +412,27 @@ def _failure_reason(error: httpx2.RequestError) -> str:
     if isinstance(error, httpx2.TimeoutException):
         return "timeout"
     return "transport"
+
+
+def _parse_track_url(pasted: str) -> _TrackUrl:
+    """Source et cible d'une URL collee, normalisee comme l'attend sa route.
+
+    Query, fragment et `/` final tombent, `hostname` rend l'hote en minuscules et
+    `http` devient `https`. La casse du chemin est conservee.
+    """
+    try:
+        parts = urlsplit(pasted.strip())
+    except ValueError:
+        raise UnsupportedTrackUrlError from None
+    host = parts.hostname or ""
+    path = parts.path.rstrip("/")
+    if parts.scheme in {"http", "https"}:
+        if host in _BEATPORT_HOSTS and (match := _BEATPORT_TRACK_PATH.fullmatch(path)):
+            return _TrackUrl(Source.BEATPORT, match.group("id"))
+        if _BANDCAMP_HOST.fullmatch(host) and _BANDCAMP_TRACK_PATH.fullmatch(path):
+            return _TrackUrl(Source.BANDCAMP, f"https://{host}{path}")
+        if host in _SOUNDCLOUD_HOSTS and _SOUNDCLOUD_TRACK_PATH.fullmatch(path):
+            return _TrackUrl(Source.SOUNDCLOUD, f"https://soundcloud.com{path}")
+        if host == _SOUNDCLOUD_SHORT_HOST and _SOUNDCLOUD_SHORT_PATH.fullmatch(path):
+            return _TrackUrl(Source.SOUNDCLOUD, f"https://{host}{path}")
+    raise UnsupportedTrackUrlError

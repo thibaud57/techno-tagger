@@ -6,7 +6,9 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import type { SidecarErrorEvent } from "../../core/models/protocol"
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
+import { PENDING_TRACK } from "../../../fixtures/tagging"
 
+import { RecoveryUiStore } from "./recovery-ui.store"
 import TaggingPageComponent from "./tagging-page.component"
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -47,6 +49,12 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     errorFor: SidecarService.prototype.errorFor,
     startTagging: vi.fn(() => Promise.resolve()),
     cancelTagging: vi.fn(() => Promise.resolve()),
+    arbitrations: signal([]),
+    urlRecoveryProgress: signal<{ processed: number; total: number } | null>(null),
+    recoverableTracks: signal([]),
+    urlRecoveryBusy: signal(new Set<string>()),
+    urlRecoveryErrors: signal(new Map()),
+    resolveByUrl: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
   vi.mocked(load).mockResolvedValue({
@@ -67,6 +75,83 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
 describe("TaggingPageComponent", () => {
   const cancelButton = (fixture: { nativeElement: unknown }): HTMLElement | null =>
     (fixture.nativeElement as HTMLElement).querySelector('[data-p-icon="stop"]')
+
+  const host = (fixture: { nativeElement: unknown }): HTMLElement =>
+    fixture.nativeElement as HTMLElement
+
+  it("shows the recovery progress bar after an interrupted run", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      taggingInterrupted: signal(true),
+      urlRecoveryProgress: signal({ processed: 0, total: 1 }),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-phase-progress")).not.toBeNull()
+    expect(host(fixture).querySelector("[data-recovery-empty]")).toBeNull()
+  })
+
+  it("shows nothing about recovery while the phase is closed", async () => {
+    const { fixture } = await mountWith({ taggingRunId: signal("a3f9c1") })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(host(fixture).querySelector("[data-recovery-empty]")).toBeNull()
+  })
+
+  it("shows the empty recovery state in place of the bar on zero out of zero", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      urlRecoveryProgress: signal({ processed: 0, total: 0 }),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("[data-recovery-empty]")).not.toBeNull()
+    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+  })
+
+  it("opens the link dialog on the track of a clicked run row", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      recoverableTracks: signal([{ ...PENDING_TRACK, state: "unresolved" }]),
+    })
+
+    component["openRecovery"]("a.mp3")
+
+    expect(TestBed.inject(RecoveryUiStore).target()).toBe("a.mp3")
+  })
+
+  it.each<[string, boolean, string]>([
+    ["finished", false, "tagging.recovery.phase"],
+    ["running", true, "tagging.phase"],
+  ])(
+    "shows the url recovery progress in place of the run progress (%s)",
+    async (_run, running, label) => {
+      const { fixture } = await mountWith({
+        tagging: signal(running),
+        taggingRunId: signal("a3f9c1"),
+        urlRecoveryProgress: signal({ processed: 1, total: 2 }),
+      })
+
+      fixture.detectChanges()
+
+      const bars = host(fixture).querySelectorAll("app-phase-progress")
+      expect(bars).toHaveLength(1)
+      expect(bars[0]?.textContent).toContain(label)
+    },
+  )
+
+  it("blocks a new run while a url recovery waits", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      urlRecoveryBusy: signal(new Set(["a.mp3"])),
+    })
+
+    expect(component["blockedReason"]()).toBe("tagging.blocked.recovering")
+  })
 
   it("offers no way to interrupt before a run starts", async () => {
     const { fixture } = await mountWith()

@@ -1,0 +1,81 @@
+<!-- Largeur de l'arbitrage, hauteur au contenu : un seul champ ne remplirait pas ses 560px. -->
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="onVisibleChange($event)"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="true"
+  [closeOnEscape]="true"
+  [focusOnShow]="false"
+  [motionOptions]="noMotion"
+  [maskMotionOptions]="noMotion"
+  styleClass="w-180"
+  [pt]="dialogPt"
+  [closeAriaLabel]="'tagging.recovery.close' | translate"
+>
+  <!-- En-tete calque sur l'arbitrage, gap-3 et gap-0.5 compris : les deux modales se relaient. -->
+  <ng-template #header>
+    <div class="flex min-w-0 flex-1 items-center gap-3">
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h3 class="m-0 min-w-0 text-lg font-semibold" data-title>
+          <app-truncated-text [text]="title()" />
+        </h3>
+        <!-- Ligne gardee meme vide : d'un morceau a l'autre, le champ ne se decale pas. -->
+        <app-truncated-text
+          class="min-h-4 text-xs text-muted-color"
+          [text]="track()?.fileName ?? null"
+        />
+      </div>
+      @if (recoveredSource(); as source) {
+        <app-source-logo [source]="source" [size]="20" />
+      }
+    </div>
+  </ng-template>
+
+  @if (track(); as shown) {
+    <div data-keys tabindex="-1" (keydown)="onKeydown($event)">
+      <app-url-link-form [trackId]="shown.trackId" />
+    </div>
+  }
+
+  <ng-template #footer>
+    <div class="flex w-full items-stretch gap-2" tabindex="-1" (keydown)="onKeydown($event)">
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        severity="secondary"
+        [disabled]="!hasPrevious()"
+        [attr.aria-label]="'tagging.recovery.previous' | translate"
+        [attr.title]="'tagging.recovery.previous' | translate"
+        (click)="previous()"
+      >
+        <app-icon name="chevron-left" [size]="16" />
+      </button>
+      <p-badge
+        class="h-auto tabular-nums"
+        severity="secondary"
+        [value]="position() + '/' + count()"
+      />
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        severity="secondary"
+        [disabled]="!hasNext()"
+        [attr.aria-label]="'tagging.recovery.next' | translate"
+        [attr.title]="'tagging.recovery.next' | translate"
+        (click)="next()"
+      >
+        <app-icon name="chevron-right" [size]="16" />
+      </button>
+      <span class="flex-1"></span>
+      @if (track(); as shown) {
+        <app-url-link-actions [trackId]="shown.trackId" (skipped)="skip()" />
+      }
+    </div>
+  </ng-template>
+</p-dialog>

@@ -12,7 +12,7 @@ technologies: ["mutagen", "Python", "ID3", "FLAC"]
 
 La CLI actuelle traite le MP3 seul et écrit dix champs. Le contrat `Track` de techno-scraper en expose davantage, et une bibliothèque DJ mélange les achats Beatport et Bandcamp, donc plusieurs formats de fichiers.
 
-La couverture des sources est très asymétrique : **Beatport remplit tout le contrat, Bandcamp seulement le socle d'identité** (artistes, titre, album, dates, label, ISRC, numéro de piste, URL, pochette). Ni genre, ni BPM, ni key, ni remixers, ni numéro de catalogue côté Bandcamp.
+La couverture des sources est très asymétrique : **Beatport remplit tout le contrat, Bandcamp seulement le socle d'identité** (artistes, titre, album, dates, label, ISRC, numéro de piste, URL, pochette). Ni genre, ni BPM, ni key, ni remixers, ni numéro de catalogue côté Bandcamp. **Précision 2026-09-30** : depuis la normalisation des champs texte de techno-scraper (son ADR-012), Bandcamp rend aussi les remixeurs et le numéro de catalogue quand le titre les porte.
 
 ---
 
@@ -53,7 +53,7 @@ Quels formats supporter, quels champs écrire, et que faire quand une source ne 
 
 **Inconvénients :**
 - Laisse de côté les achats Bandcamp en FLAC et les fichiers WAV et AIFF d'une bibliothèque réelle
-- Jette des champs que l'API renvoie déjà gratuitement (numéro de catalogue, URL de la fiche, artiste de la sortie, traçabilité)
+- Jette des champs que l'API renvoie déjà gratuitement (numéro de catalogue, URL de la fiche, traçabilité)
 
 **Coût estimé :** Nul, périmètre insuffisant.
 
@@ -116,15 +116,15 @@ Les trois champs sans équivalent Picard (`SOURCE_ID`, `SOURCE`, et l'URL en Vor
 | Champ API | Tag ID3 | Beatport | Bandcamp | Note |
 |---|---|---|---|---|
 | `artists[]` | TPE1 (`artist`) | ✅ | ✅ | noms joints |
-| `release` (artiste de la sortie) | TPE2 (`albumartist`) | ✅ | ✅ | absent de la CLI actuelle |
-| `remixers[]` | TPE4 | ✅ | ❌ | non exposé par EasyID3, à enregistrer |
-| `title` + `mix_name` | TIT2 (`title`) | ✅ | partiel | cf. règles |
+| — | TPE2 (`albumartist`) | ❌ | ❌ | le contrat ne rend pas d'artiste de sortie (`release` : id, title, source_title, catalog_number, release_date, artwork_url) : source à définir, non écrit tant qu'elle ne l'est pas |
+| `remixers[]` | TPE4 | ✅ | partiel | non exposé par EasyID3, à enregistrer ; Bandcamp : seulement si le titre nomme le remixeur (cf. Contexte) |
+| `title` + `mix_name` | TIT2 (`title`) | ✅ | ✅ | cf. règles |
 | `release.title` | TALB (`album`) | ✅ | ✅ | |
-| `release_date` | TDRC (`date`) | ✅ | ✅ | date du morceau, fait foi. Écrite par mutagen, convertie en TYER + TDAT au `save(v2_version=3)` |
-| `release.release_date` | TDOR (`originaldate`) | ✅ | ✅ | date de la sortie. **Frame v2.4 sans équivalent complet en v2.3**, cf. règles |
+| `release.release_date` | TDRC (`date`) | ✅ | ✅ | seule date du contrat, celle de la sortie (`Track` n'en porte aucune à la racine). Écrite par mutagen, convertie en TYER + TDAT au `save(v2_version=3)` |
+| `release.release_date` | TDOR (`originaldate`) | ✅ | ✅ | même valeur que TDRC, le contrat ne distinguant pas date du morceau et date de la sortie. **Frame v2.4 sans équivalent complet en v2.3**, cf. règles |
 | `genre` | TCON (`genre`) | ✅ | ❌ | |
 | `label.name` | TPUB (`organization`) | ✅ | ✅ | |
-| `release.catalog_number` | TXXX:CATALOGNUMBER | ✅ | ❌ | convention Picard, absent de la CLI actuelle |
+| `release.catalog_number` | TXXX:CATALOGNUMBER | ✅ | partiel | convention Picard, absent de la CLI actuelle ; Bandcamp : seulement si le titre de la sortie le porte (cf. Contexte) |
 | `bpm` | TBPM | ✅ | ❌ | |
 | `key` | TKEY | ✅ | ❌ | notation Camelot, non exposé par EasyID3, à enregistrer |
 | `isrc` | TSRC | ✅ | ✅ | |
@@ -135,8 +135,8 @@ Les trois champs sans équivalent Picard (`SOURCE_ID`, `SOURCE`, et l'URL en Vor
 
 ## Règles
 
-- **Titre** : avec `mix_name` (Beatport), on rend « Titre (Mix Name) ». Sans lui (Bandcamp), on prend `title` tel quel, les artistes y écrivant déjà le remix à la main.
-- **Remixers** écrits en TPE4 seulement quand la source les fournit séparément. Depuis Bandcamp, l'information reste dans le titre.
+- **Titre** : avec `mix_name` (Beatport), on rend « Titre (Mix Name) ». **Précision 2026-09-30** : techno-scraper rend la version à part (`mix_name`) pour les trois sources depuis sa normalisation des champs texte (son ADR-012) ; `title` ne porte plus de version et la composition `Titre (Mix Name)` vaut partout.
+- **Remixers** écrits en TPE4 seulement quand la source les fournit séparément, ce que Bandcamp fait aussi depuis l'ADR-012 de techno-scraper (cf. Contexte).
 - **Un champ `null` ne touche pas au tag existant.**
 - **Les tags hors tableau sont laissés intacts**, pas d'effacement global du bloc.
 - **Renommage après l'écriture des tags, jamais avant.**

@@ -21,6 +21,7 @@ from tagger.handlers import (
     tagging_transports,
 )
 from tagger.protocol import ExtractPlaylist, ListPlaylists, Phase, Progress, SetApiKey
+from tagger.url_recovery import UrlRecovery
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -164,7 +165,8 @@ async def test_closes_the_client_even_when_closing_is_cancelled(tmp_path: Path) 
     async with opened_run(one_track(tmp_path), FakeApi()) as opened:
         live, sources = opened.live, opened.sources
     arbitration = Arbitration(live, sources, lambda _event: None)
-    current = CurrentRun(stack, live, sources, arbitration)
+    recovery = UrlRecovery(live, sources, lambda _event: None)
+    current = CurrentRun(stack, live, sources, arbitration, recovery)
     cancelled_seen, released = asyncio.Event(), asyncio.Event()
     current.track(asyncio.create_task(gesture(cancelled_seen, released), name="gesture"))
 

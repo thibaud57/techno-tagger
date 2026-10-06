@@ -1,8 +1,10 @@
-"""Pilote la vraie boucle NDJSON contre le faux techno-scraper et rend un verdict JSON.
+"""Pilote la vraie boucle NDJSON contre le faux techno-scraper, ou une gateway locale, et
+rend un verdict JSON.
 
 Boucle, client httpx2 sur une vraie socket, caches disque, trousseau, lecture des tags et
 sortie NDJSON sont ceux de production : seule l'URL de l'API est detournee, constante du
-module qu'aucune variable d'environnement ne redirige. Usage, depuis la racine du depot :
+module qu'aucune variable d'environnement du sidecar ne redirige, et la cle face a une
+gateway locale. Usage, depuis la racine du depot :
 
     uv run --directory sidecar python <skill>/scripts/drive.py <commandes.ndjson> [sortie.ndjson]
 
@@ -12,7 +14,9 @@ commandes arriveraient d'un bloc et une annulation tomberait avant `run_started`
 
 Environnement : `LOCALAPPDATA` isole la racine des donnees (a purger entre deux runs, le
 cache de reponses etant reel), `FAKE_DELAY` tient chaque requete en vol, `REJECT_ALL`
-fait rendre 403 a tout.
+fait rendre 403 a tout. `GATEWAY_URL` et `GATEWAY_KEY` visent a la place une vraie
+gateway lancee en local (techno-scraper, `API_KEYS__VERIFY=<cle> just dev`) : la cle de test
+remplace celle du trousseau, qui ne part donc jamais vers un serveur de developpement.
 """
 
 import asyncio
@@ -48,11 +52,28 @@ try:
 except ImportError as error:
     fail(f"{error} : lancer par `uv run --directory sidecar`, le paquet tagger en depend")
 
-server = fake_api.serve()
-scraper_client.API_BASE_URL = f"http://127.0.0.1:{server.server_address[1]}"
+gateway_url = os.getenv("GATEWAY_URL")
+if gateway_url:
+    gateway_key = os.getenv("GATEWAY_KEY")
+    if not gateway_key:
+        fail("GATEWAY_URL pose sans GATEWAY_KEY : la cle du trousseau ne doit pas partir en dev")
+    scraper_client.API_BASE_URL = gateway_url
+else:
+    server = fake_api.serve()
+    scraper_client.API_BASE_URL = f"http://127.0.0.1:{server.server_address[1]}"
 
 # Apres la reaffectation : le module lit la constante a l'import.
+from tagger import handlers  # noqa: E402
 from tagger.__main__ import log_dir, run_loop  # noqa: E402
+
+if gateway_url:
+
+    def _gateway_key() -> str | None:
+        return gateway_key
+
+    # `handlers` importe `read_api_key` par son nom : c'est ce nom qu'il faut remplacer, sans
+    # quoi la cle du trousseau partirait vers la gateway de developpement.
+    handlers.read_api_key = _gateway_key
 from tagger.logger import setup_logging  # noqa: E402
 
 setup_logging(log_dir())

@@ -1,6 +1,6 @@
 ---
 title: "Sentry — Remontée d'erreurs durcie (Python + Angular)"
-version: "sentry-sdk 2.68.1 / @sentry/angular 10.73.0"
+version: "sentry-sdk 2.71.0 / @sentry/angular 11.1.0"
 description: "Référence technique pour les deux SDK Sentry du projet : durcissement RGPD, réglages non négociables, scrubbing, corrélation de release et empaquetage PyInstaller."
 date: "2026-08-29"
 keywords: ["sentry", "rgpd", "scrubbing", "observabilite", "angular", "python", "pyinstaller"]
@@ -44,7 +44,7 @@ sentry_sdk.init(
 
 - **`include_local_variables` vaut `True` par défaut** : le SDK joint alors un instantané des variables locales de chaque frame, qui contiennent les chemins complets, l'artiste et le titre en cours de traitement, et potentiellement la clé API si elle transite par une variable locale de `scraper_client.py`
 - **`server_name` est auto-détecté** : sans valeur fixe, le nom de la machine part avec chaque événement
-- **`send_default_pii` a pour défaut `None`** (vérifié dans `sentry_sdk.consts.DEFAULT_OPTIONS`, contrairement à `false` côté JavaScript) : il s'agit de ne pas l'activer, pas de le régler
+- **`send_default_pii` a pour défaut `None`** (vérifié dans `sentry_sdk.consts.DEFAULT_OPTIONS`) : il s'agit de ne pas l'activer, pas de le régler. Le SDK JavaScript, lui, n'a plus cette option depuis la v11 (cf. § SDK Angular)
 - **`LoggingIntegration` est active par défaut avec `level=logging.INFO`** : tout log INFO devient un breadcrumb attaché au prochain événement, chemin complet ou titre de morceau compris. `level=None` la neutralise ; `auto_enabling_integrations=False` empêche toute autre intégration implicite de se réactiver dans son dos
 - Le DSN de la région EU passe par `ingest.de.sentry.io` : la résidence des données se choisit à la création de l'organisation et ne se change pas ensuite
 - Ces trois réglages **ne dispensent pas du scrubbing** : ils ferment les canaux les plus larges, pas tous
@@ -88,17 +88,27 @@ Initialisation dans `main.ts` avant le bootstrap, gestionnaire d'erreurs fourni 
 ### Exemple
 
 ```typescript
-// main.ts
-Sentry.init({
-  dsn: SENTRY_DSN_UI,                       // constantes `define` d'esbuild, pas d'environment.ts
-  release: `${APP_NAME}@${APP_VERSION}`,    // préfixe compris, identique au sidecar
-  environment: APP_ENVIRONMENT,
-  integrations: (defaults) =>
-    defaults.filter(
-      (i) => i.name !== 'Breadcrumbs' && i.name !== 'Replay' && i.name !== 'CultureContext',
-    ),
+// core/sentry-options.ts, appelé par main.ts avant le bootstrap
+const PRIVATE_INTEGRATIONS = new Set(['Breadcrumbs', 'Console', 'Replay', 'CultureContext']);
+
+export const sentryOptions = (dsn: string, release: string, environment: string): BrowserOptions => ({
+  dsn,                                      // constantes `define` d'esbuild, pas d'environment.ts
+  release,                                  // `${APP_NAME}@${APP_VERSION}`, identique au sidecar
+  environment,
+  integrations: (defaults) => defaults.filter((i) => !PRIVATE_INTEGRATIONS.has(i.name)),
+  dataCollection: {
+    userInfo: false,                        // sinon `infer_ip: auto` : Sentry déduit l'IP
+    cookies: false,
+    httpHeaders: false,
+    httpBodies: [],
+    urlQueryParams: false,
+    stackFrameVariables: false,
+  },
+  beforeSend: scrub,
 });
 
+// main.ts
+Sentry.init(sentryOptions(SENTRY_DSN_UI, `${APP_NAME}@${APP_VERSION}`, APP_ENVIRONMENT));
 bootstrapApplication(AppComponent, appConfig);
 ```
 
@@ -112,8 +122,8 @@ providers: [
 ### Points Importants
 
 - **`createErrorHandler()` est la seule fabrique exposée**, à brancher par `{ provide: ErrorHandler, useValue: ... }`. Il n'existe aucun `provideErrorHandler()` : vérifié dans `@sentry/angular` 10.72.0, qui n'exporte que `createErrorHandler` et `SentryErrorHandler`, et confirmé par la doc officielle
-- **`Breadcrumbs` capture les interactions et le contenu de la console**, donc des noms de morceaux affichés à l'écran ; **`Replay` capture le DOM** ; **`CultureContext` envoie la locale, le calendrier et le fuseau horaire** de l'utilisateur. Les trois sont à retirer, pas à régler
-- `sendDefaultPii` est déjà `false` par défaut côté JavaScript, contrairement à Python où le défaut documenté est `None`
+- **`Breadcrumbs` capture les interactions et `Console` le contenu de la console**, donc des noms de morceaux affichés à l'écran ; **`Replay` capture le DOM** ; **`CultureContext` envoie la locale, le calendrier et le fuseau horaire** de l'utilisateur. Les quatre sont à retirer, pas à régler. `Console` est une intégration à part depuis la v11 : un filtre écrit pour la v10 la laisse passer
+- **Sentry 11 remplace `sendDefaultPii` par `dataCollection`, et l'option absente collecte tout** : IP inférée (`userInfo`), cookies, en-têtes, corps HTTP, paramètres d'URL. Chaque catégorie se ferme explicitement. Mesuré le 2026-10-02 sur l'événement envoyé : avec la config v10, `sdk.settings.infer_ip` vaut `auto` et une ligne de console part en breadcrumb ; avec `dataCollection` fermé et `Console` retirée, `never` et aucun breadcrumb de console
 - La `peerDependency` couvre `@angular/core >= 14.x <= 22.x`
 - Les source maps se génèrent en mode `hidden`, s'uploadent vers Sentry et **ne sont pas livrées dans le bundle** distribué
 

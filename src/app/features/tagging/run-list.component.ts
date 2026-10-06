@@ -12,16 +12,14 @@ import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.com
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
-import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
+import { failureReasonKey, joinIdentity, trackMainLine } from "../../shared/utils/identity"
 import { FADE_IN } from "../../shared/utils/motion"
+import { SOURCE_NAMES } from "../../shared/utils/sources"
 import { fullHeightTable } from "../../shared/utils/table"
 import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
 /** PrimeNG ne mesure pas ses lignes : a remesurer si `h-14` change sur le `<tr>`. */
 const ROW_HEIGHT = 56
-
-/** Noms de marque : identiques dans les deux langues, aucune cle i18n a tenir. */
-const SOURCE_NAMES = { beatport: "Beatport", bandcamp: "Bandcamp", soundcloud: "SoundCloud" }
 
 interface RunRow extends TaggingTrack {
   readonly mainLine: string
@@ -30,6 +28,7 @@ interface RunRow extends TaggingTrack {
   readonly artworkUrl: string | null
   readonly reasonKey: string | null
   readonly arbitrable: boolean
+  readonly recoverable: boolean
 }
 
 @Component({
@@ -58,7 +57,10 @@ export class RunListComponent {
   /** Le sidecar parcourt encore le dossier : aucune ligne n'est connue. */
   readonly loading = input(false)
   readonly interrupted = input(false)
+  /** Morceaux que le sidecar accepte de rattraper par lien : lus, jamais deduits ici. */
+  readonly recoverable = input<ReadonlySet<string>>(new Set())
   readonly arbitrate = output<string>()
+  readonly recover = output<string>()
 
   protected readonly empty = computed(() => this.tracks().length === 0)
   protected readonly tablePt = computed(() => fullHeightTable(this.empty()))
@@ -70,8 +72,22 @@ export class RunListComponent {
       afterLine: track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
       sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
       artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
-      reasonKey: track.failureReason === null ? null : `tagging.reason.${track.failureReason}`,
+      reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
       arbitrable: track.arbitration !== null,
+      recoverable: this.recoverable().has(track.trackId),
     })),
   )
+
+  /**
+   * L'arbitrage prime : un morceau en file n'est pas encore rattrapable. Espace ferait
+   * defiler la table sans le `preventDefault`.
+   */
+  protected activate(row: RunRow, event?: Event): void {
+    event?.preventDefault()
+    if (row.arbitrable) {
+      this.arbitrate.emit(row.trackId)
+    } else if (row.recoverable) {
+      this.recover.emit(row.trackId)
+    }
+  }
 }

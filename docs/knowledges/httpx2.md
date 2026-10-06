@@ -1,6 +1,6 @@
 ---
 title: "httpx2 — Client HTTP asynchrone du sidecar"
-version: "2.12.0"
+version: "2.13.1"
 description: "Référence technique pour httpx2 : clients partagés, timeouts, limits vs sémaphores, streaming des pochettes, gestion d'erreurs et stratégie de test sans mock mature."
 date: "2026-08-29"
 keywords: ["httpx2", "asyncio", "http", "timeout", "streaming", "mocktransport"]
