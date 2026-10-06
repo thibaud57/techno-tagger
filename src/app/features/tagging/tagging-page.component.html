@@ -48,13 +48,20 @@
     />
   } @else if (recovery(); as phase) {
     <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run.
-         Masquee sur 0 sur 0, l'etat vide du bloc disant deja tout. -->
+         La modale du lien s'ouvre par la ligne du morceau ; sans morceau a rattraper, l'etat
+         vide prend la place de la barre. -->
     @if (phase.total > 0) {
       <app-phase-progress
         [label]="'tagging.recovery.phase' | translate"
         [counter]="'tagging.recovery.progress' | translate: phase"
         [value]="recoveryPercentage()"
       />
+    } @else {
+      <p class="flex items-center gap-2 text-sm text-muted-color" data-recovery-empty>
+        <app-icon name="check-circle" [size]="16" />
+        <span class="text-color">{{ "tagging.recovery.empty.heading" | translate }}</span>
+        <span>{{ "tagging.recovery.empty.description" | translate }}</span>
+      </p>
     }
   }
 
@@ -64,14 +71,11 @@
         [tracks]="tracks()"
         [loading]="listing()"
         [interrupted]="interrupted()"
+        [recoverable]="recoverableIds()"
         (arbitrate)="openArbitration($event)"
+        (recover)="openRecovery($event)"
       />
     </div>
-    @if (recoveryOpen()) {
-      <!-- Borne : la liste du run garde au moins trois cinquiemes de la page, le bloc
-           defile au-dela (DESIGN.md § Structure de Page : la page ne defile jamais). -->
-      <app-url-recovery class="max-h-2/5" />
-    }
   } @else {
     <app-empty-state
       framed
@@ -80,4 +84,7 @@
       [description]="idleDescription() | translate"
     />
   }
+
+  <!-- `contents` : l'hote vide ne doit ni prendre de place ni ajouter un gap-6 a la colonne. -->
+  <app-url-recovery-dialog class="contents" />
 </div>

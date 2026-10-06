@@ -6,7 +6,9 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import type { SidecarErrorEvent } from "../../core/models/protocol"
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
+import { PENDING_TRACK } from "../../../fixtures/tagging"
 
+import { RecoveryUiStore } from "./recovery-ui.store"
 import TaggingPageComponent from "./tagging-page.component"
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -47,6 +49,7 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     errorFor: SidecarService.prototype.errorFor,
     startTagging: vi.fn(() => Promise.resolve()),
     cancelTagging: vi.fn(() => Promise.resolve()),
+    arbitrations: signal([]),
     urlRecoveryOpen: signal(false),
     urlRecoveryProgress: signal<{ processed: number; total: number } | null>(null),
     recoverableTracks: signal([]),
@@ -77,22 +80,7 @@ describe("TaggingPageComponent", () => {
   const host = (fixture: { nativeElement: unknown }): HTMLElement =>
     fixture.nativeElement as HTMLElement
 
-  it.each<[string, boolean]>([
-    ["open", true],
-    ["closed", false],
-  ])("mounts the url recovery block once the phase is %s", async (_phase, open) => {
-    const { fixture } = await mountWith({
-      taggingRunId: signal("a3f9c1"),
-      urlRecoveryOpen: signal(open),
-      urlRecoveryProgress: signal(open ? { processed: 0, total: 2 } : null),
-    })
-
-    fixture.detectChanges()
-
-    expect(host(fixture).querySelector("app-url-recovery") !== null).toBe(open)
-  })
-
-  it("mounts the url recovery block after an interrupted run", async () => {
+  it("shows the recovery progress bar after an interrupted run", async () => {
     const { fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       taggingInterrupted: signal(true),
@@ -102,7 +90,41 @@ describe("TaggingPageComponent", () => {
 
     fixture.detectChanges()
 
-    expect(host(fixture).querySelector("app-url-recovery")).not.toBeNull()
+    expect(host(fixture).querySelector("app-phase-progress")).not.toBeNull()
+    expect(host(fixture).querySelector("[data-recovery-empty]")).toBeNull()
+  })
+
+  it("shows nothing about recovery while the phase is closed", async () => {
+    const { fixture } = await mountWith({ taggingRunId: signal("a3f9c1") })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(host(fixture).querySelector("[data-recovery-empty]")).toBeNull()
+  })
+
+  it("shows the empty recovery state in place of the bar on zero out of zero", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      urlRecoveryOpen: signal(true),
+      urlRecoveryProgress: signal({ processed: 0, total: 0 }),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("[data-recovery-empty]")).not.toBeNull()
+    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+  })
+
+  it("opens the link dialog on the track of a clicked run row", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      recoverableTracks: signal([{ ...PENDING_TRACK, state: "unresolved" }]),
+    })
+
+    component["openRecovery"]("a.mp3")
+
+    expect(TestBed.inject(RecoveryUiStore).target()).toBe("a.mp3")
   })
 
   it.each<[string, boolean, string]>([
@@ -125,18 +147,6 @@ describe("TaggingPageComponent", () => {
       expect(bars[0]?.textContent).toContain(label)
     },
   )
-
-  it("hides the url recovery progress when nothing is left to recover", async () => {
-    const { fixture } = await mountWith({
-      taggingRunId: signal("a3f9c1"),
-      urlRecoveryOpen: signal(true),
-      urlRecoveryProgress: signal({ processed: 0, total: 0 }),
-    })
-
-    fixture.detectChanges()
-
-    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
-  })
 
   it("blocks a new run while a url recovery waits", async () => {
     const { component } = await mountWith({

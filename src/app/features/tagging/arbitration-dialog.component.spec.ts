@@ -2,7 +2,7 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { action, page } from "../../../fixtures/dialog"
+import { action, linkField, page, pasteLink } from "../../../fixtures/dialog"
 import { PENDING_TRACK } from "../../../fixtures/tagging"
 import type {
   ArbitrationState,
@@ -11,6 +11,8 @@ import type {
 } from "../../core/models/protocol"
 import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
+
+import { RecoveryUiStore } from "./recovery-ui.store"
 
 import { ArbitrationDialogComponent } from "./arbitration-dialog.component"
 
@@ -61,6 +63,14 @@ const stub = () => ({
   hasPreviousArbitration: signal(false),
   hasNextArbitration: signal(true),
   taggingTracks: signal<readonly TaggingTrack[]>([PENDING_TRACK]),
+  // Lus par `RecoveryUiStore`, reel ici : l'etape lien en depend.
+  taggingRunId: signal<string | null>("run-1"),
+  arbitrations: signal<readonly ArbitrationState[]>([ON_BEATPORT]),
+  recoverableTracks: signal<readonly TaggingTrack[]>([]),
+  urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
+  urlRecoveryErrors: signal<ReadonlyMap<string, SidecarErrorEvent>>(new Map()),
+  tagging: signal(false),
+  resolveByUrl: vi.fn(() => Promise.resolve()),
   lastError: signal<SidecarErrorEvent | null>(null),
   lastErrorCommand: signal<SidecarCommand["command"] | null>(null),
   errorFor: SidecarService.prototype.errorFor,
@@ -400,5 +410,75 @@ describe("ArbitrationDialogComponent", () => {
     TestBed.tick()
 
     expect(document.activeElement).toBe(action("refuse"))
+  })
+
+  describe("link step", () => {
+    const UNRESOLVED: TaggingTrack = {
+      ...PENDING_TRACK,
+      state: "unresolved",
+      resolution: "none",
+      failureReason: "user_refused",
+    }
+
+    /** Refus de la liste Bandcamp : le sidecar retire le morceau de la file et le rend non resolu. */
+    const refuseAndLeaveQueue = (
+      fixture: { detectChanges: () => void },
+      service: ReturnType<typeof stub>,
+    ): void => {
+      action("refuse")?.click()
+      service.arbitrations.set([])
+      service.currentArbitration.set(null)
+      service.taggingTracks.set([UNRESOLVED])
+      fixture.detectChanges()
+    }
+
+    it("shows the link field and the skip action without a counter once the track left the queue unresolved", () => {
+      const { fixture, service } = mountWith()
+
+      refuseAndLeaveQueue(fixture, service)
+
+      expect(linkField()).not.toBeNull()
+      expect(action("skip")).not.toBeNull()
+      expect(action("resolve-url")).not.toBeNull()
+      expect(action("refuse")).toBeNull()
+      expect(page().querySelector("p-badge")).toBeNull()
+    })
+
+    it("sends the pasted link for the refused track", () => {
+      const { fixture, service } = mountWith()
+      refuseAndLeaveQueue(fixture, service)
+      pasteLink("https://amelielens.bandcamp.com/track/basiel")
+      fixture.detectChanges()
+
+      action("resolve-url")?.click()
+
+      expect(service.resolveByUrl).toHaveBeenCalledWith(
+        "a.mp3",
+        "https://amelielens.bandcamp.com/track/basiel",
+      )
+    })
+
+    it("leaves the step on skip and keeps the track to recover", () => {
+      const { fixture, service } = mountWith()
+      refuseAndLeaveQueue(fixture, service)
+
+      action("skip")?.click()
+      fixture.detectChanges()
+
+      expect(TestBed.inject(RecoveryUiStore).linkStep()).toBeNull()
+      expect(page().querySelector('input[data-field="url"]')).toBeNull()
+    })
+
+    it("offers no link step while the refused track stays in the queue for the Bandcamp list", () => {
+      const { fixture, service } = mountWith()
+      action("refuse")?.click()
+      service.currentArbitration.set(AFTER_REFUSAL)
+      service.arbitrations.set([AFTER_REFUSAL])
+      fixture.detectChanges()
+
+      expect(page().querySelector('input[data-field="url"]')).toBeNull()
+      expect(action("skip")).toBeNull()
+      expect(page().textContent).toContain("Your Mind")
+    })
   })
 })

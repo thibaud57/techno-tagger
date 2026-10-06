@@ -39,6 +39,21 @@
           </p-tag>
         </button>
       }
+      @if (recoveryCount() > 0) {
+        <button
+          type="button"
+          class="cursor-pointer self-center px-4"
+          [class.ml-auto]="arbitrationCount() === 0"
+          data-recovery-badge
+          [attr.aria-label]="'tagging.recovery.reopen' | translate"
+          (click)="openRecovery()"
+        >
+          <p-tag severity="info">
+            <app-icon name="info-circle" [size]="16" />
+            {{ "tagging.recovery.badge" | translate: { count: recoveryCount() } }}
+          </p-tag>
+        </button>
+      }
     </p-tablist>
   </p-tabs>
 

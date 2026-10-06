@@ -194,6 +194,7 @@
       "score": "Score",
       "scoreArtist": "A",
       "scoreTitle": "T",
+      "addLink": "Paste a link",
       "state": "State",
       "empty": {
         "heading": "No audio file in this folder",
@@ -201,7 +202,8 @@
       }
     },
     "recovery": {
-      "title": "Recovery by URL",
+      "badge": "{{count}} to recover",
+      "reopen": "Open recovery by URL",
       "help": "Optional step: paste the link of a Beatport, Bandcamp or SoundCloud track.",
       "phase": "Recovery by URL",
       "progress": "{{processed}} of {{total}} recovered",
@@ -209,6 +211,11 @@
       "field": "Link for {{track}}",
       "resolve": "Resolve",
       "recovered": "Recovered on {{source}}",
+      "close": "Close",
+      "previous": "Previous track",
+      "next": "Next track",
+      "skip": "Skip",
+      "unavailable": "Available once the search is finished.",
       "empty": {
         "heading": "No unresolved track",
         "description": "Every track in the run found a source."

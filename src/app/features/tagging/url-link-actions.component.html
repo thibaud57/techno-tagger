@@ -1,0 +1,26 @@
+<button
+  pButton
+  type="button"
+  size="small"
+  [outlined]="true"
+  severity="secondary"
+  data-action="skip"
+  #skipButton
+  (click)="skipped.emit()"
+>
+  {{ "tagging.recovery.skip" | translate }}
+</button>
+<button
+  pButton
+  type="button"
+  size="small"
+  data-action="resolve-url"
+  [disabled]="!canResolve()"
+  (click)="resolve()"
+>
+  <!-- Spinner enfant : `[loading]` de pButton est deprecie depuis PrimeNG 22. -->
+  @if (busy()) {
+    <app-icon name="spinner" [size]="16" />
+  }
+  {{ "tagging.recovery.resolve" | translate }}
+</button>

@@ -64,7 +64,10 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-Rien en attente depuis le push du 2026-10-05.
+- **Rattrapage par modale (2026-10-06)** : `TaggingScreen` perd le bloc `UrlRescue` au profit de la
+  modale du lien (ligne « Coller un lien → », état vide en ligne à la place de la barre),
+  `AppShell` gagne le badge « N à rattraper », `ArbitrationDialog` gagne l'étape lien après le
+  refus de la liste Bandcamp. Arbitrages datés du 2026-10-06 dans DESIGN.md § Arbitrages
 
 ## Journal
 
@@ -171,3 +174,7 @@ Rien en attente depuis le push du 2026-10-05.
   exact au 2026-10-05, hors binaires
   Troisième push après la revue en direct : un message d'erreur garde le même écart au-dessus et
   en dessous (DESIGN.md § Feedback), `TaggingScreen`, la fiche `ErrorMessage` et le readme suivent
+- **2026-10-06, variations du rattrapage par URL** : cinq directions explorées par
+  `/swarm-ui-variations` pour rendre la hauteur à la liste du run. Retenue : la modale par ligne,
+  ajustée (hauteur au contenu, badge dans le shell, étape lien dans l'arbitrage). Aucun push, écarts
+  listés dans § Reste ouvert.

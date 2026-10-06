@@ -194,6 +194,7 @@
       "score": "Score",
       "scoreArtist": "A",
       "scoreTitle": "T",
+      "addLink": "Coller un lien",
       "state": "État",
       "empty": {
         "heading": "Aucun fichier audio dans ce dossier",
@@ -201,7 +202,8 @@
       }
     },
     "recovery": {
-      "title": "Rattrapage par URL",
+      "badge": "{{count}} à rattraper",
+      "reopen": "Ouvrir le rattrapage par URL",
       "help": "Étape facultative : collez le lien d'un morceau Beatport, Bandcamp ou SoundCloud.",
       "phase": "Rattrapage par URL",
       "progress": "{{processed}} sur {{total}} rattrapés",
@@ -209,6 +211,11 @@
       "field": "Lien du morceau {{track}}",
       "resolve": "Résoudre",
       "recovered": "Rattrapé sur {{source}}",
+      "close": "Fermer",
+      "previous": "Morceau précédent",
+      "next": "Morceau suivant",
+      "skip": "Passer",
+      "unavailable": "Disponible à la fin de la recherche.",
       "empty": {
         "heading": "Aucun morceau non résolu",
         "description": "Tous les morceaux du run ont trouvé une source."

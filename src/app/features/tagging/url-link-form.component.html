@@ -1,0 +1,39 @@
+@let shown = view();
+<!-- Hauteur d'un p-message small : le champ reste a sa place que le morceau soit rattrape,
+     non resolu ou sans motif. -->
+<div class="grid min-h-6.5 items-center">
+  @if (shown.recoveredOn; as source) {
+    <p-message class="w-full animate-none" severity="info" size="small" data-recovered>
+      {{ "tagging.recovery.recovered" | translate: { source } }}
+    </p-message>
+  } @else if (shown.reasonKey; as reason) {
+    <p class="text-xs text-muted-color" data-reason>{{ reason | translate }}</p>
+  }
+</div>
+
+<!-- L'aide du champ, ou la raison de son blocage pendant la recherche. -->
+<p class="text-xs text-muted-color" data-help>
+  {{ (available() ? "tagging.recovery.help" : "tagging.recovery.unavailable") | translate }}
+</p>
+
+<input
+  #field
+  pInputText
+  type="url"
+  class="w-full"
+  data-field="url"
+  [value]="shown.url"
+  [disabled]="!available()"
+  [readOnly]="shown.busy"
+  [placeholder]="'tagging.recovery.placeholder' | translate"
+  [attr.aria-label]="'tagging.recovery.field' | translate: { track: shown.mainLine }"
+  (input)="edit(field.value)"
+  (keydown.enter)="resolve()"
+/>
+
+<!-- Place d'une erreur sur deux lignes gardee vide : le pied ne bouge pas a son arrivee. -->
+<div class="min-h-14">
+  @if (shown.error; as refused) {
+    <app-error-message [error]="refused" />
+  }
+</div>

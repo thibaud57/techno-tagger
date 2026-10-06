@@ -26,9 +26,10 @@
 
   <ng-template #body let-track>
     <tr
-      class="h-14 transition-colors duration-150 ease-out data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis"
+      class="h-14 transition-colors duration-150 ease-out data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis"
       [attr.data-arbitrable]="track.arbitrable ? '' : null"
-      (click)="track.arbitrable && arbitrate.emit(track.trackId)"
+      [attr.data-recoverable]="track.recoverable ? '' : null"
+      (click)="activate(track)"
     >
       <td>
         @if (track.artworkUrl; as url) {
@@ -60,6 +61,15 @@
       <td>
         @if (track.afterLine; as afterLine) {
           <app-truncated-text [text]="afterLine" />
+        } @else if (track.recoverable) {
+          <!-- Point d'entree du rattrapage : le clic sur la ligne ouvre la modale du lien. -->
+          <span
+            class="inline-flex items-center gap-2 font-semibold text-muted-color"
+            data-recover-hint
+          >
+            {{ "tagging.list.addLink" | translate }}
+            <app-icon name="arrow-right" [size]="16" />
+          </span>
         } @else {
           <span class="text-muted-color">—</span>
         }

@@ -28,6 +28,7 @@ interface RunRow extends TaggingTrack {
   readonly artworkUrl: string | null
   readonly reasonKey: string | null
   readonly arbitrable: boolean
+  readonly recoverable: boolean
 }
 
 @Component({
@@ -56,7 +57,10 @@ export class RunListComponent {
   /** Le sidecar parcourt encore le dossier : aucune ligne n'est connue. */
   readonly loading = input(false)
   readonly interrupted = input(false)
+  /** Morceaux que le sidecar accepte de rattraper par lien : lus, jamais deduits ici. */
+  readonly recoverable = input<ReadonlySet<string>>(new Set())
   readonly arbitrate = output<string>()
+  readonly recover = output<string>()
 
   protected readonly empty = computed(() => this.tracks().length === 0)
   protected readonly tablePt = computed(() => fullHeightTable(this.empty()))
@@ -70,6 +74,16 @@ export class RunListComponent {
       artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
       reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
       arbitrable: track.arbitration !== null,
+      recoverable: this.recoverable().has(track.trackId),
     })),
   )
+
+  /** L'arbitrage prime : un morceau en file n'est pas encore rattrapable. */
+  protected activate(row: RunRow): void {
+    if (row.arbitrable) {
+      this.arbitrate.emit(row.trackId)
+    } else if (row.recoverable) {
+      this.recover.emit(row.trackId)
+    }
+  }
 }

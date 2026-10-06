@@ -27,7 +27,8 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `page/preamble.js` | Ce que toutes les sondes partagent : `wait`, `until` (attente d'une condition de page) et `__sidecarService()`, le service vivant de la page | préalable injecté par `cdp.mjs` devant chaque script de page, jamais recopié dans une sonde |
 | `page/cancel-run.js` | Interruption d'un run puis relance immédiate, de bout en bout | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/cancel-run.js <dossier>`, dossier de `build_fixture.py --unique 20` |
 | `page/arbitration-replay.js` | Rejoue dans la fenêtre le flux réel d'un run d'arbitrage (sortie de `drive.py`) en intercalant les gestes du service, `send` relevé au lieu d'envoyé ; les groupes en surplus partent après la dernière ligne, geste encore sans réponse, et `["click", "<sélecteur>"]` y clique un élément de la page | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-replay.js "$(cat <sortie.ndjson>)" '<gestes JSON>'` |
-| `page/url-recovery.js` | Bloc de rattrapage dans la fenêtre : `paste <ligne> <url>` envoie l'URL par le vrai service comme « Résoudre » et attend la réponse, `state` relève les lignes, la barre et, pour chaque erreur, son écart à ce qui la précède et la suit (attendu égal, DESIGN.md § Feedback) | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/url-recovery.js <action> [ligne] [url]` |
+| `page/url-recovery-modal.js` | Rattrapage par modale sous `ng serve`, sidecar simulé : badges, modale du lien depuis le badge et depuis la ligne, geste en vol, refus sous le champ à pied immobile, étape lien de l'arbitrage (lien accepté, « Passer », désactivée pendant la recherche), lien collé oublié au run suivant, état vide ; rend un contrôle par règle et capture dans `.playwright-mcp/verify-recovery/` | MCP Playwright `browser_run_code_unsafe` avec `filename` sur ce fichier, `just dev-ui` lancé |
+| `page/url-recovery.js` | Ancien bloc de rattrapage dans la fenêtre Tauri (remplacé par la modale le 2026-10-06, sonde à porter sur la modale avant de la relancer) : `paste <ligne> <url>` envoie l'URL par le vrai service comme « Résoudre » et attend la réponse, `state` relève les lignes, la barre et, pour chaque erreur, son écart à ce qui la précède et la suit (attendu égal, DESIGN.md § Feedback) | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/url-recovery.js <action> [ligne] [url]` |
 
 Chaque script rend `{"success": true, ...}` ou `{"error": true, "message": "..."}` sur `stdout`, code de sortie 1 en erreur. Rapporter le message tel quel : il nomme le geste qui répare, lancer par `uv run --directory sidecar` ou ouvrir la fenêtre avec le port de débogage.
 
@@ -274,20 +275,16 @@ Parcours relevé le 2026-10-05, tous verts.
 
 ### Côté webview
 
-Sous `ng serve`, service simulé (§ Gotchas) : `svc.startTagging("C:/x")`, puis par `svc.handleLine` un `run_started` à deux morceaux, leurs `track_resolved` en `unresolved`, `run_finished` et `progress` en `url_recovery` à `0/2`. Le collage se fait sur l'`input` de la ligne (valeur posée puis événement `input`), le clic sur son bouton « Résoudre ».
+Le bloc sous la liste a cédé la place à la modale du lien (variations du 2026-10-06, DESIGN.md § Arbitrages). `page/url-recovery-modal.js` rejoue tout le parcours sous `ng serve` et rend un contrôle par règle :
 
-- Bloc sous la liste du run, une ligne par morceau avec son motif, « Résoudre » désactivé champ vide ; barre « Rattrapage par URL » à la place de la barre de recherche
-- Pendant l'attente : `resolve_by_url` relevé une fois dans `send`, bouton désactivé avec spinner, `blockedReason()` à `tagging.blocked.recovering`, levé à la réponse
-- `error` `unsupported_url` sur un morceau : `app-error-message` dans le `li` de ce seul morceau, URL gardée dans le champ, aucun toast de plus que celui de fin de recherche (compté par `MutationObserver` posé avant `startTagging`) ; un nouvel envoi efface l'erreur
-- `track_resolved` en `url` puis `progress` à `1/2` : « Rattrapé sur Beatport » sous la ligne, URL gardée, tag « URL » dans la liste, barre à « 1 sur 2 rattrapés »
-- Au plancher 1024 × 700 : aucun défilement de page ni de `main`
-- Écart d'une erreur sous sa ligne : 16px au-dessus et en dessous (`page/url-recovery.js state`), relevé le 2026-10-05 dans la fenêtre Tauri sur la démo après un `paste` YouTube
-- Rien à rattraper (run tout résolu, `progress` à `0/0`) : bloc vide « Aucun morceau non résolu », aucune barre
-- `error` `source_unavailable` dont `params.source` vaut `bandcamp` sur une ligne : « Bandcamp ne répond pas. Réessayez plus tard. »
-- En anglais (`use("en")` sur le `TranslateService` trouvé comme le service sidecar) : en-tête « Recovery by URL », motif, « Resolve », barre « 0 of 1 recovered »
-- Cycle de vie : `svc.startTagging` ferme la phase et vide les erreurs ; `svc._available.set(false)` puis `svc["endRun"]()`, le chemin de `onTerminated`, la ferme et libère le geste en vol
+- Badge « N à rattraper » à droite de « N à arbitrer », masqué pendant la recherche et à 0 ; depuis Playlist, il bascule sur Tagging et ouvre la modale sur le premier non résolu, champ focalisé, 720px de large, « 1/N »
+- Indice « Coller un lien → » à 14px et 600 dans la colonne Après ; un clic sur la ligne ouvre la modale sur ce morceau
+- Entrée envoie `resolve_by_url` une fois, spinner et « Lancer le run » bloqué pendant le geste ; une `error` `unsupported_url` s'affiche sous le champ, lien gardé, hauteur de la modale et ordonnée du pied inchangées
+- Étape lien de l'arbitrage : refus Beatport puis Bandcamp et `track_resolved` en `unresolved` / `user_refused`, la modale garde son cadre, sans compteur, champ focalisé ; un lien accepté ou « Passer » mène à l'arbitrage suivant, puis ferme au dernier ; pendant la recherche, champ désactivé, aide « Disponible à la fin de la recherche », focus sur « Passer »
+- Un lien collé n'est pas repris au run suivant, même `track_id` ; sur `progress` à `0/0`, la ligne « Aucun morceau non résolu » remplace la barre
+- Aucun défilement de page à 1280 × 800 ni à 1024 × 700
 
-Parcours relevé le 2026-10-05, tous verts.
+Parcours relevé le 2026-10-06, 24 contrôles verts. L'animation d'entrée de `p-message` est ralentie par Playwright hors focus (§ Gotchas) : mesurer l'erreur après 2s ou `page.bringToFront()`.
 
 ## Pilotage de la garde de fermeture
 

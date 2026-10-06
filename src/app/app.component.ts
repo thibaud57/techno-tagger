@@ -15,6 +15,7 @@ import { SIDECAR_FILE } from "./core/sidecar-transport"
 import { SidecarService } from "./core/sidecar.service"
 import { TABS, isTabName, tabFromUrl, type TabValue } from "./core/tabs"
 import { ArbitrationDialogComponent } from "./features/tagging/arbitration-dialog.component"
+import { RecoveryUiStore } from "./features/tagging/recovery-ui.store"
 import { CloseConfirmationComponent } from "./shared/components/close-confirmation.component"
 import { IconComponent } from "./shared/components/icon.component"
 import { FADE_IN } from "./shared/utils/motion"
@@ -47,6 +48,7 @@ export class AppComponent {
   private readonly router = inject(Router)
   private readonly sidecar = inject(SidecarService)
   private readonly closeGuard = inject(CloseGuard)
+  private readonly recovery = inject(RecoveryUiStore)
 
   protected readonly tabs = TABS
   protected readonly fadeIn = FADE_IN
@@ -75,7 +77,10 @@ export class AppComponent {
   }))
 
   protected readonly arbitrationCount = this.sidecar.arbitrationCount
-  private readonly queueEmpty = computed(() => this.sidecar.arbitrationCount() === 0)
+  /** L'etape lien d'un morceau sorti de la file garde la modale ouverte, meme file videe. */
+  private readonly queueEmpty = computed(
+    () => this.sidecar.arbitrationCount() === 0 && this.recovery.linkStep() === null,
+  )
   private readonly arbitrationDismissed = linkedSignal({
     source: () => [this.queueEmpty(), this.sidecar.arbitrationOpenings()],
     computation: () => false,
@@ -84,6 +89,10 @@ export class AppComponent {
     () => !this.queueEmpty() && !this.arbitrationDismissed(),
   )
 
+  /** Masque pendant la recherche : le sidecar y refuse le geste. */
+  protected readonly recoveryCount = computed(() =>
+    this.recovery.available() ? this.recovery.unresolvedCount() : 0,
+  )
   protected readonly closeRequested = computed(() => this.closeGuard.request() !== null)
 
   constructor() {
@@ -104,8 +113,16 @@ export class AppComponent {
     await this.sidecar.restart()
   }
 
+  /** La croix sur l'etape lien la quitte : le morceau reste a rattraper par le badge. */
   protected dismissArbitration(): void {
+    this.recovery.leaveLinkStep()
     this.arbitrationDismissed.set(true)
+  }
+
+  /** Le rattrapage concerne le run : la modale du lien s'ouvre sur Tagging, liste en fond. */
+  protected openRecovery(): void {
+    this.recovery.open()
+    void this.router.navigate(["tagging"])
   }
 
   protected reopenArbitration(): void {
