@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/thibaud57/techno-tagger/compare/v0.4.2...v0.5.0) (2026-10-06)
+
+
+### Features
+
+* rattrapage par URL d'un morceau resté sans correspondance ([#57](https://github.com/thibaud57/techno-tagger/issues/57)) ([4e1c8f6](https://github.com/thibaud57/techno-tagger/commit/4e1c8f643e87468e912a33101fe8db01b69e34e7))
+
 ## [0.4.2](https://github.com/thibaud57/techno-tagger/compare/v0.4.1...v0.4.2) (2026-09-29)
 
 
