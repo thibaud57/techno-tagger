@@ -807,12 +807,11 @@ describe("SidecarService", () => {
       await service.start()
       transport.emit(RUN_STARTED)
       transport.emit({ event: "progress", phase: "tagging", processed: 1, total: 2 })
-      const closed = service.urlRecoveryOpen()
+      const closed = service.urlRecoveryProgress()
 
       transport.emit(urlProgress(0, 2))
 
-      expect(closed).toBe(false)
-      expect(service.urlRecoveryOpen()).toBe(true)
+      expect(closed).toBeNull()
       expect(service.urlRecoveryProgress()).toEqual({ processed: 0, total: 2 })
       expect(service.taggingProgress()).toEqual({ processed: 1, total: 2 })
     })
@@ -904,7 +903,7 @@ describe("SidecarService", () => {
 
       await close()
 
-      expect(service.urlRecoveryOpen()).toBe(false)
+      expect(service.urlRecoveryProgress()).toBeNull()
       expect(service.urlRecoveryBusy().size).toBe(0)
       expect(service.urlRecoveryErrors().size).toBe(0)
     })

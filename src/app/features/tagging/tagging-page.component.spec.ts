@@ -50,7 +50,6 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     startTagging: vi.fn(() => Promise.resolve()),
     cancelTagging: vi.fn(() => Promise.resolve()),
     arbitrations: signal([]),
-    urlRecoveryOpen: signal(false),
     urlRecoveryProgress: signal<{ processed: number; total: number } | null>(null),
     recoverableTracks: signal([]),
     urlRecoveryBusy: signal(new Set<string>()),
@@ -84,7 +83,6 @@ describe("TaggingPageComponent", () => {
     const { fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       taggingInterrupted: signal(true),
-      urlRecoveryOpen: signal(true),
       urlRecoveryProgress: signal({ processed: 0, total: 1 }),
     })
 
@@ -106,7 +104,6 @@ describe("TaggingPageComponent", () => {
   it("shows the empty recovery state in place of the bar on zero out of zero", async () => {
     const { fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      urlRecoveryOpen: signal(true),
       urlRecoveryProgress: signal({ processed: 0, total: 0 }),
     })
 
@@ -136,7 +133,6 @@ describe("TaggingPageComponent", () => {
       const { fixture } = await mountWith({
         tagging: signal(running),
         taggingRunId: signal("a3f9c1"),
-        urlRecoveryOpen: signal(true),
         urlRecoveryProgress: signal({ processed: 1, total: 2 }),
       })
 
@@ -151,7 +147,6 @@ describe("TaggingPageComponent", () => {
   it("blocks a new run while a url recovery waits", async () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      urlRecoveryOpen: signal(true),
       urlRecoveryBusy: signal(new Set(["a.mp3"])),
     })
 

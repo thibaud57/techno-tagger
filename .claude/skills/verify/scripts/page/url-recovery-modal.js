@@ -112,6 +112,12 @@ async (page) => {
   await page.locator("app-arbitration-dialog .p-dialog-close-button, app-arbitration-dialog .p-dialog-header button").first().click()
   await page.waitForTimeout(4500)
   check("badges side by side", JSON.stringify(await badges()) === JSON.stringify({ arbitration: "2 à arbitrer", recovery: "3 à rattraper" }), await badges())
+  const badgeGap = await page.evaluate(() => {
+    const a = document.querySelector("[data-arbitration-badge] p-tag").getBoundingClientRect()
+    const r = document.querySelector("[data-recovery-badge] p-tag").getBoundingClientRect()
+    return Math.round(r.left - a.right)
+  })
+  check("badges 8px apart (gap-2)", badgeGap === 8, badgeGap)
   await scrollTableTo(0)
   const hint = await page.evaluate(() => {
     const h = document.querySelector("[data-recover-hint]")
@@ -152,10 +158,31 @@ async (page) => {
   await page.waitForTimeout(2500)
   const refused = await dialog()
   check("error under the field, footer still", refused?.error !== null && refused.footerTop === opened.footerTop && refused.h === opened.h && refused.field.value.startsWith("https://www.youtube"), { opened, refused })
+  const gaps = await page.evaluate(() => {
+    const d = [...document.querySelectorAll(".p-dialog")].find((x) => x.offsetParent !== null)
+    const error = d.querySelector("app-error-message").getBoundingClientRect()
+    const field = d.querySelector('[data-field="url"]').getBoundingClientRect()
+    const footer = d.querySelector(".p-dialog-footer").getBoundingClientRect()
+    return { above: Math.round(error.top - field.bottom), below: Math.round(footer.top - error.bottom) }
+  })
+  check("error gap equal above and below", gaps.above === gaps.below, gaps)
   await shot("3-erreur-sous-le-champ")
   await page.locator('app-url-recovery-dialog [data-action="skip"]').click()
   await settle()
   check("skip moves to the next track", (await dialog())?.counter === "2/4", await dialog())
+  await page.keyboard.press("Escape")
+  await settle()
+
+  // Clavier : Tab atteint une ligne rattrapable, Entree ouvre sa modale, anneau visible.
+  await scrollTableTo(0)
+  await page.locator("app-run-list tr[data-recoverable]").first().focus()
+  const ring = await page.evaluate(() => {
+    const r = document.activeElement
+    return { recoverable: r?.hasAttribute("data-recoverable"), outline: getComputedStyle(r).outlineStyle }
+  })
+  await page.keyboard.press("Enter")
+  await settle(800)
+  check("keyboard opens the link dialog from a row", ring.recoverable && ring.outline !== "none" && (await dialog()) !== null, ring)
   await page.keyboard.press("Escape")
   await settle()
 

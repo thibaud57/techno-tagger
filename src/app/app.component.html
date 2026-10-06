@@ -25,35 +25,37 @@
       @for (tab of tabs; track tab) {
         <p-tab [value]="tab">{{ "nav." + tab | translate }}</p-tab>
       }
-      @if (arbitrationCount() > 0) {
-        <button
-          type="button"
-          class="ml-auto cursor-pointer self-center px-4"
-          data-arbitration-badge
-          [attr.aria-label]="'arbitration.reopen' | translate"
-          (click)="reopenArbitration()"
-        >
-          <p-tag severity="info">
-            <app-icon name="info-circle" [size]="16" />
-            {{ "arbitration.badge" | translate: { count: arbitrationCount() } }}
-          </p-tag>
-        </button>
-      }
-      @if (recoveryCount() > 0) {
-        <button
-          type="button"
-          class="cursor-pointer self-center px-4"
-          [class.ml-auto]="arbitrationCount() === 0"
-          data-recovery-badge
-          [attr.aria-label]="'tagging.recovery.reopen' | translate"
-          (click)="openRecovery()"
-        >
-          <p-tag severity="info">
-            <app-icon name="info-circle" [size]="16" />
-            {{ "tagging.recovery.badge" | translate: { count: recoveryCount() } }}
-          </p-tag>
-        </button>
-      }
+      <!-- Les decisions en attente forment un groupe : gap-2 entre les badges, le px-4 au bord. -->
+      <div class="ml-auto flex items-center gap-2 self-center px-4">
+        @if (arbitrationCount() > 0) {
+          <button
+            type="button"
+            class="cursor-pointer"
+            data-arbitration-badge
+            [attr.aria-label]="'arbitration.reopen' | translate"
+            (click)="reopenArbitration()"
+          >
+            <p-tag severity="info">
+              <app-icon name="info-circle" [size]="16" />
+              {{ "arbitration.badge" | translate: { count: arbitrationCount() } }}
+            </p-tag>
+          </button>
+        }
+        @if (recoveryCount() > 0) {
+          <button
+            type="button"
+            class="cursor-pointer"
+            data-recovery-badge
+            [attr.aria-label]="'tagging.recovery.reopen' | translate"
+            (click)="openRecovery()"
+          >
+            <p-tag severity="info">
+              <app-icon name="info-circle" [size]="16" />
+              {{ "tagging.recovery.badge" | translate: { count: recoveryCount() } }}
+            </p-tag>
+          </button>
+        }
+      </div>
     </p-tablist>
   </p-tabs>
 

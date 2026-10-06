@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, linkedSignal } from "@angular/core
 import { TranslatePipe } from "@ngx-translate/core"
 import { Badge } from "primeng/badge"
 import { ButtonDirective } from "primeng/button"
-import { Dialog } from "primeng/dialog"
+import { Dialog, type DialogPassThrough } from "primeng/dialog"
 
 import { SidecarService } from "../../core/sidecar.service"
 import { IconComponent } from "../../shared/components/icon.component"
@@ -19,6 +19,12 @@ import { UrlLinkFormComponent } from "./url-link-form.component"
  * Modale de rattrapage d'un morceau par son lien, ouverte par sa ligne du run ou par le badge
  * du shell. Navigue entre les morceaux rattrapables ; le sidecar reste seul juge de l'URL.
  */
+/**
+ * Padding bas du contenu au `gap-4` du formulaire : une erreur garde le meme ecart au champ
+ * et au pied (DESIGN.md § Feedback), le preset en posant 20px.
+ */
+const DIALOG_PT: DialogPassThrough = { content: { class: "pb-4" } }
+
 @Component({
   selector: "app-url-recovery-dialog",
   imports: [
@@ -46,6 +52,7 @@ export class UrlRecoveryDialogComponent {
   )
 
   protected readonly noMotion = NO_MOTION
+  protected readonly dialogPt = DIALOG_PT
 
   protected readonly track = computed(() => this.tracks()[this.index()] ?? null)
   protected readonly position = computed(() => this.index() + 1)

@@ -177,6 +177,29 @@ describe("RunListComponent", () => {
     expect(asked).not.toHaveBeenCalled()
   })
 
+  it.each(["Enter", " "])(
+    "asks to recover a recoverable row from the keyboard (%j)",
+    async (key) => {
+      const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+      const asked = vi.fn()
+      fixture.componentInstance.recover.subscribe(asked)
+      const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")
+
+      row?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))
+
+      expect(row?.tabIndex).toBe(0)
+      expect(asked).toHaveBeenCalledWith(UNRESOLVED.trackId)
+    },
+  )
+
+  it("keeps a row without action out of the tab order", async () => {
+    const fixture = await mountWith([UNRESOLVED])
+
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")
+
+    expect(row?.hasAttribute("tabindex")).toBe(false)
+  })
+
   it("hints at pasting a link on an unresolved recoverable row only", async () => {
     const recoverable = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
     const hinted = cellOf(recoverable, AFTER)?.querySelector("[data-recover-hint]")

@@ -458,7 +458,7 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 | Container | Pleine largeur, `px-16 py-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
 | Densité | Body dense (`text-sm`) dans les tables et les listes de candidats | Un run affiche 100 lignes : chaque cran de taille en moins est une ligne de plus sans défiler (§ Scale Typographique) |
 | Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre : ne relève pas du container. L'étape lien garde ce cadre |
-| Modale du lien | 720px, hauteur au contenu, erreur réservée `min-h-14` | Largeur de l'arbitrage. `min-h-14` : une erreur sur deux lignes en FR, le pied ne bouge pas |
+| Modale du lien | 720px, hauteur au contenu, erreur réservée `min-h-13.5`, contenu en `pb-4` | Largeur de l'arbitrage. `min-h-13.5` (54px) : une erreur sur deux lignes en FR, le pied ne bouge pas. `pb-4` au lieu des 20px du preset : l'erreur garde 16px au champ et au pied |
 | Tables | `p-table` à sa taille par défaut, `[scrollable]` en `scrollHeight="flex"`, `[virtualScroll]` | Seules les lignes visibles sont montées : une playlist de plusieurs milliers de morceaux s'affiche aussi vite qu'une de trente, là où tout monter prend des secondes. En contrepartie, `virtualScrollItemSize` doit valoir la hauteur exacte d'une ligne, posée par une classe et à remesurer quand leur style change |
 | Rythme interne d'un groupe | `gap-2` | Éléments d'un même groupe |
 | Espacement entre groupes | `gap-4` | Groupes d'un même écran |

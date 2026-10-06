@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from "@angular/core"
+import { Injectable, signal } from "@angular/core"
 
 import type { SidecarErrorEvent } from "./models/protocol"
 import type { RunProgress } from "./tagging-run.store"
@@ -14,7 +14,6 @@ export class UrlRecoveryStore {
   private readonly _errors = signal<ReadonlyMap<string, SidecarErrorEvent>>(new Map())
 
   readonly progress = this._progress.asReadonly()
-  readonly open = computed(() => this._progress() !== null)
   readonly busy = this._busy.asReadonly()
   /** L'evenement entier : l'ecran traduit son `code` avec ses `params`. */
   readonly errors = this._errors.asReadonly()

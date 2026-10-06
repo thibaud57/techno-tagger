@@ -11,12 +11,11 @@ describe("UrlRecoveryStore", () => {
   })
 
   it("opens on the first progress", () => {
-    const closed = store.open()
+    const closed = store.progress()
 
     store.advanced(0, 2)
 
-    expect(closed).toBe(false)
-    expect(store.open()).toBe(true)
+    expect(closed).toBeNull()
     expect(store.progress()).toEqual({ processed: 0, total: 2 })
   })
 
@@ -63,6 +62,6 @@ describe("UrlRecoveryStore", () => {
 
     store.clear()
 
-    expect([store.open(), store.busy().size, store.errors().size]).toEqual([false, 0, 0])
+    expect([store.progress(), store.busy().size, store.errors().size]).toEqual([null, 0, 0])
   })
 })

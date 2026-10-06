@@ -78,8 +78,12 @@ export class RunListComponent {
     })),
   )
 
-  /** L'arbitrage prime : un morceau en file n'est pas encore rattrapable. */
-  protected activate(row: RunRow): void {
+  /**
+   * L'arbitrage prime : un morceau en file n'est pas encore rattrapable. Espace ferait
+   * defiler la table sans le `preventDefault`.
+   */
+  protected activate(row: RunRow, event?: Event): void {
+    event?.preventDefault()
     if (row.arbitrable) {
       this.arbitrate.emit(row.trackId)
     } else if (row.recoverable) {

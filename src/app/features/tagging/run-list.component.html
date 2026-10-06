@@ -25,11 +25,17 @@
   </ng-template>
 
   <ng-template #body let-track>
+    <!-- Ligne actionnable atteignable au clavier, Entree ou Espace comme le clic. Anneau du
+         preset (--p-focus-ring-*) pose vers l'interieur : la table defile et rognerait un
+         anneau exterieur. -->
     <tr
-      class="h-14 transition-colors duration-150 ease-out data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis"
+      class="h-14 transition-colors duration-150 ease-out focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis"
       [attr.data-arbitrable]="track.arbitrable ? '' : null"
       [attr.data-recoverable]="track.recoverable ? '' : null"
+      [attr.tabindex]="track.arbitrable || track.recoverable ? 0 : null"
       (click)="activate(track)"
+      (keydown.enter)="activate(track)"
+      (keydown.space)="activate(track, $event)"
     >
       <td>
         @if (track.artworkUrl; as url) {

@@ -68,15 +68,16 @@ describe("RecoveryUiStore", () => {
       expect(store.linkStep()).toBeNull()
     })
 
-    it("stays empty when the track is unresolved for another reason than the refusal", () => {
+    it("targets a track passed on an empty Bandcamp list, unresolved with its list reason", () => {
       const { store, service } = mount([
         { ...row("a.mp3", "unresolved"), failureReason: "no_result" },
       ])
+      service.arbitrations.set([{ track_id: "a.mp3" }])
       store.refused("a.mp3")
 
       service.arbitrations.set([])
 
-      expect(store.linkStep()).toBeNull()
+      expect(store.linkStep()).toBe("a.mp3")
     })
 
     it("stays empty when the refused track was resolved meanwhile", () => {

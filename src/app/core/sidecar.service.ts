@@ -128,7 +128,6 @@ export class SidecarService {
   readonly hasPreviousArbitration = this.arbitration.hasPrevious
   readonly hasNextArbitration = this.arbitration.hasNext
   readonly arbitrationOpenings = this.arbitration.openings
-  readonly urlRecoveryOpen = this.urlRecovery.open
   readonly urlRecoveryProgress = this.urlRecovery.progress
   readonly urlRecoveryBusy = this.urlRecovery.busy
   readonly urlRecoveryErrors = this.urlRecovery.errors

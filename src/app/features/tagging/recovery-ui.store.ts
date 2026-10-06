@@ -53,10 +53,10 @@ export class RecoveryUiStore {
     if (this.sidecar.arbitrations().some((entry) => entry.track_id === trackId)) {
       return null
     }
-    // Le motif vient du sidecar : seul un refus acquitte ouvre l'etape, pas un geste echoue.
+    // Pas de filtre sur le motif : « Passer » sur une liste Bandcamp vide rend celui de la liste.
     const row = this.sidecar.taggingTracks().find((track) => track.trackId === trackId)
 
-    return row?.state === "unresolved" && row.failureReason === "user_refused" ? trackId : null
+    return row?.state === "unresolved" ? trackId : null
   })
 
   draft(trackId: string): string {
