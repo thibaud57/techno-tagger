@@ -234,7 +234,7 @@ Dès qu'un morceau entre en zone grise et qu'aucune modale n'est ouverte, la mod
 
 Dernière phase réseau, entièrement **facultative**. Une fois le pipeline terminé, l'utilisateur peut coller une URL Beatport, Bandcamp ou SoundCloud sur chaque morceau resté non résolu, quelle qu'en soit la cause. C'est le seul point d'entrée de SoundCloud, dont les métadonnées d'upload sont trop peu fiables pour une recherche automatique.
 
-L'URL se colle dans la modale du lien, ouverte par la ligne du morceau ou le badge « à rattraper », ou dans l'étape lien qui suit le refus de tous les candidats d'un arbitrage. Elle est résolue via la route correspondante de l'API, avec sa propre barre de progression. **Les trois sources n'ont pas la même voie** : Bandcamp et SoundCloud résolvent l'URL directement, Beatport n'expose pas de résolution par URL et impose d'extraire l'identifiant du morceau de l'URL collée pour appeler la route par id. L'étape se passe intégralement.
+L'URL se colle dans la modale du lien, ou dans l'étape lien qui suit le refus de tous les candidats d'un arbitrage (cf. [DESIGN.md](DESIGN.md)). Elle est résolue via la route correspondante de l'API, avec sa propre barre de progression. **Les trois sources n'ont pas la même voie** : Bandcamp et SoundCloud résolvent l'URL directement, Beatport n'expose pas de résolution par URL et impose d'extraire l'identifiant du morceau de l'URL collée pour appeler la route par id. L'étape se passe intégralement.
 
 **Morceaux éligibles** : un morceau `unresolved` accepte une URL, un morceau déjà résolu par URL aussi, recoller remplaçant alors l'URL précédente pour corriger un mauvais lien avant l'écriture. Les morceaux résolus automatiquement, par arbitrage, en attente d'arbitrage ou jamais traités n'en acceptent pas.
 
@@ -355,7 +355,7 @@ Le détail (tokens, scale typographique, mapping composant par composant, conven
 
 ### State Management
 
-**Services injectés + signals natifs Angular**, aucune bibliothèque de store. Un service par feature expose des `signal()` writable et des `computed()`, alimentés par le flux d'événements du sidecar. `SidecarService` détient l'état du run et la file d'arbitrage, ainsi que la phase de rattrapage par URL par un store de phase (`UrlRecoveryStore`), ouverte à la première progression `url_recovery` reçue et jamais déduite par l'interface. Seul état propre à l'interface, `RecoveryUiStore` garde les liens collés, le morceau ouvert dans la modale du lien et l'étape lien de l'arbitrage. Les composants ne font que lire et émettre des commandes.
+**Services injectés + signals natifs Angular**, aucune bibliothèque de store. Un service par feature expose des `signal()` writable et des `computed()`, alimentés par le flux d'événements du sidecar. `SidecarService` détient l'état du run et la file d'arbitrage, ainsi que la phase de rattrapage par URL par un store de phase (`UrlRecoveryStore`), ouverte à la première progression `url_recovery` reçue et jamais déduite par l'interface. `RecoveryUiStore` porte le seul état propre à l'interface (liens collés, modale ouverte), sans rien du sidecar. Les composants ne font que lire et émettre des commandes.
 
 Trois écrans et une file d'arbitrage ne justifient pas la cérémonie d'un NgRx. À réévaluer si le récapitulatif et le rollback multiplient les transitions d'état.
 

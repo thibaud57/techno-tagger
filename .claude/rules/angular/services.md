@@ -10,8 +10,8 @@ paths:
 - Déclarer tout service avec `@Injectable({ providedIn: 'root' })`, ou son alias court `@Service()` (Angular 22)
 - Exposer l'état en lecture seule (`asReadonly()`, `computed()`) et le muter uniquement par des méthodes du service
 - Injecter avec `inject()` en champ `private readonly`
-- Créer un store par phase pour l'état que le sidecar envoie, et ne jamais l'injecter dans un composant : `SidecarService` route les événements et ré-expose leurs signaux en lecture seule, le contrat NDJSON reste la seule source de cet état
-- Injecter directement dans les composants qui le partagent un service d'état propre à l'interface, qui ne tient rien du sidecar (saisie en cours, modale ouverte, demande de sortie) : le faire passer par `SidecarService` mêlerait l'interface au routage du protocole
+- Créer un store par phase pour l'état que le sidecar envoie, sans jamais l'injecter dans un composant : le service qui route les événements ré-expose ses signaux en lecture seule, le contrat NDJSON reste sa seule source
+- Injecter directement dans les composants un service d'état propre à l'interface (saisie en cours, modale ouverte, demande de sortie) : il ne tient rien du sidecar et n'a pas à passer par son routage
 - Garder dans `core/models/` les types miroir du contrat NDJSON, maintenus à la main faute de package partagé avec le sidecar
 - Réserver `providers` sur un composant aux cas où l'état doit être isolé et réinitialisé avec lui
 - Utiliser `injectAsync(() => import('./x.service'), { prefetch: 'onIdle' })` pour un service lourd chargé à la demande
