@@ -268,7 +268,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 |-----------|-----------|-----------|-------|
 | Lancement du run | `button pButton` `primary`, icône `play`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, geste de rattrapage en vol, clé API, dossier, extraction ou sidecar |
 | Interruption du run | `button pButton` `severity="secondary"` outlined, icône `stop`, taille par défaut | PrimeNG | Visible seulement pendant un run, à gauche du lancement qui reste grisé : masquer une action désactivée est interdit. Ni `danger` ni confirmation : la phase réseau n'écrit aucun fichier et rien n'est irréversible avant l'écriture |
-| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage, celle d'un morceau non résolu ou rattrapé la modale du lien |
+| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage, celle d'un morceau non résolu ou rattrapé la modale du lien. Une ligne actionnable se rejoint au clavier, Entrée ou Espace l'ouvre, anneau de focus posé vers l'intérieur pour ne pas être rogné par le défilement |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image ; le squelette tant que le morceau attend son tour ou son arbitrage ; un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
 | État d'un morceau | `p-tag` + `pTooltip` | PrimeNG | Familles du § Couleurs Sémantiques. Un non résolu porte l'icône info et son motif au survol |
 | Source retenue | SVG Simple Icons + libellé | Simple Icons | Beatport / Bandcamp / SoundCloud |
@@ -278,7 +278,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Indice de rattrapage | `font-semibold text-muted-color` + icône `arrow-right` | Custom | « Coller un lien → » dans la colonne Après d'un non résolu |
 | Modale du lien | `p-dialog` modal | PrimeNG | Ouverte par la ligne ou le badge du rattrapage. ‹ N/M › sur les non résolus et rattrapés, « Passer » et « Résoudre » au pied. Dimensions au § Layout |
 | Champ de lien | `input pInputText` `type="url"` + `app-error-message` | PrimeNG | Commun à la modale du lien et à l'étape lien. « Résoudre » actif champ rempli, spinner pendant le geste, refus sous le champ. Désactivé pendant la recherche, que le sidecar refuse |
-| Badge du rattrapage | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | « N à rattraper », à droite du badge de file, masqué pendant la recherche et sur 0. Ouvre Tagging et la modale du lien |
+| Badge du rattrapage | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | « N à rattraper », à droite du badge de file et groupé avec lui en `gap-2`, masqué pendant la recherche et sur 0. Ouvre Tagging et la modale du lien |
 | Rien à rattraper | ligne `check-circle` en `text-sm` | Custom | À la place de la barre de rattrapage sur 0 sur 0 |
 | Chargement | `SkeletonRowsComponent`, puis `p-skeleton` | PrimeNG | Deux temps. Tant que la table est vide, `SkeletonRowsComponent` en remplit la hauteur de lignes entières, par le template `#emptymessage`. Dès la première ligne reçue, le squelette ne tient plus que la vignette d'un morceau qui attend son tour, les autres cellules portant le cadratin du § Séparateurs : un squelette par cellule ferait clignoter la table à chaque événement |
 
@@ -294,7 +294,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Beatport injoignable | `p-message` `warn` | PrimeNG | Au-dessus de la liste Bandcamp quand Beatport n'a pas répondu : aucun candidat n'a été validé seul |
 | Liste Bandcamp vide | message de liste + bouton « Passer » | PrimeNG | Le message dit le motif de Bandcamp, centré dans la hauteur de la liste comme les autres états vides ; « Passer » remplace « Aucune correspondance » et c'est la seule action |
 | Refus d'un geste | `app-error-message` sous la liste | Custom | Seulement pour le morceau affiché |
-| Étape lien | champ de lien + « Passer » et « Résoudre » | PrimeNG | Après le refus des listes Beatport et Bandcamp, sur le même morceau, sans compteur. « Passer » ou un lien accepté mène à l'arbitrage suivant |
+| Étape lien | champ de lien + « Passer » et « Résoudre » | PrimeNG | Après le refus de la liste Bandcamp, ou « Passer » quand elle est vide, sur le même morceau, sans compteur. « Passer » ou un lien accepté mène à l'arbitrage suivant |
 
 ### Écriture et récapitulatif
 
@@ -360,7 +360,7 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 |------|---------------------|----------|
 | Survol d'une zone cliquable custom | `bg-emphasis`, transition `background-color 150ms ease-out` | Jamais de déplacement ni de scale : les lignes de la liste ne bougent pas sous le curseur. Sauf le badge de file : son tag porte déjà un fond, la main suffit |
 | Sélection | `bg-highlight` | Cohérent avec la sélection des composants PrimeNG |
-| Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier, `outline: none` est interdit |
+| Focus clavier | Anneau `--p-focus-ring-*`, identique aux composants PrimeNG | La modale d'arbitrage se traite entièrement au clavier, comme l'ouverture du rattrapage depuis une ligne du run. `outline: none` est interdit |
 | Désactivé | `--p-disabled-opacity` (0.6), curseur flèche | Un bouton désactivé garde son libellé, il n'est jamais masqué. La flèche comme sur les boutons PrimeNG et dans une application Windows, `not-allowed` étant une convention web : le grisé et le tooltip disent déjà pourquoi |
 | Chargement | `p-skeleton` aux dimensions de l'élément final ; icône `spinner` dans le bouton d'un geste en attente de réponse | Évite le saut de layout à l'arrivée des événements. Une table encore vide se couvre de lignes entières, une table déjà peuplée n'en garde que sur la vignette (§ Mapping Composants). Le spinner remplace `[loading]` de `pButton`, déprécié en v22 |
 | Sans valeur | Cadratin en `text-muted-color`, cf. § Séparateurs | Cellule d'une ligne qui existe, mais dont la source ne fournit pas la donnée : Après, Source et Score d'un morceau non résolu. Un trait d'union se lirait comme un caractère du contenu, une cellule vide comme un rendu manqué |
@@ -582,8 +582,8 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Lignes rattrapées** : gardées dans la navigation de la modale du lien avec « Rattrapé sur `<Source>` » et leur lien, pour corriger, là où la maquette les retirait. Décidé le 2026-10-02
 - **Rattrapage après interruption** : ouvert aussi quand le run a été interrompu, là où la maquette ne montrait rien en phase `interrupted`. Décidé le 2026-10-02, réaligné le 2026-10-05
 - **Rattrapage par modale** : modale du lien par morceau, 720px de large et hauteur au contenu, ouverte par la ligne du run ou le badge, là où `UrlRescue` empilait un bloc de lignes sous la table. Décidé le 2026-10-06
-- **Badge du rattrapage** : « N à rattraper » à droite du badge de file, là où la maquette n'en a pas. Décidé le 2026-10-06
-- **Étape lien de l'arbitrage** : après le refus de la liste Bandcamp, la modale enchaîne sur le lien du même morceau dans son cadre 720 × 560, là où `ArbitrationDialog` fermait. Décidé le 2026-10-06
+- **Badge du rattrapage** : « N à rattraper » à droite du badge de file, les deux groupés en `gap-2`, là où la maquette n'en a pas. Décidé le 2026-10-06
+- **Étape lien de l'arbitrage** : après le refus de la liste Bandcamp, ou « Passer » quand elle est vide, la modale enchaîne sur le lien du même morceau dans son cadre 720 × 560, là où `ArbitrationDialog` fermait. Décidé le 2026-10-06
 - **Indice de rattrapage** : « Coller un lien → » en `font-semibold text-muted-color` dans la colonne Après, là où la maquette laisse la cellule vide ; poids 600 hors des titres, seul écart à la Scale Typographique. Décidé le 2026-10-06
 - **Rien à rattraper** : ligne `check-circle` à la place de la barre, là où `UrlRescue` posait un `EmptyState` dans le bloc. Décidé le 2026-10-06
 - **Bouton « Lancer le run » pendant la phase** : conservé, bloqué seulement pendant un geste en vol, là où la maquette le remplaçait par « Confirmer l'écriture », qui arrive avec la Feature 5. Décidé le 2026-10-03, réaligné le 2026-10-05

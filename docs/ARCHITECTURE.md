@@ -647,8 +647,8 @@ sequenceDiagram
                 API-->>S: candidats
                 S-->>UI: arbitration_updated (la liste Bandcamp remplace la précédente)
                 UI->>U: modale, temps 2
-                opt refus de la liste Bandcamp
-                    S-->>UI: track_resolved (unresolved · user_refused)
+                opt refus de la liste Bandcamp, ou « Passer » sur une liste vide
+                    S-->>UI: track_resolved (unresolved · user_refused, ou motif de la liste vide)
                     UI->>U: modale, temps 3 : lien (facultatif, une fois la recherche finie)
                 end
             end

@@ -66,8 +66,9 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 
 - **Rattrapage par modale (2026-10-06)** : `TaggingScreen` perd le bloc `UrlRescue` au profit de la
   modale du lien (ligne « Coller un lien → », état vide en ligne à la place de la barre),
-  `AppShell` gagne le badge « N à rattraper », `ArbitrationDialog` gagne l'étape lien après le
-  refus de la liste Bandcamp. Arbitrages datés du 2026-10-06 dans DESIGN.md § Arbitrages
+  `AppShell` gagne le badge « N à rattraper », groupé en `gap-2` avec celui de la file,
+  `ArbitrationDialog` gagne l'étape lien après le refus de la liste Bandcamp ou son « Passer »
+  quand elle est vide. Arbitrages datés du 2026-10-06 dans DESIGN.md § Arbitrages
 
 ## Journal
 
