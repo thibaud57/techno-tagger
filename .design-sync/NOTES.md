@@ -64,8 +64,7 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- **Rattrapage par modale (2026-10-06)** : `TaggingScreen` sans `UrlRescue`, badge « N à rattraper »
-  dans `AppShell`, étape lien dans `ArbitrationDialog`. Détail dans DESIGN.md § Arbitrages
+Rien en attente depuis le push du 2026-10-06.
 
 ## Journal
 
@@ -176,3 +175,9 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   `/swarm-ui-variations` pour rendre la hauteur à la liste du run. Retenue : la modale par ligne,
   ajustée (hauteur au contenu, badge dans le shell, étape lien dans l'arbitrage). Aucun push, écarts
   listés dans § Reste ouvert.
+- **2026-10-06, push du rattrapage par modale** : `TaggingScreen` perd `UrlRescue` au profit de
+  la modale du lien et de l'indice « Coller un lien → », `AppShell` gagne le badge « N à
+  rattraper » groupé avec celui de la file, `ArbitrationDialog` gagne l'étape lien. `readme.md`
+  (§ Layout, `ErrorMessage`, réserve n° 15), le README du kit et les fiches `ErrorMessage` et
+  `InputGroup`, passé en réservé, suivent. Maquette rejouée en local avant le push.
+  `_ds_needs_recompile` posé en fin de push.
