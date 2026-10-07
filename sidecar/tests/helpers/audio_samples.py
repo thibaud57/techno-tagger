@@ -8,8 +8,11 @@ Constructions validees le 2026-09-20 contre mutagen 1.48.1 : une montee de versi
 casse un de ces formats faits main se diagnostique en comparant d'abord ici.
 """
 
+import ctypes
 import struct
 import wave
+from contextlib import contextmanager
+from ctypes import wintypes
 from typing import TYPE_CHECKING, Final
 
 import mutagen
@@ -17,7 +20,7 @@ from mutagen.flac import FLAC
 from mutagen.id3 import TIT2, TPE1
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
 # MPEG-1 Layer III, 128 kbit/s, 44,1 kHz, mono, sans CRC ni padding : une trame
@@ -145,7 +148,47 @@ def tag(path: Path, *, artist: list[str], title: list[str]) -> None:
     else:
         if audio.tags is None:
             audio.add_tags()
-        # Frame ID3 non annotee cote mutagen : son __init__ est (*args, **kwargs).
-        audio.tags.add(TPE1(encoding=3, text=artist))  # type: ignore[no-untyped-call]
-        audio.tags.add(TIT2(encoding=3, text=title))  # type: ignore[no-untyped-call]
+        audio.tags.add(TPE1(encoding=3, text=artist))
+        audio.tags.add(TIT2(encoding=3, text=title))
     audio.save()
+
+
+def append_id3v1(path: Path, *, comment: str) -> None:
+    """Ajoute en fin de MP3 un tag ID3v1 de 128 octets portant un commentaire."""
+    fields = (b"Old Title", b"Old Artist", b"Old Album")
+    body = b"".join(field.ljust(30, b"\0") for field in fields)
+    tail = b"2001" + comment.encode("latin-1").ljust(30, b"\0") + bytes([255])
+    with path.open("ab") as audio:
+        audio.write(b"TAG" + body + tail)
+
+
+_GENERIC_READ: Final = 0x80000000
+_FILE_SHARE_READ: Final = 1
+_OPEN_EXISTING: Final = 3
+_INVALID_HANDLE: Final = wintypes.HANDLE(-1).value
+
+
+@contextmanager
+def held_open(path: Path) -> Iterator[None]:
+    """Tient le fichier comme un lecteur audio : lisible, plus inscriptible (Windows seulement)."""
+    kernel32 = ctypes.windll.kernel32
+    kernel32.CreateFileW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel32.CreateFileW(
+        str(path), _GENERIC_READ, _FILE_SHARE_READ, None, _OPEN_EXISTING, 0, None
+    )
+    if handle == _INVALID_HANDLE:
+        raise ctypes.WinError()
+    try:
+        yield
+    finally:
+        kernel32.CloseHandle(handle)

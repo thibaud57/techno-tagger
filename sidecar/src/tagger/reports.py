@@ -21,7 +21,8 @@ from typing import TYPE_CHECKING, ClassVar, Final, Literal, NamedTuple
 from pydantic import BaseModel
 
 from tagger.errors import TaggerError
-from tagger.extraction import DuplicateCriterion, ExtractionFailureReason, ExtractionMode
+from tagger.extraction import DuplicateCriterion, ExtractionMode
+from tagger.file_failures import FileFailureReason
 
 if TYPE_CHECKING:
     from tagger.extraction import ExtractionResult
@@ -102,7 +103,7 @@ class FailureEntry(BaseModel):
     """Morceau trouve mais non transfere, et pourquoi."""
 
     file_name: str
-    reason: ExtractionFailureReason
+    reason: FileFailureReason
 
 
 class ReportCounts(BaseModel):

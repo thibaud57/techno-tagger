@@ -10,7 +10,8 @@ import pytest
 
 import tagger
 from tagger.errors import TaggerError
-from tagger.extraction import DuplicateCriterion, ExtractionFailureReason
+from tagger.extraction import DuplicateCriterion
+from tagger.file_failures import FileFailureReason
 from tagger.protocol import API_KEY_MALFORMED, MALFORMED_COMMAND
 from tagger.tagging import FailureReason
 
@@ -42,10 +43,10 @@ def test_every_error_code_has_a_translation(language: str) -> None:
     ("reasons", "section"),
     [
         (FailureReason, ("tagging", "reason")),
-        (ExtractionFailureReason, ("playlist", "report", "reason")),
+        (FileFailureReason, ("playlist", "report", "reason")),
         (DuplicateCriterion, ("playlist", "report", "criterion")),
     ],
-    ids=["track-failure", "extraction-failure", "duplicate-criterion"],
+    ids=["track-failure", "file-failure", "duplicate-criterion"],
 )
 def test_every_shown_reason_has_a_translation(
     language: str, reasons: type[StrEnum], section: tuple[str, ...]

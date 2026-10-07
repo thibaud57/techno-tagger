@@ -47,7 +47,7 @@ ARTWORK_CONCURRENCY: Final = 6
 # conditions reseau locales.
 _ARTWORK_TIMEOUT: Final = httpx2.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
 
-_ARTWORK_EXTENSIONS: Final = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+ARTWORK_EXTENSIONS: Final = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 # Une pochette vit sur un CDN public : quelques sauts suffisent, et la borne evite
 # qu'une boucle de redirections ne tienne une place du pool jusqu'au timeout.
@@ -397,7 +397,7 @@ class ArtworkFetcher:
         # Un type de media est insensible a la casse (RFC 9110) : un `image/JPEG`
         # designe bien un JPEG.
         content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
-        extension = _ARTWORK_EXTENSIONS.get(content_type)
+        extension = ARTWORK_EXTENSIONS.get(content_type)
         if extension is None:
             raise ArtworkUnavailableError("not_an_image")
         try:

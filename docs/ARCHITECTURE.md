@@ -118,6 +118,7 @@ techno-tagger/
 │   │   ├── observability.py              # init Sentry durci, scrubbing PII
 │   │   ├── protocol.py                   # modèles des commandes et des événements
 │   │   ├── errors.py                     # erreurs métier : code stable et params structurés
+│   │   ├── file_failures.py              # motifs d'échec d'un fichier, partagés par l'extraction et l'écriture
 │   │   ├── handlers.py                   # handlers des commandes, run courant, événements traduits
 │   │   ├── playlists/                    # parsing VLC SQLite et M3U8
 │   │   ├── extraction.py                 # copie ou déplacement des morceaux d'une playlist
@@ -602,11 +603,11 @@ Deux contenus, réponses de l'API et pochettes, sous la politique du tableau ci-
 
 ### Files / Assets Storage
 
-Système de fichiers local exclusivement. Les pochettes sont téléchargées pendant la phase réseau, mises en cache, puis écrites en `APIC` (type 3, front cover) ou `METADATA_BLOCK_PICTURE` lors de la phase d'écriture.
+Système de fichiers local exclusivement. Les pochettes sont téléchargées pendant la phase réseau, mises en cache, puis écrites en `APIC` (type 3, front cover) ou en bloc PICTURE du FLAC lors de la phase d'écriture, une seule image par fichier.
 
 ### File Processing
 
-Lecture et écriture des tags par **mutagen**, pur Python et sans dépendance hors bibliothèque standard, couvrant les quatre formats retenus, WAV compris. Deux systèmes de tags, donc deux tables de correspondance et une écriture **en ID3v2.3** obtenue par `save(v2_version=3)`, mutagen visant v2.4 par défaut (cf. [ADR-011](adrs/011-politique-ecriture-tags.md)). pytaglib écrit les mêmes formats mais impose une dépendance native à empaqueter avec PyInstaller.
+Lecture et écriture des tags par **mutagen**, pur Python et sans dépendance hors bibliothèque standard, couvrant les quatre formats retenus, WAV compris. Deux systèmes de tags, donc deux tables de correspondance et une écriture **en ID3v2.3** obtenue par `update_to_v23()` puis `save(v2_version=3)`, mutagen visant v2.4 par défaut (cf. [ADR-011](adrs/011-politique-ecriture-tags.md)). pytaglib écrit les mêmes formats mais impose une dépendance native à empaqueter avec PyInstaller.
 
 ---
 
@@ -950,7 +951,6 @@ Vérifications restantes, sans enjeu architectural et donc sans ADR.
 | Sujet | À résoudre | Quand |
 |---|---|---|
 | Tags WAV | Ce que les lecteurs DJ relisent réellement d'un chunk ID3v2 dans un WAV. Informatif, sert à formuler l'avertissement du rapport ; ne conditionne pas l'implémentation (cf. [ADR-011](adrs/011-politique-ecriture-tags.md)). | Étape 1 |
-| Réglages `save()` en ID3v2.3 | La version est tranchée ([ADR-011](adrs/011-politique-ecriture-tags.md)), deux réglages ne le sont pas : doubler ou non `TORY` par un `TXXX:ORIGINALDATE` pour garder la date complète et choisir `v23_sep` pour les artistes multiples. Se vérifie sur les mêmes fichiers de test que le WAV. | Étape 1 |
 | Sélection des modèles LLM | Comment proposer une liste à jour sans la coder en dur ni la maintenir à chaque sortie de modèle. | Post-MVP |
 | Maturité de PyInstaller sur macOS | À vérifier le jour où la cible macOS revient au programme. | Post-MVP |
 

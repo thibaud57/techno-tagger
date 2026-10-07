@@ -23,7 +23,8 @@ from pydantic import (
     model_validator,
 )
 
-from tagger.extraction import DuplicateCriterion, ExtractionFailureReason, ExtractionMode
+from tagger.extraction import DuplicateCriterion, ExtractionMode
+from tagger.file_failures import FileFailureReason
 from tagger.matching import MatchingThresholds, check_thresholds
 from tagger.playlists import PlaylistFormat
 from tagger.scraper_client import SearchSource, Source
@@ -300,7 +301,7 @@ class FailurePayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     file_name: str
-    reason: ExtractionFailureReason
+    reason: FileFailureReason
 
 
 class ExtractionFinished(Event):

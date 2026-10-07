@@ -196,7 +196,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - Pur Python, aucune dépendance hors bibliothèque standard : c'est précisément l'argument de l'[ADR-011](adrs/011-politique-ecriture-tags.md) contre pytaglib. Aucun hook PyInstaller dédié n'existe dans `pyinstaller-hooks-contrib`, et aucun n'est nécessaire
 - Livre un `py.typed`, donc typé pour Mypy strict sans stub externe
 - **WAV** : seul le chunk ID3v2 est supporté, le chunk RIFF/INFO ne l'est pas. Le chunk est écrit en minuscules (`id3 `) là où d'autres implémentations attendent `ID3 `. La lecture côté mutagen est insensible à la casse, les autres logiciels pas forcément
-- **ID3v2.3** : `save(v2_version=3)` repasse les frames texte d'UTF-8 en UTF-16 et joint les valeurs multiples avec `v23_sep` (défaut `/`). Le `v23_sep=None` est déconseillé par la doc, il produit des séparateurs nuls que « some implementations might get confused about »
+- **ID3v2.3** : `save(v2_version=3)` repasse les frames texte d'UTF-8 en UTF-16, mais ne convertit pas `TDRC` ni `TDOR` : sans `update_to_v23()` préalable ils restent sur le disque sous un en-tête v2.3 (constaté le 2026-10-06 sur 1.48.1). techno-tagger écrit une seule chaîne par champ, `v23_sep` ne lui sert donc pas
 
 **Recommandation** : ⚠️ Retenu, sans alternative crédible. Deux points à couvrir par des tests, tous deux dans le périmètre déjà prévu par [ARCHITECTURE.md § Stratégie de Tests](ARCHITECTURE.md#stratégie-de-tests) :
 1. `EasyID3` combiné à `v2_version=3` a produit historiquement une frame `TDRC` v2.4 vide en plus du `TYER` v2.3 attendu (issue #188, fermée sans détail de correctif vérifiable). Écrire l'assertion sur le contenu réel du fichier, pas sur le retour de l'API

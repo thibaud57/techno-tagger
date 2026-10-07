@@ -20,6 +20,7 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, `--arbitration` un seul morceau en zone grise, ou `--vlc-dump` un dump `vlc_media.db` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --arbitration \| --vlc-dump]` |
 | `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout. `BY_URL` sert les routes par URL du rattrapage (`/bandcamp/tracks`, `/soundcloud/resolve`, morceau ou profil), `FAILING_IDS` fait rendre 403 ou 503 à un id Beatport précis | importé par `drive.py` |
 | `drive.py` | Vraie boucle NDJSON contre le faux serveur, ou contre une vraie gateway locale si `GATEWAY_URL` et `GATEWAY_KEY` sont posées. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
+| `write_tags_probe.py` | Écriture des tags hors protocole : bâtit un fichier par format, le salit (commentaires, verso et recto, date complète en v2.4, frames Serato), y écrit le candidat Beatport des fixtures avec une pochette, puis relit le disque par `translate=False` | `uv run --directory sidecar python c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/write_tags_probe.py <dossier> [mp3 wav aiff flac]` |
 | `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` ; `--key <touche>` frappe une vraie touche (`Input.dispatchKeyEvent`), `--screenshot <png>` capture la fenêtre, `--click <x> <y>` et `--move <x> <y>` donnent un vrai clic ou un survol souris (coordonnées CSS) ; une page qui meurt pendant l'appel rend `{"success": true, "pageClosed": true}` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
 | `page/demo-run.js` | Parcours de la démo pour une revue à l'écran : `playlist <demo-data>` pose les chemins et la playlist, `extract` clique « Extraire », `tagging` passe au tagging et lance le run, `run <dossier>` lance un run sans extraction dans la session, `state` compte les issues, `last-destination [clear]` lit la préférence, ou l'efface quand la démo l'a posée, `tag-widths <clé>` mesure en pixels les libellés d'une clé, FR et EN, dans la police d'un tag affiché | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/demo-run.js <action> [cible]` |
 | `page/arbitration-dialog.js` | Mesures de la modale d'arbitrage et de la liste du run, sans geste envoyé : `open` (par le badge), `state` (taille de la modale, sélection, options, message vide et leurs rectangles), `footer`, `covers`, `rows` (lignes du run et leurs rectangles, onglet Tagging ouvert au besoin, pour viser l'une d'elles par `--click`), `state-icons` (centres du tag d'état et de l'icône d'info, fond et transition du tag), `tag-demo` (couleur du premier tag alternée avec puis sans sa transition, pour la juger à l'œil), `cursors` (curseur des éléments cliquables), `trace` puis `trace-read` (journal souris et valeurs de `choice`) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-dialog.js <action>` |
@@ -71,6 +72,21 @@ Le faux CDN se scinde en deux, parce qu'`ArtworkFetcher` refuse toute URL qui n'
 - Cache disque : entrée relue puis vieillie au-delà du TTL et purgée à la réouverture ; plafond bas et quatre écritures, celle qu'on vient de relire survit et la moins récemment lue part ; dossier supprimé en plein usage, la lecture rend un miss et l'écriture suivante le recrée ; réponse relue quel que soit l'ordre des paramètres et lisible en JSON sur le disque
 - Pochettes : téléchargement unique puis service depuis le cache, deux appels concurrents sur la même URL ne faisant qu'une requête, extension tirée du `Content-Type` quelle que soit sa casse, octets identiques à ceux du CDN, redirection vers un hôte public suivie, `404` et contenu non-image levant `ArtworkUnavailableError` sans rien publier et sans l'URL dans les `params`, douzaine d'URL distinctes en `TaskGroup` pour voir le pool tenir
 - Garde-fou d'URL : `http` en clair, boucle locale, réseau privé et schéma hors http refusés en `blocked_url`, le serveur local restant à zéro requête reçue
+
+## Pilotage de l'écriture des tags
+
+`write_tags` s'exerce par `scripts/write_tags_probe.py` tant que la phase d'écriture ne le câble pas au protocole. Les morceaux de `just demo` ne portent pas de vrai flux MPEG (mutagen lève `HeaderNotFoundError` sur leurs MP3) : le script bâtit ses fichiers par `audio_samples`, comme les tests, et c'est la combinaison de tags sales qui fait sa valeur.
+
+### Flux qui valent le coup
+
+- Quatre formats : `written_fields` à 15 et `artwork` vrai, ID3 relu en `2.3.0` avec `TYER` et `TORY` à l'année du candidat alors que le fichier portait `TDRC` « 2019-06-16 » en v2.4, ni `TDRC`, ni `TDAT`, ni `COMM` ; FLAC sans `COMMENT` ni `DESCRIPTION`. Une seule image partout, recto `image/jpeg`
+- Hors table : `PRIV:Serato` et `TXXX:SERATO_PLAYCOUNT` (ID3), `SERATO_PLAYCOUNT` (FLAC) intacts
+
+Parcours relevé le 2026-10-07, tous verts.
+
+### Échec de transfert à l'extraction
+
+Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Héctor Oaks - As We Were.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
 
 ## Pilotage du run de re-tagging
 

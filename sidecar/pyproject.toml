@@ -112,6 +112,10 @@ strict = true
 warn_unreachable = true  # non couvert par strict
 python_version = "3.14"
 plugins = ["pydantic.mypy"]
+# mutagen livre un py.typed sans annoter ses frames ni les methodes de ses tags
+# (setall, delall, add, update_to_v23, add_picture) : sans cette exclusion, chaque
+# appel demanderait un `# type: ignore[no-untyped-call]`.
+untyped_calls_exclude = ["mutagen"]
 
 # Genere par build.py au packaging, donc absent d'un arbre propre. Cible plutot
 # que global : la disparition des types d'une vraie dependance reste une erreur.

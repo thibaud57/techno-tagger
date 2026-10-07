@@ -45,6 +45,7 @@
     "files_error": "The audio files could not be read.",
     "tagging_folder_unreadable": "The folder to re-tag cannot be found or read: {{folder}}.",
     "tags_unreadable": "The tags of {{file}} could not be read.",
+    "tags_write_failed": "The tags of {{file}} could not be written.",
     "scraper_error": "The search failed. Try again later.",
     "api_key_rejected": "The API key was rejected. Check it in the settings.",
     "source_unavailable": "{{source}} is not responding. Try again later.",

@@ -1,6 +1,5 @@
 """Tests de l'extraction vers le dossier destination."""
 
-import errno
 from pathlib import Path
 
 import pytest
@@ -9,12 +8,11 @@ from tagger import extraction
 from tagger.extraction import (
     DestinationFolderUnwritableError,
     ExtractionFailure,
-    ExtractionFailureReason,
     ExtractionMode,
     SourceFolderUnreadableError,
     extract,
-    failure_reason,
 )
+from tagger.file_failures import FileFailureReason
 
 
 def test_copies_the_requested_tracks(music_library: Path, tmp_path: Path) -> None:
@@ -172,9 +170,7 @@ def test_records_a_failed_copy_and_carries_on(
 
     result = extract(["alpha.mp3"], music_library, tmp_path / "work")
 
-    assert result.failures == (
-        ExtractionFailure("alpha.mp3", ExtractionFailureReason.PERMISSION_DENIED),
-    )
+    assert result.failures == (ExtractionFailure("alpha.mp3", FileFailureReason.PERMISSION_DENIED),)
 
 
 def test_a_failed_copy_does_not_stop_the_following_tracks(
@@ -191,7 +187,7 @@ def test_a_failed_copy_does_not_stop_the_following_tracks(
 
     result = extract(["alpha.mp3", "delta.mp3"], music_library, tmp_path / "work")
 
-    assert result.failures[0].reason is ExtractionFailureReason.DISK_FULL
+    assert result.failures[0].reason is FileFailureReason.DISK_FULL
     assert result.extracted == ("delta.mp3",)
 
 
@@ -206,31 +202,8 @@ def test_records_a_homonym_vanished_since_indexing_and_carries_on(
 
     result = extract(["beta.mp3", "alpha.mp3"], music_library, tmp_path / "work")
 
-    assert result.failures == (ExtractionFailure("beta.mp3", ExtractionFailureReason.FILE_MISSING),)
+    assert result.failures == (ExtractionFailure("beta.mp3", FileFailureReason.FILE_MISSING),)
     assert result.extracted == ("alpha.mp3",)
-
-
-@pytest.mark.parametrize(
-    ("error", "expected"),
-    [
-        # winerror 32 fait de cette OSError une PermissionError : le code Windows
-        # doit primer sur le type, sinon un verrou passe pour un refus de droits
-        (
-            OSError(32, "The process cannot access the file", None, 32),
-            ExtractionFailureReason.FILE_LOCKED,
-        ),
-        (FileNotFoundError(2, "No such file or directory"), ExtractionFailureReason.FILE_MISSING),
-        (OSError(errno.ENAMETOOLONG, "File name too long"), ExtractionFailureReason.PATH_TOO_LONG),
-        (OSError(99, "unheard of"), ExtractionFailureReason.WRITE_FAILED),
-    ],
-    ids=["sharing_violation", "vanished_file", "overlong_path", "unknown_error"],
-)
-def test_maps_a_system_error_to_the_project_vocabulary(
-    error: OSError, expected: ExtractionFailureReason
-) -> None:
-    reason = failure_reason(error)
-
-    assert reason is expected
 
 
 def test_reports_progress_once_per_track(music_library: Path, tmp_path: Path) -> None:

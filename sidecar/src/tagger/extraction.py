@@ -6,24 +6,20 @@ source (ADR-019, ADR-020). Rien n'interrompt le run : introuvables, homonymes
 departages et copies en echec sont consignes, jamais leves.
 """
 
-import errno
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
+from typing import TYPE_CHECKING, ClassVar, NamedTuple
 
 from tagger.errors import TaggerError
+from tagger.file_failures import FileFailureReason, file_failure_reason
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-# Codes d'erreur Windows, absents des autres plateformes.
-WINDOWS_LOCK_ERRORS: Final = frozenset({32, 33})  # SHARING_VIOLATION, LOCK_VIOLATION
-WINDOWS_PATH_TOO_LONG: Final = 206  # FILENAME_EXCED_RANGE
 
 
 @verify(UNIQUE)
@@ -40,21 +36,6 @@ class DuplicateCriterion(StrEnum):
 
     LARGEST_FILE = auto()
     PATH_ORDER = auto()
-
-
-@verify(UNIQUE)
-class ExtractionFailureReason(StrEnum):
-    """Motifs repris de la nomenclature d'ecriture d'ARCHITECTURE.md § Backend :
-    une meme panne de systeme de fichiers porte le meme nom dans les deux rapports
-    que produit un run.
-    """
-
-    PERMISSION_DENIED = auto()
-    DISK_FULL = auto()
-    PATH_TOO_LONG = auto()
-    FILE_LOCKED = auto()
-    FILE_MISSING = auto()
-    WRITE_FAILED = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,7 +73,7 @@ class ExtractionFailure:
     """Morceau trouve mais non transfere."""
 
     file_name: str
-    reason: ExtractionFailureReason
+    reason: FileFailureReason
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,28 +183,6 @@ def build_source_index(
     return {name: tuple(paths) for name, paths in grouped.items()}
 
 
-def failure_reason(error: OSError) -> ExtractionFailureReason:
-    """Traduit une erreur systeme en motif du vocabulaire du projet.
-
-    Le code Windows se lit avant le type de l'exception : un fichier tenu par un
-    lecteur audio leve `PermissionError` comme un vrai refus de droits, et seul
-    `winerror` les distingue.
-    """
-    windows_code = getattr(error, "winerror", None)
-    if windows_code in WINDOWS_LOCK_ERRORS:
-        return ExtractionFailureReason.FILE_LOCKED
-    if windows_code == WINDOWS_PATH_TOO_LONG or error.errno == errno.ENAMETOOLONG:
-        return ExtractionFailureReason.PATH_TOO_LONG
-    if isinstance(error, FileNotFoundError):
-        return ExtractionFailureReason.FILE_MISSING
-    if isinstance(error, PermissionError):
-        return ExtractionFailureReason.PERMISSION_DENIED
-    if error.errno == errno.ENOSPC:
-        return ExtractionFailureReason.DISK_FULL
-
-    return ExtractionFailureReason.WRITE_FAILED
-
-
 class PreparedRun(NamedTuple):
     """Retour de `_prepare_run`."""
 
@@ -318,7 +277,7 @@ def extract(
                     extracted.append(file_name)
                     transferred.add(key)
             except OSError as error:
-                reason = failure_reason(error)
+                reason = file_failure_reason(error)
                 logger.warning("transfer failed track=%s reason=%s", file_name, reason)
                 failures.append(ExtractionFailure(file_name=file_name, reason=reason))
 

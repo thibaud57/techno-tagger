@@ -45,6 +45,7 @@
     "files_error": "La lecture des fichiers audio a échoué.",
     "tagging_folder_unreadable": "Le dossier à re-tagger est introuvable ou illisible : {{folder}}.",
     "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus.",
+    "tags_write_failed": "Les tags de {{file}} n'ont pas pu être écrits.",
     "scraper_error": "La recherche a échoué. Réessayez plus tard.",
     "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
     "source_unavailable": "{{source}} ne répond pas. Réessayez plus tard.",

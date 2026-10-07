@@ -12,10 +12,10 @@ from tagger.extraction import (
     DuplicateCriterion,
     DuplicateResolution,
     ExtractionFailure,
-    ExtractionFailureReason,
     ExtractionMode,
     ExtractionResult,
 )
+from tagger.file_failures import FileFailureReason
 from tagger.reports import ReportContext
 
 if TYPE_CHECKING:
@@ -43,9 +43,7 @@ def sample_result(library: Path) -> ExtractionResult:
                 criterion=DuplicateCriterion.LARGEST_FILE,
             ),
         ),
-        failures=(
-            ExtractionFailure(file_name="locked.mp3", reason=ExtractionFailureReason.FILE_LOCKED),
-        ),
+        failures=(ExtractionFailure(file_name="locked.mp3", reason=FileFailureReason.FILE_LOCKED),),
     )
 
 
