@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "ecriture-tags"
 goal: "Écrire dans un fichier MP3, WAV, AIFF ou FLAC les champs de la table de correspondance de l'ADR-011 projetés depuis le candidat retenu, une seule pochette et aucun commentaire, sans toucher aux champs que la source ne renseigne pas"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
