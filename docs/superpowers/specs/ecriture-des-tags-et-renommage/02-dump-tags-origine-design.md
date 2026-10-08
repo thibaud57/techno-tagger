@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "dump-tags-origine"
 goal: "Sauvegarder avant réécriture les tags d'origine des champs de la table dans un dump JSON par run, conservé 30 jours, et savoir les restaurer sur un fichier"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-ecriture-tags-design.md"]
