@@ -126,6 +126,7 @@ techno-tagger/
 │   │   ├── api_key.py                    # clé API dans le trousseau, via keyring
 │   │   ├── files.py                      # mutagen : lecture/écriture des tags
 │   │   ├── tag_dump.py                   # dump des tags d'origine d'un run, purgé après 30 jours
+│   │   ├── renaming.py                   # nom de fichier artiste - titre, collisions, chemins longs
 │   │   ├── matching.py                   # scoring rapidfuzz
 │   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
 │   │   ├── cache.py                      # réponses API et artworks
@@ -246,9 +247,9 @@ La barre de la phase compte les morceaux rattrapés sur les morceaux à rattrape
 
 **Le point de non-retour du run** et la seule phase qui touche aux fichiers musicaux. Déclenchée par la confirmation globale, jamais avant (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
 
-Quatre opérations dans cet ordre, sur chaque morceau résolu : dump JSON des tags d'origine, écriture des tags, incorporation de la pochette, puis renommage. Le renommage vient toujours en dernier, puisqu'il relit les tags fraîchement écrits. L'ensemble dure quelques secondes, les pochettes ayant été téléchargées pendant la phase réseau.
+Quatre opérations dans cet ordre, sur chaque morceau résolu : dump JSON des tags d'origine, écriture des tags, incorporation de la pochette, puis renommage. Le renommage vient toujours en dernier : il ne s'applique qu'à un morceau dont les tags sont écrits ; il calcule le nom depuis la projection écrite, sans rouvrir le fichier. L'ensemble dure quelques secondes, les pochettes ayant été téléchargées pendant la phase réseau.
 
-Le motif est `{artist} - {title}.{ext}`, débarrassé des caractères interdits par le système de fichiers. Non configurable au MVP ; un motif libre à jetons reste une évolution possible.
+Le motif est `{artist} - {title}.{ext}`, débarrassé des caractères interdits par le système de fichiers, remplacés de façon lisible (`/ \ |` → `-`, `": "` → `" - "`, `:` → `-`, `"` → `'`, `? * < >` et caractères de contrôle supprimés), extension en minuscules, aucun renommage sans artiste ou sans titre, collision suffixée ` (2)`, ` (3)`… sans jamais écraser un fichier. Non configurable au MVP ; un motif libre à jetons reste une évolution possible.
 
 Un fichier en échec n'interrompt jamais la phase : il est consigné et l'écriture se poursuit sur les suivants (cf. § [Robustesse](#-robustesse--modes-de-panne)). Le run se termine par l'écriture du rapport dans le dossier destination et l'affichage du récapitulatif filtrable.
 
@@ -826,7 +827,7 @@ Deux fenêtres ouvertes signifieraient deux sidecars écrivant le même plan de 
 
 ### Chemins longs Windows
 
-Une bibliothèque profonde plus un renommage en `{artist} - {title}` franchissent facilement la limite de 260 caractères de l'API Win32. `LongPathsEnabled` ne suffit pas, l'application devant elle-même être manifestée pour en bénéficier, ce que l'interpréteur Python n'est pas. Le sidecar **préfixe donc ses chemins Windows par `\\?\`** pour toutes les opérations de fichiers et tronque le nom généré si le résultat dépasse malgré tout, en le signalant dans le rapport.
+Une bibliothèque profonde plus un renommage en `{artist} - {title}` franchissent facilement la limite de 260 caractères de l'API Win32. La clé `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer à sa place, même manifestée (`longPathAware` de PyInstaller). Le sidecar **préfixe donc ses chemins Windows par `\\?\`** à l'appel système du renommage (`paths.extended_path`) ; l'extraction et l'écriture des tags ne passent pas par lui. Le préfixe ne protège que le sidecar : le nom généré est tronqué en fin de titre pour que le chemin complet reste à 259 caractères au plus, limite des logiciels non adaptés aux chemins longs. La troncature est signalée dans le rapport.
 
 ## 📊 Observabilité
 

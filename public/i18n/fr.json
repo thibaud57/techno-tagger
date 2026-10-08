@@ -46,6 +46,7 @@
     "tagging_folder_unreadable": "Le dossier à re-tagger est introuvable ou illisible : {{folder}}.",
     "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus.",
     "tags_write_failed": "Les tags de {{file}} n'ont pas pu être écrits.",
+    "file_rename_failed": "Le fichier {{file}} n'a pas pu être renommé.",
     "tag_dump_error": "La sauvegarde des tags d'origine a échoué. Relancez l'application, puis réessayez.",
     "tag_dump_write_failed": "Les tags d'origine n'ont pas pu être sauvegardés, aucun fichier n'a été modifié. Libérez de l'espace disque, puis relancez l'écriture.",
     "tag_dump_unreadable": "La sauvegarde des tags d'origine est illisible ou vient d'une autre version de l'application. Relancez un run pour retaguer ces fichiers.",

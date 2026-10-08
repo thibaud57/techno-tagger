@@ -320,7 +320,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`dependabot.yml` commité, Dependency graph et Dependabot alerts actifs** : les deux réglages de sécurité du dépôt activés, condition de fonctionnement du graphe de dépendances que Dependabot consomme
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le bouton « ouvrir le dossier de logs » et le lien vers la fiche source : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
-- [ ] **Préfixe `\\?\` sur les chemins Windows** du sidecar : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage, et `LongPathsEnabled` ne suffit pas à un interpréteur Python non manifesté
+- [ ] **Préfixe `\\?\` sur l'appel système du renommage** : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
 - [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 

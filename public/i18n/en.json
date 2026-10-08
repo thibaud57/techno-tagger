@@ -46,6 +46,7 @@
     "tagging_folder_unreadable": "The folder to re-tag cannot be found or read: {{folder}}.",
     "tags_unreadable": "The tags of {{file}} could not be read.",
     "tags_write_failed": "The tags of {{file}} could not be written.",
+    "file_rename_failed": "The file {{file}} could not be renamed.",
     "tag_dump_error": "Saving the original tags failed. Restart the application and try again.",
     "tag_dump_write_failed": "The original tags could not be saved, so no file was changed. Free up disk space, then write again.",
     "tag_dump_unreadable": "The saved original tags are unreadable or come from another version of the application. Start a new run to retag these files.",
