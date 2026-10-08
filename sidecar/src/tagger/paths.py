@@ -1,8 +1,4 @@
-"""Racine des donnees de l'application sur la machine de l'utilisateur.
-
-Source unique des chemins sous `appLocalDataDir()` : logs, cache, et plus tard
-plans de run et dump des tags d'origine.
-"""
+"""Racine des donnees de l'application, source unique des chemins sous `appLocalDataDir()`."""
 
 import os
 from pathlib import Path

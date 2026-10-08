@@ -1,0 +1,182 @@
+"""Tests du fichier de dump : ecriture, ajout sans ecrasement, relecture, purge."""
+
+import json
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
+from types import MappingProxyType
+
+import pytest
+from pydantic import ValidationError
+
+from tagger.files import OriginalTags, TagField, TagSystem
+from tagger.tag_dump import (
+    DumpEntry,
+    TagDump,
+    TagDumpUnreadableError,
+    TagDumpWriteError,
+    dump_path,
+    load_dump,
+    purge_dumps,
+    record_renamed_path,
+    save_entries,
+)
+
+CREATED = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
+ORIGIN = OriginalTags(
+    TagSystem.ID3,
+    3,
+    MappingProxyType({TagField.ARTIST: ("adam beyer",), TagField.BPM: ("130",)}),
+)
+WRITTEN = OriginalTags(TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Adam Beyer",)}))
+
+
+def _entry(name: str, original: OriginalTags = ORIGIN) -> DumpEntry:
+    return DumpEntry.of(Path("D:/Sets/Octobre") / name, original)
+
+
+def _dump() -> TagDump:
+    return TagDump(run_id="a3f9c1", created_at=CREATED)
+
+
+def test_names_the_dump_after_its_time_and_run(tmp_path: Path) -> None:
+    path = dump_path(tmp_path, _dump())
+
+    assert path == tmp_path / "20261006T211403Z-a3f9c1.json"
+
+
+def test_stamps_the_dump_name_in_utc_whatever_the_local_offset(tmp_path: Path) -> None:
+    paris = CREATED.astimezone(timezone(timedelta(hours=2)))
+
+    path = dump_path(tmp_path, TagDump(run_id="a3f9c1", created_at=paris))
+
+    assert path.name == "20261006T211403Z-a3f9c1.json"
+
+
+def test_refuses_a_dump_dated_without_a_time_zone() -> None:
+    with pytest.raises(ValidationError):
+        TagDump(run_id="a3f9c1", created_at=CREATED.replace(tzinfo=None))
+
+
+def test_reloads_the_entries_it_saved(tmp_path: Path) -> None:
+    saved = save_entries(tmp_path, _dump(), {"your mind.mp3": _entry("your mind.mp3")})
+
+    reloaded = load_dump(dump_path(tmp_path, saved))
+
+    assert reloaded == saved
+    assert reloaded.entries["your mind.mp3"].original_tags() == ORIGIN
+
+
+def test_never_replaces_an_entry_already_saved(tmp_path: Path) -> None:
+    first = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+
+    second = save_entries(
+        tmp_path, first, {"a.mp3": _entry("a.mp3", WRITTEN), "b.mp3": _entry("b.mp3")}
+    )
+
+    reloaded = load_dump(dump_path(tmp_path, second))
+    assert reloaded.entries["a.mp3"].original_tags() == ORIGIN
+    assert set(reloaded.entries) == {"a.mp3", "b.mp3"}
+
+
+def test_merges_onto_the_dump_on_disk(tmp_path: Path) -> None:
+    save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+
+    saved = save_entries(tmp_path, _dump(), {"b.mp3": _entry("b.mp3")})
+
+    assert set(load_dump(dump_path(tmp_path, saved)).entries) == {"a.mp3", "b.mp3"}
+
+
+def test_records_the_renamed_path_onto_the_dump_on_disk(tmp_path: Path) -> None:
+    save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3"), "b.mp3": _entry("b.mp3")})
+    stale = save_entries(tmp_path, _dump(), {})
+    stale_in_memory = stale.model_copy(update={"entries": {"a.mp3": _entry("a.mp3")}})
+    renamed = Path("D:/Sets/Octobre/Adam Beyer - Your Mind (Extended Mix).mp3")
+
+    updated = record_renamed_path(tmp_path, stale_in_memory, "a.mp3", renamed)
+
+    reloaded = load_dump(dump_path(tmp_path, updated))
+    assert set(reloaded.entries) == {"a.mp3", "b.mp3"}
+    assert reloaded.entries["a.mp3"].renamed_path == renamed
+
+
+def test_refuses_a_dump_of_an_unknown_version(tmp_path: Path) -> None:
+    path = tmp_path / "20261006T211403Z-a3f9c1.json"
+    path.write_text(json.dumps({"schema_version": 2, "run_id": "a3f9c1"}), encoding="utf-8")
+
+    with pytest.raises(TagDumpUnreadableError, match="unreadable tag dump") as error:
+        load_dump(path)
+
+    assert error.value.params == {"file": path.name, "found": 2, "expected": 1}
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["{not json", '{"schema_version": 1, "run_id": 42}'],
+    ids=["broken-json", "invalid-fields"],
+)
+def test_refuses_an_unreadable_dump(tmp_path: Path, content: str) -> None:
+    path = tmp_path / "20261006T211403Z-a3f9c1.json"
+    path.write_text(content, encoding="utf-8")
+
+    with pytest.raises(TagDumpUnreadableError):
+        load_dump(path)
+
+
+def test_leaves_no_partial_file_when_the_dump_cannot_be_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def full_disk(_self: Path, _target: Path) -> Path:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(Path, "replace", full_disk)
+
+    with pytest.raises(TagDumpWriteError, match="tag dump not written"):
+        save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_purges_dumps_older_than_thirty_days(tmp_path: Path) -> None:
+    names = [
+        "20260905T211402Z-1b2c3d.json",
+        "20260905T211402Z-1b2c3d.tmp",
+        "20260919T000000Z-9e8f7a.json",
+        "20260919T000000Z-9e8f7a.tmp",
+        "notes.json",
+        "notes.txt",
+    ]
+    for name in names:
+        (tmp_path / name).write_text("{}", encoding="utf-8")
+
+    purge_dumps(tmp_path, CREATED)
+
+    assert sorted(path.name for path in tmp_path.iterdir()) == names[2:]
+
+
+def test_purge_ignores_a_missing_folder(tmp_path: Path) -> None:
+    purge_dumps(tmp_path / "dumps", CREATED)
+
+    assert not (tmp_path / "dumps").exists()
+
+
+def test_purge_carries_on_after_a_dump_it_cannot_delete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    locked = tmp_path / "20260801T000000Z-1b2c3d.json"
+    expired = tmp_path / "20260905T211402Z-9e8f7a.json"
+    for path in (locked, expired):
+        path.write_text("{}", encoding="utf-8")
+    real_unlink = Path.unlink
+
+    def unlink_unless_locked(self: Path, missing_ok: bool = False) -> None:
+        if self == locked:
+            raise PermissionError(13, "Permission denied")
+        real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink_unless_locked)
+
+    purge_dumps(tmp_path, CREATED)
+
+    assert locked.exists()
+    assert not expired.exists()
+    assert "tag dump not purged run=1b2c3d reason=unlink_failed" in caplog.messages

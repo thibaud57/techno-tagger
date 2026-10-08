@@ -163,16 +163,21 @@ audio.save(v2_version=3)
 
 ### Description
 
-mutagen n'offre aucune API de dump ou de rollback. Le plan de run écrit un JSON des tags d'origine avant toute écriture (cf. [ADR-010](../adrs/010-ecriture-batch-et-plan-de-run.md)), conservé 30 jours.
+mutagen n'offre aucune API de dump ou de rollback. Le sidecar écrit un JSON des tags d'origine de chaque run avant toute écriture (cf. [ADR-010](../adrs/010-ecriture-batch-et-plan-de-run.md)), conservé 30 jours.
 
 ### Exemple
 
 ```python
-def dump_tags(path: Path) -> dict[str, list[str]]:
+def read_original_tags(path: Path) -> tuple[int | None, dict[str, list[str]]]:
     audio = mutagen.File(path)
-    if audio is None or audio.tags is None:
-        return {}
-    return {key: [str(v) for v in values] for key, values in audio.tags.items()}
+    tags = audio.tags if audio is not None else None
+    if isinstance(tags, ID3):
+        # Les seules clés de la table, avec toutes leurs valeurs, et la version du fichier
+        fields = {key: [str(v) for v in tags[key].text] for key in ID3_KEYS if key in tags}
+        return tags.version[1], fields   # 3 ou 4
+    if tags is not None:
+        return None, {key: list(tags[key]) for key in VORBIS_KEYS if key in tags}
+    return None, {}
 ```
 
 ### Points Importants
@@ -181,6 +186,8 @@ def dump_tags(path: Path) -> dict[str, list[str]]:
 - `pprint()` donne un dump lisible pour les logs, **pas exploitable pour restaurer**
 - **Un rollback bit-exact demanderait une copie du fichier brut** avant écriture, mutagen modifiant en place. Le dump JSON restaure les tags, pas l'octet près
 - `mutagen.File()` rend `None` quand le format n'est pas reconnu : le cas se traite, il ne lève pas
+- **Restaurer dans la version d'origine** : `save(v2_version=4)` pour un fichier arrivé en v2.4, sinon `update_to_v23()` puis `save(v2_version=3)`. Retirer aussi les champs de la table absents du dump, que l'écriture a ajoutés
+- **Valeurs multiples d'un v2.3** : mutagen les relit en une seule chaîne jointe par `/`, restaurée telle quelle
 
 ---
 

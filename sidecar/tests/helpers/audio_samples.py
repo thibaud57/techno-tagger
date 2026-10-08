@@ -16,6 +16,7 @@ from ctypes import wintypes
 from typing import TYPE_CHECKING, Final
 
 import mutagen
+from mutagen import MutagenError
 from mutagen.flac import FLAC
 from mutagen.id3 import TIT2, TPE1
 
@@ -192,3 +193,10 @@ def held_open(path: Path) -> Iterator[None]:
         yield
     finally:
         kernel32.CloseHandle(handle)
+
+
+def locked_by_another_process(_path: Path) -> None:
+    """Remplace `mutagen.File` : le verrou d'un lecteur, que Windows rend en erreur 32."""
+    raise MutagenError("file in use") from OSError(
+        32, "The process cannot access the file", None, 32
+    )

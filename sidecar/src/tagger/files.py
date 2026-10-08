@@ -3,8 +3,6 @@
 Seul module du sidecar qui ouvre un fichier audio ; l'ecriture suit la confirmation (ADR-010).
 """
 
-# TODO: implement, dump des tags d'origine avant reecriture (Feature 5).
-
 import os
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
@@ -14,8 +12,11 @@ from urllib.parse import quote
 
 import mutagen
 from mutagen import MutagenError
+from mutagen.aiff import AIFF
 from mutagen.flac import FLAC, Picture, VCFLACDict
 from mutagen.id3 import APIC, ID3, TXXX, WOAS, Encoding, Frame, Frames, PictureType
+from mutagen.mp3 import MP3
+from mutagen.wave import WAVE
 
 from tagger.cache import ARTWORK_EXTENSIONS
 from tagger.errors import TaggerError
@@ -23,7 +24,7 @@ from tagger.file_failures import FileFailureReason, file_failure_reason
 from tagger.matching import credited_artists, full_title
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from pathlib import Path
 
     from tagger.scraper_client import TrackCandidate
@@ -98,6 +99,10 @@ _VORBIS_COMMENTS: Final = ("COMMENT", "DESCRIPTION")
 
 _ARTWORK_MIME: Final = {f".{extension}": mime for mime, extension in ARTWORK_EXTENSIONS.items()}
 
+_ID3_V23: Final = 3
+# Seule version autre que la cible v2.3 qu'une restauration rend au fichier.
+_ID3_V24: Final = 4
+
 
 @verify(UNIQUE)
 class UnreadableReason(StrEnum):
@@ -113,6 +118,27 @@ class IdentityTags:
 
     artist: str
     title: str
+
+
+@verify(UNIQUE)
+class TagSystem(StrEnum):
+    """Systeme de tags : ID3 pour MP3, WAV et AIFF, Vorbis pour FLAC."""
+
+    ID3 = auto()
+    VORBIS = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class OriginalTags:
+    """Champs de la table tels que le fichier les porte, de quoi le restaurer.
+
+    `id3_version` est la version lue (2 a 4), `None` sans tag ID3 et pour un FLAC ; seule
+    une v2.4 est rendue telle quelle, toute autre repart en v2.3, que mutagen sait ecrire.
+    """
+
+    system: TagSystem
+    id3_version: int | None
+    fields: Mapping[TagField, tuple[str, ...]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,23 +234,8 @@ def read_identity(path: Path) -> IdentityTags:
     `mutagen.File()` departage par nom de classe : un FLAC renomme `.mp3` part chez
     le parser MP3 et ressort en `unreadable`.
     """
-    try:
-        audio = mutagen.File(path)
-    except (MutagenError, OSError) as exc:
-        # Un fichier tenu par un lecteur audio remonte en PermissionError sous
-        # l'erreur de mutagen : seul __cause__ le distingue d'une corruption.
-        cause = exc.__cause__ or exc
-        reason = (
-            UnreadableReason.LOCKED
-            if isinstance(cause, PermissionError)
-            else UnreadableReason.UNREADABLE
-        )
-        raise TagsUnreadableError(path, reason) from exc
-
-    if audio is None:
-        raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
-
-    match audio.tags:
+    _, tags = _load(path)
+    match tags:
         case ID3() as tags:
             values = {field: _id3_text(tags, keys.id3) for field, keys in IDENTITY_FIELDS.items()}
         case VCFLACDict() as tags:
@@ -240,6 +251,60 @@ def read_identity(path: Path) -> IdentityTags:
             raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
 
     return IdentityTags(artist=values[TagField.ARTIST], title=values[TagField.TITLE])
+
+
+def read_original_tags(path: Path) -> OriginalTags:
+    """Champs de la table avec toutes leurs valeurs, sans jamais ecrire le fichier.
+
+    Ni jointes ni nettoyees : la restauration doit rendre le fichier tel qu'il etait.
+    """
+    match _load(path):
+        case FLAC(), VCFLACDict() as comments:
+            fields = {
+                field: tuple(comments[keys.vorbis])
+                for field, keys in TAG_FIELDS.items()
+                if keys.vorbis in comments
+            }
+            return OriginalTags(TagSystem.VORBIS, None, MappingProxyType(fields))
+        case FLAC(), None:
+            return OriginalTags(TagSystem.VORBIS, None, MappingProxyType({}))
+        case MP3() | WAVE() | AIFF(), ID3() as tags:
+            fields = {
+                field: _id3_values(tags, keys.id3)
+                for field, keys in TAG_FIELDS.items()
+                if keys.id3 in tags
+            }
+            return OriginalTags(TagSystem.ID3, tags.version[1], MappingProxyType(fields))
+        case MP3() | WAVE() | AIFF(), None:
+            return OriginalTags(TagSystem.ID3, None, MappingProxyType({}))
+        case _:
+            raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
+
+
+def _load(path: Path) -> tuple[object, object]:
+    try:
+        audio = mutagen.File(path)
+    except (MutagenError, OSError) as exc:
+        # Un fichier tenu par un lecteur audio remonte en PermissionError sous
+        # l'erreur de mutagen : seul __cause__ le distingue d'une corruption.
+        cause = exc.__cause__ or exc
+        reason = (
+            UnreadableReason.LOCKED
+            if isinstance(cause, PermissionError)
+            else UnreadableReason.UNREADABLE
+        )
+        raise TagsUnreadableError(path, reason) from exc
+
+    if audio is None:
+        raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
+    return audio, audio.tags
+
+
+def _id3_values(tags: ID3, frame_id: str) -> tuple[str, ...]:
+    frame = tags[frame_id]
+    if frame_id == "WOAS":
+        return (str(frame.url),)
+    return tuple(str(value) for value in frame.text)
 
 
 def _id3_text(tags: ID3, frame_id: str) -> str:
@@ -298,6 +363,34 @@ def write_tags(path: Path, values: TagValues, artwork: Path | None) -> WrittenTa
     pochette absente garde l'image du fichier : le cache est jetable (ADR-013).
     """
     picture = _read_artwork(artwork)
+    _edit_tags(
+        path,
+        lambda flac, comments: _write_vorbis(flac, comments, values, picture),
+        lambda tags: _write_id3(tags, values, picture),
+        _ID3_V23,
+    )
+    return WrittenTags(fields=tuple(values), artwork=picture is not None)
+
+
+def restore_tags(path: Path, original: OriginalTags) -> None:
+    """Rend au fichier les champs du dump, dans sa version ID3 d'origine.
+
+    Un champ absent du dump est retire : l'ecriture l'a ajoute. Le reste n'est pas touche.
+    """
+    _edit_tags(
+        path,
+        lambda _, comments: _restore_vorbis(comments, original),
+        lambda tags: _restore_id3(tags, original),
+        _ID3_V24 if original.id3_version == _ID3_V24 else _ID3_V23,
+    )
+
+
+def _edit_tags(
+    path: Path,
+    edit_vorbis: Callable[[FLAC, VCFLACDict], None],
+    edit_id3: Callable[[ID3], None],
+    id3_version: int,
+) -> None:
     try:
         audio = mutagen.File(path)
         if audio is None:
@@ -306,20 +399,35 @@ def write_tags(path: Path, values: TagValues, artwork: Path | None) -> WrittenTa
             audio.add_tags()
         match audio, audio.tags:
             case FLAC() as flac, VCFLACDict() as comments:
-                _write_vorbis(flac, comments, values, picture)
+                edit_vorbis(flac, comments)
                 flac.save()
             case _, ID3() as tags:
-                _write_id3(tags, values, picture)
-                # `save(v2_version=3)` seul laisse TDRC et TDOR sur le disque (mutagen 1.48.1).
-                tags.update_to_v23()
-                audio.save(v2_version=3)
+                edit_id3(tags)
+                if id3_version == _ID3_V23:
+                    # `save(v2_version=3)` seul laisse TDRC et TDOR sur le disque (mutagen 1.48.1).
+                    tags.update_to_v23()
+                audio.save(v2_version=id3_version)
             case _:
                 # Conteneur hors des quatre formats : refuse avant toute ecriture.
                 raise TagsWriteError(path, FileFailureReason.WRITE_FAILED)
     except (MutagenError, OSError) as exc:
         raise _write_failure(path, exc) from exc
 
-    return WrittenTags(fields=tuple(values), artwork=picture is not None)
+
+def _restore_id3(tags: ID3, original: OriginalTags) -> None:
+    for field, keys in TAG_FIELDS.items():
+        if field in original.fields:
+            tags.setall(keys.id3, [_id3_frame(keys.id3, original.fields[field])])
+        else:
+            tags.delall(keys.id3)
+
+
+def _restore_vorbis(comments: VCFLACDict, original: OriginalTags) -> None:
+    for field, keys in TAG_FIELDS.items():
+        if field in original.fields:
+            comments[keys.vorbis] = list(original.fields[field])
+        elif keys.vorbis in comments:
+            del comments[keys.vorbis]
 
 
 def _write_failure(path: Path, error: MutagenError | OSError) -> TagsWriteError:
@@ -344,7 +452,7 @@ def _write_id3(tags: ID3, values: TagValues, artwork: _Artwork | None) -> None:
     for field, value in values.items():
         frame_id = TAG_FIELDS[field].id3
         # Remplacement par cle exacte : un TXXX d'un autre logiciel reste en place.
-        tags.setall(frame_id, [_id3_frame(frame_id, value)])
+        tags.setall(frame_id, [_id3_frame(frame_id, (value,))])
     tags.delall(_ID3_COMMENT)
 
     frames = tags.getall("APIC")
@@ -364,13 +472,13 @@ def _write_id3(tags: ID3, values: TagValues, artwork: _Artwork | None) -> None:
         tags.add(kept)
 
 
-def _id3_frame(frame_id: str, value: str) -> Frame:
+def _id3_frame(frame_id: str, values: Sequence[str]) -> Frame:
     kind, _, description = frame_id.partition(":")
     if kind == "TXXX":
-        return TXXX(encoding=Encoding.UTF8, desc=description, text=[value])
+        return TXXX(encoding=Encoding.UTF8, desc=description, text=list(values))
     if kind == "WOAS":
-        return WOAS(url=value)
-    return Frames[kind](encoding=Encoding.UTF8, text=[value])
+        return WOAS(url=values[0])
+    return Frames[kind](encoding=Encoding.UTF8, text=list(values))
 
 
 def _write_vorbis(

@@ -67,6 +67,11 @@ def track_payload(**overrides: object) -> dict[str, object]:
     return payload | overrides
 
 
+def payload_candidate(**overrides: object) -> TrackCandidate:
+    """Candidat tire du JSON complet de la gateway : tous les champs que l'ecriture projette."""
+    return TrackCandidate.model_validate(track_payload(**overrides))
+
+
 def track_candidate(
     title: str = "Your Mind",
     mix_name: str | None = "Original Mix",

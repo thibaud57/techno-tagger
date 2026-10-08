@@ -11,14 +11,14 @@ paths:
 - Lire le texte d'une frame ID3 par `.text` (une liste), et toute valeur Vorbis comme une liste même pour un champ unique
 - `clear_pictures()` avant `add_picture()` sur FLAC, sans quoi un re-run empile les pochettes ; sur ID3, l'unicité d'une `APIC` tient au couple `(type, desc)`
 - `audio.add_tags()` quand `audio.tags is None` : c'est le cas d'un WAV ou d'un AIFF sans chunk ID3, sinon l'indexation lève `TypeError`
-- Sérialiser le dump des tags d'origine vers des types simples avant toute écriture (rollback du plan de run, cf. [ADR-010](../../../docs/adrs/010-ecriture-batch-et-plan-de-run.md))
+- Sérialiser le dump des tags d'origine vers des types simples avant toute écriture (rollback, dump conservé 30 jours hors plan de run, cf. [ADR-010](../../../docs/adrs/010-ecriture-batch-et-plan-de-run.md))
 - Capturer `MutagenError` et `OSError` ensemble, fichier par fichier, et lire `__cause__` pour distinguer un `PermissionError` (fichier verrouillé par un lecteur) d'une corruption réelle
 - Ne renommer qu'un fichier dont l'écriture a réussi : le nom se calcule sur la projection, sans rouvrir le fichier
 - Une seule image par fichier : retirer toutes les images (`delall("APIC")`, `clear_pictures()`) avant de poser la pochette ; sans pochette, garder le recto existant
 - Retirer `COMM` en ID3, `COMMENT` et `DESCRIPTION` en Vorbis à chaque écriture
 
 ## À éviter
-- `save()` sans `v2_version=3`
+- `save()` sans `v2_version=3`, sauf pour rendre à un fichier arrivé en v2.4 ses tags d'origine (`save(v2_version=4)`)
 - `save(v2_version=3)` sans `update_to_v23()` préalable
 - Traiter `audio["TIT2"]` comme une chaîne : c'est un objet frame
 - Utiliser `EasyID3` pour tout : sa table ne couvre ni les pochettes ni les champs maison

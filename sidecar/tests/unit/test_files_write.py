@@ -6,12 +6,21 @@ from typing import TYPE_CHECKING, Final
 
 import mutagen
 import pytest
-from audio_samples import append_id3v1, held_open, write_tagged_wavpack
+from audio_samples import (
+    append_id3v1,
+    held_open,
+    locked_by_another_process,
+    write_tagged_wavpack,
+)
 from mutagen import MutagenError
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, COMM, TDRC, TPE2, TXXX, Frames, PictureType
 from mutagen.mp3 import MP3
-from scraper_responses import bandcamp_track_payload, soundcloud_track_payload, track_payload
+from scraper_responses import (
+    bandcamp_track_payload,
+    payload_candidate,
+    soundcloud_track_payload,
+)
 from tagging_api import JPEG
 
 from tagger.file_failures import FileFailureReason
@@ -34,12 +43,8 @@ def _credit(name: str) -> dict[str, object]:
     return {"id": name, "name": name, "kind": "artist", "social_links": []}
 
 
-def _candidate(**overrides: object) -> TrackCandidate:
-    return TrackCandidate.model_validate(track_payload(**overrides))
-
-
-BEATPORT: Final = _candidate()
-REMIX: Final = _candidate(
+BEATPORT: Final = payload_candidate()
+REMIX: Final = payload_candidate(
     artists=[_credit("Adam Beyer"), _credit("Bart Skils")],
     remixers=[_credit("Layton Giordani")],
     mix_name="Layton Giordani Remix",
@@ -138,7 +143,9 @@ def test_keeps_the_remixer_out_of_the_artist() -> None:
 
 
 def test_joins_several_remixers_apart_from_the_artists() -> None:
-    candidate = _candidate(remixers=[_credit("Layton Giordani"), _credit("Charlotte de Witte")])
+    candidate = payload_candidate(
+        remixers=[_credit("Layton Giordani"), _credit("Charlotte de Witte")]
+    )
 
     values = project_tags(candidate)
 
@@ -162,7 +169,7 @@ def test_joins_several_remixers_apart_from_the_artists() -> None:
     ids=["accented", "cjk", "ascii-unchanged"],
 )
 def test_percent_encodes_the_non_ascii_characters_of_the_url(url: str, encoded: str) -> None:
-    values = project_tags(_candidate(url=url))
+    values = project_tags(payload_candidate(url=url))
 
     assert values[TagField.URL] == encoded
 
@@ -172,7 +179,7 @@ def test_writes_the_encoded_url_whatever_the_characters_of_the_source(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    values = project_tags(_candidate(url="https://label.bandcamp.com/track/東京-café"))
+    values = project_tags(payload_candidate(url="https://label.bandcamp.com/track/東京-café"))
 
     write_tags(path, values, None)
 
@@ -210,13 +217,13 @@ def test_omits_the_fields_the_source_leaves_null() -> None:
 
 
 def test_omits_blank_values() -> None:
-    values = project_tags(_candidate(genre="   ", key=""))
+    values = project_tags(payload_candidate(genre="   ", key=""))
 
     assert {TagField.GENRE, TagField.KEY}.isdisjoint(values)
 
 
 def test_omits_a_zero_bpm_or_track_number() -> None:
-    values = project_tags(_candidate(bpm=0, track_number=0))
+    values = project_tags(payload_candidate(bpm=0, track_number=0))
 
     assert {TagField.BPM, TagField.TRACK_NUMBER}.isdisjoint(values)
 
@@ -230,7 +237,7 @@ def test_projects_what_a_soundcloud_candidate_carries() -> None:
 
 
 def test_omits_the_release_fields_without_a_release() -> None:
-    values = project_tags(_candidate(release=None))
+    values = project_tags(payload_candidate(release=None))
 
     assert {
         TagField.ALBUM,
@@ -289,7 +296,7 @@ def test_saves_id3_v23_with_the_year_alone(
 @pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
 def test_keeps_accented_text_intact(blank_audio: Callable[[str], Path], audio_format: str) -> None:
     path = blank_audio(audio_format)
-    values = project_tags(_candidate(title="Für Élise", mix_name="Señor Remix"))
+    values = project_tags(payload_candidate(title="Für Élise", mix_name="Señor Remix"))
 
     write_tags(path, values, None)
 
@@ -479,12 +486,7 @@ def test_maps_a_windows_sharing_violation_to_file_locked(
 ) -> None:
     path = blank_audio("mp3")
 
-    def locked_file(_path: Path) -> None:
-        raise MutagenError("file in use") from OSError(
-            32, "The process cannot access the file", None, 32
-        )
-
-    monkeypatch.setattr(mutagen, "File", locked_file)
+    monkeypatch.setattr(mutagen, "File", locked_by_another_process)
 
     with pytest.raises(TagsWriteError, match="tags not written") as error:
         write_tags(path, project_tags(BEATPORT), None)

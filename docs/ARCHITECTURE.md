@@ -125,6 +125,7 @@ techno-tagger/
 │   │   ├── reports.py                    # rapports d'extraction, JSON et Markdown
 │   │   ├── api_key.py                    # clé API dans le trousseau, via keyring
 │   │   ├── files.py                      # mutagen : lecture/écriture des tags
+│   │   ├── tag_dump.py                   # dump des tags d'origine d'un run, purgé après 30 jours
 │   │   ├── matching.py                   # scoring rapidfuzz
 │   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
 │   │   ├── cache.py                      # réponses API et artworks
@@ -584,11 +585,11 @@ La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en 
 
 | Artefact | Emplacement | Durée de vie | Rôle |
 |---|---|---|---|
-| Plan de run | `appLocalDataDir()` | Purgé au démarrage si terminé, 30 jours si interrompu | État de session, reprise, rollback |
+| Plan de run | `appLocalDataDir()` | Purgé au démarrage si terminé, 30 jours si interrompu | État de session, reprise |
 | Cache API + artworks | `appLocalDataDir()` | TTL 30 jours, plafond 500 Mo en éviction LRU | Éviter de repayer un re-run |
 | Rapport d'extraction, JSON + Markdown | Dossier destination | Permanente, livrable | Titres introuvables, doublons résolus et candidats écartés |
 | Rapport de run, JSON + Markdown | Dossier destination | Permanente, livrable | Traçabilité, relecture par l'app, envoi de feedback |
-| Dump des tags d'origine | `appLocalDataDir()` | **30 jours, y compris pour un run terminé** | Rollback par run ou par morceau |
+| Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé** | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
 | Logs du sidecar | `appLocalDataDir()` | Rotation à 5 Mo, 3 sauvegardes | Débogage à distance chez un utilisateur |
 
 Le plan vit dans `appLocalDataDir()`, jamais dans le dossier destination (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).

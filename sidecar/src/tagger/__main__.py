@@ -9,6 +9,7 @@ import functools
 import io
 import logging
 import sys
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, ClassVar, assert_never
 
 import keyring
@@ -48,6 +49,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
+from tagger.tag_dump import dump_dir, purge_dumps
 from tagger.url_recovery import UrlRecoveryNotOpenError
 
 if TYPE_CHECKING:
@@ -291,12 +293,22 @@ def main() -> None:
     # `logger.exception` doit avoir un handler autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
+    _purge_old_dumps()
     # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
     # points rend une liste vide et keyring basculerait sur son backend `fail`.
     # `KeyringBackend.__init__` n'annote pas son retour (cf. memory_keyring.py).
     keyring.set_keyring(WinVaultKeyring())  # type: ignore[no-untyped-call]
 
     asyncio.run(run_loop(sys.stdin, sys.stdout))
+
+
+def _purge_old_dumps() -> None:
+    # Une purge ratee ne doit jamais empecher le sidecar de demarrer : le dump reste
+    # au pire quelques jours de plus.
+    try:
+        purge_dumps(dump_dir(), datetime.now(UTC))
+    except OSError:
+        logger.exception("tag dump purge failed")
 
 
 async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
