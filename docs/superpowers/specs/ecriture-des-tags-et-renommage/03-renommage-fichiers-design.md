@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "renommage-fichiers"
 goal: "Renommer un fichier écrit en `{artist} - {title}.{ext}` avec un nom lisible, valide sous Windows, sans collision et dont le chemin reste ouvrable par les autres logiciels"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-ecriture-tags-design.md"]
