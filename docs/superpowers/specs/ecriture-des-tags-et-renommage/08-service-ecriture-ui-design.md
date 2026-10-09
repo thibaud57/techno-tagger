@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "service-ecriture-ui"
 goal: "Piloter depuis l'interface la confirmation, l'écriture, la relance et le rollback d'un run, et en exposer l'état aux écrans par un store de phase"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["05-protocole-ndjson-ecriture-design.md", "06-rollback-sidecar-design.md", "07-contrat-detail-avant-apres-design.md"]
