@@ -1,8 +1,8 @@
 ---
 title: "uv — Gestionnaire de paquets et d'environnement Python"
-version: "0.12.16"
+version: "0.12.24"
 description: "Référence technique pour uv : projet et dependency groups, lockfile et politique de versionnement, sync en CI, gestion des versions de Python et exécution des outils."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["uv", "python", "lockfile", "pep-735", "pyproject", "ci"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller", "GitHub Actions", "Dependabot"]
@@ -60,9 +60,10 @@ Le lockfile fige la résolution complète. Son format est couvert par la politiq
 ### Exemple
 
 ```yaml
-- uses: astral-sh/setup-uv@v7
+# .github/actions/setup-uv/action.yml, seul endroit des workflows où vit la version
+- uses: astral-sh/setup-uv@<sha> # v10.2.0
   with:
-    version: "0.12.16"   # patch exact : la compatibilité du lock n'est garantie qu'au sein d'une mineure
+    version: "0.12.24"   # patch exact : la compatibilité du lock n'est garantie qu'au sein d'une mineure
 ```
 
 ### Points Importants
@@ -70,6 +71,8 @@ Le lockfile fige la résolution complète. Son format est couvert par la politiq
 - **Un lockfile ne peut être rejeté qu'entre versions mineures** d'uv : tous les patchs `0.12.x` sont interchangeables de ce point de vue
 - **D'où l'épinglage du patch exact en CI** : ce n'est pas de la prudence excessive, c'est le seul moyen d'être certain qu'un run futur ne re-résout rien
 - `uv.lock` se commite, toujours
+- Un patch peut quand même réécrire le contenu du lock sans changer son format : entre 0.12.19 et 0.12.22, uv a cessé d'y écrire les réglages de résolution inutilisés et s'est mis à y consigner les default groups. Le premier `uv lock` après montée produit donc un diff, à committer
+- **Le plancher `uv_build` de `[build-system]` suit le patch épinglé** : depuis 0.12.16, le backend embarqué ne sert que si sa version satisfait cette plage, sinon il se retélécharge depuis l'index à chaque build
 - **uv préfère les versions déjà verrouillées** : une nouvelle version disponible en amont ne périme pas le lockfile tant que les contraintes du projet sont satisfaites. Il n'y a donc pas d'upgrade implicite
 
 ---
@@ -194,7 +197,7 @@ uv build                            # sdist + wheel dans dist/
 
 ## ✅ Recommandations
 
-- **Épingler le patch exact d'uv en CI** (`version: "0.12.16"` dans l'action de setup), la compatibilité du lock n'étant garantie qu'au sein d'une mineure
+- **Épingler le patch exact d'uv en CI** (`version: "0.12.24"` dans l'action composite `.github/actions/setup-uv`), la compatibilité du lock n'étant garantie qu'au sein d'une mineure. La 0.12.18 a en outre corrigé GHSA-2cv4-cqwr-gwf7, un path traversal Windows à l'installation d'une wheel
 - **Utiliser `uv sync --locked` en CI**, jamais `uv sync` nu
 - **Lancer tous les outils par `uv run`**, PyInstaller compris
 - **Séparer les groupes `dev` et `build`** : un job de test n'a pas besoin de PyInstaller

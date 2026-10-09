@@ -387,14 +387,15 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 | Tauri (majeure) | Sur release majeure | PR dédiée, guide de migration, **build + smoke test d'installation obligatoires** avant merge |
 | Angular / PrimeNG (majeures) | Sur release majeure | PR dédiée, `ng update`, vérification visuelle des écrans |
 | Runtime Python du sidecar | Sur fin de support | Bump dans `pyproject.toml` et `.python-version`, rebuild PyInstaller, **retester les faux positifs antivirus** |
-| Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `pnpm/setup` et d'`engines.node`. Prochaine échéance : Node 26, LTS planifiée au 2026-10-28 |
-| Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. **Conditionné à l'issue de l'[ADR-003](adrs/003-primeng-community-license.md)**, rouvert depuis l'archivage du dépôt PrimeNG (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
+| Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `.github/actions/setup-pnpm` et d'`engines.node`. Prochaine échéance : Node 26, LTS planifiée au 2026-10-28 |
+| Outils de CI (uv, pnpm) | Sur montée retenue dans VERSIONS.md | Bump de `version:` dans `.github/actions/setup-uv` (et du plancher `uv_build` de `sidecar/pyproject.toml`) ou dans `.github/actions/setup-pnpm`, seuls endroits où vivent ces versions |
+| Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. Clé valable 12 mois avec 30 jours de grâce, décidée par l'[ADR-003](adrs/003-primeng-community-license.md) (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
 
-**Dependabot** : écosystèmes `npm`, `uv`, `cargo` et `github-actions` déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque.
+**Dependabot** : écosystèmes `npm`, `uv`, `cargo` et `github-actions` déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, celle de `github-actions` couvrant aussi les actions composites de `.github/actions/*`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque.
 
-> 🔴 **Le lockfile `pnpm-lock.yaml` doit rester mono-document : c'est l'invariant qui protège les alertes de sécurité Dependabot.** Sur un lockfile pnpm 11 multi-document, celui que pnpm produit dès que `packageManager` ou `devEngines.packageManager` est déclaré dans `package.json`, les PR de bump continuent de fonctionner mais le *dependency grapher* lit le mauvais document et rapporte zéro dépendance : **les alertes de sécurité se referment d'elles-mêmes**, sans rien afficher. Correctif en attente en amont ([dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794) ouverte, PR #15968 non mergée). Le projet supprime la cause à la racine plutôt que de la contourner : ces deux champs sont volontairement absents de `package.json`, le lockfile reste mono-document, et la version de pnpm se déclare en input `version` de `pnpm/setup`. Tant que cet invariant tient, le mode de panne ne s'applique pas. Détail dans [VERSIONS.md § Dependabot](VERSIONS.md#6-dependabot).
+> 🔴 **Le lockfile `pnpm-lock.yaml` doit rester mono-document : c'est l'invariant qui protège les alertes de sécurité Dependabot.** Sur un lockfile pnpm multi-document, celui que pnpm 11 comme 12 produit dès que `packageManager` ou `devEngines.packageManager` est déclaré dans `package.json`, les PR de bump continuent de fonctionner mais le *dependency grapher* lit le mauvais document et rapporte zéro dépendance : **les alertes de sécurité se referment d'elles-mêmes**, sans rien afficher. Aucun correctif constaté en amont au 2026-10-09 : [dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794) a été fermée le 2026-09-15 avec le support de pnpm 12 côté PR, sans que le graphe lise mieux un lockfile multi-document. Le projet supprime la cause à la racine plutôt que de la contourner : ces deux champs sont volontairement absents de `package.json`, le lockfile reste mono-document, et la version de pnpm se déclare en input `version` de `pnpm/setup`, dans `.github/actions/setup-pnpm`. Tant que cet invariant tient, le mode de panne ne s'applique pas. Détail dans [VERSIONS.md § Dependabot](VERSIONS.md#6-dependabot).
 
-> ⚠️ **Une PR de mise à jour peut faire échouer `pnpm install --frozen-lockfile`** si le lockfile régénéré pointe une transitive publiée dans les dernières 24 heures, `minimumReleaseAge` de pnpm 11 la rejetant (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`). Dependabot régénère le lockfile via la CLI pnpm elle-même, qui applique alors son propre `minimumReleaseAge` : rien à aligner côté configuration du bot. Garder `minimumReleaseAgeExclude` côté pnpm pour les paquets qui se republient sans cesse.
+> ⚠️ **Une PR de mise à jour peut faire échouer `pnpm install --frozen-lockfile`** si le lockfile régénéré pointe une transitive publiée dans les dernières 24 heures, `minimumReleaseAge` de pnpm la rejetant (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`). Dependabot régénère le lockfile via la CLI pnpm elle-même, qui applique alors son propre `minimumReleaseAge` : rien à aligner côté configuration du bot. Garder `minimumReleaseAgeExclude` côté pnpm pour les paquets qui se republient sans cesse.
 
 > ✅ **Toute mise à jour touchant le packaging se valide par un build complet**, pas par une CI verte : c'est `tauri build` et l'installeur qui cassent, pas les tests unitaires.
 > ❌ **Ne jamais bumper Tauri et le runtime Python dans la même PR** : les deux touchent l'empaquetage, un échec de build ne dirait plus lequel accuser.
@@ -457,6 +458,25 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 | `just audit` | `pnpm audit --audit-level=high` sur `src/`, `uv audit` sur `sidecar/` | À chaque run CI (`audit-ui`, `audit-sidecar`), et en local avant chaque release | **Non bloquant** en CI, une CVE publiée en amont ne doit pas figer une PR sans rapport ; la Checklist Release oblige à lire le résultat. `src-tauri/` non couvert, `cargo audit` exigerait une installation à part |
 
 > Dependabot est intégré et gratuit sur dépôt public, aucune app tierce à installer. Les alertes de sécurité restent produites par le graphe de dépendances de GitHub et non par `dependabot.yml` : les désactiver en croyant qu'elles font doublon avec les PR de mise à jour priverait le projet de sa seule veille CVE.
+
+## Réglages Actions du dépôt
+
+Le dépôt est public : n'importe qui peut ouvrir une PR depuis un fork, et ce que la CI exécute alors dépend autant des réglages de Settings → Actions que des workflows. Ces réglages ne vivent dans aucun fichier versionné, d'où leur relevé ici.
+
+| Réglage | Cible | Relevé le 2026-10-09 | Pourquoi |
+|---------|-------|----------------------|----------|
+| Permissions par défaut du `GITHUB_TOKEN` | `read` (restricted) | ✅ `read` | Chaque workflow redéclare ses scopes, un oubli retombe sur la lecture seule |
+| Autoriser Actions à approuver une PR | Désactivé | ✅ désactivé (corrigé le 2026-10-09) | Un workflow ne doit pas pouvoir valider la PR qu'il vient d'ouvrir |
+| Épinglage SHA obligatoire | Activé | ✅ activé (corrigé le 2026-10-09) | Transforme en règle de plateforme la convention SHA des workflows : une action en tag flottant est refusée au lieu de passer |
+| Approbation des workflows de fork | Tous les contributeurs externes | ✅ tous les contributeurs externes (corrigé le 2026-10-09) | Sinon, une seule contribution acceptée (une typo suffit) dispense de l'approbation toutes les suivantes |
+| Actor rules (workflow execution protections) | Aucune, ou `dependabot[bot]` inclus | ✅ aucune | Une actor rule qui oublie `dependabot[bot]` bloque ses PR sans erreur visible |
+
+```bash
+# Relire l'état réel
+gh api repos/thibaud57/techno-tagger/actions/permissions
+gh api repos/thibaud57/techno-tagger/actions/permissions/workflow
+gh api repos/thibaud57/techno-tagger/actions/permissions/fork-pr-contributor-approval
+```
 
 ---
 
@@ -710,7 +730,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 
 ## Ressources Complémentaires
 - [ARCHITECTURE.md](ARCHITECTURE.md) : infrastructure, sécurité et observabilité à haut niveau, modes de panne
-- [VERSIONS.md](VERSIONS.md) : versions retenues, matrice de compatibilité croisée et conflits connus, dont le mode de panne de Dependabot sur pnpm 11
+- [VERSIONS.md](VERSIONS.md) : versions retenues, matrice de compatibilité croisée et conflits connus, dont le mode de panne de Dependabot sur un lockfile pnpm multi-document
 - ADRs opérationnels : [012 clé API et keyring](adrs/012-securite-cle-api-keyring.md), [013 cache jetable](adrs/013-cache-disque-jetable.md), [014 observabilité et vie privée](adrs/014-observabilite-sentry-et-rgpd.md), [015 cibles de distribution](adrs/015-cibles-distribution-windows.md), [016 multi-clés](adrs/016-multi-cles-techno-scraper.md), [018 versionnement des artefacts](adrs/018-versionnement-plan-de-run.md), [021 visibilité du dépôt](adrs/021-visibilite-du-depot.md)
 - [techno-scraper : PRODUCTION.md](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/PRODUCTION.md) : chaîne release-please et pièges de squash-merge, dont ce projet hérite
 - [PythonGUIs : antivirus et PyInstaller](https://www.pythonguis.com/faq/problems-with-antivirus-software-and-pyinstaller/) : pourquoi `--onefile` déclenche les heuristiques

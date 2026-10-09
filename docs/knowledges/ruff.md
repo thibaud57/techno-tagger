@@ -1,8 +1,8 @@
 ---
 title: "Ruff — Linter et formatter du sidecar"
-version: "0.16.9"
+version: "0.16.10"
 description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0, select vs extend-select et ordre lint/format."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["ruff", "lint", "format", "pyproject", "regles", "pre-commit"]
 scope: ["docs"]
 technologies: ["Python", "uv", "Mypy", "GitHub Actions"]
@@ -67,7 +67,7 @@ select = ["E4", "E7", "E9", "F"]
 - **Un `pyproject.toml` sans `select` hérite du nouveau jeu** : c'est le cas qui produit des centaines de violations sur du code inchangé
 - Le retrait des 18 règles n'a pas été documenté dans les notes de rupture : une règle qui « ne se déclenche plus » après montée de version vient peut-être de là
 - **Déclarer `select` explicitement est le seul moyen de maîtriser ce que le linter vérifie**, indépendamment des défauts de la version installée
-- **Épingler la version de Ruff** (en CI comme en pre-commit) évite qu'un changement de défaut arrive sans être décidé
+- **Épingler la version de Ruff** par `uv.lock`, que la CI lance par `uv run`, évite qu'un changement de défaut arrive sans être décidé
 
 ---
 
@@ -88,7 +88,7 @@ uv run ruff format
 
 - **L'ordre inverse laisse du code corrigé mais mal formaté**
 - `ruff format` est compatible Black à plus de 99,9 % sur du code déjà formaté par Black : la migration ne produit pas de diff significatif
-- En pre-commit, le hook `ruff-check --fix` se place avant `ruff-format`, et avant tout autre formatter
+- Le projet n'a pas de hook pre-commit : `just format-sidecar` enchaîne `ruff check --fix` puis `ruff format` en local, et la CI ne fait que vérifier par `ruff check` et `ruff format --check`
 
 ---
 
@@ -146,7 +146,7 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 ## ✅ Recommandations
 
 - **Déclarer `select` explicitement** plutôt que de dépendre du jeu par défaut de la version installée
-- **Épingler la version de Ruff** en CI et en pre-commit, et laisser Dependabot proposer la montée
+- **Épingler la version de Ruff** par `uv.lock`, et laisser Dependabot proposer la montée
 - **Lancer `ruff check --fix` puis `ruff format`**, dans cet ordre
 - **Cadrer une montée de version par `--statistics`** avant de regarder le diff
 - **Utiliser `per-file-ignores`** pour les tests et les `__init__.py` plutôt que de désactiver globalement

@@ -1,8 +1,8 @@
 ---
 title: "Mypy — Vérification statique de types du sidecar"
-version: "2.3.1"
+version: "2.4.0"
 description: "Référence technique pour Mypy : mode strict et ce qu'il active réellement, nouveaux défauts de la 2.0, typage asyncio, py.typed et exécution en CI."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["mypy", "typing", "strict", "asyncio", "py-typed", "ci"]
 scope: ["docs"]
 technologies: ["Python", "uv", "Ruff", "httpx2"]
@@ -66,6 +66,9 @@ write_cover_art(frame)
 - `--allow-redefinition` a pris le comportement de l'ancien `--allow-redefinition-new` ; `--allow-redefinition-old` restaure l'ancien
 - **`--python-version 3.9` est rejeté** : la cible minimale est 3.10
 - Le format du cache a changé : le premier run après montée de version réanalyse tout
+- **2.4 : le parser natif, basé sur celui de Ruff, devient le défaut**. `native_parser = false` rétablit l'ancien parser, dont le retrait est annoncé début 2027
+- **2.4 : un commentaire `# type:` posé sur un `for` ou un `with` est ignoré sans erreur**, le type de la variable étant alors inféré : annoter la variable avant l'instruction
+- Le `Final` read-only à l'exécution introduit en 2.3 ne concerne que les classes natives compilées par mypyc, pas un projet qui n'utilise Mypy que comme checker
 
 ---
 
@@ -144,7 +147,7 @@ uv run mypy --cache-dir=.mypy_cache src    # emplacement explicite du cache
 - **`--strict` en ligne de commande fait doublon** avec `strict = true` dans `pyproject.toml` : choisir un seul endroit, de préférence la configuration
 - `--no-incremental` sert à diagnostiquer un résultat suspect qui viendrait du cache
 - **Un job CI éphémère peut mettre en cache `.mypy_cache`** entre runs pour gagner du temps, ou l'ignorer pour la reproductibilité : les deux se défendent
-- Mypy 2.0 introduit `--num-workers` pour paralléliser la vérification
+- Mypy 2.0 introduit `--num-workers` pour paralléliser la vérification, stable depuis la 2.4 (`-n auto`, huit workers au plus) et réservé au parser natif
 
 ---
 
