@@ -180,11 +180,13 @@ export default class PlaylistPageComponent {
   /**
    * `ready` couvre le sidecar lance, la version controlee et aucune extraction en cours.
    * Le format doit etre annonce : tant qu'il est nul, le dump peut encore se reveler
-   * exiger une playlist, et une erreur de listage le laisse nul aussi.
+   * exiger une playlist, et une erreur de listage le laisse nul aussi. Le sidecar refuse
+   * une extraction pendant la recherche d'un run : le bouton ne l'offre pas.
    */
   protected readonly canExtract = computed(
     () =>
       this.sidecar.ready() &&
+      !this.sidecar.tagging() &&
       this.sidecar.playlistFormat() !== null &&
       this.missingChoices().length === 0,
   )
@@ -203,6 +205,12 @@ export default class PlaylistPageComponent {
 
     return this.translate.instant("playlist.missing.hint", { items }) as string
   })
+
+  protected readonly extractHint = computed(() =>
+    this.sidecar.tagging()
+      ? (this.translate.instant("playlist.blocked.tagging") as string)
+      : this.missingHint(),
+  )
 
   /** Oublie a chaque debut et fin de run : le formulaire se replie de nouveau. */
   protected readonly manuallyExpanded = linkedSignal(() => {

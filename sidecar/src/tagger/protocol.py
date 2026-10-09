@@ -163,6 +163,20 @@ class ResolveByUrl(Command):
     url: Annotated[str, Field(min_length=1)]
 
 
+class CommitRun(Command):
+    """Confirmation globale : le point de non-retour, seul geste qui ecrit des fichiers."""
+
+    command: Literal["commit_run"]
+    run_id: str
+
+
+class RetryWrite(Command):
+    """Rejoue l'ecriture des seuls morceaux en echec, sans reseau ni arbitrage."""
+
+    command: Literal["retry_write"]
+    run_id: str
+
+
 type AnyCommand = Annotated[
     GetVersion
     | Shutdown
@@ -173,7 +187,9 @@ type AnyCommand = Annotated[
     | StartTagging
     | ResolveArbitration
     | SwitchArbitrationSource
-    | ResolveByUrl,
+    | ResolveByUrl
+    | CommitRun
+    | RetryWrite,
     Field(discriminator="command"),
 ]
 
@@ -189,6 +205,8 @@ type ExecutableCommand = (
     | ResolveArbitration
     | SwitchArbitrationSource
     | ResolveByUrl
+    | CommitRun
+    | RetryWrite
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -203,6 +221,8 @@ type CommandName = Literal[
     "resolve_arbitration",
     "switch_arbitration_source",
     "resolve_by_url",
+    "commit_run",
+    "retry_write",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -417,13 +437,15 @@ class ArbitrationUpdated(ArbitrationState):
 
 
 class RunFinished(Event):
-    """Fin d'une phase du run. Les rapports arriveront avec la Feature 6."""
+    """Fin d'une phase du run ; les compteurs se relisent sur l'etat de chaque morceau."""
 
     event: Literal["run_finished"]
     phase: RunPhase
     run_id: str
     resolved: int
     unresolved: int
+    written: int
+    write_error: int
     awaiting_arbitration: int
 
 

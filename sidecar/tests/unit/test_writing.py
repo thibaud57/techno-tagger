@@ -2,12 +2,13 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING
 
 import pytest
 from audio_samples import BLANK_WRITERS, held_open, tag
 from mutagen import MutagenError
 from scraper_responses import track_payload
+from stubs import raising
 
 from tagger import files, renaming, writing
 from tagger.file_failures import FileFailureReason
@@ -74,15 +75,6 @@ def _record(live: LiveRun, track_id: str) -> TrackRecord:
     record = live.record(track_id)
     assert record is not None
     return record
-
-
-def _raising(error: BaseException) -> Callable[..., NoReturn]:
-    """Remplacant d'une fonction qui leve toujours `error`."""
-
-    def raise_error(*_args: object) -> NoReturn:
-        raise error
-
-    return raise_error
 
 
 def _names(folder: Path) -> list[str]:
@@ -176,7 +168,7 @@ async def test_stops_before_any_file_and_settles_no_track_when_the_dump_cannot_b
         return real_read(path)
 
     monkeypatch.setattr(writing, "read_original_tags", held_one)
-    monkeypatch.setattr(writing, "save_entries", _raising(TagDumpWriteError(tmp_path)))
+    monkeypatch.setattr(writing, "save_entries", raising(TagDumpWriteError(tmp_path)))
 
     with pytest.raises(TagDumpWriteError):
         await _writer(live, tmp_path, events).write()
@@ -213,7 +205,7 @@ async def test_never_writes_a_track_whose_origin_cannot_be_read(
     held.__cause__ = PermissionError(13, "Permission denied")
     unreadable = TagsUnreadableError(track.path, UnreadableReason.LOCKED)
     unreadable.__cause__ = held
-    monkeypatch.setattr(writing, "read_original_tags", _raising(unreadable))
+    monkeypatch.setattr(writing, "read_original_tags", raising(unreadable))
 
     summary = await _writer(live, tmp_path).write()
 
@@ -241,7 +233,7 @@ async def test_marks_a_failed_rename_after_written_tags(
     track = _track(music, "a.mp3")
     live = _run(track)
     monkeypatch.setattr(
-        writing, "rename_track", _raising(RenameError(track.path, FileFailureReason.FILE_LOCKED))
+        writing, "rename_track", raising(RenameError(track.path, FileFailureReason.FILE_LOCKED))
     )
 
     await _writer(live, tmp_path).write()
@@ -284,7 +276,7 @@ async def test_keeps_a_written_track_when_the_dump_cannot_note_its_rename(
     tmp_path: Path, music: Path, monkeypatch: pytest.MonkeyPatch, error: Exception
 ) -> None:
     live = _run(_track(music, "a.mp3"))
-    monkeypatch.setattr(writing, "record_renamed_path", _raising(error))
+    monkeypatch.setattr(writing, "record_renamed_path", raising(error))
 
     summary = await _writer(live, tmp_path).write()
 
@@ -337,7 +329,7 @@ async def test_retry_reads_the_origin_a_failed_read_missed(
         patched.setattr(
             writing,
             "read_original_tags",
-            _raising(TagsUnreadableError(track.path, UnreadableReason.LOCKED)),
+            raising(TagsUnreadableError(track.path, UnreadableReason.LOCKED)),
         )
         await writer.write()
 

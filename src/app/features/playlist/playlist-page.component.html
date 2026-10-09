@@ -155,7 +155,7 @@
       size="small"
       class="col-start-3 w-[calc(100cqw-100%-var(--form-gap))] max-w-full justify-self-end"
       [disabled]="!canExtract()"
-      [pTooltip]="missingHint() ?? undefined"
+      [pTooltip]="extractHint() ?? undefined"
       [showDelay]="tooltipDelay"
       tooltipPosition="left"
       (click)="extract()"

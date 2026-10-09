@@ -110,6 +110,18 @@ export interface ResolveByUrlCommand {
   readonly url: string
 }
 
+/** Confirmation globale : le point de non-retour, seul geste qui ecrit des fichiers. */
+export interface CommitRunCommand {
+  readonly command: "commit_run"
+  readonly run_id: string
+}
+
+/** Rejoue l'ecriture des seuls morceaux en echec. */
+export interface RetryWriteCommand {
+  readonly command: "retry_write"
+  readonly run_id: string
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
@@ -121,6 +133,8 @@ export type SidecarCommand =
   | ResolveArbitrationCommand
   | SwitchArbitrationSourceCommand
   | ResolveByUrlCommand
+  | CommitRunCommand
+  | RetryWriteCommand
 
 export interface VersionEvent {
   readonly event: "version"
@@ -157,12 +171,22 @@ export interface ExtractionFinishedEvent {
 }
 
 /** Etat d'un morceau, en trois champs jamais interchangeables (ARCHITECTURE.md § API). */
-export type TrackState = "resolved" | "unresolved"
+export type TrackState = "resolved" | "unresolved" | "written" | "write_error"
 
 export type TrackResolution = "auto" | "arbitration" | "url" | "none"
 
 export type TrackFailureReason =
-  "empty_query" | "no_result" | "below_threshold" | "user_refused" | "source_unavailable"
+  | "empty_query"
+  | "no_result"
+  | "below_threshold"
+  | "user_refused"
+  | "source_unavailable"
+  | "permission_denied"
+  | "disk_full"
+  | "path_too_long"
+  | "file_locked"
+  | "file_missing"
+  | "write_failed"
 
 export type TrackSource = "beatport" | "bandcamp" | "soundcloud"
 
@@ -248,6 +272,8 @@ export interface RunFinishedEvent {
   readonly run_id: string
   readonly resolved: number
   readonly unresolved: number
+  readonly written: number
+  readonly write_error: number
   readonly awaiting_arbitration: number
 }
 

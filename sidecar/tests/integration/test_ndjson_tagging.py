@@ -49,6 +49,8 @@ def test_emits_the_whole_sequence_of_a_tagging_run(
         "run_id": events[0]["run_id"],
         "resolved": 1,
         "unresolved": 1,
+        "written": 0,
+        "write_error": 0,
         "awaiting_arbitration": 1,
     }
     assert events[-1] == {"event": "progress", "phase": "url_recovery", "processed": 0, "total": 1}

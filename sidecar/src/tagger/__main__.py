@@ -21,9 +21,12 @@ from tagger.arbitration import ArbitrationNotPendingError
 from tagger.build_info import SENTRY_DSN
 from tagger.errors import TaggerError
 from tagger.handlers import (
+    commit,
+    handle_commit_run,
     handle_extract_playlist,
     handle_get_version,
     handle_list_playlists,
+    handle_retry_write,
     handle_set_api_key,
     handle_start_tagging,
     url_progress,
@@ -33,6 +36,7 @@ from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
 from tagger.protocol import (
     CancelRun,
+    CommitRun,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
@@ -40,6 +44,7 @@ from tagger.protocol import (
     ListPlaylists,
     ResolveArbitration,
     ResolveByUrl,
+    RetryWrite,
     SetApiKey,
     Shutdown,
     StartTagging,
@@ -98,7 +103,7 @@ def _force_utf8_streams() -> None:
 
 
 class TaggingInProgressError(TaggerError):
-    """Un run tourne deja : le lancer deux fois ecrirait deux fois les memes fichiers."""
+    """Un run cherche encore : aucune autre phase longue ne demarre avant sa fin."""
 
     code: ClassVar[str] = "tagging_in_progress"
 
@@ -107,12 +112,40 @@ class TaggingInProgressError(TaggerError):
 
 
 class ExtractionInProgressError(TaggerError):
-    """Une extraction tourne deja : la relancer copierait deux fois vers la meme destination."""
+    """Une extraction copie encore : aucune autre phase longue ne demarre avant sa fin."""
 
     code: ClassVar[str] = "extraction_in_progress"
 
     def __init__(self) -> None:
         super().__init__("an extraction is already in progress")
+
+
+class WriteNotOpenError(TaggerError):
+    """Run inconnu ou remplace, phase reseau en cours, deja confirme pour `commit_run` ou
+    jamais confirme pour `retry_write`."""
+
+    code: ClassVar[str] = "write_not_open"
+
+    def __init__(self) -> None:
+        super().__init__("the run is not open to writing")
+
+
+class WriteInProgressError(TaggerError):
+    """Ecriture en cours : aucune autre phase longue ne demarre avant sa fin."""
+
+    code: ClassVar[str] = "write_in_progress"
+
+    def __init__(self) -> None:
+        super().__init__("a write is already in progress")
+
+
+class RunCommittedError(TaggerError):
+    """Run confirme : plus aucune decision n'entre sur ses morceaux, point de non-retour."""
+
+    code: ClassVar[str] = "run_committed"
+
+    def __init__(self, track_id: str) -> None:
+        super().__init__("the run is committed", track_id=track_id)
 
 
 class _Session:
@@ -127,20 +160,19 @@ class _Session:
         self._stdout = stdout
         self._run: asyncio.Task[None] | None = None
         self._extraction: asyncio.Task[None] | None = None
+        self._write: asyncio.Task[None] | None = None
         self._current: CurrentRun | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
         """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant."""
-        if self._active_run() is not None:
-            raise TaggingInProgressError
+        self._ensure_no_long_phase()
         replaced, self._current = self._current, None
         start_work = functools.partial(self._replace, replaced, command)
         self._run = self._group.create_task(self._phase(start_work, command), name="tagging")
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
         """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
-        if self._active(self._extraction) is not None:
-            raise ExtractionInProgressError
+        self._ensure_no_long_phase()
         start_work = functools.partial(
             asyncio.to_thread, handle_extract_playlist, command, self.send
         )
@@ -149,11 +181,11 @@ class _Session:
         )
 
     async def cancel_run(self) -> None:
-        """`shutdown` n'attend pas la fin d'un run, il l'annule.
+        """`shutdown` n'attend pas la fin de la phase reseau, il l'annule.
 
-        L'extraction est au contraire attendue : le run ne tient que du reseau et de
-        la memoire, quand une copie coupee en vol laisserait un fichier a moitie ecrit
-        dans la destination de l'utilisateur.
+        L'extraction et l'ecriture sont au contraire attendues : la phase reseau ne tient que
+        du reseau et de la memoire, quand une copie ou une ecriture coupee en vol laisserait
+        un fichier a moitie ecrit chez l'utilisateur.
 
         Une phase reseau interrompue ouvre le rattrapage : sa progression part, sans
         evenement de fin, l'interface sachant qu'elle a demande l'arret.
@@ -191,9 +223,25 @@ class _Session:
         )
         self._spawn_gesture(current, start_gesture, command, name="url_recovery")
 
+    def commit_run(self, command: CommitRun) -> None:
+        current = self._writable(command.run_id)
+        if current.committed:
+            raise WriteNotOpenError
+        writer = commit(current, self.send)
+        self._spawn_write(functools.partial(handle_commit_run, current, writer), command)
+
+    def retry_write(self, command: RetryWrite) -> None:
+        current = self._writable(command.run_id)
+        if current.writer is None:
+            raise WriteNotOpenError
+        self._spawn_write(functools.partial(handle_retry_write, current, current.writer), command)
+
     async def close(self, *, cancel: bool) -> None:
-        """Fin de session : `shutdown` annule la phase reseau, l'EOF l'attend ; le run courant
-        est ferme ensuite, ses gestes en vol annules."""
+        """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
+
+        L'ecriture n'est jamais annulee, le `TaskGroup` de la boucle l'attend : un fichier coupe
+        resterait a moitie ecrit.
+        """
         await self._settle_run(cancel=cancel)
         current, self._current = self._current, None
         if current is not None:
@@ -211,9 +259,17 @@ class _Session:
         task = self._phase(start_gesture, command, command.track_id)
         current.track(self._group.create_task(task, name=name))
 
+    def _spawn_write(
+        self, start_work: Callable[[], Awaitable[Event]], command: CommitRun | RetryWrite
+    ) -> None:
+        """Ecriture en tache de fond, comme l'extraction : stdin reste lu pendant sa progression."""
+        self._write = self._group.create_task(self._phase(start_work, command), name="write")
+
     def _arbitrable(self, track_id: str) -> CurrentRun:
         if self._current is None:
             raise ArbitrationNotPendingError(track_id)
+        if self._current.committed:
+            raise RunCommittedError(track_id)
         return self._current
 
     def _recoverable(self, track_id: str) -> CurrentRun:
@@ -221,7 +277,41 @@ class _Session:
         interrompue (un run interrompu garde son ecriture, donc son rattrapage)."""
         if self._current is None or self._active_run() is not None:
             raise UrlRecoveryNotOpenError(track_id)
+        if self._current.committed:
+            raise RunCommittedError(track_id)
         return self._current
+
+    def _ensure_no_long_phase(self) -> None:
+        """Une seule phase longue a la fois, refusee par le code de celle qui tourne.
+
+        Extraction et ecriture touchent aux fichiers de l'utilisateur, la recherche reseau
+        lit ceux qu'elle va faire ecrire : deux phases melees pourraient viser le meme dossier.
+        """
+        if self._active(self._extraction) is not None:
+            raise ExtractionInProgressError
+        if self._active_run() is not None:
+            raise TaggingInProgressError
+        if self._active(self._write) is not None:
+            raise WriteInProgressError
+
+    def _writable(self, run_id: str) -> CurrentRun:
+        """Run courant designe, phase reseau finie ou interrompue, sans ecriture ni geste en vol.
+
+        Un geste qui finirait pendant l'ecriture ecraserait un morceau ecrit.
+        """
+        if self._active(self._write) is not None:
+            raise WriteInProgressError
+        if self._active(self._extraction) is not None:
+            raise ExtractionInProgressError
+        current = self._current
+        if (
+            current is None
+            or current.live.run_id != run_id
+            or current.busy
+            or self._active_run() is not None
+        ):
+            raise WriteNotOpenError
+        return current
 
     async def _replace(self, replaced: CurrentRun | None, command: StartTagging) -> None:
         if replaced is not None:
@@ -271,7 +361,14 @@ class _Session:
     async def _phase(
         self,
         start_work: Callable[[], Awaitable[Event | None]],
-        command: StartTagging | ExtractPlaylist | ResolveArbitration | ResolveByUrl,
+        command: (
+            StartTagging
+            | ExtractPlaylist
+            | ResolveArbitration
+            | ResolveByUrl
+            | CommitRun
+            | RetryWrite
+        ),
         track_id: str | None = None,
     ) -> None:
         """Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait toute la session."""
@@ -319,10 +416,11 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    Les deux phases longues, extraction et re-tagging, tournent en tache de fond dans
-    le `TaskGroup` : la boucle lit les commandes suivantes pendant qu'elles avancent.
-    `shutdown` annule le run mais attend l'extraction, une copie coupee en vol laissant
-    un fichier a moitie ecrit ; l'EOF attend les deux.
+    Les trois phases longues, extraction, re-tagging et ecriture, tournent en tache de
+    fond dans le `TaskGroup` : la boucle lit les commandes suivantes pendant qu'elles
+    avancent. `shutdown` n'annule que la phase reseau et attend l'extraction et l'ecriture,
+    une copie ou une ecriture coupee en vol laissant un fichier a moitie ecrit ; l'EOF
+    attend les trois.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre
@@ -368,7 +466,7 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
 
     Les handlers sont bloquants — SQLite, parcours du dossier source, copie de
     fichiers, trousseau Windows — et passent donc par `to_thread`, sans quoi la
-    boucle gelerait. Les deux phases longues vont plus loin et partent en tache de
+    boucle gelerait. Les trois phases longues vont plus loin et partent en tache de
     fond, `to_thread` seul laissant la boucle attendre leur retour.
     """
     match command:
@@ -390,6 +488,10 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
             session.switch_arbitration_source(command)
         case ResolveByUrl():
             session.resolve_by_url(command)
+        case CommitRun():
+            session.commit_run(command)
+        case RetryWrite():
+            session.retry_write(command)
         case _:
             assert_never(command)
 

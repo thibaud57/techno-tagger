@@ -12,7 +12,7 @@ from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
-from tagger import __version__, arbitration, tagging, url_recovery
+from tagger import __version__, arbitration, tagging, url_recovery, writing
 from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.arbitration import Arbitration
 from tagger.cache import ArtworkFetcher, DiskCache, ResponseCache, resolve_host
@@ -47,8 +47,10 @@ from tagger.protocol import (
 from tagger.reports import ReportContext, write_extraction_report
 from tagger.scraper_client import TechnoScraperClient
 from tagger.sources import RunSources
+from tagger.tag_dump import TagDumpError, dump_dir
 from tagger.tagging import open_run, resolve_run
 from tagger.url_recovery import UrlRecovery
+from tagger.writing import RunWriter
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -62,6 +64,7 @@ if TYPE_CHECKING:
     from tagger.scraper_client import TrackCandidate
     from tagger.tagging import LiveRun, TaggingRun, TrackRecord
     from tagger.url_recovery import UrlRecoveryEvent
+    from tagger.writing import WriteEvent
 
 logger = logging.getLogger(__name__)
 
@@ -186,12 +189,23 @@ class CurrentRun:
         self.sources = sources
         self.arbitration = arbitration
         self.url_recovery = url_recovery
+        # Pose a la confirmation : sa presence fige le run, plus aucune decision n'y entre.
+        self.writer: RunWriter | None = None
         self._stack = stack
         self._gestures: set[asyncio.Task[None]] = set()
 
     @override
     def __repr__(self) -> str:
         return f"CurrentRun(run_id={self.live.run_id!r}, gestures={len(self._gestures)})"
+
+    @property
+    def committed(self) -> bool:
+        return self.writer is not None
+
+    @property
+    def busy(self) -> bool:
+        """Un geste d'arbitrage ou de rattrapage est en vol."""
+        return any(not gesture.done() for gesture in self._gestures)
 
     def track(self, gesture: asyncio.Task[None]) -> None:
         """Reference forte sur un geste en vol, relachee a sa fin."""
@@ -263,8 +277,30 @@ async def handle_start_tagging(
     current = await open_tagging(command, emit)
     adopt(current)
     await resolve_run(current.live, current.sources, on_event=_relay(emit))
-    emit(_run_finished(current.live.snapshot()))
+    emit(_run_finished(current.live.snapshot(), RunPhase.NETWORK))
     emit(url_progress(current))
+
+
+def commit(current: CurrentRun, emit: Callable[[Event], None]) -> RunWriter:
+    """Fige le run a l'acceptation de `commit_run`, avant que l'ecriture ne demarre : une
+    decision lue juste apres n'y entre plus. Le `RunWriter` reste au run, pour la relance."""
+    current.writer = RunWriter(current.live, dump_dir(), _relay(emit))
+    return current.writer
+
+
+async def handle_commit_run(current: CurrentRun, writer: RunWriter) -> Event:
+    """Un dump qui ne s'enregistre pas n'a touche aucun fichier : le run redevient confirmable."""
+    try:
+        await writer.write()
+    except TagDumpError:
+        current.writer = None
+        raise
+    return _run_finished(current.live.snapshot(), RunPhase.WRITE)
+
+
+async def handle_retry_write(current: CurrentRun, writer: RunWriter) -> Event:
+    await writer.retry()
+    return _run_finished(current.live.snapshot(), RunPhase.WRITE)
 
 
 def _thresholds(command: StartTagging) -> MatchingThresholds:
@@ -273,15 +309,17 @@ def _thresholds(command: StartTagging) -> MatchingThresholds:
     return DEFAULT_THRESHOLDS if sent is None else sent.to_matching()
 
 
-def _relay(
-    emit: Callable[[Event], None],
-) -> Callable[[tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent], None]:
+type PipelineEvent = tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent | WriteEvent
+
+
+def _relay(emit: Callable[[Event], None]) -> Callable[[PipelineEvent], None]:
     return lambda event: emit(to_protocol_event(event))
 
 
-def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent) -> Event:
-    """Traduit un evenement pipeline, arbitrage ou rattrapage ; un cas oublie est une erreur
-    de typage."""
+# PLR0911 : une sortie par evenement traduit, le `match` ferme par `assert_never` etant
+# ce qui rend un oubli visible au typage.
+def to_protocol_event(event: PipelineEvent) -> Event:  # noqa: PLR0911
+    """Traduit un evenement pipeline, arbitrage, rattrapage ou ecriture."""
     match event:
         case tagging.RunStarted():
             return RunStarted(
@@ -306,6 +344,13 @@ def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent | UrlRecoveryEv
             return Progress(
                 event="progress",
                 phase=Phase.URL_RECOVERY,
+                processed=event.processed,
+                total=event.total,
+            )
+        case writing.WriteProgress():
+            return Progress(
+                event="progress",
+                phase=Phase.WRITE,
                 processed=event.processed,
                 total=event.total,
             )
@@ -383,16 +428,17 @@ def _scores(scored: ScoredCandidate) -> TrackScores:
     )
 
 
-def _run_finished(run: TaggingRun) -> RunFinished:
-    # Les trois compteurs se lisent sur le champ qui porte chaque issue, jamais sur
-    # l'absence d'un autre : un `state` laisse vide pour une raison nouvelle gonflerait
-    # sinon en silence le compte des arbitrages.
+def _run_finished(run: TaggingRun, phase: RunPhase) -> RunFinished:
+    # Chaque compteur se lit sur le champ de son issue, jamais sur l'absence d'un autre : un
+    # `state` laisse vide gonflerait en silence le compte des arbitrages.
     states = Counter(record.state for record in run.tracks)
     return RunFinished(
         event="run_finished",
-        phase=RunPhase.NETWORK,
+        phase=phase,
         run_id=run.run_id,
         resolved=states[tagging.TrackState.RESOLVED],
         unresolved=states[tagging.TrackState.UNRESOLVED],
+        written=states[tagging.TrackState.WRITTEN],
+        write_error=states[tagging.TrackState.WRITE_ERROR],
         awaiting_arbitration=sum(1 for record in run.tracks if record.arbitration is not None),
     )

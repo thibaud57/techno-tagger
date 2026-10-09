@@ -13,6 +13,10 @@ reel : relancer sur les memes titres rendrait un run instantane et un faux vert.
 `--vlc-dump` : un dump `vlc_media.db`, playlists « test playlist » et « other playlist ».
 `--arbitration` : un seul morceau, « Amelie Lens - Basielians », que le faux serveur met
 en zone grise sur ses deux sources (titre a 75 contre « Basiel »).
+`--formats` : un morceau par format (MP3, FLAC, WAV, AIFF), valide pour mutagen, nomme
+d'apres un titre du vrai catalogue et sali comme par `write_tags_probe.py` (commentaires,
+verso et recto, date complete en v2.4, frames Serato) : la fixture d'une ecriture contre la
+vraie API, par le binaire fige.
 La fixture complete de l'onglet Playlist, homonymes et echecs de transfert compris, est
 celle de `just demo`.
 """
@@ -38,14 +42,20 @@ def fail(message: str) -> None:
 HELPERS = Path(__file__).resolve().parents[4] / "sidecar" / "tests" / "helpers"
 sys.path.insert(0, str(HELPERS))
 try:
-    from audio_samples import tag, write_blank_mp3
+    from audio_samples import (
+        tag,
+        write_blank_aiff,
+        write_blank_flac,
+        write_blank_mp3,
+        write_blank_wav,
+    )
     from vlc_dump import build_dump
 except ImportError as error:
     fail(f"{error} : les helpers de test sont attendus dans {HELPERS}")
 
 args = sys.argv[1:]
 if not args or args[0].startswith("--"):
-    fail("usage : build_fixture.py <dossier> [--unique N | --vlc-dump | --arbitration]")
+    fail("usage : build_fixture.py <dossier> [--unique N | --vlc-dump | --arbitration | --formats]")
 
 root = Path(args[0])
 if root.exists():
@@ -73,6 +83,23 @@ else:
         ("Amelie Lens", "Basiel"),
         ("Nobody", "Nothing Here At All"),
     ]
+
+if "--formats" in args:
+    from write_tags_probe import dirty
+
+    real = [
+        ("mp3", write_blank_mp3, "Tommy Sharp", "Biome feat. Dubfire"),
+        ("flac", write_blank_flac, "Adam Beyer", "Your Mind"),
+        ("wav", write_blank_wav, "Amelie Lens", "Basiel"),
+        ("aiff", write_blank_aiff, "Robert Hood", "Minimal Nation"),
+    ]
+    for index, (extension, write_blank, artist, title) in enumerate(real, start=1):
+        path = root / f"{index:02d} {artist.lower()} - {title.lower()}.{extension}"
+        write_blank(path)
+        tag(path, artist=[artist], title=[title])
+        dirty(path)
+    emit({"success": True, "folder": root.as_posix(), "tracks": len(real)})
+    sys.exit(0)
 
 for index, (artist, title) in enumerate(tracks, start=1):
     path = root / f"{index:02d} {artist.lower()} - {title.lower()}.mp3"

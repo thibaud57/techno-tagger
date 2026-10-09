@@ -17,6 +17,8 @@ const FINISHED: RunFinishedEvent = {
   run_id: "a3f9c1",
   resolved: 1,
   unresolved: 0,
+  written: 0,
+  write_error: 0,
   awaiting_arbitration: 1,
 }
 

@@ -61,8 +61,11 @@
     "api_key_malformed": "Cette clé contient un espace ou un caractère non accepté. Recopiez-la sans rien autour.",
     "api_key_missing": "Aucune clé API enregistrée. Ajoutez-en une dans les Réglages.",
     "keyring_unavailable": "Le Gestionnaire d'identification de Windows est inaccessible. Relancez l'application.",
-    "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre.",
-    "extraction_in_progress": "Une extraction est déjà en cours. Attendez sa fin avant d'en lancer une autre.",
+    "tagging_in_progress": "Un run est en cours. Attendez sa fin.",
+    "write_not_open": "Ce run ne peut pas être écrit maintenant.",
+    "write_in_progress": "L'écriture est en cours. Attendez qu'elle se termine.",
+    "run_committed": "L'écriture de ce run est confirmée : il n'accepte plus de décision.",
+    "extraction_in_progress": "Une extraction est en cours. Attendez sa fin.",
     "arbitration_error": "Cette décision n'a pas pu être prise en compte. Réessayez.",
     "arbitration_not_pending": "Ce morceau n'attend plus de décision. Passez au suivant.",
     "arbitration_candidate_unknown": "Candidat indisponible. Choisissez-en un autre dans la liste affichée.",
@@ -111,6 +114,9 @@
       "destination": "le dossier destination",
       "file": "un fichier de playlist",
       "playlist": "une playlist"
+    },
+    "blocked": {
+      "tagging": "Attendez la fin du run en cours sur l'onglet Tagging."
     },
     "summary": {
       "expand": "Modifier",
