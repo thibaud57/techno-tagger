@@ -47,6 +47,7 @@
     "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus.",
     "tags_write_failed": "Les tags de {{file}} n'ont pas pu être écrits.",
     "file_rename_failed": "Le fichier {{file}} n'a pas pu être renommé.",
+    "original_name_taken": "Le nom {{file}} est déjà porté par un autre fichier.",
     "tag_dump_error": "La sauvegarde des tags d'origine a échoué. Relancez l'application, puis réessayez.",
     "tag_dump_write_failed": "Les tags d'origine n'ont pas pu être sauvegardés, aucun fichier n'a été modifié. Libérez de l'espace disque, puis relancez l'écriture.",
     "tag_dump_unreadable": "La sauvegarde des tags d'origine est illisible ou vient d'une autre version de l'application. Relancez un run pour retaguer ces fichiers.",
@@ -65,6 +66,8 @@
     "write_not_open": "Ce run ne peut pas être écrit maintenant.",
     "write_in_progress": "L'écriture est en cours. Attendez qu'elle se termine.",
     "run_committed": "L'écriture de ce run est confirmée : il n'accepte plus de décision.",
+    "rollback_unavailable": "Rien à restaurer : les tags d'origine ont déjà été rendus, ou leur sauvegarde a expiré.",
+    "rollback_in_progress": "Une restauration est en cours. Attendez qu'elle se termine.",
     "extraction_in_progress": "Une extraction est en cours. Attendez sa fin.",
     "arbitration_error": "Cette décision n'a pas pu être prise en compte. Réessayez.",
     "arbitration_not_pending": "Ce morceau n'attend plus de décision. Passez au suivant.",
@@ -202,7 +205,8 @@
       "path_too_long": "Le chemin du fichier est trop long. Rapprochez le dossier de la racine du disque, puis relancez l'écriture.",
       "file_locked": "Le fichier est ouvert dans un autre programme. Fermez-le, puis relancez l'écriture.",
       "file_missing": "Le fichier a disparu depuis le run.",
-      "write_failed": "L'écriture du fichier a échoué."
+      "write_failed": "L'écriture du fichier a échoué.",
+      "name_taken": "Un autre fichier porte déjà son nom d'origine. Renommez ou déplacez cet autre fichier, puis relancez la restauration."
     },
     "list": {
       "before": "Avant",

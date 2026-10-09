@@ -21,7 +21,7 @@ from tagger.files import (
 )
 from tagger.renaming import RenamedTrack, RenameError
 from tagger.scraper_client import Source, TrackCandidate
-from tagger.tag_dump import TagDump, TagDumpWriteError, dump_path, load_dump
+from tagger.tag_dump import TagDump, TagDumpWriteError, dump_path, load_dump, remove_entries
 from tagger.tagging import (
     FailureReason,
     LiveRun,
@@ -337,6 +337,22 @@ async def test_retry_reads_the_origin_a_failed_read_missed(
 
     assert summary == WriteSummary(written=1, failed=0)
     assert set(load_dump(_dump(tmp_path, live)).entries) == {"a.mp3"}
+
+
+async def test_retry_dumps_again_an_origin_a_rollback_consumed(tmp_path: Path, music: Path) -> None:
+    """Un rollback du run affiche retire du disque l'entree d'un echec que le writer garde."""
+    locked = _track(music, "a.mp3")
+    live = _run(locked)
+    writer = _writer(live, tmp_path)
+    with held_open(locked.path):
+        await writer.write()
+    remove_entries(tmp_path / "dumps", load_dump(_dump(tmp_path, live)), {"a.mp3"})
+
+    await writer.retry()
+
+    assert load_dump(_dump(tmp_path, live)).entries["a.mp3"].fields[TagField.TITLE] == (
+        "your mind",
+    )
 
 
 async def test_emits_each_track_then_the_progress(tmp_path: Path, music: Path) -> None:

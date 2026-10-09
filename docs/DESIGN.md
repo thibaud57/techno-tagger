@@ -301,7 +301,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Confirmation globale de l'écriture | `p-confirmdialog`, bouton `danger` | PrimeNG | Le point de non-retour du run : seule modale dont le bouton principal est destructif |
-| Récapitulatif filtrable | `p-table` + `p-selectbutton` + `p-iconfield` | PrimeNG | Filtres tout / validés / arbitrés / échecs, plus une recherche texte. « Échecs » lit `state`, les deux autres `resolution` (cf. § Conventions de Code) |
+| Récapitulatif filtrable | `p-table` + `p-selectbutton` + `p-iconfield` | PrimeNG | Filtres tout / validés / arbitrés / échecs, plus une recherche texte. Les trois lisent `state`, « validés » et « arbitrés » lisent en plus `resolution` (cf. § Conventions de Code) |
 | Relance de l'écriture en échec | `button pButton` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Dans le récapitulatif, actif seulement s'il reste des `write_error`. Rejoue l'écriture sur ces seuls fichiers, sans refaire ni la phase réseau ni les arbitrages. Destructif comme la confirmation globale, donc même traitement |
 | Reprise d'un run interrompu | `p-dialog` au démarrage | PrimeNG | Deux actions : reprendre, repartir de zéro |
 | Rollback | `button pButton` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Par run ou par morceau |
@@ -541,7 +541,7 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - ✅ **Une largeur se mesure sur le contenu le plus long, dans les deux langues** : les libellés existent en FR et en EN (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)) et le français est généralement le plus long des deux. Un bouton ou un libellé n'a donc aucune largeur en dur et se dimensionne sur son contenu, ou sur le plus large de sa colonne de grille. Une colonne de table se fige au contraire sur le plus long de ses libellés (§ Layout), sinon elle change de taille au défilement
 - ✅ **Aucun libellé en dur dans un template** : tout passe par ngx-translate, y compris les messages d'erreur, que le sidecar émet en `code` + `params` et que l'interface traduit
 - ✅ **Navigation clavier complète sur la modale d'arbitrage** : flèches entre arbitrages, entrée pour valider, focus visible en permanence
-- ✅ **Les filtres du récapitulatif se lisent dans cet ordre : `state` pour l'échec, `resolution` pour la voie.** « Échecs » vaut `state ∈ {unresolved, write_error}`, « validés » et « arbitrés » se lisent sur `resolution` **et** excluent les échecs, sans quoi un `write_error` apparaîtrait dans les deux à la fois. « Arbitrés » vaut `resolution ∈ {arbitration, url}`, jamais `arbitration` seul. Les trois pièges que ça évite sont détaillés dans [ARCHITECTURE.md § API](ARCHITECTURE.md#api)
+- ✅ **Les filtres du récapitulatif se lisent dans cet ordre : `state` pour l'échec, `resolution` pour la voie.** « Échecs » vaut `state ∈ {unresolved, write_error}`, « validés » et « arbitrés » valent `state ∈ {resolved, written}` puis se distinguent sur `resolution`, sans quoi un `write_error` apparaîtrait dans les deux à la fois. « Arbitrés » vaut `resolution ∈ {arbitration, url}`, jamais `arbitration` seul. Un morceau `rolled_back` n'appartient à aucun des trois filtres : aucune décision ne le décrit plus. Les pièges que ça évite sont détaillés dans [ARCHITECTURE.md § API](ARCHITECTURE.md#api)
 
 ## Anti-Patterns
 

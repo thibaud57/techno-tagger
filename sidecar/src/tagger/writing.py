@@ -27,6 +27,7 @@ from tagger.tag_dump import (
     DumpEntry,
     TagDump,
     TagDumpError,
+    dump_on_disk,
     record_renamed_path,
     save_entries,
 )
@@ -116,6 +117,9 @@ class RunWriter:
         Rend les morceaux dont la lecture a echoue, en `write_error` mais pas encore regles :
         un dump impossible arrete la phase sans changer aucun morceau.
         """
+        # Relu sur le disque : un rollback du run affiche a pu y consommer l'entree d'un echec
+        # que la memoire garde, et la relance reecrirait ses tags sans origine sauvegardee.
+        self._dump = await asyncio.to_thread(dump_on_disk, self._dump_folder, self._dump)
         unread = [record for record in targets if record.track_id not in self._dump.entries]
         reads = await asyncio.gather(
             *(asyncio.to_thread(read_original_tags, record.path) for record in unread),

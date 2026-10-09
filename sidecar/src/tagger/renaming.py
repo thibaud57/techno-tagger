@@ -66,6 +66,15 @@ class RenameError(TaggerError):
         self.reason = reason
 
 
+class OriginalNameTakenError(TaggerError):
+    """Un autre fichier porte le nom d'origine : le rendre l'ecraserait."""
+
+    code: ClassVar[str] = "original_name_taken"
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(f"original name taken: {path.name}", file=path.name)
+
+
 def track_file_name(
     artist: str, title: str, suffix: str, room: int, copy: int = 1
 ) -> TrackFileName | None:
@@ -132,6 +141,26 @@ def rename_track(
     except OSError as error:
         raise RenameError(path, file_failure_reason(error)) from error
     return RenamedTrack(target, named.truncated)
+
+
+def restore_name(current: Path, original: Path) -> None:
+    """Rend au fichier son nom d'origine, refuse s'il est porte par un autre fichier.
+
+    Jamais un nom approchant : les logiciels DJ retrouvent un fichier par son chemin exact.
+    """
+    # Chaines comparees : `Path` ignore la casse sous Windows, un changement de casse seule
+    # passerait pour un nom deja rendu.
+    if str(current) == str(original):
+        return
+    # Prefixes des le controle, comme `rename_track` : au-dela de 259 caracteres, `exists`
+    # sur le chemin nu ne verrait pas le fichier qui porte le nom.
+    source, target = extended_path(current), extended_path(original)
+    try:
+        if _taken_by_another_file(target, source):
+            raise OriginalNameTakenError(original)
+        source.rename(target)
+    except OSError as error:
+        raise RenameError(current, file_failure_reason(error)) from error
 
 
 def _free_name(source: Path, artist: str, title: str, room: int) -> TrackFileName | None:

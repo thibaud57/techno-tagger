@@ -15,9 +15,12 @@ from tagger.tag_dump import (
     TagDumpUnreadableError,
     TagDumpWriteError,
     dump_path,
+    dumps_newest_first,
+    find_dump,
     load_dump,
     purge_dumps,
     record_renamed_path,
+    remove_entries,
     save_entries,
 )
 
@@ -97,6 +100,15 @@ def test_records_the_renamed_path_onto_the_dump_on_disk(tmp_path: Path) -> None:
     reloaded = load_dump(dump_path(tmp_path, updated))
     assert set(reloaded.entries) == {"a.mp3", "b.mp3"}
     assert reloaded.entries["a.mp3"].renamed_path == renamed
+
+
+def test_moves_a_renamed_entry_after_the_others(tmp_path: Path) -> None:
+    """Renomme en relance, apres les autres : le rollback doit lui rendre son nom en premier."""
+    saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3"), "b.mp3": _entry("b.mp3")})
+
+    updated = record_renamed_path(tmp_path, saved, "a.mp3", tmp_path / "Adam Beyer - Your Mind.mp3")
+
+    assert list(load_dump(dump_path(tmp_path, updated)).entries) == ["b.mp3", "a.mp3"]
 
 
 def test_refuses_a_dump_of_an_unknown_version(tmp_path: Path) -> None:
@@ -180,3 +192,66 @@ def test_purge_carries_on_after_a_dump_it_cannot_delete(
     assert locked.exists()
     assert not expired.exists()
     assert "tag dump not purged run=1b2c3d reason=unlink_failed" in caplog.messages
+
+
+def test_finds_the_dump_of_a_run(tmp_path: Path) -> None:
+    saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+    save_entries(tmp_path, TagDump(run_id="b7e2d4", created_at=CREATED), {"a.mp3": _entry("a.mp3")})
+
+    found = find_dump(tmp_path, "a3f9c1")
+
+    assert found == dump_path(tmp_path, saved)
+
+
+@pytest.mark.parametrize("run_id", ["000000", "*"], ids=["unknown-run", "glob-pattern"])
+def test_finds_no_dump_for_an_unknown_run(tmp_path: Path, run_id: str) -> None:
+    save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+
+    found = find_dump(tmp_path, run_id)
+
+    assert found is None
+
+
+def test_lists_dumps_from_newest_to_oldest(tmp_path: Path) -> None:
+    older = save_entries(
+        tmp_path,
+        TagDump(run_id="b7e2d4", created_at=CREATED - timedelta(days=1)),
+        {"a.mp3": _entry("a.mp3")},
+    )
+    newer = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+
+    listed = dumps_newest_first(tmp_path)
+
+    assert listed == [dump_path(tmp_path, newer), dump_path(tmp_path, older)]
+
+
+def test_lists_only_the_files_named_like_a_dump(tmp_path: Path) -> None:
+    saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+    (tmp_path / "notes.json").write_text("{}", encoding="utf-8")
+
+    listed = dumps_newest_first(tmp_path)
+
+    assert listed == [dump_path(tmp_path, saved)]
+
+
+def test_lists_no_dump_in_a_missing_folder(tmp_path: Path) -> None:
+    listed = dumps_newest_first(tmp_path / "absent")
+
+    assert listed == []
+
+
+def test_removes_restored_entries_and_keeps_the_others(tmp_path: Path) -> None:
+    saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3"), "b.mp3": _entry("b.mp3")})
+
+    updated = remove_entries(tmp_path, saved, {"a.mp3"})
+
+    assert list(updated.entries) == ["b.mp3"]
+    assert load_dump(dump_path(tmp_path, saved)) == updated
+
+
+def test_deletes_a_dump_left_empty(tmp_path: Path) -> None:
+    saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+
+    remove_entries(tmp_path, saved, {"a.mp3"})
+
+    assert not dump_path(tmp_path, saved).exists()

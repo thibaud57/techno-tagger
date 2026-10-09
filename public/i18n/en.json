@@ -47,6 +47,7 @@
     "tags_unreadable": "The tags of {{file}} could not be read.",
     "tags_write_failed": "The tags of {{file}} could not be written.",
     "file_rename_failed": "The file {{file}} could not be renamed.",
+    "original_name_taken": "The name {{file}} is already used by another file.",
     "tag_dump_error": "Saving the original tags failed. Restart the application and try again.",
     "tag_dump_write_failed": "The original tags could not be saved, so no file was changed. Free up disk space, then write again.",
     "tag_dump_unreadable": "The saved original tags are unreadable or come from another version of the application. Start a new run to retag these files.",
@@ -65,6 +66,8 @@
     "write_not_open": "This run cannot be written now.",
     "write_in_progress": "Writing is in progress. Wait for it to finish.",
     "run_committed": "Writing this run is confirmed: it accepts no more decisions.",
+    "rollback_unavailable": "Nothing to restore: the original tags were already restored, or their backup has expired.",
+    "rollback_in_progress": "A restore is in progress. Wait for it to finish.",
     "extraction_in_progress": "An extraction is in progress. Wait for it to finish.",
     "arbitration_error": "This decision could not be taken into account. Try again.",
     "arbitration_not_pending": "This track is no longer awaiting a decision. Move on to the next one.",
@@ -202,7 +205,8 @@
       "path_too_long": "The file path is too long. Move the folder closer to the drive root, then retry the write.",
       "file_locked": "The file is open in another program. Close it, then retry the write.",
       "file_missing": "The file disappeared since the run.",
-      "write_failed": "Writing the file failed."
+      "write_failed": "Writing the file failed.",
+      "name_taken": "Another file already has its original name. Rename or move that file, then restore again."
     },
     "list": {
       "before": "Before",

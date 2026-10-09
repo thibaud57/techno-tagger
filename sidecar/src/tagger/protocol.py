@@ -9,6 +9,7 @@ inconnu ou mal type est une commande malformee, pas un detail a ignorer
 (cf. ADR-022).
 """
 
+from datetime import datetime
 from enum import UNIQUE, StrEnum, auto, verify
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Final, Literal, Self, get_args
@@ -177,6 +178,20 @@ class RetryWrite(Command):
     run_id: str
 
 
+class GetRollbackTarget(Command):
+    """Dernier run annulable, pour que la confirmation des Reglages le nomme."""
+
+    command: Literal["get_rollback_target"]
+
+
+class Rollback(Command):
+    """Restaure un run entier depuis son dump, ou son seul morceau `track_id`."""
+
+    command: Literal["rollback"]
+    run_id: str
+    track_id: str | None = None
+
+
 type AnyCommand = Annotated[
     GetVersion
     | Shutdown
@@ -189,7 +204,9 @@ type AnyCommand = Annotated[
     | SwitchArbitrationSource
     | ResolveByUrl
     | CommitRun
-    | RetryWrite,
+    | RetryWrite
+    | GetRollbackTarget
+    | Rollback,
     Field(discriminator="command"),
 ]
 
@@ -207,6 +224,8 @@ type ExecutableCommand = (
     | ResolveByUrl
     | CommitRun
     | RetryWrite
+    | GetRollbackTarget
+    | Rollback
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -223,6 +242,8 @@ type CommandName = Literal[
     "resolve_by_url",
     "commit_run",
     "retry_write",
+    "get_rollback_target",
+    "rollback",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -447,6 +468,42 @@ class RunFinished(Event):
     written: int
     write_error: int
     awaiting_arbitration: int
+
+
+class RollbackRun(BaseModel):
+    """Dernier run annulable : de quoi le nommer dans la confirmation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str
+    written_at: datetime
+    folder: Path
+    tracks: int
+
+
+class RollbackTarget(Event):
+    """`run` nul : rien a annuler, l'interface grise le bouton des Reglages."""
+
+    event: Literal["rollback_target"]
+    run: RollbackRun | None
+
+
+class RollbackFailurePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    track_id: str
+    file_name: str
+    reason: FailureReason
+
+
+class RollbackFinished(Event):
+    """Bilan d'un rollback ; un morceau en echec reste dans le dump, le suivant le retente."""
+
+    event: Literal["rollback_finished"]
+    run_id: str
+    track_id: str | None
+    restored: tuple[str, ...]
+    failed: tuple[RollbackFailurePayload, ...]
 
 
 class Error(Event):

@@ -20,7 +20,7 @@ from tagger.paths import app_data_dir
 from tagger.reports import TIMESTAMP_FORMAT
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Collection, Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -104,13 +104,36 @@ def dump_path(folder: Path, dump: TagDump) -> Path:
     return folder / f"{stamp}-{dump.run_id}{_SUFFIX}"
 
 
+def find_dump(folder: Path, run_id: str) -> Path | None:
+    """Dump d'un run, `None` s'il n'existe pas ; compare, jamais glob : un `*` designerait tout."""
+    return next((path for path in dumps_newest_first(folder) if _run_id_of(path) == run_id), None)
+
+
+def dumps_newest_first(folder: Path) -> list[Path]:
+    """Dumps du plus recent au plus ancien ; l'horodatage ouvre le nom, tout autre est ecarte."""
+    if not folder.is_dir():
+        return []
+    named_like_a_dump = (
+        path for path in folder.glob(f"*{_SUFFIX}") if _created_at(path) is not None
+    )
+    return sorted(named_like_a_dump, reverse=True)
+
+
+def dump_on_disk(folder: Path, dump: TagDump) -> TagDump:
+    """Le dump tel que le disque le porte, vide s'il n'y est pas encore."""
+    path = dump_path(folder, dump)
+    if path.is_file():
+        return load_dump(path)
+    return dump.model_copy(update={"entries": {}})
+
+
 def save_entries(folder: Path, dump: TagDump, entries: Mapping[str, DumpEntry]) -> TagDump:
     """Ajoute les entrees absentes du disque, dans l'ordre d'ecriture que le rollback inverse.
 
     Le disque fait foi : un rollback a pu y consommer des entrees que l'appelant garde en
     memoire. Une entree presente n'est jamais remplacee, l'origine d'une relance reste la premiere.
     """
-    base = _on_disk(folder, dump)
+    base = dump_on_disk(folder, dump)
     added = {track_id: entry for track_id, entry in entries.items() if track_id not in base.entries}
     merged = base.model_copy(update={"entries": {**base.entries, **added}})
     _write(dump_path(folder, merged), merged)
@@ -118,11 +141,31 @@ def save_entries(folder: Path, dump: TagDump, entries: Mapping[str, DumpEntry]) 
 
 
 def record_renamed_path(folder: Path, dump: TagDump, track_id: str, renamed: Path) -> TagDump:
-    """Retient ou trouver le fichier apres son renommage, pour le rendre a son nom."""
-    base = _on_disk(folder, dump)
+    """Retient ou trouver le fichier apres son renommage, pour le rendre a son nom.
+
+    L'entree passe en fin de dump : un morceau renomme en relance peut prendre un nom libere par
+    un morceau ecrit avant lui, le rollback qui inverse l'ordre doit le rendre en premier.
+    """
+    base = dump_on_disk(folder, dump)
     entry = base.entries[track_id].model_copy(update={"renamed_path": renamed})
-    updated = base.model_copy(update={"entries": {**base.entries, track_id: entry}})
+    others = {key: value for key, value in base.entries.items() if key != track_id}
+    updated = base.model_copy(update={"entries": {**others, track_id: entry}})
     _write(dump_path(folder, updated), updated)
+    return updated
+
+
+def remove_entries(folder: Path, dump: TagDump, track_ids: Collection[str]) -> TagDump:
+    """Retire les morceaux restaures ; un dump vide est supprime, plus rien n'y est a annuler."""
+    kept = {key: entry for key, entry in dump.entries.items() if key not in track_ids}
+    updated = dump.model_copy(update={"entries": kept})
+    path = dump_path(folder, updated)
+    if kept:
+        _write(path, updated)
+    else:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise TagDumpWriteError(path) from exc
     return updated
 
 
@@ -159,17 +202,7 @@ def purge_dumps(folder: Path, now: datetime) -> None:
         try:
             path.unlink(missing_ok=True)
         except OSError:
-            logger.warning(
-                "tag dump not purged run=%s reason=unlink_failed", path.stem.partition("-")[2]
-            )
-
-
-def _on_disk(folder: Path, dump: TagDump) -> TagDump:
-    """Le dump tel que le disque le porte, vide s'il n'y est pas encore."""
-    path = dump_path(folder, dump)
-    if path.is_file():
-        return load_dump(path)
-    return dump.model_copy(update={"entries": {}})
+            logger.warning("tag dump not purged run=%s reason=unlink_failed", _run_id_of(path))
 
 
 def _created_at(path: Path) -> datetime | None:
@@ -178,6 +211,11 @@ def _created_at(path: Path) -> datetime | None:
         return datetime.strptime(stamp, TIMESTAMP_FORMAT).replace(tzinfo=UTC)
     except ValueError:
         return None
+
+
+def _run_id_of(path: Path) -> str:
+    _, _, run_id = path.stem.partition("-")
+    return run_id
 
 
 def _write(path: Path, dump: TagDump) -> None:

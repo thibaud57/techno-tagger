@@ -24,9 +24,11 @@ from tagger.handlers import (
     commit,
     handle_commit_run,
     handle_extract_playlist,
+    handle_get_rollback_target,
     handle_get_version,
     handle_list_playlists,
     handle_retry_write,
+    handle_rollback,
     handle_set_api_key,
     handle_start_tagging,
     url_progress,
@@ -40,11 +42,13 @@ from tagger.protocol import (
     Event,
     ExecutableCommand,
     ExtractPlaylist,
+    GetRollbackTarget,
     GetVersion,
     ListPlaylists,
     ResolveArbitration,
     ResolveByUrl,
     RetryWrite,
+    Rollback,
     SetApiKey,
     Shutdown,
     StartTagging,
@@ -148,6 +152,15 @@ class RunCommittedError(TaggerError):
         super().__init__("the run is committed", track_id=track_id)
 
 
+class RollbackInProgressError(TaggerError):
+    """Un rollback tourne : extraction, ecriture, run ou rollback toucheraient ses fichiers."""
+
+    code: ClassVar[str] = "rollback_in_progress"
+
+    def __init__(self) -> None:
+        super().__init__("a rollback is already in progress")
+
+
 class _Session:
     """Etat de la session : le run de re-tagging tourne pendant que stdin est lu.
 
@@ -161,6 +174,7 @@ class _Session:
         self._run: asyncio.Task[None] | None = None
         self._extraction: asyncio.Task[None] | None = None
         self._write: asyncio.Task[None] | None = None
+        self._rollback: asyncio.Task[None] | None = None
         self._current: CurrentRun | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
@@ -183,9 +197,9 @@ class _Session:
     async def cancel_run(self) -> None:
         """`shutdown` n'attend pas la fin de la phase reseau, il l'annule.
 
-        L'extraction et l'ecriture sont au contraire attendues : la phase reseau ne tient que
-        du reseau et de la memoire, quand une copie ou une ecriture coupee en vol laisserait
-        un fichier a moitie ecrit chez l'utilisateur.
+        L'extraction, l'ecriture et le rollback sont au contraire attendus : la phase reseau ne
+        tient que du reseau et de la memoire, quand une copie, une ecriture ou une restauration
+        coupee en vol laisserait un fichier a moitie ecrit chez l'utilisateur.
 
         Une phase reseau interrompue ouvre le rattrapage : sa progression part, sans
         evenement de fin, l'interface sachant qu'elle a demande l'arret.
@@ -236,11 +250,27 @@ class _Session:
             raise WriteNotOpenError
         self._spawn_write(functools.partial(handle_retry_write, current, current.writer), command)
 
+    def rollback(self, command: Rollback) -> None:
+        """Rollback en tache de fond, seul sur les fichiers.
+
+        Le run affiche ne suit que si c'est lui qu'on restaure : un ancien run du meme dossier
+        porte les memes `track_id`.
+        """
+        self._ensure_no_long_phase()
+        current = self._current
+        live = (
+            current.live if current is not None and current.live.run_id == command.run_id else None
+        )
+        start_work = functools.partial(handle_rollback, command, live, self.send)
+        self._rollback = self._group.create_task(
+            self._phase(start_work, command, command.track_id), name="rollback"
+        )
+
     async def close(self, *, cancel: bool) -> None:
         """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
 
-        L'ecriture n'est jamais annulee, le `TaskGroup` de la boucle l'attend : un fichier coupe
-        resterait a moitie ecrit.
+        Ecriture et rollback ne sont jamais annules, le `TaskGroup` de la boucle les attend :
+        un fichier coupe en vol resterait a moitie ecrit ou renomme.
         """
         await self._settle_run(cancel=cancel)
         current, self._current = self._current, None
@@ -284,25 +314,30 @@ class _Session:
     def _ensure_no_long_phase(self) -> None:
         """Une seule phase longue a la fois, refusee par le code de celle qui tourne.
 
-        Extraction et ecriture touchent aux fichiers de l'utilisateur, la recherche reseau
-        lit ceux qu'elle va faire ecrire : deux phases melees pourraient viser le meme dossier.
+        Extraction, ecriture et rollback touchent aux fichiers de l'utilisateur, la recherche
+        reseau lit ceux qu'elle va faire ecrire : deux phases melees pourraient viser le meme
+        dossier.
         """
-        if self._active(self._extraction) is not None:
-            raise ExtractionInProgressError
+        self._ensure_no_files_phase()
         if self._active_run() is not None:
             raise TaggingInProgressError
+
+    def _ensure_no_files_phase(self) -> None:
+        """Les phases qui touchent aux fichiers ; `_writable` traite la phase reseau a part."""
+        if self._active(self._rollback) is not None:
+            raise RollbackInProgressError
+        if self._active(self._extraction) is not None:
+            raise ExtractionInProgressError
         if self._active(self._write) is not None:
             raise WriteInProgressError
 
     def _writable(self, run_id: str) -> CurrentRun:
-        """Run courant designe, phase reseau finie ou interrompue, sans ecriture ni geste en vol.
+        """Run courant designe, sans phase longue ni geste en vol.
 
-        Un geste qui finirait pendant l'ecriture ecraserait un morceau ecrit.
+        Un geste qui finirait pendant l'ecriture ecraserait un morceau ecrit. Une phase reseau
+        en cours rend `write_not_open`, le run n'etant pas encore ouvert a l'ecriture.
         """
-        if self._active(self._write) is not None:
-            raise WriteInProgressError
-        if self._active(self._extraction) is not None:
-            raise ExtractionInProgressError
+        self._ensure_no_files_phase()
         current = self._current
         if (
             current is None
@@ -368,6 +403,7 @@ class _Session:
             | ResolveByUrl
             | CommitRun
             | RetryWrite
+            | Rollback
         ),
         track_id: str | None = None,
     ) -> None:
@@ -416,11 +452,11 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    Les trois phases longues, extraction, re-tagging et ecriture, tournent en tache de
-    fond dans le `TaskGroup` : la boucle lit les commandes suivantes pendant qu'elles
-    avancent. `shutdown` n'annule que la phase reseau et attend l'extraction et l'ecriture,
-    une copie ou une ecriture coupee en vol laissant un fichier a moitie ecrit ; l'EOF
-    attend les trois.
+    Les phases longues, extraction, re-tagging, ecriture et rollback, tournent en
+    tache de fond dans le `TaskGroup` : la boucle lit les commandes suivantes pendant
+    qu'elles avancent. `shutdown` n'annule que la phase reseau et attend l'extraction,
+    l'ecriture et le rollback, une copie, une ecriture ou une restauration coupee en vol
+    laissant un fichier a moitie ecrit ; l'EOF les attend toutes.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre
@@ -457,7 +493,9 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
                 session.send(error_from_business(error, command.command))
 
 
-async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
+# PLR0912 : une branche par commande, le `match` ferme par `assert_never` etant ce qui
+# rend un oubli visible au typage.
+async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # noqa: PLR0912
     """Route une commande validee vers son handler.
 
     `Shutdown` est traite par la boucle et n'arrive jamais ici, ce que le type dit :
@@ -466,7 +504,7 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
 
     Les handlers sont bloquants — SQLite, parcours du dossier source, copie de
     fichiers, trousseau Windows — et passent donc par `to_thread`, sans quoi la
-    boucle gelerait. Les trois phases longues vont plus loin et partent en tache de
+    boucle gelerait. Les phases longues vont plus loin et partent en tache de
     fond, `to_thread` seul laissant la boucle attendre leur retour.
     """
     match command:
@@ -492,6 +530,10 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
             session.commit_run(command)
         case RetryWrite():
             session.retry_write(command)
+        case GetRollbackTarget():
+            session.send(await asyncio.to_thread(handle_get_rollback_target))
+        case Rollback():
+            session.rollback(command)
         case _:
             assert_never(command)
 

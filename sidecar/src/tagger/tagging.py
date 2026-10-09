@@ -42,12 +42,13 @@ logger = logging.getLogger(__name__)
 
 @verify(UNIQUE)
 class TrackState(StrEnum):
-    """Etat d'un morceau, apres la phase reseau ou l'ecriture."""
+    """Etat d'un morceau, apres la phase reseau, l'ecriture ou un rollback."""
 
     RESOLVED = auto()
     UNRESOLVED = auto()
     WRITTEN = auto()
     WRITE_ERROR = auto()
+    ROLLED_BACK = auto()
 
 
 @verify(UNIQUE)
@@ -77,6 +78,8 @@ class FailureReason(StrEnum):
     FILE_LOCKED = auto()
     FILE_MISSING = auto()
     WRITE_FAILED = auto()
+    # Motif du rollback seul, hors `FileFailureReason` : l'ecriture suffixe un nom pris.
+    NAME_TAKEN = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +170,23 @@ class TrackRecord:
         """Ecriture en echec : la resolution reste, la relance n'a rien a redemander."""
         return replace(
             self, state=TrackState.WRITE_ERROR, failure_reason=FailureReason(reason.value)
+        )
+
+    def rolled_back(self, path: Path) -> TrackRecord:
+        """Rendu a son origine : plus rien du candidat, la ligne retombe sur le fichier.
+
+        `resolution` reste, `_resolved` l'exigeant : l'etat la masque a l'ecran.
+        """
+        return replace(
+            self,
+            state=TrackState.ROLLED_BACK,
+            failure_reason=None,
+            path=path,
+            written=None,
+            source=None,
+            candidate=None,
+            scored=None,
+            artwork=None,
         )
 
     def unresolved(self, reason: FailureReason) -> TrackRecord:

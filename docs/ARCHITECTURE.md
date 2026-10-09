@@ -132,6 +132,7 @@ techno-tagger/
 │   │   ├── cache.py                      # réponses API et artworks
 │   │   ├── tagging.py                    # pipeline de résolution, run vivant en mémoire
 │   │   ├── writing.py                    # phase d'écriture d'un run : dump, tags, renommage, relance
+│   │   ├── rollback.py                   # restauration d'un run ou d'un morceau depuis son dump
 │   │   ├── sources.py                    # accès aux sources d'un run, garde des 403
 │   │   ├── arbitration.py                # gestes d'arbitrage sur un run vivant
 │   │   └── plan.py                       # plan de run, reprise, rapport
@@ -431,18 +432,19 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction et l'écriture** si elles sont en cours ; l'EOF attend les trois. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
-| `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. Quand il interrompt la phase réseau d'un run courant, il ouvre le rattrapage par URL et en émet la progression, toujours sans événement de fin. `cancel_run` n'arrête que la phase réseau : l'extraction et l'écriture vont à leur terme |
+| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction, l'écriture et le rollback** si elles sont en cours ; l'EOF attend les quatre. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
+| `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. Quand il interrompt la phase réseau d'un run courant, il ouvre le rattrapage par URL et en émet la progression, toujours sans événement de fin. `cancel_run` n'arrête que la phase réseau : l'extraction, l'écriture et le rollback restent attendus jusqu'à leur terme, comme sous `shutdown` |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
-| `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement. Refusée pendant un run (`tagging_in_progress`) ou une écriture (`write_in_progress`), comme une seconde extraction (`extraction_in_progress`) |
-| `start_tagging` | dossier cible et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source). Refusé pendant une extraction (`extraction_in_progress`) ou une écriture (`write_in_progress`), comme un second run (`tagging_in_progress`) |
+| `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement. Refusée pendant un run (`tagging_in_progress`), une écriture (`write_in_progress`) ou un rollback (`rollback_in_progress`), comme une seconde extraction (`extraction_in_progress`) |
+| `start_tagging` | dossier cible et seuils de matching optionnels : absents, le sidecar applique les siens (une valeur, une source). Refusé pendant une extraction (`extraction_in_progress`), une écriture (`write_in_progress`) ou un rollback (`rollback_in_progress`), comme un second run (`tagging_in_progress`) |
 | `resolve_arbitration` | identifiant du morceau, `source` (`beatport` ou `bandcamp`, la liste visée) et `candidate` : index dans cette liste, ou `null` pour un refus explicite, jamais implicite |
 | `switch_arbitration_source` | identifiant du morceau, `source` à réafficher. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), sans appel réseau et produit un `arbitration_updated` |
 | `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud collée telle quelle (chaîne non vide). Acceptée une fois la phase de rattrapage ouverte, c'est-à-dire sur un run courant dont la phase réseau ne tourne plus (terminée ou interrompue), sinon `url_recovery_not_open`. Un morceau non éligible lève `url_recovery_not_eligible`, un second geste en vol sur le même morceau `url_recovery_busy` |
-| `commit_run` | identifiant du run, confirmation globale de l'écriture. Acceptée sur le run courant dont la phase réseau ne tourne plus, sans geste d'arbitrage ni de rattrapage en vol et jamais confirmé ; sinon `write_not_open` ; pendant une écriture, `write_in_progress` ; pendant une extraction, `extraction_in_progress`. Fige le run : arbitrage, bascule de source et rattrapage sont ensuite refusés en `run_committed` (`params.track_id`). Un dump des tags d'origine qui ne s'enregistre pas (`tag_dump_write_failed`, `tag_dump_unreadable`) n'a touché aucun fichier ni aucun morceau : le run redevient confirmable. Ni `cancel_run`, ni `shutdown`, ni l'EOF n'annulent l'écriture |
-| `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages. Acceptée sur le run courant déjà confirmé, sinon `write_not_open` |
+| `commit_run` | identifiant du run, confirmation globale de l'écriture. Acceptée sur le run courant dont la phase réseau ne tourne plus, sans geste d'arbitrage ni de rattrapage en vol et jamais confirmé ; sinon `write_not_open` ; pendant une écriture, `write_in_progress` ; pendant une extraction, `extraction_in_progress` ; pendant un rollback, `rollback_in_progress`. Fige le run : arbitrage, bascule de source et rattrapage sont ensuite refusés en `run_committed` (`params.track_id`). Un dump des tags d'origine qui ne s'enregistre pas (`tag_dump_write_failed`, `tag_dump_unreadable`) n'a touché aucun fichier ni aucun morceau : le run redevient confirmable. Ni `cancel_run`, ni `shutdown`, ni l'EOF n'annulent l'écriture |
+| `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages. Acceptée sur le run courant déjà confirmé, sinon `write_not_open` ; refusée en `rollback_in_progress` pendant un rollback |
 | `resume_run` / `discard_run` | identifiant du plan détecté au lancement |
-| `rollback` | identifiant du run, ou identifiant du morceau |
+| `get_rollback_target` | aucune. Décrit le dernier run annulable, le plus récent des dumps qui a encore des morceaux à restaurer, un dump illisible sauté |
+| `rollback` | identifiant du run, `track_id` optionnel pour un seul morceau. En tâche de fond : nom d'origine puis tags d'origine, un nom d'origine pris par un autre fichier laissant le morceau intact (`name_taken`). Refusée en `tagging_in_progress` pendant la phase réseau, `write_in_progress` pendant l'écriture, `extraction_in_progress` pendant une extraction, `rollback_in_progress` pendant un rollback, `rollback_unavailable` sans dump ou sur un morceau absent du dump. Un morceau dont le fichier est introuvable sous ses deux noms échoue en `file_missing` et quitte le dump, sauf si son dossier d'origine a disparu : l'entrée reste alors. Ni `cancel_run`, ni `shutdown`, ni l'EOF ne la coupent |
 | `list_runs` | aucune. Rend les runs passés relisibles depuis leurs rapports JSON, ce qui alimente l'état vide « aucun run passé » |
 | `load_run` | identifiant du run. Relit son rapport JSON et rend le récapitulatif, sans rejouer quoi que ce soit. C'est le point d'entrée que la politique de migration de l'[ADR-018](adrs/018-versionnement-plan-de-run.md) sert |
 | `set_api_key` / `clear_cache` | administration depuis les Settings. `set_api_key` est le seul passage de la clé dans le protocole, sa réponse est l'événement `version`. Pas de `set_api_url` : l'URL est une constante du sidecar (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)) |
@@ -453,7 +455,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 |---|---|
 | `version` | version du sidecar, nue (`X.Y.Z`, sans le préfixe `techno-tagger@` réservé à la release Sentry), comparée à celle de l'interface avant tout run (cf. [PRODUCTION.md](PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour)) ; `api_key_configured` : seul le sidecar lit le trousseau ([ADR-012](adrs/012-securite-cle-api-keyring.md)), l'interface apprend ici si une clé existe avant tout run |
 | `playlists_listed` | format reconnu du fichier et playlists du dump VLC : identifiant, nom, nombre de morceaux |
-| `progress` | phase en cours, traités sur total. Couvre les quatre phases longues : extraction, pipeline de tagging, rattrapage par URL et écriture. En phase `url_recovery`, émis à l'ouverture du rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), après chaque rattrapage réussi et après chaque geste d'arbitrage hors phase réseau ; mesure les morceaux rattrapés sur les morceaux à rattraper. En phase `write`, mesure les morceaux traités sur les morceaux visés par l'écriture ou par la relance |
+| `progress` | phase en cours, traités sur total. Couvre l'extraction, le pipeline de tagging, le rattrapage par URL et l'écriture, le rollback n'en émettant pas. En phase `url_recovery`, émis à l'ouverture du rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), après chaque rattrapage réussi et après chaque geste d'arbitrage hors phase réseau ; mesure les morceaux rattrapés sur les morceaux à rattraper. En phase `write`, mesure les morceaux traités sur les morceaux visés par l'écriture ou par la relance |
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `run_started` | identifiant du run et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus. Sans lui, la liste resterait vide jusqu'à la première résolution |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles |
@@ -462,11 +464,13 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs `resolved`, `unresolved`, `written`, `write_error` et en attente d'arbitrage, dans les deux phases ; chemin des rapports une fois la Feature 6 livrée |
 | `runs_listed` | runs passés : identifiant, date, dossier, compteurs du récapitulatif |
 | `run_loaded` | récapitulatif d'un run passé, relu depuis son rapport JSON |
+| `rollback_target` | `run` : identifiant, date d'écriture, dossier, morceaux à restaurer ; nul s'il n'y a rien à annuler |
+| `rollback_finished` | identifiant du run, morceau visé, morceaux restaurés, échecs avec nom de fichier actuel et motif. Sur le run affiché, chaque morceau restauré part aussi en `track_resolved(rolled_back)`, sans source, scores ni pochette |
 | `error` | `code`, `params`, `message` technique, `command` ayant échoué, morceau concerné le cas échéant. Toute erreur d'un geste sur un morceau (`resolve_arbitration`, `resolve_by_url`) porte `params.track_id`, y compris une erreur du client, pour que l'interface la place sur la bonne ligne |
 
 **`error` nomme la commande qui a échoué, l'interface ne la déduit pas.** Un écran n'affiche que les erreurs des commandes qu'il émet, sans quoi l'échec d'un enregistrement de clé s'afficherait en bannière sur l'onglet Playlist ouvert ensuite. Tant que la boucle traitait une commande à la fois, l'interface pouvait retenir la dernière envoyée et lui attribuer l'erreur suivante. `start_tagging` rendant la main aussitôt (§ [Concurrence](#concurrence)), cette déduction est fausse : une commande courte émise pendant un run récupérerait l'échec du run et le run l'échec de la commande courte. D'où le champ, que le sidecar remplit dans ses deux chemins d'émission. Il vaut `null` sur une ligne trop malformée pour désigner une commande du contrat, son nom éventuel restant dans les `params`.
 
-**Seul l'échec de la commande qui a ouvert un run le clôt.** L'interface arrête son run sur une erreur portant `extract_playlist` ou `start_tagging` et le laisse courir sur toute autre : il tourne toujours côté sidecar et l'effacer laisserait les événements suivants arriver sur une liste vide. Les codes `tagging_in_progress` et `write_in_progress` sont l'exception qui confirme la règle : portés par `start_tagging`, ils refusent un lancement en affirmant précisément qu'une phase continue (un run de re-tagging pour l'un, une écriture pour l'autre) : ils n'arrêtent donc rien et ne closent pas le run affiché.
+**Seul l'échec de la commande qui a ouvert un run le clôt.** L'interface arrête son run sur une erreur portant `extract_playlist` ou `start_tagging` et le laisse courir sur toute autre : il tourne toujours côté sidecar et l'effacer laisserait les événements suivants arriver sur une liste vide. Les codes `tagging_in_progress`, `write_in_progress` et `rollback_in_progress` sont l'exception qui confirme la règle : portés par `start_tagging`, ils refusent un lancement en affirmant précisément qu'une phase continue (un run de re-tagging, une écriture ou un rollback) : ils n'arrêtent donc rien et ne closent pas le run affiché.
 
 **`run_finished` porte une `phase`, il n'est pas émis une seule fois.** La fin de la boucle de résolution ouvre la phase de rattrapage par URL, la fin de l'écriture ouvre le récapitulatif : deux moments distincts, deux écrans différents, un seul événement. Sans ce champ, l'interface ne peut pas savoir lequel des deux elle reçoit.
 
@@ -476,9 +480,9 @@ Deux axes de phase, deux enums : `Phase` (`extraction`, `tagging`, `url_recovery
 
 | Champ | Valeurs | Rôle |
 |---|---|---|
-| `state` | `resolved`, `unresolved`, `written`, `write_error` | Ce que le morceau est devenu |
+| `state` | `resolved`, `unresolved`, `written`, `write_error`, `rolled_back` | Ce que le morceau est devenu. `rolled_back` : rendu à son origine par un rollback, plus de candidat, `resolution` conservée mais masquée par l'état |
 | `resolution` | `auto`, `arbitration`, `url`, `none` | La voie empruntée, d'où sortent les filtres du récapitulatif |
-| `failure_reason` | Résolution : `empty_query`, `no_result`, `below_threshold`, `user_refused`, `source_unavailable`. Écriture : `file_locked`, `permission_denied`, `disk_full`, `path_too_long`, `file_missing`, `write_failed` | Le motif, exigé par le rapport qui distingue la requête vide des autres échecs (cf. § [Robustesse](#-robustesse--modes-de-panne)) |
+| `failure_reason` | Résolution : `empty_query`, `no_result`, `below_threshold`, `user_refused`, `source_unavailable`. Écriture : `file_locked`, `permission_denied`, `disk_full`, `path_too_long`, `file_missing`, `write_failed`. Rollback : `name_taken` | Le motif, exigé par le rapport qui distingue la requête vide des autres échecs (cf. § [Robustesse](#-robustesse--modes-de-panne)) |
 
 **Les motifs d'écriture ne se réduisent pas au fichier verrouillé**, qui n'est que le plus fréquent sur Windows. Tous produisent le même `state` et se rattrapent par `retry_write` : c'est le motif qui change, jamais l'état ni la correction.
 
@@ -505,9 +509,12 @@ stateDiagram-v2
     resolved --> written : commit_run
     resolved --> write_error : commit_run, failure_reason d'écriture
     write_error --> written : retry_write
+    written --> rolled_back : rollback
+    write_error --> rolled_back : rollback
     unresolved --> [*] : aucun fichier touché
     written --> [*]
     write_error --> [*]
+    rolled_back --> [*]
 
     note right of en_attente
         en_attente et a_arbitrer sont dérivés par
@@ -522,21 +529,23 @@ stateDiagram-v2
 
 **Le filtre du récapitulatif et l'origine de la décision ne sont pas au même niveau.** Le brainstorm énumère quatre origines (« validation auto, arbitrage, URL manuelle, abandon ») pour trois filtres (« validés, arbitrés, échecs ») : le filtre sépare ce que la machine a tranché de ce qu'un humain a décidé, l'origine dit par quel mécanisme.
 
-**L'échec se lit en premier et il se lit sur `state`.** Les deux autres filtres se lisent ensuite sur `resolution`, ce qui les rend disjoints et couvrants :
+**L'échec se lit en premier et il se lit sur `state`.** Les deux autres filtres se lisent ensuite sur `resolution`, ce qui les rend disjoints. Ils ne couvrent que les morceaux qui portent encore une décision :
 
 | Filtre | Vaut | Origines couvertes |
 |---|---|---|
 | échecs | `state ∈ {unresolved, write_error}` | Abandon et fichiers en échec d'écriture |
-| validés | `state ∉ échecs` et `resolution = auto` | Score au-dessus du seuil haut, personne n'a regardé |
-| arbitrés | `state ∉ échecs` et `resolution ∈ {arbitration, url}` | Choix dans la modale, **et** URL collée en fin de run |
+| validés | `state ∈ {resolved, written}` et `resolution = auto` | Score au-dessus du seuil haut, personne n'a regardé |
+| arbitrés | `state ∈ {resolved, written}` et `resolution ∈ {arbitration, url}` | Choix dans la modale, **et** URL collée en fin de run |
+
+Un morceau `rolled_back` n'est ni validé ni arbitré ni en échec : il sort des trois filtres, aucune décision ne le décrivant plus.
 
 Trois pièges découlent de ce tableau et chacun casse le récapitulatif au moment où il s'affiche.
 
 - **« Arbitrés » en `resolution === 'arbitration'`** fait disparaître les morceaux rattrapés par URL, ceux que l'utilisateur veut justement relire.
 - **« Validés » ou « arbitrés » câblés sur `state`** cessent de matcher après `commit_run`, `resolved` étant devenu `written`.
-- **« Échecs » câblé sur `resolution`** ne peut pas fonctionner : un `write_error` garde sa voie d'origine (`auto`, `arbitration` ou `url`), il serait indiscernable d'un morceau bien écrit. C'est aussi ce qui impose la garde `state ∉ échecs` sur les deux autres lignes, sans quoi il apparaîtrait dans deux filtres à la fois.
+- **« Échecs » câblé sur `resolution`** ne peut pas fonctionner : un `write_error` garde sa voie d'origine (`auto`, `arbitration` ou `url`), il serait indiscernable d'un morceau bien écrit. C'est aussi ce qui impose la garde sur `state` des deux autres lignes, sans quoi il apparaîtrait dans deux filtres à la fois.
 
-Ce qui rend la règle sûre est que ni `unresolved` ni `write_error` ne changent **au commit**. Un `write_error` peut encore en sortir plus tard par `retry_write` et le filtre se vide alors à l'écran : c'est voulu.
+Ce qui rend la règle sûre est que ni `unresolved` ni `write_error` ne changent **au commit**. Un `write_error` peut encore en sortir plus tard par `retry_write` ou par `rollback` et le filtre se vide alors à l'écran : c'est voulu.
 
 Ce découpage est ce que consomme la colonne État de l'interface, dont les couleurs sont regroupées en quatre familles (cf. [DESIGN.md § Couleurs Sémantiques](DESIGN.md#couleurs-sémantiques)).
 
@@ -554,9 +563,9 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 
 **Le téléchargement des pochettes a son propre pool.** L'API fournit bien l'`artwork_url` dans le contrat `Track`, mais cette URL pointe vers le CDN de la source : le téléchargement de l'image ne passe donc pas par techno-scraper et ne consomme pas ses sémaphores. Le compter dans le pool de 3 briderait les images pour rien. **Sa taille est fixée à 6 et c'est un calibrage libre, pas une contrainte d'API** : contrairement aux deux autres, aucun sémaphore distant ne le dicte, seule la politesse envers le CDN. Un échec de téléchargement n'échoue jamais le morceau : les tags sont écrits sans pochette et le rapport le signale.
 
-**Les trois phases longues tournent en tâche de fond, la boucle ne les attend pas.** `extract_playlist` copie des fichiers, `start_tagging` interroge le réseau et `commit_run` (comme `retry_write`) écrit sur le disque : les attendre dans la boucle gèlerait la lecture de `stdin` et une fermeture de fenêtre pendant la copie d'une grosse bibliothèque laisserait son `shutdown` dans le pipe jusqu'au dernier transfert. **Une seule tourne à la fois** : chacune refuse de démarrer tant qu'une autre tourne, par le code de celle qui tourne (`extraction_in_progress`, `tagging_in_progress`, `write_in_progress`). Extraction et écriture touchent aux fichiers de l'utilisateur, la recherche réseau lit ceux qu'elle fera écrire : deux phases mêlées pourraient viser le même dossier. Ces refus ne closent rien : ils disent au contraire que la phase en cours continue. Arbitrer et rattraper restent possibles pendant la recherche, ce sont des gestes du run et non des phases longues.
+**Les phases longues tournent en tâche de fond, la boucle ne les attend pas.** `extract_playlist` copie des fichiers, `start_tagging` interroge le réseau, `commit_run` (comme `retry_write`) écrit sur le disque et `rollback` restaure des fichiers depuis leur dump : les attendre dans la boucle gèlerait la lecture de `stdin` et une fermeture de fenêtre pendant la copie d'une grosse bibliothèque laisserait son `shutdown` dans le pipe jusqu'au dernier transfert. **Une seule tourne à la fois** : chacune refuse de démarrer tant qu'une autre tourne, par le code de celle qui tourne (`extraction_in_progress`, `tagging_in_progress`, `write_in_progress`, `rollback_in_progress`). Extraction, écriture et rollback touchent aux fichiers de l'utilisateur, la recherche réseau lit ceux qu'elle fera écrire : deux phases mêlées pourraient viser le même dossier. Ces refus ne closent rien : ils disent au contraire que la phase en cours continue. Arbitrer et rattraper restent possibles pendant la recherche, ce sont des gestes du run et non des phases longues.
 
-**L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction et l'écriture : une copie ou une écriture coupée en vol laisserait un fichier musical à moitié écrit, dans la destination ou dans la bibliothèque de l'utilisateur, ce que la garantie sur la bibliothèque interdit. Seule la phase réseau est donc annulable. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
+**L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction, l'écriture et le rollback : une copie, une écriture ou une restauration coupée en vol laisserait un fichier musical à moitié écrit ou à moitié rendu, dans la destination ou dans la bibliothèque de l'utilisateur, ce que la garantie sur la bibliothèque interdit. Seule la phase réseau est donc annulable. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `tagging_in_progress`.
 
 La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en mémoire exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process. Les gestes d'arbitrage avancent en parallèle d'un morceau à l'autre et partagent les sémaphores du client avec le pipeline. Un seul geste est en vol par morceau : le second est refusé en `arbitration_busy`, jamais mis en file, sans quoi les clics rapides de la modale lanceraient deux appels Bandcamp. Un geste sur une liste qui n'est plus affichée est refusé en `arbitration_candidate_unknown` : un double clic arrivé après la bascule refuserait sinon Bandcamp.
 
@@ -591,7 +600,7 @@ La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en 
 | Cache API + artworks | `appLocalDataDir()` | TTL 30 jours, plafond 500 Mo en éviction LRU | Éviter de repayer un re-run |
 | Rapport d'extraction, JSON + Markdown | Dossier destination | Permanente, livrable | Titres introuvables, doublons résolus et candidats écartés |
 | Rapport de run, JSON + Markdown | Dossier destination | Permanente, livrable | Traçabilité, relecture par l'app, envoi de feedback |
-| Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé** | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
+| Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé**. Un morceau restauré en sort, comme un morceau dont le fichier n'existe plus sous aucun nom tant que son dossier d'origine existe : un dossier introuvable (disque externe débranché, lettre de lecteur changée) garde l'entrée, pour ne pas perdre les tags d'origine. Un fichier présent sous un nouveau nom que le dump n'a pas noté (`renamed_path` non noté) sort du dump quand même. Un dump vidé est supprimé : le dernier run annulable devient alors le précédent | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
 | Logs du sidecar | `appLocalDataDir()` | Rotation à 5 Mo, 3 sauvegardes | Débogage à distance chez un utilisateur |
 
 Le plan vit dans `appLocalDataDir()`, jamais dans le dossier destination (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
@@ -969,8 +978,8 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 | 4 | Coquille Tauri + build PyInstaller Windows | Le premier build est le seul moment coûteux, autant le passer tôt |
 | 5 | Onglet playlist, câblage i18n | La plus simple, valide la chaîne complète UI vers sidecar. L'i18n se câble au premier écran, l'ajouter après oblige à reprendre chaque libellé. La clé API, prévue ici, a été livrée en tête de l'étape 6 (sub-project `cle-api` de la Feature 2), avant le pipeline qui ne peut pas tourner sans elle. |
 | 6 | Onglet scraping, pipeline et liste | Le cœur |
-| 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, récapitulatif, rapport | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
-| 8 | Reste des Settings, bouton de rollback, monitoring | Transversaux, une fois le flux principal stable |
+| 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, bouton de rollback, récapitulatif, rapport | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
+| 8 | Reste des Settings, monitoring | Transversaux, une fois le flux principal stable |
 | 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers |
 
 ---

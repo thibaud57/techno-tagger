@@ -8,16 +8,19 @@ from audio_samples import held_open
 from tagger.file_failures import FileFailureReason
 from tagger.renaming import (
     MAX_PATH_LENGTH,
+    OriginalNameTakenError,
     RenamedTrack,
     RenameError,
     TrackFileName,
     rename_track,
+    restore_name,
     track_file_name,
 )
 
 ARTIST = "Adam Beyer"
 TITLE = "Your Mind (Extended Mix)"
 TARGET = "Adam Beyer - Your Mind (Extended Mix).mp3"
+ORIGINAL = "01 - untitled.mp3"
 LONG_TITLE = "Your Mind (Layton Giordani Extended Remix)"
 # Hors du plan multilingue de base : deux unites UTF-16, comme NTFS et MAX_PATH le comptent.
 FIRE = "🔥"
@@ -295,3 +298,40 @@ def test_keeps_a_name_already_suffixed_by_a_previous_run(tmp_path: Path) -> None
 
     assert renamed == RenamedTrack(path, truncated=False)
     assert announced == []
+
+
+def test_gives_the_file_back_its_original_name(tmp_path: Path) -> None:
+    current = _file(tmp_path, TARGET)
+
+    restore_name(current, tmp_path / ORIGINAL)
+
+    assert [entry.name for entry in tmp_path.iterdir()] == [ORIGINAL]
+
+
+def test_gives_back_a_name_that_differs_only_by_case(tmp_path: Path) -> None:
+    current = _file(tmp_path, "Adam Beyer - Your Mind.mp3")
+
+    restore_name(current, tmp_path / "adam beyer - your mind.mp3")
+
+    assert [entry.name for entry in tmp_path.iterdir()] == ["adam beyer - your mind.mp3"]
+
+
+def test_refuses_an_original_name_taken_by_another_file(tmp_path: Path) -> None:
+    current = _file(tmp_path, TARGET)
+    _file(tmp_path, ORIGINAL, b"newcomer")
+
+    with pytest.raises(OriginalNameTakenError) as error:
+        restore_name(current, tmp_path / ORIGINAL)
+
+    assert error.value.params == {"file": ORIGINAL}
+    assert current.read_bytes() == b"audio"
+    assert (tmp_path / ORIGINAL).read_bytes() == b"newcomer"
+
+
+def test_reports_a_vanished_file_instead_of_leaking_an_os_error(tmp_path: Path) -> None:
+    _file(tmp_path, ORIGINAL, b"newcomer")
+
+    with pytest.raises(RenameError) as error:
+        restore_name(tmp_path / TARGET, tmp_path / ORIGINAL)
+
+    assert error.value.reason is FileFailureReason.FILE_MISSING

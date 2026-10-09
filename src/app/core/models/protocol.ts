@@ -122,6 +122,18 @@ export interface RetryWriteCommand {
   readonly run_id: string
 }
 
+/** Decrit le dernier run annulable, pour la confirmation des Reglages. */
+export interface GetRollbackTargetCommand {
+  readonly command: "get_rollback_target"
+}
+
+/** Restaure un run entier depuis son dump, ou son seul morceau `track_id`. */
+export interface RollbackCommand {
+  readonly command: "rollback"
+  readonly run_id: string
+  readonly track_id: string | null
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
@@ -135,6 +147,8 @@ export type SidecarCommand =
   | ResolveByUrlCommand
   | CommitRunCommand
   | RetryWriteCommand
+  | GetRollbackTargetCommand
+  | RollbackCommand
 
 export interface VersionEvent {
   readonly event: "version"
@@ -171,7 +185,7 @@ export interface ExtractionFinishedEvent {
 }
 
 /** Etat d'un morceau, en trois champs jamais interchangeables (ARCHITECTURE.md § API). */
-export type TrackState = "resolved" | "unresolved" | "written" | "write_error"
+export type TrackState = "resolved" | "unresolved" | "written" | "write_error" | "rolled_back"
 
 export type TrackResolution = "auto" | "arbitration" | "url" | "none"
 
@@ -187,6 +201,7 @@ export type TrackFailureReason =
   | "file_locked"
   | "file_missing"
   | "write_failed"
+  | "name_taken"
 
 export type TrackSource = "beatport" | "bandcamp" | "soundcloud"
 
@@ -275,6 +290,35 @@ export interface RunFinishedEvent {
   readonly written: number
   readonly write_error: number
   readonly awaiting_arbitration: number
+}
+
+/** Dernier run annulable : de quoi le nommer dans la confirmation. */
+export interface RollbackRun {
+  readonly run_id: string
+  readonly written_at: string
+  readonly folder: string
+  readonly tracks: number
+}
+
+/** `run` nul : rien a annuler. Hors `SidecarEvent` jusqu'a son routage (sub-project 08). */
+export interface RollbackTargetEvent {
+  readonly event: "rollback_target"
+  readonly run: RollbackRun | null
+}
+
+export interface RollbackFailure {
+  readonly track_id: string
+  readonly file_name: string
+  readonly reason: TrackFailureReason
+}
+
+/** Hors `SidecarEvent` jusqu'a son routage, comme `RollbackTargetEvent`. */
+export interface RollbackFinishedEvent {
+  readonly event: "rollback_finished"
+  readonly run_id: string
+  readonly track_id: string | null
+  readonly restored: readonly string[]
+  readonly failed: readonly RollbackFailure[]
 }
 
 /** `ErrorEvent` est un type DOM global : meme raison. */

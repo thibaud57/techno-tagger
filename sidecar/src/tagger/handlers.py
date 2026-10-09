@@ -33,6 +33,11 @@ from tagger.protocol import (
     PlaylistEntry,
     PlaylistsListed,
     Progress,
+    Rollback,
+    RollbackFailurePayload,
+    RollbackFinished,
+    RollbackRun,
+    RollbackTarget,
     RunFinished,
     RunPhase,
     RunStarted,
@@ -45,6 +50,7 @@ from tagger.protocol import (
     Version,
 )
 from tagger.reports import ReportContext, write_extraction_report
+from tagger.rollback import find_rollback_target, roll_back
 from tagger.scraper_client import TechnoScraperClient
 from tagger.sources import RunSources
 from tagger.tag_dump import TagDumpError, dump_dir
@@ -54,6 +60,7 @@ from tagger.writing import RunWriter
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     import httpx2
 
@@ -301,6 +308,45 @@ async def handle_commit_run(current: CurrentRun, writer: RunWriter) -> Event:
 async def handle_retry_write(current: CurrentRun, writer: RunWriter) -> Event:
     await writer.retry()
     return _run_finished(current.live.snapshot(), RunPhase.WRITE)
+
+
+def handle_get_rollback_target() -> RollbackTarget:
+    """Relu sur le disque : le dernier run annulable peut venir d'une autre session."""
+    target = find_rollback_target(dump_dir())
+    return RollbackTarget(
+        event="rollback_target",
+        run=None if target is None else RollbackRun.model_validate(target, from_attributes=True),
+    )
+
+
+async def handle_rollback(
+    command: Rollback, live: LiveRun | None, emit: Callable[[Event], None]
+) -> RollbackFinished:
+    """`live` : le run affiche quand c'est lui qu'on restaure, ses morceaux rendus passent en
+    `rolled_back`.
+    """
+
+    def restored(track_id: str, path: Path) -> None:
+        if live is None:
+            return
+        record = live.record(track_id)
+        if record is None:
+            return
+        rolled_back = record.rolled_back(path)
+        live.update(rolled_back)
+        emit(_resolved(rolled_back))
+
+    summary = await roll_back(dump_dir(), command.run_id, command.track_id, restored)
+    return RollbackFinished(
+        event="rollback_finished",
+        run_id=summary.run_id,
+        track_id=command.track_id,
+        restored=summary.restored,
+        failed=tuple(
+            RollbackFailurePayload.model_validate(failure, from_attributes=True)
+            for failure in summary.failed
+        ),
+    )
 
 
 def _thresholds(command: StartTagging) -> MatchingThresholds:

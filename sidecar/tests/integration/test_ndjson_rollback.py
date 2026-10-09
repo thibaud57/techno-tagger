@@ -1,0 +1,174 @@
+"""Rollback d'un run sur la boucle NDJSON, dans la session qui l'a ecrit ou une suivante."""
+
+from typing import TYPE_CHECKING
+
+import pytest
+from ndjson_loop import conversation, held_call, resolved_run
+from scraper_responses import YOUR_MIND
+from tagging_api import ONE_TRACK, ORIGINAL, FakeApi, found, one_track, tagged_mp3
+
+from tagger import rollback, writing
+from tagger.files import read_original_tags
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from ndjson_loop import Conversation
+
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
+
+WRITTEN = "Adam Beyer - Your Mind (Original Mix).mp3"
+
+
+@pytest.fixture
+def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
+    """« Your Mind » que Beatport resout d'office : un morceau a ecrire puis a restaurer."""
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    return one_track(tmp_path)
+
+
+async def _written_run(talk: Conversation, folder: Path) -> str:
+    run_id = await resolved_run(talk, folder)
+    talk.send(command="commit_run", run_id=run_id)
+    await talk.expect("run_finished", phase="write")
+    return run_id
+
+
+async def test_rolls_back_a_run_written_in_a_previous_session(folder: Path) -> None:
+    origin = read_original_tags(folder / ONE_TRACK)
+    async with conversation() as talk:
+        run_id = await _written_run(talk, folder)
+
+    async with conversation() as talk:
+        talk.send(command="get_rollback_target")
+        target = await talk.expect("rollback_target")
+        talk.send(command="rollback", run_id=run_id)
+        finished = await talk.expect("rollback_finished")
+        talk.send(command="get_rollback_target")
+        emptied = await talk.expect("rollback_target")
+
+    run = target["run"]
+    assert isinstance(run, dict)
+    assert (run["run_id"], run["folder"], run["tracks"]) == (run_id, str(folder), 1)
+    assert (finished["restored"], finished["failed"]) == ([ONE_TRACK], [])
+    assert emptied["run"] is None
+    assert not (folder / WRITTEN).exists()
+    assert read_original_tags(folder / ONE_TRACK) == origin
+
+
+async def test_marks_a_restored_track_that_retry_leaves_alone(folder: Path) -> None:
+    async with conversation() as talk:
+        run_id = await _written_run(talk, folder)
+        talk.send(command="rollback", run_id=run_id, track_id=ONE_TRACK)
+        rolled_back = await talk.expect("track_resolved", state="rolled_back")
+        finished = await talk.expect("rollback_finished")
+        talk.send(command="retry_write", run_id=run_id)
+        retried = await talk.expect("run_finished", phase="write")
+
+    assert rolled_back["track_id"] == ONE_TRACK
+    assert (rolled_back["after"], rolled_back["source"]) == (None, None)
+    assert (finished["track_id"], finished["restored"]) == (ONE_TRACK, [ONE_TRACK])
+    assert (retried["written"], retried["write_error"]) == (0, 0)
+    assert (folder / ONE_TRACK).is_file()
+
+
+async def test_leaves_the_displayed_run_alone_when_rolling_back_an_older_one(
+    tmp_path: Path, app_data: None, api: FakeApi
+) -> None:
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    conform = tagged_mp3(tmp_path / "conform", WRITTEN, "Adam Beyer", "Your Mind").parent
+    async with conversation() as talk:
+        first = await _written_run(talk, conform)
+        await resolved_run(talk, conform)
+        talk.send(command="rollback", run_id=first)
+        finished = await talk.expect("rollback_finished")
+
+    assert finished["restored"] == [WRITTEN]
+    assert not [event for event in talk.events if event.get("state") == "rolled_back"]
+
+
+async def test_refuses_a_rollback_without_dump(app_data: None) -> None:
+    async with conversation() as talk:
+        talk.send(command="rollback", run_id="000000")
+        error = await talk.expect("error")
+
+    assert (error["code"], error["command"], error["params"]) == (
+        "rollback_unavailable",
+        "rollback",
+        {"run_id": "000000", "track_id": None},
+    )
+
+
+async def test_refuses_a_rollback_while_writing(
+    folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    held = held_call(monkeypatch, writing, "write_tags")
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await held.wait_reached()
+        talk.send(command="rollback", run_id=run_id)
+        error = await talk.expect("error")
+        held.release.set()
+        await talk.expect("run_finished", phase="write")
+
+    assert (error["code"], error["command"]) == ("write_in_progress", "rollback")
+
+
+async def test_refuses_a_rollback_during_the_network_phase(folder: Path, api: FakeApi) -> None:
+    gate = api.gate("/beatport/search", YOUR_MIND)
+
+    async with conversation() as talk:
+        talk.send(command="start_tagging", folder=str(folder))
+        started = await talk.expect("run_started")
+        await gate.reached.wait()
+        talk.send(command="rollback", run_id=started["run_id"])
+        error = await talk.expect("error")
+        gate.release.set()
+        await talk.expect("run_finished", phase="network")
+
+    assert (error["code"], error["command"]) == ("tagging_in_progress", "rollback")
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["rollback", "commit_run", "retry_write", "start_tagging"],
+    ids=["rollback", "commit-run", "retry-write", "start-tagging"],
+)
+async def test_refuses_files_work_while_rolling_back(
+    folder: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    held = held_call(monkeypatch, rollback, "restore_tags")
+
+    async with conversation() as talk:
+        run_id = await _written_run(talk, folder)
+        talk.send(command="rollback", run_id=run_id)
+        await held.wait_reached()
+        if command == "start_tagging":
+            talk.send(command=command, folder=str(folder))
+        else:
+            talk.send(command=command, run_id=run_id)
+        error = await talk.expect("error")
+        held.release.set()
+        await talk.expect("rollback_finished")
+
+    assert (error["code"], error["command"]) == ("rollback_in_progress", command)
+
+
+async def test_shutdown_lets_a_rollback_finish(
+    folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    held = held_call(monkeypatch, rollback, "restore_tags")
+
+    async with conversation() as talk:
+        run_id = await _written_run(talk, folder)
+        talk.send(command="rollback", run_id=run_id)
+        await held.wait_reached()
+        talk.send(command="cancel_run")
+        talk.send(command="shutdown")
+        held.release.set()
+        finished = await talk.expect("rollback_finished")
+
+    assert finished["restored"] == [ONE_TRACK]
+    assert (folder / ONE_TRACK).is_file()

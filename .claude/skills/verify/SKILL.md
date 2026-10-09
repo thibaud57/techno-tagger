@@ -94,7 +94,7 @@ Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`
 
 ## Pilotage du dump des tags d'origine
 
-`read_original_tags`, `restore_tags` et le dump d'un run (`tagger/tag_dump.py`) s'exercent par `scripts/restore_probe.py` tant que l'écriture (sub-project 04) et le rollback (06) ne les câblent pas. `LOCALAPPDATA` vers le scratchpad est obligatoire : sans lui, le dump s'écrit sous le vrai profil.
+`read_original_tags`, `restore_tags` et le dump d'un run (`tagger/tag_dump.py`) s'exercent hors protocole par `scripts/restore_probe.py`, qui couvre cinq formats là où la fixture du protocole n'a que des MP3 (rollback par le protocole : § Pilotage du rollback). `LOCALAPPDATA` vers le scratchpad est obligatoire : sans lui, le dump s'écrit sous le vrai profil.
 
 La purge se pilote par le vrai sidecar : poser dans `<LOCALAPPDATA>/fr.empiricmind.techno-tagger/dumps/` des fichiers `{}` nommés `<YYYYMMDDTHHMMSSZ>-<run_id>.json` de part et d'autre des 30 jours, un `notes.json`, puis lancer `python -m tagger` avec un `get_version` sur `stdin`. Un dump verrouillé s'obtient par `held_open` d'`audio_samples` autour du lancement (`subprocess.run` dans un `uv run --directory sidecar python -c`, `sys.path` sur `tests/helpers`).
 
@@ -157,6 +157,21 @@ Parcours relevé le 2026-10-09, tous verts.
 - Choix aveugle à l'index 0 : « Robert Hood - Minimal Nation » est tombé le 2026-10-09 sur le DJ mix « Minimal Nation DJ Mix ». C'est une preuve d'écriture et non de matching, à ne pas lire comme une régression
 
 Parcours relevé le 2026-10-09 sur le binaire 0.5.0, tous verts.
+
+## Pilotage du rollback
+
+`get_rollback_target` et `rollback` se pilotent par `drive.py` sur la fixture par défaut, après une écriture faite comme au § Par le protocole (deux morceaux tranchés puis `commit_run`). Une **seconde** invocation de `drive.py`, sous le même `LOCALAPPDATA`, est une session neuve : c'est elle qui prouve le rollback d'un run écrit dans une session précédente. Le `run_id` de la première se lit dans sa sortie (`run_finished` en `write`) ou dans le nom du dump. Relire les tags avant et après par `read_original_tags` dans un `uv run --directory sidecar python`, et comparer.
+
+### Flux qui valent le coup
+
+- Session neuve : `rollback_target` nomme le run, le dossier de la fixture et 2 morceaux ; `rollback` rend `rollback_finished` avec les deux restaurés **dans l'ordre inverse de l'écriture** et aucun échec ; noms d'origine revenus, tags relus identiques à l'origine, dossier `dumps/` vide, `get_rollback_target` à `run: null` ; un second `rollback` du même run en `rollback_unavailable` avec `params.run_id` et `track_id` nul
+- Run affiché, dans le même bloc que `commit_run` : un `rollback` arrivé pendant l'écriture rend `write_in_progress`. Puis `rollback` d'un seul `track_id` suivi sans attente de `rollback`, `commit_run` et `start_tagging` : les trois en `rollback_in_progress` (course gagnée sur deux morceaux), puis `track_resolved` en `rolled_back` sans source, `after`, scores ni pochette, `resolution` gardée, et `rollback_finished` qui ne nomme que lui
+- Ensuite : `get_rollback_target` vise le même run à 1 morceau ; `retry_write` ne réécrit pas le morceau restauré (`run_finished` en `write` à `written` 1) ; `rollback` d'un `run_id` sans dump en `rollback_unavailable`
+- `stderr` : `rollback started` et `finished` en INFO avec le seul `run`, refus en `command failed reason=rollback_in_progress` ou `background phase failed reason=rollback_unavailable`, aucun nom de fichier ni titre dans les lignes `tagger.rollback`
+
+Un rollback pendant une extraction, `shutdown` pendant un rollback et un nom d'origine pris ne se provoquent pas par la vraie boucle sur la fixture : leur preuve vit dans `test_ndjson_phases.py` et `test_ndjson_rollback.py`, qui retiennent l'appel dans son thread.
+
+Parcours relevé le 2026-10-09, tous verts.
 
 ## Pilotage du run de re-tagging
 

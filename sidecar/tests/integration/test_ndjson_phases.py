@@ -1,4 +1,4 @@
-"""Une seule phase longue a la fois : extraction, recherche reseau et ecriture s'excluent."""
+"""Une seule phase longue a la fois : extraction, recherche, ecriture et rollback s'excluent."""
 
 from typing import TYPE_CHECKING
 
@@ -8,7 +8,7 @@ from scraper_responses import YOUR_MIND
 from tagging_api import ORIGINAL, FakeApi, found, one_track
 
 from tagger import __main__ as main
-from tagger import writing
+from tagger import rollback, writing
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -95,3 +95,38 @@ async def test_refuses_an_extraction_while_writing(
         await talk.expect("run_finished", phase="write")
 
     assert (error["code"], error["command"]) == ("write_in_progress", "extract_playlist")
+
+
+async def test_refuses_a_rollback_while_an_extraction_copies(
+    folder: Path, monkeypatch: pytest.MonkeyPatch, extraction: dict[str, object]
+) -> None:
+    held = held_call(monkeypatch, main, "handle_extract_playlist")
+
+    async with conversation() as talk:
+        talk.send(**extraction)
+        await held.wait_reached()
+        talk.send(command="rollback", run_id="000000")
+        error = await talk.expect("error")
+        held.release.set()
+        await talk.expect("extraction_finished")
+
+    assert (error["code"], error["command"]) == ("extraction_in_progress", "rollback")
+
+
+async def test_refuses_an_extraction_while_rolling_back(
+    folder: Path, monkeypatch: pytest.MonkeyPatch, extraction: dict[str, object]
+) -> None:
+    held = held_call(monkeypatch, rollback, "restore_tags")
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+        talk.send(command="rollback", run_id=run_id)
+        await held.wait_reached()
+        talk.send(**extraction)
+        error = await talk.expect("error")
+        held.release.set()
+        await talk.expect("rollback_finished")
+
+    assert (error["code"], error["command"]) == ("rollback_in_progress", "extract_playlist")
