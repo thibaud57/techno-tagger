@@ -82,8 +82,6 @@ TAG_FIELDS: Final[dict[TagField, TagKeys]] = {
     TagField.SOURCE: TagKeys(id3="TXXX:SOURCE", vorbis="SOURCE"),
 }
 
-IDENTITY_FIELDS: Final = {field: TAG_FIELDS[field] for field in (TagField.ARTIST, TagField.TITLE)}
-
 # Valeurs a ecrire, un champ absent laissant le tag du fichier intact.
 type TagValues = Mapping[TagField, str]
 
@@ -102,6 +100,8 @@ _ARTWORK_MIME: Final = {f".{extension}": mime for mime, extension in ARTWORK_EXT
 _ID3_V23: Final = 3
 # Seule version autre que la cible v2.3 qu'une restauration rend au fichier.
 _ID3_V24: Final = 4
+# L'ecriture passe en v2.3 : les dates y portent ces cles, pas TDRC.
+_ID3_V23_KEYS: Final = {TagField.DATE: "TYER", TagField.ORIGINAL_DATE: "TORY"}
 
 
 @verify(UNIQUE)
@@ -139,6 +139,22 @@ class OriginalTags:
     system: TagSystem
     id3_version: int | None
     fields: Mapping[TagField, tuple[str, ...]]
+
+
+@dataclass(frozen=True, slots=True)
+class ShownTags:
+    """Champs affiches, `None` quand absents. Le dump relit le fichier lui-meme (ADR-010)."""
+
+    system: TagSystem
+    fields: Mapping[TagField, str | None]
+    comment: str | None
+
+    @property
+    def identity(self) -> IdentityTags:
+        """Artiste et titre de la requete, la meme jointure que la colonne Avant."""
+        return IdentityTags(
+            artist=self.fields[TagField.ARTIST] or "", title=self.fields[TagField.TITLE] or ""
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,30 +243,43 @@ def _sort_key(relative: Path) -> tuple[str, ...]:
 
 
 def read_identity(path: Path) -> IdentityTags:
-    """Artiste et titre du fichier, sans jamais l'ecrire.
+    """Artiste et titre du fichier, sans jamais l'ecrire."""
+    return read_shown_tags(path).identity
 
-    La colonne se choisit sur le conteneur retenu par mutagen, pas sur l'extension.
-    Un signal de contenu net l'emporte (l'en-tete RIFF/WAVE), mais a score egal
-    `mutagen.File()` departage par nom de classe : un FLAC renomme `.mp3` part chez
-    le parser MP3 et ressort en `unreadable`.
+
+def read_shown_tags(path: Path) -> ShownTags:
+    """Les 16 champs et le commentaire en une lecture, dont `read_identity` tire la requete.
+
+    La colonne suit le conteneur retenu par mutagen, pas l'extension : a score egal
+    `mutagen.File()` departage par nom de classe, un FLAC renomme `.mp3` ressort `unreadable`.
     """
-    _, tags = _load(path)
+    audio, tags = _load(path)
     match tags:
-        case ID3() as tags:
-            values = {field: _id3_text(tags, keys.id3) for field, keys in IDENTITY_FIELDS.items()}
-        case VCFLACDict() as tags:
-            values = {
-                field: _vorbis_text(tags, keys.vorbis) for field, keys in IDENTITY_FIELDS.items()
+        case ID3() as id3:
+            fields = {
+                field: _shown_value(_id3_values(id3, keys.id3)) if keys.id3 in id3 else None
+                for field, keys in TAG_FIELDS.items()
             }
+            notes = [text for frame in id3.getall(_ID3_COMMENT) for text in frame.text]
+            return ShownTags(TagSystem.ID3, MappingProxyType(fields), _shown_value(notes))
+        case VCFLACDict() as comments:
+            fields = {
+                field: _shown_value(comments[keys.vorbis]) if keys.vorbis in comments else None
+                for field, keys in TAG_FIELDS.items()
+            }
+            notes = [text for key in _VORBIS_COMMENTS if key in comments for text in comments[key]]
+            return ShownTags(TagSystem.VORBIS, MappingProxyType(fields), _shown_value(notes))
         case None:
-            values = dict.fromkeys(IDENTITY_FIELDS, "")
+            system = TagSystem.VORBIS if isinstance(audio, FLAC) else TagSystem.ID3
+            return ShownTags(system, MappingProxyType(dict.fromkeys(TAG_FIELDS)), None)
         case _:
-            # Conteneur reconnu hors des quatre formats, un WavPack sous `.wav` par
-            # exemple : ses tags existent, nous ne savons pas les lire. Le confondre
-            # avec un fichier non tague effacerait ce que le pipeline doit loguer.
+            # Conteneur hors des quatre formats (un WavPack sous `.wav`) : le prendre pour un
+            # fichier sans tags masquerait l'echec que le pipeline doit loguer.
             raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
 
-    return IdentityTags(artist=values[TagField.ARTIST], title=values[TagField.TITLE])
+
+def _shown_value(values: Iterable[object]) -> str | None:
+    return _join(values) or None
 
 
 def read_original_tags(path: Path) -> OriginalTags:
@@ -307,14 +336,6 @@ def _id3_values(tags: ID3, frame_id: str) -> tuple[str, ...]:
     return tuple(str(value) for value in frame.text)
 
 
-def _id3_text(tags: ID3, frame_id: str) -> str:
-    return _join(tags[frame_id].text) if frame_id in tags else ""
-
-
-def _vorbis_text(tags: VCFLACDict, key: str) -> str:
-    return _join(tags[key]) if key in tags else ""
-
-
 def _join(values: Iterable[object]) -> str:
     cleaned = (str(value).strip() for value in values)
     return _MULTI_VALUE_SEPARATOR.join(value for value in cleaned if value)
@@ -354,6 +375,37 @@ def project_tags(candidate: TrackCandidate) -> TagValues:
             if value is not None and (text := str(value).strip())
         }
     )
+
+
+def after_tags(projection: TagValues, before: ShownTags | None) -> Mapping[TagField, str | None]:
+    """Valeur du candidat, sinon celle d'origine : un champ absent n'efface rien (ADR-011)."""
+    return MappingProxyType(
+        {
+            field: projection.get(field) or (None if before is None else _kept(before, field))
+            for field in TAG_FIELDS
+        }
+    )
+
+
+def _kept(before: ShownTags, field: TagField) -> str | None:
+    value = before.fields[field]
+    # `update_to_v23()` ne garde que l'annee dans TYER et TORY, le reste part en TDAT.
+    if value and before.system is TagSystem.ID3 and field in _ID3_V23_KEYS and value[:4].isdigit():
+        return value[:4]
+    return value
+
+
+def shown_key(field: TagField, system: TagSystem) -> str:
+    """Cle du champ dans le fichier ecrit, celle que l'ecran affiche."""
+    keys = TAG_FIELDS[field]
+    if system is TagSystem.VORBIS:
+        return keys.vorbis
+    return _ID3_V23_KEYS.get(field, keys.id3)
+
+
+def tag_system_of(path: Path) -> TagSystem:
+    """Systeme d'un fichier dont les tags n'ont pas pu etre lus, deduit de l'extension."""
+    return TagSystem.VORBIS if path.suffix.lower() == ".flac" else TagSystem.ID3
 
 
 def write_tags(path: Path, values: TagValues, artwork: Path | None) -> WrittenTags:

@@ -25,6 +25,7 @@ export const resolvedByUrl = (trackId: string): TrackResolvedEvent => ({
   after: { artist: "Amelie Lens", title: "Basiel" },
   scores: null,
   artwork_path: null,
+  tags_after: null,
 })
 
 /** Erreur d'un geste de rattrapage, `track_id` joint par le sidecar. */

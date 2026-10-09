@@ -2,8 +2,22 @@ import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
 import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
-import { ArbitrationRequiredEvent, RunFinishedEvent } from "./models/protocol"
+import { ArbitrationRequiredEvent, RunFinishedEvent, TagValue, TagsBefore } from "./models/protocol"
 import { TaggingRunStore } from "./tagging-run.store"
+
+const TAGS_BEFORE: TagsBefore = {
+  system: "id3",
+  comment: "Ripped by X",
+  fields: [
+    { field: "artist", key: "TPE1", value: "adam beyer" },
+    { field: "bpm", key: "TBPM", value: "130" },
+  ],
+}
+
+const TAGS_AFTER: readonly TagValue[] = [
+  { field: "artist", key: "TPE1", value: "Adam Beyer" },
+  { field: "bpm", key: "TBPM", value: "130" },
+]
 
 const AWAITING: ArbitrationRequiredEvent = {
   ...arbitrationRequired("b.mp3"),
@@ -55,6 +69,40 @@ describe("TaggingRunStore", () => {
     expect(track?.after?.title).toBe("Your Mind (Original Mix)")
     expect(track?.scores?.average).toBe(94)
     expect(track?.artworkPath).toBe("C:/AppData/cache/artworks/abc.jpg")
+  })
+
+  it("exposes the tags before from the start and the tags after once resolved", () => {
+    store.reset()
+    store.started({
+      ...RUN_STARTED,
+      tracks: [
+        {
+          track_id: "a.mp3",
+          file_name: "a.mp3",
+          artist: "Adam Beyer",
+          title: "Your Mind",
+          tags_before: TAGS_BEFORE,
+        },
+      ],
+    })
+    const started = store.tracks()[0]
+
+    store.resolved({ ...TRACK_RESOLVED, tags_after: TAGS_AFTER })
+
+    expect(started?.tagsBefore).toEqual(TAGS_BEFORE)
+    expect(started?.tagsAfter).toBeNull()
+    expect(store.tracks()[0]?.tagsAfter).toEqual(TAGS_AFTER)
+  })
+
+  it("keeps the folder of the run from its start and forgets it on reset", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+    const started = store.folder()
+
+    store.reset()
+
+    expect(started).toBe("C:/Sets")
+    expect(store.folder()).toBeNull()
   })
 
   it("marks a track as awaiting arbitration", () => {

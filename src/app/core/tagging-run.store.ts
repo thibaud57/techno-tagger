@@ -4,6 +4,8 @@ import type {
   ArbitrationRequiredEvent,
   RunFinishedEvent,
   RunStartedEvent,
+  TagValue,
+  TagsBefore,
   TrackEntry,
   TrackFailureReason,
   TrackNames,
@@ -31,6 +33,8 @@ export interface TaggingTrack {
   readonly after: TrackNames | null
   readonly scores: TrackScores | null
   readonly artworkPath: string | null
+  readonly tagsBefore: TagsBefore | null
+  readonly tagsAfter: readonly TagValue[] | null
   readonly arbitration: ArbitrationRequiredEvent | null
 }
 
@@ -51,6 +55,8 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
   after: null,
   scores: null,
   artworkPath: null,
+  tagsBefore: entry.tags_before,
+  tagsAfter: null,
   arbitration: null,
 })
 
@@ -61,6 +67,7 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
 @Injectable({ providedIn: "root" })
 export class TaggingRunStore {
   private readonly _runId = signal<string | null>(null)
+  private readonly _folder = signal<string | null>(null)
   // L'ordre d'insertion de la Map est celui du run : `patch` ne fait que remplacer
   // une cle existante, jamais en ajouter une.
   private readonly _rows = signal<ReadonlyMap<string, TaggingTrack>>(new Map())
@@ -70,6 +77,8 @@ export class TaggingRunStore {
   private readonly _interrupted = signal(false)
 
   readonly runId = this._runId.asReadonly()
+  /** Nul jusqu'a `run_started`. */
+  readonly folder = this._folder.asReadonly()
   /** Les lignes dans l'ordre du run, pretes pour la table. */
   readonly tracks = computed<readonly TaggingTrack[]>(() => [...this._rows().values()])
   readonly progress = this._progress.asReadonly()
@@ -84,6 +93,7 @@ export class TaggingRunStore {
   /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {
     this._runId.set(null)
+    this._folder.set(null)
     this._rows.set(new Map())
     this._progress.set(null)
     this._finished.set(null)
@@ -93,6 +103,7 @@ export class TaggingRunStore {
 
   started(event: RunStartedEvent): void {
     this._runId.set(event.run_id)
+    this._folder.set(event.folder)
     this._rows.set(new Map(event.tracks.map((track) => [track.track_id, pending(track)])))
   }
 
@@ -106,6 +117,7 @@ export class TaggingRunStore {
       after: event.after,
       scores: event.scores,
       artworkPath: event.artwork_path,
+      tagsAfter: event.tags_after,
       arbitration: null,
     }))
   }

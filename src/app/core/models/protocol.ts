@@ -208,16 +208,54 @@ export type TrackSource = "beatport" | "bandcamp" | "soundcloud"
 /** `run_finished` porte la phase close : la boucle reseau, puis l'ecriture. */
 export type RunPhase = "network" | "write"
 
+/** Champs de la table des tags ecrits (ADR-011). */
+export type TagField =
+  | "artist"
+  | "remixer"
+  | "title"
+  | "album"
+  | "date"
+  | "original_date"
+  | "genre"
+  | "label"
+  | "catalog_number"
+  | "bpm"
+  | "key"
+  | "isrc"
+  | "track_number"
+  | "url"
+  | "source_id"
+  | "source"
+
+export type TagSystem = "id3" | "vorbis"
+
+/** Une ligne du detail : `key` est celle du fichier ecrit, `value` nulle si absente. */
+export interface TagValue {
+  readonly field: TagField
+  readonly key: string
+  readonly value: string | null
+}
+
+/** Tags d'origine, nuls quand le fichier etait illisible a l'ouverture du run. */
+export interface TagsBefore {
+  readonly system: TagSystem
+  readonly comment: string | null
+  readonly fields: readonly TagValue[]
+}
+
 export interface TrackEntry {
   readonly track_id: string
   readonly file_name: string
   readonly artist: string
   readonly title: string
+  readonly tags_before: TagsBefore | null
 }
 
 export interface RunStartedEvent {
   readonly event: "run_started"
   readonly run_id: string
+  /** Dossier du run tel que le sidecar le lit. */
+  readonly folder: string
   readonly tracks: readonly TrackEntry[]
 }
 
@@ -245,6 +283,8 @@ export interface TrackResolvedEvent {
   readonly scores: TrackScores | null
   /** Chemin dans le cache, lu par `convertFileSrc` : jamais l'image elle-meme. */
   readonly artwork_path: string | null
+  /** Nul pour un non resolu. */
+  readonly tags_after: readonly TagValue[] | null
 }
 
 /** Les deux seules sources qu'un arbitrage met en jeu : celles que le pipeline interroge. */

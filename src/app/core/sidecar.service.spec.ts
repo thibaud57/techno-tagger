@@ -861,8 +861,20 @@ describe("SidecarService", () => {
         ...RUN_STARTED,
         tracks: [
           ...RUN_STARTED.tracks,
-          { track_id: "c.mp3", file_name: "c.mp3", artist: "Sara Landry", title: "The Void" },
-          { track_id: "d.mp3", file_name: "d.mp3", artist: "Kasia", title: "Tarantula" },
+          {
+            track_id: "c.mp3",
+            file_name: "c.mp3",
+            artist: "Sara Landry",
+            title: "The Void",
+            tags_before: null,
+          },
+          {
+            track_id: "d.mp3",
+            file_name: "d.mp3",
+            artist: "Kasia",
+            title: "Tarantula",
+            tags_before: null,
+          },
         ],
       })
       transport.emit(TRACK_RESOLVED)

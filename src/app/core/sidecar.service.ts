@@ -119,6 +119,7 @@ export class SidecarService {
   readonly taggingFinished = this.taggingRun.finished
   /** Nul jusqu'a `run_started` : la page distingue ainsi le parcours du dossier d'un dossier vide. */
   readonly taggingRunId = this.taggingRun.runId
+  readonly taggingFolder = this.taggingRun.folder
   readonly taggingInterrupted = this.taggingRun.interrupted
   readonly arbitrations = this.arbitration.entries
   readonly currentArbitration = this.arbitration.current

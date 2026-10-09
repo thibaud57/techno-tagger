@@ -17,6 +17,7 @@ from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.arbitration import Arbitration
 from tagger.cache import ArtworkFetcher, DiskCache, ResponseCache, resolve_host
 from tagger.extraction import extract
+from tagger.files import after_tags, project_tags, shown_key, tag_system_of
 from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
 from tagger.paths import app_data_dir
 from tagger.playlists import list_playlists, read_playlist
@@ -43,6 +44,8 @@ from tagger.protocol import (
     RunStarted,
     SetApiKey,
     StartTagging,
+    TagsBeforePayload,
+    TagValuePayload,
     TrackEntry,
     TrackNames,
     TrackResolved,
@@ -59,13 +62,14 @@ from tagger.url_recovery import UrlRecovery
 from tagger.writing import RunWriter
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
     import httpx2
 
     from tagger.arbitration import ArbitrationEvent
     from tagger.cache import HostResolver
+    from tagger.files import ShownTags, TagField, TagSystem
     from tagger.matching import ScoredCandidate
     from tagger.protocol import Event
     from tagger.scraper_client import TrackCandidate
@@ -371,6 +375,7 @@ def to_protocol_event(event: PipelineEvent) -> Event:  # noqa: PLR0911
             return RunStarted(
                 event="run_started",
                 run_id=event.run_id,
+                folder=event.folder,
                 tracks=tuple(_entry(record) for record in event.tracks),
             )
         case tagging.TrackResolved():
@@ -405,11 +410,33 @@ def to_protocol_event(event: PipelineEvent) -> Event:  # noqa: PLR0911
 
 
 def _entry(record: TrackRecord) -> TrackEntry:
+    before = record.tags_before
     return TrackEntry(
         track_id=record.track_id,
         file_name=record.file_name,
         artist=record.identity.artist,
         title=record.identity.title,
+        tags_before=None if before is None else _tags_before(before),
+    )
+
+
+def _tags_before(shown: ShownTags) -> TagsBeforePayload:
+    return TagsBeforePayload(
+        system=shown.system, comment=shown.comment, fields=_rows(shown.fields, shown.system)
+    )
+
+
+def _tags_after(record: TrackRecord, candidate: TrackCandidate) -> tuple[TagValuePayload, ...]:
+    """Sans origine lisible, le systeme se deduit de l'extension."""
+    before = record.tags_before
+    system = tag_system_of(record.path) if before is None else before.system
+    return _rows(after_tags(project_tags(candidate), before), system)
+
+
+def _rows(values: Mapping[TagField, str | None], system: TagSystem) -> tuple[TagValuePayload, ...]:
+    return tuple(
+        TagValuePayload(field=field, key=shown_key(field, system), value=value)
+        for field, value in values.items()
     )
 
 
@@ -428,6 +455,7 @@ def _resolved(record: TrackRecord) -> TrackResolved:
         after=None if candidate is None else _names(candidate),
         scores=None if record.scored is None else _scores(record.scored),
         artwork_path=record.artwork,
+        tags_after=None if candidate is None else _tags_after(record, candidate),
     )
 
 

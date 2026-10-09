@@ -26,6 +26,7 @@ from pydantic import (
 
 from tagger.extraction import DuplicateCriterion, ExtractionMode
 from tagger.file_failures import FileFailureReason
+from tagger.files import TagField, TagSystem
 from tagger.matching import MatchingThresholds, check_thresholds
 from tagger.playlists import PlaylistFormat
 from tagger.scraper_client import SearchSource, Source
@@ -368,6 +369,26 @@ class RunPhase(StrEnum):
     WRITE = auto()
 
 
+class TagValuePayload(BaseModel):
+    """Une ligne du detail, `value` nulle si le champ est absent."""
+
+    model_config = ConfigDict(frozen=True)
+
+    field: TagField
+    key: str
+    value: str | None
+
+
+class TagsBeforePayload(BaseModel):
+    """Tags d'origine lus a l'ouverture, dans l'ordre de la table."""
+
+    model_config = ConfigDict(frozen=True)
+
+    system: TagSystem
+    comment: str | None
+    fields: tuple[TagValuePayload, ...]
+
+
 class TrackEntry(BaseModel):
     """Un morceau du run tel que la liste l'affiche avant toute resolution."""
 
@@ -377,6 +398,7 @@ class TrackEntry(BaseModel):
     file_name: str
     artist: str
     title: str
+    tags_before: TagsBeforePayload | None
 
 
 class RunStarted(Event):
@@ -386,6 +408,7 @@ class RunStarted(Event):
 
     event: Literal["run_started"]
     run_id: str
+    folder: Path
     tracks: tuple[TrackEntry, ...]
 
 
@@ -420,6 +443,8 @@ class TrackResolved(Event):
     after: TrackNames | None = None
     scores: TrackScores | None = None
     artwork_path: Path | None = None
+    # Nul pour un non resolu.
+    tags_after: tuple[TagValuePayload, ...] | None = None
 
 
 class CandidatePayload(BaseModel):

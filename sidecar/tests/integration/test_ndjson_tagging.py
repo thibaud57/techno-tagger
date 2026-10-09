@@ -4,9 +4,12 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
+from mutagen.id3 import COMM, ID3, TBPM
 from ndjson_loop import drive, start_tagging
-from scraper_responses import BASIEL, YOUR_MIND
+from scraper_responses import BASIEL, YOUR_MIND, track_payload
 from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, basiel, failing, found, three_tracks
+
+from tagger.files import TAG_FIELDS
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -127,3 +130,35 @@ def test_refuses_thresholds_out_of_bounds(run_folder: Path, api: FakeApi) -> Non
     assert [event["event"] for event in events] == ["error"]
     assert events[0]["code"] == "malformed_command"
     assert "95" not in json.dumps(events[0]["params"])
+
+
+@pytest.mark.usefixtures("_key")
+def test_carries_the_tags_before_and_after_field_by_field(run_folder: Path, api: FakeApi) -> None:
+    without_bpm = track_payload(mix_name="Original Mix", bpm=None)
+    api.on("/beatport/search", YOUR_MIND, found(without_bpm))
+    api.on(ORIGINAL_REFETCH, "*", found(without_bpm))
+    tags = ID3(run_folder / "a.mp3")
+    tags.add(TBPM(encoding=3, text=["130"]))
+    tags.add(COMM(encoding=3, lang="eng", desc="", text=["Ripped by X"]))
+    tags.save()
+
+    events = drive(start_tagging(run_folder))
+
+    assert events[0]["folder"] == str(run_folder)
+    tracks = events[0]["tracks"]
+    assert isinstance(tracks, list)
+    before = tracks[0]["tags_before"]
+    assert (before["system"], before["comment"]) == ("id3", "Ripped by X")
+    assert [row["field"] for row in before["fields"]] == [field.value for field in TAG_FIELDS]
+    assert before["fields"][0] == {"field": "artist", "key": "TPE1", "value": "Adam Beyer"}
+    assert {"field": "bpm", "key": "TBPM", "value": "130"} in before["fields"]
+    resolved = next(
+        event
+        for event in events
+        if event["event"] == "track_resolved" and event["track_id"] == "a.mp3"
+    )
+    after = resolved["tags_after"]
+    assert isinstance(after, list)
+    assert {"field": "title", "key": "TIT2", "value": "Your Mind (Original Mix)"} in after
+    assert {"field": "bpm", "key": "TBPM", "value": "130"} in after
+    assert {"field": "date", "key": "TYER", "value": "2023"} in after

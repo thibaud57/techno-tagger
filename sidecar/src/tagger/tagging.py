@@ -12,7 +12,13 @@ from dataclasses import dataclass, replace
 from enum import UNIQUE, StrEnum, auto, verify
 from typing import TYPE_CHECKING, override
 
-from tagger.files import IdentityTags, TagsUnreadableError, list_audio_files, read_identity
+from tagger.files import (
+    IdentityTags,
+    ShownTags,
+    TagsUnreadableError,
+    list_audio_files,
+    read_shown_tags,
+)
 from tagger.matching import (
     Outcome,
     ScoredCandidate,
@@ -129,6 +135,8 @@ class TrackRecord:
     artwork: Path | None = None
     arbitration: PendingArbitration | None = None
     written: WriteOutcome | None = None
+    # Pour l'affichage seul, `None` si illisibles : le dump relit le fichier.
+    tags_before: ShownTags | None = None
 
     @property
     def file_name(self) -> str:
@@ -243,6 +251,7 @@ class RunStarted:
     """Tous les morceaux du run avec leur identite lue, avant le premier appel reseau."""
 
     run_id: str
+    folder: Path
     tracks: tuple[TrackRecord, ...]
 
 
@@ -276,7 +285,7 @@ async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> Liv
     paths = await asyncio.to_thread(list_audio_files, folder)
     run_id = secrets.token_hex(3)
     records = await _read_identities(run_id, folder, paths)
-    on_event(RunStarted(run_id, tuple(records)))
+    on_event(RunStarted(run_id, folder, tuple(records)))
     return LiveRun(run_id, folder, records)
 
 
@@ -303,13 +312,14 @@ async def _read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -
     seule erreur qui doive arreter le run etant celle de `list_audio_files`, deja levee.
     """
     reads = await asyncio.gather(
-        *(asyncio.to_thread(read_identity, path) for path in paths), return_exceptions=True
+        *(asyncio.to_thread(read_shown_tags, path) for path in paths), return_exceptions=True
     )
     records: list[TrackRecord] = []
     for position, (path, read) in enumerate(zip(paths, reads, strict=True), start=1):
+        tags_before: ShownTags | None
         match read:
-            case IdentityTags():
-                identity = read
+            case ShownTags():
+                identity, tags_before = read.identity, read
             case TagsUnreadableError():
                 logger.warning(
                     "tags unreadable, file name used run=%s track=%d reason=%s",
@@ -317,11 +327,13 @@ async def _read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -
                     position,
                     read.reason,
                 )
-                identity = IdentityTags(artist="", title="")
+                identity, tags_before = IdentityTags(artist="", title=""), None
             case _:
                 raise read
         track_id = path.relative_to(folder).as_posix()
-        records.append(TrackRecord(track_id=track_id, path=path, identity=identity))
+        records.append(
+            TrackRecord(track_id=track_id, path=path, identity=identity, tags_before=tags_before)
+        )
     return records
 
 
