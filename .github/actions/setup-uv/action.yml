@@ -1,0 +1,10 @@
+name: Installer uv
+description: Seul endroit des workflows ou vit la version d'uv, epinglee au patch exact
+runs:
+  using: composite
+  steps:
+    # Patch exact : la compatibilite d'uv.lock n'est garantie qu'au sein d'une mineure.
+    # Le plancher uv_build de sidecar/pyproject.toml suit, garde par test_main.py.
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        version: "0.12.24"

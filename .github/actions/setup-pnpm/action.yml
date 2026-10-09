@@ -1,0 +1,13 @@
+name: Installer pnpm et Node
+description: Seul endroit des workflows ou vivent les versions de pnpm et de Node
+runs:
+  using: composite
+  steps:
+    # Ni actions/setup-node ni corepack, retire des binaires Node depuis la 25. La
+    # version de pnpm vit ici et pas dans package.json : packageManager rendrait le
+    # lockfile multi-document, que le graphe de dependances GitHub lit mal.
+    # La majeure de runtime suit engines.node de package.json, garde par test_main.py.
+    - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      with:
+        version: "12.10.1"
+        runtime: node@24

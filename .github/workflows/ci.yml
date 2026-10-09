@@ -14,8 +14,6 @@ concurrency:
 
 permissions:
   contents: read
-  # Lecture des fichiers de la PR par paths-filter
-  pull-requests: read
 
 jobs:
   # Markdown seul : les trois zones sont sautees et `ci` passe quand meme. Un filtre
@@ -23,6 +21,10 @@ jobs:
   changes:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
+    permissions:
+      contents: read
+      # Lecture des fichiers de la PR par paths-filter
+      pull-requests: read
     outputs:
       source: ${{ steps.filter.outputs.source }}
     steps:
@@ -48,10 +50,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.16"
-          enable-cache: true
+      - uses: ./.github/actions/setup-uv
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - name: Installer les dependances
         run: uv sync --locked --all-groups
@@ -75,12 +74,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Installe pnpm ET Node en une etape : ni actions/setup-node, ni corepack,
-      # retire des binaires Node depuis la 25.
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          version: "11.24.0"
-          runtime: node@24
+      - uses: ./.github/actions/setup-pnpm
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - run: pnpm install --frozen-lockfile
       # Script epingle au commit du tag v1.7.12 et binaire epingle par l'argument :
@@ -108,10 +102,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.16"
-          enable-cache: true
+      - uses: ./.github/actions/setup-uv
       # Le rust-toolchain.toml du depot prime sur la selection de l'action
       - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -137,13 +128,18 @@ jobs:
     steps:
       # Zone sautee (`skipped`) = PR de markdown seul, acceptee ; detection en echec, refusee
       - name: Verifier les trois zones
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          SIDECAR: ${{ needs.sidecar.result }}
+          UI: ${{ needs.ui.result }}
+          TAURI: ${{ needs.tauri.result }}
         run: |
-          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+          if [[ "$CHANGES" != "success" ]]; then
             echo "::error::La detection des fichiers modifies n'est pas passee"
             exit 1
           fi
-          echo "sidecar=${{ needs.sidecar.result }} ui=${{ needs.ui.result }} tauri=${{ needs.tauri.result }}"
-          for r in "${{ needs.sidecar.result }}" "${{ needs.ui.result }}" "${{ needs.tauri.result }}"; do
+          echo "sidecar=$SIDECAR ui=$UI tauri=$TAURI"
+          for r in "$SIDECAR" "$UI" "$TAURI"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::Une zone au moins n'est pas passee"
               exit 1
