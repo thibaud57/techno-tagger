@@ -222,11 +222,35 @@
       "scoreArtist": "A",
       "scoreTitle": "T",
       "addLink": "Paste a link",
+      "showDetail": "Show details",
       "state": "State",
       "empty": {
         "heading": "No audio file in this folder",
         "description": "Choose a folder holding MP3, WAV, AIFF or FLAC files."
       }
+    },
+    "detail": {
+      "heading": { "field": "Field", "before": "Before", "after": "After" },
+      "field": {
+        "artist": "Artist",
+        "remixer": "Remixer",
+        "title": "Title",
+        "album": "Album",
+        "date": "Year",
+        "original_date": "Original year",
+        "genre": "Genre",
+        "label": "Label",
+        "catalog_number": "Catalog number",
+        "bpm": "BPM",
+        "key": "Key",
+        "isrc": "ISRC",
+        "track_number": "Track number",
+        "url": "URL",
+        "source": "Source",
+        "comment": "Comment"
+      },
+      "unreadable": "This file's tags could not be read.",
+      "close": "Close"
     },
     "recovery": {
       "badge": "{{count}} to recover",

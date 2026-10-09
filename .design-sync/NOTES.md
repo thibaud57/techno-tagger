@@ -64,7 +64,8 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-Rien en attente depuis le push du 2026-10-06.
+- `TrackDetail` (`TaggingScreen.jsx`, `data.js` `detail`) : 12 lignes avec `TPE2`, date complète et « Traçabilité » ; le code livre les champs écrits sauf l'identifiant à la source (remixeur, année d'origine, numéro de piste, URL, source), `TYER` / `TORY` et une ligne Commentaire (2026-10-06, identifiant retiré le 2026-10-09) ; colonne Champ à la largeur de son contenu, clé sous le libellé, au lieu de trois tiers (2026-10-09)
+- `DataTable` (détail d'un morceau) : la maquette déplie la ligne (`DataTable` expandable, `TrackDetail` sous la ligne), le code ouvre un tiroir non modal à droite (2026-10-09)
 
 ## Journal
 

@@ -1,24 +1,28 @@
-import { Component, computed, input, output } from "@angular/core"
+import { Component, computed, input, linkedSignal, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { Skeleton } from "primeng/skeleton"
+import { ButtonDirective } from "primeng/button"
+import { Drawer } from "primeng/drawer"
 import { TableModule } from "primeng/table"
 import { Tooltip } from "primeng/tooltip"
 
 import type { TaggingTrack } from "../../core/tagging-run.store"
+import { ArtworkComponent } from "../../shared/components/artwork.component"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
 import { IconComponent } from "../../shared/components/icon.component"
+import { NoValueComponent } from "../../shared/components/no-value.component"
 import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { failureReasonKey, joinIdentity, trackMainLine } from "../../shared/utils/identity"
-import { FADE_IN } from "../../shared/utils/motion"
 import { SOURCE_NAMES } from "../../shared/utils/sources"
 import { fullHeightTable } from "../../shared/utils/table"
 import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
-/** PrimeNG ne mesure pas ses lignes : a remesurer si `h-14` change sur le `<tr>`. */
+import { TrackDetailComponent } from "./track-detail.component"
+
+/** PrimeNG ne mesure pas ses lignes : a remesurer si `h-14` change sur le `<tr>`, que reprennent aussi les lignes en squelette. */
 const ROW_HEIGHT = 56
 
 interface RunRow extends TaggingTrack {
@@ -35,7 +39,6 @@ interface RunRow extends TaggingTrack {
   selector: "app-run-list",
   imports: [
     TableModule,
-    Skeleton,
     Tooltip,
     TranslatePipe,
     StateTagComponent,
@@ -44,13 +47,17 @@ interface RunRow extends TaggingTrack {
     TruncatedTextComponent,
     EmptyStateComponent,
     SkeletonRowsComponent,
+    NoValueComponent,
+    ArtworkComponent,
+    ButtonDirective,
+    Drawer,
+    TrackDetailComponent,
   ],
   templateUrl: "./run-list.component.html",
   host: { class: "block h-full min-h-0" },
 })
 export class RunListComponent {
   protected readonly ROW_HEIGHT = ROW_HEIGHT
-  protected readonly FADE_IN = FADE_IN
   protected readonly WIDE_TOOLTIP = WIDE_TOOLTIP
 
   readonly tracks = input.required<readonly TaggingTrack[]>()
@@ -77,6 +84,38 @@ export class RunListComponent {
       recoverable: this.recoverable().has(track.trackId),
     })),
   )
+
+  /**
+   * Morceau dont le detail est affiche. Retombe a `null` quand il quitte la liste (nouveau
+   * run) : un meme `trackId` qui reviendrait ne rouvrirait pas un tiroir ferme entre-temps.
+   */
+  protected readonly shownId = linkedSignal<readonly TaggingTrack[], string | null>({
+    source: this.tracks,
+    computation: (tracks, previous) => {
+      const id = previous?.value ?? null
+
+      return tracks.some((track) => track.trackId === id) ? id : null
+    },
+  })
+  /** Derive de `rows` : le detail suit les evenements d'un morceau resolu pendant qu'il est ouvert. */
+  protected readonly shown = computed(
+    () => this.rows().find((row) => row.trackId === this.shownId()) ?? null,
+  )
+
+  /** Garde le DOM de la ligne et le focus du bouton de detail d'un evenement a l'autre. */
+  protected readonly byTrackId = (_index: number, row: RunRow): string => row.trackId
+
+  /** Le bouton de la ligne affichee ferme le tiroir, celui d'une autre ligne remplace son contenu. */
+  protected toggleDetail(row: RunRow): void {
+    this.shownId.update((id) => (id === row.trackId ? null : row.trackId))
+  }
+
+  /** La croix et Echap du tiroir : seule la fermeture en revient, `visible` est derive de `shown`. */
+  protected onDrawerVisible(visible: boolean): void {
+    if (!visible) {
+      this.shownId.set(null)
+    }
+  }
 
   /**
    * L'arbitrage prime : un morceau en file n'est pas encore rattrapable. Espace ferait

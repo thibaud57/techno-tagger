@@ -1,0 +1,44 @@
+<div class="flex flex-col gap-6">
+  <app-artwork [url]="artworkUrl()" [pending]="pending()" [large]="true" />
+
+  <div class="min-w-0 flex-auto text-xs">
+    @if (rows(); as detailRows) {
+      <!-- Une grille pour toutes les lignes (subgrid) : la colonne Champ prend la largeur du
+           plus long libellé, qui ne se coupe jamais, même au plancher. -->
+      <div class="grid grid-cols-[max-content_minmax(0,1fr)_minmax(0,1fr)] gap-x-4">
+        <div
+          class="col-span-3 grid grid-cols-subgrid border-b border-surface pb-2 text-muted-color"
+        >
+          <span>{{ "tagging.detail.heading.field" | translate }}</span>
+          <span>{{ "tagging.detail.heading.before" | translate }}</span>
+          <span>{{ "tagging.detail.heading.after" | translate }}</span>
+        </div>
+        @for (row of detailRows; track row.labelKey) {
+          <div class="col-span-3 grid grid-cols-subgrid py-1" data-detail-row>
+            <!-- Clé sous le libellé : côte à côte, la colonne Champ prenait la moitié du tiroir. -->
+            <span class="flex flex-col">
+              <span class="text-muted-color" data-cell>{{ row.labelKey | translate }}</span>
+              <span class="text-surface-600" data-cell>{{ row.key }}</span>
+            </span>
+            <span class="min-w-0 text-muted-color" data-cell>
+              @if (row.before; as before) {
+                <app-truncated-text [text]="before" />
+              } @else {
+                <app-no-value />
+              }
+            </span>
+            <span class="min-w-0" data-cell>
+              @if (row.after; as after) {
+                <app-truncated-text [text]="after" />
+              } @else {
+                <app-no-value />
+              }
+            </span>
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="text-muted-color" data-unreadable>{{ "tagging.detail.unreadable" | translate }}</p>
+    }
+  </div>
+</div>

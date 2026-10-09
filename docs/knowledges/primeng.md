@@ -1,9 +1,9 @@
 ---
 title: "PrimeNG v22 — Bibliothèque de composants Angular"
 version: "22.1.2"
-description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, tabs et icônes SVG."
+description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, tiroir non modal, tabs et icônes SVG."
 date: "2026-10-09"
-keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "table", "primeicons"]
+keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "table", "drawer", "primeicons"]
 scope: ["docs"]
 technologies: ["Angular", "Tailwind CSS", "Tauri"]
 ---
@@ -174,6 +174,47 @@ Les listes du projet montent à une centaine de lignes, le récapitulatif filtra
 - **`virtualScrollItemSize` doit valoir la hauteur réelle de la ligne** : PrimeNG ne mesure rien, il multiplie ce nombre. Une valeur fausse produit un scroll qui saute ou des lignes coupées, donc une classe fixe la hauteur de la ligne et pas l'inverse
 - **Mesuré le 2026-09-17 en mode développement, sans défilement virtuel** : 0,6 s pour monter 500 lignes du rapport, 5 s pour 2 000, 29 s pour 5 000. C'est ce coût que le défilement virtuel supprime
 - Le scroll virtuel et le filtrage cohabitent, mais le filtrage recalcule la liste rendue : c'est le jeu de données filtré qui compte, pas le total
+- **`#expandedrow` ne va pas avec le scroll virtuel** : le scroller place chaque ligne à `rang × virtualScrollItemSize` et dimensionne son espaceur sur le même produit, sans mesure ; une ligne dépliée de hauteur variable décale donc toutes les suivantes (lu dans `primeng-scroller.mjs`, PrimeNG 22.1.2, 2026-10-06). Une table à lignes dépliables se rend sans `[virtualScroll]`
+- **Mesuré le 2026-10-09 sous `ng serve` sur la liste du run, sans scroll virtuel et avec lignes dépliées** : 500 morceaux, 1 à 3 s de premier rendu et 43 à 78 ms par événement ; 2 000 morceaux, 16 s de premier rendu bloquant, 214 ms par événement et jusqu'à 320 ms par saut de défilement. Le projet garde le scroll virtuel et ouvre le détail dans un tiroir (cf. § Tiroir non modal)
+
+---
+
+## Tiroir non modal
+
+### Description
+
+Le détail d'un morceau du run s'ouvre dans un `p-drawer` à droite, sans masque : la liste reste utilisable et un autre bouton de ligne remplace le contenu. API lue dans `primeng-drawer.mjs` et `primeng-drawer.d.ts` (PrimeNG 22.1.2, le 2026-10-09).
+
+### Exemple
+
+```html
+<p-drawer
+  [visible]="shown() !== null"
+  (visibleChange)="onDrawerVisible($event)"
+  [modal]="false"
+  position="right"
+  appendTo="body"
+  styleClass="w-[35rem]"
+  [ariaCloseLabel]="'tagging.detail.close' | translate">
+  <ng-template #header>{{ title() }}</ng-template>
+  @if (shown(); as row) {
+    <app-track-detail [track]="row" />
+  }
+</p-drawer>
+```
+
+### Points Importants
+
+- **`visible` est un `model`** (`[visible]` plus `(visibleChange)`) : la croix et Échap l'écrivent à `false` eux-mêmes, d'où un `visibleChange` à relayer vers l'état du parent si `visible` en est dérivé
+- **`modal` vaut `true` par défaut** : `[modal]="false"` supprime le masque, `dismissible` (clic sur le masque) et `blockScroll` n'ont alors plus d'objet
+- **`position` vaut `left` par défaut** et `.p-drawer-right` pose `width: 20rem` : la largeur se change par `styleClass` (une classe Tailwind), pas par `[style]`
+- **`appendTo` vaut `self` par défaut**, `"body"` déplace le panneau hors de l'hôte : ses tests le cherchent dans `document`
+- **Le panneau prend son z-index d'un compteur partagé avec les modales** (`ZIndexUtils`, `autoZIndex` à `true`) : ce qui s'ouvre après passe au-dessus, une modale ouverte pendant que le tiroir est affiché le recouvre
+- **`closeOnEscape` vaut `true`** et l'écouteur est sur le `document`, mais il ne ferme que le panneau dont le z-index est le plus haut
+- **`closable` et `showCloseIcon` valent `true`** et `ariaCloseLabel` n'a pas de valeur par défaut : il faut le traduire
+- **Titre** : l'input `header` (chaîne) ou un `ng-template #header` ; le template permet un composant, comme `TruncatedTextComponent`
+- **Le contenu projeté est créé par le parent même panneau fermé** : un `@if` sur la donnée affichée dans le panneau évite de monter le composant sans donnée
+- **Le panneau porte `role="complementary"` et `pFocusTrap` en dur, y compris non modal** : Tab tourne dans le tiroir, la liste ne s'atteint alors qu'à la souris ou après l'avoir fermé (non revalidé au clavier sur le bundle)
 
 ---
 
@@ -274,7 +315,7 @@ export class SourcePickerComponent {}
 - [PrimeNG](https://primeng.dev)
 - [Configuration](https://primeng.dev/configuration)
 - [Theming](https://primeng.dev/theming)
-- [Table](https://primeng.dev/table) · [Tabs](https://primeng.dev/tabs) · [Dialog](https://primeng.dev/dialog)
+- [Table](https://primeng.dev/table) · [Tabs](https://primeng.dev/tabs) · [Dialog](https://primeng.dev/dialog) · [Drawer](https://primeng.dev/drawer)
 - [Licence Community PrimeUI](https://primeui.dev/licenses/community)
 
 ## Ressources Complémentaires

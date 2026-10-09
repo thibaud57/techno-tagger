@@ -1,6 +1,8 @@
 import type {
   ArbitrationRequiredEvent,
   RunStartedEvent,
+  TagValue,
+  TagsBefore,
   TrackResolvedEvent,
 } from "../app/core/models/protocol"
 import type { TaggingTrack } from "../app/core/tagging-run.store"
@@ -59,6 +61,22 @@ export const PENDING_TRACK: TaggingTrack = {
   tagsAfter: null,
   arbitration: null,
 }
+
+/** Tags lus avant l'ecriture : deux champs et un commentaire que l'ecriture supprime. */
+export const TAGS_BEFORE: TagsBefore = {
+  system: "id3",
+  comment: "Ripped by X",
+  fields: [
+    { field: "artist", key: "TPE1", value: "adam beyer" },
+    { field: "bpm", key: "TBPM", value: "130" },
+  ],
+}
+
+/** Tags apres ecriture, memes champs et memes cles que `TAGS_BEFORE`. */
+export const TAGS_AFTER: readonly TagValue[] = [
+  { field: "artist", key: "TPE1", value: "Adam Beyer" },
+  { field: "bpm", key: "TBPM", value: "130" },
+]
 
 /** Zone grise nominale : Beatport a repondu, un candidat. Un test pose ses ecarts par spread. */
 export const arbitrationRequired = (trackId: string): ArbitrationRequiredEvent => ({

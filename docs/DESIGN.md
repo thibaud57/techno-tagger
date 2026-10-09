@@ -260,7 +260,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Lancement de l'extraction | `button pButton` `primary` en `size="small"` | PrimeNG | Sur la ligne du mode, calé sur le bord droit des chemins, à la largeur des libellés et des contrôles réunis. Désactivé, son tooltip nomme les choix manquants |
 | Résumé du run | Ligne de texte + `button pButton` secondary outlined en `size="small"` | PrimeNG | Remplace le formulaire dès le lancement (cf. § Layout). « Modifier » est figé pendant le run, puis rouvre le formulaire au-dessus du rapport |
 | Passage au tagging | `button pButton` `primary` outlined en `size="small"` + icône `arrow-right` | PrimeNG | Sous le rapport, une fois l'extraction terminée. `primary` : c'est l'étape suivante du parcours, outlined pour laisser le plein aux deux lancements. Mémorise la destination, qui préremplit l'onglet suivant |
-| Rapport d'extraction | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de ligne dépliée : le détail tient dans le tooltip du tag. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
+| Rapport d'extraction | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (cf. § Layout), une ligne par morceau plus une par doublon départagé. Pas de détail par ligne : le motif tient dans le tooltip du tag. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
 
 ### Liste du run
 
@@ -268,11 +268,11 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 |-----------|-----------|-----------|-------|
 | Lancement du run | `button pButton` `primary`, icône `play`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, geste de rattrapage en vol, clé API, dossier, extraction ou sidecar |
 | Interruption du run | `button pButton` `severity="secondary"` outlined, icône `stop`, taille par défaut | PrimeNG | Visible seulement pendant un run, à gauche du lancement qui reste grisé : masquer une action désactivée est interdit. Ni `danger` ni confirmation : la phase réseau n'écrit aucun fichier et rien n'est irréversible avant l'écriture |
-| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Six colonnes (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage, celle d'un morceau non résolu ou rattrapé la modale du lien. Une ligne actionnable s'ouvre aussi au clavier (cf. § États des Composants) |
+| Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Sept colonnes, le bouton d'ouverture du détail en tête (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage, celle d'un morceau non résolu ou rattrapé la modale du lien. Une ligne actionnable s'ouvre aussi au clavier (cf. § États des Composants) |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image ; le squelette tant que le morceau attend son tour ou son arbitrage ; un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
 | État d'un morceau | `p-tag` + `pTooltip` | PrimeNG | Familles du § Couleurs Sémantiques. Un non résolu porte l'icône info et son motif au survol |
 | Source retenue | SVG Simple Icons + libellé | Simple Icons | Beatport / Bandcamp / SoundCloud |
-| Détail avant / après | `[expandedRowKeys]` + `<ng-template #expandedrow>` | PrimeNG | Comparaison champ par champ, pochette en grand, sur le morceau déplié |
+| Détail avant / après | `p-drawer` non modal, `position="right"` | PrimeNG | Un seul morceau à la fois, en-tête du tiroir = la ligne du morceau (Après si résolu, sinon Avant), 560px (`w-[35rem]`, la grille Champ / Avant / Après y reste lisible). Bouton en tête de ligne qui ne déclenche ni l'arbitrage ni le lien : un autre bouton remplace le détail, le même le ferme, la croix et Échap aussi, la liste restant utilisable et la ligne affichée surlignée (`bg-highlight`, cf. § États des Composants). Pochette en 160px en haut, puis la grille Champ / Avant / Après pleine largeur sur une seule grille, colonne Champ à la largeur de son plus long libellé, toujours les champs écrits sauf l'identifiant à la source, plus le commentaire du fichier. La modale d'arbitrage passe au-dessus |
 | Texte tronqué d'une colonne fluide | `pTooltip` | PrimeNG | Avant, nom de fichier compris, et Après sont fluides et tronquent en permanence : ce sont exactement les deux chaînes que l'utilisateur compare. Jamais seul porteur d'une information, cf. § Tokens de Tooltip |
 | Progression d'une phase | `p-progressbar` + compteur | PrimeNG | Alimentée par l'événement `progress` du sidecar |
 | Indice de rattrapage | `font-semibold text-muted-color` + icône `arrow-right` | Custom | « Coller un lien → » dans la colonne Après d'un non résolu, y compris pendant la recherche : la modale s'ouvre alors champ désactivé |
@@ -341,6 +341,8 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Lignes en attente | `SkeletonRowsComponent` | PrimeNG (`p-skeleton`) | Lignes entières en squelette, à la hauteur et au filet des vraies, posées dans la cellule du `#emptymessage` qu'elles remplissent. `p-table` ne sait pas rendre une table en chargement : sans elles, la table vide affiche son bloc vide avant le premier événement, ce qui annonce l'inverse de ce qui se passe |
 | Erreur contextuelle | `ErrorMessageComponent` | PrimeNG (`p-message`) | Erreur du sidecar traduite depuis son `code` et ses `params`, sous la forme décrite au § Feedback |
 | Texte tronqué | `TruncatedTextComponent` | PrimeNG (`pTooltip`) | Chemin ou valeur de colonne fluide coupé par l'ellipse. Le tooltip `wide` ne s'ouvre que sur un texte coupé et `rtl` coupe un chemin par la gauche |
+| Sans valeur | `NoValueComponent` | — (from scratch) | Le cadratin du § Séparateurs, en `text-muted-color`. Écrit une fois pour que la liste du run et le détail avant / après ne divergent pas |
+| Pochette d'un morceau | `ArtworkComponent` | PrimeNG (`p-skeleton`) | Les trois états de la pochette (image, squelette, cadre neutre), en vignette de 32px dans la liste du run et en 160px dans le détail avant / après. Un seul endroit tient la règle « trois états, jamais deux » pour les deux tailles |
 
 ### Post-MVP (non installés)
 
@@ -453,7 +455,7 @@ La barre `p-tabs` reste **hors du conteneur animé** : elle ne clignote pas, seu
 
 | Élément | Valeur | Usage |
 |---------|--------|-------|
-| Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond | Plancher dicté par le jeu de six colonnes ci-dessous. Réglages dans `tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
+| Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond | Plancher dicté par le jeu de sept colonnes ci-dessous. Réglages dans `tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
 | Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page elle-même ne défile jamais, le scroll vit dans la table. Le shell masque son débordement et `overscroll-behavior: none` coupe le rebond de WebView2, qui fait trembler toute la fenêtre à la molette |
 | Container | Pleine largeur, `px-16 py-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
 | Densité | Body dense (`text-sm`) dans les tables et les listes de candidats | Un run affiche 100 lignes : chaque cran de taille en moins est une ligne de plus sans défiler (§ Scale Typographique) |
@@ -471,6 +473,7 @@ Un formulaire et une table qui ne partagent pas la même largeur ne s'alignent s
 
 | Colonne | Largeur | Contenu |
 |---------|---------|---------|
+| Chevron | 64px fixe | Bouton d'ouverture du détail du morceau, `small` de 32px plus les marges de la cellule, à remesurer à l'écran |
 | Pochette | 60px fixe | Vignette de 32px, ses trois états au § Mapping Composants. Mesurée sur la vignette plus les marges de la cellule : plus étroite, la pochette se réduit et le cadre vide déborde |
 | Avant | **fluide** | Artiste et titre lus dans le fichier, avec le **nom du fichier en sous-texte** `text-xs text-muted-color`. Deux lignes en toutes circonstances : quand les tags sont vides, c'est le nom de fichier privé de son extension qui passe en ligne principale, le sous-texte gardant le nom complet. La colonne s'aligne ainsi d'une ligne à l'autre, au prix d'une redite sur les seuls fichiers sans tags |
 | Après | **fluide** | Ce que la source retenue va écrire |
@@ -499,7 +502,7 @@ Les deux tables sont en `table-layout: fixed`. En disposition auto, les largeurs
 
 **Source dit d'où vient la donnée écrite, État dit par quel chemin on y est arrivé.** Un morceau résolu en collant une URL SoundCloud affiche donc SoundCloud en source et « URL » en état : c'est la seule voie par laquelle SoundCloud entre dans le produit, jamais la recherche automatique. C'est la même séparation que celle posée entre `state` et `resolution` dans le contrat NDJSON, portée cette fois côté affichage.
 
-Seules **Avant** et **Après** absorbent le redimensionnement, les autres restent à largeur fixe. Le détail champ par champ (label, BPM, key, année, genre) et la pochette en grand vivent dans la ligne dépliée.
+Seules **Avant** et **Après** absorbent le redimensionnement, les autres restent à largeur fixe. Le détail champ par champ (label, BPM, key, année, genre) et la pochette en grand vivent dans le tiroir de détail.
 
 Deux choix qui portent le tableau. Le **nom de fichier est un sous-texte d'Avant**, pas une colonne : quand les tags manquent, c'est déjà lui qui sert de requête et deux colonnes pour la même chaîne coûteraient de la largeur aux deux colonnes qu'on compare vraiment. Et le **score s'affiche en trois nombres** : le scoring plancher à 70 s'applique séparément à l'artiste et au titre, le seuil haut à 90 sur leur moyenne. Un seul chiffre cacherait lequel des deux fait tomber le morceau en zone grise, qui est précisément ce que l'utilisateur a besoin de savoir pour arbitrer.
 
@@ -511,7 +514,7 @@ Deux choix qui portent le tableau. Le **nom de fichier est un sous-texte d'Avant
 
 | Breakpoint | Notation Tailwind | Largeur | Changements clés |
 |------------|-------------------|---------|------------------|
-| Base | (défaut) | ≥ 1024px, plancher de la fenêtre | Jeu de six colonnes au complet. Aucune colonne masquée : le redimensionnement est absorbé par Avant et Après |
+| Base | (défaut) | ≥ 1024px, plancher de la fenêtre | Jeu de sept colonnes au complet. Aucune colonne masquée : le redimensionnement est absorbé par Avant et Après |
 
 Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : personne n'a à retenir quelle information disparaît à quelle taille.
 
@@ -589,6 +592,9 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Bouton « Lancer le run » pendant la phase** : conservé, bloqué seulement pendant un geste en vol, là où la maquette le remplaçait par « Confirmer l'écriture », qui arrive avec la Feature 5. Décidé le 2026-10-03, réaligné le 2026-10-05
 - **Espacement entre sections** : `gap-6` (24px) entre les blocs d'un écran, sur les trois onglets, là où la maquette les espaçait de 16px. Décidé et réaligné le 2026-10-05
 - **Gris de légende et séparateurs** : tokens nommés, `text-muted-color` pour l'aide de la modale d'arbitrage et `border-surface` pour le séparateur des Réglages, là où la maquette posait `--p-surface-500` et `--p-surface-800`. Décidé et réaligné le 2026-10-05
+- **Lignes du détail avant / après** : les champs écrits avec la clé du fichier écrit, plus le commentaire, là où `TrackDetail` montrait `TPE2`, la date complète et une traçabilité combinée. Le détail montre ce que l'écriture fait. Décidé le 2026-10-06. L'identifiant à la source, écrit dans le fichier, n'y figure pas : il ne dit rien à l'utilisateur. Décidé le 2026-10-09
+- **Colonne Champ du détail** : à la largeur de son plus long libellé, clé du tag sous le libellé, Avant et Après se partageant le reste, là où `TrackDetail` posait trois tiers égaux et la clé à côté du libellé. Un tiers coupait « Numéro de catalogue » et sa clé au plancher de 1024px, et la clé à côté du libellé laissait environ 120px aux valeurs dans le tiroir. Décidé le 2026-10-09
+- **Détail d'un morceau** : un `p-drawer` non modal à droite, là où la maquette déplie la ligne sous elle (`DataTable` expandable, `TrackDetail` sous la ligne). Une ligne dépliée de hauteur variable impose de renoncer au scroll virtuel, et le run de 2 000 morceaux rame : 16 s de premier rendu bloquant, 214 ms par événement, jusqu'à 320 ms par saut de défilement, mesurés le 2026-10-09 sous `ng serve`. Le bouton d'ouverture reste un `pButton` texte `small` `secondary` à icône seule, dans une colonne mesurée sur le bouton plus les marges de la cellule, là où le `DataTable` du design system pose un bouton nu de 1.25rem dans une colonne de 2rem. Décidé le 2026-10-09
 
 ## Documentation Officielle
 
@@ -596,7 +602,8 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - [PrimeNG : Configuration](https://primeng.dev/configuration) : `providePrimeNG()`, licence, ripple (désactivé par défaut)
 - [PrimeNG : Tailwind CSS](https://primeng.dev/tailwind) : installation, liste des classes issues des tokens, utilitaires d'animation, dark mode
 - [PrimeNG : PassThrough](https://primeng.dev/passthrough) : API `[pt]`, locale et globale
-- [PrimeNG : Table](https://primeng.dev/table) : `scrollHeight="flex"`, scroll virtuel, `expandedRowKeys`
+- [PrimeNG : Table](https://primeng.dev/table) : `scrollHeight="flex"`, scroll virtuel
+- [PrimeNG : Drawer](https://primeng.dev/drawer) : `position`, `modal`, `appendTo`, `closeOnEscape`
 - [PrimeNG : Migration v21](https://primeng.dev/migration/v21) : passage aux animations CSS natives
 - [Tailwind CSS : Dark mode](https://tailwindcss.com/docs/dark-mode) : `@custom-variant`
 - [PrimeIcons](https://primeicons.dev) : catalogue, catégories, recherche

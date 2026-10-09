@@ -222,11 +222,35 @@
       "scoreArtist": "A",
       "scoreTitle": "T",
       "addLink": "Coller un lien",
+      "showDetail": "Afficher le détail",
       "state": "État",
       "empty": {
         "heading": "Aucun fichier audio dans ce dossier",
         "description": "Choisissez un dossier contenant des MP3, WAV, AIFF ou FLAC."
       }
+    },
+    "detail": {
+      "heading": { "field": "Champ", "before": "Avant", "after": "Après" },
+      "field": {
+        "artist": "Artiste",
+        "remixer": "Remixeur",
+        "title": "Titre",
+        "album": "Album",
+        "date": "Année",
+        "original_date": "Année d'origine",
+        "genre": "Genre",
+        "label": "Label",
+        "catalog_number": "Numéro de catalogue",
+        "bpm": "BPM",
+        "key": "Key",
+        "isrc": "ISRC",
+        "track_number": "Numéro de piste",
+        "url": "URL",
+        "source": "Source",
+        "comment": "Commentaire"
+      },
+      "unreadable": "Les tags de ce fichier n'ont pas pu être lus.",
+      "close": "Fermer"
     },
     "recovery": {
       "badge": "{{count}} à rattraper",

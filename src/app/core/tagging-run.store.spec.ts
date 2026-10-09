@@ -1,23 +1,15 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
-import { ArbitrationRequiredEvent, RunFinishedEvent, TagValue, TagsBefore } from "./models/protocol"
+import {
+  RUN_STARTED,
+  TAGS_AFTER,
+  TAGS_BEFORE,
+  TRACK_RESOLVED,
+  arbitrationRequired,
+} from "../../fixtures/tagging"
+import { ArbitrationRequiredEvent, RunFinishedEvent } from "./models/protocol"
 import { TaggingRunStore } from "./tagging-run.store"
-
-const TAGS_BEFORE: TagsBefore = {
-  system: "id3",
-  comment: "Ripped by X",
-  fields: [
-    { field: "artist", key: "TPE1", value: "adam beyer" },
-    { field: "bpm", key: "TBPM", value: "130" },
-  ],
-}
-
-const TAGS_AFTER: readonly TagValue[] = [
-  { field: "artist", key: "TPE1", value: "Adam Beyer" },
-  { field: "bpm", key: "TBPM", value: "130" },
-]
 
 const AWAITING: ArbitrationRequiredEvent = {
   ...arbitrationRequired("b.mp3"),
