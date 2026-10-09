@@ -15,8 +15,8 @@
 - **Dépend des sub-projects 02, 03, 04 et 05, implémentés avant** : `tag_dump` (`TagDump`, `DumpEntry.renamed_path`, `save_entries`, `load_dump`, `dump_path`, `dump_dir`, `_write`, `TagDumpUnreadableError`, `TagDumpWriteError`), `files.restore_tags` et `TagsWriteError.reason`, `renaming` (`RenameError.reason`, `_taken_by_another_file`, `extended_path`), `TrackState.WRITTEN` / `WRITE_ERROR`, `RunWriter.retry`, `_Session._write`, `_writable`, `WriteInProgressError` ; côté tests, `ndjson_loop.resolved_run` et `held_call`.
 - **Ordre d'un morceau** : nom d'origine, puis tags d'origine. Nom pris par un autre fichier : échec `name_taken`, rien touché.
 - **Ordre d'un run** : morceaux restaurés dans l'ordre inverse de l'écriture, l'ancien nom d'un morceau pouvant être le nom final d'un morceau écrit après.
-- **Dump consommé** : entrées restaurées retirées en une réécriture finale, avec celles dont le fichier n'existe plus sous aucun nom (`file_missing` : rien à leur rendre plus tard). Les autres entrées en échec sont gardées, le fichier est supprimé quand il est vide. Échec de cette réécriture : warning, jamais une erreur.
-- **Créneau unique** : `rollback` refusé en `tagging_in_progress` (phase réseau), `write_in_progress` (écriture), `rollback_in_progress` (rollback) ; `commit_run`, `retry_write` et `start_tagging` refusés en `rollback_in_progress` pendant un rollback. Ni `cancel_run`, ni `shutdown`, ni l'EOF ne le coupent.
+- **Dump consommé** : entrées restaurées retirées en une réécriture finale, avec celles dont le fichier n'existe plus sous aucun nom tant que le dossier de leur chemin d'origine existe (`file_missing` : rien à leur rendre plus tard ; dossier introuvable, disque débranché par exemple : entrée gardée). Les autres entrées en échec sont gardées, le fichier est supprimé quand il est vide. Échec de cette réécriture : warning, jamais une erreur.
+- **Créneau unique** : `rollback` refusé en `tagging_in_progress` (phase réseau), `write_in_progress` (écriture), `extraction_in_progress` (extraction), `rollback_in_progress` (rollback) ; `commit_run`, `retry_write`, `start_tagging` et `extract_playlist` refusés en `rollback_in_progress` pendant un rollback (refus mutuel de l'extraction et du rollback : choix du propriétaire en cours d'exécution, testé dans `test_ndjson_phases.py`). Ni `cancel_run`, ni `shutdown`, ni l'EOF ne le coupent.
 - **Logs** : clés du jeu fixe de `gestion-erreurs.md` seulement (`run`, `reason`), jamais un nom de fichier, un compteur ni un titre.
 - **Code Python sans accents**, docstrings et commentaires en français, le pourquoi seulement.
 - **Tests** : noms en anglais, AAA séparé par des lignes vides, `@pytest.mark.asyncio` posé test par test dans un fichier qui mêle tests synchrones et asynchrones (mode `strict`, `filterwarnings=error`).
@@ -755,9 +755,16 @@ def _forget(
 ) -> None:
     """Retire du dump les morceaux restaures et ceux dont le fichier a disparu : rien a leur rendre.
 
-    Un dump non reecrit ne perd rien : le prochain rollback rejoue les morceaux restaures.
+    Un `file_missing` dont le dossier d'origine a disparu reste dans le dump : un disque externe
+    debranche ou une lettre changee ferait perdre pour toujours les tags d'origine. Un dump non
+    reecrit ne perd rien : le prochain rollback rejoue les morceaux restaures.
     """
-    gone = [failure.track_id for failure in failed if failure.reason is FailureReason.FILE_MISSING]
+    gone = [
+        failure.track_id
+        for failure in failed
+        if failure.reason is FailureReason.FILE_MISSING
+        and extended_path(dump.entries[failure.track_id].path.parent).is_dir()
+    ]
     forgotten = {*restored, *gone}
     if not forgotten:
         return
