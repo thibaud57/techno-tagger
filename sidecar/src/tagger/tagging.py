@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
+    from tagger.file_failures import FileFailureReason
+    from tagger.files import TagField
     from tagger.scraper_client import TrackCandidate
     from tagger.sources import RunSources
 
@@ -40,10 +42,12 @@ logger = logging.getLogger(__name__)
 
 @verify(UNIQUE)
 class TrackState(StrEnum):
-    """Etat d'un morceau apres la phase reseau. La Feature 5 ajoutera l'ecriture."""
+    """Etat d'un morceau, apres la phase reseau ou l'ecriture."""
 
     RESOLVED = auto()
     UNRESOLVED = auto()
+    WRITTEN = auto()
+    WRITE_ERROR = auto()
 
 
 @verify(UNIQUE)
@@ -58,13 +62,21 @@ class Resolution(StrEnum):
 
 @verify(UNIQUE)
 class FailureReason(StrEnum):
-    """Motif d'un non resolu : la correction a apporter n'est pas la meme."""
+    """Motif d'un morceau non resolu ou non ecrit : la correction a apporter n'est pas la meme."""
 
     EMPTY_QUERY = auto()
     NO_RESULT = auto()
     BELOW_THRESHOLD = auto()
     USER_REFUSED = auto()
     SOURCE_UNAVAILABLE = auto()
+    # Memes valeurs que `FileFailureReason`, garde par un test : le protocole n'a qu'un seul
+    # champ `failure_reason`.
+    PERMISSION_DENIED = auto()
+    DISK_FULL = auto()
+    PATH_TOO_LONG = auto()
+    FILE_LOCKED = auto()
+    FILE_MISSING = auto()
+    WRITE_FAILED = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +101,15 @@ class PendingArbitration:
 
 
 @dataclass(frozen=True, slots=True)
+class WriteOutcome:
+    """Ce que l'ecriture a pose sur le fichier, pour le rapport."""
+
+    fields: tuple[TagField, ...]
+    artwork: bool
+    truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
 class TrackRecord:
     """Tout ce que le run sait d'un morceau. `state` vide : en attente d'arbitrage ou en cours."""
 
@@ -104,6 +125,7 @@ class TrackRecord:
     scored: ScoredCandidate | None = None
     artwork: Path | None = None
     arbitration: PendingArbitration | None = None
+    written: WriteOutcome | None = None
 
     @property
     def file_name(self) -> str:
@@ -133,6 +155,18 @@ class TrackRecord:
             scored=scored,
             artwork=artwork,
             arbitration=None,
+        )
+
+    def written_to(self, path: Path, outcome: WriteOutcome) -> TrackRecord:
+        """Morceau ecrit ; `path` suit le renommage, `track_id` reste celui du run."""
+        return replace(
+            self, state=TrackState.WRITTEN, failure_reason=None, path=path, written=outcome
+        )
+
+    def write_failed(self, reason: FileFailureReason) -> TrackRecord:
+        """Ecriture en echec : la resolution reste, la relance n'a rien a redemander."""
+        return replace(
+            self, state=TrackState.WRITE_ERROR, failure_reason=FailureReason(reason.value)
         )
 
     def unresolved(self, reason: FailureReason) -> TrackRecord:

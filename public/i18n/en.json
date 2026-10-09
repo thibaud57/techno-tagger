@@ -190,7 +190,13 @@
       "no_result": "No result on Beatport or Bandcamp.",
       "below_threshold": "No result matches the track.",
       "source_unavailable": "Beatport and Bandcamp did not respond. Run it again later.",
-      "user_refused": "You refused every candidate."
+      "user_refused": "You refused every candidate.",
+      "permission_denied": "Access to the file was denied.",
+      "disk_full": "The disk is full. Free up disk space, then retry the write.",
+      "path_too_long": "The file path is too long. Move the folder closer to the drive root, then retry the write.",
+      "file_locked": "The file is open in another program. Close it, then retry the write.",
+      "file_missing": "The file disappeared since the run.",
+      "write_failed": "Writing the file failed."
     },
     "list": {
       "before": "Before",

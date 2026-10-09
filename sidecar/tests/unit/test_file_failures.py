@@ -5,6 +5,7 @@ import errno
 import pytest
 
 from tagger.file_failures import FileFailureReason, file_failure_reason
+from tagger.tagging import FailureReason
 
 
 @pytest.mark.parametrize(
@@ -37,3 +38,12 @@ def test_maps_a_system_error_to_the_project_vocabulary(
     reason = file_failure_reason(error)
 
     assert reason is expected
+
+
+def test_track_failures_carry_every_file_failure_under_the_same_name() -> None:
+    """Le protocole porte un seul `failure_reason` : les motifs d'ecriture y sont recopies."""
+    file_reasons = {reason.value for reason in FileFailureReason}
+
+    track_reasons = {reason.value for reason in FailureReason}
+
+    assert file_reasons <= track_reasons

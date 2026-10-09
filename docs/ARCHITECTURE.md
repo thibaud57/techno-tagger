@@ -131,6 +131,7 @@ techno-tagger/
 │   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
 │   │   ├── cache.py                      # réponses API et artworks
 │   │   ├── tagging.py                    # pipeline de résolution, run vivant en mémoire
+│   │   ├── writing.py                    # phase d'écriture d'un run : dump, tags, renommage, relance
 │   │   ├── sources.py                    # accès aux sources d'un run, garde des 403
 │   │   ├── arbitration.py                # gestes d'arbitrage sur un run vivant
 │   │   └── plan.py                       # plan de run, reprise, rapport

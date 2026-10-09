@@ -190,7 +190,13 @@
       "no_result": "Aucun résultat sur Beatport ni sur Bandcamp.",
       "below_threshold": "Aucun résultat ne correspond au morceau.",
       "source_unavailable": "Beatport et Bandcamp n'ont pas répondu. Relancez le run plus tard.",
-      "user_refused": "Vous avez refusé tous les candidats."
+      "user_refused": "Vous avez refusé tous les candidats.",
+      "permission_denied": "L'accès au fichier a été refusé.",
+      "disk_full": "Le disque est plein. Libérez de l'espace disque, puis relancez l'écriture.",
+      "path_too_long": "Le chemin du fichier est trop long. Rapprochez le dossier de la racine du disque, puis relancez l'écriture.",
+      "file_locked": "Le fichier est ouvert dans un autre programme. Fermez-le, puis relancez l'écriture.",
+      "file_missing": "Le fichier a disparu depuis le run.",
+      "write_failed": "L'écriture du fichier a échoué."
     },
     "list": {
       "before": "Avant",
