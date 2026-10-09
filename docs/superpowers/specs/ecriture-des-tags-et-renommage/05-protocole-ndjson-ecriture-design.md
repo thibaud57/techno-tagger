@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "protocole-ndjson-ecriture"
 goal: "Exposer la confirmation globale et la relance de l'écriture sur le protocole NDJSON, avec les gardes qui figent le run et protègent une écriture en cours"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["04-phase-ecriture-sidecar-design.md"]
