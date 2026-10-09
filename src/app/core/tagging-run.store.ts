@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from "@angular/core"
+import { computed, signal, Service } from "@angular/core"
 
 import type {
   ArbitrationRequiredEvent,
@@ -58,7 +58,7 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
  * Etat d'un run de re-tagging. `SidecarService` garde la frontiere du transport et
  * lui transmet les evenements : les Features 3 a 6 ajouteront leur propre store.
  */
-@Injectable({ providedIn: "root" })
+@Service()
 export class TaggingRunStore {
   private readonly _runId = signal<string | null>(null)
   // L'ordre d'insertion de la Map est celui du run : `patch` ne fait que remplacer

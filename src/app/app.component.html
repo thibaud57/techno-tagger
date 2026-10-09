@@ -66,15 +66,17 @@
 
   <!-- Hors du router-outlet : la modale suit l'utilisateur sur tous les onglets. Differee a
        son premier affichage : son listbox tire les formulaires et le CDK, un tiers du bundle
-       initial pour un ecran qu'un run sans zone grise n'ouvre jamais. -->
-  @defer (when arbitrationVisible(); prefetch on idle) {
+       initial pour un ecran qu'un run sans zone grise n'ouvre jamais. Prechargee au plus tard
+       5 s apres l'affichage de ce bloc : un run qui enchaine les evenements peut ne jamais
+       laisser la webview au repos, et l'arbitrage se chargerait alors a son ouverture. -->
+  @defer (when arbitrationVisible(); prefetch on idle(5s)) {
     <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
   }
 }
 
 <!-- Hors des deux branches : l'ecran bloquant peut coexister avec une demande de sortie.
      Differee comme la modale d'arbitrage : `p-dialog` n'a rien a faire au demarrage. -->
-@defer (when closeRequested(); prefetch on idle) {
+@defer (when closeRequested(); prefetch on idle(5s)) {
   <app-close-confirmation />
 }
 

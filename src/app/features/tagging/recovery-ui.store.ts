@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from "@angular/core"
+import { computed, inject, signal, Service } from "@angular/core"
 
 import { SidecarService } from "../../core/sidecar.service"
 
@@ -7,7 +7,7 @@ import { SidecarService } from "../../core/sidecar.service"
  * l'arbitrage et le badge du shell. Aucun etat du sidecar ici : seulement ce que
  * l'utilisateur a colle et ce qu'il a ouvert.
  */
-@Injectable({ providedIn: "root" })
+@Service()
 export class RecoveryUiStore {
   private readonly sidecar = inject(SidecarService)
 
