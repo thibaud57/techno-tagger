@@ -12,7 +12,8 @@ paths:
 - Poser un `asyncio.timeout(...)` sur un enchaînement d'étapes, au-dessus du budget de l'API pour recevoir son 504 structuré ; le timeout par requête vit sur le client HTTP (cf. [client.md](../httpx2/client.md))
 - Déléguer tout appel bloquant (mutagen, sqlite3, keyring, système de fichiers) par `await asyncio.to_thread(...)`
 - Garder une référence forte sur toute `Task` et la nommer (`name=`) pour les traces
-- Re-lever `CancelledError` après le cleanup, jamais l'avaler
+- Re-lever `CancelledError` après le cleanup, jamais l'avaler, et garder ce cleanup court : un `await` long y retarde l'annulation
+- Protéger par `asyncio.shield(...)` une opération qui doit aller à son terme malgré l'annulation de l'appelant (écriture d'un cache, d'un dump)
 - N'utiliser que les primitives `asyncio` (`Lock`, `Semaphore`, `Queue`) dans le code async
 
 ## À éviter
@@ -26,7 +27,8 @@ paths:
 - `CancelledError` hérite de `BaseException` : `except Exception` ne l'attrape pas, un `except BaseException` mal placé casse l'annulation
 - `TaskGroup` lève un `ExceptionGroup`, jamais l'exception nue : un `except ValueError` autour du bloc ne matche rien (cf. [gestion-erreurs.md](gestion-erreurs.md))
 - `create_task` ne laisse qu'une référence faible côté loop : une task non référencée disparaît silencieusement
-- `python -m asyncio pstree <PID>` (3.14) inspecte un loop figé sans instrumenter le process
+- `python -m asyncio pstree <PID>` (3.14) inspecte un loop figé sans instrumenter le process, et `PYTHONASYNCIODEBUG=1` signale les coroutines jamais attendues et les callbacks lents
+- `asyncio.shield` protège la coroutine, pas l'appelant : celui-ci reçoit quand même `CancelledError` pendant que l'opération protégée continue
 
 ## Exemples
 ```python

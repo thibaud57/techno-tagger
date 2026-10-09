@@ -1,8 +1,6 @@
 ---
 paths:
-  - "sidecar/src/tagger/__main__.py"
-  - "sidecar/src/tagger/observability.py"
-  - "sidecar/src/tagger/protocol.py"
+  - "sidecar/src/tagger/**/*.py"
 ---
 
 # Python Pattern Matching — Règles
@@ -22,7 +20,7 @@ paths:
 
 ## Gotchas
 - Un mapping pattern matche par présence de clés, les clés en trop sont ignorées : `case {}:` matche n'importe quel dict, y compris non vide
-- Un pattern positionnel exige `__match_args__`, généré par `@dataclass` et `NamedTuple`, sinon `TypeError`
+- Un pattern positionnel exige `__match_args__`, généré par `@dataclass` et `NamedTuple`, sinon `TypeError`. Seuls les builtins (`int`, `str`, `float`, `bool`…) acceptent un unique pattern positionnel sans lui : `case int(n):` capture la valeur entière
 - Les sous-patterns d'un OR doivent capturer exactement les mêmes noms
 
 ## Exemples

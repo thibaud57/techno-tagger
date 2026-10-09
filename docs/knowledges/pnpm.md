@@ -1,8 +1,8 @@
 ---
 title: "pnpm — Gestionnaire de paquets du frontend"
-version: "11.24.0"
+version: "12.10.1"
 description: "Référence technique pour pnpm : store et isolation des dépendances, packageManager et Corepack, lockfile, scripts post-install bloqués et installation en CI."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["pnpm", "lockfile", "corepack", "packageManager", "hoisting", "ci"]
 scope: ["docs"]
 technologies: ["Node.js", "Angular", "Tauri", "GitHub Actions", "Dependabot"]
@@ -47,21 +47,25 @@ public-hoist-pattern:
 
 ### Description
 
-Le champ `packageManager` fixe la version exacte pour tout le monde, mais **ce projet ne le déclare pas** : avec `devEngines.packageManager`, c'est l'un des deux déclencheurs du lockfile multi-document, qui casse le graphe de dépendances GitHub. La version passe par l'input `version` de `pnpm/setup`.
+Le champ `packageManager` fixe la version exacte pour tout le monde, mais **ce projet ne le déclare pas** : avec `devEngines.packageManager`, c'est l'un des deux déclencheurs du lockfile multi-document, qui casse le graphe de dépendances GitHub. La version passe par l'input `version` de `pnpm/setup`, dans la seule action composite `.github/actions/setup-pnpm`.
 
 ### Exemple
 
 ```yaml
-- uses: pnpm/setup@v3.0.0
-  with:
-    version: 11.24.0
-    runtime: node@24
+# .github/actions/setup-pnpm/action.yml
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/setup@<sha> # v3.0.0
+      with:
+        version: "12.10.1"
+        runtime: node@24
 ```
 
 ### Points Importants
 
 - **Corepack lit ce champ**, télécharge la version correspondante et exécute le bon binaire : plus d'écart entre deux machines
-- Corepack est distribué avec Node de la 14.19 jusqu'à la 25 exclue : présent sur le Node 24 du projet, **à réévaluer avant une montée au-delà**
+- Corepack est distribué avec Node de la 14.19 jusqu'à la 25 exclue : présent sur le Node 24 du projet, absent de la 26. Le projet ne s'en sert pas, la bascule ne coûte donc rien de ce côté
 - Ajouter le hash d'intégrité au champ renforce la validation
 - `pnpm self-update <version>` dans un projet épinglé ne met à jour que ce champ, le binaire se téléchargeant ensuite tout seul
 
@@ -116,14 +120,13 @@ pnpm approve-builds     # prompt interactif, écrit allowBuilds
 
 ### Description
 
-Une seule action installe pnpm et Node, la version étant passée en input.
+Une seule action installe pnpm et Node, appelée par l'action composite locale qui porte leurs deux versions.
 
 ### Exemple
 
 ```yaml
-- uses: pnpm/setup@v3.0.0
-  with:
-    runtime: node@24
+- uses: actions/checkout@<sha>
+- uses: ./.github/actions/setup-pnpm   # pnpm 12.10.1 et Node 24, versions écrites une seule fois
 
 - run: pnpm install --frozen-lockfile
 - run: pnpm run build
@@ -132,7 +135,8 @@ Une seule action installe pnpm et Node, la version étant passée en input.
 ### Points Importants
 
 - **`pnpm/setup` installe pnpm ET le runtime en une étape** : il remplace la paire `actions/setup-node` + `pnpm/action-setup`
-- **L'action v2 exige pnpm 11 ou plus** et rejette explicitement les versions antérieures
+- **L'action exige pnpm 11 ou plus** depuis sa v2 et rejette explicitement les versions antérieures. La v3 détecte en plus un `.node-version`, un `.nvmrc` ou un `.tool-versions`, que l'input `runtime` explicite écrase
+- **pnpm 12 est un binaire natif** (réécriture Rust, `latest` depuis début septembre 2026) : l'action le télécharge sans passer par npm, et Node n'est plus requis pour faire tourner pnpm lui-même
 - Elle vérifie l'intégrité du binaire téléchargé en comparant la version obtenue à celle demandée
 - **`--frozen-lockfile` explicite en CI** : pnpm l'active automatiquement quand il détecte un environnement CI, mais l'écrire rend l'échec clair et le comportement portable
 - La 2.0.1 corrige la normalisation des chemins du store sous Windows, ce qui la rend souhaitable sur le runner du projet

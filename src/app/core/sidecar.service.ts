@@ -1,4 +1,4 @@
-import { Injectable, type Signal, computed, inject, signal } from "@angular/core"
+import { type Signal, computed, inject, signal, Service } from "@angular/core"
 
 import { ArbitrationStore } from "./arbitration.store"
 import {
@@ -60,7 +60,7 @@ const unavailableError = (command: SidecarCommand["command"] | null): SidecarErr
  * Frontiere unique entre la webview et le metier (transport, version, erreurs).
  * L'etat d'un run vit dans son store : `TaggingRunStore` pour le re-tagging.
  */
-@Injectable({ providedIn: "root" })
+@Service()
 export class SidecarService {
   private readonly transport = inject(SIDECAR_TRANSPORT)
   private readonly taggingRun = inject(TaggingRunStore)

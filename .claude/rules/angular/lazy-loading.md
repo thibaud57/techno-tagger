@@ -13,7 +13,7 @@ paths:
 - Combiner affichage et préchargement quand l'ouverture est déclenchée par l'utilisateur : `@defer (on interaction; prefetch on idle)`
 - Utiliser `on idle(timeout)` (Angular 22) pour garantir le chargement même si le navigateur n'atteint jamais l'idle
 - Extraire dans son propre fichier un composant destiné à être différé
-- Contrôler le découpage réel avec `ng build --configuration production --source-map` puis `npx source-map-explorer dist/browser/*.js`
+- Contrôler le découpage réel avec `ng build --stats-json`, qui produit `browser-stats.json` depuis 22.2, à charger dans l'analyseur d'esbuild (esbuild.github.io/analyze)
 - Faire porter la limite par les `budgets` d'`angular.json` plutôt que par une relecture manuelle
 
 ## À éviter
@@ -27,7 +27,6 @@ paths:
 - `PreloadAllModules` ignore les routes protégées par un guard `canMatch` ou `canLoad`
 - Un service `providedIn: 'root'` référencé uniquement depuis des routes lazy part dans leur chunk, pas dans le bundle initial
 - Un service déclaré dans le `providers` d'une route lazy est instancié par l'`EnvironmentInjector` de cette route, donc dupliqué par feature
-- L'hydratation incrémentale est activée par défaut depuis Angular 22 : sans objet ici, l'application est en CSR pur derrière la webview Tauri
 
 ## Exemples
 ```typescript

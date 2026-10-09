@@ -10,13 +10,13 @@ dependencies = [
     "httpx2>=2.13.1,<3",
     "keyring>=25.7.0,<26",
     "mutagen>=1.48.1,<2",
-    "pydantic>=2.13.5,<3",
+    "pydantic>=2.14.0,<3",
     "rapidfuzz>=3.14.6,<4",
     "sentry-sdk>=2.71.0,<3",
 ]
 
 [build-system]
-requires = ["uv_build>=0.12.19,<0.13.0"]
+requires = ["uv_build>=0.12.24,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv]
@@ -157,12 +157,12 @@ build = [
     "pyinstaller>=6.22.3",
     # Porte le hook sentry-sdk, qui charge ses integrations par importlib :
     # en transitif il arrive quand meme, mais rien ne garantit qu'il y reste.
-    "pyinstaller-hooks-contrib>=2026.1",
+    "pyinstaller-hooks-contrib>=2026.8",
 ]
 dev = [
-    "mypy>=2.3.1",
+    "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
-    "ruff>=0.16.9",
+    "ruff>=0.16.10",
 ]

@@ -1,8 +1,8 @@
 ---
 title: "Sentry — Remontée d'erreurs durcie (Python + Angular)"
-version: "sentry-sdk 2.71.0 / @sentry/angular 11.1.0"
+version: "sentry-sdk 2.71.0 / @sentry/angular 11.6.0"
 description: "Référence technique pour les deux SDK Sentry du projet : durcissement RGPD, réglages non négociables, scrubbing, corrélation de release et empaquetage PyInstaller."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["sentry", "rgpd", "scrubbing", "observabilite", "angular", "python", "pyinstaller"]
 scope: ["docs"]
 technologies: ["Python", "Angular", "Tauri", "PyInstaller"]
@@ -124,7 +124,9 @@ providers: [
 - **`createErrorHandler()` est la seule fabrique exposée**, à brancher par `{ provide: ErrorHandler, useValue: ... }`. Il n'existe aucun `provideErrorHandler()` : vérifié dans `@sentry/angular` 10.72.0, qui n'exporte que `createErrorHandler` et `SentryErrorHandler`, et confirmé par la doc officielle
 - **`Breadcrumbs` capture les interactions et `Console` le contenu de la console**, donc des noms de morceaux affichés à l'écran ; **`Replay` capture le DOM** ; **`CultureContext` envoie la locale, le calendrier et le fuseau horaire** de l'utilisateur. Les quatre sont à retirer, pas à régler. `Console` est une intégration à part depuis la v11 : un filtre écrit pour la v10 la laisse passer
 - **Sentry 11 remplace `sendDefaultPii` par `dataCollection`, et l'option absente collecte tout** : IP inférée (`userInfo`), cookies, en-têtes, corps HTTP, paramètres d'URL. Chaque catégorie se ferme explicitement. Mesuré le 2026-10-02 sur l'événement envoyé : avec la config v10, `sdk.settings.infer_ip` vaut `auto` et une ligne de console part en breadcrumb ; avec `dataCollection` fermé et `Console` retirée, `never` et aucun breadcrumb de console
-- La `peerDependency` couvre `@angular/core >= 14.x <= 22.x`
+- La `peerDependency` couvre `@angular/core >= 14.x <= 22.x`, inchangée en 11.6.0
+- **Une montée mineure peut ajouter une catégorie à `dataCollection`**, ouverte par défaut comme les autres : comparer le type `DataCollection` de `@sentry/core` avant et après chaque montée, les notes de version ne suffisant pas à le garantir
+- 11.5 : `Sentry.init()` avertit si un client est déjà actif, et `close()` délie le client qu'il ferme (`getClient()` rend alors `undefined`)
 - Les source maps se génèrent en mode `hidden`, s'uploadent vers Sentry et **ne sont pas livrées dans le bundle** distribué
 
 ---

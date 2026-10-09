@@ -24,6 +24,7 @@ paths:
 - Asserter le retour de `JSON.parse` en type métier
 - Compter sur les tests pour attraper une erreur de types : Vitest transpile par esbuild et n'exécute pas `tsc`
 - Copier un `tsconfig.json` issu d'un projet en TypeScript 5 : plusieurs de ses options n'existent plus
+- `enum` et surtout `const enum`, incompatible avec esbuild et `isolatedModules` : préférer un objet `as const` et le type dérivé de ses valeurs
 
 ## Gotchas
 - TypeScript 7 n'expose plus l'API de compilation programmatique dont dépendent `@angular/compiler-cli` et `typescript-eslint`

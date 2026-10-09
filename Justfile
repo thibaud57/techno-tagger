@@ -106,8 +106,8 @@ format-ui:
 [group('quality')]
 [working-directory('sidecar')]
 format-sidecar:
-    uv run ruff format .
     uv run ruff check --fix .
+    uv run ruff format .
 
 # Reformater la coquille Tauri
 [group('quality')]
@@ -208,8 +208,8 @@ setup: install build-sidecar
 [group('setup')]
 check:
     @node --version > /dev/null 2>&1 || echo "⚠️ Node requis (voir engines de package.json)"
-    @pnpm --version > /dev/null 2>&1 || echo "⚠️ pnpm requis (version dans le workflow CI)"
-    @uv --version > /dev/null 2>&1 || echo "⚠️ uv requis (version dans le workflow CI)"
+    @pnpm --version > /dev/null 2>&1 || echo "⚠️ pnpm requis (version dans .github/actions/setup-pnpm)"
+    @uv --version > /dev/null 2>&1 || echo "⚠️ uv requis (version dans .github/actions/setup-uv)"
     @rustc --version > /dev/null 2>&1 || echo "⚠️ Rust requis (version dans rust-toolchain.toml)"
     @command -v actionlint > /dev/null 2>&1 || echo "⚠️ actionlint requis pour just lint-workflows (winget install rhysd.actionlint)"
     @test -d node_modules || echo "⚠️ Dependances webview absentes, lancer just install-ui"

@@ -25,7 +25,9 @@ paths:
 - Un `datetime` naive et un aware ne se comparent ni ne se soustraient : `TypeError` à l'exécution
 - Chemins longs Windows : au-delà de la limite historique l'écriture échoue, motif `path_too_long` (cf. [ARCHITECTURE.md § Robustesse](../../../docs/ARCHITECTURE.md#-robustesse--modes-de-panne))
 - Toute IO fichier reste bloquante : la passer par `asyncio.to_thread` dans du code async
-- 3.14 : `Path.copy()` et `Path.move()` couvrent la copie d'arborescence sans importer `shutil`
+- 3.14 : `Path.copy()`, `Path.move()` et leurs variantes `copy_into()` / `move_into()` couvrent la copie d'arborescence sans importer `shutil`
+- 3.14 : les `Path` rendus par `iterdir()` portent un `Path.info` pré-rempli quand l'OS le fournit, qui évite un `stat()` par entrée
+- `zoneinfo` sous Windows exige le paquet `tzdata`, Windows n'embarquant pas la base IANA : à déclarer, et à vérifier dans le binaire figé, le jour où une zone nommée entre dans le code
 - Les rapports et les logs écrits sur le disque sont en anglais, indépendamment de la langue de l'interface
 
 ## Exemples
