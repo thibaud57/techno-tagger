@@ -28,6 +28,9 @@ paths:
 - `vi.advanceTimersByTime()` pour tester `debounceTime()` ou `delay()` : ces opérateurs passent par l'`asyncScheduler` RxJS, utiliser `TestScheduler` de `rxjs/testing`
 
 ## Gotchas
+- Vitest 5 : `clearMocks` vaut `true` par défaut (`vi.clearAllMocks()` avant chaque test), et une assertion async non attendue (`resolves`, `rejects`) fait échouer le test au lieu d'un warning
+- Vitest 5 : `vi.mock`, `vi.unmock` et `vi.hoisted` hors du top level lèvent une erreur, et `toThrow('texte')` matche une sous-chaîne, donc `toThrow('')` passe sur toute erreur
+- Angular 22.2 : l'option `splitting` du builder `unit-test` est dépréciée, inutile avec Vitest 5. Ne pas la poser
 - `vi.resetAllMocks()` réinitialise appels et retours mais ne restaure pas l'implémentation d'origine, contrairement à `vi.restoreAllMocks()` qui n'agit que sur les spies
 - `describe`, `it`, `expect` et `beforeEach` sont des globals ; seul `vi` s'importe
 - Angular 22 : `TestBed.getLastFixture()` récupère le dernier fixture créé sans en garder la référence

@@ -14,7 +14,8 @@ paths:
 - Poser `package = true` pour installer le projet en editable, ce qui rend le sidecar importable sans manipuler `PYTHONPATH`
 - Passer par la CLI pour toute dépendance : `uv add`, `uv add --dev`, `uv add --group build`, `uv remove`
 - Committer `uv.lock` dans le même commit que le `pyproject.toml` modifié
-- En CI : épingler le patch exact d'uv (la compatibilité du lock n'est garantie qu'au sein d'une mineure), installer par `uv sync --locked --all-groups`
+- En CI : épingler le patch exact d'uv dans la seule action composite `.github/actions/setup-uv` (la compatibilité du lock n'est garantie qu'au sein d'une mineure), installer par `uv sync --locked --all-groups`
+- Borner `uv_build` dans `[build-system]` sur la mineure d'uv, plancher au plus égal au patch épinglé en CI (`>=0.12.24,<0.13.0`) : `test_main.py` le garde
 - Lancer tous les outils par `uv run`, PyInstaller compris : c'est ce qui garantit le venv verrouillé
 - Fixer l'interpréteur par `uv python pin`, en gardant `.python-version` dans la plage de `requires-python`
 
@@ -28,6 +29,7 @@ paths:
 
 ## Gotchas
 - Le format d'`uv.lock` fait partie de l'API publique d'uv et ne peut être rejeté qu'entre versions mineures
+- Depuis 0.12.16, le backend `uv_build` embarqué ne sert que si sa version satisfait la plage de `[build-system]` : un uv plus ancien que le plancher retélécharge le backend depuis l'index à chaque build
 - uv préfère les versions déjà verrouillées : une nouvelle version en amont ne périme pas le lockfile tant que les contraintes sont satisfaites, il n'y a pas d'upgrade implicite
 - `--frozen` n'inspecte même pas la fraîcheur du lock (aucun accès réseau), là où `--locked` échoue explicitement en cas de dérive : choisir selon qu'on veut subir ou détecter
 - 0.12 : `uv run` découvre le projet relativement au script passé, plus au répertoire courant
