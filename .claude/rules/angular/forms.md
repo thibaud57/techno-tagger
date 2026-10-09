@@ -9,9 +9,10 @@ paths:
 ## À faire
 - Écrire les formulaires en Signal Forms (`form()` plus un schéma), stables depuis Angular 22
 - Faire du modèle `signal<T>()` la source de vérité, jamais une copie tenue à part
-- Valider par les validateurs natifs (`required()`, `min()`, `pattern()`…) plutôt que par des fonctions maison
+- Valider par les validateurs natifs, le path du champ en premier argument (`required(f.email)`, `min(f.threshold, 0)`), plutôt que par des fonctions maison
 - Isoler la validation conditionnelle avec `applyWhen()`
-- Debouncer au niveau du validateur avec `validateAsync({ debounce })`
+- Debouncer au niveau du validateur avec `validateAsync(path, { debounce })`
+- Écrire un custom control natif en implémentant `FormValueControl<T>` (un `value = model()` suffit) ; un composant `ControlValueAccessor` existant se branche tel quel sur `[formField]`
 - Envoyer une commande par une méthode du composant, pas par `submit()` : la commande NDJSON rend la main aussitôt et son échec arrive plus tard dans `lastError`
 - Traduire les messages d'erreur par ngx-translate
 - En Reactive Forms : `inject(FormBuilder)` en champ de classe, champs obligatoires `nonNullable`, `takeUntilDestroyed()`
@@ -20,9 +21,10 @@ paths:
 - Les template-driven forms
 - Construire un formulaire dans `ngOnInit` plutôt qu'en champ de classe
 - Soumettre `form.value` quand des champs sont `disabled` : leurs valeurs en sont absentes, utiliser `getRawValue()`
-- Mélanger Reactive et Signal Forms sur un même écran sans passer par `SignalFormControl` ou `FormControlValue`
+- Mélanger Reactive et Signal Forms sur un même écran sans passer par `SignalFormControl` (`@angular/forms/signals/compat`)
 
 ## Gotchas
+- Les états d'un champ Signal Forms sont des signals à appeler (`f.email().valid()`, `touched()`, `errors()`), alors que `getError('required')` rend une valeur directe
 - Un écran dont la seule règle est « bouton actif quand le champ est rempli » n'a rien à valider : un `computed()` suffit, `form()` ne sert qu'à lier les composants PrimeNG par `[formField]`
 - Angular 22 : `touched` n'est plus un model bidirectionnel ; un custom control le lit par un `input` et le déclenche par l'output `touch()`
 - Angular 22 : `markAsTouched()` marque le champ et tous ses descendants, ce qui change le comportement des soumissions partielles
@@ -40,9 +42,13 @@ export class SettingsPageComponent {
   protected readonly model = signal<Settings>({ lowThreshold: 70 });
 
   protected readonly settings = form(this.model, (f) => {
-    f.lowThreshold(required(), min(0));
+    required(f.lowThreshold);
+    min(f.lowThreshold, 0);
   });
 }
+
+// ❌ Syntaxe antérieure à la stabilisation : la règle ne reçoit plus le champ en appel
+f.lowThreshold(required(), min(0));
 
 // ✅ Rien à valider : `form()` ne sert qu'au binding, l'affordance vient d'un computed
 protected readonly entry = signal({ apiKey: '' });

@@ -11,7 +11,8 @@ paths:
 - Se replier sur la chaîne d'origine quand le nettoyage d'une requête la vide : une requête inexploitable n'est pas « rien trouvé »
 - `Counter` pour les compteurs du récapitulatif, `defaultdict(list)` pour regrouper, les doublons de noms de fichiers notamment (cf. [ADR-020](../../../docs/adrs/020-doublons-noms-de-fichiers.md))
 - Trier sur la clé de groupe avant `itertools.groupby`, et matérialiser chaque sous-itérateur avant d'avancer
-- `itertools.batched(it, n)` pour découper un flux en lots
+- `itertools.batched(it, n)` pour découper un flux en lots : il rend des tuples, le dernier plus court sauf avec `strict=True` (3.13) qui lève
+- `zip(..., strict=True)` dès que deux séquences doivent avoir la même longueur : sans lui, `zip` tronque en silence
 
 ## À éviter
 - `re.match` pour valider : il n'ancre qu'au début, `re.match(r"\d+", "12abc")` matche

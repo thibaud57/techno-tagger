@@ -35,6 +35,7 @@ paths:
 - `tauri info` est le premier réflexe quand une crate et son paquet npm divergent
 - La forme tableau de `bundle.resources` place `_internal/` sous `binaries/`, là où le bootloader `--onedir` ne le cherche pas : `Failed to load Python DLL` au premier spawn, invisible en `tauri dev`
 - Le process lancé s'appelle `tagger.exe`, sans le target triple du fichier : un `taskkill /IM` sur le nom suffixé ne tue rien
+- Un child process survit en principe à la fermeture de l'app s'il n'est pas tué, d'où l'arrêt explicite sur `RunEvent::ExitRequested` que recommande la doc. Ici, Tauri arrête le sidecar `--onedir` à la sortie (mesuré, cf. [ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) § `shutdown`) : remesurer après toute montée de Tauri ou passage en `--onefile`
 
 ## Exemples
 ```typescript

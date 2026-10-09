@@ -2,7 +2,7 @@
 title: "TypeScript 6 — Typage du frontend"
 version: "6.0.x"
 description: "Référence technique pour TypeScript 6 : contrainte de version dure imposée par Angular 22, nouveaux défauts stricts, unions discriminées et type guards pour le contrat NDJSON."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["typescript", "angular", "unions-discriminees", "type-guards", "satisfies", "tsgo"]
 scope: ["docs"]
 technologies: ["Angular", "Vitest", "angular-eslint"]
@@ -41,7 +41,8 @@ TypeScript 6 est la dernière version bâtie sur le code JavaScript historique, 
 
 - **Installer TypeScript 7 casse le compilateur Angular**, avec des incompatibilités sur les entrées du `compiler-cli`. Ce n'est pas un avertissement de compatibilité, c'est un échec de build
 - **`typescript-eslint` refuse l'installation** avec TypeScript 7 : sa `peerDependency` s'arrête sous `6.1.0`, d'où un `ERESOLVE` au premier `install`
-- La demande d'élargissement de la plage côté Angular **a été fermée sans suite** : la levée est attendue avec la stabilisation de l'API en TypeScript 7.1, pas avant. Ce calendrier vient de sources secondaires, à ne pas traiter comme une date acquise
+- La demande d'élargissement de la plage côté Angular **a été fermée `not planned` le 2026-07-09** (angular/angular#69704) : « Supporting TS 7.0, requires a major refactoring of our compiler ». La levée attend TypeScript 7.1, qui doit rendre une API programmatique et dont la beta n'était pas sortie au 2026-10-09, puis un `@angular/compiler-cli` et un `typescript-eslint` (typescript-eslint#10940) qui l'acceptent
+- **Aucune TypeScript 6.1 ne sortira** (« we do not intend to release a TypeScript 6.1 », blog TypeScript, décembre 2025) : la ligne 6.0 ne reçoit que des patchs, `6.0.3` étant le dernier au 2026-10-09
 - **Ne pas tenter de forcer par un override de résolution** : les deux outils échoueront de façon différée et confuse
 
 ---

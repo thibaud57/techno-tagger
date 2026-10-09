@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from "@angular/core"
+import { computed, inject, signal, Service } from "@angular/core"
 
 import { APP_WINDOW } from "./app-window"
 import { SidecarService } from "./sidecar.service"
@@ -8,7 +8,7 @@ export type PendingWork =
   | { readonly kind: "tagging" }
   | { readonly kind: "arbitration"; readonly count: number }
 
-@Injectable({ providedIn: "root" })
+@Service()
 export class CloseGuard {
   private readonly appWindow = inject(APP_WINDOW)
   private readonly sidecar = inject(SidecarService)

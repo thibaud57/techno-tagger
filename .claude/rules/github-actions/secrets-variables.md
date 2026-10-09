@@ -16,14 +16,15 @@ paths:
 ## À éviter
 - Écrire une valeur sensible en clair dans le YAML : le dépôt est public et l'historique git est indélébile
 - Faire transiter la clé de signature ailleurs que dans les secrets : ni dépôt, ni artefact de CI, ni log de build
-- `echo` d'un secret pour déboguer : le masquage est automatique mais imparfait sur les valeurs courtes ou trop communes
+- `echo` d'un secret pour déboguer : le masquage est automatique mais imparfait sur les valeurs courtes ou trop communes, et il ne couvre pas une valeur dérivée (encodée, tronquée, transformée)
 - Attendre des secrets dans un run déclenché par une PR de fork : ils n'y sont pas transmis
 - Monter un `environment:` avec règles de protection : le projet n'a que deux états d'application et aucun déploiement serveur (cf. [PRODUCTION.md](../../../docs/PRODUCTION.md) § Environnements)
 
 ## Gotchas
 - Les secrets Dependabot sont un stock distinct des secrets Actions, jamais partagés ; les PR de Dependabot passent le même gate qualité que les PR humaines
 - Un secret d'environment écrase le secret repo de même nom pour le job qui le cible
-- Le contexte `secrets` n'est disponible ni dans un `if:` de job ni dans un `if:` de step : impossible de conditionner l'exécution sur la présence d'une valeur
+- Le contexte `secrets` n'est disponible ni dans un `if:` de job ni dans un `if:` de step : pour conditionner un step sur la présence d'un secret, l'exposer en `env:` du job puis tester `env.X` dans le `if:` du step
+- Une valeur masquée ne peut plus être publiée comme output de job
 
 ## Exemples
 ```yaml

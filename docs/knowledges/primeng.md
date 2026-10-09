@@ -2,7 +2,7 @@
 title: "PrimeNG v22 — Bibliothèque de composants Angular"
 version: "22.1.2"
 description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, tabs et icônes SVG."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "table", "primeicons"]
 scope: ["docs"]
 technologies: ["Angular", "Tailwind CSS", "Tauri"]
@@ -43,7 +43,8 @@ providePrimeNG({
 - **Aucune limitation fonctionnelle sur la bibliothèque centrale** en Community : tous les composants sont là
 - **Le Theme Designer n'est pas inclus** : toute personnalisation passe par `definePreset()`, jamais par un outil visuel
 - Les versions antérieures à la v22 restent MIT pour toujours, le changement n'est pas rétroactif
-- **Le dépôt GitHub `primefaces/primeng` a été archivé en juin 2026** (date non confirmée par citation verbatim) : les issues du dépôt public ne sont plus le canal de support, et le code de la v22 est publié depuis une infrastructure distincte
+- **Le dépôt GitHub `primefaces/primeng` ne porte plus que la lignée MIT 21.x** : archivé le 2026-06-28, désarchivé au plus tard le 2026-08-27 sans annonce, il annonce dans son README « receives security fixes only », issues en lecture seule. Le code des 22.x vit dans `primefaces/primeng-nextchapter`, privé, et le support passe par PrimeUI (relevé le 2026-10-09)
+- **La Community License dure 12 mois**, renouvelable gratuitement, avec 30 jours de grâce après expiration (primeui.dev/licenses/community)
 
 ---
 
@@ -262,7 +263,7 @@ export class SourcePickerComponent {}
 - **Attendre un mode router de `p-tabs`** : il n'existe pas, et le contourner par un `p-tabMenu` s'appuie sur un composant qui n'est plus la voie recommandée
 - **Écrire du CSS qui cible les classes internes des composants** : il casse à la montée de version, les tokens sont là pour ça
 - **Utiliser les classes `pi pi-*`** : la police n'est plus l'approche de la v22
-- **Ouvrir une issue sur le dépôt GitHub archivé** en attendant une réponse : ce n'est plus le canal de support
+- **Ouvrir une issue sur le dépôt GitHub `primefaces/primeng`** en attendant une réponse : il ne sert plus que la lignée 21.x et n'est plus le canal de support
 
 ---
 

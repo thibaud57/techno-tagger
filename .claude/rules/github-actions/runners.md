@@ -10,7 +10,7 @@ paths:
 - `runs-on: ubuntu-24.04` pour les jobs de qualité, sauf le sidecar : keyring WinVault, cp1252 et `%LOCALAPPDATA%` ne se testent que sous Windows
 - `runs-on: windows-2025` pour PyInstaller et `tauri build` : PyInstaller ne cross-compile pas
 - Installer explicitement chaque toolchain (`pnpm/setup`, `astral-sh/setup-uv`, `dtolnay/rust-toolchain` cadré par `rust-toolchain.toml`) plutôt que prendre celle de l'image
-- Un label d'image figé, jamais `-latest` : un label flottant change d'image sans préavis. Dependabot ne suit pas les images, leur montée est manuelle
+- Un label d'image figé, jamais `-latest` : un label flottant change d'image sans préavis (`ubuntu-latest` bascule vers 26.04 entre le 2026-10-19 et le 2026-11-19). Dependabot ne suit pas les images, leur montée est manuelle
 - Compter sur un runner neuf et éphémère à chaque job : aucun état ne survit d'un job à l'autre
 
 ## À éviter
@@ -21,4 +21,6 @@ paths:
 ## Gotchas
 - La présence de WebView2 sur l'image `windows-2025` n'est pas confirmée (cf. [VERSIONS.md](../../../docs/VERSIONS.md) § GitHub Actions)
 - Clippy déplace des lints d'une catégorie à l'autre entre toolchains : d'où l'épinglage par `rust-toolchain.toml`
-- Limites d'un runner standard : 6 h par job, 2 vCPU, 7 Go de RAM, 14 Go de disque
+- `windows-2025` embarque Visual Studio 2026 depuis juin 2026 : c'est la toolchain MSVC que voient Rust, Tauri et PyInstaller. `windows-2022` reste l'image Visual Studio 2022
+- Node 20 est retiré des runners depuis le 2026-09-23 : une action en `runs.using: node20` échoue, vérifier ce champ avant d'épingler une action
+- Limites d'un runner standard sur dépôt public : 6 h par job, 4 vCPU, 16 Go de RAM (2 vCPU et 8 Go sur dépôt privé)

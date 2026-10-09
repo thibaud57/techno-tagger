@@ -1,8 +1,8 @@
 ---
 title: "Tauri v2 — Coquille desktop et pont vers le sidecar"
-version: "2.12.1"
+version: "2.12.2"
 description: "Référence technique pour Tauri v2 : sidecar, capabilities et permissions, plugins officiels, asset protocol, updater et configuration de fenêtre."
-date: "2026-08-29"
+date: "2026-10-09"
 keywords: ["tauri", "desktop", "sidecar", "capabilities", "permissions", "updater", "asset-protocol"]
 scope: ["docs"]
 technologies: ["Rust", "Angular", "PyInstaller", "Python"]
@@ -14,7 +14,7 @@ Framework desktop qui empaquette une webview système et un binaire Rust. Ici, T
 
 Aucune logique métier ne vit côté Rust : le calcul des scores, la construction des requêtes et l'écriture des tags sont dans le sidecar.
 
-Versions du projet (cf. [VERSIONS.md](../VERSIONS.md)) : crate `tauri` 2.12.1, `tauri-build` 2.7.1, `@tauri-apps/cli` 2.12.1, `@tauri-apps/api` 2.12.1. **Les patchs sont libres, pas la mineure** : `tauri build` refuse un paquet npm et une crate de mineures différentes, `@tauri-apps/api` face à `tauri` comme chaque plugin face au sien. Depuis la 2.12, toutes les crates Tauri exigent Rust 1.90, porté par le `rust-version` de `src-tauri/Cargo.toml`.
+Versions du projet au 2026-10-09 (cf. [VERSIONS.md](../VERSIONS.md)) : crate `tauri` 2.12.2, `tauri-build` 2.7.1, `@tauri-apps/cli` 2.12.1, `@tauri-apps/api` 2.12.1. **Les patchs sont libres, pas la mineure** : `tauri build` refuse un paquet npm et une crate de mineures différentes, `@tauri-apps/api` face à `tauri` comme chaque plugin face au sien. Depuis la 2.12, toutes les crates Tauri exigent Rust 1.90, porté par le `rust-version` de `src-tauri/Cargo.toml`.
 
 ---
 
@@ -92,7 +92,7 @@ child.write(b"{\"type\":\"start_tagging\"}\n")?;
 
 ### Description
 
-Contrairement à Tauri v1 où toutes les commandes IPC étaient accessibles, **v2 exige un octroi explicite** par fichier de capability. Tous les fichiers de `src-tauri/capabilities/` sont actifs par défaut.
+Contrairement à Tauri v1 où toutes les commandes IPC étaient accessibles, **v2 exige un octroi explicite des commandes de plugin** par fichier de capability. Les commandes d'application, elles, restent autorisées tant qu'aucun manifeste d'app (`permissions/*.toml`) ne les déclare. Tous les fichiers de `src-tauri/capabilities/` sont actifs par défaut.
 
 ### Exemple
 
@@ -144,7 +144,7 @@ Huit plugins officiels couvrent les besoins natifs. Chacun a sa crate Rust et so
 | `opener` | Ouverture du dossier de logs, liens vers la fiche source |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante |
 | `updater` | Vérification du manifeste au démarrage, installation signée |
-| `prevent-default` | Plugin tiers : coupe le rechargement et le menu contextuel en release |
+| `prevent-default` | Plugin tiers (6.x, exige `tauri` 2.12) : coupe le rechargement et le menu contextuel en release |
 
 ### Points Importants
 
@@ -215,6 +215,7 @@ L'updater vérifie un manifeste au démarrage, télécharge et installe une mise
     "updater": {
       "pubkey": "<clé publique en clair>",
       "endpoints": ["https://<host>/{{target}}/{{arch}}/{{current_version}}"],
+      "requireSignedVersion": true,
       "windows": { "installMode": "passive" }
     }
   }
@@ -231,7 +232,8 @@ tauri signer generate -w ~/.tauri/techno-tagger.key
 - **La clé privée ne va jamais dans le dépôt** : variable d'environnement au moment du build en CI
 - Le manifeste requiert `version`, `platforms.<target>.url` et `platforms.<target>.signature` ; `notes` et `pub_date` sont optionnels
 - **Sous Windows, l'application se ferme automatiquement avant l'installation** : un run en cours serait interrompu, d'où la vérification au démarrage et non en plein run
-- `installMode: "passive"` évite l'assistant d'installation à chaque mise à jour
+- `installMode: "passive"`, le défaut, évite l'assistant d'installation à chaque mise à jour
+- **`requireSignedVersion: true`** (plugin 2.12) : la réponse de l'endpoint n'est pas signée, ce flag rejette celle dont la version diffère de celle inscrite dans la signature, et ferme ainsi le downgrade vers une ancienne release authentique. `check()` n'accepte plus `allowDowngrades` depuis le webview, le réglage vit dans `plugins.updater`
 
 ---
 
@@ -305,7 +307,8 @@ tauri permission add <identifiant>      # ajout dans une capability
 
 ### Points Importants
 
-- **`tauri signer generate` écrase une clé existante avec `--force`** : une clé perdue rend toutes les installations déjà distribuées non-updatables
+- **`tauri signer generate` n'écrase une clé existante qu'avec `--force`** (garde ajoutée en 2.12) : une clé perdue rend toutes les installations déjà distribuées non-updatables
+- Depuis 2.12, `tauri build` inscrit la version de l'app dans la signature ; une signature manuelle la passe par `tauri signer sign --app-version`
 - `tauri permission ls` évite d'inventer un identifiant de permission, source d'échec silencieux
 
 ---

@@ -1,4 +1,4 @@
-import { Injectable, effect, inject } from "@angular/core"
+import { effect, inject, Service } from "@angular/core"
 import { TranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 
@@ -17,7 +17,7 @@ const PEAK_GAIN = 0.15
  * Aucun fichier audio dans le depot : pas de binaire a relire en diff, pas de
  * licence a suivre. Remplacer le bip par un fichier ne toucherait que ce service.
  */
-@Injectable({ providedIn: "root" })
+@Service()
 export class CompletionSignalService {
   private readonly messages = inject(MessageService)
   private readonly translate = inject(TranslateService)
