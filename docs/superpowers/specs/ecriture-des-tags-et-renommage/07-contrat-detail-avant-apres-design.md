@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "contrat-detail-avant-apres"
 goal: "Transporter jusqu'au store du run, pour chaque morceau, ses tags d'origine et les valeurs que l'écriture laissera dans le fichier, champ par champ"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["01-ecriture-tags-design.md", "02-dump-tags-origine-design.md"]
