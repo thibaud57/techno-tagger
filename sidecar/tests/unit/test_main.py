@@ -4,6 +4,7 @@ sont donc armes avant que la boucle de commandes ne lise quoi que ce soit.
 
 import io
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -174,3 +175,39 @@ def test_the_four_manifests_carry_the_same_version() -> None:
     assert _at("package.json", "version") == __version__
     assert cargo["package"]["version"] == __version__
     assert _at(".release-please-manifest.json", ".") == __version__
+
+
+def _setup_input(action: str, key: str) -> str:
+    """Lit une entree `with:` d'une action composite de `.github/actions/`, seul
+    endroit des workflows ou vit la version d'un outil. Regex faute de lecteur YAML.
+    """
+    text = (REPO / f".github/actions/{action}/action.yml").read_text(encoding="utf-8")
+    values = re.findall(rf"^\s+{key}:\s*[\"']?([^\"'\s#]+)[\"']?\s*(?:#.*)?$", text, re.MULTILINE)
+    assert len(values) == 1, f"{key} attendu une fois dans {action}, trouve {values}"
+    return str(values[0])
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
+def test_the_ci_uv_satisfies_the_uv_build_range() -> None:
+    """Le backend `uv_build` embarque dans uv ne sert que si sa version satisfait
+    `[build-system]` : un plancher monte par Dependabot au-dessus de l'uv de la CI
+    fait retelecharger le backend depuis l'index a chaque build, sans erreur.
+    """
+    manifest = tomllib.loads((REPO / "sidecar/pyproject.toml").read_text(encoding="utf-8"))
+    bounds = re.fullmatch(r"uv_build>=([\d.]+),<([\d.]+)", manifest["build-system"]["requires"][0])
+    ci_uv = _version(_setup_input("setup-uv", "version"))
+
+    assert bounds is not None
+    assert _version(bounds[1]) <= ci_uv < _version(bounds[2])
+
+
+def test_the_ci_node_major_is_declared_in_engines() -> None:
+    """`engines.node` et le `runtime` de `setup-pnpm` montent ensemble au passage LTS :
+    un oubli laisse la CI construire sur une majeure que le projet ne declare pas.
+    """
+    major = _setup_input("setup-pnpm", "runtime").removeprefix("node@")
+
+    assert f"^{major}." in str(_at("package.json", "engines", "node"))
