@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "phase-ecriture-sidecar"
 goal: "Appliquer sur le disque un run confirmé, dump des tags d'origine d'abord puis tags, pochette et renommage morceau par morceau, et rejouer ses seuls échecs d'écriture"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-ecriture-tags-design.md", "02-dump-tags-origine-design.md", "03-renommage-fichiers-design.md"]
