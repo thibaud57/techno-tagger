@@ -3,6 +3,14 @@ import { vi } from "vitest"
 
 import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
 import { resolvedByUrl, urlProgress, urlRecoveryError } from "../../fixtures/url-recovery"
+import {
+  NETWORK_FINISHED,
+  ROLLBACK_RUN,
+  WRITE_FINISHED,
+  commandError,
+  rollbackFinished,
+  writeProgress,
+} from "../../fixtures/write"
 import { SidecarEvent } from "./models/protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
@@ -922,6 +930,267 @@ describe("SidecarService", () => {
       expect(service.urlRecoveryProgress()).toBeNull()
       expect(service.urlRecoveryBusy().size).toBe(0)
       expect(service.urlRecoveryErrors().size).toBe(0)
+    })
+  })
+
+  describe("write phase", () => {
+    const resolvedRun = async (): Promise<void> => {
+      await service.start()
+      await service.startTagging("C:/Sets")
+      transport.emit(RUN_STARTED)
+      transport.emit(TRACK_RESOLVED)
+    }
+    const countOf = (command: string): number =>
+      transport.sent.filter((line) => commandOf(line) === command).length
+
+    it("replays a whole write and asks for the rollback target again", async () => {
+      await resolvedRun()
+
+      await service.commitRun()
+      const writing = service.writing()
+      transport.emit(writeProgress(1, 1))
+      transport.emit({ ...TRACK_RESOLVED, state: "written" })
+      transport.emit(WRITE_FINISHED)
+
+      expect(parseLine(transport.sent.at(-2) ?? "")).toEqual({
+        command: "commit_run",
+        run_id: "a3f9c1",
+      })
+      expect(writing).toBe(true)
+      expect(service.writing()).toBe(false)
+      expect(service.committed()).toBe(true)
+      expect(service.writeProgress()).toEqual({ processed: 1, total: 1 })
+      expect(service.writeFinished()?.written).toBe(1)
+      expect(service.taggingTracks()[0]?.state).toBe("written")
+      expect(commandOf(transport.sent.at(-1) ?? "")).toBe("get_rollback_target")
+    })
+
+    it("lets the run be confirmed again when the dump cannot be written", async () => {
+      await resolvedRun()
+      await service.commitRun()
+
+      transport.emit(commandError("commit_run", "tag_dump_write_failed"))
+
+      expect(service.writing()).toBe(false)
+      expect(service.committed()).toBe(false)
+      expect(service.errorFor("commit_run")()?.code).toBe("tag_dump_write_failed")
+    })
+
+    it("retries the failed writes of the confirmed run", async () => {
+      await resolvedRun()
+      await service.commitRun()
+      transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+
+      await service.retryWrite()
+      const writing = service.writing()
+      transport.emit(WRITE_FINISHED)
+
+      expect(parseLine(transport.sent.at(-2) ?? "")).toEqual({
+        command: "retry_write",
+        run_id: "a3f9c1",
+      })
+      expect(writing).toBe(true)
+      expect(service.writing()).toBe(false)
+      expect(service.committed()).toBe(true)
+    })
+
+    it("keeps writing when a retry is refused because a write is already running", async () => {
+      await resolvedRun()
+      await service.commitRun()
+      transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+      await service.retryWrite()
+
+      transport.emit(commandError("retry_write", "write_in_progress"))
+
+      expect(service.writing()).toBe(true)
+      expect(service.committed()).toBe(true)
+    })
+
+    it("stops writing but keeps the confirmation when a retry is refused", async () => {
+      await resolvedRun()
+      await service.commitRun()
+      transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+      await service.retryWrite()
+
+      transport.emit(commandError("retry_write", "write_not_open"))
+
+      expect(service.writing()).toBe(false)
+      expect(service.committed()).toBe(true)
+    })
+
+    it("sends a single commit for a double click", async () => {
+      await resolvedRun()
+
+      await service.commitRun()
+      await service.commitRun()
+
+      expect(countOf("commit_run")).toBe(1)
+    })
+
+    it("keeps the run confirmed when a second commit follows a finished write", async () => {
+      await resolvedRun()
+      await service.commitRun()
+      transport.emit(writeProgress(1, 1))
+      transport.emit(WRITE_FINISHED)
+
+      await service.commitRun()
+
+      expect(countOf("commit_run")).toBe(1)
+      expect(service.committed()).toBe(true)
+      expect(service.writeProgress()).toEqual({ processed: 1, total: 1 })
+    })
+
+    it("lets the run be confirmed again when the commit is refused during a rollback", async () => {
+      await resolvedRun()
+      await service.commitRun()
+
+      transport.emit(commandError("commit_run", "rollback_in_progress"))
+
+      expect(service.committed()).toBe(false)
+      expect(service.writing()).toBe(false)
+    })
+
+    it("sends nothing and keeps the displayed run when asked for the target without an engine", async () => {
+      await resolvedRun()
+      transport.handlers?.onTerminated()
+      const sent = transport.sent.length
+
+      await service.loadRollbackTarget()
+
+      expect(transport.sent).toHaveLength(sent)
+      expect(service.errorFor("get_rollback_target")()).toBeNull()
+      expect(service.taggingTracks()).toHaveLength(2)
+    })
+
+    it("ignores a launch while files are being written", async () => {
+      await resolvedRun()
+      // `running` est faux : seule la garde de l'ecriture protege le lancement.
+      transport.emit(NETWORK_FINISHED)
+      await service.commitRun()
+
+      await service.startTagging("C:/Other")
+
+      expect(countOf("start_tagging")).toBe(1)
+      expect(service.taggingTracks()).toHaveLength(2)
+      expect(service.writing()).toBe(true)
+    })
+
+    it.each(["write_in_progress", "rollback_in_progress"])(
+      "keeps the displayed run when a launch is refused with %s",
+      async (code) => {
+        await resolvedRun()
+
+        transport.emit(commandError("start_tagging", code))
+
+        expect(service.tagging()).toBe(true)
+        expect(service.taggingTracks()).toHaveLength(2)
+      },
+    )
+
+    it("lets the run be confirmed again when the engine is gone before the commit", async () => {
+      await resolvedRun()
+      transport.handlers?.onTerminated()
+
+      await service.commitRun()
+
+      expect(countOf("commit_run")).toBe(0)
+      expect(service.committed()).toBe(false)
+      expect(service.writing()).toBe(false)
+    })
+
+    it("stops writing when the engine dies", async () => {
+      await resolvedRun()
+      await service.commitRun()
+
+      transport.handlers?.onTerminated()
+
+      expect(service.writing()).toBe(false)
+    })
+
+    it("forgets the write but keeps the target when a new run starts", async () => {
+      await resolvedRun()
+      transport.emit(NETWORK_FINISHED)
+      await service.commitRun()
+      transport.emit(WRITE_FINISHED)
+      transport.emit({ event: "rollback_target", run: ROLLBACK_RUN })
+
+      await service.startTagging("C:/Sets")
+
+      expect(service.committed()).toBe(false)
+      expect(service.writeFinished()).toBeNull()
+      expect(service.rollbackTarget()).toEqual(ROLLBACK_RUN)
+    })
+
+    it("replays a track rollback and asks for the target again", async () => {
+      await resolvedRun()
+      await service.commitRun()
+      transport.emit(WRITE_FINISHED)
+
+      await service.rollback("a3f9c1", "a.mp3")
+      const inFlight = service.rollingBack()
+      transport.emit({ ...TRACK_RESOLVED, state: "rolled_back" })
+      transport.emit(rollbackFinished("a.mp3"))
+
+      expect(parseLine(transport.sent.at(-2) ?? "")).toEqual({
+        command: "rollback",
+        run_id: "a3f9c1",
+        track_id: "a.mp3",
+      })
+      expect(inFlight).toEqual({ runId: "a3f9c1", trackId: "a.mp3" })
+      expect(service.rollingBack()).toBeNull()
+      expect(service.rollbackFinished()?.restored).toEqual(["a.mp3"])
+      expect(service.taggingTracks()[0]?.state).toBe("rolled_back")
+      expect(commandOf(transport.sent.at(-1) ?? "")).toBe("get_rollback_target")
+    })
+
+    it("exposes the rollback target once asked", async () => {
+      await service.start()
+      const unknown = service.rollbackTarget()
+
+      await service.loadRollbackTarget()
+      transport.emit({ event: "rollback_target", run: ROLLBACK_RUN })
+
+      expect(unknown).toBeUndefined()
+      expect(commandOf(transport.sent.at(-1) ?? "")).toBe("get_rollback_target")
+      expect(service.rollbackTarget()).toEqual(ROLLBACK_RUN)
+    })
+
+    it("releases the rollback when it is refused", async () => {
+      await service.start()
+      await service.rollback("000000")
+
+      transport.emit(commandError("rollback", "rollback_unavailable"))
+
+      expect(service.rollingBack()).toBeNull()
+      expect(service.errorFor("rollback")()?.code).toBe("rollback_unavailable")
+    })
+
+    it("keeps the rollback in flight when another one is already running", async () => {
+      await service.start()
+      await service.rollback("a3f9c1")
+
+      transport.emit(commandError("rollback", "rollback_in_progress"))
+
+      expect(service.rollingBack()).toEqual({ runId: "a3f9c1", trackId: null })
+    })
+
+    it("ignores a launch while a rollback runs", async () => {
+      await resolvedRun()
+      await service.rollback("a3f9c1")
+
+      await service.startTagging("C:/Other")
+
+      expect(countOf("start_tagging")).toBe(1)
+      expect(service.taggingTracks()).toHaveLength(2)
+    })
+
+    it("releases the rollback when the engine dies", async () => {
+      await service.start()
+      await service.rollback("a3f9c1")
+
+      transport.handlers?.onTerminated()
+
+      expect(service.rollingBack()).toBeNull()
     })
   })
 })

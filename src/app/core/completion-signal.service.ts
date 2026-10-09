@@ -10,6 +10,20 @@ const NOTES = [880, 1174.66] as const
 const NOTE_SECONDS = 0.12
 const PEAK_GAIN = 0.15
 
+/** Cles ecrites en toutes lettres : une cle construite par concatenation echappe a la recherche. */
+interface EndMessages {
+  readonly done: string
+  readonly withFailures: string
+}
+const WRITE_END: EndMessages = {
+  done: "tagging.writeFinished",
+  withFailures: "tagging.writeFinishedWithFailures",
+}
+const ROLLBACK_END: EndMessages = {
+  done: "tagging.rollbackFinished",
+  withFailures: "tagging.rollbackFinishedWithFailures",
+}
+
 /**
  * Signal de fin d'une phase longue : un son, puis un toast. Partage par la fin de
  * la phase reseau d'un run et par la fin d'une extraction, qui n'en avait aucun.
@@ -40,17 +54,39 @@ export class CompletionSignalService {
         }
       })
     }
+    effect(() => {
+      const written = this.sidecar.writeFinished()
+      if (written !== null) {
+        void this.announceEnd(WRITE_END, written.write_error)
+      }
+    })
+    effect(() => {
+      const restored = this.sidecar.rollbackFinished()
+      if (restored !== null) {
+        void this.announceEnd(ROLLBACK_END, restored.failed.length)
+      }
+    })
   }
 
-  async announce(messageKey: string): Promise<void> {
+  async announce(
+    messageKey: string,
+    params: Record<string, unknown> = {},
+    severity: "success" | "warn" = "success",
+  ): Promise<void> {
     if (await readSoundSignal()) {
       this.beep()
     }
     this.messages.add({
-      severity: "success",
-      summary: this.translate.instant(messageKey) as string,
+      severity,
+      summary: this.translate.instant(messageKey, params) as string,
       life: 4000,
     })
+  }
+
+  private announceEnd(keys: EndMessages, failures: number): Promise<void> {
+    return failures === 0
+      ? this.announce(keys.done)
+      : this.announce(keys.withFailures, { count: failures }, "warn")
   }
 
   /** Un contexte refuse par la webview ne doit jamais empecher le toast. */

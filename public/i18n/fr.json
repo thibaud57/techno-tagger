@@ -21,6 +21,8 @@
       "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut se retrouver corrompu.",
       "tagging": "Un run de tagging est en cours : les résultats de la recherche seront perdus.",
       "arbitration": "Arbitrages en attente : {{count}}. Ils seront perdus.",
+      "write": "L'écriture des fichiers est en cours : attendez qu'elle se termine pour quitter.",
+      "rollback": "Une restauration est en cours : attendez qu'elle se termine pour quitter.",
       "stay": "Rester",
       "leave": "Quitter quand même"
     }
@@ -165,6 +167,10 @@
   "tagging": {
     "title": "Tagging",
     "finished": "Recherche terminée",
+    "writeFinished": "Écriture terminée",
+    "writeFinishedWithFailures": "Écriture terminée. Fichiers en échec : {{count}}",
+    "rollbackFinished": "Restauration terminée",
+    "rollbackFinishedWithFailures": "Restauration terminée. Fichiers non restaurés : {{count}}",
     "start": "Lancer le run",
     "cancel": "Interrompre",
     "phase": "Recherche en cours",

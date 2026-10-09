@@ -21,6 +21,8 @@
       "extraction": "An extraction is in progress: the copy will be cut short and a file may end up corrupted.",
       "tagging": "A tagging run is in progress: the search results will be lost.",
       "arbitration": "Arbitrations awaiting a decision: {{count}}. They will be lost.",
+      "write": "Files are being written: wait for it to finish before quitting.",
+      "rollback": "A restore is in progress: wait for it to finish before quitting.",
       "stay": "Stay",
       "leave": "Quit anyway"
     }
@@ -165,6 +167,10 @@
   "tagging": {
     "title": "Tagging",
     "finished": "Search complete",
+    "writeFinished": "Writing complete",
+    "writeFinishedWithFailures": "Writing complete. Failed files: {{count}}",
+    "rollbackFinished": "Restore complete",
+    "rollbackFinishedWithFailures": "Restore complete. Files not restored: {{count}}",
     "start": "Start the run",
     "cancel": "Stop the run",
     "phase": "Searching",

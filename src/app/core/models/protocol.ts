@@ -340,7 +340,7 @@ export interface RollbackRun {
   readonly tracks: number
 }
 
-/** `run` nul : rien a annuler. Hors `SidecarEvent` jusqu'a son routage (sub-project 08). */
+/** `run` nul : rien a annuler, le bouton des Reglages se grise. */
 export interface RollbackTargetEvent {
   readonly event: "rollback_target"
   readonly run: RollbackRun | null
@@ -352,7 +352,6 @@ export interface RollbackFailure {
   readonly reason: TrackFailureReason
 }
 
-/** Hors `SidecarEvent` jusqu'a son routage, comme `RollbackTargetEvent`. */
 export interface RollbackFinishedEvent {
   readonly event: "rollback_finished"
   readonly run_id: string
@@ -385,4 +384,6 @@ export type SidecarEvent =
   | ArbitrationRequiredEvent
   | ArbitrationUpdatedEvent
   | RunFinishedEvent
+  | RollbackTargetEvent
+  | RollbackFinishedEvent
   | SidecarErrorEvent

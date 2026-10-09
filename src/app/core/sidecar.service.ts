@@ -17,6 +17,7 @@ import {
 import { SIDECAR_TRANSPORT } from "./sidecar-transport"
 import { TaggingRunStore } from "./tagging-run.store"
 import { UrlRecoveryStore } from "./url-recovery.store"
+import { WriteStore } from "./write.store"
 
 // Table indexee par le discriminant : oublier un evenement du contrat devient
 // une erreur de compilation ici, jamais une ligne silencieusement ignoree.
@@ -30,6 +31,8 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   arbitration_required: true,
   arbitration_updated: true,
   run_finished: true,
+  rollback_target: true,
+  rollback_finished: true,
   error: true,
 }
 
@@ -39,6 +42,14 @@ export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
 /** Refus d'une seconde commande : la phase en cours continue, l'arret les epargne. */
 const TAGGING_IN_PROGRESS = "tagging_in_progress"
 const EXTRACTION_IN_PROGRESS = "extraction_in_progress"
+const WRITE_IN_PROGRESS = "write_in_progress"
+const ROLLBACK_IN_PROGRESS = "rollback_in_progress"
+/** Refus d'un lancement qui dit que les fichiers sont pris : le run affiche continue. */
+const LAUNCH_REFUSED_WHILE_BUSY: ReadonlySet<string> = new Set([
+  TAGGING_IN_PROGRESS,
+  WRITE_IN_PROGRESS,
+  ROLLBACK_IN_PROGRESS,
+])
 
 type ArbitrationCommand = ResolveArbitrationCommand | SwitchArbitrationSourceCommand
 
@@ -66,6 +77,7 @@ export class SidecarService {
   private readonly taggingRun = inject(TaggingRunStore)
   private readonly arbitration = inject(ArbitrationStore)
   private readonly urlRecovery = inject(UrlRecoveryStore)
+  private readonly writePhase = inject(WriteStore)
 
   /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
   private readonly _available = signal<boolean | null>(null)
@@ -132,6 +144,13 @@ export class SidecarService {
   readonly urlRecoveryProgress = this.urlRecovery.progress
   readonly urlRecoveryBusy = this.urlRecovery.busy
   readonly urlRecoveryErrors = this.urlRecovery.errors
+  readonly committed = this.writePhase.committed
+  readonly writing = this.writePhase.writing
+  readonly writeProgress = this.writePhase.progress
+  readonly writeFinished = this.writePhase.finished
+  readonly rollingBack = this.writePhase.rollingBack
+  readonly rollbackFinished = this.writePhase.rollbackFinished
+  readonly rollbackTarget = this.writePhase.rollbackTarget
   /**
    * Lignes a afficher dans la phase : non resolues, ou deja rattrapees pour corriger un
    * mauvais lien. Filtre d'affichage sur des etats recus ; le sidecar reste seul juge de
@@ -221,12 +240,13 @@ export class SidecarService {
     await this.send({ command: "extract_playlist", ...request })
   }
 
-  /** Sans ce garde, `reset()` viderait la liste d'un run en cours (releve le 2026-09-24). */
+  /** Sans ce garde, `reset()` viderait la liste d'un run en cours ou en ecriture. */
   async startTagging(folder: string, thresholds?: ThresholdsPayload): Promise<void> {
-    if (this.taggingRun.running()) {
+    if (this.taggingRun.running() || this.filesBusy()) {
       return
     }
     this.taggingRun.reset()
+    this.writePhase.reset()
     // Le sidecar jette les arbitrages de l'ancien run a la reception de la commande.
     this.arbitration.clear()
     this.urlRecovery.clear()
@@ -286,6 +306,46 @@ export class SidecarService {
     await this.send({ command: "resolve_by_url", track_id: trackId, url })
   }
 
+  /** Point de non-retour : un second clic ne repart pas. */
+  async commitRun(): Promise<void> {
+    const runId = this.taggingRun.runId()
+    if (runId === null || this.writePhase.committed() || this.filesBusy()) {
+      return
+    }
+    this.writePhase.committing()
+    await this.send({ command: "commit_run", run_id: runId })
+    // Commande non partie : aucun evenement ne relachera la confirmation (`endRun` ne baisse que `writing`).
+    if (!this._available()) {
+      this.writePhase.commitFailed()
+    }
+  }
+
+  async retryWrite(): Promise<void> {
+    const runId = this.taggingRun.runId()
+    if (runId === null || this.filesBusy()) {
+      return
+    }
+    this.writePhase.retrying()
+    await this.send({ command: "retry_write", run_id: runId })
+  }
+
+  /** `trackId` nul : le run entier, y compris un run d'une session precedente. */
+  async rollback(runId: string, trackId: string | null = null): Promise<void> {
+    if (this.filesBusy()) {
+      return
+    }
+    this.writePhase.rollbackSent({ runId, trackId })
+    await this.send({ command: "rollback", run_id: runId, track_id: trackId })
+  }
+
+  async loadRollbackTarget(): Promise<void> {
+    // Lecture seule : sans moteur lance, pas de `reportUnavailable`, qui arreterait le run.
+    if (this._available() !== true) {
+      return
+    }
+    await this.send({ command: "get_rollback_target" })
+  }
+
   /**
    * `Process.kill()` ne ciblerait que le bootloader d'un binaire PyInstaller et
    * laisserait le process Python vivant : l'arret passe par le protocole.
@@ -331,6 +391,33 @@ export class SidecarService {
     await this.send(command)
   }
 
+  /** Une seule operation sur les fichiers a la fois, comme le sidecar l'impose. */
+  private filesBusy(): boolean {
+    return this.writePhase.writing() || this.writePhase.rollingBack() !== null
+  }
+
+  private routeWriteError(event: SidecarErrorEvent): void {
+    switch (event.command) {
+      case "commit_run":
+        if (event.code !== WRITE_IN_PROGRESS) {
+          this.writePhase.commitFailed()
+        }
+        break
+      case "retry_write":
+        if (event.code !== WRITE_IN_PROGRESS) {
+          this.writePhase.retryFailed()
+        }
+        break
+      case "rollback":
+        if (event.code !== ROLLBACK_IN_PROGRESS) {
+          this.writePhase.rollbackFailed()
+        }
+        break
+      default:
+        break
+    }
+  }
+
   private routeArbitrationError(event: SidecarErrorEvent): void {
     const trackId = event.params["track_id"]
     if (
@@ -363,10 +450,11 @@ export class SidecarService {
     this._lastErrorCommand.set(error?.command ?? null)
   }
 
-  /** Le process est perdu : les deux phases longues s'arretent, quelle qu'en soit la cause. */
+  /** Le process est perdu : toute phase longue s'arrete, quelle qu'en soit la cause. */
   private endRun(): void {
     this.endExtraction()
     this.taggingRun.failed()
+    this.writePhase.failed()
     this.arbitration.clear()
     this.urlRecovery.clear()
   }
@@ -433,11 +521,22 @@ export class SidecarService {
         this.arbitration.updated(event)
         break
       case "run_finished":
-        // Le service route par phase, comme pour `progress` : la Feature 5 branchera
-        // l'ecriture sur son propre store sans toucher a celui du run.
+        // Le service route par phase, comme pour `progress` : l'ecriture a son propre store.
         if (event.phase === "network") {
           this.taggingRun.completed(event)
+        } else {
+          this.writePhase.completed(event)
+          // Un dump vient d'etre cree : le dernier run annulable a change.
+          void this.loadRollbackTarget()
         }
+        break
+      case "rollback_target":
+        this.writePhase.targetFound(event.run)
+        break
+      case "rollback_finished":
+        this.writePhase.rolledBack(event)
+        // Un dump vient d'etre consomme : la cible passe au run precedent.
+        void this.loadRollbackTarget()
         break
       case "error":
         this.setLastError(event)
@@ -446,11 +545,12 @@ export class SidecarService {
         if (event.command === "extract_playlist" && event.code !== EXTRACTION_IN_PROGRESS) {
           this.endExtraction()
         }
-        if (event.command === "start_tagging" && event.code !== TAGGING_IN_PROGRESS) {
+        if (event.command === "start_tagging" && !LAUNCH_REFUSED_WHILE_BUSY.has(event.code)) {
           this.taggingRun.failed()
         }
         this.routeArbitrationError(event)
         this.routeUrlRecoveryError(event)
+        this.routeWriteError(event)
         break
       default: {
         // Ajouter un evenement cote sidecar sans le traiter ici devient une
@@ -477,7 +577,7 @@ export class SidecarService {
         this.urlRecovery.advanced(event.processed, event.total)
         break
       case "write":
-        // Feature 5 : son store lira cette phase, rien a suivre ici pour l'instant.
+        this.writePhase.advanced(event.processed, event.total)
         break
       default: {
         const exhaustive: never = event.phase
