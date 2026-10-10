@@ -23,10 +23,10 @@ Exclut le service et le store Angular (sub-project 08), les boutons et confirmat
 
 ## Dependencies
 
-- `02-dump-tags-origine-design.md` (statut: draft) : `TagDump`, `DumpEntry` et son `renamed_path`, `load_dump`, `dump_dir`, `dump_path`, `restore_tags` et `TagDumpUnreadableError`
-- `03-renommage-fichiers-design.md` (statut: draft) : `RenameError`, `extended_path`, `_taken_by_another_file` (casse seule)
-- `04-phase-ecriture-sidecar-design.md` (statut: draft) : `TrackState` et `FailureReason` étendus par l'écriture, `TrackRecord`, `RunWriter.retry` qui ne vise que `write_error`
-- `05-protocole-ndjson-ecriture-design.md` (statut: draft) : créneau d'écriture de la session, `CurrentRun`, `WriteInProgressError`, attente par `shutdown`, traduction `PipelineEvent`
+- `02-dump-tags-origine-design.md` (statut: implemented) : `TagDump`, `DumpEntry` et son `renamed_path`, `load_dump`, `dump_dir`, `dump_path`, `restore_tags` et `TagDumpUnreadableError`
+- `03-renommage-fichiers-design.md` (statut: implemented) : `RenameError`, `extended_path`, `_taken_by_another_file` (casse seule)
+- `04-phase-ecriture-sidecar-design.md` (statut: implemented) : `TrackState` et `FailureReason` étendus par l'écriture, `TrackRecord`, `RunWriter.retry` qui ne vise que `write_error`
+- `05-protocole-ndjson-ecriture-design.md` (statut: implemented) : créneau d'écriture de la session, `CurrentRun`, `WriteInProgressError`, attente par `shutdown`, traduction `PipelineEvent`
 
 ## Files touched
 
@@ -44,7 +44,7 @@ Exclut le service et le store Angular (sub-project 08), les boutons et confirmat
 - **À modifier** : `sidecar/tests/unit/test_writing.py` (relance après un rollback du run affiché)
 - **À créer** : `sidecar/tests/integration/test_ndjson_rollback.py` (conversations de rollback et refus)
 - **À modifier** : `sidecar/tests/integration/test_ndjson_phases.py` (refus mutuel de l'extraction et du rollback)
-- **À modifier** : `src/app/core/models/protocol.ts` (`GetRollbackTargetCommand`, `RollbackCommand` dans `SidecarCommand`, `RollbackTargetEvent`, `RollbackFinishedEvent` déclarés hors `SidecarEvent`, `TrackState`, `TrackFailureReason`)
+- **À modifier** : `src/app/core/models/protocol.ts` (`GetRollbackTargetCommand`, `RollbackCommand` dans `SidecarCommand`, `RollbackTargetEvent`, `RollbackFinishedEvent`, `TrackState`, `TrackFailureReason`)
 - **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`errors.rollback_unavailable`, `errors.rollback_in_progress`, `errors.original_name_taken`, `tagging.reason.name_taken`)
 - **À modifier** : `docs/ARCHITECTURE.md` (§ API : `get_rollback_target`, `rollback`, `rollback_target`, `rollback_finished`, `shutdown`, refus, chaînage des runs annulables ; état `rolled_back` dans la table des états, le diagramme et les filtres du récapitulatif ; motif `name_taken` ; § Concurrence ; § Données ; arborescence ; ordre de développement)
 - **À modifier** : `docs/DESIGN.md` (filtres du récapitulatif lus sur `state`, un morceau `rolled_back` hors des trois filtres, alignés sur ARCHITECTURE.md)
@@ -66,7 +66,7 @@ Exclut le service et le store Angular (sub-project 08), les boutons et confirmat
 - **Créneau unique pour les fichiers** : `_Session._rollback` à côté de `_write`. Un rollback est refusé en `tagging_in_progress` pendant la phase réseau, en `write_in_progress` pendant l'écriture, en `extraction_in_progress` pendant une extraction, en `rollback_in_progress` pendant un autre rollback. `commit_run`, `retry_write`, `start_tagging` et `extract_playlist` sont refusés en `rollback_in_progress` pendant un rollback. Choix du propriétaire : extraction et rollback se refusent mutuellement, les deux touchent aux fichiers de l'utilisateur. `cancel_run` ne le coupe pas, `shutdown` et l'EOF l'attendent (fichier coupé en plein renommage)
 - **Erreurs** : `RollbackUnavailableError` (`rollback_unavailable`, `params.run_id` et `params.track_id` le cas échéant) dans `rollback.py` ; `RollbackInProgressError` dans `__main__.py` à côté de `WriteInProgressError` ; `TagDumpUnreadableError` (existante) sur un dump visé illisible (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`)
 - **Logs** sans nom de fichier ni titre : run et motifs seulement, clés du jeu fixe (CLAUDE.md, rien de personnel ; `.claude/rules/python/gestion-erreurs.md`)
-- **Miroir TypeScript** manuel (ADR-005, `.claude/rules/typescript/types.md`) : les deux commandes rejoignent `SidecarCommand`, `TrackState` gagne `rolled_back`, `TrackFailureReason` gagne `name_taken`. Les deux événements sont déclarés mais ne rejoignent `SidecarEvent` qu'au sub-project 08 avec leur routage : le `switch` exhaustif de `sidecar.service.ts` refuserait un événement non routé ; l'interface n'émet aucune des deux commandes avant. Le comportement de l'interface reste aux sub-projects 08 et 11
+- **Miroir TypeScript** manuel (ADR-005, `.claude/rules/typescript/types.md`) : les deux commandes rejoignent `SidecarCommand`, `TrackState` gagne `rolled_back`, `TrackFailureReason` gagne `name_taken`. Les deux événements rejoignent `SidecarEvent` avec leur routage au sub-project 08 : le `switch` exhaustif de `sidecar.service.ts` refuserait un événement non routé. Le comportement de l'interface reste aux sub-projects 08 et 11
 - Autres rules : `.claude/rules/python/fichiers-io.md`, `.claude/rules/python/pattern-matching.md`, `.claude/rules/python/modeles-donnees.md`, `.claude/rules/pytest/tests.md`, `.claude/rules/mutagen/tags.md`
 
 ## Acceptance criteria

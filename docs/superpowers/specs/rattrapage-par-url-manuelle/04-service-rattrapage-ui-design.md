@@ -23,7 +23,7 @@ Exclut tout composant et tout libellé (sub-project 05), la garde de fermeture (
 
 ## Dependencies
 
-- `03-protocole-ndjson-rattrapage-design.md` (statut: draft) : commande `resolve_by_url`, `progress` de phase `url_recovery` à l'ouverture et après chaque geste, erreurs portant `command` et `params.track_id`, miroir `ResolveByUrlCommand` dans `protocol.ts`.
+- `03-protocole-ndjson-rattrapage-design.md` (statut: implemented) : commande `resolve_by_url`, `progress` de phase `url_recovery` à l'ouverture et après chaque geste, erreurs portant `command` et `params.track_id`, miroir `ResolveByUrlCommand` dans `protocol.ts`.
 
 ## Files touched
 
@@ -41,14 +41,14 @@ Exclut tout composant et tout libellé (sub-project 05), la garde de fermeture (
   - la progression `{ processed, total }`, `null` tant que la phase n'est pas ouverte ;
   - l'ensemble des `track_id` dont un geste attend sa réponse ;
   - la dernière erreur par `track_id`, l'événement `error` entier : l'écran traduit son `code` avec ses `params` (`{{source}}` de `source_unavailable` et `track_not_found`).
-- **Lecture** : `progress`, `open` (vrai dès la première progression reçue), `busy` (ensemble des morceaux en attente), `errors` (dernière erreur par morceau), et `isBusy(trackId)` pour la garde du geste. L'écran lit les deux collections dans un `computed()`, jamais par un appel de méthode dans le template (`.claude/rules/angular/change-detection.md`).
+- **Lecture** : `progress` (non nul dès la première progression reçue, ce qui ouvre la phase), `busy` (ensemble des morceaux en attente), `errors` (dernière erreur par morceau), et `isBusy(trackId)` pour la garde du geste. L'écran lit les deux collections dans un `computed()`, jamais par un appel de méthode dans le template (`.claude/rules/angular/change-detection.md`).
 - **Mutations** : `advanced(processed, total)` ; `sent(trackId)` pose l'attente et efface l'erreur précédente du morceau ; `resolved(trackId)` lève l'attente et l'erreur ; `rejected(trackId, error)` lève l'attente et garde l'erreur ; `clear()` vide tout.
 - **Ouverture lue, pas déduite** : la phase est ouverte quand le sidecar a émis sa première progression `url_recovery` (sub-project 03 : après `run_finished(network)` ou un `cancel_run` qui a interrompu la phase réseau). L'interface ne recalcule ni l'ouverture ni le décompte.
 - **`SidecarService`** :
   - **geste** `resolveByUrl(trackId, url)` : ignoré si le morceau attend déjà une réponse, ou si l'URL est vide, sans quoi le sidecar rendrait un `malformed_command` sans `track_id` et l'attente ne se lèverait jamais. Sinon pose l'attente et envoie la commande ;
-  - **lecture déléguée** : `urlRecoveryOpen`, `urlRecoveryProgress`, `urlRecoveryBusy`, `urlRecoveryErrors` ;
+  - **lecture déléguée** : `urlRecoveryProgress`, `urlRecoveryBusy`, `urlRecoveryErrors` ;
   - **`recoverableTracks`** : les lignes de `TaggingRunStore.tracks` en `unresolved` ou en `resolved · url`, dans l'ordre du run. Filtre d'affichage sur des états reçus, comme les familles « en attente » et « à arbitrer » que l'interface dérive déjà (DESIGN.md § Palette de Couleurs > Couleurs Sémantiques) : le sidecar reste seul juge de l'éligibilité et refuse tout autre morceau en `url_recovery_not_eligible` ;
-  - **routage** : `progress` de phase `url_recovery` vers `advanced`, le cas groupé de `routeProgress` étant séparé de `write` (Feature 5) ; `track_resolved` aussi vers `urlRecovery.resolved`, à côté du run et de l'arbitrage ; une `error` dont `command` vaut `resolve_by_url` et dont `params.track_id` est une chaîne vers `rejected`, en restant dans `lastError` pour `errorFor(...)` ;
+  - **routage** : `progress` de phase `url_recovery` vers `advanced` ; `track_resolved` aussi vers `urlRecovery.resolved`, à côté du run et de l'arbitrage ; une `error` dont `command` vaut `resolve_by_url` et dont `params.track_id` est une chaîne vers `rejected`, en restant dans `lastError` pour `errorFor(...)` ;
   - **cycle de vie** : la phase se vide à `startTagging`, avec `reset()` du run et `clear()` de l'arbitrage, et à la mort du process (`endRun`). Elle ne se vide pas à `cancelTagging` : l'interruption ouvre au contraire la phase, sa progression arrive juste après.
 - **Erreur sans `track_id`** (`sidecar_unavailable` posé par `send`) : non routée vers le store, `endRun` vide déjà tout.
 - **Fixtures** : `src/fixtures/url-recovery.ts`, fabriques paramétrées sur le patron d'`arbitrationRequired` (`src/fixtures/tagging.ts`).
@@ -60,7 +60,7 @@ Exclut tout composant et tout libellé (sub-project 05), la garde de fermeture (
 ### Scénario 1 : Ouverture de la phase
 **GIVEN** un run commencé, phase réseau en cours
 **WHEN** le sidecar émet `progress` de phase `url_recovery`, `processed` 0, `total` 2
-**THEN** `urlRecoveryOpen` passe à vrai et `urlRecoveryProgress` vaut 0 sur 2
+**THEN** `urlRecoveryProgress`, nul jusque-là, vaut 0 sur 2
 **AND** la progression du run de tagging est inchangée
 
 ### Scénario 2 : Geste envoyé une seule fois
@@ -106,6 +106,7 @@ Exclut tout composant et tout libellé (sub-project 05), la garde de fermeture (
   - routes the url recovery progress to its phase only
   - releases a gesture on its resolution
   - attaches a url recovery error to its track
+  - keeps a url error without track out of the phase
   - lists the unresolved tracks and those resolved by url
   - closes the phase when a new run starts or the process ends
 
@@ -123,14 +124,14 @@ Aucun test ne vérifie Angular, les signals ni Vitest : chacun échoue contre un
 ### Décision : Garde de fermeture pendant un geste de rattrapage
 
 **Options envisagées :**
-- **A. Ne pas compter le geste en vol** : la garde de fermeture reste sur l'extraction, le run et la file d'arbitrage.
+- **A. Ne pas compter le geste en vol** : la garde de fermeture reste sur l'extraction, le run, la file d'arbitrage, l'écriture, la restauration et le run non écrit (`CloseGuard.pendingWork`).
 - **B. Compter les gestes en vol** comme travail en cours : une confirmation de plus pour un appel de quelques secondes.
 
 **Choix : A**
 
 **Rationale :**
-- Validé par le propriétaire le 2026-10-03. Un geste dure le temps d'un appel à l'API, et fermer perd de toute façon tout le run, tenu en mémoire jusqu'à la Feature 6.
-- Un morceau rattrapé mais non écrit relève de la confirmation d'écriture (Feature 5) et du plan de run (Feature 6), comme un morceau résolu automatiquement.
+- Validé par le propriétaire le 2026-10-03. Un geste dure le temps d'un appel à l'API, et fermer perd de toute façon tout le run non écrit, tenu en mémoire jusqu'à la Feature 6.
+- Un morceau rattrapé mais non écrit relève de la garde « run non écrit » de `CloseGuard` (Feature 5) et du plan de run (Feature 6), comme un morceau résolu automatiquement.
 
 ### Décision : Ouverture de la phase côté interface
 

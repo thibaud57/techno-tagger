@@ -8,7 +8,7 @@
 
 **Tech Stack:** Angular 22 (standalone, signals, contrôle de flux `@if`/`@for`), PrimeNG 22 (`p-inputgroup`, `pInputText`, `pButton`), Tailwind 4, ngx-translate 18, Vitest. Aucune dépendance nouvelle.
 
-**Spec:** `docs/superpowers/specs/rattrapage-par-url-manuelle/05-bloc-rattrapage-url-design.md`
+**Spec:** `docs/superpowers/specs/rattrapage-par-url-manuelle/05-modale-rattrapage-url-design.md`
 
 ## Global Constraints
 

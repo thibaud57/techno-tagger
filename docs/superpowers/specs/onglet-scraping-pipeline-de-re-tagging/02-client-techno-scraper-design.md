@@ -13,9 +13,9 @@ date: "2026-09-19"
 
 ## Scope
 
-Couvre le seul module du sidecar qui connaît l'API techno-scraper : son URL de base, figée en constante, les recherches de morceaux sur Beatport et Bandcamp (première page seulement), le refetch complet du candidat retenu (Beatport par id, Bandcamp par URL), le header `X-API-Key`, le timeout client de 100 s, les bornes de concurrence 3 et 2 d'ADR-017, la nouvelle tentative sur erreur réseau et la traduction de chaque réponse en modèle interne ou en erreur typée qui porte l'`X-Request-ID`. Couvre aussi la mise à jour de la fiche `knowledges/techno-scraper.md`, en retard sur le contrat réel, et l'ajout de la clé `request_id` au jeu de clés logfmt.
+Couvre le seul module du sidecar qui connaît l'API techno-scraper : son URL de base, figée en constante, les recherches de morceaux sur Beatport et Bandcamp (première page de dix résultats seulement), le refetch complet du candidat retenu (Beatport par id, Bandcamp par URL), le header `X-API-Key`, le timeout client de 100 s, les bornes de concurrence 3 et 2 d'ADR-017, la nouvelle tentative sur erreur réseau et la traduction de chaque réponse en modèle interne ou en erreur typée qui porte l'`X-Request-ID`. Couvre aussi la mise à jour de la fiche `knowledges/techno-scraper.md`, en retard sur le contrat réel, et l'ajout de la clé `request_id` au jeu de clés logfmt.
 
-Exclut le cache des réponses et le téléchargement des pochettes (sub-project 04), la lecture de la clé dans le trousseau (sub-project 05), l'arrêt du run après trois 403 et le log des échecs avec `run` et `track` (sub-project 06), la résolution d'une URL collée par l'utilisateur et SoundCloud (Feature 4).
+Exclut le cache des réponses et le téléchargement des pochettes (sub-project 04), la lecture de la clé dans le trousseau (sub-project 05), l'arrêt du run après trois 403 et le log des échecs avec `run` et `track` (sub-project 06), la résolution d'une URL collée par l'utilisateur et SoundCloud (epic `rattrapage-par-url-manuelle`).
 
 ### État livré
 
@@ -47,11 +47,12 @@ Aucune : ce sub-project est autoporté.
 - **`Source` en `StrEnum`** (`beatport`, `bandcamp`, `soundcloud`), partagé avec le champ `source` des réponses (`.claude/rules/python/modeles-donnees.md`). La recherche n'accepte que Beatport et Bandcamp, par un `Literal` sur le type (`.claude/rules/python/type-hints.md`).
 - **Surface publique** du client `TechnoScraperClient`, context manager asynchrone :
   - `search(source, query)` rend un tuple de candidats de la première page, vide quand la source ne connaît pas le morceau (`.claude/rules/techno-scraper/contrat.md` : `200` + `items: []` n'est pas une erreur). Pas de pagination : un morceau au-delà de la première page n'est pas un candidat plausible (`knowledges/techno-scraper.md` § Pagination).
-  - `fetch_beatport_track(track_id)` et `fetch_bandcamp_track(url)` rechargent le candidat retenu, les objets de recherche étant abrégés (la recherche Bandcamp ne rend ni date, ni label, ni ISRC, ni numéro de piste). `fetch_bandcamp_track` resservira au rattrapage par URL de la Feature 4. **Précision 2026-10-02** : côté Beatport, seul `track_number` manque en recherche, la 4.0.0 passant `/beatport/search` par le mapper du détail.
+  - `fetch_beatport_track(track_id)` et `fetch_bandcamp_track(url)` rechargent le candidat retenu, les objets de recherche étant abrégés (la recherche Bandcamp ne rend ni date, ni label, ni ISRC, ni numéro de piste). `fetch_bandcamp_track` sert aussi au rattrapage par URL. **Précision 2026-10-02** : côté Beatport, seul `track_number` manque en recherche, la 4.0.0 passant `/beatport/search` par le mapper du détail.
+- **Taille de page fixée à 10** (`SEARCH_PAGE_SIZE`, paramètre `limit`, valeur de l'énumération fermée de l'API) : le scoring ne retient que les premiers rangs, mesure et décision au sub-project 06. Le curseur n'étant jamais relu, `limit` ne change pas d'un appel à l'autre.
 - **Requête tronquée à 200 caractères** : `q` est borné à cette longueur par l'API, qui rend `422` au-delà. La contrainte appartient à l'API, donc au client, pas à la construction de la requête.
 - **Un `AsyncClient` httpx2 par instance**, qui porte `X-API-Key`, avec `Timeout(connect=10, read=100, write=10, pool=10)` : `read` reste au-dessus du budget de 90 s de l'API, pour recevoir son 504 structuré plutôt qu'un timeout local aveugle (`.claude/rules/httpx2/client.md`, ADR-017). Le transport est injectable au constructeur, ce qui rend `MockTransport` utilisable sans monkeypatch. Le client est fermé en sortie du context manager. Sa durée de vie dans le sidecar est décidée par le pipeline (sub-project 06).
-- **Un `asyncio.Semaphore` par source**, 3 pour Beatport et 2 pour Bandcamp, miroir des bornes de l'API (ADR-017, `.claude/rules/python/asyncio.md`). Le refetch passe par le sémaphore de sa source. `Limits` n'est pas utilisé comme borne, il ne compte que des connexions. Le sémaphore est relâché pendant l'attente entre deux tentatives.
-- **Toutes les requêtes passent par une méthode privée unique**, qui acquiert le sémaphore, émet la requête, retente et traduit. C'est le point où le sub-project 04 branchera le cache des réponses.
+- **Un `asyncio.Semaphore` par source**, 3 pour Beatport et 2 pour Bandcamp, miroir des bornes de l'API (ADR-017, `.claude/rules/python/asyncio.md`) ; le rattrapage par URL y ajoute SoundCloud. Le refetch passe par le sémaphore de sa source. `Limits` n'est pas utilisé comme borne, il ne compte que des connexions. Le sémaphore est relâché pendant l'attente entre deux tentatives.
+- **Toute requête passe par `_get`**, point de passage unique qui valide le corps et lit ou écrit le cache des réponses (sub-project 04), avant le sémaphore. Il délègue à `_request` le sémaphore, l'émission, la nouvelle tentative et la traduction.
 - **Traduction des réponses** (`.claude/rules/techno-scraper/contrat.md`, ARCHITECTURE.md § Robustesse) :
 
   | Réponse | Erreur | Nouvelle tentative |
@@ -73,7 +74,7 @@ Aucune : ce sub-project est autoporté.
 ### Scénario 1 : Recherche Beatport avec résultats
 **GIVEN** une API qui rend deux morceaux pour une recherche Beatport
 **WHEN** le client cherche « Adam Beyer Your Mind » sur Beatport
-**THEN** la requête part sur `/beatport/search` avec `q` et `type=tracks`, et porte l'en-tête `X-API-Key`
+**THEN** la requête part sur `/beatport/search` avec `q`, `type=tracks` et `limit`, et porte l'en-tête `X-API-Key`
 **AND** le client rend deux `TrackCandidate` portant titre, `mix_name`, artistes, remixeurs, sortie, label et source
 
 ### Scénario 2 : Rien trouvé
@@ -123,7 +124,7 @@ Aucune : ce sub-project est autoporté.
 
 ### Unit
 - `sidecar/tests/unit/test_scraper_client_requests.py` :
-  - sends a beatport search to the search route with the query and the tracks type
+  - sends a search to its source route with the query, the type and the page size
   - sends the api key header on every request
   - maps each item to a track candidate with its release, label and credits
   - ignores fields the candidate model does not declare
@@ -143,6 +144,7 @@ Aucune : ce sub-project est autoporté.
 - `sidecar/tests/unit/test_scraper_client_concurrency.py` :
   - never keeps more than three beatport requests in flight
   - never keeps more than two bandcamp requests in flight
+  - frees its slot while a retrying request waits
 
 Aucun test ne vérifie httpx2 ni pydantic eux-mêmes : chacun échoue contre une régression de notre route, de notre mapping, de notre table de traduction, de notre politique de nouvelle tentative ou de nos bornes.
 
@@ -191,4 +193,4 @@ Aucun test ne vérifie httpx2 ni pydantic eux-mêmes : chacun échoue contre une
 
 **Rationale :**
 - Décision du propriétaire le 2026-09-19, dans la logique d'ADR-011 : écrire tout ce que la source expose.
-- La route est la même que celle du rattrapage par URL de la Feature 4, déjà prévue au contrat.
+- La route est la même que celle du rattrapage par URL (epic `rattrapage-par-url-manuelle`).

@@ -23,7 +23,7 @@ Exclut le moment du renommage dans l'enchaînement de l'écriture et le sort d'u
 
 ## Dependencies
 
-- `01-ecriture-tags-design.md` (statut: draft) : `file_failures.FileFailureReason` et `file_failure_reason`, sortis d'`extraction.py` par sa première tâche.
+- `01-ecriture-tags-design.md` (statut: implemented) : `file_failures.FileFailureReason` et `file_failure_reason`, sortis d'`extraction.py` par sa première tâche.
 
 ## Files touched
 
@@ -37,19 +37,19 @@ Exclut le moment du renommage dans l'enchaînement de l'écriture et le sort d'u
 
 ## Architecture approach
 
-- **Calcul pur** `track_file_name(artist, title, suffix, room, copy=1) -> TrackFileName(name, truncated)`, testable sans disque ; `copy` au-delà de 1 ajoute ` (copy)` avant l'extension, pour une collision. Remplacements lisibles appliqués à l'artiste et au titre séparément : `/`, `\` et `|` deviennent `-`, `": "` devient `" - "` et un `:` isolé `-`, `"` devient `'`, `?`, `*`, `<`, `>` et les caractères de contrôle disparaissent, les espaces multiples se réduisent à un seul. Le nom est `Artiste - Titre`, débarrassé des points et espaces finaux, suivi de l'extension en minuscules (`.aif` reste `.aif`). Expressions compilées une fois (`.claude/rules/python/stdlib-donnees.md`)
+- **Calcul pur** `track_file_name(artist, title, suffix, room, copy=1) -> TrackFileName(name, truncated) | None`, testable sans disque, `None` quand l'artiste ou le titre est vide après nettoyage ; `copy` au-delà de 1 ajoute ` (copy)` avant l'extension, pour une collision. Remplacements lisibles appliqués à l'artiste et au titre séparément : `/`, `\` et `|` deviennent `-`, `": "` devient `" - "` et un `:` isolé `-`, `"` devient `'`, `?`, `*`, `<`, `>` et les caractères de contrôle disparaissent, les espaces multiples se réduisent à un seul. Le nom est `Artiste - Titre`, le titre débarrassé de ses points et espaces finaux (Windows les retire en silence), suivi de l'extension en minuscules (`.aif` reste `.aif`). Les longueurs se comptent en unités UTF-16, celles de NTFS et de `MAX_PATH` : un emoji en vaut deux. Expressions compilées une fois (`.claude/rules/python/stdlib-donnees.md`)
 - **Troncature** : quand le nom dépasse `room`, la fin du titre est coupée, puis les espaces, points et tirets laissés en bout de coupe, et `truncated` le signale. L'artiste n'est entamé que si `room` ne laisse plus de place au titre
 - **Application** `rename_track(path, artist, title, before_rename=None) -> RenamedTrack(path, truncated)`, synchrone (le sub-project 04 l'appelle par `asyncio.to_thread`, `.claude/rules/python/asyncio.md`) :
   - artiste ou titre absent, ou vide après nettoyage : aucun renommage, `path` rendu tel quel, jugé avant la place disponible (un fichier sans artiste garde son nom même dans un dossier profond)
   - `room` = le plus petit de 255 (nom NTFS) et de 259 moins la longueur du dossier et du séparateur (chemin `MAX_PATH` des logiciels non adaptés aux chemins longs)
   - nom déjà identique : aucun appel système
   - même fichier à la casse près (`samefile`) : renommage direct, ce n'est pas une collision
-  - collision avec un autre fichier : ` (2)`, ` (3)`… avant l'extension, le titre recoupé pour que le suffixe tienne
+  - collision avec un autre fichier : ` (2)`, ` (3)`… avant l'extension, le titre recoupé pour que le suffixe tienne. Si le chemin cible dépasse tout de même 259 caractères (marqueur d'une collision dans une `room` minuscule), `RenameError` au motif `path_too_long`, le préfixe `\\?\` ne refusant plus rien
   - `before_rename(target)` est appelé juste avant l'appel système, jamais quand le fichier garde son nom : le sub-project 04 y note le chemin cible au dump avant que le fichier ne bouge
   - l'appel système passe par `extended_path` (`\\?\`, cf. ARCHITECTURE.md § Robustesse), le chemin rendu n'en porte pas
 - **Échec** : une `OSError` devient `RenameError(path, reason)` (code `file_rename_failed`, `params` `file` et `reason`), motif traduit par `file_failure_reason` (`.claude/rules/python/gestion-erreurs.md`). Aucun log dans le module, l'appelant connaît le run
 - **Valeurs** : l'artiste et le titre viennent de la projection écrite par le sub-project 01 (`TagField.ARTIST`, `TagField.TITLE`), identiques aux tags relus, sans rouvrir le fichier
-- **Types** : `TrackFileName` et `RenamedTrack` en `NamedTuple` ou `dataclass(frozen=True, slots=True)`, constantes `Final` (`.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/python/fichiers-io.md`)
+- **Types** : `TrackFileName` en `NamedTuple`, `RenamedTrack` en `dataclass(frozen=True, slots=True)`, constantes `Final` (`.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/python/fichiers-io.md`)
 
 ## Acceptance criteria
 
@@ -104,6 +104,8 @@ Exclut le moment du renommage dans l'enchaînement de l'écriture et le sort d'u
   - changement de casse seul : renommé sans suffixe
   - collision : ` (2)` puis ` (3)`, fichiers existants intacts
   - collision dans un dossier au chemin long : le suffixe tient dans la limite
+  - marqueur de collision qui déborde une `room` minuscule : `RenameError` au motif `path_too_long`
+  - dossier qui ne laisse aucune place : `RenameError` au motif `path_too_long`
   - fichier verrouillé ou absent : `RenameError` au motif `file_locked` ou `file_missing`
 - `sidecar/tests/unit/test_paths.py` :
   - `extended_path` préfixe un chemin local et un chemin UNC, et ne repréfixe pas un chemin déjà préfixé

@@ -13,9 +13,9 @@ date: "2026-09-08"
 
 ## Scope
 
-Couvre les providers ngx-translate dans `app.config.ts`, les deux fichiers de langue servis depuis `public/i18n/`, la résolution de la langue initiale avant le premier rendu, et la reprise des libellés aujourd'hui en dur dans les trois écrans stub et la barre d'onglets. La résolution lit la locale système par le plugin `os` de Tauri, retombe sur celle du navigateur quand l'application tourne hors Tauri, et sur l'anglais en dernier recours.
+Couvre les providers ngx-translate dans `app.config.ts`, les deux fichiers de langue servis depuis `public/i18n/`, la résolution de la langue initiale avant le premier rendu, et la traduction des libellés de la barre d'onglets et des trois écrans (Playlist, Tagging, Réglages). La résolution lit la locale système par le plugin `os` de Tauri, retombe sur celle du navigateur quand l'application tourne hors Tauri, et sur l'anglais en dernier recours.
 
-Exclut le sélecteur de langue et la persistance du choix utilisateur dans le `store`, qui relèvent de la Feature 7 et primeront alors sur la locale système. Exclut les libellés des écrans non encore construits : poser des clés pour des composants qui n'existent pas serait spéculatif.
+Exclut le sélecteur de langue et la persistance du choix utilisateur dans le `store`, qui relèvent de la Feature 7 et primeront alors sur la locale système. Les libellés propres à un écran reviennent au sub-project qui le construit : poser des clés pour des composants qui n'existent pas serait spéculatif.
 
 ### État livré
 
@@ -23,7 +23,7 @@ Exclut le sélecteur de langue et la persistance du choix utilisateur dans le `s
 
 ## Dependencies
 
-Aucune — ce sub-project est autoporté.
+Aucune : ce sub-project est autoporté.
 
 ## Files touched
 
@@ -42,7 +42,7 @@ Aucune — ce sub-project est autoporté.
 ## Architecture approach
 
 - **`provideTranslateService()` et `provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json' })`** dans `app.config.ts`. `HttpClient` est fourni d'office en Angular 22 : `provideHttpClient()` ne s'ajoute pas (cf. `.claude/rules/angular/app-config.md`). Le `prefix` pointe sur `public/i18n/`, servi à la racine par la configuration d'assets d'`angular.json`.
-- **`failOnError: true` en développement** : un fichier de traduction absent rend `{}` avec un simple avertissement, si bien qu'un `prefix` erroné produit une interface où toutes les clés s'affichent brutes, sans rien signaler.
+- **`failOnError` actif hors production** (`APP_ENVIRONMENT !== "production"`) : un fichier de traduction absent rend `{}` avec un simple avertissement, si bien qu'un `prefix` erroné produit une interface où toutes les clés s'affichent brutes, sans rien signaler.
 - **Langue résolue avant le premier rendu par `provideAppInitializer()`** : `locale()` du plugin Tauri est asynchrone quand les providers sont synchrones. Un initializer qui rend une promesse retarde le bootstrap jusqu'à ce que la langue soit posée, ce qui évite un premier rendu dans la mauvaise langue suivi d'une bascule visible.
 - **Trois niveaux de repli, dans l'ordre** : la locale système par `locale()` du plugin `os`, puis `navigator.language`, puis l'anglais. Le deuxième niveau existe parce que `invoke()` de Tauri appelle `window.__TAURI_INTERNALS__` sans garde : hors Tauri, sous le `ng serve` seul de `just dev-ui`, l'appel rejette avec une `TypeError`. Sans ce repli, l'interface s'afficherait en anglais sur une machine française dès qu'on développe la webview seule.
 - **Correspondance sur le préfixe du tag BCP-47** : un tag commençant par `fr` donne le français, tout le reste l'anglais. La comparaison porte sur le préfixe et non sur l'égalité, `fr-FR`, `fr-BE` et `fr` devant tous donner le même résultat.
@@ -115,13 +115,17 @@ Aucune — ce sub-project est autoporté.
   - un rejet de la locale système fait consulter la langue du navigateur
   - un rejet de la locale système et une langue de navigateur absente donnent l'anglais
 
+- `src/app/core/translations.spec.ts` :
+  - les deux fichiers de langue portent exactement les mêmes clés
+  - aucune valeur n'est vide, à aucune profondeur
+
 Le câblage des providers et le chargement des fichiers par le loader ne sont pas testés : ce sont des comportements de bibliothèque, qu'une mise à jour de dépendance ferait échouer sans qu'aucune règle du projet ait bougé.
 
 ## Edge cases
 
 - **Tag BCP-47 exotique** : un tag comme `fr-Latn-FR` commence par `fr` et donne donc le français, ce qui est le comportement voulu.
 - **Langue changée pendant l'exécution** : hors scope ici, mais la bascule sans rebuild est déjà permise par ngx-translate. La Feature 7 la déclenchera depuis son sélecteur.
-- **Fichier de langue introuvable au démarrage** : `failOnError: true` en développement fait remonter l'erreur au lieu de laisser une interface de clés brutes. En production, l'application s'affiche avec ses clés, ce qui reste préférable à un écran blanc.
+- **Fichier de langue introuvable au démarrage** : `failOnError` hors production fait remonter l'erreur au lieu de laisser une interface de clés brutes. En production, l'application s'affiche avec ses clés, ce qui reste préférable à un écran blanc.
 - **`navigator.language` absent** : la propriété est universellement disponible dans les navigateurs visés, mais le repli final sur l'anglais couvre le cas sans condition supplémentaire.
 
 ## Architectural decisions

@@ -414,7 +414,7 @@ Parcours relevé le 2026-10-06, 27 contrôles verts. Un vrai run sous Tauri le m
 - En-tête collant : défilé de 120px, l'en-tête reste au-dessus du détail
 - Run de 2 000 morceaux : 27 lignes montées, aucune ligne vide découverte en balayant par pas de 28px dans les deux sens, détail ouvert
 
-Relevé le 2026-10-10 : 35 contrôles verts. 2 000 morceaux sous `ng serve` (build de développement), rendu forcé : premier rendu en 53ms, 0,7ms médians et 1,6ms au 95e centile par événement, aucune tâche longue. Le tiroir du 2026-10-09 rendait 112 à 150ms de premier rendu et 22ms par événement mesurés à l'image ; la ligne dépliée de `p-table` sans scroll virtuel, 11,5s et 118ms (relevé le 2026-10-10 sur prototype).
+Relevé le 2026-10-10 : 35 contrôles verts. 2 000 morceaux sous `ng serve` (build de développement), rendu forcé : premier rendu en 53ms, 0,7ms médians et 1,6ms au 95e centile par événement, aucune tâche longue. La ligne dépliée de `p-table` sans scroll virtuel prenait 11,5s et 118ms (relevé le 2026-10-10 sur prototype).
 
 ## Pilotage de la confirmation d'écriture
 

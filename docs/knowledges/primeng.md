@@ -175,7 +175,7 @@ Les listes du projet montent à une centaine de lignes, le récapitulatif filtra
 - **Mesuré le 2026-09-17 en mode développement, sans défilement virtuel** : 0,6 s pour monter 500 lignes du rapport, 5 s pour 2 000, 29 s pour 5 000. C'est ce coût que le défilement virtuel supprime
 - Le scroll virtuel et le filtrage cohabitent, mais le filtrage recalcule la liste rendue : c'est le jeu de données filtré qui compte, pas le total
 - **`#expandedrow` ne va pas avec le scroll virtuel** : le scroller place chaque ligne à `rang × virtualScrollItemSize` et dimensionne son espaceur sur le même produit, sans mesure ; une ligne dépliée de hauteur variable décale donc toutes les suivantes (lu dans `primeng-scroller.mjs`, PrimeNG 22.1.2, 2026-10-06). Une table à lignes dépliables se rend sans `[virtualScroll]`
-- **Mesuré sous `ng serve` sur la liste du run, sans scroll virtuel et avec `#expandedrow`** : le 2026-10-09, 2 000 morceaux, 16 s de premier rendu bloquant et 214 ms par événement ; le 2026-10-10, lignes mémoïsées et ligne en composant OnPush, encore 11,5 s et 118 ms. Le reste vient du contrôle des 2 000 vues de lignes. Le projet garde le scroll virtuel et déplie le détail sur des lignes de hauteur fixe (cf. § Détail déplié sous une ligne virtualisée)
+- **Mesuré le 2026-10-10 sous `ng serve` sur la liste du run, sans scroll virtuel et avec `#expandedrow`**, lignes mémoïsées et ligne en composant OnPush : 2 000 morceaux, 11,5 s de premier rendu et 118 ms par événement, le contrôle des 2 000 vues de lignes. Le projet garde le scroll virtuel et déplie le détail sur des lignes de hauteur fixe (cf. § Détail déplié sous une ligne virtualisée)
 
 ---
 

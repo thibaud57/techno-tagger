@@ -15,7 +15,7 @@ date: "2026-09-19"
 
 Couvre l'orchestration asynchrone d'un run sur un dossier : énumération des fichiers, lecture des tags, construction de la requête, interrogation de Beatport, classement, repli sur Bandcamp sur un résultat vide ou une panne Beatport, mise en attente des zones grises, `unresolved` et son `failure_reason`, refetch et pochette du candidat retenu, arrêt du run après trois 403 consécutifs, progression et état complet du run en mémoire. Le pipeline émet ses événements par un rappel, sans rien connaître du protocole NDJSON.
 
-Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Feature 3), le rattrapage par URL (Feature 4), toute écriture sur les fichiers musicaux (Feature 5), la persistance du plan de run et le rapport (Feature 6), l'exposition sur le protocole et la construction du client (sub-project 07).
+Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (epic `arbitrage-utilisateur`), le rattrapage par URL (epic `rattrapage-par-url-manuelle`), toute écriture sur les fichiers musicaux (epic `ecriture-des-tags-et-renommage`), la persistance du plan de run et le rapport (Feature 6), l'exposition sur le protocole et la construction du client (sub-project 07).
 
 ### État livré
 
@@ -38,13 +38,13 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Fe
 - **À modifier** : `docs/ARCHITECTURE.md` (§ Chaîne de résolution : prose et diagramme, Beatport injoignable vers Bandcamp sans auto ; § Flux d'un run : la décision n'est plus écrite dans un plan JSON ; arborescence : `tagging.py`)
 - **À modifier** : `docs/adrs/009-enchainement-sources-et-arbitrage.md` (note complémentaire sur la panne Beatport)
 - **À modifier** : `docs/adrs/010-ecriture-batch-et-plan-de-run.md` (note complémentaire : l'état du run reste en mémoire jusqu'à la Feature 6)
-- **À modifier** : `sidecar/src/tagger/scraper_client.py` (`search` demande `limit=10`, sous précondition de déploiement de la gateway, cf. § À trancher)
+- **À modifier** : `sidecar/src/tagger/scraper_client.py` (`search` demande `limit=10`, cf. § Architectural decisions)
 - **À modifier** : `sidecar/tests/unit/test_scraper_client_requests.py` (paramètres envoyés aux deux routes de recherche)
 
 ## Architecture approach
 
 - **Module `tagger/tagging.py`**, pendant d'`extraction.py` pour le use-case 2 : il orchestre `files`, `matching`, `scraper_client` et `cache` sans en réimplémenter aucun, et ignore tout du protocole (`.claude/rules/python/imports-modules.md`).
-- **Point d'entrée** : `run_tagging(folder, *, client, artworks, thresholds, on_event) -> TaggingRun`. Le client et le fetcher de pochettes sont injectés : le handler du sub-project 07 les construit, avec la clé et les caches, ce qui rend le pipeline testable sous `MockTransport`. Un dossier illisible lève `TaggingFolderUnreadableError` avant tout événement.
+- **Deux points d'entrée**, qui séparent la liste du réseau : `open_run(folder, *, on_event) -> LiveRun` énumère les fichiers, lit les tags et émet `RunStarted` avant tout appel réseau ; `resolve_run(live, sources, *, on_event)` résout ensuite les morceaux. `RunSources` (`sources.py`) porte le client, le fetcher de pochettes, les seuils, le refetch avec sa pochette et la garde des 403 : le handler du sub-project 07 le construit avec la clé et les caches, ce qui rend le pipeline testable sous `MockTransport`. Un dossier illisible lève `TaggingFolderUnreadableError` dans `open_run`, avant tout événement.
 - **Identifiant de morceau** : le chemin relatif au dossier, en séparateurs `/` (décision du 2026-09-19). Il reste stable quand des fichiers s'ajoutent, ce dont la reprise de la Feature 6 a besoin. Il ne quitte jamais la machine.
 - **Une tâche par morceau dans un `asyncio.TaskGroup`**, nommée et référencée (`.claude/rules/python/asyncio.md`). La concurrence réseau est bornée par les sémaphores du client (3 Beatport, 2 Bandcamp) et par celui des pochettes (6). La lecture des tags passe par `asyncio.to_thread`. Le pipeline ne s'arrête jamais sur un morceau : seule la garde des 403 arrête le run.
 - **Chemin d'un morceau**, conforme à ARCHITECTURE.md § Chaîne de résolution :
@@ -61,20 +61,20 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Fe
      - `EMPTY` : `unresolved` / `none`, avec `below_threshold` si l'une des deux sources a rendu au moins un candidat, `no_result` sinon ;
      - `SourceUnavailableError` ou `ApiContractError` : `unresolved` / `none` / `source_unavailable`.
 - **Beatport injoignable** (décision du 2026-09-19, écart à ADR-009) : une fois les nouvelles tentatives du client épuisées, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en auto, avec le drapeau `beatport_unavailable` dans l'attente d'arbitrage. L'utilisateur confirme en sachant que la source la plus riche n'a pas répondu, plutôt que de voir écrire en silence les métadonnées plus pauvres de Bandcamp. ADR-009 n'appelle Bandcamp que sur un vide ou un refus : une panne n'est ni l'un ni l'autre, et l'appel n'a rien de spéculatif puisque Beatport n'a rien pu dire. La note est ajoutée à l'ADR et au diagramme d'ARCHITECTURE.md.
-- **Attente d'arbitrage** : un morceau en zone grise a un `state` à `None`, qu'aucun événement `track_resolved` n'accompagne, et une `PendingArbitration` (source, candidats en jeu triés, `beatport_unavailable`). Le pipeline émet `ArbitrationRequired` et passe au morceau suivant : la décision, et l'appel Bandcamp sur refus, relèvent de la Feature 3 (ADR-009 « le pipeline ne s'arrête jamais »).
+- **Attente d'arbitrage** : un morceau en zone grise a un `state` à `None`, qu'aucun événement `track_resolved` n'accompagne, et une `PendingArbitration` (source, candidats en jeu triés, `beatport_unavailable`). Le pipeline émet `ArbitrationRequired` et passe au morceau suivant : la décision, et l'appel Bandcamp sur refus, relèvent de l'epic `arbitrage-utilisateur` (ADR-009 « le pipeline ne s'arrête jamais »).
 - **Refetch et pochette du candidat retenu** : refetch par id sur Beatport, par URL sur Bandcamp (sub-project 02). Un id ou une URL absent, un `TrackNotFoundError`, une source indisponible ou une réponse hors contrat gardent l'objet de recherche, avec un WARNING. La pochette `release.artwork_url` est téléchargée par l'`ArtworkFetcher`. Une `ArtworkUnavailableError` est loguée en WARNING et le morceau reste résolu sans pochette (`.claude/rules/httpx2/client.md`).
-- **Garde des 403** : un compteur de 403 consécutifs, partagé par les tâches, est remis à zéro par toute réponse de l'API qui n'est pas un 403. Au troisième, la tâche lève `ApiKeyRejectedRunError` (`api_key_rejected`, sans `params`), le `TaskGroup` annule les autres, et `run_tagging` relève cette erreur hors de l'`ExceptionGroup` (`except*`, `.claude/rules/python/gestion-erreurs.md`). Les morceaux déjà traités gardent leur état. Un 403 isolé, suivi d'autres réponses, donne `unresolved` / `source_unavailable` pour son morceau. La clé n'est jamais nommée par sa valeur (ARCHITECTURE.md § Clé API invalide ou révoquée).
+- **Garde des 403** : un compteur de 403 consécutifs, porté par `RunSources` et partagé par les tâches, est remis à zéro par toute réponse de l'API qui n'est pas un 403. Au troisième, la tâche lève `ApiKeyRejectedRunError` (`api_key_rejected`, sans `params`), le `TaskGroup` annule les autres, et `resolve_run` relève cette erreur hors de l'`ExceptionGroup` (`except*`, `.claude/rules/python/gestion-erreurs.md`). Les morceaux déjà traités gardent leur état. Un 403 isolé, suivi d'autres réponses, donne `unresolved` / `source_unavailable` pour son morceau. La clé n'est jamais nommée par sa valeur (ARCHITECTURE.md § Clé API invalide ou révoquée).
 - **Réponse hors contrat** : `ApiContractError` est un bug ou une dérive d'API, pas un aléa. Elle est loguée en ERROR et remontée à Sentry par `sentry_sdk.capture_exception`, la `LoggingIntegration` étant fermée (`observability.py`). Le morceau suit le chemin d'une source indisponible (`.claude/rules/sentry/python.md`).
 - **État du run en mémoire** (`.claude/rules/python/modeles-donnees.md`) :
-  - `TaggingRun` : `run_id`, dossier, et un `TrackRecord` par `track_id`, dans l'ordre de `list_audio_files` ;
-  - `TrackRecord` : `track_id`, chemin, nom de fichier, identité lue, requête, `state`, `resolution`, `failure_reason`, source, candidat retenu, scores du candidat retenu, chemin de la pochette, attente d'arbitrage ;
-  - `TrackState` (`resolved`, `unresolved`), `Resolution` (`auto`, `arbitration`, `url`, `none`) et `FailureReason` (`empty_query`, `no_result`, `below_threshold`, `user_refused`, `source_unavailable`) en `StrEnum` avec `@verify(UNIQUE)`, valeurs d'ARCHITECTURE.md § API. La Feature 5 y ajoutera `written`, `write_error` et les motifs d'écriture. Le plan de run de la Feature 6 sérialisera ces modèles, ce qui les garde en dataclasses gelées aux champs simples.
+  - `LiveRun` : `run_id`, dossier et un `TrackRecord` par `track_id`, dans l'ordre de `list_audio_files`. Il survit à la phase réseau, l'arbitrage et le rattrapage y tranchant jusqu'au run suivant ; `snapshot()` en rend l'état gelé, `TaggingRun` ;
+  - `TrackRecord` : `track_id`, chemin, nom de fichier, identité lue, requête, `state`, `resolution`, `failure_reason`, source, candidat retenu, scores du candidat retenu, chemin de la pochette, attente d'arbitrage, puis ce que l'écriture y ajoute ;
+  - `TrackState`, `Resolution` (`auto`, `arbitration`, `url`, `none`) et `FailureReason` en `StrEnum` avec `@verify(UNIQUE)`, valeurs d'ARCHITECTURE.md § API. Cette phase n'émet que `resolved` et `unresolved` et les motifs `empty_query`, `no_result`, `below_threshold`, `user_refused`, `source_unavailable` ; `written`, `write_error`, `rolled_back` et les motifs d'écriture viennent de l'epic d'écriture. Le plan de run de la Feature 6 sérialisera ces modèles, ce qui les garde en dataclasses gelées aux champs simples.
 - **Événements internes**, passés à `on_event` dans l'ordre où ils surviennent. Le sub-project 07 les traduit en NDJSON, ce module n'émet aucune ligne :
   - `RunStarted` : `run_id` et, pour chaque morceau, `track_id`, nom de fichier et identité lue. Toutes les lignes de la liste peuvent s'afficher dès le départ (DESIGN.md : « Neutre, il attend son tour ») ;
   - `TrackResolved` : l'enregistrement d'un morceau résolu ou non résolu ;
   - `ArbitrationRequired` : l'enregistrement d'un morceau mis en attente ;
   - `RunProgress` : traités sur total. Un morceau compte dès qu'il est résolu, non résolu ou en attente d'arbitrage.
-  La fin du run est le retour de `run_tagging` : le 07 en tire `run_finished` en phase `network`, qui déclenche le signal sonore.
+  La fin du run est le retour de `resolve_run` : le 07 en tire `run_finished` en phase `network`, qui déclenche le signal sonore.
 - **Logs** (PRODUCTION.md § Logging) : une ligne INFO par décision de matching, avec `run`, `track` (position dans le run), `source`, `score` et `status`. Le motif d'un échec va dans `reason`, et une erreur n'est loguée qu'une fois, là où elle est traitée. Aucun titre de morceau ne part vers Sentry.
 
 ## Acceptance criteria
@@ -126,7 +126,7 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Fe
 ### Scénario 9 : Clé refusée
 **GIVEN** une API qui rend `403` à toute requête, et cinq fichiers
 **WHEN** le run est lancé
-**THEN** `run_tagging` lève `ApiKeyRejectedRunError` après trois 403
+**THEN** `resolve_run` lève `ApiKeyRejectedRunError` après trois 403
 **AND** aucun morceau n'est marqué `resolved`
 
 ### Scénario 10 : Incidents qui ne font pas échouer le morceau
@@ -141,7 +141,7 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (Fe
 **AND** le dernier `RunProgress` vaut trois sur trois
 
 ### Scénario 12 : Taille de page de la recherche
-**GIVEN** une gateway déployée qui accepte `limit` (cf. § À trancher, dépendance d'ordre)
+**GIVEN** un run lancé
 **WHEN** le pipeline cherche un morceau sur Beatport ou sur Bandcamp
 **THEN** la requête porte `limit=10`
 
@@ -179,13 +179,13 @@ Aucun test ne vérifie httpx2, rapidfuzz ni mutagen : l'API et le CDN sont mock�
 - **Candidat sans `release.artwork_url`** : aucune pochette demandée, aucun WARNING.
 - **403 sur le refetch d'un candidat retenu** : compte dans la garde comme toute réponse, et le morceau garde l'objet de recherche tant que le run n'est pas arrêté.
 - **Même fichier audio à deux chemins** (lien, copie) : deux morceaux distincts, chaque `track_id` étant un chemin.
-- **Annulation du run** (fermeture de l'application) : `CancelledError` relevée après nettoyage, jamais avalée. L'état en mémoire est perdu, sa persistance relève de la Feature 6.
+- **Annulation de la phase réseau** (`cancel_run`, fermeture de l'application) : `CancelledError` relevée après nettoyage, jamais avalée. Les morceaux déjà traités gardent leur état dans le `LiveRun` tant que le process vit ; sa persistance au-delà relève de la Feature 6.
 
 ## Architectural decisions
 
 ### Décision : Taille de page de la recherche Beatport
 
-- **À choisir ici et non avant.** `/beatport/search` rend aujourd'hui 100 résultats par page, valeur en dur dans techno-scraper (`providers/beatport/client.py`, `_PER_PAGE`), sans paramètre pour en demander moins : mesuré le 2026-09-20, `per_page`, `limit`, `page_size` et `size` sortent tous en `422`, les modèles de paramètres étant en `extra="forbid"`. Beatport lui-même rend 25 par défaut et plafonne à 100.
+- **À choisir ici et non avant.** `/beatport/search` rendait 100 résultats par page à la mesure du 2026-09-20, valeur en dur dans techno-scraper (`providers/beatport/client.py`, `_PER_PAGE`), sans paramètre pour en demander moins : mesuré le 2026-09-20, `per_page`, `limit`, `page_size` et `size` sortent tous en `422`, les modèles de paramètres étant en `extra="forbid"`. Beatport lui-même rend 25 par défaut et plafonne à 100.
   - Coût mesuré le 2026-09-20 : 77 Ko par recherche, soit environ 38 Mo descendants pour une playlist de 500 morceaux, transférés deux fois puisque le VPS les reçoit puis les relaie.
   - Aucun effet sur le risque de blocage : les sources limitent la concurrence et non le débit (`core/limits.py` de techno-scraper borne Bandcamp à 2 et Beatport à 3), et une page plus courte ne change pas le nombre de requêtes, qui reste d'une par morceau et par source.
   - Ne concerne que Beatport : Bandcamp ne pagine pas et rend ce qu'il trouve.
@@ -195,7 +195,7 @@ Aucun test ne vérifie httpx2, rapidfuzz ni mutagen : l'API et le CDN sont mock�
   - **Ce qui a été livré diverge de cette décision sur trois points**, vérifié dans le dépôt techno-scraper (releasé en `3.2.0`, déployée le 2026-09-22) : le paramètre s'appelle `limit`, pas `per_page` (`shared/queries.py::PageSizeQuery`) ; ce n'est pas une borne libre de 1 à 100 mais une énumération fermée `5/10/25/50/100`, défaut `25` (`shared/queries.py::PageSize`, un `IntEnum` ; une valeur hors énumération rend `422`) ; enfin le piège documenté ci-dessus est désormais gardé par l'API elle-même plutôt que laissé au consommateur, qui rend `400 cursor_limit_mismatch` au lieu de sauter ou répéter des résultats en silence, le curseur portant `limit` et une empreinte de la requête (`core/pagination.py`, [ADR-009](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/009-pagination-cross-provider.md) note du 2026-09-21). Le paramètre s'applique aux six routes rendant `Page[T]` de l'API, pas à `/beatport/search` seule.
   - **Décision du propriétaire le 2026-09-21** : la taille de page retenue pour la recherche du tagger est `10`, valeur légale de l'énumération, en dessous du défaut de la source (`25`).
   - **Vérifié le 2026-09-22 à travers la gateway** (même branche) : la tête de liste Beatport ne dépend pas de la taille de page, top 10 identique entre `limit=10` et `limit=100` sur deux recherches. Un candidat relevé aux rangs 1 à 3 sur une page de 100 reste donc dans la page de 10. Côté Bandcamp la découpe est locale : la page de 10 est par construction la tête des 50.
-  - **Dépendance d'ordre avant implémentation** : le contrat est porté par la `3.2.0` de techno-scraper, déployée en production le 2026-09-22. Une prod antérieure (`3.1.4`, Parameter Models en `extra="forbid"`) rend `422` sur tout `limit`, donc un run entier sans candidat : la Task 4 du plan garde sa vérification par `curl` avant d'écrire une ligne.
+  - **Dépendance d'ordre** : le contrat est porté par la `3.2.0` de techno-scraper, déployée en production le 2026-09-22. Une prod antérieure (`3.1.4`, Parameter Models en `extra="forbid"`) rend `422` sur tout `limit`, donc un run entier sans candidat. La condition est remplie et `search` envoie `limit=10`.
 
 ### Décision : Beatport injoignable après les nouvelles tentatives
 

@@ -23,11 +23,11 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 
 ## Dependencies
 
-- `01-parsing-playlists-design.md` (statut: draft) — fournit `read_playlist()`, dont les noms de fichiers sont l'entrée de ce module, et `TaggerError`, base des erreurs métier.
+- `01-parsing-playlists-design.md` (statut: implemented) : fournit `read_playlist()`, dont les noms de fichiers sont l'entrée de ce module, et `TaggerError`, base des erreurs métier.
 
 ## Files touched
 
-- **À créer** : `sidecar/src/tagger/extraction.py` (modèles, index du dossier source, départage, extraction)
+- **À créer** : `sidecar/src/tagger/extraction.py` (modèles, erreurs du run, index du dossier source, départage, extraction)
 - **À créer** : `sidecar/tests/unit/test_extraction_index.py` (construction de l'index et départage des homonymes)
 - **À créer** : `sidecar/tests/unit/test_extraction_run.py` (copie, déplacement, incidents, progression)
 - **À modifier** : `sidecar/tests/conftest.py` (fixture d'arborescence source, construite en `tmp_path`)
@@ -38,13 +38,15 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 - **Index construit en une seule passe** : le dossier source est parcouru récursivement une fois, produisant une correspondance du nom de fichier vers la liste des chemins qui le portent. Une recherche répétée par nom relirait l'arborescence autant de fois qu'il y a de morceaux, ce qui est intenable sur une bibliothèque de dizaines de milliers de fichiers alors qu'un run type traite 100 morceaux.
 - **Clés d'index normalisées en minuscules** : la cible est Windows, dont le système de fichiers est insensible à la casse. Un morceau nommé `Track.mp3` dans la playlist doit trouver `track.mp3` sur le disque.
 - **Départage des homonymes selon ADR-020**, dans cet ordre : taille décroissante, puis ordre alphabétique du chemin à taille égale. Le second critère n'est pas cosmétique : il rend deux runs successifs sur le même dossier identiques. Le critère effectivement appliqué est consigné, le rapport devant dire pourquoi ce fichier-là a été retenu.
-- **Rien n'interrompt le run** : un morceau introuvable, un homonyme départagé ou une copie en échec sont consignés et le traitement continue, conformément à ADR-020 et au use-case 1. Seule une erreur portant sur le run entier, comme un dossier source illisible, remonte en exception, sous la forme d'une famille `ExtractionError` héritée de `TaggerError` et définie dans le module, avec son `code` stable et ses `params`.
-- **Le résultat porte cinq catégories** — extraits, déjà présents, introuvables, homonymes départagés, échecs — là où ARCHITECTURE.md § Backend n'en décrit que trois pour l'événement `extraction_finished` (copiés, introuvables, doublons). Le sub-project 04 devra étendre le contrat aux deux catégories manquantes, sans quoi l'interface ne pourrait afficher ni un fichier déjà présent ni une copie en échec.
-- **Motifs d'échec repris de la nomenclature existante** : `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `file_missing` et `write_failed` sont les six valeurs d'écriture de `failure_reason` dans ARCHITECTURE.md § Backend, reprises au complet. Les réutiliser plutôt que d'en inventer garde un vocabulaire unique entre l'extraction et l'écriture des tags.
+- **Rien n'interrompt le run** : un morceau introuvable, un homonyme départagé ou une copie en échec sont consignés et le traitement continue, conformément à ADR-020 et au use-case 1. Seule une erreur portant sur le run entier remonte en exception, sous la forme d'une famille `ExtractionError` héritée de `TaggerError` et définie dans le module, avec son `code` stable et ses `params` : `SourceFolderUnreadableError` (dossier source absent ou qui n'est pas un dossier) et `DestinationFolderUnwritableError` (dossier destination impossible à créer). Les deux lèvent avant tout transfert.
+- **Le résultat porte cinq catégories** : extraits, déjà présents, introuvables, homonymes départagés, échecs. `extracted`, `already_present`, `missing` et `failures` partitionnent les morceaux demandés, `duplicates` est une annotation qui co-occurre avec eux (un morceau départagé figure aussi parmi les extraits, les déjà présents ou les échecs). L'événement `extraction_finished` les porte toutes (sub-project 04), sans quoi l'interface ne pourrait afficher ni un fichier déjà présent ni une copie en échec.
+- **Motifs d'échec repris de la nomenclature existante** : `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `file_missing` et `write_failed` sont les six valeurs d'écriture de `failure_reason` dans ARCHITECTURE.md § Backend > API, reprises au complet. Elles vivent dans `tagger/file_failures.py` (`FileFailureReason` et `file_failure_reason()`, qui classe une `OSError`), partagé avec l'écriture des tags : un seul vocabulaire pour l'extraction et l'écriture.
 - **Une collision en destination n'écrase jamais** : un fichier du même nom déjà présent fait passer le morceau en « déjà présent ». C'est ce qui rend l'extraction rejouable, un run relancé ne recopiant pas ce qui est là. Écraser détruirait le travail d'un re-tagging déjà passé sur le dossier de destination.
+- **Destination et source ne s'excluent pas mutuellement, le module les arbitre** : une destination posée dans la source est écartée de l'index (`excluded`, comparée lexicalement), faute de quoi chaque morceau déjà extrait deviendrait l'homonyme de son original au second run. Une destination confondue avec la source ne transfère rien.
+- **Un nom demandé deux fois par la playlist n'est transféré qu'une fois** : la seconde occurrence est comptée « déjà présent », et l'ambiguïté d'homonymes qu'elle porte n'est consignée qu'une fois.
 - **Copie et déplacement par `Path.copy()` et `Path.move()`** de la stdlib 3.14, sans importer `shutil` (cf. `.claude/rules/python/fichiers-io.md`). `Path` partout, jamais `os.path` ni de concaténation de chaînes.
-- **Progression remontée par rappel** : l'extraction accepte une fonction optionnelle appelée après chaque morceau avec le nombre traité et le total. Le module ignore tout du protocole NDJSON, que le sub-project 04 branchera dessus pour alimenter l'événement `progress`.
-- **Modèles internes en dataclasses gelées et `StrEnum` annotés `@verify(UNIQUE)`**, jamais pydantic : rien ne traverse ici de frontière externe (cf. `.claude/rules/python/modeles-donnees.md`). Le sub-project 03 les sérialisera, le 04 les convertira en modèles de protocole.
+- **Progression remontée par rappel** : l'extraction accepte une fonction optionnelle appelée après chaque morceau avec le nombre traité et le total. Le module ignore tout du protocole NDJSON, que `handlers.py` (sub-project 04) branche dessus pour alimenter l'événement `progress`.
+- **Modèles internes en dataclasses gelées et `StrEnum` annotés `@verify(UNIQUE)`**, jamais pydantic : rien ne traverse ici de frontière externe (cf. `.claude/rules/python/modeles-donnees.md`). Le sub-project 03 les sérialise, le 04 les convertit en modèles de protocole.
 - **Logs en logfmt** par `logging.getLogger(__name__)`, sans jamais faire sortir de chemin complet vers Sentry (cf. `.claude/rules/python/gestion-erreurs.md`).
 
 ## Acceptance criteria
@@ -116,6 +118,18 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 **THEN** une erreur métier est levée avant tout traitement
 **AND** aucun fichier n'a été écrit en destination
 
+### Scénario 12 : Dossier destination impossible à créer
+**GIVEN** un chemin de destination que le système refuse de créer
+**WHEN** l'extraction est lancée
+**THEN** une erreur métier de destination non inscriptible est levée avant tout transfert
+**AND** aucune exception `OSError` brute ne remonte
+
+### Scénario 13 : Destination posée dans la source
+**GIVEN** un dossier destination situé dans le dossier source, déjà peuplé par un premier run
+**WHEN** l'extraction est relancée
+**THEN** les fichiers de la destination n'entrent pas dans l'index
+**AND** aucun morceau n'est départagé contre sa propre copie
+
 ## Tests à écrire
 
 ### Unit
@@ -128,7 +142,9 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
   - le départage à taille égale rend le même fichier sur deux constructions successives de l'index
   - les candidats écartés sont consignés avec leur chemin et leur taille
   - un nom sans aucun candidat ne produit aucune entrée d'index
-  - un dossier source inexistant lève une erreur métier
+  - un sous-dossier exclu de l'index n'y figure pas
+  - un dossier source inexistant, ou qui est un fichier, lève une erreur métier
+  - les dossiers n'entrent pas dans l'index
 
 - `sidecar/tests/unit/test_extraction_run.py` :
   - le mode copie dépose les fichiers en destination et laisse la source intacte
@@ -141,15 +157,21 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
   - le dossier destination est créé s'il n'existe pas
   - une playlist vide ne laisse derrière elle aucun dossier destination
   - une destination confondue avec la source ne transfère rien, même en mode déplacement
+  - une destination posée dans la source est ignorée au second run
+  - un nom demandé deux fois est extrait une fois puis compté déjà présent, son doublon consigné une seule fois
   - un homonyme disparu entre l'indexation et la copie est consigné en `file_missing`
-  - un chemin de destination trop long est consigné en `path_too_long`
+  - une destination impossible à créer lève une erreur métier
+  - une copie qui échoue poursuit sur les morceaux suivants, avec le motif de l'échec (`permission_denied`, `disk_full`)
+
+- `sidecar/tests/unit/test_file_failures.py` (partagé avec l'écriture des tags) :
+  - une `OSError` est classée en motif du projet, le code Windows prévalant sur le type (verrou, chemin trop long)
 
 ## Edge cases
 
 - **Playlist vide** : l'extraction rend un résultat vide sans lever et sans créer de dossier destination inutile. C'est l'appelant, au sub-project 04, qui décide qu'un run sans morceau n'a pas lieu d'être.
-- **Fichier verrouillé sous Windows** : l'ouverture d'un fichier tenu par un lecteur audio lève `PermissionError` comme un vrai refus de permission. Les deux se distinguent par le code d'erreur Windows porté par l'exception, et le motif consigné en dépend.
-- **Chemin de destination trop long** : au-delà de la limite historique de Windows, l'écriture échoue. Le motif `path_too_long` existe déjà dans la nomenclature du projet pour ce cas.
-- **Source et destination confondues** : si les deux chemins désignent le même dossier, chaque morceau est trouvé puis vu comme déjà présent, et rien n'est copié. Aucun fichier n'est perdu, y compris en mode déplacement.
+- **Fichier verrouillé sous Windows** : l'ouverture d'un fichier tenu par un lecteur audio lève `PermissionError` comme un vrai refus de permission. Les deux se distinguent par le code d'erreur Windows porté par l'exception, qui prime sur son type, et le motif consigné en dépend.
+- **Chemin de destination trop long** : au-delà de la limite historique de Windows, l'écriture échoue en `path_too_long`.- **Source et destination confondues** : si les deux chemins désignent le même dossier, chaque morceau est trouvé puis vu comme déjà présent, et rien n'est copié. Aucun fichier n'est perdu, y compris en mode déplacement.
+- **Destination dans la source** : exclue de l'index, les originaux restent les seuls candidats.
 - **Homonymes dont l'un disparaît entre l'indexation et la copie** : l'index est un instantané. Un fichier retiré entre-temps produit un échec de copie consigné, pas une exception.
 
 ## Architectural decisions
@@ -183,7 +205,7 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 ### Décision : Réutiliser les motifs d'échec de l'écriture plutôt qu'en créer
 
 **Options envisagées :**
-- **A. Reprendre `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `write_failed`** : ces valeurs sont déjà fixées par ARCHITECTURE.md pour l'écriture des tags, et décrivent exactement les mêmes pannes de système de fichiers.
+- **A. Reprendre `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `file_missing`, `write_failed`** : ces valeurs sont déjà fixées par ARCHITECTURE.md pour l'écriture des tags, et décrivent exactement les mêmes pannes de système de fichiers.
 - **B. Définir un jeu de motifs propre à l'extraction** : nommage libre, au prix de deux vocabulaires décrivant les mêmes incidents à deux endroits du même run.
 
 **Choix : A**

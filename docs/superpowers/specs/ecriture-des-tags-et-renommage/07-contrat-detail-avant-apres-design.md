@@ -23,8 +23,8 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 
 ## Dependencies
 
-- `01-ecriture-tags-design.md` (statut: draft) : `TagField`, `TAG_FIELDS`, `project_tags`, séparateur des valeurs multiples, commentaires supprimés à l'écriture
-- `02-dump-tags-origine-design.md` (statut: draft) : `TagSystem`, `_id3_values` (URL de `WOAS`), lecture des champs de la table
+- `01-ecriture-tags-design.md` (statut: implemented) : `TagField`, `TAG_FIELDS`, `project_tags`, séparateur des valeurs multiples, commentaires supprimés à l'écriture
+- `02-dump-tags-origine-design.md` (statut: implemented) : `TagSystem`, `_id3_values` (URL de `WOAS`), lecture des champs de la table
 
 ## Files touched
 
@@ -127,3 +127,4 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 **Choix : A**
 **Rationale :**
 - Le détail montre ce que l'écriture fait, et la table des champs écrits est tranchée au sub-project 01 ; une ligne `TPE2` ou une date complète annonceraient une écriture qui n'a pas lieu
+- Remplacé en partie le 2026-10-09 : le contrat garde les 16 champs, mais l'écran n'affiche pas l'identifiant à la source, qui ne dit rien à l'utilisateur (09)

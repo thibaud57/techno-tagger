@@ -23,9 +23,9 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
 
 ## Dependencies
 
-- `07-contrat-detail-avant-apres-design.md` (statut: draft) : `SidecarService.taggingFolder`, le dossier de `run_started`
-- `08-service-ecriture-ui-design.md` (statut: draft) : `commitRun()`, `retryWrite()`, signaux `committed`, `writing`, `writeProgress`, `writeFinished`, `rollingBack`, `errorFor("commit_run", "retry_write")`, `CloseGuard.blocked`, travaux `write` et `rollback`, libellés `app.close.write` et `app.close.rollback`
-- `09-ligne-depliee-avant-apres-design.md` (statut: draft) : `RunListComponent` à sept colonnes, `TrackDetailComponent` et son input `interrupted`, `app-no-value`
+- `07-contrat-detail-avant-apres-design.md` (statut: implemented) : `SidecarService.taggingFolder`, le dossier de `run_started`
+- `08-service-ecriture-ui-design.md` (statut: implemented) : `commitRun()`, `retryWrite()`, signaux `committed`, `writing`, `writeProgress`, `writeFinished`, `rollingBack`, `errorFor("commit_run", "retry_write")`, `CloseGuard.blocked`, travaux `write` et `rollback`, libellés `app.close.write` et `app.close.rollback`
+- `09-ligne-depliee-avant-apres-design.md` (statut: implemented) : `RunListComponent` à sept colonnes, `TrackDetailComponent` et son input `interrupted`, `app-no-value`
 
 ## Références de design
 
@@ -36,7 +36,10 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
 ## Files touched
 
 - **À modifier** : `src/app/app.config.ts` (`ConfirmationService` fourni à la racine, partagé avec le rollback du sub-project 11)
-- **À modifier** : `src/app/features/tagging/tagging-page.component.ts`, `.html`, `.spec.ts` (bouton d'action, dossier du run comparé au dossier choisi, confirmations, barre d'écriture, message d'échec et relance, `filesBusy`, erreurs, `p-confirmdialog`)
+- **À créer** : `src/app/shared/components/danger-confirm.component.ts` (`DangerConfirmComponent`, le `p-confirmdialog` des gestes sur les fichiers à poser une fois par écran, et `injectDangerConfirm`, partagés avec le sub-project 11)
+- **À créer** : `src/app/shared/components/message.component.ts`, `.spec.ts` (`app-message`, seule voie vers `p-message`, icône selon la sévérité, action sous le texte)
+- **À modifier** : `src/app/shared/components/error-message.component.ts`, `src/app/features/tagging/arbitration-dialog.component.ts`, `.html`, `src/app/features/tagging/url-link-form.component.ts`, `.html` (passent par `app-message` au lieu de `p-message`)
+- **À modifier** : `src/app/features/tagging/tagging-page.component.ts`, `.html`, `.spec.ts` (bouton d'action, dossier du run comparé au dossier choisi, confirmations, barre d'écriture, message d'échec et relance, `filesBusy`, erreurs, `app-danger-confirm`)
 - **À modifier** : `src/app/features/tagging/url-recovery-dialog.component.spec.ts`, `src/app/features/tagging/arbitration-dialog.component.spec.ts` (stub de `SidecarService` : `committed`)
 - **À modifier** : `src/app/features/tagging/run-list.component.ts`, `.html`, `.spec.ts` (input `frozen` : aucune ligne actionnable, attente d'arbitrage rendue « Non traité » et pochette sans squelette)
 - **À modifier** : `src/app/core/arbitration.store.ts`, `.spec.ts` et `src/app/core/sidecar.service.ts` (`anyBusy`, `arbitrationInFlight` : gestes d'arbitrage en vol sur n'importe quel morceau)
@@ -57,12 +60,12 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
   - `cancel` (« Interrompre », secondaire contour) pendant la phase réseau ;
   - `commit` (« Confirmer l'écriture », `primary`) sur un run dont la phase réseau est finie ou interrompue et que l'on n'a pas confirmé ; en chargement (icône `spinner`, `[loading]` de `pButton` ne dessine rien sur un contenu projeté) pendant l'écriture.
   Choisir un autre dossier abandonne le run non écrit : le bouton revient à `start` ; rechoisir le même le laisse confirmable. Une page recréée au retour sur l'onglet reprend d'abord le dossier du run affiché (`taggingFolder`), non la dernière destination. Grisé, il garde son libellé et dit sa raison en tooltip (geste en vol, rollback en cours, aucun morceau résolu, clé absente, dossier manquant), seule exception admise au tooltip porteur d'information (DESIGN.md § Tokens de Tooltip)
-- **Confirmation** par `ConfirmationService` et un `p-confirmdialog` de la page, bouton d'acceptation « Écrire les tags » en `primary`, le rouge étant réservé au rollback (DESIGN.md § Arbitrages, « Rouge des gestes sur les fichiers »), et focus par défaut sur « Annuler » (`defaultFocus="reject"` : Entrée ne valide pas une écriture) (`.claude/rules/primeng/composants.md`) : dossier du run, nombre de fichiers résolus, sauvegarde des tags d'origine et rollback possible, puis, quand leur nombre n'est pas nul, les non résolus non touchés et les morceaux encore à arbitrer qui ne seront ni écrits ni arbitrables. Les nombres se lisent sur les états reçus, l'interface ne décide rien
+- **Confirmation** par `ConfirmationService` et `app-danger-confirm` (un `p-confirmdialog` posé par la page, ouvert par `injectDangerConfirm`), « Annuler » en `secondary` contour, bouton d'acceptation « Écrire les tags » en `primary`, le rouge étant réservé au rollback (DESIGN.md § Arbitrages, « Rouge des gestes sur les fichiers »), et focus par défaut sur « Annuler » (`defaultFocus="reject"` : Entrée ne valide pas une écriture) (`.claude/rules/primeng/composants.md`) : dossier du run, nombre de fichiers résolus, sauvegarde des tags d'origine et rollback possible, puis, quand leur nombre n'est pas nul, les non résolus non touchés et les morceaux encore à arbitrer qui ne seront ni écrits ni arbitrables. Les nombres se lisent sur les états reçus, l'interface ne décide rien
 - **Run figé** dès `committed` : `RunListComponent.frozen` retire toute ligne actionnable (ni clic, ni touche, ni `tabindex`), `RecoveryUiStore.available` devient faux, l'`app.component` masque le badge et la modale d'arbitrage, `CloseGuard` ne compte plus les arbitrages en attente. Les morceaux encore à arbitrer y passent en « Non traité », avec le cadre neutre de pochette et non un squelette. Une confirmation refusée (dump impossible) fait retomber `committed` et tout revient
 - **Progression** : `app-phase-progress` « Écriture des tags, pochettes et renommage » sur `writeProgress`, à la place des barres réseau et rattrapage dès la confirmation, gardée sur son dernier palier une fois l'écriture finie
 - **États** : `StateTagComponent` lit `written` comme `resolved` (libellé de la voie, vert) et `write_error` en `danger`, `exclamation-triangle`, « Échec d'écriture » ; le motif suit l'icône info en tooltip, comme pour un non résolu (DESIGN.md § Couleurs Sémantiques, fiche `StateTag`). La colonne État se remesure sur ce libellé et son icône, en FR et en EN
-- **Échecs** : `p-message` `error` au-dessus de la liste quand `writeFinished.write_error > 0`, repris du `Recap` de la maquette, avec « Relancer l'écriture » (`pButton` contour `danger`, icône `refresh`, grisé pendant une écriture ou un rollback) qui ouvre sa propre confirmation ; pendant la relance, le message d'échec est masqué et le bouton d'action est en chargement
-- **Erreurs** : `errorFor("start_tagging", "commit_run", "retry_write")` dans l'`app-error-message` existant de la page
+- **Échecs** : `app-message` `error` au-dessus de la liste tant que des lignes sont en `write_error` (le sub-project 11 compte sur les lignes, non sur `writeFinished`), repris du `Recap` de la maquette, avec « Relancer l'écriture » (`pButton` contour `primary`, icône `refresh`, grisé pendant une écriture ou un rollback) qui ouvre sa propre confirmation ; pendant la relance, le message d'échec est masqué et le bouton d'action est en chargement
+- **Erreurs** : `errorFor("start_tagging", "commit_run", "retry_write")`, plus `rollback` depuis le sub-project 11, dans l'`app-error-message` existant de la page
 - **Fermeture bloquée** : `CloseConfirmationComponent` lit `CloseGuard.blocked` ; bloquée, elle titre « Impossible de quitter maintenant » et n'offre que « Rester ». Un run cherché mais non confirmé compte parmi les travaux perdus (`unwritten`), sans bloquer : la sortie reste offerte
 - **i18n** : vouvoiement, infinitif pour les actions, espace insécable avant `:`, mêmes clés en FR et en EN (`.claude/rules/ngx-translate/i18n.md`)
 - Autres rules : `.claude/rules/angular/components.md`, `.claude/rules/angular/tests.md`, `.claude/rules/tailwindcss/utilitaires.md`
@@ -149,6 +152,15 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
 **Rationale :**
 - Choix du propriétaire : jamais deux actions du run côte à côte, aucune action désactivée à garder visible
 - Revient sur l'arbitrage du 2026-10-03, qui gardait « Lancer le run » pendant le rattrapage : choisir un autre dossier devient le geste qui abandonne un run non écrit
+
+### Décision : rouge des gestes sur les fichiers
+**Options envisagées :**
+- **A. `danger` sur l'écriture, sa relance et le rollback** : relance en contour `danger` comme le `Recap` de la maquette
+- **B. `danger` sur la seule acceptation du rollback** : « Écrire les tags » et « Relancer l'écriture » acceptent en `primary`, tous les déclencheurs restent `primary`
+**Choix : B** (remplace A le 2026-10-10)
+**Rationale :**
+- Décision du propriétaire, DESIGN.md § Arbitrages, « Rouge des gestes sur les fichiers » : les tags d'origine sont sauvegardés avant toute écriture, c'est le rollback qui défait
+- C'est la modale qui avertit, pas le bouton qui l'ouvre
 
 ### Décision : relance des échecs dans l'onglet Tagging
 **Options envisagées :**

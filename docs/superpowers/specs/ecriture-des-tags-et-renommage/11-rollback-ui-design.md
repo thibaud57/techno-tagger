@@ -13,7 +13,7 @@ date: "2026-10-06"
 
 ## Scope
 
-Couvre le bouton « Annuler l'écriture » du run affiché au bout de la barre d'écriture, le bouton « Restaurer ce morceau » de la ligne dépliée, la rangée Rollback d'une section Administration des Réglages (dernier run annulable avec date, dossier et nombre de morceaux), leurs confirmations `danger`, l'état « Restauré » à l'écran, la liste partagée des fichiers non restaurés, les erreurs du rollback, et le décompte des échecs d'écriture lu sur les lignes.
+Couvre le bouton « Annuler l'écriture » du run affiché au bout de la barre d'écriture, le bouton « Restaurer ce morceau » de la ligne dépliée, la rangée Rollback d'une section Administration des Réglages (dernier run annulable avec date, dossier et nombre de morceaux), leurs confirmations, dont l'acceptation « Restaurer » est en `danger`, l'état « Restauré » à l'écran, la liste partagée des fichiers non restaurés, les erreurs du rollback, et le décompte des échecs d'écriture lu sur les lignes.
 
 Exclut le rollback côté sidecar (06), le store et les commandes (08), les autres rangées d'administration de la maquette (cache, logs) et le récapitulatif (Feature 6).
 
@@ -23,10 +23,10 @@ Exclut le rollback côté sidecar (06), le store et les commandes (08), les autr
 
 ## Dependencies
 
-- `06-rollback-sidecar-design.md` (statut: draft) : chaînage des runs annulables, échec `name_taken`, pochettes et commentaires non restaurés
-- `08-service-ecriture-ui-design.md` (statut: draft) : `rollback(runId, trackId?)`, `loadRollbackTarget()`, `rollingBack`, `rollbackFinished`, `rollbackTarget`, `errorFor("rollback", "get_rollback_target")`, toast de fin
-- `09-ligne-depliee-avant-apres-design.md` (statut: draft) : `TrackDetailComponent` sous la ligne dépliée, `RunListComponent` à chevron
-- `10-confirmation-et-ecriture-ui-design.md` (statut: draft) : `ConfirmationService` racine, `p-confirmdialog` de la page Tagging, barre d'écriture, `committed`, message d'échec d'écriture, bouton d'action unique, `filesBusy`, icône `refresh`, clé `tagging.blocked.restoring`
+- `06-rollback-sidecar-design.md` (statut: implemented) : chaînage des runs annulables, échec `name_taken`, pochettes et commentaires non restaurés
+- `08-service-ecriture-ui-design.md` (statut: implemented) : `rollback(runId, trackId?)`, `loadRollbackTarget()`, `rollingBack`, `rollbackFinished`, `rollbackTarget`, `errorFor("rollback", "get_rollback_target")`, toast de fin
+- `09-ligne-depliee-avant-apres-design.md` (statut: implemented) : `TrackDetailComponent` sous la ligne dépliée, `RunListComponent` à chevron
+- `10-confirmation-et-ecriture-ui-design.md` (statut: implemented) : `ConfirmationService` racine, `p-confirmdialog` de la page Tagging, barre d'écriture, `committed`, message d'échec d'écriture, bouton d'action unique, `filesBusy`, icône `refresh`, clé `tagging.blocked.restoring`
 
 ## Références de design
 
@@ -36,13 +36,13 @@ Exclut le rollback côté sidecar (06), le store et les commandes (08), les autr
 
 ## Files touched
 
-- **À créer** : `src/app/shared/components/rollback-failures.component.ts` et `.spec.ts` (liste des fichiers non restaurés et de leur motif, dans un `p-message` `error`)
+- **À créer** : `src/app/shared/components/rollback-failures.component.ts` et `.spec.ts` (liste des fichiers non restaurés et de leur motif, dans un `app-message` `error`)
 - **À modifier** : `src/app/shared/components/state-tag.component.ts`, `.spec.ts` (`rolled_back`)
 - **À modifier** : `src/app/shared/components/icon.component.ts` (`undo` ; `refresh` est posée par le 10)
 - **À modifier** : `src/app/features/tagging/track-detail.component.ts`, `.html`, `.spec.ts` (bouton « Restaurer ce morceau », inputs `restorable`, `restoring`, `blocked`, output `restore`)
 - **À modifier** : `src/app/features/tagging/run-list.component.ts`, `.html` (relais des inputs et de l'output du détail)
 - **À modifier** : `src/app/features/tagging/tagging-page.component.ts`, `.html`, `.spec.ts` (bouton du run, confirmations, liste des échecs du run affiché, erreurs du rollback, échecs d'écriture comptés sur les lignes ; test du message d'échec du 10 réécrit sur les lignes)
-- **À modifier** : `src/app/features/settings/settings-page.component.ts`, `.html`, `.spec.ts` (section Administration, rangée Rollback, `p-confirmdialog`)
+- **À modifier** : `src/app/features/settings/settings-page.component.ts`, `.html`, `.spec.ts` (section Administration, rangée Rollback, `app-danger-confirm`)
 - **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`tagging.state.rolledBack`, `tagging.rollback.*`, `settings.admin.*`, `rollback.failures`, `rollback.failure`)
 - **À modifier** : `docs/DESIGN.md` (§ Couleurs Sémantiques : « Restauré » et la phrase des familles dérivées ; § Écriture et récapitulatif, ligne Rollback : emplacements ; § Settings : rangée Rollback)
 - **À modifier** : `.design-sync/NOTES.md` (§ Reste ouvert : état « Restauré », bouton par morceau, bouton du run sur la barre, texte de la cible dans les Réglages)
@@ -51,12 +51,12 @@ Exclut le rollback côté sidecar (06), le store et les commandes (08), les autr
 
 - **Composants d'affichage** : `TrackDetailComponent` émet `restore` sans rien appeler ; `RunListComponent` relaie ; la page Tagging ouvre la confirmation et appelle le service (`.claude/rules/angular/components.md`). Le détail montre le bouton quand `restorable` (morceau `written` ou `write_error` d'un run confirmé, calculé par la page sur les états reçus), en chargement quand `restoring`, grisé quand `blocked` (une opération sur les fichiers en cours)
 - **Run entier dans Tagging** : « Annuler l'écriture » (`pButton` `primary` contour, icône `refresh`, le `danger` restant à l'acceptation de la modale) au bout de la barre d'écriture, une fois l'écriture finie et tant qu'une ligne du run est `written` ou `write_error`
-- **Confirmations** par `ConfirmationService` (`.claude/rules/primeng/composants.md`), bouton « Restaurer » en `danger` : nombre de fichiers, nom et tags d'origine rendus, pochettes et commentaires non rendus ; pour les Réglages, date et dossier du run en tête. Les nombres se lisent sur les états reçus ou sur `rollbackTarget.tracks`
+- **Confirmations** par `injectDangerConfirm` et `app-danger-confirm` du sub-project 10 (`.claude/rules/primeng/composants.md`), bouton « Restaurer » en `danger` : nombre de fichiers, nom et tags d'origine rendus, pochettes et commentaires non rendus ; pour les Réglages, date et dossier du run en tête. Les nombres se lisent sur les états reçus ou sur `rollbackTarget.tracks`
 - **Une opération à la fois** : tout bouton de restauration et le bouton d'action du run se grisent pendant `writing` ou `rollingBack` ; celui qui a lancé l'opération montre l'icône `spinner` animée, comme la confirmation d'écriture
 - **État « Restauré »** : `StateTagComponent` lit `rolled_back` en `secondary`, icône `undo`, `tagging.state.rolledBack`. Plus court qu'« Échec d'écriture », la colonne État garde sa largeur
 - **Échecs d'écriture comptés sur les lignes** (`state === "write_error"`) et non sur le dernier `run_finished` : un morceau restauré sort du message et de la relance (ajuste le sub-project 10)
 - **Liste des échecs de restauration** : `RollbackFailuresComponent` reçoit `RollbackFailure[]` et affiche « Fichiers non restaurés : N » puis, par fichier, son nom et la phrase de son motif (`tagging.reason.*`, `name_taken` compris). Dans Tagging, seulement si `rollbackFinished.run_id` est celui du run affiché ; dans les Réglages, le dernier bilan
-- **Réglages** : section « Administration » sous la clé API, rangée au gabarit de celle de la clé (libellé et aide en `w-64`, action à droite, filet du bas) ; `loadRollbackTarget()` à la construction de la page ; à droite du bouton, la cible en `text-sm text-muted-color` : date formatée par `Intl.DateTimeFormat` dans la langue courante (`translate.currentLang()`), dossier, nombre ; « Aucun run à annuler » et raison en tooltip sur `null` ; rien tant que `undefined`. Le bouton se grise aussi pendant la recherche d'un run, puis pendant une écriture ou une restauration. Erreurs par `errorFor("rollback", "get_rollback_target")` dans un `app-error-message`
+- **Réglages** : section « Administration » sous la clé API, rangée au gabarit de celle de la clé (libellé et aide en `w-64`, action à droite, filet du bas) ; `loadRollbackTarget()` demandée dès que le moteur est disponible (un `effect` sur `available()` : la page se monte avant sa réponse au lancement, et la demande ne part pas sans moteur) ; à droite du bouton, la cible en `text-sm text-muted-color` : date formatée par `Intl.DateTimeFormat` dans la langue courante (`translate.currentLang()`), dossier, nombre ; « Aucun run à annuler » et raison en tooltip sur `null` ; rien tant que `undefined`. Le bouton se grise aussi pendant la recherche d'un run, puis pendant une écriture ou une restauration. Erreurs par `errorFor("rollback", "get_rollback_target")` dans un `app-error-message`
 - **i18n** : vouvoiement, infinitif, forme « Libellé : {{count}} », espace insécable avant `:`, mêmes clés en FR et en EN (`.claude/rules/ngx-translate/i18n.md`)
 - Autres rules : `.claude/rules/angular/signals.md`, `.claude/rules/angular/tests.md`, `.claude/rules/tailwindcss/utilitaires.md`, `.claude/rules/tailwindcss/echelles.md`
 
@@ -104,7 +104,7 @@ Exclut le rollback côté sidecar (06), le store et les commandes (08), les autr
   - échecs d'écriture comptés sur les lignes `write_error`, message d'échec du 10 piloté par les lignes seules
   - échecs de restauration listés pour le run affiché seulement
 - `src/app/features/settings/settings-page.component.spec.ts` :
-  - cible demandée à l'ouverture, affichée avec date, dossier et nombre
+  - cible demandée une fois le moteur disponible, non à la construction, affichée avec date, dossier et nombre
   - bouton grisé avec sa raison sans cible et pendant la recherche d'un run
   - confirmation avec date, dossier et nombre ; accepter appelle `rollback(runId)`
   - échecs et erreur affichés

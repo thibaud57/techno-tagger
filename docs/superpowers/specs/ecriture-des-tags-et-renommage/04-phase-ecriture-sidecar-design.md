@@ -23,9 +23,9 @@ Exclut les commandes `commit_run` et `retry_write`, les gardes de phase, l'atten
 
 ## Dependencies
 
-- `01-ecriture-tags-design.md` (statut: draft) : `project_tags`, `write_tags`, `TagsWriteError`, `TagField`, `FileFailureReason`, `file_failure_reason`.
-- `02-dump-tags-origine-design.md` (statut: draft) : `read_original_tags`, `TagDump`, `DumpEntry`, `save_entries`, `record_renamed_path`, `TagDumpWriteError`.
-- `03-renommage-fichiers-design.md` (statut: draft) : `rename_track`, `RenameError`.
+- `01-ecriture-tags-design.md` (statut: implemented) : `project_tags`, `write_tags`, `TagsWriteError`, `TagField`, `FileFailureReason`, `file_failure_reason`.
+- `02-dump-tags-origine-design.md` (statut: implemented) : `read_original_tags`, `TagDump`, `DumpEntry`, `save_entries`, `record_renamed_path`, `TagDumpWriteError`.
+- `03-renommage-fichiers-design.md` (statut: implemented) : `rename_track`, `RenameError`.
 
 ## Files touched
 
@@ -41,8 +41,8 @@ Exclut les commandes `commit_run` et `retry_write`, les gardes de phase, l'atten
 - **`RunWriter(live, dump_folder, on_event)`** dans `writing.py`, sur le modèle d'`UrlRecovery` : il travaille sur le `LiveRun` en mémoire (ADR-010, état en mémoire jusqu'à la Feature 6), émet par rappel et ignore le protocole. `write()` vise les morceaux `resolved`, `retry()` les seuls `write_error` ; un `unresolved`, un morceau en attente d'arbitrage ou jamais traité n'est jamais touché
 - **Passe 1, dump** : lecture en parallèle (`asyncio.to_thread`, `.claude/rules/python/asyncio.md`) des tags d'origine des morceaux absents du dump, puis un seul `save_entries` avant le premier fichier. Une lecture en échec met son morceau en `write_error` avec son motif, et il n'est pas écrit : `UnreadableReason.LOCKED` se lit avant la cause système (un fichier tenu par un autre programme remonte en `PermissionError` sans `winerror`, que `file_failure_reason` prendrait pour un refus de droits). Ces `write_error` ne sont réglés qu'une fois le dump sauvé : un `TagDumpWriteError` remonte et arrête la phase avant tout fichier, sans qu'aucun morceau ait changé d'état
 - **Passe 2, séquentielle** : pour chaque morceau lisible, `project_tags`, `write_tags` avec la pochette du cache, puis `rename_track` avec l'artiste et le titre projetés. Un `TagsWriteError` ou un `RenameError` met le morceau en `write_error` avec son motif, la phase continue ; un fichier tenu par un autre programme y ressort `file_locked` par l'heuristique de `_write_failure` (spec 01). Séquentielle : quelques secondes pour un run (PRODUCTION.md § Benchmarks), et deux morceaux visant le même nom ne se doublent pas
-- **Chemin renommé** : `rename_track` annonce son chemin cible juste avant le déplacement (`before_rename`, y compris pour un changement de casse seule) et `record_renamed_path` le note au dump, puis `written_to(path, outcome)` sur le morceau, `track_id` inchangé. Un dump qui ne se met pas à jour est logué sans rien arrêter : le fichier est écrit, le morceau passe `written`, et son rollback échouera en `file_missing`, faute de chemin renommé `WriteOutcome` garde les champs écrits, la pose de la pochette et la troncature du nom, que le rapport de la Feature 6 reprendra
-- **Relance** : le dump créé à la première écriture est gardé ; une entrée présente n'est jamais relue ni réécrite, un morceau dont la lecture d'origine avait échoué est relu
+- **Chemin renommé** : `rename_track` annonce son chemin cible juste avant le déplacement (`before_rename`, y compris pour un changement de casse seule) et `record_renamed_path` le note au dump, puis `written_to(path, outcome)` sur le morceau, `track_id` inchangé. Un dump qui ne se met pas à jour est logué sans rien arrêter : le fichier est écrit, le morceau passe `written`, et son rollback échouera en `file_missing`, faute de chemin renommé. `WriteOutcome` garde les champs écrits, la pose de la pochette et la troncature du nom, que le rapport de la Feature 6 reprendra
+- **Relance** : le dump créé à la première écriture est gardé ; une entrée présente n'est jamais relue ni réécrite, un morceau dont la lecture d'origine avait échoué est relu. Le dump est relu sur le disque avant chaque phase (`dump_on_disk`) : un rollback du run affiché a pu y consommer l'entrée d'un échec que la mémoire garde, et la relance sauvegarde alors son origine de nouveau (06)
 - **États et motifs** dans `tagging.py` : `TrackState.WRITTEN` et `WRITE_ERROR` ; `FailureReason` gagne `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `file_missing`, `write_failed`, mêmes valeurs que `FileFailureReason` (copie gardée par un test, `CLAUDE.md` § Une valeur, une source), le protocole n'ayant qu'un champ `failure_reason`. `write_failed` garde `resolution`, la relance n'a rien à redemander (`.claude/rules/python/modeles-donnees.md`)
 - **Événements** : `TrackResolved(record)` du pipeline pour chaque morceau tranché, puis `WriteProgress(processed, total)` ; le handler du sub-project 05 les traduit
 - **Logs** logfmt (`.claude/rules/python/gestion-erreurs.md`) : `write phase started` et `finished` en INFO avec `run`, chaque échec en ERROR avec `run`, `track` (rang du morceau) et `reason`
@@ -98,6 +98,7 @@ Exclut les commandes `commit_run` et `retry_write`, les gardes de phase, l'atten
   - un dump qui ne se met pas à jour au renommage laisse le morceau `written`, `renamed_path` vide
   - la relance ne réécrit que les échecs et garde l'origine du dump
   - la relance relit l'origine qu'une lecture ratée avait manquée
+  - la relance sauvegarde de nouveau l'origine dont un rollback a consommé l'entrée
   - chaque morceau tranché émet son `TrackResolved` puis la progression
   - un fichier déjà au bon nom est écrit sans renommage, `renamed_path` vide
   - un fichier corrompu passe en `write_error` `write_failed`

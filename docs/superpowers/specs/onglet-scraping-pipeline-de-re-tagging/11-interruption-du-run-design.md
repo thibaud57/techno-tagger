@@ -20,7 +20,7 @@ date: "2026-09-25"
 
 Couvre l'arrêt d'un run de re-tagging à la demande de l'utilisateur : la commande `cancel_run` du contrat NDJSON, son émission par le service et le bouton qui la déclenche dans l'onglet Tagging. Le run s'arrête là où il en est, les morceaux déjà résolus gardent leurs résultats et ceux que le run n'a pas atteints portent l'état « Non traité » déjà livré.
 
-Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (Feature 5), que le run interrompu laisse disponible sur ses morceaux résolus. Exclut aussi l'interruption d'une extraction, attendue au contraire jusqu'à son terme (cf. `cancel_run` de `_Session`, décision de l'[ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)).
+Exclut la reprise d'un run arrêté (Feature 6). Le run interrompu reste arbitrable et rattrapable, et sa confirmation d'écriture reste disponible sur ses morceaux résolus (epics `arbitrage-utilisateur`, `rattrapage-par-url-manuelle` et `ecriture-des-tags-et-renommage`). Exclut aussi l'interruption d'une extraction, d'une écriture ou d'un rollback, attendus au contraire jusqu'à leur terme (cf. `cancel_run` de `_Session`, décision de l'[ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)).
 
 ### État livré
 
@@ -30,11 +30,11 @@ Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (
 
 - `07-protocole-ndjson-tagging-design.md` (statut: implemented) : `CommandName`, `parse_command`, le dispatch de `__main__.py`.
 - `08-service-sidecar-tagging-design.md` (statut: implemented) : `SidecarService.send`, `TaggingRunStore.failed()`.
-- `10-onglet-tagging-page-design.md` (statut: implemented) : l'en-tête de la page et son bouton de lancement, à côté duquel celui-ci prend place.
+- `10-onglet-tagging-page-design.md` (statut: implemented) : l'en-tête de la page et son bouton de lancement, dont celui-ci prend la place pendant la recherche.
 
 ## Références de design
 
-- **Maquette** : `ui_kits/techno-tagger/TaggingScreen.jsx`, composant `TaggingScreen` en phase `running`, dont l'en-tête porte le bouton. La maquette n'a pas d'interruption : l'écart est tranché ici et consigné dans `.design-sync/NOTES.md`.
+- **Maquette** : `ui_kits/techno-tagger/TaggingScreen.jsx`, composant `TaggingScreen` en phase `running`, dont l'en-tête porte le bouton. La maquette n'avait pas d'interruption : elle la pose depuis le 2026-09-25 à gauche du lancement, et l'écart du bouton d'action unique est tranché dans DESIGN.md § Arbitrages (2026-10-06).
 - **Design system** : `components/forms/Button.prompt.md`
 - Règle de lecture : `.claude/rules/design/claude-design.md`
 
@@ -58,11 +58,12 @@ Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (
 ## Architecture approach
 
 - **La mécanique d'annulation existe déjà** : `_Session.cancel_run()` annule la tâche du run et `shutdown` s'en sert depuis le sub-project 07. Ce sub-project l'expose comme commande et la rend **asynchrone** : elle attend que le run ait fini de mourir avant de rendre la main, sa sortie du cache attendant les téléchargements en vol. Sans cette attente, une relance lue entre-temps trouvait la tâche vivante et partait en `tagging_in_progress`, code que l'interface lit comme un run qui continue : l'écran restait bloqué en chargement. `run_tagging` étant une coroutine et non un `to_thread`, l'annulation atteint réellement les requêtes en vol : le quota techno-scraper cesse d'être consommé, ce qui est la raison d'être de la commande.
-- **Aucun événement de fin n'est ajouté au contrat.** L'interface sait que le run s'est arrêté puisqu'elle l'a demandé : lui renvoyer l'information serait un aller-retour pour une chose déjà connue. `cancelTagging()` envoie la commande puis appelle `TaggingRunStore.failed()`, exactement ce que `endRun()` fait déjà quand le process meurt.
+- **Aucun événement de fin n'est ajouté au contrat.** L'interface sait que le run s'est arrêté puisqu'elle l'a demandé : lui renvoyer l'information serait un aller-retour pour une chose déjà connue. `cancelTagging()` envoie la commande puis appelle `TaggingRunStore.failed()`, exactement ce que `endRun()` fait déjà quand le process meurt. Elle ne fait rien hors run.
+- **L'arrêt ouvre le rattrapage par URL.** Le run courant survit à sa phase réseau, le temps des arbitrages et des rattrapages : quand `cancel_run` interrompt une phase réseau en cours, le sidecar émet la progression du rattrapage, toujours sans événement de fin (cf. ARCHITECTURE.md § Contrat NDJSON, `cancel_run`).
 - **Commande sans champ**, sur le modèle de `Shutdown` et `GetVersion` : le sidecar n'a qu'un run à la fois (`TaggingInProgressError` le garantit), il n'y a donc pas de `run_id` à désigner. Idempotente : `cancel_run()` ne fait rien si aucun run ne tourne et l'interface ne montre le bouton que pendant un run.
 - **Traitée par le `_dispatch` et non par la boucle**, contrairement à `Shutdown` qui doit en sortir : l'annulation laisse la session vivante et le `assert_never` du `match` verrouille l'oubli d'un handler (cf. `.claude/rules/python/type-hints.md`).
 - **Aucun état de morceau nouveau** : un morceau que le run n'a pas atteint porte « Non traité », `secondary` et `minus-circle`, livré le 2026-09-25. Du point de vue de la ligne, un run annulé et un run planté disent la même chose : rien ne lui est arrivé. La cause appartient au run, qui la porte une fois, en haut de l'écran : un bandeau d'erreur quand il a planté, rien quand l'utilisateur a cliqué (décision ci-dessous).
-- **Le bouton s'ajoute à gauche de celui du lancement**, qui reste visible et grisé : DESIGN.md interdit de masquer une action désactivée, arbitrage déjà tranché dans le sub-project 10 contre la maquette, qui fait disparaître le lancement hors phase `idle`. `secondary` outlined et non `danger` : le rouge est réservé aux trois actions qui touchent aux fichiers musicaux et la phase réseau n'écrit rien.
+- **Le bouton est un rôle du bouton d'action unique de l'en-tête**, qui suit la phase : « Lancer le run », « Interrompre » pendant la recherche, « Confirmer l'écriture » sur un run cherché non écrit (DESIGN.md § Arbitrages, « Bouton d'action du run », 2026-10-06). Aucune action désactivée ne reste à côté. `secondary` outlined et non `danger` : le rouge est réservé à l'acceptation du rollback et la phase réseau n'écrit rien.
 - **Sans confirmation** : rien d'irréversible ne se produit, aucun fichier n'étant modifié avant la confirmation globale de l'écriture (`.claude/CLAUDE.md` § Standards). Une modale à l'instant où l'utilisateur veut que ça s'arrête ajouterait un clic à un geste déjà décidé.
 - **i18n** : `tagging.cancel` dans les deux langues au même commit, libellé d'action à l'infinitif (cf. `.claude/rules/ngx-translate/i18n.md`).
 
@@ -73,7 +74,7 @@ Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (
 **GIVEN** un run lancé sur un dossier de 100 morceaux, 30 résolus
 **WHEN** l'utilisateur clique « Interrompre »
 **THEN** la commande `cancel_run` part vers le sidecar
-**AND** la progression disparaît
+**AND** la progression de la recherche disparaît, la barre du rattrapage prend sa place
 **AND** les 30 morceaux résolus gardent leur source, leurs scores et leur pochette
 **AND** les 70 autres affichent « Non traité »
 
@@ -82,16 +83,22 @@ Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (
 **GIVEN** l'onglet Tagging sans run en cours
 **WHEN** l'écran s'affiche
 **THEN** l'en-tête porte « Lancer le run » seul, sans bouton d'interruption
-**AND** pendant un run, les deux boutons coexistent, le lancement grisé
+**AND** pendant la recherche, « Interrompre » prend la place du lancement
 
 ### Scénario 3 : Relance après une interruption
 
-**GIVEN** un run interrompu
+**GIVEN** un run interrompu et un autre dossier choisi
 **WHEN** l'utilisateur clique « Lancer le run »
 **THEN** un nouveau run démarre et la liste repart vide
 **AND** le sidecar ne refuse pas la commande pour un run déjà en cours
 
-### Scénario 4 : Le sidecar reste disponible
+### Scénario 4 : Confirmer un run interrompu
+
+**GIVEN** un run interrompu dont des morceaux sont résolus, sur le dossier toujours choisi
+**WHEN** l'en-tête s'affiche
+**THEN** le bouton d'action est « Confirmer l'écriture » et non « Lancer le run »
+
+### Scénario 5 : Le sidecar reste disponible
 
 **GIVEN** un run interrompu
 **WHEN** l'interface envoie une autre commande, par exemple `get_version`
@@ -107,12 +114,16 @@ Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (
   - `cancelTagging()` envoie la commande `cancel_run` et arrête le run
 - `src/app/features/tagging/tagging-page.component.spec.ts` :
   - le bouton d'interruption n'est rendu que pendant un run
+  - le bouton d'action suit la phase (lancer, interrompre, confirmer)
+  - un run interrompu propose la confirmation de l'écriture
 
 ### Integration
 
 - `sidecar/tests/integration/test_ndjson_loop.py` :
   - un run annulé n'émet aucun événement de fin et la boucle répond à la commande suivante
   - un run relancé juste après une annulation n'est pas refusé, sur un run qui met du temps à mourir
+- `sidecar/tests/integration/test_ndjson_url_recovery.py` :
+  - un run annulé ouvre la phase de rattrapage, et un run terminé n'émet rien à l'annulation
 
 > Le test de cohérence de `CommandName` déjà en place (`test_protocol_models.py`) couvre sans ajout l'appariement du littéral et du modèle.
 
@@ -120,7 +131,7 @@ Exclut la reprise d'un run arrêté (Feature 6) et la confirmation d'écriture (
 
 - **Aucun run en cours** : `cancel_run()` ne trouve pas de tâche active et ne fait rien. Aucune erreur n'est émise, l'interface n'exposant pas le bouton hors run.
 - **Interruption pendant le parcours du dossier**, avant `run_started` : la lecture des tags passe par des `to_thread` dont l'annulation attend la fin, quelques centaines de millisecondes sur un gros dossier. Le run s'arrête ensuite sans émettre `run_started` et `TaggingRunStore.failed()` n'étiquette rien, aucune ligne n'existant encore.
-- **Arbitrages déjà tranchés** : perdus avec le run, la Feature 3 n'ayant pas de persistance d'arbitrage. Rien ne les recharge à la relance.
+- **Arbitrages déjà tranchés** : gardés sur le run interrompu, qui reste arbitrable jusqu'au run suivant. Une relance repart d'un run neuf, le sidecar jetant les arbitrages de l'ancien, et rien ne les recharge.
 
 ## Architectural decisions
 

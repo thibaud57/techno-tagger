@@ -15,7 +15,7 @@ date: "2026-10-02"
 
 Couvre le geste de rattrapage sur le run vivant (`LiveRun`) : éligibilité du morceau, un seul geste en vol par morceau, résolution de l'URL par le client et la garde des 403 du run, pochette, passage en `resolved · url` sans score, et le décompte « rattrapés sur à rattraper » de la phase `url_recovery`. Un échec laisse le morceau tel qu'il était.
 
-Exclut la commande `resolve_by_url`, son câblage dans `CurrentRun`, le refus d'un geste pendant la phase réseau et le moment où la progression est émise (sub-project 03), toute interface (sub-projects 04 et 05) et la persistance de la décision dans le plan de run (Feature 6).
+Exclut la commande `resolve_by_url`, son câblage dans `CurrentRun`, le refus d'un geste pendant la phase réseau ou sur un run confirmé et le moment où la progression est émise (sub-project 03), toute interface (sub-projects 04 et 05) et la persistance de la décision dans le plan de run (Feature 6).
 
 ### État livré
 
@@ -23,7 +23,7 @@ Exclut la commande `resolve_by_url`, son câblage dans `CurrentRun`, le refus d'
 
 ## Dependencies
 
-- `01-client-resolution-url-design.md` (statut: draft) : `TechnoScraperClient.fetch_by_url`, `UnsupportedTrackUrlError` et les formes d'URL acceptées.
+- `01-client-resolution-url-design.md` (statut: implemented) : `TechnoScraperClient.fetch_by_url`, `UnsupportedTrackUrlError` et les formes d'URL acceptées.
 
 ## Files touched
 
@@ -44,10 +44,10 @@ Exclut la commande `resolve_by_url`, son câblage dans `CurrentRun`, le refus d'
 - **Un seul geste en vol par morceau** : un second lève `UrlRecoveryBusyError`, jamais mis en file. Garde synchrone par ensemble de `track_id` et context manager libéré en `finally`, annulation comprise (`.claude/rules/python/asyncio.md`). La garde est propre à `UrlRecovery` : un morceau éligible n'est jamais en arbitrage, les deux gestes ne se disputent donc jamais le même morceau.
 - **Erreurs** (`.claude/rules/python/gestion-erreurs.md`) : base `UrlRecoveryError(TaggerError)`, code `url_recovery_error`, feuilles `UrlRecoveryNotEligibleError` (`url_recovery_not_eligible`) et `UrlRecoveryBusyError` (`url_recovery_busy`), chacune avec `track_id` en `params`, comme les erreurs `Arbitration*`. Les erreurs du client remontent sans changement : `unsupported_url`, `track_not_found`, `source_unavailable`, `api_key_rejected`, `api_contract_error`. C'est le sub-project 03 qui leur joint le `track_id` de la commande.
 - **Accès réseau par `RunSources.from_url(position, url)`**, qui rend le candidat et sa pochette. L'appel `fetch_by_url` passe par `_call`, donc par la garde des 403 partagée du run et par la remontée Sentry d'un contrat cassé, comme la recherche et le refetch (`.claude/rules/techno-scraper/contrat.md`). Un `UnsupportedTrackUrlError` traverse `_call` sans toucher la garde : aucune requête n'est partie. La pochette passe par `_artwork` : son échec est logué et ne fait jamais échouer le morceau (ARCHITECTURE.md § Concurrence).
-- **Morceau résolu par URL** : `TrackRecord.resolved(Resolution.URL, candidate.source, candidate, None, artwork)`. Le candidat n'a traversé aucun scoring : `resolved` accepte `scored=None`, que `handlers` traduit déjà en `scores` absent sur `track_resolved`. `resolved` efface aussi `failure_reason` : jusqu'ici seul un morceau en attente d'arbitrage, sans motif, passait en résolu, alors qu'un non résolu rattrapé garderait sinon son `no_result` à côté de `state: resolved`. L'état passe par `LiveRun.update` puis `TrackResolved` sur le rappel, comme `Arbitration._settle`.
+- **Morceau résolu par URL** : `TrackRecord.resolved(Resolution.URL, candidate.source, candidate, None, artwork)`. Le candidat n'a traversé aucun scoring : `resolved` accepte `scored=None`, que `handlers` traduit déjà en `scores` absent sur `track_resolved`. `resolved` efface aussi `failure_reason`, sans quoi un non résolu rattrapé garderait son `no_result` à côté de `state: resolved`. L'état passe par `LiveRun.update` puis `TrackResolved` sur le rappel, comme `Arbitration._settle`.
 - **Progression** (décision du propriétaire, 2026-10-02) : `UrlProgress(processed, total)`, calculé sur l'état du run, `total` = morceaux `unresolved` + morceaux `resolved · url`, `processed` = morceaux `resolved · url`. Un geste réussi émet `TrackResolved` puis `UrlProgress`. Un échec n'émet rien : la barre ne bouge que quand un morceau est rattrapé, une correction ne compte pas deux fois, un refus d'arbitrage tardif grossit le total au prochain calcul.
 - **Événements** : `type UrlRecoveryEvent = TrackResolved | UrlProgress`, sur le modèle d'`ArbitrationEvent`. `UrlProgress` est une dataclass interne figée (`.claude/rules/python/modeles-donnees.md`), que le sub-project 03 traduit en `progress` de phase `url_recovery`.
-- **Logs** en logfmt, clés fixes (`.claude/rules/python/gestion-erreurs.md`) : INFO sur un succès (`run`, `track` en position, `source`), WARNING sur un échec (`run`, `track`, `reason` = code de l'erreur, `request_id` quand l'API a répondu). Jamais l'URL ni le titre (ARCHITECTURE.md § Sécurité).
+- **Logs** en logfmt, clés fixes (`.claude/rules/python/gestion-erreurs.md`) : INFO sur un succès (`run`, `track` en position, `source`), WARNING sur un échec (`run`, `track`, `status` = état que garde le morceau, `reason` = code de l'erreur, `request_id` quand l'API a répondu). Jamais l'URL ni le titre (ARCHITECTURE.md § Sécurité).
 - **Rien n'est persisté** : la décision vit dans le run vivant jusqu'au run suivant, comme l'arbitrage. Le plan de run de la Feature 6 la reprendra (ADR-010).
 - **Docs** : ARCHITECTURE.md se modifie avec le skill `architecture-doc`.
 - **Qualité** : Ruff, Mypy strict (`.claude/rules/ruff/lint-format.md`, `.claude/rules/mypy/strict.md`), types selon `.claude/rules/python/type-hints.md`, tests selon `.claude/rules/pytest/tests.md`.
@@ -101,14 +101,19 @@ Exclut la commande `resolve_by_url`, son câblage dans `CurrentRun`, le refus d'
   - resolves an unresolved track by url with the fetched candidate and its artwork
   - emits the resolved track then the url progress
   - replaces a track already resolved by url
-  - refuses a track that is not eligible without any request (paramétré : `auto`, `arbitration`, en attente d'arbitrage, non traité, inconnu ; `ids` en anglais)
+  - refuses a track that is not eligible without any request (paramétré : `auto`, `arbitration`, en attente d'arbitrage, non traité ; `ids` en anglais)
+  - refuses a track unknown to the run
   - refuses a second gesture in flight on the same track
   - keeps the track untouched and emits nothing when the url fails (paramétré : `unsupported_url`, `track_not_found`, `source_unavailable`)
   - keeps the previous url when a correction fails
+  - logs the state the track keeps when a correction fails
   - resolves the track without artwork when the artwork download fails
-  - counts recovered tracks over tracks to recover, a late arbitration refusal included
+  - counts recovered tracks over tracks to recover
+  - grows the total when a late refusal leaves a track unresolved
+  - counts zero over zero when nothing is left to recover
   - stops on the third consecutive api key rejection across gestures
   - releases the track when the gesture is cancelled
+  - releases the track after a failed gesture
   - never logs the pasted url
 
 `test_error_translations.py` couvre sans ajout les trois nouveaux codes. Aucun test ne vérifie httpx2, pydantic ni le client lui-même (sub-project 01) : chacun échoue contre une régression de notre éligibilité, de notre garde, de notre transition d'état ou de notre décompte.

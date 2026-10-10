@@ -23,7 +23,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 
 ## Dependencies
 
-- `04-phase-ecriture-sidecar-design.md` (statut: draft) : `RunWriter`, `WriteProgress`, `WriteEvent`, états `written` / `write_error` et motifs d'écriture ; par lui, le dump (02) et sa `TagDumpWriteError`, `tag_dump.dump_dir`.
+- `04-phase-ecriture-sidecar-design.md` (statut: implemented) : `RunWriter`, `WriteProgress`, `WriteEvent`, états `written` / `write_error` et motifs d'écriture ; par lui, le dump (02) et sa `TagDumpWriteError`, `tag_dump.dump_dir`.
 
 ## Files touched
 
@@ -42,12 +42,12 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 
 - **Commandes strictes** (`extra="forbid"`, ADR-022, `.claude/rules/pydantic/modeles.md`) : `commit_run {run_id}` et `retry_write {run_id}`, ajoutées aux trois listes de `protocol.py` ; `test_command_name_lists_every_command` garde la recopie de `CommandName`
 - **Écriture en tâche de fond** dans le `TaskGroup` de la session, comme l'extraction : stdin reste lu et la progression part en direct. `_phase` émet `run_finished(write)` à la fin, ou l'`error` d'une `TaggerError` avec sa commande
-- **Garde `_writable(run_id)`** : `write_in_progress` si une écriture tourne ; `write_not_open` sans run courant, sur un autre `run_id`, pendant la phase réseau ou pendant un geste d'arbitrage ou de rattrapage en vol (`CurrentRun.busy` : un geste qui finirait pendant l'écriture écraserait un morceau écrit). `commit_run` exige ensuite un run jamais confirmé, `retry_write` un run confirmé, sinon `write_not_open`
+- **Garde `_writable(run_id)`** : `write_in_progress` si une écriture tourne (`rollback_in_progress` et `extraction_in_progress` pour les deux autres phases de fichiers, cf. 06) ; `write_not_open` sans run courant, sur un autre `run_id`, pendant la phase réseau ou pendant un geste d'arbitrage ou de rattrapage en vol (`CurrentRun.busy` : un geste qui finirait pendant l'écriture écraserait un morceau écrit). `commit_run` exige ensuite un run jamais confirmé, `retry_write` un run confirmé, sinon `write_not_open`
 - **Run figé** : `CurrentRun.writer` est posé à la confirmation, sa présence (`committed`) refuse arbitrage, bascule de source et rattrapage en `run_committed` avec `params.track_id`. Un dump qui ne s'enregistre pas n'a touché aucun fichier, et reste vrai : seule la sauvegarde initiale du dump peut lever vers la session, le sub-project 04 logue sans rien arrêter un échec de mise à jour du chemin renommé. Le `writer` est retiré et le run redevient confirmable
 - **Écriture protégée** : `start_tagging` refusé en `write_in_progress` pendant l'écriture ; `cancel_run` n'arrête que la phase réseau ; `shutdown` et l'EOF n'annulent jamais l'écriture, attendue par le `TaskGroup` de la boucle comme l'extraction (un fichier coupé en vol resterait à moitié écrit)
 - **Événements** : `track_resolved` du `RunWriter` traduit comme ceux du pipeline (états `written`, `write_error`, motifs d'écriture) ; `WriteProgress` devient `progress(phase=write)`. `run_finished` compte `resolved`, `unresolved`, `written`, `write_error` et les attentes d'arbitrage sur l'état de chaque morceau, dans les deux phases
 - **Traduction** : `to_protocol_event` couvre `PipelineEvent` (pipeline, arbitrage, rattrapage, écriture), `match` fermé par `assert_never` ; PLR0911 neutralisé avec sa justification, une sortie par événement traduit
-- **Miroir TypeScript** (ADR-005, manuel) : commandes, `TrackState` (`written`, `write_error`), `TrackFailureReason` (six motifs), `RunFinishedEvent` (`written`, `write_error`). Le comportement de l'interface reste au sub-project 08, qui devra traiter `write_in_progress` reçu sur `start_tagging` comme `tagging_in_progress` : il refuse un lancement sans clore le run affiché
+- **Miroir TypeScript** (ADR-005, manuel) : commandes, `TrackState` (`written`, `write_error`), `TrackFailureReason` (six motifs), `RunFinishedEvent` (`written`, `write_error`). Le comportement de l'interface reste au sub-project 08, qui traite `write_in_progress` reçu sur `start_tagging` comme `tagging_in_progress` : il refuse un lancement sans clore le run affiché
 - **Erreurs** dans `__main__.py`, à côté de `TaggingInProgressError`, traduites dans les deux langues (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`, `.claude/rules/python/asyncio.md`, `.claude/rules/python/pattern-matching.md`)
 
 ## Acceptance criteria

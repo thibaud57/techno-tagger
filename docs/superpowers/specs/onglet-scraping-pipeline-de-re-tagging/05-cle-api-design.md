@@ -15,7 +15,7 @@ date: "2026-09-19"
 
 Couvre le stockage de la clé `X-API-Key` dans le trousseau Windows côté sidecar (backend forcé `WinVaultKeyring`), la commande NDJSON `set_api_key` avec contrôle de format, un `api_key_configured` réel dans l'événement `version`, le miroir TypeScript, l'état de la clé dans le service sidecar et la section « API » de l'onglet Settings, réduite au champ de la clé. Couvre aussi le réalignement de la documentation sur l'URL de l'API figée en constante du sidecar (décision du 2026-09-19).
 
-Exclut tout champ d'URL, les autres réglages (seuils, langue, signal sonore, cache, logs, rollback : Feature 7), la suppression de la clé, la vérification de la clé auprès de l'API (décision du 2026-09-19 : la garde des 403 du sub-project 06 s'en charge) et la lecture de la clé par le client techno-scraper (sub-project 06).
+Exclut tout champ d'URL, les autres réglages (seuils, langue, signal sonore, cache, logs : Feature 7, le rollback du dernier run étant livré par l'epic `ecriture-des-tags-et-renommage`), la suppression de la clé, la vérification de la clé auprès de l'API (décision du 2026-09-19 : la garde des 403 du sub-project 06 s'en charge) et la lecture de la clé par le client techno-scraper (sub-project 06).
 
 ### État livré
 
@@ -27,9 +27,9 @@ Aucune : ce sub-project est autoporté.
 
 ## Références de design
 
-- **Maquette** : `ui_kits/techno-tagger/SettingsScreen.jsx`, composant `SettingsScreen`, section « API », rangée « Clé X-API-Key » (champ, bouton « Enregistrer », texte d'aide). La rangée « URL de l'API » n'est pas reprise (URL figée, décision du 2026-09-19). Les autres sections (Matching, Interface, Administration) relèvent de la Feature 7.
+- **Maquette** : `ui_kits/techno-tagger/SettingsScreen.jsx`, composant `SettingsScreen`, section « API », rangée « Clé X-API-Key » (champ, bouton « Enregistrer », texte d'aide). La rangée « URL de l'API » n'est pas reprise (URL figée, décision du 2026-09-19). Les autres sections (Matching, Interface, Administration) relèvent de la Feature 7, hors la rangée Rollback de l'epic `ecriture-des-tags-et-renommage`.
 - **Design system** : `components/forms/Password.prompt.md`, `components/forms/Button.prompt.md`, `components/feedback/Message.prompt.md`
-- Règle de lecture : `.claude/rules/design/claude-design.md`, arbitrages dans `.design-sync/NOTES.md` § Reste ouvert (container unique `px-16 py-8` porté par le shell, page qui ne défile jamais : la maquette pose encore son propre padding et un `max-width` de formulaire, ils ne sont pas repris)
+- Règle de lecture : `.claude/rules/design/claude-design.md`, arbitrages dans `docs/DESIGN.md` § Structure de Page (container unique `px-16 py-8` porté par le shell : la page ne pose ni padding ni `max-width` de formulaire)
 
 ## Files touched
 

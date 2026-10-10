@@ -38,14 +38,15 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
 - **Règles reprises de la CLI d'origine** (dépôt `BeatportScrapper-TrackTagger`, `scrappers/track_matcher.py`, `utils/utils.py`, `managers/metadata_manager.py`, lus le 2026-09-19) :
   - un `;` dans l'artiste devient `", "` ;
   - l'artiste du candidat est `artists[]` joint par `", "`, remixeurs exclus ;
-  - ~~le titre du candidat est comparé sous la forme « titre (mix_name) »~~ et ~~le titre de la requête reçoit « (Original Mix) » s'il n'en porte pas~~ : ces deux règles de la CLI sont **abandonnées le 2026-09-20**, titre et version étant désormais scorés séparément (voir plus bas). La requête envoyée à l'API reste le titre nettoyé, comme avant ;
+  - la CLI comparait le titre complet « titre (mix_name) » et ajoutait « (Original Mix) » à un titre de requête sans version : règles abandonnées le 2026-09-20, titre et version se scorent séparément (voir plus bas). La requête envoyée à l'API reste le titre nettoyé ;
   - `ratio` pour le titre, la règle de choix du scorer artiste ayant été remplacée le 2026-09-20 (voir plus bas) ;
   - un candidat sans `remix` dans son titre complet est écarté quand le titre de la requête en contient un ;
   - plancher en ET sur les deux scores, score retenu égal à leur moyenne, égalité départagée par l'ordre rendu par l'API.
 - **Titre et version scorés séparément, jamais concaténés** (décision du 2026-09-20, remplace la règle du suffixe « (Original Mix) » héritée de la CLI). Des deux côtés, le titre est séparé de sa mention de version : Beatport la porte dans `mix_name`, Bandcamp l'écrit dans le titre et ne rend jamais de `mix_name` (ADR-011), la séparation traite donc les deux. Le score titre compare les titres nus, la version se compare à part. **Précision 2026-10-02** : techno-scraper rend la version dans `mix_name` pour les trois sources (son ADR-012), la séparation ne s'applique plus qu'à la requête ; le candidat se compare tel que rendu, sous-titre retiré comme dans la requête.
   - **Pourquoi la concaténation a été abandonnée** : mesuré sur l'API en production le 2026-09-20, coller « (Original Mix) » des deux côtés fait passer « Your Mind » contre « Waypoint » de 47,1 à 80,0. Douze caractères identiques offerts pèsent d'autant plus que le titre est court. Le candidat franchissait alors le plancher, et avec un artiste identique à 100 la moyenne tombait sur exactement 90,0 : « Waypoint » était validé en automatique pour « Your Mind », au rang 85 de la page de résultats. Une écriture de tags faux et silencieuse, ce que ce spec place au-dessus de tout échec. Mêmes ordres de grandeur sur « Basiel » contre « Sirius » (33,3 → 80,0) et « Daydream » contre « Nightmare » (35,3 → 75,6).
-  - **`version_mismatch`** remplace `via_bare_title` et porte la même règle sur un mécanisme plus simple : un candidat dont la version diffère de celle demandée, ou qui en porte une quand la requête est muette, reste en jeu mais ne peut pas valider en auto. « Original Mix » vaut absence de version, un tag l'omettant presque toujours. Une sortie publiée en Extended seul part donc en zone grise, où l'utilisateur confirme, ce que la décision du 2026-09-19 visait déjà.
+  - **`version_mismatch`** : un candidat dont la version diffère de celle demandée, ou qui en porte une quand la requête est muette, reste en jeu mais ne peut pas valider en auto. « Original Mix » vaut absence de version, un tag l'omettant presque toujours. Une sortie publiée en Extended seul part donc en zone grise, où l'utilisateur confirme.
   - **Deux libellés de version se comparent par `ratio` avec leur propre plancher** (`_VERSION_MATCH_FLOOR`, 70), distinct des seuils de matching : « Extended Mix » doit reconnaître « Extended », mais pas « Radio Edit ».
+- **`number_mismatch`** : les nombres du titre nu doivent s'accorder en valeur (« 01 » vaut « 1 »), sinon le candidat reste en jeu sans pouvoir valider en auto. « Pt. 1 » et « Pt. 2 » ne diffèrent que d'un caractère au score, et un nombre ajouté d'un seul côté compte aussi : « Acperience » face à « Acperience 1 » passe en zone grise, coût assumé d'un arbitrage de plus contre un mauvais tag écrit sans relecture. `ScoredCandidate.blocks_auto` réunit les deux causes, la classification ne lit que lui.
 - **Score artiste par inclusion, et non par comparaison de deux listes jointes** (décision du 2026-09-20). Chaque artiste de la requête est comparé à tous les crédits du candidat, on garde son meilleur score, et le score artiste est le plus faible de ces meilleurs scores : un artiste demandé qui manque au candidat est un désaccord que la présence des autres ne rachète pas.
   - **Pourquoi la comparaison des listes jointes a été abandonnée** : mesuré sur l'API le 2026-09-20, « Adam Beyer » contre « Adam Beyer, Bart Skils, HNTR » rend 52,6 en `ratio` et 55,6 en `token_sort_ratio`, sous le plancher dans les deux cas. « Your Mind (HNTR Remix) », dont le titre matchait pourtant à 100, partait en « rien trouvé ». Un tag ne nomme souvent qu'un artiste là où la source les crédite tous, et la différence de longueur écrasait le score.
   - **Le choix entre `ratio` et `token_sort_ratio` disparaît** : comparer les artistes un à un rend l'ordre des crédits sans effet, ce que `token_sort_ratio` servait à obtenir.
@@ -61,7 +62,7 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
 - **Un mot de garde soudé par un trait d'union reste reconnu** : la frontière du motif traite le tiret comme une limite de mot, `vip` et `mix` sont donc tous deux vus dans « (VIP-Mix) ». Relevé par la revue de fin d'implémentation, qui a mesuré le 2026-09-20 que « Your Mind (VIP-Mix) » perdait sa version au nettoyage puis validait l'Original Mix en auto à 100.
 - **Un titre dont la version est entre crochets porte bien une version** : `_lacks_version` regarde les deux familles de délimiteurs, sans quoi « Your Mind [Extended Mix] » recevait le suffixe « (Original Mix) » et tombait en zone grise au lieu de valider. Après nettoyage, un groupe qui a survécu contient forcément une mention gardée, quel que soit son délimiteur.
 - **Le `mix_name` d'un candidat se cherche dans son titre sans tenir compte de la casse** : une source qui écrit « (extended mix) » dans le titre et « Extended Mix » dans le champ se verrait sinon coller la version une seconde fois, ce qui dégrade le score d'un candidat pourtant juste. **Précision 2026-10-02** : sans objet depuis la normalisation de techno-scraper (son ADR-012), qui ne laisse plus la version dans le titre.
-- **Requête depuis les tags d'abord** : artiste seulement normalisé, titre nettoyé. **Le nom d'artiste n'est jamais nettoyé** (décision du 2026-09-20) : un groupe y désigne l'artiste au lieu de le polluer, « SOSA (UK) » et « Doriann (IL) » étant leurs noms complets, ceux que la source crédite. Le nettoyage aurait fallu l'appliquer des deux côtés pour rester symétrique, alors que ne pas nettoyer du tout donne le même résultat sans code. Un champ que le nettoyage vide reprend sa valeur brute, une requête bruitée valant mieux qu'une requête vide (ARCHITECTURE.md § Requête vide après nettoyage, point 1). Les tags ne servent que si l'artiste et le titre contiennent chacun au moins une lettre.
+- **Requête depuis les tags d'abord** : artiste seulement normalisé, titre nettoyé. **Le nom d'artiste garde ses parenthèses** (décision du 2026-09-20) : un groupe y désigne l'artiste au lieu de le polluer, « SOSA (UK) » et « Doriann (IL) » étant leurs noms complets, ceux que la source crédite. Seuls les crochets et le bruit de tag en partent (cf. Edge cases), le nettoyage des groupes du titre ne s'y applique pas. Un champ que le nettoyage vide reprend sa valeur brute, une requête bruitée valant mieux qu'une requête vide (ARCHITECTURE.md § Requête vide après nettoyage, point 1). Les tags ne servent que si l'artiste et le titre contiennent chacun au moins une lettre.
 - **Repli sur le nom de fichier**, dans cet ordre :
   1. extension retirée ;
   2. `_` remplacés par des espaces quand le nom n'en contient aucun (CLI) ;
@@ -72,7 +73,7 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
 - **Requête sans artiste** : l'artiste n'est pas scoré, plancher et seuil haut portent sur le seul score titre.
 - **Pas de `score_cutoff` ni d'`extractOne`** (écart assumé à `.claude/rules/rapidfuzz/matching.md`) : ces outils comparent une chaîne à une liste sur un seul axe. Ici chaque candidat porte deux scores, artiste et titre, et le plancher s'applique en ET sur les deux, ce que la même rule illustre par ailleurs. Le filtrage se fait donc après calcul, sur une liste de quelques dizaines de candidats au plus, sans coût mesurable.
 - **Classement** : chaque candidat qui passe la garde remix est scoré. Ceux dont les deux scores atteignent le plancher sont « en jeu ».
-  - `AUTO` : le meilleur candidat en jeu qui n'est pas `version_mismatch` atteint le seuil haut (`>=`, comme la rule rapidfuzz, là où la CLI exigeait `>`). Le candidat retenu est le seul rendu.
+  - `AUTO` : le meilleur candidat en jeu dont `blocks_auto` est faux atteint le seuil haut (`>=`, comme la rule rapidfuzz, là où la CLI exigeait `>`). Le candidat retenu est le seul rendu.
   - `GREY_ZONE` : des candidats en jeu, aucun ne validant en auto, tous rendus du meilleur au moins bon, l'ordre de l'API départageant les égalités. La Feature 3 les affiche tels quels.
   - `EMPTY` : aucun candidat en jeu.
   - `Classification.scored` garde le score de chaque candidat scoré, pour le rapport et le recalibrage des seuils. Le pipeline en déduit `no_result` (aucun candidat reçu) ou `below_threshold` (des candidats, aucun en jeu).
@@ -143,30 +144,36 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
   - removes download mentions whatever their delimiter (paramétré : `[FREE DL]`, `(Free Download)`, `free_dl` en fin de chaîne)
   - removes encoding markers as whole words (paramétré)
   - removes a free group such as a label or a genre
-  - keeps a group holding a version mention (paramétré sur chaque mot de garde)
+  - keeps a group holding a version mention, an inflected one, a DJ tool marker or a guard word welded to a hyphen (paramétré)
+  - removes a group whose only match is inside a longer word
   - keeps a group holding a collaboration mention (paramétré)
+  - leaves an unclosed or nested group as is
   - normalises artist separators to a comma (paramétré sur chaque forme)
+  - keeps the parentheses of an artist name but drops the brackets
   - never splits a name that contains a separator without spaces (`Jay-Z`, `Jax Jones`)
   - falls back on the raw tag when cleaning empties it
   - falls back on the file name when a tag has no letter
   - replaces underscores in a file name without spaces
-  - strips a leading track number but not a numeric artist
+  - strips a leading track number and the noise of a file name, but not a numeric artist
   - splits the file name on the first spaced dash
   - puts the whole file name in the title without a spaced dash
   - returns no query for a file name reduced to noise
 - `sidecar/tests/unit/test_matching_scoring.py` :
-  - compares the candidate title with its mix name
+  - matches a candidate crediting more than the tag, an artist with a regional suffix, several artists whatever their order
+  - reads an ampersand the way the source credits it
+  - scores a swapped artist name below a perfect match
+  - ignores remixers and a featuring written into the title
+  - cleans the candidate title like the query before comparing, and ignores the spacing around a version label
+  - keeps every version group of a title, and reads the version of a group that also names a guest
+  - matches a version however the tag writes it, and an original mix against a query without version
   - keeps other versions in the grey zone for a query without version
   - validates the original mix automatically when an extended mix is also offered
-  - compares a candidate without mix name to the query title without suffix
+  - keeps titles that only a number tells apart in the grey zone, and validates when the numbers agree
   - never validates automatically when auto is not allowed
-  - joins candidate artists without remixers
-  - matches several artists whatever their order
-  - drops a candidate without remix when the query holds one
-  - rejects a candidate below the floor on either score
-  - validates automatically at the ceiling and not below it
-  - returns grey zone candidates sorted by score
-  - keeps the first candidate on a tie
+  - drops a candidate without remix when the query holds one, without taking remix as a substring
+  - rejects a candidate that is not the track
+  - validates automatically only from the ceiling
+  - returns grey zone candidates sorted by score, and keeps the first candidate on a tie
   - scores the title only for a query without artist
   - records every scored candidate
   - rejects inconsistent thresholds

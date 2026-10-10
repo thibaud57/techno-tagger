@@ -23,9 +23,9 @@ Exclut les écrans : bouton et modale de confirmation, progression, modale de fe
 
 ## Dependencies
 
-- `05-protocole-ndjson-ecriture-design.md` (statut: draft) : `commit_run`, `retry_write`, `run_finished(write)` et ses compteurs, codes `write_not_open`, `write_in_progress`, `run_committed`, `tag_dump_write_failed`, miroir TS des commandes et des états
-- `06-rollback-sidecar-design.md` (statut: draft) : `get_rollback_target`, `rollback`, `RollbackTargetEvent`, `RollbackFinishedEvent` déclarés hors `SidecarEvent`, codes `rollback_unavailable`, `rollback_in_progress`, état `rolled_back`
-- `07-contrat-detail-avant-apres-design.md` (statut: draft) : `TaggingTrack.tagsBefore` / `tagsAfter`, que les fixtures complètent
+- `05-protocole-ndjson-ecriture-design.md` (statut: implemented) : `commit_run`, `retry_write`, `run_finished(write)` et ses compteurs, codes `write_not_open`, `write_in_progress`, `run_committed`, `tag_dump_write_failed`, miroir TS des commandes et des états
+- `06-rollback-sidecar-design.md` (statut: implemented) : `get_rollback_target`, `rollback`, `RollbackTargetEvent`, `RollbackFinishedEvent` (que ce sub-project ajoute à `SidecarEvent`), codes `rollback_unavailable`, `rollback_in_progress`, état `rolled_back`
+- `07-contrat-detail-avant-apres-design.md` (statut: implemented) : `TaggingTrack.tagsBefore` / `tagsAfter`, que les fixtures complètent
 
 ## Files touched
 

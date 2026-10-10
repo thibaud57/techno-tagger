@@ -13,17 +13,17 @@ date: "2026-09-26"
 
 ## Scope
 
-Couvre une garde de fermeture unique dans `core`, qui agrège les travaux en cours (extraction, run de tagging, arbitrages en attente) et que les Features 4 et 5 étendront d'une ligne chacune ; l'interception de la fermeture de la fenêtre côté webview par l'API fenêtre de Tauri, derrière un jeton injectable ; la modale qui nomme le travail en cours et propose de rester ou de quitter ; la permission de capability qui rend la fermeture possible une fois interceptée ; et les docs qui élargissent la confirmation à l'extraction.
+Couvre une garde de fermeture unique dans `core`, qui agrège les travaux en cours (extraction, run de tagging, arbitrages en attente, écriture, restauration, run cherché mais non confirmé) ; l'interception de la fermeture de la fenêtre côté webview par l'API fenêtre de Tauri, derrière un jeton injectable ; la modale qui nomme le travail en cours et propose de rester ou de quitter, sauf pendant une écriture ou une restauration, où elle refuse la sortie ; la permission de capability qui rend la fermeture possible une fois interceptée ; et les docs qui élargissent la confirmation à l'extraction.
 
 Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sidecar à la fermeture (Tauri le termine, ARCHITECTURE.md § API) et toute logique dans `src-tauri/src/`. Chevauche la Feature 1 sur l'extraction : absorbé ici sur décision du 2026-09-26, une seule garde pour toute l'application.
 
 ### État livré
 
-À la fin de ce sub-project, on peut : sous `tauri dev`, fermer la fenêtre pendant une extraction, pendant un run ou avec des arbitrages en attente et voir la confirmation qui nomme ce travail ; « Rester » garde l'application ouverte, « Quitter quand même » la ferme ; sans travail en cours, la fenêtre se ferme directement ; et lancer `pnpm exec ng test --watch=false` pour voir passer la garde sur une fenêtre simulée.
+À la fin de ce sub-project, on peut : sous `tauri dev`, fermer la fenêtre pendant une extraction, pendant un run, avec des arbitrages en attente ou avec un run non confirmé et voir la confirmation qui nomme ce travail ; « Rester » garde l'application ouverte, « Quitter quand même » la ferme ; pendant une écriture ou une restauration, la modale ne propose que « Rester » ; sans travail en cours, la fenêtre se ferme directement ; et lancer `pnpm exec ng test --watch=false` pour voir passer la garde sur une fenêtre simulée.
 
 ## Dependencies
 
-- `03-service-arbitrage-ui-design.md` (statut: draft) : `SidecarService.arbitrationCount`, à côté des signaux déjà livrés `SidecarService.extracting` et `SidecarService.tagging`.
+- `03-service-arbitrage-ui-design.md` (statut: implemented) : `SidecarService.arbitrationCount`, à côté des signaux déjà livrés `SidecarService.extracting` et `SidecarService.tagging`. Les signaux `committed`, `writing`, `rollingBack` et `taggingRunId`, livrés avec l'écriture (Feature 5), alimentent les trois derniers travaux.
 
 ## Références de design
 
@@ -50,17 +50,20 @@ Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sideca
 
 - **Jeton `APP_WINDOW`** (`core/app-window.ts`), sur le modèle de `SIDECAR_TRANSPORT` : `InjectionToken` fourni à la racine par une fabrique, d'interface `onCloseRequested(handler)` et `destroy()`. La fabrique enveloppe `getCurrentWindow()` de `@tauri-apps/api/window`. Hors Tauri (`ng serve`, Playwright), l'inscription échoue et le jeton l'absorbe, comme `pickPath` : l'écran reste utilisable (`.claude/rules/typescript/types.md`, frontière testable).
 - **`CloseGuard`** (`core/close-guard.service.ts`, `.claude/rules/angular/services.md`) :
-  - `pendingWork` : `computed` qui liste les travaux en cours par clé, dans un ordre fixe : `extraction` (`SidecarService.extracting`), `tagging` (`SidecarService.tagging`), `arbitration` (`arbitrationCount > 0`), avec le nombre d'arbitrages. Une Feature suivante y ajoute sa ligne sans toucher au reste ;
+  - `pendingWork` : `computed` qui liste les travaux en cours par clé, dans un ordre fixe : `extraction` (`SidecarService.extracting`), `tagging` (`SidecarService.tagging`), `arbitration` (`arbitrationCount > 0`, avec le nombre d'arbitrages, compté 0 sur un run confirmé qui n'arbitrera plus), `write` (`writing`), `rollback` (`rollingBack`) et `unwritten` (un run cherché, hors recherche, jamais confirmé : rien n'est écrit, ses résultats seraient perdus). Une Feature y ajoute sa ligne sans toucher au reste ;
+  - `blocked` : `computed` vrai quand `write` ou `rollback` est en cours, lu en direct. Tauri arrête le sidecar à la sortie, qui couperait un fichier en plein travail : `leave()` est alors sans effet ;
   - `install()` : s'inscrit une seule fois sur la fermeture. Travail en cours : `preventDefault()` appelé de façon synchrone, avant toute attente, puis ouverture de la confirmation avec un instantané de `pendingWork` pris à cet instant. Rien en cours : la fermeture suit son cours ;
   - `request` : l'instantané en lecture, `null` hors confirmation ; `stay()` le remet à `null` ; `leave()` appelle `destroy()`, qui ferme sans repasser par la garde.
 - **Instantané plutôt que suivi en direct** : la confirmation dit ce qui était en cours quand l'utilisateur a demandé à quitter. Un travail qui s'achève pendant qu'il lit ne fait ni disparaître une ligne sous ses yeux ni fermer l'application à sa place.
-- **`CloseConfirmationComponent`** (`shared/components/`) : `p-dialog` modal, largeur bornée et mesurée sur le plus long message en FR et en EN (arbitrage « Largeurs »). Titre H3 `text-lg font-semibold`, une phrase par travail de l'instantané, pied « Quitter quand même » (`outlined`, `secondary`) puis « Rester » (primary, focus à l'ouverture). La croix et Échap valent « Rester ». Aucun `danger` : la sortie ne touche aucun fichier musical (DESIGN.md § Palette > Règles).
+- **`CloseConfirmationComponent`** (`shared/components/`) : `p-dialog` modal, largeur bornée et mesurée sur le plus long message en FR et en EN (arbitrage « Largeurs »). Titre H3 `text-lg font-semibold`, « Impossible de quitter maintenant » quand `blocked()`, une phrase par travail de l'instantané, pied « Quitter quand même » (`outlined`, `secondary`, masqué quand `blocked()`) puis « Rester » (primary, focus à l'ouverture). La croix et Échap valent « Rester ». Aucun `danger` : la sortie ne touche aucun fichier musical (DESIGN.md § Palette > Règles).
 - **Messages**, bloc `app.close.*` (`.claude/rules/ngx-translate/i18n.md`) :
   - `extraction` : la copie est coupée et un fichier peut rester à moitié écrit dans la destination, Tauri terminant le sidecar sans `shutdown` (ARCHITECTURE.md § API) ;
   - `tagging` : la recherche s'arrête et ses résultats sont perdus ;
-  - `arbitration` : le nombre d'arbitrages en attente, perdus.
+  - `arbitration` : le nombre d'arbitrages en attente, perdus ;
+  - `write` et `rollback` : à attendre pour quitter ;
+  - `unwritten` : rien n'a été écrit, les résultats de la recherche seront perdus.
   « Perdus » : rien n'est persisté avant la Feature 6 (ADR-010).
-- **Shell** : `AppComponent` appelle `install()` dans son constructeur et monte la confirmation hors des deux branches de son template, écran bloquant compris. Sidecar mort, `extracting` et `tagging` sont retombés et la file est vide : la fenêtre se ferme sans demander.
+- **Shell** : `AppComponent` appelle `install()` dans son constructeur et monte la confirmation hors des deux branches de son template, écran bloquant compris. Sidecar mort, `extracting` et `tagging` sont retombés et la file est vide : la fenêtre se ferme sans demander, sauf si un run non confirmé est encore affiché (`unwritten`).
 - **Capability** (`.claude/rules/tauri/capabilities.md`) : un écouteur de `onCloseRequested` prend la fermeture à son compte et la termine par `destroy()`. Sans `core:window:allow-destroy`, absent de `core:default`, la fenêtre ne se fermerait plus du tout. L'identifiant se vérifie par `tauri permission ls`. Aucune ligne dans `src-tauri/src/`, qui reste à l'initialisation des plugins.
 
 ## Acceptance criteria
@@ -88,9 +91,20 @@ Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sideca
 **THEN** l'application reste ouverte
 
 ### Scénario 5 : Écran bloquant
-**GIVEN** le sidecar mort, écran bloquant affiché
+**GIVEN** le sidecar mort sans run affiché, écran bloquant affiché
 **WHEN** l'utilisateur ferme la fenêtre
 **THEN** elle se ferme, sans confirmation
+
+### Scénario 6 : Écriture en cours
+**GIVEN** une écriture ou une restauration en cours
+**WHEN** l'utilisateur ferme la fenêtre
+**THEN** la modale s'intitule « Impossible de quitter maintenant » et ne propose que « Rester »
+**AND** l'application reste ouverte, y compris si `leave()` est appelé
+
+### Scénario 7 : Run non confirmé
+**GIVEN** un run dont la recherche est finie et qui n'a pas été confirmé
+**WHEN** l'utilisateur ferme la fenêtre
+**THEN** la confirmation annonce que rien n'a été écrit et que les résultats seront perdus
 
 ## Tests à écrire
 
@@ -99,6 +113,8 @@ Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sideca
   - lets the window close when no work is pending
   - holds the window and asks for confirmation while work is pending (paramétré : extraction, run, arbitrages)
   - lists the pending work in a fixed order
+  - stops counting the arbitrations of a committed run
+  - counts an unwritten run as pending work, but not a committed run nor a run still searching
   - closes the window for good when the user leaves
   - keeps the window open when the user stays
   - installs its listener only once
@@ -106,10 +122,13 @@ Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sideca
   - keeps the snapshot when the work ends during the confirmation
   - replaces the snapshot when closing is asked again
   - reopens the application when the window refuses to close
+  - refuses to close while files are being written or a rollback runs
+  - lets the user leave a run that only waits, and once the write ends while the dialog is open
 - `src/app/shared/components/close-confirmation.component.spec.ts` :
   - names every pending work
   - leaves the application only on the leave button
   - stays when the cross is used
+  - offers only to stay while files are being written
   - puts the focus on the stay button
 - `src/app/app.component.spec.ts` :
   - installs the close guard at startup
@@ -120,6 +139,7 @@ La fenêtre est simulée à sa frontière par `APP_WINDOW`, comme le transport d
 
 - **Fermeture redemandée pendant la confirmation** : retenue de nouveau, l'instantané est remplacé par le nouveau.
 - **Travail qui s'achève pendant la confirmation** : l'instantané ne bouge pas ; « Quitter quand même » ferme, « Rester » garde ouvert.
+- **Écriture qui s'achève pendant la confirmation** : `blocked` étant lu en direct, « Quitter quand même » réapparaît et le titre redevient « Quitter l'application ? ».
 - **Fermeture par Alt+F4 ou par la barre des tâches** : même événement de fermeture, même garde.
 - **Mise à jour de l'application** : l'updater ferme l'application avant d'installer (`docs/knowledges/tauri.md`) ; sa vérification a lieu au démarrage, hors de tout run, et ne passe pas par cette garde.
 - **`destroy()` refusé** (capability manquante) : l'erreur est journalisée en console, la confirmation se referme et l'application reste ouverte plutôt que figée.

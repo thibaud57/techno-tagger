@@ -27,7 +27,7 @@ Aucune : ce sub-project est autoporté.
 
 ## Files touched
 
-- **À créer** : `sidecar/src/tagger/sources.py` (accès aux sources d'un run : garde des 403, recherche et classement, refetch, pochette)
+- **À créer** : `sidecar/src/tagger/sources.py` (accès aux sources d'un run : garde des 403, recherche, refetch, pochette)
 - **À créer** : `sidecar/src/tagger/arbitration.py` (trois gestes, événements internes de l'arbitrage, erreurs `arbitration_*`)
 - **À modifier** : `sidecar/src/tagger/tagging.py` (`LiveRun`, ouverture en deux temps, `PendingArbitration` à deux listes, `_Runner` bâti sur `sources.py`)
 - **À créer** : `sidecar/tests/unit/test_arbitration_gestures.py`
@@ -41,16 +41,15 @@ Aucune : ce sub-project est autoporté.
 
 - **Trois unités** (`.claude/rules/python/imports-modules.md`) :
   - `tagging.py` garde les modèles du run et le pipeline, et gagne le `LiveRun` ;
-  - `sources.py` reprend tel quel ce que `_Runner` fait des sources : appel sous la garde des 403, recherche puis `classify`, refetch, pochette, logs d'incident. Un seul accès par run, partagé par la phase réseau et par l'arbitrage, donc une seule garde ;
+  - `sources.py` reprend tel quel ce que `_Runner` fait des sources : appel sous la garde des 403, recherche, refetch, pochette, logs d'incident (le classement reste à l'appelant). Un seul accès par run, partagé par la phase réseau et par l'arbitrage, donc une seule garde ;
   - `arbitration.py` porte les trois gestes et dépend de `tagging.py` et de `sources.py`, jamais l'inverse.
 - **`LiveRun`** : l'état vivant du run, avec ses morceaux par `track_id` dans l'ordre du dossier et la position de chacun pour les logs. Le pipeline y écrit chaque morceau dès qu'il est traité, et non plus en fin de `TaskGroup` : un run interrompu garde ce qu'il a déjà tranché et ce qu'il a mis en attente. `snapshot()` rend le `TaggingRun` gelé existant.
-- **Ouverture en deux temps** : d'abord le listing des fichiers et la lecture des identités, qui émettent `RunStarted` et rendent le `LiveRun` ; ensuite la phase réseau. `run_tagging` garde sa signature et enchaîne les deux : `handlers.py` et les tests existants ne changent pas et prouvent le refactor. Le sub-project 02 appellera les deux temps séparément pour garder le `LiveRun` au-delà de la phase réseau.
-- **Le client n'appartient pas au run** : `LiveRun`, pipeline et arbitrage reçoivent le client techno-scraper et le fetcher de pochettes en dépendance, comme aujourd'hui (`.claude/rules/httpx2/client.md`). Les garder ouverts après `run_finished`, puis les fermer au run suivant ou au `shutdown`, relève du 02.
+- **Ouverture en deux temps** : d'abord le listing des fichiers et la lecture des identités, qui émettent `RunStarted` et rendent le `LiveRun` ; ensuite la phase réseau. `open_run` rend le `LiveRun`, `resolve_run` déroule la phase réseau sur lui : le sub-project 02 les appelle séparément pour garder le `LiveRun` au-delà de la phase réseau, et le helper `run` des tests les enchaîne.
+- **Le client n'appartient pas au run** : `LiveRun`, pipeline et arbitrage reçoivent le client techno-scraper et le fetcher de pochettes en dépendance (`.claude/rules/httpx2/client.md`). Les garder ouverts après `run_finished`, puis les fermer au run suivant ou au `shutdown`, relève du 02.
 - **`PendingArbitration` garde les deux listes** (`.claude/rules/python/modeles-donnees.md`), toujours en dataclass gelée :
   - `source` et `candidates` : la source affichée et sa liste, avec `beatport_unavailable`, les trois champs existants gardant leur sens et leur ordre ;
   - `empty_reason` : le motif d'une liste Bandcamp affichée vide (`no_result`, `below_threshold`, `source_unavailable`) ;
   - `other` : la liste de l'autre source une fois obtenue, mise de côté dans une `SourceList` (source, candidats, motif). Absente tant que Bandcamp n'a pas été appelé, et sans liste Beatport quand Beatport était injoignable ou n'a rien rendu d'exploitable.
-  `_arbitration` de `handlers.py` et `test_protocol_tagging.py` ne changent pas.
 - **Un geste nomme la liste sur laquelle il porte** (décision du 2026-09-26) : choisir désigne un candidat par `(source, index)`, refuser par `source`. Une source qui n'est plus affichée est rejetée : un double clic sur « Aucune correspondance » arrivé après la bascule refuserait sinon Bandcamp sans que l'utilisateur l'ait vue.
 - **Désigner un candidat** : `(source, index)` dans la liste de cette source. Une liste ne change plus une fois obtenue, l'index désigne donc le même candidat tant que le morceau est à arbitrer. La forme sur le fil relève du 02.
 - **Transitions**, conformes à ARCHITECTURE.md § Chaîne de résolution et à ADR-009 :
@@ -62,15 +61,15 @@ Aucune : ce sub-project est autoporté.
   - **afficher Beatport** avec Bandcamp affiché : Beatport réaffiché, sans appel. Émet `ArbitrationUpdated`. Sans liste Beatport, le geste est refusé.
 - **Bandcamp après un refus ne valide jamais seul** : l'utilisateur est en train de décider, un candidat au-dessus du plafond reste dans la liste (diagramme d'ARCHITECTURE.md, « MODALE temps 2 »). Seuls les candidats au-dessus du plancher y figurent (ADR-009).
 - **Échec de Bandcamp après un refus** (`SourceUnavailableError`, `ApiContractError`, `ApiKeyRejectedError`) : liste vide, motif `source_unavailable`. Si ce 403 déclenche la garde partagée, `ApiKeyRejectedRunError` est absorbée pour ce morceau : l'arrêt du run concerne le pipeline, pas un geste d'arbitrage, et un pipeline encore en cours s'arrête au 403 suivant (`.claude/rules/techno-scraper/contrat.md`).
-- **Événements de l'arbitrage** : `ArbitrationUpdated` (l'enregistrement du morceau, liste et source affichée à jour) et `TrackResolved`, déjà défini dans `tagging.py`. Ils sortent par un rappel propre à l'arbitrage et non par `RunEvent` : l'ajouter à cette union casserait `to_protocol_event`, fermé par `assert_never` (`.claude/rules/python/type-hints.md`), avant que le 02 ne le traduise.
+- **Événements de l'arbitrage** : `ArbitrationUpdated` (l'enregistrement du morceau, liste et source affichée à jour) et `TrackResolved`, déjà défini dans `tagging.py`. Ils forment l'union `ArbitrationEvent`, distincte de `RunEvent`, et sortent par un rappel propre à l'arbitrage ; `to_protocol_event` ferme chaque union par `assert_never` (`.claude/rules/python/type-hints.md`).
 - **Erreurs métier** (`.claude/rules/python/gestion-erreurs.md`) : famille `ArbitrationError` (`arbitration_error`) qui hérite de `TaggerError`, avec un code stable par feuille, le `track_id` en attribut et aucun message destiné à l'écran :
   - `arbitration_not_pending` : morceau inconnu du run, déjà tranché ou jamais traité ;
   - `arbitration_candidate_unknown` : source qui n'est pas affichée (choix comme refus), index hors de la liste, ou Beatport demandé sans liste Beatport ;
   - `arbitration_busy` : un geste est déjà en vol sur ce morceau.
 - **Concurrence** (`.claude/rules/python/asyncio.md`) : des gestes sur des morceaux différents avancent en parallèle, chacun n'attendant que son appel réseau, borné par les sémaphores du client qu'il partage avec le pipeline. Un second geste sur un morceau dont le précédent est en vol est refusé, jamais mis en file : les clics rapides de la modale (DESIGN.md § Layout) lanceraient sinon deux appels Bandcamp. Un geste se tranche dès que son morceau est en attente, pendant la phase réseau comme après.
 - **Annulation** : un geste annulé relève `CancelledError` après avoir libéré son morceau et le laisse inchangé. Le 02 annulera les gestes en vol quand un nouveau run remplace l'ancien.
-- **Durée de vie** (décision du 2026-09-26) : un morceau en attente reste tranchable après `run_finished` comme après `cancel_run`, jusqu'à ce qu'un nouveau run remplace l'ancien. Rien n'est persisté : un crash ou un nouveau run perd les décisions prises (ADR-010, spec 11 de la Feature 2), risque assumé jusqu'à la Feature 6.
-- **Logs** (PRODUCTION.md § Logging) : une ligne INFO par geste en logfmt, `arbitration decided`, `arbitration refused` et `arbitration switched`, avec les seules clés `run`, `track` (position), `source`, `score`, `status` et `reason`. Aucun titre ni chemin, aucun événement Sentry. Le seul effet disque est la pochette du candidat choisi, dans le cache, comme en auto : aucun fichier musical n'est touché.
+- **Durée de vie** (décision du 2026-09-26) : un morceau en attente reste tranchable après `run_finished` comme après `cancel_run`, jusqu'à ce qu'un nouveau run remplace l'ancien ou que l'écriture du run soit confirmée (02). Rien n'est persisté : un crash ou un nouveau run perd les décisions prises (ADR-010, spec 11 de la Feature 2), risque assumé jusqu'à la Feature 6.
+- **Logs** (PRODUCTION.md § Logging) : une ligne INFO par geste en logfmt, `arbitration decided`, `arbitration refused` et `arbitration switched`, avec les seules clés `run`, `track` (position), `source`, `score`, `status` et `reason`. Aucun titre ni chemin, aucun événement Sentry propre au geste (un contrat d'API cassé remonte par la garde partagée de `sources.py`). Le seul effet disque est la pochette du candidat choisi, dans le cache, comme en auto : aucun fichier musical n'est touché.
 
 ## Acceptance criteria
 
@@ -137,12 +136,14 @@ Aucune : ce sub-project est autoporté.
   - shows the known bandcamp list again on a second refusal without calling it
   - leaves a track unresolved as user refused when bandcamp is refused
   - keeps the bandcamp reason when an empty list is passed, paramétré sur `no_result`, `below_threshold` et `source_unavailable`
+  - keeps the bandcamp reason of an empty list across a return to beatport
   - refuses a track without calling anything when beatport was unavailable
   - rejects going back to beatport when it was unavailable
   - rejects a gesture on a track that is unknown or already resolved
   - rejects a candidate outside the shown list or from a hidden source
   - rejects a second gesture while the first one is in flight
   - leaves the bandcamp list empty as source unavailable when the key is rejected
+  - keeps the search candidate when the key is rejected on choice
   - leaves a track awaiting and unchanged when its gesture is cancelled
   - refuses one track while another refusal waits for bandcamp
   - rejects choosing in an empty bandcamp list
@@ -155,14 +156,14 @@ Aucune : ce sub-project est autoporté.
   - resolves an awaiting track while another one is still in flight
   - answers an awaiting track after the run is cancelled
 
-`test_tagging_outcomes.py` reste inchangé et `test_tagging_run.py` ne change que ses imports : tous deux prouvent que le refactor du pipeline ne change aucune issue. `test_error_translations.py` couvre les quatre nouveaux codes. Aucun test ne vérifie httpx2 ni rapidfuzz : l'API et le CDN sont mockés, et chaque cas échoue contre une régression de nos transitions, de notre mémoire des listes ou de notre garde des gestes.
+`test_tagging_outcomes.py` et `test_tagging_run.py` prouvent que le refactor du pipeline ne change aucune issue. `test_error_translations.py` couvre les quatre nouveaux codes. Aucun test ne vérifie httpx2 ni rapidfuzz : l'API et le CDN sont mockés, et chaque cas échoue contre une régression de nos transitions, de notre mémoire des listes ou de notre garde des gestes.
 
 ## Edge cases
 
 - **Beatport vide, Bandcamp en zone grise** (pipeline) : pas de liste Beatport, le retour à Beatport est refusé et un refus donne `user_refused`, comme une panne Beatport.
 - **Retour à Beatport après une liste Bandcamp vide** : possible ; un nouveau refus réaffiche la liste vide sans rappel, et le geste « passer » garde le motif mémorisé.
 - **Refus pendant la phase réseau** : l'appel Bandcamp attend son tour sur le sémaphore Bandcamp du client, partagé avec le pipeline.
-- **Refetch ou pochette en échec au choix** : le morceau est résolu avec l'objet de recherche, sans pochette, avec un WARNING, comme en auto.
+- **Refetch ou pochette en échec au choix** : le morceau est résolu avec l'objet de recherche, sans pochette, avec un WARNING, comme en auto. Un 403 qui déclenche la garde partagée pendant le refetch ne l'arrête pas : `ApiKeyRejectedRunError` est absorbée, comme pour Bandcamp.
 - **Morceau jamais traité d'un run interrompu** : aucun geste possible, `arbitration_not_pending`.
 - **Garde des 403 déjà déclenchée par le pipeline** : un refus qui reçoit un 403 donne une liste vide `source_unavailable`, sans lever.
 

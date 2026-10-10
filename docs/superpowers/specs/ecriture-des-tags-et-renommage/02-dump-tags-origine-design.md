@@ -23,14 +23,14 @@ Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé 
 
 ## Dependencies
 
-- `01-ecriture-tags-design.md` (statut: draft) : `TagField`, `TAG_FIELDS`, `write_tags`, `TagsWriteError`, `FileFailureReason`, construction des frames ID3.
+- `01-ecriture-tags-design.md` (statut: implemented) : `TagField`, `TAG_FIELDS`, `write_tags`, `TagsWriteError`, `FileFailureReason`, construction des frames ID3.
 
 ## Files touched
 
 - **À modifier** : `sidecar/src/tagger/files.py` (`TagSystem`, `OriginalTags`, `read_original_tags`, `restore_tags`, construction d'une frame ID3 à plusieurs valeurs)
 - **À créer** : `sidecar/src/tagger/tag_dump.py` (`TagDump`, `DumpEntry`, `dump_dir`, `dump_path`, `save_entries`, `load_dump`, `record_renamed_path`, `purge_dumps`, erreurs)
 - **À modifier** : `sidecar/src/tagger/__main__.py` (purge des dumps au démarrage, après `setup_logging`)
-- **À modifier** : `sidecar/src/tagger/paths.py` (docstring : le dump a sa racine, plus « plus tard »)
+- **À modifier** : `sidecar/src/tagger/paths.py` (docstring : la racine des dumps)
 - **À créer** : `sidecar/tests/unit/test_files_restore.py` (lecture et restauration sur les quatre formats)
 - **À créer** : `sidecar/tests/unit/test_tag_dump.py` (écriture, ajout sans écrasement, relecture, version inconnue, chemin renommé, purge)
 - **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`errors.tag_dump_error`, `errors.tag_dump_write_failed`, `errors.tag_dump_unreadable`)
@@ -40,15 +40,15 @@ Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé 
 
 ## Architecture approach
 
-- **Lecture dans `files.py`**, seul module qui ouvre un fichier audio : `read_original_tags(path) -> OriginalTags` rend, pour chaque champ de la table présent, toutes ses valeurs telles que le fichier les porte (jamais jointes, jamais nettoyées), le système de tags (`TagSystem.ID3` ou `TagSystem.VORBIS`) et la version ID3 d'origine (3, 4, ou `None` sans tag ni sur FLAC). Mêmes erreurs que `read_identity` (`TagsUnreadableError`), même refus d'un conteneur hors des quatre formats. La colonne Avant (sub-project 07) la réutilise
+- **Lecture dans `files.py`**, seul module qui ouvre un fichier audio : `read_original_tags(path) -> OriginalTags` rend, pour chaque champ de la table présent, toutes ses valeurs telles que le fichier les porte (jamais jointes, jamais nettoyées), le système de tags (`TagSystem.ID3` ou `TagSystem.VORBIS`) et la version ID3 d'origine (2 à 4, ou `None` sans tag ni sur FLAC). Mêmes erreurs que `read_identity` (`TagsUnreadableError`), même refus d'un conteneur hors des quatre formats. La colonne Avant (sub-project 07) la réutilise
 - **Restauration** `restore_tags(path, original)` : un champ présent dans `original` est remis avec toutes ses valeurs, un champ absent est supprimé, puisque c'est l'écriture qui l'a ajouté. Le fichier repart dans sa version ID3 d'origine : `save(v2_version=4)` pour un v2.4, `update_to_v23()` puis `save(v2_version=3)` sinon. Commentaires, images et tags hors table ne sont pas touchés. Mêmes erreurs que l'écriture (`TagsWriteError`, `FileFailureReason`)
 - **Valeurs ID3** : texte des frames (`.text`), URL pour `WOAS`. Une frame à plusieurs valeurs se reconstruit à l'identique ; la construction de frame du sub-project 01 passe d'une valeur à une séquence de valeurs
 - **Fichier de dump** dans `tag_dump.py`, modèles Pydantic (ADR-022, `.claude/rules/pydantic/modeles.md`) : `TagDump` (`schema_version`, `run_id`, `created_at`, `entries` par `track_id`) et `DumpEntry` (`path` d'origine, `renamed_path`, `system`, `id3_version`, `fields`). Un dump par run sous `app_data_dir() / "dumps"`, nommé `<horodatage>-<run_id>.json` avec le format d'horodatage des rapports (`reports.TIMESTAMP_FORMAT`)
 - **Écriture atomique** : JSON en UTF-8 dans un fichier temporaire voisin, puis remplacement (`.claude/rules/python/fichiers-io.md`). Un échec lève `TagDumpWriteError` : sans dump, le sub-project 04 n'écrit pas le fichier
 - **Ajout sans écrasement** : `save_entries` ajoute les entrées absentes et laisse les autres intactes. Une relance de l'écriture sur les échecs ne remplace jamais l'origine par l'état déjà écrit. La fusion repart du dump du disque, jamais de celui que l'appelant garde en mémoire : un rollback a pu y consommer des entrées entre deux écritures, et les réécrire ressusciterait des morceaux restaurés. Les entrées gardent leur ordre d'écriture, que le rollback parcourt à l'envers
 - **Relecture versionnée** : `load_dump` refuse une `schema_version` inconnue et un JSON illisible par `TagDumpUnreadableError`, qui nomme la version trouvée et la version attendue (ADR-018, option A du plan, même durée de vie de 30 jours)
-- **Chemin après renommage** : `record_renamed_path(dump, track_id, path)` met à jour l'entrée, que le sub-project 04 appelle avant le renommage avec le chemin cible (une coupure entre les deux laisse un chemin qui ne mène nulle part, que le rollback retrouve par l'ancien nom) et que le sub-project 06 lit pour retrouver le fichier. Même base que `save_entries` : le dump du disque
-- **Purge** `purge_dumps(folder, now)` : supprime les dumps dont l'horodatage du nom a plus de 30 jours, quel que soit l'état du run (ADR-010), et ignore les fichiers au nom non reconnu. Appelée au démarrage du sidecar après `setup_logging` ; une erreur de purge est loguée, jamais fatale
+- **Chemin après renommage** : `record_renamed_path(dump, track_id, path)` met à jour l'entrée, que le sub-project 04 appelle avant le renommage avec le chemin cible (une coupure entre les deux laisse un chemin qui ne mène nulle part, que le rollback retrouve par l'ancien nom) et que le sub-project 06 lit pour retrouver le fichier. Même base que `save_entries` : le dump du disque. L'entrée passe en fin de dump : le rollback, qui le parcourt à l'envers, rend alors ce morceau en premier (06)
+- **Purge** `purge_dumps(folder, now)` : supprime les dumps dont l'horodatage du nom a plus de 30 jours, quel que soit l'état du run (ADR-010), et ignore les fichiers au nom non reconnu. Un temporaire `.tmp` laissé par une écriture coupée porte les mêmes tags et suit la même durée. Appelée au démarrage du sidecar après `setup_logging` ; une erreur de purge est loguée, jamais fatale, et un dump qu'on ne peut pas supprimer (verrou d'un éditeur ou d'un antivirus) ne bloque pas les suivants
 - **Erreurs** sous `TagDumpError(TaggerError)` (code `tag_dump_error`) : `TagDumpWriteError` (`tag_dump_write_failed`) et `TagDumpUnreadableError` (`tag_dump_unreadable`), traduites dans les deux langues (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`)
 - **Types** : `TagSystem` en `StrEnum` avec `@verify(UNIQUE)`, `OriginalTags` en `dataclass(frozen=True, slots=True)` (`.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/mypy/strict.md`, `.claude/rules/mutagen/tags.md`)
 
@@ -91,7 +91,8 @@ Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé 
   - plusieurs valeurs d'origine (deux artistes en v2.4, deux `ARTIST` en FLAC) sont rendues à l'identique
   - la restauration ne touche ni aux images ni aux tags hors table
   - un fichier verrouillé à la restauration lève `TagsWriteError` au motif `file_locked`
-  - un conteneur hors des quatre formats lève `TagsUnreadableError` à la lecture
+  - un conteneur hors des quatre formats lève `TagsUnreadableError` à la lecture et refuse la restauration
+  - un fichier sans tag que l'écriture n'a pas atteint est restauré sans erreur
 - `sidecar/tests/unit/test_tag_dump.py` :
   - un dump enregistré puis relu rend les mêmes entrées
   - le nom du fichier porte l'horodatage et le `run_id`
@@ -100,7 +101,9 @@ Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé 
   - `record_renamed_path` met à jour le chemin renommé d'une entrée
   - une version de schéma inconnue et un JSON illisible lèvent `TagDumpUnreadableError`
   - un dossier où l'écriture échoue lève `TagDumpWriteError` et ne laisse aucun fichier partiel
-  - la purge supprime les dumps de plus de 30 jours, garde les récents et ignore un nom non reconnu
+  - l'horodatage du nom est en UTC quel que soit le décalage local, et un dump daté sans fuseau est refusé
+  - la purge supprime les dumps et temporaires de plus de 30 jours, garde les récents et ignore un nom non reconnu ou un dossier absent
+  - la purge continue après un dump qu'elle ne peut pas supprimer, et le logue
 
 ## Edge cases
 
