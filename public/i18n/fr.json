@@ -286,8 +286,7 @@
         "source": "Source",
         "comment": "Commentaire"
       },
-      "unreadable": "Les tags de ce fichier n'ont pas pu être lus.",
-      "close": "Fermer"
+      "unreadable": "Les tags de ce fichier n'ont pas pu être lus."
     },
     "recovery": {
       "badge": "{{count}} à rattraper",

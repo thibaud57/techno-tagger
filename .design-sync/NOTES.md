@@ -64,9 +64,8 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- `TrackDetail` (`TaggingScreen.jsx`, `data.js` `detail`) : 12 lignes avec `TPE2`, date complète et « Traçabilité » ; le code livre les champs écrits sauf l'identifiant à la source (remixeur, année d'origine, numéro de piste, URL, source), `TYER` / `TORY` et une ligne Commentaire (2026-10-06, identifiant retiré le 2026-10-09) ; colonne Champ à la largeur de son contenu, clé sous le libellé, au lieu de trois tiers (2026-10-09)
+- `TrackDetail` (`TaggingScreen.jsx`, `data.js` `detail`) : 12 lignes avec `TPE2`, date complète et « Traçabilité » ; le code livre les champs écrits sauf l'identifiant à la source (remixeur, année d'origine, numéro de piste, URL, source), `TYER` / `TORY` et une ligne Commentaire (2026-10-06, identifiant retiré le 2026-10-09) ; colonne Champ à la largeur de son contenu, au lieu de trois tiers (2026-10-09), clé à côté du libellé comme la maquette (2026-10-10)
 - `TaggingScreen` : bouton d'action unique (lancer, interrompre, confirmer), message d'échec d'écriture et relance dans l'onglet, « Confirmer l'écriture » `primary` et relance `primary` contour (le `danger` ne reste qu'à l'acceptation des modales, 2026-10-10) ; `AppShell` : lien de simulation `écriture ?` devenu inutile, `CloseConfirmation` à « Rester » seul pendant l'écriture (2026-10-06)
-- `DataTable` (détail d'un morceau) : la maquette déplie la ligne (`DataTable` expandable, `TrackDetail` sous la ligne), le code ouvre un tiroir non modal à droite (2026-10-09)
 - État « Restauré » (`StateTag`), bouton « Restaurer ce morceau » de `TrackDetail`, « Annuler l'écriture » au bout de la barre d'écriture, cible du dernier run à côté du bouton de la rangée `Rollback` des Réglages, liste des fichiers non restaurés ; les trois déclencheurs en `primary` contour, icône `refresh`, le `danger` restant à l'acceptation de la modale (2026-10-10)
 
 ## Journal

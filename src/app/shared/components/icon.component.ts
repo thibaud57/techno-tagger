@@ -1,5 +1,6 @@
 import { Component, input } from "@angular/core"
 import { ArrowRight } from "@primeicons/angular/arrow-right"
+import { ChevronDown } from "@primeicons/angular/chevron-down"
 import { ChevronLeft } from "@primeicons/angular/chevron-left"
 import { ChevronRight } from "@primeicons/angular/chevron-right"
 import { Check } from "@primeicons/angular/check"
@@ -28,6 +29,7 @@ import { Undo } from "@primeicons/angular/undo"
  * parcoure la liste : Angular ne verifie pas l'exhaustivite d'un `@switch`.
  */
 export const ICON_NAMES = [
+  "chevron-down",
   "chevron-left",
   "chevron-right",
   "file",
@@ -62,6 +64,7 @@ export type IconSize = 16 | 20 | 24
     ArrowRight,
     Check,
     CheckCircle,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     Clock,
@@ -83,6 +86,9 @@ export type IconSize = 16 | 20 | 24
   ],
   template: `
     @switch (name()) {
+      @case ("chevron-down") {
+        <svg data-p-icon="chevron-down" [size]="size()" />
+      }
       @case ("chevron-left") {
         <svg data-p-icon="chevron-left" [size]="size()" />
       }

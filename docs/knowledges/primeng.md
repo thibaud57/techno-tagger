@@ -1,9 +1,9 @@
 ---
 title: "PrimeNG v22 — Bibliothèque de composants Angular"
 version: "22.1.2"
-description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, tiroir non modal, tabs et icônes SVG."
-date: "2026-10-09"
-keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "table", "drawer", "primeicons"]
+description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, détail déplié sous une ligne virtualisée, tabs et icônes SVG."
+date: "2026-10-10"
+keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "table", "virtual-scroll", "primeicons"]
 scope: ["docs"]
 technologies: ["Angular", "Tailwind CSS", "Tauri"]
 ---
@@ -175,46 +175,55 @@ Les listes du projet montent à une centaine de lignes, le récapitulatif filtra
 - **Mesuré le 2026-09-17 en mode développement, sans défilement virtuel** : 0,6 s pour monter 500 lignes du rapport, 5 s pour 2 000, 29 s pour 5 000. C'est ce coût que le défilement virtuel supprime
 - Le scroll virtuel et le filtrage cohabitent, mais le filtrage recalcule la liste rendue : c'est le jeu de données filtré qui compte, pas le total
 - **`#expandedrow` ne va pas avec le scroll virtuel** : le scroller place chaque ligne à `rang × virtualScrollItemSize` et dimensionne son espaceur sur le même produit, sans mesure ; une ligne dépliée de hauteur variable décale donc toutes les suivantes (lu dans `primeng-scroller.mjs`, PrimeNG 22.1.2, 2026-10-06). Une table à lignes dépliables se rend sans `[virtualScroll]`
-- **Mesuré le 2026-10-09 sous `ng serve` sur la liste du run, sans scroll virtuel et avec lignes dépliées** : 500 morceaux, 1 à 3 s de premier rendu et 43 à 78 ms par événement ; 2 000 morceaux, 16 s de premier rendu bloquant, 214 ms par événement et jusqu'à 320 ms par saut de défilement. Le projet garde le scroll virtuel et ouvre le détail dans un tiroir (cf. § Tiroir non modal)
+- **Mesuré sous `ng serve` sur la liste du run, sans scroll virtuel et avec `#expandedrow`** : le 2026-10-09, 2 000 morceaux, 16 s de premier rendu bloquant et 214 ms par événement ; le 2026-10-10, lignes mémoïsées et ligne en composant OnPush, encore 11,5 s et 118 ms. Le reste vient du contrôle des 2 000 vues de lignes. Le projet garde le scroll virtuel et déplie le détail sur des lignes de hauteur fixe (cf. § Détail déplié sous une ligne virtualisée)
 
 ---
 
-## Tiroir non modal
+## Détail déplié sous une ligne virtualisée
 
 ### Description
 
-Le détail d'un morceau du run s'ouvre dans un `p-drawer` à droite, sans masque : la liste reste utilisable et un autre bouton de ligne remplace le contenu. API lue dans `primeng-drawer.mjs` et `primeng-drawer.d.ts` (PrimeNG 22.1.2, le 2026-10-09).
+Le détail d'un morceau du run se déplie sous sa ligne sans quitter le scroll virtuel. La liste rendue insère, après chaque morceau ouvert, des lignes synthétiques de la même hauteur que les autres : la première porte le détail en `position: absolute`, les suivantes restent vides sous lui. Le scroller continue de placer chaque ligne à `rang × virtualScrollItemSize`. Technique retenue le 2026-10-10 après prototypes : 34 ms de premier rendu et 27 ms par événement à 2 000 morceaux sous `ng serve`, comme sans détail.
 
 ### Exemple
 
 ```html
-<p-drawer
-  [visible]="shown() !== null"
-  (visibleChange)="onDrawerVisible($event)"
-  [modal]="false"
-  position="right"
-  appendTo="body"
-  styleClass="w-[35rem]"
-  [ariaCloseLabel]="'tagging.detail.close' | translate">
-  <ng-template #header>{{ title() }}</ng-template>
-  @if (shown(); as row) {
-    <app-track-detail [track]="row" />
-  }
-</p-drawer>
+<p-table
+  [value]="renderRows()"
+  dataKey="key"
+  [rowTrackBy]="byKey"
+  [scrollable]="true"
+  scrollHeight="flex"
+  [virtualScroll]="true"
+  [virtualScrollItemSize]="56"
+  [virtualScrollOptions]="{ numToleratedItems: MAX_DETAIL_SPAN + 1 }">
+  <ng-template #body let-item>
+    @switch (item.kind) {
+      @case ("track") { <tr class="h-14">…</tr> }
+      @case ("detail") {
+        <tr class="h-14" data-detail-carrier>
+          <td colspan="7" class="relative p-0">
+            <div class="absolute inset-x-0 top-0 overflow-y-auto" [style.height.px]="item.height">
+              <app-track-detail class="h-full" [track]="item.row" />
+            </div>
+          </td>
+        </tr>
+      }
+      @case ("filler") { <tr class="h-14" aria-hidden="true"><td colspan="7"></td></tr> }
+    }
+  </ng-template>
+</p-table>
 ```
 
 ### Points Importants
 
-- **`visible` est un `model`** (`[visible]` plus `(visibleChange)`) : la croix et Échap l'écrivent à `false` eux-mêmes, d'où un `visibleChange` à relayer vers l'état du parent si `visible` en est dérivé
-- **`modal` vaut `true` par défaut** : `[modal]="false"` supprime le masque, `dismissible` (clic sur le masque) et `blockScroll` n'ont alors plus d'objet
-- **`position` vaut `left` par défaut** et `.p-drawer-right` pose `width: 20rem` : la largeur se change par `styleClass` (une classe Tailwind), pas par `[style]`
-- **`appendTo` vaut `self` par défaut**, `"body"` déplace le panneau hors de l'hôte : ses tests le cherchent dans `document`
-- **Le panneau prend son z-index d'un compteur partagé avec les modales** (`ZIndexUtils`, `autoZIndex` à `true`) : ce qui s'ouvre après passe au-dessus, une modale ouverte pendant que le tiroir est affiché le recouvre
-- **`closeOnEscape` vaut `true`** et l'écouteur est sur le `document`, mais il ne ferme que le panneau dont le z-index est le plus haut
-- **`closable` et `showCloseIcon` valent `true`** et `ariaCloseLabel` n'a pas de valeur par défaut : il faut le traduire
-- **Titre** : l'input `header` (chaîne) ou un `ng-template #header` ; le template permet un composant, comme `TruncatedTextComponent`
-- **Le contenu projeté est créé par le parent même panneau fermé** : un `@if` sur la donnée affichée dans le panneau évite de monter le composant sans donnée
-- **Le panneau porte `role="complementary"` et `pFocusTrap` en dur, y compris non modal** : Tab tourne dans le tiroir, la liste ne s'atteint alors qu'à la souris ou après l'avoir fermé (non revalidé au clavier sur le bundle)
+- **`numToleratedItems` garde la ligne porteuse montée** : le scroller rend toujours au moins `numToleratedItems − 1` lignes au-dessus de la première visible (`calculateFirst` et `calculateTriggerIndex` de `primeng-scroller.mjs`, lus dans PrimeNG 22.1.2 le 2026-10-10), et une valeur fournie n'est pas écrasée par le calcul par défaut (moitié des lignes visibles). Au nombre maximal de lignes d'un détail plus un, le détail ne disparaît jamais tant qu'une de ses lignes est à l'écran. Ce comportement n'est pas documenté : à revérifier à chaque mise à jour de PrimeNG
+- **`virtualScrollOptions` passe au scroller par son input `options`** ; une nouvelle référence d'objet aux mêmes valeurs ne relance pas son calcul, ses signaux dérivés (`numToleratedItems`, `itemSize`) restant égaux
+- **Un `z-index` sur le détail le fait passer au-dessus de l'en-tête collant** (`.p-datatable-scrollable-table > .p-datatable-thead`, z-index 1 dans `@primeuix/styles` 3.0.0, dans le même contexte d'empilement que les lignes) : sans `z-index`, le détail positionné se peint au-dessus des lignes vides et sous l'en-tête
+- **Hauteur en lignes entières** : le cadre prend un nombre entier de lignes, mesuré sur le plus haut contenu de chaque cas, et le contenu s'étire sur cette hauteur (`content-between` sur sa grille) pour ne laisser aucune bande vide. Le contenu ne se mesure pas à l'exécution : un changement de nombre de lignes déplacerait toute la liste après l'affichage
+- **Clés distinctes par nature de ligne** (`track:`, `detail:`, `filler:N:` suivis de l'identifiant) : `rowTrackBy` et `dataKey` lisent la même clé, un identifiant de morceau ne doit pas pouvoir prendre celle d'une ligne synthétique
+- **Entrées de rendu mémoïsées par ligne** : une entrée de même référence d'un événement à l'autre n'est pas recontrôlée, les lignes synthétiques ne sont construites qu'à la première ouverture
+- **`#expandedrow` reste écarté** : il exige de retirer le scroll virtuel (cf. § Table défilante)
 
 ---
 
@@ -315,7 +324,7 @@ export class SourcePickerComponent {}
 - [PrimeNG](https://primeng.dev)
 - [Configuration](https://primeng.dev/configuration)
 - [Theming](https://primeng.dev/theming)
-- [Table](https://primeng.dev/table) · [Tabs](https://primeng.dev/tabs) · [Dialog](https://primeng.dev/dialog) · [Drawer](https://primeng.dev/drawer)
+- [Table](https://primeng.dev/table) · [Tabs](https://primeng.dev/tabs) · [Dialog](https://primeng.dev/dialog)
 - [Licence Community PrimeUI](https://primeui.dev/licenses/community)
 
 ## Ressources Complémentaires

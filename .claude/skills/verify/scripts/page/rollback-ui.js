@@ -1,6 +1,6 @@
 // Rollback depuis l'interface sous `ng serve`, sidecar simule sur l'instance du service :
 // etat « Restaure » (libelle, largeur FR et EN, cellules sans valeur), bouton « Restaurer ce morceau »
-// du tiroir (visibilite, style, icone, chargement, grise + tooltip), bouton « Annuler l'ecriture »
+// du detail deplie (visibilite, style, icone, chargement, grise + tooltip), bouton « Annuler l'ecriture »
 // du run (visibilite, mise en page avec et sans barre), modale de confirmation partagee (30rem, nombres,
 // focus, acceptation `danger`, une seule commande), liste des fichiers non restaures (affichee seulement
 // pour le run montre, hote vide sans gap), lancement bloque pendant un rollback, message d'echec compte
@@ -147,38 +147,38 @@ async (page) => {
         art: art && { img: !!art.querySelector("img"), skeleton: !!art.querySelector("p-skeleton"), frame: !!art.querySelector("div.border") },
       }
     }, text)
-  const drawer = () =>
+  /** Detail deplie sous la ligne : un seul ouvert a la fois dans cette sonde, null sinon. */
+  const detail = () =>
     page.evaluate(() => {
-      const d = [...document.querySelectorAll(".p-drawer")].find((x) => {
-        const b = x.getBoundingClientRect()
-        return b.width > 0 && b.left < innerWidth - 1
-      })
+      const d = document.querySelector("app-run-list tr[data-detail-carrier] app-track-detail")
       if (!d) return null
-      const b = d.querySelector('[data-action="restore-track"]')
-      const detail = d.querySelector("app-track-detail")
-      const cells = [...(detail?.querySelectorAll("[data-detail-row]") ?? [])].map((r) => [...r.querySelectorAll("[data-cell]")].map((x) => x.textContent.trim()))
+      const cells = [...d.querySelectorAll("div[data-detail-row]")].map((r) => [...r.querySelectorAll("[data-cell]")].map((x) => x.textContent.trim()))
       return {
-        header: d.querySelector(".p-drawer-header app-truncated-text")?.textContent.trim() ?? null,
-        unreadable: detail?.querySelector("[data-unreadable]")?.textContent.trim() ?? null,
+        unreadable: d.querySelector("[data-unreadable]")?.textContent.trim() ?? null,
         rows: cells,
-        hasButton: !!b,
+        hasButton: !!d.querySelector('[data-action="restore-track"]'),
+        frame: Math.round(d.closest("td > div").getBoundingClientRect().height),
+        scrolls: d.closest("td > div").scrollHeight > d.closest("td > div").clientHeight + 1,
       }
     })
-  const openDrawer = async (text) => {
-    const tr = page.locator("app-run-list tbody tr", { hasText: text }).first()
-    const pressed = await tr.locator("[data-row-toggle]").getAttribute("aria-pressed")
-    if (pressed !== "true") await tr.locator("[data-row-toggle]").click()
-    await page.waitForSelector(".p-drawer app-track-detail")
-    await settle(450)
-  }
-  const closeDrawer = async () => {
-    const open = page.locator("app-run-list tbody tr[data-shown] [data-row-toggle]").first()
-    if ((await open.count()) > 0) {
+  const closeDetail = async () => {
+    for (let i = 0; i < 5; i++) {
+      const open = page.locator("app-run-list tbody tr[data-shown] [data-row-toggle]").first()
+      if ((await open.count()) === 0) return
       await open.click()
-      await settle(500)
+      await settle(300)
     }
   }
-  const trackBtn = () => btn('.p-drawer [data-action="restore-track"]')
+  const openDetail = async (text) => {
+    const toggle = page.locator("app-run-list tbody tr", { hasText: text }).first().locator("[data-row-toggle]")
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+      await closeDetail()
+      await toggle.click()
+    }
+    await page.waitForSelector("app-run-list tr[data-detail-carrier] app-track-detail")
+    await settle(450)
+  }
+  const trackBtn = () => btn('app-run-list tr[data-detail-carrier] [data-action="restore-track"]')
   const bannerText = () =>
     page.evaluate(() => document.querySelector("[data-write-failures]")?.textContent.replace(/\s+/g, " ").trim() ?? null)
   const failuresBox = () =>
@@ -298,11 +298,11 @@ async (page) => {
     await line({ event: "progress", phase: "tagging", processed: 5, total: 5 })
     await line(finished("run-1", "network", { resolved: 4, unresolved: 1 }))
     await settle(800)
-    await openDrawer("Adam Beyer")
-    check("2 not confirmed run: no restore button on a resolved row", !(await drawer())?.hasButton, await drawer())
-    await openDrawer("Nur Jaber")
-    check("2 unresolved row: no restore button", (await drawer())?.hasButton === false, await drawer())
-    await closeDrawer()
+    await openDetail("Adam Beyer")
+    check("2 not confirmed run: no restore button on a resolved row", !(await detail())?.hasButton, await detail())
+    await openDetail("Nur Jaber")
+    check("2 unresolved row: no restore button", (await detail())?.hasButton === false, await detail())
+    await closeDetail()
     check("3 not confirmed run: no Annuler l'ecriture", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
   })
 
@@ -316,15 +316,15 @@ async (page) => {
     await line(resolved(R1, "written"))
     await settle(400)
     check("3 writing: no Annuler l'ecriture", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
-    await openDrawer("Adam Beyer")
+    await openDetail("Adam Beyer")
     const written = await trackBtn()
     check("2 writing: written row button present but disabled", written?.disabled === true, written)
-    const tip = await hoverTip('.p-drawer [data-action="restore-track"]')
+    const tip = await hoverTip('app-run-list tr[data-detail-carrier] [data-action="restore-track"]')
     out.measures.tipDisabledTrackWriting = tip
     check("2 writing: hover on the disabled track button shows the reason tooltip", tip.tips.includes("Une écriture ou une restauration est en cours."), tip)
-    await openDrawer("Amelie Lens")
-    check("2 writing: a resolved-not-yet-written row has no button", (await drawer())?.hasButton === false, await drawer())
-    await closeDrawer()
+    await openDetail("Amelie Lens")
+    check("2 writing: a resolved-not-yet-written row has no button", (await detail())?.hasButton === false, await detail())
+    await closeDetail()
     const commitTip = await hoverTip('[data-action="commit"]')
     out.measures.tipDisabledCommitWriting = commitTip
     check("2 writing: hover on the disabled commit button shows tagging.blocked.writing", commitTip.tips.includes("L'écriture est en cours."), commitTip)
@@ -383,10 +383,10 @@ async (page) => {
     check("1 en: Write failed fits, one line", failEn?.label === "Write failed" && failEn.wrapped === false && failEn.spanFits === true, failEn)
     const runEn = await btn('[data-action="restore-run"]')
     check("3 en: run button label", runEn?.text === "Undo writing", runEn)
-    await openDrawer("Adam Beyer")
+    await openDetail("Adam Beyer")
     const trEn = await trackBtn()
     check("2 en: track button label", trEn?.text === "Restore this track", trEn)
-    await closeDrawer()
+    await closeDetail()
     await scanKeys("tagging en written")
     await shot("3-written-en")
     // Modale du run en EN : annulee.
@@ -428,14 +428,16 @@ async (page) => {
     await settle(500)
   })
 
-  // ---- 4. Restaurer un morceau (ecrit) depuis le tiroir.
+  // ---- 4. Restaurer un morceau (ecrit) depuis son detail deplie.
   await step("track restore", async () => {
     await clearSent()
-    await openDrawer("Adam Beyer")
+    await openDetail("Adam Beyer")
     const b = await trackBtn()
     out.measures.trackButton = b
+    const restorableDetail = await detail()
+    check("2 written row: detail frame of 8 rows for the restore button, nothing scrolls", restorableDetail?.frame === 8 * 56 && restorableDetail.scrolls === false, restorableDetail && { frame: restorableDetail.frame, scrolls: restorableDetail.scrolls })
     check("2 written row: Restaurer ce morceau, outlined primary, refresh 16px, enabled", b?.text === "Restaurer ce morceau" && b.primaryOutlined && b.icon === "refresh" && b.iconSize === 16 && !b.disabled, b)
-    await page.locator('.p-drawer [data-action="restore-track"]').click()
+    await page.locator('app-run-list tr[data-detail-carrier] [data-action="restore-track"]').click()
     await waitDialog()
     const d = await confirmDialog()
     out.measures.trackModalFr = d
@@ -445,11 +447,11 @@ async (page) => {
     await shot("6-track-modal")
     await page.keyboard.press("Enter")
     check("4 track modal: Enter on the focused Annuler does not validate", (await dialogGone()) && (await sent()).length === 0, await sent())
-    await page.locator('.p-drawer [data-action="restore-track"]').click()
+    await page.locator('app-run-list tr[data-detail-carrier] [data-action="restore-track"]').click()
     await waitDialog()
     await confirmButton("Annuler").click()
     check("4 track modal: Annuler click sends nothing", (await dialogGone()) && (await sent()).length === 0, await sent())
-    await page.locator('.p-drawer [data-action="restore-track"]').click()
+    await page.locator('app-run-list tr[data-detail-carrier] [data-action="restore-track"]').click()
     await waitDialog()
     await confirmButton("Restaurer").click()
     await settle(500)
@@ -459,12 +461,12 @@ async (page) => {
     // En vol : le bouton du morceau tourne, tout le reste est grise.
     const spin = await trackBtn()
     check("2 restoring track: spinner icon and disabled", spin?.icon === "spinner" && spin.disabled, spin)
-    await openDrawer("Hector Oaks")
+    await openDetail("Hector Oaks")
     const other = await trackBtn()
     check("2 other restorable row while restoring: disabled, no spinner", other?.disabled === true && other.icon === "refresh", other)
-    const tipOther = await hoverTip('.p-drawer [data-action="restore-track"]')
+    const tipOther = await hoverTip('app-run-list tr[data-detail-carrier] [data-action="restore-track"]')
     check("2 hover on disabled track button while restoring shows the reason", tipOther.tips.includes("Une écriture ou une restauration est en cours."), tipOther)
-    await closeDrawer()
+    await closeDetail()
     const run = await btn('[data-action="restore-run"]')
     check("3 run button while a track restores: disabled, refresh (not its own operation)", run?.disabled === true && run.icon === "refresh", run)
     const tipRun = await hoverTip('[data-action="restore-run"]')
@@ -497,22 +499,22 @@ async (page) => {
     const partial = await btn('[data-action="restore-run"]')
     check("3 partial restore: Annuler l'ecriture still shown and enabled again", partial?.primaryOutlined && !partial.disabled, partial)
     check("7 banner still counts 2 (restored row was written)", /écriture\s*:\s*2\./.test((await bannerText()) ?? ""), await bannerText())
-    await openDrawer("Adam Beyer")
-    const dr = await drawer()
-    out.measures.rolledBackDrawer = dr
+    await openDetail("Adam Beyer")
+    const dr = await detail()
+    out.measures.rolledBackDetail = dr
     check("2 rolled_back row: no restore button", dr?.hasButton === false, dr)
     check("2 rolled_back detail: Avant only (Apres cells em dashes)", dr?.rows.length > 0 && dr.rows.every((r) => r[3] === "—") && dr.rows.some((r) => r[2] !== "—"), dr?.rows?.slice(0, 4))
-    await closeDrawer()
+    await closeDetail()
     await shot("8-rolled-back-track")
   })
 
   // ---- 5. Restaurer un morceau en echec d'ecriture : sort du message.
   await step("write_error track restore", async () => {
     await clearSent()
-    await openDrawer("Ignez")
+    await openDetail("Ignez")
     const b = await trackBtn()
     check("2 write_error row: button present and enabled", b?.text === "Restaurer ce morceau" && !b.disabled && b.primaryOutlined, b)
-    await page.locator('.p-drawer [data-action="restore-track"]').click()
+    await page.locator('app-run-list tr[data-detail-carrier] [data-action="restore-track"]').click()
     await waitDialog()
     await confirmButton("Restaurer").click()
     await settle(500)
@@ -521,7 +523,7 @@ async (page) => {
     await line(rolledBack(L2))
     await line(rbFinished("run-1", L2.track_id, [L2.file_name], []))
     await settle(700)
-    await closeDrawer()
+    await closeDetail()
     check("7 one write_error left after one is rolled_back: banner counts 1", /écriture\s*:\s*1\./.test((await bannerText()) ?? ""), await bannerText())
     const retry = await btn('[data-action="retry"]')
     check("7 retry stays primary outlined", retry?.primaryOutlined, retry)

@@ -26,6 +26,28 @@ const HIDDEN_FIELD: TagField = "source_id"
 const valuesOf = (fields: readonly TagValue[] | null | undefined): Map<string, string | null> =>
   new Map(fields?.map((field) => [field.field, field.value]))
 
+/** Grille de base : les tags d'origine, sinon ceux écrits ; `null` quand ni l'un ni l'autre n'existe. */
+const fieldsOf = (track: TaggingTrack): readonly TagValue[] | null =>
+  track.tagsBefore?.fields ?? track.tagsAfter
+
+/**
+ * Lignes de la liste du run (56px) que le détail occupe sous son morceau, mesurées le 2026-10-10
+ * en `text-xs` : 15 ou 16 lignes de champs (377px au plus) tiennent dans 7, le bouton
+ * « Restaurer » en demande une de plus, la phrase des tags illisibles tient à côté de la
+ * pochette de 160px dans 4. À remesurer si la grille change ; au-delà, le détail défile.
+ */
+const DETAIL_SPANS = { unreadable: 4, fields: 7, restorable: 8 } as const
+
+export const MAX_DETAIL_SPAN = Math.max(...Object.values(DETAIL_SPANS))
+
+export const detailSpan = (track: TaggingTrack, restorable: boolean): number => {
+  if (fieldsOf(track) === null) {
+    return DETAIL_SPANS.unreadable
+  }
+
+  return restorable ? DETAIL_SPANS.restorable : DETAIL_SPANS.fields
+}
+
 /** Détail d'un morceau déplié (maquette `TrackDetail`) ; ordre et clés viennent du sidecar. */
 @Component({
   selector: "app-track-detail",
@@ -62,8 +84,9 @@ export class TrackDetailComponent {
   protected readonly pending = computed(() => this.track().state === null && !this.interrupted())
   /** `null` : ni avant ni après, le fichier n'a pas pu être lu et n'a pas été résolu. */
   protected readonly rows = computed<readonly DetailRow[] | null>(() => {
-    const { tagsBefore, tagsAfter } = this.track()
-    const base = tagsBefore?.fields ?? tagsAfter
+    const track = this.track()
+    const { tagsBefore, tagsAfter } = track
+    const base = fieldsOf(track)
     if (base === null) {
       return null
     }

@@ -71,7 +71,7 @@ const mountWith = async (
   return fixture
 }
 
-/** Laisse le tiroir (rendu dans `body`) et le scroller digerer un changement d'entree ou de clic. */
+/** Laisse le scroller digerer un changement d'entree ou de clic. */
 const settle = async (fixture: { detectChanges: () => void; whenStable: () => Promise<void> }) => {
   await fixture.whenStable()
   await new Promise((resolve) => setTimeout(resolve, 1))
@@ -98,10 +98,28 @@ const togglesOf = (fixture: { nativeElement: unknown }): HTMLElement[] => [
 const toggleOf = (fixture: { nativeElement: unknown }, index = 0): HTMLElement | null =>
   togglesOf(fixture)[index] ?? null
 
-/** Le tiroir est rendu hors de l'hote (`appendTo="body"`) : on le cherche dans le document. */
-const drawerDetail = (): Element | null => document.querySelector("app-track-detail")
-const drawerHeader = (): string | undefined =>
-  document.querySelector(".p-drawer-header")?.textContent.trim()
+const rowsOf = (fixture: { nativeElement: unknown }): HTMLElement[] => [
+  ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>("tbody tr"),
+]
+
+const carriersOf = (fixture: { nativeElement: unknown }): HTMLElement[] =>
+  rowsOf(fixture).filter((row) => row.hasAttribute("data-detail-carrier"))
+
+const kindsOf = (fixture: { nativeElement: unknown }): string[] =>
+  rowsOf(fixture).map((row) => {
+    if (row.hasAttribute("data-detail-carrier")) {
+      return "carrier"
+    }
+
+    return row.getAttribute("aria-hidden") === "true" ? "filler" : "track"
+  })
+
+const fillersOf = (fixture: { nativeElement: unknown }): HTMLElement[] =>
+  rowsOf(fixture).filter((row) => row.getAttribute("aria-hidden") === "true")
+
+const detailsOf = (fixture: { nativeElement: unknown }): HTMLElement[] => [
+  ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>("app-track-detail"),
+]
 
 describe("RunListComponent", () => {
   beforeEach(() => {
@@ -277,7 +295,7 @@ describe("RunListComponent", () => {
     expect(mainLineOf(fixture)).toBe(TRACK.title)
   })
 
-  it("shows the track detail in the drawer and hides it on a second click, without asking for arbitration", async () => {
+  it("opens the detail under its row on one carrier row followed by aria-hidden fillers, and closes it on a second click, without asking for arbitration", async () => {
     const fixture = await mountWith([
       {
         ...PENDING_TRACK,
@@ -290,38 +308,56 @@ describe("RunListComponent", () => {
 
     toggleOf(fixture)?.click()
     await settle(fixture)
-    const shown = drawerDetail() !== null
-    const pressed = toggleOf(fixture)?.getAttribute("aria-pressed")
-    const highlighted = (fixture.nativeElement as HTMLElement)
-      .querySelector("tbody tr")
-      ?.hasAttribute("data-shown")
+    const opened = kindsOf(fixture)
+    const highlighted = rowsOf(fixture)[0]?.hasAttribute("data-shown")
+    const expanded = toggleOf(fixture)?.getAttribute("aria-expanded")
     toggleOf(fixture)?.click()
     await settle(fixture)
 
-    expect(shown).toBe(true)
-    expect(pressed).toBe("true")
+    expect(opened).toEqual(["track", "carrier", ...Array<string>(6).fill("filler")])
     expect(highlighted).toBe(true)
-    expect(drawerDetail()).toBeNull()
-    expect(toggleOf(fixture)?.getAttribute("aria-pressed")).toBe("false")
+    expect(expanded).toBe("true")
+    expect(rowsOf(fixture)).toHaveLength(1)
+    expect(toggleOf(fixture)?.getAttribute("aria-expanded")).toBe("false")
+    expect(rowsOf(fixture)[0]?.hasAttribute("data-shown")).toBe(false)
     expect(asked).not.toHaveBeenCalled()
   })
 
-  it("titles the drawer with the resolved line, or the main line while the track is unresolved", async () => {
-    const fixture = await mountWith([TRACK])
+  it("puts the detail inside the carrier row and keeps every row at the scroller height", async () => {
+    const fixture = await mountWith([{ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }])
+
     toggleOf(fixture)?.click()
     await settle(fixture)
-    const resolved = drawerHeader()
-    TestBed.resetTestingModule()
-    const other = await mountWith([UNRESOLVED])
 
-    toggleOf(other)?.click()
-    await settle(other)
-
-    expect(resolved).toBe("Adam Beyer - Your Mind (Original Mix)")
-    expect(drawerHeader()).toBe("Adam Beyer - Your Mind")
+    expect(carriersOf(fixture)[0]?.querySelector("app-track-detail")).not.toBeNull()
+    expect(fillersOf(fixture).every((row) => row.querySelector("app-track-detail") === null)).toBe(
+      true,
+    )
+    expect(rowsOf(fixture).every((row) => row.classList.contains("h-14"))).toBe(true)
   })
 
-  it("replaces the detail shown when the chevron of another row is clicked", async () => {
+  it.each([
+    ["readable tags", { tagsBefore: TAGS_BEFORE }, new Set<string>(), 7],
+    ["the restore button", { tagsBefore: TAGS_BEFORE }, new Set([PENDING_TRACK.trackId]), 8],
+    ["unreadable tags", {}, new Set<string>(), 4],
+  ] as const)(
+    "sizes the detail frame on its content (%s)",
+    async (_case, tags, restorable, span) => {
+      const fixture = await mountWith([{ ...PENDING_TRACK, ...tags }])
+      fixture.componentRef.setInput("restorableIds", restorable)
+      await settle(fixture)
+
+      toggleOf(fixture)?.click()
+      await settle(fixture)
+
+      expect(rowsOf(fixture)).toHaveLength(1 + span)
+      expect(carriersOf(fixture)[0]?.querySelector<HTMLElement>("td > div")?.style.height).toBe(
+        `${span * 56}px`,
+      )
+    },
+  )
+
+  it("opens a second detail while the first stays open", async () => {
     const other: TaggingTrack = {
       ...PENDING_TRACK,
       trackId: "b.mp3",
@@ -329,17 +365,20 @@ describe("RunListComponent", () => {
       artist: "Amelie Lens",
       title: "Basiel",
     }
-    const fixture = await mountWith([{ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }, other])
+    const fixture = await mountWith([
+      { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE },
+      { ...other, tagsBefore: TAGS_BEFORE },
+    ])
 
     toggleOf(fixture, 0)?.click()
     await settle(fixture)
     toggleOf(fixture, 1)?.click()
     await settle(fixture)
 
-    expect(document.querySelectorAll("app-track-detail")).toHaveLength(1)
-    expect(drawerHeader()).toBe("Amelie Lens - Basiel")
-    expect(toggleOf(fixture, 0)?.getAttribute("aria-pressed")).toBe("false")
-    expect(toggleOf(fixture, 1)?.getAttribute("aria-pressed")).toBe("true")
+    expect(detailsOf(fixture)).toHaveLength(2)
+    expect(toggleOf(fixture, 0)?.getAttribute("aria-expanded")).toBe("true")
+    expect(toggleOf(fixture, 1)?.getAttribute("aria-expanded")).toBe("true")
+    expect(rowsOf(fixture)).toHaveLength(16)
   })
 
   it.each(["Enter", " "])("keeps the chevron keys away from the row action (%j)", async (key) => {
@@ -364,7 +403,7 @@ describe("RunListComponent", () => {
     await settle(fixture)
 
     expect(asked).not.toHaveBeenCalled()
-    expect(drawerDetail()).not.toBeNull()
+    expect(detailsOf(fixture)).toHaveLength(1)
   })
 
   it("makes the detail follow its track when it is resolved", async () => {
@@ -377,11 +416,11 @@ describe("RunListComponent", () => {
     ])
     await settle(fixture)
 
-    expect(drawerDetail()?.textContent).toContain("Adam Beyer")
-    expect(drawerHeader()).toBe("Adam Beyer - Your Mind (Original Mix)")
+    expect(detailsOf(fixture)).toHaveLength(1)
+    expect(detailsOf(fixture)[0]?.textContent).toContain("Adam Beyer")
   })
 
-  it("closes the drawer when the shown track leaves the list", async () => {
+  it("closes the detail when its track leaves the list", async () => {
     const fixture = await mountWith([{ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }])
     toggleOf(fixture)?.click()
     await settle(fixture)
@@ -391,10 +430,11 @@ describe("RunListComponent", () => {
     ])
     await settle(fixture)
 
-    expect(drawerDetail()).toBeNull()
+    expect(detailsOf(fixture)).toHaveLength(0)
+    expect(fillersOf(fixture)).toHaveLength(0)
   })
 
-  it("keeps the drawer closed when a track of the same id comes back with a new run", async () => {
+  it("keeps the detail closed when a track of the same id comes back with a new run", async () => {
     const first = { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }
     const fixture = await mountWith([first])
     toggleOf(fixture)?.click()
@@ -405,6 +445,6 @@ describe("RunListComponent", () => {
     fixture.componentRef.setInput("tracks", [first])
     await settle(fixture)
 
-    expect(drawerDetail()).toBeNull()
+    expect(detailsOf(fixture)).toHaveLength(0)
   })
 })

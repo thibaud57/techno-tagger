@@ -1,11 +1,12 @@
 <p-table
-  [value]="rows()"
-  dataKey="trackId"
-  [rowTrackBy]="byTrackId"
+  [value]="renderRows()"
+  dataKey="key"
+  [rowTrackBy]="byKey"
   [scrollable]="true"
   scrollHeight="flex"
   [virtualScroll]="true"
   [virtualScrollItemSize]="ROW_HEIGHT"
+  [virtualScrollOptions]="SCROLLER_OPTIONS"
   [pt]="tablePt()"
   class="text-sm"
 >
@@ -27,103 +28,137 @@
     </tr>
   </ng-template>
 
-  <ng-template #body let-track>
-    <!-- Ligne actionnable atteignable au clavier, Entree ou Espace comme le clic. Anneau du
-         preset (--p-focus-ring-*) pose vers l'interieur : la table defile et rognerait un
-         anneau exterieur. -->
-    <tr
-      class="h-14 transition-colors duration-150 ease-out focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis data-shown:bg-highlight"
-      [attr.data-shown]="track.trackId === shownId() ? '' : null"
-      [attr.data-arbitrable]="track.arbitrable ? '' : null"
-      [attr.data-recoverable]="track.recoverable ? '' : null"
-      [attr.tabindex]="track.arbitrable || track.recoverable ? 0 : null"
-      (click)="activate(track)"
-      (keydown.enter)="activate(track)"
-      (keydown.space)="activate(track, $event)"
-    >
-      <td>
-        <!-- Le bouton garde ses clics et ses touches : la ligne ouvre l'arbitrage ou le lien. -->
-        <button
-          pButton
-          type="button"
-          size="small"
-          [text]="true"
-          severity="secondary"
-          data-row-toggle
-          [attr.aria-pressed]="track.trackId === shownId()"
-          [attr.aria-label]="'tagging.list.showDetail' | translate"
-          (click)="toggleDetail(track); $event.stopPropagation()"
-          (keydown.enter)="$event.stopPropagation()"
-          (keydown.space)="$event.stopPropagation()"
+  <ng-template #body let-item>
+    @switch (item.kind) {
+      @case ("track") {
+        @let track = item.row;
+        @let open = item.open;
+        <!-- Ligne actionnable atteignable au clavier, Entree ou Espace comme le clic. Anneau du
+               preset (--p-focus-ring-*) pose vers l'interieur : la table defile et rognerait un
+               anneau exterieur. -->
+        <tr
+          class="h-14 transition-colors duration-150 ease-out focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis data-shown:bg-highlight"
+          [attr.data-shown]="open ? '' : null"
+          [attr.data-arbitrable]="track.arbitrable ? '' : null"
+          [attr.data-recoverable]="track.recoverable ? '' : null"
+          [attr.tabindex]="track.arbitrable || track.recoverable ? 0 : null"
+          (click)="activate(track)"
+          (keydown.enter)="activate(track)"
+          (keydown.space)="activate(track, $event)"
         >
-          <app-icon name="chevron-right" [size]="16" />
-        </button>
-      </td>
-      <td>
-        <app-artwork [url]="track.artworkUrl" [pending]="track.state === null && !settled()" />
-      </td>
-      <td>
-        <app-truncated-text [text]="track.mainLine" />
-        <app-truncated-text class="text-xs text-muted-color" [text]="track.fileName" />
-      </td>
-      <td>
-        @if (track.afterLine; as afterLine) {
-          <app-truncated-text [text]="afterLine" />
-        } @else if (track.recoverable) {
-          <!-- Point d'entree du rattrapage : le clic sur la ligne ouvre la modale du lien. -->
-          <span
-            class="inline-flex items-center gap-2 font-semibold text-muted-color"
-            data-recover-hint
-          >
-            {{ "tagging.list.addLink" | translate }}
-            <app-icon name="arrow-right" [size]="16" />
-          </span>
-        } @else {
-          <app-no-value />
-        }
-      </td>
-      <td>
-        @if (track.source; as source) {
-          <span class="flex items-center gap-2">
-            <app-source-logo [source]="source" [size]="16" />
-            {{ track.sourceName }}
-          </span>
-        } @else {
-          <app-no-value />
-        }
-      </td>
-      <td class="text-right tabular-nums">
-        @if (track.scores; as scores) {
-          <span class="block">{{ scores.average }}</span>
-          <span class="block text-xs text-muted-color">
-            @if (scores.artist !== null) {
-              {{ "tagging.list.scoreArtist" | translate }} {{ scores.artist }} ·
+          <td>
+            <!-- Le bouton garde ses clics et ses touches : la ligne ouvre l'arbitrage ou le lien. -->
+            <button
+              pButton
+              type="button"
+              size="small"
+              [text]="true"
+              severity="secondary"
+              data-row-toggle
+              [attr.aria-expanded]="open"
+              [attr.aria-label]="'tagging.list.showDetail' | translate"
+              (click)="toggleDetail(track); $event.stopPropagation()"
+              (keydown.enter)="$event.stopPropagation()"
+              (keydown.space)="$event.stopPropagation()"
+            >
+              <app-icon [name]="open ? 'chevron-down' : 'chevron-right'" [size]="16" />
+            </button>
+          </td>
+          <td>
+            <app-artwork [url]="track.artworkUrl" [pending]="track.state === null && !settled()" />
+          </td>
+          <td>
+            <app-truncated-text [text]="track.mainLine" />
+            <app-truncated-text class="text-xs text-muted-color" [text]="track.fileName" />
+          </td>
+          <td>
+            @if (track.afterLine; as afterLine) {
+              <app-truncated-text [text]="afterLine" />
+            } @else if (track.recoverable) {
+              <!-- Point d'entree du rattrapage : le clic sur la ligne ouvre la modale du lien. -->
+              <span
+                class="inline-flex items-center gap-2 font-semibold text-muted-color"
+                data-recover-hint
+              >
+                {{ "tagging.list.addLink" | translate }}
+                <app-icon name="arrow-right" [size]="16" />
+              </span>
+            } @else {
+              <app-no-value />
             }
-            {{ "tagging.list.scoreTitle" | translate }} {{ scores.title }}
-          </span>
-        } @else {
-          <app-no-value />
-        }
-      </td>
-      <td>
-        <!-- Meme motif que le rapport d'extraction : le motif du non resolu au survol. -->
-        <span
-          class="inline-flex items-center gap-2"
-          [pTooltip]="track.reasonKey ? (track.reasonKey | translate) : undefined"
-          [tooltipOptions]="WIDE_TOOLTIP"
-        >
-          <app-state-tag
-            [state]="track.state"
-            [resolution]="track.resolution"
-            [awaiting]="track.arbitrable"
-            [interrupted]="settled()"
-          />
-          @if (track.reasonKey) {
-            <app-icon class="text-muted-color" name="info-circle" [size]="16" />
-          }
-        </span>
-      </td>
-    </tr>
+          </td>
+          <td>
+            @if (track.source; as source) {
+              <span class="flex items-center gap-2">
+                <app-source-logo [source]="source" [size]="16" />
+                {{ track.sourceName }}
+              </span>
+            } @else {
+              <app-no-value />
+            }
+          </td>
+          <td class="text-right tabular-nums">
+            @if (track.scores; as scores) {
+              <span class="block">{{ scores.average }}</span>
+              <span class="block text-xs text-muted-color">
+                @if (scores.artist !== null) {
+                  {{ "tagging.list.scoreArtist" | translate }} {{ scores.artist }} ·
+                }
+                {{ "tagging.list.scoreTitle" | translate }} {{ scores.title }}
+              </span>
+            } @else {
+              <app-no-value />
+            }
+          </td>
+          <td>
+            <!-- Meme motif que le rapport d'extraction : le motif du non resolu au survol. -->
+            <span
+              class="inline-flex items-center gap-2"
+              [pTooltip]="track.reasonKey ? (track.reasonKey | translate) : undefined"
+              [tooltipOptions]="WIDE_TOOLTIP"
+            >
+              <app-state-tag
+                [state]="track.state"
+                [resolution]="track.resolution"
+                [awaiting]="track.arbitrable"
+                [interrupted]="settled()"
+              />
+              @if (track.reasonKey) {
+                <app-icon class="text-muted-color" name="info-circle" [size]="16" />
+              }
+            </span>
+          </td>
+        </tr>
+      }
+      @case ("detail") {
+        @let row = item.row;
+        <!-- Ligne porteuse : le detail deborde en absolu sur les lignes de remplissage qui la
+             suivent. Toutes gardent 56px, le scroller place donc chaque ligne a `rang * 56`. -->
+        <tr class="h-14" data-detail-carrier>
+          <td colspan="7" class="relative border-b-0 p-0">
+            <div
+              class="absolute inset-x-0 top-0 overflow-y-auto border-b border-surface bg-surface-950"
+              [style.height.px]="item.height"
+            >
+              <app-track-detail
+                class="h-full"
+                [track]="row"
+                [interrupted]="settled()"
+                [restorable]="row.restorable"
+                [restoring]="row.restoring"
+                [blocked]="restoreBlocked()"
+                (restore)="restore.emit($event)"
+              />
+            </div>
+          </td>
+        </tr>
+      }
+      @case ("filler") {
+        <tr class="h-14" aria-hidden="true">
+          <td colspan="7" class="border-b-0"></td>
+        </tr>
+      }
+    }
   </ng-template>
 
   <ng-template #emptymessage>
@@ -144,35 +179,3 @@
     </tr>
   </ng-template>
 </p-table>
-
-<!-- Non modal : la liste reste utilisable, un autre bouton remplace le detail. Dans `body` pour
-     que son z-index se compare a celui des modales du shell, ouvertes apres lui donc au-dessus.
-     560px : la grille Champ / Avant / Apres reste lisible a cette largeur. -->
-<p-drawer
-  [visible]="shown() !== null"
-  (visibleChange)="onDrawerVisible($event)"
-  [modal]="false"
-  position="right"
-  appendTo="body"
-  styleClass="w-[35rem]"
-  [ariaCloseLabel]="'tagging.detail.close' | translate"
->
-  <ng-template #header>
-    @if (shown(); as row) {
-      <app-truncated-text
-        class="min-w-0 flex-1 text-lg font-semibold"
-        [text]="row.afterLine ?? row.mainLine"
-      />
-    }
-  </ng-template>
-  @if (shown(); as row) {
-    <app-track-detail
-      [track]="row"
-      [interrupted]="settled()"
-      [restorable]="row.restorable"
-      [restoring]="row.restoring"
-      [blocked]="restoreBlocked()"
-      (restore)="restore.emit($event)"
-    />
-  }
-</p-drawer>

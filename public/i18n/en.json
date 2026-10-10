@@ -286,8 +286,7 @@
         "source": "Source",
         "comment": "Comment"
       },
-      "unreadable": "This file's tags could not be read.",
-      "close": "Close"
+      "unreadable": "This file's tags could not be read."
     },
     "recovery": {
       "badge": "{{count}} to recover",
