@@ -153,7 +153,12 @@ async (page) => {
   })
   check("enter sends the pasted link", (await sent()).includes(`resolve_by_url:${K.track_id}`), await sent())
   check("spinner while the gesture waits", busy.disabled === true && busy.spinner, busy)
-  check("start blocked during a gesture", await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Lancer le run/.test(b.textContent))?.disabled === true), "enabled")
+  // Bouton d'action unique de la rangee du dossier (lancer ou confirmer selon la phase).
+  const actionButton = await page.evaluate(() => {
+    const b = document.querySelector("app-tagging-page .grid > div > button")
+    return b && { text: b.textContent.trim(), disabled: b.disabled }
+  })
+  check("run action blocked during a gesture", actionButton?.disabled === true, actionButton)
   await line({ event: "error", code: "unsupported_url", params: { track_id: K.track_id }, message: "unsupported url", command: "resolve_by_url" })
   await page.waitForTimeout(2500)
   const refused = await dialog()

@@ -13,30 +13,69 @@
       <app-icon icon name="folder" [size]="16" />
     </app-path-picker>
     <div class="flex items-center gap-4">
-      <!-- Le bouton reste visible et desactive pendant le run : `TaggingScreen.jsx` le fait
-           disparaitre hors phase `idle`, mais DESIGN.md interdit de masquer une action
-           desactivee, et c'est DESIGN.md qui tranche quand les deux se contredisent. -->
-      @if (running()) {
-        <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel()">
-          <app-icon name="stop" [size]="16" />{{ "tagging.cancel" | translate }}
-        </button>
+      <!-- Un seul bouton d'action, dont le role suit la phase : jamais deux actions du run
+           cote a cote (arbitrage du 2026-10-06, DESIGN.md § Arbitrages). -->
+      @switch (action()) {
+        @case ("cancel") {
+          <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel()">
+            <app-icon name="stop" [size]="16" />{{ "tagging.cancel" | translate }}
+          </button>
+        }
+        @case ("commit") {
+          @let commitBlocked =
+            commitBlockedReason() ? (commitBlockedReason() | translate) : undefined;
+          <button
+            pButton
+            type="button"
+            data-action="commit"
+            [disabled]="commitBlocked !== undefined"
+            [pTooltip]="commitBlocked"
+            [showDelay]="tooltipDelay"
+            (click)="commit()"
+          >
+            <app-icon [name]="writing() ? 'spinner' : 'check'" [size]="16" />
+            {{ "tagging.commit.action" | translate }}
+          </button>
+        }
+        @default {
+          @let blockedText = blockedReason() ? (blockedReason() | translate) : undefined;
+          <button
+            pButton
+            type="button"
+            data-action="start"
+            [disabled]="!canStart()"
+            [pTooltip]="blockedText"
+            [showDelay]="tooltipDelay"
+            (click)="start()"
+          >
+            <app-icon name="play" [size]="16" />{{ "tagging.start" | translate }}
+          </button>
+        }
       }
-      @let blockedText = blockedReason() ? (blockedReason() | translate) : undefined;
-      <button
-        pButton
-        type="button"
-        [disabled]="!canStart()"
-        [pTooltip]="blockedText"
-        [showDelay]="tooltipDelay"
-        (click)="start()"
-      >
-        <app-icon name="play" [size]="16" />{{ "tagging.start" | translate }}
-      </button>
     </div>
   </div>
 
   @if (error(); as shown) {
     <app-error-message [error]="shown" />
+  }
+
+  @if (writeFailures() > 0 && !writing()) {
+    <app-message severity="error" data-write-failures>
+      {{ "tagging.write.failed" | translate: { count: writeFailures() } }}
+      <button
+        action
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        class="self-start"
+        data-action="retry"
+        [disabled]="filesBusy()"
+        (click)="retry()"
+      >
+        <app-icon name="refresh" [size]="16" />{{ "tagging.retry.action" | translate }}
+      </button>
+    </app-message>
   }
 
   @if (running()) {
@@ -46,6 +85,17 @@
       [counter]="current ? ('tagging.progress' | translate: current) : undefined"
       [value]="percentage()"
     />
+  } @else if (committed()) {
+    @let written = writeProgress();
+    <!-- Sans ecriture en cours ni palier recu (relance refusee), une barre indeterminee
+         laisserait croire que l'ecriture tourne encore. -->
+    @if (writing() || written) {
+      <app-phase-progress
+        [label]="'tagging.write.phase' | translate"
+        [counter]="written ? ('tagging.progress' | translate: written) : undefined"
+        [value]="writePercentage()"
+      />
+    }
   } @else if (recovery(); as phase) {
     <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run.
          La modale du lien s'ouvre par la ligne du morceau ; sans morceau a rattraper, l'etat
@@ -72,6 +122,7 @@
         [loading]="listing()"
         [interrupted]="interrupted()"
         [recoverable]="recoverableIds()"
+        [frozen]="committed()"
         (arbitrate)="openArbitration($event)"
         (recover)="openRecovery($event)"
       />
@@ -84,6 +135,8 @@
       [description]="idleDescription() | translate"
     />
   }
+
+  <app-danger-confirm />
 
   <!-- `contents` : l'hote vide ne doit ni prendre de place ni ajouter un gap-6 a la colonne. -->
   <app-url-recovery-dialog class="contents" />

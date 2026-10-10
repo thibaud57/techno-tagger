@@ -51,6 +51,7 @@ const stubOffscreenLayout = (): void => {
 const mountWith = async (
   tracks: readonly TaggingTrack[],
   recoverable: ReadonlySet<string> = new Set(),
+  frozen = false,
 ) => {
   TestBed.configureTestingModule({
     imports: [RunListComponent],
@@ -59,6 +60,7 @@ const mountWith = async (
   const fixture = TestBed.createComponent(RunListComponent)
   fixture.componentRef.setInput("tracks", tracks)
   fixture.componentRef.setInput("recoverable", recoverable)
+  fixture.componentRef.setInput("frozen", frozen)
   fixture.detectChanges()
 
   // Le scroller s'initialise sur un microtask puis calcule ses lignes dans un `setTimeout(…, 1)`.
@@ -222,6 +224,28 @@ describe("RunListComponent", () => {
     const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")
 
     expect(row?.hasAttribute("tabindex")).toBe(false)
+  })
+
+  it("leaves the rows of a committed run without action", async () => {
+    const fixture = await mountWith(
+      [{ ...PENDING_TRACK, arbitration: arbitrationRequired(PENDING_TRACK.trackId) }, UNRESOLVED],
+      new Set([UNRESOLVED.trackId]),
+      true,
+    )
+    const asked = vi.fn()
+    fixture.componentInstance.arbitrate.subscribe(asked)
+    fixture.componentInstance.recover.subscribe(asked)
+    const root = fixture.nativeElement as HTMLElement
+    const rows = root.querySelectorAll<HTMLElement>("tbody tr")
+
+    rows.forEach((row) => {
+      row.click()
+    })
+
+    expect(asked).not.toHaveBeenCalled()
+    expect([...rows].some((row) => row.hasAttribute("tabindex"))).toBe(false)
+    expect(root.querySelector("p-skeleton")).toBeNull()
+    expect(root.textContent).toContain("tagging.state.notProcessed")
   })
 
   it("hints at pasting a link on an unresolved recoverable row only", async () => {

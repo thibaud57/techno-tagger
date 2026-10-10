@@ -18,14 +18,19 @@
     },
     "close": {
       "title": "Quit the application?",
+      "blockedTitle": "You cannot quit right now",
       "extraction": "An extraction is in progress: the copy will be cut short and a file may end up corrupted.",
       "tagging": "A tagging run is in progress: the search results will be lost.",
       "arbitration": "Arbitrations awaiting a decision: {{count}}. They will be lost.",
       "write": "Files are being written: wait for it to finish before quitting.",
       "rollback": "A restore is in progress: wait for it to finish before quitting.",
+      "unwritten": "A run awaits its write confirmation: nothing was written, the search results will be lost.",
       "stay": "Stay",
       "leave": "Quit anyway"
     }
+  },
+  "confirm": {
+    "cancel": "Cancel"
   },
   "errors": {
     "malformed_command": "An internal error interrupted the operation. Restart the application.",
@@ -175,6 +180,24 @@
     "cancel": "Stop the run",
     "phase": "Searching",
     "progress": "{{processed}} of {{total}}",
+    "commit": {
+      "action": "Confirm writing",
+      "header": "Confirm writing",
+      "message": "Folder {{folder}}. Files to rewrite and rename to “Artist - Title”: {{count}}. The original tags are backed up first: they can be restored, per run or per track.",
+      "unresolved": "Unresolved, left untouched: {{count}}.",
+      "awaiting": "Still awaiting arbitration, neither written nor arbitrable afterwards: {{count}}.",
+      "accept": "Write the tags"
+    },
+    "retry": {
+      "action": "Retry writing",
+      "header": "Retry writing",
+      "message": "Failed files to rewrite: {{count}}. Only these files are retried, with no new search or arbitration.",
+      "accept": "Retry writing"
+    },
+    "write": {
+      "phase": "Writing tags, artwork and file names",
+      "failed": "Files that failed to write: {{count}}. A locked file does not stop the run: close the program holding it, then retry writing."
+    },
     "folder": {
       "action": "Choose a folder"
     },
@@ -184,7 +207,11 @@
       "api_key": "Save your API key in the settings first.",
       "folder": "Choose the folder to re-tag first.",
       "extracting": "Wait for the current extraction on the Playlist tab to finish.",
-      "sidecar": "The application engine is not ready yet."
+      "sidecar": "The application engine is not ready yet.",
+      "writing": "Writing is in progress.",
+      "arbitrating": "Wait for the current arbitration to answer.",
+      "nothingToWrite": "No resolved track to write. Recover some by link, or choose a folder to start another run.",
+      "restoring": "Wait for the restore in progress to finish."
     },
     "empty": {
       "heading": "No run yet",
@@ -198,7 +225,8 @@
       "arbitrated": "Arbitrated",
       "url": "URL",
       "unresolved": "Unresolved",
-      "notProcessed": "Not processed"
+      "notProcessed": "Not processed",
+      "writeError": "Write failed"
     },
     "reason": {
       "empty_query": "Neither the tags nor the file name give an artist or a title. Rename the file as \"Artist - Title\".",

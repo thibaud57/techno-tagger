@@ -37,6 +37,7 @@ const mount = () => {
     taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal<readonly { track_id: string }[]>([]),
     tagging: signal(false),
+    committed: signal(false),
     taggingTracks: signal<readonly TaggingTrack[]>([]),
     recoverableTracks: signal<readonly TaggingTrack[]>([]),
     urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
@@ -138,6 +139,18 @@ describe("AppComponent", () => {
     service.arbitrationOpenings.update((count) => count + 1)
 
     expect(component["arbitrationVisible"]()).toBe(true)
+  })
+
+  it("hides the queue badge and dialog once the run is committed", () => {
+    const { fixture, component, service } = mount()
+    service.arbitrationCount.set(2)
+    fixture.detectChanges()
+
+    service.committed.set(true)
+    fixture.detectChanges()
+
+    expect(badge(fixture.nativeElement as HTMLElement)).toBeNull()
+    expect(component["arbitrationVisible"]()).toBe(false)
   })
 
   it("hides the queue badge on an empty queue", () => {

@@ -76,10 +76,13 @@ export class AppComponent {
     ...this.sidecar.versionMismatch(),
   }))
 
-  protected readonly arbitrationCount = this.sidecar.arbitrationCount
+  /** Un run confirme n'accepte plus d'arbitrage : sa file reste, sans badge ni modale. */
+  protected readonly arbitrationCount = computed(() =>
+    this.sidecar.committed() ? 0 : this.sidecar.arbitrationCount(),
+  )
   /** L'etape lien d'un morceau sorti de la file garde la modale ouverte, meme file videe. */
   private readonly queueEmpty = computed(
-    () => this.sidecar.arbitrationCount() === 0 && this.recovery.linkStep() === null,
+    () => this.arbitrationCount() === 0 && this.recovery.linkStep() === null,
   )
   private readonly arbitrationDismissed = linkedSignal({
     source: () => [this.queueEmpty(), this.sidecar.arbitrationOpenings()],

@@ -18,14 +18,19 @@
     },
     "close": {
       "title": "Quitter l'application ?",
+      "blockedTitle": "Impossible de quitter maintenant",
       "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut se retrouver corrompu.",
       "tagging": "Un run de tagging est en cours : les résultats de la recherche seront perdus.",
       "arbitration": "Arbitrages en attente : {{count}}. Ils seront perdus.",
       "write": "L'écriture des fichiers est en cours : attendez qu'elle se termine pour quitter.",
       "rollback": "Une restauration est en cours : attendez qu'elle se termine pour quitter.",
+      "unwritten": "Un run attend sa confirmation d'écriture : rien n'a été écrit, les résultats de la recherche seront perdus.",
       "stay": "Rester",
       "leave": "Quitter quand même"
     }
+  },
+  "confirm": {
+    "cancel": "Annuler"
   },
   "errors": {
     "malformed_command": "Une erreur interne a interrompu l'opération. Relancez l'application.",
@@ -175,6 +180,24 @@
     "cancel": "Interrompre",
     "phase": "Recherche en cours",
     "progress": "{{processed}} sur {{total}}",
+    "commit": {
+      "action": "Confirmer l'écriture",
+      "header": "Confirmer l'écriture",
+      "message": "Dossier {{folder}}. Fichiers à réécrire et renommer en « Artiste - Titre » : {{count}}. Les tags d'origine sont sauvegardés avant : une restauration reste possible, par run ou par morceau.",
+      "unresolved": "Non résolus, qui ne seront pas touchés : {{count}}.",
+      "awaiting": "Encore à arbitrer, qui ne seront ni écrits ni arbitrables : {{count}}.",
+      "accept": "Écrire les tags"
+    },
+    "retry": {
+      "action": "Relancer l'écriture",
+      "header": "Relancer l'écriture",
+      "message": "Fichiers en échec à réécrire : {{count}}. Seuls ces fichiers sont repris, sans nouvelle recherche ni arbitrage.",
+      "accept": "Relancer l'écriture"
+    },
+    "write": {
+      "phase": "Écriture des tags, pochettes et renommage",
+      "failed": "Fichiers en échec d'écriture : {{count}}. Un fichier verrouillé n'arrête pas le run : fermez le programme qui le tient, puis relancez l'écriture."
+    },
     "folder": {
       "action": "Choisir un dossier"
     },
@@ -184,7 +207,11 @@
       "api_key": "Enregistrez d'abord votre clé API dans les Réglages.",
       "folder": "Choisissez d'abord le dossier à re-tagger.",
       "extracting": "Attendez la fin de l'extraction en cours sur l'onglet Playlist.",
-      "sidecar": "Le moteur de l'application n'est pas encore prêt."
+      "sidecar": "Le moteur de l'application n'est pas encore prêt.",
+      "writing": "L'écriture est en cours.",
+      "arbitrating": "Attendez la réponse de l'arbitrage en cours.",
+      "nothingToWrite": "Aucun morceau résolu à écrire. Rattrapez-en par lien, ou choisissez un dossier pour lancer un autre run.",
+      "restoring": "Attendez la fin de la restauration en cours."
     },
     "empty": {
       "heading": "Aucun run lancé",
@@ -198,7 +225,8 @@
       "arbitrated": "Arbitré",
       "url": "URL",
       "unresolved": "Non résolu",
-      "notProcessed": "Non traité"
+      "notProcessed": "Non traité",
+      "writeError": "Échec d'écriture"
     },
     "reason": {
       "empty_query": "Ni les tags ni le nom du fichier ne donnent d'artiste ou de titre. Renommez le fichier en « Artiste - Titre ».",

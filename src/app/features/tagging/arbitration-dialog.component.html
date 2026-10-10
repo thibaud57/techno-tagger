@@ -38,13 +38,13 @@
         Une seule cellule : le bandeau sortant reste une image de plus (animate.leave), superpose et non a cote.
       -->
       <div class="grid min-h-6.5 items-center *:col-start-1 *:row-start-1">
-        <!-- `animate-none` : l'entree de p-message fait glisser la liste sur le chemin de decision. -->
+        <!-- Sans animation d'entree : elle ferait glisser la liste sur le chemin de decision. -->
         @if (shown.beatport_unavailable) {
-          <p-message class="w-full animate-none" severity="warn" size="small">
+          <app-message severity="warn" size="small" [animated]="false">
             {{ "arbitration.beatportUnavailable" | translate }}
-          </p-message>
+          </app-message>
         } @else if (shown.other_source === "beatport") {
-          <p-message class="w-full animate-none" severity="info" size="small">
+          <app-message severity="info" size="small" [animated]="false">
             {{ "arbitration.switched" | translate }}
             <button
               pButton
@@ -57,7 +57,7 @@
             >
               {{ "arbitration.backToBeatport" | translate }}
             </button>
-          </p-message>
+          </app-message>
         } @else {
           <p class="text-xs text-muted-color">
             {{ "arbitration.uncertain" | translate: { count: options().length } }}

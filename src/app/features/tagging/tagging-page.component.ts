@@ -1,13 +1,18 @@
 import { Component, computed, inject, signal } from "@angular/core"
-import { TranslatePipe } from "@ngx-translate/core"
+import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
+import {
+  DangerConfirmComponent,
+  injectDangerConfirm,
+} from "../../shared/components/danger-confirm.component"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
 import { IconComponent } from "../../shared/components/icon.component"
+import { MessageComponent } from "../../shared/components/message.component"
 import { PathPickerComponent } from "../../shared/components/path-picker.component"
 import { PhaseProgressComponent } from "../../shared/components/phase-progress.component"
 import { pickPath } from "../../shared/utils/dialog"
@@ -25,6 +30,8 @@ import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
     TranslatePipe,
     ButtonDirective,
     Tooltip,
+    DangerConfirmComponent,
+    MessageComponent,
     IconComponent,
     PathPickerComponent,
     PhaseProgressComponent,
@@ -39,6 +46,8 @@ import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
 export default class TaggingPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly recoveryUi = inject(RecoveryUiStore)
+  private readonly translate = inject(TranslateService)
+  private readonly confirmDanger = injectDangerConfirm()
 
   protected readonly folder = signal("")
   protected readonly tooltipDelay = TOOLTIP_DELAY
@@ -46,6 +55,15 @@ export default class TaggingPageComponent {
   protected readonly tracks = this.sidecar.taggingTracks
   protected readonly progress = this.sidecar.taggingProgress
   protected readonly running = this.sidecar.tagging
+  protected readonly committed = this.sidecar.committed
+  protected readonly writing = this.sidecar.writing
+  protected readonly writeProgress = this.sidecar.writeProgress
+  protected readonly writePercentage = computed(() => progressPercentage(this.writeProgress()))
+  protected readonly writeFailures = computed(() => this.sidecar.writeFinished()?.write_error ?? 0)
+  /** Une ecriture ou une restauration tourne : le moteur n'en accepte qu'une a la fois. */
+  protected readonly filesBusy = computed(
+    () => this.writing() || this.sidecar.rollingBack() !== null,
+  )
   /** Nul pendant le parcours du dossier : la liste s'affiche en squelette, jamais « aucun run ». */
   protected readonly listing = computed(() => this.sidecar.taggingRunId() === null)
   protected readonly showsRun = computed(
@@ -85,7 +103,48 @@ export default class TaggingPageComponent {
     return null
   })
   protected readonly canStart = computed(() => this.blockedReason() === null)
-  protected readonly error = this.sidecar.errorFor("start_tagging")
+  protected readonly action = computed<"start" | "cancel" | "commit">(() => {
+    if (this.running()) {
+      return "cancel"
+    }
+    // Un autre dossier abandonne le run non ecrit ; le meme dossier le laisse confirmable.
+    const unwritten =
+      this.sidecar.taggingRunId() !== null &&
+      !this.committed() &&
+      this.folder() === this.sidecar.taggingFolder()
+
+    return this.writing() || unwritten ? "commit" : "start"
+  })
+  /** Comptes lus sur les etats recus : l'interface ne decide rien de ce qui sera ecrit. */
+  private readonly counts = computed(() => {
+    const tracks = this.tracks()
+
+    return {
+      writable: tracks.filter((track) => track.state === "resolved").length,
+      unresolved: tracks.filter((track) => track.state === "unresolved").length,
+      awaiting: tracks.filter((track) => track.arbitration !== null).length,
+    }
+  })
+  protected readonly commitBlockedReason = computed(() => {
+    if (this.sidecar.rollingBack() !== null) {
+      return "tagging.blocked.restoring"
+    }
+    if (this.writing()) {
+      return "tagging.blocked.writing"
+    }
+    if (this.sidecar.urlRecoveryBusy().size > 0) {
+      return "tagging.blocked.recovering"
+    }
+    if (this.sidecar.arbitrationInFlight()) {
+      return "tagging.blocked.arbitrating"
+    }
+    if (this.counts().writable === 0) {
+      return "tagging.blocked.nothingToWrite"
+    }
+
+    return null
+  })
+  protected readonly error = this.sidecar.errorFor("start_tagging", "commit_run", "retry_write")
   protected readonly percentage = computed(() => progressPercentage(this.progress()))
   protected readonly recovery = this.sidecar.urlRecoveryProgress
   protected readonly recoveryPercentage = computed(() => progressPercentage(this.recovery()))
@@ -123,7 +182,46 @@ export default class TaggingPageComponent {
     this.recoveryUi.open(trackId)
   }
 
+  protected commit(): void {
+    if (this.commitBlockedReason() !== null) {
+      return
+    }
+    const { writable, unresolved, awaiting } = this.counts()
+    const sentences = [
+      this.t("tagging.commit.message", {
+        folder: this.sidecar.taggingFolder() ?? "",
+        count: writable,
+      }),
+      ...(unresolved > 0 ? [this.t("tagging.commit.unresolved", { count: unresolved })] : []),
+      ...(awaiting > 0 ? [this.t("tagging.commit.awaiting", { count: awaiting })] : []),
+    ]
+    this.confirmDanger("tagging.commit", sentences.join(" "), () => {
+      void this.sidecar.commitRun()
+    })
+  }
+
+  protected retry(): void {
+    this.confirmDanger(
+      "tagging.retry",
+      this.t("tagging.retry.message", { count: this.writeFailures() }),
+      () => {
+        void this.sidecar.retryWrite()
+      },
+    )
+  }
+
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.translate.instant(key, params) as string
+  }
+
   private async prefill(): Promise<void> {
+    // Page recreee : le run affiche prime sur la derniere destination.
+    const runFolder = this.sidecar.taggingFolder()
+    if (runFolder !== null) {
+      this.folder.set(runFolder)
+
+      return
+    }
     const destination = await readLastDestination()
     if (destination !== null && this.folder() === "") {
       this.folder.set(destination)

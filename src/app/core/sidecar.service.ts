@@ -138,6 +138,7 @@ export class SidecarService {
   readonly arbitrationPosition = this.arbitration.position
   readonly arbitrationCount = this.arbitration.count
   readonly arbitrationBusy = this.arbitration.currentBusy
+  readonly arbitrationInFlight = this.arbitration.anyBusy
   readonly hasPreviousArbitration = this.arbitration.hasPrevious
   readonly hasNextArbitration = this.arbitration.hasNext
   readonly arbitrationOpenings = this.arbitration.openings

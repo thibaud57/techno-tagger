@@ -21,9 +21,9 @@
       <th class="w-36">{{ "tagging.list.source" | translate }}</th>
       <!-- Mesuree sur « A 100 · T 100 », le detail le plus long : plus etroit, il passe a la ligne. -->
       <th class="w-32 text-right">{{ "tagging.list.score" | translate }}</th>
-      <!-- Mesuree sur « Not processed », le plus long des sept etats livres. L'etat
-           d'ecriture de la Feature 5 est plus long : a remesurer en l'ajoutant. -->
-      <th class="w-40">{{ "tagging.list.state" | translate }}</th>
+      <!-- Mesuree sur « Echec d'ecriture » et son icone info, le plus long des etats livres
+           (FR plus long que l'EN). L'etat restaure du rollback est a remesurer en l'ajoutant. -->
+      <th class="w-48">{{ "tagging.list.state" | translate }}</th>
     </tr>
   </ng-template>
 
@@ -60,7 +60,7 @@
         </button>
       </td>
       <td>
-        <app-artwork [url]="track.artworkUrl" [pending]="track.state === null && !interrupted()" />
+        <app-artwork [url]="track.artworkUrl" [pending]="track.state === null && !settled()" />
       </td>
       <td>
         <app-truncated-text [text]="track.mainLine" />
@@ -115,8 +115,8 @@
           <app-state-tag
             [state]="track.state"
             [resolution]="track.resolution"
-            [awaiting]="track.arbitration !== null"
-            [interrupted]="interrupted()"
+            [awaiting]="track.arbitrable"
+            [interrupted]="settled()"
           />
           @if (track.reasonKey) {
             <app-icon class="text-muted-color" name="info-circle" [size]="16" />
@@ -166,6 +166,6 @@
     }
   </ng-template>
   @if (shown(); as row) {
-    <app-track-detail [track]="row" [interrupted]="interrupted()" />
+    <app-track-detail [track]="row" [interrupted]="settled()" />
   }
 </p-drawer>

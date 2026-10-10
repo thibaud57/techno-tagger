@@ -103,7 +103,7 @@ Le tooltip se pose sur `--p-surface-700`, soit deux crans au-dessus du panneau. 
 
 Les 12,5rem par défaut conviennent à une glose, mais coupent exactement ce qu'un texte tronqué ou un détail de ligne est là pour montrer.
 
-Un tooltip n'est jamais le seul porteur d'une information : il révèle ce qui est déjà à l'écran mais coupé. Ce qui n'existe qu'en tooltip est invisible au clavier, au tactile et à l'impression, il ne remplace donc ni un libellé, ni une aide de formulaire, ni un message d'erreur : ceux-là sont des `p-message` inline. Trois exceptions : la raison pour laquelle une action est désactivée, posée sur le bouton lui-même, le détail d'une ligne du rapport d'extraction et le motif d'un morceau non résolu.
+Un tooltip n'est jamais le seul porteur d'une information : il révèle ce qui est déjà à l'écran mais coupé. Ce qui n'existe qu'en tooltip est invisible au clavier, au tactile et à l'impression, il ne remplace donc ni un libellé, ni une aide de formulaire, ni un message d'erreur : ceux-là sont des `p-message` inline. Trois exceptions : la raison pour laquelle une action est désactivée, posée sur le bouton lui-même, le détail d'une ligne du rapport d'extraction et le motif d'un morceau non résolu ou en échec d'écriture.
 
 Un tooltip se devine. L'ellipse annonce celui d'un texte coupé. Ailleurs, une icône `info-circle` en `text-muted-color` le signale, hors de tout tag pour ne pas se lire comme la famille Décision attendue.
 
@@ -152,7 +152,7 @@ Les deux rouges partagent la couleur sans partager l'icône, leurs corrections �
 - ✅ Toujours référencer une couleur par token ou par classe du plugin : jamais de hex, jamais de couleur Tailwind brute (`bg-emerald-500`)
 - ✅ **La couleur ne porte jamais seule l'information** : chaque état est toujours accompagné d'une icône et d'un libellé traduit
 - ✅ L'accent `primary` reste réservé aux actions et à la sélection. Un écran où tout est vert ne signale plus rien
-- ✅ Le `danger` **d'une action** est réservé aux trois qui touchent aux fichiers musicaux : la confirmation globale de l'écriture, la relance de l'écriture en échec et le rollback. La même sévérité sur un `p-tag` ou un `p-message` ne décide de rien, elle rapporte la famille Échec ci-dessus
+- ✅ Le `danger` **d'une action** est réservé au bouton d'acceptation de la modale des trois gestes qui touchent aux fichiers musicaux : l'écriture, sa relance et le rollback. Leurs déclencheurs restent `primary` (§ Arbitrages). La même sévérité sur un `p-tag` ou un `p-message` ne décide de rien, elle rapporte la famille Échec ci-dessus
 
 ## Formes
 
@@ -247,7 +247,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | PrimeNG v22 ne fournit aucun mode router et `p-tabMenu` a été supprimé. L'onglet actif se dérive de l'URL, la navigation se déclenche au changement de valeur |
-| Confirmation de sortie | `p-dialog` modal, « Rester » primary et focus à l'ouverture, « Quitter quand même » outlined secondary | PrimeNG | À la fermeture de la fenêtre tant qu'une extraction, un run ou des arbitrages sont en cours. Pas de `p-confirmdialog` ni de `danger` : la sortie ne touche aucun fichier musical. Nomme chaque travail perdu et le fichier qu'une copie coupée peut laisser à moitié écrit |
+| Confirmation de sortie | `p-dialog` modal, « Rester » primary et focus à l'ouverture, « Quitter quand même » outlined secondary | PrimeNG | À la fermeture de la fenêtre tant qu'une extraction, un run (y compris cherché mais non confirmé) ou des arbitrages sont en cours. Pendant l'écriture ou un rollback, la modale se titre « Impossible de quitter maintenant » et n'offre que « Rester ». Pas de `p-confirmdialog` ni de `danger` : la sortie ne touche aucun fichier musical. Nomme chaque travail perdu et le fichier qu'une copie coupée peut laisser à moitié écrit |
 
 ### Playlist et fichiers
 
@@ -266,8 +266,9 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Lancement du run | `button pButton` `primary`, icône `play`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Reste visible et désactivé pendant le run, jamais masqué (cf. § États des Composants). Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, geste de rattrapage en vol, clé API, dossier, extraction ou sidecar |
-| Interruption du run | `button pButton` `severity="secondary"` outlined, icône `stop`, taille par défaut | PrimeNG | Visible seulement pendant un run, à gauche du lancement qui reste grisé : masquer une action désactivée est interdit. Ni `danger` ni confirmation : la phase réseau n'écrit aucun fichier et rien n'est irréversible avant l'écriture |
+| Lancement du run | `button pButton` `primary`, icône `play`, taille par défaut | PrimeNG | Au bout de la ligne du dossier qu'il traite. Un seul bouton d'action suit la phase : il laisse sa place à « Interrompre » pendant la recherche, puis à « Confirmer l'écriture » sur un run cherché non écrit. Il reste visible et grisé quand quelque chose le bloque, jamais masqué (cf. § États des Composants) : pendant l'écriture, c'est « Confirmer l'écriture » en chargement qui s'affiche à sa place. Son tooltip nomme ce qui bloque, du plus proche de l'utilisateur au plus lointain : run en cours, geste de rattrapage en vol, clé API, dossier, extraction ou sidecar |
+| Confirmer l'écriture | `button pButton` `primary`, icône `check`, `spinner` pendant l'écriture | PrimeNG | Même emplacement que le lancement du run, sur un run cherché non écrit. Grisé avec la raison du blocage en tooltip (restauration en cours, geste de rattrapage ou d'arbitrage en vol, rien à écrire), en chargement pendant l'écriture. Ouvre la confirmation globale de l'écriture |
+| Interruption du run | `button pButton` `severity="secondary"` outlined, icône `stop`, taille par défaut | PrimeNG | Visible seulement pendant la recherche, à la place du lancement au lieu de se poser à sa gauche : le bouton d'action est unique, aucune action désactivée ne reste à côté. Ni `danger` ni confirmation : la phase réseau n'écrit aucun fichier et rien n'est irréversible avant l'écriture |
 | Liste des morceaux d'un run | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Sept colonnes, le bouton d'ouverture du détail en tête (cf. § Layout), 100 lignes. La ligne d'un morceau à arbitrer ouvre sa modale d'arbitrage, celle d'un morceau non résolu ou rattrapé la modale du lien. Une ligne actionnable s'ouvre aussi au clavier (cf. § États des Composants) |
 | Vignette de pochette | `<img>` via `convertFileSrc()` de Tauri + `p-skeleton` | Tauri + PrimeNG | 32px, rayon `sm`. Lue depuis le cache disque, jamais transportée en base64 dans le flux NDJSON. Demande le protocole asset de Tauri, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives). Trois états, jamais deux : l'image ; le squelette tant que le morceau attend son tour ou son arbitrage ; un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Une cellule laissée vide se lit comme un chargement qui n'arrive jamais |
 | État d'un morceau | `p-tag` + `pTooltip` | PrimeNG | Familles du § Couleurs Sémantiques. Un non résolu porte l'icône info et son motif au survol |
@@ -291,7 +292,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Navigation entre arbitrages | `button pButton` à icône seule (`chevron-left` / `chevron-right`) + `p-badge` | PrimeNG | Compteur du type 1/3, la file se réduisant au fil des décisions. Flèches et compteur à la hauteur des boutons à libellé du pied |
 | Refus explicite | `button pButton` `severity="secondary"` outlined | PrimeNG | Action distincte de la fermeture de la modale, qui ne décide rien |
 | Badge de file | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | « N à arbitrer », aligné à droite de la barre d'onglets tant que la file n'est pas vide. Rouvre la modale après la croix |
-| Beatport injoignable | `p-message` `warn` | PrimeNG | Au-dessus de la liste Bandcamp quand Beatport n'a pas répondu : aucun candidat n'a été validé seul |
+| Beatport injoignable | `MessageComponent` `warn` `small` | PrimeNG (`p-message`) | Au-dessus de la liste Bandcamp quand Beatport n'a pas répondu : aucun candidat n'a été validé seul. Sans animation d'entrée, comme le bandeau des candidats Beatport refusés : la liste ne bouge pas |
 | Liste Bandcamp vide | message de liste + bouton « Passer » | PrimeNG | Le message dit le motif de Bandcamp, centré dans la hauteur de la liste comme les autres états vides ; « Passer » remplace « Aucune correspondance » et c'est la seule action |
 | Refus d'un geste | `app-error-message` sous la liste | Custom | Seulement pour le morceau affiché |
 | Étape lien | champ de lien + « Passer » et « Résoudre » | PrimeNG | Même morceau, sans compteur ; déclencheurs au § Arbitrages. « Passer » ou un lien accepté mène à l'arbitrage suivant. La croix quitte l'étape : le morceau revient par sa ligne ou le badge du rattrapage, pas par le badge de file |
@@ -300,11 +301,11 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Confirmation globale de l'écriture | `p-confirmdialog`, bouton `danger` | PrimeNG | Le point de non-retour du run : seule modale dont le bouton principal est destructif |
+| Confirmation globale de l'écriture | `DangerConfirmComponent` (`p-confirmdialog`), bouton `danger` | PrimeNG | Le point de non-retour du run : seule modale dont le bouton principal est destructif. Boutons et largeur au § Composants Custom |
 | Récapitulatif filtrable | `p-table` + `p-selectbutton` + `p-iconfield` | PrimeNG | Filtres tout / validés / arbitrés / échecs, plus une recherche texte. Les trois lisent `state`, « validés » et « arbitrés » lisent en plus `resolution` (cf. § Conventions de Code) |
-| Relance de l'écriture en échec | `button pButton` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Dans le récapitulatif, actif seulement s'il reste des `write_error`. Rejoue l'écriture sur ces seuls fichiers, sans refaire ni la phase réseau ni les arbitrages. Destructif comme la confirmation globale, donc même traitement |
+| Relance de l'écriture en échec | `button pButton` `primary` outlined + `DangerConfirmComponent` | PrimeNG | Dans l'onglet Tagging, action d'un `MessageComponent` `error` au-dessus de la liste, sous son texte, en attendant le récapitulatif (Feature 6). Actif seulement s'il reste des `write_error`. Rejoue l'écriture sur ces seuls fichiers, sans refaire ni la phase réseau ni les arbitrages. Destructif comme la confirmation globale, donc même traitement |
 | Reprise d'un run interrompu | `p-dialog` au démarrage | PrimeNG | Deux actions : reprendre, repartir de zéro |
-| Rollback | `button pButton` `severity="danger"` outlined + `p-confirmdialog` | PrimeNG | Par run ou par morceau |
+| Rollback | `button pButton` `primary` outlined + `DangerConfirmComponent` | PrimeNG | Par run ou par morceau |
 | Envoi du rapport | `button pButton` `severity="secondary"` | PrimeNG | Geste explicite, seul endroit d'où des titres quittent la machine |
 
 ### Settings
@@ -323,7 +324,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 |-----------|-----------|-----------|-------|
 | Sidecar absent ou en quarantaine | `p-card` centrée, action `secondary` outlined | PrimeNG | Écran bloquant, pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui explique comment s'en sortir. Même écran pour une divergence de version, sans action |
 | Notifications non bloquantes | `p-toast` en bas à droite | PrimeNG | Fin d'une phase longue, quel que soit l'onglet affiché. La fin d'une écriture et celle d'un rollback s'annoncent aussi : avec des échecs, le toast passe en `warn` et en donne le nombre, écart assumé à la fiche `Toast` du design system. Il couvre 4s le pied de page de Playlist, accepté : il se ferme d'un clic. Une clé enregistrée se confirme au contraire par un `p-tag` persistant : l'état de la clé se relit, il ne s'annonce pas |
-| Erreurs contextuelles | `p-message` inline | PrimeNG | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue. Même écart au-dessus et en dessous du message, celui de son conteneur : `gap-6` sous l'en-tête d'un écran, `gap-4` sous le champ de lien, 12px sous le champ des Réglages, aligné sur le `py-3` de sa rangée. Un message plus près de ce qui précède que de ce qui suit se lit comme une marge ratée |
+| Erreurs contextuelles | `ErrorMessageComponent` inline | PrimeNG (`p-message`) | Dans l'écran concerné, jamais en toast : une erreur qui disparaît toute seule est une erreur perdue. Même écart au-dessus et en dessous du message, celui de son conteneur : `gap-6` sous l'en-tête d'un écran, `gap-4` sous le champ de lien, 12px sous le champ des Réglages, aligné sur le `py-3` de sa rangée. Un message plus près de ce qui précède que de ce qui suit se lit comme une marge ratée |
 
 ### Composants Custom
 
@@ -339,7 +340,9 @@ Des wrappers écrits une fois, pour que ce qu'ils encapsulent ne soit pas recopi
 | Progression d'une phase | `PhaseProgressComponent` | PrimeNG (`p-progressbar`) | Libellé et compteur au-dessus de la barre, que `p-progressbar` ne sait pas porter. La barre n'écrit aucune valeur, le compteur la porte. Sans valeur, elle passe en indéterminée |
 | Table pleine hauteur | `fullHeightTable` (`shared/utils/table.ts`) | PrimeNG (`[pt]` de `p-table`) | Fond de ligne sur toute la hauteur du conteneur et table étirée quand elle est vide pour centrer son bloc vide. Jamais étirée remplie : ses lignes dépasseraient la hauteur attendue par le défilement virtuel |
 | Lignes en attente | `SkeletonRowsComponent` | PrimeNG (`p-skeleton`) | Lignes entières en squelette, à la hauteur et au filet des vraies, posées dans la cellule du `#emptymessage` qu'elles remplissent. `p-table` ne sait pas rendre une table en chargement : sans elles, la table vide affiche son bloc vide avant le premier événement, ce qui annonce l'inverse de ce qui se passe |
-| Erreur contextuelle | `ErrorMessageComponent` | PrimeNG (`p-message`) | Erreur du sidecar traduite depuis son `code` et ses `params`, sous la forme décrite au § Feedback |
+| Message inline | `MessageComponent` | PrimeNG (`p-message`) | Seule voie vers `p-message`. L'icône suit la sévérité comme dans la fiche `Message` : `info-circle`, `check-circle`, `exclamation-triangle`, `times-circle`, à 20px, 16px en `small`. Une action éventuelle se pose sous le texte. Recopié écran par écran, le `p-message` brut perdait son icône |
+| Erreur contextuelle | `ErrorMessageComponent` | `MessageComponent` | Erreur du sidecar traduite depuis son `code` et ses `params`, sous la forme décrite au § Feedback |
+| Confirmation d'un geste sur les fichiers | `DangerConfirmComponent` + `injectDangerConfirm` | PrimeNG (`p-confirmdialog`) | Écriture, relance et rollback. 30rem comme la fiche `ConfirmDialog`, message en `text-sm` `text-muted-color`, acceptation `danger`, « Annuler » `secondary` outlined (§ Arbitrages) avec le focus : Entrée ne valide rien. Le message s'interpole au lieu du `innerHTML` de PrimeNG, un chemin de dossier y figurant |
 | Texte tronqué | `TruncatedTextComponent` | PrimeNG (`pTooltip`) | Chemin ou valeur de colonne fluide coupé par l'ellipse. Le tooltip `wide` ne s'ouvre que sur un texte coupé et `rtl` coupe un chemin par la gauche |
 | Sans valeur | `NoValueComponent` | — (from scratch) | Le cadratin du § Séparateurs, en `text-muted-color`. Écrit une fois pour que la liste du run et le détail avant / après ne divergent pas |
 | Pochette d'un morceau | `ArtworkComponent` | PrimeNG (`p-skeleton`) | Les trois états de la pochette (image, squelette, cadre neutre), en vignette de 32px dans la liste du run et en 160px dans le détail avant / après. Un seul endroit tient la règle « trois états, jamais deux » pour les deux tailles |
@@ -479,7 +482,7 @@ Un formulaire et une table qui ne partagent pas la même largeur ne s'alignent s
 | Après | **fluide** | Ce que la source retenue va écrire |
 | Source | fixe | Logo 16px + libellé, Beatport / Bandcamp / SoundCloud. Mesurée sur « SoundCloud » |
 | Score | fixe | Moyenne des deux scores en ligne principale, `A 96 · T 92` en `text-xs` dessous. Mesurée sur `A 100 · T 100` |
-| État | fixe | `p-tag`, cf. § Couleurs Sémantiques. Mesurée sur le plus long des libellés livrés et à remesurer quand l'écriture ajoute le sien, plus long que tous |
+| État | `w-48` (192px) | `p-tag`, cf. § Couleurs Sémantiques, suivi de l'icône info quand la ligne porte un motif en tooltip. Mesurée sur « Échec d'écriture » plus son glyphe et l'icône, le plus long des libellés du run : 184px en français, 155px en anglais |
 
 Ces trois colonnes se figent pour la raison du rapport, doublée ici : leur contenu arrive pendant le run. Chacune se mesure à l'implémentation sur son contenu le plus large, dans les deux langues et pas un pixel de plus : ce qui leur est repris va aux deux colonnes qu'on compare vraiment.
 
@@ -589,7 +592,10 @@ Un jeu de colonnes qui tient au plancher, plutôt qu'un masquage progressif : pe
 - **Étape lien de l'arbitrage** : après le refus de la liste Bandcamp, ou « Passer » quand elle est vide, la modale enchaîne sur le lien du même morceau dans le même cadre, là où `ArbitrationDialog` fermait. Décidé et réaligné le 2026-10-06
 - **Indice de rattrapage** : « Coller un lien → » en gras dans la colonne Après, là où la maquette laissait la cellule vide ; poids 600 hors des titres, seul écart à la Scale Typographique. Décidé et réaligné le 2026-10-06
 - **Rien à rattraper** : ligne `check-circle` à la place de la barre, là où `UrlRescue` posait un `EmptyState` dans le bloc. Décidé et réaligné le 2026-10-06
-- **Bouton « Lancer le run » pendant la phase** : conservé, bloqué seulement pendant un geste en vol, là où la maquette le remplaçait par « Confirmer l'écriture », qui arrive avec la Feature 5. Décidé le 2026-10-03, réaligné le 2026-10-05
+- **Bouton d'action du run** : un seul bouton qui suit la phase, « Lancer le run », « Interrompre » pendant la recherche, « Confirmer l'écriture » sur un run cherché non écrit, à la largeur de son libellé ; choisir un autre dossier abandonne un run non écrit. Là où la maquette posait « Interrompre » à côté de « Lancer le run » et où l'arbitrage du 2026-10-03 gardait « Lancer le run » pendant le rattrapage. Décidé le 2026-10-06
+- **Rouge des gestes sur les fichiers** : `danger` sur le seul bouton d'acceptation de la modale (« Écrire les tags », « Relancer l'écriture », le rollback), les déclencheurs restant `primary` (« Confirmer l'écriture » plein, « Relancer l'écriture » et le rollback en contour), là où le `Recap` de la maquette posait la relance en `danger` contour. C'est la modale qui avertit, pas le bouton qui l'ouvre. Décidé le 2026-10-10
+- **Relance de l'écriture** : libellé « Relancer l'écriture » et bouton sous le texte du message d'échec de l'onglet Tagging, au-dessus de la liste, là où la maquette l'intitule « Relancer l'écriture sur les échecs » dans le `Recap`. Décidé le 2026-10-06
+- **Boutons du `p-confirmdialog`** : « Annuler » en `secondary` outlined et aucune icône devant le message, comme toutes les modales de l'app, là où la fiche `ConfirmDialog` et la maquette posent « Annuler » en texte et une icône `exclamation-triangle`. Vaut pour l'écriture, la relance et le rollback. Décidé le 2026-10-10
 - **Espacement entre sections** : `gap-6` (24px) entre les blocs d'un écran, sur les trois onglets, là où la maquette les espaçait de 16px. Décidé et réaligné le 2026-10-05
 - **Gris de légende et séparateurs** : tokens nommés, `text-muted-color` pour l'aide de la modale d'arbitrage et `border-surface` pour le séparateur des Réglages, là où la maquette posait `--p-surface-500` et `--p-surface-800`. Décidé et réaligné le 2026-10-05
 - **Lignes du détail avant / après** : les champs écrits avec la clé du fichier écrit, plus le commentaire, là où `TrackDetail` montrait `TPE2`, la date complète et une traçabilité combinée. Le détail montre ce que l'écriture fait. Décidé le 2026-10-06. L'identifiant à la source, écrit dans le fichier, n'y figure pas : il ne dit rien à l'utilisateur. Décidé le 2026-10-09

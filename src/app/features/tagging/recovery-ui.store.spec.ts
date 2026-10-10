@@ -20,6 +20,7 @@ const row = (trackId: string, state: TaggingTrack["state"]): TaggingTrack => ({
 const mount = (tracks: readonly TaggingTrack[] = [row("a.mp3", "unresolved")]) => {
   const service = {
     tagging: signal(false),
+    committed: signal(false),
     taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal<readonly { track_id: string }[]>([]),
     taggingTracks: signal<readonly TaggingTrack[]>(tracks),
@@ -33,6 +34,25 @@ const mount = (tracks: readonly TaggingTrack[] = [row("a.mp3", "unresolved")]) =
 }
 
 describe("RecoveryUiStore", () => {
+  describe("available", () => {
+    it("closes once the run is committed", () => {
+      const { store, service } = mount()
+
+      service.committed.set(true)
+
+      expect(store.available()).toBe(false)
+    })
+
+    it("opens again when a refused commit falls back", () => {
+      const { store, service } = mount()
+      service.committed.set(true)
+
+      service.committed.set(false)
+
+      expect(store.available()).toBe(true)
+    })
+  })
+
   describe("linkStep", () => {
     it("stays empty while nothing was refused", () => {
       const { store } = mount()

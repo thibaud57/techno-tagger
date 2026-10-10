@@ -17,11 +17,11 @@ import { Badge } from "primeng/badge"
 import { ButtonDirective } from "primeng/button"
 import { Dialog } from "primeng/dialog"
 import { Listbox, type ListBoxPassThrough } from "primeng/listbox"
-import { Message } from "primeng/message"
 
 import type { ArbitrationState, CandidatePayload, TrackScores } from "../../core/models/protocol"
 import { SidecarService } from "../../core/sidecar.service"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
+import { MessageComponent } from "../../shared/components/message.component"
 import { IconComponent } from "../../shared/components/icon.component"
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
@@ -67,7 +67,7 @@ const toOption = (candidate: CandidatePayload, index: number): CandidateOption =
     Listbox,
     FormField,
     Badge,
-    Message,
+    MessageComponent,
     ButtonDirective,
     TranslatePipe,
     ErrorMessageComponent,

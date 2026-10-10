@@ -14,6 +14,7 @@ import { Image as ImageIcon } from "@primeicons/angular/image"
 import { InfoCircle } from "@primeicons/angular/info-circle"
 import { MinusCircle } from "@primeicons/angular/minus-circle"
 import { Play } from "@primeicons/angular/play"
+import { Refresh } from "@primeicons/angular/refresh"
 import { Spinner } from "@primeicons/angular/spinner"
 import { Stop } from "@primeicons/angular/stop"
 import { Times } from "@primeicons/angular/times"
@@ -45,6 +46,7 @@ export const ICON_NAMES = [
   "eye",
   "eye-slash",
   "spinner",
+  "refresh",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -63,6 +65,7 @@ export type IconSize = 16 | 20 | 24
     Clock,
     ExclamationTriangle,
     Play,
+    Refresh,
     Stop,
     Spinner,
     Eye,
@@ -133,6 +136,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("spinner") {
         <svg data-p-icon="spinner" [size]="size()" [spin]="true" />
+      }
+      @case ("refresh") {
+        <svg data-p-icon="refresh" [size]="size()" />
       }
     }
   `,

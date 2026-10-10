@@ -31,8 +31,8 @@ export class RecoveryUiStore {
 
   /** Morceau ouvert dans la modale du lien, `null` : modale fermee. */
   readonly target = this._target.asReadonly()
-  /** Le sidecar refuse le geste tant que le run tourne : le champ reste visible, desactive. */
-  readonly available = computed(() => !this.sidecar.tagging())
+  /** Le sidecar refuse le geste pendant la recherche et sur un run confirme. */
+  readonly available = computed(() => !this.sidecar.tagging() && !this.sidecar.committed())
   readonly unresolvedCount = computed(
     () => this.sidecar.recoverableTracks().filter((track) => track.state === "unresolved").length,
   )

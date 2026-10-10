@@ -3,9 +3,9 @@
      non resolu ou sans motif. -->
 <div class="grid min-h-6.5 items-center">
   @if (shown.recoveredOn; as source) {
-    <p-message class="w-full animate-none" severity="info" size="small" data-recovered>
+    <app-message severity="info" size="small" [animated]="false" data-recovered>
       {{ "tagging.recovery.recovered" | translate: { source } }}
-    </p-message>
+    </app-message>
   } @else if (shown.reasonKey; as reason) {
     <p class="text-xs text-muted-color" data-reason>{{ reason | translate }}</p>
   }

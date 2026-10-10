@@ -41,6 +41,7 @@ interface Overrides {
 const mount = ({ tracks = TWO_LINES, tagging = false, busy = [], errors }: Overrides = {}) => {
   const service = {
     tagging: signal(tagging),
+    committed: signal(false),
     taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal([]),
     taggingTracks: signal<readonly TaggingTrack[]>(tracks),

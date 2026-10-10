@@ -50,6 +50,8 @@ const setup = async ({ inTauri = true } = {}) => {
   const sidecar = {
     extracting: signal(false),
     tagging: signal(false),
+    committed: signal(false),
+    taggingRunId: signal<string | null>(null),
     arbitrationCount: signal(0),
     writing: signal(false),
     rollingBack: signal<RollbackInFlight | null>(null),
@@ -123,6 +125,47 @@ describe("CloseGuard", () => {
       { kind: "tagging" },
       { kind: "arbitration", count: 2 },
     ])
+  })
+
+  it("stops counting the arbitrations of a committed run", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.arbitrationCount.set(2)
+    sidecar.committed.set(true)
+
+    const held = appWindow.close()
+
+    expect(held).toBe(false)
+    expect(guard.request()).toBeNull()
+  })
+
+  it("counts an unwritten run as pending work", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.taggingRunId.set("a3f9c1")
+
+    const held = appWindow.close()
+
+    expect(held).toBe(true)
+    expect(guard.request()).toEqual([{ kind: "unwritten" }])
+    expect(guard.blocked()).toBe(false)
+  })
+
+  it("does not count a committed run as unwritten", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.taggingRunId.set("a3f9c1")
+    sidecar.committed.set(true)
+
+    const held = appWindow.close()
+
+    expect(held).toBe(false)
+    expect(guard.pendingWork()).not.toContainEqual({ kind: "unwritten" })
+  })
+
+  it("does not count a run still searching as unwritten", async () => {
+    const { sidecar, guard } = await setup()
+    sidecar.taggingRunId.set("a3f9c1")
+    sidecar.tagging.set(true)
+
+    expect(guard.pendingWork()).toEqual([{ kind: "tagging" }])
   })
 
   it("closes the window for good when the user leaves", async () => {

@@ -66,9 +66,13 @@ export class RunListComponent {
   readonly interrupted = input(false)
   /** Morceaux que le sidecar accepte de rattraper par lien : lus, jamais deduits ici. */
   readonly recoverable = input<ReadonlySet<string>>(new Set())
+  /** Run confirme : plus aucune decision n'y entre, le sidecar les refuserait (`run_committed`). */
+  readonly frozen = input(false)
   readonly arbitrate = output<string>()
   readonly recover = output<string>()
 
+  /** Interrompu ou confirme : les lignes encore vides ne recevront plus rien. */
+  protected readonly settled = computed(() => this.interrupted() || this.frozen())
   protected readonly empty = computed(() => this.tracks().length === 0)
   protected readonly tablePt = computed(() => fullHeightTable(this.empty()))
   /** Calculee ici et non dans le template, ou chaque cycle la rejouerait pour chaque ligne. */
@@ -80,8 +84,8 @@ export class RunListComponent {
       sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
       artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
       reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
-      arbitrable: track.arbitration !== null,
-      recoverable: this.recoverable().has(track.trackId),
+      arbitrable: !this.frozen() && track.arbitration !== null,
+      recoverable: !this.frozen() && this.recoverable().has(track.trackId),
     })),
   )
 
