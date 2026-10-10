@@ -155,6 +155,7 @@ export default class SettingsPageComponent {
       () => {
         void this.sidecar.rollback(target.run_id)
       },
+      true,
     )
   }
 }

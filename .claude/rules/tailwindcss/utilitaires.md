@@ -15,7 +15,7 @@ paths:
 - Écrire les styles de composant en `.css`, le nesting natif étant supporté par la webview Windows
 - Laisser `prettier-plugin-tailwindcss` ordonner les classes au format : aucune convention manuelle à retenir, rien à relire en review sur ce point
 - Accompagner chaque état d'une icône et d'un libellé traduit : la couleur ne porte jamais seule l'information
-- Réserver l'accent `primary` aux actions et à la sélection, et `danger` au bouton d'acceptation de la modale des trois gestes qui touchent aux fichiers musicaux (écriture, relance, rollback) : leurs déclencheurs restent `primary` (cf. [DESIGN.md § Palette de Couleurs](../../../docs/DESIGN.md#palette-de-couleurs))
+- Réserver l'accent `primary` aux actions et à la sélection, et `danger` au bouton d'acceptation d'un geste destructif (le rollback) : l'écriture et sa relance acceptent en `primary`, tous les déclencheurs restent `primary` (cf. [DESIGN.md § Palette de Couleurs](../../../docs/DESIGN.md#palette-de-couleurs))
 
 ## À éviter
 - Une couleur en dur : ni hexadécimal, ni couleur Tailwind brute (`bg-emerald-500`). Un changement de preset doit rester un changement de preset

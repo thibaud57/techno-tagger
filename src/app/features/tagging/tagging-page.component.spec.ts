@@ -323,7 +323,7 @@ describe("TaggingPageComponent", () => {
     options?.accept?.()
 
     expect(options?.message).toBe("D:/Sets/Aout files 1. unresolved 1. awaiting 1.")
-    expect(options?.acceptButtonProps).toEqual({ severity: "danger" })
+    expect(options?.acceptButtonProps).toEqual({})
     expect(before).toBe(0)
     expect(service.commitRun).toHaveBeenCalledTimes(1)
   })
@@ -357,7 +357,8 @@ describe("TaggingPageComponent", () => {
     const before = shown()
 
     component["retry"]()
-    confirm.mock.calls[0]?.[0].accept?.()
+    const retryOptions = confirm.mock.calls[0]?.[0]
+    retryOptions?.accept?.()
     taggingTracks.set([written("b.mp3", "write_error")])
     fixture.detectChanges()
     const remaining = shown()
@@ -365,6 +366,7 @@ describe("TaggingPageComponent", () => {
     fixture.detectChanges()
 
     expect(before).toContain("failed 2")
+    expect(retryOptions?.acceptButtonProps).toEqual({})
     expect(service.retryWrite).toHaveBeenCalledTimes(1)
     expect(remaining).toContain("failed 1")
     expect(shown()).toBeUndefined()

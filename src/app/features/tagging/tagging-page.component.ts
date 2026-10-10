@@ -238,9 +238,14 @@ export default class TaggingPageComponent {
       ...(unresolved > 0 ? [this.t("tagging.commit.unresolved", { count: unresolved })] : []),
       ...(awaiting > 0 ? [this.t("tagging.commit.awaiting", { count: awaiting })] : []),
     ]
-    this.confirmDanger("tagging.commit", sentences.join(" "), () => {
-      void this.sidecar.commitRun()
-    })
+    this.confirmDanger(
+      "tagging.commit",
+      sentences.join(" "),
+      () => {
+        void this.sidecar.commitRun()
+      },
+      false,
+    )
   }
 
   protected retry(): void {
@@ -250,6 +255,7 @@ export default class TaggingPageComponent {
       () => {
         void this.sidecar.retryWrite()
       },
+      false,
     )
   }
 
@@ -270,9 +276,14 @@ export default class TaggingPageComponent {
   }
 
   private confirmRestore(count: number, restore: () => Promise<void>): void {
-    this.confirmDanger("tagging.rollback", this.t("tagging.rollback.message", { count }), () => {
-      void restore()
-    })
+    this.confirmDanger(
+      "tagging.rollback",
+      this.t("tagging.rollback.message", { count }),
+      () => {
+        void restore()
+      },
+      true,
+    )
   }
 
   private t(key: string, params?: Record<string, unknown>): string {

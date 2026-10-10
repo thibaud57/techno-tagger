@@ -242,7 +242,7 @@ async (page) => {
   out.measures.confirm = dialog
   check("confirm: header", dialog?.header === "Confirmer l'écriture", dialog?.header)
   check("confirm: folder and counts", dialog?.message.includes(FOLDER) && /Titre\s*»\s*:\s*3\./.test(dialog.message) && /touchés\s*:\s*1\./.test(dialog.message) && /arbitrables\s*:\s*1\./.test(dialog.message), dialog?.message)
-  check("confirm: accept danger, reject secondary outlined, no icon", JSON.stringify(dialog?.buttons.map((b) => b.text)) === JSON.stringify(["Annuler", "Écrire les tags"]) && dialog.buttons[1].cls.includes("p-button-danger") && dialog.buttons[0].cls.includes("p-button-secondary") && dialog.buttons[0].cls.includes("p-button-outlined") && !dialog.icon, dialog)
+  check("confirm: accept primary, reject secondary outlined, no icon", JSON.stringify(dialog?.buttons.map((b) => b.text)) === JSON.stringify(["Annuler", "Écrire les tags"]) && !/p-button-(danger|secondary|outlined)/.test(dialog.buttons[1].cls) && dialog.buttons[0].cls.includes("p-button-secondary") && dialog.buttons[0].cls.includes("p-button-outlined") && !dialog.icon, dialog)
   check("confirm: focus on Annuler", dialog?.focused === "Annuler", dialog?.focused)
   check("confirm: 30rem wide, message text-sm muted (fiche ConfirmDialog)", dialog?.width === 480 && dialog.messageStyle?.size === "14px" && dialog.messageStyle.muted, { width: dialog?.width, style: dialog?.messageStyle })
   await shot("3-confirm")
@@ -317,7 +317,7 @@ async (page) => {
   await page.locator('[data-action="retry"]').click()
   await settle(700)
   const retryDialog = await confirmDialog()
-  check("retry confirm: header, count, danger accept, outlined reject", retryDialog?.header === "Relancer l'écriture" && /réécrire\s*:\s*1\./.test(retryDialog.message) && retryDialog.buttons[1].cls.includes("p-button-danger") && retryDialog.buttons[0].cls.includes("p-button-outlined"), retryDialog)
+  check("retry confirm: header, count, primary accept, outlined reject", retryDialog?.header === "Relancer l'écriture" && /réécrire\s*:\s*1\./.test(retryDialog.message) && !/p-button-(danger|secondary|outlined)/.test(retryDialog.buttons[1].cls) && retryDialog.buttons[0].cls.includes("p-button-outlined"), retryDialog)
   check("retry confirm: nothing sent before accept", (await sent()).length === 0, await sent())
   await shot("7-retry-confirm")
   await confirmButton("Relancer l'écriture").click()

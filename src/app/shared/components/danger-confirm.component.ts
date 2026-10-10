@@ -23,19 +23,23 @@ import { ConfirmDialog } from "primeng/confirmdialog"
 })
 export class DangerConfirmComponent {}
 
-/** Ouvre la modale `danger` : `<prefix>.header` et `<prefix>.accept` nomment le geste. */
+/**
+ * Ouvre la modale : `<prefix>.header` et `<prefix>.accept` nomment le geste. Le rouge ne marque que
+ * l'acceptation d'un geste destructif (le rollback) ; l'ecriture, dont l'origine est sauvegardee
+ * avant, reste `primary`.
+ */
 export const injectDangerConfirm = () => {
   const confirmation = inject(ConfirmationService)
   const translate = inject(TranslateService)
   const t = (key: string): string => translate.instant(key) as string
 
-  return (prefix: string, message: string, accept: () => void): void => {
+  return (prefix: string, message: string, accept: () => void, destructive: boolean): void => {
     confirmation.confirm({
       header: t(`${prefix}.header`),
       message,
       acceptLabel: t(`${prefix}.accept`),
       rejectLabel: t("confirm.cancel"),
-      acceptButtonProps: { severity: "danger" },
+      acceptButtonProps: destructive ? { severity: "danger" } : {},
       rejectButtonProps: { severity: "secondary", outlined: true },
       accept,
     })
