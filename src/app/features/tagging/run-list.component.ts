@@ -82,21 +82,51 @@ export class RunListComponent {
   protected readonly settled = computed(() => this.interrupted() || this.frozen())
   protected readonly empty = computed(() => this.tracks().length === 0)
   protected readonly tablePt = computed(() => fullHeightTable(this.empty()))
+  /**
+   * Lignes deja construites, par objet morceau. Le store ne remplace que le morceau qu'un
+   * evenement touche : les autres gardent leur ligne, et leurs composants enfants, qui la
+   * recoivent en input, ne sont pas recontroles. Les entrees meurent avec leur morceau.
+   */
+  private readonly rowCache = new WeakMap<TaggingTrack, RunRow>()
   /** Calculee ici et non dans le template, ou chaque cycle la rejouerait pour chaque ligne. */
-  protected readonly rows = computed<RunRow[]>(() =>
-    this.tracks().map((track) => ({
-      ...track,
-      mainLine: trackMainLine(track.artist, track.title, track.fileName),
-      afterLine: track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
-      sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
-      artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
-      reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
-      arbitrable: !this.frozen() && track.arbitration !== null,
-      recoverable: !this.frozen() && this.recoverable().has(track.trackId),
-      restorable: this.restorableIds().has(track.trackId),
-      restoring: this.restoringTrackId() === track.trackId,
-    })),
-  )
+  protected readonly rows = computed<RunRow[]>(() => {
+    const frozen = this.frozen()
+    const recoverableIds = this.recoverable()
+    const restorableIds = this.restorableIds()
+    const restoringTrackId = this.restoringTrackId()
+
+    return this.tracks().map((track) => {
+      const arbitrable = !frozen && track.arbitration !== null
+      const recoverable = !frozen && recoverableIds.has(track.trackId)
+      const restorable = restorableIds.has(track.trackId)
+      const restoring = restoringTrackId === track.trackId
+      const cached = this.rowCache.get(track)
+      if (
+        cached?.arbitrable === arbitrable &&
+        cached.recoverable === recoverable &&
+        cached.restorable === restorable &&
+        cached.restoring === restoring
+      ) {
+        return cached
+      }
+      const row: RunRow = {
+        ...track,
+        mainLine: trackMainLine(track.artist, track.title, track.fileName),
+        afterLine:
+          track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
+        sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
+        artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
+        reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
+        arbitrable,
+        recoverable,
+        restorable,
+        restoring,
+      }
+      this.rowCache.set(track, row)
+
+      return row
+    })
+  })
 
   /**
    * Morceau dont le detail est affiche. Retombe a `null` quand il quitte la liste (nouveau
