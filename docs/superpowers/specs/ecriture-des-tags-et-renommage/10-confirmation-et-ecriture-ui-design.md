@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "confirmation-et-ecriture-ui"
 goal: "Confirmer l'écriture d'un run depuis l'onglet Tagging, puis en suivre l'avancement, les échecs et leur relance, le run étant figé dès la confirmation"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["07-contrat-detail-avant-apres-design.md", "08-service-ecriture-ui-design.md", "09-ligne-depliee-avant-apres-design.md"]
