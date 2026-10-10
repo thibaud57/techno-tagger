@@ -1,16 +1,18 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { By } from "@angular/platform-browser"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import { ConfirmationService } from "primeng/api"
+import { Tooltip } from "primeng/tooltip"
 
-import type { SidecarErrorEvent } from "../../core/models/protocol"
+import type { RollbackFinishedEvent, SidecarErrorEvent } from "../../core/models/protocol"
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 import { PENDING_TRACK, arbitrationRequired } from "../../../fixtures/tagging"
-import { WRITE_FINISHED } from "../../../fixtures/write"
+import { rollbackFinished } from "../../../fixtures/write"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
 import TaggingPageComponent from "./tagging-page.component"
@@ -62,10 +64,11 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     resolveByUrl: vi.fn(() => Promise.resolve()),
     writing: signal(false),
     writeProgress: signal<{ processed: number; total: number } | null>(null),
-    writeFinished: signal<typeof WRITE_FINISHED | null>(null),
     arbitrationInFlight: signal(false),
     rollingBack: signal<{ runId: string; trackId: string | null } | null>(null),
+    rollbackFinished: signal<RollbackFinishedEvent | null>(null),
     taggingFolder: signal<string | null>(null),
+    rollback: vi.fn(() => Promise.resolve()),
     commitRun: vi.fn(() => Promise.resolve()),
     retryWrite: vi.fn(() => Promise.resolve()),
     ...overrides,
@@ -193,6 +196,10 @@ describe("TaggingPageComponent", () => {
     resolution: "auto",
   })
   const failed = (trackId: string): TaggingTrack => ({ ...resolved(trackId), state: "write_error" })
+  const written = (trackId: string, state: TaggingTrack["state"] = "written"): TaggingTrack => ({
+    ...resolved(trackId),
+    state,
+  })
 
   it("cycles its single action with the phase", async () => {
     const tagging = signal(false)
@@ -334,16 +341,11 @@ describe("TaggingPageComponent", () => {
   })
 
   it("keeps the failure message while failures remain, with a confirmed retry", async () => {
-    const writeFinished = signal<typeof WRITE_FINISHED | null>({
-      ...WRITE_FINISHED,
-      write_error: 2,
-    })
-    const taggingTracks = signal([failed("a.mp3"), failed("b.mp3")])
+    const taggingTracks = signal([written("a.mp3", "write_error"), written("b.mp3", "write_error")])
     const { component, service, fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
       taggingTracks,
-      writeFinished,
     })
     const translate = TestBed.inject(TranslateService)
     translate.setTranslation("en", { tagging: { write: { failed: "failed {{count}}" } } })
@@ -356,12 +358,10 @@ describe("TaggingPageComponent", () => {
 
     component["retry"]()
     confirm.mock.calls[0]?.[0].accept?.()
-    taggingTracks.set([failed("b.mp3")])
-    writeFinished.set({ ...WRITE_FINISHED, write_error: 1 })
+    taggingTracks.set([written("b.mp3", "write_error")])
     fixture.detectChanges()
     const remaining = shown()
-    taggingTracks.set([resolved("b.mp3")])
-    writeFinished.set({ ...WRITE_FINISHED, write_error: 0 })
+    taggingTracks.set([written("b.mp3")])
     fixture.detectChanges()
 
     expect(before).toContain("failed 2")
@@ -376,7 +376,6 @@ describe("TaggingPageComponent", () => {
       committed: signal(true),
       writing: signal(true),
       taggingTracks: signal([failed("a.mp3")]),
-      writeFinished: signal({ ...WRITE_FINISHED, write_error: 1 }),
     })
 
     fixture.detectChanges()
@@ -391,7 +390,6 @@ describe("TaggingPageComponent", () => {
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
       taggingTracks: signal([failed("a.mp3")]),
-      writeFinished: signal({ ...WRITE_FINISHED, write_error: 1 }),
       rollingBack: signal({ runId: "a3f9c1", trackId: null }),
     })
     fixture.detectChanges()
@@ -417,6 +415,208 @@ describe("TaggingPageComponent", () => {
 
     expect(during).not.toBeNull()
     expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+  })
+
+  it("offers to restore written and failed tracks of a committed run", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3"), written("b.mp3", "write_error"), resolved("c.mp3")]),
+    })
+
+    expect([...component["restorableIds"]()]).toEqual(["a.mp3", "b.mp3"])
+    expect(component["canRestoreRun"]()).toBe(true)
+  })
+
+  it("keeps the run button while a track is left to restore", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3", "rolled_back"), written("b.mp3", "write_error")]),
+    })
+
+    expect(component["canRestoreRun"]()).toBe(true)
+  })
+
+  it("drops the run button once every track is restored", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3", "rolled_back")]),
+    })
+
+    expect(component["canRestoreRun"]()).toBe(false)
+  })
+
+  it("shows the run restore button even when the write bar is hidden", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3")]),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(host(fixture).querySelector('[data-action="restore-run"]')).not.toBeNull()
+  })
+
+  it("disables the run restore while files are busy", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3")]),
+      rollingBack: signal({ runId: "a3f9c1", trackId: "a.mp3" }),
+    })
+    fixture.detectChanges()
+
+    const button = host(fixture).querySelector<HTMLButtonElement>('[data-action="restore-run"]')
+
+    expect(button?.disabled).toBe(true)
+  })
+
+  it.each([
+    ["a run restore of the shown run", { runId: "a3f9c1", trackId: null }, true],
+    ["a run restore of another run", { runId: "b7e2d4", trackId: null }, false],
+    ["a track restore of the shown run", { runId: "a3f9c1", trackId: "a.mp3" }, false],
+  ])("flags the run restore as running only for %s", async (_name, rollingBack, expected) => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3")]),
+      rollingBack: signal(rollingBack),
+    })
+
+    const restoring = component["restoringRun"]()
+
+    expect(restoring).toBe(expected)
+  })
+
+  it.each([
+    [
+      "a restore runs",
+      signal({ runId: "a3f9c1", trackId: "a.mp3" }),
+      true,
+      "tagging.rollback.blocked",
+    ],
+    ["files are idle", signal(null), false, undefined],
+  ])(
+    "gives the run restore its reason only while busy (%s)",
+    async (_name, rollingBack, disabled, reason) => {
+      const { fixture } = await mountWith({
+        taggingRunId: signal("a3f9c1"),
+        committed: signal(true),
+        taggingTracks: signal([written("a.mp3")]),
+        rollingBack,
+      })
+      fixture.detectChanges()
+
+      const button = fixture.debugElement.query(By.css('[data-action="restore-run"]'))
+
+      expect((button.nativeElement as HTMLButtonElement).disabled).toBe(disabled)
+      expect(button.injector.get(Tooltip).content()).toBe(reason)
+    },
+  )
+
+  it("restores the shown run after its confirmation", async () => {
+    const { component, service } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3"), written("b.mp3")]),
+    })
+    const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
+
+    component["restoreRun"]()
+    const options = confirm.mock.calls[0]?.[0]
+    const before = service.rollback.mock.calls.length
+    options?.accept?.()
+
+    expect(options?.acceptButtonProps).toEqual({ severity: "danger" })
+    expect(before).toBe(0)
+    expect(service.rollback).toHaveBeenCalledWith("a3f9c1")
+  })
+
+  it("restores one track after its confirmation", async () => {
+    const { component, service } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3")]),
+    })
+    const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
+
+    component["restoreTrack"]("a.mp3")
+    confirm.mock.calls[0]?.[0].accept?.()
+
+    expect(service.rollback).toHaveBeenCalledWith("a3f9c1", "a.mp3")
+  })
+
+  it("asks nothing while files are busy", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3")]),
+      writing: signal(true),
+    })
+    const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
+
+    component["restoreRun"]()
+    component["restoreTrack"]("a.mp3")
+
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it("counts the write failures on the rows", async () => {
+    const { component } = await mountWith({
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3", "write_error"), written("b.mp3", "rolled_back")]),
+    })
+
+    expect(component["writeFailures"]()).toBe(1)
+  })
+
+  it("lists the rollback failures of the shown run only", async () => {
+    const failedRollback = {
+      ...rollbackFinished(),
+      failed: [{ track_id: "b.mp3", file_name: "X - Y.mp3", reason: "file_locked" as const }],
+    }
+    const shown = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      rollbackFinished: signal(failedRollback),
+    })
+    const ownFailures = shown.component["runRollbackFailures"]()
+    TestBed.resetTestingModule()
+
+    const other = await mountWith({
+      taggingRunId: signal("b7e2d4"),
+      rollbackFinished: signal(failedRollback),
+    })
+
+    expect(ownFailures).toHaveLength(1)
+    expect(other.component["runRollbackFailures"]()).toEqual([])
+  })
+
+  it("blocks a launch while a rollback runs", async () => {
+    const { component } = await mountWith({
+      rollingBack: signal({ runId: "a3f9c1", trackId: null }),
+    })
+
+    expect(component["blockedReason"]()).toBe("tagging.blocked.restoring")
+  })
+
+  it("shows an error raised by rollback", async () => {
+    const failure: SidecarErrorEvent = {
+      event: "error",
+      code: "rollback_unavailable",
+      params: {},
+      message: "",
+      command: "rollback",
+    }
+    const { component } = await mountWith({
+      lastError: signal(failure),
+      lastErrorCommand: signal("rollback"),
+    })
+
+    expect(component["error"]()?.code).toBe("rollback_unavailable")
   })
 
   it("shows an error raised by commit_run", async () => {

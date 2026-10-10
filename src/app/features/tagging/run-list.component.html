@@ -166,6 +166,13 @@
     }
   </ng-template>
   @if (shown(); as row) {
-    <app-track-detail [track]="row" [interrupted]="settled()" />
+    <app-track-detail
+      [track]="row"
+      [interrupted]="settled()"
+      [restorable]="row.restorable"
+      [restoring]="row.restoring"
+      [blocked]="restoreBlocked()"
+      (restore)="restore.emit($event)"
+    />
   }
 </p-drawer>

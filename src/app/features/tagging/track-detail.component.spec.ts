@@ -21,13 +21,16 @@ const RESOLVED: TaggingTrack = {
   tagsAfter: TAGS_AFTER,
 }
 
-const mount = (track: TaggingTrack) => {
+const mount = (track: TaggingTrack, inputs: Record<string, unknown> = {}) => {
   TestBed.configureTestingModule({
     imports: [TrackDetailComponent],
     providers: [provideTranslateService()],
   })
   const fixture = TestBed.createComponent(TrackDetailComponent)
   fixture.componentRef.setInput("track", track)
+  for (const [name, value] of Object.entries(inputs)) {
+    fixture.componentRef.setInput(name, value)
+  }
   fixture.detectChanges()
 
   return fixture.nativeElement as HTMLElement
@@ -134,5 +137,43 @@ describe("TrackDetailComponent", () => {
     const skeleton = root.querySelector("p-skeleton")
 
     expect(skeleton).not.toBeNull()
+  })
+
+  it("offers to restore only a restorable track", () => {
+    const plain = mount(RESOLVED)
+    const absent = plain.querySelector('[data-action="restore-track"]')
+    TestBed.resetTestingModule()
+
+    const root = mount(RESOLVED, { restorable: true })
+
+    expect(absent).toBeNull()
+    expect(root.querySelector('[data-action="restore-track"]')).not.toBeNull()
+  })
+
+  it("asks to restore its track on click", () => {
+    TestBed.configureTestingModule({
+      imports: [TrackDetailComponent],
+      providers: [provideTranslateService()],
+    })
+    const fixture = TestBed.createComponent(TrackDetailComponent)
+    fixture.componentRef.setInput("track", RESOLVED)
+    fixture.componentRef.setInput("restorable", true)
+    fixture.detectChanges()
+    const asked = vi.fn()
+    fixture.componentInstance.restore.subscribe(asked)
+
+    ;(fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-action="restore-track"]')
+      ?.click()
+
+    expect(asked).toHaveBeenCalledWith(RESOLVED.trackId)
+  })
+
+  it("disables the restore while files are busy", () => {
+    const root = mount(RESOLVED, { restorable: true, blocked: true })
+
+    const button = root.querySelector<HTMLButtonElement>('[data-action="restore-track"]')
+
+    expect(button?.disabled).toBe(true)
   })
 })

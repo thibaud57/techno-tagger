@@ -78,6 +78,8 @@
     </app-message>
   }
 
+  <app-rollback-failures [failures]="runRollbackFailures()" />
+
   @if (running()) {
     @let current = progress();
     <app-phase-progress
@@ -89,12 +91,37 @@
     @let written = writeProgress();
     <!-- Sans ecriture en cours ni palier recu (relance refusee), une barre indeterminee
          laisserait croire que l'ecriture tourne encore. -->
-    @if (writing() || written) {
-      <app-phase-progress
-        [label]="'tagging.write.phase' | translate"
-        [counter]="written ? ('tagging.progress' | translate: written) : undefined"
-        [value]="writePercentage()"
-      />
+    @if (showsWriteBar() || canRestoreRun()) {
+      <div class="flex items-end gap-4">
+        @if (showsWriteBar()) {
+          <app-phase-progress
+            class="min-w-0 flex-1"
+            [label]="'tagging.write.phase' | translate"
+            [counter]="written ? ('tagging.progress' | translate: written) : undefined"
+            [value]="writePercentage()"
+          />
+        }
+        @if (canRestoreRun()) {
+          <!-- Hors de la barre : elle reste masquee quand l'ecriture n'a laisse aucun palier.
+               Jamais a cote du bouton d'action du run. -->
+          @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
+          <button
+            pButton
+            type="button"
+            size="small"
+            [outlined]="true"
+            class="ml-auto shrink-0"
+            data-action="restore-run"
+            [disabled]="filesBusy()"
+            [pTooltip]="restoreBusy"
+            [showDelay]="tooltipDelay"
+            (click)="restoreRun()"
+          >
+            <app-icon [name]="restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
+            {{ "tagging.rollback.run" | translate }}
+          </button>
+        }
+      </div>
     }
   } @else if (recovery(); as phase) {
     <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run.
@@ -123,8 +150,12 @@
         [interrupted]="interrupted()"
         [recoverable]="recoverableIds()"
         [frozen]="committed()"
+        [restorableIds]="restorableIds()"
+        [restoringTrackId]="restoringTrackId()"
+        [restoreBlocked]="filesBusy()"
         (arbitrate)="openArbitration($event)"
         (recover)="openRecovery($event)"
+        (restore)="restoreTrack($event)"
       />
     </div>
   } @else {

@@ -81,6 +81,14 @@ const CASES: readonly Case[] = [
     icon: "exclamation-triangle",
     label: "tagging.state.writeError",
   },
+  {
+    state: "rolled_back",
+    resolution: "auto",
+    awaiting: false,
+    severity: "secondary",
+    icon: "undo",
+    label: "tagging.state.rolledBack",
+  },
 ]
 
 const mount = (shown: Partial<Case>) => {

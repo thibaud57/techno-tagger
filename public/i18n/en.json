@@ -194,6 +194,14 @@
       "message": "Failed files to rewrite: {{count}}. Only these files are retried, with no new search or arbitration.",
       "accept": "Retry writing"
     },
+    "rollback": {
+      "run": "Undo writing",
+      "track": "Restore this track",
+      "header": "Restore files",
+      "message": "Files to restore: {{count}}. They get back their original name and tags. Artwork and comments removed by the write do not come back.",
+      "accept": "Restore",
+      "blocked": "A write or a restore is in progress."
+    },
     "write": {
       "phase": "Writing tags, artwork and file names",
       "failed": "Files that failed to write: {{count}}. A locked file does not stop the run: close the program holding it, then retry writing."
@@ -226,7 +234,8 @@
       "url": "URL",
       "unresolved": "Unresolved",
       "notProcessed": "Not processed",
-      "writeError": "Write failed"
+      "writeError": "Write failed",
+      "rolledBack": "Restored"
     },
     "reason": {
       "empty_query": "Neither the tags nor the file name give an artist or a title. Rename the file as \"Artist - Title\".",
@@ -301,6 +310,19 @@
       }
     }
   },
+  "rollback": {
+    "failures": "Files not restored: {{count}}",
+    "failure": "{{file}}: {{reason}}",
+    "reason": {
+      "permission_denied": "Access to the file was denied. Check its permissions, then restore again.",
+      "disk_full": "The disk is full. Free up disk space, then restore again.",
+      "path_too_long": "The file path is too long. Move the folder closer to the drive root, then restore again.",
+      "file_locked": "The file is open in another program. Close it, then restore again.",
+      "file_missing": "The file disappeared: it cannot be restored.",
+      "write_failed": "Restoring the file failed.",
+      "name_taken": "Another file already has its original name. Rename or move that file, then restore again."
+    }
+  },
   "arbitration": {
     "close": "Close",
     "uncertain": "Uncertain matches: {{count}}",
@@ -337,6 +359,21 @@
         "save": "Save",
         "configured": "Key saved",
         "missing": "No key"
+      }
+    },
+    "admin": {
+      "title": "Administration",
+      "rollback": {
+        "label": "Rollback",
+        "hint": "Restores the original tags, per run or per track.",
+        "action": "Undo the last run",
+        "target": "Run of {{date}} on {{folder}}. Tracks to restore: {{count}}",
+        "empty": "No run to undo",
+        "none": "No run to undo: no recent tag backup.",
+        "loading": "Looking for the last written run…",
+        "header": "Undo the last run",
+        "message": "Run of {{date}} on {{folder}}. Files to restore: {{count}}. They get back their original name and tags. Artwork and comments removed by the write do not come back.",
+        "accept": "Restore"
       }
     }
   }

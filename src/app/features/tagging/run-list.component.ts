@@ -33,6 +33,8 @@ interface RunRow extends TaggingTrack {
   readonly reasonKey: string | null
   readonly arbitrable: boolean
   readonly recoverable: boolean
+  readonly restorable: boolean
+  readonly restoring: boolean
 }
 
 @Component({
@@ -68,8 +70,13 @@ export class RunListComponent {
   readonly recoverable = input<ReadonlySet<string>>(new Set())
   /** Run confirme : plus aucune decision n'y entre, le sidecar les refuserait (`run_committed`). */
   readonly frozen = input(false)
+  /** Morceaux que le dump peut rendre, calcules par la page. */
+  readonly restorableIds = input<ReadonlySet<string>>(new Set())
+  readonly restoringTrackId = input<string | null>(null)
+  readonly restoreBlocked = input(false)
   readonly arbitrate = output<string>()
   readonly recover = output<string>()
+  readonly restore = output<string>()
 
   /** Interrompu ou confirme : les lignes encore vides ne recevront plus rien. */
   protected readonly settled = computed(() => this.interrupted() || this.frozen())
@@ -86,6 +93,8 @@ export class RunListComponent {
       reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
       arbitrable: !this.frozen() && track.arbitration !== null,
       recoverable: !this.frozen() && this.recoverable().has(track.trackId),
+      restorable: this.restorableIds().has(track.trackId),
+      restoring: this.restoringTrackId() === track.trackId,
     })),
   )
 

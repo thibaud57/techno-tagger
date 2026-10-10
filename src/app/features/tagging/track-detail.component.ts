@@ -1,12 +1,16 @@
-import { Component, computed, input } from "@angular/core"
+import { Component, computed, input, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
+import { ButtonDirective } from "primeng/button"
+import { Tooltip } from "primeng/tooltip"
 
 import type { TagField, TagValue } from "../../core/models/protocol"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 import { ArtworkComponent } from "../../shared/components/artwork.component"
+import { IconComponent } from "../../shared/components/icon.component"
 import { NoValueComponent } from "../../shared/components/no-value.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+import { TOOLTIP_DELAY } from "../../shared/utils/tooltip"
 
 /** Une ligne de la grille ; `key` nulle pour le commentaire, qui n'a pas de champ écrit. */
 interface DetailRow {
@@ -25,14 +29,30 @@ const valuesOf = (fields: readonly TagValue[] | null | undefined): Map<string, s
 /** Détail d'un morceau déplié (maquette `TrackDetail`) ; ordre et clés viennent du sidecar. */
 @Component({
   selector: "app-track-detail",
-  imports: [TranslatePipe, ArtworkComponent, NoValueComponent, TruncatedTextComponent],
+  imports: [
+    TranslatePipe,
+    ButtonDirective,
+    Tooltip,
+    ArtworkComponent,
+    IconComponent,
+    NoValueComponent,
+    TruncatedTextComponent,
+  ],
   templateUrl: "./track-detail.component.html",
   host: { class: "block" },
 })
 export class TrackDetailComponent {
+  protected readonly tooltipDelay = TOOLTIP_DELAY
+
   readonly track = input.required<TaggingTrack>()
   /** Run arrêté avant ce morceau : sa pochette ne viendra plus, pas de squelette. */
   readonly interrupted = input(false)
+  /** Morceau écrit ou en échec d'un run confirmé : le dump peut le rendre. */
+  readonly restorable = input(false)
+  readonly restoring = input(false)
+  /** Une écriture ou une restauration tourne : le moteur n'en accepte qu'une à la fois. */
+  readonly blocked = input(false)
+  readonly restore = output<string>()
 
   protected readonly artworkUrl = computed(() => {
     const path = this.track().artworkPath

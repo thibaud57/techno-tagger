@@ -194,6 +194,14 @@
       "message": "Fichiers en échec à réécrire : {{count}}. Seuls ces fichiers sont repris, sans nouvelle recherche ni arbitrage.",
       "accept": "Relancer l'écriture"
     },
+    "rollback": {
+      "run": "Annuler l'écriture",
+      "track": "Restaurer ce morceau",
+      "header": "Restaurer les fichiers",
+      "message": "Fichiers à restaurer : {{count}}. Ils retrouvent leur nom et leurs tags d'origine. Les pochettes et les commentaires retirés par l'écriture ne reviennent pas.",
+      "accept": "Restaurer",
+      "blocked": "Une écriture ou une restauration est en cours."
+    },
     "write": {
       "phase": "Écriture des tags, pochettes et renommage",
       "failed": "Fichiers en échec d'écriture : {{count}}. Un fichier verrouillé n'arrête pas le run : fermez le programme qui le tient, puis relancez l'écriture."
@@ -226,7 +234,8 @@
       "url": "URL",
       "unresolved": "Non résolu",
       "notProcessed": "Non traité",
-      "writeError": "Échec d'écriture"
+      "writeError": "Échec d'écriture",
+      "rolledBack": "Restauré"
     },
     "reason": {
       "empty_query": "Ni les tags ni le nom du fichier ne donnent d'artiste ou de titre. Renommez le fichier en « Artiste - Titre ».",
@@ -301,6 +310,19 @@
       }
     }
   },
+  "rollback": {
+    "failures": "Fichiers non restaurés : {{count}}",
+    "failure": "{{file}} : {{reason}}",
+    "reason": {
+      "permission_denied": "L'accès au fichier a été refusé. Vérifiez ses droits, puis relancez la restauration.",
+      "disk_full": "Le disque est plein. Libérez de l'espace disque, puis relancez la restauration.",
+      "path_too_long": "Le chemin du fichier est trop long. Rapprochez le dossier de la racine du disque, puis relancez la restauration.",
+      "file_locked": "Le fichier est ouvert dans un autre programme. Fermez-le, puis relancez la restauration.",
+      "file_missing": "Le fichier a disparu : il ne peut pas être restauré.",
+      "write_failed": "La restauration du fichier a échoué.",
+      "name_taken": "Un autre fichier porte déjà son nom d'origine. Renommez ou déplacez cet autre fichier, puis relancez la restauration."
+    }
+  },
   "arbitration": {
     "close": "Fermer",
     "uncertain": "Correspondances incertaines : {{count}}",
@@ -337,6 +359,21 @@
         "save": "Enregistrer",
         "configured": "Clé enregistrée",
         "missing": "Aucune clé"
+      }
+    },
+    "admin": {
+      "title": "Administration",
+      "rollback": {
+        "label": "Rollback",
+        "hint": "Restaure les tags d'origine, par run ou par morceau.",
+        "action": "Annuler le dernier run",
+        "target": "Run du {{date}} sur {{folder}}. Morceaux à restaurer : {{count}}",
+        "empty": "Aucun run à annuler",
+        "none": "Aucun run à annuler : aucune sauvegarde de tags récente.",
+        "loading": "Recherche du dernier run écrit…",
+        "header": "Annuler le dernier run",
+        "message": "Run du {{date}} sur {{folder}}. Fichiers à restaurer : {{count}}. Ils retrouvent leur nom et leurs tags d'origine. Les pochettes et les commentaires retirés par l'écriture ne reviennent pas.",
+        "accept": "Restaurer"
       }
     }
   }

@@ -19,6 +19,7 @@ import { Spinner } from "@primeicons/angular/spinner"
 import { Stop } from "@primeicons/angular/stop"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
+import { Undo } from "@primeicons/angular/undo"
 
 /**
  * Les icones reellement utilisees, et non `string` : un nom ouvert imposerait un
@@ -47,6 +48,7 @@ export const ICON_NAMES = [
   "eye-slash",
   "spinner",
   "refresh",
+  "undo",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -77,6 +79,7 @@ export type IconSize = 16 | 20 | 24
     MinusCircle,
     Times,
     TimesCircle,
+    Undo,
   ],
   template: `
     @switch (name()) {
@@ -139,6 +142,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("refresh") {
         <svg data-p-icon="refresh" [size]="size()" />
+      }
+      @case ("undo") {
+        <svg data-p-icon="undo" [size]="size()" />
       }
     }
   `,

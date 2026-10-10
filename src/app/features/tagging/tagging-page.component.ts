@@ -15,6 +15,7 @@ import { IconComponent } from "../../shared/components/icon.component"
 import { MessageComponent } from "../../shared/components/message.component"
 import { PathPickerComponent } from "../../shared/components/path-picker.component"
 import { PhaseProgressComponent } from "../../shared/components/phase-progress.component"
+import { RollbackFailuresComponent } from "../../shared/components/rollback-failures.component"
 import { pickPath } from "../../shared/utils/dialog"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { progressPercentage } from "../../shared/utils/progress"
@@ -35,6 +36,7 @@ import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
     IconComponent,
     PathPickerComponent,
     PhaseProgressComponent,
+    RollbackFailuresComponent,
     RunListComponent,
     EmptyStateComponent,
     ErrorMessageComponent,
@@ -58,12 +60,45 @@ export default class TaggingPageComponent {
   protected readonly committed = this.sidecar.committed
   protected readonly writing = this.sidecar.writing
   protected readonly writeProgress = this.sidecar.writeProgress
+  protected readonly showsWriteBar = computed(() => this.writing() || this.writeProgress() !== null)
   protected readonly writePercentage = computed(() => progressPercentage(this.writeProgress()))
-  protected readonly writeFailures = computed(() => this.sidecar.writeFinished()?.write_error ?? 0)
+  /** Compte sur les lignes : un morceau restaure sort du message et de la relance. */
+  protected readonly writeFailures = computed(
+    () => this.tracks().filter((track) => track.state === "write_error").length,
+  )
   /** Une ecriture ou une restauration tourne : le moteur n'en accepte qu'une a la fois. */
   protected readonly filesBusy = computed(
     () => this.writing() || this.sidecar.rollingBack() !== null,
   )
+  /** Lignes que le dump peut rendre : ecrites, ou en echec dont les tags ont pu partir. */
+  protected readonly restorableIds = computed<ReadonlySet<string>>(
+    () =>
+      new Set(
+        this.committed()
+          ? this.tracks()
+              .filter((track) => track.state === "written" || track.state === "write_error")
+              .map((track) => track.trackId)
+          : [],
+      ),
+  )
+  protected readonly canRestoreRun = computed(
+    () => !this.writing() && this.restorableIds().size > 0,
+  )
+  /** Run affiche seulement : celui des Reglages ne fait pas tourner ce bouton. */
+  protected readonly restoringRun = computed(() => {
+    const inFlight = this.sidecar.rollingBack()
+
+    return inFlight?.trackId === null && inFlight.runId === this.sidecar.taggingRunId()
+  })
+  protected readonly restoringTrackId = computed(() => this.sidecar.rollingBack()?.trackId ?? null)
+  /** Le bilan ne vaut que pour le run qu'il nomme. */
+  protected readonly runRollbackFailures = computed(() => {
+    const finished = this.sidecar.rollbackFinished()
+
+    return finished !== null && finished.run_id === this.sidecar.taggingRunId()
+      ? finished.failed
+      : []
+  })
   /** Nul pendant le parcours du dossier : la liste s'affiche en squelette, jamais « aucun run ». */
   protected readonly listing = computed(() => this.sidecar.taggingRunId() === null)
   protected readonly showsRun = computed(
@@ -84,6 +119,9 @@ export default class TaggingPageComponent {
   protected readonly blockedReason = computed(() => {
     if (this.sidecar.tagging()) {
       return "tagging.blocked.running"
+    }
+    if (this.sidecar.rollingBack() !== null) {
+      return "tagging.blocked.restoring"
     }
     // Un nouveau run fermerait la phase et couperait l'appel en vol : seule chose que le
     // lancement protege pendant la phase.
@@ -144,7 +182,12 @@ export default class TaggingPageComponent {
 
     return null
   })
-  protected readonly error = this.sidecar.errorFor("start_tagging", "commit_run", "retry_write")
+  protected readonly error = this.sidecar.errorFor(
+    "start_tagging",
+    "commit_run",
+    "retry_write",
+    "rollback",
+  )
   protected readonly percentage = computed(() => progressPercentage(this.progress()))
   protected readonly recovery = this.sidecar.urlRecoveryProgress
   protected readonly recoveryPercentage = computed(() => progressPercentage(this.recovery()))
@@ -208,6 +251,28 @@ export default class TaggingPageComponent {
         void this.sidecar.retryWrite()
       },
     )
+  }
+
+  protected restoreRun(): void {
+    const runId = this.sidecar.taggingRunId()
+    if (runId === null || this.filesBusy()) {
+      return
+    }
+    this.confirmRestore(this.restorableIds().size, () => this.sidecar.rollback(runId))
+  }
+
+  protected restoreTrack(trackId: string): void {
+    const runId = this.sidecar.taggingRunId()
+    if (runId === null || this.filesBusy()) {
+      return
+    }
+    this.confirmRestore(1, () => this.sidecar.rollback(runId, trackId))
+  }
+
+  private confirmRestore(count: number, restore: () => Promise<void>): void {
+    this.confirmDanger("tagging.rollback", this.t("tagging.rollback.message", { count }), () => {
+      void restore()
+    })
   }
 
   private t(key: string, params?: Record<string, unknown>): string {

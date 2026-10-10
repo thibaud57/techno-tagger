@@ -40,5 +40,25 @@
     } @else {
       <p class="text-muted-color" data-unreadable>{{ "tagging.detail.unreadable" | translate }}</p>
     }
+
+    @if (restorable()) {
+      @let busy = blocked() ? ("tagging.rollback.blocked" | translate) : undefined;
+      <div class="mt-4 flex justify-end">
+        <button
+          pButton
+          type="button"
+          size="small"
+          [outlined]="true"
+          data-action="restore-track"
+          [disabled]="blocked()"
+          [pTooltip]="busy"
+          [showDelay]="tooltipDelay"
+          (click)="restore.emit(track().trackId)"
+        >
+          <app-icon [name]="restoring() ? 'spinner' : 'refresh'" [size]="16" />
+          {{ "tagging.rollback.track" | translate }}
+        </button>
+      </div>
+    }
   </div>
 </div>

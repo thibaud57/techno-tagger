@@ -115,14 +115,14 @@ Le design system ne connaît pas la liste des états d'un morceau, seulement **q
 
 | Famille | Sévérité | Icône type | Source | Ce qu'elle couvre |
 |---------|----------|------------|--------|-------------------|
-| Neutre | `secondary` | `clock`, `minus-circle` | dérivée | Rien n'est encore arrivé sur ce morceau : il attend son tour dans la file, ou le run s'est arrêté avant lui |
+| Neutre | `secondary` | `clock`, `minus-circle`, `undo` | dérivée, et `state` pour `rolled_back` | Rien n'est encore arrivé sur ce morceau : il attend son tour dans la file, ou le run s'est arrêté avant lui. Ou : ses fichiers ont retrouvé leur état d'origine (`rolled_back`) |
 | Décision attendue | `info` | `info-circle` | dérivée | `arbitration_required` reçu sans `track_resolved` derrière : le morceau attend un geste humain |
 | Résolu | `success` | `check` | `state` | `resolved` et `written` |
 | Échec | `danger` | `times` | `state` | `unresolved` et `write_error` |
 
 Les sévérités, déjà câblées dans `p-tag`, `p-badge`, `p-message` et `pButton`, suivent le preset sans maintenance.
 
-**Deux familles sur quatre sont dérivées par l'interface** et ne correspondent à aucune valeur de `state` : rien ne circule sur le flux tant qu'un morceau n'est pas tranché, l'interface affiche donc « en attente » ce qu'elle n'a pas reçu et « à arbitrer » ce pour quoi elle a reçu une demande sans réponse.
+**Trois états sont dérivés par l'interface** et ne correspondent à aucune valeur de `state` : rien ne circule sur le flux tant qu'un morceau n'est pas tranché, l'interface affiche donc « en attente » ce qu'elle n'a pas reçu, « non traité » ce qu'un run interrompu n'a jamais atteint et « à arbitrer » ce pour quoi elle a reçu une demande sans réponse. Les autres, `rolled_back` compris, se lisent sur `state`.
 
 Le bleu plutôt que l'orange sur la décision attendue : un arbitrage qui attend n'est pas une anomalie, c'est une étape normale qui demande quelque chose. Le choix est déjà posé dans [BRAINSTORM.md](BRAINSTORM.md) (« bleu en attente d'arbitrage »). Conséquence, **`warn` n'est porté par aucun état de morceau** : il reste disponible pour les avertissements qui ne concernent pas une ligne, comme une clé API proche de l'expiration.
 
@@ -136,8 +136,11 @@ Le bleu plutôt que l'orange sur la décision attendue : un arbitrage qui attend
 | `unresolved` | `none` | rouge, `times`, « Non résolu » |
 | absent du flux | — | neutre, `minus-circle`, « Non traité », sur un run interrompu |
 | `write_error` | — | rouge, `exclamation-triangle`, « Échec d'écriture » |
+| `rolled_back` | — | neutre, `undo`, « Restauré » |
 
 **La famille Neutre change de glyphe quand le run s'arrête.** Une horloge promet une suite : sur un morceau qu'un run interrompu n'a jamais atteint, elle promettrait ce qui ne viendra pas. Le `minus-circle` dit l'inverse sans changer de famille, le morceau n'ayant rien à se reprocher.
+
+**Un morceau restauré reste neutre.** Ses fichiers sont revenus à leur état d'avant le run : ni écrits ni en échec, il n'a aucune voie à montrer en vert ni aucune correction à attendre. L'icône `undo` le distingue de l'attente, qui promet une suite, et du non traité, qui n'a jamais été touché.
 
 Un morceau validé automatiquement à 94 est l'endroit le plus probable d'un mauvais match, puisque personne ne l'a regardé. Distinguer « Auto » d'« Arbitré » dit à l'utilisateur où porter son attention et un glyphe ne se décode pas assez vite dans un tableau dense pour porter cette information.
 
@@ -305,7 +308,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Récapitulatif filtrable | `p-table` + `p-selectbutton` + `p-iconfield` | PrimeNG | Filtres tout / validés / arbitrés / échecs, plus une recherche texte. Les trois lisent `state`, « validés » et « arbitrés » lisent en plus `resolution` (cf. § Conventions de Code) |
 | Relance de l'écriture en échec | `button pButton` `primary` outlined + `DangerConfirmComponent` | PrimeNG | Dans l'onglet Tagging, action d'un `MessageComponent` `error` au-dessus de la liste, sous son texte, en attendant le récapitulatif (Feature 6). Actif seulement s'il reste des `write_error`. Rejoue l'écriture sur ces seuls fichiers, sans refaire ni la phase réseau ni les arbitrages. Destructif comme la confirmation globale, donc même traitement |
 | Reprise d'un run interrompu | `p-dialog` au démarrage | PrimeNG | Deux actions : reprendre, repartir de zéro |
-| Rollback | `button pButton` `primary` outlined + `DangerConfirmComponent` | PrimeNG | Par run ou par morceau |
+| Rollback | `button pButton` `primary` outlined en `size="small"` + icône `refresh` (`spinner` pendant l'opération) + `DangerConfirmComponent` | PrimeNG | Par morceau au bas du détail du tiroir (« Restaurer ce morceau »), par run au bout de la barre d'écriture (« Annuler l'écriture »), dernier run dans les Réglages. Chacun est grisé, la raison en tooltip, tant qu'une écriture ou une restauration tourne. Le bouton des Réglages a en plus ses propres raisons : un run en cours de recherche, la réponse du moteur attendue, aucun run à annuler. Le bouton du run reste présent quand la barre est masquée. Les fichiers non restaurés se listent sous l'action dans un `MessageComponent` `error` (`app-rollback-failures`), chacun avec une phrase propre à la restauration (jamais celle de l'écriture, qui invite à relancer l'écriture). Destructif comme l'écriture, donc même traitement |
 | Envoi du rapport | `button pButton` `severity="secondary"` | PrimeNG | Geste explicite, seul endroit d'où des titres quittent la machine |
 
 ### Settings
@@ -316,6 +319,7 @@ Une ligne par catégorie d'usage, par famille. L'interface s'écrit à partir de
 | Seuils de matching | `p-slider` lié à un `p-inputnumber` | PrimeNG | Plancher et seuil haut, valeurs de départ 70 et 90 |
 | Langue | `p-select` | PrimeNG | FR / EN, force la locale détectée au premier lancement |
 | Bascules des Settings | `p-toggleswitch` | PrimeNG | Signal sonore, copie par défaut |
+| Rollback | `button pButton` `primary` outlined en `size="small"` + icône `refresh` + `DangerConfirmComponent`, section Administration | PrimeNG | « Annuler le dernier run ». À côté du bouton, la cible en `text-sm text-muted-color` tronquée avec tooltip (date, dossier, nombre de morceaux) ; « Aucun run à annuler » sans cible. Les fichiers non restaurés et un refus se lisent sous la rangée. Le déclencheur reste `primary` : le `danger` n'est que sur l'acceptation de la modale (§ Arbitrages) |
 | Actions d'administration | `button pButton` `severity="secondary"` outlined | PrimeNG | Vider le cache, ouvrir le dossier de logs |
 
 ### Feedback
