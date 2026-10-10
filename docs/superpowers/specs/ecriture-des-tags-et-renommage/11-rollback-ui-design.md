@@ -2,7 +2,7 @@
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "rollback-ui"
 goal: "Annuler depuis l'interface l'écriture d'un morceau ou du run affiché dans l'onglet Tagging, et celle du dernier run écrit depuis les Réglages"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["06-rollback-sidecar-design.md", "08-service-ecriture-ui-design.md", "09-ligne-depliee-avant-apres-design.md", "10-confirmation-et-ecriture-ui-design.md"]
