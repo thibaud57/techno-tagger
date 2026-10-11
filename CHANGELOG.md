@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/thibaud57/techno-tagger/compare/v0.5.0...v0.6.0) (2026-10-11)
+
+
+### Features
+
+* écriture des tags, renommage et restauration des fichiers ([#67](https://github.com/thibaud57/techno-tagger/issues/67)) ([c9dd296](https://github.com/thibaud57/techno-tagger/commit/c9dd296052035e59ed4a5824d70d1ab3eb2ba1b9))
+
 ## [0.5.0](https://github.com/thibaud57/techno-tagger/compare/v0.4.2...v0.5.0) (2026-10-06)
 
 
