@@ -1,4 +1,4 @@
-import { computed, signal } from "@angular/core"
+import { signal } from "@angular/core"
 import { DeferBlockBehavior, TestBed } from "@angular/core/testing"
 import { Router, provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
@@ -28,20 +28,16 @@ class ResizeObserverStub {
   ResizeObserverStub as unknown as typeof ResizeObserver
 
 const mount = () => {
-  const arbitrationCount = signal(0)
-  const runFrozen = signal(false)
   const service = {
     available: signal<boolean | null>(true),
     versionMismatch: signal(null),
-    arbitrationCount,
-    pendingArbitrationCount: computed(() => (runFrozen() ? 0 : arbitrationCount())),
+    arbitrationCount: signal(0),
     arbitrationOpenings: signal(0),
     // Lus par `RecoveryUiStore`, reel ici : le badge et la modale du lien en dependent.
     taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal<readonly { track_id: string }[]>([]),
     tagging: signal(false),
     committed: signal(false),
-    runFrozen,
     taggingTracks: signal<readonly TaggingTrack[]>([]),
     recoverableTracks: signal<readonly TaggingTrack[]>([]),
     urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
@@ -129,18 +125,6 @@ describe("AppComponent", () => {
     expect(component["arbitrationVisible"]()).toBe(true)
   })
 
-  it("hides the queue badge and dialog once the run is frozen", () => {
-    const { fixture, component, service } = mount()
-    service.arbitrationCount.set(2)
-    fixture.detectChanges()
-
-    service.runFrozen.set(true)
-    fixture.detectChanges()
-
-    expect(badge(fixture.nativeElement as HTMLElement)).toBeNull()
-    expect(component["arbitrationVisible"]()).toBe(false)
-  })
-
   it("hides the queue badge on an empty queue", () => {
     const { fixture } = mount()
 
@@ -199,6 +183,7 @@ describe("AppComponent", () => {
     const { fixture, component, service } = mount()
     const recovery = TestBed.inject(RecoveryUiStore)
     service.taggingTracks.set([unresolvedTrack("a.mp3")])
+    service.recoverableTracks.set([unresolvedTrack("a.mp3")])
     recovery.refused("a.mp3")
     fixture.detectChanges()
 

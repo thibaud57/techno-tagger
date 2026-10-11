@@ -1,13 +1,14 @@
 """Tests de la lecture des tags d'origine et de leur restauration, sur les quatre formats."""
 
 from types import MappingProxyType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import mutagen
 import pytest
-from audio_samples import locked_by_another_process, write_tagged_wavpack
+from audio_samples import BLANK_WRITERS, locked_by_another_process, write_tagged_wavpack
 from mutagen.flac import FLAC
 from mutagen.id3 import TBPM, TDRC, TIT2, TPE1, TXXX, WOAS
+from path_limits import folder_beyond_the_limit
 from scraper_responses import payload_candidate
 from tagging_api import JPEG
 
@@ -23,14 +24,16 @@ from tagger.files import (
     restore_tags,
     write_tags,
 )
+from tagger.paths import extended_path
+from tagger.renaming import MAX_PATH_LENGTH
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-BEATPORT = payload_candidate()
-ORIGINAL_URL = "https://liorvance.bandcamp.com/track/dim-orbit"
-TAGGED_FIELDS = MappingProxyType(
+BEATPORT: Final = payload_candidate()
+ORIGINAL_URL: Final = "https://liorvance.bandcamp.com/track/dim-orbit"
+TAGGED_FIELDS: Final = MappingProxyType(
     {
         TagField.ARTIST: ("lior vance", "mara quill"),
         TagField.TITLE: ("dim orbit",),
@@ -223,3 +226,44 @@ def test_refuses_to_read_a_container_outside_the_four_formats(tmp_path: Path) ->
 
     with pytest.raises(TagsUnreadableError, match="unreadable tags"):
         read_original_tags(path)
+
+
+def test_restores_the_tags_of_a_file_beyond_the_path_limit(tmp_path: Path) -> None:
+    path = folder_beyond_the_limit(tmp_path) / "track.mp3"
+    BLANK_WRITERS["mp3"](extended_path(path))
+    _tag(extended_path(path))
+    original = read_original_tags(path)
+    write_tags(path, project_tags(BEATPORT), None)
+
+    restore_tags(path, original)
+
+    assert len(str(path)) > MAX_PATH_LENGTH
+    assert read_original_tags(path) == original
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [read_original_tags, lambda path: write_tags(path, project_tags(BEATPORT), None)],
+    ids=["read", "write"],
+)
+def test_opens_the_audio_file_through_the_extended_path(
+    blank_audio: Callable[[str], Path],
+    monkeypatch: pytest.MonkeyPatch,
+    operation: Callable[[Path], object],
+) -> None:
+    """Sans prefixe, mutagen echoue au-dela de 259 caracteres sur un Windows sans
+    `LongPathsEnabled` : l'ouverture doit passer par `extended_path`.
+    """
+    path = blank_audio("mp3")
+    opened: list[str] = []
+    real_file = mutagen.File
+
+    def recording_file(target: Path) -> object:
+        opened.append(str(target))
+        return real_file(target)
+
+    monkeypatch.setattr(mutagen, "File", recording_file)
+
+    operation(path)
+
+    assert opened == [str(extended_path(path))]

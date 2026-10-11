@@ -2,12 +2,13 @@
 
 import logging
 import shutil
+import time
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 import pytest
 from audio_samples import held_open
+from rename_samples import rename_now
 from scraper_responses import payload_candidate
 from stubs import raising
 from tagging_api import tagged_mp3
@@ -23,7 +24,6 @@ from tagger.files import (
     restore_tags,
     write_tags,
 )
-from tagger.renaming import rename_track
 from tagger.rollback import (
     RollbackFailure,
     RollbackTarget,
@@ -41,10 +41,13 @@ from tagger.tag_dump import (
 )
 from tagger.tagging import FailureReason
 
-RUN = "a3f9c1"
-WRITTEN_AT = datetime(2026, 10, 5, 21, 14, 3, tzinfo=UTC)
-BEATPORT = payload_candidate()
-ORIGINAL = "01 - untitled.mp3"
+if TYPE_CHECKING:
+    from pathlib import Path
+
+RUN: Final = "a3f9c1"
+WRITTEN_AT: Final = datetime(2026, 10, 5, 21, 14, 3, tzinfo=UTC)
+BEATPORT: Final = payload_candidate()
+ORIGINAL: Final = "01 - untitled.mp3"
 
 
 class _Written(NamedTuple):
@@ -61,16 +64,40 @@ def _write(folder: Path, name: str) -> _Written:
     origin = read_original_tags(path)
     values = project_tags(BEATPORT)
     write_tags(path, values, None)
-    renamed = rename_track(path, values.get(TagField.ARTIST), values.get(TagField.TITLE)).path
+    renamed = rename_now(path, values.get(TagField.ARTIST), values.get(TagField.TITLE)).path
     entry = DumpEntry.of(path, origin).model_copy(update={"renamed_path": renamed})
     return _Written(path, renamed, origin, entry)
 
 
 def _dumped(
-    folder: Path, *tracks: _Written, run_id: str = RUN, written_at: datetime = WRITTEN_AT
+    folder: Path,
+    *tracks: _Written,
+    run_id: str = RUN,
+    written_at: datetime = WRITTEN_AT,
+    run_folder: Path | None = None,
 ) -> TagDump:
     entries = {track.original.name: track.entry for track in tracks}
-    return save_entries(folder, TagDump(run_id=run_id, created_at=written_at), entries)
+    run = TagDump(
+        run_id=run_id,
+        created_at=written_at,
+        folder=run_folder or tracks[0].original.parent,
+    )
+    return save_entries(folder, run, entries)
+
+
+def _remove_tree(folder: Path) -> None:
+    """Un fichier ecrit a l'instant peut rester tenu un court moment (antivirus, indexeur Windows) :
+    `rmtree` echoue alors en `ENOTEMPTY` sans qu'aucun handle du sidecar ne fuie.
+    """
+    for attempt in range(5):
+        try:
+            shutil.rmtree(folder)
+        except OSError:
+            if attempt == 4:
+                raise
+            time.sleep(0.1)
+        else:
+            return
 
 
 def _ignore(_track_id: str, _path: Path) -> None:
@@ -119,7 +146,7 @@ async def test_reports_a_file_gone_under_both_names(tmp_path: Path) -> None:
     summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
 
     assert summary.failed == (
-        RollbackFailure(ORIGINAL, track.renamed.name, FailureReason.FILE_MISSING),
+        RollbackFailure(ORIGINAL, track.renamed.name, FileFailureReason.FILE_MISSING),
     )
 
 
@@ -132,7 +159,7 @@ async def test_leaves_the_tags_of_a_locked_file_untouched(tmp_path: Path) -> Non
     with held_open(track.renamed):
         summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
 
-    assert [failure.reason for failure in summary.failed] == [FailureReason.FILE_LOCKED]
+    assert [failure.reason for failure in summary.failed] == [FileFailureReason.FILE_LOCKED]
     assert read_original_tags(track.renamed) == written
 
 
@@ -158,7 +185,7 @@ async def test_replays_a_track_whose_tags_failed_after_its_name_came_back(
     kept = set(load_dump(dump_path(tmp_path / "dumps", dump)).entries)
     second = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
 
-    assert first.failed == (RollbackFailure(ORIGINAL, ORIGINAL, FailureReason.FILE_LOCKED),)
+    assert first.failed == (RollbackFailure(ORIGINAL, ORIGINAL, FileFailureReason.FILE_LOCKED),)
     assert (name_back, kept) == (True, {ORIGINAL})
     assert (second.restored, second.failed) == ((ORIGINAL,), ())
     assert read_original_tags(track.original) == track.origin
@@ -207,9 +234,10 @@ async def test_forgets_restored_and_vanished_tracks_and_keeps_the_others(tmp_pat
     vanished.renamed.unlink()
     taken.original.write_bytes(b"newcomer")
 
-    await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
 
     assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {"c.mp3"}
+    assert summary.forgotten == ("b.mp3",)
 
 
 @pytest.mark.asyncio
@@ -217,11 +245,27 @@ async def test_keeps_the_dump_entry_of_a_track_whose_whole_folder_is_gone(tmp_pa
     music = tmp_path / "music"
     track = _write(music, ORIGINAL)
     dump = _dumped(tmp_path / "dumps", track)
-    shutil.rmtree(music)
+    _remove_tree(music)
 
     summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
 
-    assert [failure.reason for failure in summary.failed] == [FailureReason.FILE_MISSING]
+    assert [failure.reason for failure in summary.failed] == [FileFailureReason.FILE_MISSING]
+    assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {ORIGINAL}
+    assert summary.forgotten == ()
+
+
+@pytest.mark.asyncio
+async def test_does_not_report_a_vanished_track_forgotten_when_the_dump_cannot_be_updated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    track = _write(tmp_path / "music", ORIGINAL)
+    dump = _dumped(tmp_path / "dumps", track)
+    track.renamed.unlink()
+    monkeypatch.setattr(rollback, "remove_entries", raising(TagDumpWriteError(tmp_path)))
+
+    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+
+    assert summary.forgotten == ()
     assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {ORIGINAL}
 
 
@@ -331,11 +375,11 @@ def test_targets_the_newest_run_left_to_restore(tmp_path: Path) -> None:
     assert target == RollbackTarget(run_id=RUN, written_at=WRITTEN_AT, folder=music, tracks=2)
 
 
-def test_targets_the_folder_of_the_first_track_without_a_common_one(tmp_path: Path) -> None:
+def test_targets_the_folder_the_dump_records_not_one_deduced_from_the_files(
+    tmp_path: Path,
+) -> None:
     music = tmp_path / "music"
-    first, second = _write(music, "a.mp3"), _write(music, "b.mp3")
-    elsewhere = second.entry.model_copy(update={"path": Path("D:/elsewhere/b.mp3")})
-    _dumped(tmp_path / "dumps", first, second._replace(entry=elsewhere))
+    _dumped(tmp_path / "dumps", _write(music / "sets", "a.mp3"), run_folder=music)
 
     target = find_rollback_target(tmp_path / "dumps")
 

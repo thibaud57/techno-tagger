@@ -13,7 +13,6 @@ from tagger.file_failures import FileFailureReason, file_failure_reason
 from tagger.paths import extended_path
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
 
 # MAX_PATH de l'API Win32, terminateur nul deduit.
@@ -78,10 +77,11 @@ class OriginalNameTakenError(TaggerError):
 def track_file_name(
     artist: str, title: str, suffix: str, room: int, copy: int = 1
 ) -> TrackFileName | None:
-    """Nom `Artiste - Titre.ext` tenant en `room` caracteres, `None` sans artiste ou titre.
+    """Nom `Artiste - Titre.ext` tenant en `room` caracteres, extension et marqueur compris.
 
-    `copy` au-dela de 1 ajoute ` (copy)` avant l'extension. La coupe entame le titre, l'artiste
-    en dernier recours.
+    `None` sans artiste ou titre, et quand l'extension et le marqueur de `copy` (au-dela de 1,
+    ` (copy)` avant l'extension) ne laissent aucune place au nom : un nom hors limite ne se
+    fabrique pas. La coupe entame le titre, l'artiste en dernier recours.
     """
     readable_artist, readable_title = _readable(artist), _readable_title(title)
     if not readable_artist or not readable_title:
@@ -89,8 +89,11 @@ def track_file_name(
 
     marker = f" ({copy})" if copy > 1 else ""
     extension = suffix.lower()
+    available = room - len(extension) - len(marker)
+    if available < 1:
+        return None
+
     stem = f"{readable_artist}{_SEPARATOR}{readable_title}"
-    available = max(room - len(extension) - len(marker), 1)
     if _length(stem) <= available:
         return TrackFileName(f"{stem}{marker}{extension}", truncated=False)
 
@@ -101,46 +104,46 @@ def track_file_name(
     return TrackFileName(f"{cut}{marker}{extension}", truncated=True)
 
 
-def rename_track(
-    path: Path,
-    artist: str | None,
-    title: str | None,
-    before_rename: Callable[[Path], None] | None = None,
-) -> RenamedTrack:
-    """Renomme le fichier dans son dossier ; sans artiste ou titre, il garde son nom.
+@dataclass(frozen=True, slots=True)
+class RenamePlan:
+    """Renommage calcule, pas encore fait : la cible est connue avant que le fichier ne bouge.
 
-    `before_rename(target)` part juste avant l'appel systeme, jamais si le nom est garde : le
-    renommage peut encore echouer ensuite (fichier verrouille), l'appelant doit le gerer.
-    `path` doit etre absolu, la place restante se calcule sur `str(path.parent)`.
+    `source` porte le prefixe `\\\\?\\` que l'OS ouvre, `path` et `target` n'en ont pas.
+    """
+
+    path: Path
+    source: Path
+    target: Path
+    truncated: bool
+
+    def apply(self) -> RenamedTrack:
+        """Renomme le fichier ; echoue (verrou, droits, fichier disparu) sans le deplacer."""
+        try:
+            self.source.rename(self.source.with_name(self.target.name))
+        except OSError as error:
+            raise RenameError(self.path, file_failure_reason(error)) from error
+        return RenamedTrack(self.target, self.truncated)
+
+
+def plan_rename(path: Path, artist: str | None, title: str | None) -> RenamePlan | None:
+    """Cible du renommage, sans rien modifier sur le disque ; `None` quand le fichier garde son nom.
+
+    Il le garde sans artiste ou titre, ou s'il porte deja le nom voulu. `path` doit etre absolu,
+    la place restante se calcule sur `str(path.parent)`.
     """
     if not _readable(artist or "") or not _readable_title(title or ""):
-        return RenamedTrack(path, truncated=False)
+        return None
 
     room = min(MAX_NAME_LENGTH, MAX_PATH_LENGTH - _length(str(path.parent)) - 1)
-    if room <= len(path.suffix):
-        raise RenameError(path, FileFailureReason.PATH_TOO_LONG)
-
     # Dossier resolu une fois : chaque resolution est un appel disque, reseau sur un partage.
     source = extended_path(path)
     try:
-        named = _free_name(source, artist or "", title or "", room)
+        named = _free_name(path, source, artist or "", title or "", room)
     except OSError as error:
         raise RenameError(path, file_failure_reason(error)) from error
     if named is None:
-        return RenamedTrack(path, truncated=False)
-
-    target = path.with_name(named.name)
-    # Le prefixe leve la limite pour l'OS : le marqueur d'une collision peut depasser `room`
-    # quand elle est minuscule, et plus rien ne refuserait le chemin.
-    if _length(str(target)) > MAX_PATH_LENGTH:
-        raise RenameError(path, FileFailureReason.PATH_TOO_LONG)
-    if before_rename is not None:
-        before_rename(target)
-    try:
-        source.rename(source.with_name(named.name))
-    except OSError as error:
-        raise RenameError(path, file_failure_reason(error)) from error
-    return RenamedTrack(target, named.truncated)
+        return None
+    return RenamePlan(path, source, path.with_name(named.name), named.truncated)
 
 
 def restore_name(current: Path, original: Path) -> None:
@@ -152,7 +155,7 @@ def restore_name(current: Path, original: Path) -> None:
     # passerait pour un nom deja rendu.
     if str(current) == str(original):
         return
-    # Prefixes des le controle, comme `rename_track` : au-dela de 259 caracteres, `exists`
+    # Prefixes des le controle, comme `plan_rename` : au-dela de 259 caracteres, `exists`
     # sur le chemin nu ne verrait pas le fichier qui porte le nom.
     source, target = extended_path(current), extended_path(original)
     try:
@@ -163,12 +166,21 @@ def restore_name(current: Path, original: Path) -> None:
         raise RenameError(current, file_failure_reason(error)) from error
 
 
-def _free_name(source: Path, artist: str, title: str, room: int) -> TrackFileName | None:
-    """Premier nom libre au motif, `None` quand le fichier garde le sien."""
+def _free_name(
+    path: Path, source: Path, artist: str, title: str, room: int
+) -> TrackFileName | None:
+    """Premier nom libre au motif, `None` quand le fichier garde le sien.
+
+    Artiste et titre sont lisibles ici : un `None` de `track_file_name` veut dire que le nom
+    ne tient pas dans la place, le marqueur d'une collision pouvant la depasser quand elle
+    est minuscule.
+    """
     copy = 1
     while True:
         named = track_file_name(artist, title, source.suffix, room, copy)
-        if named is None or named.name == source.name:
+        if named is None:
+            raise RenameError(path, FileFailureReason.PATH_TOO_LONG)
+        if named.name == source.name:
             return None
         if not _taken_by_another_file(source.with_name(named.name), source):
             return named

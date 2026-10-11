@@ -35,7 +35,11 @@ async def test_refuses_an_extraction_while_a_run_searches(
         gate.release.set()
         await talk.expect("run_finished", phase="network")
 
-    assert (error["code"], error["command"]) == ("tagging_in_progress", "extract_playlist")
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "tagging"},
+        "extract_playlist",
+    )
 
 
 async def test_refuses_a_run_while_an_extraction_copies(
@@ -51,7 +55,11 @@ async def test_refuses_a_run_while_an_extraction_copies(
         held.release.set()
         await talk.expect("extraction_finished")
 
-    assert (error["code"], error["command"]) == ("extraction_in_progress", "start_tagging")
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "extraction"},
+        "start_tagging",
+    )
 
 
 @pytest.mark.parametrize(
@@ -71,7 +79,11 @@ async def test_refuses_a_write_while_an_extraction_copies(
         held.release.set()
         await talk.expect("extraction_finished")
 
-    assert (error["code"], error["command"]) == ("extraction_in_progress", command)
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "extraction"},
+        command,
+    )
 
 
 async def test_refuses_an_extraction_while_writing(
@@ -88,7 +100,11 @@ async def test_refuses_an_extraction_while_writing(
         held.release.set()
         await talk.expect("run_finished", phase="write")
 
-    assert (error["code"], error["command"]) == ("write_in_progress", "extract_playlist")
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "write"},
+        "extract_playlist",
+    )
 
 
 async def test_refuses_a_rollback_while_an_extraction_copies(
@@ -104,7 +120,11 @@ async def test_refuses_a_rollback_while_an_extraction_copies(
         held.release.set()
         await talk.expect("extraction_finished")
 
-    assert (error["code"], error["command"]) == ("extraction_in_progress", "rollback")
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "extraction"},
+        "rollback",
+    )
 
 
 async def test_refuses_an_extraction_while_rolling_back(
@@ -123,4 +143,8 @@ async def test_refuses_an_extraction_while_rolling_back(
         held.release.set()
         await talk.expect("rollback_finished")
 
-    assert (error["code"], error["command"]) == ("rollback_in_progress", "extract_playlist")
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "rollback"},
+        "extract_playlist",
+    )

@@ -1,4 +1,5 @@
 import type { ExtractionFinishedEvent } from "../../core/models/protocol"
+import { extractionReasonKeys, type ReasonKeys } from "../../shared/utils/reason"
 
 export type ExtractionCategory =
   "extracted" | "already_present" | "missing" | "duplicate" | "failure"
@@ -17,7 +18,7 @@ export interface ExtractionRow {
   /** Pour un doublon : `kept`, `keptSize`, `discarded`, `discardedSizes`, tailles deja mises en forme. */
   readonly detailParams: Record<string, string | number> | null
   /** Motif ou critere a part : une valeur d'enum du sidecar ne se traduit pas en parametre d'interpolation. */
-  readonly reasonKey: string | null
+  readonly reason: ReasonKeys | null
 }
 
 const DETAIL_PREFIX = "playlist.report.detail"
@@ -27,7 +28,7 @@ const plain = (fileName: string, category: ExtractionCategory): ExtractionRow =>
   category,
   detailKey: null,
   detailParams: null,
-  reasonKey: null,
+  reason: null,
 })
 
 export type FormatSize = (bytes: number) => string
@@ -51,7 +52,7 @@ export const toExtractionRows = (
     category: "failure" as const,
     detailKey: null,
     detailParams: null,
-    reasonKey: `playlist.report.reason.${failure.reason}`,
+    reason: extractionReasonKeys(failure.reason),
   })),
   ...result.missing.map((name) => plain(name, "missing")),
   ...result.duplicates.map((duplicate) => ({
@@ -64,7 +65,7 @@ export const toExtractionRows = (
       discarded: duplicate.discarded.map((candidate) => candidate.path).join(", "),
       discardedSizes: duplicate.discarded.map((candidate) => formatSize(candidate.size)).join(", "),
     },
-    reasonKey: `playlist.report.criterion.${duplicate.criterion}`,
+    reason: { cause: `playlist.report.criterion.${duplicate.criterion}`, remedy: null },
   })),
   ...result.already_present.map((name) => plain(name, "already_present")),
   ...result.extracted.map((name) => plain(name, "extracted")),

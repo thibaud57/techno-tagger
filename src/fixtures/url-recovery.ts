@@ -29,6 +29,7 @@ export const resolvedByUrl = (trackId: string): TrackResolvedEvent => ({
   scores: null,
   artwork_path: null,
   tags_after: null,
+  restorable: false,
 })
 
 /** Erreur d'un geste de rattrapage, `track_id` joint par le sidecar. */

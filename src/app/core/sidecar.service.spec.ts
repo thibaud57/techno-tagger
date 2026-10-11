@@ -1,3 +1,4 @@
+import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
@@ -13,10 +14,11 @@ import {
   ROLLBACK_RUN,
   WRITE_FINISHED,
   commandError,
+  phaseBusy,
   rollbackFinished,
   writeProgress,
 } from "../../fixtures/write"
-import { SidecarEvent } from "./models/protocol"
+import { BusyPhase, SidecarEvent } from "./models/protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
 
@@ -55,6 +57,11 @@ class FakeTransport implements SidecarTransport {
     this.handlers?.onLine(line)
   }
 }
+
+const BUSY_PHASES: readonly BusyPhase[] = ["extraction", "tagging", "write", "rollback"]
+
+type LaunchCommand =
+  "extract_playlist" | "start_tagging" | "commit_run" | "retry_write" | "rollback"
 
 const parseLine = (line: string): unknown => JSON.parse(line)
 const commandOf = (line: string): string => (parseLine(line) as { command: string }).command
@@ -569,13 +576,7 @@ describe("SidecarService", () => {
     await service.extractPlaylist(EXTRACTION)
     transport.emit({ event: "progress", phase: "extraction", processed: 1, total: 5 })
 
-    transport.emit({
-      event: "error",
-      code: "extraction_in_progress",
-      params: {},
-      message: "an extraction is already in progress",
-      command: "extract_playlist",
-    })
+    transport.emit(phaseBusy("extract_playlist", "extraction"))
 
     expect(service.extracting()).toBe(true)
     expect(service.progress()).not.toBeNull()
@@ -607,16 +608,11 @@ describe("SidecarService", () => {
 
     // Releve par /verify le 2026-09-24 : le refus porte `start_tagging`, comme l'echec
     // qui clot un run, mais ce code-la dit justement que le premier tourne toujours.
-    transport.emit({
-      event: "error",
-      code: "tagging_in_progress",
-      params: {},
-      message: "a run is already in progress",
-      command: "start_tagging",
-    })
+    transport.emit(phaseBusy("start_tagging", "tagging"))
 
     expect(service.tagging()).toBe(true)
-    expect(service.lastError()?.code).toBe("tagging_in_progress")
+    expect(service.lastError()?.code).toBe("phase_busy")
+    expect(service.lastError()?.params).toEqual({ phase: "tagging" })
   })
 
   it("writes a command as a single newline-terminated line", async () => {
@@ -1000,7 +996,7 @@ describe("SidecarService", () => {
       transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
       await service.retryWrite()
 
-      transport.emit(commandError("retry_write", "write_in_progress"))
+      transport.emit(phaseBusy("retry_write", "write"))
 
       expect(service.writing()).toBe(true)
       expect(service.committed()).toBe(true)
@@ -1040,16 +1036,6 @@ describe("SidecarService", () => {
       expect(service.writeProgress()).toEqual({ processed: 1, total: 1 })
     })
 
-    it("lets the run be confirmed again when the commit is refused during a rollback", async () => {
-      await resolvedRun()
-      await service.commitRun()
-
-      transport.emit(commandError("commit_run", "rollback_in_progress"))
-
-      expect(service.committed()).toBe(false)
-      expect(service.writing()).toBe(false)
-    })
-
     it("sends nothing and keeps the displayed run when asked for the target without an engine", async () => {
       await resolvedRun()
       transport.handlers?.onTerminated()
@@ -1074,19 +1060,6 @@ describe("SidecarService", () => {
       expect(service.taggingTracks()).toHaveLength(2)
       expect(service.writing()).toBe(true)
     })
-
-    it.each(["write_in_progress", "rollback_in_progress"])(
-      "keeps the displayed run when a launch is refused with %s",
-      async (code) => {
-        await searchingRun()
-        transport.emit(TRACK_RESOLVED)
-
-        transport.emit(commandError("start_tagging", code))
-
-        expect(service.tagging()).toBe(true)
-        expect(service.taggingTracks()).toHaveLength(2)
-      },
-    )
 
     it("lets the run be confirmed again when the engine is gone before the commit", async () => {
       await resolvedRun()
@@ -1177,6 +1150,182 @@ describe("SidecarService", () => {
       expect(service.rollbackTarget()).toEqual(ROLLBACK_RUN)
     })
 
+    it("empties the arbitration count once the run is confirmed", async () => {
+      await searchingRun()
+      transport.emit(arbitrationRequired("b.mp3"))
+      transport.emit(TRACK_RESOLVED)
+      transport.emit(NETWORK_FINISHED)
+      const before = service.arbitrationCount()
+
+      await service.commitRun()
+
+      expect(before).toBe(1)
+      expect(service.arbitrationCount()).toBe(0)
+    })
+
+    it("lists no recoverable track once the run is confirmed", async () => {
+      await searchingRun()
+      transport.emit(TRACK_RESOLVED)
+      transport.emit({ ...TRACK_RESOLVED, track_id: "b.mp3", state: "unresolved" })
+      transport.emit(NETWORK_FINISHED)
+      const before = service.recoverableTracks().map((track) => track.trackId)
+
+      await service.commitRun()
+
+      expect(before).toEqual(["b.mp3"])
+      expect(service.recoverableTracks()).toEqual([])
+    })
+
+    it("counts only the tracks whose write failed", async () => {
+      await resolvedRun()
+      transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
+      transport.emit({ ...TRACK_RESOLVED, track_id: "b.mp3", state: "rolled_back" })
+
+      expect(service.writeFailureCount()).toBe(1)
+    })
+
+    describe("phase", () => {
+      it("is idle before any command", async () => {
+        await service.start()
+
+        expect(service.phase()).toBe("idle")
+        expect(service.filesBusy()).toBe(false)
+      })
+
+      it("is extracting from the extraction command", async () => {
+        await service.start()
+
+        await service.extractPlaylist(EXTRACTION)
+
+        expect(service.phase()).toBe("extracting")
+        expect(service.filesBusy()).toBe(false)
+      })
+
+      it("is searching while the run searches", async () => {
+        await searchingRun()
+
+        expect(service.phase()).toBe("searching")
+        expect(service.filesBusy()).toBe(false)
+      })
+
+      it("is writing from the confirmation, and keeps the files busy", async () => {
+        await resolvedRun()
+
+        await service.commitRun()
+
+        expect(service.phase()).toBe("writing")
+        expect(service.filesBusy()).toBe(true)
+      })
+
+      it("is rollingBack during a rollback, ahead of an extraction", async () => {
+        await service.start()
+        await service.extractPlaylist(EXTRACTION)
+
+        await service.rollback("a3f9c1")
+
+        expect(service.phase()).toBe("rollingBack")
+        expect(service.filesBusy()).toBe(true)
+      })
+
+      it("returns to idle once the write is over", async () => {
+        await resolvedRun()
+        await service.commitRun()
+
+        transport.emit(WRITE_FINISHED)
+
+        expect(service.phase()).toBe("idle")
+      })
+    })
+
+    describe("run action", () => {
+      const actionFor = (folder: string) => service.runAction(signal(folder))
+
+      it("proposes to start before any run", async () => {
+        await service.start()
+
+        expect(actionFor("C:/Sets")()).toBe("start")
+      })
+
+      it("proposes to interrupt while the run searches", async () => {
+        await searchingRun()
+
+        expect(actionFor("C:/Sets")()).toBe("cancel")
+      })
+
+      it("proposes to confirm a searched run of the same folder", async () => {
+        await resolvedRun()
+
+        expect(actionFor("C:/Sets")()).toBe("commit")
+      })
+
+      it("proposes to start another folder over a confirmable run", async () => {
+        await resolvedRun()
+
+        expect(actionFor("C:/Other")()).toBe("start")
+      })
+
+      it("compares the folder to the one requested, not to the one the sidecar normalized", async () => {
+        await service.start()
+        await service.startTagging("C:/Musique/Extraction/")
+        transport.emit({ ...RUN_STARTED, folder: "C:\\Musique\\Extraction" })
+        transport.emit(TRACK_RESOLVED)
+        transport.emit(NETWORK_FINISHED)
+
+        expect(service.taggingFolder()).toBe("C:\\Musique\\Extraction")
+        expect(actionFor("C:/Musique/Extraction/")()).toBe("commit")
+      })
+
+      it("proposes to start the same folder again when the run cannot be confirmed", async () => {
+        await searchingRun()
+        transport.emit({ ...TRACK_RESOLVED, state: "unresolved" })
+        transport.emit(NETWORK_FINISHED)
+
+        expect(actionFor("C:/Sets")()).toBe("start")
+      })
+
+      it("keeps the confirmation while the first write runs", async () => {
+        await resolvedRun()
+
+        await service.commitRun()
+
+        expect(actionFor("C:/Sets")()).toBe("commit")
+      })
+
+      it("proposes the retry once a write left failures, and while it runs", async () => {
+        await resolvedRun()
+        await service.commitRun()
+        transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
+        transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+        const action = actionFor("C:/Sets")
+        const settled = action()
+
+        await service.retryWrite()
+
+        expect(settled).toBe("retry")
+        expect(action()).toBe("retry")
+      })
+
+      it("proposes to start again once a write left no failure", async () => {
+        await resolvedRun()
+        await service.commitRun()
+        transport.emit({ ...TRACK_RESOLVED, state: "written" })
+        transport.emit(WRITE_FINISHED)
+
+        expect(actionFor("C:/Sets")()).toBe("start")
+      })
+
+      it("proposes to start again when the written run was lost with its engine", async () => {
+        await resolvedRun()
+        await service.commitRun()
+        transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
+        transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+
+        transport.handlers?.onTerminated()
+
+        expect(actionFor("C:/Sets")()).toBe("start")
+      })
+    })
+
     it("replays a track rollback and asks for the target again", async () => {
       await resolvedRun()
       await service.commitRun()
@@ -1202,7 +1351,7 @@ describe("SidecarService", () => {
     it("rolls back the shown rows from a summary sent by a new engine", async () => {
       await resolvedRun()
       await service.commitRun()
-      transport.emit({ ...TRACK_RESOLVED, state: "written" })
+      transport.emit({ ...TRACK_RESOLVED, state: "written", restorable: true })
       transport.emit(WRITE_FINISHED)
       transport.handlers?.onTerminated()
       await service.rollback("a3f9c1")
@@ -1210,7 +1359,20 @@ describe("SidecarService", () => {
       transport.emit(rollbackFinished())
 
       expect(service.taggingTracks()[0]?.state).toBe("rolled_back")
+      expect(service.taggingTracks()[0]?.restorable).toBe(false)
     })
+
+    it.each([true, false])(
+      "carries the restorable flag of a written row (%s)",
+      async (restorable) => {
+        await resolvedRun()
+        await service.commitRun()
+
+        transport.emit({ ...TRACK_RESOLVED, state: "write_error", restorable })
+
+        expect(service.taggingTracks()[0]?.restorable).toBe(restorable)
+      },
+    )
 
     it("exposes the rollback target once asked", async () => {
       await service.start()
@@ -1234,14 +1396,98 @@ describe("SidecarService", () => {
       expect(service.errorFor("rollback")()?.code).toBe("rollback_unavailable")
     })
 
-    it("keeps the rollback in flight when another one is already running", async () => {
-      await service.start()
-      await service.rollback("a3f9c1")
+    /** Etat optimiste que chaque lancement pose a l'envoi, et celui qui reste une fois le refus recu. */
+    const LAUNCHES: readonly {
+      readonly command: LaunchCommand
+      readonly own: BusyPhase
+      readonly launch: () => Promise<void>
+      readonly observe: () => unknown
+      readonly sent: unknown
+      readonly refused: unknown
+    }[] = [
+      {
+        command: "extract_playlist",
+        own: "extraction",
+        launch: async () => {
+          await service.start()
+          await service.extractPlaylist(EXTRACTION)
+        },
+        observe: () => ({ extracting: service.extracting() }),
+        sent: { extracting: true },
+        refused: { extracting: false },
+      },
+      {
+        command: "start_tagging",
+        own: "tagging",
+        launch: searchingRun,
+        // Les lignes affichees restent : seul l'etat « en cours » du lancement retombe.
+        observe: () => ({ tagging: service.tagging(), shown: service.taggingTracks().length > 0 }),
+        sent: { tagging: true, shown: true },
+        refused: { tagging: false, shown: true },
+      },
+      {
+        command: "commit_run",
+        own: "write",
+        launch: async () => {
+          await resolvedRun()
+          await service.commitRun()
+        },
+        observe: () => ({ writing: service.writing(), committed: service.committed() }),
+        sent: { writing: true, committed: true },
+        refused: { writing: false, committed: false },
+      },
+      {
+        command: "retry_write",
+        own: "write",
+        launch: async () => {
+          await resolvedRun()
+          await service.commitRun()
+          transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+          await service.retryWrite()
+        },
+        observe: () => ({ writing: service.writing(), committed: service.committed() }),
+        sent: { writing: true, committed: true },
+        refused: { writing: false, committed: true },
+      },
+      {
+        command: "rollback",
+        own: "rollback",
+        launch: async () => {
+          await service.start()
+          await service.rollback("a3f9c1")
+        },
+        observe: () => ({ rollingBack: service.rollingBack() }),
+        sent: { rollingBack: { runId: "a3f9c1", trackId: null } },
+        refused: { rollingBack: null },
+      },
+    ]
 
-      transport.emit(commandError("rollback", "rollback_in_progress"))
+    it.each(LAUNCHES)(
+      "keeps the state set by $command when the refusal names its own phase",
+      async ({ command, own, launch, observe, sent }) => {
+        await launch()
 
-      expect(service.rollingBack()).toEqual({ runId: "a3f9c1", trackId: null })
-    })
+        transport.emit(phaseBusy(command, own))
+
+        expect(observe()).toEqual(sent)
+      },
+    )
+
+    it.each(
+      LAUNCHES.flatMap((launch) =>
+        BUSY_PHASES.filter((phase) => phase !== launch.own).map((phase) => ({ ...launch, phase })),
+      ),
+    )(
+      "undoes the state set by $command when it is refused for a busy $phase",
+      async ({ command, phase, launch, observe, refused }) => {
+        await launch()
+
+        transport.emit(phaseBusy(command, phase))
+
+        expect(observe()).toEqual(refused)
+        expect(service.lastError()?.params).toEqual({ phase })
+      },
+    )
 
     it("ignores a launch while a rollback runs", async () => {
       await resolvedRun()

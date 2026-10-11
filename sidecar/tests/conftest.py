@@ -12,7 +12,7 @@ au `pythonpath` de la configuration pytest.
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import httpx2
 import keyring
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from tagger.extraction import ExtractionResult
     from tagger.reports import ReportContext
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES: Final = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture

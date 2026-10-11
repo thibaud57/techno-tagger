@@ -43,6 +43,7 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
   scores: { artist: 96, title: 92, average: 94 },
   artwork_path: "C:/AppData/cache/artworks/abc.jpg",
   tags_after: null,
+  restorable: false,
 }
 
 /** Ligne du run avant resolution, le premier morceau de `RUN_STARTED`. Un test pose son etat par spread. */
@@ -61,6 +62,7 @@ export const PENDING_TRACK: TaggingTrack = {
   tagsBefore: null,
   tagsAfter: null,
   arbitration: null,
+  restorable: false,
 }
 
 /** Ligne resolue d'office, sans detail de candidat : un test pose ses ecarts par spread. */

@@ -21,9 +21,14 @@ const mount = (failures: readonly RollbackFailure[]) => {
     rollback: {
       failures: "not restored {{count}}",
       failure: "{{file}} = {{reason}}",
-      reason: { name_taken: "taken", file_locked: "restore again" },
+      reason: { name_taken: "taken" },
     },
-    tagging: { reason: { file_locked: "retry the write" } },
+    reason: {
+      file_locked: "locked",
+      write_failed: "not written",
+      fix: { file_locked: "Close it, then {{retry}}." },
+      retry: { rollback: "restore again", write: "retry the write" },
+    },
   })
   translate.use("en")
   const fixture = TestBed.createComponent(RollbackFailuresComponent)
@@ -43,13 +48,22 @@ describe("RollbackFailuresComponent", () => {
     expect(text).toContain("Lior Vance - Dim Orbit.mp3 = taken")
   })
 
-  it("words the reason for a restore, not for a write", () => {
+  it("composes a shared file reason with the gesture to restore again", () => {
     const root = mount([{ ...TAKEN, reason: "file_locked" }])
 
     const text = root.querySelector("[data-rollback-failures]")?.textContent ?? ""
 
-    expect(text).toContain("= restore again")
+    expect(text).toContain("= locked\nClose it, then restore again.")
     expect(text).not.toContain("retry the write")
+  })
+
+  it("gives a shared reason without a gesture its cause alone", () => {
+    const root = mount([{ ...TAKEN, reason: "write_failed" }])
+
+    const text = root.querySelector("[data-rollback-failures]")?.textContent ?? ""
+
+    expect(text).toContain("= not written")
+    expect(text).not.toContain("then")
   })
 
   it("renders nothing without failure", () => {

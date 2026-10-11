@@ -4,7 +4,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from scraper_responses import (
@@ -65,8 +65,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-BEATPORT_URL = "https://www.beatport.com/track/dim-orbit/99000202"
-ON_BEATPORT = track_payload(id="99000202")
+BEATPORT_URL: Final = "https://www.beatport.com/track/dim-orbit/99000202"
+ON_BEATPORT: Final = track_payload(id="99000202")
 
 
 @asynccontextmanager
@@ -293,7 +293,7 @@ async def test_releases_the_track_when_the_gesture_is_cancelled(tmp_path: Path) 
     assert after.resolution is Resolution.URL
 
 
-ARTWORK = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
+ARTWORK: Final = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
 
 
 @pytest.mark.parametrize(

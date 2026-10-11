@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, linkedSignal } from "@angular/core"
+import { Component, computed, inject } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { Badge } from "primeng/badge"
 import { ButtonDirective } from "primeng/button"
@@ -42,11 +42,9 @@ export class UrlRecoveryDialogComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly recovery = inject(RecoveryUiStore)
 
-  /** Repart du morceau demande a chaque ouverture ; la navigation le deplace ensuite. */
-  private readonly shownId = linkedSignal(() => this.recovery.target())
   private readonly tracks = this.sidecar.recoverableTracks
   private readonly index = computed(() =>
-    this.tracks().findIndex((track) => track.trackId === this.shownId()),
+    this.tracks().findIndex((track) => track.trackId === this.recovery.target()),
   )
 
   protected readonly noMotion = NO_MOTION
@@ -57,9 +55,7 @@ export class UrlRecoveryDialogComponent {
   protected readonly count = computed(() => this.tracks().length)
   protected readonly hasPrevious = computed(() => this.index() > 0)
   protected readonly hasNext = computed(() => this.index() >= 0 && this.index() < this.count() - 1)
-  protected readonly visible = computed(
-    () => this.recovery.target() !== null && this.track() !== null,
-  )
+  protected readonly visible = computed(() => this.track() !== null)
   protected readonly title = computed(() => {
     const track = this.track()
     return track === null ? null : trackMainLine(track.artist, track.title, track.fileName)
@@ -68,15 +64,6 @@ export class UrlRecoveryDialogComponent {
     const track = this.track()
     return track?.resolution === "url" ? track.source : null
   })
-
-  constructor() {
-    // Le run suivant remplace les morceaux : un morceau qui n'est plus rattrapable ferme la modale.
-    effect(() => {
-      if (this.recovery.target() !== null && this.track() === null) {
-        this.recovery.close()
-      }
-    })
-  }
 
   protected onVisibleChange(visible: boolean): void {
     if (!visible) {
@@ -121,7 +108,7 @@ export class UrlRecoveryDialogComponent {
   private step(offset: number): void {
     const target = this.tracks()[this.index() + offset]
     if (target !== undefined) {
-      this.shownId.set(target.trackId)
+      this.recovery.open(target.trackId)
     }
   }
 }

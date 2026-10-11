@@ -10,7 +10,7 @@ import json
 import queue
 import threading
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, Final, override
 
 from tagger.__main__ import run_loop
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     import pytest
 
 # Borne de chaque attente : un evenement qui n'arrive pas echoue au lieu de geler la suite.
-EXPECT_TIMEOUT = 10
+EXPECT_TIMEOUT: Final = 10
 
 
 def start_tagging(folder: Path, **payload: object) -> str:

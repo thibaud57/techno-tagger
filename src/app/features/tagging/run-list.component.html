@@ -116,7 +116,7 @@
             <!-- Meme motif que le rapport d'extraction : le motif du non resolu au survol. -->
             <span
               class="inline-flex items-center gap-2"
-              [pTooltip]="track.reasonKey ? (track.reasonKey | translate) : undefined"
+              [pTooltip]="(track.reason | reasonText | async) || undefined"
               [tooltipOptions]="WIDE_TOOLTIP"
             >
               <app-state-tag
@@ -125,7 +125,7 @@
                 [awaiting]="track.arbitrable"
                 [interrupted]="settled()"
               />
-              @if (track.reasonKey) {
+              @if (track.reason) {
                 <app-icon class="text-muted-color" name="info-circle" [size]="16" />
               }
             </span>

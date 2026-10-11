@@ -30,7 +30,7 @@ export class CloseGuard {
     if (this.sidecar.tagging()) {
       work.push({ kind: "tagging" })
     }
-    const count = this.sidecar.pendingArbitrationCount()
+    const count = this.sidecar.arbitrationCount()
     if (count > 0) {
       work.push({ kind: "arbitration", count })
     }

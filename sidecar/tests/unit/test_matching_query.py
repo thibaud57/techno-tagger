@@ -1,10 +1,12 @@
 """Tests de la construction de la requete : nettoyage, gardes, repli."""
 
+from typing import Final
+
 import pytest
 
 from tagger.matching import QueryOrigin, TrackQuery, build_query
 
-GUARD_WORDS = [
+GUARD_WORDS: Final = [
     "mix",
     "remix",
     "edit",
@@ -26,8 +28,8 @@ GUARD_WORDS = [
     "intro",
     "outro",
 ]
-INFLECTED_GUARD_WORDS = ["remastered", "reworked", "remixed", "edited", "tools", "edits"]
-COLLABORATION_WORDS = ["feat.", "ft.", "featuring", "with", "pres.", "vs."]
+INFLECTED_GUARD_WORDS: Final = ["remastered", "reworked", "remixed", "edited", "tools", "edits"]
+COLLABORATION_WORDS: Final = ["feat.", "ft.", "featuring", "with", "pres.", "vs."]
 
 
 def _title(title: str) -> str:

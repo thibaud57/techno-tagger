@@ -13,24 +13,25 @@ from typing import TYPE_CHECKING, override
 
 import sentry_sdk
 
-from tagger.file_failures import FileFailureReason, file_failure_reason
+from tagger.file_failures import FileFailureReason
 from tagger.files import (
     OriginalTags,
     TagField,
     TagsUnreadableError,
     TagsWriteError,
-    UnreadableReason,
     project_tags,
     read_original_tags,
     write_tags,
 )
-from tagger.renaming import RenameError, rename_track
+from tagger.renaming import RenamedTrack, RenameError, plan_rename
 from tagger.tag_dump import (
     DumpEntry,
     TagDump,
     TagDumpError,
+    TagDumpWriteError,
     dump_on_disk,
     record_renamed_path,
+    rewrite_dump,
     save_entries,
 )
 from tagger.tagging import TrackResolved, TrackState, WriteOutcome
@@ -50,14 +51,6 @@ class WriteProgress:
 
     processed: int
     total: int
-
-
-@dataclass(frozen=True, slots=True)
-class WriteSummary:
-    """Bilan d'une phase d'ecriture ou de sa relance."""
-
-    written: int
-    failed: int
 
 
 type WriteEvent = TrackResolved | WriteProgress
@@ -81,37 +74,38 @@ class RunWriter:
         self._live = live
         self._dump_folder = dump_folder
         self._on_event = on_event
-        self._dump = TagDump(run_id=live.run_id, created_at=now())
+        self._dump = TagDump(run_id=live.run_id, created_at=now(), folder=live.folder)
 
     @override
     def __repr__(self) -> str:
         return f"RunWriter(run_id={self._live.run_id!r}, dumped={len(self._dump.entries)})"
 
-    async def write(self) -> WriteSummary:
+    async def write(self) -> None:
         """Ecrit les morceaux resolus ; non resolus et attentes d'arbitrage restent intacts."""
-        return await self._apply(TrackState.RESOLVED)
+        await self._apply(TrackState.RESOLVED)
 
-    async def retry(self) -> WriteSummary:
+    async def retry(self) -> None:
         """Rejoue les seuls echecs d'ecriture, sans refaire ni reseau ni arbitrage."""
-        return await self._apply(TrackState.WRITE_ERROR)
+        await self._apply(TrackState.WRITE_ERROR)
 
-    async def _apply(self, state: TrackState) -> WriteSummary:
+    async def _apply(self, state: TrackState) -> None:
         targets = [record for record in self._live.snapshot().tracks if record.state is state]
         logger.info("write phase started run=%s", self._live.run_id)
 
         unreadable = await self._dump_originals(targets)
-        settled: list[TrackRecord] = []
+        processed = 0
         for record in unreadable:
-            self._settle(record, settled, len(targets))
+            processed += 1
+            self._settle(record, processed, len(targets))
         unreadable_ids = {record.track_id for record in unreadable}
         for record in targets:
             if record.track_id not in unreadable_ids:
                 written = await asyncio.to_thread(self._write_one, record)
-                self._settle(written, settled, len(targets))
+                processed += 1
+                self._settle(written, processed, len(targets))
 
+        await asyncio.to_thread(self._rewrite_dump)
         logger.info("write phase finished run=%s", self._live.run_id)
-        written_count = sum(1 for record in settled if record.state is TrackState.WRITTEN)
-        return WriteSummary(written=written_count, failed=len(settled) - written_count)
 
     async def _dump_originals(self, targets: Sequence[TrackRecord]) -> list[TrackRecord]:
         """Lit et enregistre l'origine des morceaux absents du dump, avant tout fichier.
@@ -134,7 +128,7 @@ class RunWriter:
                 case OriginalTags():
                     entries[record.track_id] = DumpEntry.of(record.path, read)
                 case TagsUnreadableError():
-                    failed.append(record.write_failed(_unreadable_reason(read)))
+                    failed.append(record.write_failed(read.reason, restorable=False))
                 case Exception():
                     # Hors `TagsUnreadableError` : mutagen laisse passer `struct.error` ou
                     # `ValueError` sur un fichier corrompu, un seul morceau ne coupe pas la phase.
@@ -146,7 +140,9 @@ class RunWriter:
                     )
                     # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
                     sentry_sdk.capture_exception(read)
-                    failed.append(record.write_failed(FileFailureReason.WRITE_FAILED))
+                    failed.append(
+                        record.write_failed(FileFailureReason.WRITE_FAILED, restorable=False)
+                    )
                 case _:
                     raise read
         if entries:
@@ -162,16 +158,15 @@ class RunWriter:
         values = project_tags(candidate)
         noted = False
 
-        def note(target: Path) -> None:
-            nonlocal noted
-            self._note_rename(record, target)
-            noted = True
-
         try:
             written = write_tags(record.path, values, record.artwork)
-            renamed = rename_track(
-                record.path, values.get(TagField.ARTIST), values.get(TagField.TITLE), note
-            )
+            plan = plan_rename(record.path, values.get(TagField.ARTIST), values.get(TagField.TITLE))
+            if plan is None:
+                renamed = RenamedTrack(record.path, truncated=False)
+            else:
+                self._note_rename(record, plan.target)
+                noted = True
+                renamed = plan.apply()
         except (TagsWriteError, RenameError) as error:
             return self._failed(record, error.reason, noted=noted)
         except Exception as error:
@@ -186,8 +181,15 @@ class RunWriter:
             # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
             sentry_sdk.capture_exception(error)
             return self._failed(record, FileFailureReason.WRITE_FAILED, noted=noted)
-        outcome = WriteOutcome(written.fields, written.artwork, renamed.truncated)
+        outcome = WriteOutcome(written, renamed.truncated)
         return record.written_to(renamed.path, outcome)
+
+    def _rewrite_dump(self) -> None:
+        """Reecrit le dump une fois la phase finie ; un echec laisse le journal, qui fait foi."""
+        try:
+            rewrite_dump(self._dump_folder, self._dump)
+        except TagDumpWriteError:
+            logger.warning("tag dump not rewritten run=%s reason=journal_kept", self._live.run_id)
 
     def _note_rename(self, record: TrackRecord, target: Path) -> None:
         """Note le chemin cible au dump avant que le fichier ne bouge.
@@ -225,9 +227,10 @@ class RunWriter:
                     self._live.run_id,
                     self._live.position(record.track_id),
                 )
-        return record.write_failed(reason)
+        # L'origine est au dump : `_write_one` ne tourne que pour les morceaux qui y sont.
+        return record.write_failed(reason, restorable=True)
 
-    def _settle(self, record: TrackRecord, settled: list[TrackRecord], total: int) -> None:
+    def _settle(self, record: TrackRecord, processed: int, total: int) -> None:
         self._live.update(record)
         if record.state is TrackState.WRITE_ERROR:
             logger.error(
@@ -236,21 +239,5 @@ class RunWriter:
                 self._live.position(record.track_id),
                 record.failure_reason,
             )
-        settled.append(record)
         self._on_event(TrackResolved(record))
-        self._on_event(WriteProgress(len(settled), total))
-
-
-def _unreadable_reason(error: TagsUnreadableError) -> FileFailureReason:
-    """Motif d'une lecture en echec.
-
-    `LOCKED` prime : un verrou est un `PermissionError` sans `winerror`, lu comme un refus.
-    """
-    if error.reason is UnreadableReason.LOCKED:
-        return FileFailureReason.FILE_LOCKED
-    cause = error.__cause__
-    while cause is not None and not isinstance(cause, OSError):
-        cause = cause.__cause__
-    if isinstance(cause, OSError):
-        return file_failure_reason(cause)
-    return FileFailureReason.WRITE_FAILED
+        self._on_event(WriteProgress(processed, total))

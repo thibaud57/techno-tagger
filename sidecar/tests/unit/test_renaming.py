@@ -1,10 +1,12 @@
 """Tests du renommage d'un fichier ecrit, calcul du nom puis application sur le disque."""
 
 from pathlib import Path
+from typing import Final
 
 import pytest
 from audio_samples import held_open
 from path_limits import folder_leaving
+from rename_samples import rename_now
 
 from tagger.file_failures import FileFailureReason
 from tagger.renaming import (
@@ -13,21 +15,21 @@ from tagger.renaming import (
     RenamedTrack,
     RenameError,
     TrackFileName,
-    rename_track,
+    plan_rename,
     restore_name,
     track_file_name,
 )
 
-ARTIST = "Lior Vance"
-TITLE = "Dim Orbit (Extended Mix)"
-TARGET = "Lior Vance - Dim Orbit (Extended Mix).mp3"
-ORIGINAL = "01 - untitled.mp3"
-LONG_TITLE = "Dim Orbit (Kaelen Mirandor Extended Remix)"
+ARTIST: Final = "Lior Vance"
+TITLE: Final = "Dim Orbit (Extended Mix)"
+TARGET: Final = "Lior Vance - Dim Orbit (Extended Mix).mp3"
+ORIGINAL: Final = "01 - untitled.mp3"
+LONG_TITLE: Final = "Dim Orbit (Kaelen Mirandor Extended Remix)"
 # Hors du plan multilingue de base : deux unites UTF-16, comme NTFS et MAX_PATH le comptent.
-FIRE = "🔥"
-EXTENDED_PREFIX = "\\\\?\\"
+FIRE: Final = "🔥"
+EXTENDED_PREFIX: Final = "\\\\?\\"
 # Un dossier de 300 caracteres ne laisse aucune place au nom.
-NO_ROOM_PATH = Path("C:/") / ("x" * 300) / "track.mp3"
+NO_ROOM_PATH: Final = Path("C:/") / ("x" * 300) / "track.mp3"
 
 
 def _file(folder: Path, name: str, content: bytes = b"audio") -> Path:
@@ -126,17 +128,41 @@ def test_names_nothing_without_an_artist_and_a_title(artist: str, title: str) ->
     assert named is None
 
 
-def test_renames_the_file_in_its_folder_announcing_the_target_first(tmp_path: Path) -> None:
-    path = _file(tmp_path, "lior vance - dim orbit.MP3")
-    announced: list[tuple[Path, bool]] = []
+@pytest.mark.parametrize(
+    ("room", "copy"),
+    [(4, 1), (3, 1), (8, 2), (5, 2)],
+    ids=[
+        "extension-fills-the-room",
+        "extension-overflows",
+        "marker-fills-the-room",
+        "marker-overflows",
+    ],
+)
+def test_names_nothing_when_the_extension_and_the_marker_leave_no_room(
+    room: int, copy: int
+) -> None:
+    named = track_file_name(ARTIST, TITLE, ".mp3", room=room, copy=copy)
 
-    renamed = rename_track(
-        path, ARTIST, TITLE, lambda target: announced.append((target, path.is_file()))
-    )
+    assert named is None
+
+
+def test_plans_the_target_without_touching_the_disk(tmp_path: Path) -> None:
+    path = _file(tmp_path, "lior vance - dim orbit.MP3")
+
+    plan = plan_rename(path, ARTIST, TITLE)
+
+    assert plan is not None
+    assert (plan.target, plan.truncated) == (tmp_path / TARGET, False)
+    assert [entry.name for entry in tmp_path.iterdir()] == [path.name]
+
+
+def test_renames_the_file_in_its_folder_when_the_plan_is_applied(tmp_path: Path) -> None:
+    path = _file(tmp_path, "lior vance - dim orbit.MP3")
+
+    renamed = rename_now(path, ARTIST, TITLE)
 
     assert renamed == RenamedTrack(tmp_path / TARGET, truncated=False)
     assert [entry.name for entry in tmp_path.iterdir()] == [TARGET]
-    assert announced == [(tmp_path / TARGET, True)]
 
 
 def test_leaves_a_correctly_named_file_alone(
@@ -144,20 +170,18 @@ def test_leaves_a_correctly_named_file_alone(
 ) -> None:
     path = _file(tmp_path, TARGET)
     renames: list[Path] = []
-    announced: list[Path] = []
     monkeypatch.setattr(Path, "rename", lambda source, _target: renames.append(source))
 
-    renamed = rename_track(path, ARTIST, TITLE, announced.append)
+    plan = plan_rename(path, ARTIST, TITLE)
 
-    assert renamed == RenamedTrack(path, truncated=False)
+    assert plan is None
     assert renames == []
-    assert announced == []
 
 
 def test_fixes_the_case_without_a_copy_marker(tmp_path: Path) -> None:
     path = _file(tmp_path, "lior vance - dim orbit (extended mix).mp3")
 
-    renamed = rename_track(path, ARTIST, TITLE)
+    renamed = rename_now(path, ARTIST, TITLE)
 
     assert renamed.path == tmp_path / TARGET
     assert [entry.name for entry in tmp_path.iterdir()] == [TARGET]
@@ -168,18 +192,12 @@ def test_adds_a_copy_marker_on_collision(tmp_path: Path) -> None:
     second = _file(tmp_path, "second.mp3")
     third = _file(tmp_path, "third.mp3")
 
-    announced: list[Path] = []
-
-    renamed = [
-        rename_track(second, ARTIST, TITLE, announced.append),
-        rename_track(third, ARTIST, TITLE, announced.append),
-    ]
+    renamed = [rename_now(second, ARTIST, TITLE), rename_now(third, ARTIST, TITLE)]
 
     assert [track.path.name for track in renamed] == [
         "Lior Vance - Dim Orbit (Extended Mix) (2).mp3",
         "Lior Vance - Dim Orbit (Extended Mix) (3).mp3",
     ]
-    assert announced == [track.path for track in renamed]
     assert (tmp_path / TARGET).read_bytes() == b"existing"
 
 
@@ -190,7 +208,7 @@ def test_renames_through_the_extended_path(tmp_path: Path, monkeypatch: pytest.M
         Path, "rename", lambda source, target: calls.append((str(source), str(target)))
     )
 
-    renamed = rename_track(path, ARTIST, TITLE)
+    renamed = rename_now(path, ARTIST, TITLE)
 
     assert len(calls) == 1
     assert all(argument.startswith(EXTENDED_PREFIX) for argument in calls[0])
@@ -201,7 +219,7 @@ def test_cuts_a_name_that_would_exceed_the_path_limit(tmp_path: Path) -> None:
     folder = folder_leaving(tmp_path, room=40)
     path = _file(folder, "track.mp3")
 
-    renamed = rename_track(path, ARTIST, LONG_TITLE)
+    renamed = rename_now(path, ARTIST, LONG_TITLE)
 
     assert renamed.truncated
     assert len(renamed.path.name) == 40
@@ -211,9 +229,9 @@ def test_cuts_a_name_that_would_exceed_the_path_limit(tmp_path: Path) -> None:
 
 def test_keeps_the_copy_marker_within_the_path_limit(tmp_path: Path) -> None:
     folder = folder_leaving(tmp_path, room=40)
-    rename_track(_file(folder, "first.mp3"), ARTIST, LONG_TITLE)
+    rename_now(_file(folder, "first.mp3"), ARTIST, LONG_TITLE)
 
-    renamed = rename_track(_file(folder, "second.mp3"), ARTIST, LONG_TITLE)
+    renamed = rename_now(_file(folder, "second.mp3"), ARTIST, LONG_TITLE)
 
     assert renamed.path.name.endswith(" (2).mp3")
     assert len(str(renamed.path)) <= MAX_PATH_LENGTH
@@ -229,32 +247,32 @@ def test_keeps_the_name_without_an_artist_or_a_title(
 ) -> None:
     path = _file(tmp_path, "rip_0042.wav")
 
-    renamed = rename_track(path, artist, title)
+    plan = plan_rename(path, artist, title)
 
-    assert renamed == RenamedTrack(path, truncated=False)
+    assert plan is None
     assert path.is_file()
 
 
 def test_keeps_the_name_without_an_artist_even_when_the_folder_leaves_no_room() -> None:
-    renamed = rename_track(NO_ROOM_PATH, None, "Mothlight")
+    plan = plan_rename(NO_ROOM_PATH, None, "Mothlight")
 
-    assert renamed == RenamedTrack(NO_ROOM_PATH, truncated=False)
+    assert plan is None
 
 
 def test_raises_path_too_long_when_the_folder_leaves_no_room() -> None:
     with pytest.raises(RenameError, match="file not renamed") as error:
-        rename_track(NO_ROOM_PATH, ARTIST, TITLE)
+        plan_rename(NO_ROOM_PATH, ARTIST, TITLE)
 
     assert error.value.reason is FileFailureReason.PATH_TOO_LONG
 
 
 def test_raises_path_too_long_when_the_copy_marker_overflows_a_tiny_room(tmp_path: Path) -> None:
     folder = folder_leaving(tmp_path, room=6)
-    rename_track(_file(folder, "first.mp3"), ARTIST, TITLE)
+    rename_now(_file(folder, "first.mp3"), ARTIST, TITLE)
     second = _file(folder, "second.mp3")
 
     with pytest.raises(RenameError) as error:
-        rename_track(second, ARTIST, TITLE)
+        plan_rename(second, ARTIST, TITLE)
 
     assert error.value.reason is FileFailureReason.PATH_TOO_LONG
     assert second.is_file()
@@ -263,8 +281,11 @@ def test_raises_path_too_long_when_the_copy_marker_overflows_a_tiny_room(tmp_pat
 def test_raises_file_locked_and_keeps_the_name_of_a_held_file(tmp_path: Path) -> None:
     path = _file(tmp_path, "track.mp3")
 
+    plan = plan_rename(path, ARTIST, TITLE)
+    assert plan is not None
+
     with held_open(path), pytest.raises(RenameError) as error:
-        rename_track(path, ARTIST, TITLE)
+        plan.apply()
 
     assert error.value.params == {"file": "track.mp3", "reason": FileFailureReason.FILE_LOCKED}
     assert [entry.name for entry in tmp_path.iterdir()] == ["track.mp3"]
@@ -278,7 +299,7 @@ def test_raises_file_missing_for_a_vanished_file(tmp_path: Path, target_exists: 
     path = tmp_path / "gone.mp3"
 
     with pytest.raises(RenameError) as error:
-        rename_track(path, ARTIST, TITLE)
+        rename_now(path, ARTIST, TITLE)
 
     assert error.value.reason is FileFailureReason.FILE_MISSING
 
@@ -286,12 +307,10 @@ def test_raises_file_missing_for_a_vanished_file(tmp_path: Path, target_exists: 
 def test_keeps_a_name_already_suffixed_by_a_previous_run(tmp_path: Path) -> None:
     _file(tmp_path, TARGET)
     path = _file(tmp_path, "Lior Vance - Dim Orbit (Extended Mix) (2).mp3")
-    announced: list[Path] = []
 
-    renamed = rename_track(path, ARTIST, TITLE, announced.append)
+    plan = plan_rename(path, ARTIST, TITLE)
 
-    assert renamed == RenamedTrack(path, truncated=False)
-    assert announced == []
+    assert plan is None
 
 
 def test_gives_the_file_back_its_original_name(tmp_path: Path) -> None:

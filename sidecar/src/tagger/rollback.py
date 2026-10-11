@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from tagger.errors import TaggerError
+from tagger.file_failures import FileFailureReason
 from tagger.files import TagsWriteError, restore_tags
 from tagger.paths import extended_path
 from tagger.renaming import OriginalNameTakenError, RenameError, restore_name
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from tagger.tag_dump import DumpEntry, TagDump
+    from tagger.tagging import TrackFailureReason
 
 logger = logging.getLogger(__name__)
 
@@ -49,16 +51,20 @@ class RollbackFailure:
 
     track_id: str
     file_name: str
-    reason: FailureReason
+    reason: TrackFailureReason
 
 
 @dataclass(frozen=True, slots=True)
 class RollbackSummary:
-    """Bilan d'un rollback ; un echec reste dans le dump, sauf `file_missing` (cf. `_forget`)."""
+    """Bilan d'un rollback ; un echec reste dans le dump, sauf `file_missing` (cf. `_forget`).
+
+    `forgotten` : morceaux en `file_missing` effectivement retires du dump, sans restauration.
+    """
 
     run_id: str
     restored: tuple[str, ...]
     failed: tuple[RollbackFailure, ...]
+    forgotten: tuple[str, ...] = ()
 
 
 class RollbackUnavailableError(TaggerError):
@@ -82,7 +88,7 @@ def find_rollback_target(folder: Path) -> RollbackTarget | None:
             return RollbackTarget(
                 run_id=dump.run_id,
                 written_at=dump.created_at,
-                folder=_common_folder(dump),
+                folder=dump.folder,
                 tracks=len(dump.entries),
             )
     return None
@@ -110,9 +116,9 @@ async def roll_back(
         else:
             logger.error("rollback failed run=%s reason=%s", run_id, failure.reason)
             failed.append(failure)
-    await asyncio.to_thread(_forget, folder, dump, restored, failed)
+    forgotten = await asyncio.to_thread(_forget, folder, dump, restored, failed)
     logger.info("rollback finished run=%s", run_id)
-    return RollbackSummary(run_id, tuple(restored), tuple(failed))
+    return RollbackSummary(run_id, tuple(restored), tuple(failed), forgotten)
 
 
 def _load_run(folder: Path, run_id: str) -> TagDump:
@@ -135,17 +141,17 @@ def _restore_one(track_id: str, entry: DumpEntry) -> RollbackFailure | None:
     current = _located(entry)
     if current is None:
         missing = entry.renamed_path or entry.path
-        return RollbackFailure(track_id, missing.name, FailureReason.FILE_MISSING)
+        return RollbackFailure(track_id, missing.name, FileFailureReason.FILE_MISSING)
     try:
         restore_name(current, entry.path)
     except OriginalNameTakenError:
         return RollbackFailure(track_id, current.name, FailureReason.NAME_TAKEN)
     except RenameError as error:
-        return RollbackFailure(track_id, current.name, FailureReason.from_file(error.reason))
+        return RollbackFailure(track_id, current.name, error.reason)
     try:
         restore_tags(entry.path, entry.original_tags())
     except TagsWriteError as error:
-        return RollbackFailure(track_id, entry.path.name, FailureReason.from_file(error.reason))
+        return RollbackFailure(track_id, entry.path.name, error.reason)
     return None
 
 
@@ -162,8 +168,10 @@ def _forget(
     dump: TagDump,
     restored: Sequence[str],
     failed: Sequence[RollbackFailure],
-) -> None:
+) -> tuple[str, ...]:
     """Retire du dump les morceaux restaures et ceux dont le fichier a disparu : rien a leur rendre.
+
+    Rend ces derniers, vide si le dump n'a pas pu etre reecrit : leur entree y reste alors.
 
     Un `file_missing` dont le dossier d'origine a disparu reste dans le dump : un disque externe
     debranche ou une lettre changee ferait perdre pour toujours les tags d'origine. Un dump non
@@ -172,31 +180,15 @@ def _forget(
     gone = [
         failure.track_id
         for failure in failed
-        if failure.reason is FailureReason.FILE_MISSING
+        if failure.reason is FileFailureReason.FILE_MISSING
         and extended_path(dump.entries[failure.track_id].path.parent).is_dir()
     ]
     forgotten = {*restored, *gone}
     if not forgotten:
-        return
+        return ()
     try:
         remove_entries(folder, dump, forgotten)
     except TagDumpWriteError:
         logger.warning("tag dump not updated after rollback run=%s", dump.run_id)
-
-
-def _common_folder(dump: TagDump) -> Path:
-    """Deduit des fichiers plutot que stocke dans le dump : une valeur, une source.
-
-    Sans ancetre commun (deux lecteurs, dump retouche a la main), le dossier du premier morceau :
-    la cible reste nommee plutot que de faire tomber la requete.
-    """
-    folders = [entry.path.parent for entry in dump.entries.values()]
-    first = folders[0]
-    return next(
-        (
-            candidate
-            for candidate in (first, *first.parents)
-            if all(folder.is_relative_to(candidate) for folder in folders)
-        ),
-        first,
-    )
+        return ()
+    return tuple(gone)

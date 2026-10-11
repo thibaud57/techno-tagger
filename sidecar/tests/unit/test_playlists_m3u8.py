@@ -1,6 +1,6 @@
 """Tests du parser de playlists M3U8."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
@@ -10,7 +10,7 @@ from tagger.playlists.errors import UnreadablePlaylistFileError, UnsupportedPlay
 if TYPE_CHECKING:
     from pathlib import Path
 
-EXPECTED = (
+EXPECTED: Final = (
     "artist one - Alpha Track.mp3",
     "Artist One - beta track.mp3",
     "Artist Two - Ambiance Éthérée.mp3",

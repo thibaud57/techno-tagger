@@ -43,7 +43,7 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     tagging: signal(false),
     committed: signal(false),
     extracting: signal(false),
-    taggingTracks: signal([]),
+    taggingTracks: signal<readonly TaggingTrack[]>([]),
     taggingProgress: signal(null),
     taggingRunId: signal<string | null>(null),
     taggingInterrupted: signal(false),
@@ -68,15 +68,34 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     rollingBack: signal<{ runId: string; trackId: string | null } | null>(null),
     rollbackFinished: signal<RollbackFinishedEvent | null>(null),
     taggingFolder: signal<string | null>(null),
+    requestedFolder: signal<string | null>(null),
+    runAction: SidecarService.prototype.runAction,
     rollback: vi.fn(() => Promise.resolve()),
     commitRun: vi.fn(() => Promise.resolve()),
     retryWrite: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
-  // Suit `writing` et `rollingBack`, surcharges comprises.
+  // Suivent les signaux de base, surcharges comprises : le service les derive de la meme facon.
+  const phase = computed(() => {
+    if (base.rollingBack() !== null) {
+      return "rollingBack"
+    }
+    if (base.writing()) {
+      return "writing"
+    }
+    if (base.tagging()) {
+      return "searching"
+    }
+
+    return base.extracting() ? "extracting" : "idle"
+  })
   const service = {
     ...base,
-    filesBusy: computed(() => base.writing() || base.rollingBack() !== null),
+    phase,
+    filesBusy: computed(() => phase() === "writing" || phase() === "rollingBack"),
+    writeFailureCount: computed(
+      () => base.taggingTracks().filter((track) => track.state === "write_error").length,
+    ),
   }
   vi.mocked(load).mockResolvedValue({
     get: vi.fn(() => Promise.resolve("D:/Sets/Aout")),
@@ -198,9 +217,15 @@ describe("TaggingPageComponent", () => {
     ...resolvedTrack(trackId),
     state: "write_error",
   })
-  const written = (trackId: string, state: TaggingTrack["state"] = "written"): TaggingTrack => ({
+  /** Le dump porte l'origine d'une ligne ecrite ou en echec, pas d'une ligne restauree. */
+  const written = (
+    trackId: string,
+    state: TaggingTrack["state"] = "written",
+    restorable = state !== "rolled_back",
+  ): TaggingTrack => ({
     ...resolvedTrack(trackId),
     state,
+    restorable,
   })
 
   it("cycles its single action with the phase", async () => {
@@ -211,7 +236,7 @@ describe("TaggingPageComponent", () => {
     const taggingTracks = signal<TaggingTrack[]>([])
     const { component } = await mountWith({
       tagging,
-      taggingFolder: signal("D:/Sets/Aout"),
+      requestedFolder: signal("D:/Sets/Aout"),
       runConfirmable: confirmable,
       writing,
       runRetryable: retryable,
@@ -243,7 +268,7 @@ describe("TaggingPageComponent", () => {
   it("starts the same folder again when its written run was lost with the engine", async () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      taggingFolder: signal("D:/Sets/Aout"),
+      requestedFolder: signal("D:/Sets/Aout"),
       committed: signal(true),
       runRetryable: signal(false),
       taggingTracks: signal([failed("a.mp3")]),
@@ -255,7 +280,7 @@ describe("TaggingPageComponent", () => {
   it("starts the same folder again when its run cannot be confirmed", async () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      taggingFolder: signal("D:/Sets/Aout"),
+      requestedFolder: signal("D:/Sets/Aout"),
       taggingInterrupted: signal(true),
     })
 
@@ -267,7 +292,7 @@ describe("TaggingPageComponent", () => {
     vi.mocked(open).mockResolvedValueOnce("D:/Other")
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      taggingFolder: signal("D:/Sets/Aout"),
+      requestedFolder: signal("D:/Sets/Aout"),
       runConfirmable: signal(true),
     })
     const before = component["action"]()
@@ -281,7 +306,7 @@ describe("TaggingPageComponent", () => {
   it("keeps the folder of the shown run when the page is recreated", async () => {
     const { component, fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      taggingFolder: signal("D:/Sets/Run"),
+      requestedFolder: signal("D:/Sets/Run"),
     })
 
     await fixture.whenStable()
@@ -438,7 +463,7 @@ describe("TaggingPageComponent", () => {
     const { fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
-      taggingFolder: signal("D:/Sets/Aout"),
+      requestedFolder: signal("D:/Sets/Aout"),
       runRetryable: signal(true),
       taggingTracks: signal([failed("a.mp3")]),
       rollingBack: signal({ runId: "a3f9c1", trackId: null }),
@@ -468,7 +493,7 @@ describe("TaggingPageComponent", () => {
     expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
   })
 
-  it("offers to restore written and failed tracks of a committed run", async () => {
+  it("offers to restore the tracks the sidecar flags as restorable", async () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
@@ -481,6 +506,26 @@ describe("TaggingPageComponent", () => {
 
     expect([...component["restorableIds"]()]).toEqual(["a.mp3", "b.mp3"])
     expect(component["canRestoreRun"]()).toBe(true)
+  })
+
+  it("leaves a failed track whose origin was never saved out of the restore", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3", "write_error", false), written("b.mp3")]),
+    })
+
+    expect([...component["restorableIds"]()]).toEqual(["b.mp3"])
+  })
+
+  it("offers no restore when no track is flagged restorable", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      taggingTracks: signal([written("a.mp3", "write_error", false)]),
+    })
+
+    expect(component["canRestoreRun"]()).toBe(false)
   })
 
   it("keeps the run button while a track is left to restore", async () => {
@@ -618,15 +663,6 @@ describe("TaggingPageComponent", () => {
     component["restoreTrack"]("a.mp3")
 
     expect(confirm).not.toHaveBeenCalled()
-  })
-
-  it("counts the write failures on the rows", async () => {
-    const { component } = await mountWith({
-      committed: signal(true),
-      taggingTracks: signal([written("a.mp3", "write_error"), written("b.mp3", "rolled_back")]),
-    })
-
-    expect(component["writeFailures"]()).toBe(1)
   })
 
   it("lists the rollback failures of the shown run only", async () => {

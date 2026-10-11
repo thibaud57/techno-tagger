@@ -40,10 +40,10 @@ def test_maps_a_system_error_to_the_project_vocabulary(
     assert reason is expected
 
 
-def test_track_failures_carry_every_file_failure_under_the_same_name() -> None:
-    """Le protocole porte un seul `failure_reason` : les motifs d'ecriture y sont recopies."""
+def test_track_and_file_failures_share_no_name() -> None:
+    """Le protocole n'a qu'un `failure_reason` : un nom en double serait ambigu a l'ecran."""
     file_reasons = {reason.value for reason in FileFailureReason}
 
     track_reasons = {reason.value for reason in FailureReason}
 
-    assert file_reasons <= track_reasons
+    assert file_reasons.isdisjoint(track_reasons)

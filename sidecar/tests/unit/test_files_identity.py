@@ -1,5 +1,6 @@
 """Tests de la lecture de l'artiste et du titre, sur les quatre formats."""
 
+import stat
 from typing import TYPE_CHECKING
 
 import mutagen
@@ -7,7 +8,8 @@ import pytest
 from audio_samples import tag, write_tagged_wavpack
 from mutagen import MutagenError
 
-from tagger.files import IdentityTags, TagsUnreadableError, UnreadableReason, read_shown_tags
+from tagger.file_failures import FileFailureReason
+from tagger.files import IdentityTags, TagsUnreadableError, read_shown_tags
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -69,8 +71,8 @@ def test_raises_unreadable_when_the_content_matches_no_format(tmp_path: Path) ->
     with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
         read_shown_tags(path)
 
-    assert error.value.reason is UnreadableReason.UNREADABLE
-    assert error.value.params == {"file": "broken.mp3", "reason": UnreadableReason.UNREADABLE}
+    assert error.value.reason is FileFailureReason.WRITE_FAILED
+    assert error.value.params == {"file": "broken.mp3", "reason": FileFailureReason.WRITE_FAILED}
 
 
 def test_raises_unreadable_when_mutagen_identifies_no_format_at_all(tmp_path: Path) -> None:
@@ -83,7 +85,7 @@ def test_raises_unreadable_when_mutagen_identifies_no_format_at_all(tmp_path: Pa
     with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
         read_shown_tags(path)
 
-    assert error.value.reason is UnreadableReason.UNREADABLE
+    assert error.value.reason is FileFailureReason.WRITE_FAILED
 
 
 def test_raises_unreadable_when_the_container_is_not_one_of_the_four_formats(
@@ -98,7 +100,7 @@ def test_raises_unreadable_when_the_container_is_not_one_of_the_four_formats(
     with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
         read_shown_tags(path)
 
-    assert error.value.reason is UnreadableReason.UNREADABLE
+    assert error.value.reason is FileFailureReason.WRITE_FAILED
 
 
 def test_raises_locked_when_the_read_fails_on_a_permission_error(
@@ -114,7 +116,25 @@ def test_raises_locked_when_the_read_fails_on_a_permission_error(
     with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
         read_shown_tags(path)
 
-    assert error.value.reason is UnreadableReason.LOCKED
+    assert error.value.reason is FileFailureReason.FILE_LOCKED
+
+
+def test_keeps_permission_denied_when_a_read_only_file_refuses_the_read(
+    blank_audio: Callable[[str], Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Meme classement qu'a l'ecriture : seul un fichier inscriptible passe pour verrouille."""
+    path = blank_audio("mp3")
+    path.chmod(stat.S_IREAD)
+
+    def refused(_path: Path) -> None:
+        raise MutagenError("refused") from PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(mutagen, "File", refused)
+
+    with pytest.raises(TagsUnreadableError) as error:
+        read_shown_tags(path)
+
+    assert error.value.reason is FileFailureReason.PERMISSION_DENIED
 
 
 @pytest.mark.parametrize("audio_format", ["mp3", "wav", "aiff", "flac"])

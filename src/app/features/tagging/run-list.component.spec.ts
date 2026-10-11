@@ -64,16 +64,18 @@ const mountWith = async (
 
   // Le scroller s'initialise sur un microtask puis calcule ses lignes dans un `setTimeout(…, 1)`.
   await Promise.resolve()
-  await new Promise((resolve) => setTimeout(resolve, 1))
+  vi.advanceTimersByTime(1)
   fixture.detectChanges()
 
   return fixture
 }
 
-/** Laisse le scroller digerer un changement d'entree ou de clic. */
-const settle = async (fixture: { detectChanges: () => void; whenStable: () => Promise<void> }) => {
-  await fixture.whenStable()
-  await new Promise((resolve) => setTimeout(resolve, 1))
+/**
+ * Laisse le scroller digerer un changement d'entree ou de clic. `fixture.whenStable()` n'y est
+ * plus appele : sous faux timers il ne se resout pas (timeout de 5 s mesure le 2026-10-11).
+ */
+const settle = async (fixture: { detectChanges: () => void }) => {
+  await vi.advanceTimersByTimeAsync(1)
   fixture.detectChanges()
 }
 
@@ -122,10 +124,12 @@ const detailsOf = (fixture: { nativeElement: unknown }): HTMLElement[] => [
 
 describe("RunListComponent", () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     stubOffscreenLayout()
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -258,9 +262,10 @@ describe("RunListComponent", () => {
   })
 
   it("leaves the rows of a committed run without action", async () => {
+    // Sur un run fige le service ne rend aucun morceau rattrapable : l'ensemble arrive vide.
     const fixture = await mountWith(
       [{ ...PENDING_TRACK, arbitration: arbitrationRequired(PENDING_TRACK.trackId) }, UNRESOLVED],
-      new Set([UNRESOLVED.trackId]),
+      new Set(),
       true,
     )
     const asked = vi.fn()

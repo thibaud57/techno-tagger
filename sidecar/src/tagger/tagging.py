@@ -10,8 +10,9 @@ import logging
 import secrets
 from dataclasses import dataclass, replace
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, Self, override
+from typing import TYPE_CHECKING, override
 
+from tagger.file_failures import FileFailureReason
 from tagger.files import (
     IdentityTags,
     ShownTags,
@@ -38,8 +39,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
-    from tagger.file_failures import FileFailureReason
-    from tagger.files import TagField
+    from tagger.files import WrittenTags
     from tagger.scraper_client import TrackCandidate
     from tagger.sources import RunSources
 
@@ -69,27 +69,24 @@ class Resolution(StrEnum):
 
 @verify(UNIQUE)
 class FailureReason(StrEnum):
-    """Motif d'un morceau non resolu ou non ecrit : la correction a apporter n'est pas la meme."""
+    """Motif d'un morceau non resolu, ou que le rollback n'a pas rendu : la correction a apporter
+    n'est pas la meme. Les pannes de fichier sont `FileFailureReason`.
+    """
 
     EMPTY_QUERY = auto()
     NO_RESULT = auto()
     BELOW_THRESHOLD = auto()
     USER_REFUSED = auto()
     SOURCE_UNAVAILABLE = auto()
-    # Memes valeurs que `FileFailureReason`, garde par un test : le protocole n'a qu'un seul
-    # champ `failure_reason`.
-    PERMISSION_DENIED = auto()
-    DISK_FULL = auto()
-    PATH_TOO_LONG = auto()
-    FILE_LOCKED = auto()
-    FILE_MISSING = auto()
-    WRITE_FAILED = auto()
-    # Motif du rollback seul, hors `FileFailureReason` : l'ecriture suffixe un nom pris.
+    # Motif du rollback seul, hors `FileFailureReason` : l'ecriture suffixe un nom pris, alors que
+    # la restauration refuse de l'ecraser. Y mettre `FileFailureReason` l'ouvrirait au rapport
+    # d'extraction, qui ne le produit jamais.
     NAME_TAKEN = auto()
 
-    @classmethod
-    def from_file(cls, reason: FileFailureReason) -> Self:
-        return cls(reason.value)
+
+# Un seul champ `failure_reason` au protocole : les deux enums y partagent le meme espace de
+# chaines, que `test_file_failures` garde disjoint.
+type TrackFailureReason = FailureReason | FileFailureReason
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,8 +114,7 @@ class PendingArbitration:
 class WriteOutcome:
     """Ce que l'ecriture a pose sur le fichier, pour le rapport."""
 
-    fields: tuple[TagField, ...]
-    artwork: bool
+    written: WrittenTags
     truncated: bool
 
 
@@ -132,7 +128,7 @@ class TrackRecord:
     query: TrackQuery | None = None
     state: TrackState | None = None
     resolution: Resolution | None = None
-    failure_reason: FailureReason | None = None
+    failure_reason: TrackFailureReason | None = None
     source: Source | None = None
     candidate: TrackCandidate | None = None
     scored: ScoredCandidate | None = None
@@ -141,6 +137,8 @@ class TrackRecord:
     written: WriteOutcome | None = None
     # Pour l'affichage seul, `None` si illisibles : le dump relit le fichier.
     tags_before: ShownTags | None = None
+    # Une entree au dump du run : l'origine est sauvegardee, un rollback a de quoi la rendre.
+    restorable: bool = False
 
     @property
     def file_name(self) -> str:
@@ -175,13 +173,24 @@ class TrackRecord:
     def written_to(self, path: Path, outcome: WriteOutcome) -> TrackRecord:
         """Morceau ecrit ; `path` suit le renommage, `track_id` reste celui du run."""
         return replace(
-            self, state=TrackState.WRITTEN, failure_reason=None, path=path, written=outcome
+            self,
+            state=TrackState.WRITTEN,
+            failure_reason=None,
+            path=path,
+            written=outcome,
+            restorable=True,
         )
 
-    def write_failed(self, reason: FileFailureReason) -> TrackRecord:
-        """Ecriture en echec : la resolution reste, la relance n'a rien a redemander."""
+    def write_failed(self, reason: FileFailureReason, *, restorable: bool) -> TrackRecord:
+        """Ecriture en echec : la resolution reste, la relance n'a rien a redemander.
+
+        `restorable` faux quand l'origine n'a jamais pu etre lue, donc jamais mise au dump.
+        """
         return replace(
-            self, state=TrackState.WRITE_ERROR, failure_reason=FailureReason.from_file(reason)
+            self,
+            state=TrackState.WRITE_ERROR,
+            failure_reason=reason,
+            restorable=restorable,
         )
 
     def rolled_back(self, path: Path) -> TrackRecord:
@@ -195,11 +204,16 @@ class TrackRecord:
             failure_reason=None,
             path=path,
             written=None,
+            restorable=False,
             source=None,
             candidate=None,
             scored=None,
             artwork=None,
         )
+
+    def unrestorable(self) -> TrackRecord:
+        """Entree retiree du dump sans restauration : l'etat reste, plus rien n'est a rendre."""
+        return replace(self, restorable=False)
 
     def unresolved(self, reason: FailureReason) -> TrackRecord:
         """Morceau non resolu, sorti de l'attente d'arbitrage s'il y etait."""

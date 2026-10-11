@@ -1,7 +1,7 @@
 """Tests du telechargement des pochettes depuis le CDN de la source."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import httpx2
 import pytest
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-URL = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
+URL: Final = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
 
 
 def _image(content_type: str = "image/jpeg") -> httpx2.Response:
