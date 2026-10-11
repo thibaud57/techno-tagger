@@ -77,7 +77,8 @@
   if (action === "covers") {
     const rows = [...document.querySelectorAll("app-run-list tbody tr")].slice(0, 6)
     return rows.map((row) => {
-      const cell = row.querySelector("td")
+      // Deuxieme cellule : la premiere porte le bouton du detail (colonne de 48px).
+      const cell = row.querySelectorAll("td")[1]
       const cover = cell?.querySelector("img, p-skeleton, div")
       const style = cell && getComputedStyle(cell)
       return {
@@ -106,7 +107,8 @@
     const row = [...document.querySelectorAll("app-run-list tbody tr")].find((tr) =>
       tr.querySelector('app-state-tag + app-icon, app-icon[name="info-circle"]'),
     )
-    const cell = row?.querySelectorAll("td")[5]
+    // La cellule d'etat, reperee par son tag : son rang change avec les colonnes.
+    const cell = row?.querySelector("app-state-tag")?.closest("td")
     const tag = cell?.querySelector("p-tag")
     const host = cell?.querySelector(":scope app-state-tag ~ app-icon")
     const svg = host?.querySelector("svg")
@@ -161,7 +163,8 @@
     return {
       badge: cursorOf(document.querySelector("[data-arbitration-badge]")),
       badgeTag: cursorOf(document.querySelector("[data-arbitration-badge] p-tag")),
-      runButton: cursorOf(document.querySelector('app-tagging-page [data-p-icon="play"]')?.closest("button")),
+      // Bouton d'action unique : lancer, interrompre, confirmer ou relancer selon la phase.
+      actionButton: cursorOf(document.querySelector("app-tagging-page .grid > button[data-action]")),
       tab: cursorOf(document.querySelector("p-tab")),
       awaitingRow: cursorOf(firstRow),
       validate: cursorOf(dialog()?.querySelector('[data-action="validate"]')),

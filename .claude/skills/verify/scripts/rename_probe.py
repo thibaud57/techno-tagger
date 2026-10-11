@@ -1,7 +1,7 @@
 r"""Renommage de vrais fichiers hors protocole : noms, collisions, casse, chemins longs, verrou.
 
-`rename_track` n'est pas encore cable au protocole : ce script l'appelle comme le fera l'ecriture
-(sub-project 04). Usage, depuis la racine du depot, `<dossier>` dans le scratchpad :
+Appelle `rename_track` comme l'ecriture, sans passer par le protocole. Usage, depuis la racine
+du depot, `<dossier>` dans le scratchpad :
 
     uv run --directory sidecar python <skill>/scripts/rename_probe.py <dossier>
 

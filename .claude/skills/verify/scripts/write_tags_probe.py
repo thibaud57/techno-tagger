@@ -1,7 +1,7 @@
 """Ecrit les tags d'un candidat sur des fichiers des quatre formats, puis relit le disque.
 
-`write_tags` n'est pas encore cable au protocole : ce script l'appelle comme le fera la
-phase d'ecriture, dans un dossier jetable. Usage, depuis la racine du depot :
+Appelle `write_tags` comme la phase d'ecriture, sans passer par le protocole, dans un dossier
+jetable. Usage, depuis la racine du depot :
 
     uv run --directory sidecar python <skill>/scripts/write_tags_probe.py <dossier> [format ...]
 

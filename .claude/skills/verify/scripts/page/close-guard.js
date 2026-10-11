@@ -98,6 +98,9 @@
       },
       items: [...dialog.querySelectorAll(".p-dialog-content li")].map((li) => li.textContent.trim()),
       itemFontSize: getComputedStyle(dialog.querySelector(".p-dialog-content ul")).fontSize,
+      // Une phrase par ligne : les `\n` des traductions (« Arbitrages en attente : N.\nIls seront perdus. »)
+      // ne s'affichent en retour a la ligne que sous `pre-line`, attendu ici.
+      itemWhiteSpace: getComputedStyle(dialog.querySelector(".p-dialog-content ul")).whiteSpace,
       buttons,
       footerJustify: footer && getComputedStyle(footer).justifyContent,
       closeLabel: close?.getAttribute("aria-label") ?? null,

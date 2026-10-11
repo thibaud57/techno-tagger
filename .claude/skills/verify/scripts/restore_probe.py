@@ -1,8 +1,8 @@
 """Aller-retour dump, ecriture, restauration sur des fichiers des quatre formats.
 
-`read_original_tags`, le dump d'un run et `restore_tags` ne sont pas encore cables au
-protocole : ce script les enchaine comme le feront l'ecriture (sub-project 04) puis le
-rollback (06). Usage, depuis la racine du depot, `LOCALAPPDATA` pointe vers le scratchpad :
+Enchaine `read_original_tags`, le dump d'un run et `restore_tags` comme l'ecriture puis le
+rollback, sans passer par le protocole. Usage, depuis la racine du depot, `LOCALAPPDATA`
+pointe vers le scratchpad :
 
     LOCALAPPDATA=<scratch>/appdata uv run --directory sidecar python <skill>/scripts/restore_probe.py <dossier>
 

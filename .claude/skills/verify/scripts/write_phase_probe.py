@@ -1,8 +1,7 @@
 """Phase d'ecriture d'un run sur de vrais fichiers, hors protocole.
 
-`RunWriter` n'est pas encore cable au protocole (`commit_run` et `retry_write` arrivent au
-sub-project 05) : ce script l'enchaine comme le fera le handler. Usage, depuis la racine du
-depot, `LOCALAPPDATA` pointe vers le scratchpad :
+Enchaine `RunWriter` comme les handlers `commit_run` et `retry_write`, sans passer par le
+protocole. Usage, depuis la racine du depot, `LOCALAPPDATA` pointe vers le scratchpad :
 
     LOCALAPPDATA=<scratch>/appdata uv run --directory sidecar python <skill>/scripts/write_phase_probe.py <dossier>
 

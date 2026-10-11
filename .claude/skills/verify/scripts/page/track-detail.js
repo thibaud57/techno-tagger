@@ -1,8 +1,6 @@
 // Detail avant / apres deplie sous la ligne de la liste du run, sous `ng serve`, sidecar simule sur
-// l'instance du service : bouton d'ouverture (largeur FR et EN, clavier, focus), detail d'un resolu,
-// d'un non resolu, d'un illisible, d'un en attente et d'un arbitrage, deux details ouverts, cadre
-// en lignes entieres sans bande vide, modale au-dessus, en-tete collant, plancher, puis gros run
-// (`BULK` morceaux) balaye detail ouvert.
+// l'instance du service : un controle par regle de SKILL.md § Pilotage du detail deplie, puis un
+// gros run (`BULK` morceaux) balaye detail ouvert.
 // Lance par le MCP Playwright : `browser_run_code_unsafe` avec `filename` sur ce fichier,
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-detail/.
 async (page) => {
@@ -85,25 +83,36 @@ async (page) => {
       const td = button.closest("td")
       const tdBox = td.getBoundingClientRect()
       const b = button.getBoundingClientRect()
+      const cells = [...td.parentElement.children]
+      const art = cells[1].querySelector("app-artwork").getBoundingClientRect()
+      const textStyle = getComputedStyle(cells[2])
       return {
         th: Math.round(th.getBoundingClientRect().width),
         button: Math.round(b.width),
         clipped: b.right > tdBox.right || b.left < tdBox.left,
         label: button.getAttribute("aria-label"),
+        // Colonne de 48px (`w-12`), cellule sans marge droite : les ecarts bouton / vignette et
+        // vignette / texte sont releves, pas imposes egaux.
+        padRight: getComputedStyle(td).paddingRight,
+        padLeft: getComputedStyle(td).paddingLeft,
+        buttonToArtwork: Math.round((art.left - b.right) * 10) / 10,
+        artworkToText: Math.round((cells[2].getBoundingClientRect().left + parseFloat(textStyle.paddingLeft) - art.right) * 10) / 10,
       }
     })
 
   const value = (field, key, v) => ({ field, key, value: v })
+  // Ordre et cles du sidecar (TAG_FIELDS, `shown_key`) : l'ecran les affiche tels quels, la cle des
+  // frames personnalisees sans le prefixe `TXXX:`.
   const KEYS = [
-    ["artist", "TPE1"], ["remixer", "TPE4"], ["title", "TIT2"], ["album", "TALB"], ["date", "TYER"],
-    ["original_date", "TORY"], ["genre", "TCON"], ["label", "TPUB"], ["catalog_number", "TXXX:CATALOGNUMBER"],
-    ["bpm", "TBPM"], ["key", "TKEY"], ["isrc", "TSRC"], ["track_number", "TRCK"], ["url", "WOAS"],
-    ["source_id", "TXXX:SOURCE_ID"], ["source", "TXXX:SOURCE"],
+    ["artist", "TPE1"], ["title", "TIT2"], ["remixer", "TPE4"], ["genre", "TCON"], ["bpm", "TBPM"],
+    ["key", "TKEY"], ["label", "TPUB"], ["catalog_number", "CATALOGNUMBER"], ["isrc", "TSRC"],
+    ["album", "TALB"], ["track_number", "TRCK"], ["date", "TYER"],
+    ["source", "SOURCE"], ["url", "WOAS"], ["source_id", "SOURCE_ID"],
   ]
   const BEFORE = { artist: "adam beyer", title: "your mind", genre: "Techno", bpm: "130", date: "2019" }
   const AFTER = {
     artist: "Adam Beyer, Bart Skils", remixer: "Layton Giordani", title: "Your Mind (Layton Giordani Remix)",
-    album: "Your Mind (The Remixes)", date: "2023", original_date: "2019", genre: "Techno (Peak Time / Driving)",
+    album: "Your Mind (The Remixes)", date: "2023", genre: "Techno (Peak Time / Driving)",
     label: "Drumcode", catalog_number: "DC293", bpm: "130", key: "8A", isrc: "SE5Q52300123", track_number: "2",
     url: "https://www.beatport.com/track/your-mind-layton-giordani-remix/17492013", source_id: "17492013", source: "beatport",
   }
@@ -166,18 +175,19 @@ async (page) => {
   out.measures.chevronEn = await chevronColumn()
   await page.evaluate(() => ng.getComponent(document.querySelector("app-root")).translate.use("fr"))
   await settle()
-  check("button fits its column (fr, en)", !out.measures.chevronFr.clipped && !out.measures.chevronEn.clipped, [out.measures.chevronFr, out.measures.chevronEn])
+  check("button fits its 48px column (fr, en), cell without right padding", !out.measures.chevronFr.clipped && !out.measures.chevronEn.clipped && out.measures.chevronFr.th === 48 && out.measures.chevronEn.th === 48 && out.measures.chevronFr.button === 34 && out.measures.chevronFr.padRight === "0px", [out.measures.chevronFr, out.measures.chevronEn])
   check("button label translated", out.measures.chevronFr.label === "Afficher le détail" && out.measures.chevronEn.label === "Show details", [out.measures.chevronFr.label, out.measures.chevronEn.label])
   check("button closed: aria-expanded false", (await toggle(R.file_name).getAttribute("aria-expanded")) === "false", await toggle(R.file_name).getAttribute("aria-expanded"))
 
-  // Resolu : sous la ligne, pleine largeur, pochette a gauche, 15 champs + commentaire, 7 lignes.
+  // Resolu : sous la ligne, pleine largeur, pochette a gauche, 14 champs + commentaire, 7 lignes.
   await toggle(R.file_name).click()
   await settle()
   const r = await detail(R.file_name)
   out.measures.resolved = r && { ...r, rows: undefined }
   check("detail opens right under its row, full width", r !== null && r.gapToRow === 0 && r.fullWidth, r && { gap: r.gapToRow, full: r.fullWidth })
   check("open row highlighted and expanded", r?.highlighted === true && r.toggleExpanded === "true", r && { h: r.highlighted, e: r.toggleExpanded })
-  check("resolved: 15 fields plus comment, no source id", r?.rows.length === 16 && !r?.rows.some((x) => x[1] === "TXXX:SOURCE_ID"), r?.rows.map((x) => x[1]))
+  check("resolved: 14 fields plus comment, no source id", r?.rows.length === 15 && !r?.rows.some((x) => x[1] === "SOURCE_ID"), r?.rows.map((x) => x[1]))
+  check("resolved: fields in the sidecar order, custom keys without the TXXX: prefix", JSON.stringify(r?.rows.map((x) => x[0])) === JSON.stringify(["Artiste", "Titre", "Remixeur", "Genre", "BPM", "Key", "Label", "Numéro de catalogue", "ISRC", "Album", "Numéro de piste", "Année", "Source", "URL", "Commentaire"]) && JSON.stringify(r.rows.map((x) => x[1])) === JSON.stringify(["TPE1", "TIT2", "TPE4", "TCON", "TBPM", "TKEY", "TPUB", "CATALOGNUMBER", "TSRC", "TALB", "TRCK", "TYER", "SOURCE", "WOAS", ""]), r?.rows.map((x) => `${x[0]} ${x[1]}`))
   check("resolved: first row, key beside the label", JSON.stringify(r?.rows[0]) === JSON.stringify(["Artiste", "TPE1", "adam beyer", "Adam Beyer, Bart Skils"]), r?.rows[0])
   check("resolved: comment row, after em dash", JSON.stringify(r?.rows.at(-1)) === JSON.stringify(["Commentaire", "", "Ripped by X", "—"]), r?.rows.at(-1))
   check("artwork 160px left of the grid", r?.art?.w === 160 && r?.art?.left === true && r?.art?.frame, r?.art)

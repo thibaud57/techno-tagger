@@ -60,6 +60,12 @@ async (page) => {
   await page.waitForTimeout(900)
   const tip = await tooltip()
   check("tooltip names the running search", BLOCKED.includes(tip), tip)
+  // Tous les tooltips s'ouvrent sous l'element (TOOLTIP), plus a gauche du bouton.
+  const place = await page.evaluate((b) => {
+    const t = document.querySelector(".p-tooltip")?.getBoundingClientRect()
+    return t && { tipTop: Math.round(t.top), buttonBottom: Math.round(b.y + b.height) }
+  }, box)
+  check("tooltip opens under the button", place !== null && place.tipTop >= place.buttonBottom - 1, place)
   await page.mouse.move(0, 0)
 
   await line({ event: "run_started", run_id: "r", tracks: [] })

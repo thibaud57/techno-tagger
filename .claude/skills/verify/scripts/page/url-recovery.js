@@ -46,6 +46,7 @@
     dialog: shown
       ? {
           title: shown.querySelector("h3")?.textContent.trim(),
+          sharedHeader: shown.querySelector("app-dialog-header h3[data-title]") !== null,
           height: Math.round(shown.getBoundingClientRect().height),
           error: error ? { text: error.textContent.replace(/\s+/g, " ").trim(), ...gap() } : null,
         }

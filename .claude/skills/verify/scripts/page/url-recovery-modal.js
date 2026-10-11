@@ -26,6 +26,9 @@ async (page) => {
         h: Math.round(box.height),
         footerTop: footer ? Math.round(footer.getBoundingClientRect().top - box.top) : null,
         title: d.querySelector("h3")?.textContent.trim() ?? null,
+        // En-tete partage avec l'arbitrage (`app-dialog-header`), le `h3[data-title]` dedans.
+        sharedHeader: d.querySelector("app-dialog-header h3[data-title]") !== null,
+        errorWhiteSpace: error ? getComputedStyle(error.querySelector(".whitespace-pre-line") ?? error).whiteSpace : null,
         counter: d.querySelector("p-badge")?.textContent.trim() ?? null,
         field: field ? { disabled: field.disabled, value: field.value } : null,
         help: d.querySelector("[data-help]")?.textContent.trim() ?? null,
@@ -141,6 +144,7 @@ async (page) => {
   check("badge opens Tagging", page.url().endsWith("/tagging"), page.url())
   check("link dialog on the first unresolved, 720 wide", opened?.title === "Klangkuenstler - Untergang" && opened.w === 720 && opened.h < 400 && opened.counter === "1/4", opened)
   check("field focused", opened?.focus === "url", opened?.focus)
+  check("header through app-dialog-header", opened?.sharedHeader === true, opened?.sharedHeader)
   await shot("2-modale-depuis-badge")
 
   // Collage puis Entree : geste en vol, puis refus sous le champ, pied immobile.
@@ -155,14 +159,15 @@ async (page) => {
   check("spinner while the gesture waits", busy.disabled === true && busy.spinner, busy)
   // Bouton d'action unique de la rangee du dossier (lancer ou confirmer selon la phase).
   const actionButton = await page.evaluate(() => {
-    const b = document.querySelector("app-tagging-page .grid > div > button")
-    return b && { text: b.textContent.trim(), disabled: b.disabled }
+    const b = document.querySelector("app-tagging-page .grid > button[data-action]")
+    return b && { text: b.textContent.trim(), action: b.getAttribute("data-action"), disabled: b.disabled }
   })
   check("run action blocked during a gesture", actionButton?.disabled === true, actionButton)
   await line({ event: "error", code: "unsupported_url", params: { track_id: K.track_id }, message: "unsupported url", command: "resolve_by_url" })
   await page.waitForTimeout(2500)
   const refused = await dialog()
   check("error under the field, footer still", refused?.error !== null && refused.footerTop === opened.footerTop && refused.h === opened.h && refused.field.value.startsWith("https://www.youtube"), { opened, refused })
+  check("error text: one sentence per line", refused?.errorWhiteSpace === "pre-line" && /Soundcloud\.\n\s*Copiez|SoundCloud\.\n\s*Copiez/.test(refused.error ?? ""), refused && { ws: refused.errorWhiteSpace, error: refused.error })
   const gaps = await page.evaluate(() => {
     const d = [...document.querySelectorAll(".p-dialog")].find((x) => x.offsetParent !== null)
     const error = d.querySelector("app-error-message").getBoundingClientRect()

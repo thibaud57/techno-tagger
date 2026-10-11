@@ -1,11 +1,5 @@
-// Rollback depuis l'interface sous `ng serve`, sidecar simule sur l'instance du service :
-// etat « Restaure » (libelle, largeur FR et EN, cellules sans valeur), bouton « Restaurer ce morceau »
-// du detail deplie (visibilite, style, icone, chargement, grise + tooltip), bouton « Annuler l'ecriture »
-// du run (visibilite, mise en page avec et sans barre), modale de confirmation partagee (30rem, nombres,
-// focus, acceptation `danger`, une seule commande), liste des fichiers non restaures (affichee seulement
-// pour le run montre, hote vide sans gap), lancement bloque pendant un rollback, message d'echec compte
-// sur les lignes, rangee Rollback des Reglages (gabarit, etats de la cible, priorite des raisons,
-// modale, erreurs, bilan), ouverture a froid des Reglages, console sans erreur ni cle brute.
+// Rollback depuis l'interface sous `ng serve`, sidecar simule sur l'instance du service, Reglages
+// compris : un controle par regle de SKILL.md § Pilotage du rollback depuis l'interface.
 // Lance par le MCP Playwright : `browser_run_code_unsafe` avec `filename` sur ce fichier,
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-rollback/.
 async (page) => {
@@ -51,6 +45,8 @@ async (page) => {
       const n = (x) => Math.round(x * 10) / 10
       return { l: n(r.left), t: n(r.top), r: n(r.right), b: n(r.bottom), w: n(r.width), h: n(r.height) }
     }, css)
+  /** Le bouton d'action unique de la ligne du dossier (`data-action` : start, cancel, commit, retry). */
+  const ACTION = "app-tagging-page .grid > button[data-action]"
   /** Etat d'un bouton `pButton` : classes de severite, icone, taille de l'icone, desactive. */
   const btn = (css) =>
     page.evaluate((c) => {
@@ -60,14 +56,17 @@ async (page) => {
       const svg = b.querySelector("svg")
       return {
         text: b.textContent.replace(/\s+/g, " ").trim(),
+        action: b.getAttribute("data-action"),
         disabled: b.disabled,
         cls,
+        small: cls.includes("p-button-sm"),
         primaryOutlined: cls.includes("p-button-outlined") && !cls.includes("p-button-danger") && !cls.includes("p-button-secondary"),
+        primarySolid: !cls.includes("p-button-outlined") && !cls.includes("p-button-danger") && !cls.includes("p-button-secondary"),
         icon: b.querySelector("[data-p-icon]")?.getAttribute("data-p-icon") ?? null,
         iconSize: svg ? Math.round(svg.getBoundingClientRect().width) : null,
       }
     }, css)
-  /** Survol reel puis lecture du `.p-tooltip` ; relève aussi les evenements souris vus par l'element. */
+  /** Survol reel puis lecture du `.p-tooltip` ; releve aussi les evenements souris vus par l'element. */
   const hoverTip = async (css, wait = 700) => {
     await page.mouse.move(2, 2)
     await settle(400)
@@ -78,10 +77,19 @@ async (page) => {
     }, css)
     await page.locator(css).first().hover({ timeout: 4000 })
     await settle(wait)
-    const res = await page.evaluate(() => ({
+    const res = await page.evaluate((c) => ({
+      // Tous les tooltips s'ouvrent sous l'element (TOOLTIP / WIDE_TOOLTIP), que PrimeNG retourne
+      // au-dessus quand la fenetre manque de place dessous : les deux sont justes.
+      below: (() => {
+        const tip = document.querySelector(".p-tooltip")?.getBoundingClientRect()
+        const host = document.querySelector(c).getBoundingClientRect()
+        if (!tip) return null
+        const flipped = tip.bottom <= host.top + 1 && innerHeight - host.bottom < tip.height + 4
+        return tip.top >= host.bottom - 1 || flipped
+      })(),
       tips: [...document.querySelectorAll(".p-tooltip")].map((x) => x.textContent.replace(/[  ]/g, " ").trim()),
       events: [...new Set(window.__ev)],
-    }))
+    }), css)
     await page.mouse.move(2, 2)
     await settle(450)
     return res
@@ -96,7 +104,7 @@ async (page) => {
       return {
         header: d.querySelector(".p-dialog-title")?.textContent.trim(),
         message: m?.textContent.trim(),
-        messageStyle: m && { size: getComputedStyle(m).fontSize, muted: m.classList.contains("text-muted-color") },
+        messageStyle: m && { size: getComputedStyle(m).fontSize, muted: m.classList.contains("text-muted-color"), whiteSpace: getComputedStyle(m).whiteSpace },
         icon: !!d.querySelector(".p-confirmdialog-icon"),
         buttonIcons: buttons.some((b) => !!b.querySelector("svg, i, [data-p-icon]")),
         buttons: buttons.map((b) => ({ text: b.textContent.trim(), cls: cls(b) })),
@@ -189,6 +197,7 @@ async (page) => {
       return {
         text: m.textContent.replace(/[ \t\r\n]+/g, " ").trim(),
         error: !!m.querySelector(".p-message-error") || m.classList.contains("p-message-error"),
+        whiteSpace: getComputedStyle(m.querySelector("li") ?? m).whiteSpace,
         icon: svg ? Math.round(svg.getBoundingClientRect().width) : null,
         items: [...m.querySelectorAll("li")].map((x) => x.textContent.replace(/[ \t\r\n]+/g, " ").replace(/ /g, " ").trim()),
       }
@@ -198,13 +207,18 @@ async (page) => {
       const root = document.querySelector("app-tagging-page > div")
       // L'hote de la liste des echecs est en `contents` : ses enfants sont ceux de la colonne.
       const flat = (el) => [...el.children].flatMap((e) => (e.tagName === "APP-ROLLBACK-FAILURES" ? flat(e) : [e]))
-      const kids = flat(root).map((e) => ({ tag: e.tagName.toLowerCase(), display: getComputedStyle(e).display, r: e.getBoundingClientRect() }))
+      const kids = flat(root).map((e) => ({
+        tag: e.tagName.toLowerCase(),
+        id: `${e.tagName.toLowerCase()}[${[...e.attributes].map((a) => a.name).filter((n) => n.startsWith("data-")).join(",")}] ${e.textContent.trim().slice(0, 50)}`,
+        display: getComputedStyle(e).display,
+        r: e.getBoundingClientRect(),
+      }))
       const shown = kids.filter((k) => k.display !== "contents")
       const visible = shown.filter((k) => k.r.height > 0)
       const gaps = []
       for (let i = 1; i < visible.length; i++) gaps.push(Math.round((visible[i].r.top - visible[i - 1].r.bottom) * 10) / 10)
       return {
-        zeroHeightBoxes: shown.filter((k) => k.r.height === 0).map((k) => k.tag),
+        zeroHeightBoxes: shown.filter((k) => k.r.height === 0).map((k) => k.id),
         gaps,
         order: visible.map((k) => k.tag),
         hostDisplay: getComputedStyle(document.querySelector("app-rollback-failures")).display,
@@ -230,11 +244,13 @@ async (page) => {
     if (keys.length > 0) rawAll.push({ where, keys })
   }
 
+  // Ordre et cles du sidecar (TAG_FIELDS, `shown_key`) : l'ecran les affiche tels quels, sans
+  // retrier ni garder le prefixe `TXXX:` des frames personnalisees.
   const KEYS = [
-    ["artist", "TPE1"], ["remixer", "TPE4"], ["title", "TIT2"], ["album", "TALB"], ["date", "TYER"],
-    ["original_date", "TORY"], ["genre", "TCON"], ["label", "TPUB"], ["catalog_number", "TXXX:CATALOGNUMBER"],
-    ["bpm", "TBPM"], ["key", "TKEY"], ["isrc", "TSRC"], ["track_number", "TRCK"], ["url", "WOAS"],
-    ["source_id", "TXXX:SOURCE_ID"], ["source", "TXXX:SOURCE"],
+    ["artist", "TPE1"], ["title", "TIT2"], ["remixer", "TPE4"], ["genre", "TCON"], ["bpm", "TBPM"],
+    ["key", "TKEY"], ["label", "TPUB"], ["catalog_number", "CATALOGNUMBER"], ["isrc", "TSRC"],
+    ["album", "TALB"], ["track_number", "TRCK"], ["date", "TYER"],
+    ["source", "SOURCE"], ["url", "WOAS"], ["source_id", "SOURCE_ID"],
   ]
   const value = (field, key, v) => ({ field, key, value: v })
   const BEFORE = { artist: "adam beyer", title: "your mind", genre: "Techno", bpm: "130", date: "2019" }
@@ -303,7 +319,7 @@ async (page) => {
     await openDetail("Nur Jaber")
     check("2 unresolved row: no restore button", (await detail())?.hasButton === false, await detail())
     await closeDetail()
-    check("3 not confirmed run: no Annuler l'ecriture", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
+    check("3 not confirmed run: no Restaurer le run", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
   })
 
   // ---- 2. Ecriture en cours : tout est grise, rien n'est restaurable sur une ligne non ecrite.
@@ -315,7 +331,7 @@ async (page) => {
     await line({ event: "progress", phase: "write", processed: 1, total: 4 })
     await line(resolved(R1, "written"))
     await settle(400)
-    check("3 writing: no Annuler l'ecriture", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
+    check("3 writing: no Restaurer le run", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
     await openDetail("Adam Beyer")
     const written = await trackBtn()
     check("2 writing: written row button present but disabled", written?.disabled === true, written)
@@ -327,7 +343,8 @@ async (page) => {
     await closeDetail()
     const commitTip = await hoverTip('[data-action="commit"]')
     out.measures.tipDisabledCommitWriting = commitTip
-    check("2 writing: hover on the disabled commit button shows tagging.blocked.writing", commitTip.tips.includes("L'écriture est en cours."), commitTip)
+    check("2 writing: hover on the disabled commit button shows tagging.blocked.writing, under the button", commitTip.tips.includes("Attendez la fin de l'écriture en cours.") && commitTip.below === true, commitTip)
+    check("2 writing: hover on the disabled track button opens the tooltip under it", tip.below === true, tip)
     await shot("1-writing")
   })
 
@@ -342,13 +359,14 @@ async (page) => {
     await settle(900)
     const fail = await rowTrack("Hector Oaks")
     out.measures.writeErrorFr = fail
-    check("7 two write_error rows: banner counts 2", /écriture\s*:\s*2\./.test((await bannerText()) ?? ""), await bannerText())
-    const retry = await btn('[data-action="retry"]')
-    check("7 retry button stays primary outlined with refresh", retry?.primaryOutlined && retry.icon === "refresh" && !retry.disabled, retry)
+    check("7 two write_error rows: banner counts 2", /écriture\s*:\s*2(\s|$)/.test((await bannerText()) ?? ""), await bannerText())
+    check("7 banner is text only: no button inside", (await page.locator("[data-write-failures] button").count()) === 0, await bannerText())
+    const retry = await btn('app-tagging-page .grid > button[data-action="retry"]')
+    check("7 retry is the action button: Relancer l'écriture, primary solid small, refresh, enabled", retry?.text === "Relancer l'écriture" && retry.primarySolid && retry.small && retry.icon === "refresh" && !retry.disabled, retry)
 
     const run = await btn('[data-action="restore-run"]')
     out.measures.runButton = run
-    check("3 finished with written rows: button shown, Annuler l'ecriture, outlined primary, refresh 16px", run?.text === "Annuler l'écriture" && run.primaryOutlined && run.icon === "refresh" && run.iconSize === 16 && !run.disabled, run)
+    check("3 finished with written rows: button shown, Restaurer le run, outlined primary small, refresh 16px", run?.text === "Restaurer le run" && run.primaryOutlined && run.small && run.icon === "refresh" && run.iconSize === 16 && !run.disabled, run)
     const geo = await page.evaluate(() => {
       const R = (e) => {
         if (!e) return null
@@ -364,7 +382,7 @@ async (page) => {
         btn: R(b),
         bar: R(bar),
         track: R(bar?.querySelector(".p-progressbar")),
-        action: R(p.querySelector('[data-action="start"], [data-action="commit"]')),
+        action: R(p.querySelector(".grid > button[data-action]")),
         grid: R(p.querySelector(".grid")),
         list: R(p.querySelector("app-run-list")),
       }
@@ -382,7 +400,8 @@ async (page) => {
     const failEn = out.measures.writeErrorEn
     check("1 en: Write failed fits, one line", failEn?.label === "Write failed" && failEn.wrapped === false && failEn.spanFits === true, failEn)
     const runEn = await btn('[data-action="restore-run"]')
-    check("3 en: run button label", runEn?.text === "Undo writing", runEn)
+    check("3 en: run button label", runEn?.text === "Restore the run", runEn)
+    check("7 en: the action button reads Retry writing", (await btn('app-tagging-page .grid > button[data-action="retry"]'))?.text === "Retry writing", await btn('app-tagging-page .grid > button[data-action="retry"]'))
     await openDetail("Adam Beyer")
     const trEn = await trackBtn()
     check("2 en: track button label", trEn?.text === "Restore this track", trEn)
@@ -394,7 +413,7 @@ async (page) => {
     await waitDialog()
     const dEn = await confirmDialog()
     out.measures.runModalEn = dEn
-    check("4 en: header, message count 4, Cancel secondary outlined, Restore danger", dEn?.header === "Restore files" && /Files to restore:\s*4\./.test(dEn.message) && dEn.buttons[0].text === "Cancel" && dEn.buttons[1].text === "Restore" && dEn.buttons[1].cls.includes("p-button-danger"), dEn)
+    check("4 en: header, message count 4, Cancel secondary outlined, Restore danger", dEn?.header === "Restore files" && /^Files to restore:\s*4\n\nThey get back/.test(dEn.message) && dEn.buttons[0].text === "Cancel" && dEn.buttons[1].text === "Restore" && dEn.buttons[1].cls.includes("p-button-danger"), dEn)
     await confirmButton("Cancel").click()
     check("4 en: Cancel closes and sends nothing", (await dialogGone()) && (await sent()).filter((c) => c.command === "rollback").length === 0, await sent())
     await useLang("fr")
@@ -406,11 +425,11 @@ async (page) => {
     const d = await confirmDialog()
     out.measures.runModalFr = d
     check("4 run modal: header Restaurer les fichiers", d?.header === "Restaurer les fichiers", d?.header)
-    check("4 run modal: exact count 4 (written + write_error rows)", new RegExp(`restaurer\\s*:\\s*4\\.`).test(d?.message ?? ""), d?.message)
-    check("4 run modal: artwork and comments sentence", /pochettes et les commentaires retirés par l'écriture ne reviennent pas/.test(d?.message ?? ""), d?.message)
-    check("4 run modal: message text-sm muted", d?.messageStyle?.size === "14px" && d.messageStyle.muted, d?.messageStyle)
+    check("4 run modal: exact count 4 on its own line (written + write_error rows)", /restaurer\s*:\s*4\n\nIls retrouvent/.test(d?.message ?? ""), d?.message)
+    check("4 run modal: artwork and comments sentence", /pochettes et les commentaires retirés par l'écriture ne sont pas récupérés/.test(d?.message ?? ""), d?.message)
+    check("4 run modal: message text-sm muted, one sentence per line", d?.messageStyle?.size === "14px" && d.messageStyle.muted && d.messageStyle.whiteSpace === "pre-line", d?.messageStyle)
     check("4 run modal: 30rem (480px) after the entry animation", d?.width === 480 && d.anim === "none", { width: d?.width, anim: d?.anim })
-    check("4 run modal: Annuler secondary outlined, no icon, accept Restaurer the only danger", JSON.stringify(d?.buttons.map((b) => b.text)) === JSON.stringify(["Annuler", "Restaurer"]) && d.buttons[0].cls.includes("p-button-secondary") && d.buttons[0].cls.includes("p-button-outlined") && JSON.stringify(d.dangers) === JSON.stringify(["Restaurer"]) && d.dangerInDialog === 1 && !d.icon && !d.buttonIcons, d)
+    check("4 run modal: Annuler secondary outlined, both small, no icon, accept Restaurer the only danger", JSON.stringify(d?.buttons.map((b) => b.text)) === JSON.stringify(["Annuler", "Restaurer"]) && d.buttons.every((b) => b.cls.includes("p-button-sm")) && d.buttons[0].cls.includes("p-button-secondary") && d.buttons[0].cls.includes("p-button-outlined") && JSON.stringify(d.dangers) === JSON.stringify(["Restaurer"]) && d.dangerInDialog === 1 && !d.icon && !d.buttonIcons, d)
     check("4 run modal: focus on Annuler", d?.focused === "Annuler", d?.focused)
     await shot("4-run-modal")
     await confirmButton("Annuler").click()
@@ -437,12 +456,16 @@ async (page) => {
     const restorableDetail = await detail()
     check("2 written row: detail frame of 8 rows for the restore button, nothing scrolls", restorableDetail?.frame === 8 * 56 && restorableDetail.scrolls === false, restorableDetail && { frame: restorableDetail.frame, scrolls: restorableDetail.scrolls })
     check("2 written row: Restaurer ce morceau, outlined primary, refresh 16px, enabled", b?.text === "Restaurer ce morceau" && b.primaryOutlined && b.icon === "refresh" && b.iconSize === 16 && !b.disabled, b)
+    // Ordre et cles du sidecar, source avant URL, identifiant a la source masque, cle sans `TXXX:`.
+    const labelsFr = ["Artiste", "Titre", "Remixeur", "Genre", "BPM", "Key", "Label", "Numéro de catalogue", "ISRC", "Album", "Numéro de piste", "Année", "Source", "URL"]
+    const keysShown = ["TPE1", "TIT2", "TPE4", "TCON", "TBPM", "TKEY", "TPUB", "CATALOGNUMBER", "TSRC", "TALB", "TRCK", "TYER", "SOURCE", "WOAS"]
+    check("2 written row: 14 fields in the sidecar order, keys without the TXXX: prefix", JSON.stringify(restorableDetail?.rows.map((r) => r[0])) === JSON.stringify(labelsFr) && JSON.stringify(restorableDetail.rows.map((r) => r[1])) === JSON.stringify(keysShown), restorableDetail?.rows.map((r) => `${r[0]} ${r[1]}`))
     await page.locator('app-run-list tr[data-detail-carrier] [data-action="restore-track"]').click()
     await waitDialog()
     const d = await confirmDialog()
     out.measures.trackModalFr = d
     check("2 click on the track button opens the confirmation", d !== null && d.header === "Restaurer les fichiers", d)
-    check("4 track modal: count 1", /restaurer\s*:\s*1\./.test(d?.message ?? ""), d?.message)
+    check("4 track modal: count 1", /restaurer\s*:\s*1\n\nIls retrouvent/.test(d?.message ?? ""), d?.message)
     check("4 track modal: 480px, danger only on Restaurer, focus on Annuler", d?.width === 480 && JSON.stringify(d.dangers) === JSON.stringify(["Restaurer"]) && d.focused === "Annuler", { w: d?.width, dangers: d?.dangers, focused: d?.focused })
     await shot("6-track-modal")
     await page.keyboard.press("Enter")
@@ -471,16 +494,17 @@ async (page) => {
     check("3 run button while a track restores: disabled, refresh (not its own operation)", run?.disabled === true && run.icon === "refresh", run)
     const tipRun = await hoverTip('[data-action="restore-run"]')
     out.measures.tipDisabledRun = tipRun
-    check("3 hover on the disabled Annuler l'ecriture shows the reason", tipRun.tips.includes("Une écriture ou une restauration est en cours."), tipRun)
+    check("3 hover on the disabled Restaurer le run shows the reason, under the button", tipRun.tips.includes("Une écriture ou une restauration est en cours.") && tipRun.below === true, tipRun)
     await clearSent()
     await page.locator('[data-action="restore-run"]').click({ force: true, timeout: 3000 }).catch(() => {})
     await settle(500)
     check("4 busy: forced click on the disabled run button sends nothing and opens no modal", (await sent()).length === 0 && (await confirmDialog()) === null, await sent())
-    const start = await btn('[data-action="start"]')
-    check("6 launch blocked while a rollback runs: start disabled", start?.disabled === true, start)
-    const tipStart = await hoverTip('[data-action="start"]')
+    // Deux echecs d'ecriture restent : le bouton d'action est la relance, pas le lancement.
+    const start = await btn(ACTION)
+    check("6 action button blocked while a rollback runs: Relancer l'écriture disabled", start?.disabled === true && start.action === "retry", start)
+    const tipStart = await hoverTip(ACTION)
     out.measures.tipDisabledStart = tipStart
-    check("6 start tooltip is tagging.blocked.restoring", tipStart.tips.includes("Attendez la fin de la restauration en cours."), tipStart)
+    check("6 action tooltip is tagging.blocked.restoring, under the button", tipStart.tips.includes("Attendez la fin de la restauration en cours.") && tipStart.below === true, tipStart)
     await shot("7-restoring-track")
 
     // Fin du morceau.
@@ -497,8 +521,10 @@ async (page) => {
     check("1 rolled_back narrower than Échec d'écriture (fr)", rb && wide && rb.tagW < wide.tagW, { restore: rb?.tagW, failed: wide?.tagW, inner: rb?.tdInner })
     check("rollback_finished reloads the rollback target", (await sentNames()).includes("get_rollback_target"), await sentNames())
     const partial = await btn('[data-action="restore-run"]')
-    check("3 partial restore: Annuler l'ecriture still shown and enabled again", partial?.primaryOutlined && !partial.disabled, partial)
-    check("7 banner still counts 2 (restored row was written)", /écriture\s*:\s*2\./.test((await bannerText()) ?? ""), await bannerText())
+    check("3 partial restore: Restaurer le run still shown and enabled again", partial?.primaryOutlined && !partial.disabled, partial)
+    check("7 banner still counts 2 (restored row was written)", /écriture\s*:\s*2(\s|$)/.test((await bannerText()) ?? ""), await bannerText())
+    const retryBack = await btn(ACTION)
+    check("7 action button is Relancer l'écriture again, enabled", retryBack?.action === "retry" && !retryBack.disabled, retryBack)
     await openDetail("Adam Beyer")
     const dr = await detail()
     out.measures.rolledBackDetail = dr
@@ -524,9 +550,9 @@ async (page) => {
     await line(rbFinished("run-1", L2.track_id, [L2.file_name], []))
     await settle(700)
     await closeDetail()
-    check("7 one write_error left after one is rolled_back: banner counts 1", /écriture\s*:\s*1\./.test((await bannerText()) ?? ""), await bannerText())
-    const retry = await btn('[data-action="retry"]')
-    check("7 retry stays primary outlined", retry?.primaryOutlined, retry)
+    check("7 one write_error left after one is rolled_back: banner counts 1", /écriture\s*:\s*1(\s|$)/.test((await bannerText()) ?? ""), await bannerText())
+    const retry = await btn(ACTION)
+    check("7 retry stays the action button, primary solid", retry?.action === "retry" && retry.primarySolid, retry)
   })
 
   // ---- 6. Restaurer le run : spinner, bilan avec echecs.
@@ -535,7 +561,7 @@ async (page) => {
     await page.locator('[data-action="restore-run"]').click()
     await waitDialog()
     const d = await confirmDialog()
-    check("4 run modal after partial restores: count 2 (Amelie Lens, Hector Oaks)", /restaurer\s*:\s*2\./.test(d?.message ?? ""), d?.message)
+    check("4 run modal after partial restores: count 2 (Amelie Lens, Hector Oaks)", /restaurer\s*:\s*2\n\nIls retrouvent/.test(d?.message ?? ""), d?.message)
     await confirmButton("Restaurer").click()
     await settle(500)
     const cmds = await sent()
@@ -556,7 +582,8 @@ async (page) => {
     check("5 failed row keeps its write_error state", rowL?.label === "Échec d'écriture", rowL)
     const stay = await btn('[data-action="restore-run"]')
     check("5 failed row keeps the run button", stay?.primaryOutlined && !stay.disabled && stay.icon === "refresh", stay)
-    check("7 banner still counts 1 (failed row remains write_error)", /écriture\s*:\s*1\./.test((await bannerText()) ?? ""), await bannerText())
+    check("7 banner still counts 1 (failed row remains write_error)", /écriture\s*:\s*1(\s|$)/.test((await bannerText()) ?? ""), await bannerText())
+    check("5 failures list: one sentence per line (pre-line)", f?.whiteSpace === "pre-line", f?.whiteSpace)
     const gaps = await columnGaps()
     out.measures.gapsWithFailures = gaps
     check("5 gaps with the list shown: every gap 24px", gaps.gaps.every((g) => g === 24) && gaps.zeroHeightBoxes.length === 0, gaps)
@@ -585,7 +612,8 @@ async (page) => {
     await line(rbFinished("run-1", null, [L.file_name], []))
     await settle(700)
     check("7 both write_error rolled_back: banner gone", (await bannerText()) === null, await bannerText())
-    check("3 every row rolled_back or unresolved: no Annuler l'ecriture", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
+    check("3 every row rolled_back or unresolved: no Restaurer le run", (await btn('[data-action="restore-run"]')) === null, await btn('[data-action="restore-run"]'))
+    check("7 no write_error left: the action button is back to Lancer le run", (await btn(ACTION))?.action === "start", await btn(ACTION))
     check("5 empty failures: nothing rendered", (await failuresBox()) === null, await failuresBox())
     const gaps = await columnGaps()
     out.measures.gapsEmptyHost = gaps
@@ -620,7 +648,7 @@ async (page) => {
     check("6 commit disabled while a rollback runs", commit?.disabled === true, commit)
     const tip = await hoverTip('[data-action="commit"]')
     out.measures.tipDisabledCommitRollback = tip
-    check("6 commit tooltip is tagging.blocked.restoring", tip.tips.includes("Attendez la fin de la restauration en cours."), tip)
+    check("6 commit tooltip is tagging.blocked.restoring, under the button", tip.tips.includes("Attendez la fin de la restauration en cours.") && tip.below === true, tip)
     await line({ event: "error", code: "tag_dump_unreadable", params: {}, message: "", command: "rollback" })
     await settle(600)
     const err = await page.evaluate(() => document.querySelector("app-tagging-page app-error-message")?.textContent.replace(/\s+/g, " ").trim() ?? null)
@@ -646,7 +674,7 @@ async (page) => {
       }
       const p = document.querySelector("app-tagging-page")
       const b = p.querySelector('[data-action="restore-run"]')
-      return { row: R(b.parentElement), btn: R(b), bar: R(b.parentElement.querySelector("app-phase-progress")), action: R(p.querySelector('[data-action="start"], [data-action="commit"]')), list: R(p.querySelector("app-run-list")) }
+      return { row: R(b.parentElement), btn: R(b), bar: R(b.parentElement.querySelector("app-phase-progress")), action: R(p.querySelector(".grid > button[data-action]")), list: R(p.querySelector("app-run-list")) }
     })
     out.measures.layoutNoBar = geo
     check("3 layout without bar: bar absent, button at the right end", geo.bar === null && Math.abs(geo.btn.r - geo.row.r) <= 0.5, geo)
@@ -664,25 +692,37 @@ async (page) => {
   }
   const rowBox = () =>
     page.evaluate(() => {
-      const rows = [...document.querySelectorAll("app-settings-page section > div.border-b")]
+      // Rangees en `app-settings-row` : grille 16rem, libelle a gauche, controle au bout de la ligne,
+      // retours dessous dans la seconde colonne. L'aide est dessous (cle API) ou dans le controle,
+      // sur la ligne du bouton (Restauration).
+      const rows = [...document.querySelectorAll("app-settings-page app-settings-row")]
       const info = (r) => {
         if (!r) return null
-        const col = r.firstElementChild
-        const hint = col.querySelector(".text-xs")
-        const label = col.firstElementChild
+        const label = r.querySelector("[rowLabel]")
+        const control = r.querySelector("[rowControl]")
+        const below = r.querySelector(":scope > div.col-start-2")
+        const hint = control.querySelector("span.text-xs") ?? below.querySelector("span.text-xs")
+        const button = control.querySelector("button")
         const cs = getComputedStyle(r)
+        const rb = r.getBoundingClientRect()
+        const cb = control.getBoundingClientRect()
+        const hb = hint.getBoundingClientRect()
+        const bb = button.getBoundingClientRect()
         return {
+          display: cs.display,
           rowPad: `${cs.paddingTop}/${cs.paddingBottom}`,
           border: `${cs.borderBottomWidth} ${cs.borderBottomStyle} ${cs.borderBottomColor}`,
-          colW: Math.round(col.getBoundingClientRect().width),
-          colShrink: getComputedStyle(col).flexShrink,
+          colW: Math.round(parseFloat(cs.gridTemplateColumns.split(" ")[0])),
           labelSize: getComputedStyle(label).fontSize,
           hintSize: getComputedStyle(hint).fontSize,
           hintColor: getComputedStyle(hint).color,
-          hintMutedClass: hint.classList.contains("text-muted-color"),
-          gap: getComputedStyle(col).rowGap,
-          gapBetweenLabelAndHint: Math.round((hint.getBoundingClientRect().top - label.getBoundingClientRect().bottom) * 10) / 10,
-          align: cs.alignItems,
+          hintMuted: hint.closest(".text-muted-color") !== null,
+          hintWhiteSpace: getComputedStyle(hint).whiteSpace,
+          hintBelowControl: hb.top >= cb.bottom - 0.5,
+          hintOnButtonLine: control.contains(hint) && hb.top < bb.bottom && hb.bottom > bb.top,
+          hintLeft: Math.round(hb.left - rb.left),
+          controlRightGap: Math.round((rb.right - parseFloat(cs.paddingRight) - cb.right) * 10) / 10,
+          buttonRightGap: Math.round((rb.right - parseFloat(cs.paddingRight) - bb.right) * 10) / 10,
           labelText: label.textContent.trim(),
           hintText: hint.textContent.trim(),
         }
@@ -693,15 +733,21 @@ async (page) => {
     })
   const targetEl = () =>
     page.evaluate(() => {
+      // Sous la ligne du bouton, seulement avec un run : « Run du … sur … » (tronquee), puis son compte.
       const e = document.querySelector("app-settings-page [data-rollback-target]")
       if (!e) return null
       const inner = e.querySelector("span, div") ?? e
+      const count = e.nextElementSibling
+      const r = e.getBoundingClientRect()
       return {
         text: e.textContent.replace(/\s+/g, " ").trim(),
-        mutedSm: (e.classList.contains("text-sm") || getComputedStyle(e).fontSize === "14px") && (e.classList.contains("text-muted-color") || !!e.closest(".text-muted-color")),
+        count: count ? count.textContent.replace(/\s+/g, " ").trim() : null,
+        mutedXs: getComputedStyle(e).fontSize === "12px" && e.closest(".text-muted-color") !== null,
         fontSize: getComputedStyle(e).fontSize,
+        stacked: !count || r.bottom <= count.getBoundingClientRect().top + 0.5,
+        underButton: r.top >= document.querySelector('app-settings-page [data-action="restore-last"]').getBoundingClientRect().bottom - 0.5,
         truncated: [e, ...e.querySelectorAll("*")].some((x) => x.scrollWidth > x.clientWidth + 1),
-        w: Math.round(e.getBoundingClientRect().width),
+        w: Math.round(r.width),
         inner: inner.tagName,
       }
     })
@@ -724,13 +770,46 @@ async (page) => {
     check("8 h2 Administration text-xl semibold", adm?.size === "20px" && adm.weight === "600", adm)
     const a = geo.api
     const r = geo.rollback
-    check("8 Rollback row: same template as the API key row (padding, border, w-64 shrink-0, text-xs muted hint)", r && a && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 256 && a.colW === 256 && r.colShrink === "0" && r.hintSize === "12px" && r.hintMutedClass && r.hintColor === a.hintColor, { api: a, rollback: r })
-    check("8 Rollback row: label Rollback (14px), hint text", r?.labelText === "Rollback" && r.labelSize === "14px" && r.hintText === "Restaure les tags d'origine, par run ou par morceau.", r)
+    check("8 two app-settings-row: same grid (16rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 256 && a.colW === 256 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(r.controlRightGap) <= 1 && Math.abs(a.controlRightGap) <= 1, { api: a, rollback: r })
+    check("8 API hint below the control, Restauration hint on the button line with the button at the end of the row", a?.hintBelowControl && r?.hintOnButtonLine && !r.hintBelowControl && Math.abs(r.buttonRightGap) <= 1, { api: a, rollback: r })
+    check("8 API row: label Clé API (14px), hint on one line under the field", a?.labelText === "Clé API" && a.labelSize === "14px" && a.hintBelowControl && !a.hintText.includes("\n") && a.hintText.startsWith("Enregistrée de façon sécurisée sur cet ordinateur. Elle ne s'affiche plus ensuite"), a)
+    check("8 Restauration row: label Restauration (14px), hint text", r?.labelText === "Restauration" && r.labelSize === "14px" && r.hintWhiteSpace === "pre-line" && r.hintText === "Restaure le nom et les tags d'origine des fichiers du dernier run écrit.", r)
     const b = await settingsBtn()
     out.measures.settingsButton = b
-    check("8 button: Annuler le dernier run, outlined PRIMARY (no danger, no secondary), refresh 16px", b?.text === "Annuler le dernier run" && b.primaryOutlined && b.icon === "refresh" && b.iconSize === 16, b)
-    const small = await page.evaluate(() => document.querySelector('app-settings-page [data-action="restore-last"]').classList.contains("p-button-sm"))
-    check("8 button: small", small, small)
+    check("8 button: Restaurer le dernier run, outlined PRIMARY (no danger, no secondary), small, refresh 16px", b?.text === "Restaurer le dernier run" && b.primaryOutlined && b.small && b.icon === "refresh" && b.iconSize === 16, b)
+
+    // Rangee de la cle : une cle enregistree se signale par 24 points en placeholder, sans tag d'etat
+    // (remplace « Clé enregistrée » / « Aucune clé »), l'oeil n'apparaissant que pendant une saisie.
+    const keyState = () =>
+      page.evaluate(() => {
+        const input = document.querySelector("app-settings-page #api-key")
+        const save = [...document.querySelectorAll("app-settings-page button")].find((x) => x.textContent.trim() === "Enregistrer")
+        return {
+          placeholder: input?.placeholder ?? null,
+          value: input?.value ?? null,
+          tag: document.querySelector("app-settings-page p-tag, app-settings-page .p-tag") !== null,
+          eye: document.querySelector("app-settings-page p-inputicon") !== null,
+          saveDisabled: save?.disabled ?? null,
+          saveSmall: save?.classList.contains("p-button-sm") ?? null,
+        }
+      })
+    const keyStored = await keyState()
+    out.measures.keyStored = keyStored
+    check("8 key saved: placeholder of 24 dots, empty value, no state tag, no eye, Enregistrer small and disabled", keyStored.placeholder === "•".repeat(24) && keyStored.value === "" && !keyStored.tag && !keyStored.eye && keyStored.saveDisabled === true && keyStored.saveSmall === true, keyStored)
+    await page.locator("app-settings-page #api-key").fill("abc")
+    await settle(200)
+    const keyTyping = await keyState()
+    check("8 key typing: the eye appears and Enregistrer is enabled", keyTyping.eye && keyTyping.saveDisabled === false && !keyTyping.tag, keyTyping)
+    await page.locator("app-settings-page #api-key").fill("")
+    await settle(200)
+    check("8 key cleared: the eye is gone again", (await keyState()).eye === false, await keyState())
+    await line({ event: "version", version: VERSION, api_key_configured: false })
+    await settle(300)
+    const keyMissing = await keyState()
+    out.measures.keyMissing = keyMissing
+    check("8 no key saved: the usual placeholder, still no state tag and no eye", keyMissing.placeholder === "Saisir la clé reçue" && !keyMissing.tag && !keyMissing.eye, keyMissing)
+    await line({ event: "version", version: VERSION, api_key_configured: true })
+    await settle(300)
     await shot("13-settings-undefined")
     await scanKeys("settings fr")
   })
@@ -739,38 +818,46 @@ async (page) => {
     // undefined : rien ne s'est repondu
     const undef = await settingsBtn()
     const el0 = await targetEl()
-    check("9 undefined target: nothing next to the button", el0 === null, el0)
+    check("9 undefined target: no target line", el0 === null, el0)
     check("9 undefined target: button disabled", undef?.disabled === true, undef)
     const tip0 = await hoverTip('app-settings-page [data-action="restore-last"]')
     out.measures.tipSettingsUndefined = tip0
-    check("9 undefined target: tooltip Recherche du dernier run ecrit", tip0.tips.includes("Recherche du dernier run écrit…"), tip0)
+    check("9 undefined target: tooltip Recherche du dernier run ecrit, under the button", tip0.tips.includes("Recherche du dernier run écrit…") && tip0.below === true, tip0)
 
     await line({ event: "rollback_target", run: null })
     await settle(500)
     const el1 = await targetEl()
-    check("9 null target: Aucun run a annuler, text-sm muted", el1?.text === "Aucun run à annuler" && el1.mutedSm && el1.fontSize === "14px", el1)
+    const emptyBelow = await page.evaluate(() => {
+      const b = document.querySelector("app-settings-page section:nth-of-type(2) app-settings-row > div.col-start-2")
+      return {
+        display: b ? getComputedStyle(b).display : null,
+        children: b ? [...b.children].map((c) => `${c.tagName.toLowerCase()}: ${c.textContent.trim().slice(0, 80)}`) : null,
+        pageHasNoRunText: !document.querySelector("app-settings-page").textContent.includes("Aucun run"),
+      }
+    })
+    check("9 null target: no target line, no « Aucun run » text, the area under the row hidden (the reason lives in the button tooltip)", el1 === null && emptyBelow.pageHasNoRunText && emptyBelow.display === (emptyBelow.children?.length ? "flex" : "none"), { el1, emptyBelow })
     check("9 null target: button disabled", (await settingsBtn())?.disabled === true, await settingsBtn())
     const tip1 = await hoverTip('app-settings-page [data-action="restore-last"]')
     out.measures.tipSettingsNull = tip1
-    check("9 null target: tooltip about the missing recent backup", tip1.tips.includes("Aucun run à annuler : aucune sauvegarde de tags récente."), tip1)
+    check("9 null target: tooltip about the missing recent backup", tip1.tips.includes("Aucun run à restaurer : aucune sauvegarde de tags récente.") && tip1.below === true, tip1)
     await shot("14-settings-null")
 
     await line({ event: "rollback_target", run: TARGET })
     await settle(500)
     const el2 = await targetEl()
     out.measures.targetFr = el2
-    check("9 target: line with date, folder and count", /^Run du \d{1,2} \S+ 2026.*sur D:\\Music\\Promo Octobre\. Morceaux à restaurer : 87$/.test((el2?.text ?? "").replace(NBSP, " ")), el2?.text)
-    check("9 target: text-sm muted, button enabled", el2?.mutedSm && (await settingsBtn())?.disabled === false, { el2, btn: await settingsBtn() })
+    check("9 target: run line with date and folder, then the count on its own line", /^Run du \d{1,2} \S+ 2026.*sur D:\\Music\\Promo Octobre$/.test((el2?.text ?? "").replace(/[\u00a0\u202f]/g, " ")) && el2.count?.replace(/[\u00a0\u202f]/g, " ") === "Morceaux à restaurer : 87", el2)
+    check("9 target: text-xs muted under the hint and the button, one line each, button enabled", el2?.mutedXs && el2.stacked && el2.underButton && (await settingsBtn())?.disabled === false, { el2, btn: await settingsBtn() })
     await shot("15-settings-target-fr")
 
     // Date reformatee a la bascule de langue, libelles sans cle brute.
     await useLang("en")
     const en = await targetEl()
     out.measures.targetEn = en
-    check("9 en: target line re-formatted (Oct 6, 2026 style) and labels switch", /^Run of [A-Z][a-z]{2} \d{1,2}, 2026.* on D:\\Music\\Promo Octobre\. Tracks to restore: 87$/.test((en?.text ?? "").replace(/[\u00a0\u202f]/g, " ")) && (await settingsBtn())?.text === "Undo the last run", en)
+    check("9 en: target line re-formatted (Oct 6, 2026 style), count and labels switch", /^Run of [A-Z][a-z]{2} \d{1,2}, 2026.* on D:\\Music\\Promo Octobre$/.test((en?.text ?? "").replace(/[\u00a0\u202f]/g, " ")) && en.count === "Tracks to restore: 87" && (await settingsBtn())?.text === "Restore the last run", en)
     check("9 date differs between FR and EN", el2?.text !== en?.text, { fr: el2?.text, en: en?.text })
     const geoEn = await rowBox()
-    check("8 en: Administration, Rollback, hint", geoEn.rollback?.labelText === "Rollback" && geoEn.rollback.hintText === "Restores the original tags, per run or per track." && geoEn.h2s.some((h) => h.text === "Administration"), geoEn.rollback)
+    check("8 en: Administration, Restore, hint", geoEn.rollback?.labelText === "Restore" && geoEn.rollback.hintText === "Restores the original name and tags of the files from the last written run." && geoEn.h2s.some((h) => h.text === "Administration"), geoEn.rollback)
     await scanKeys("settings en")
     await shot("16-settings-target-en")
     await useLang("fr")
@@ -782,7 +869,7 @@ async (page) => {
     check("9 long folder: target truncated on one line", long?.truncated === true, long)
     const tipLong = await hoverTip('app-settings-page [data-rollback-target]', 800)
     out.measures.tipTargetLong = tipLong.tips.map((x) => x.slice(0, 60))
-    check("9 long folder: tooltip with the full text on hover", tipLong.tips.some((x) => x.includes("Promo Octobre") && x.includes("Morceaux à restaurer")), tipLong)
+    check("9 long folder: tooltip with the full run line on hover, under it", tipLong.tips.some((x) => x.includes("Promo Octobre") && x.startsWith("Run du")) && tipLong.below === true, tipLong)
     await shot("17-settings-target-long")
     // Date illisible : la ligne garde la chaine brute, la page ne tombe pas.
     const errorsBefore = consoleLog.length
@@ -791,7 +878,7 @@ async (page) => {
     const bad = await targetEl()
     const alive = await page.evaluate(() => ({ settings: !!document.querySelector("app-settings-page"), apiKey: !!document.querySelector("app-settings-page #api-key"), h2: [...document.querySelectorAll("app-settings-page h2")].map((h) => h.textContent.trim()) }))
     out.measures.invalidDate = { bad, alive, newConsole: consoleLog.slice(errorsBefore) }
-    check("9 invalid written_at: raw string shown in the target line, button enabled", /^Run du pas une date sur D:\\Music\\Promo Octobre\. Morceaux à restaurer : 87$/.test((bad?.text ?? "").replace(NBSP, " ")) && (await settingsBtn())?.disabled === false, { bad, btn: await settingsBtn() })
+    check("9 invalid written_at: raw string shown in the target line, count kept, button enabled", /^Run du pas une date sur D:\\Music\\Promo Octobre$/.test((bad?.text ?? "").replace(/[\u00a0\u202f]/g, " ")) && bad.count?.replace(/[\u00a0\u202f]/g, " ") === "Morceaux à restaurer : 87" && (await settingsBtn())?.disabled === false, { bad, btn: await settingsBtn() })
     check("9 invalid written_at: Settings page still rendered (API key section, both h2) and no console error", alive.settings && alive.apiKey && alive.h2.length === 2 && consoleLog.slice(errorsBefore).length === 0, out.measures.invalidDate)
     await shot("17b-settings-invalid-date")
     await line({ event: "rollback_target", run: TARGET })
@@ -847,10 +934,10 @@ async (page) => {
     await waitDialog()
     const d = await confirmDialog()
     out.measures.settingsModal = d
-    check("11 modal header Annuler le dernier run", d?.header === "Annuler le dernier run", d?.header)
-    const msg = (d?.message ?? "").replace(NBSP, " ")
-    check("11 modal message: date, folder, count and the artwork / comments sentence", /^Run du \d{1,2} \S+ 2026.*sur D:\\Music\\Promo Octobre\. Fichiers à restaurer : 87\./.test(msg) && /pochettes et les commentaires retirés par l'écriture ne reviennent pas/.test(msg), d?.message)
-    check("11 modal look: 480px, text-sm muted, Annuler secondary outlined focused, Restaurer the only danger, no icon", d?.width === 480 && d.anim === "none" && d.messageStyle.size === "14px" && d.messageStyle.muted && d.buttons[0].text === "Annuler" && d.buttons[0].cls.includes("p-button-secondary") && d.buttons[0].cls.includes("p-button-outlined") && JSON.stringify(d.dangers) === JSON.stringify(["Restaurer"]) && d.dangerInDialog === 1 && d.focused === "Annuler" && !d.icon && !d.buttonIcons, d)
+    check("11 modal header Restaurer le dernier run", d?.header === "Restaurer le dernier run", d?.header)
+    const msg = (d?.message ?? "").replace(/[\u00a0\u202f]/g, " ")
+    check("11 modal message: run line, count on its own line, then the artwork / comments sentence", /^Run du \d{1,2} \S+ 2026.*sur D:\\Music\\Promo Octobre\nFichiers à restaurer : 87\n\nIls retrouvent/.test(msg) && /pochettes et les commentaires retirés par l'écriture ne sont pas récupérés/.test(msg), d?.message)
+    check("11 modal look: 480px, text-sm muted, one sentence per line, both buttons small, Annuler secondary outlined focused, Restaurer the only danger, no icon", d?.width === 480 && d.anim === "none" && d.messageStyle.size === "14px" && d.messageStyle.muted && d.messageStyle.whiteSpace === "pre-line" && d.buttons.every((x) => x.cls.includes("p-button-sm")) && d.buttons[0].text === "Annuler" && d.buttons[0].cls.includes("p-button-secondary") && d.buttons[0].cls.includes("p-button-outlined") && JSON.stringify(d.dangers) === JSON.stringify(["Restaurer"]) && d.dangerInDialog === 1 && d.focused === "Annuler" && !d.icon && !d.buttonIcons, d)
     await shot("19-settings-modal")
     await confirmButton("Annuler").click()
     check("11 Annuler sends nothing", (await dialogGone()) && (await sent()).length === 0, await sent())
@@ -947,7 +1034,7 @@ async (page) => {
       log.sentAfterVersion = [...sent]
       svc.handleLine(JSON.stringify({ event: "rollback_target", run: { run_id: "a3f9c1", written_at: "2026-10-06T14:30:00Z", folder: "D:\\Music\\Promo Octobre", tracks: 87 } }))
       await wait(500)
-      log.withTarget = { ...snap(), text: document.querySelector("app-settings-page [data-rollback-target]")?.textContent.replace(/\s+/g, " ").trim() ?? null }
+      log.withTarget = { ...snap(), text: document.querySelector("app-settings-page [data-rollback-target]")?.parentElement.textContent.replace(/\s+/g, " ").trim() ?? null }
       // Redemarrage du moteur : `restart()` repasse par `null`, la mort du process par `false` (page demontee puis remontee).
       const count = () => sent.filter((c) => c === "get_rollback_target").length
       const before = count()
@@ -972,7 +1059,7 @@ async (page) => {
     check("14 shell: no blocking screen while available is null (page is constructed then)", result.whileNull.available === null && result.whileNull.blockingCard === false && result.whileNull.settingsMounted === true, result.whileNull)
     check("14 cold open: nothing sent while the service was not available", !result.sentWhileNull.includes("get_rollback_target"), result.sentWhileNull)
     check("14 cold open: get_rollback_target sent exactly once when the service becomes available, not again on version", result.sentAfterTrue.filter((c) => c === "get_rollback_target").length === 1 && result.sentAfterVersion.filter((c) => c === "get_rollback_target").length === 1, { sentAfterTrue: result.sentAfterTrue, sentAfterVersion: result.sentAfterVersion })
-    check("14 cold open: the target then shows (button enabled, line with the run)", result.withTarget.button === false && /Morceaux à restaurer : 87/.test(result.withTarget.text ?? ""), result.withTarget)
+    check("14 cold open: the target then shows (button enabled, line with the run)", result.withTarget.button === false && /Run du .* sur D:\\Music\\Promo Octobre\s*Morceaux à restaurer : 87/.test(result.withTarget.text ?? ""), result.withTarget)
     check("14 restart through null: nothing during null, exactly one request after true", result.restartNull.sentDuringNull === 0 && result.restartNull.sentAfterTrue === 1, result.restartNull)
     check("14 restart through false: blocking screen, nothing during false, exactly one request after true, page back", result.restartFalse.blockingCard === true && result.restartFalse.sentDuringFalse === 0 && result.restartFalse.sentAfterTrue === 1 && result.restartFalse.settingsMounted === true, result.restartFalse)
     check("14 whole cold-open sequence: three requests in total (open, restart null, restart false)", result.total === 3, result.total)

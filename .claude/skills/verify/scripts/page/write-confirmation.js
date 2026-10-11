@@ -1,8 +1,5 @@
 // Confirmation et suivi de l'ecriture sous `ng serve`, sidecar simule sur l'instance du service :
-// cycle du bouton d'action unique, modale de confirmation (nombres, boutons, focus), run fige,
-// barre d'ecriture, etats ecrit et echec d'ecriture (motif, largeur de colonne FR et EN), message
-// d'echec et relance confirmee (en vol, puis en echec), erreur de `commit_run`, run interrompu,
-// modale de fermeture (run non confirme, puis bloquee pendant l'ecriture).
+// un controle par regle de SKILL.md § Pilotage de la confirmation d'ecriture.
 // Lance par le MCP Playwright : `browser_run_code_unsafe` avec `filename` sur ce fichier,
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-write/.
 async (page) => {
@@ -24,7 +21,7 @@ async (page) => {
   /** Le bouton d'action unique de la rangee du dossier. */
   const action = () =>
     page.evaluate(() => {
-      const buttons = [...document.querySelectorAll("app-tagging-page .grid > div > button")]
+      const buttons = [...document.querySelectorAll("app-tagging-page .grid > button[data-action]")]
       const b = buttons[0]
       if (!b) return null
       return {
@@ -35,6 +32,7 @@ async (page) => {
         danger: b.classList.contains("p-button-danger"),
         outlined: b.classList.contains("p-button-outlined"),
         secondary: b.classList.contains("p-button-secondary"),
+        small: b.classList.contains("p-button-sm"),
         icon: b.querySelector("[data-p-icon]")?.getAttribute("data-p-icon") ?? null,
         width: Math.round(b.getBoundingClientRect().width),
         right: Math.round(b.closest(".grid").getBoundingClientRect().right - b.getBoundingClientRect().right),
@@ -51,7 +49,7 @@ async (page) => {
         message: d.querySelector(".p-dialog-content p")?.textContent.trim(),
         messageStyle: (() => {
           const m = d.querySelector(".p-dialog-content p")
-          return m && { size: getComputedStyle(m).fontSize, muted: m.classList.contains("text-muted-color") }
+          return m && { size: getComputedStyle(m).fontSize, muted: m.classList.contains("text-muted-color"), whiteSpace: getComputedStyle(m).whiteSpace }
         })(),
         icon: !!d.querySelector(".p-confirmdialog-icon"),
         buttons: buttons.map((b) => ({ text: b.textContent.trim(), cls: cls(b) })),
@@ -74,17 +72,14 @@ async (page) => {
     page.evaluate(() => {
       const m = document.querySelector("[data-write-failures]")
       if (!m) return null
-      const b = m.querySelector('[data-action="retry"]')
+      const text = m.querySelector(".whitespace-pre-line")
       return {
-        text: m.textContent.replace(/\s+/g, " ").trim(),
+        text: m.textContent.replace(/[ \t\r\n]+/g, " ").trim(),
+        raw: text?.textContent.trim() ?? null,
+        whiteSpace: text ? getComputedStyle(text).whiteSpace : null,
         severity: [...m.querySelectorAll("*")].some((x) => x.classList.contains("p-message-error")) || m.classList.contains("p-message-error"),
-        retry: b && {
-          disabled: b.disabled,
-          cls: [...b.classList].filter((c) => c.startsWith("p-button-")),
-          icon: b.querySelector("[data-p-icon]")?.getAttribute("data-p-icon"),
-        },
+        buttons: m.querySelectorAll("button").length,
         icon: m.querySelector(".p-message-icon [data-p-icon], [data-p-icon=\"times-circle\"]")?.getAttribute("data-p-icon") ?? null,
-        actionBelow: b ? b.getBoundingClientRect().top >= m.querySelector(".flex.flex-col.gap-4 > div:first-child")?.getBoundingClientRect().bottom - 0.5 : null,
         aboveList: m.getBoundingClientRect().bottom <= document.querySelector("app-run-list").getBoundingClientRect().top,
       }
     })
@@ -198,11 +193,11 @@ async (page) => {
 
   // 1. Cycle du bouton : lancer, interrompre, confirmer.
   const idle = await action()
-  check("idle: single primary start button, right-aligned", idle?.count === 1 && idle.action === "start" && idle.text === "Lancer le run" && !idle.disabled && !idle.danger && idle.right === 0, idle)
+  check("idle: single primary small start button, right-aligned", idle?.count === 1 && idle.action === "start" && idle.text === "Lancer le run" && !idle.disabled && !idle.danger && !idle.outlined && idle.small && idle.right === 0, idle)
   await page.locator('[data-action="start"]').click()
   await settle(300)
   const running = await action()
-  check("running: start becomes secondary outlined Interrompre with stop icon", running?.count === 1 && running.text === "Interrompre" && running.secondary && running.outlined && running.icon === "stop", running)
+  check("running: start becomes secondary outlined Interrompre with stop icon", running?.count === 1 && running.text === "Interrompre" && running.secondary && running.outlined && running.small && running.icon === "stop", running)
   check("start_tagging sent", (await sent()).includes("start_tagging"), await sent())
   await shot("1-running")
   await line({ event: "run_started", run_id: "run-1", folder: FOLDER, tracks: [R1, R2, L, U, A] })
@@ -212,7 +207,7 @@ async (page) => {
   await settle(800)
   await closeDialogs()
   const ready = await action()
-  check("search done: Confirmer l'écriture, primary, check icon, enabled", ready?.count === 1 && ready.action === "commit" && ready.text === "Confirmer l'écriture" && !ready.danger && ready.icon === "check" && !ready.disabled, ready)
+  check("search done: Confirmer l'écriture, primary, check icon, enabled", ready?.count === 1 && ready.action === "commit" && ready.text === "Confirmer l'écriture" && !ready.danger && !ready.outlined && ready.small && ready.icon === "check" && !ready.disabled, ready)
   out.measures.buttonWidths = { idle: idle?.width, running: running?.width, commit: ready?.width }
   await shot("2-ready-to-commit")
 
@@ -231,7 +226,7 @@ async (page) => {
   await requestClose()
   await settle(700)
   const unwritten = await closeConfirmation()
-  check("unwritten run: close names it and still offers to leave", unwritten?.title?.startsWith("Quitter l'application") && unwritten.items.some((i) => i.startsWith("Un run attend sa confirmation")) && unwritten.buttons.some((b) => b.text === "Quitter quand même"), unwritten)
+  check("unwritten run: close names it and still offers to leave", unwritten?.title?.startsWith("Quitter l'application") && unwritten.items.some((i) => i.startsWith("Un run attend la confirmation de son écriture.") && i.includes("Rien n'a encore été écrit")) && unwritten.buttons.some((b) => b.text === "Quitter quand même"), unwritten)
   await stay()
 
   // 4. Modale de confirmation : nombres, boutons, focus ; Annuler n'envoie rien.
@@ -241,10 +236,11 @@ async (page) => {
   const dialog = await confirmDialog()
   out.measures.confirm = dialog
   check("confirm: header", dialog?.header === "Confirmer l'écriture", dialog?.header)
-  check("confirm: folder and counts", dialog?.message.includes(FOLDER) && /Titre\s*»\s*:\s*3\./.test(dialog.message) && /touchés\s*:\s*1\./.test(dialog.message) && /arbitrables\s*:\s*1\./.test(dialog.message), dialog?.message)
-  check("confirm: accept primary, reject secondary outlined, no icon", JSON.stringify(dialog?.buttons.map((b) => b.text)) === JSON.stringify(["Annuler", "Écrire les tags"]) && !/p-button-(danger|secondary|outlined)/.test(dialog.buttons[1].cls) && dialog.buttons[0].cls.includes("p-button-secondary") && dialog.buttons[0].cls.includes("p-button-outlined") && !dialog.icon, dialog)
+  check("confirm: folder and counts, one per line", dialog?.message.includes(FOLDER) && /Titre\s*»\s*:\s*3(\n|$)/.test(dialog.message) && /intacts\s*:\s*1(\n|$)/.test(dialog.message) && /arbitrer\s*:\s*1\n/.test(dialog.message) && dialog.message.includes("ne pourront plus être arbitrés"), dialog?.message)
+  check("confirm: folder, counts and backup guarantee in three blocks", dialog?.message.split("\n\n").length === 3 && /^Dossier\s*:/.test(dialog.message) && /sauvegardés avant l'écriture/.test(dialog.message.split("\n\n")[2]), dialog?.message)
+  check("confirm: accept primary, reject secondary outlined, both small, no icon", JSON.stringify(dialog?.buttons.map((b) => b.text)) === JSON.stringify(["Annuler", "Écrire les tags"]) && !/p-button-(danger|secondary|outlined)/.test(dialog.buttons[1].cls) && dialog.buttons[0].cls.includes("p-button-secondary") && dialog.buttons[0].cls.includes("p-button-outlined") && dialog.buttons.every((b) => b.cls.includes("p-button-sm")) && !dialog.icon, dialog)
   check("confirm: focus on Annuler", dialog?.focused === "Annuler", dialog?.focused)
-  check("confirm: 30rem wide, message text-sm muted (fiche ConfirmDialog)", dialog?.width === 480 && dialog.messageStyle?.size === "14px" && dialog.messageStyle.muted, { width: dialog?.width, style: dialog?.messageStyle })
+  check("confirm: 30rem wide, message text-sm muted, one sentence per line (fiche ConfirmDialog)", dialog?.width === 480 && dialog.messageStyle?.size === "14px" && dialog.messageStyle.muted && dialog.messageStyle.whiteSpace === "pre-line", { width: dialog?.width, style: dialog?.messageStyle })
   await shot("3-confirm")
   await confirmButton("Annuler").click()
   await settle(500)
@@ -259,7 +255,7 @@ async (page) => {
   const writing = await action()
   check("writing: commit button loading (spinner) and disabled", writing?.action === "commit" && writing.icon === "spinner" && writing.disabled, writing)
   const barStart = await bar()
-  check("write bar shown with its label", barStart?.text.startsWith("Écriture des tags, pochettes et renommage"), barStart)
+  check("write bar shown with its label", barStart?.text.startsWith("Écriture des tags et des pochettes, puis renommage"), barStart)
   await line({ event: "progress", phase: "write", processed: 1, total: 3 })
   await settle(300)
   const barMid = await bar()
@@ -301,15 +297,21 @@ async (page) => {
   await settle(900)
   const reason = await page.evaluate(() => document.querySelector(".p-tooltip")?.textContent.trim() ?? null)
   check("write_error reason on hover", reason !== null && reason.includes("ouvert dans un autre programme"), reason)
+  const reasonPlace = await page.evaluate(() => {
+    const tip = document.querySelector(".p-tooltip")?.getBoundingClientRect()
+    const row = [...document.querySelectorAll("app-run-list tbody tr")].find((x) => x.textContent.includes("Hector Oaks"))
+    const span = row?.querySelector("td:last-child span.inline-flex")?.getBoundingClientRect()
+    return tip && span ? { tipTop: Math.round(tip.top), spanBottom: Math.round(span.bottom) } : null
+  })
+  check("write_error reason tooltip opens under its state", reasonPlace !== null && reasonPlace.tipTop >= reasonPlace.spanBottom, reasonPlace)
   await page.mouse.move(5, 5)
   const done = await action()
-  check("write finished: back to Lancer le run", done?.action === "start" && done.text === "Lancer le run", done)
+  check("write finished with a failure: the action button offers Relancer l'écriture, primary solid, refresh icon, enabled", done?.count === 1 && done.action === "retry" && done.text === "Relancer l'écriture" && !done.danger && !done.outlined && !done.secondary && done.small && done.icon === "refresh" && !done.disabled && done.right === 0, done)
   const barDone = await bar()
   check("write bar kept on its last step", barDone?.text.includes("3 sur 3") && !barDone.indeterminate, barDone)
   const msg = await failures()
-  check("failure message above the list, error, with count", msg?.severity && msg.aboveList && /écriture\s*:\s*1\./.test(msg.text), msg)
-  check("failure message: times-circle icon, retry below the text (fiche Message)", msg?.icon === "times-circle" && msg.actionBelow === true, msg)
-  check("retry: primary outlined, refresh icon, enabled", msg?.retry && !msg.retry.disabled && !msg.retry.cls.includes("p-button-danger") && msg.retry.cls.includes("p-button-outlined") && msg.retry.icon === "refresh", msg?.retry)
+  check("failure message above the list, error, with count", msg?.severity && msg.aboveList && /écriture\s*:\s*1/.test(msg.text), msg)
+  check("failure message: times-circle icon, text only (the retry is the action button), one sentence per line", msg?.icon === "times-circle" && msg.buttons === 0 && msg.whiteSpace === "pre-line" && /\s*:\s*1\nLe motif de chaque échec s'affiche au survol/.test(msg.raw ?? ""), msg)
   await shot("6-write-failed")
 
   // 8. Relance : confirmee, en vol, puis en echec, puis reussie.
@@ -317,21 +319,21 @@ async (page) => {
   await page.locator('[data-action="retry"]').click()
   await settle(700)
   const retryDialog = await confirmDialog()
-  check("retry confirm: header, count, primary accept, outlined reject", retryDialog?.header === "Relancer l'écriture" && /réécrire\s*:\s*1\./.test(retryDialog.message) && !/p-button-(danger|secondary|outlined)/.test(retryDialog.buttons[1].cls) && retryDialog.buttons[0].cls.includes("p-button-outlined"), retryDialog)
+  check("retry confirm: header, count, primary accept, outlined reject, both small", retryDialog?.header === "Relancer l'écriture" && /réécrire\s*:\s*1\n/.test(retryDialog.message) && !/p-button-(danger|secondary|outlined)/.test(retryDialog.buttons[1].cls) && retryDialog.buttons[0].cls.includes("p-button-outlined") && retryDialog.buttons.every((b) => b.cls.includes("p-button-sm")), retryDialog)
   check("retry confirm: nothing sent before accept", (await sent()).length === 0, await sent())
   await shot("7-retry-confirm")
   await confirmButton("Relancer l'écriture").click()
   await settle(500)
   check("retry accept sends retry_write", JSON.stringify(await sent()) === JSON.stringify(["retry_write"]), await sent())
   const retrying = await action()
-  check("retrying: message hidden, action loading", (await failures()) === null && retrying?.action === "commit" && retrying.icon === "spinner", { msg: await failures(), retrying })
+  check("retrying: message hidden, the action is still retry (not commit), loading and disabled", (await failures()) === null && retrying?.action === "retry" && retrying.icon === "spinner" && retrying.disabled, { msg: await failures(), retrying })
   out.measures.barRetrying = await bar()
   await line({ event: "error", code: "tag_dump_write_failed", params: {}, message: "", command: "retry_write" })
   await settle(600)
   out.measures.barAfterRetryFailure = await bar()
   out.measures.afterRetryFailure = { action: await action(), failures: await failures(), error: await page.evaluate(() => document.querySelector("app-tagging-page app-error-message")?.textContent.trim() ?? null) }
   check("retry failure: no indeterminate write bar left", out.measures.barAfterRetryFailure === null, out.measures.barAfterRetryFailure)
-  check("retry failure: error shown, retry offered again", out.measures.afterRetryFailure.error?.includes("sauvegardés") && out.measures.afterRetryFailure.failures?.retry && !out.measures.afterRetryFailure.failures.retry.disabled, out.measures.afterRetryFailure)
+  check("retry failure: error shown, message back, the action button offers retry again", out.measures.afterRetryFailure.error?.includes("sauvegardés") && out.measures.afterRetryFailure.failures?.buttons === 0 && out.measures.afterRetryFailure.action?.action === "retry" && !out.measures.afterRetryFailure.action.disabled && out.measures.afterRetryFailure.action.icon === "refresh", out.measures.afterRetryFailure)
   await shot("8-retry-failed")
   await page.locator('[data-action="retry"]').click()
   await settle(600)
@@ -343,15 +345,22 @@ async (page) => {
   await settle(600)
   check("retry success: failure message gone", (await failures()) === null, await failures())
   check("retry success: row written", (await rowState("Hector Oaks"))?.label === "Auto", await rowState("Hector Oaks"))
+  const afterRetry = await action()
+  check("retry success: no failure left, the action button is back to Lancer le run", afterRetry?.action === "start" && afterRetry.text === "Lancer le run" && !afterRetry.disabled, afterRetry)
 
   // 9. EN : colonne Etat et libelles.
   await line(writeError(L))
   await page.evaluate(() => ng.getComponent(document.querySelector("app-root")).translate.use("en"))
   await settle(700)
   const failEn = await rowState("Hector Oaks")
+  const actionEn = await action()
   check("state column fits Write failed (en)", failEn?.label === "Write failed" && failEn.tagWrapped === false && failEn.spanFits === true, failEn)
+  check("action button reads Retry writing (en)", actionEn?.action === "retry" && actionEn.text === "Retry writing", actionEn)
   await page.evaluate(() => ng.getComponent(document.querySelector("app-root")).translate.use("fr"))
   await settle(500)
+  // La ligne revient a `written` : tant qu'un echec reste, le meme dossier offre la relance, pas le lancement.
+  await line(resolved(L, "written"))
+  await settle(300)
 
   // 10. Erreur de commit_run : run de nouveau confirmable, lignes et badges reviennent.
   await page.locator('[data-action="start"]').click()
@@ -383,7 +392,7 @@ async (page) => {
   await line({ event: "run_started", run_id: "run-3", folder: FOLDER, tracks: [R1, R2] })
   await line(resolved(R1))
   await settle(300)
-  await page.locator("app-tagging-page .grid > div > button", { hasText: "Interrompre" }).click()
+  await page.locator('app-tagging-page .grid > button[data-action="cancel"]', { hasText: "Interrompre" }).click()
   await settle(500)
   const interrupted = await action()
   check("interrupted run offers to confirm", interrupted?.action === "commit" && !interrupted.disabled, interrupted)
