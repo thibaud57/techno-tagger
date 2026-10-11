@@ -146,7 +146,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - **0.13.0** : Python 3.15 devient la version stable par défaut quand rien n'est configuré. Sans effet ici : `sidecar/.python-version` pose `3.14.8` et `requires-python` borne à `<3.15`
 - **0.13.0** : les tarballs passent par le backend `tar-codec`, plus strict (liens physiques et extensions non gérés rejetés), et les sdists produits par `uv_build` peuvent changer d'octets donc de hash. Sans effet constaté : `uv sync` construit `tagger` en editable, aucun sdist n'est figé dans `uv.lock`
 - **0.13.0** : `--require-hashes` d'un fichier de contraintes `-c` est respecté, les contraintes éditables sont refusées, `uv build --clear` refuse un répertoire de sortie qui contient la source. Hors usage du projet
-- **0.13.0** : le plancher `uv_build` doit inclure 0.13 (`>=0.13.0,<0.14`), et `required-version = ">=0.13,<0.14"` sous `[tool.uv]` refuse un uv hors de la mineure
+- **0.13.0** : le plancher `uv_build` doit inclure 0.13 (`>=0.13.0,<0.14`)
 
 **Nouvelles Features Pertinentes** :
 - **0.12.18** corrige GHSA-2cv4-cqwr-gwf7, un path traversal à l'installation d'une wheel sous Windows : raison suffisante, à elle seule, de ne pas rester en deçà
@@ -989,7 +989,7 @@ Trois contournements, dans l'ordre de préférence :
 
 Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilotée par release-please via `extra-files`. La borne haute existe pour que PyInstaller empaquette exactement l'interpréteur testé, pas pour exclure 3.15. Un `.python-version` à côté fige la version qu'`uv` installe et que la CI reprend, et c'est le fichier que vise la procédure de bump de [PRODUCTION.md § Composants applicatifs](PRODUCTION.md#composants-applicatifs).
 
-**Build et uv** : `[build-system] requires = ["uv_build>=0.13.0,<0.14"]` et `[tool.uv] required-version = ">=0.13,<0.14"`. Le patch d'uv vit dans `.github/actions/setup-uv`, que `test_the_ci_uv_satisfies_the_uv_build_range` confronte au plancher `uv_build`.
+**Build et uv** : `[build-system] requires = ["uv_build>=0.13.0,<0.14"]`. Le patch d'uv vit dans `.github/actions/setup-uv`, que `test_the_ci_uv_satisfies_the_uv_build_range` confronte au plancher `uv_build`.
 
 **Dépendances d'exécution** : `pydantic>=2.14.0,<3`, `mutagen>=1.48.1,<2`, `rapidfuzz>=3.14.6,<4`, `httpx2>=2.13.1,<3`, `keyring>=25.7.0,<26`, `sentry-sdk>=2.71.0,<3`.
 

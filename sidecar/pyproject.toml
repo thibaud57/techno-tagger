@@ -21,7 +21,6 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = true
-required-version = ">=0.13,<0.14"
 
 [tool.ruff]
 line-length = 100

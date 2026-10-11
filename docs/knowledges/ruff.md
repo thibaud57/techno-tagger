@@ -1,8 +1,8 @@
 ---
 title: "Ruff — Linter et formatter du sidecar"
-version: "0.16.10"
-description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0, select vs extend-select et ordre lint/format."
-date: "2026-10-09"
+version: "0.17.0"
+description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0 puis ajusté en 0.17.0, select vs extend-select et ordre lint/format."
+date: "2026-10-12"
 keywords: ["ruff", "lint", "format", "pyproject", "regles", "pre-commit"]
 scope: ["docs"]
 technologies: ["Python", "uv", "Mypy", "GitHub Actions"]
@@ -68,6 +68,29 @@ select = ["E4", "E7", "E9", "F"]
 - Le retrait des 18 règles n'a pas été documenté dans les notes de rupture : une règle qui « ne se déclenche plus » après montée de version vient peut-être de là
 - **Déclarer `select` explicitement est le seul moyen de maîtriser ce que le linter vérifie**, indépendamment des défauts de la version installée
 - **Épingler la version de Ruff** par `uv.lock`, que la CI lance par `uv run`, évite qu'un changement de défaut arrive sans être décidé
+
+---
+
+## Changements de la 0.17.0
+
+### Description
+
+La 0.17.0 (2026-10-09) ajuste le jeu par défaut, stabilise trois règles et change le calcul de largeur de ligne. Aucune règle n'est renommée ni retirée.
+
+### Exemple
+
+```toml
+[tool.ruff.lint]
+select = ["DTZ", "RUF", "TID"]   # DTZ quitte le défaut en 0.17.0 : explicite pour rester actif
+```
+
+### Points Importants
+
+- **`DTZ001`, `DTZ005`, `DTZ006`, `DTZ007`, `DTZ011`, `DTZ012` et `DTZ901` quittent le jeu par défaut**, `F406` y entre : sans effet avec un `select` explicite
+- **`TID254`, `TID255` et `RUF071` sont stabilisées** : elles s'appliquent dès que `TID` ou `RUF` est sélectionné
+- **Les commentaires pragma de fin de ligne ne comptent plus dans la largeur** pour le formateur, `I001`, `E501` et `W505` : un import peut être reformaté au passage
+- Python par défaut 3.11 (3.15 pour les erreurs de syntaxe), sans effet quand `requires-python` est posé
+- ruff-lsp est supprimé : l'extension VS Code utilise toujours le serveur natif
 
 ---
 
@@ -175,5 +198,6 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 ## Ressources Complémentaires
 
 - [Annonce Ruff 0.16.0](https://astral.sh/blog/ruff-v0.16.0)
+- [Notes de version 0.17.0](https://github.com/astral-sh/ruff/releases/tag/0.17.0)
 - [ruff-pre-commit](https://github.com/astral-sh/ruff-pre-commit)
 - [mypy.md](mypy.md) : répartition des responsabilités
