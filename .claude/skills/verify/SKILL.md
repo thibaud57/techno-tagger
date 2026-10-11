@@ -95,7 +95,7 @@ Parcours relevé le 2026-10-07, tous verts. Le parcours change au 2026-10-11 : p
 
 ### Échec de transfert à l'extraction
 
-Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Ilán Thorne - As We Were.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
+Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Ilán Thorne - As We Stayed.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
 
 ## Pilotage du dump des tags d'origine
 
