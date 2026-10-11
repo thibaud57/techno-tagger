@@ -68,8 +68,8 @@ const unavailableError = (command: SidecarCommand["command"] | null): SidecarErr
 })
 
 /**
- * Frontiere unique entre la webview et le metier (transport, version, erreurs).
- * L'etat d'un run vit dans son store : `TaggingRunStore` pour le re-tagging.
+ * Frontiere unique entre la webview et le metier (transport, version, erreurs). L'etat de
+ * chaque phase vit dans son store : ce service route les evenements et re-expose les signals.
  */
 @Service()
 export class SidecarService {
@@ -153,7 +153,7 @@ export class SidecarService {
   readonly rollingBack = this.writePhase.rollingBack
   readonly rollbackFinished = this.writePhase.rollbackFinished
   readonly rollbackTarget = this.writePhase.rollbackTarget
-  /** Plus aucune decision n'entre dans le run affiche : le sidecar la refuserait ou l'ignore. */
+  /** Plus aucune decision n'entre dans le run affiche : le sidecar la refuserait ou l'ignorerait. */
   readonly runFrozen = computed(() => this.writePhase.committed() || this.taggingRun.lost())
   /**
    * Run que le moteur ecrirait : recherche finie, ni confirme ni perdu, au moins un morceau
@@ -166,10 +166,13 @@ export class SidecarService {
       !this.runFrozen() &&
       this.taggingRun.writableCount() > 0,
   )
+  /** Run deja ecrit que le moteur tient encore : une nouvelle ecriture en est la relance. */
+  readonly runRetryable = computed(
+    () => this.writePhase.finished() !== null && !this.taggingRun.lost(),
+  )
   /**
-   * Lignes a afficher dans la phase : non resolues, ou deja rattrapees pour corriger un
-   * mauvais lien. Filtre d'affichage sur des etats recus ; le sidecar reste seul juge de
-   * l'eligibilite et refuse tout autre morceau.
+   * Lignes a afficher dans la phase : non resolues, ou deja rattrapees (pour corriger un
+   * mauvais lien). Simple filtre d'affichage : le sidecar reste seul juge de l'eligibilite.
    */
   readonly recoverableTracks = computed(() =>
     this.taggingRun
@@ -382,8 +385,8 @@ export class SidecarService {
       // Une ligne, une commande : c'est ce que lit la boucle du sidecar.
       await this.transport.send(`${JSON.stringify(command)}\n`)
     } catch (error) {
-      // Pipe brisee entre le spawn et cette ecriture : `onTerminated` n'a pas
-      // encore tourne, sans ce catch la rejection remonterait jusqu'au bootstrap.
+      // Pipe brisee avant que `onTerminated` ne tourne : sans ce catch la rejection
+      // remonterait jusqu'au bootstrap.
       console.error("[sidecar] ecriture impossible", error)
       this._available.set(false)
       this.reportUnavailable(command.command)
@@ -473,11 +476,8 @@ export class SidecarService {
   }
 
   /**
-   * Traite une ligne de `stdout`, deja decoupee par Tauri.
-   *
-   * Une ligne illisible ou d'un type inconnu n'interrompt pas la session, mais
-   * elle est tracee : c'est le symptome d'un contrat desynchronise entre les deux
-   * cotes, et l'absorber en silence le rendrait indiagnosticable.
+   * Traite une ligne de `stdout`, deja decoupee par Tauri. Une ligne illisible ou inconnue
+   * est tracee sans interrompre la session : c'est le symptome d'un contrat desynchronise.
    */
   private handleLine(line: string): void {
     let event: SidecarEvent
@@ -561,8 +561,7 @@ export class SidecarService {
         this.routeWriteError(event)
         break
       default: {
-        // Ajouter un evenement cote sidecar sans le traiter ici devient une
-        // erreur de compilation, pas une ligne silencieusement perdue.
+        // Evenement ajoute cote sidecar sans etre traite ici : erreur de compilation.
         const exhaustive: never = event
         console.error("[sidecar] evenement non traite", exhaustive)
       }

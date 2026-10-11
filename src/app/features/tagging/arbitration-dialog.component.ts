@@ -23,7 +23,7 @@ import { SidecarService } from "../../core/sidecar.service"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
 import { MessageComponent } from "../../shared/components/message.component"
 import { IconComponent } from "../../shared/components/icon.component"
-import { SourceLogoComponent } from "../../shared/components/source-logo.component"
+import { DialogHeaderComponent } from "../../shared/components/dialog-header.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
 import { NO_MOTION } from "../../shared/utils/motion"
@@ -72,7 +72,7 @@ const toOption = (candidate: CandidatePayload, index: number): CandidateOption =
     TranslatePipe,
     ErrorMessageComponent,
     IconComponent,
-    SourceLogoComponent,
+    DialogHeaderComponent,
     TruncatedTextComponent,
     UrlLinkFormComponent,
     UrlLinkActionsComponent,

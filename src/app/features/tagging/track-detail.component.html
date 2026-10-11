@@ -57,7 +57,7 @@
           data-action="restore-track"
           [disabled]="blocked()"
           [pTooltip]="busy"
-          [showDelay]="tooltipDelay"
+          [tooltipOptions]="tooltip"
           (click)="restore.emit(track().trackId)"
         >
           <app-icon [name]="restoring() ? 'spinner' : 'refresh'" [size]="16" />

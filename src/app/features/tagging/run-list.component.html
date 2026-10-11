@@ -12,8 +12,8 @@
 >
   <ng-template #header>
     <tr>
-      <!-- Bouton small de 32px plus les marges de la cellule ; a remesurer a l'ecran. -->
-      <th class="w-16"></th>
+      <!-- Bouton small de 34px plus la seule marge gauche : sa cellule n'a pas de marge droite. -->
+      <th class="w-12"></th>
       <!-- Vignette de 32px plus les marges de la cellule. -->
       <th class="w-15"></th>
       <th>{{ "tagging.list.before" | translate }}</th>
@@ -34,8 +34,8 @@
         @let track = item.row;
         @let open = item.open;
         <!-- Ligne actionnable atteignable au clavier, Entree ou Espace comme le clic. Anneau du
-               preset (--p-focus-ring-*) pose vers l'interieur : la table defile et rognerait un
-               anneau exterieur. -->
+             preset (--p-focus-ring-*) vers l'interieur : la table defile et rognerait un
+             anneau exterieur. -->
         <tr
           class="h-14 transition-colors duration-150 ease-out focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis data-shown:bg-highlight"
           [attr.data-shown]="open ? '' : null"
@@ -46,7 +46,9 @@
           (keydown.enter)="activate(track)"
           (keydown.space)="activate(track, $event)"
         >
-          <td>
+          <!-- Sans marge droite : le chevron, centre dans un bouton transparent, est separe de la
+               vignette du meme ecart que la vignette du texte. -->
+          <td class="pr-0">
             <!-- Le bouton garde ses clics et ses touches : la ligne ouvre l'arbitrage ou le lien. -->
             <button
               pButton

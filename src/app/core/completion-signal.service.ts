@@ -25,11 +25,8 @@ const ROLLBACK_END: EndMessages = {
 }
 
 /**
- * Signal de fin d'une phase longue : un son, puis un toast. Partage par la fin de
- * la phase reseau d'un run et par la fin d'une extraction, qui n'en avait aucun.
- *
- * Aucun fichier audio dans le depot : pas de binaire a relire en diff, pas de
- * licence a suivre. Remplacer le bip par un fichier ne toucherait que ce service.
+ * Signal de fin d'une phase longue : un son, puis un toast.
+ * Le bip est synthetise : aucun fichier audio dans le depot, ni binaire a relire ni licence a suivre.
  */
 @Service()
 export class CompletionSignalService {
@@ -38,9 +35,8 @@ export class CompletionSignalService {
   private readonly sidecar = inject(SidecarService)
 
   /**
-   * Dans le service racine, construit une seule fois : branche sur un ecran, l'`effect()`
-   * mourait avec lui. Un signal ne notifiant que sur une nouvelle valeur, chaque fin
-   * s'annonce une fois.
+   * Service racine construit au demarrage : branche sur un ecran, l'`effect()` mourrait avec
+   * lui. Un signal ne notifiant que sur une nouvelle valeur, chaque fin s'annonce une fois.
    */
   constructor() {
     const ends = [
@@ -91,8 +87,7 @@ export class CompletionSignalService {
 
   /** Un contexte refuse par la webview ne doit jamais empecher le toast. */
   private beep(): void {
-    // Detection de fonctionnalite : les types DOM donnent `AudioContext` toujours defini,
-    // la webview peut pourtant refuser le contexte a l'execution (edge case "Web Audio indisponible").
+    // Les types DOM donnent `AudioContext` toujours defini, la webview peut pourtant l'ignorer.
     if (typeof globalThis.AudioContext === "undefined") {
       return
     }
@@ -103,9 +98,8 @@ export class CompletionSignalService {
       return
     }
 
-    // Une seule fermeture, d'ou que vienne la fin : `onended` de la derniere note en
-    // marche nominale, le `catch` si la planification echoue a mi-chemin. Sans ce garde,
-    // le second appel leverait sur un contexte deja ferme.
+    // `onended` de la derniere note et le `catch` peuvent tous deux fermer : le second appel
+    // leverait sur un contexte deja ferme.
     let closed = false
     const close = (): void => {
       if (closed) {
@@ -128,9 +122,8 @@ export class CompletionSignalService {
         oscillator.start(start)
         oscillator.stop(start + NOTE_SECONDS)
         if (index === NOTES.length - 1) {
-          // Fermer au tick de planification coupait le son avant qu'il ne joue :
-          // close() arrete la progression du temps audio, alors que les notes sont
-          // planifiees jusqu'a start + NOTE_SECONDS. On attend la derniere.
+          // Fermer au tick de planification coupe le son : close() arrete le temps audio
+          // alors que les notes sont planifiees plus loin.
           oscillator.onended = close
         }
       })

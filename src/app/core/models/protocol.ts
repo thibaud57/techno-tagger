@@ -215,7 +215,6 @@ export type TagField =
   | "title"
   | "album"
   | "date"
-  | "original_date"
   | "genre"
   | "label"
   | "catalog_number"
@@ -236,7 +235,7 @@ export interface TagValue {
   readonly value: string | null
 }
 
-/** Tags d'origine, nuls quand le fichier etait illisible a l'ouverture du run. */
+/** Tags d'origine d'un morceau, tels que le fichier les portait a l'ouverture du run. */
 export interface TagsBefore {
   readonly system: TagSystem
   readonly comment: string | null
@@ -248,6 +247,7 @@ export interface TrackEntry {
   readonly file_name: string
   readonly artist: string
   readonly title: string
+  /** Nul quand le fichier etait illisible a l'ouverture du run. */
   readonly tags_before: TagsBefore | null
 }
 

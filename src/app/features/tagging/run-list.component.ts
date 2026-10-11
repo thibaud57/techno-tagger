@@ -94,9 +94,9 @@ export class RunListComponent {
   readonly restore = output<string>()
 
   /**
-   * Lignes deja construites, par objet morceau. Le store ne remplace que le morceau qu'un
-   * evenement touche : les autres gardent leur ligne, et leurs composants enfants, qui la
-   * recoivent en input, ne sont pas recontroles. Les entrees meurent avec leur morceau.
+   * Lignes deja construites, par objet morceau : le store ne remplace que le morceau qu'un
+   * evenement touche, les autres gardent leur ligne et leurs composants enfants (qui la recoivent
+   * en input) ne sont pas recontroles. Les entrees meurent avec leur morceau.
    */
   private readonly rowCache = new WeakMap<TaggingTrack, RunRow>()
   /** Entrees fermees de `renderRows` : une reference stable evite de recontroler la ligne a chaque evenement. */
@@ -166,8 +166,8 @@ export class RunListComponent {
 
   /**
    * Ce que rend la table : apres chaque morceau ouvert, `detailSpan` lignes synthetiques de
-   * 56px. La premiere porte le detail, les autres le laissent deborder dessus. Il suit les
-   * evenements d'un morceau resolu pendant qu'il est ouvert, la ligne portant son `RunRow`.
+   * 56px. La premiere porte le detail, les autres le laissent deborder dessus. La ligne portant
+   * son `RunRow`, le detail suit les evenements d'un morceau resolu pendant qu'il est ouvert.
    */
   protected readonly renderRows = computed<RenderRow[]>(() => {
     const open = this.openIds()

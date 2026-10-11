@@ -41,7 +41,7 @@ import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { progressPercentage } from "../../shared/utils/progress"
 import { fullHeightTable } from "../../shared/utils/table"
-import { TOOLTIP_DELAY, WIDE_TOOLTIP } from "../../shared/utils/tooltip"
+import { TOOLTIP, WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
 import { toExtractionRows, type ExtractionCategory } from "./extraction-rows"
 
@@ -103,10 +103,9 @@ export default class PlaylistPageComponent {
   protected readonly playlistPath = signal(this.sidecar.listedPlaylistPath())
 
   /**
-   * Les deux choix de l'ecran, dans un seul signal. `form()` en derive un arbre
-   * de champs que `[formField]` lie aux composants PrimeNG : ceux-ci n'exposent
-   * leur valeur que par `ControlValueAccessor`, avec lequel la directive
-   * interopere. Aucun validateur n'est declare, il n'y a rien a valider ici.
+   * Les deux choix de l'ecran en un seul signal : `form()` en derive les champs que
+   * `[formField]` lie aux composants PrimeNG (`ControlValueAccessor`). Sans validateur,
+   * il n'y a rien a valider.
    */
   protected readonly choice = signal<PlaylistChoice>({
     playlist:
@@ -237,7 +236,7 @@ export default class PlaylistPageComponent {
 
   protected readonly tablePt = computed(() => fullHeightTable(this.rows().length === 0))
 
-  protected readonly tooltipDelay = TOOLTIP_DELAY
+  protected readonly tooltip = TOOLTIP
   protected readonly wideTooltip = WIDE_TOOLTIP
   protected readonly fadeIn = FADE_IN
 
@@ -267,10 +266,7 @@ export default class PlaylistPageComponent {
     }
   }
 
-  /**
-   * Le choix du fichier declenche le listage : c'est la reponse du sidecar qui
-   * annonce le format, l'interface n'ayant pas le droit de le deduire.
-   */
+  /** Le choix du fichier declenche le listage : seul le sidecar annonce le format. */
   protected async choosePlaylistFile(): Promise<void> {
     const chosen = await pickPath({ directory: false })
     if (chosen === null) {

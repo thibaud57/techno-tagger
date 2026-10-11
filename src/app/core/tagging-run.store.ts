@@ -60,10 +60,7 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
   arbitration: null,
 })
 
-/**
- * Etat d'un run de re-tagging. `SidecarService` garde la frontiere du transport et
- * lui transmet les evenements : les Features 3 a 6 ajouteront leur propre store.
- */
+/** Etat d'un run de re-tagging, alimente par le routage des evenements de `SidecarService`. */
 @Service()
 export class TaggingRunStore {
   private readonly _runId = signal<string | null>(null)
@@ -86,9 +83,8 @@ export class TaggingRunStore {
   /** Vrai de l'envoi de `start_tagging` jusqu'a `run_finished` ou une erreur. */
   readonly running = this._running.asReadonly()
   readonly finished = this._finished.asReadonly()
-  /** Arrete par une erreur ou par la mort du process : ses morceaux non tranches ne le
-   * seront plus. Pose par `failed()`, au moment ou le fait est connu : le deduire d'un
-   * `running` retombe le rendrait faux le jour ou un arret volontaire l'eteindrait aussi. */
+  /** Arrete par une erreur ou la mort du process : ses morceaux non tranches ne le seront plus.
+   * Pose par `failed()` plutot que deduit de `running`, que d'autres arrets eteignent aussi. */
   readonly interrupted = this._interrupted.asReadonly()
   /** Un nouveau moteur ne connait pas ce run : rien n'en sera ecrit. Ecrit, il reste restaurable par son dump. */
   readonly lost = this._lost.asReadonly()
@@ -146,9 +142,8 @@ export class TaggingRunStore {
   /** Erreur du sidecar ou annulation : le run s'arrete, les lignes restent. */
   failed(): void {
     this._running.set(false)
-    // Avant `run_started` aucune ligne n'existe et apres `run_finished` le run a sa fin :
-    // dans les deux cas il n'y a rien a etiqueter « non traite ». Le process peut mourir
-    // apres la fin du run, pendant l'ecriture.
+    // Avant `run_started` aucune ligne n'existe, apres `run_finished` le run a sa fin : rien
+    // a etiqueter « non traite ». Le process peut mourir apres, pendant l'ecriture.
     this._interrupted.set(this._runId() !== null && this._finished() === null)
   }
 

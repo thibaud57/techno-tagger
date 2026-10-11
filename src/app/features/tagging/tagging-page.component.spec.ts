@@ -22,12 +22,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn(() => Promise.resolve("D:/Sets/Aout")),
 }))
 
-/**
- * `readLastDestination` ne lit pas la preference elle-meme, elle passe par `load()` de ce
- * paquet npm : le piloter ici est le pattern deja eprouve par preferences.spec.ts et
- * completion-signal.service.spec.ts, et evite de mocker un import relatif du code de l'app,
- * que le builder unit-test d'Angular interdit.
- */
+/** `readLastDestination` passe par `load()` de ce paquet npm : le builder unit-test interdit de mocker un import relatif de l'app. */
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(),
 }))
@@ -68,6 +63,7 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     resolveByUrl: vi.fn(() => Promise.resolve()),
     writing: signal(false),
     writeProgress: signal<{ processed: number; total: number } | null>(null),
+    runRetryable: signal(false),
     arbitrationInFlight: signal(false),
     rollingBack: signal<{ runId: string; trackId: string | null } | null>(null),
     rollbackFinished: signal<RollbackFinishedEvent | null>(null),
@@ -209,11 +205,15 @@ describe("TaggingPageComponent", () => {
     const tagging = signal(false)
     const confirmable = signal(false)
     const writing = signal(false)
+    const retryable = signal(false)
+    const taggingTracks = signal<TaggingTrack[]>([])
     const { component } = await mountWith({
       tagging,
       taggingFolder: signal("D:/Sets/Aout"),
       runConfirmable: confirmable,
       writing,
+      runRetryable: retryable,
+      taggingTracks,
     })
     const seen = [component["action"]()]
 
@@ -226,9 +226,28 @@ describe("TaggingPageComponent", () => {
     writing.set(true)
     seen.push(component["action"]())
     writing.set(false)
+    retryable.set(true)
+    taggingTracks.set([failed("a.mp3")])
+    seen.push(component["action"]())
+    writing.set(true)
+    seen.push(component["action"]())
+    writing.set(false)
+    taggingTracks.set([written("a.mp3")])
     seen.push(component["action"]())
 
-    expect(seen).toEqual(["start", "cancel", "commit", "commit", "start"])
+    expect(seen).toEqual(["start", "cancel", "commit", "commit", "retry", "retry", "start"])
+  })
+
+  it("starts the same folder again when its written run was lost with the engine", async () => {
+    const { component } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      taggingFolder: signal("D:/Sets/Aout"),
+      committed: signal(true),
+      runRetryable: signal(false),
+      taggingTracks: signal([failed("a.mp3")]),
+    })
+
+    expect(component["action"]()).toBe("start")
   })
 
   it("starts the same folder again when its run cannot be confirmed", async () => {
@@ -239,7 +258,7 @@ describe("TaggingPageComponent", () => {
     })
 
     expect(component["action"]()).toBe("start")
-    expect(component["canStart"]()).toBe(true)
+    expect(component["blockedReason"]()).toBeNull()
   })
 
   it("starts over when another folder is chosen", async () => {
@@ -291,7 +310,7 @@ describe("TaggingPageComponent", () => {
       ...overrides,
     })
 
-    expect(component["commitBlockedReason"]()).toBe(reason)
+    expect(component["writeBlockedReason"]()).toBe(reason)
   })
 
   it("tells the counts in the confirmation and commits only on accept", async () => {
@@ -309,9 +328,10 @@ describe("TaggingPageComponent", () => {
     translate.setTranslation("en", {
       tagging: {
         commit: {
-          message: "{{folder}} files {{count}}.",
-          unresolved: "unresolved {{count}}.",
-          awaiting: "awaiting {{count}}.",
+          message: "{{folder}} files {{count}}",
+          unresolved: "unresolved {{count}}",
+          awaiting: "awaiting {{count}}",
+          backup: "backed up",
         },
       },
     })
@@ -323,8 +343,8 @@ describe("TaggingPageComponent", () => {
     const before = service.commitRun.mock.calls.length
     options?.accept?.()
 
-    expect(options?.message).toBe("D:/Sets/Aout files 1. unresolved 1. awaiting 1.")
-    expect(options?.acceptButtonProps).toEqual({})
+    expect(options?.message).toBe("D:/Sets/Aout files 1\nunresolved 1\nawaiting 1\n\nbacked up")
+    expect(options?.acceptButtonProps).not.toHaveProperty("severity")
     expect(before).toBe(0)
     expect(service.commitRun).toHaveBeenCalledTimes(1)
   })
@@ -338,7 +358,9 @@ describe("TaggingPageComponent", () => {
 
     component["commit"]()
 
-    expect(confirm.mock.calls[0]?.[0].message).toBe("tagging.commit.message")
+    expect(confirm.mock.calls[0]?.[0].message).toBe(
+      "tagging.commit.message\n\ntagging.commit.backup",
+    )
   })
 
   it("keeps the failure message while failures remain, with a confirmed retry", async () => {
@@ -367,7 +389,7 @@ describe("TaggingPageComponent", () => {
     fixture.detectChanges()
 
     expect(before).toContain("failed 2")
-    expect(retryOptions?.acceptButtonProps).toEqual({})
+    expect(retryOptions?.acceptButtonProps).not.toHaveProperty("severity")
     expect(service.retryWrite).toHaveBeenCalledTimes(1)
     expect(remaining).toContain("failed 1")
     expect(shown()).toBeUndefined()
@@ -391,12 +413,13 @@ describe("TaggingPageComponent", () => {
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
       writing: signal(true),
+      runRetryable: signal(true),
       taggingTracks: signal([failed("a.mp3")]),
     })
 
     fixture.detectChanges()
 
-    const action = host(fixture).querySelector('[data-action="commit"]')
+    const action = host(fixture).querySelector('[data-action="retry"]')
     expect(host(fixture).querySelector("[data-write-failures]")).toBeNull()
     expect(action?.querySelector('[data-p-icon="spinner"]')).not.toBeNull()
   })
@@ -405,6 +428,8 @@ describe("TaggingPageComponent", () => {
     const { fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
+      taggingFolder: signal("D:/Sets/Aout"),
+      runRetryable: signal(true),
       taggingTracks: signal([failed("a.mp3")]),
       rollingBack: signal({ runId: "a3f9c1", trackId: null }),
     })
@@ -547,7 +572,7 @@ describe("TaggingPageComponent", () => {
     const before = service.rollback.mock.calls.length
     options?.accept?.()
 
-    expect(options?.acceptButtonProps).toEqual({ severity: "danger" })
+    expect(options?.acceptButtonProps).toMatchObject({ severity: "danger" })
     expect(before).toBe(0)
     expect(service.rollback).toHaveBeenCalledWith("a3f9c1")
   })
@@ -672,9 +697,9 @@ describe("TaggingPageComponent", () => {
     const { component } = await mountWith("folder" in overrides ? {} : overrides)
     component["folder"].set(folder)
 
-    const enabled = component["canStart"]()
+    const reason = component["blockedReason"]()
 
-    expect(enabled).toBe(false)
+    expect(reason).not.toBeNull()
   })
 
   it("sends the start tagging command with the chosen folder", async () => {

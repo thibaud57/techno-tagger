@@ -10,7 +10,7 @@ import { ArtworkComponent } from "../../shared/components/artwork.component"
 import { IconComponent } from "../../shared/components/icon.component"
 import { NoValueComponent } from "../../shared/components/no-value.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
-import { TOOLTIP_DELAY } from "../../shared/utils/tooltip"
+import { TOOLTIP } from "../../shared/utils/tooltip"
 
 /** Une ligne de la grille ; `key` nulle pour le commentaire, qui n'a pas de champ écrit. */
 interface DetailRow {
@@ -31,8 +31,8 @@ const fieldsOf = (track: TaggingTrack): readonly TagValue[] | null =>
   track.tagsBefore?.fields ?? track.tagsAfter
 
 /**
- * Lignes de la liste du run (56px) que le détail occupe sous son morceau, mesurées le 2026-10-10
- * en `text-xs` : 15 ou 16 lignes de champs (377px au plus) tiennent dans 7, le bouton
+ * Lignes de la liste du run (56px) que le détail occupe sous son morceau, mesurées en `text-xs`
+ * (le 2026-10-10, 377px pour 16 lignes de champs) : les 15 lignes au plus tiennent dans 7, le bouton
  * « Restaurer » en demande une de plus, la phrase des tags illisibles tient à côté de la
  * pochette de 160px dans 4. À remesurer si la grille change ; au-delà, le détail défile.
  */
@@ -64,7 +64,7 @@ export const detailSpan = (track: TaggingTrack, restorable: boolean): number => 
   host: { class: "block" },
 })
 export class TrackDetailComponent {
-  protected readonly tooltipDelay = TOOLTIP_DELAY
+  protected readonly tooltip = TOOLTIP
 
   readonly track = input.required<TaggingTrack>()
   /** Run arrêté avant ce morceau : sa pochette ne viendra plus, pas de squelette. */

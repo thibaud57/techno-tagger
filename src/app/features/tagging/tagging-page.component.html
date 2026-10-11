@@ -12,47 +12,24 @@
     >
       <app-icon icon name="folder" [size]="16" />
     </app-path-picker>
-    <div class="flex items-center gap-4">
-      <!-- Un seul bouton d'action, dont le role suit la phase : jamais deux actions du run
-           cote a cote (arbitrage du 2026-10-06, DESIGN.md § Arbitrages). -->
-      @switch (action()) {
-        @case ("cancel") {
-          <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel()">
-            <app-icon name="stop" [size]="16" />{{ "tagging.cancel" | translate }}
-          </button>
-        }
-        @case ("commit") {
-          @let commitBlocked =
-            commitBlockedReason() ? (commitBlockedReason() | translate) : undefined;
-          <button
-            pButton
-            type="button"
-            data-action="commit"
-            [disabled]="commitBlocked !== undefined"
-            [pTooltip]="commitBlocked"
-            [showDelay]="tooltipDelay"
-            (click)="commit()"
-          >
-            <app-icon [name]="writing() ? 'spinner' : 'check'" [size]="16" />
-            {{ "tagging.commit.action" | translate }}
-          </button>
-        }
-        @default {
-          @let blockedText = blockedReason() ? (blockedReason() | translate) : undefined;
-          <button
-            pButton
-            type="button"
-            data-action="start"
-            [disabled]="!canStart()"
-            [pTooltip]="blockedText"
-            [showDelay]="tooltipDelay"
-            (click)="start()"
-          >
-            <app-icon name="play" [size]="16" />{{ "tagging.start" | translate }}
-          </button>
-        }
-      }
-    </div>
+    <!-- Un seul bouton d'action, dont le role suit la phase : jamais deux actions du run
+         cote a cote (arbitrage du 2026-10-06, DESIGN.md § Arbitrages). -->
+    @let shown = actionButton();
+    @let blocked = shown.blocked ? (shown.blocked | translate) : undefined;
+    <button
+      pButton
+      type="button"
+      size="small"
+      [severity]="shown.secondary ? 'secondary' : undefined"
+      [outlined]="shown.secondary"
+      [attr.data-action]="shown.action"
+      [disabled]="blocked !== undefined"
+      [pTooltip]="blocked"
+      [tooltipOptions]="tooltip"
+      (click)="shown.run()"
+    >
+      <app-icon [name]="shown.icon" [size]="16" />{{ shown.label | translate }}
+    </button>
   </div>
 
   @if (error(); as shown) {
@@ -60,21 +37,9 @@
   }
 
   @if (writeFailures() > 0 && !writing()) {
+    <!-- Le texte seul : la relance est le bouton d'action du run, au bout de la ligne du dossier. -->
     <app-message severity="error" data-write-failures>
       {{ "tagging.write.failed" | translate: { count: writeFailures() } }}
-      <button
-        action
-        pButton
-        type="button"
-        size="small"
-        [outlined]="true"
-        class="self-start"
-        data-action="retry"
-        [disabled]="filesBusy()"
-        (click)="retry()"
-      >
-        <app-icon name="refresh" [size]="16" />{{ "tagging.retry.action" | translate }}
-      </button>
     </app-message>
   }
 
@@ -114,7 +79,7 @@
             data-action="restore-run"
             [disabled]="filesBusy()"
             [pTooltip]="restoreBusy"
-            [showDelay]="tooltipDelay"
+            [tooltipOptions]="tooltip"
             (click)="restoreRun()"
           >
             <app-icon [name]="restoringRun() ? 'spinner' : 'refresh'" [size]="16" />

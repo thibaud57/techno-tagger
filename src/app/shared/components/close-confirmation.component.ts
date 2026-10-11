@@ -31,7 +31,7 @@ import { CloseGuard } from "../../core/close-guard.service"
         </h3>
       </ng-template>
 
-      <ul class="flex flex-col gap-2 text-sm">
+      <ul class="flex flex-col gap-2 text-sm whitespace-pre-line">
         @for (work of request() ?? []; track work.kind) {
           <li>{{ "app.close." + work.kind | translate: work }}</li>
         }

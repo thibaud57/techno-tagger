@@ -14,7 +14,9 @@ import { ConfirmDialog } from "primeng/confirmdialog"
   template: `
     <p-confirmdialog styleClass="w-120" defaultFocus="reject">
       <ng-template #message let-confirmation>
-        <p class="m-0 text-sm leading-normal text-muted-color">{{ confirmation.message }}</p>
+        <p class="m-0 text-sm leading-normal whitespace-pre-line text-muted-color">
+          {{ confirmation.message }}
+        </p>
       </ng-template>
     </p-confirmdialog>
   `,
@@ -39,8 +41,9 @@ export const injectDangerConfirm = () => {
       message,
       acceptLabel: t(`${prefix}.accept`),
       rejectLabel: t("confirm.cancel"),
-      acceptButtonProps: destructive ? { severity: "danger" } : {},
-      rejectButtonProps: { severity: "secondary", outlined: true },
+      // `small` comme les boutons des autres modales et des pages.
+      acceptButtonProps: { size: "small", ...(destructive ? { severity: "danger" } : {}) },
+      rejectButtonProps: { size: "small", severity: "secondary", outlined: true },
       accept,
     })
   }

@@ -9,11 +9,9 @@ import { CompletionSignalService } from "./completion-signal.service"
 import type { RollbackFinishedEvent, RunFinishedEvent } from "./models/protocol"
 import { SidecarService } from "./sidecar.service"
 
-// `readSoundSignal` ne lit pas la preference lui-meme, il la lit par `load()` de ce
-// paquet npm : le piloter ici est le pattern deja eprouve par preferences.spec.ts et
-// playlist-page.component.spec.ts, et evite de mocker un import relatif du code de
-// l'app, que le builder unit-test d'Angular interdit ("Cannot redefine property" pour
-// vi.spyOn, garde explicite pour vi.mock).
+// `readSoundSignal` passe par `load()` de ce paquet npm : on pilote celui-ci plutot que de
+// mocker un import relatif du code de l'app, que le builder unit-test d'Angular interdit
+// ("Cannot redefine property" pour vi.spyOn, garde explicite pour vi.mock).
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(),
 }))

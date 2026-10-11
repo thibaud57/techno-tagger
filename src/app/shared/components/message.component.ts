@@ -13,10 +13,7 @@ export const MESSAGE_ICONS = {
   error: "times-circle",
 } as const satisfies Record<MessageSeverity, IconName>
 
-/**
- * Message inline, seule voie vers `p-message` : texte projete, action eventuelle (attribut
- * `action`) sous le texte comme dans la fiche.
- */
+/** Message inline, seule voie vers `p-message` : texte projete, icone suivant la severite. */
 @Component({
   selector: "app-message",
   imports: [Message, IconComponent],
@@ -28,10 +25,8 @@ export const MESSAGE_ICONS = {
       class="w-full"
     >
       <ng-template #icon><app-icon [name]="iconName()" [size]="iconSize()" /></ng-template>
-      <div class="flex flex-col gap-4">
-        <div><ng-content /></div>
-        <ng-content select="[action]" />
-      </div>
+      <!-- Une phrase par ligne : les textes traduits portent leurs retours a la ligne. -->
+      <div class="whitespace-pre-line"><ng-content /></div>
     </p-message>
   `,
   host: { class: "block" },

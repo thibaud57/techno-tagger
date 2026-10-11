@@ -24,8 +24,8 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
     provideRouter(routes, withComponentInputBinding()),
-    // CompletionSignalService est providedIn: 'root' : un provider pose sur AppComponent
-    // lui serait invisible et leverait NullInjectorError.
+    // Au root : CompletionSignalService (root) l'injecte, un provider pose sur AppComponent
+    // lui serait invisible (NullInjectorError).
     MessageService,
     // Partage par les `p-confirmdialog` de l'ecriture et du rollback.
     ConfirmationService,

@@ -16,7 +16,7 @@ import { SidecarService } from "../../core/sidecar.service"
 import type { RollbackInFlight } from "../../core/write.store"
 import { ROLLBACK_RUN, rollbackFinished } from "../../../fixtures/write"
 
-import SettingsPageComponent from "./settings-page.component"
+import SettingsPageComponent, { STORED_KEY_MASK } from "./settings-page.component"
 
 /** Sous-ensemble reellement mocke : une divergence avec `SidecarService` casse ici, jamais en silence. */
 type SidecarServiceStub = Pick<
@@ -75,16 +75,22 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
 
 describe("SettingsPageComponent", () => {
   it.each([
-    { configured: true, shown: "settings.api.key.configured", hidden: "settings.api.key.missing" },
-    { configured: false, shown: "settings.api.key.missing", hidden: "settings.api.key.configured" },
-  ])("shows whether a key is configured ($configured)", ({ configured, shown, hidden }) => {
+    { configured: true, placeholder: STORED_KEY_MASK },
+    { configured: false, placeholder: "settings.api.key.placeholder" },
+  ])("signals a stored key in the placeholder ($configured)", ({ configured, placeholder }) => {
     const { fixture } = mountWith({ apiKeyConfigured: signal(configured) })
 
-    // Le getter DOM ne rend jamais `null` (TypeScript 6 l'a retype en `string` pur) : `?? ""` serait mort.
-    const text = (fixture.nativeElement as HTMLElement).textContent
+    const input = (fixture.nativeElement as HTMLElement).querySelector("input#api-key")
 
-    expect(text).toContain(shown)
-    expect(text).not.toContain(hidden)
+    expect(input?.getAttribute("placeholder")).toBe(placeholder)
+  })
+
+  it("offers no visibility toggle while nothing is typed", () => {
+    const { fixture } = mountWith({ apiKeyConfigured: signal(true) })
+
+    const host = fixture.nativeElement as HTMLElement
+
+    expect(host.querySelector('svg[data-p-icon="eye"]')).toBeNull()
   })
 
   it("shows a key storage error under the row", () => {
@@ -123,6 +129,7 @@ describe("SettingsPageComponent", () => {
 
   it("switches the visibility icon when the key is unmasked", () => {
     const { fixture, component } = mountWith()
+    component["entry"].set({ apiKey: "k3y-t0k3n" })
 
     component["toggleMask"]()
     fixture.detectChanges()
@@ -199,12 +206,12 @@ describe("SettingsPageComponent", () => {
     expect(component["restoreBlockedReason"]()).toBe("settings.admin.rollback.loading")
   })
 
-  it("says there is nothing to undo without a target", () => {
+  it("leaves the reason to the button tooltip without a target", () => {
     const { fixture, component } = mountWith({ rollbackTarget: signal(null) })
 
     const line = (fixture.nativeElement as HTMLElement).querySelector("[data-rollback-target]")
 
-    expect(line?.textContent).toContain("settings.admin.rollback.empty")
+    expect(line).toBeNull()
     expect(component["restoreBlockedReason"]()).toBe("settings.admin.rollback.none")
   })
 
@@ -265,7 +272,7 @@ describe("SettingsPageComponent", () => {
     options?.accept?.()
 
     expect(options?.message).toBe("D:/Music/Promo Octobre 1")
-    expect(options?.acceptButtonProps).toEqual({ severity: "danger" })
+    expect(options?.acceptButtonProps).toMatchObject({ severity: "danger" })
     expect(service.rollback).toHaveBeenCalledWith("a3f9c1")
   })
 

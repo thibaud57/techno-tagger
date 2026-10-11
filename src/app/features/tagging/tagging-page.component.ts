@@ -11,7 +11,7 @@ import {
 } from "../../shared/components/danger-confirm.component"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
-import { IconComponent } from "../../shared/components/icon.component"
+import { IconComponent, type IconName } from "../../shared/components/icon.component"
 import { MessageComponent } from "../../shared/components/message.component"
 import { PathPickerComponent } from "../../shared/components/path-picker.component"
 import { PhaseProgressComponent } from "../../shared/components/phase-progress.component"
@@ -19,11 +19,25 @@ import { RollbackFailuresComponent } from "../../shared/components/rollback-fail
 import { pickPath } from "../../shared/utils/dialog"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { progressPercentage } from "../../shared/utils/progress"
-import { TOOLTIP_DELAY } from "../../shared/utils/tooltip"
+import { TOOLTIP } from "../../shared/utils/tooltip"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
 import { RunListComponent } from "./run-list.component"
 import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
+
+type RunAction = "start" | "cancel" | "commit" | "retry"
+
+interface ActionButton {
+  readonly action: RunAction
+  /** Cle de traduction du libelle. */
+  readonly label: string
+  readonly icon: IconName
+  /** « Interrompre » seul : rien n'est irreversible avant l'ecriture, aucun accent. */
+  readonly secondary: boolean
+  /** Cle de traduction de ce qui bloque le bouton, `null` s'il est actif. */
+  readonly blocked: string | null
+  readonly run: () => void
+}
 
 @Component({
   selector: "app-tagging-page",
@@ -52,7 +66,7 @@ export default class TaggingPageComponent {
   private readonly confirmDanger = injectDangerConfirm()
 
   protected readonly folder = signal("")
-  protected readonly tooltipDelay = TOOLTIP_DELAY
+  protected readonly tooltip = TOOLTIP
 
   protected readonly tracks = this.sidecar.taggingTracks
   protected readonly progress = this.sidecar.taggingProgress
@@ -111,11 +125,9 @@ export default class TaggingPageComponent {
   )
 
   /**
-   * Seule source de l'aide du bouton desactive, priorisee du plus proche de
-   * l'utilisateur au plus lointain.
-   *
-   * `ready()` mele plusieurs causes, mais toutes sauf l'extraction bloquent deja
-   * l'app entiere par son ecran bloquant : seule celle-ci merite un libelle ici.
+   * Aide du bouton quand l'action est `start`, priorisee du plus proche de l'utilisateur au
+   * plus lointain. `ready()` mele plusieurs causes, mais toutes sauf l'extraction bloquent
+   * deja l'app entiere par son ecran bloquant : seule celle-ci merite un libelle ici.
    */
   protected readonly blockedReason = computed(() => {
     if (this.sidecar.tagging()) {
@@ -141,17 +153,26 @@ export default class TaggingPageComponent {
 
     return null
   })
-  protected readonly canStart = computed(() => this.blockedReason() === null)
-  protected readonly action = computed<"start" | "cancel" | "commit">(() => {
+  protected readonly action = computed<RunAction>(() => {
     if (this.running()) {
       return "cancel"
     }
-    // Un autre dossier abandonne le run non ecrit. Le meme dossier se relance quand le run
-    // n'est pas confirmable, sinon un run vide ou perdu bloquerait son propre dossier.
-    const unwritten =
-      this.sidecar.runConfirmable() && this.folder() === this.sidecar.taggingFolder()
+    // Une ecriture qui suit un bilan d'ecriture est une relance, la premiere est la confirmation.
+    // `runRetryable` exclut un run perdu avec le moteur : son dossier repart d'un nouveau run.
+    const rewrite = this.sidecar.runRetryable()
+    if (this.writing()) {
+      return rewrite ? "retry" : "commit"
+    }
+    // Un autre dossier abandonne le run non ecrit et ses echecs. Le meme dossier se relance quand
+    // le run n'est pas confirmable, sinon un run vide ou perdu bloquerait son propre dossier.
+    if (this.folder() !== this.sidecar.taggingFolder()) {
+      return "start"
+    }
+    if (this.sidecar.runConfirmable()) {
+      return "commit"
+    }
 
-    return this.writing() || unwritten ? "commit" : "start"
+    return rewrite && this.writeFailures() > 0 ? "retry" : "start"
   })
   /** Comptes lus sur les etats recus : l'interface ne decide rien de ce qui sera ecrit. */
   private readonly counts = computed(() => {
@@ -163,7 +184,7 @@ export default class TaggingPageComponent {
       awaiting: tracks.filter((track) => track.arbitration !== null).length,
     }
   })
-  protected readonly commitBlockedReason = computed(() => {
+  protected readonly writeBlockedReason = computed(() => {
     if (this.sidecar.rollingBack() !== null) {
       return "tagging.blocked.restoring"
     }
@@ -178,6 +199,46 @@ export default class TaggingPageComponent {
     }
 
     return null
+  })
+  /** Un seul bouton d'action : libelle, icone, raison de blocage et geste suivent l'action. */
+  protected readonly actionButton = computed<ActionButton>(() => {
+    const action = this.action()
+    const write = (label: string, idle: IconName, run: () => void): ActionButton => ({
+      action,
+      label,
+      icon: this.writing() ? "spinner" : idle,
+      secondary: false,
+      blocked: this.writeBlockedReason(),
+      run,
+    })
+    switch (action) {
+      case "cancel":
+        return {
+          action,
+          label: "tagging.cancel",
+          icon: "stop",
+          secondary: true,
+          blocked: null,
+          run: () => void this.cancel(),
+        }
+      case "commit":
+        return write("tagging.commit.action", "check", () => {
+          this.commit()
+        })
+      case "retry":
+        return write("tagging.retry.action", "refresh", () => {
+          this.retry()
+        })
+      case "start":
+        return {
+          action,
+          label: "tagging.start",
+          icon: "play",
+          secondary: false,
+          blocked: this.blockedReason(),
+          run: () => void this.start(),
+        }
+    }
   })
   protected readonly error = this.sidecar.errorFor(
     "start_tagging",
@@ -208,7 +269,7 @@ export default class TaggingPageComponent {
   }
 
   protected async start(): Promise<void> {
-    if (!this.canStart()) {
+    if (this.blockedReason() !== null) {
       return
     }
     await this.sidecar.startTagging(this.folder())
@@ -223,11 +284,12 @@ export default class TaggingPageComponent {
   }
 
   protected commit(): void {
-    if (this.commitBlockedReason() !== null) {
+    if (this.writeBlockedReason() !== null) {
       return
     }
     const { writable, unresolved, awaiting } = this.counts()
-    const sentences = [
+    // Une ligne par compte, la garantie de restauration en bloc separe : la modale s'aere.
+    const counts = [
       this.t("tagging.commit.message", {
         folder: this.sidecar.taggingFolder() ?? "",
         count: writable,
@@ -237,7 +299,7 @@ export default class TaggingPageComponent {
     ]
     this.confirmDanger(
       "tagging.commit",
-      sentences.join(" "),
+      `${counts.join("\n")}\n\n${this.t("tagging.commit.backup")}`,
       () => {
         void this.sidecar.commitRun()
       },
@@ -246,6 +308,9 @@ export default class TaggingPageComponent {
   }
 
   protected retry(): void {
+    if (this.writeBlockedReason() !== null) {
+      return
+    }
     this.confirmDanger(
       "tagging.retry",
       this.t("tagging.retry.message", { count: this.writeFailures() }),
