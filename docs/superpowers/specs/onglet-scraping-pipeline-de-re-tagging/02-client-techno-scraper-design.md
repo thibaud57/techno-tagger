@@ -73,7 +73,7 @@ Aucune : ce sub-project est autoporté.
 
 ### Scénario 1 : Recherche Beatport avec résultats
 **GIVEN** une API qui rend deux morceaux pour une recherche Beatport
-**WHEN** le client cherche « Adam Beyer Your Mind » sur Beatport
+**WHEN** le client cherche « Lior Vance Dim Orbit » sur Beatport
 **THEN** la requête part sur `/beatport/search` avec `q`, `type=tracks` et `limit` et porte l'en-tête `X-API-Key`
 **AND** le client rend deux `TrackCandidate` portant titre, `mix_name`, artistes, remixeurs, sortie, label et source
 
@@ -105,9 +105,9 @@ Aucune : ce sub-project est autoporté.
 **THEN** une `SourceUnavailableError` au motif `network` est levée après trois requêtes
 
 ### Scénario 7 : Refetch du candidat retenu
-**GIVEN** un candidat Beatport d'id `17492013` et un candidat Bandcamp d'URL connue
+**GIVEN** un candidat Beatport d'id `99000101` et un candidat Bandcamp d'URL connue
 **WHEN** le client les recharge
-**THEN** les requêtes partent sur `/beatport/tracks/17492013` et sur `/bandcamp/tracks` avec le paramètre `url`
+**THEN** les requêtes partent sur `/beatport/tracks/99000101` et sur `/bandcamp/tracks` avec le paramètre `url`
 **AND** chacune rend un `TrackCandidate` complet
 
 ### Scénario 8 : Bornes de concurrence

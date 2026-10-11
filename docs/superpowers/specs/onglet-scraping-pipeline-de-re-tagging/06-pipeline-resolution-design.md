@@ -80,7 +80,7 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (ep
 ## Acceptance criteria
 
 ### Scénario 1 : Validation automatique sur Beatport
-**GIVEN** un fichier tagué « Adam Beyer » / « Your Mind » et une API Beatport qui rend l'Original Mix
+**GIVEN** un fichier tagué « Lior Vance » / « Dim Orbit » et une API Beatport qui rend l'Original Mix
 **WHEN** le run est lancé
 **THEN** le morceau est `resolved` / `auto`, source Beatport, avec le candidat rechargé et sa pochette en cache
 **AND** Bandcamp n'est jamais interrogé
@@ -91,7 +91,7 @@ Exclut la décision d'arbitrage et l'appel Bandcamp déclenché par un refus (ep
 **THEN** le morceau est `resolved` / `auto`, source Bandcamp
 
 ### Scénario 3 : Zone grise
-**GIVEN** un fichier « Your Mind » dont Beatport ne propose que l'Extended et le Radio Edit
+**GIVEN** un fichier « Dim Orbit » dont Beatport ne propose que l'Extended et le Radio Edit
 **WHEN** le run est lancé
 **THEN** le morceau a un `state` vide et une attente d'arbitrage Beatport portant les deux candidats
 **AND** `ArbitrationRequired` est émis, aucun `TrackResolved` pour ce morceau

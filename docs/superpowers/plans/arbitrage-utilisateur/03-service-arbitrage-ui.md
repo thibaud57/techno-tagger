@@ -75,9 +75,9 @@ const required = (trackId: string): ArbitrationRequiredEvent => ({
   beatport_unavailable: false,
   candidates: [
     {
-      artist: "Adam Beyer",
-      title: "Your Mind (Radio Edit)",
-      label: "Drumcode",
+      artist: "Lior Vance",
+      title: "Dim Orbit (Radio Edit)",
+      label: "Kestrel",
       year: 2023,
       scores: { artist: 96, title: 84, average: 90 },
     },
@@ -436,8 +436,8 @@ const AWAITING: ArbitrationRequiredEvent = {
   beatport_unavailable: true,
   candidates: [
     {
-      artist: "Amelie Lens",
-      title: "Basiel",
+      artist: "Orla Quenby",
+      title: "Kelvor",
       label: null,
       year: null,
       scores: { artist: 94, title: 95, average: 95 },
@@ -501,8 +501,8 @@ const RUN_OF_TWO: RunStartedEvent = {
   event: "run_started",
   run_id: "a3f9c1",
   tracks: [
-    { track_id: "a.mp3", file_name: "a.mp3", artist: "Adam Beyer", title: "Your Mind" },
-    { track_id: "b.mp3", file_name: "b.mp3", artist: "Amelie Lens", title: "Basiel" },
+    { track_id: "a.mp3", file_name: "a.mp3", artist: "Lior Vance", title: "Dim Orbit" },
+    { track_id: "b.mp3", file_name: "b.mp3", artist: "Orla Quenby", title: "Kelvor" },
   ],
 }
 
@@ -513,9 +513,9 @@ const awaiting = (trackId: string): ArbitrationRequiredEvent => ({
   beatport_unavailable: false,
   candidates: [
     {
-      artist: "Adam Beyer",
-      title: "Your Mind (Radio Edit)",
-      label: "Drumcode",
+      artist: "Lior Vance",
+      title: "Dim Orbit (Radio Edit)",
+      label: "Kestrel",
       year: 2023,
       scores: { artist: 96, title: 84, average: 90 },
     },

@@ -24,7 +24,7 @@
 ## Review Focus
 
 - **Fichier sans aucun tag** (rip brut) : 16 valeurs nulles, aucun commentaire ; la requête retombe sur le nom de fichier comme avant (Task 1, `test_reads_a_file_without_tags_as_empty` ; `test_files_identity.py` inchangé).
-- **Plusieurs `TPE1` d'un v2.4** : `Adam Beyer, Bart Skils`, la même chaîne que la colonne Avant de la liste (Task 1, `test_reads_every_field_of_the_table_in_order_with_its_comment`).
+- **Plusieurs `TPE1` d'un v2.4** : `Lior Vance, Mara Quill`, la même chaîne que la colonne Avant de la liste (Task 1, `test_reads_every_field_of_the_table_in_order_with_its_comment`).
 - **Champ que le candidat ne fournit pas** (BPM absent de Bandcamp) : la valeur d'origine reste en Après (Task 1, `test_keeps_the_original_value_the_candidate_leaves_out` ; Task 2, test d'intégration).
 - **Date d'un MP3** : la clé affichée est `TYER`, celle que le fichier v2.3 portera, pas `TDRC` (Task 1, `test_names_a_field_by_the_key_the_written_file_carries`).
 - **Morceau non résolu** : `tags_after` nul, sa ligne garde l'Avant (Task 2, `test_carries_no_tags_after_for_an_unresolved_track`).
@@ -89,7 +89,7 @@ from tagger.files import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-URL = "https://adambeyer.bandcamp.com/track/your-mind"
+URL = "https://liorvance.bandcamp.com/track/dim-orbit"
 
 
 def _shown(**values: str) -> ShownTags:
@@ -103,8 +103,8 @@ def test_reads_every_field_of_the_table_in_order_with_its_comment(
 ) -> None:
     path = blank_audio("mp3")
     tags = ID3()
-    tags.add(TPE1(encoding=3, text=["Adam Beyer", "Bart Skils"]))
-    tags.add(TIT2(encoding=3, text=["Your Mind"]))
+    tags.add(TPE1(encoding=3, text=["Lior Vance", "Mara Quill"]))
+    tags.add(TIT2(encoding=3, text=["Dim Orbit"]))
     tags.add(TBPM(encoding=3, text=["130"]))
     tags.add(WOAS(url=URL))
     tags.add(COMM(encoding=3, lang="eng", desc="", text=["Ripped by X"]))
@@ -114,17 +114,17 @@ def test_reads_every_field_of_the_table_in_order_with_its_comment(
 
     assert shown.system is TagSystem.ID3
     assert list(shown.fields) == list(TAG_FIELDS)
-    assert shown.fields[TagField.ARTIST] == "Adam Beyer, Bart Skils"
+    assert shown.fields[TagField.ARTIST] == "Lior Vance, Mara Quill"
     assert (shown.fields[TagField.BPM], shown.fields[TagField.URL]) == ("130", URL)
     assert shown.fields[TagField.ALBUM] is None
     assert shown.comment == "Ripped by X"
-    assert (shown.identity.artist, shown.identity.title) == ("Adam Beyer, Bart Skils", "Your Mind")
+    assert (shown.identity.artist, shown.identity.title) == ("Lior Vance, Mara Quill", "Dim Orbit")
 
 
 def test_reads_the_vorbis_comments_of_a_flac(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
     audio = mutagen.File(path)
-    audio["ARTIST"] = ["Adam Beyer"]
+    audio["ARTIST"] = ["Lior Vance"]
     audio["COMMENT"] = ["Ripped by X"]
     audio.save()
 
@@ -132,7 +132,7 @@ def test_reads_the_vorbis_comments_of_a_flac(blank_audio: Callable[[str], Path])
 
     assert (shown.system, shown.fields[TagField.ARTIST], shown.comment) == (
         TagSystem.VORBIS,
-        "Adam Beyer",
+        "Lior Vance",
         "Ripped by X",
     )
 
@@ -163,22 +163,22 @@ def test_names_a_field_by_the_key_the_written_file_carries(
 
 
 def test_keeps_the_original_value_the_candidate_leaves_out() -> None:
-    before = _shown(artist="adam beyer", bpm="130")
+    before = _shown(artist="lior vance", bpm="130")
 
-    after = after_tags({TagField.ARTIST: "Adam Beyer"}, before)
+    after = after_tags({TagField.ARTIST: "Lior Vance"}, before)
 
     assert list(after) == list(TAG_FIELDS)
     assert (after[TagField.ARTIST], after[TagField.BPM], after[TagField.KEY]) == (
-        "Adam Beyer",
+        "Lior Vance",
         "130",
         None,
     )
 
 
 def test_shows_only_the_candidate_without_original_tags() -> None:
-    after = after_tags({TagField.ARTIST: "Adam Beyer"}, None)
+    after = after_tags({TagField.ARTIST: "Lior Vance"}, None)
 
-    assert (after[TagField.ARTIST], after[TagField.BPM]) == ("Adam Beyer", None)
+    assert (after[TagField.ARTIST], after[TagField.BPM]) == ("Lior Vance", None)
 
 
 @pytest.mark.parametrize(
@@ -347,7 +347,7 @@ def test_carries_the_tags_before_and_after_field_by_field(
     run_folder: Path, api: FakeApi
 ) -> None:
     without_bpm = track_payload(mix_name="Original Mix", bpm=None)
-    api.on("/beatport/search", YOUR_MIND, found(without_bpm))
+    api.on("/beatport/search", DIM_ORBIT, found(without_bpm))
     api.on(ORIGINAL_REFETCH, "*", found(without_bpm))
     tags = ID3(run_folder / "a.mp3")
     tags.add(TBPM(encoding=3, text=["130"]))
@@ -362,7 +362,7 @@ def test_carries_the_tags_before_and_after_field_by_field(
     before = tracks[0]["tags_before"]
     assert (before["system"], before["comment"]) == ("id3", "Ripped by X")
     assert [row["field"] for row in before["fields"]] == [field.value for field in TAG_FIELDS]
-    assert before["fields"][0] == {"field": "artist", "key": "TPE1", "value": "Adam Beyer"}
+    assert before["fields"][0] == {"field": "artist", "key": "TPE1", "value": "Lior Vance"}
     assert {"field": "bpm", "key": "TBPM", "value": "130"} in before["fields"]
     resolved = next(
         event
@@ -371,7 +371,7 @@ def test_carries_the_tags_before_and_after_field_by_field(
     )
     after = resolved["tags_after"]
     assert isinstance(after, list)
-    assert {"field": "title", "key": "TIT2", "value": "Your Mind (Original Mix)"} in after
+    assert {"field": "title", "key": "TIT2", "value": "Dim Orbit (Original Mix)"} in after
     assert {"field": "bpm", "key": "TBPM", "value": "130"} in after
     assert {"field": "date", "key": "TYER", "value": "2023"} in after
 ```
@@ -385,7 +385,7 @@ def test_lists_every_track_of_a_started_run() -> None:
     assert isinstance(event, RunStarted)
     assert event.folder == Path("D:/Sets")
     assert event.tracks[0].track_id == "a.mp3"
-    assert event.tracks[0].artist == "Adam Beyer"
+    assert event.tracks[0].artist == "Lior Vance"
 ```
 
 Puis, après `test_renders_the_artist_and_the_title_a_source_will_write` :
@@ -618,13 +618,13 @@ export const TAGS_BEFORE: TagsBefore = {
   system: "id3",
   comment: "Ripped by X",
   fields: [
-    { field: "artist", key: "TPE1", value: "adam beyer" },
+    { field: "artist", key: "TPE1", value: "lior vance" },
     { field: "bpm", key: "TBPM", value: "130" },
   ],
 }
 
 export const TAGS_AFTER: readonly TagValue[] = [
-  { field: "artist", key: "TPE1", value: "Adam Beyer" },
+  { field: "artist", key: "TPE1", value: "Lior Vance" },
   { field: "bpm", key: "TBPM", value: "130" },
 ]
 ```
@@ -644,8 +644,8 @@ Dans `src/app/core/tagging-run.store.spec.ts`, importer `TAGS_AFTER` et `TAGS_BE
         {
           track_id: "a.mp3",
           file_name: "a.mp3",
-          artist: "Adam Beyer",
-          title: "Your Mind",
+          artist: "Lior Vance",
+          title: "Dim Orbit",
           tags_before: TAGS_BEFORE,
         },
       ],

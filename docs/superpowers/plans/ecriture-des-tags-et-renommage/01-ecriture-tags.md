@@ -29,7 +29,7 @@
 ## Review Focus
 
 - **Fichier déjà en ID3v2.4** (tagué par un autre logiciel) : réécrit en v2.3, `TYER` à l'année, ni `TDRC` ni `TDAT` (Task 3, `test_saves_id3_v23_with_the_year_alone`, cas `from-v24`).
-- **Texte accentué** (« Für Élise », « Señor ») : relu à l'identique en ID3v2.3 comme en FLAC (Task 3, `test_keeps_accented_text_intact`).
+- **Texte accentué** (« Für Éline », « Señor ») : relu à l'identique en ID3v2.3 comme en FLAC (Task 3, `test_keeps_accented_text_intact`).
 - **Clé Vorbis d'origine en minuscules et à plusieurs valeurs** (`artist` = deux valeurs) : remplacée par une seule valeur, sans doublon (Task 3, `test_replaces_existing_vorbis_values_whatever_their_case_or_count`).
 - **Deuxième écriture du même fichier** (relance de l'écriture) : toujours une seule pochette (Task 3, `test_writing_twice_still_leaves_a_single_cover`).
 - **Fichier tenu par un autre programme** : `file_locked` et non `permission_denied`, sur un vrai verrou et non une erreur fabriquée (Task 3, `test_reports_a_file_held_by_another_program_as_locked`) ; un fichier en lecture seule reste `permission_denied` (Task 3, `test_keeps_permission_denied_for_a_read_only_file`).
@@ -251,9 +251,9 @@ def _candidate(**overrides: object) -> TrackCandidate:
 
 BEATPORT = _candidate()
 REMIX = _candidate(
-    artists=[_credit("Adam Beyer"), _credit("Bart Skils")],
-    remixers=[_credit("Layton Giordani")],
-    mix_name="Layton Giordani Remix",
+    artists=[_credit("Lior Vance"), _credit("Mara Quill")],
+    remixers=[_credit("Kaelen Mirandor")],
+    mix_name="Kaelen Mirandor Remix",
 )
 BANDCAMP = _candidate(source="bandcamp", id="42", mix_name=None, genre=None, bpm=None, key=None)
 
@@ -262,20 +262,20 @@ def test_projects_every_field_a_beatport_candidate_carries() -> None:
     values = project_tags(BEATPORT)
 
     assert dict(values) == {
-        TagField.ARTIST: "Adam Beyer",
-        TagField.TITLE: "Your Mind (Extended Mix)",
-        TagField.ALBUM: "Your Mind",
+        TagField.ARTIST: "Lior Vance",
+        TagField.TITLE: "Dim Orbit (Extended Mix)",
+        TagField.ALBUM: "Dim Orbit",
         TagField.DATE: "2023",
         TagField.ORIGINAL_DATE: "2023",
         TagField.GENRE: "Techno (Peak Time / Driving)",
-        TagField.LABEL: "Drumcode",
-        TagField.CATALOG_NUMBER: "DC287",
+        TagField.LABEL: "Kestrel",
+        TagField.CATALOG_NUMBER: "KS287",
         TagField.BPM: "134",
         TagField.KEY: "4A",
-        TagField.ISRC: "SE5RN2312001",
+        TagField.ISRC: "ZZ0AA2300001",
         TagField.TRACK_NUMBER: "1",
-        TagField.URL: "https://www.beatport.com/track/your-mind/17492013",
-        TagField.SOURCE_ID: "17492013",
+        TagField.URL: "https://www.beatport.com/track/dim-orbit/99000101",
+        TagField.SOURCE_ID: "99000101",
         TagField.SOURCE: "beatport",
     }
 
@@ -283,9 +283,9 @@ def test_projects_every_field_a_beatport_candidate_carries() -> None:
 def test_keeps_the_remixer_out_of_the_artist() -> None:
     values = project_tags(REMIX)
 
-    assert values[TagField.ARTIST] == "Adam Beyer, Bart Skils"
-    assert values[TagField.TITLE] == "Your Mind (Layton Giordani Remix)"
-    assert values[TagField.REMIXER] == "Layton Giordani"
+    assert values[TagField.ARTIST] == "Lior Vance, Mara Quill"
+    assert values[TagField.TITLE] == "Dim Orbit (Kaelen Mirandor Remix)"
+    assert values[TagField.REMIXER] == "Kaelen Mirandor"
 
 
 def test_omits_the_fields_the_source_leaves_null() -> None:
@@ -660,11 +660,11 @@ def test_saves_id3_v23_with_the_year_alone(
 @pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
 def test_keeps_accented_text_intact(blank_audio: Callable[[str], Path], audio_format: str) -> None:
     path = blank_audio(audio_format)
-    values = project_tags(_candidate(title="Für Élise", mix_name="Señor Remix"))
+    values = project_tags(_candidate(title="Für Éline", mix_name="Señor Remix"))
 
     write_tags(path, values, None)
 
-    assert _read_back(path)[TagField.TITLE] == "Für Élise (Señor Remix)"
+    assert _read_back(path)[TagField.TITLE] == "Für Éline (Señor Remix)"
 
 
 def test_replaces_existing_vorbis_values_whatever_their_case_or_count(
@@ -677,7 +677,7 @@ def test_replaces_existing_vorbis_values_whatever_their_case_or_count(
 
     write_tags(path, project_tags(BEATPORT), None)
 
-    assert FLAC(path)["ARTIST"] == ["Adam Beyer"]
+    assert FLAC(path)["ARTIST"] == ["Lior Vance"]
 
 
 @pytest.mark.parametrize(
@@ -703,26 +703,26 @@ def test_leaves_the_id3_frames_outside_the_table_alone(
     path = blank_audio("mp3")
     audio = mutagen.File(path)
     audio.add_tags()
-    audio.tags.add(TPE2(encoding=3, text=["Drumcode"]))
+    audio.tags.add(TPE2(encoding=3, text=["Kestrel"]))
     audio.tags.add(TXXX(encoding=3, desc="SERATO_PLAYCOUNT", text=["12"]))
     audio.save(v2_version=3)
 
     write_tags(path, project_tags(BEATPORT), None)
 
     tags = mutagen.File(path).tags
-    assert (str(tags["TPE2"]), str(tags["TXXX:SERATO_PLAYCOUNT"])) == ("Drumcode", "12")
+    assert (str(tags["TPE2"]), str(tags["TXXX:SERATO_PLAYCOUNT"])) == ("Kestrel", "12")
 
 
 def test_leaves_the_vorbis_keys_outside_the_table_alone(
     blank_audio: Callable[[str], Path],
 ) -> None:
     path = blank_audio("flac")
-    _preset(path, ALBUMARTIST="Drumcode", SERATO_PLAYCOUNT="12")
+    _preset(path, ALBUMARTIST="Kestrel", SERATO_PLAYCOUNT="12")
 
     write_tags(path, project_tags(BEATPORT), None)
 
     audio = FLAC(path)
-    assert (audio["ALBUMARTIST"], audio["SERATO_PLAYCOUNT"]) == (["Drumcode"], ["12"])
+    assert (audio["ALBUMARTIST"], audio["SERATO_PLAYCOUNT"]) == (["Kestrel"], ["12"])
 
 
 def test_removes_every_id3_comment(blank_audio: Callable[[str], Path]) -> None:
@@ -840,7 +840,7 @@ def test_treats_a_cover_the_cache_cannot_give_as_absent(
 
     assert _pictures(path) == [(FRONT_COVER, "image/png", b"front")]
     assert not written.artwork
-    assert _read_back(path)[TagField.TITLE] == "Your Mind (Extended Mix)"
+    assert _read_back(path)[TagField.TITLE] == "Dim Orbit (Extended Mix)"
 
 
 def test_raises_file_locked_and_leaves_a_locked_file_unchanged(

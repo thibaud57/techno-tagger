@@ -151,11 +151,11 @@ def test_gives_the_file_back_its_original_name(tmp_path: Path) -> None:
 
 
 def test_gives_back_a_name_that_differs_only_by_case(tmp_path: Path) -> None:
-    current = _file(tmp_path, "Adam Beyer - Your Mind.mp3")
+    current = _file(tmp_path, "Lior Vance - Dim Orbit.mp3")
 
-    restore_name(current, tmp_path / "adam beyer - your mind.mp3")
+    restore_name(current, tmp_path / "lior vance - dim orbit.mp3")
 
-    assert [entry.name for entry in tmp_path.iterdir()] == ["adam beyer - your mind.mp3"]
+    assert [entry.name for entry in tmp_path.iterdir()] == ["lior vance - dim orbit.mp3"]
 
 
 def test_refuses_an_original_name_taken_by_another_file(tmp_path: Path) -> None:
@@ -346,7 +346,7 @@ class _Written(NamedTuple):
 
 
 def _write(folder: Path, name: str) -> _Written:
-    path = tagged_mp3(folder, name, "adam beyer", "your mind")
+    path = tagged_mp3(folder, name, "lior vance", "dim orbit")
     origin = read_original_tags(path)
     values = project_tags(BEATPORT)
     write_tags(path, values, None)
@@ -448,7 +448,7 @@ async def test_gives_names_back_in_the_reverse_order_of_the_writing(tmp_path: Pa
     music = tmp_path / "music"
     first = _write(music, "a.mp3")
     # Le second morceau prend, une fois le premier renomme, le nom d'origine de celui-ci.
-    second_original = tagged_mp3(music, "b.mp3", "adam beyer", "your mind")
+    second_original = tagged_mp3(music, "b.mp3", "lior vance", "dim orbit")
     second_origin = read_original_tags(second_original)
     second_renamed = second_original.rename(first.original)
     second_entry = DumpEntry.of(second_original, second_origin).model_copy(
@@ -854,7 +854,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import conversation, held_call, resolved_run
-from scraper_responses import YOUR_MIND
+from scraper_responses import DIM_ORBIT
 from tagging_api import ONE_TRACK, ORIGINAL, FakeApi, found, one_track, tagged_mp3
 
 from tagger import rollback, writing
@@ -867,13 +867,13 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
-WRITTEN = "Adam Beyer - Your Mind (Original Mix).mp3"
+WRITTEN = "Lior Vance - Dim Orbit (Original Mix).mp3"
 
 
 @pytest.fixture
 def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
-    """« Your Mind » que Beatport resout d'office : un morceau a ecrire puis a restaurer."""
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    """« Dim Orbit » que Beatport resout d'office : un morceau a ecrire puis a restaurer."""
+    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
     return one_track(tmp_path)
 
 
@@ -925,8 +925,8 @@ async def test_marks_a_restored_track_that_retry_leaves_alone(folder: Path) -> N
 async def test_leaves_the_displayed_run_alone_when_rolling_back_an_older_one(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    conform = tagged_mp3(tmp_path / "conform", WRITTEN, "Adam Beyer", "Your Mind").parent
+    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    conform = tagged_mp3(tmp_path / "conform", WRITTEN, "Lior Vance", "Dim Orbit").parent
     async with conversation() as talk:
         first = await _written_run(talk, conform)
         await resolved_run(talk, conform)
@@ -967,7 +967,7 @@ async def test_refuses_a_rollback_while_writing(
 
 
 async def test_refuses_a_rollback_during_the_network_phase(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", YOUR_MIND)
+    gate = api.gate("/beatport/search", DIM_ORBIT)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))

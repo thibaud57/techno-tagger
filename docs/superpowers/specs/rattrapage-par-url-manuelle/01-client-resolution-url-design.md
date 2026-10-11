@@ -64,9 +64,9 @@ Aucune : ce sub-project est autoporté.
 ## Acceptance criteria
 
 ### Scénario 1 : URL Beatport
-**GIVEN** l'URL `https://www.beatport.com/track/your-mind/22708005?utm_source=share`
+**GIVEN** l'URL `https://www.beatport.com/track/dim-orbit/99000202?utm_source=share`
 **WHEN** le client la résout
-**THEN** une seule requête part sur `/beatport/tracks/22708005`
+**THEN** une seule requête part sur `/beatport/tracks/99000202`
 **AND** le client rend le `TrackCandidate` de la réponse
 
 ### Scénario 2 : URL Bandcamp copiée avec une query
@@ -75,9 +75,9 @@ Aucune : ce sub-project est autoporté.
 **THEN** la requête part sur `/bandcamp/tracks` avec `url=https://artist.bandcamp.com/track/some-track`
 
 ### Scénario 3 : URL SoundCloud mobile
-**GIVEN** l'URL `https://m.soundcloud.com/drumcode/kasia-faithless-tarantula-2?si=abc`
+**GIVEN** l'URL `https://m.soundcloud.com/kestrel/zelka-larkspur-mothlight-2?si=abc`
 **WHEN** le client la résout
-**THEN** la requête part sur `/soundcloud/resolve` avec `url=https://soundcloud.com/drumcode/kasia-faithless-tarantula-2`, sans `tracks_cursor`
+**THEN** la requête part sur `/soundcloud/resolve` avec `url=https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2`, sans `tracks_cursor`
 **AND** le client rend un `TrackCandidate` de source `soundcloud`
 
 ### Scénario 4 : URL qui ne désigne pas un morceau

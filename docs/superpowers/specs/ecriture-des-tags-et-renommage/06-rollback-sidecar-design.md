@@ -72,7 +72,7 @@ Exclut le service et le store Angular (sub-project 08), les boutons et confirmat
 ## Acceptance criteria
 
 ### Scénario 1 : rollback d'un run d'une session précédente
-**GIVEN** un run écrit dans une conversation fermée depuis, son fichier renommé en `Adam Beyer - Your Mind (Original Mix).mp3`
+**GIVEN** un run écrit dans une conversation fermée depuis, son fichier renommé en `Lior Vance - Dim Orbit (Original Mix).mp3`
 **WHEN** une nouvelle conversation envoie `get_rollback_target` puis `rollback` avec le `run_id` reçu
 **THEN** elle reçoit `rollback_target` avec ce run, son dossier et 1 morceau, puis `rollback_finished` avec 1 restauré et 0 échec
 **AND** le fichier a repris son nom et ses tags d'origine, le dump est supprimé et `get_rollback_target` rend `run: null`

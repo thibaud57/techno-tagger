@@ -59,10 +59,10 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 ## Acceptance criteria
 
 ### Scénario 1 : avant et après d'un morceau résolu
-**GIVEN** un MP3 tagué `adam beyer` / `your mind [FREE DL]`, BPM 130, commentaire `Ripped by X`, que Beatport résout par un candidat sans BPM
+**GIVEN** un MP3 tagué `lior vance` / `dim orbit [FREE DL]`, BPM 130, commentaire `Ripped by X`, que Beatport résout par un candidat sans BPM
 **WHEN** le run s'ouvre puis le morceau est résolu
-**THEN** `run_started` porte `tags_before` en `id3` avec les 15 champs dans l'ordre de la table (artiste `adam beyer` sous `TPE1`, remixeur nul, BPM `130`) et le commentaire `Ripped by X`
-**AND** `track_resolved` porte `tags_after` : artiste `Adam Beyer`, BPM `130` gardé, date sous la clé `TYER`
+**THEN** `run_started` porte `tags_before` en `id3` avec les 15 champs dans l'ordre de la table (artiste `lior vance` sous `TPE1`, remixeur nul, BPM `130`) et le commentaire `Ripped by X`
+**AND** `track_resolved` porte `tags_after` : artiste `Lior Vance`, BPM `130` gardé, date sous la clé `TYER`
 **AND** `run_started` porte aussi `folder`, le dossier du run
 
 ### Scénario 2 : morceau non résolu

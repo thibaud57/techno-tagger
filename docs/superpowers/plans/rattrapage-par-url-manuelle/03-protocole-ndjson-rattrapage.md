@@ -63,7 +63,7 @@
 - Test: `sidecar/tests/unit/test_protocol_url_recovery.py` (création), `sidecar/tests/integration/test_ndjson_url_recovery.py` (création)
 
 **Interfaces:**
-- Consumes: `UrlRecovery`, `UrlProgress`, `UrlRecoveryEvent`, `UrlRecoveryError` (sub-project 02) ; helpers `conversation` (`ndjson_loop`), `FakeApi`, `ok`, `found`, `ONE_TRACK`, `ORIGINAL`, `one_track` (`tagging_api`), `track_payload`, `YOUR_MIND` (`scraper_responses`), fixtures `api`, `app_data`, `_key` (`conftest.py`).
+- Consumes: `UrlRecovery`, `UrlProgress`, `UrlRecoveryEvent`, `UrlRecoveryError` (sub-project 02) ; helpers `conversation` (`ndjson_loop`), `FakeApi`, `ok`, `found`, `ONE_TRACK`, `ORIGINAL`, `one_track` (`tagging_api`), `track_payload`, `DIM_ORBIT` (`scraper_responses`), fixtures `api`, `app_data`, `_key` (`conftest.py`).
 - Produces:
   - `protocol.ResolveByUrl(Command)` : `command: Literal["resolve_by_url"]`, `track_id: str`, `url: Annotated[str, Field(min_length=1)]`, membre d'`AnyCommand`, `ExecutableCommand`, `CommandName`
   - `url_recovery.UrlRecoveryNotOpenError(UrlRecoveryError)`, `code = "url_recovery_not_open"`, `__init__(self, track_id: str)`
@@ -86,7 +86,7 @@ from tagger.handlers import to_protocol_event
 from tagger.protocol import Phase, Progress, ResolveByUrl, parse_command
 from tagger.url_recovery import UrlProgress
 
-URL = "https://amelielens.bandcamp.com/track/basiel"
+URL = "https://orlaquenby.bandcamp.com/track/kelvor"
 
 
 def _resolve(fields: str) -> str:
@@ -131,7 +131,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import conversation
-from scraper_responses import YOUR_MIND, track_payload
+from scraper_responses import DIM_ORBIT, track_payload
 from tagging_api import ONE_TRACK, ORIGINAL, FakeApi, found, ok, one_track
 
 if TYPE_CHECKING:
@@ -139,7 +139,7 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
-BANDCAMP_URL = "https://amelielens.bandcamp.com/track/basiel"
+BANDCAMP_URL = "https://orlaquenby.bandcamp.com/track/kelvor"
 ON_BANDCAMP = track_payload(id="7", source="bandcamp", mix_name=None, url=BANDCAMP_URL)
 
 
@@ -191,7 +191,7 @@ async def test_resolves_a_track_by_url_end_to_end(folder: Path, api: FakeApi) ->
 async def test_reports_a_track_that_is_not_eligible_with_its_command_and_its_track(
     folder: Path, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
 
     async with conversation() as talk:
         talk.send(**_start(folder))
@@ -221,7 +221,7 @@ async def test_refuses_a_url_before_any_run() -> None:
 async def test_refuses_a_url_while_the_network_phase_is_running(
     folder: Path, api: FakeApi
 ) -> None:
-    slow = api.gate("/beatport/search", YOUR_MIND)
+    slow = api.gate("/beatport/search", DIM_ORBIT)
 
     async with conversation() as talk:
         talk.send(**_start(folder))
@@ -452,7 +452,7 @@ git commit -m "feat(sidecar): rattraper un morceau par resolve_by_url une fois l
 - Test: `sidecar/tests/unit/test_protocol_url_recovery.py`, `sidecar/tests/integration/test_ndjson_url_recovery.py`
 
 **Interfaces:**
-- Consumes: `ResolveByUrl`, `CurrentRun.url_recovery`, `to_protocol_event`, `_Session._recoverable` (Task 1) ; `UnsupportedTrackUrlError` (sub-project 01) ; `ArbitrationNotPendingError` (`tagger.arbitration`) ; helpers `hold_on_beatport`, `two_tracks` (`tagging_api`), `BASIEL` (`scraper_responses`).
+- Consumes: `ResolveByUrl`, `CurrentRun.url_recovery`, `to_protocol_event`, `_Session._recoverable` (Task 1) ; `UnsupportedTrackUrlError` (sub-project 01) ; `ArbitrationNotPendingError` (`tagger.arbitration`) ; helpers `hold_on_beatport`, `two_tracks` (`tagging_api`), `KELVOR` (`scraper_responses`).
 - Produces:
   - `protocol.error_from_business(exc: TaggerError, command: CommandName, track_id: str | None = None) -> Error`
   - `handlers.url_progress(current: CurrentRun) -> Event`
@@ -486,7 +486,7 @@ def test_leaves_the_error_of_a_command_without_track_untouched() -> None:
 
 - [ ] **Step 2: Écrire les tests d'intégration de la phase**
 
-Dans `sidecar/tests/integration/test_ndjson_url_recovery.py`, ajouter `BASIEL` à l'import de `scraper_responses`, `hold_on_beatport` et `two_tracks` à celui de `tagging_api`, puis :
+Dans `sidecar/tests/integration/test_ndjson_url_recovery.py`, ajouter `KELVOR` à l'import de `scraper_responses`, `hold_on_beatport` et `two_tracks` à celui de `tagging_api`, puis :
 
 ```python
 async def test_opens_the_url_recovery_phase_once_the_network_phase_is_finished(
@@ -522,7 +522,7 @@ async def test_opens_the_url_recovery_phase_when_the_run_is_cancelled(
 ) -> None:
     """Un run interrompu garde son ecriture (spec F2 11), donc son rattrapage."""
     folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", BASIEL)
+    slow = api.gate("/beatport/search", KELVOR)
 
     async with conversation() as talk:
         talk.send(**_start(folder))
@@ -553,7 +553,7 @@ async def test_emits_nothing_when_cancelling_a_finished_run(folder: Path, api: F
 async def test_reports_the_url_progress_after_a_late_arbitration_refusal(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    """« Your Mind » attend un arbitrage, Bandcamp ne trouve rien : deux refus le rendent
+    """« Dim Orbit » attend un arbitrage, Bandcamp ne trouve rien : deux refus le rendent
     `unresolved` et le total du rattrapage passe de 1 a 2."""
     hold_on_beatport(api)
     folder = two_tracks(tmp_path)

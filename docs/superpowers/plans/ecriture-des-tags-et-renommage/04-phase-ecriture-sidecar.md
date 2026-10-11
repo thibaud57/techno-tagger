@@ -253,14 +253,14 @@ pytestmark = pytest.mark.asyncio
 
 CREATED = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
 BEATPORT = TrackCandidate.model_validate(track_payload())
-WRITTEN_NAME = "Adam Beyer - Your Mind (Extended Mix)"
+WRITTEN_NAME = "Lior Vance - Dim Orbit (Extended Mix)"
 
 
 def _track(folder: Path, name: str, state: TrackState | None = TrackState.RESOLVED) -> TrackRecord:
-    """Fichier tague « adam beyer / your mind » et son morceau dans l'etat demande."""
+    """Fichier tague « lior vance / dim orbit » et son morceau dans l'etat demande."""
     path = BLANK_WRITERS[name.rsplit(".", 1)[1]](folder / name)
-    tag(path, artist=["adam beyer"], title=["your mind"])
-    record = TrackRecord(track_id=name, path=path, identity=IdentityTags("adam beyer", "your mind"))
+    tag(path, artist=["lior vance"], title=["dim orbit"])
+    record = TrackRecord(track_id=name, path=path, identity=IdentityTags("lior vance", "dim orbit"))
     match state:
         case TrackState.RESOLVED:
             return record.resolved(Resolution.AUTO, Source.BEATPORT, BEATPORT, None, None)
@@ -304,7 +304,7 @@ async def test_writes_and_renames_every_resolved_track(tmp_path: Path, music: Pa
         assert record.state is TrackState.WRITTEN
         assert record.path == music / f"{WRITTEN_NAME}{suffix}"
         assert read_original_tags(record.path).fields[TagField.TITLE] == (
-            "Your Mind (Extended Mix)",
+            "Dim Orbit (Extended Mix)",
         )
 
 
@@ -341,7 +341,7 @@ async def test_dumps_every_origin_before_writing_the_first_file(
 
     assert dumped_at_first_write == [{"a.mp3", "b.mp3"}]
     entry = load_dump(_dump(tmp_path, live)).entries["a.mp3"]
-    assert entry.fields[TagField.TITLE] == ("your mind",)
+    assert entry.fields[TagField.TITLE] == ("dim orbit",)
     assert entry.renamed_path == music / f"{WRITTEN_NAME}.mp3"
 
 
@@ -458,7 +458,7 @@ async def test_marks_a_failed_rename_after_written_tags(
     record = live.record("a.mp3")
     assert record is not None
     assert (record.state, record.path) == (TrackState.WRITE_ERROR, track.path)
-    assert read_original_tags(track.path).fields[TagField.TITLE] == ("Your Mind (Extended Mix)",)
+    assert read_original_tags(track.path).fields[TagField.TITLE] == ("Dim Orbit (Extended Mix)",)
 
 
 async def test_notes_the_rename_target_before_the_file_moves(
@@ -532,7 +532,7 @@ async def test_retries_only_the_failures_and_keeps_the_dumped_origin(
     assert summary == WriteSummary(written=1, failed=0)
     assert written_paths == [failing.path]
     assert load_dump(_dump(tmp_path, live)).entries["a.mp3"].fields[TagField.TITLE] == (
-        "your mind",
+        "dim orbit",
     )
 
 
@@ -582,7 +582,7 @@ async def test_keeps_a_correctly_named_file_and_records_no_rename(
 
 
 async def test_records_a_rename_that_only_changes_the_case(tmp_path: Path, music: Path) -> None:
-    track = _track(music, "adam beyer - your mind (extended mix).mp3")
+    track = _track(music, "lior vance - dim orbit (extended mix).mp3")
     live = _run(track)
 
     await _writer(live, tmp_path).write()

@@ -210,7 +210,7 @@ import type { TaggingTrack } from "../../core/tagging-run.store"
 
 import { UrlRecoveryComponent } from "./url-recovery.component"
 
-const URL = "https://amelielens.bandcamp.com/track/basiel"
+const URL = "https://orlaquenby.bandcamp.com/track/kelvor"
 
 const unresolved = (trackId: string, failureReason: TrackFailureReason): TaggingTrack => ({
   ...PENDING_TRACK,
@@ -224,8 +224,8 @@ const unresolved = (trackId: string, failureReason: TrackFailureReason): Tagging
 const FIRST = unresolved("a.mp3", "no_result")
 const SECOND: TaggingTrack = {
   ...unresolved("b.mp3", "below_threshold"),
-  artist: "Amelie Lens",
-  title: "Basiel",
+  artist: "Orla Quenby",
+  title: "Kelvor",
 }
 const TWO_LINES: readonly TaggingTrack[] = [FIRST, SECOND]
 
@@ -269,7 +269,7 @@ describe("UrlRecoveryComponent", () => {
     const shown = lines(fixture)
 
     expect(shown).toHaveLength(2)
-    expect(shown[0]?.textContent).toContain("Adam Beyer - Your Mind")
+    expect(shown[0]?.textContent).toContain("Lior Vance - Dim Orbit")
     expect(shown[0]?.textContent).toContain("tagging.reason.no_result")
     expect(shown[1]?.textContent).toContain("tagging.reason.below_threshold")
   })
@@ -331,7 +331,7 @@ describe("UrlRecoveryComponent", () => {
     fixture.detectChanges()
 
     expect(lines(fixture)[0]?.querySelector("input")?.getAttribute("aria-label")).toBe(
-      "Link for Adam Beyer - Your Mind",
+      "Link for Lior Vance - Dim Orbit",
     )
   })
 

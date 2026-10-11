@@ -56,7 +56,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 **GIVEN** un run fini dont l'unique morceau est résolu par Beatport
 **WHEN** l'interface envoie `commit_run` avec son `run_id`
 **THEN** elle reçoit `track_resolved(written)`, `progress(write, 1/1)` puis `run_finished(write)` avec `written` 1 et `write_error` 0
-**AND** le fichier s'appelle `Adam Beyer - Your Mind (Original Mix).mp3` et le dump du run existe
+**AND** le fichier s'appelle `Lior Vance - Dim Orbit (Original Mix).mp3` et le dump du run existe
 
 ### Scénario 2 : relance d'un échec
 **GIVEN** un run confirmé dont l'écriture a échoué sur un fichier verrouillé

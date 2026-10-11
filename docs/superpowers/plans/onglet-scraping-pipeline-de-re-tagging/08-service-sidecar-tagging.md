@@ -220,8 +220,8 @@ const STARTED: RunStartedEvent = {
   event: "run_started",
   run_id: "a3f9c1",
   tracks: [
-    { track_id: "a.mp3", file_name: "a.mp3", artist: "Adam Beyer", title: "Your Mind" },
-    { track_id: "b.mp3", file_name: "b.mp3", artist: "Amelie Lens", title: "Basiel" },
+    { track_id: "a.mp3", file_name: "a.mp3", artist: "Lior Vance", title: "Dim Orbit" },
+    { track_id: "b.mp3", file_name: "b.mp3", artist: "Orla Quenby", title: "Kelvor" },
   ],
 }
 
@@ -232,7 +232,7 @@ const RESOLVED: TrackResolvedEvent = {
   resolution: "auto",
   failure_reason: null,
   source: "beatport",
-  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
+  after: { artist: "Lior Vance", title: "Dim Orbit (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artwork_path: "C:/AppData/cache/artworks/abc.jpg",
 }
@@ -243,7 +243,7 @@ const AWAITING: ArbitrationRequiredEvent = {
   source: "bandcamp",
   beatport_unavailable: true,
   candidates: [
-    { artist: "Amelie Lens", title: "Basiel", scores: { artist: 94, title: 95, average: 95 } },
+    { artist: "Orla Quenby", title: "Kelvor", scores: { artist: 94, title: 95, average: 95 } },
   ],
 }
 
@@ -282,7 +282,7 @@ describe("TaggingRunStore", () => {
     const track = store.tracks()[0]
     expect(track?.state).toBe("resolved")
     expect(track?.source).toBe("beatport")
-    expect(track?.after?.title).toBe("Your Mind (Original Mix)")
+    expect(track?.after?.title).toBe("Dim Orbit (Original Mix)")
     expect(track?.scores?.average).toBe(94)
     expect(track?.artworkPath).toBe("C:/AppData/cache/artworks/abc.jpg")
   })
@@ -569,7 +569,7 @@ Dans `src/app/core/sidecar.service.spec.ts`, ajouter :
     transport.emit({
       event: "run_started",
       run_id: "a3f9c1",
-      tracks: [{ track_id: "a.mp3", file_name: "a.mp3", artist: "Adam Beyer", title: "Your Mind" }],
+      tracks: [{ track_id: "a.mp3", file_name: "a.mp3", artist: "Lior Vance", title: "Dim Orbit" }],
     })
     transport.emit({ event: "progress", phase: "tagging", processed: 1, total: 1 })
     transport.emit({
@@ -579,7 +579,7 @@ Dans `src/app/core/sidecar.service.spec.ts`, ajouter :
       resolution: "auto",
       failure_reason: null,
       source: "beatport",
-      after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
+      after: { artist: "Lior Vance", title: "Dim Orbit (Original Mix)" },
       scores: { artist: 96, title: 92, average: 94 },
       artwork_path: null,
     })

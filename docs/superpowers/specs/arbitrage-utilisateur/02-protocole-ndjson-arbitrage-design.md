@@ -61,7 +61,7 @@ Exclut le miroir TypeScript et toute interface (sub-projects 03 et 04), et toute
 ## Acceptance criteria
 
 ### Scénario 1 : Refus puis choix
-**GIVEN** un run dont le morceau « Your Mind » attend sur Beatport, phase réseau terminée
+**GIVEN** un run dont le morceau « Dim Orbit » attend sur Beatport, phase réseau terminée
 **WHEN** l'interface envoie un refus de Beatport, puis le choix du candidat Bandcamp d'index 0
 **THEN** elle reçoit `arbitration_updated` avec `source` à `bandcamp` et `other_source` à `beatport`
 **AND** puis `track_resolved` en `resolved` / `arbitration`, source Bandcamp

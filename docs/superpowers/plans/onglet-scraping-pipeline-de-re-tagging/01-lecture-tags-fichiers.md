@@ -441,22 +441,22 @@ def test_reads_artist_and_title_from_the_id3_frames(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    tag(path, artist=["Adam Beyer"], title=["Your Mind"])
+    tag(path, artist=["Lior Vance"], title=["Dim Orbit"])
 
     identity = read_identity(path)
 
-    assert identity == IdentityTags(artist="Adam Beyer", title="Your Mind")
+    assert identity == IdentityTags(artist="Lior Vance", title="Dim Orbit")
 
 
 def test_reads_artist_and_title_from_the_vorbis_keys_of_a_flac_file(
     blank_audio: Callable[[str], Path],
 ) -> None:
     path = blank_audio("flac")
-    tag(path, artist=["Amelie Lens"], title=["Basiel"])
+    tag(path, artist=["Orla Quenby"], title=["Kelvor"])
 
     identity = read_identity(path)
 
-    assert identity == IdentityTags(artist="Amelie Lens", title="Basiel")
+    assert identity == IdentityTags(artist="Orla Quenby", title="Kelvor")
 
 
 @pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
@@ -464,20 +464,20 @@ def test_joins_multiple_artist_values_with_a_comma(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    tag(path, artist=["Adam Beyer", "Bart Skils"], title=["Your Mind"])
+    tag(path, artist=["Lior Vance", "Mara Quill"], title=["Dim Orbit"])
 
     identity = read_identity(path)
 
-    assert identity.artist == "Adam Beyer, Bart Skils"
+    assert identity.artist == "Lior Vance, Mara Quill"
 
 
 def test_strips_blanks_and_drops_empty_values(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
-    tag(path, artist=[" Adam Beyer ", "", "  "], title=["  Your Mind"])
+    tag(path, artist=[" Lior Vance ", "", "  "], title=["  Dim Orbit"])
 
     identity = read_identity(path)
 
-    assert identity == IdentityTags(artist="Adam Beyer", title="Your Mind")
+    assert identity == IdentityTags(artist="Lior Vance", title="Dim Orbit")
 
 
 @pytest.mark.parametrize("audio_format", ["mp3", "wav", "aiff", "flac"])
@@ -523,7 +523,7 @@ def test_leaves_the_file_bytes_unchanged_after_reading(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    tag(path, artist=["Sara Landry"], title=["The Void"])
+    tag(path, artist=["Dara Winter"], title=["The Weir"])
     before = path.read_bytes()
 
     read_identity(path)

@@ -55,7 +55,7 @@ Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé 
 ## Acceptance criteria
 
 ### Scénario 1 : aller-retour d'un MP3 v2.3
-**GIVEN** un MP3 v2.3 portant « adam beyer/bart skils », « your mind », la date « 2019-06-16 » et un BPM 130
+**GIVEN** un MP3 v2.3 portant « lior vance/mara quill », « dim orbit », la date « 2019-06-16 » et un BPM 130
 **WHEN** on lit ses tags d'origine, on y écrit le candidat Beatport, puis on restaure les tags lus
 **THEN** le fichier relu porte exactement ces quatre champs, date complète comprise
 **AND** il est toujours en v2.3, et les champs que l'écriture avait ajoutés ont disparu

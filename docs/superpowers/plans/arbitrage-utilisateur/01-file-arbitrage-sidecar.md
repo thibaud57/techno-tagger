@@ -609,14 +609,14 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-GREY = "Adam Beyer Your Mind"
-SLOW = "Amelie Lens Basiel"
+GREY = "Lior Vance Dim Orbit"
+SLOW = "Orla Quenby Kelvor"
 
 
 def _two_tracks(tmp_path: Path) -> Path:
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
+    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
+    tagged_mp3(folder, "b.mp3", "Orla Quenby", "Kelvor")
     return folder
 
 
@@ -870,15 +870,15 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-QUERY = "Adam Beyer Your Mind"
-TRACK = "your mind.mp3"
+QUERY = "Lior Vance Dim Orbit"
+TRACK = "dim orbit.mp3"
 EXTENDED = track_payload(id="1", mix_name="Extended Mix")
 RADIO = track_payload(id="2", mix_name="Radio Edit")
 
 
 def _music(tmp_path: Path) -> Path:
     folder = tmp_path / "music"
-    tagged_mp3(folder, TRACK, "Adam Beyer", "Your Mind")
+    tagged_mp3(folder, TRACK, "Lior Vance", "Dim Orbit")
     return folder
 
 
@@ -1300,14 +1300,14 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-QUERY = "Adam Beyer Your Mind"
-TRACK = "your mind.mp3"
+QUERY = "Lior Vance Dim Orbit"
+TRACK = "dim orbit.mp3"
 EXTENDED = track_payload(id="1", mix_name="Extended Mix")
 RADIO = track_payload(id="2", mix_name="Radio Edit")
-BANDCAMP_URL = "https://adambeyer.bandcamp.com/track/your-mind"
+BANDCAMP_URL = "https://liorvance.bandcamp.com/track/dim-orbit"
 ON_BANDCAMP = track_payload(id="42", source="bandcamp", mix_name=None, url=BANDCAMP_URL)
 STRANGER = track_payload(
-    id="43", artists=[{"name": "Amelie Lens"}], title="Basiel", source="bandcamp", mix_name=None
+    id="43", artists=[{"name": "Orla Quenby"}], title="Kelvor", source="bandcamp", mix_name=None
 )
 ```
 
@@ -1505,7 +1505,7 @@ async def test_leaves_the_bandcamp_list_empty_as_source_unavailable_when_the_key
     folder = tmp_path / "music"
     tracks = ["a.mp3", "b.mp3", "c.mp3"]
     for name in tracks:
-        tagged_mp3(folder, name, "Adam Beyer", "Your Mind")
+        tagged_mp3(folder, name, "Lior Vance", "Dim Orbit")
     api = FakeApi()
     _on_hold(api)
     api.on("/bandcamp/search", "*", failing(403))
@@ -1530,17 +1530,17 @@ async def test_refuses_one_track_while_another_refusal_waits_for_bandcamp(
     tmp_path: Path,
 ) -> None:
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
+    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
+    tagged_mp3(folder, "b.mp3", "Orla Quenby", "Kelvor")
     api = FakeApi()
     _on_hold(api)
-    basiel = {"artists": [{"name": "Amelie Lens"}], "title": "Basiel"}
+    kelvor = {"artists": [{"name": "Orla Quenby"}], "title": "Kelvor"}
     api.on(
         "/beatport/search",
-        "Amelie Lens Basiel",
+        "Orla Quenby Kelvor",
         found(
-            track_payload(id="3", mix_name="Extended Mix", **basiel),
-            track_payload(id="4", mix_name="Radio Edit", **basiel),
+            track_payload(id="3", mix_name="Extended Mix", **kelvor),
+            track_payload(id="4", mix_name="Radio Edit", **kelvor),
         ),
     )
     slow = api.gate("/bandcamp/search", QUERY)

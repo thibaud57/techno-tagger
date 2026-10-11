@@ -19,7 +19,7 @@ Exclut le moment du renommage dans l'enchaînement de l'écriture et le sort d'u
 
 ### État livré
 
-À la fin de ce sub-project, on peut : lancer `just test` et voir passer des tests qui calculent les noms de « AC/DC », « Mind: Body (Who? Remix) » et d'un titre trop long, puis renomment dans `tmp_path` un fichier simple, un fichier en collision, un fichier à la casse près et un fichier sans artiste, chacun relu sous son nouveau nom.
+À la fin de ce sub-project, on peut : lancer `just test` et voir passer des tests qui calculent les noms de « QX/RT », « Mind: Body (Who? Remix) » et d'un titre trop long, puis renomment dans `tmp_path` un fichier simple, un fichier en collision, un fichier à la casse près et un fichier sans artiste, chacun relu sous son nouveau nom.
 
 ## Dependencies
 
@@ -54,25 +54,25 @@ Exclut le moment du renommage dans l'enchaînement de l'écriture et le sort d'u
 ## Acceptance criteria
 
 ### Scénario 1 : renommage simple
-**GIVEN** `adam beyer - your mind.MP3` et les valeurs « Adam Beyer », « Your Mind (Extended Mix) »
+**GIVEN** `lior vance - dim orbit.MP3` et les valeurs « Lior Vance », « Dim Orbit (Extended Mix) »
 **WHEN** on renomme le fichier
-**THEN** il s'appelle `Adam Beyer - Your Mind (Extended Mix).mp3`, dans le même dossier
+**THEN** il s'appelle `Lior Vance - Dim Orbit (Extended Mix).mp3`, dans le même dossier
 **AND** `RenamedTrack.path` désigne ce nouveau chemin, sans préfixe `\\?\`
 
 ### Scénario 2 : caractères interdits
-**GIVEN** les valeurs « AC/DC », « Back In Black » puis « Someone », « Mind: Body (Who? Remix) »
+**GIVEN** les valeurs « QX/RT », « Down In Amber » puis « Someone », « Mind: Body (Who? Remix) »
 **WHEN** on calcule les noms
-**THEN** on obtient `AC-DC - Back In Black.flac` et `Someone - Mind - Body (Who Remix).wav`
+**THEN** on obtient `QX-RT - Down In Amber.flac` et `Someone - Mind - Body (Who Remix).wav`
 
 ### Scénario 3 : collision
-**GIVEN** un dossier qui contient déjà `Adam Beyer - Your Mind (Extended Mix).mp3`
+**GIVEN** un dossier qui contient déjà `Lior Vance - Dim Orbit (Extended Mix).mp3`
 **WHEN** on renomme un autre fichier vers ce nom
-**THEN** il devient `Adam Beyer - Your Mind (Extended Mix) (2).mp3` et le fichier existant est intact
+**THEN** il devient `Lior Vance - Dim Orbit (Extended Mix) (2).mp3` et le fichier existant est intact
 
 ### Scénario 4 : casse seule
-**GIVEN** `adam beyer - your mind (extended mix).mp3`
-**WHEN** on le renomme avec « Adam Beyer », « Your Mind (Extended Mix) »
-**THEN** il s'appelle `Adam Beyer - Your Mind (Extended Mix).mp3`, sans suffixe
+**GIVEN** `lior vance - dim orbit (extended mix).mp3`
+**WHEN** on le renomme avec « Lior Vance », « Dim Orbit (Extended Mix) »
+**THEN** il s'appelle `Lior Vance - Dim Orbit (Extended Mix).mp3`, sans suffixe
 
 ### Scénario 5 : sans artiste
 **GIVEN** `rip_0042.wav` et un artiste absent
@@ -127,7 +127,7 @@ Exclut le moment du renommage dans l'enchaînement de l'écriture et le sort d'u
 **Options envisagées :**
 - **A. Remplacement lisible** (`-`, `'`, suppression) : le nom se lit comme le titre
 - **B. Underscore**, convention de Picard (« replace all Windows-incompatible characters with an underscore »), de beets (`'[<>:"\?\*\|]': _`) et de l'usage `$validate(…,_)` de Mp3tag
-- **C. Suppression pure** : `AC/DC` devient `ACDC`
+- **C. Suppression pure** : `QX/RT` devient `ACDC`
 **Choix : A**
 **Rationale :**
 - Choix du propriétaire après comparaison sur exemples

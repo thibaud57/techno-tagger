@@ -116,7 +116,7 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
   - un run qui n'est pas confirmable laisse start sur son propre dossier
   - une page recréée garde le dossier du run affiché
   - la confirmation porte les nombres, phrases conditionnelles comprises ; accepter appelle `commitRun`, annuler non
-  - commit grisé avec sa raison pendant un geste en vol, un rollback et sans morceau résolu
+  - commit grisé avec sa raison pendant un geste en vol et pendant un rollback
   - message d'échec seulement avec des `write_error`, qui reste avec le nouveau nombre tant qu'il en reste ; la relance passe par sa confirmation et le bouton d'action se grise pendant une écriture ou un rollback
   - erreur de `commit_run` affichée
 - `src/app/features/tagging/run-list.component.spec.ts` :

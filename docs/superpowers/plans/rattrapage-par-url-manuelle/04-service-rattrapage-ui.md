@@ -87,7 +87,7 @@ export const resolvedByUrl = (trackId: string): TrackResolvedEvent => ({
   resolution: "url",
   failure_reason: null,
   source: "bandcamp",
-  after: { artist: "Amelie Lens", title: "Basiel" },
+  after: { artist: "Orla Quenby", title: "Kelvor" },
   scores: null,
   artwork_path: null,
 })
@@ -291,7 +291,7 @@ Dans `src/app/core/sidecar.service.spec.ts`, importer `TRACK_RESOLVED` à côté
 
 ```typescript
   describe("url recovery", () => {
-    const URL = "https://amelielens.bandcamp.com/track/basiel"
+    const URL = "https://orlaquenby.bandcamp.com/track/kelvor"
 
     const openPhase = async (): Promise<void> => {
       await service.start()
@@ -317,7 +317,7 @@ Dans `src/app/core/sidecar.service.spec.ts`, importer `TRACK_RESOLVED` à côté
       await service.resolveByUrl("a.mp3", URL)
       const sent = transport.sent.length
 
-      await service.resolveByUrl("a.mp3", "https://www.beatport.com/track/your-mind/22708005")
+      await service.resolveByUrl("a.mp3", "https://www.beatport.com/track/dim-orbit/99000202")
 
       expect(transport.sent).toHaveLength(sent)
     })
@@ -387,8 +387,8 @@ Dans `src/app/core/sidecar.service.spec.ts`, importer `TRACK_RESOLVED` à côté
         ...RUN_STARTED,
         tracks: [
           ...RUN_STARTED.tracks,
-          { track_id: "c.mp3", file_name: "c.mp3", artist: "Sara Landry", title: "The Void" },
-          { track_id: "d.mp3", file_name: "d.mp3", artist: "Kasia", title: "Tarantula" },
+          { track_id: "c.mp3", file_name: "c.mp3", artist: "Dara Winter", title: "The Weir" },
+          { track_id: "d.mp3", file_name: "d.mp3", artist: "Zelka", title: "Mothlight" },
         ],
       })
       transport.emit(TRACK_RESOLVED)
