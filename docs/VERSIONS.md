@@ -989,7 +989,7 @@ Trois contournements, dans l'ordre de préférence :
 
 Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilotée par release-please via `extra-files`. La borne haute existe pour que PyInstaller empaquette exactement l'interpréteur testé, pas pour exclure 3.15. Un `.python-version` à côté fige la version qu'`uv` installe et que la CI reprend, et c'est le fichier que vise la procédure de bump de [PRODUCTION.md § Composants applicatifs](PRODUCTION.md#composants-applicatifs).
 
-**Build et uv** : `[build-system] requires = ["uv_build>=0.13.0,<0.14"]` et `[tool.uv] required-version = ">=0.13,<0.14"`. Le patch d'uv vit dans `.github/actions/setup-uv`, que `test_the_ci_uv_satisfies_the_uv_build_range` confronte au plancher `uv_build`.
+**Build et uv** : `[build-system] requires = ["uv_build>=0.13.0,<0.14"]` et `[tool.uv] required-version = ">=0.13,<0.14"` (garde locale : uv refuse un autre minor, à monter avec `uv_build` et l'action composite). Le patch d'uv vit dans `.github/actions/setup-uv`, que `test_the_ci_uv_satisfies_the_uv_build_range` confronte au plancher `uv_build`.
 
 **Dépendances d'exécution** : `pydantic>=2.14.0,<3`, `mutagen>=1.48.1,<2`, `rapidfuzz>=3.14.6,<4`, `httpx2>=2.13.1,<3`, `keyring>=25.7.0,<26`, `sentry-sdk>=2.71.0,<3`.
 

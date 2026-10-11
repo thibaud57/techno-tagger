@@ -27,3 +27,4 @@ paths:
 - Ne pas poser `target-version` : Ruff le dérive de `project.requires-python`
 - La 0.16.0 retire aussi 18 règles du jeu par défaut (`E401`, `E402`, `E701`, `F403`, `F405`…) sans le documenter : une règle qui ne se déclenche plus après montée vient peut-être de là
 - Codes de sortie : 0 rien à signaler, 1 violations, 2 erreur de configuration
+- 0.17 : les pragmas de fin de ligne ne comptent plus dans la largeur (`E501`, `I001`, `W505`, formateur) et `DTZ` quitte le défaut : le `select` explicite le garde
