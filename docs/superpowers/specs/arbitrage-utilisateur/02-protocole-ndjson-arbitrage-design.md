@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-file-arbitrage-sidecar-design.md"]
-date: "2026-09-26"
+date: "2026-10-10"
 ---
 
 # Protocole NDJSON de l'arbitrage

@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["02-client-techno-scraper-design.md", "03-requete-et-scoring-design.md", "04-cache-et-pochettes-design.md", "05-cle-api-design.md", "06-pipeline-resolution-design.md"]
-date: "2026-09-20"
+date: "2026-10-11"
 ---
 
 # Protocole NDJSON du run de re-tagging
@@ -44,14 +44,14 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (epic `arbitrage-uti
 
 - **`protocol.py` reste la seule interface publique du sidecar** (ADR-005, ADR-022) : commandes en `extra="forbid"` et `strict`, événements construits en interne. Les modèles du run traduisent les enregistrements du pipeline, ils ne les exposent pas tels quels : le protocole ne porte que ce que l'interface affiche.
 - **Commande `start_tagging`** : `folder` et `thresholds` optionnel. `ThresholdsPayload(floor, ceiling)` valide `0 <= floor <= ceiling <= 100` par un `model_validator`, ce qui produit `malformed_command` en cas de valeurs incohérentes. Absente, la commande laisse le sidecar appliquer ses défauts, seule source des valeurs (ADR-008). La Feature 7 enverra les réglages.
-- **Événement `run_started`**, nouveau dans le contrat : `run_id`, `folder` et la liste des morceaux avec `track_id`, `file_name`, `artist` et `title` lus, plus leurs tags d'origine pour le détail avant / après. Sans lui, l'interface ne pourrait afficher aucune ligne avant la première résolution, alors que DESIGN.md § Couleurs Sémantiques prévoit l'état « rien n'est encore arrivé sur ce morceau ».
+- **Événement `run_started`** : `run_id`, `folder` et la liste des morceaux avec `track_id`, `file_name`, `artist` et `title` lus, plus leurs tags d'origine pour le détail avant / après. Sans lui, l'interface ne pourrait afficher aucune ligne avant la première résolution, alors que DESIGN.md § Couleurs Sémantiques prévoit l'état « rien n'est encore arrivé sur ce morceau ».
 - **Événement `track_resolved`** : `track_id`, l'état en trois champs (`state`, `resolution`, `failure_reason`), la `source`, l'artiste et le titre que la source écrira (`after`), les scores, le chemin de la pochette et les tags qui seront écrits (`tags_after`, nuls pour un non résolu).
-  - **`after` est calculé dans le sidecar** : titre suivi de son `mix_name` entre parenthèses quand la source en fournit un et qu'il n'est pas déjà dans le titre, artistes joints par `", "`, remixeurs exclus (ADR-011). Les deux fonctions existent déjà dans `matching.py` pour le scoring : elles deviennent publiques (`full_title`, `credited_artists`) au lieu d'être dupliquées, et l'écriture des tags les réutilise. **Précision 2026-10-02** : techno-scraper ne laisse plus la version dans le titre (son ADR-012), `full_title` compose donc toujours « Titre (Mix Name) » sans chercher le mix dans le titre.
+  - **`after` est calculé dans le sidecar** : titre suivi de son `mix_name` entre parenthèses quand la source en fournit un et qu'il n'est pas déjà dans le titre, artistes joints par `", "`, remixeurs exclus (ADR-011). Les deux fonctions existent déjà dans `matching.py` pour le scoring : elles deviennent publiques (`full_title`, `credited_artists`) au lieu d'être dupliquées et l'écriture des tags les réutilise. **Précision 2026-10-02** : techno-scraper ne laisse plus la version dans le titre (son ADR-012), `full_title` compose donc toujours « Titre (Mix Name) » sans chercher le mix dans le titre.
   - **Les scores partent arrondis** en entiers (`artist`, `title`, `average`), l'affichage étant « A 96 · T 92 » (DESIGN.md § Colonnes). `artist` vaut `null` quand la requête n'avait pas d'artiste.
   - **La pochette part en chemin, jamais en base64** : la webview la lit par `convertFileSrc` depuis le cache (`.claude/rules/tauri/sidecar.md`, DESIGN.md § Conventions de Code).
 - **Événement `arbitration_required`** : `track_id`, `source`, `beatport_unavailable` et les candidats en zone grise avec leur artiste, leur titre et leurs scores. L'arbitrage en complète l'état (label, année, motif d'une liste vide, autre source réaffichable) et le renouvelle en bloc par `arbitration_updated`.
 - **Événement `run_finished`** : `phase: "network"`, `run_id` et les compteurs `resolved`, `unresolved` et `awaiting_arbitration` (`written` et `write_error` ne comptent que la phase d'écriture). Le chemin des rapports arrivera avec la Feature 6, le champ `phase` distinguant cette fin de celle de l'écriture (ARCHITECTURE.md § API).
-- **Deux axes de phase, deux enums** : `Phase` (`extraction`, `tagging`, `url_recovery`, `write`) qualifie un `progress`, c'est l'étape en cours d'une barre ; `RunPhase` (`network`, `write`) qualifie un `run_finished`, c'est la moitié du run qui vient de se clore. Elles partagent la valeur `write` sans être le même type : mypy refuse de les mélanger, et l'écriture pose son `write` sur les deux, l'un pour ses `progress`, l'autre pour sa fin. La distinction est écrite dans ARCHITECTURE.md § API.
+- **Deux axes de phase, deux enums** : `Phase` (`extraction`, `tagging`, `url_recovery`, `write`) qualifie un `progress`, c'est l'étape en cours d'une barre ; `RunPhase` (`network`, `write`) qualifie un `run_finished`, c'est la moitié du run qui vient de se clore. Elles partagent la valeur `write` sans être le même type : mypy refuse de les mélanger et l'écriture pose son `write` sur les deux, l'un pour ses `progress`, l'autre pour sa fin. La distinction est écrite dans ARCHITECTURE.md § API.
 - **Erreurs de run**, toutes en `error` avec un `code` que l'interface traduit :
   - `api_key_missing` : aucune clé dans le trousseau, rien ne démarre ;
   - `tagging_folder_unreadable` : le dossier a disparu ou n'en est pas un (sub-project 01) ;
@@ -137,7 +137,7 @@ Aucun test ne vérifie pydantic ni asyncio : chacun échoue contre une régressi
 
 - **Dossier vide** : `run_started` avec une liste vide, aucun `progress`, `run_finished` à zéro partout.
 - **`shutdown` pendant un run** : la tâche est annulée, aucun `run_finished` n'est émis, le processus s'arrête proprement.
-- **Morceau en attente d'arbitrage à la fin du run** : il compte dans `awaiting_arbitration` de `run_finished`. L'arbitrage le fera passer en résolu ensuite, et le rattrapage par URL reprend un morceau non résolu.
+- **Morceau en attente d'arbitrage à la fin du run** : il compte dans `awaiting_arbitration` de `run_finished`. L'arbitrage le fera passer en résolu ensuite et le rattrapage par URL reprend un morceau non résolu.
 - **Pochette absente** : `artwork_path` vaut `null`, le morceau reste résolu.
 - **Chemin de pochette hors `appLocalDataDir()`** : impossible, le cache vit sous cette racine, que le scope asset de la webview autorise (sub-project 09).
 
@@ -146,7 +146,7 @@ Aucun test ne vérifie pydantic ni asyncio : chacun échoue contre une régressi
 ### Décision : Comment le run tourne pendant que la boucle lit `stdin`
 
 **Options envisagées :**
-- **A. Tâche de fond dans un `TaskGroup` au niveau de la boucle** : la boucle reste disponible, une exception inattendue du run fait tomber le processus, et l'EOF attend la fin du run.
+- **A. Tâche de fond dans un `TaskGroup` au niveau de la boucle** : la boucle reste disponible, une exception inattendue du run fait tomber le processus et l'EOF attend la fin du run.
 - **B. Traitement séquentiel, comme les commandes actuelles** : la boucle serait bloquée pendant tout le run, donc incapable de recevoir les décisions d'arbitrage, ce qu'ADR-009 exige.
 - **C. Un thread dédié au run** : même disponibilité, mais deux boucles d'événements et un accès concurrent à `stdout` à synchroniser.
 

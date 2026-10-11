@@ -6,24 +6,24 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["07-contrat-detail-avant-apres-design.md"]
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Ligne dépliée avant / après
 
 ## Scope
 
-Couvre le bouton d'ouverture du détail en tête de la liste du run, le détail déplié sous la ligne de tout morceau (résolu, non résolu, en attente, à arbitrer), plusieurs ouverts à la fois, le composant du détail (pochette en grand, 15 lignes plus le commentaire, valeurs absentes), le scroll virtuel de la liste, conservé, et le composant partagé de la cellule sans valeur, repris par les trois cellules qui l'écrivent en dur. Met DESIGN.md et les notes de sync de la maquette à jour de ces choix.
+Couvre le bouton d'ouverture du détail en tête de la liste du run, le détail déplié sous la ligne de tout morceau (résolu, non résolu, en attente, à arbitrer), plusieurs ouverts à la fois, le composant du détail (pochette en grand, 14 lignes plus le commentaire, valeurs absentes), le scroll virtuel de la liste, conservé, et le composant partagé de la cellule sans valeur, repris par les trois cellules qui l'écrivent en dur. Met DESIGN.md et les notes de sync de la maquette à jour de ces choix.
 
 Exclut le bouton de rollback d'un morceau dans le détail (sub-project 11), les états d'écriture dans la colonne État (10) et le contenu des tags, tranché au sub-project 07.
 
 ### État livré
 
-À la fin de ce sub-project, on peut : dans `just dev-ui`, déplier sous sa ligne le détail d'un morceau résolu par le bouton de sa ligne et voir sa pochette en grand et ses 15 champs avant / après avec leur clé, fidèles à `TrackDetail` aux écarts près consignés, en ouvrir un second sans fermer le premier, sans que le clic sur une ligne à arbitrer change de rôle, et faire défiler un run de 2 000 morceaux sans à-coup, un détail ouvert ; et lancer `just test` sur les specs du détail et de la liste.
+À la fin de ce sub-project, on peut : dans `just dev-ui`, déplier sous sa ligne le détail d'un morceau résolu par le bouton de sa ligne et voir sa pochette en grand et ses 14 champs avant / après avec leur clé, fidèles à `TrackDetail` aux écarts près consignés, en ouvrir un second sans fermer le premier, sans que le clic sur une ligne à arbitrer change de rôle, et faire défiler un run de 2 000 morceaux sans à-coup, un détail ouvert ; et lancer `just test` sur les specs du détail et de la liste.
 
 ## Dependencies
 
-- `07-contrat-detail-avant-apres-design.md` (statut: implemented) : `TaggingTrack.tagsBefore` (`system`, `comment`, 16 `TagValue` dans l'ordre de la table) et `tagsAfter`, clés du fichier écrit, valeur gardée en Après
+- `07-contrat-detail-avant-apres-design.md` (statut: implemented) : `TaggingTrack.tagsBefore` (`system`, `comment`, 15 `TagValue` dans l'ordre de la table) et `tagsAfter`, clés du fichier écrit, valeur gardée en Après
 
 ## Références de design
 
@@ -56,7 +56,7 @@ Exclut le bouton de rollback d'un morceau dans le détail (sub-project 11), les 
 - **Superposition** : le cadre n'a pas de `z-index`, il passe ainsi au-dessus des lignes vides et sous l'en-tête collant de la table
 - **Composant du détail** `TrackDetailComponent`, `input.required<TaggingTrack>()` (`.claude/rules/angular/components.md`) :
   - pochette de 160px à gauche en trois états, comme la vignette de la liste : image en fondu, `p-skeleton` tant que le morceau attend son tour, cadre neutre à l'icône `image` en 24 dès qu'il est tranché sans pochette
-  - grille de trois colonnes à droite, en-tête « Champ / Avant / Après » en `text-xs text-muted-color` filetée, lignes en `text-xs` : libellé traduit suivi de sa clé en couleur atténuée, Avant en `text-muted-color` (arbitrage « Gris de légende »), Après en couleur de texte, chaque valeur en `app-truncated-text` (tooltip large au survol d'un texte coupé)
+  - grille de trois colonnes à droite, en-tête « Champ / Avant / Après » en `text-xs text-muted-color` filetée, lignes en `text-xs` : libellé traduit suivi de sa clé en couleur atténuée (sans le préfixe `TXXX:` d'une frame personnalisée), Avant en `text-muted-color` (arbitrage « Gris de légende »), Après en couleur de texte, chaque valeur en `app-truncated-text` (tooltip large au survol d'un texte coupé)
   - les lignes reçues toujours, sauf l'identifiant à la source, plus Commentaire quand `tagsBefore.comment` existe, son Après toujours vide
   - disposition horizontale (`flex`, `gap-6`, `p-4`) sur fond `bg-surface-950`, filet bas `border-surface`, comme la cellule dépliée du `DataTable`
   - une seule grille pour toutes les lignes (subgrid), colonne Champ à la largeur de son plus long libellé suivi de sa clé
@@ -70,7 +70,7 @@ Exclut le bouton de rollback d'un morceau dans le détail (sub-project 11), les 
 ### Scénario 1 : déplier le détail d'un morceau résolu
 **GIVEN** un morceau résolu dont les tags avant et après sont connus
 **WHEN** l'utilisateur clique sur le bouton de sa ligne
-**THEN** le détail se déplie sous la ligne, pleine largeur, et montre la pochette en 160px et 15 lignes dans l'ordre de la table, sans l'identifiant à la source, chacune avec son libellé, sa clé, sa valeur avant et sa valeur après
+**THEN** le détail se déplie sous la ligne, pleine largeur, et montre la pochette en 160px et 14 lignes dans l'ordre de la table, sans l'identifiant à la source, chacune avec son libellé, sa clé, sa valeur avant et sa valeur après
 **AND** une valeur absente porte un cadratin, le bouton passe en chevron vers le bas, un second clic sur lui replie le détail et le bouton d'une autre ligne déplie un second détail sans refermer le premier
 
 ### Scénario 2 : bouton d'une ligne à arbitrer

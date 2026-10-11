@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Sauvegarder avant réécriture les tags d'origine des champs de la table dans un dump JSON par run, conservé 30 jours, et savoir les restaurer sur un fichier.
+**Goal:** Sauvegarder avant réécriture les tags d'origine des champs de la table dans un dump JSON par run, conservé 30 jours ; savoir aussi les restaurer sur un fichier.
 
 **Architecture:** `files.py` gagne `read_original_tags` (les 16 champs avec toutes leurs valeurs, le système de tags et la version ID3) et `restore_tags` (remet ces champs, retire les autres champs de la table, réenregistre dans la version ID3 d'origine). Le nouveau module `tag_dump.py` porte le fichier de dump d'un run : modèles Pydantic, écriture atomique, ajout sans écrasement, chemin après renommage, relecture versionnée et purge à 30 jours, appelée au démarrage du sidecar.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Dépend du sub-project 01, implémenté avant** : `files.TagField`, `TAG_FIELDS`, `TagValues`, `project_tags`, `write_tags`, `TagsWriteError`, `_id3_frame(frame_id, value: str)`, `_write_failure(path, error)` qui calcule le motif d'échec, `file_failures.FileFailureReason`, `file_failure_reason`, et `untyped_calls_exclude = ["mutagen"]` dans `[tool.mypy]`.
+- **Dépend du sub-project 01, implémenté avant** : `files.TagField`, `TAG_FIELDS`, `TagValues`, `project_tags`, `write_tags`, `TagsWriteError`, `_id3_frame(frame_id, value: str)`, `_write_failure(path, error)` qui calcule le motif d'échec, `file_failures.FileFailureReason`, `file_failure_reason` et `untyped_calls_exclude = ["mutagen"]` dans `[tool.mypy]`.
 - **Le dump ne garde que les 16 champs de la table**, avec toutes leurs valeurs, le système de tags et la version ID3. Ni images, ni commentaires, ni tags hors table.
 - **Restauration** : champ du dump remis à l'identique, champ absent du dump retiré, fichier réenregistré en v2.4 s'il l'était, sinon `update_to_v23()` puis `save(v2_version=3)`. Images, commentaires et tags hors table jamais touchés.
 - **Fichier de dump** : `app_data_dir() / "dumps" / "<YYYYMMDDTHHMMSSZ>-<run_id>.json"`, horodatage au format `reports.TIMESTAMP_FORMAT`, en UTC, `schema_version` = 1.
@@ -415,11 +415,11 @@ def _id3_values(tags: ID3, frame_id: str) -> tuple[str, ...]:
     return tuple(str(value) for value in frame.text)
 ```
 
-`_load` rend des `object` : `mutagen.File` n'est pas annoté, et un `FileType` typé ferait de `.tags` un `None` pour mypy.
+`_load` rend des `object` : `mutagen.File` n'est pas annoté ; un `FileType` typé ferait de `.tags` un `None` pour mypy.
 
 - [ ] **Step 5: Restaurer**
 
-`restore_tags` lève ses échecs par `_write_failure`, que le sub-project 01 a posé avec `write_tags`. Dans `_write_id3`, l'appel devient `tags.setall(frame_id, [_id3_frame(frame_id, (value,))])`, et `_id3_frame` accepte plusieurs valeurs :
+`restore_tags` lève ses échecs par `_write_failure`, que le sub-project 01 a posé avec `write_tags`. Dans `_write_id3`, l'appel devient `tags.setall(frame_id, [_id3_frame(frame_id, (value,))])` ; `_id3_frame` accepte plusieurs valeurs :
 
 ```python
 def _id3_frame(frame_id: str, values: Sequence[str]) -> Frame:
@@ -847,7 +847,7 @@ def _write(path: Path, dump: TagDump) -> None:
 
 - [ ] **Step 4: Purger au démarrage**
 
-Dans `sidecar/src/tagger/__main__.py`, ajouter `from datetime import UTC, datetime` après `import sys`, et `from tagger.tag_dump import dump_dir, purge_dumps` avant `from tagger.url_recovery import UrlRecoveryNotOpenError`. Dans `main()`, juste après `init_sentry(SENTRY_DSN, RELEASE)` :
+Dans `sidecar/src/tagger/__main__.py`, ajouter `from datetime import UTC, datetime` après `import sys` et `from tagger.tag_dump import dump_dir, purge_dumps` avant `from tagger.url_recovery import UrlRecoveryNotOpenError`. Dans `main()`, juste après `init_sentry(SENTRY_DSN, RELEASE)` :
 
 ```python
     _purge_old_dumps()
@@ -925,7 +925,7 @@ git commit -m "feat(sidecar): dump des tags d'origine par run, purgé après 30 
 
 Charger `Skill[production-doc]` et lire son template avant d'éditer. Dans `docs/PRODUCTION.md` :
 - l. 293 : `dump des tags d'origine conservé avec le plan de run` → `dump des tags d'origine, conservé 30 jours indépendamment du plan de run` ;
-- l. 636 : retirer « dump des tags » de la ligne « Plan de run, dump des tags, cache », et ajouter juste dessous une ligne `| Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | appLocalDataDir()/dumps, aucune sauvegarde |` ;
+- l. 636 : retirer « dump des tags » de la ligne « Plan de run, dump des tags, cache » puis ajouter juste dessous une ligne `| Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | appLocalDataDir()/dumps, aucune sauvegarde |` ;
 - l. 642 : `le dump des tags d'origine vit avec le plan qu'il sert à annuler` → `le dump des tags d'origine vit 30 jours pour qu'un run raté puisse s'annuler au lancement suivant (ADR-010)` ;
 - l. 654 : `tant que le plan n'a pas été purgé (30 jours)` → `tant que son dump n'a pas été purgé (30 jours)`.
 

@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
-date: "2026-09-08"
+date: "2026-10-11"
 ---
 
 # Parsing des playlists : dump SQLite VLC et M3U8
@@ -45,8 +45,8 @@ Aucune : ce sub-project est autoporté.
 ## Architecture approach
 
 - **Façade de package** : `playlists/__init__.py` déclare `__all__` et expose `detect_format()`, `list_playlists()` et `read_playlist()`. Le découpage interne entre `vlc.py` et `m3u8.py` ne fuit pas vers les appelants, conformément à `.claude/rules/python/imports-modules.md`. Imports relatifs à l'intérieur du sous-package, absolus depuis `tagger.` en dehors.
-- **`list_playlists()` accepte les deux formats** et rend un `PlaylistListing` (format reconnu et playlists) : sur un dump ses playlists, sur un M3U8 une liste vide. La commande sert aussi à faire reconnaître le format par l'interface, qui n'a pas le droit de le déduire elle-même. Lever sur un M3U8 obligerait l'appelant à traiter un canal d'erreur comme un canal d'information, et un fichier réellement illisible cesserait d'être distinguable d'un M3U8 valide. Le M3U8 est donc décodé quand même, son contenu ignoré : un fichier binaire illisible lève `UnsupportedPlaylistFormatError`, comme `read_playlist`.
-- **`read_playlist(path, playlist_name=None)`** : le nom est requis pour un dump, qui porte toute la médiathèque (`PlaylistNameRequiredError` sinon), et ignoré pour un M3U8. Un dump rend des noms dédupliqués et triés, un M3U8 les rend dans l'ordre du fichier, doublons compris : l'ordre de lecture d'un DJ peut être voulu.
+- **`list_playlists()` accepte les deux formats** et rend un `PlaylistListing` (format reconnu et playlists) : sur un dump ses playlists, sur un M3U8 une liste vide. La commande sert aussi à faire reconnaître le format par l'interface, qui n'a pas le droit de le déduire elle-même. Lever sur un M3U8 obligerait l'appelant à traiter un canal d'erreur comme un canal d'information et un fichier réellement illisible cesserait d'être distinguable d'un M3U8 valide. Le M3U8 est donc décodé quand même, son contenu ignoré : un fichier binaire illisible lève `UnsupportedPlaylistFormatError`, comme `read_playlist`.
+- **`read_playlist(path, playlist_name=None)`** : le nom est requis pour un dump, qui porte toute la médiathèque (`PlaylistNameRequiredError` sinon) et ignoré pour un M3U8. Un dump rend des noms dédupliqués et triés, un M3U8 les rend dans l'ordre du fichier, doublons compris : l'ordre de lecture d'un DJ peut être voulu.
 - **Détection du format par en-tête de fichier, pas par extension** : les 16 premiers octets d'une base SQLite valent `SQLite format 3\x00`. Tout fichier ne portant pas cet en-tête est traité comme du M3U8. Un fichier qui n'est ni l'un ni l'autre lisible produit une erreur métier, comme l'exige `.claude/rules/vlc-media-db/playlists.md`.
 - **Séquence d'ouverture du dump, dans cet ordre** : connexion en lecture seule par URI (`mode=ro`), puis enregistrement de la collation `FILENAME`, puis vérification du schéma, puis requêtes. La collation précède la vérification parce que celle-ci lit déjà `Media`. Détail du piège dans `.claude/rules/vlc-media-db/playlists.md` et [ADR-019](../../../adrs/019-resilience-schema-vlc-media-db.md) § Vérification sur un dump réel.
 - **Collation `FILENAME` reproduite en Python** : `Media.filename` est déclaré `COLLATE FILENAME`, collation propre à VLC absente de `sqlite3`. La CLI d'origine l'enregistrait par `create_collation` avec une comparaison insensible à la casse ; ce comportement est repris à l'identique. Elle ne gouverne que la déduplication du `SELECT DISTINCT`, l'ordre étant imposé par le `CAST(... AS TEXT) COLLATE NOCASE` explicite de l'`ORDER BY`.
@@ -56,7 +56,7 @@ Aucune : ce sub-project est autoporté.
 - **Comptage des morceaux par `count(DISTINCT media_id)` sur `PlaylistMediaRelation`** : les compteurs dénormalisés de `Playlist` sont relevés à zéro sur un dump portant pourtant des morceaux, et un simple `count()` compterait les relations plutôt que les morceaux. Un même morceau pouvant figurer deux fois dans une playlist, le `DISTINCT` aligne le nombre annoncé par le sélecteur sur celui que l'extraction livrera réellement.
 - **Parsing M3U8 tolérant aux provenances** : lecture en `utf-8-sig` pour absorber un BOM, lignes vides et lignes préfixées de `#` ignorées (`#EXTM3U`, `#EXTINF` compris), chaque ligne restante réduite à son dernier segment après découpe sur `/` et sur `\`. Les deux séparateurs sont traités ensemble parce que le fichier vient d'une autre machine que celle qui le lit, ce qu'une classe `PurePath` liée à la plateforme courante ne couvrirait pas.
 - **Modèles internes en dataclasses** : `@dataclass(frozen=True, slots=True)`, `NamedTuple` pour le retour multiple `PlaylistListing` et `StrEnum` annoté `@verify(UNIQUE)`, jamais pydantic : rien ne traverse de frontière ici, la validation des charges NDJSON appartenant à `protocol.py` (sub-project 04). Cf. `.claude/rules/python/modeles-donnees.md`.
-- **Erreurs métier à code stable** : `TaggerError` hérite d'`Exception` à la racine du package, `PlaylistError` en dérive, et chaque erreur porte un `code` et des `params` en attributs plutôt que dans son message, puisque c'est ce que sérialise l'événement `error` du protocole et que l'interface traduit. Les codes sont en snake_case sans préfixe (`vlc_schema_mismatch`, `playlist_not_found`, `unsupported_playlist_format`…), chacun ayant sa clé `errors.<code>` dans les deux fichiers de langue.
+- **Erreurs métier à code stable** : `TaggerError` hérite d'`Exception` à la racine du package, `PlaylistError` en dérive et chaque erreur porte un `code` et des `params` en attributs plutôt que dans son message, puisque c'est ce que sérialise l'événement `error` du protocole et que l'interface traduit. Les codes sont en snake_case sans préfixe (`vlc_schema_mismatch`, `playlist_not_found`, `unsupported_playlist_format`…), chacun ayant sa clé `errors.<code>` dans les deux fichiers de langue.
 - **Aucune exception technique ne remonte telle quelle**, `raise ... from e` à chaque conversion : `sqlite3.DatabaseError` et `ValueError` (`Path.as_uri()` refuse un chemin relatif) donnent `UnreadableDumpError`, `OSError` donne `UnreadablePlaylistFileError`, `UnicodeDecodeError` sur un M3U8 donne `UnsupportedPlaylistFormatError`. Cf. `.claude/rules/python/gestion-erreurs.md`.
 - **Typage strict** : annotations complètes, `Path` et jamais `str` pour les chemins, conformément à `.claude/rules/python/type-hints.md`, `.claude/rules/python/fichiers-io.md` et `.claude/rules/mypy/strict.md`.
 
@@ -225,7 +225,7 @@ Aucune : les deux parsers sont des modules isolés, sans dialogue entre eux ni a
 **Rationale :**
 - Rien ne garantit le nom du fichier : l'utilisateur choisit un chemin dans un dialogue, pas un format
 - La rule `.claude/rules/vlc-media-db/playlists.md` demande de rejeter avec un message clair un fichier qui n'est pas une base SQLite valide, ce que l'extension seule ne permet pas de constater
-- L'interface affiche un logo distinct selon que le fichier est un dump VLC reconnu ou non : cette reconnaissance a besoin d'un critère fiable, et elle vient du sidecar (`PlaylistListing.playlist_format`, relayé par l'événement `playlists_listed`)
+- L'interface affiche un logo distinct selon que le fichier est un dump VLC reconnu ou non : cette reconnaissance a besoin d'un critère fiable et elle vient du sidecar (`PlaylistListing.playlist_format`, relayé par l'événement `playlists_listed`)
 
 ### Décision : Modèles en dataclasses plutôt qu'en modèles pydantic
 

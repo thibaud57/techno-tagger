@@ -19,7 +19,7 @@ paths:
 - Incriminer la clé API sur un `403` sans repasser par `/health` : le gotcha ci-dessous rend ce statut non ambigu
 - Compter les `403` consécutifs plutôt que les interpréter un par un : une clé révoquée en produit autant que de morceaux
 - Lire `title`, `artists`, `mix_name`, `remixers`, `label` tels que techno-scraper les rend : ils sont déjà normalisés, ne les redécouper ni avant écriture ni avant scoring. Seul le sous-titre gardé par la gateway sort du titre comparé, comme de la requête ; le nettoyage de requête reste réservé à la chaîne interrogée
-- Normaliser une URL collée avant de l'envoyer (query, fragment et `/` final retirés, `https`, hôte en minuscules, `www.` et `m.` SoundCloud réécrits) et refuser sans appel ce qui n'est pas un morceau, en `unsupported_url`
+- Normaliser une URL collée avant de l'envoyer (query, fragment et `/` final retirés, `https`, hôte en minuscules, `www.` et `m.` SoundCloud réécrits, segment de langue Beatport `/fr` ou `/pt-br` ignoré) et refuser sans appel ce qui n'est pas un morceau, en `unsupported_url`
 
 ## À éviter
 - Retryer un `504` : la file de l'API est déjà saturée, le retry l'allonge. Retryer un `403` : la clé ne redeviendra pas valide seule

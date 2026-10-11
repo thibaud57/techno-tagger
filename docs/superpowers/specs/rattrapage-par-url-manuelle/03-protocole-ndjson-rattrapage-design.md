@@ -6,14 +6,14 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["02-rattrapage-url-sidecar-design.md"]
-date: "2026-10-02"
+date: "2026-10-11"
 ---
 
 # Protocole NDJSON du rattrapage par URL
 
 ## Scope
 
-Couvre la commande `resolve_by_url` (modèle, unions, dispatch, geste en tâche de fond), le branchement d'`UrlRecovery` dans le run courant, l'ouverture de la phase de rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau) son refus tant qu'elle n'est pas ouverte et sur un run confirmé (`run_committed`), l'émission de `progress` en phase `url_recovery`, le `track_id` joint à toute erreur d'un geste, et le miroir TypeScript de la commande.
+Couvre la commande `resolve_by_url` (modèle, unions, dispatch, geste en tâche de fond), le branchement d'`UrlRecovery` dans le run courant, l'ouverture de la phase de rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), son refus tant qu'elle n'est pas ouverte ou sur un run confirmé (`run_committed`), l'émission de `progress` en phase `url_recovery`, le `track_id` joint à toute erreur d'un geste, et le miroir TypeScript de la commande.
 
 Exclut le service et le store Angular (sub-project 04), l'écran (sub-project 05), le bouton de confirmation et `commit_run` (Feature 5) et la persistance de la décision (Feature 6).
 

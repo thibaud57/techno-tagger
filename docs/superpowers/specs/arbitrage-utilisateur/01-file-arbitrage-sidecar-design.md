@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
-date: "2026-09-26"
+date: "2026-10-11"
 ---
 
 # File d'arbitrage dans le sidecar
@@ -68,7 +68,7 @@ Aucune : ce sub-project est autoporté.
   - `arbitration_busy` : un geste est déjà en vol sur ce morceau.
 - **Concurrence** (`.claude/rules/python/asyncio.md`) : des gestes sur des morceaux différents avancent en parallèle, chacun n'attendant que son appel réseau, borné par les sémaphores du client qu'il partage avec le pipeline. Un second geste sur un morceau dont le précédent est en vol est refusé, jamais mis en file : les clics rapides de la modale (DESIGN.md § Layout) lanceraient sinon deux appels Bandcamp. Un geste se tranche dès que son morceau est en attente, pendant la phase réseau comme après.
 - **Annulation** : un geste annulé relève `CancelledError` après avoir libéré son morceau et le laisse inchangé. Le 02 annulera les gestes en vol quand un nouveau run remplace l'ancien.
-- **Durée de vie** (décision du 2026-09-26) : un morceau en attente reste tranchable après `run_finished` comme après `cancel_run`, jusqu'à ce qu'un nouveau run remplace l'ancien ou que l'écriture du run soit confirmée (02). Rien n'est persisté : un crash ou un nouveau run perd les décisions prises (ADR-010, spec 11 de la Feature 2), risque assumé jusqu'à la Feature 6.
+- **Durée de vie** (décision du 2026-09-26) : un morceau en attente reste tranchable après `run_finished` comme après `cancel_run`, jusqu'à ce qu'un nouveau run remplace l'ancien ou que l'écriture du run soit confirmée (Feature 5). Rien n'est persisté : un crash ou un nouveau run perd les décisions prises (ADR-010, spec 11 de la Feature 2), risque assumé jusqu'à la Feature 6.
 - **Logs** (PRODUCTION.md § Logging) : une ligne INFO par geste en logfmt, `arbitration decided`, `arbitration refused` et `arbitration switched`, avec les seules clés `run`, `track` (position), `source`, `score`, `status` et `reason`. Aucun titre ni chemin, aucun événement Sentry propre au geste (un contrat d'API cassé remonte par la garde partagée de `sources.py`). Le seul effet disque est la pochette du candidat choisi, dans le cache, comme en auto : aucun fichier musical n'est touché.
 
 ## Acceptance criteria

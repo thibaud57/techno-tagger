@@ -1,25 +1,25 @@
 ---
 feature: "Feature 5 — Écriture des tags et renommage"
 subproject: "rollback-ui"
-goal: "Annuler depuis l'interface l'écriture d'un morceau ou du run affiché dans l'onglet Tagging, et celle du dernier run écrit depuis les Réglages"
+goal: "Restaurer depuis l'interface les tags d'origine d'un morceau ou du run affiché dans l'onglet Tagging, et ceux du dernier run écrit depuis les Réglages"
 status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["06-rollback-sidecar-design.md", "08-service-ecriture-ui-design.md", "09-ligne-depliee-avant-apres-design.md", "10-confirmation-et-ecriture-ui-design.md"]
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Rollback depuis l'interface
 
 ## Scope
 
-Couvre le bouton « Annuler l'écriture » du run affiché au bout de la barre d'écriture, le bouton « Restaurer ce morceau » de la ligne dépliée, la rangée Rollback d'une section Administration des Réglages (dernier run annulable avec date, dossier et nombre de morceaux), leurs confirmations, dont l'acceptation « Restaurer » est en `danger`, l'état « Restauré » à l'écran, la liste partagée des fichiers non restaurés, les erreurs du rollback, et le décompte des échecs d'écriture lu sur les lignes.
+Couvre le bouton « Restaurer le run » du run affiché au bout de la barre d'écriture, le bouton « Restaurer ce morceau » de la ligne dépliée, la rangée Restauration d'une section Administration des Réglages (dernier run annulable avec date, dossier et nombre de morceaux), leurs confirmations, dont l'acceptation « Restaurer » est en `danger`, l'état « Restauré » à l'écran, la liste partagée des fichiers non restaurés, les erreurs du rollback, et le décompte des échecs d'écriture lu sur les lignes.
 
 Exclut le rollback côté sidecar (06), le store et les commandes (08), les autres rangées d'administration de la maquette (cache, logs) et le récapitulatif (Feature 6).
 
 ### État livré
 
-À la fin de ce sub-project, on peut : dans `just dev`, écrire un run, restaurer un morceau depuis sa ligne dépliée puis le reste du run depuis la barre d'écriture, voir les lignes passer à « Restauré » ; relancer l'application et annuler le dernier run depuis les Réglages, qui nomment sa date, son dossier et son nombre de morceaux puis passent au run précédent ; et lancer `just test` sur les specs concernées.
+À la fin de ce sub-project, on peut : dans `just dev`, écrire un run, restaurer un morceau depuis sa ligne dépliée puis le reste du run depuis la barre d'écriture, voir les lignes passer à « Restauré » ; relancer l'application et restaurer le dernier run depuis les Réglages, qui nomment sa date, son dossier et son nombre de morceaux puis passent au run précédent ; et lancer `just test` sur les specs concernées.
 
 ## Dependencies
 
@@ -30,7 +30,7 @@ Exclut le rollback côté sidecar (06), le store et les commandes (08), les autr
 
 ## Références de design
 
-- **Maquette** : `ui_kits/techno-tagger/SettingsScreen.jsx`, section Administration, rangée `Rollback` et son bouton « Annuler le dernier run »
+- **Maquette** : `ui_kits/techno-tagger/SettingsScreen.jsx`, section Administration, rangée `Rollback` et son bouton « Annuler le dernier run » (libellés « Restauration » et « Restaurer le dernier run » dans l'application, décidés en revue d'écran le 2026-10-11 : le geste rend les tags d'origine, il n'annule pas l'écriture)
 - **Design system** : `components/overlay/ConfirmDialog`, `components/feedback/StateTag`, `components/feedback/Message`, `components/overlay/Tooltip`
 - Règle de lecture : `.claude/rules/design/claude-design.md`
 
@@ -42,22 +42,22 @@ Exclut le rollback côté sidecar (06), le store et les commandes (08), les autr
 - **À modifier** : `src/app/features/tagging/track-detail.component.ts`, `.html`, `.spec.ts` (bouton « Restaurer ce morceau », inputs `restorable`, `restoring`, `blocked`, output `restore`)
 - **À modifier** : `src/app/features/tagging/run-list.component.ts`, `.html` (relais des inputs et de l'output du détail)
 - **À modifier** : `src/app/features/tagging/tagging-page.component.ts`, `.html`, `.spec.ts` (bouton du run, confirmations, liste des échecs du run affiché, erreurs du rollback, échecs d'écriture comptés sur les lignes ; test du message d'échec du 10 réécrit sur les lignes)
-- **À modifier** : `src/app/features/settings/settings-page.component.ts`, `.html`, `.spec.ts` (section Administration, rangée Rollback, `app-danger-confirm`)
-- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`tagging.state.rolledBack`, `tagging.rollback.*`, `settings.admin.*`, `rollback.failures`, `rollback.failure`)
+- **À modifier** : `src/app/features/settings/settings-page.component.ts`, `.html`, `.spec.ts` (section Administration, rangée Restauration, `app-danger-confirm`)
+- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`tagging.state.rolledBack`, `tagging.rollback.*`, `settings.admin.*` dont `settings.admin.rollback.targetCount`, `rollback.failures`, `rollback.failure`)
 - **À modifier** : `docs/DESIGN.md` (§ Couleurs Sémantiques : « Restauré » et la phrase des familles dérivées ; § Écriture et récapitulatif, ligne Rollback : emplacements ; § Settings : rangée Rollback)
 - **À modifier** : `.design-sync/NOTES.md` (§ Reste ouvert : état « Restauré », bouton par morceau, bouton du run sur la barre, texte de la cible dans les Réglages)
 
 ## Architecture approach
 
 - **Composants d'affichage** : `TrackDetailComponent` émet `restore` sans rien appeler ; `RunListComponent` relaie ; la page Tagging ouvre la confirmation et appelle le service (`.claude/rules/angular/components.md`). Le détail montre le bouton quand `restorable` (morceau `written` ou `write_error` d'un run confirmé, calculé par la page sur les états reçus), en chargement quand `restoring`, grisé quand `blocked` (une opération sur les fichiers en cours)
-- **Run entier dans Tagging** : « Annuler l'écriture » (`pButton` `primary` contour, icône `refresh`, le `danger` restant à l'acceptation de la modale) au bout de la barre d'écriture, une fois l'écriture finie et tant qu'une ligne du run est `written` ou `write_error`
-- **Confirmations** par `injectDangerConfirm` et `app-danger-confirm` du sub-project 10 (`.claude/rules/primeng/composants.md`), bouton « Restaurer » en `danger` : nombre de fichiers, nom et tags d'origine rendus, pochettes et commentaires non rendus ; pour les Réglages, date et dossier du run en tête. Les nombres se lisent sur les états reçus ou sur `rollbackTarget.tracks`
+- **Run entier dans Tagging** : « Restaurer le run » (`pButton` `size="small"` `primary` contour, icône `refresh`, le `danger` restant à l'acceptation de la modale) au bout de la barre d'écriture, une fois l'écriture finie et tant qu'une ligne du run est `written` ou `write_error`
+- **Confirmations** par `injectDangerConfirm` et `app-danger-confirm` du sub-project 10 (`.claude/rules/primeng/composants.md`), boutons en `size="small"`, « Restaurer » en `danger` : nombre de fichiers, nom et tags d'origine rendus, pochettes et commentaires non rendus ; pour les Réglages, date et dossier du run en tête. Une phrase par ligne, une ligne vide entre le compte et les précisions. Les nombres se lisent sur les états reçus ou sur `rollbackTarget.tracks`
 - **Une opération à la fois** : tout bouton de restauration et le bouton d'action du run se grisent pendant `writing` ou `rollingBack` ; celui qui a lancé l'opération montre l'icône `spinner` animée, comme la confirmation d'écriture
 - **État « Restauré »** : `StateTagComponent` lit `rolled_back` en `secondary`, icône `undo`, `tagging.state.rolledBack`. Plus court qu'« Échec d'écriture », la colonne État garde sa largeur
 - **Échecs d'écriture comptés sur les lignes** (`state === "write_error"`) et non sur le dernier `run_finished` : un morceau restauré sort du message et de la relance (ajuste le sub-project 10)
 - **Liste des échecs de restauration** : `RollbackFailuresComponent` reçoit `RollbackFailure[]` et affiche « Fichiers non restaurés : N » puis, par fichier, son nom et la phrase de son motif (`tagging.reason.*`, `name_taken` compris). Dans Tagging, seulement si `rollbackFinished.run_id` est celui du run affiché ; dans les Réglages, le dernier bilan
-- **Réglages** : section « Administration » sous la clé API, rangée au gabarit de celle de la clé (libellé et aide en `w-64`, action à droite, filet du bas) ; `loadRollbackTarget()` demandée dès que le moteur est disponible (un `effect` sur `available()` : la page se monte avant sa réponse au lancement, et la demande ne part pas sans moteur) ; à droite du bouton, la cible en `text-sm text-muted-color` : date formatée par `Intl.DateTimeFormat` dans la langue courante (`translate.currentLang()`), dossier, nombre ; « Aucun run à annuler » et raison en tooltip sur `null` ; rien tant que `undefined`. Le bouton se grise aussi pendant la recherche d'un run, puis pendant une écriture ou une restauration. Erreurs par `errorFor("rollback", "get_rollback_target")` dans un `app-error-message`
-- **i18n** : vouvoiement, infinitif, forme « Libellé : {{count}} », espace insécable avant `:`, mêmes clés en FR et en EN (`.claude/rules/ngx-translate/i18n.md`)
+- **Réglages** : section « Administration » sous la clé API, rangée au gabarit de celle de la clé, `app-settings-row` (grille à colonne de libellé commune de 16rem, libellé « Restauration » à gauche en `rowLabel`, filet du bas). Sans champ, l'aide (`settings.admin.rollback.hint`) prend la place du contrôle, sur la ligne du bouton « Restaurer le dernier run » calé à droite. `loadRollbackTarget()` est demandée dès que le moteur est disponible (un `effect` sur `available()` : la page se monte avant sa réponse au lancement, et la demande ne part pas sans moteur). Sous cette ligne, la cible n'apparaît que s'il y a un run, en `text-xs text-muted-color` sur deux lignes : le run (`settings.admin.rollback.target` : date formatée par `Intl.DateTimeFormat` dans la langue courante (`translate.currentLang()`) et dossier, tronqué par `app-truncated-text`), puis le nombre de morceaux (`settings.admin.rollback.targetCount`). Aucun texte ne dit l'absence de run : le bouton est grisé et son tooltip (jeu `TOOLTIP`, lié par `[tooltipOptions]`) en donne la raison (`settings.admin.rollback.none`), comme pendant la recherche d'un run (`settings.admin.rollback.loading`) puis pendant une écriture ou une restauration. Erreurs par `errorFor("rollback", "get_rollback_target")` dans un `app-error-message`
+- **i18n** : vouvoiement, infinitif, forme « Libellé : {{count}} », espace insécable avant `:`, une phrase par ligne (`\n` dans la traduction), mêmes clés en FR et en EN (`.claude/rules/ngx-translate/i18n.md`)
 - Autres rules : `.claude/rules/angular/signals.md`, `.claude/rules/angular/tests.md`, `.claude/rules/tailwindcss/utilitaires.md`, `.claude/rules/tailwindcss/echelles.md`
 
 ## Acceptance criteria
@@ -70,19 +70,20 @@ Exclut le rollback côté sidecar (06), le store et les commandes (08), les autr
 
 ### Scénario 2 : restaurer le run affiché
 **GIVEN** un run écrit affiché, 87 lignes `written`
-**WHEN** l'utilisateur clique « Annuler l'écriture » au bout de la barre puis confirme
+**WHEN** l'utilisateur clique « Restaurer le run » au bout de la barre puis confirme
 **THEN** la confirmation dit 87 fichiers et ce qui ne revient pas, et `rollback` part sans `track_id`
 
-### Scénario 3 : annuler le dernier run depuis les Réglages
+### Scénario 3 : restaurer le dernier run depuis les Réglages
 **GIVEN** un run écrit dans une session précédente
 **WHEN** l'utilisateur ouvre les Réglages
-**THEN** la rangée Rollback montre la date, le dossier et le nombre de morceaux du run
-**AND** « Annuler le dernier run » puis « Restaurer » lancent son rollback ; la rangée passe ensuite au run précédent, ou à « Aucun run à annuler »
+**THEN** la rangée Restauration montre sur deux lignes la date et le dossier du run, puis son nombre de morceaux
+**AND** « Restaurer le dernier run » puis « Restaurer » lancent son rollback ; la rangée passe ensuite au run précédent, ou, sans autre run, au bouton grisé
 
-### Scénario 4 : rien à annuler
+### Scénario 4 : rien à restaurer
 **GIVEN** aucun dump de moins de 30 jours
 **WHEN** l'utilisateur ouvre les Réglages
-**THEN** le bouton est grisé, sa raison au survol, « Aucun run à annuler » à côté
+**THEN** le bouton est grisé, sa raison (`settings.admin.rollback.none`) au survol
+**AND** aucune cible ni texte d'absence ne s'affiche sous l'aide
 
 ### Scénario 5 : fichiers non restaurés
 **GIVEN** un rollback dont un fichier a son nom d'origine pris

@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["04-service-rattrapage-ui-design.md"]
-date: "2026-10-03"
+date: "2026-10-11"
 ---
 
 # Modale du lien de rattrapage par URL
@@ -51,7 +51,7 @@ Exclut la modale de confirmation d'écriture (sub-project 10 de `ecriture-des-ta
 
 - **Composants de présentation** standalone, `OnPush` par défaut (`.claude/rules/angular/components.md`, `.claude/rules/angular/change-detection.md`). Leurs lectures du service passent par des `computed()`, jamais par un appel de méthode dans le template. Aucune règle métier : quels morceaux, quelle source, quelle progression, tout vient du sidecar par `SidecarService`.
   - **`UrlRecoveryDialogComponent`** (`app-url-recovery-dialog`) : `p-dialog` modal, montée par la page Tagging, sans animation (`NO_MOTION`, chemin de décision). Largeur et hauteur au § Layout de DESIGN.md.
-  - **`UrlLinkFormComponent`** : motif d'échec ou « Rattrapé sur <Source> », aide, champ, place réservée de l'erreur. Commun à la modale du lien et à l'étape lien de l'arbitrage.
+  - **`UrlLinkFormComponent`** : motif d'échec ou « Rattrapé sur <Source> », aide, champ, place réservée de l'erreur. Le motif se lit une phrase par ligne dans une cellule de deux lignes de `text-xs` (`min-h-8`, plus haute qu'un `p-message` `small`) : le champ ne bouge pas d'un morceau à l'autre, qu'il soit rattrapé, non résolu ou sans motif (exception mesurée à DESIGN.md § Feedback, « Une phrase par ligne »). Commun à la modale du lien et à l'étape lien de l'arbitrage.
   - **`UrlLinkActionsComponent`** : « Passer » et « Résoudre », au pied de la modale hôte. « Passer » appartient à l'hôte, qui sait où aller ensuite.
 - **`RecoveryUiStore`** : l'état propre à l'interface, que `SidecarService` ne porte pas. Les composants l'injectent directement (`.claude/rules/angular/services.md`, `.claude/rules/angular/signals.md`) :
   - le lien collé par morceau, rattaché à son run (les `track_id` se répètent d'un run à l'autre), gardé après un succès pour qu'on voie le lien utilisé et qu'on puisse le corriger ;
@@ -69,7 +69,7 @@ Exclut la modale de confirmation d'écriture (sub-project 10 de `ecriture-des-ta
   - `input pInputText` `type="url"`, focalisé à chaque morceau, `aria-label` traduit qui nomme le morceau (l'identité visible n'est pas un `label` lié). Désactivé quand le rattrapage n'est pas disponible, avec son aide `tagging.recovery.unavailable` et le focus sur « Passer » ; en lecture seule pendant l'attente ;
   - « Résoudre » actif dès que le champ n'est pas vide et que le morceau n'attend pas de réponse ; pendant l'attente, un spinner enfant, `[loading]` étant déprécié en PrimeNG 22 (même motif que la modale d'arbitrage) ;
   - l'erreur de ce seul morceau (`urlRecoveryErrors`) dans `app-error-message` sous le champ, jamais un toast (fiche `ErrorMessage`), dans une place réservée qui garde le pied immobile.
-- **Écart à la maquette : pas de zone hôte** (décision du propriétaire du sub-project 01, 2026-09-29) : ni logo de source à la frappe, ni « Hôte non reconnu », ni bouton grisé tant que l'hôte n'est pas reconnu. La reconnaissance vit dans le sidecar, un hôte refusé revient en `unsupported_url` sous le champ. La source s'affiche dans l'en-tête de la modale et dans la colonne Source de la liste une fois le morceau rattrapé.
+- **Écart à la maquette : pas de zone hôte** (décision du propriétaire du sub-project 01, 2026-09-29) : ni logo de source à la frappe, ni « Hôte non reconnu », ni bouton grisé tant que l'hôte n'est pas reconnu. La reconnaissance vit dans le sidecar, un hôte refusé revient en `unsupported_url` sous le champ. La source s'affiche dans l'en-tête de la modale (depuis la revue d'écran du 2026-10-11, `DialogHeaderComponent` de `shared/components/`, partagé avec la modale d'arbitrage) et dans la colonne Source de la liste une fois le morceau rattrapé.
 - **Barre de phase** : `app-phase-progress` dans l'emplacement de la barre du run en haut de page, une seule phase tournant à la fois (la barre du run puis celle de l'écriture priment). Libellé de phase, compteur « rattrapés sur à rattraper » et valeur par `progressPercentage` (`shared/utils/progress.ts`). Sur 0 sur 0, une ligne `check-circle` la remplace : « rien à rattraper ».
 - **Bouton d'action du run pendant la phase** (décision ci-dessous) : un seul bouton suit la phase, et un geste de rattrapage en vol le grise, « Lancer le run » comme « Confirmer l'écriture », avec son aide `tagging.blocked.recovering` : fermer le run couperait l'appel en vol.
 - **Nom de marque dans les erreurs** : le sidecar envoie `params.source` en valeur de `Source` (`bandcamp`). `ErrorMessageComponent` le passe par `brandName` (`shared/utils/sources.ts`, qui porte aussi `SOURCE_NAMES` : une valeur, une source), sinon l'écran lirait « bandcamp ne répond pas ». `errors.track_not_found` ne s'affiche que dans ce contexte : son texte dit que le lien ne mène à aucun morceau sur la source.
@@ -236,7 +236,7 @@ Aucun test ne vérifie PrimeNG, ngx-translate ni Angular : chacun échoue contre
 - **C. Le bloc remplace la liste pendant la phase** : on ne voit plus la ligne du run passer en « URL ».
 - **D. Modale du lien par morceau**, ouverte par la ligne du run, le badge du shell ou l'étape lien de l'arbitrage : la liste garde toute la hauteur.
 
-**Choix : D** (remplace A, retenu le 2026-10-03)
+**Choix : D** (remplace A)
 
 **Rationale :**
 - Remplacé le 2026-10-06 : explorée parmi cinq directions par `/swarm-ui-variations`, la modale a été retenue par le propriétaire, et la maquette réalignée le même jour (DESIGN.md § Arbitrages, « Rattrapage par modale »).
@@ -250,7 +250,7 @@ Aucun test ne vérifie PrimeNG, ngx-translate ni Angular : chacun échoue contre
 - **B. Remplacé par « Confirmer l'écriture » dès la phase ouverte**, comme la maquette : sans la Feature 5, plus aucun moyen de relancer un run tant que l'app tourne.
 - **C. Désactivé tant que la phase est ouverte** : même impasse que B, sans le bouton de sortie.
 
-**Choix : B** (remplace A, retenu le 2026-10-03)
+**Choix : B** (remplace A)
 
 **Rationale :**
 - Remplacé le 2026-10-06 : la Feature 5 livre la confirmation d'écriture, qui donne une sortie à la phase. Un seul bouton suit la phase (« Lancer le run », « Interrompre » pendant la recherche, « Confirmer l'écriture » sur un run cherché non écrit) ; choisir un autre dossier abandonne un run non écrit (DESIGN.md § Arbitrages, « Bouton d'action du run »).

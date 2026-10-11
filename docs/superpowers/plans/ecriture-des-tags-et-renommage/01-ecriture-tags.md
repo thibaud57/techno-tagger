@@ -178,7 +178,7 @@ Dans `sidecar/src/tagger/extraction.py` :
 from tagger.file_failures import FileFailureReason, file_failure_reason
 ```
 
-- remplacer `reason: ExtractionFailureReason` (champ d'`ExtractionFailure`) par `reason: FileFailureReason`, et dans `extract` `reason = failure_reason(error)` par `reason = file_failure_reason(error)`.
+- remplacer `reason: ExtractionFailureReason` (champ d'`ExtractionFailure`) par `reason: FileFailureReason` ; dans `extract`, `reason = failure_reason(error)` par `reason = file_failure_reason(error)`.
 
 - [ ] **Step 5: Réaligner les importeurs**
 
@@ -191,7 +191,7 @@ from tagger.file_failures import FileFailureReason
 
 puis `reason: ExtractionFailureReason` → `reason: FileFailureReason` (`reports.py` dans le modèle d'échec du rapport, `protocol.py` dans `FailurePayload`).
 
-`sidecar/tests/helpers/extraction_samples.py` : retirer `ExtractionFailureReason` de l'import `tagger.extraction`, ajouter `from tagger.file_failures import FileFailureReason` avant `from tagger.reports import ReportContext`, et `ExtractionFailureReason.FILE_LOCKED` → `FileFailureReason.FILE_LOCKED`.
+`sidecar/tests/helpers/extraction_samples.py` : retirer `ExtractionFailureReason` de l'import `tagger.extraction`, ajouter `from tagger.file_failures import FileFailureReason` avant `from tagger.reports import ReportContext` ; `ExtractionFailureReason.FILE_LOCKED` → `FileFailureReason.FILE_LOCKED`.
 
 `sidecar/tests/unit/test_error_translations.py` :
 
@@ -202,7 +202,7 @@ from tagger.file_failures import FileFailureReason
 
 et dans le paramétrage `(FileFailureReason, ("playlist", "report", "reason"))`, id `"file-failure"`.
 
-`sidecar/tests/unit/test_extraction_run.py` : supprimer `import errno`, retirer `ExtractionFailureReason` et `failure_reason` de l'import `tagger.extraction`, ajouter `from tagger.file_failures import FileFailureReason`, remplacer partout `ExtractionFailureReason` par `FileFailureReason`, et supprimer le test paramétré `test_maps_a_system_error_to_the_project_vocabulary` (repris par `test_file_failures.py`).
+`sidecar/tests/unit/test_extraction_run.py` : supprimer `import errno`, retirer `ExtractionFailureReason` et `failure_reason` de l'import `tagger.extraction`, ajouter `from tagger.file_failures import FileFailureReason`, remplacer partout `ExtractionFailureReason` par `FileFailureReason` et supprimer le test paramétré `test_maps_a_system_error_to_the_project_vocabulary` (repris par `test_file_failures.py`).
 
 - [ ] **Step 6: Formater et lancer le gate**
 
@@ -1246,7 +1246,7 @@ Charger `Skill[rules-doc]` et lire son template avant d'éditer. Dans `.claude/r
 - l. 28 (Gotchas) : « La conversion v2.4 → v2.3 n'est pas neutre : … les valeurs multiples sont jointes par `v23_sep` (à choisir explicitement), `TDRC` est éclaté en `TYER` + `TDAT` + `TIME` » → « …, une seule chaîne par champ rend `v23_sep` sans objet, et la date réduite à l'année donne `TYER` seul, sans `TDAT` ni `TIME` » ;
 - À faire, ajouter : « Une seule image par fichier : retirer toutes les images (`delall("APIC")`, `clear_pictures()`) avant de poser la pochette ; sans pochette, garder le recto existant » et « Retirer `COMM` en ID3, `COMMENT` et `DESCRIPTION` en Vorbis à chaque écriture » ;
 - À éviter, ajouter : « `save(v2_version=3)` sans `update_to_v23()` préalable » ;
-- Exemples : `tags.update_to_v23()` avant `tags.save(v2_version=3)`, et `plan.mark_failed(track, "file_locked" if ... else "write_error")` → `raise TagsWriteError(path, file_failure_reason(cause) if isinstance(cause, OSError) else FileFailureReason.WRITE_FAILED) from exc`.
+- Exemples : `tags.update_to_v23()` avant `tags.save(v2_version=3)` ; `plan.mark_failed(track, "file_locked" if ... else "write_error")` → `raise TagsWriteError(path, file_failure_reason(cause) if isinstance(cause, OSError) else FileFailureReason.WRITE_FAILED) from exc`.
 
 - [ ] **Step 5: Vérifier le rendu**
 

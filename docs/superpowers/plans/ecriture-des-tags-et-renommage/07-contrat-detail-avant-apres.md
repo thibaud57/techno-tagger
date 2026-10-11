@@ -4,7 +4,7 @@
 
 **Goal:** Transporter jusqu'au store du run, pour chaque morceau, ses tags d'origine et les valeurs que l'écriture laissera dans le fichier, champ par champ.
 
-**Architecture:** `files.py` lit en une fois les 16 champs affichables et le commentaire (`read_shown_tags`), dont `read_identity` déduit la requête, et calcule les valeurs après écriture (`after_tags`) et la clé affichée (`shown_key`). Le pipeline garde ces tags sur `TrackRecord.tags_before`. `handlers.py` les traduit en lignes `{field, key, value}` dans `run_started` et `track_resolved`, mirrorées en TypeScript et recopiées par le store. `run_started` porte aussi `folder`, le dossier du run, que la page Tagging compare à celui qu'elle montre.
+**Architecture:** `files.py` lit en une fois les 16 champs affichables et le commentaire (`read_shown_tags`), dont `read_identity` déduit la requête ; il calcule aussi les valeurs après écriture (`after_tags`) et la clé affichée (`shown_key`). Le pipeline garde ces tags sur `TrackRecord.tags_before`. `handlers.py` les traduit en lignes `{field, key, value}` dans `run_started` et `track_resolved`, reproduites en TypeScript et recopiées par le store. `run_started` porte aussi `folder`, le dossier du run, que la page Tagging compare à celui qu'elle montre.
 
 **Tech Stack:** Python 3.14, mutagen 1.48, pydantic 2, pytest ; Angular 22 et Vitest pour le store. Aucune dépendance nouvelle.
 
@@ -23,7 +23,7 @@
 
 ## Review Focus
 
-- **Fichier sans aucun tag** (rip brut) : 16 valeurs nulles, aucun commentaire, et la requête retombe sur le nom de fichier comme avant (Task 1, `test_reads_a_file_without_tags_as_empty` ; `test_files_identity.py` inchangé).
+- **Fichier sans aucun tag** (rip brut) : 16 valeurs nulles, aucun commentaire ; la requête retombe sur le nom de fichier comme avant (Task 1, `test_reads_a_file_without_tags_as_empty` ; `test_files_identity.py` inchangé).
 - **Plusieurs `TPE1` d'un v2.4** : `Adam Beyer, Bart Skils`, la même chaîne que la colonne Avant de la liste (Task 1, `test_reads_every_field_of_the_table_in_order_with_its_comment`).
 - **Champ que le candidat ne fournit pas** (BPM absent de Bandcamp) : la valeur d'origine reste en Après (Task 1, `test_keeps_the_original_value_the_candidate_leaves_out` ; Task 2, test d'intégration).
 - **Date d'un MP3** : la clé affichée est `TYER`, celle que le fichier v2.3 portera, pas `TDRC` (Task 1, `test_names_a_field_by_the_key_the_written_file_carries`).
@@ -233,7 +233,7 @@ def read_identity(path: Path) -> IdentityTags:
     return read_shown_tags(path).identity
 ```
 
-et, juste après :
+Puis, juste après :
 
 ```python
 def read_shown_tags(path: Path) -> ShownTags:
@@ -414,7 +414,7 @@ Dans `sidecar/src/tagger/tagging.py`, l'import de `tagger.files` remplace `read_
     tags_before: ShownTags | None = None
 ```
 
-Dans `_read_identities`, la lecture devient `asyncio.to_thread(read_shown_tags, path)`, et le `match` :
+Dans `_read_identities`, la lecture devient `asyncio.to_thread(read_shown_tags, path)` ; le `match` devient :
 
 ```python
         match read:
@@ -475,7 +475,7 @@ class TagsBeforePayload(BaseModel):
     fields: tuple[TagValuePayload, ...]
 ```
 
-`TrackEntry` gagne `tags_before: TagsBeforePayload | None` après `title`, et `TrackResolved` gagne, après `artwork_path` :
+`TrackEntry` gagne `tags_before: TagsBeforePayload | None` après `title` ; `TrackResolved` gagne, après `artwork_path` :
 
 ```python
     # Nul pour un non resolu.
@@ -486,7 +486,7 @@ class TagsBeforePayload(BaseModel):
 
 - [ ] **Step 5: Traduire en lignes**
 
-Dans `sidecar/src/tagger/handlers.py`, ajouter `TagsBeforePayload` et `TagValuePayload` à l'import de `tagger.protocol`, `from tagger.files import after_tags, project_tags, shown_key, tag_system_of` aux imports, et sous `TYPE_CHECKING` `from collections.abc import Callable, Mapping` ainsi que `from tagger.files import ShownTags, TagField, TagSystem`. `_entry` devient :
+Dans `sidecar/src/tagger/handlers.py`, ajouter `TagsBeforePayload` et `TagValuePayload` à l'import de `tagger.protocol`, `from tagger.files import after_tags, project_tags, shown_key, tag_system_of` aux imports et sous `TYPE_CHECKING` `from collections.abc import Callable, Mapping` ainsi que `from tagger.files import ShownTags, TagField, TagSystem`. `_entry` devient :
 
 ```python
 def _entry(record: TrackRecord) -> TrackEntry:
@@ -535,7 +535,7 @@ Dans `to_protocol_event`, le cas `tagging.RunStarted()` ajoute `folder=event.fol
 Run: `cd sidecar && uv run pytest tests/integration/test_ndjson_tagging.py tests/unit/test_protocol_tagging.py tests/unit/test_files_identity.py --no-cov -q`
 Expected: PASS
 
-- [ ] **Step 7: Mirrorer le contrat**
+- [ ] **Step 7: Reproduire le contrat en TypeScript**
 
 Dans `src/app/core/models/protocol.ts`, avant `TrackEntry` :
 

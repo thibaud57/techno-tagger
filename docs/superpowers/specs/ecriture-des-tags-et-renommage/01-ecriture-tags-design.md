@@ -6,14 +6,14 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Écriture des tags d'un fichier
 
 ## Scope
 
-Couvre la table de correspondance complète de l'ADR-011 dans `files.py` (16 champs écrits, ID3v2.3 et Vorbis), la projection d'un `TrackCandidate` en valeurs à écrire, l'écriture de ces valeurs dans un fichier des quatre formats, la règle d'une seule image, la suppression des commentaires, et la traduction d'un échec en motif d'écriture partagé avec l'extraction.
+Couvre la table de correspondance complète de l'ADR-011 dans `files.py` (15 champs écrits, ID3v2.3 et Vorbis), la projection d'un `TrackCandidate` en valeurs à écrire, l'écriture de ces valeurs dans un fichier des quatre formats, la règle d'une seule image, la suppression des commentaires, et la traduction d'un échec en motif d'écriture partagé avec l'extraction.
 
 Exclut le dump des tags d'origine (sub-project 02), le renommage (03), l'enchaînement sur un run, les états `written` / `write_error` et la journalisation (04), et tout le protocole NDJSON (05).
 
@@ -63,31 +63,32 @@ Aucune : ce sub-project est autoporté.
 
 ### Table de correspondance
 
+L'ordre des lignes est celui de `TAG_FIELDS`, donc celui du détail avant / après (07) : artiste, titre, remixeur, genre, BPM, key, label, numéro de catalogue, ISRC, album, numéro de piste, date, source, URL, puis l'identifiant à la source, que l'écran n'affiche pas.
+
 | `TagField` | ID3 (fichier v2.3) | Vorbis | Valeur projetée |
 |---|---|---|---|
 | `artist` | `TPE1` | `ARTIST` | `credited_artists` |
-| `remixer` | `TPE4` | `REMIXER` | `remixers[].name` joints par « , » |
 | `title` | `TIT2` | `TITLE` | `full_title` |
-| `album` | `TALB` | `ALBUM` | `release.title` |
-| `date` | `TDRC` → `TYER` | `DATE` | année de `release.release_date` |
-| `original_date` | `TDOR` → `TORY` | `ORIGINALDATE` | année de `release.release_date` |
+| `remixer` | `TPE4` | `REMIXER` | `remixers[].name` joints par « , » |
 | `genre` | `TCON` | `GENRE` | `genre` |
-| `label` | `TPUB` | `LABEL` | `label.name` |
-| `catalog_number` | `TXXX:CATALOGNUMBER` | `CATALOGNUMBER` | `release.catalog_number` |
 | `bpm` | `TBPM` | `BPM` | `bpm` |
 | `key` | `TKEY` | `KEY` | `key` |
+| `label` | `TPUB` | `LABEL` | `label.name` |
+| `catalog_number` | `TXXX:CATALOGNUMBER` | `CATALOGNUMBER` | `release.catalog_number` |
 | `isrc` | `TSRC` | `ISRC` | `isrc` |
+| `album` | `TALB` | `ALBUM` | `release.title` |
 | `track_number` | `TRCK` | `TRACKNUMBER` | `track_number` |
+| `date` | `TDRC` → `TYER` | `DATE` | année de `release.release_date` |
+| `source` | `TXXX:SOURCE` | `SOURCE` | `source` |
 | `url` | `WOAS` | `URL` | `url` |
 | `source_id` | `TXXX:SOURCE_ID` | `SOURCE_ID` | `id` |
-| `source` | `TXXX:SOURCE` | `SOURCE` | `source` |
 
 ## Acceptance criteria
 
 ### Scénario 1 : candidat Beatport complet sur un MP3 mal tagué
 **GIVEN** un MP3 tagué `TPE1` « adam beyer », `TIT2` « your mind », un commentaire et deux images
 **WHEN** on écrit la projection du candidat Beatport des fixtures (« Your Mind », mix « Extended Mix », sortie du 2023-06-16) avec sa pochette
-**THEN** le fichier relu en ID3v2.3 porte chacun des 15 champs que le candidat renseigne (tous sauf le remixeur), dont `TIT2` « Your Mind (Extended Mix) » et `TYER` « 2023 »
+**THEN** le fichier relu en ID3v2.3 porte chacun des 14 champs que le candidat renseigne (tous sauf le remixeur), dont `TIT2` « Your Mind (Extended Mix) » et `TYER` « 2023 »
 **AND** il ne contient ni `TDRC`, ni `TDAT`, ni commentaire, et une seule image : la pochette fournie, en recto
 
 ### Scénario 2 : remix à plusieurs artistes
@@ -123,14 +124,14 @@ Aucune : ce sub-project est autoporté.
 
 ### Unit
 - `sidecar/tests/unit/test_files_write.py` :
-  - `project_tags` sur un candidat Beatport complet rend les 15 champs qu'il renseigne avec leurs valeurs projetées (tous sauf le remixeur, que couvre le test de remix)
+  - `project_tags` sur un candidat Beatport complet rend les 14 champs qu'il renseigne avec leurs valeurs projetées (tous sauf le remixeur, que couvre le test de remix)
   - `project_tags` sur un candidat Bandcamp ne rend que les champs présents
   - un remixeur entre dans `title` et `remixer`, jamais dans `artist` ; plusieurs artistes sont joints par « , »
   - une valeur vide ou faite d'espaces est omise, comme un BPM ou un numéro de piste à 0
   - une URL à caractères hors ASCII est encodée en pourcentage, et s'écrit sur MP3 comme sur FLAC
-  - la date est réduite à l'année dans `date` et `original_date`
+  - la date est réduite à l'année dans `date`
   - parametrize sur les quatre formats : chaque champ de la table arrive sous sa clé et relu donne la même chaîne
-  - ID3 : version relue 2.3, `TYER` présent, `TDRC` et `TDAT` absents, `TORY` à l'année, que le fichier arrive en v2.3 ou en v2.4
+  - ID3 : version relue 2.3, `TYER` présent, `TDRC` et `TDAT` absents, que le fichier arrive en v2.3 ou en v2.4
   - un texte accentué est relu à l'identique en ID3v2.3 comme en FLAC
   - une clé Vorbis d'origine en minuscules et à plusieurs valeurs est remplacée par une seule valeur
   - une deuxième écriture du même fichier laisse toujours une seule pochette
@@ -148,7 +149,7 @@ Aucune : ce sub-project est autoporté.
 
 ## Edge cases
 
-- **Source sans date** : `date` et `original_date` absents de la projection, la date existante reste telle qu'elle est, même complète
+- **Source sans date** : `date` absent de la projection, la date existante reste telle qu'elle est, même complète
 - **Source sans `id`** : `source_id` omis, `source` toujours écrit, le champ étant obligatoire dans le contrat
 - **Fichier en ID3v2.4** : réécrit en v2.3, ses autres frames converties par mutagen
 - **Ancienne date complète en v2.3** : `TYER` + `TDAT` sont relus en un `TDRC` remplacé par l'année, `TDAT` disparaît
@@ -180,17 +181,17 @@ Aucune : ce sub-project est autoporté.
 
 ### Décision : date réduite à l'année
 **Options envisagées :**
-- **A. Année seule partout** : `TYER` sans `TDAT`, `TORY`, `DATE` et `ORIGINALDATE` à l'année, identiques sur les quatre formats
-- **B. Date complète** : `TYER` + `TDAT` en ID3, date ISO en Vorbis, `TORY` à l'année faute de mieux, donc un rendu différent selon le format
+- **A. Année seule partout** : `TYER` sans `TDAT` et `DATE` à l'année, identiques sur les quatre formats
+- **B. Date complète** : `TYER` + `TDAT` en ID3, date ISO en Vorbis, donc un rendu différent selon le format
 **Choix : A**
 **Rationale :**
 - Choix du propriétaire : l'année suffit et se lit pareil partout
-- Tranche la question ouverte de l'ADR-011 sur `TDOR` : `TORY` ne perd plus rien
+- **Précision 2026-10-11 : pas d'année d'origine.** Le contrat ne rend que la date de la sortie, l'écrire aussi en `TORY` / `ORIGINALDATE` dupliquait la valeur et la faussait pour une réédition. Un `TORY` ou un `ORIGINALDATE` déjà présent dans le fichier reste intact (ADR-011)
 
 ### Décision : une seule image, aucun commentaire
 **Options envisagées :**
 - **A. Une seule image, commentaires supprimés, autres tags hors table intacts** : fichier propre sans effacer les données de Serato et Traktor
-- **B. Tout tag hors table supprimé** : fichier réduit aux 16 champs, mais cue points et beatgrids stockés dans le fichier perdus
+- **B. Tout tag hors table supprimé** : fichier réduit aux 15 champs, mais cue points et beatgrids stockés dans le fichier perdus
 - **C. Tags hors table tous intacts (ADR-011 d'origine)** : commentaires de rip et pochettes multiples conservés
 **Choix : A**
 **Rationale :**
@@ -204,5 +205,5 @@ Aucune : ce sub-project est autoporté.
 - **C. Copie dans `files.py`** : deux traductions `winerror` / `errno` qui peuvent diverger
 **Choix : A**
 **Rationale :**
-- Une même panne de fichier porte le même nom dans les deux rapports d'un run (docstring actuelle de l'enum)
+- Une même panne de fichier porte le même nom dans les deux rapports d'un run (docstring de l'enum)
 - Le sub-project 04 reprend ces motifs pour `failure_reason` sans nouvelle traduction

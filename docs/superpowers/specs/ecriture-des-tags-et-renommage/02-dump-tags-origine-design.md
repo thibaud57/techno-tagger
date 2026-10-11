@@ -6,14 +6,14 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-ecriture-tags-design.md"]
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Dump des tags d'origine
 
 ## Scope
 
-Couvre la lecture des tags d'origine des 16 champs de la table (toutes leurs valeurs, système de tags et version ID3), la restauration de cet état sur un fichier, le fichier de dump d'un run (modèles, écriture atomique, ajout sans écrasement, relecture versionnée, chemin après renommage) et la purge des dumps de plus de 30 jours au démarrage du sidecar.
+Couvre la lecture des tags d'origine des 15 champs de la table (toutes leurs valeurs, système de tags et version ID3), la restauration de cet état sur un fichier, le fichier de dump d'un run (modèles, écriture atomique, ajout sans écrasement, relecture versionnée, chemin après renommage) et la purge des dumps de plus de 30 jours au démarrage du sidecar.
 
 Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé (sub-project 04), la commande `rollback`, le renommage inverse et la recherche du dernier run annulable (06). Le dump ne garde ni pochettes ni commentaires : un rollback rend les tags, pas les images ni les commentaires que l'écriture a retirés.
 
@@ -46,7 +46,7 @@ Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé 
 - **Fichier de dump** dans `tag_dump.py`, modèles Pydantic (ADR-022, `.claude/rules/pydantic/modeles.md`) : `TagDump` (`schema_version`, `run_id`, `created_at`, `entries` par `track_id`) et `DumpEntry` (`path` d'origine, `renamed_path`, `system`, `id3_version`, `fields`). Un dump par run sous `app_data_dir() / "dumps"`, nommé `<horodatage>-<run_id>.json` avec le format d'horodatage des rapports (`reports.TIMESTAMP_FORMAT`)
 - **Écriture atomique** : JSON en UTF-8 dans un fichier temporaire voisin, puis remplacement (`.claude/rules/python/fichiers-io.md`). Un échec lève `TagDumpWriteError` : sans dump, le sub-project 04 n'écrit pas le fichier
 - **Ajout sans écrasement** : `save_entries` ajoute les entrées absentes et laisse les autres intactes. Une relance de l'écriture sur les échecs ne remplace jamais l'origine par l'état déjà écrit. La fusion repart du dump du disque, jamais de celui que l'appelant garde en mémoire : un rollback a pu y consommer des entrées entre deux écritures, et les réécrire ressusciterait des morceaux restaurés. Les entrées gardent leur ordre d'écriture, que le rollback parcourt à l'envers
-- **Relecture versionnée** : `load_dump` refuse une `schema_version` inconnue et un JSON illisible par `TagDumpUnreadableError`, qui nomme la version trouvée et la version attendue (ADR-018, option A du plan, même durée de vie de 30 jours)
+- **Relecture versionnée** : `load_dump` refuse une `schema_version` inconnue et un JSON illisible par `TagDumpUnreadableError`, qui nomme la version trouvée et la version attendue (ADR-018, même durée de vie de 30 jours)
 - **Chemin après renommage** : `record_renamed_path(dump, track_id, path)` met à jour l'entrée, que le sub-project 04 appelle avant le renommage avec le chemin cible (une coupure entre les deux laisse un chemin qui ne mène nulle part, que le rollback retrouve par l'ancien nom) et que le sub-project 06 lit pour retrouver le fichier. Même base que `save_entries` : le dump du disque. L'entrée passe en fin de dump : le rollback, qui le parcourt à l'envers, rend alors ce morceau en premier (06)
 - **Purge** `purge_dumps(folder, now)` : supprime les dumps dont l'horodatage du nom a plus de 30 jours, quel que soit l'état du run (ADR-010), et ignore les fichiers au nom non reconnu. Un temporaire `.tmp` laissé par une écriture coupée porte les mêmes tags et suit la même durée. Appelée au démarrage du sidecar après `setup_logging` ; une erreur de purge est loguée, jamais fatale, et un dump qu'on ne peut pas supprimer (verrou d'un éditeur ou d'un antivirus) ne bloque pas les suivants
 - **Erreurs** sous `TagDumpError(TaggerError)` (code `tag_dump_error`) : `TagDumpWriteError` (`tag_dump_write_failed`) et `TagDumpUnreadableError` (`tag_dump_unreadable`), traduites dans les deux langues (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`)
@@ -119,7 +119,7 @@ Exclut l'appel du dump avant l'écriture et l'enregistrement du chemin renommé 
 
 ### Décision : contenu du dump
 **Options envisagées :**
-- **A. Les 16 champs de la table, avec le système et la version ID3** : environ 1 Mo par mois pour trois runs de 500 morceaux (830 octets par morceau mesurés sur un dump aux champs tous remplis)
+- **A. Les 15 champs de la table, avec le système et la version ID3** : environ 1 Mo par mois pour trois runs de 500 morceaux (830 octets par morceau mesurés sur un dump aux champs tous remplis)
 - **B. Les champs, les commentaires et les images d'origine** : rollback complet, mais 150 à 900 Mo par mois selon le poids des pochettes, un ordre de grandeur au-dessus du plafond du cache
 **Choix : A**
 **Rationale :**

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Annuler depuis l'interface l'écriture d'un morceau ou du run affiché dans l'onglet Tagging, et celle du dernier run écrit depuis les Réglages.
+**Goal:** Annuler depuis l'interface l'écriture d'un morceau ou du run affiché dans l'onglet Tagging et celle du dernier run écrit depuis les Réglages.
 
-**Architecture:** Des pièces partagées d'abord : l'état « Restauré » de `StateTagComponent`, l'icône `undo`, et `RollbackFailuresComponent` qui liste les fichiers non restaurés. Dans Tagging, le détail émet `restore`, la liste le relaie, la page confirme puis appelle `rollback` ; le run entier se restaure par un bouton au bout de la barre d'écriture. Les Réglages gagnent une section Administration dont la rangée Rollback nomme le dernier run annulable.
+**Architecture:** Des pièces partagées d'abord : l'état « Restauré » de `StateTagComponent`, l'icône `undo` et `RollbackFailuresComponent` qui liste les fichiers non restaurés. Dans Tagging, le détail émet `restore`, la liste le relaie, la page confirme puis appelle `rollback` ; le run entier se restaure par un bouton au bout de la barre d'écriture. Les Réglages gagnent une section Administration dont la rangée Rollback nomme le dernier run annulable.
 
 **Tech Stack:** Angular 22 (signals, `input` / `output`), PrimeNG 22.1.2 (`ConfirmationService`, `p-confirmdialog`, `p-message`, `pButton`, `pTooltip`), ngx-translate (`currentLang()`), `Intl.DateTimeFormat`, Vitest.
 
@@ -132,7 +132,7 @@ Expected: FAIL, `Cannot find module './rollback-failures.component'` et le cas `
 
 - [ ] **Step 3: Icônes**
 
-Dans `icon.component.ts`, importer `Undo` (`@primeicons/angular/undo`), ajouter `"undo"` à `ICON_NAMES`, le composant aux `imports`, et un `@case` sur le modèle des autres (`<svg data-p-icon="undo" [size]="size()" />`). `refresh` est déjà là, posée par le sub-project 10.
+Dans `icon.component.ts`, importer `Undo` (`@primeicons/angular/undo`), ajouter `"undo"` à `ICON_NAMES`, le composant aux `imports` et un `@case` sur le modèle des autres (`<svg data-p-icon="undo" [size]="size()" />`). `refresh` est déjà là, posée par le sub-project 10.
 
 - [ ] **Step 4: État « Restauré »**
 
@@ -419,7 +419,7 @@ Expected: FAIL, `restorableIds` et `restoreRun` absents, bouton du détail intro
 
 - [ ] **Step 4: Bouton du détail**
 
-Dans `track-detail.component.ts` : ajouter `output` à l'import d'`@angular/core`, `ButtonDirective` (`primeng/button`) et `Tooltip` (`primeng/tooltip`) aux `imports`, `TOOLTIP_DELAY` (`../../shared/utils/tooltip`) à l'import, `protected readonly tooltipDelay = TOOLTIP_DELAY` à côté de `FADE_IN`, et :
+Dans `track-detail.component.ts` : ajouter `output` à l'import d'`@angular/core`, `ButtonDirective` (`primeng/button`) et `Tooltip` (`primeng/tooltip`) aux `imports`, `TOOLTIP_DELAY` (`../../shared/utils/tooltip`) à l'import, `protected readonly tooltipDelay = TOOLTIP_DELAY` à côté de `FADE_IN`, puis :
 
 ```ts
   /** Morceau ecrit ou en echec d'un run confirme : le dump peut le rendre. */
@@ -672,7 +672,7 @@ Dans `settings-page.component.spec.ts`, `SidecarServiceStub` ajoute à son `Pick
     rollback: vi.fn(() => Promise.resolve()),
 ```
 
-et les `providers` gagnent `ConfirmationService` (`primeng/api`). L'import de `@ngx-translate/core` devient `import { TranslateService, type TranslationObject, provideTranslateService } from "@ngx-translate/core"` ; importer aussi les types `RollbackRun`, `RollbackFinishedEvent`, et `ROLLBACK_RUN`, `rollbackFinished` (`../../../fixtures/write`). Puis :
+et les `providers` gagnent `ConfirmationService` (`primeng/api`). L'import de `@ngx-translate/core` devient `import { TranslateService, type TranslationObject, provideTranslateService } from "@ngx-translate/core"` ; importer aussi les types `RollbackRun`, `RollbackFinishedEvent`, `ROLLBACK_RUN` et `rollbackFinished` (`../../../fixtures/write`). Puis :
 
 ```ts
   const translateWith = (admin: TranslationObject): void => {

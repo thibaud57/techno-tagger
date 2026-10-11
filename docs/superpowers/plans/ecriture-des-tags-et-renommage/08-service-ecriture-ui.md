@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Piloter depuis l'interface la confirmation, l'écriture, la relance et le rollback d'un run, et en exposer l'état aux écrans par un store de phase.
+**Goal:** Piloter depuis l'interface la confirmation, l'écriture, la relance et le rollback d'un run et en exposer l'état aux écrans par un store de phase.
 
-**Architecture:** Un `WriteStore` de phase, alimenté par le seul routage de `SidecarService`, porte confirmation, écriture, progression, fin, rollback en cours, bilan et cible. `SidecarService` envoie `commit_run`, `retry_write`, `rollback` et `get_rollback_target`, route `progress(write)`, `run_finished(write)`, `rollback_target` et `rollback_finished`, et applique les règles d'erreur. `CloseGuard` refuse la fermeture pendant l'écriture ou un rollback, `CompletionSignalService` en annonce la fin.
+**Architecture:** Un `WriteStore` de phase, alimenté par le seul routage de `SidecarService`, porte confirmation, écriture, progression, fin, rollback en cours, bilan et cible. `SidecarService` envoie `commit_run`, `retry_write`, `rollback` et `get_rollback_target`, route `progress(write)`, `run_finished(write)`, `rollback_target` et `rollback_finished` ; il applique aussi les règles d'erreur. `CloseGuard` refuse la fermeture pendant l'écriture ou un rollback, `CompletionSignalService` en annonce la fin.
 
 **Tech Stack:** Angular 22 (signals, `effect`), Vitest et le `FakeTransport` des specs, ngx-translate, PrimeNG `MessageService`. Aucune dépendance nouvelle.
 
@@ -540,7 +540,7 @@ Après `gesture` :
         break
 ```
 
-Dans le cas `error`, la condition sur `start_tagging` devient `if (event.command === "start_tagging" && !LAUNCH_REFUSED_WHILE_BUSY.has(event.code))`, et `this.routeWriteError(event)` s'ajoute après `this.routeUrlRecoveryError(event)`. Dans `routeProgress`, le cas `write` devient :
+Dans le cas `error`, la condition sur `start_tagging` devient `if (event.command === "start_tagging" && !LAUNCH_REFUSED_WHILE_BUSY.has(event.code))` ; `this.routeWriteError(event)` s'ajoute après `this.routeUrlRecoveryError(event)`. Dans `routeProgress`, le cas `write` devient :
 
 ```ts
       case "write":
@@ -580,7 +580,7 @@ git commit -m "feat(ui): store de l'écriture, confirmation, relance et rollback
 
 - [ ] **Step 1: Écrire les specs**
 
-Dans `src/app/core/close-guard.service.spec.ts`, importer `type RollbackInFlight` de `./write.store`, et compléter le `sidecar` de `setup` :
+Dans `src/app/core/close-guard.service.spec.ts`, importer `type RollbackInFlight` de `./write.store` et compléter le `sidecar` de `setup` :
 
 ```ts
   const sidecar = {
@@ -748,7 +748,7 @@ Dans `src/app/core/completion-signal.service.spec.ts`, importer `type RollbackFi
   let rolledBack: WritableSignal<RollbackFinishedEvent | null>
 ```
 
-Dans `beforeEach`, initialiser `writeFinished = signal(null)` et `rolledBack = signal(null)`, et le stub devient `{ extraction, taggingFinished, writeFinished, rollbackFinished: rolledBack }`. Puis :
+Dans `beforeEach`, initialiser `writeFinished = signal(null)` et `rolledBack = signal(null)` ; le stub devient `{ extraction, taggingFinished, writeFinished, rollbackFinished: rolledBack }`. Puis :
 
 ```ts
   it("announces a write end, with its failures when there are some", () => {

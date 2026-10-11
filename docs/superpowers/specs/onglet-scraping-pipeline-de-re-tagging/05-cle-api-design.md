@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: []
-date: "2026-09-19"
+date: "2026-10-11"
 ---
 
 # Clé API : trousseau, commande `set_api_key` et section API des Settings
@@ -45,6 +45,7 @@ Aucune : ce sub-project est autoporté.
 - **À modifier** : `src/app/core/models/protocol.ts` (`SetApiKeyCommand`)
 - **À modifier** : `src/app/core/sidecar.service.ts` et `sidecar.service.spec.ts` (signal `apiKeyConfigured`, méthode `setApiKey`)
 - **À modifier** : `src/app/features/settings/settings-page.component.ts`, `.html`, **à créer** : `settings-page.component.spec.ts`
+- **À créer** : `src/app/features/settings/settings-row.component.ts` (`app-settings-row`, gabarit de rangée partagé par les sections des Réglages)
 - **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`settings.api.*`, `errors.api_key_error`, `errors.api_key_not_stored`, `errors.keyring_unavailable` : `test_error_translations.py` exige aussi la classe de base, comme `extraction_error`)
 - **À modifier** : `docs/ARCHITECTURE.md` (§ Capacités Natives `store`, § API commandes)
 - **À modifier** : `docs/adrs/012-securite-cle-api-keyring.md` (note sur l'URL)
@@ -71,10 +72,11 @@ Le `.spec` PyInstaller embarque déjà le backend (`copy_metadata("keyring")`, h
 - **Tests sur un trousseau en mémoire** : un backend `keyring.backend.KeyringBackend` minimal, posé par une fixture avec `keyring.set_keyring`, restauré après le test. Aucun test ne touche le Credential Manager de la machine. Les erreurs keyring sont provoquées par un backend qui lève, pas par un mock de keyring lui-même (`.claude/rules/pytest/tests.md`).
 - **Service sidecar Angular** : signal `apiKeyConfigured` alimenté par l'événement `version`, méthode `setApiKey(key)` qui envoie la commande, sur le patron des méthodes existantes (`.claude/rules/angular/services.md`, `.claude/rules/angular/signals.md`). La clé ne transite qu'une fois de la webview au sidecar et n'est gardée dans aucun signal.
 - **Section API des Settings** (`.claude/rules/angular/components.md`, `.claude/rules/angular/forms.md`, `.claude/rules/primeng/composants.md`) :
-  - titre de page et section « API », une rangée libellé plus aide à gauche, contrôles à droite, comme la maquette ;
-  - `p-password` en `[feedback]="false"` et `[toggleMask]="true"` (DESIGN.md § Settings), jamais prérempli, vidé après l'envoi ;
+  - titre de page et section « API », une rangée `app-settings-row` (slots `[rowLabel]` et `[rowControl]`, aide et retours dans le contenu par défaut), libellé à gauche et contrôles à droite, comme la maquette ;
+  - `input pInputPassword` dans un `p-iconfield`, masqué par défaut, œil de bascule composé à la main (`p-password` est déprécié en PrimeNG 22, DESIGN.md § Settings), jamais prérempli, vidé après l'envoi ;
   - bouton primaire « Enregistrer » en `size="small"`, désactivé tant que le champ est vide ;
-  - état « Clé enregistrée » ou « Aucune clé » lu depuis `apiKeyConfigured` ;
+  - état de la clé lu depuis `apiKeyConfigured` : une clé enregistrée se signale par 24 points en placeholder du champ, jamais relue et sans `p-tag` d'état (revue d'écran du 2026-10-11) ; l'état reste lisible par un lecteur d'écran grâce à un texte `sr-only` (`settings.api.key.configured` / `missing`) relié au champ par `aria-describedby`, les 24 points restant le seul signal visuel ; l'œil de bascule n'apparaît que pendant une saisie ;
+  - l'aide passe sous le champ, sur toute la largeur de la rangée, une phrase par ligne ; la zone sous la ligne, vide, ne pèse rien ;
   - une erreur `api_key_not_stored`, `keyring_unavailable` ou `malformed_command` s'affiche par `ErrorMessageComponent` sous la rangée ;
   - libellés par ngx-translate, FR et EN dans le même commit (`.claude/rules/ngx-translate/i18n.md`), largeurs mesurées sur le texte le plus long des deux langues (DESIGN.md § Conventions de Code).
 - **Documentation réalignée sur l'URL figée**, chaque modification datée du 2026-09-19 : la ligne `store` d'ARCHITECTURE.md ne mentionne plus l'URL, `set_api_url` disparaît de la table des commandes, la note de l'ADR-012 dit l'URL figée dans le sidecar, `knowledges/techno-scraper.md` aussi, la ligne « URL de l'API » quitte le mapping Settings de DESIGN.md et la table des réglages de PRODUCTION.md, et la Feature 7 de BRAINSTORM.md reçoit une note « Décidé autrement depuis » sur le modèle de celles qui existent.
@@ -133,7 +135,8 @@ Le `.spec` PyInstaller embarque déjà le backend (`copy_metadata("keyring")`, h
   - feeds the api key state from the version event
   - sends the api key command
 - `src/app/features/settings/settings-page.component.spec.ts` :
-  - shows whether a key is configured
+  - signals a stored key in the placeholder
+  - offers no visibility toggle while nothing is typed
   - disables saving while the field is empty
   - sends the key then clears the field
 

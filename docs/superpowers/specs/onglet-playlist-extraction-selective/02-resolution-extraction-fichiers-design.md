@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-parsing-playlists-design.md"]
-date: "2026-09-08"
+date: "2026-10-11"
 ---
 
 # Résolution par nom de fichier et extraction vers le dossier destination
@@ -23,7 +23,7 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 
 ## Dependencies
 
-- `01-parsing-playlists-design.md` (statut: implemented) : fournit `read_playlist()`, dont les noms de fichiers sont l'entrée de ce module, et `TaggerError`, base des erreurs métier.
+- `01-parsing-playlists-design.md` (statut: implemented) : fournit `read_playlist()`, dont les noms de fichiers sont l'entrée de ce module et `TaggerError`, base des erreurs métier.
 
 ## Files touched
 
@@ -43,7 +43,7 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 - **Motifs d'échec repris de la nomenclature existante** : `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `file_missing` et `write_failed` sont les six valeurs d'écriture de `failure_reason` dans ARCHITECTURE.md § Backend > API, reprises au complet. Elles vivent dans `tagger/file_failures.py` (`FileFailureReason` et `file_failure_reason()`, qui classe une `OSError`), partagé avec l'écriture des tags : un seul vocabulaire pour l'extraction et l'écriture.
 - **Une collision en destination n'écrase jamais** : un fichier du même nom déjà présent fait passer le morceau en « déjà présent ». C'est ce qui rend l'extraction rejouable, un run relancé ne recopiant pas ce qui est là. Écraser détruirait le travail d'un re-tagging déjà passé sur le dossier de destination.
 - **Destination et source ne s'excluent pas mutuellement, le module les arbitre** : une destination posée dans la source est écartée de l'index (`excluded`, comparée lexicalement), faute de quoi chaque morceau déjà extrait deviendrait l'homonyme de son original au second run. Une destination confondue avec la source ne transfère rien.
-- **Un nom demandé deux fois par la playlist n'est transféré qu'une fois** : la seconde occurrence est comptée « déjà présent », et l'ambiguïté d'homonymes qu'elle porte n'est consignée qu'une fois.
+- **Un nom demandé deux fois par la playlist n'est transféré qu'une fois** : la seconde occurrence est comptée « déjà présent » et l'ambiguïté d'homonymes qu'elle porte n'est consignée qu'une fois.
 - **Copie et déplacement par `Path.copy()` et `Path.move()`** de la stdlib 3.14, sans importer `shutil` (cf. `.claude/rules/python/fichiers-io.md`). `Path` partout, jamais `os.path` ni de concaténation de chaînes.
 - **Progression remontée par rappel** : l'extraction accepte une fonction optionnelle appelée après chaque morceau avec le nombre traité et le total. Le module ignore tout du protocole NDJSON, que `handlers.py` (sub-project 04) branche dessus pour alimenter l'événement `progress`.
 - **Modèles internes en dataclasses gelées et `StrEnum` annotés `@verify(UNIQUE)`**, jamais pydantic : rien ne traverse ici de frontière externe (cf. `.claude/rules/python/modeles-donnees.md`). Le sub-project 03 les sérialise, le 04 les convertit en modèles de protocole.
@@ -169,8 +169,9 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 ## Edge cases
 
 - **Playlist vide** : l'extraction rend un résultat vide sans lever et sans créer de dossier destination inutile. C'est l'appelant, au sub-project 04, qui décide qu'un run sans morceau n'a pas lieu d'être.
-- **Fichier verrouillé sous Windows** : l'ouverture d'un fichier tenu par un lecteur audio lève `PermissionError` comme un vrai refus de permission. Les deux se distinguent par le code d'erreur Windows porté par l'exception, qui prime sur son type, et le motif consigné en dépend.
-- **Chemin de destination trop long** : au-delà de la limite historique de Windows, l'écriture échoue en `path_too_long`.- **Source et destination confondues** : si les deux chemins désignent le même dossier, chaque morceau est trouvé puis vu comme déjà présent, et rien n'est copié. Aucun fichier n'est perdu, y compris en mode déplacement.
+- **Fichier verrouillé sous Windows** : l'ouverture d'un fichier tenu par un lecteur audio lève `PermissionError` comme un vrai refus de permission. Les deux se distinguent par le code d'erreur Windows porté par l'exception, qui prime sur son type et le motif consigné en dépend.
+- **Chemin de destination trop long** : au-delà de la limite historique de Windows, l'écriture échoue en `path_too_long`.
+- **Source et destination confondues** : si les deux chemins désignent le même dossier, chaque morceau est trouvé puis vu comme déjà présent, et rien n'est copié. Aucun fichier n'est perdu, y compris en mode déplacement.
 - **Destination dans la source** : exclue de l'index, les originaux restent les seuls candidats.
 - **Homonymes dont l'un disparaît entre l'indexation et la copie** : l'index est un instantané. Un fichier retiré entre-temps produit un échec de copie consigné, pas une exception.
 
@@ -205,7 +206,7 @@ Exclut la sérialisation de ce résultat en rapport sur disque (sub-project 03) 
 ### Décision : Réutiliser les motifs d'échec de l'écriture plutôt qu'en créer
 
 **Options envisagées :**
-- **A. Reprendre `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `file_missing`, `write_failed`** : ces valeurs sont déjà fixées par ARCHITECTURE.md pour l'écriture des tags, et décrivent exactement les mêmes pannes de système de fichiers.
+- **A. Reprendre `permission_denied`, `disk_full`, `path_too_long`, `file_locked`, `file_missing`, `write_failed`** : ces valeurs sont déjà fixées par ARCHITECTURE.md pour l'écriture des tags et décrivent exactement les mêmes pannes de système de fichiers.
 - **B. Définir un jeu de motifs propre à l'extraction** : nommage libre, au prix de deux vocabulaires décrivant les mêmes incidents à deux endroits du même run.
 
 **Choix : A**

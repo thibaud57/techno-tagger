@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["02-protocole-ndjson-arbitrage-design.md"]
-date: "2026-09-26"
+date: "2026-10-10"
 ---
 
 # File d'arbitrage côté webview

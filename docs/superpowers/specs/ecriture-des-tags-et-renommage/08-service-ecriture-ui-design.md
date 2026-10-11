@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["05-protocole-ndjson-ecriture-design.md", "06-rollback-sidecar-design.md", "07-contrat-detail-avant-apres-design.md"]
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Service de l'écriture côté interface
@@ -56,7 +56,7 @@ Exclut les écrans : bouton et modale de confirmation, progression, modale de fe
 - **Mort du moteur** : `endRun` arrête aussi l'écriture et le rollback
 - **Fermeture** : `PendingWork` gagne `write` et `rollback` ; `CloseGuard.blocked` vaut vrai quand le travail en cours en contient un (lu en direct, non sur la demande figée : une écriture qui finit modale ouverte redevient quittable), et `leave()` ne ferme alors rien. Tauri arrête le sidecar à la sortie : quitter couperait un fichier en plein travail
 - **Signal de fin** : `CompletionSignalService` annonce la fin de l'écriture et celle du rollback ; toast `success`, ou `warn` avec le nombre d'échecs (`write_error`, `failed`). `announce` prend des paramètres de traduction et une sévérité. Une relance qui finit s'annonce de nouveau, chaque `run_finished` étant un nouvel objet
-- **i18n** : quatre messages de fin et deux libellés de fermeture (`app.close.write`, `app.close.rollback`), vouvoiement, espace insécable avant `:` (`.claude/rules/ngx-translate/i18n.md`)
+- **i18n** : quatre messages de fin et deux libellés de fermeture (`app.close.write`, `app.close.rollback`), vouvoiement, espace insécable avant `:`, une phrase par ligne (`\n`) dans les messages de fin avec échecs (`.claude/rules/ngx-translate/i18n.md`)
 - **Tests** : `.claude/rules/angular/tests.md`, sur le `FakeTransport` des specs existantes
 
 ## Acceptance criteria

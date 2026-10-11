@@ -29,6 +29,7 @@ paths:
 
 ## Gotchas
 - La conversion v2.4 → v2.3 n'est pas neutre : UTF-8 repasse en UTF-16, une seule chaîne par champ rend `v23_sep` sans objet, et la date réduite à l'année donne `TYER` seul, sans `TDAT` ni `TIME`
+- Aucune année d'origine n'est écrite (ADR-011, 2026-10-11) : un `TORY` ou `ORIGINALDATE` du fichier reste intact, et `update_to_v23()` convertit seulement un `TDOR` déjà présent en `TORY`
 - `EasyID3` avec `v2_version=3` peut produire une frame `TDRC` vide en plus du `TYER` : asserter sur le fichier relu, pas sur le retour de l'API
 - 1.48.0 : l'attribut `salt` d'`APIC` change la `HashKey` en `APIC:<desc><salt>`, donc l'unicité
 - WAV : seul le chunk ID3v2 est supporté (pas RIFF/INFO), écrit `id3 ` en minuscules que d'autres logiciels peuvent ignorer
@@ -39,6 +40,7 @@ paths:
 # ✅ ID3 : objets frame, sauvegarde en v2.3
 tags = ID3(path)
 tags["TIT2"] = TIT2(encoding=3, text=[title])
+tags.delall("APIC")
 tags.add(APIC(encoding=3, mime="image/jpeg", type=PictureType.COVER_FRONT, desc="Cover", data=image))
 tags.update_to_v23()
 tags.save(v2_version=3)
@@ -52,7 +54,7 @@ try:
     audio.save(v2_version=3)
 except (MutagenError, OSError) as exc:
     cause = getattr(exc, "__cause__", None) or exc
-    raise TagsWriteError(path, file_failure_reason(cause) if isinstance(cause, OSError) else FileFailureReason.WRITE_FAILED) from exc
+    locked = isinstance(cause, PermissionError)  # fichier tenu par un lecteur, pas corrompu
 
 # ❌ le texte d'une frame pris pour une chaîne
 title = tags["TIT2"]

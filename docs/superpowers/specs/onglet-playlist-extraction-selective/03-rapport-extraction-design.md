@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-parsing-playlists-design.md", "02-resolution-extraction-fichiers-design.md"]
-date: "2026-09-08"
+date: "2026-10-11"
 ---
 
 # Rapport d'extraction, en JSON et en Markdown
@@ -32,7 +32,7 @@ Exclut le plan de run et la reprise, qui relèvent de la Feature 6. Exclut la re
 - **À créer** : `sidecar/tests/unit/test_reports_json.py` (schéma, versionnement, nommage, contenu)
 - **À créer** : `sidecar/tests/unit/test_reports_markdown.py` (rendu lisible)
 - **À créer** : `sidecar/tests/helpers/extraction_samples.py` (jeu de données couvrant les cinq catégories, partagé par les deux fichiers de test)
-- **À modifier** : `sidecar/tests/conftest.py` (fixtures `extraction_result`, qui couvre les cinq catégories, et `report_context`)
+- **À modifier** : `sidecar/tests/conftest.py` (fixtures `extraction_result`, qui couvre les cinq catégories et `report_context`)
 
 ## Architecture approach
 
@@ -45,8 +45,8 @@ Exclut le plan de run et la reprise, qui relèvent de la Feature 6. Exclut la re
 - **Le rapport est un `BaseModel` pydantic** (`ExtractionReport`) : il franchit une frontière et il est permanent, donc relu par une version ultérieure de l'application. C'est ce modèle qui portera la migration d'un `schema_version` antérieur, dans un `@model_validator(mode="before")` (cf. `.claude/rules/pydantic/modeles.md`). Il est construit depuis les dataclasses de l'extraction par `model_validate(..., from_attributes=True)`.
 - **Sérialisation déterministe et lisible** : `model_dump_json(indent=2)` garde les titres non-ASCII sans échappement, rend les `Path` en chaînes et suit l'ordre de déclaration des champs, ce qui donne deux fois le même fichier pour un même résultat. `encoding="utf-8"` explicite à l'écriture (cf. `.claude/rules/python/fichiers-io.md`). L'indentation est admise, la règle qui l'interdit visant le flux NDJSON où une ligne vaut un événement.
 - **Markdown non versionné**, conformément à ADR-018 § Notes : c'est un rendu, jamais relu par l'application, régénérable depuis le JSON. Il porte le même contenu, mis en tableaux, une catégorie vide n'ayant pas de section (le tableau de synthèse en porte déjà le décompte). Les valeurs venues de la playlist sont neutralisées (`|`, retours à la ligne) pour ne pas casser les tableaux.
-- **Contexte du run injecté** : `ReportContext` porte les dossiers, la playlist (chemin et nom, nul pour un M3U8), le mode et l'instant de génération, faute de quoi aucun test ne pourrait vérifier le nom du fichier produit. L'instant est obligatoire et doit être aware : un naive est refusé plutôt que réinterprété, et un aware est normalisé en UTC. `handlers.py` passe `datetime.now(UTC)`.
-- **Rendu et écriture séparés** : `render_json` et `render_markdown` produisent les chaînes à partir d'un même `ExtractionReport`, `write_extraction_report` les dépose sur le disque. Le déterminisme et le contenu se vérifient alors sans toucher au système de fichiers, et les décomptes ne peuvent pas diverger entre les deux rendus.
+- **Contexte du run injecté** : `ReportContext` porte les dossiers, la playlist (chemin et nom, nul pour un M3U8), le mode et l'instant de génération, faute de quoi aucun test ne pourrait vérifier le nom du fichier produit. L'instant est obligatoire et doit être aware : un naive est refusé plutôt que réinterprété et un aware est normalisé en UTC. `handlers.py` passe `datetime.now(UTC)`.
+- **Rendu et écriture séparés** : `render_json` et `render_markdown` produisent les chaînes à partir d'un même `ExtractionReport`, `write_extraction_report` les dépose sur le disque. Le déterminisme et le contenu se vérifient alors sans toucher au système de fichiers et les décomptes ne peuvent pas diverger entre les deux rendus.
 - **Les chemins complets sont écrits sans réserve** : le rapport reste sur la machine de l'utilisateur. C'est vers Sentry que rien de personnel ne part, pas vers le dossier de destination (cf. ARCHITECTURE.md § Enjeux).
 - **Aucune écriture sur `stdout`** : le flux standard porte le protocole NDJSON, jamais un diagnostic.
 
@@ -130,7 +130,7 @@ Exclut le plan de run et la reprise, qui relèvent de la Feature 6. Exclut la re
   - le dossier destination est créé s'il n'existe pas
   - les chemins écrits sont complets, le rapport restant local
   - deux runs dans la même seconde ne s'écrasent pas, le second couple prenant un suffixe
-  - un instant naive est refusé, et un instant dans un autre fuseau donne le nom en UTC
+  - un instant naive est refusé et un instant dans un autre fuseau donne le nom en UTC
   - une écriture ou une création de dossier refusée devient une erreur métier nommant le bon fichier ou dossier
   - le fichier écrit est le rendu produit
 
@@ -146,7 +146,7 @@ Exclut le plan de run et la reprise, qui relèvent de la Feature 6. Exclut la re
 
 - **Résultat entièrement vide** : un rapport est tout de même écrit, avec ses décomptes à zéro. Un run qui n'a rien extrait est précisément un cas où l'utilisateur cherche une trace.
 - **Deux runs dans la même seconde** : l'horodatage étant à la seconde, deux rapports pourraient porter le même nom. Le cas n'est pas théorique : un run qui ne trouve que des fichiers déjà présents se termine en quelques millisecondes, et le relancer aussitôt écrasait le premier rapport (observé au `/verify` du sub-project 04). Le second couple prend un suffixe `-2`, `-3`… plutôt qu'une précision supérieure dans tous les noms.
-- **Nom de fichier très long en destination** : le nom du rapport est court et fixe, seul le dossier destination peut porter le dépassement. L'échec remonte alors en `ReportWriteError` (famille `ReportError`), erreur métier de code `report_write_failed` : les morceaux sont déjà extraits, seul le rapport manque, et la boucle NDJSON du sub-project 04 n'intercepte que les erreurs métier. L'erreur nomme le fichier ou le dossier réellement en cause.
+- **Nom de fichier très long en destination** : le nom du rapport est court et fixe, seul le dossier destination peut porter le dépassement. L'échec remonte alors en `ReportWriteError` (famille `ReportError`), erreur métier de code `report_write_failed` : les morceaux sont déjà extraits, seul le rapport manque et la boucle NDJSON du sub-project 04 n'intercepte que les erreurs métier. L'erreur nomme le fichier ou le dossier réellement en cause.
 - **Markdown refusé après l'écriture du JSON** : le JSON reste sur le disque et un warning le trace, sans quoi plus rien ne le rattacherait au run une fois l'erreur remontée.
 - **Homonyme avec plus de deux candidats** : tous les écartés sont consignés, pas seulement le premier.
 

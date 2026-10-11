@@ -4,7 +4,7 @@
 
 **Goal:** Restaurer depuis le dump disque les tags et le nom d'origine d'un morceau ou d'un run entier, y compris d'un run écrit dans une session précédente.
 
-**Architecture:** `tag_dump.py` gagne la recherche d'un dump par run, l'ordre des dumps et le retrait des entrées restaurées ; `renaming.py` sait rendre un nom d'origine. Un module `rollback.py`, hors protocole comme `writing.py`, restaure chaque morceau en sens inverse de l'écriture (nom, puis tags), du dernier écrit au premier, et décrit le dernier run annulable. `protocol.py`, `handlers.py` et `__main__.py` exposent `get_rollback_target` et `rollback`, qui occupe le même créneau de fichiers que l'écriture.
+**Architecture:** `tag_dump.py` gagne la recherche d'un dump par run, l'ordre des dumps et le retrait des entrées restaurées ; `renaming.py` sait rendre un nom d'origine. Un module `rollback.py`, hors protocole comme `writing.py`, restaure chaque morceau en sens inverse de l'écriture (nom, puis tags), du dernier écrit au premier ; il décrit aussi le dernier run annulable. `protocol.py`, `handlers.py` et `__main__.py` exposent `get_rollback_target` et `rollback`, qui occupe le même créneau de fichiers que l'écriture.
 
 **Tech Stack:** Python 3.14 (`asyncio.TaskGroup`, `asyncio.to_thread`), pydantic 2, mutagen 1.48 par `restore_tags`, pytest-asyncio et `ndjson_loop.conversation`, TypeScript pour le miroir. Aucune dépendance nouvelle.
 
@@ -1023,7 +1023,7 @@ async def test_shutdown_lets_a_rollback_finish(
 - [ ] **Step 2: Vérifier qu'ils échouent**
 
 Run: `cd sidecar && uv run pytest tests/integration/test_ndjson_rollback.py --no-cov -q -x`
-Expected: FAIL en `TimeoutError` : `get_rollback_target`, inconnue, rend un `error` `malformed_command`, et `expect("rollback_target")` dépasse son délai
+Expected: FAIL en `TimeoutError` : `get_rollback_target`, inconnue, rend un `error` `malformed_command` ; `expect("rollback_target")` dépasse son délai
 
 - [ ] **Step 3: État `rolled_back`**
 
@@ -1122,7 +1122,7 @@ class RollbackFinished(Event):
 
 - [ ] **Step 5: Traduire le rollback en événements**
 
-Dans `sidecar/src/tagger/handlers.py`, ajouter `Rollback`, `RollbackFailurePayload`, `RollbackFinished`, `RollbackRun` et `RollbackTarget` à l'import de `tagger.protocol`, `from tagger.rollback import find_rollback_target, roll_back` aux imports, et `from pathlib import Path` sous `TYPE_CHECKING`. Après `handle_retry_write` :
+Dans `sidecar/src/tagger/handlers.py`, ajouter `Rollback`, `RollbackFailurePayload`, `RollbackFinished`, `RollbackRun` et `RollbackTarget` à l'import de `tagger.protocol`, `from tagger.rollback import find_rollback_target, roll_back` aux imports et `from pathlib import Path` sous `TYPE_CHECKING`. Après `handle_retry_write` :
 
 ```python
 def handle_get_rollback_target() -> RollbackTarget:
@@ -1254,7 +1254,7 @@ Dans `errors`, juste après `rollback_unavailable` :
     "rollback_in_progress": "A restore is in progress. Wait for it to finish.",
 ```
 
-- [ ] **Step 8: Mirrorer le contrat**
+- [ ] **Step 8: Reproduire le contrat en TypeScript**
 
 Dans `src/app/core/models/protocol.ts`, après `RetryWriteCommand` :
 
@@ -1342,7 +1342,7 @@ Charger `Skill[architecture-doc]` avant d'éditer. Dans `docs/ARCHITECTURE.md` :
 - § API, événements : `rollback_target` (« `run` : identifiant, date d'écriture, dossier, morceaux à restaurer ; nul s'il n'y a rien à annuler ») et `rollback_finished` (« identifiant du run, morceau visé, morceaux restaurés, échecs avec nom de fichier actuel et motif. Sur le run affiché, chaque morceau restauré part aussi en `track_resolved(rolled_back)`, sans source, scores ni pochette ») ;
 - table des états (l. 473-477) : `state` gagne `rolled_back` (« rendu à son origine par un rollback : plus de candidat, `resolution` conservée mais masquée par l'état ») et `failure_reason` gagne « Rollback : `name_taken` » ;
 - diagramme (l. 488-517) : ajouter `written --> rolled_back : rollback`, `write_error --> rolled_back : rollback` et `rolled_back --> [*]` ;
-- filtres du récapitulatif (l. 521-535) : « validés » et « arbitrés » se lisent sur `state ∈ {resolved, written}` au lieu de `state ∉ échecs`, et le paragraphe d'après précise qu'un morceau `rolled_back` n'est ni validé, ni arbitré, ni en échec : il sort des trois, aucune décision ne le décrivant plus ; la garde du troisième piège devient la garde sur `state` ; « un `write_error` peut encore en sortir plus tard par `retry_write` » gagne « ou par `rollback` » ;
+- filtres du récapitulatif (l. 521-535) : « validés » et « arbitrés » se lisent sur `state ∈ {resolved, written}` au lieu de `state ∉ échecs` ; le paragraphe d'après précise qu'un morceau `rolled_back` n'est ni validé, ni arbitré, ni en échec : il sort des trois, aucune décision ne le décrivant plus ; la garde du troisième piège devient la garde sur `state` ; « un `write_error` peut encore en sortir plus tard par `retry_write` » gagne « ou par `rollback` » ;
 - § Concurrence (l. 553-555) : `shutdown` attend aussi le rollback, avec l'extraction et l'écriture, un fichier coupé en plein renommage restant à moitié rendu ;
 - § Données, ligne du dump (l. 590) : « un morceau restauré en sort, comme un morceau dont le fichier n'existe plus sous aucun nom, et un dump vidé est supprimé : le dernier run annulable devient alors le précédent » ;
 - arborescence du sidecar (l. 113-133) : ajouter après `writing.py` la ligne `rollback.py  # restauration d'un run ou d'un morceau depuis son dump`, au même alignement que ses voisines ;

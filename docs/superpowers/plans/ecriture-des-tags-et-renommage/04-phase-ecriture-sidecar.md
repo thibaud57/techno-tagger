@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Appliquer sur le disque un run confirmé, dump des tags d'origine d'abord puis tags, pochette et renommage morceau par morceau, et rejouer ses seuls échecs d'écriture.
+**Goal:** Appliquer sur le disque un run confirmé, dump des tags d'origine d'abord puis tags, pochette et renommage morceau par morceau et rejouer ses seuls échecs d'écriture.
 
-**Architecture:** `tagging.py` gagne les états `written` et `write_error`, les six motifs de fichier dans `FailureReason`, et ce que l'écriture a posé (`WriteOutcome`). Le nouveau module `writing.py` porte `RunWriter`, qui travaille sur le `LiveRun` en mémoire : lecture parallèle et enregistrement du dump avant le premier fichier, puis écriture et renommage séquentiels, échecs locaux à leur morceau, relance des seuls échecs, événements par rappel.
+**Architecture:** `tagging.py` gagne les états `written` et `write_error`, les six motifs de fichier dans `FailureReason` et ce que l'écriture a posé (`WriteOutcome`). Le nouveau module `writing.py` porte `RunWriter`, qui travaille sur le `LiveRun` en mémoire : lecture parallèle et enregistrement du dump avant le premier fichier, puis écriture et renommage séquentiels, échecs locaux à leur morceau, relance des seuls échecs, événements par rappel.
 
 **Tech Stack:** Python 3.14 (`asyncio.to_thread`, `asyncio.gather`), pytest + pytest-asyncio (mode strict, `pytestmark`), fichiers réels de `audio_samples`. Aucune dépendance nouvelle.
 
@@ -139,7 +139,7 @@ Dans `TrackRecord`, dernier champ après `arbitration` :
     written: WriteOutcome | None = None
 ```
 
-et, avant `unresolved` :
+Puis, avant `unresolved` :
 
 ```python
     def written_to(self, path: Path, outcome: WriteOutcome) -> TrackRecord:

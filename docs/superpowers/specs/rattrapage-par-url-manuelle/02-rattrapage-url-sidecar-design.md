@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-client-resolution-url-design.md"]
-date: "2026-10-02"
+date: "2026-10-10"
 ---
 
 # Rattrapage par URL dans le run vivant

@@ -6,14 +6,14 @@ status: "implemented"
 complexity: "S"
 tdd_scope: "partial"
 depends_on: []
-date: "2026-09-08"
+date: "2026-10-11"
 ---
 
 # Câblage de l'internationalisation et résolution de la langue initiale
 
 ## Scope
 
-Couvre les providers ngx-translate dans `app.config.ts`, les deux fichiers de langue servis depuis `public/i18n/`, la résolution de la langue initiale avant le premier rendu, et la traduction des libellés de la barre d'onglets et des trois écrans (Playlist, Tagging, Réglages). La résolution lit la locale système par le plugin `os` de Tauri, retombe sur celle du navigateur quand l'application tourne hors Tauri, et sur l'anglais en dernier recours.
+Couvre les providers ngx-translate dans `app.config.ts`, les deux fichiers de langue servis depuis `public/i18n/`, la résolution de la langue initiale avant le premier rendu et la traduction des libellés de la barre d'onglets et des trois écrans (Playlist, Tagging, Réglages). La résolution lit la locale système par le plugin `os` de Tauri, retombe sur celle du navigateur quand l'application tourne hors Tauri et sur l'anglais en dernier recours.
 
 Exclut le sélecteur de langue et la persistance du choix utilisateur dans le `store`, qui relèvent de la Feature 7 et primeront alors sur la locale système. Les libellés propres à un écran reviennent au sub-project qui le construit : poser des clés pour des composants qui n'existent pas serait spéculatif.
 

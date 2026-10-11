@@ -6,20 +6,20 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["01-ecriture-tags-design.md", "02-dump-tags-origine-design.md"]
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Contrat du détail avant / après
 
 ## Scope
 
-Couvre la lecture des 16 champs de la table et du commentaire à l'ouverture du run, en une seule lecture par fichier dont l'identité de la requête est déduite. Couvre aussi le calcul des valeurs après écriture (valeur du candidat, sinon valeur d'origine gardée), les champs `tags_before` de `run_started` et `tags_after` de `track_resolved`, le dossier du run (`folder` de `run_started`), leur miroir TypeScript, et leur exposition par le store du run avec les fixtures.
+Couvre la lecture des 15 champs de la table et du commentaire à l'ouverture du run, en une seule lecture par fichier dont l'identité de la requête est déduite. Couvre aussi le calcul des valeurs après écriture (valeur du candidat, sinon valeur d'origine gardée), les champs `tags_before` de `run_started` et `tags_after` de `track_resolved`, le dossier du run (`folder` de `run_started`), leur miroir TypeScript, et leur exposition par le store du run avec les fixtures.
 
 Exclut le composant de la ligne dépliée, les libellés des champs et le rendu d'une valeur absente (sub-project 09), ainsi que la pochette en grand, déjà portée par `artwork_path`.
 
 ### État livré
 
-À la fin de ce sub-project, on peut : lancer `just test` et voir passer un test d'intégration où `run_started` porte les 16 champs d'origine du morceau avec leur clé et son commentaire, et où `track_resolved` porte les 16 valeurs après écriture, BPM d'origine gardé compris, ainsi qu'une spec du store qui les expose sur la ligne.
+À la fin de ce sub-project, on peut : lancer `just test` et voir passer un test d'intégration où `run_started` porte les 15 champs d'origine du morceau avec leur clé et son commentaire, et où `track_resolved` porte les 15 valeurs après écriture, BPM d'origine gardé compris, ainsi qu'une spec du store qui les expose sur la ligne.
 
 ## Dependencies
 
@@ -44,12 +44,12 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 
 ## Architecture approach
 
-- **Une lecture par fichier** : `read_shown_tags(path)` charge le fichier une fois (`_load`) et rend `ShownTags(system, fields, comment)`, les 16 champs joints par le séparateur des valeurs multiples (« , »), `None` pour un champ absent. `read_identity` en déduit artiste et titre, à l'identique (même jointure, même refus d'un conteneur hors des quatre formats), ce que ses tests existants gardent
+- **Une lecture par fichier** : `read_shown_tags(path)` charge le fichier une fois (`_load`) et rend `ShownTags(system, fields, comment)`, les 15 champs joints par le séparateur des valeurs multiples (« , »), `None` pour un champ absent. `read_identity` en déduit artiste et titre, à l'identique (même jointure, même refus d'un conteneur hors des quatre formats), ce que ses tests existants gardent
 - **Commentaire** : tous les `COMM` en ID3, `COMMENT` et `DESCRIPTION` en Vorbis, joints ; `None` sans commentaire. Seulement à l'affichage : le dump ne le garde pas (02)
-- **Clé affichée** : celle que le fichier portera après écriture, `TAG_FIELDS` du système, sauf les deux dates d'un fichier ID3, écrites `TYER` et `TORY` en v2.3 (01). `shown_key(field, system)` la donne, la table restant dans `files.py` seul
+- **Clé affichée** : celle que le fichier portera après écriture, `TAG_FIELDS` du système, sauf la date d'un fichier ID3, écrite `TYER` en v2.3 (01). Une frame `TXXX` s'affiche par sa seule description (`CATALOGNUMBER`, `SOURCE`), le préfixe `TXXX:` n'ayant de sens que pour l'écriture, dont les frames ne changent pas. `shown_key(field, system)` la donne, la table restant dans `files.py` seul
 - **Valeurs après écriture** : `after_tags(projection, before)`, à côté de `project_tags` : la valeur du candidat, sinon la valeur d'origine, que l'écriture ne touche pas (null non destructif, ADR-011). Ce que l'écran montre est ce que l'écriture laisse. Les clés s'y ajoutent à la traduction en événement, par `shown_key`
 - **Tags illisibles à l'ouverture** : `tags_before` nul, `tags_after` réduit aux valeurs du candidat, système déduit de l'extension par `tag_system_of(path)` (`.flac` en Vorbis, le reste en ID3)
-- **Ordre et clés côté sidecar** : 16 lignes dans l'ordre de `TAG_FIELDS`, chacune `{field, key, value}` ; l'interface n'a ni table ni règle de fusion à recopier (CLAUDE.md, tout le métier dans le sidecar)
+- **Ordre et clés côté sidecar** : 15 lignes dans l'ordre de `TAG_FIELDS`, chacune `{field, key, value}`. Cet ordre est celui de l'écran (table du 01), l'interface ne le retrie pas ; l'identifiant à la source, dernier, n'est pas affiché. Le commentaire, hors table, vient toujours en dernier (décidé en revue d'écran le 2026-10-11) ; l'interface n'a ni table ni règle de fusion à recopier (CLAUDE.md, tout le métier dans le sidecar)
 - **Contrat** : `TrackEntry.tags_before: TagsBeforePayload | None` (`system`, `comment`, `fields`) et `TrackResolved.tags_after: tuple[TagValuePayload, ...] | None`, nul pour un non résolu. `after` (artiste et titre de la colonne Après) reste tel quel. Événements construits par le sidecar, ni `strict` ni `forbid` (ADR-022, `.claude/rules/pydantic/modeles.md`)
 - **Le dump ne s'appuie pas sur cette lecture** : il relit le fichier juste avant l'écriture (ADR-010), le fichier ayant pu changer entre l'ouverture et la confirmation
 - **Dossier du run** : `RunStarted` du pipeline et `run_started` portent `folder`, le dossier tel que `Path` le sérialise. Le store l'expose (`folder`, nul avant `run_started` et après `reset`) et le service le ré-expose en `taggingFolder` : la page Tagging (10) le compare au dossier choisi pour savoir si le run affiché est encore celui de ce dossier, sans rien décider
@@ -61,7 +61,7 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 ### Scénario 1 : avant et après d'un morceau résolu
 **GIVEN** un MP3 tagué `adam beyer` / `your mind [FREE DL]`, BPM 130, commentaire `Ripped by X`, que Beatport résout par un candidat sans BPM
 **WHEN** le run s'ouvre puis le morceau est résolu
-**THEN** `run_started` porte `tags_before` en `id3` avec les 16 champs dans l'ordre de la table (artiste `adam beyer` sous `TPE1`, remixeur nul, BPM `130`) et le commentaire `Ripped by X`
+**THEN** `run_started` porte `tags_before` en `id3` avec les 15 champs dans l'ordre de la table (artiste `adam beyer` sous `TPE1`, remixeur nul, BPM `130`) et le commentaire `Ripped by X`
 **AND** `track_resolved` porte `tags_after` : artiste `Adam Beyer`, BPM `130` gardé, date sous la clé `TYER`
 **AND** `run_started` porte aussi `folder`, le dossier du run
 
@@ -79,10 +79,11 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 
 ### Unit
 - `sidecar/tests/unit/test_files_shown.py` :
-  - un MP3 rend les 16 champs dans l'ordre de la table, joints, l'URL de `WOAS` et le commentaire
+  - un MP3 rend les 15 champs dans l'ordre de la table, joints, l'URL de `WOAS` et le commentaire
   - un FLAC rend les clés Vorbis et son `COMMENT`
-  - un fichier sans tags rend 16 valeurs nulles et aucun commentaire
-  - les dates d'un fichier ID3 portent `TYER` et `TORY`
+  - un fichier sans tags rend 15 valeurs nulles et aucun commentaire
+  - la date d'un fichier ID3 porte `TYER`, les frames `TXXX` s'affichent sans leur préfixe (`CATALOGNUMBER`, `SOURCE`)
+  - `TAG_FIELDS` énumère les champs dans l'ordre de l'écran
   - après écriture : la valeur du candidat remplace l'origine, une valeur absente du candidat garde l'origine, sans origine la ligne reste nulle
 
 ### Integration
@@ -115,16 +116,17 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 ### Décision : commentaire dans le détail
 **Options envisagées :**
 - **A. Ligne Commentaire quand le fichier en porte un**, Après toujours vide
-- **B. Les 16 champs seulement**, suppression implicite
+- **B. Les 15 champs seulement**, suppression implicite
 **Choix : A**
 **Rationale :**
 - Choix du propriétaire : rien n'est supprimé sans avoir été vu, d'autant que le dump ne garde pas les commentaires
 
 ### Décision : lignes du détail et écarts à la maquette
 **Options envisagées :**
-- **A. Les 16 champs écrits** : pas de ligne « Artiste de la sortie » (`TPE2`, non écrit), date à l'année, source, identifiant et URL sur trois lignes, remixeur, année d'origine et numéro de piste en plus
+- **A. Les 15 champs écrits** : pas de ligne « Artiste de la sortie » (`TPE2`, non écrit), date à l'année, source, identifiant et URL sur trois lignes, remixeur et numéro de piste en plus
 - **B. Les 12 lignes de `TrackDetail`** de la maquette
 **Choix : A**
 **Rationale :**
 - Le détail montre ce que l'écriture fait, et la table des champs écrits est tranchée au sub-project 01 ; une ligne `TPE2` ou une date complète annonceraient une écriture qui n'a pas lieu
-- Remplacé en partie le 2026-10-09 : le contrat garde les 16 champs, mais l'écran n'affiche pas l'identifiant à la source, qui ne dit rien à l'utilisateur (09)
+- Remplacé en partie le 2026-10-09 : le contrat garde les champs écrits, mais l'écran n'affiche pas l'identifiant à la source, qui ne dit rien à l'utilisateur (09)
+- Précision 2026-10-11 : l'année d'origine n'est plus un champ (ADR-011), le contrat passe de 16 à 15 champs et l'écran de 15 à 14 plus le commentaire

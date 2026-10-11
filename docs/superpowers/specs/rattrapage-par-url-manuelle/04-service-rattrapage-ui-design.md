@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["03-protocole-ndjson-rattrapage-design.md"]
-date: "2026-10-03"
+date: "2026-10-10"
 ---
 
 # Service Angular du rattrapage par URL

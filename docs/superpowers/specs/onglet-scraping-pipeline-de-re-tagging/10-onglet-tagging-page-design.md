@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["05-cle-api-design.md", "08-service-sidecar-tagging-design.md", "09-liste-du-run-design.md"]
-date: "2026-09-20"
+date: "2026-10-11"
 ---
 
 # Onglet Tagging : dossier, lancement, progression et fin de run
@@ -29,7 +29,7 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), le réca
 
 ## Références de design
 
-- **Maquette** : `ui_kits/techno-tagger/TaggingScreen.jsx`, composant `TaggingScreen` dans ses phases `idle` et `running` (en-tête, chemin, bouton de lancement, barre de progression, bloc vide), `AppShell.jsx` pour l'onglet et le toast de fin de phase réseau, et `PlaylistScreen.jsx` dans son état `done` pour le seul bouton « Passer au tagging » (le reste de cet écran est livré et arbitré, cf. `.design-sync/NOTES.md`). Les phases `urlRescue`, `writing` et `recap`, ainsi que `UrlRescue` et `Recap`, relèvent des epics suivants.
+- **Maquette** : `ui_kits/techno-tagger/TaggingScreen.jsx`, composant `TaggingScreen` dans ses phases `idle` et `running` (en-tête, chemin, bouton de lancement, barre de progression, bloc vide), `AppShell.jsx` pour l'onglet et le toast de fin de phase réseau et `PlaylistScreen.jsx` dans son état `done` pour le seul bouton « Passer au tagging » (le reste de cet écran est livré et arbitré, cf. `.design-sync/NOTES.md`). Les phases `urlRescue`, `writing` et `recap`, ainsi que `UrlRescue` et `Recap`, relèvent des epics suivants.
 - **Design system** : `components/forms/Button.prompt.md`, `components/data/ProgressBar.prompt.md`, `components/feedback/EmptyState.prompt.md`, `components/feedback/Message.prompt.md`, `components/feedback/Toast.prompt.md`
 - Règle de lecture : `.claude/rules/design/claude-design.md`, arbitrages dans `docs/DESIGN.md` § Structure de Page (container unique `px-16 py-8` porté par le shell, page qui ne défile jamais, le scroll vit dans la table)
 
@@ -48,10 +48,10 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), le réca
 
 ## Architecture approach
 
-- **Service de signal de fin** `CompletionSignalService` dans `core/` : `announce(messageKey)` joue deux notes courtes par l'API Web Audio, puis affiche un toast traduit par le `MessageService` de PrimeNG (en `warn` quand l'appelant le demande, pour une écriture ou une restauration terminée avec des échecs). Aucun fichier audio n'entre dans le dépôt : pas de binaire à relire en diff, pas de licence à suivre, et le remplacement par un fichier plus tard ne touchera que ce service (décision du 2026-09-20). La politique d'autoplay de WebView2 est satisfaite, le son ne suivant qu'un clic de l'utilisateur sur « Lancer ».
+- **Service de signal de fin** `CompletionSignalService` dans `core/` : `announce(messageKey)` joue deux notes courtes par l'API Web Audio, puis affiche un toast traduit par le `MessageService` de PrimeNG (en `warn` quand l'appelant le demande, pour une écriture ou une restauration terminée avec des échecs). Aucun fichier audio n'entre dans le dépôt : pas de binaire à relire en diff, pas de licence à suivre et le remplacement par un fichier plus tard ne touchera que ce service (décision du 2026-09-20). La politique d'autoplay de WebView2 est satisfaite, le son ne suivant qu'un clic de l'utilisateur sur « Lancer ».
 - **Le son respecte la préférence** « signal sonore », lue dans le store Tauri avec `true` par défaut, sur le modèle du mode d'extraction déjà persisté. Sa bascule arrive avec la Feature 7. Le toast, lui, s'affiche toujours : il n'est pas sonore et ne coupe rien.
-- **Déclenché par une transition, jamais par un rendu** : le service racine observe les signaux de fin du store, et un signal ne notifiant que sur une nouvelle valeur, chaque fin s'annonce une fois, écran monté ou non. BRAINSTORM l'exige : une fois, à la fin de la phase réseau, jamais par arbitrage.
-- **Branché des deux côtés** (décision du 2026-09-20) : fin de la phase réseau du run, et fin de l'extraction de l'onglet Playlist, qui n'avait ni son ni toast. C'est une extension de la Feature 1, consignée dans BRAINSTORM.md sous celle-ci. Le `p-toast` est posé une fois dans le shell, et le service annonce aussi la fin d'une écriture et celle d'une restauration (`ecriture-des-tags-et-renommage`).
+- **Déclenché par une transition, jamais par un rendu** : le service racine observe les signaux de fin du store et un signal ne notifiant que sur une nouvelle valeur, chaque fin s'annonce une fois, écran monté ou non. BRAINSTORM l'exige : une fois, à la fin de la phase réseau, jamais par arbitrage.
+- **Branché des deux côtés** (décision du 2026-09-20) : fin de la phase réseau du run et fin de l'extraction de l'onglet Playlist, qui n'avait ni son ni toast. C'est une extension de la Feature 1, consignée dans BRAINSTORM.md sous celle-ci. Le `p-toast` est posé une fois dans le shell et le service annonce aussi la fin d'une écriture et celle d'une restauration (`ecriture-des-tags-et-renommage`).
 - **Choix du dossier par `PathPickerComponent`** (décision du 2026-09-20, écart à la maquette) : la maquette n'a pas de sélecteur et renvoie vers l'onglet Playlist, BRAINSTORM demande « la sélection d'un dossier ». Le sélecteur est prérempli avec la destination de la dernière extraction quand il y en a une, ce qui couvre le cas courant sans interdire de re-tagger un dossier qui ne vient pas d'une extraction. L'écart est consigné dans `.design-sync/NOTES.md`.
 - **Passage au tagging depuis l'onglet Playlist** (décision du 2026-09-22) : une fois l'extraction terminée, un bouton secondaire « Passer au tagging » navigue vers l'onglet Tagging par le `Router`, comme le shell le fait pour ses onglets. Il ne transporte aucune donnée : le dossier arrive par la destination mémorisée à l'extraction, celle-là même qui préremplit le sélecteur. Absent avant et pendant une extraction. La maquette le place à côté de l'action d'extraction ; l'écran livré ayant replié son formulaire en deux temps (arbitrage consigné dans `.design-sync/NOTES.md`), il prend place à côté de « Extraction terminée (N sur N) », sur la même ligne.
 - **Lancement conditionné**, comme le bouton d'extraction : désactivé sans dossier, sans clé API (`apiKeyConfigured`), pendant un run, pendant une restauration ou un rattrapage en vol, ou tant que le sidecar n'est pas prêt. Son tooltip nomme la cause la plus proche de l'utilisateur, seule exception admise par DESIGN.md à la règle « un tooltip n'est jamais seul porteur d'information ». Le bouton est l'action unique de l'en-tête et cède sa place selon la phase (« Interrompre », « Confirmer l'écriture »), cf. DESIGN.md § Arbitrages.
@@ -59,7 +59,7 @@ Exclut la bascule du signal sonore et les autres réglages (Feature 7), le réca
 - **La page ne calcule rien** : lignes, états, scores et compteurs viennent du sidecar (`.claude/rules/angular/components.md`). Elle compose le sélecteur, le bouton, la progression, la liste et les messages.
 - **État vide** par `EmptyStateComponent` avant le premier run : invitation à choisir un dossier, puis à lancer le run une fois le dossier choisi. L'absence de clé API se dit par le tooltip du lancement.
 - **Erreurs** par `ErrorMessageComponent` sous l'en-tête, traduites depuis leur `code` et limitées aux commandes que la page émet (`start_tagging`, puis `commit_run`, `retry_write` et `rollback`) : pour le lancement `api_key_missing`, `api_key_rejected`, `tagging_folder_unreadable`, `tagging_in_progress`, `sidecar_unavailable`.
-- **Layout** : le container et les marges viennent du shell, la page ne pose ni padding ni `max-width`, et ne défile jamais, le scroll vivant dans la table (`docs/DESIGN.md` § Structure de Page).
+- **Layout** : le container et les marges viennent du shell, la page ne pose ni padding ni `max-width` et ne défile jamais, le scroll vivant dans la table (`docs/DESIGN.md` § Structure de Page).
 - **i18n** : aucun libellé en dur, FR et EN dans le même commit, vouvoiement pour les phrases, infinitif pour les actions, espace insécable avant les deux-points en français.
 
 ## Acceptance criteria

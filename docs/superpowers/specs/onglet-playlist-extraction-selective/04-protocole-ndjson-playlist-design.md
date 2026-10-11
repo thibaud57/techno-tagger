@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-parsing-playlists-design.md", "02-resolution-extraction-fichiers-design.md", "03-rapport-extraction-design.md"]
-date: "2026-09-08"
+date: "2026-10-11"
 ---
 
 # Protocole NDJSON : socle de la boucle et commandes de l'extraction
@@ -19,7 +19,7 @@ Exclut les commandes de tagging, d'arbitrage, de rattrapage, d'écriture, de rol
 
 ### État livré
 
-À la fin de ce sub-project, on peut : sans lancer l'interface, injecter des commandes sur `stdin` du sidecar et lire ses événements sur `stdout` : un `list_playlists` rend un `playlists_listed`, un `extract_playlist` émet une suite de `progress` puis un `extraction_finished` portant le chemin du rapport, et une commande malformée rend un `error` sans qu'aucun fichier n'ait bougé.
+À la fin de ce sub-project, on peut : sans lancer l'interface, injecter des commandes sur `stdin` du sidecar et lire ses événements sur `stdout` : un `list_playlists` rend un `playlists_listed`, un `extract_playlist` émet une suite de `progress` puis un `extraction_finished` portant le chemin du rapport et une commande malformée rend un `error` sans qu'aucun fichier n'ait bougé.
 
 ## Dependencies
 
@@ -40,17 +40,17 @@ Exclut les commandes de tagging, d'arbitrage, de rattrapage, d'écriture, de rol
 
 - **`protocol.py` reste la seule interface publique du sidecar** (cf. `.claude/rules/python/imports-modules.md`) : il déclare les modèles, jamais la logique. L'exécution d'une commande vit dans `handlers.py`, appelé depuis la boucle, ce qui garde `__main__.py` limité au moteur et au routage.
 - **Modèles Pydantic fermés sur les commandes entrantes** : `model_config = ConfigDict(extra="forbid", frozen=True, strict=True)`. Un champ inconnu est une commande malformée, pas un détail à ignorer, et la coercion lax est écartée sur ce qui vient de l'interface (cf. `.claude/rules/pydantic/modeles.md` et [ADR-022](../../../adrs/022-modeles-pydantic-du-protocole.md)).
-- **Discrimination par le champ `command`** : chaque commande porte un `Literal` qui l'identifie, et une union discriminée route la ligne vers le bon modèle. C'est ce qui permet de valider en une passe par `validate_json` sans essayer les modèles à tour de rôle. Chaque événement porte de même un `Literal` sur `event`, que le miroir TypeScript discrimine.
+- **Discrimination par le champ `command`** : chaque commande porte un `Literal` qui l'identifie et une union discriminée route la ligne vers le bon modèle. C'est ce qui permet de valider en une passe par `validate_json` sans essayer les modèles à tour de rôle. Chaque événement porte de même un `Literal` sur `event`, que le miroir TypeScript discrimine.
 - **Une `ValidationError` devient un événement `error`**, jamais une trace remontée à l'écran : le `code` est stable, les `params` sont tirés de `.errors()` (`loc`, `type`), et l'interface traduit. Le sidecar n'émet aucune phrase destinée à l'utilisateur.
 - **Aucun effet de bord partiel sur commande malformée** : la validation précède toute exécution, donc une commande rejetée n'a rien touché.
-- **Moteur asynchrone dès ce sub-project** : `asyncio.run`, la lecture de `stdin` déléguée par `asyncio.to_thread(sys.stdin.readline)`, et un `asyncio.TaskGroup` qui porte les phases longues. La lecture asynchrone native de `stdin` est impossible sous Windows, `loop.connect_read_pipe` y échouant sur `OSError: [WinError 6]` ; la délégation en thread est la voie que la rule `.claude/rules/python/asyncio.md` prescrit déjà pour tout appel bloquant. Les epics suivants branchent leur pool borné sur cette même boucle sans réécrire le point d'entrée.
-- **L'extraction tourne en tâche de fond**, dans le `TaskGroup`, pour que la boucle continue de lire `stdin` pendant la copie : une commande courte comme `get_version` est répondue avant la fin, et un `shutdown` n'attend plus derrière la copie dans le pipe.
+- **Moteur asynchrone dès ce sub-project** : `asyncio.run`, la lecture de `stdin` déléguée par `asyncio.to_thread(sys.stdin.readline)` et un `asyncio.TaskGroup` qui porte les phases longues. La lecture asynchrone native de `stdin` est impossible sous Windows, `loop.connect_read_pipe` y échouant sur `OSError: [WinError 6]` ; la délégation en thread est la voie que la rule `.claude/rules/python/asyncio.md` prescrit déjà pour tout appel bloquant. Les epics suivants branchent leur pool borné sur cette même boucle sans réécrire le point d'entrée.
+- **L'extraction tourne en tâche de fond**, dans le `TaskGroup`, pour que la boucle continue de lire `stdin` pendant la copie : une commande courte comme `get_version` est répondue avant la fin et un `shutdown` est lu sans rester derrière la copie dans le pipe.
 - **Une seule phase longue à la fois** : tant qu'une extraction, une recherche, une écriture ou un rollback tourne, toute autre phase longue est refusée par l'erreur de celle qui occupe les fichiers (`extraction_in_progress`, `tagging_in_progress`, `write_in_progress`, `rollback_in_progress`). La phase en cours continue. Deux phases mêlées pourraient viser le même dossier.
 - **Les appels métier bloquants passent par `to_thread`** : lecture SQLite, parcours du dossier source, copie de fichiers, écriture du rapport. Sans quoi la boucle gèlerait et aucun `progress` ne partirait pendant une extraction.
 - **`progress` alimenté par le rappel du sub-project 02** : le module d'extraction ignore le protocole, la boucle lui passe une fonction qui émet l'événement. La phase est nommée, `progress` couvrant les quatre phases longues du projet.
-- **Une ligne par événement, sans flush explicite** : `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON, et n'accepte jamais d'`indent`. Le `line_buffering` posé sur `stdout` par `_force_utf8_streams()` dispense de flusher (cf. [ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)).
+- **Une ligne par événement, sans flush explicite** : `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON et n'accepte jamais d'`indent`. Le `line_buffering` posé sur `stdout` par `_force_utf8_streams()` dispense de flusher (cf. [ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)).
 - **`stdout` ne porte que des événements** : tout diagnostic va sur `stderr` et dans le fichier de log tournant, sous peine de corrompre le protocole.
-- **`shutdown` sort proprement** : la boucle s'arrête après avoir attendu l'extraction en cours, une copie coupée en vol laissant un fichier à moitié écrit. L'EOF sur `stdin` reste le filet si l'application est tuée, et attend de même.
+- **`shutdown` sort proprement** : la boucle s'arrête après avoir attendu l'extraction en cours, une copie coupée en vol laissant un fichier à moitié écrit. L'EOF sur `stdin` reste le filet si l'application est tuée et attend de même.
 - **Un `error` nomme la commande qui a échoué** (`command`), l'extraction tournant en tâche de fond pendant que la boucle lit la suite : l'interface ne peut pas la déduire de la dernière commande envoyée.
 - **`playlists_listed` annonce le format du fichier** (`vlc_dump` ou `m3u8`) : l'interface doit savoir s'il faut proposer un sélecteur de playlist, et reconnaître un format côté TypeScript serait une règle métier au mauvais endroit. Sur un M3U8, l'événement porte une liste vide et son format, sans erreur : détourner le canal d'erreur en canal d'information rendrait un fichier illisible indistinguable d'un M3U8 valide.
 - **`extraction_finished` porte les cinq catégories** du résultat produit par le sub-project 02. ARCHITECTURE.md n'en décrivait que trois, écrites avant que le découpage n'établisse qu'un transfert pouvait échouer sans que le morceau soit introuvable : la documentation a été corrigée dans le même mouvement, sans quoi le contrat et sa description divergeraient dès la première version.
@@ -159,7 +159,7 @@ Exclut les commandes de tagging, d'arbitrage, de rattrapage, d'écriture, de rol
   - une erreur métier rend un `error` portant son `code` et sa commande
   - un `get_version` reçu pendant une extraction est répondu avant `extraction_finished`
   - une seconde extraction lancée pendant la première est refusée, la première allant à son terme
-  - une écriture, un rollback ou un run refusés pendant une extraction, et une extraction refusée pendant un run, une écriture ou un rollback (`test_ndjson_phases.py`)
+  - une écriture, un rollback ou un run refusés pendant une extraction et une extraction refusée pendant un run, une écriture ou un rollback (`test_ndjson_phases.py`)
   - un rapport impossible à écrire rend un `error` sans `extraction_finished`
   - `shutdown` termine le processus sans erreur
   - `shutdown` attend la fin d'une extraction en cours
@@ -194,7 +194,7 @@ Exclut les commandes de tagging, d'arbitrage, de rattrapage, d'écriture, de rol
 
 **Options envisagées :**
 - **A. `handlers.py` entre `protocol.py` et le métier** : `__main__.py` se limite au moteur et au routage, `protocol.py` aux modèles. Chaque commande a une fonction dédiée, testable sans lancer la boucle.
-- **B. Tout dans `__main__.py`** : moins de fichiers, mais le point d'entrée grossit à chaque commande ajoutée, et les epics suivants en ajoutent une dizaine.
+- **B. Tout dans `__main__.py`** : moins de fichiers, mais le point d'entrée grossit à chaque commande ajoutée et les epics suivants en ajoutent une dizaine.
 
 **Choix : A**
 

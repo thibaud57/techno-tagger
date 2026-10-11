@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-09-06"
+date: "2026-10-11"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
@@ -660,7 +660,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 
 > **Deux emplacements, pas un.** Drive seul tombe avec le compte Google, la clé USB seule tombe avec le tiroir. Le chiffrement AES-256 en amont est ce qui rend le dépôt sur Drive acceptable : sans lui, un compte Google compromis donnerait à quelqu'un la capacité de **signer une fausse mise à jour** que les installations existantes accepteraient et installeraient automatiquement.
 
-> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant ; le dump des tags d'origine vit 30 jours pour qu'un run raté puisse s'annuler au lancement suivant ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
+> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant ; le dump des tags d'origine vit 30 jours pour qu'un run raté reste annulable d'un lancement à l'autre ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
 
 ## Recovery
 

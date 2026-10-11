@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-ecriture-tags-design.md", "02-dump-tags-origine-design.md", "03-renommage-fichiers-design.md"]
-date: "2026-10-06"
+date: "2026-10-10"
 ---
 
 # Phase d'écriture d'un run

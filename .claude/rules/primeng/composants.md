@@ -17,6 +17,9 @@ paths:
 - Nommer en commentaire ce sur quoi une largeur figée a été mesurée
 - Dimensionner un `p-dialog` par `styleClass` et des classes Tailwind, pas par `[style]`
 - Poser `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur toute `p-table` : colonnes figées sur l'en-tête et état vide centré sur toute la hauteur
+- Poser `size="small"` sur tout bouton, `link` excepté, boutons des modales de confirmation compris (`acceptButtonProps` et `rejectButtonProps` de `injectDangerConfirm`)
+- Lier tout `pTooltip` par `[tooltipOptions]` au jeu `TOOLTIP` (ou `WIDE_TOOLTIP` pour un texte long, `src/app/shared/utils/tooltip.ts`) : il pose le délai et la position sous l'élément (`TOOLTIP_POSITION`). PrimeNG n'a aucun défaut global : sans ce jeu le tooltip s'ouvre à droite et sans délai, et sur le côté la place manque dès que l'élément touche le bord de la fenêtre
+- Régler une fois dans le preset (`src/app/core/theme.ts`, `dialog.css`) la croix des modales, calée sur la première ligne du titre et sur le bord du contenu
 
 ## À éviter
 - `::ng-deep` : il casse à la mise à jour, passer par `[dt]` ou `[pt]`
@@ -28,11 +31,14 @@ paths:
 - De la logique métier dans un composant : scores, seuils et classement des candidats viennent du sidecar
 - `p-button`, déprécié en v22 : `<button pButton type="button">`
 - `p-password`, déprécié en v22 : `<input pInputPassword>`, sans œil de bascule intégré (`mask` et `toggleMask()`, icône à composer)
+- Un `[tooltipPosition]` ou un `[showDelay]` posé sur l'instance (`"left"`, `"right"`, un délai en dur) : passer par `[tooltipOptions]`
+- Repositionner la croix d'une modale par instance (marge, `[pt]`, classe) : une modale qui diverge se corrige dans le preset
 
 ## Gotchas
 - `@primeicons/angular` rend des composants standalone en SVG inline, plus une police à classes. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 étant sous licence PrimeUI
 - Les logos absents du jeu (Beatport, Bandcamp, SoundCloud, VLC) viennent de Simple Icons, en SVG dans `src/assets/icons/`
 - Le câblage tabs ↔ router est manuel, une dizaine de lignes dans le shell, sans aucune synchronisation automatique
+- Le preset pose `display: contents` sur `p-dialog` et `p-confirmdialog` : fermée, une modale ne rend que sa balise hôte, qui compte sinon comme un enfant vide de la colonne flex de la page et ajoute un `gap` sous le dernier élément (48px sous la liste de Tagging, relevé le 2026-10-11)
 - `outline: none` est interdit : la modale d'arbitrage se traite entièrement au clavier et le focus doit rester visible
 
 ## Exemples

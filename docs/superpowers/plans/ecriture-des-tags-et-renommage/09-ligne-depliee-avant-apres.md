@@ -4,7 +4,7 @@
 
 **Goal:** Afficher sous une ligne de la liste du run la comparaison avant / après de ses tags, champ par champ, avec la pochette en grand.
 
-**Architecture:** Un composant partagé `app-no-value` porte le cadratin d'une cellule sans valeur. `TrackDetailComponent` rend la pochette de 160px et la grille Champ / Avant / Après à partir de `tagsBefore` et `tagsAfter`, ordre et clés venant du sidecar. `RunListComponent` gagne une colonne de chevron (`pRowToggler`) et un `#expandedrow`, et perd son scroll virtuel, incompatible avec des lignes de hauteur variable.
+**Architecture:** Un composant partagé `app-no-value` porte le cadratin d'une cellule sans valeur. `TrackDetailComponent` rend la pochette de 160px et la grille Champ / Avant / Après à partir de `tagsBefore` et `tagsAfter`, ordre et clés venant du sidecar. `RunListComponent` gagne une colonne de chevron (`pRowToggler`) et un `#expandedrow` ; il perd son scroll virtuel, incompatible avec des lignes de hauteur variable.
 
 **Tech Stack:** Angular 22 (zoneless, signals, `@for` / `@if`), PrimeNG 22.1.2 (`p-table`, `pRowToggler`, `pButton`, `p-skeleton`, `pTooltip`), Tailwind 4, ngx-translate, Vitest.
 
@@ -576,7 +576,7 @@ Expected: FAIL, `toggleOf(fixture)` nul et indices de colonnes décalés (`conve
 
 - [ ] **Step 3: Ajouter l'icône**
 
-Dans `src/app/shared/components/icon.component.ts`, importer `import { ChevronDown } from "@primeicons/angular/chevron-down"`, ajouter `"chevron-down"` à `ICON_NAMES` avant `"chevron-left"`, `ChevronDown` aux `imports` du composant, et dans le `@switch` :
+Dans `src/app/shared/components/icon.component.ts`, importer `import { ChevronDown } from "@primeicons/angular/chevron-down"`, ajouter `"chevron-down"` à `ICON_NAMES` avant `"chevron-left"`, `ChevronDown` aux `imports` du composant et dans le `@switch` :
 
 ```html
       @case ("chevron-down") {
@@ -597,7 +597,7 @@ Dans `src/app/features/tagging/run-list.component.ts` : ajouter `ButtonDirective
 
 Dans `run-list.component.html` :
 
-1. Sur `<p-table>`, retirer `[virtualScroll]="true"` et `[virtualScrollItemSize]="ROW_HEIGHT"`, ajouter `[rowTrackBy]="byTrackId"`, et au-dessus de la balise :
+1. Sur `<p-table>`, retirer `[virtualScroll]="true"` et `[virtualScrollItemSize]="ROW_HEIGHT"`, ajouter `[rowTrackBy]="byTrackId"` ; au-dessus de la balise :
 
 ```html
 <!-- Pas de scroll virtuel : une ligne depliee decalerait toutes les suivantes. -->
@@ -610,7 +610,7 @@ Dans `run-list.component.html` :
       <th class="w-16"></th>
 ```
 
-3. `<ng-template #body let-track>` devient `<ng-template #body let-track let-expanded="expanded">`, et la première cellule de la ligne, avant celle de la vignette :
+3. `<ng-template #body let-track>` devient `<ng-template #body let-track let-expanded="expanded">` ; la première cellule de la ligne, avant celle de la vignette :
 
 ```html
       <td>
@@ -659,7 +659,7 @@ Expected: PASS
 
 - [ ] **Step 7: Vérifier à l'écran**
 
-Run: `just dev-ui`, ouvrir l'onglet Tagging sur les fixtures de développement, déplier un morceau résolu, un non résolu et un à arbitrer. Attendu : pochette en 160px, grille fidèle à `TrackDetail` aux écarts près (16 lignes, clé `TYER`, pas de `TPE2`), le clic sur une ligne à arbitrer ouvre toujours la modale, la liste défile sans saut avec plusieurs lignes ouvertes. Relever la largeur de la colonne du chevron (`w-16`) en français et en anglais, et l'ajuster au besoin. Arrêter par `just stop`.
+Run: `just dev-ui`, ouvrir l'onglet Tagging sur les fixtures de développement, déplier un morceau résolu, un non résolu et un à arbitrer. Attendu : pochette en 160px, grille fidèle à `TrackDetail` aux écarts près (16 lignes, clé `TYER`, pas de `TPE2`), le clic sur une ligne à arbitrer ouvre toujours la modale, la liste défile sans saut avec plusieurs lignes ouvertes. Relever la largeur de la colonne du chevron (`w-16`) en français et en anglais, puis l'ajuster au besoin. Arrêter par `just stop`.
 
 - [ ] **Step 8: Commit**
 
@@ -683,7 +683,7 @@ Charger `Skill[design-doc]` et lire son template avant d'éditer. Dans `docs/DES
 - ligne « Tables » du § Layout : ajouter « sauf la liste du run, dont les lignes se déplient : le scroll virtuel de PrimeNG ne connaît qu'une hauteur de ligne et ferait sauter la liste. Elle compte quelques centaines de morceaux, le rapport d'extraction garde le sien » ;
 - ligne « Liste des morceaux d'un run » du mapping (`docs/DESIGN.md:271`) : `p-table` `[scrollable]` sans `[virtualScroll]`, « Sept colonnes » au lieu de « Six » ;
 - jeu de colonnes : `docs/DESIGN.md:456` et `:514`, « six colonnes » devient « sept colonnes » avec le chevron ; tableau « Colonnes de la liste d'un run » (`:470-479`), qui gagne en première ligne « Chevron | 64px fixe | Bouton `small` de 32px plus les marges de la cellule, à remesurer à l'écran » ;
-- ligne « Détail avant / après » du mapping : « Chevron en tête de ligne (`pRowToggler`), qui ne déclenche ni l'arbitrage ni le lien ; pochette en 160px, grille Champ / Avant / Après, toujours les 16 champs écrits plus le commentaire du fichier », et, dans la colonne Composant, `pRowToggler` + `<ng-template #expandedrow>` à la place de `[expandedRowKeys]` ;
+- ligne « Détail avant / après » du mapping : « Chevron en tête de ligne (`pRowToggler`), qui ne déclenche ni l'arbitrage ni le lien ; pochette en 160px, grille Champ / Avant / Après, toujours les 16 champs écrits plus le commentaire du fichier » ; dans la colonne Composant, `pRowToggler` + `<ng-template #expandedrow>` à la place de `[expandedRowKeys]` ;
 - § Arbitrages, à la suite : « **Lignes du détail avant / après** : les 16 champs écrits avec la clé du fichier écrit, plus le commentaire, là où `TrackDetail` montrait `TPE2`, la date complète et une traçabilité combinée. Le détail montre ce que l'écriture fait. Décidé le 2026-10-06 ».
 
 Charger `Skill[knowledge-doc]` et lire son template avant d'éditer. Dans `docs/knowledges/primeng.md` § Table défilante, Points Importants, ajouter une puce : « **`#expandedrow` ne va pas avec le scroll virtuel** : le scroller place chaque ligne à `rang × virtualScrollItemSize` et dimensionne son espaceur sur le même produit, sans mesure ; une ligne dépliée de hauteur variable décale donc toutes les suivantes (lu dans `primeng-scroller.mjs`, PrimeNG 22.1.2, 2026-10-06). Une table à lignes dépliables se rend sans `[virtualScroll]` ».

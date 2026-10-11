@@ -4,7 +4,7 @@
 
 **Goal:** Exposer la confirmation globale et la relance de l'écriture sur le protocole NDJSON, avec les gardes qui figent le run et protègent une écriture en cours.
 
-**Architecture:** `protocol.py` gagne `CommitRun`, `RetryWrite` et les compteurs `written` / `write_error` de `run_finished`, mirrorés dans `protocol.ts`. `handlers.py` pose un `RunWriter` sur le run courant à la confirmation et traduit ses événements. `__main__.py` lance l'écriture en tâche de fond, refuse ce qui n'est pas ouvert (`write_not_open`), ce qui chevauche une écriture (`write_in_progress`) et toute décision sur un run confirmé (`run_committed`).
+**Architecture:** `protocol.py` gagne `CommitRun`, `RetryWrite` et les compteurs `written` / `write_error` de `run_finished`, reproduits dans `protocol.ts`. `handlers.py` pose un `RunWriter` sur le run courant à la confirmation et traduit ses événements. `__main__.py` lance l'écriture en tâche de fond, refuse ce qui n'est pas ouvert (`write_not_open`), ce qui chevauche une écriture (`write_in_progress`) et toute décision sur un run confirmé (`run_committed`).
 
 **Tech Stack:** Python 3.14 (`asyncio.TaskGroup`, `functools.partial`), pydantic 2 (commandes strictes), pytest-asyncio et `ndjson_loop.conversation`, TypeScript pour le miroir. Aucune dépendance nouvelle.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Dépend du sub-project 04, implémenté avant** : `writing.RunWriter(live, dump_folder, on_event)` (`write()`, `retry()`), `writing.WriteProgress`, `writing.WriteEvent`, `TrackState.WRITTEN` / `WRITE_ERROR` ; et, par lui, `tag_dump.dump_dir()` et `TagDumpWriteError`.
+- **Dépend du sub-project 04, implémenté avant** : `writing.RunWriter(live, dump_folder, on_event)` (`write()`, `retry()`), `writing.WriteProgress`, `writing.WriteEvent`, `TrackState.WRITTEN` / `WRITE_ERROR` ; par lui, `tag_dump.dump_dir()` et `TagDumpWriteError`.
 - **Commandes** : `commit_run {run_id}` et `retry_write {run_id}`, strictes, sans champ en trop.
 - **Ouverture** : `commit_run` exige le run courant désigné, une phase réseau finie ou interrompue et un run jamais confirmé ; `retry_write` le même run déjà confirmé. Sinon `write_not_open`, y compris quand un geste d'arbitrage ou de rattrapage est en vol : un geste qui finirait pendant l'écriture écraserait un morceau écrit. Toute commande d'écriture et `start_tagging` pendant une écriture : `write_in_progress`.
 - **Run figé** dès la confirmation : `resolve_arbitration`, `switch_arbitration_source` et `resolve_by_url` refusés en `run_committed`, `params.track_id`. Un dump impossible remet le run en état confirmable : seule la sauvegarde initiale du dump peut lever vers la session, le sub-project 04 logue tout échec de mise à jour du chemin renommé sans rien arrêter.
@@ -50,7 +50,7 @@
 
 ---
 
-### Task 1: Commandes et compteurs du contrat, et leur miroir
+### Task 1: Commandes et compteurs du contrat avec leur miroir
 
 **Files:**
 - Modify: `sidecar/src/tagger/protocol.py:157-205` (après `ResolveByUrl`, unions, `CommandName`) et `:418-426` (`RunFinished`)
@@ -105,7 +105,7 @@ class RetryWrite(Command):
     run_id: str
 ```
 
-Ajouter `| CommitRun | RetryWrite` à la fin des unions `AnyCommand` (avant `Field(discriminator="command")`) et `ExecutableCommand`, et `"commit_run", "retry_write"` à la fin de `CommandName`.
+Ajouter `| CommitRun | RetryWrite` à la fin des unions `AnyCommand` (avant `Field(discriminator="command")`) et `ExecutableCommand` ; ajouter `"commit_run", "retry_write"` à la fin de `CommandName`.
 
 - [ ] **Step 4: Compter l'écriture dans `run_finished`**
 
@@ -146,7 +146,7 @@ def _run_finished(run: TaggingRun, phase: RunPhase) -> RunFinished:
 
 et `handle_start_tagging` émet `_run_finished(current.live.snapshot(), RunPhase.NETWORK)`.
 
-- [ ] **Step 5: Mirrorer le contrat**
+- [ ] **Step 5: Reproduire le contrat en TypeScript**
 
 Dans `src/app/core/models/protocol.ts`, après `ResolveByUrlCommand` :
 
@@ -558,7 +558,7 @@ def to_protocol_event(event: PipelineEvent) -> Event:  # noqa: PLR0911
     """Traduit un evenement pipeline, arbitrage, rattrapage ou ecriture."""
 ```
 
-et, avant `case _: assert_never(event)` :
+Puis, avant `case _: assert_never(event)` :
 
 ```python
         case writing.WriteProgress():
@@ -732,7 +732,7 @@ Charger `Skill[architecture-doc]` avant d'éditer. Dans `docs/ARCHITECTURE.md` �
 - `run_finished` : compteurs `resolved`, `unresolved`, `written`, `write_error` et attentes d'arbitrage, dans les deux phases ;
 - `progress` : la phase `write` mesure les morceaux traités sur les morceaux visés par l'écriture ou la relance ;
 - paragraphe sous les tableaux (l. 465), « Le code `tagging_in_progress` est l'exception qui confirme la règle » : l'exception s'étend à `write_in_progress`, porté par `start_tagging` pendant une écriture : il refuse un lancement sans clore le run affiché ;
-- § Concurrence (l. 553-555) : « Les deux phases longues tournent en tâche de fond » devient trois, l'écriture refusant d'être relancée par `write_in_progress` ; « L'annulation les sépare » : `shutdown` attend l'extraction **et l'écriture**, un fichier musical coupé en vol restant à moitié écrit, et seule la phase réseau est annulée ;
+- § Concurrence (l. 553-555) : « Les deux phases longues tournent en tâche de fond » devient trois, l'écriture refusant d'être relancée par `write_in_progress` ; « L'annulation les sépare » : `shutdown` attend l'extraction **et l'écriture**, un fichier musical coupé en vol restant à moitié écrit ; seule la phase réseau est annulée ;
 - § Robustesse, sidecar qui meurt pendant un run (l. 791) : « aucun fichier musical n'a été touché » n'est vrai que hors écriture ; pendant l'écriture, des fichiers peuvent être à moitié écrits et le dump des tags d'origine les restaure au lancement suivant.
 
 - [ ] **Step 2: Vérifier le rendu**

@@ -2,7 +2,7 @@
 title: "mutagen — Lecture et écriture des tags audio"
 version: "1.48.1"
 description: "Référence technique pour mutagen : ID3 vs Vorbis Comments, écriture en ID3v2.3, pochettes APIC et FLAC, tags WAV/AIFF, dump pour rollback et gestion des fichiers verrouillés."
-date: "2026-08-29"
+date: "2026-10-11"
 keywords: ["mutagen", "id3", "vorbis-comments", "apic", "flac", "wav", "aiff", "tags"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller"]
@@ -77,8 +77,9 @@ tags.save(v2_version=3)   # sans cet argument : v2.4
 
 ### Points Importants
 
-- **La conversion v2.4 → v2.3 n'est pas neutre** : le texte UTF-8 est réencodé en UTF-16, les valeurs multiples sont jointes par un séparateur (`v23_sep`, `/` par défaut), et **`TDRC` est éclaté en `TYER` + `TDAT` + `TIME`** (techno-tagger réduit la date à l'année : `TYER` seul)
+- **La conversion v2.4 → v2.3 n'est pas neutre** : le texte UTF-8 est réencodé en UTF-16, les valeurs multiples sont jointes par un séparateur (`v23_sep`, `/` par défaut) et **`TDRC` est éclaté en `TYER` + `TDAT` + `TIME`** (techno-tagger réduit la date à l'année : `TYER` seul)
 - **Piège historique `EasyID3` + `v2_version=3`** : écrire `audio["date"]` puis sauver produisait une frame `TDRC` vide en plus du `TYER`. Le code actuel gère le cas en interne (sauvegarde des frames v2.4, conversion, restauration), mais **ce correctif est arrivé en cours de vie du projet** : écrire un test qui écrit une date, sauve en v2.3, relit le fichier et vérifie `TYER`
+- **`update_to_v23()` convertit un `TDOR` existant en `TORY`**, mais techno-tagger n'écrit aucune année d'origine (la source ne rend que la date de la sortie, cf. [ADR-011](../adrs/011-politique-ecriture-tags.md), 2026-10-11) : un `TORY` ou un `ORIGINALDATE` déjà dans le fichier reste intact
 - Le séparateur de valeurs multiples (`v23_sep`) change le rendu d'une chaîne d'artistes, mais techno-tagger écrit une seule chaîne par champ, artistes joints par « , » : `v23_sep` ne s'applique pas (tranché le 2026-10-06, cf. [ADR-011](../adrs/011-politique-ecriture-tags.md))
 - **`save(v2_version=3)` ne convertit pas les frames** : sans `update_to_v23()` préalable, `TDRC` et `TDOR` restent sur le disque sous un en-tête v2.3 (constaté le 2026-10-06 sur 1.48.1, objet `ID3` complet compris). Asserter sur le fichier rechargé avec `translate=False`
 
@@ -172,7 +173,7 @@ def read_original_tags(path: Path) -> tuple[int | None, dict[str, list[str]]]:
     audio = mutagen.File(path)
     tags = audio.tags if audio is not None else None
     if isinstance(tags, ID3):
-        # Les seules clés de la table, avec toutes leurs valeurs, et la version du fichier
+        # Les seules clés de la table, avec toutes leurs valeurs et la version du fichier
         fields = {key: [str(v) for v in tags[key].text] for key in ID3_KEYS if key in tags}
         return tags.version[1], fields   # 3 ou 4
     if tags is not None:

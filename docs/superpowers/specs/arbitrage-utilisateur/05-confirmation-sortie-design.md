@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["03-service-arbitrage-ui-design.md"]
-date: "2026-09-26"
+date: "2026-10-11"
 ---
 
 # Confirmation de sortie

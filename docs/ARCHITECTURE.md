@@ -1,7 +1,7 @@
 ---
 title: "ARCHITECTURE — Vue d'ensemble"
 description: "Architecture de techno-tagger : application desktop Tauri + Angular à sidecar Python, consommatrice de l'API techno-scraper, pour le re-tagging et l'organisation de bibliothèques musicales DJ."
-date: "2026-08-29"
+date: "2026-10-11"
 keywords: ["architecture", "adr", "desktop", "tauri", "sidecar", "dj", "metadata"]
 scope: ["docs", "architecture"]
 technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "Python", "pydantic", "mutagen", "rapidfuzz", "httpx2", "PyInstaller"]
@@ -183,7 +183,7 @@ graph TB
             side["Sidecar Python<br/>process long"]
         end
         fs[("Bibliothèque musicale<br/>MP3 / WAV / AIFF / FLAC")]
-        data[("appLocalDataDir<br/>plans de run, cache, logs")]
+        data[("appLocalDataDir<br/>plans de run (Feature 6), cache, dumps des tags, logs")]
         kr[("Credential Manager Windows")]
     end
 
@@ -195,13 +195,14 @@ graph TB
     side -->|"événements NDJSON (stdout)"| ui
     ui -.->|"sélection de dossiers, store, locale"| rust
     rust -->|"Command.sidecar()"| side
-    side -->|"lecture / écriture des tags, déplacement"| fs
-    side -->|"plan, cache, logs"| data
+    side -->|"lecture / écriture des tags, copie, déplacement, renommage"| fs
+    side -->|"plan, cache, dumps, logs"| data
+    ui -.->|"pochettes du cache (asset protocol)"| data
     side -->|"X-API-Key"| kr
     side -->|"HTTPS + X-API-Key"| api
     side -.->|"crashs"| sentry
     ui -.->|"crashs"| sentry
-    rust -.->|"vérification du manifeste"| gh
+    rust -.->|"vérification du manifeste (updater, étape 9)"| gh
 
     style side fill:#2d4a3e,color:#fff
     style api fill:#3e2d4a,color:#fff
@@ -272,7 +273,9 @@ flowchart TD
     bpauto -->|"zone grise"| m1["MODALE temps 1<br/>candidats Beatport"]
     bp -->|"injoignable"| bcp["Bandcamp, sans validation automatique"]
     bcp -->|"candidats"| m3
-    bcp -->|"vide ou en panne"| kos["unresolved<br/>failure_reason = source_unavailable"]
+    bcp -->|"vide"| kon
+    bcp -->|"en panne"| kos["unresolved<br/>failure_reason = source_unavailable"]
+    bc -->|"en panne"| kos
     kos --> url
 
     m1 -->|"choix"| okb["resolved<br/>resolution = arbitration"]
@@ -303,8 +306,11 @@ flowchart TD
     conf --> w["dump des tags d'origine<br/>écriture des tags<br/>pochettes<br/>renommage"]
     w --> ws["written"]
     w -->|"écriture impossible"| we["write_error<br/>file_locked, permission_denied,<br/>disk_full, path_too_long…"]
-    ws --> rep["rapport JSON + Markdown"]
+    ws --> rep["rapport JSON + Markdown<br/>(Feature 6)"]
     we --> rep
+    we -->|"retry_write"| w
+    ws -->|"rollback"| rb["rolled_back<br/>nom et tags d'origine rendus"]
+    we -->|"rollback"| rb
 
     style oka fill:#2d4a3e,color:#fff
     style okb fill:#2d4a3e,color:#fff
@@ -316,6 +322,7 @@ flowchart TD
     style kof fill:#4a2d2d,color:#fff
     style kos fill:#4a2d2d,color:#fff
     style we fill:#4a2d2d,color:#fff
+    style rb fill:#3f3f46,color:#fff
     style w fill:#3e2d4a,color:#fff
 ```
 
@@ -441,7 +448,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `switch_arbitration_source` | identifiant du morceau, `source` à réafficher. Sert le lien de retour vers la liste Beatport après une bascule sur Bandcamp (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)), sans appel réseau et produit un `arbitration_updated` |
 | `resolve_by_url` | identifiant du morceau, URL Beatport / Bandcamp / SoundCloud collée telle quelle (chaîne non vide). Acceptée une fois la phase de rattrapage ouverte, c'est-à-dire sur un run courant dont la phase réseau ne tourne plus (terminée ou interrompue), sinon `url_recovery_not_open`. Un morceau non éligible lève `url_recovery_not_eligible`, un second geste en vol sur le même morceau `url_recovery_busy` |
 | `commit_run` | identifiant du run, confirmation globale de l'écriture. Acceptée sur le run courant dont la phase réseau ne tourne plus, sans geste d'arbitrage ni de rattrapage en vol et jamais confirmé ; sinon `write_not_open` ; pendant une écriture, `write_in_progress` ; pendant une extraction, `extraction_in_progress` ; pendant un rollback, `rollback_in_progress`. Fige le run : arbitrage, bascule de source et rattrapage sont ensuite refusés en `run_committed` (`params.track_id`). Un dump des tags d'origine qui ne s'enregistre pas (`tag_dump_write_failed`, `tag_dump_unreadable`) n'a touché aucun fichier ni aucun morceau : le run redevient confirmable. Ni `cancel_run`, ni `shutdown`, ni l'EOF n'annulent l'écriture |
-| `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages. Acceptée sur le run courant déjà confirmé, sinon `write_not_open` ; refusée en `rollback_in_progress` pendant un rollback |
+| `retry_write` | identifiant du run. Rejoue l'écriture sur les seuls morceaux en `write_error`, sans refaire ni la phase réseau ni les arbitrages. Acceptée sur le run courant déjà confirmé, sinon `write_not_open` ; pendant une écriture, `write_in_progress` ; pendant une extraction, `extraction_in_progress` ; pendant un rollback, `rollback_in_progress` |
 | `resume_run` / `discard_run` | identifiant du plan détecté au lancement |
 | `get_rollback_target` | aucune. Décrit le dernier run annulable, le plus récent des dumps qui a encore des morceaux à restaurer, un dump illisible sauté |
 | `rollback` | identifiant du run, `track_id` optionnel pour un seul morceau. En tâche de fond : nom d'origine puis tags d'origine, un nom d'origine pris par un autre fichier laissant le morceau intact (`name_taken`). Refusée en `tagging_in_progress` pendant la phase réseau, `write_in_progress` pendant l'écriture, `extraction_in_progress` pendant une extraction, `rollback_in_progress` pendant un rollback, `rollback_unavailable` sans dump ou sur un morceau absent du dump. Un morceau dont le fichier est introuvable sous ses deux noms échoue en `file_missing` et quitte le dump, sauf si son dossier d'origine a disparu : l'entrée reste alors. Ni `cancel_run`, ni `shutdown`, ni l'EOF ne la coupent |
@@ -457,7 +464,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `playlists_listed` | format reconnu du fichier et playlists du dump VLC : identifiant, nom, nombre de morceaux |
 | `progress` | phase en cours, traités sur total. Couvre l'extraction, le pipeline de tagging, le rattrapage par URL et l'écriture, le rollback n'en émettant pas. En phase `url_recovery`, émis à l'ouverture du rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), après chaque rattrapage réussi et après chaque geste d'arbitrage hors phase réseau ; mesure les morceaux rattrapés sur les morceaux à rattraper. En phase `write`, mesure les morceaux traités sur les morceaux visés par l'écriture ou par la relance |
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
-| `run_started` | identifiant du run, dossier du run (`folder`) que l'interface compare à celui qu'elle montre et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus, plus `tags_before` : système de tags, commentaire et les champs de la table dans son ordre, chacun avec la clé du fichier écrit (`TYER` et `TORY` pour les dates ID3) et sa valeur, nulle si absente. `tags_before` est nul si les tags étaient illisibles. Sans `run_started`, la liste resterait vide jusqu'à la première résolution |
+| `run_started` | identifiant du run, dossier du run (`folder`) que l'interface compare à celui qu'elle montre et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus, plus `tags_before` : système de tags, commentaire et les champs de la table dans son ordre, chacun avec la clé du fichier écrit (`TYER` pour la date ID3) et sa valeur, nulle si absente. `tags_before` est nul si les tags étaient illisibles. Sans `run_started`, la liste resterait vide jusqu'à la première résolution |
 | `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, champs disponibles, `tags_after` : les valeurs que le fichier contiendra après écriture (valeur du candidat, sinon valeur d'origine gardée), nul pour un non résolu |
 | `arbitration_required` | état complet de l'arbitrage d'un morceau entré dans la file : source affichée, candidats en zone grise avec leur score, leur label et leur année (nuls sur Bandcamp, dont la recherche ne rend ni l'un ni l'autre), `beatport_unavailable` quand Bandcamp n'a été interrogé que parce que Beatport était en panne (§ Chaîne de résolution), `empty_reason` d'une liste Bandcamp vide et `other_source`, la liste que `switch_arbitration_source` peut réafficher. L'index d'un candidat est sa position dans la liste |
 | `arbitration_updated` | mêmes champs qu'`arbitration_required`, pour un morceau déjà dans la file : l'interface remplace son entrée en bloc. Émis à la bascule sur Bandcamp et au retour à Beatport |
@@ -470,7 +477,9 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 
 **`error` nomme la commande qui a échoué, l'interface ne la déduit pas.** Un écran n'affiche que les erreurs des commandes qu'il émet, sans quoi l'échec d'un enregistrement de clé s'afficherait en bannière sur l'onglet Playlist ouvert ensuite. Tant que la boucle traitait une commande à la fois, l'interface pouvait retenir la dernière envoyée et lui attribuer l'erreur suivante. `start_tagging` rendant la main aussitôt (§ [Concurrence](#concurrence)), cette déduction est fausse : une commande courte émise pendant un run récupérerait l'échec du run et le run l'échec de la commande courte. D'où le champ, que le sidecar remplit dans ses deux chemins d'émission. Il vaut `null` sur une ligne trop malformée pour désigner une commande du contrat, son nom éventuel restant dans les `params`.
 
-**Seul l'échec de la commande qui a ouvert un run le clôt.** L'interface arrête son run sur une erreur portant `extract_playlist` ou `start_tagging` et le laisse courir sur toute autre : il tourne toujours côté sidecar et l'effacer laisserait les événements suivants arriver sur une liste vide. Les codes `tagging_in_progress`, `write_in_progress` et `rollback_in_progress` sont l'exception qui confirme la règle : portés par `start_tagging`, ils refusent un lancement en affirmant précisément qu'une phase continue (un run de re-tagging, une écriture ou un rollback) : ils n'arrêtent donc rien et ne closent pas le run affiché.
+**Seul l'échec de la commande qui a ouvert un run le clôt.** L'interface arrête l'extraction en cours sur une erreur portant `extract_playlist` (sauf `extraction_in_progress`) et le run de recherche affiché sur une erreur portant `start_tagging`. Elle laisse courir le run sur toute autre : il tourne toujours côté sidecar et l'effacer laisserait les événements suivants arriver sur une liste vide. Un `extract_playlist` refusé pendant un run n'arrête donc jamais le run affiché. Les codes `tagging_in_progress`, `write_in_progress` et `rollback_in_progress` sont l'exception qui confirme la règle : portés par `start_tagging`, ils refusent un lancement en affirmant précisément qu'une phase continue (un run de re-tagging, une écriture ou un rollback) : ils n'arrêtent donc rien et ne closent pas le run affiché.
+
+Les erreurs d'écriture se routent de même par commande : `commit_run` rend le run de nouveau confirmable, `retry_write` lève l'état d'écriture affiché et `rollback` celui de la restauration, sauf quand le code dit qu'une opération du même type continue (`write_in_progress` pour les deux premières, `rollback_in_progress` pour la dernière).
 
 **`run_finished` porte une `phase`, il n'est pas émis une seule fois.** La fin de la boucle de résolution ouvre la phase de rattrapage par URL, la fin de l'écriture ouvre le récapitulatif : deux moments distincts, deux écrans différents, un seul événement. Sans ce champ, l'interface ne peut pas savoir lequel des deux elle reçoit.
 
@@ -499,16 +508,18 @@ stateDiagram-v2
     [*] --> en_attente
     en_attente --> a_arbitrer : arbitration_required
     en_attente --> resolved : au-dessus du seuil haut, resolution = auto
-    en_attente --> unresolved : vide ou requête inexploitable
+    en_attente --> unresolved : vide, requête inexploitable ou source en panne
     a_arbitrer --> a_arbitrer : refus Beatport, la liste Bandcamp remplace la précédente
     a_arbitrer --> resolved : choix dans la modale, resolution = arbitration
     a_arbitrer --> unresolved : refus Bandcamp, failure_reason = user_refused
     a_arbitrer --> unresolved : « passer » sur une liste Bandcamp vide, motif de Bandcamp
     unresolved --> resolved : URL collée en fin de run, resolution = url
+    resolved --> resolved : autre URL collée avant la confirmation, resolution = url
 
     resolved --> written : commit_run
     resolved --> write_error : commit_run, failure_reason d'écriture
     write_error --> written : retry_write
+    write_error --> write_error : retry_write, nouvel échec
     written --> rolled_back : rollback
     write_error --> rolled_back : rollback
     unresolved --> [*] : aucun fichier touché
@@ -600,7 +611,7 @@ La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en 
 | Cache API + artworks | `appLocalDataDir()` | TTL 30 jours, plafond 500 Mo en éviction LRU | Éviter de repayer un re-run |
 | Rapport d'extraction, JSON + Markdown | Dossier destination | Permanente, livrable | Titres introuvables, doublons résolus et candidats écartés |
 | Rapport de run, JSON + Markdown | Dossier destination | Permanente, livrable | Traçabilité, relecture par l'app, envoi de feedback |
-| Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé**. Un morceau restauré en sort, comme un morceau dont le fichier n'existe plus sous aucun nom tant que son dossier d'origine existe : un dossier introuvable (disque externe débranché, lettre de lecteur changée) garde l'entrée, pour ne pas perdre les tags d'origine. Un fichier présent sous un nouveau nom que le dump n'a pas noté (`renamed_path` non noté) sort du dump quand même. Un dump vidé est supprimé : le dernier run annulable devient alors le précédent | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
+| Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé**. Un morceau en sort une fois restauré, ou quand son fichier est introuvable sous ses deux noms tant que son dossier d'origine existe : si le dossier a disparu (disque externe débranché, lettre de lecteur changée), l'entrée reste, pour ne pas perdre les tags d'origine. Limite acceptée : un fichier renommé que le dump n'a pas noté (`renamed_path` absent) est introuvable et sort du dump. Un dump vidé est supprimé : le dernier run annulable devient le précédent | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
 | Logs du sidecar | `appLocalDataDir()` | Rotation à 5 Mo, 3 sauvegardes | Débogage à distance chez un utilisateur |
 
 Le plan vit dans `appLocalDataDir()`, jamais dans le dossier destination (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
@@ -625,7 +636,7 @@ Lecture et écriture des tags par **mutagen**, pur Python et sans dépendance ho
 
 # 🔄 Diagramme de Séquence
 
-Run de re-tagging complet, de la sélection du dossier au rapport.
+Run de re-tagging complet, de la sélection du dossier au récapitulatif, avec la relance d'une écriture en échec et le rollback.
 
 ```mermaid
 sequenceDiagram
@@ -639,58 +650,87 @@ sequenceDiagram
     UI->>S: start_tagging (stdin)
     S->>FS: lecture des tags ID3
     FS-->>S: artiste, titre (ou nom de fichier)
+    S-->>UI: run_started (tous les morceaux, tags d'origine)
 
-    loop pool asyncio borné
-        S->>API: GET /beatport/search (X-API-Key)
-        API-->>S: candidats
-        S->>S: scoring rapidfuzz
-        alt score au-dessus du seuil haut
-            S-->>UI: track_resolved (resolved · auto)
-        else zone grise
-            S-->>UI: arbitration_required (candidats Beatport)
-            UI->>U: modale, temps 1
-            alt choix d'un candidat
-                U->>UI: sélection
-                UI->>S: resolve_arbitration (candidat)
-                S-->>UI: track_resolved (resolved · arbitration)
-            else aucune correspondance
-                U->>UI: refus explicite
-                UI->>S: resolve_arbitration (refus)
+    par phase réseau, la boucle n'attend jamais l'utilisateur
+        loop pool asyncio borné
+            S->>API: GET /beatport/search (X-API-Key)
+            API-->>S: candidats
+            S->>S: scoring rapidfuzz
+            alt score au-dessus du seuil haut
+                S-->>UI: track_resolved (resolved · auto)
+            else zone grise
+                S-->>UI: arbitration_required (candidats Beatport)
+            else vide
                 S->>API: GET /bandcamp/search
-                API-->>S: candidats
-                S-->>UI: arbitration_updated (la liste Bandcamp remplace la précédente)
-                UI->>U: modale, temps 2
-                opt refus de la liste Bandcamp, ou « Passer » sur une liste vide
-                    S-->>UI: track_resolved (unresolved · user_refused, ou motif de la liste vide)
-                    UI->>U: modale, temps 3 : lien (facultatif, une fois la recherche finie)
-                end
+                API-->>S: candidats ou rien
+                S-->>UI: track_resolved (resolved · auto, ou unresolved)<br/>ou arbitration_required si zone grise
             end
-        else vide
-            S->>API: GET /bandcamp/search
-            API-->>S: candidats ou rien
-            S-->>UI: track_resolved (resolved · auto, ou unresolved)
+            S->>S: décision gardée en mémoire (plan JSON : Feature 6)
+            S-->>UI: progress (phase = tagging)
         end
-        S->>S: décision gardée en mémoire (plan JSON : Feature 6)
-        S-->>UI: progress
+        S-->>UI: run_finished (phase = network, non résolus)
+        S-->>UI: progress (phase = url_recovery)
+    and arbitrage, un morceau à la fois dans la modale
+        UI->>U: modale, temps 1 (dès arbitration_required)
+        alt choix d'un candidat
+            U->>UI: sélection
+            UI->>S: resolve_arbitration (candidat)
+            S-->>UI: track_resolved (resolved · arbitration)
+        else aucune correspondance
+            U->>UI: refus explicite
+            UI->>S: resolve_arbitration (refus)
+            S->>API: GET /bandcamp/search
+            API-->>S: candidats
+            S-->>UI: arbitration_updated (la liste Bandcamp remplace la précédente)
+            UI->>U: modale, temps 2
+            opt refus de la liste Bandcamp, ou « Passer » sur une liste vide
+                UI->>S: resolve_arbitration (refus)
+                S-->>UI: track_resolved (unresolved · user_refused, ou motif de la liste vide)
+                UI->>U: modale, temps 3 : lien (facultatif, une fois la recherche finie)
+            end
+        end
     end
 
-    S-->>UI: run_finished (phase = network, non résolus)
     UI->>U: badge « à rattraper », modale du lien (facultative)
     U->>UI: colle une URL
     UI->>S: resolve_by_url
     S->>API: GET /bandcamp/tracks?url=, /soundcloud/resolve?url=<br/>ou /beatport/tracks/{id} après extraction de l'id
-    API-->>S: Track (UserProfile si l'URL SoundCloud est un profil)
+    API-->>S: Track (un profil SoundCloud est refusé en unsupported_url)
     S-->>UI: track_resolved (resolved · url)
+    S-->>UI: progress (phase = url_recovery)
 
     U->>UI: confirmation globale
     UI->>S: commit_run
-    S->>FS: dump JSON des tags d'origine
-    S->>FS: écriture des tags + pochettes
-    S->>FS: renommage des fichiers
-    S-->>UI: track_resolved (written, ou write_error)
-    S->>FS: rapport JSON + Markdown
+    S->>FS: dump JSON des tags d'origine, de tous les morceaux avant le premier fichier
+    loop un morceau résolu à la fois
+        S->>FS: écriture des tags + pochette
+        S->>FS: renommage du fichier
+        S-->>UI: track_resolved (written, ou write_error)
+        S-->>UI: progress (phase = write)
+    end
+    S->>FS: rapport JSON + Markdown (Feature 6)
     S-->>UI: run_finished (phase = write, récapitulatif)
+    UI->>S: get_rollback_target
+    S-->>UI: rollback_target (dernier run annulable)
     UI->>U: écran récapitulatif filtrable
+
+    opt morceaux en write_error
+        U->>UI: relance de l'écriture
+        UI->>S: retry_write
+        Note over S,FS: mêmes opérations, sur les seuls morceaux en échec
+        S-->>UI: track_resolved, progress, run_finished (phase = write)
+    end
+
+    opt annulation d'un run ou d'un morceau
+        U->>UI: rollback, après confirmation
+        UI->>S: rollback (run_id, track_id facultatif)
+        loop ordre inverse de l'écriture
+            S->>FS: restauration du nom d'origine, puis des tags
+            S-->>UI: track_resolved (rolled_back), pour le run affiché
+        end
+        S-->>UI: rollback_finished (restaurés, échecs)
+    end
 ```
 
 Le contraste que ce diagramme rend visible : le plan JSON est écrit à chaque décision, les fichiers musicaux uniquement après `commit_run`.
@@ -725,11 +765,12 @@ graph LR
     dev["Commit / PR"] --> ci["CI : lint, typecheck, tests"]
     ci --> rp["release-please<br/>PR de release"]
     rp --> tag["Tag v*"]
+    tag --> sr["Releases Sentry<br/>techno-tagger-ui et techno-tagger-sidecar"]
     tag --> pyi["PyInstaller<br/>tagger-x86_64-pc-windows-msvc.exe"]
     pyi --> tb["tauri build<br/>installeur Windows"]
-    tb --> sig["Signature du bundle<br/>TAURI_SIGNING_PRIVATE_KEY"]
-    sig --> rel["GitHub Release<br/>installeur + latest.json"]
-    rel --> upd["Updater : vérification au démarrage"]
+    tb --> sig["Signature du bundle (étape 9)<br/>TAURI_SIGNING_PRIVATE_KEY"]
+    sig --> rel["GitHub Release<br/>installeur + latest.json (étape 9)"]
+    rel --> upd["Updater : vérification au démarrage (étape 9)"]
     upd --> user["Machine de l'utilisateur"]
 
     style sig fill:#4a2d2d,color:#fff
@@ -837,7 +878,7 @@ Deux fenêtres ouvertes signifieraient deux sidecars écrivant le même plan de 
 
 ### Chemins longs Windows
 
-Une bibliothèque profonde plus un renommage en `{artist} - {title}` franchissent facilement la limite de 260 caractères de l'API Win32. La clé `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer à sa place, même manifestée (`longPathAware` de PyInstaller). Le sidecar **préfixe donc ses chemins Windows par `\\?\`** à l'appel système du renommage (`paths.extended_path`) ; l'extraction et l'écriture des tags ne passent pas par lui. Le préfixe ne protège que le sidecar : le nom généré est tronqué en fin de titre pour que le chemin complet reste à 259 caractères au plus, limite des logiciels non adaptés aux chemins longs. La troncature est signalée dans le rapport.
+Une bibliothèque profonde plus un renommage en `{artist} - {title}` franchissent facilement la limite de 260 caractères de l'API Win32. La clé `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer à sa place, même manifestée (`longPathAware` de PyInstaller). Le sidecar **préfixe donc ses chemins Windows par `\\?\`** à l'appel système du renommage (`paths.extended_path`) ; l'extraction et l'écriture des tags ne passent pas par lui. Le préfixe ne vaut que pour le sidecar, les logiciels non adaptés aux chemins longs butant à 260 caractères : le nom généré est tronqué en fin de titre pour que le chemin complet reste à 259 caractères au plus. La troncature est signalée dans le rapport.
 
 ## 📊 Observabilité
 

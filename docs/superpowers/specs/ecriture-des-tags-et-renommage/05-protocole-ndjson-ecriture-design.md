@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["04-phase-ecriture-sidecar-design.md"]
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Protocole NDJSON de l'écriture
@@ -43,7 +43,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 - **Commandes strictes** (`extra="forbid"`, ADR-022, `.claude/rules/pydantic/modeles.md`) : `commit_run {run_id}` et `retry_write {run_id}`, ajoutées aux trois listes de `protocol.py` ; `test_command_name_lists_every_command` garde la recopie de `CommandName`
 - **Écriture en tâche de fond** dans le `TaskGroup` de la session, comme l'extraction : stdin reste lu et la progression part en direct. `_phase` émet `run_finished(write)` à la fin, ou l'`error` d'une `TaggerError` avec sa commande
 - **Garde `_writable(run_id)`** : `write_in_progress` si une écriture tourne (`rollback_in_progress` et `extraction_in_progress` pour les deux autres phases de fichiers, cf. 06) ; `write_not_open` sans run courant, sur un autre `run_id`, pendant la phase réseau ou pendant un geste d'arbitrage ou de rattrapage en vol (`CurrentRun.busy` : un geste qui finirait pendant l'écriture écraserait un morceau écrit). `commit_run` exige ensuite un run jamais confirmé, `retry_write` un run confirmé, sinon `write_not_open`
-- **Run figé** : `CurrentRun.writer` est posé à la confirmation, sa présence (`committed`) refuse arbitrage, bascule de source et rattrapage en `run_committed` avec `params.track_id`. Un dump qui ne s'enregistre pas n'a touché aucun fichier, et reste vrai : seule la sauvegarde initiale du dump peut lever vers la session, le sub-project 04 logue sans rien arrêter un échec de mise à jour du chemin renommé. Le `writer` est retiré et le run redevient confirmable
+- **Run figé** : `CurrentRun.writer` est posé à la confirmation, sa présence (`committed`) refuse arbitrage, bascule de source et rattrapage en `run_committed` avec `params.track_id`. Quand la sauvegarde initiale du dump échoue, aucun fichier n'a été touché : le `writer` est retiré et le run redevient confirmable. Elle est la seule à lever vers la session, le sub-project 04 logue sans rien arrêter un échec de mise à jour du chemin renommé
 - **Écriture protégée** : `start_tagging` refusé en `write_in_progress` pendant l'écriture ; `cancel_run` n'arrête que la phase réseau ; `shutdown` et l'EOF n'annulent jamais l'écriture, attendue par le `TaskGroup` de la boucle comme l'extraction (un fichier coupé en vol resterait à moitié écrit)
 - **Événements** : `track_resolved` du `RunWriter` traduit comme ceux du pipeline (états `written`, `write_error`, motifs d'écriture) ; `WriteProgress` devient `progress(phase=write)`. `run_finished` compte `resolved`, `unresolved`, `written`, `write_error` et les attentes d'arbitrage sur l'état de chaque morceau, dans les deux phases
 - **Traduction** : `to_protocol_event` couvre `PipelineEvent` (pipeline, arbitrage, rattrapage, écriture), `match` fermé par `assert_never` ; PLR0911 neutralisé avec sa justification, une sortie par événement traduit
@@ -104,7 +104,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 
 - **Dump impossible** : `error` `tag_dump_write_failed` sur `commit_run`, aucun fichier touché ni morceau changé, run de nouveau confirmable
 - **Morceau en attente d'arbitrage à la confirmation** : jamais écrit, et plus arbitrable une fois le run confirmé (l'interface le signale avant, sub-project 10)
-- **Nouveau run après l'écriture** : accepté, il remplace le run courant comme avant ; la relance de l'ancien n'est plus possible
+- **Nouveau run après l'écriture** : accepté, il remplace le run courant ; la relance de l'ancien n'est plus possible
 - **`retry_write` sans échec** : accepté, aucun fichier visé, `run_finished(write)` aux mêmes compteurs
 
 ## Architectural decisions

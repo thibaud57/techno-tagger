@@ -129,7 +129,7 @@ Expected: PASS
 
 - [ ] **Step 6: Remesurer la colonne État**
 
-Lancer `just dev-ui`, afficher une ligne en `write_error` (fixtures de développement, ou un état forcé dans la console sur `TaggingRunStore`) en français. Dans les DevTools, relever la largeur du `<span class="inline-flex …">` qui porte le tag et l'icône info, y ajouter le padding horizontal de la cellule, et arrondir au cran Tailwind supérieur (attendu vers `w-52`, 208px). Vérifier en anglais que « Write failed » tient. Dans `run-list.component.html`, remplacer `class="w-40"` de l'en-tête État par la classe mesurée et son commentaire par :
+Lancer `just dev-ui`, afficher une ligne en `write_error` (fixtures de développement, ou un état forcé dans la console sur `TaggingRunStore`) en français. Dans les DevTools, relever la largeur du `<span class="inline-flex …">` qui porte le tag et l'icône info, y ajouter le padding horizontal de la cellule, puis arrondir au cran Tailwind supérieur (attendu vers `w-52`, 208px). Vérifier en anglais que « Write failed » tient. Dans `run-list.component.html`, remplacer `class="w-40"` de l'en-tête État par la classe mesurée et son commentaire par :
 
 ```html
       <!-- Mesuree sur « Echec d'ecriture » et son icone info, le plus long des etats livres
@@ -169,7 +169,7 @@ git commit -m "feat(ui): état d'échec d'écriture et colonne État remesurée"
 
 - [ ] **Step 1: Compléter les stubs**
 
-Ajouter `committed: signal(false)` au stub de `SidecarService` de `tagging-page.component.spec.ts` (`mountWith`), `recovery-ui.store.spec.ts` (`mount`), `url-recovery-dialog.component.spec.ts`, `arbitration-dialog.component.spec.ts`, `app.component.spec.ts` et au `sidecar` de `setup` dans `close-guard.service.spec.ts` : chacun instancie `RecoveryUiStore` ou `CloseGuard`, qui le lisent désormais. Le `sidecar` de `setup` gagne aussi `taggingRunId: signal<string | null>(null)`, que `CloseGuard` lit pour compter un run non confirmé.
+Ajouter `committed: signal(false)` au stub de `SidecarService` de `tagging-page.component.spec.ts` (`mountWith`), `recovery-ui.store.spec.ts` (`mount`), `url-recovery-dialog.component.spec.ts`, `arbitration-dialog.component.spec.ts`, `app.component.spec.ts` et au `sidecar` de `setup` dans `close-guard.service.spec.ts` : chacun instancie `RecoveryUiStore` ou `CloseGuard`, qui le lisent. Le `sidecar` de `setup` gagne aussi `taggingRunId: signal<string | null>(null)`, que `CloseGuard` lit pour compter un run non confirmé.
 
 - [ ] **Step 2: Écrire les specs**
 
@@ -302,7 +302,7 @@ Dans `tagging-page.component.ts`, `protected readonly committed = this.sidecar.c
     const count = this.sidecar.committed() ? 0 : this.sidecar.arbitrationCount()
 ```
 
-et, avant `return work`, après les travaux `write` et `rollback` du 08 :
+Puis, avant `return work`, après les travaux `write` et `rollback` du 08 :
 
 ```ts
     // Un run cherche mais jamais confirme : rien n'est ecrit, ses resultats seraient perdus.
@@ -631,7 +631,7 @@ Dans `src/app/app.config.ts`, importer `ConfirmationService` avec `MessageServic
 
 Dans `src/app/core/sidecar.service.ts`, après `arbitrationBusy` : `readonly arbitrationInFlight = this.arbitration.anyBusy`.
 
-Dans `src/app/shared/components/icon.component.ts`, importer `Refresh` (`@primeicons/angular/refresh`), ajouter `"refresh"` à `ICON_NAMES` et `Refresh` aux `imports` du composant, et dans le `@switch` :
+Dans `src/app/shared/components/icon.component.ts`, importer `Refresh` (`@primeicons/angular/refresh`), ajouter `"refresh"` à `ICON_NAMES` et `Refresh` aux `imports` du composant et dans le `@switch` :
 
 ```html
       @case ("refresh") {
@@ -1007,7 +1007,7 @@ Charger `Skill[design-doc]` et lire son template avant d'éditer. Dans `docs/DES
 - § Arbitrages, remplacer l'entrée « Bouton « Lancer le run » pendant la phase » par : « **Bouton d'action du run** : un seul bouton qui suit la phase, « Lancer le run », « Interrompre » pendant la recherche, « Confirmer l'écriture » (`danger`) sur un run cherché non écrit, à la largeur de son libellé ; choisir un autre dossier abandonne un run non écrit. Là où la maquette posait « Interrompre » à côté de « Lancer le run » et où l'arbitrage du 2026-10-03 gardait « Lancer le run » pendant le rattrapage. Décidé le 2026-10-06 » ;
 - § Écriture et récapitulatif, ligne « Relance de l'écriture en échec » : « Dans l'onglet Tagging, sous un `p-message` d'échec au-dessus de la liste, en attendant le récapitulatif (Feature 6) » ;
 - § Layout, ligne de la colonne État : la mesure sur « Échec d'écriture » et son icône info, avec la largeur retenue à la Task 1 ;
-- § Mapping Composants, lignes « Lancement du run » et « Interruption du run » (`docs/DESIGN.md:269-270`) : un seul bouton d'action qui suit la phase ; « Interrompre » prend la place du lancement pendant la recherche au lieu de se poser à sa gauche, et le lancement n'y reste plus grisé à côté ;
+- § Mapping Composants, lignes « Lancement du run » et « Interruption du run » (`docs/DESIGN.md:269-270`) : un seul bouton d'action qui suit la phase ; « Interrompre » prend la place du lancement pendant la recherche au lieu de se poser à sa gauche ; le lancement n'y reste plus grisé à côté ;
 - § Mapping Composants, ligne « Confirmation de sortie » (`docs/DESIGN.md:250`) : bloquée pendant l'écriture ou un rollback, la modale se titre « Impossible de quitter maintenant » et n'offre que « Rester » ; un run cherché mais non confirmé compte parmi les travaux perdus ;
 - § Tokens de Tooltip (`docs/DESIGN.md:106`) : le motif d'un morceau en échec d'écriture rejoint celui d'un non résolu parmi les exceptions au tooltip jamais seul porteur d'une information ;
 - § Arbitrages, à la suite : « **Relance de l'écriture** : libellé « Relancer l'écriture » et bouton dans l'onglet Tagging, sous le message d'échec, là où la maquette l'intitule « Relancer l'écriture sur les échecs » dans le `Recap`. Décidé le 2026-10-06 ».

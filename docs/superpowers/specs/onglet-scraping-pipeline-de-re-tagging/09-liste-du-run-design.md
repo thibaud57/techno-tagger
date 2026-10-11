@@ -6,14 +6,14 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["08-service-sidecar-tagging-design.md"]
-date: "2026-09-20"
+date: "2026-10-11"
 ---
 
 # Liste du run : table en scroll virtuel
 
 ## Scope
 
-Couvre `StateTagComponent`, avec le mapping de `state`, `resolution`, `failure_reason`, de l'attente d'arbitrage et du run arrêté vers les quatre familles sémantiques, et `RunListComponent` : table en scroll virtuel pleine hauteur (le bouton du détail, la Pochette, Avant, Après, Source, Score, État), vignettes lues dans le cache par `convertFileSrc`, squelettes tant qu'un morceau n'est pas résolu, bloc vide, et les libellés FR et EN.
+Couvre `StateTagComponent`, avec le mapping de `state`, `resolution`, `failure_reason`, de l'attente d'arbitrage et du run arrêté vers les quatre familles sémantiques et `RunListComponent` : table en scroll virtuel pleine hauteur (le bouton du détail, la Pochette, Avant, Après, Source, Score, État), vignettes lues dans le cache par `convertFileSrc`, squelettes tant qu'un morceau n'est pas résolu, bloc vide et les libellés FR et EN.
 
 Exclut la page qui porte la table, le choix du dossier, le lancement et la progression (sub-project 10), le contenu du détail déplié (`ecriture-des-tags-et-renommage/09-ligne-depliee-avant-apres-design.md`), les modales d'arbitrage et du lien que la ligne ouvre (epics `arbitrage-utilisateur` et `rattrapage-par-url-manuelle`) et le récapitulatif filtrable (Feature 6).
 
@@ -73,7 +73,7 @@ Aucun changement côté Tauri : `assetProtocol` est déjà activé avec le scope
   - Les deux colonnes fluides passent par `TruncatedTextComponent`, dont le tooltip large ne s'ouvre que sur un texte coupé et ne porte jamais seul une information (DESIGN.md § Tokens de Tooltip).
 - **Vignettes** : `convertFileSrc` traduit le chemin du cache en URL d'asset (`.claude/rules/tauri/config-bundle.md`). `ArtworkComponent` les rend en trois états, jamais deux : l'image en fondu de 200 ms (DESIGN.md § Composants Animés), le `p-skeleton` de 32px au rayon `sm` tant que le morceau attend son tour (aucun état reçu et run en cours), un cadre neutre à l'icône `image` dès qu'il est tranché sans pochette. Aucune image ne transite en base64 par le protocole NDJSON.
 - **Bloc vide et chargement** par le template `#emptymessage` de `p-table`, avec `[pt]="fullHeightTable(vide)"` sur la table et `border-b-0` sur la cellule, comme le rapport d'extraction. Tant que le sidecar parcourt le dossier (`loading`), `SkeletonRowsComponent` remplit la hauteur de lignes entières ; ensuite, un dossier sans fichier audio affiche `EmptyStateComponent`.
-- **Lignes mémoïsées** : le store ne remplace que le morceau qu'un événement touche. Les lignes de la table sont gardées par objet morceau, et `rowTrackBy` suit une clé de ligne : les autres lignes ne sont pas recontrôlées et le focus d'un bouton survit à l'événement.
+- **Lignes mémoïsées** : le store ne remplace que le morceau qu'un événement touche. Les lignes de la table sont gardées par objet morceau et `rowTrackBy` suit une clé de ligne : les autres lignes ne sont pas recontrôlées et le focus d'un bouton survit à l'événement.
 - **Détail déplié** : lignes synthétiques sous la ligne du morceau, cf. `.claude/rules/primeng/ligne-depliee.md` et le sub-project de la ligne dépliée. La ligne d'un morceau à arbitrer ou à rattraper reste actionnable, au clic comme au clavier ; le bouton du détail n'ouvre ni l'un ni l'autre.
 - **Aucune logique métier** : scores, états et « après » viennent du sidecar. Le seul calcul de ce sub-project est la dérivation de la famille visuelle, que DESIGN.md confie explicitement à l'interface.
 - **i18n** : en-têtes, libellés d'état et bloc vide passent par ngx-translate, FR et EN dans le même commit, colonnes figées mesurées sur le libellé le plus long des deux langues.
@@ -160,7 +160,7 @@ Aucun test ne vérifie que `@for` produit des lignes ni que PrimeNG défile : ce
 ### Décision : Taille de la table
 
 **Options envisagées :**
-- **A. Taille par défaut, comme DESIGN.md § Structure de Page** : cohérente avec le rapport d'extraction déjà livré, et conforme à la règle qui fait primer DESIGN.md sur la maquette.
+- **A. Taille par défaut, comme DESIGN.md § Structure de Page** : cohérente avec le rapport d'extraction déjà livré et conforme à la règle qui fait primer DESIGN.md sur la maquette.
 - **B. `size="small"`, comme la fiche `DataTable` du design system** : plus de lignes à l'écran sur un run de cent morceaux, au prix d'un alignement à faire dans DESIGN.md et dans le rapport d'extraction.
 
 **Choix : A**

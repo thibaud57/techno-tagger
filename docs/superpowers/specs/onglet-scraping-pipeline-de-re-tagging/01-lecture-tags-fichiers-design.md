@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: []
-date: "2026-09-19"
+date: "2026-10-10"
 ---
 
 # Lecture de l'artiste et du titre des fichiers d'un dossier

@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: []
-date: "2026-10-02"
+date: "2026-10-11"
 ---
 
 # Client techno-scraper : résolution d'une URL de morceau
@@ -46,7 +46,7 @@ Aucune : ce sub-project est autoporté.
 
   | Source | Hôtes acceptés | Chemin | Requête émise |
   |---|---|---|---|
-  | Beatport | `www.beatport.com`, `beatport.com` | `/track/<slug>/<id>`, id numérique | `/beatport/tracks/{id}` |
+  | Beatport | `www.beatport.com`, `beatport.com` | `[/<langue>]/track/<slug>/<id>`, id numérique, segment de langue facultatif (`xx` ou `xx-xx`) | `/beatport/tracks/{id}` |
   | Bandcamp | `<sous-domaine>.bandcamp.com` | `/track/<slug>` | `/bandcamp/tracks?url=` avec l'URL normalisée |
   | SoundCloud | `soundcloud.com`, `www.soundcloud.com`, `m.soundcloud.com` | `/<utilisateur>/<slug>` (deux segments exactement) | `/soundcloud/resolve?url=` avec l'hôte réécrit en `soundcloud.com` |
   | SoundCloud, lien court | `on.soundcloud.com` | `/<code>` (un segment) | `/soundcloud/resolve?url=` |
@@ -105,12 +105,12 @@ Aucune : ce sub-project est autoporté.
 
 ### Unit
 - `sidecar/tests/unit/test_scraper_client_urls.py` :
-  - resolves a beatport url through the track id route (paramétré : avec query, hôte nu ; `ids` en anglais)
+  - resolves a beatport url through the track id route (paramétré : avec query, hôte nu, segment de langue `fr` `de` `es` `pt-br` ; `ids` en anglais)
   - resolves a bandcamp track url through the bandcamp track route
   - drops the query string, the fragment and the trailing slash before sending (paramétré sur Bandcamp, espaces de bord compris)
   - lowercases the host
   - rewrites an http url to https
-  - refuses an url that is not a track without sending any request (paramétré : album Bandcamp, sortie Beatport, préfixe de langue Beatport, hôte inconnu, schéma absent, autre schéma, URL mal formée, chaîne vide)
+  - refuses an url that is not a track without sending any request (paramétré : album Bandcamp, sortie Beatport, segment non langue Beatport, hôte inconnu, schéma absent, autre schéma, URL mal formée, chaîne vide)
   - keeps the pasted url out of the refusal
   - raises track not found when the api answers 404 for a well formed url
   - resolves a soundcloud track url through the resolve route without a tracks cursor
@@ -125,7 +125,7 @@ Aucune : ce sub-project est autoporté.
 
 ## Edge cases
 
-- **Beatport avec préfixe de langue ou forme inconnue** (`/fr/track/...`) : refusé en `unsupported_url`. La forme se reconnaît sur l'URL publique que l'API elle-même rend, un préfixe s'ajoutera sur un cas réel constaté.
+- **Beatport avec segment de langue** (`/fr/track/...`, `/de/`, `/pt-br/`) : accepté, le segment facultatif `xx` ou `xx-xx` précédant `/track/` est ignoré. Le site copie ses liens avec ce segment que l'API ne rend pas : le cas réel est arrivé le 2026-10-11 (lien copié depuis le site en français). Un segment qui n'est pas un code de langue (`/french/track/...`) ou toute autre forme inconnue reste refusé en `unsupported_url`.
 - **Sous-page de profil SoundCloud à deux segments** (`/<utilisateur>/likes`) : passe le contrôle local. L'API rend un profil (`unsupported_url`) ou un `404` (`TrackNotFoundError`). Lister les mots réservés de SoundCloud ferait vivre ici une connaissance de la source que SoundCloud tranche lui-même.
 - **Lien court `on.soundcloud.com` vers une playlist** : impossible à distinguer sans appel, l'API rend `404`, donc `TrackNotFoundError`.
 - **Quota SoundCloud épuisé** (`503 quota_exceeded`) : `SourceUnavailableError`, comme toute source injoignable.

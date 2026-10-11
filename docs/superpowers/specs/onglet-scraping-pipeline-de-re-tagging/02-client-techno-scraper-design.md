@@ -6,14 +6,14 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
-date: "2026-09-19"
+date: "2026-10-11"
 ---
 
 # Client techno-scraper : recherche, refetch et traduction des réponses
 
 ## Scope
 
-Couvre le seul module du sidecar qui connaît l'API techno-scraper : son URL de base, figée en constante, les recherches de morceaux sur Beatport et Bandcamp (première page de dix résultats seulement), le refetch complet du candidat retenu (Beatport par id, Bandcamp par URL), le header `X-API-Key`, le timeout client de 100 s, les bornes de concurrence 3 et 2 d'ADR-017, la nouvelle tentative sur erreur réseau et la traduction de chaque réponse en modèle interne ou en erreur typée qui porte l'`X-Request-ID`. Couvre aussi la mise à jour de la fiche `knowledges/techno-scraper.md`, en retard sur le contrat réel, et l'ajout de la clé `request_id` au jeu de clés logfmt.
+Couvre le seul module du sidecar qui connaît l'API techno-scraper : son URL de base, figée en constante, les recherches de morceaux sur Beatport et Bandcamp (première page de dix résultats seulement), le refetch complet du candidat retenu (Beatport par id, Bandcamp par URL), le header `X-API-Key`, le timeout client de 100 s, les bornes de concurrence 3 et 2 d'ADR-017, la nouvelle tentative sur erreur réseau et la traduction de chaque réponse en modèle interne ou en erreur typée qui porte l'`X-Request-ID`. Couvre aussi la mise à jour de la fiche `knowledges/techno-scraper.md`, en retard sur le contrat réel et l'ajout de la clé `request_id` au jeu de clés logfmt.
 
 Exclut le cache des réponses et le téléchargement des pochettes (sub-project 04), la lecture de la clé dans le trousseau (sub-project 05), l'arrêt du run après trois 403 et le log des échecs avec `run` et `track` (sub-project 06), la résolution d'une URL collée par l'utilisateur et SoundCloud (epic `rattrapage-par-url-manuelle`).
 
@@ -74,7 +74,7 @@ Aucune : ce sub-project est autoporté.
 ### Scénario 1 : Recherche Beatport avec résultats
 **GIVEN** une API qui rend deux morceaux pour une recherche Beatport
 **WHEN** le client cherche « Adam Beyer Your Mind » sur Beatport
-**THEN** la requête part sur `/beatport/search` avec `q`, `type=tracks` et `limit`, et porte l'en-tête `X-API-Key`
+**THEN** la requête part sur `/beatport/search` avec `q`, `type=tracks` et `limit` et porte l'en-tête `X-API-Key`
 **AND** le client rend deux `TrackCandidate` portant titre, `mix_name`, artistes, remixeurs, sortie, label et source
 
 ### Scénario 2 : Rien trouvé

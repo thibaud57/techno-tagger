@@ -4,7 +4,7 @@
 
 **Goal:** Renommer un fichier écrit en `{artist} - {title}.{ext}` avec un nom lisible, valide sous Windows, sans collision et dont le chemin reste ouvrable par les autres logiciels.
 
-**Architecture:** Le nouveau module `renaming.py` sépare le calcul pur du nom (`track_file_name` : remplacements lisibles, extension en minuscules, troncature du titre, marqueur de copie) de son application sur le disque (`rename_track` : artiste ou titre absent, place disponible sous 259 caractères, premier nom libre, casse seule, nom déjà correct, et le chemin cible annoncé à l'appelant juste avant l'appel système). L'appel système passe par `paths.extended_path`, qui préfixe `\\?\` sans résoudre le nom. Un échec devient `RenameError` avec un motif `FileFailureReason`.
+**Architecture:** Le nouveau module `renaming.py` sépare le calcul pur du nom (`track_file_name` : remplacements lisibles, extension en minuscules, troncature du titre, marqueur de copie) de son application sur le disque (`rename_track` : artiste ou titre absent, place disponible sous 259 caractères, premier nom libre, casse seule, nom déjà correct et le chemin cible annoncé à l'appelant juste avant l'appel système). L'appel système passe par `paths.extended_path`, qui préfixe `\\?\` sans résoudre le nom. Un échec devient `RenameError` avec un motif `FileFailureReason`.
 
 **Tech Stack:** Python 3.14 (`re`, `pathlib`), pytest sur `tmp_path` (CI Windows `windows-2025`, système de fichiers insensible à la casse). Aucune dépendance nouvelle.
 

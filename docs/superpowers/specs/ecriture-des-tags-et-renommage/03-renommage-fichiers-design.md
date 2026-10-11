@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["01-ecriture-tags-design.md"]
-date: "2026-10-06"
+date: "2026-10-11"
 ---
 
 # Renommage des fichiers
@@ -23,7 +23,7 @@ Exclut le moment du renommage dans l'enchaînement de l'écriture et le sort d'u
 
 ## Dependencies
 
-- `01-ecriture-tags-design.md` (statut: implemented) : `file_failures.FileFailureReason` et `file_failure_reason`, sortis d'`extraction.py` par sa première tâche.
+- `01-ecriture-tags-design.md` (statut: implemented) : `file_failures.FileFailureReason` et `file_failure_reason`, sortis d'`extraction.py`.
 
 ## Files touched
 
