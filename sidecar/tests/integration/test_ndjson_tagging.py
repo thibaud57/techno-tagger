@@ -96,7 +96,9 @@ def test_refuses_a_second_tagging_run_while_one_is_in_progress(
     events = drive(start_tagging(run_folder) * 2)
 
     errors = [event for event in events if event["event"] == "error"]
-    assert [error["code"] for error in errors] == ["tagging_in_progress"]
+    assert [(error["code"], error["params"]) for error in errors] == [
+        ("phase_busy", {"phase": "tagging"})
+    ]
     assert [event["event"] for event in events[-2:]] == ["run_finished", "progress"]
 
 

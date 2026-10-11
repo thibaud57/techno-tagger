@@ -4,7 +4,7 @@ import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
 import { readLastDestination } from "../../core/preferences"
-import { SidecarService } from "../../core/sidecar.service"
+import { SidecarService, type RunAction } from "../../core/sidecar.service"
 import {
   DangerConfirmComponent,
   injectDangerConfirm,
@@ -24,8 +24,6 @@ import { TOOLTIP } from "../../shared/utils/tooltip"
 import { RecoveryUiStore } from "./recovery-ui.store"
 import { RunListComponent } from "./run-list.component"
 import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
-
-type RunAction = "start" | "cancel" | "commit" | "retry"
 
 interface ActionButton {
   readonly action: RunAction
@@ -78,19 +76,15 @@ export default class TaggingPageComponent {
   protected readonly showsWriteBar = computed(() => this.writing() || this.writeProgress() !== null)
   protected readonly writePercentage = computed(() => progressPercentage(this.writeProgress()))
   /** Compte sur les lignes : un morceau restaure sort du message et de la relance. */
-  protected readonly writeFailures = computed(
-    () => this.tracks().filter((track) => track.state === "write_error").length,
-  )
+  protected readonly writeFailures = this.sidecar.writeFailureCount
   protected readonly filesBusy = this.sidecar.filesBusy
-  /** Lignes que le dump peut rendre : ecrites, ou en echec dont les tags ont pu partir. */
+  /** Lignes que le dump peut rendre : le sidecar le dit par ligne, l'interface ne le deduit pas de l'etat. */
   protected readonly restorableIds = computed<ReadonlySet<string>>(
     () =>
       new Set(
-        this.committed()
-          ? this.tracks()
-              .filter((track) => track.state === "written" || track.state === "write_error")
-              .map((track) => track.trackId)
-          : [],
+        this.tracks()
+          .filter((track) => track.restorable)
+          .map((track) => track.trackId),
       ),
   )
   protected readonly canRestoreRun = computed(
@@ -150,27 +144,7 @@ export default class TaggingPageComponent {
 
     return null
   })
-  protected readonly action = computed<RunAction>(() => {
-    if (this.running()) {
-      return "cancel"
-    }
-    // Une ecriture qui suit un bilan d'ecriture est une relance, la premiere est la confirmation.
-    // `runRetryable` exclut un run perdu avec le moteur : son dossier repart d'un nouveau run.
-    const rewrite = this.sidecar.runRetryable()
-    if (this.writing()) {
-      return rewrite ? "retry" : "commit"
-    }
-    // Un autre dossier abandonne le run non ecrit et ses echecs. Le meme dossier se relance quand
-    // le run n'est pas confirmable, sinon un run vide ou perdu bloquerait son propre dossier.
-    if (this.folder() !== this.sidecar.taggingFolder()) {
-      return "start"
-    }
-    if (this.sidecar.runConfirmable()) {
-      return "commit"
-    }
-
-    return rewrite && this.writeFailures() > 0 ? "retry" : "start"
-  })
+  protected readonly action = this.sidecar.runAction(this.folder)
   /**
    * Comptes lus sur les etats recus : l'interface ne decide rien de ce qui sera ecrit. Les
    * attentes se comptent sur les lignes, la file d'arbitrage pouvant en retirer une que sa
@@ -347,8 +321,9 @@ export default class TaggingPageComponent {
   }
 
   private async prefill(): Promise<void> {
-    // Page recreee : le run affiche prime sur la derniere destination.
-    const runFolder = this.sidecar.taggingFolder()
+    // Page recreee : le run affiche prime sur la derniere destination, sous la forme demandee
+    // (celle que compare `action`), pas sous celle que le sidecar a normalisee.
+    const runFolder = this.sidecar.requestedFolder()
     if (runFolder !== null) {
       this.folder.set(runFolder)
 

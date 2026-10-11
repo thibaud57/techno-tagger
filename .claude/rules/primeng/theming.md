@@ -12,7 +12,7 @@ paths:
 - Personnaliser par `definePreset()` en redéfinissant des tokens, le Theme Designer étant hors Community License
 - Référencer une primitive (`{violet.500}`) plutôt que de recopier un hexadécimal, pour garder la palette cohérente
 - Surcharger un composant par ses tokens (clé `components` du preset), jamais par un sélecteur CSS
-- Écrire le `@custom-variant dark` de Tailwind sur **exactement** le sélecteur passé en `darkModeSelector`, dans le même commit (cf. [setup.md](../tailwindcss/setup.md))
+- Écrire le `@custom-variant dark` de Tailwind sur **exactement** le sélecteur passé en `darkModeSelector`, dans le même commit (cf. [tailwindcss/setup.md](../tailwindcss/setup.md))
 
 ## À éviter
 - Copier une configuration PrimeNG issue d'un projet en v21 : la base rem, les icônes et la licence ont toutes changé

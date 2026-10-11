@@ -90,7 +90,7 @@ describe("toExtractionRows", () => {
       discarded: "C:/lib/albums/beta.mp3",
       discardedSizes: "5000 o",
     })
-    expect(row?.reasonKey).toBe("playlist.report.criterion.largest_file")
+    expect(row?.reason?.cause).toBe("playlist.report.criterion.largest_file")
   })
 
   it("names a failure reason by a key, never by its raw value", () => {
@@ -105,7 +105,10 @@ describe("toExtractionRows", () => {
     const row = rows[0]
     expect(row).toBeDefined()
     expect(row?.category).toBe("failure")
-    expect(row?.reasonKey).toBe("playlist.report.reason.file_locked")
+    expect(row?.reason).toEqual({
+      cause: "reason.file_locked",
+      remedy: { fix: "reason.fix.file_locked", retry: "reason.retry.extraction" },
+    })
   })
 
   it("keeps discarded paths and sizes in the same order", () => {

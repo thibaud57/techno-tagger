@@ -72,7 +72,6 @@ const stub = () => ({
   urlRecoveryErrors: signal<ReadonlyMap<string, SidecarErrorEvent>>(new Map()),
   tagging: signal(false),
   committed: signal(false),
-  runFrozen: signal(false),
   resolveByUrl: vi.fn(() => Promise.resolve()),
   lastError: signal<SidecarErrorEvent | null>(null),
   lastErrorCommand: signal<SidecarCommand["command"] | null>(null),
@@ -432,6 +431,7 @@ describe("ArbitrationDialogComponent", () => {
       service.arbitrations.set([])
       service.currentArbitration.set(null)
       service.taggingTracks.set([UNRESOLVED])
+      service.recoverableTracks.set([UNRESOLVED])
       fixture.detectChanges()
     }
 

@@ -37,6 +37,8 @@ export interface TaggingTrack {
   readonly tagsBefore: TagsBefore | null
   readonly tagsAfter: readonly TagValue[] | null
   readonly arbitration: ArbitrationRequiredEvent | null
+  /** Faux tant que le sidecar n'a rien dit : une ligne jamais resolue n'a pas d'origine au dump. */
+  readonly restorable: boolean
 }
 
 export interface RunProgress {
@@ -59,6 +61,7 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
   tagsBefore: entry.tags_before,
   tagsAfter: null,
   arbitration: null,
+  restorable: false,
 })
 
 /** Etat d'un run de re-tagging, alimente par le routage des evenements de `SidecarService`. */
@@ -94,6 +97,11 @@ export class TaggingRunStore {
     () => this.tracks().filter((track) => track.state === "resolved").length,
   )
 
+  /** Morceaux dont l'ecriture a echoue : ceux qu'une relance reprendrait. */
+  readonly writeFailureCount = computed(
+    () => this.tracks().filter((track) => track.state === "write_error").length,
+  )
+
   /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {
     this._runId.set(null)
@@ -124,6 +132,7 @@ export class TaggingRunStore {
       artworkPath: event.artwork_path,
       tagsAfter: event.tags_after,
       arbitration: null,
+      restorable: event.restorable,
     }))
   }
 
@@ -152,6 +161,7 @@ export class TaggingRunStore {
         scores: null,
         artwork_path: null,
         tags_after: null,
+        restorable: false,
       })
     }
   }

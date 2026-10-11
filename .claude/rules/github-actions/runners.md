@@ -19,7 +19,7 @@ paths:
 - Les larger runners et runner groups : plan Team ou Enterprise, hors périmètre d'un projet à budget nul
 
 ## Gotchas
-- La présence de WebView2 sur l'image `windows-2025` n'est pas confirmée (cf. [VERSIONS.md](../../../docs/VERSIONS.md) § GitHub Actions)
+- La présence de WebView2 sur l'image `windows-2025` n'est pas confirmée (cf. [VERSIONS.md § GitHub Actions](../../../docs/VERSIONS.md#4-github-actions))
 - Clippy déplace des lints d'une catégorie à l'autre entre toolchains : d'où l'épinglage par `rust-toolchain.toml`
 - `windows-2025` embarque Visual Studio 2026 depuis juin 2026 : c'est la toolchain MSVC que voient Rust, Tauri et PyInstaller. `windows-2022` reste l'image Visual Studio 2022
 - Node 20 est retiré des runners depuis le 2026-09-23 : une action en `runs.using: node20` échoue, vérifier ce champ avant d'épingler une action

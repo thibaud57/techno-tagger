@@ -45,7 +45,7 @@ Exclut les commandes de tagging, d'arbitrage, de rattrapage, d'écriture, de rol
 - **Aucun effet de bord partiel sur commande malformée** : la validation précède toute exécution, donc une commande rejetée n'a rien touché.
 - **Moteur asynchrone dès ce sub-project** : `asyncio.run`, la lecture de `stdin` déléguée par `asyncio.to_thread(sys.stdin.readline)` et un `asyncio.TaskGroup` qui porte les phases longues. La lecture asynchrone native de `stdin` est impossible sous Windows, `loop.connect_read_pipe` y échouant sur `OSError: [WinError 6]` ; la délégation en thread est la voie que la rule `.claude/rules/python/asyncio.md` prescrit déjà pour tout appel bloquant. Les epics suivants branchent leur pool borné sur cette même boucle sans réécrire le point d'entrée.
 - **L'extraction tourne en tâche de fond**, dans le `TaskGroup`, pour que la boucle continue de lire `stdin` pendant la copie : une commande courte comme `get_version` est répondue avant la fin et un `shutdown` est lu sans rester derrière la copie dans le pipe.
-- **Une seule phase longue à la fois** : tant qu'une extraction, une recherche, une écriture ou un rollback tourne, toute autre phase longue est refusée par l'erreur de celle qui occupe les fichiers (`extraction_in_progress`, `tagging_in_progress`, `write_in_progress`, `rollback_in_progress`). La phase en cours continue. Deux phases mêlées pourraient viser le même dossier.
+- **Une seule phase longue à la fois** : tant qu'une extraction, une recherche, une écriture ou un rollback tourne, toute autre phase longue est refusée par l'erreur `phase_busy`, dont `params.phase` nomme la phase qui tourne (`extraction`, `tagging`, `write` ou `rollback`). Depuis le 2026-10-11, ce code unique remplace les quatre codes `*_in_progress` d'origine. La phase en cours continue. Deux phases mêlées pourraient viser le même dossier.
 - **Les appels métier bloquants passent par `to_thread`** : lecture SQLite, parcours du dossier source, copie de fichiers, écriture du rapport. Sans quoi la boucle gèlerait et aucun `progress` ne partirait pendant une extraction.
 - **`progress` alimenté par le rappel du sub-project 02** : le module d'extraction ignore le protocole, la boucle lui passe une fonction qui émet l'événement. La phase est nommée, `progress` couvrant les quatre phases longues du projet.
 - **Une ligne par événement, sans flush explicite** : `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON et n'accepte jamais d'`indent`. Le `line_buffering` posé sur `stdout` par `_force_utf8_streams()` dispense de flusher (cf. [ADR-005](../../../adrs/005-sidecar-python-protocole-ndjson.md)).
@@ -127,7 +127,7 @@ Exclut les commandes de tagging, d'arbitrage, de rattrapage, d'écriture, de rol
 ### Scénario 12 : Seconde phase longue refusée
 **GIVEN** une extraction en cours
 **WHEN** une seconde commande `extract_playlist` est injectée
-**THEN** un événement `error` de code `extraction_in_progress` est émis
+**THEN** un événement `error` de code `phase_busy` (`params.phase` à `extraction`, ex-`extraction_in_progress` depuis le 2026-10-11) est émis
 **AND** l'extraction en cours va jusqu'à son `extraction_finished`, un seul au total
 
 ## Tests à écrire
@@ -168,7 +168,7 @@ Exclut les commandes de tagging, d'arbitrage, de rattrapage, d'écriture, de rol
 
 ## Edge cases
 
-- **Commande reçue pendant une extraction** : la boucle la lit et la traite aussitôt, l'extraction tournant en tâche de fond. Une commande courte est répondue, une autre phase longue est refusée (`*_in_progress`). Aucune commande n'annule une extraction en cours.
+- **Commande reçue pendant une extraction** : la boucle la lit et la traite aussitôt, l'extraction tournant en tâche de fond. Une commande courte est répondue, une autre phase longue est refusée (`phase_busy`, ex-`*_in_progress` depuis le 2026-10-11). Aucune commande n'annule une extraction en cours.
 - **Ligne vide sur `stdin`** : ignorée sans produire d'événement. Un flux ligne à ligne en produit à la moindre frappe et une erreur pour chacune serait du bruit.
 - **Ligne très longue** : le protocole ne transporte ni pochette ni contenu de fichier, seulement des noms et des chemins. Aucun plafond n'est posé.
 - **Extraction sur une playlist vide** : `extraction_finished` est tout de même émis, avec ses cinq catégories vides et le chemin d'un rapport qui existe.

@@ -30,7 +30,7 @@ from tagger.files import TagField, TagSystem
 from tagger.matching import MatchingThresholds, check_thresholds
 from tagger.playlists import PlaylistFormat
 from tagger.scraper_client import SearchSource, Source
-from tagger.tagging import FailureReason, Resolution, TrackState
+from tagger.tagging import FailureReason, Resolution, TrackFailureReason, TrackState
 
 if TYPE_CHECKING:
     from tagger.errors import TaggerError
@@ -438,13 +438,15 @@ class TrackResolved(Event):
     track_id: str
     state: TrackState
     resolution: Resolution
-    failure_reason: FailureReason | None = None
+    failure_reason: TrackFailureReason | None = None
     source: Source | None = None
     after: TrackNames | None = None
     scores: TrackScores | None = None
     artwork_path: Path | None = None
     # Nul pour un non resolu.
     tags_after: tuple[TagValuePayload, ...] | None = None
+    # Vrai quand le dump du run porte l'origine du morceau : un rollback peut le rendre.
+    restorable: bool = False
 
 
 class CandidatePayload(BaseModel):
@@ -518,7 +520,7 @@ class RollbackFailurePayload(BaseModel):
 
     track_id: str
     file_name: str
-    reason: FailureReason
+    reason: TrackFailureReason
 
 
 class RollbackFinished(Event):

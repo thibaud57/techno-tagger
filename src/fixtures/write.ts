@@ -1,4 +1,5 @@
 import type {
+  BusyPhase,
   ExtractionProgressEvent,
   RollbackFinishedEvent,
   RollbackRun,
@@ -53,4 +54,11 @@ export const rollbackFinished = (trackId: string | null = null): RollbackFinishe
 export const commandError = (
   command: SidecarCommand["command"],
   code: string,
-): SidecarErrorEvent => ({ event: "error", code, params: {}, message: code, command })
+  params: Record<string, unknown> = {},
+): SidecarErrorEvent => ({ event: "error", code, params, message: code, command })
+
+/** Refus d'une commande parce que `phase` tourne deja : `command` est celle qui est refusee. */
+export const phaseBusy = (
+  command: SidecarCommand["command"],
+  phase: BusyPhase,
+): SidecarErrorEvent => commandError(command, "phase_busy", { phase })

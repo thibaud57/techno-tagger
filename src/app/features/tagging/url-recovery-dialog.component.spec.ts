@@ -36,7 +36,6 @@ const mount = ({ tracks = TWO_LINES, tagging = false, busy = [], errors }: Overr
   const service = {
     tagging: signal(tagging),
     committed: signal(false),
-    runFrozen: signal(false),
     taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal([]),
     taggingTracks: signal<readonly TaggingTrack[]>(tracks),

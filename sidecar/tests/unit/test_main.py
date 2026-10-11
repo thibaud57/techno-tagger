@@ -8,7 +8,7 @@ import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from unittest.mock import Mock, patch
 
 from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, __main__, __version__
@@ -92,7 +92,7 @@ def test_the_log_folder_follows_the_bundle_identifier(monkeypatch: pytest.Monkey
     assert result == Path("C:/Users/x/AppData/Local") / BUNDLE_IDENTIFIER / "logs"
 
 
-REPO = Path(__file__).parents[3]
+REPO: Final = Path(__file__).parents[3]
 
 
 def _at(path: str, *keys: str) -> object:

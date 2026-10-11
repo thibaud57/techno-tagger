@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import mutagen
 import pytest
@@ -23,7 +23,7 @@ from tagger.files import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-URL = "https://liorvance.bandcamp.com/track/dim-orbit"
+URL: Final = "https://liorvance.bandcamp.com/track/dim-orbit"
 
 
 def _shown(system: TagSystem = TagSystem.ID3, **values: str) -> ShownTags:

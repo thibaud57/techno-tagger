@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 MASK = "<user>"
 QUERY_MASK = "<query>"
+PATH_MASK = "<path>"
 
 # httpx2 ecrit l'URL entiere, donc l'artiste et le titre, dans le message de
 # `HTTPStatusError`, que le SDK recopie via la chaine `__cause__` : sans masquage le
@@ -28,6 +29,20 @@ QUERY_MASK = "<query>"
 # `request_id`. `?` exclu du groupe `url`, sinon gourmand : il avalait les `?`
 # intermediaires et laissait passer tout ce qui precedait le dernier.
 _URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>?]*)\?[^\s'\"<>]*", re.IGNORECASE)
+
+# Chemin de lecteur (`D:\...`, `D:/...`) ou UNC (`\\serveur\partage\...`) : le nom du
+# fichier porte l'artiste et le titre, donc un morceau. Les espaces font partie du
+# chemin (« Nova Pulse - Dim Orbit.mp3 ») : le chemin s'arrete aux guillemets, `<>`, a
+# la fin de ligne, avant un champ logfmt de la liste fermee des cles de log (voir
+# `gestion-erreurs.md`) et avant `: ` (Windows interdit `:` dans un nom de fichier).
+# Pas de `, ` ni de cle generique `[a-z_]+=` : un nom de fichier peut en contenir
+# (« Artist A, Artist B », « vol=2 ») et la fin du nom partirait alors vers Sentry.
+# Une phrase qui suit sans separateur est avalee, sens de panne accepte. La lettre de
+# lecteur ne doit pas suivre un caractere de mot, sinon `http://` serait pris pour `p:/`.
+_WINDOWS_PATH: Final = re.compile(
+    r"(?:(?<!\w)[A-Za-z]:[\\/]|\\\\[^\s\\/'\"<>]+[\\/])"
+    r"(?:(?!\s+(?:run|track|source|score|status|reason|request_id)=|:\s)[^'\"<>\r\n])*"
+)
 
 # `USERNAME` sous Windows, `USER` sur les runners Linux de la CI.
 _USERNAME = os.getenv("USERNAME") or os.getenv("USER") or ""
@@ -39,6 +54,13 @@ _HOME_FORMS = {_HOME, _HOME.replace("\\", "/")}
 
 def _mask(text: str) -> str:
     text = _URL_QUERY.sub(rf"\g<url>?{QUERY_MASK}", text)
+    # Chemins avant le dossier personnel : remplace d'abord, ce dernier retirerait la lettre de
+    # lecteur et la fin du chemin, nom du morceau compris, echapperait au masque.
+    text = _WINDOWS_PATH.sub(PATH_MASK, text)
+    return _mask_account(text)
+
+
+def _mask_account(text: str) -> str:
     for home in _HOME_FORMS:
         text = text.replace(home, MASK)
     # Le nom nu apres les chemins : il reste dans `C:\Users\<nom>\...` tronque, dans
@@ -66,6 +88,11 @@ _ENVELOPE_KEYS = frozenset(
 )
 
 
+# Chemins de code d'une frame : ils ne portent aucun morceau, seulement le compte de l'OS, et
+# le masque `<path>` y effacerait la trace de la pile qui sert a deboguer.
+_CODE_PATH_KEYS = frozenset({"abs_path", "filename", "module", "package"})
+
+
 def _mask_deep(value: object) -> object:
     match value:
         case str():
@@ -73,7 +100,14 @@ def _mask_deep(value: object) -> object:
         case dict():
             # La cle aussi : un chemin sert de cle dans un `extra` ou un contexte, et
             # le serializer du SDK la preserve telle quelle (`str_k = str(k)`).
-            return {_mask(str(key)): _mask_deep(item) for key, item in value.items()}
+            return {
+                _mask(str(key)): (
+                    _mask_account(item)
+                    if key in _CODE_PATH_KEYS and isinstance(item, str)
+                    else _mask_deep(item)
+                )
+                for key, item in value.items()
+            }
         case list():
             return [_mask_deep(item) for item in value]
         case _:

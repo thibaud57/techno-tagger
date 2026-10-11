@@ -1,3 +1,4 @@
+import { AsyncPipe } from "@angular/common"
 import { Component, computed, input, linkedSignal, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
@@ -14,7 +15,8 @@ import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.com
 import { SourceLogoComponent } from "../../shared/components/source-logo.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
-import { failureReasonKey, joinIdentity, trackMainLine } from "../../shared/utils/identity"
+import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
+import { type ReasonKeys, ReasonTextPipe, trackReasonKeys } from "../../shared/utils/reason"
 import { SOURCE_NAMES } from "../../shared/utils/sources"
 import { fullHeightTable } from "../../shared/utils/table"
 import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
@@ -41,7 +43,7 @@ export interface RunRow extends TaggingTrack {
   readonly artworkUrl: string | null
   /** Sa pochette peut encore arriver : le morceau attend son tour dans un run qui tourne. */
   readonly artworkPending: boolean
-  readonly reasonKey: string | null
+  readonly reason: ReasonKeys | null
   readonly arbitrable: boolean
   readonly recoverable: boolean
   readonly restorable: boolean
@@ -59,6 +61,8 @@ type RenderRow =
   imports: [
     TableModule,
     Tooltip,
+    AsyncPipe,
+    ReasonTextPipe,
     TranslatePipe,
     StateTagComponent,
     SourceLogoComponent,
@@ -83,7 +87,7 @@ export class RunListComponent {
   /** Le sidecar parcourt encore le dossier : aucune ligne n'est connue. */
   readonly loading = input(false)
   readonly interrupted = input(false)
-  /** Morceaux que le sidecar accepte de rattraper par lien : lus, jamais deduits ici. */
+  /** Morceaux que le sidecar accepte de rattraper par lien : lus, jamais deduits ici (vides sur un run fige). */
   readonly recoverable = input<ReadonlySet<string>>(new Set())
   /** Run confirme : plus aucune decision n'y entre, le sidecar les refuserait (`run_committed`). */
   readonly frozen = input(false)
@@ -120,7 +124,7 @@ export class RunListComponent {
 
     return this.tracks().map((track) => {
       const arbitrable = !frozen && track.arbitration !== null
-      const recoverable = !frozen && recoverableIds.has(track.trackId)
+      const recoverable = recoverableIds.has(track.trackId)
       const restorable = restorableIds.has(track.trackId)
       const restoring = restoringTrackId === track.trackId
       const artworkPending = track.state === null && !settled
@@ -142,7 +146,7 @@ export class RunListComponent {
         sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
         artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
         artworkPending,
-        reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
+        reason: track.failureReason === null ? null : trackReasonKeys(track.failureReason),
         arbitrable,
         recoverable,
         restorable,

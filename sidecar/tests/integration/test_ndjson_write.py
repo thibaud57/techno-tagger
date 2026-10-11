@@ -11,7 +11,7 @@ from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, ok, one_track
 
 from tagger import files, handlers, tag_dump, writing
 from tagger.file_failures import FileFailureReason
-from tagger.files import TagsWriteError
+from tagger.files import TagsUnreadableError, TagsWriteError
 from tagger.tag_dump import TagDumpUnreadableError, TagDumpWriteError
 
 if TYPE_CHECKING:
@@ -40,6 +40,7 @@ async def test_writes_a_committed_run_end_to_end(folder: Path, tmp_path: Path) -
         finished = await talk.expect("run_finished", phase="write")
 
     assert written["resolution"] == "auto"
+    assert written["restorable"] is True
     assert (progress["processed"], progress["total"]) == (1, 1)
     assert (finished["written"], finished["write_error"]) == (1, 0)
     assert (folder / WRITTEN_NAME).is_file()
@@ -175,6 +176,34 @@ async def test_retries_a_failed_write(folder: Path, monkeypatch: pytest.MonkeyPa
     assert (folder / WRITTEN_NAME).is_file()
 
 
+async def test_flags_a_failure_restorable_only_once_its_origin_is_dumped(
+    folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lift = _locked_until_lifted(monkeypatch)
+    monkeypatch.setattr(
+        writing,
+        "read_original_tags",
+        raising(TagsUnreadableError(folder / ONE_TRACK, FileFailureReason.FILE_LOCKED)),
+    )
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        unreadable = await talk.expect("track_resolved", state="write_error")
+        await talk.expect("run_finished", phase="write")
+        monkeypatch.setattr(writing, "read_original_tags", files.read_original_tags)
+        talk.send(command="retry_write", run_id=run_id)
+        dumped = await talk.expect("track_resolved", state="write_error")
+        await talk.expect("run_finished", phase="write")
+        lift()
+        talk.send(command="retry_write", run_id=run_id)
+        written = await talk.expect("track_resolved", state="written")
+
+    assert unreadable["restorable"] is False
+    assert dumped["restorable"] is True
+    assert written["restorable"] is True
+
+
 @pytest.mark.parametrize(
     "command",
     ["commit_run", "retry_write", "start_tagging"],
@@ -197,7 +226,11 @@ async def test_refuses_writes_and_new_runs_while_writing(
         held.release.set()
         await talk.expect("run_finished", phase="write")
 
-    assert (error["code"], error["command"]) == ("write_in_progress", command)
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "write"},
+        command,
+    )
 
 
 @pytest.mark.parametrize("ending", ["shutdown", "eof"], ids=["shutdown", "eof"])

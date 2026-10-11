@@ -69,13 +69,15 @@
     "api_key_malformed": "This key contains a space or a character that is not accepted.\nPaste it again with nothing around it.",
     "api_key_missing": "No API key saved.\nAdd one in the settings.",
     "keyring_unavailable": "Windows Credential Manager is unavailable.\nRestart the application.",
-    "tagging_in_progress": "A run is in progress.\nWait for it to finish.",
     "write_not_open": "This run cannot be written now.",
-    "write_in_progress": "Writing is in progress.\nWait for it to finish.",
     "run_committed": "Writing this run is confirmed: its tracks can no longer be arbitrated or recovered.",
     "rollback_unavailable": "Nothing to restore: these files already have their original tags back, or their backup has expired.",
-    "rollback_in_progress": "A restore is in progress.\nWait for it to finish.",
-    "extraction_in_progress": "An extraction is in progress.\nWait for it to finish.",
+    "phase_busy": {
+      "extraction": "An extraction is in progress.\nWait for it to finish.",
+      "tagging": "A search is in progress.\nWait for it to finish.",
+      "write": "Writing is in progress.\nWait for it to finish.",
+      "rollback": "A restore is in progress.\nWait for it to finish."
+    },
     "arbitration_error": "This decision could not be taken into account.\nTry again.",
     "arbitration_not_pending": "This track is no longer awaiting a decision.\nMove on to the next one.",
     "arbitration_candidate_unknown": "Candidate unavailable.\nChoose another one from the list shown.",
@@ -150,14 +152,6 @@
       "criterion": {
         "largest_file": "Largest file",
         "path_order": "Same size, first path in alphabetical order"
-      },
-      "reason": {
-        "permission_denied": "Permission denied",
-        "disk_full": "No space left on the destination drive",
-        "path_too_long": "Destination path too long",
-        "file_locked": "File open in another program",
-        "file_missing": "File disappeared during the extraction",
-        "write_failed": "Write failed"
       },
       "category": {
         "extracted": "Extracted",
@@ -242,14 +236,7 @@
       "no_result": "No result on Beatport or Bandcamp.",
       "below_threshold": "No result matches the track.",
       "source_unavailable": "Beatport and Bandcamp did not respond.\nRun it again later.",
-      "user_refused": "You refused every candidate.",
-      "permission_denied": "Access to the file was denied.\nCheck its permissions, then retry the write.",
-      "disk_full": "The disk is full.\nFree up disk space, then retry the write.",
-      "path_too_long": "The file path is too long.\nMove the folder to the drive root or shorten the folder names, then retry the write.",
-      "file_locked": "The file is open in another program.\nClose it, then retry the write.",
-      "file_missing": "The file was moved or deleted since the run.",
-      "write_failed": "Writing the file failed.",
-      "name_taken": "Another file already has its original name.\nRename or move that file, then restore again."
+      "user_refused": "You refused every candidate."
     },
     "list": {
       "before": "Before",
@@ -312,13 +299,26 @@
     "failures": "Files not restored: {{count}}",
     "failure": "{{file}}: {{reason}}",
     "reason": {
-      "permission_denied": "Access to the file was denied.\nCheck its permissions, then restore again.",
-      "disk_full": "The disk is full.\nFree up disk space, then restore again.",
-      "path_too_long": "The file path is too long.\nMove the folder to the drive root or shorten the folder names, then restore again.",
-      "file_locked": "The file is open in another program.\nClose it, then restore again.",
-      "file_missing": "The file was moved or deleted: it cannot be restored.",
-      "write_failed": "Restoring the file failed.",
       "name_taken": "Another file already has its original name.\nRename or move that file, then restore again."
+    }
+  },
+  "reason": {
+    "permission_denied": "Access to the file was denied.",
+    "disk_full": "The disk is full.",
+    "path_too_long": "The file path is too long.",
+    "file_locked": "The file is open in another program.",
+    "file_missing": "The file was moved, renamed or deleted.",
+    "write_failed": "The file could not be processed.",
+    "fix": {
+      "permission_denied": "Check its permissions, then {{retry}}.",
+      "disk_full": "Free up disk space, then {{retry}}.",
+      "path_too_long": "Move the folder to the drive root or shorten the folder names, then {{retry}}.",
+      "file_locked": "Close it, then {{retry}}."
+    },
+    "retry": {
+      "write": "retry the write",
+      "rollback": "restore again",
+      "extraction": "retry the extraction"
     }
   },
   "arbitration": {

@@ -264,10 +264,11 @@ async (page) => {
     title,
     tags_before: tagsBefore,
   })
-  const resolved = (x, state = "resolved") => ({ event: "track_resolved", track_id: x.track_id, state, resolution: "auto", failure_reason: null, source: "beatport", after: { artist: x.artist, title: `${x.title} (Original Mix)` }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null, tags_after: tagsAfter })
+  // `restorable` vient du sidecar : vrai pour un morceau au dump du run (ecrit, ou en echec apres sauvegarde de son origine).
+  const resolved = (x, state = "resolved") => ({ event: "track_resolved", track_id: x.track_id, state, resolution: "auto", failure_reason: null, source: "beatport", after: { artist: x.artist, title: `${x.title} (Original Mix)` }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null, tags_after: tagsAfter, restorable: state === "written" || state === "write_error" })
   const writeError = (x) => ({ ...resolved(x, "write_error"), failure_reason: "file_locked" })
-  const rolledBack = (x) => ({ event: "track_resolved", track_id: x.track_id, state: "rolled_back", resolution: "auto", failure_reason: null, source: null, after: null, scores: null, artwork_path: null, tags_after: null })
-  const unresolved = (x) => ({ event: "track_resolved", track_id: x.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null })
+  const rolledBack = (x) => ({ event: "track_resolved", track_id: x.track_id, state: "rolled_back", resolution: "auto", failure_reason: null, source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false })
+  const unresolved = (x) => ({ event: "track_resolved", track_id: x.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false })
   const finished = (runId, phase, counts) => ({ event: "run_finished", phase, run_id: runId, resolved: 0, unresolved: 0, written: 0, write_error: 0, awaiting_arbitration: 0, ...counts })
   const rbFinished = (runId, trackId, restored, failed) => ({ event: "rollback_finished", run_id: runId, track_id: trackId, restored, failed })
 

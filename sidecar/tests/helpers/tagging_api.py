@@ -8,7 +8,7 @@ l'objet de recherche, ce qui est le comportement documente.
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 import httpx2
 import pytest
@@ -31,14 +31,14 @@ if TYPE_CHECKING:
 
 type Reply = Callable[[], httpx2.Response]
 
-JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+JPEG: Final = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 
-ONE_TRACK = "dim orbit.mp3"
-CREATED = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
-WRITTEN_NAME = "Lior Vance - Dim Orbit (Original Mix).mp3"
-ORIGINAL = track_payload(mix_name="Original Mix")
-ORIGINAL_REFETCH = f"/beatport/tracks/{ORIGINAL['id']}"
-ON_BANDCAMP = track_payload(
+ONE_TRACK: Final = "dim orbit.mp3"
+CREATED: Final = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
+WRITTEN_NAME: Final = "Lior Vance - Dim Orbit (Original Mix).mp3"
+ORIGINAL: Final = track_payload(mix_name="Original Mix")
+ORIGINAL_REFETCH: Final = f"/beatport/tracks/{ORIGINAL['id']}"
+ON_BANDCAMP: Final = track_payload(
     id="42",
     source="bandcamp",
     mix_name=None,

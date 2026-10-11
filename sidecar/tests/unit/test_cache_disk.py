@@ -3,7 +3,7 @@
 import asyncio
 import shutil
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from fake_clock import FakeClock
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import BinaryIO
 
-TEN_BYTES = b"0123456789"
+TEN_BYTES: Final = b"0123456789"
 
 
 def _write(cache: DiskCache, key: str, data: bytes = TEN_BYTES) -> None:

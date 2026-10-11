@@ -9,7 +9,7 @@ import json
 import logging
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Final, NoReturn
 
 import keyring
 import pytest
@@ -27,9 +27,9 @@ if TYPE_CHECKING:
     from tagger.protocol import Event, ExtractPlaylist, StartTagging
 
 # Large : il borne un deadlock, il ne cadence rien.
-WAIT_TIMEOUT = 10
+WAIT_TIMEOUT: Final = 10
 # Assez long pour que la boucle lise la commande suivante pendant que le run meurt.
-STOP_DELAY = 0.2
+STOP_DELAY: Final = 0.2
 
 
 def extract_command(
@@ -188,7 +188,9 @@ def test_refuses_a_second_extraction_while_one_is_in_progress(
     events = drive(extraction * 2 + '{"command":"get_version"}\n')
 
     refusals = [event for event in events if event["event"] == "error"]
-    assert [event["code"] for event in refusals] == ["extraction_in_progress"]
+    assert [(event["code"], event["params"]) for event in refusals] == [
+        ("phase_busy", {"phase": "extraction"})
+    ]
     assert [event["event"] for event in events].count("extraction_finished") == 1
 
 
@@ -225,7 +227,7 @@ def test_a_cancelled_run_leaves_the_loop_alive(tmp_path: Path) -> None:
 @pytest.mark.usefixtures("tagging_slow_to_stop")
 def test_a_run_started_right_after_a_cancellation_is_not_refused(tmp_path: Path) -> None:
     """Regression : le run annule mourait encore quand la relance arrivait, qui repartait
-    en `tagging_in_progress`, code que l'interface lit comme un run qui continue.
+    en `phase_busy` du run, code que l'interface lit comme un run qui continue.
     """
     commands = start_tagging(tmp_path) + '{"command":"cancel_run"}\n' + start_tagging(tmp_path)
 
@@ -305,7 +307,7 @@ def test_every_line_parses_on_its_own(vlc_dump: Path) -> None:
         assert json.loads(line)
 
 
-SECRET = "sk-live-9f8e7d6c5b4a"
+SECRET: Final = "sk-live-9f8e7d6c5b4a"
 
 
 def _set_api_key(api_key: str) -> str:

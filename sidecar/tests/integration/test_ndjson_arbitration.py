@@ -1,6 +1,6 @@
 """Protocole NDJSON de l'arbitrage, de bout en bout sur la boucle."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from ndjson_loop import Conversation, conversation
@@ -24,13 +24,13 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
-REFUSE_BEATPORT = {
+REFUSE_BEATPORT: Final = {
     "command": "resolve_arbitration",
     "track_id": ONE_TRACK,
     "source": "beatport",
     "candidate": None,
 }
-CHOOSE_ON_BEATPORT = {
+CHOOSE_ON_BEATPORT: Final = {
     "command": "resolve_arbitration",
     "track_id": ONE_TRACK,
     "source": "beatport",
@@ -139,7 +139,7 @@ async def test_keeps_the_current_run_arbitrable_when_a_second_run_is_refused(
         await talk.expect("arbitration_required", track_id="a.mp3")
         await slow.reached.wait()
         talk.send(**_start(folder))
-        await talk.expect("error", code="tagging_in_progress")
+        await talk.expect("error", code="phase_busy", params={"phase": "tagging"})
         talk.send(command="resolve_arbitration", track_id="a.mp3", source="beatport", candidate=0)
         resolved = await talk.expect("track_resolved", track_id="a.mp3")
         slow.release.set()

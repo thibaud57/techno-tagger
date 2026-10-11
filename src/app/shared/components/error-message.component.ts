@@ -1,7 +1,7 @@
 import { Component, computed, input } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 
-import type { SidecarErrorEvent } from "../../core/models/protocol"
+import { PHASE_BUSY, type SidecarErrorEvent } from "../../core/models/protocol"
 import { FADE_IN } from "../utils/motion"
 import { brandName } from "../utils/sources"
 
@@ -11,13 +11,20 @@ import { MessageComponent } from "./message.component"
 @Component({
   selector: "app-error-message",
   imports: [MessageComponent, TranslatePipe],
-  template: `
-    <app-message severity="error">{{ "errors." + error().code | translate: params() }}</app-message>
-  `,
+  template: ` <app-message severity="error">{{ key() | translate: params() }}</app-message> `,
   host: { class: "block", "animate.enter": FADE_IN },
 })
 export class ErrorMessageComponent {
   readonly error = input.required<SidecarErrorEvent>()
+
+  /** Une phrase par phase pour `phase_busy` : le geste qui repare depend de ce qui tourne. */
+  protected readonly key = computed(() => {
+    const { code, params } = this.error()
+
+    return code === PHASE_BUSY && typeof params["phase"] === "string"
+      ? `errors.${PHASE_BUSY}.${params["phase"]}`
+      : `errors.${code}`
+  })
 
   /**
    * Une liste est jointe avant l'interpolation, que ngx-translate ecrirait `a,b` ; une

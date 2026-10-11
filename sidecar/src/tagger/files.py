@@ -22,6 +22,7 @@ from tagger.cache import ARTWORK_EXTENSIONS
 from tagger.errors import TaggerError
 from tagger.file_failures import FileFailureReason, file_failure_reason
 from tagger.matching import credited_artists, full_title
+from tagger.paths import extended_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -30,6 +31,10 @@ if TYPE_CHECKING:
     from tagger.scraper_client import TrackCandidate
 
 AUDIO_EXTENSIONS: Final = frozenset({".mp3", ".wav", ".aif", ".aiff", ".flac"})
+
+# Contenu que mutagen ne rattache a aucun des quatre formats : pas de cause systeme, donc le
+# motif generique, le seul qui ne pretende rien sur le fichier.
+_UNREADABLE: Final = FileFailureReason.WRITE_FAILED
 
 
 class TagKeys(NamedTuple):
@@ -101,14 +106,6 @@ _ID3_V23: Final = 3
 _ID3_V24: Final = 4
 # L'ecriture passe en v2.3 : la date y porte cette cle, pas TDRC.
 _ID3_V23_KEYS: Final = {TagField.DATE: "TYER"}
-
-
-@verify(UNIQUE)
-class UnreadableReason(StrEnum):
-    """Motif d'une lecture en echec, repris dans le log du pipeline."""
-
-    LOCKED = auto()
-    UNREADABLE = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,7 +195,7 @@ class TagsUnreadableError(FilesError):
 
     code: ClassVar[str] = "tags_unreadable"
 
-    def __init__(self, path: Path, reason: UnreadableReason) -> None:
+    def __init__(self, path: Path, reason: FileFailureReason) -> None:
         super().__init__(f"unreadable tags: {path.name}", file=path.name, reason=reason)
         self.reason = reason
 
@@ -250,26 +247,25 @@ def read_shown_tags(path: Path) -> ShownTags:
     audio, tags = _load(path)
     match tags:
         case ID3() as id3:
-            fields = {
-                field: _shown_value(_id3_values(id3, keys.id3)) if keys.id3 in id3 else None
-                for field, keys in TAG_FIELDS.items()
-            }
             notes = [text for frame in id3.getall(_ID3_COMMENT) for text in frame.text]
-            return ShownTags(TagSystem.ID3, MappingProxyType(fields), _shown_value(notes))
+            return _shown(TagSystem.ID3, _raw_fields(id3), notes)
         case VCFLACDict() as comments:
-            fields = {
-                field: _shown_value(comments[keys.vorbis]) if keys.vorbis in comments else None
-                for field, keys in TAG_FIELDS.items()
-            }
             notes = [text for key in _VORBIS_COMMENTS if key in comments for text in comments[key]]
-            return ShownTags(TagSystem.VORBIS, MappingProxyType(fields), _shown_value(notes))
+            return _shown(TagSystem.VORBIS, _raw_fields(comments), notes)
         case None:
             system = TagSystem.VORBIS if isinstance(audio, FLAC) else TagSystem.ID3
-            return ShownTags(system, MappingProxyType(dict.fromkeys(TAG_FIELDS)), None)
+            return _shown(system, {}, [])
         case _:
             # Conteneur hors des quatre formats (un WavPack sous `.wav`) : le prendre pour un
             # fichier sans tags masquerait l'echec que le pipeline doit loguer.
-            raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
+            raise TagsUnreadableError(path, _UNREADABLE)
+
+
+def _shown(
+    system: TagSystem, raw: Mapping[TagField, tuple[str, ...]], notes: Iterable[object]
+) -> ShownTags:
+    fields = {field: _shown_value(raw[field]) if field in raw else None for field in TAG_FIELDS}
+    return ShownTags(system, MappingProxyType(fields), _shown_value(notes))
 
 
 def _shown_value(values: Iterable[object]) -> str | None:
@@ -283,43 +279,42 @@ def read_original_tags(path: Path) -> OriginalTags:
     """
     match _load(path):
         case FLAC(), VCFLACDict() as comments:
-            fields = {
-                field: tuple(comments[keys.vorbis])
-                for field, keys in TAG_FIELDS.items()
-                if keys.vorbis in comments
-            }
-            return OriginalTags(TagSystem.VORBIS, None, MappingProxyType(fields))
+            return OriginalTags(TagSystem.VORBIS, None, MappingProxyType(_raw_fields(comments)))
         case FLAC(), None:
             return OriginalTags(TagSystem.VORBIS, None, MappingProxyType({}))
         case MP3() | WAVE() | AIFF(), ID3() as tags:
-            fields = {
+            return OriginalTags(TagSystem.ID3, tags.version[1], MappingProxyType(_raw_fields(tags)))
+        case MP3() | WAVE() | AIFF(), None:
+            return OriginalTags(TagSystem.ID3, None, MappingProxyType({}))
+        case _:
+            raise TagsUnreadableError(path, _UNREADABLE)
+
+
+def _raw_fields(tags: ID3 | VCFLACDict) -> dict[TagField, tuple[str, ...]]:
+    """Valeurs brutes des champs de la table presents, une liste par champ."""
+    match tags:
+        case ID3():
+            return {
                 field: _id3_values(tags, keys.id3)
                 for field, keys in TAG_FIELDS.items()
                 if keys.id3 in tags
             }
-            return OriginalTags(TagSystem.ID3, tags.version[1], MappingProxyType(fields))
-        case MP3() | WAVE() | AIFF(), None:
-            return OriginalTags(TagSystem.ID3, None, MappingProxyType({}))
-        case _:
-            raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
+        case VCFLACDict():
+            return {
+                field: tuple(tags[keys.vorbis])
+                for field, keys in TAG_FIELDS.items()
+                if keys.vorbis in tags
+            }
 
 
 def _load(path: Path) -> tuple[object, object]:
     try:
-        audio = mutagen.File(path)
+        audio = mutagen.File(extended_path(path))
     except (MutagenError, OSError) as exc:
-        # Un fichier tenu par un lecteur audio remonte en PermissionError sous
-        # l'erreur de mutagen : seul __cause__ le distingue d'une corruption.
-        cause = exc.__cause__ or exc
-        reason = (
-            UnreadableReason.LOCKED
-            if isinstance(cause, PermissionError)
-            else UnreadableReason.UNREADABLE
-        )
-        raise TagsUnreadableError(path, reason) from exc
+        raise TagsUnreadableError(path, failure_reason(path, exc)) from exc
 
     if audio is None:
-        raise TagsUnreadableError(path, UnreadableReason.UNREADABLE)
+        raise TagsUnreadableError(path, _UNREADABLE)
     return audio, audio.tags
 
 
@@ -439,7 +434,7 @@ def _edit_tags(
     id3_version: int,
 ) -> None:
     try:
-        audio = mutagen.File(path)
+        audio = mutagen.File(extended_path(path))
         if audio is None:
             raise TagsWriteError(path, FileFailureReason.WRITE_FAILED)
         if audio.tags is None:
@@ -458,7 +453,7 @@ def _edit_tags(
                 # Conteneur hors des quatre formats : refuse avant toute ecriture.
                 raise TagsWriteError(path, FileFailureReason.WRITE_FAILED)
     except (MutagenError, OSError) as exc:
-        raise _write_failure(path, exc) from exc
+        raise TagsWriteError(path, failure_reason(path, exc)) from exc
 
 
 def _restore_id3(tags: ID3, original: OriginalTags) -> None:
@@ -477,22 +472,26 @@ def _restore_vorbis(comments: VCFLACDict, original: OriginalTags) -> None:
             del comments[keys.vorbis]
 
 
-def _write_failure(path: Path, error: MutagenError | OSError) -> TagsWriteError:
+def failure_reason(path: Path, error: MutagenError | OSError) -> FileFailureReason:
+    """Motif d'un echec de lecture ou d'ecriture d'un fichier audio, `__cause__` compris.
+
+    Piege Windows : un fichier tenu par un lecteur leve `PermissionError` sans `winerror`
+    (le CRT ne remonte pas le code de verrou), indiscernable d'un refus de droits. Seule autre
+    cause, un fichier en lecture seule n'est pas inscriptible : s'il l'est, c'est un verrou.
+    Limite : sous Windows `os.access(W_OK)` ne lit que l'attribut lecture seule, un refus d'ACL
+    ou l'acces aux dossiers controles passe donc aussi en `file_locked`.
+    """
     cause = error.__cause__ or error
     reason = (
         file_failure_reason(cause) if isinstance(cause, OSError) else FileFailureReason.WRITE_FAILED
     )
-    # Le CRT ne remonte pas le code Windows d'un verrou : `PermissionError` sans `winerror`.
-    # Un fichier en lecture seule, seule autre cause, n'est pas inscriptible. Limite : sous Windows
-    # `os.access(W_OK)` ne lit que l'attribut lecture seule, un refus d'ACL ou l'acces aux dossiers
-    # controles passe donc aussi en `file_locked`.
     if (
         reason is FileFailureReason.PERMISSION_DENIED
         and getattr(cause, "winerror", None) is None
-        and os.access(path, os.W_OK)
+        and os.access(extended_path(path), os.W_OK)
     ):
         reason = FileFailureReason.FILE_LOCKED
-    return TagsWriteError(path, reason)
+    return reason
 
 
 def _write_id3(tags: ID3, values: TagValues, artwork: _Artwork | None) -> None:

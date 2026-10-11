@@ -341,6 +341,15 @@ async def handle_rollback(
         emit(_resolved(rolled_back))
 
     summary = await roll_back(dump_dir(), command.run_id, command.track_id, restored)
+    # Entree retiree sans restauration : l'etat reste, mais l'interface ne doit plus proposer
+    # une restauration qui rendrait `rollback_unavailable`.
+    if live is not None:
+        for track_id in summary.forgotten:
+            record = live.record(track_id)
+            if record is not None:
+                unrestorable = record.unrestorable()
+                live.update(unrestorable)
+                emit(_resolved(unrestorable))
     return RollbackFinished(
         event="rollback_finished",
         run_id=summary.run_id,
@@ -456,6 +465,7 @@ def _resolved(record: TrackRecord) -> TrackResolved:
         scores=None if record.scored is None else _scores(record.scored),
         artwork_path=record.artwork,
         tags_after=None if candidate is None else _tags_after(record, candidate),
+        restorable=record.restorable,
     )
 
 

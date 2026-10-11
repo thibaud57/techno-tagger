@@ -1,3 +1,4 @@
+import { AsyncPipe } from "@angular/common"
 import {
   Component,
   computed,
@@ -40,6 +41,7 @@ import { pickPath } from "../../shared/utils/dialog"
 import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { progressPercentage } from "../../shared/utils/progress"
+import { ReasonTextPipe } from "../../shared/utils/reason"
 import { fullHeightTable } from "../../shared/utils/table"
 import { TOOLTIP, WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
@@ -67,6 +69,8 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
 @Component({
   selector: "app-playlist-page",
   imports: [
+    AsyncPipe,
+    ReasonTextPipe,
     TranslatePipe,
     ButtonDirective,
     Label,

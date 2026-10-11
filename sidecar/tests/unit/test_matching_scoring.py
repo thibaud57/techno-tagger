@@ -1,6 +1,6 @@
 """Tests du scoring et du classement des candidats."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from scraper_responses import track_candidate
@@ -16,7 +16,7 @@ from tagger.matching import (
 if TYPE_CHECKING:
     from tagger.scraper_client import TrackCandidate
 
-DIM_ORBIT = TrackQuery(artist="Lior Vance", title="Dim Orbit", origin=QueryOrigin.TAGS)
+DIM_ORBIT: Final = TrackQuery(artist="Lior Vance", title="Dim Orbit", origin=QueryOrigin.TAGS)
 
 
 @pytest.mark.parametrize(

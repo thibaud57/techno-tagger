@@ -2,7 +2,7 @@
 
 import asyncio
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from scraper_responses import DIM_ORBIT, KELVOR, track_payload
@@ -48,8 +48,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-COPIES = ("a.mp3", "b.mp3", "c.mp3")
-STRANGER = kelvor(id="43", source="bandcamp", mix_name=None)
+COPIES: Final = ("a.mp3", "b.mp3", "c.mp3")
+STRANGER: Final = kelvor(id="43", source="bandcamp", mix_name=None)
 
 
 def _copies(tmp_path: Path) -> Path:

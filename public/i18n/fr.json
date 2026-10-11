@@ -69,13 +69,15 @@
     "api_key_malformed": "Cette clé contient un espace ou un caractère non accepté.\nRecopiez-la sans rien autour.",
     "api_key_missing": "Aucune clé API enregistrée.\nAjoutez-en une dans les Réglages.",
     "keyring_unavailable": "Le Gestionnaire d'identification de Windows est inaccessible.\nRelancez l'application.",
-    "tagging_in_progress": "Un run est en cours.\nAttendez sa fin.",
     "write_not_open": "Ce run ne peut pas être écrit maintenant.",
-    "write_in_progress": "L'écriture est en cours.\nAttendez qu'elle se termine.",
     "run_committed": "L'écriture de ce run est confirmée : ses morceaux ne peuvent plus être arbitrés ni rattrapés.",
     "rollback_unavailable": "Rien à restaurer : ces fichiers ont déjà retrouvé leurs tags d'origine, ou leur sauvegarde a expiré.",
-    "rollback_in_progress": "Une restauration est en cours.\nAttendez qu'elle se termine.",
-    "extraction_in_progress": "Une extraction est en cours.\nAttendez sa fin.",
+    "phase_busy": {
+      "extraction": "Une extraction est en cours.\nAttendez sa fin.",
+      "tagging": "Une recherche est en cours.\nAttendez sa fin.",
+      "write": "L'écriture est en cours.\nAttendez qu'elle se termine.",
+      "rollback": "Une restauration est en cours.\nAttendez qu'elle se termine."
+    },
     "arbitration_error": "Cette décision n'a pas pu être prise en compte.\nRéessayez.",
     "arbitration_not_pending": "Ce morceau n'attend plus de décision.\nPassez au suivant.",
     "arbitration_candidate_unknown": "Candidat indisponible.\nChoisissez-en un autre dans la liste affichée.",
@@ -150,14 +152,6 @@
       "criterion": {
         "largest_file": "Plus volumineux",
         "path_order": "Taille égale, premier chemin dans l'ordre alphabétique"
-      },
-      "reason": {
-        "permission_denied": "Accès refusé",
-        "disk_full": "Plus d'espace sur le disque de destination",
-        "path_too_long": "Chemin de destination trop long",
-        "file_locked": "Fichier ouvert dans un autre programme",
-        "file_missing": "Fichier disparu pendant l'extraction",
-        "write_failed": "Échec de l'écriture"
       },
       "category": {
         "extracted": "Extrait",
@@ -242,14 +236,7 @@
       "no_result": "Aucun résultat sur Beatport ni sur Bandcamp.",
       "below_threshold": "Aucun résultat ne correspond au morceau.",
       "source_unavailable": "Beatport et Bandcamp n'ont pas répondu.\nRelancez le run plus tard.",
-      "user_refused": "Vous avez refusé tous les candidats.",
-      "permission_denied": "L'accès au fichier a été refusé.\nVérifiez ses droits, puis relancez l'écriture.",
-      "disk_full": "Le disque est plein.\nLibérez de l'espace disque, puis relancez l'écriture.",
-      "path_too_long": "Le chemin du fichier est trop long.\nDéplacez le dossier vers la racine du disque ou raccourcissez les noms de dossiers, puis relancez l'écriture.",
-      "file_locked": "Le fichier est ouvert dans un autre programme.\nFermez-le, puis relancez l'écriture.",
-      "file_missing": "Le fichier a été déplacé ou supprimé depuis le run.",
-      "write_failed": "L'écriture du fichier a échoué.",
-      "name_taken": "Un autre fichier porte déjà son nom d'origine.\nRenommez ou déplacez cet autre fichier, puis relancez la restauration."
+      "user_refused": "Vous avez refusé tous les candidats."
     },
     "list": {
       "before": "Avant",
@@ -312,13 +299,26 @@
     "failures": "Fichiers non restaurés : {{count}}",
     "failure": "{{file}} : {{reason}}",
     "reason": {
-      "permission_denied": "L'accès au fichier a été refusé.\nVérifiez ses droits, puis relancez la restauration.",
-      "disk_full": "Le disque est plein.\nLibérez de l'espace disque, puis relancez la restauration.",
-      "path_too_long": "Le chemin du fichier est trop long.\nDéplacez le dossier vers la racine du disque ou raccourcissez les noms de dossiers, puis relancez la restauration.",
-      "file_locked": "Le fichier est ouvert dans un autre programme.\nFermez-le, puis relancez la restauration.",
-      "file_missing": "Le fichier a été déplacé ou supprimé : il ne peut pas être restauré.",
-      "write_failed": "La restauration du fichier a échoué.",
       "name_taken": "Un autre fichier porte déjà son nom d'origine.\nRenommez ou déplacez cet autre fichier, puis relancez la restauration."
+    }
+  },
+  "reason": {
+    "permission_denied": "L'accès au fichier a été refusé.",
+    "disk_full": "Le disque est plein.",
+    "path_too_long": "Le chemin du fichier est trop long.",
+    "file_locked": "Le fichier est ouvert dans un autre programme.",
+    "file_missing": "Le fichier a été déplacé, renommé ou supprimé.",
+    "write_failed": "Le fichier n'a pas pu être traité.",
+    "fix": {
+      "permission_denied": "Vérifiez ses droits, puis {{retry}}.",
+      "disk_full": "Libérez de l'espace disque, puis {{retry}}.",
+      "path_too_long": "Déplacez le dossier vers la racine du disque ou raccourcissez les noms de dossiers, puis {{retry}}.",
+      "file_locked": "Fermez-le, puis {{retry}}."
+    },
+    "retry": {
+      "write": "relancez l'écriture",
+      "rollback": "relancez la restauration",
+      "extraction": "relancez l'extraction"
     }
   },
   "arbitration": {

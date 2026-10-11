@@ -23,7 +23,7 @@ const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
   sourceName: null,
   artworkUrl: null,
   artworkPending: false,
-  reasonKey: null,
+  reason: null,
   arbitrable: false,
   recoverable: false,
   restorable: false,

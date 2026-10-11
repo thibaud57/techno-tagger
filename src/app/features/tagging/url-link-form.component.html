@@ -6,8 +6,10 @@
     <app-message severity="info" size="small" [animated]="false" data-recovered>
       {{ "tagging.recovery.recovered" | translate: { source } }}
     </app-message>
-  } @else if (shown.reasonKey; as reason) {
-    <p class="text-xs whitespace-pre-line text-muted-color" data-reason>{{ reason | translate }}</p>
+  } @else if (shown.reason; as reason) {
+    <p class="text-xs whitespace-pre-line text-muted-color" data-reason>
+      {{ reason | reasonText | async }}
+    </p>
   }
 </div>
 

@@ -11,7 +11,6 @@ import { RecoveryUiStore } from "./recovery-ui.store"
 const mount = (tracks: readonly TaggingTrack[] = [unresolvedTrack("a.mp3")]) => {
   const service = {
     tagging: signal(false),
-    runFrozen: signal(false),
     taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal<readonly { track_id: string }[]>([]),
     taggingTracks: signal<readonly TaggingTrack[]>(tracks),
@@ -26,19 +25,19 @@ const mount = (tracks: readonly TaggingTrack[] = [unresolvedTrack("a.mp3")]) => 
 
 describe("RecoveryUiStore", () => {
   describe("available", () => {
-    it("closes once the run is frozen", () => {
+    it("closes during a search", () => {
       const { store, service } = mount()
 
-      service.runFrozen.set(true)
+      service.tagging.set(true)
 
       expect(store.available()).toBe(false)
     })
 
-    it("opens again when a refused commit falls back", () => {
+    it("opens again once the search is over", () => {
       const { store, service } = mount()
-      service.runFrozen.set(true)
+      service.tagging.set(true)
 
-      service.runFrozen.set(false)
+      service.tagging.set(false)
 
       expect(store.available()).toBe(true)
     })
@@ -99,6 +98,15 @@ describe("RecoveryUiStore", () => {
       expect(store.linkStep()).toBeNull()
     })
 
+    it("empties once its track is no longer recoverable", () => {
+      const { store, service } = mount()
+      store.refused("a.mp3")
+
+      service.recoverableTracks.set([])
+
+      expect(store.linkStep()).toBeNull()
+    })
+
     it("empties once the step is left", () => {
       const { store } = mount()
       store.refused("a.mp3")
@@ -137,6 +145,15 @@ describe("RecoveryUiStore", () => {
       store.edit("a.mp3", TRACK_URL)
 
       service.tagging.set(true)
+
+      expect(store.canResolve("a.mp3")).toBe(false)
+    })
+
+    it("refuses a track that is no longer recoverable", () => {
+      const { store, service } = mount()
+      store.edit("a.mp3", TRACK_URL)
+
+      service.recoverableTracks.set([])
 
       expect(store.canResolve("a.mp3")).toBe(false)
     })
@@ -196,6 +213,32 @@ describe("RecoveryUiStore", () => {
       store.open()
 
       expect(store.target()).toBe("b.mp3")
+    })
+
+    it("targets nothing for a track that is not recoverable", () => {
+      const { store } = mount()
+
+      store.open("z.mp3")
+
+      expect(store.target()).toBeNull()
+    })
+
+    it("drops its target once the track is no longer recoverable", () => {
+      const { store, service } = mount([unresolvedTrack("a.mp3"), unresolvedTrack("b.mp3")])
+      store.open("a.mp3")
+
+      service.recoverableTracks.set([unresolvedTrack("b.mp3")])
+
+      expect(store.target()).toBeNull()
+    })
+
+    it("keeps its target while the track stays recoverable", () => {
+      const { store, service } = mount([unresolvedTrack("a.mp3"), unresolvedTrack("b.mp3")])
+      store.open("a.mp3")
+
+      service.recoverableTracks.set([unresolvedTrack("a.mp3")])
+
+      expect(store.target()).toBe("a.mp3")
     })
 
     it("closes back to no target", () => {

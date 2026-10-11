@@ -3,7 +3,7 @@
 Appelle `write_tags` comme la phase d'ecriture, sans passer par le protocole, dans un dossier
 jetable. Usage, depuis la racine du depot :
 
-    uv run --directory sidecar python <skill>/scripts/write_tags_probe.py <dossier> [format ...]
+    PYTHONPATH=tests/helpers uv run --directory sidecar python <skill>/scripts/write_tags_probe.py <dossier> [format ...]
 
 Les morceaux de `just demo` ne portent pas de vrai flux MPEG et mutagen refuse les MP3 :
 chaque fichier est donc bati par `audio_samples`, comme dans les tests. Il recoit d'abord des
@@ -13,27 +13,19 @@ avec une pochette JPEG. La relecture se fait par `translate=False` : les frames 
 qu'ecrites sur le disque, pas la remontee en v2.4 de mutagen.
 """
 
-import json
 import sys
 from pathlib import Path
 
 import mutagen
+from _probe import emit, read_disk
+from audio_samples import write_blank_aiff, write_blank_flac, write_blank_mp3, write_blank_wav
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, COMM, PRIV, TDRC, TXXX, PictureType
+from scraper_responses import track_payload
+from tagging_api import JPEG
 
-HELPERS = Path(__file__).resolve().parents[4] / "sidecar" / "tests" / "helpers"
-sys.path.insert(0, str(HELPERS))
-from audio_samples import (  # noqa: E402
-    write_blank_aiff,
-    write_blank_flac,
-    write_blank_mp3,
-    write_blank_wav,
-)
-from scraper_responses import track_payload  # noqa: E402
-from tagging_api import JPEG  # noqa: E402
-
-from tagger.files import project_tags, write_tags  # noqa: E402
-from tagger.scraper_client import TrackCandidate  # noqa: E402
+from tagger.files import project_tags, write_tags
+from tagger.scraper_client import TrackCandidate
 
 BUILDERS = {
     "mp3": write_blank_mp3,
@@ -41,10 +33,6 @@ BUILDERS = {
     "aiff": write_blank_aiff,
     "flac": write_blank_flac,
 }
-
-
-def emit(payload: dict[str, object]) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
 def dirty(path: Path) -> None:
@@ -73,22 +61,6 @@ def dirty(path: Path) -> None:
     audio.save(v2_version=4)
 
 
-def read_disk(path: Path) -> dict[str, object]:
-    audio = mutagen.File(path)
-    if isinstance(audio, FLAC):
-        return {
-            "tags": dict(audio.tags.as_dict()),
-            "pictures": [(p.type, p.mime, len(p.data)) for p in audio.pictures],
-        }
-    on_disk = type(audio)(path, translate=False).tags
-    return {
-        "version": ".".join(map(str, on_disk.version)),
-        "tags": {key: str(frame) for key, frame in on_disk.items() if not key.startswith("APIC")},
-        "pictures": [(f.type, f.mime, len(f.data)) for f in on_disk.getall("APIC")],
-        "comment_left": b"ripped by X" in path.read_bytes(),
-    }
-
-
 def main() -> int:
     formats = sys.argv[2:] or list(BUILDERS)
     if not sys.argv[1:] or not set(formats) <= set(BUILDERS):
@@ -112,7 +84,7 @@ def main() -> int:
                 "file": copy.name,
                 "written_fields": len(written.fields),
                 "artwork": written.artwork,
-                "disk": read_disk(copy),
+                "disk": {**read_disk(copy), "comment_left": b"ripped by X" in copy.read_bytes()},
             }
         )
     emit({"success": True, "values": dict(values), "results": results})

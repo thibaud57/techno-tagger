@@ -10,7 +10,8 @@ import io
 import logging
 import sys
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar, assert_never
+from enum import UNIQUE, StrEnum, auto, verify
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never
 
 import keyring
 from keyring.backends.Windows import WinVaultKeyring
@@ -106,22 +107,28 @@ def _force_utf8_streams() -> None:
             )
 
 
-class TaggingInProgressError(TaggerError):
-    """Un run cherche encore : aucune autre phase longue ne demarre avant sa fin."""
+@verify(UNIQUE)
+class Phase(StrEnum):
+    """Phase longue de la session, valeur du parametre `phase` de `phase_busy`."""
 
-    code: ClassVar[str] = "tagging_in_progress"
+    EXTRACTION = auto()
+    TAGGING = auto()
+    WRITE = auto()
+    ROLLBACK = auto()
 
-    def __init__(self) -> None:
-        super().__init__("a tagging run is already in progress")
 
+class PhaseBusyError(TaggerError):
+    """Une phase longue tourne encore : aucune autre ne demarre avant sa fin.
 
-class ExtractionInProgressError(TaggerError):
-    """Une extraction copie encore : aucune autre phase longue ne demarre avant sa fin."""
+    Extraction, ecriture et rollback touchent aux fichiers de l'utilisateur, la recherche
+    reseau lit ceux qu'elle va faire ecrire : deux phases melees pourraient viser le meme
+    dossier.
+    """
 
-    code: ClassVar[str] = "extraction_in_progress"
+    code: ClassVar[str] = "phase_busy"
 
-    def __init__(self) -> None:
-        super().__init__("an extraction is already in progress")
+    def __init__(self, phase: Phase) -> None:
+        super().__init__(f"a {phase} phase is already in progress", phase=phase)
 
 
 class WriteNotOpenError(TaggerError):
@@ -134,15 +141,6 @@ class WriteNotOpenError(TaggerError):
         super().__init__("the run is not open to writing")
 
 
-class WriteInProgressError(TaggerError):
-    """Ecriture en cours : aucune autre phase longue ne demarre avant sa fin."""
-
-    code: ClassVar[str] = "write_in_progress"
-
-    def __init__(self) -> None:
-        super().__init__("a write is already in progress")
-
-
 class RunCommittedError(TaggerError):
     """Run confirme : plus aucune decision n'entre sur ses morceaux, point de non-retour."""
 
@@ -152,13 +150,9 @@ class RunCommittedError(TaggerError):
         super().__init__("the run is committed", track_id=track_id)
 
 
-class RollbackInProgressError(TaggerError):
-    """Un rollback tourne : extraction, ecriture, run ou rollback toucheraient ses fichiers."""
-
-    code: ClassVar[str] = "rollback_in_progress"
-
-    def __init__(self) -> None:
-        super().__init__("a rollback is already in progress")
+class _RunningPhase(NamedTuple):
+    phase: Phase
+    task: asyncio.Task[None]
 
 
 class _Session:
@@ -171,28 +165,24 @@ class _Session:
     def __init__(self, group: asyncio.TaskGroup, stdout: TextIO) -> None:
         self._group = group
         self._stdout = stdout
-        self._run: asyncio.Task[None] | None = None
-        self._extraction: asyncio.Task[None] | None = None
-        self._write: asyncio.Task[None] | None = None
-        self._rollback: asyncio.Task[None] | None = None
+        # Une seule phase longue a la fois : le slot garde la derniere, `_running` dit si elle vit.
+        self._phase_task: _RunningPhase | None = None
         self._current: CurrentRun | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
         """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant."""
-        self._ensure_no_long_phase()
+        self._ensure_idle()
         replaced, self._current = self._current, None
         start_work = functools.partial(self._replace, replaced, command)
-        self._run = self._group.create_task(self._phase(start_work, command), name="tagging")
+        self._spawn_phase(Phase.TAGGING, start_work, command)
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
         """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
-        self._ensure_no_long_phase()
+        self._ensure_idle()
         start_work = functools.partial(
             asyncio.to_thread, handle_extract_playlist, command, self.send
         )
-        self._extraction = self._group.create_task(
-            self._phase(start_work, command), name="extraction"
-        )
+        self._spawn_phase(Phase.EXTRACTION, start_work, command)
 
     async def cancel_run(self) -> None:
         """N'annule que la phase reseau, qui ne tient que du reseau et de la memoire.
@@ -255,15 +245,13 @@ class _Session:
         Le run affiche ne suit que si c'est lui qu'on restaure : un ancien run du meme dossier
         porte les memes `track_id`.
         """
-        self._ensure_no_long_phase()
+        self._ensure_idle()
         current = self._current
         live = (
             current.live if current is not None and current.live.run_id == command.run_id else None
         )
         start_work = functools.partial(handle_rollback, command, live, self.send)
-        self._rollback = self._group.create_task(
-            self._phase(start_work, command, command.track_id), name="rollback"
-        )
+        self._spawn_phase(Phase.ROLLBACK, start_work, command, command.track_id)
 
     async def close(self, *, cancel: bool) -> None:
         """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
@@ -292,7 +280,18 @@ class _Session:
         self, start_work: Callable[[], Awaitable[Event]], command: CommitRun | RetryWrite
     ) -> None:
         """Ecriture en tache de fond, comme l'extraction : stdin reste lu pendant sa progression."""
-        self._write = self._group.create_task(self._phase(start_work, command), name="write")
+        self._spawn_phase(Phase.WRITE, start_work, command)
+
+    def _spawn_phase(
+        self,
+        phase: Phase,
+        start_work: Callable[[], Awaitable[Event | None]],
+        command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback),
+        track_id: str | None = None,
+    ) -> None:
+        """Garde de `_ensure_idle` deja passee : elle precede les effets de bord du demarrage."""
+        task = self._group.create_task(self._phase(start_work, command, track_id), name=phase.value)
+        self._phase_task = _RunningPhase(phase, task)
 
     def _arbitrable(self, track_id: str) -> CurrentRun:
         if self._current is None:
@@ -310,25 +309,11 @@ class _Session:
             raise RunCommittedError(track_id)
         return self._current
 
-    def _ensure_no_long_phase(self) -> None:
-        """Une seule phase longue a la fois, refusee par le code de celle qui tourne.
-
-        Extraction, ecriture et rollback touchent aux fichiers de l'utilisateur, la recherche
-        reseau lit ceux qu'elle va faire ecrire : deux phases melees pourraient viser le meme
-        dossier.
-        """
-        self._ensure_no_files_phase()
-        if self._active_run() is not None:
-            raise TaggingInProgressError
-
-    def _ensure_no_files_phase(self) -> None:
-        """Les phases qui touchent aux fichiers ; `_writable` traite la phase reseau a part."""
-        if self._active(self._rollback) is not None:
-            raise RollbackInProgressError
-        if self._active(self._extraction) is not None:
-            raise ExtractionInProgressError
-        if self._active(self._write) is not None:
-            raise WriteInProgressError
+    def _ensure_idle(self) -> None:
+        """Une seule phase longue a la fois, refusee en `phase_busy` portant celle qui tourne."""
+        running = self._running()
+        if running is not None:
+            raise PhaseBusyError(running.phase)
 
     def _writable(self, run_id: str) -> CurrentRun:
         """Run courant designe, sans phase longue ni geste en vol.
@@ -336,14 +321,11 @@ class _Session:
         Un geste qui finirait pendant l'ecriture ecraserait un morceau ecrit. Une phase reseau
         en cours rend `write_not_open`, le run n'etant pas encore ouvert a l'ecriture.
         """
-        self._ensure_no_files_phase()
+        running = self._running()
+        if running is not None and running.phase is not Phase.TAGGING:
+            raise PhaseBusyError(running.phase)
         current = self._current
-        if (
-            current is None
-            or current.live.run_id != run_id
-            or current.busy
-            or self._active_run() is not None
-        ):
+        if current is None or current.live.run_id != run_id or current.busy or running is not None:
             raise WriteNotOpenError
         return current
 
@@ -373,22 +355,23 @@ class _Session:
         if cancel:
             running.cancel()
         # Attendu ici (`wait` ne releve pas l'annulation) : une relance trop tot serait
-        # refusee en `tagging_in_progress`.
+        # refusee en `phase_busy`.
         await asyncio.wait({running})
 
     def send(self, event: Event) -> None:
         """Une ligne par evenement ; `line_buffering` (cf. `_force_utf8_streams`) evite le flush."""
         self._stdout.write(emit(event) + "\n")
 
-    def _active_run(self) -> asyncio.Task[None] | None:
-        """Le run en cours, `None` s'il n'y en a pas ou s'il est deja termine."""
-        return self._active(self._run)
-
-    @staticmethod
-    def _active(task: asyncio.Task[None] | None) -> asyncio.Task[None] | None:
-        if task is None or task.done():
+    def _running(self) -> _RunningPhase | None:
+        """La phase longue en cours, `None` si le slot est vide ou sa tache terminee."""
+        if self._phase_task is None or self._phase_task.task.done():
             return None
-        return task
+        return self._phase_task
+
+    def _active_run(self) -> asyncio.Task[None] | None:
+        """La phase reseau en cours, `None` si une autre phase tourne ou si aucune."""
+        running = self._running()
+        return running.task if running is not None and running.phase is Phase.TAGGING else None
 
     async def _phase(
         self,

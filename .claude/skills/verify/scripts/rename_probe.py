@@ -1,36 +1,32 @@
 r"""Renommage de vrais fichiers hors protocole : noms, collisions, casse, chemins longs, verrou.
 
-Appelle `rename_track` comme l'ecriture, sans passer par le protocole. Usage, depuis la racine
-du depot, `<dossier>` dans le scratchpad :
+Calcule la cible par `plan_rename` puis l'applique, comme l'ecriture, sans passer par le
+protocole. Usage, depuis la racine du depot, `<dossier>` dans le scratchpad :
 
-    uv run --directory sidecar python <skill>/scripts/rename_probe.py <dossier>
+    PYTHONPATH=tests/helpers uv run --directory sidecar python <skill>/scripts/rename_probe.py <dossier>
 
 Chaque cas bat son propre sous-dossier, vide au depart. Le disque est relu sous le nouveau nom, et
 le cas du chemin long se joue sur un fichier dont l'ancien chemin depasse 259 caracteres : seul le
-prefixe `\\?\` de l'appel systeme le renomme, la relecture passe par lui aussi.
+prefixe `\\?\` de l'appel systeme le renomme, la relecture passe par lui aussi. Le plan est connu
+avant que le fichier ne bouge : le cas simple relit le disque entre `plan_rename` et `apply`.
 """
 
-import json
 import shutil
 import sys
 from pathlib import Path
 
-HELPERS = Path(__file__).resolve().parents[4] / "sidecar" / "tests" / "helpers"
-sys.path.insert(0, str(HELPERS))
-from audio_samples import held_open  # noqa: E402
+from _probe import emit
+from audio_samples import held_open
+from rename_samples import rename_now
 
-from tagger.paths import extended_path  # noqa: E402
-from tagger.renaming import MAX_PATH_LENGTH, RenameError, rename_track  # noqa: E402
+from tagger.paths import extended_path
+from tagger.renaming import MAX_PATH_LENGTH, RenameError, plan_rename
 
 PREFIX = "\\?\\"
 ARTIST = "Lior Vance"
 TITLE = "Dim Orbit (Extended Mix)"
 TARGET = "Lior Vance - Dim Orbit (Extended Mix).mp3"
 LONG_TITLE = "Dim Orbit (Kaelen Mirandor Extended Remix)"
-
-
-def emit(payload: dict[str, object]) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
 def case_folder(root: Path, name: str, length: int | None = None) -> Path:
@@ -65,15 +61,25 @@ def main() -> int:
     results: dict[str, dict[str, object]] = {}
 
     folder = case_folder(root, "simple")
-    renamed = rename_track(make(folder, "lior vance - dim orbit.MP3"), ARTIST, TITLE)
+    original = make(folder, "lior vance - dim orbit.MP3")
+    plan = plan_rename(original, ARTIST, TITLE)
+    planned = plan is not None and plan.target == folder / TARGET and prefix_free(plan.target)
+    untouched_by_plan = names(folder) == [original.name]
+    renamed = rename_now(original, ARTIST, TITLE)
     results["simple"] = {
-        "ok": names(folder) == [TARGET] and renamed.path == folder / TARGET and prefix_free(renamed.path),
+        "ok": planned
+        and untouched_by_plan
+        and names(folder) == [TARGET]
+        and renamed.path == folder / TARGET
+        and prefix_free(renamed.path),
         "names": names(folder),
+        "plan_target": None if plan is None else plan.target.name,
+        "file_in_place_after_plan": untouched_by_plan,
     }
 
     folder = case_folder(root, "forbidden")
-    first = rename_track(make(folder, "a.flac"), "QX/RT", "Down In Amber")
-    second = rename_track(make(folder, "b.wav"), "Someone", "Mind: Body (Who? Remix)")
+    first = rename_now(make(folder, "a.flac"), "QX/RT", "Down In Amber")
+    second = rename_now(make(folder, "b.wav"), "Someone", "Mind: Body (Who? Remix)")
     results["forbidden"] = {
         "ok": [first.path.name, second.path.name]
         == ["QX-RT - Down In Amber.flac", "Someone - Mind - Body (Who Remix).wav"],
@@ -82,8 +88,8 @@ def main() -> int:
 
     folder = case_folder(root, "collision")
     make(folder, TARGET, b"existing")
-    second = rename_track(make(folder, "second.mp3"), ARTIST, TITLE)
-    third = rename_track(make(folder, "third.mp3"), ARTIST, TITLE)
+    second = rename_now(make(folder, "second.mp3"), ARTIST, TITLE)
+    third = rename_now(make(folder, "third.mp3"), ARTIST, TITLE)
     results["collision"] = {
         "ok": second.path.name.endswith("(Extended Mix) (2).mp3")
         and third.path.name.endswith("(Extended Mix) (3).mp3")
@@ -92,15 +98,18 @@ def main() -> int:
     }
 
     folder = case_folder(root, "case")
-    renamed = rename_track(make(folder, TARGET.lower()), ARTIST, TITLE)
+    renamed = rename_now(make(folder, TARGET.lower()), ARTIST, TITLE)
     results["case_only"] = {"ok": names(folder) == [TARGET] and renamed.path.name == TARGET, "names": names(folder)}
 
     folder = case_folder(root, "no-artist")
-    renamed = rename_track(make(folder, "rip_0042.wav"), None, "Mothlight")
-    results["no_artist"] = {"ok": names(folder) == ["rip_0042.wav"] and renamed.path.name == "rip_0042.wav", "names": names(folder)}
+    kept = make(folder, "rip_0042.wav")
+    results["no_artist"] = {
+        "ok": plan_rename(kept, None, "Mothlight") is None and names(folder) == ["rip_0042.wav"],
+        "names": names(folder),
+    }
 
     folder = case_folder(root, "truncated", length=MAX_PATH_LENGTH - 40 - 1)
-    renamed = rename_track(make(folder, "track.mp3"), ARTIST, LONG_TITLE)
+    renamed = rename_now(make(folder, "track.mp3"), ARTIST, LONG_TITLE)
     results["truncated"] = {
         "ok": renamed.truncated
         and len(renamed.path.name) == 40
@@ -111,7 +120,7 @@ def main() -> int:
     }
 
     folder = case_folder(root, "emoji", length=MAX_PATH_LENGTH - 24 - 1)
-    renamed = rename_track(make(folder, "track.mp3"), ARTIST, "🔥" * 8)
+    renamed = rename_now(make(folder, "track.mp3"), ARTIST, "🔥" * 8)
     units = len(str(renamed.path).encode("utf-16-le")) // 2
     results["emoji"] = {
         "ok": renamed.truncated and units <= MAX_PATH_LENGTH and extended_path(renamed.path).is_file(),
@@ -122,7 +131,7 @@ def main() -> int:
     folder = case_folder(root, "deep", length=MAX_PATH_LENGTH - 30 - 1)
     old_name = "a very long original ripped file name that keeps the path past the limit.mp3"
     old = make(folder, old_name)
-    renamed = rename_track(old, ARTIST, LONG_TITLE)
+    renamed = rename_now(old, ARTIST, LONG_TITLE)
     results["path_over_259"] = {
         "ok": len(str(old)) > MAX_PATH_LENGTH
         and renamed.truncated
@@ -139,7 +148,7 @@ def main() -> int:
     reason = None
     with held_open(held):
         try:
-            rename_track(held, ARTIST, TITLE)
+            rename_now(held, ARTIST, TITLE)
         except RenameError as error:
             reason = str(error.reason)
     results["locked"] = {"ok": reason == "file_locked" and names(folder) == ["track.mp3"], "reason": reason, "names": names(folder)}

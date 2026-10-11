@@ -1,4 +1,4 @@
-import { computed, signal } from "@angular/core"
+import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 
 import { APP_WINDOW, type AppWindow, type CloseRequest } from "./app-window"
@@ -47,15 +47,11 @@ class FakeWindow implements AppWindow {
 const setup = async ({ inTauri = true } = {}) => {
   const appWindow = new FakeWindow()
   appWindow.inTauri = inTauri
-  const runFrozen = signal(false)
-  const arbitrationCount = signal(0)
   const sidecar = {
     extracting: signal(false),
     tagging: signal(false),
-    runFrozen,
     runConfirmable: signal(false),
-    arbitrationCount,
-    pendingArbitrationCount: computed(() => (runFrozen() ? 0 : arbitrationCount())),
+    arbitrationCount: signal(0),
     writing: signal(false),
     rollingBack: signal<RollbackInFlight | null>(null),
   }
@@ -128,17 +124,6 @@ describe("CloseGuard", () => {
       { kind: "tagging" },
       { kind: "arbitration", count: 2 },
     ])
-  })
-
-  it("stops counting the arbitrations of a frozen run", async () => {
-    const { appWindow, sidecar, guard } = await setup()
-    sidecar.arbitrationCount.set(2)
-    sidecar.runFrozen.set(true)
-
-    const held = appWindow.close()
-
-    expect(held).toBe(false)
-    expect(guard.request()).toBeNull()
   })
 
   it("counts a run that could still be written as pending work", async () => {

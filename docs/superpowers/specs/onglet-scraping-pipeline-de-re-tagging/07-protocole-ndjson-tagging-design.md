@@ -38,7 +38,7 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (epic `arbitrage-uti
 - **À créer** : `sidecar/tests/unit/test_protocol_tagging.py` (modèles, seuils, traduction des événements)
 - **À créer** : `sidecar/tests/integration/test_ndjson_tagging.py` (séquence d'un run, erreurs, commande pendant un run)
 - **À modifier** : `docs/ARCHITECTURE.md` (§ API : `start_tagging`, `run_started`, `arbitration_required`, `run_finished`, ligne `shutdown`, phases ; § Robustesse : clé rejetée)
-- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`errors.api_key_missing`, `errors.tagging_in_progress`, exigés par `test_error_translations.py`)
+- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`errors.api_key_missing`, `errors.phase_busy`, exigés par `test_error_translations.py` ; depuis le 2026-10-11, `errors.phase_busy` remplace `errors.tagging_in_progress`)
 
 ## Architecture approach
 
@@ -56,9 +56,9 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (epic `arbitrage-uti
   - `api_key_missing` : aucune clé dans le trousseau, rien ne démarre ;
   - `tagging_folder_unreadable` : le dossier a disparu ou n'en est pas un (sub-project 01) ;
   - `api_key_rejected` : le run s'est arrêté après trois 403 (sub-project 06) ;
-  - `tagging_in_progress` : un second `start_tagging` arrive pendant un run.
+  - `phase_busy` (`params.phase` à `tagging`, ex-`tagging_in_progress` depuis le 2026-10-11) : un second `start_tagging` arrive pendant un run.
 - **Boucle concurrente** (`__main__.py`) : `run_loop` enveloppe sa lecture dans un `asyncio.TaskGroup`. `start_tagging` y crée une tâche nommée et référencée, puis la boucle repart lire `stdin` : c'est ce qui permet à l'arbitrage d'envoyer ses décisions pendant que le réseau tourne (ADR-009, « le pipeline ne s'arrête jamais »). Les autres commandes restent traitées l'une après l'autre.
-  - un second `start_tagging` pendant qu'une tâche est vivante produit `tagging_in_progress` et ne lance rien ;
+  - un second `start_tagging` pendant qu'une tâche est vivante produit `phase_busy` (`params.phase` à `tagging`, depuis le 2026-10-11) et ne lance rien ;
   - `shutdown` annule la tâche du run avant de sortir ;
   - l'EOF attend la fin du run : le test d'intégration en dépend, et à la fermeture réelle Tauri arrête le sidecar de toute façon ;
   - une `TaggerError` de la tâche devient un événement `error`, toute autre exception fait tomber le processus par le `TaskGroup`, comme pour la boucle (PRODUCTION.md § Alertes).
@@ -88,7 +88,7 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (epic `arbitrage-uti
 ### Scénario 4 : Run déjà en cours
 **GIVEN** un run lancé et encore en cours
 **WHEN** une seconde `start_tagging` arrive
-**THEN** un `error` de code `tagging_in_progress` est émis
+**THEN** un `error` de code `phase_busy` (`params.phase` à `tagging`, depuis le 2026-10-11) est émis
 **AND** le premier run poursuit sa séquence
 
 ### Scénario 5 : Commande servie pendant un run

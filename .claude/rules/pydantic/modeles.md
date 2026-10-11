@@ -20,7 +20,7 @@ paths:
 - `Annotated[type, Field(...)]` pour les contraintes, factorisées en alias réutilisables plutôt que répétées champ par champ
 - `default_factory` pour tout défaut mutable, jamais `default=[]`
 - `@field_validator(..., mode="before")` pour normaliser une entrée brute, `@model_validator(mode="after")` pour les règles cross-champs, qui retourne `self`
-- Verrouiller les champs à valeurs fermées par `Literal` ou `StrEnum` (cf. [modeles-donnees.md](../python/modeles-donnees.md))
+- Verrouiller les champs à valeurs fermées par `Literal` ou `StrEnum` (cf. [python/modeles-donnees.md](../python/modeles-donnees.md))
 - Router la migration d'un plan de run versionné dans un `@model_validator(mode="before")` (cf. [ADR-018](../../../docs/adrs/018-versionnement-plan-de-run.md))
 
 ## À éviter

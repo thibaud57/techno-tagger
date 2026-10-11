@@ -212,13 +212,13 @@
           <td>
             <app-truncated-text [text]="row.fileName" />
           </td>
-          @let reasonText = row.reasonKey ? (row.reasonKey | translate) : "";
+          @let reasonLines = row.reason | reasonText | async;
           @let detailText = row.detailKey ? (row.detailKey | translate: row.detailParams) : "";
           @let separator = "playlist.report.separator" | translate;
           @let details =
-            reasonText && detailText
-              ? reasonText + separator + detailText
-              : reasonText || detailText;
+            reasonLines && detailText
+              ? reasonLines + separator + detailText
+              : reasonLines || detailText;
           <td class="w-49.25 whitespace-nowrap">
             <span
               class="inline-flex items-center gap-2"

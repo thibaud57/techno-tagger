@@ -39,7 +39,7 @@ paths:
 - `/openapi.json` et `/docs` sont désactivés en production : la référence de contrat est le dépôt techno-scraper
 - L'API peut changer entre deux runs sans qu'aucune dépendance ne bouge : valider ses réponses
 
-> Les bornes de concurrence et le timeout client vivent dans [ARCHITECTURE.md § Concurrence](../../../docs/ARCHITECTURE.md#concurrence), la mécanique du client dans [client.md](../httpx2/client.md).
+> Les bornes de concurrence et le timeout client vivent dans [ARCHITECTURE.md § Concurrence](../../../docs/ARCHITECTURE.md#concurrence), la mécanique du client dans [httpx2/client.md](../httpx2/client.md).
 
 ## Exemples
 ```python

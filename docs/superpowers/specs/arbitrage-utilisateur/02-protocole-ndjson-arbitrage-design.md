@@ -48,7 +48,7 @@ Exclut le miroir TypeScript et toute interface (sub-projects 03 et 04), et toute
   - un choix, un refus Bandcamp ou un « passer » produisent un `track_resolved`, déjà consommé par l'interface.
 - **Run courant** : un `CurrentRun` dans `handlers.py` possède un `AsyncExitStack` (client techno-scraper et fetcher de pochettes), le `LiveRun`, les `RunSources`, l'`Arbitration` et les tâches de gestes en vol (le rattrapage par URL et l'écriture s'y ajoutent aux Features 4 et 5). `open_tagging(command, emit)` lit la clé (`api_key_missing` sinon), ouvre les deux caches, fait entrer le client et le fetcher dans la pile, appelle `open_run`, qui émet `run_started`, et branche l'`Arbitration` sur la traduction des événements. `close()` annule les gestes en vol, les attend et ferme la pile (`.claude/rules/python/asyncio.md`).
 - **Session de la boucle** (`__main__.py`) :
-  - `start_tagging` reste refusé en `tagging_in_progress` tant que la phase réseau tourne. Accepté, sa tâche de fond ferme le run courant, ouvre le nouveau, le confie à la session, déroule `resolve_run` et émet `run_finished` ;
+  - `start_tagging` reste refusé en `phase_busy` (`params.phase` à `tagging`, ex-`tagging_in_progress` depuis le 2026-10-11) tant que la phase réseau tourne. Accepté, sa tâche de fond ferme le run courant, ouvre le nouveau, le confie à la session, déroule `resolve_run` et émet `run_finished` ;
   - `cancel_run` n'annule que la phase réseau : le run courant reste arbitrable (décision du 2026-09-26, sub-project 01) ;
   - `shutdown` annule la phase réseau puis ferme le run courant ; l'EOF attend la phase réseau puis le ferme ;
   - `resolve_arbitration` part en tâche de fond dans le `TaskGroup` de la boucle, référencée par le `CurrentRun`. Une `TaggerError` y devient un `error` qui nomme la commande, comme pour les phases longues ; toute autre exception fait tomber le process, volontairement ;
@@ -124,7 +124,7 @@ Les tests d'intégration conversent avec la boucle : une commande n'est injecté
 
 ## Edge cases
 
-- **Nouveau run refusé en `tagging_in_progress`** : le run courant n'est pas touché.
+- **Nouveau run refusé en `phase_busy`** (`params.phase` à `tagging`, ex-`tagging_in_progress` depuis le 2026-10-11) : le run courant n'est pas touché.
 - **Nouveau run accepté mais dont l'ouverture échoue** (clé absente, dossier illisible) : l'ancien run est déjà fermé, la session reste sans run courant et `error` nomme `start_tagging`.
 - **Geste en vol au moment d'un nouveau run** : annulé à la fermeture de l'ancien, sans événement ; le morceau appartenait à un run que l'interface a quitté.
 - **EOF pendant un geste en vol** : le geste est annulé à la fermeture du run courant, l'interface n'étant plus là pour recevoir sa réponse.
@@ -137,7 +137,7 @@ Les tests d'intégration conversent avec la boucle : une commande n'est injecté
 
 **Options envisagées :**
 - **A. `CurrentRun` gardé par la session** : un objet de `handlers.py` possède le client par un `AsyncExitStack`, fermé au run suivant, au `shutdown` et à l'EOF ; « phase réseau en cours » et « run courant arbitrable » restent deux notions distinctes.
-- **B. La tâche de fond garde son `async with` ouvert** : pas de pile, mais la tâche ne se termine plus et `tagging_in_progress` doit distinguer autrement la fin de la phase réseau.
+- **B. La tâche de fond garde son `async with` ouvert** : pas de pile, mais la tâche ne se termine plus et `phase_busy` (à `tagging`, ex-`tagging_in_progress` depuis le 2026-10-11) doit distinguer autrement la fin de la phase réseau.
 - **C. Un client rouvert par geste** : chaque geste rescanne les caches disque, et la garde des 403 n'est plus partagée avec le run.
 
 **Choix : A**
