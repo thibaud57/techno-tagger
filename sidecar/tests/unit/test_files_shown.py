@@ -55,6 +55,28 @@ def test_reads_every_field_of_the_table_in_order_with_its_comment(
     assert (shown.identity.artist, shown.identity.title) == ("Adam Beyer, Bart Skils", "Your Mind")
 
 
+def test_lists_the_fields_in_the_order_the_detail_shows_them() -> None:
+    order = [field.value for field in TAG_FIELDS]
+
+    assert order == [
+        "artist",
+        "title",
+        "remixer",
+        "genre",
+        "bpm",
+        "key",
+        "label",
+        "catalog_number",
+        "isrc",
+        "album",
+        "track_number",
+        "date",
+        "source",
+        "url",
+        "source_id",
+    ]
+
+
 def test_reads_the_vorbis_comments_of_a_flac(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
     audio = mutagen.File(path)
@@ -82,11 +104,11 @@ def test_reads_a_file_without_tags_as_empty(blank_audio: Callable[[str], Path]) 
     ("field", "system", "expected"),
     [
         (TagField.DATE, TagSystem.ID3, "TYER"),
-        (TagField.ORIGINAL_DATE, TagSystem.ID3, "TORY"),
-        (TagField.CATALOG_NUMBER, TagSystem.ID3, "TXXX:CATALOGNUMBER"),
+        (TagField.CATALOG_NUMBER, TagSystem.ID3, "CATALOGNUMBER"),
+        (TagField.SOURCE, TagSystem.ID3, "SOURCE"),
         (TagField.DATE, TagSystem.VORBIS, "DATE"),
     ],
-    ids=["id3-date", "id3-original-date", "id3-txxx", "vorbis-date"],
+    ids=["id3-date", "id3-txxx-catalog", "id3-txxx-source", "vorbis-date"],
 )
 def test_names_a_field_by_the_key_the_written_file_carries(
     field: TagField, system: TagSystem, expected: str
@@ -114,7 +136,7 @@ def test_keeps_the_original_value_the_candidate_leaves_out() -> None:
     [(TagSystem.ID3, "2023"), (TagSystem.VORBIS, "2023-05-12")],
     ids=["id3-keeps-the-year", "vorbis-keeps-the-full-date"],
 )
-def test_keeps_the_original_date_as_the_written_file_will_hold_it(
+def test_keeps_the_file_date_as_the_written_file_will_hold_it(
     system: TagSystem, expected: str
 ) -> None:
     fields: dict[TagField, str | None] = dict.fromkeys(TAG_FIELDS)
@@ -134,7 +156,6 @@ def test_names_the_frames_the_written_id3_file_carries(
         path,
         {
             TagField.DATE: "2023",
-            TagField.ORIGINAL_DATE: "2023",
             TagField.CATALOG_NUMBER: "DC287",
         },
         None,
@@ -143,8 +164,8 @@ def test_names_the_frames_the_written_id3_file_carries(
     frames = set(ID3(path, translate=False))
 
     assert {
-        shown_key(field, TagSystem.ID3)
-        for field in (TagField.DATE, TagField.ORIGINAL_DATE, TagField.CATALOG_NUMBER)
+        shown_key(TagField.DATE, TagSystem.ID3),
+        f"TXXX:{shown_key(TagField.CATALOG_NUMBER, TagSystem.ID3)}",
     } <= frames
 
 

@@ -72,7 +72,7 @@ def test_a_name_asked_twice_is_extracted_once_then_already_present(
     music_library: Path, tmp_path: Path
 ) -> None:
     """`beta.mp3` a des homonymes : en deplacement, la seconde occurrence redepartagerait
-    des candidats dont le retenu a quitte la source. Les quatre categories partitionnent
+    des candidats dont le retenu a quitte la source. Les categories exclusives partitionnent
     les morceaux demandes, un meme nom ne peut pas sortir extrait et en echec.
     """
     result = extract(

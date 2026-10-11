@@ -33,8 +33,12 @@ def _found(requests: list[httpx2.Request], source: Source) -> Handler:
     [
         "https://www.beatport.com/track/your-mind/22708005?utm_source=share",
         "https://beatport.com/track/your-mind/22708005",
+        "https://www.beatport.com/fr/track/your-mind/22708005",
+        "https://www.beatport.com/de/track/your-mind/22708005",
+        "https://www.beatport.com/es/track/your-mind/22708005",
+        "https://www.beatport.com/pt-br/track/your-mind/22708005/",
     ],
-    ids=["www-with-query", "bare-host"],
+    ids=["www-with-query", "bare-host", "fr", "de", "es", "pt-br"],
 )
 async def test_resolves_a_beatport_url_through_the_track_id_route(
     requests: list[httpx2.Request], pasted: str
@@ -96,7 +100,7 @@ async def test_rewrites_an_http_url_to_https(requests: list[httpx2.Request]) -> 
     [
         "https://amelielens.bandcamp.com/album/basiel",
         "https://www.beatport.com/release/your-mind/4200000",
-        "https://www.beatport.com/fr/track/your-mind/22708005",
+        "https://www.beatport.com/french/track/your-mind/22708005",
         "https://www.youtube.com/watch?v=abc",
         "www.beatport.com/track/your-mind/22708005",
         "ftp://amelielens.bandcamp.com/track/basiel",
@@ -106,7 +110,7 @@ async def test_rewrites_an_http_url_to_https(requests: list[httpx2.Request]) -> 
     ids=[
         "bandcamp-album",
         "beatport-release",
-        "beatport-language-prefix",
+        "beatport-unknown-prefix",
         "unknown-host",
         "missing-scheme",
         "other-scheme",

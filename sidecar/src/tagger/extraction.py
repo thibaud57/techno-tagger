@@ -48,11 +48,7 @@ class DiscardedCandidate:
 
 @dataclass(frozen=True, slots=True)
 class DuplicateResolution:
-    """Trace d'un choix automatique entre homonymes.
-
-    Ce que la CLI d'origine faisait silencieusement, et qui est la vraie regression
-    corrigee ici : le choix reste automatique, mais il devient verifiable.
-    """
+    """Trace d'un choix automatique entre homonymes : automatique, mais verifiable."""
 
     file_name: str
     kept_path: Path
@@ -121,12 +117,11 @@ class DestinationFolderUnwritableError(ExtractionError):
 def pick_file(file_name: str, candidates: Sequence[Path]) -> PickedFile:
     """Retient un chemin parmi des homonymes et rend la trace du choix.
 
-    Departage dans l'ordre : taille decroissante, puis ordre alphabetique
-    du chemin a taille egale. Ce second critere n'est pas cosmetique : sans lui, deux
-    runs sur le meme dossier pourraient retenir deux fichiers differents.
+    Departage dans l'ordre : taille decroissante, puis ordre alphabetique du chemin a
+    taille egale, sans quoi deux runs sur le meme dossier pourraient retenir deux
+    fichiers differents.
 
-    Rend `None` en `resolution` quand il n'y avait qu'un candidat : il n'y a alors
-    rien a consigner dans le rapport, et rien a mesurer non plus.
+    `resolution` vaut `None` quand il n'y avait qu'un candidat : rien a consigner.
     """
     if len(candidates) == 1:
         return PickedFile(candidates[0], None)
@@ -160,9 +155,8 @@ def build_source_index(
 ) -> dict[str, tuple[Path, ...]]:
     """Indexe le dossier source en une passe : nom de fichier vers ses chemins.
 
-    Une recherche par nom relirait l'arborescence autant de fois qu'il y a de
-    morceaux, et devrait de toute facon la parcourir entierement pour reperer les
-    homonymes a departager.
+    Une recherche par nom relirait l'arborescence a chaque morceau, et devrait de
+    toute facon la parcourir entierement pour reperer les homonymes.
 
     Les cles sont en minuscules : la cible est Windows, dont le systeme de fichiers
     est insensible a la casse. `excluded` ecarte un sous-dossier de `source`, compare

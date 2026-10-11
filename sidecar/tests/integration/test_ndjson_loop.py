@@ -163,7 +163,7 @@ def extraction_waits_for_version(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_answers_a_version_request_while_an_extraction_is_in_progress(
     vlc_dump: Path, music_library: Path, tmp_path: Path
 ) -> None:
-    """La copie ne gele plus la lecture de stdin : une commande courte passe devant.
+    """La copie ne gele pas la lecture de stdin : une commande courte passe devant.
 
     Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
     laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.

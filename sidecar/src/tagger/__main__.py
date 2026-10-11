@@ -92,7 +92,7 @@ def _force_utf8_streams() -> None:
 
     `line_buffering` sur la sortie : sans lui, un binaire PyInstaller lance par un
     pipe garde tout jusqu'a la fin du run, et `PYTHONUNBUFFERED` n'y peut rien
-    (cf. ADR-005). Pose ici une fois, il dispense de flusher chaque evenement.
+    (cf. ADR-005).
     """
     for stream in (sys.stdin, sys.stdout):
         # Un flux substitue (capture de test, redirection) n'est pas un
@@ -195,11 +195,10 @@ class _Session:
         )
 
     async def cancel_run(self) -> None:
-        """`shutdown` n'attend pas la fin de la phase reseau, il l'annule.
+        """N'annule que la phase reseau, qui ne tient que du reseau et de la memoire.
 
-        L'extraction, l'ecriture et le rollback sont au contraire attendus : la phase reseau ne
-        tient que du reseau et de la memoire, quand une copie, une ecriture ou une restauration
-        coupee en vol laisserait un fichier a moitie ecrit chez l'utilisateur.
+        Une copie, une ecriture ou une restauration coupee en vol laisserait un fichier a
+        moitie ecrit chez l'utilisateur.
 
         Une phase reseau interrompue ouvre le rattrapage : sa progression part, sans
         evenement de fin, l'interface sachant qu'elle a demande l'arret.
@@ -269,8 +268,8 @@ class _Session:
     async def close(self, *, cancel: bool) -> None:
         """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
 
-        Ecriture et rollback ne sont jamais annules, le `TaskGroup` de la boucle les attend :
-        un fichier coupe en vol resterait a moitie ecrit ou renomme.
+        Extraction, ecriture et rollback ne sont jamais annules, le `TaskGroup` de la boucle
+        les attend (cf. `cancel_run`).
         """
         await self._settle_run(cancel=cancel)
         current, self._current = self._current, None
@@ -378,9 +377,7 @@ class _Session:
         await asyncio.wait({running})
 
     def send(self, event: Event) -> None:
-        """Une ligne, un evenement. Le `line_buffering` pose par `_force_utf8_streams`
-        dispense de flusher ; un flux substitue en test n'en a pas besoin.
-        """
+        """Une ligne par evenement ; `line_buffering` (cf. `_force_utf8_streams`) evite le flush."""
         self._stdout.write(emit(event) + "\n")
 
     def _active_run(self) -> asyncio.Task[None] | None:
@@ -452,11 +449,10 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    Les phases longues, extraction, re-tagging, ecriture et rollback, tournent en
+    Les phases longues (extraction, re-tagging, ecriture, rollback) tournent en
     tache de fond dans le `TaskGroup` : la boucle lit les commandes suivantes pendant
-    qu'elles avancent. `shutdown` n'annule que la phase reseau et attend l'extraction,
-    l'ecriture et le rollback, une copie, une ecriture ou une restauration coupee en vol
-    laissant un fichier a moitie ecrit ; l'EOF les attend toutes.
+    qu'elles avancent. `shutdown` n'annule que la phase reseau (cf. `_Session.close`),
+    l'EOF les attend toutes.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre
@@ -502,10 +498,10 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
     le `match` couvre alors toutes les variantes et `assert_never` verrouille
     l'ajout d'une commande sans handler.
 
-    Les handlers sont bloquants — SQLite, parcours du dossier source, copie de
-    fichiers, trousseau Windows — et passent donc par `to_thread`, sans quoi la
-    boucle gelerait. Les phases longues vont plus loin et partent en tache de
-    fond, `to_thread` seul laissant la boucle attendre leur retour.
+    Les handlers sont bloquants (SQLite, parcours du dossier source, copie de
+    fichiers, trousseau Windows) et passent donc par `to_thread`, sans quoi la
+    boucle gelerait. Les phases longues partent en tache de fond, `to_thread`
+    seul laissant la boucle attendre leur retour.
     """
     match command:
         case GetVersion():

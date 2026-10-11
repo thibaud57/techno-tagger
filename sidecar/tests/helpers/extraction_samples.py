@@ -1,4 +1,4 @@
-"""Echantillon d'`ExtractionResult` couvrant les cinq categories du resultat.
+"""Echantillon d'`ExtractionResult` couvrant toutes les categories du resultat.
 
 Un seul jeu de donnees pour tous les tests de rapport : ce qui est verifie est le
 rendu, jamais la construction de l'echantillon.
@@ -29,7 +29,7 @@ CYRILLIC_TRACK: Final = "Artist Two - Дорога.mp3"
 
 
 def sample_result(library: Path) -> ExtractionResult:
-    """Resultat portant les cinq categories, dont un homonyme departage."""
+    """Resultat portant toutes les categories, dont un homonyme departage."""
     return ExtractionResult(
         extracted=("alpha.mp3", CYRILLIC_TRACK),
         already_present=("delta.mp3",),

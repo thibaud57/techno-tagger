@@ -1,7 +1,6 @@
 """Rapports de run, ecrits dans le dossier destination.
 
-Deux rapports distincts existent dans le projet, celui de l'extraction et celui du
-re-tagging, chacun en JSON et en Markdown, tous deux en anglais quelle que soit la
+Rapport d'extraction en JSON et en Markdown, tous deux en anglais quelle que soit la
 langue de l'interface (cf. ARCHITECTURE.md § Donnees).
 
 Le JSON porte un champ de version des sa premiere version : l'ajouter apres coup
@@ -46,9 +45,9 @@ class ReportError(TaggerError):
 class ReportWriteError(ReportError):
     """Le run a extrait ses fichiers mais son rapport n'a pas pu etre ecrit.
 
-    Erreur metier et non `OSError` brute : la boucle NDJSON du sub-project 04
-    n'intercepte que `TaggerError`, et un disque plein doit produire un evenement
-    `error`, jamais un sidecar mort en silence.
+    Erreur metier et non `OSError` brute : la boucle NDJSON n'intercepte que
+    `TaggerError`, et un disque plein doit produire un evenement `error`, jamais un
+    sidecar mort en silence.
     """
 
     code: ClassVar[str] = "report_write_failed"
@@ -318,9 +317,8 @@ class ReportPaths(NamedTuple):
 def write_extraction_report(result: ExtractionResult, context: ReportContext) -> ReportPaths:
     """Depose le rapport dans le dossier destination et rend les deux chemins.
 
-    Un couple de fichiers par run, horodate : le rapport est permanent et sert de
-    base a la relecture d'un run passe, un nom fixe ecraserait donc
-    exactement ce qu'il protege.
+    Un couple de fichiers par run, horodate : le rapport est permanent, un nom fixe
+    ecraserait celui du run precedent.
 
     Leve `ReportWriteError` si le disque refuse, en nommant le fichier ou le
     dossier reellement en cause : les morceaux sont deja extraits, seul le rapport

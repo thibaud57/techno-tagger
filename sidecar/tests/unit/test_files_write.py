@@ -56,7 +56,7 @@ SOUNDCLOUD: Final = TrackCandidate.model_validate(soundcloud_track_payload())
 
 
 def _read_back(path: Path) -> dict[TagField, str]:
-    """Valeurs relues sous les cles de la table ; mutagen remonte TYER et TORY en TDRC et TDOR."""
+    """Valeurs relues sous les cles de la table ; mutagen remonte TYER en TDRC."""
     audio = mutagen.File(path)
     if isinstance(audio, FLAC):
         return {
@@ -120,7 +120,6 @@ def test_projects_every_field_a_beatport_candidate_carries() -> None:
         TagField.TITLE: "Your Mind (Extended Mix)",
         TagField.ALBUM: "Your Mind",
         TagField.DATE: "2023",
-        TagField.ORIGINAL_DATE: "2023",
         TagField.GENRE: "Techno (Peak Time / Driving)",
         TagField.LABEL: "Drumcode",
         TagField.CATALOG_NUMBER: "DC287",
@@ -195,7 +194,6 @@ def test_pins_the_field_table_of_the_adr() -> None:
         TagField.TITLE: TagKeys(id3="TIT2", vorbis="TITLE"),
         TagField.ALBUM: TagKeys(id3="TALB", vorbis="ALBUM"),
         TagField.DATE: TagKeys(id3="TDRC", vorbis="DATE"),
-        TagField.ORIGINAL_DATE: TagKeys(id3="TDOR", vorbis="ORIGINALDATE"),
         TagField.GENRE: TagKeys(id3="TCON", vorbis="GENRE"),
         TagField.LABEL: TagKeys(id3="TPUB", vorbis="LABEL"),
         TagField.CATALOG_NUMBER: TagKeys(id3="TXXX:CATALOGNUMBER", vorbis="CATALOGNUMBER"),
@@ -242,7 +240,6 @@ def test_omits_the_release_fields_without_a_release() -> None:
     assert {
         TagField.ALBUM,
         TagField.DATE,
-        TagField.ORIGINAL_DATE,
         TagField.CATALOG_NUMBER,
     }.isdisjoint(values)
 
@@ -289,8 +286,9 @@ def test_saves_id3_v23_with_the_year_alone(
     # Rechargees sans la remontee en v2.4 : les frames telles qu'ecrites sur le disque.
     on_disk = type(mutagen.File(path))(path, translate=False).tags
     assert on_disk.version == (2, 3, 0)
-    assert (str(on_disk["TYER"]), str(on_disk["TORY"])) == ("2023", "2023")
-    assert {"TDRC", "TDOR", "TDAT"}.isdisjoint(on_disk.keys())
+    assert str(on_disk["TYER"]) == "2023"
+    # Une seule date au contrat, celle de la sortie : aucune annee d'origine n'est ecrite.
+    assert {"TDRC", "TDOR", "TORY", "TDAT"}.isdisjoint(on_disk.keys())
 
 
 @pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])

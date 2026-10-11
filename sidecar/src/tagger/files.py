@@ -48,7 +48,6 @@ class TagField(StrEnum):
     TITLE = auto()
     ALBUM = auto()
     DATE = auto()
-    ORIGINAL_DATE = auto()
     GENRE = auto()
     LABEL = auto()
     CATALOG_NUMBER = auto()
@@ -61,25 +60,25 @@ class TagField(StrEnum):
     SOURCE = auto()
 
 
-# TPE2 n'y entre pas : le contrat ne rend pas d'artiste de sortie. Les dates sont en frames
-# v2.4, celles de mutagen en memoire : `update_to_v23()` les ecrit en TYER et TORY.
+# TPE2 n'y entre pas : le contrat ne rend pas d'artiste de sortie. La date est en frame v2.4,
+# celle de mutagen en memoire : `update_to_v23()` l'ecrit en TYER.
+# L'ordre est celui du detail avant / apres : l'interface l'affiche sans le retrier.
 TAG_FIELDS: Final[dict[TagField, TagKeys]] = {
     TagField.ARTIST: TagKeys(id3="TPE1", vorbis="ARTIST"),
-    TagField.REMIXER: TagKeys(id3="TPE4", vorbis="REMIXER"),
     TagField.TITLE: TagKeys(id3="TIT2", vorbis="TITLE"),
-    TagField.ALBUM: TagKeys(id3="TALB", vorbis="ALBUM"),
-    TagField.DATE: TagKeys(id3="TDRC", vorbis="DATE"),
-    TagField.ORIGINAL_DATE: TagKeys(id3="TDOR", vorbis="ORIGINALDATE"),
+    TagField.REMIXER: TagKeys(id3="TPE4", vorbis="REMIXER"),
     TagField.GENRE: TagKeys(id3="TCON", vorbis="GENRE"),
-    TagField.LABEL: TagKeys(id3="TPUB", vorbis="LABEL"),
-    TagField.CATALOG_NUMBER: TagKeys(id3="TXXX:CATALOGNUMBER", vorbis="CATALOGNUMBER"),
     TagField.BPM: TagKeys(id3="TBPM", vorbis="BPM"),
     TagField.KEY: TagKeys(id3="TKEY", vorbis="KEY"),
+    TagField.LABEL: TagKeys(id3="TPUB", vorbis="LABEL"),
+    TagField.CATALOG_NUMBER: TagKeys(id3="TXXX:CATALOGNUMBER", vorbis="CATALOGNUMBER"),
     TagField.ISRC: TagKeys(id3="TSRC", vorbis="ISRC"),
+    TagField.ALBUM: TagKeys(id3="TALB", vorbis="ALBUM"),
     TagField.TRACK_NUMBER: TagKeys(id3="TRCK", vorbis="TRACKNUMBER"),
+    TagField.DATE: TagKeys(id3="TDRC", vorbis="DATE"),
+    TagField.SOURCE: TagKeys(id3="TXXX:SOURCE", vorbis="SOURCE"),
     TagField.URL: TagKeys(id3="WOAS", vorbis="URL"),
     TagField.SOURCE_ID: TagKeys(id3="TXXX:SOURCE_ID", vorbis="SOURCE_ID"),
-    TagField.SOURCE: TagKeys(id3="TXXX:SOURCE", vorbis="SOURCE"),
 }
 
 # Valeurs a ecrire, un champ absent laissant le tag du fichier intact.
@@ -100,8 +99,8 @@ _ARTWORK_MIME: Final = {f".{extension}": mime for mime, extension in ARTWORK_EXT
 _ID3_V23: Final = 3
 # Seule version autre que la cible v2.3 qu'une restauration rend au fichier.
 _ID3_V24: Final = 4
-# L'ecriture passe en v2.3 : les dates y portent ces cles, pas TDRC.
-_ID3_V23_KEYS: Final = {TagField.DATE: "TYER", TagField.ORIGINAL_DATE: "TORY"}
+# L'ecriture passe en v2.3 : la date y porte cette cle, pas TDRC.
+_ID3_V23_KEYS: Final = {TagField.DATE: "TYER"}
 
 
 @verify(UNIQUE)
@@ -248,7 +247,7 @@ def read_identity(path: Path) -> IdentityTags:
 
 
 def read_shown_tags(path: Path) -> ShownTags:
-    """Les 16 champs et le commentaire en une lecture, dont `read_identity` tire la requete.
+    """Champs de la table et commentaire en une lecture, dont `read_identity` tire la requete.
 
     La colonne suit le conteneur retenu par mutagen, pas l'extension : a score egal
     `mutagen.File()` departage par nom de classe, un FLAC renomme `.mp3` ressort `unreadable`.
@@ -354,7 +353,6 @@ def project_tags(candidate: TrackCandidate) -> TagValues:
         TagField.TITLE: full_title(candidate),
         TagField.ALBUM: release.title if release else None,
         TagField.DATE: year,
-        TagField.ORIGINAL_DATE: year,
         TagField.GENRE: candidate.genre,
         TagField.LABEL: candidate.label.name if candidate.label else None,
         TagField.CATALOG_NUMBER: release.catalog_number if release else None,
@@ -389,18 +387,20 @@ def after_tags(projection: TagValues, before: ShownTags | None) -> Mapping[TagFi
 
 def _kept(before: ShownTags, field: TagField) -> str | None:
     value = before.fields[field]
-    # `update_to_v23()` ne garde que l'annee dans TYER et TORY, le reste part en TDAT.
+    # `update_to_v23()` ne garde que l'annee dans TYER, le reste part en TDAT.
     if value and before.system is TagSystem.ID3 and field in _ID3_V23_KEYS and value[:4].isdigit():
         return value[:4]
     return value
 
 
 def shown_key(field: TagField, system: TagSystem) -> str:
-    """Cle du champ dans le fichier ecrit, celle que l'ecran affiche."""
+    """Cle affichee a cote du libelle : celle du fichier ecrit, `TXXX` par sa description."""
     keys = TAG_FIELDS[field]
     if system is TagSystem.VORBIS:
         return keys.vorbis
-    return _ID3_V23_KEYS.get(field, keys.id3)
+    key = _ID3_V23_KEYS.get(field, keys.id3)
+    kind, _, description = key.partition(":")
+    return description if kind == "TXXX" else key
 
 
 def tag_system_of(path: Path) -> TagSystem:

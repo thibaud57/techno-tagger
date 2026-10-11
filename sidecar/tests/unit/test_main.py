@@ -107,7 +107,7 @@ def _at(path: str, *keys: str) -> object:
 
 
 def test_the_application_identity_is_the_same_everywhere() -> None:
-    """Le nom et l'identifiant sont recopies a la main dans cinq fichiers que rien ne
+    """Le nom et l'identifiant sont recopies a la main dans plusieurs fichiers que rien ne
     synchronise, et chaque divergence est muette : un identifiant desaccorde envoie
     les deux cotes dans deux dossiers de donnees voisins, hors des scopes fs, et un
     nom desaccorde disperse les erreurs sur deux releases Sentry incomparables.

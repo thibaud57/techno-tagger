@@ -59,7 +59,7 @@ _TMP_SUFFIX: Final = ".tmp"
 
 def resolve_host(host: str) -> list[str]:
     """Adresses d'un hote, telles que la pile reseau les rendra a la connexion."""
-    # `sockaddr[0]` est l'adresse en v4 comme en v6, le reste du tuple diffère.
+    # `sockaddr[0]` est l'adresse en v4 comme en v6, le reste du tuple differe.
     return [str(info[4][0]) for info in socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)]
 
 
@@ -166,10 +166,9 @@ class DiskCache:
     def abort(self, pending: PendingWrite) -> None:
         """Abandonne l'ecriture : le `.tmp` est supprime, rien n'est publie.
 
-        Ne leve jamais : `abort` est appele depuis un `except`, et une erreur de
-        nettoyage y remplacerait l'echec qu'on est en train de traiter. Un `.tmp`
-        verrouille ferait sinon sortir un `OSError` brut la ou l'appelant attend une
-        erreur metier, et le morceau echouerait pour un residu de cache.
+        Ne leve jamais : appele depuis un `except`, une erreur de nettoyage y
+        remplacerait l'echec en cours, et un `.tmp` verrouille ferait echouer le morceau
+        pour un simple residu de cache.
         """
         with contextlib.suppress(OSError):
             pending.file.close()
@@ -420,17 +419,14 @@ async def _check_artwork_url(url: str, resolve: HostResolver) -> None:
 
     `artwork_url` arrive dans une reponse de l'API : c'est la seule valeur du contrat
     qui declenche une requete vers une adresse libre. Une API detournee pointerait
-    sinon la boucle locale ou le reseau de l'utilisateur, et les motifs d'echec rendus
-    suffiraient a sonder ce qui y repond. Aucune liste blanche de domaines ici : les
-    hotes des CDN ne sont documentes nulle part, en inventer une la ferait casser au
-    premier changement de CDN sans rien apprendre a qui la lirait.
+    sinon la boucle locale ou le reseau de l'utilisateur. Aucune liste blanche de
+    domaines : les hotes des CDN ne sont documentes nulle part, elle casserait au
+    premier changement de CDN.
 
-    L'hote est resolu puis juge sur ses adresses, et non sur sa forme : un nom de
-    domaine dont l'enregistrement pointe la boucle locale passerait un controle qui ne
-    regarderait que les adresses ecrites en clair. Le rebinding, ou le DNS rend une
-    autre adresse entre ce controle et la connexion, est rattrape apres coup par
-    `_check_connected_address` : seule la connexion TCP part alors, sans qu'aucune
-    reponse ne soit lue.
+    L'hote est resolu puis juge sur ses adresses, non sur sa forme : un nom de domaine
+    qui pointe la boucle locale passerait un controle limite aux adresses ecrites en
+    clair. Le rebinding (le DNS rend une autre adresse entre ce controle et la
+    connexion) est rattrape apres coup par `_check_connected_address`.
     """
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname:
@@ -457,9 +453,8 @@ def _check_connected_address(response: httpx2.Response) -> None:
 
     httpx2 resout l'hote une seconde fois a la connexion : un DNS qui rend une adresse
     publique au controle et une interne ensuite passerait le garde. Le corps n'est alors
-    ni lu ni mis en cache, sous un `blocked_url` unique qui n'apprend rien sur ce qui
-    repond en interne. La connexion TCP, elle, a eu lieu : l'epingler demanderait un
-    transport que httpx2 n'expose pas.
+    ni lu ni mis en cache. La connexion TCP, elle, a eu lieu : l'epingler demanderait
+    un transport que httpx2 n'expose pas.
     """
     stream = response.extensions.get("network_stream")
     if stream is None:

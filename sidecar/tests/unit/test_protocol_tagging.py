@@ -10,7 +10,7 @@ from scraper_responses import track_candidate
 from tagging_records import RECORD, scored_candidate
 
 from tagger import tagging
-from tagger.files import TagField
+from tagger.files import TAG_FIELDS, TagField
 from tagger.handlers import to_protocol_event
 from tagger.protocol import (
     ArbitrationRequired,
@@ -158,7 +158,7 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
     assert isinstance(resolved, TrackResolved)
     assert resolved.tags_after is not None
     rows = {row.field: row for row in resolved.tags_after}
-    assert list(rows) == list(TagField)
+    assert list(rows) == list(TAG_FIELDS)
     assert rows[TagField.ARTIST].key == "ARTIST"
     assert rows[TagField.ARTIST].value == "Adam Beyer"
     assert rows[TagField.TITLE].value == "Your Mind (Original Mix)"
