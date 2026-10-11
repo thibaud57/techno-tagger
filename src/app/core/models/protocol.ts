@@ -9,7 +9,8 @@ export type Phase = "extraction" | "tagging" | "url_recovery" | "write"
 
 export type DuplicateCriterion = "largest_file" | "path_order"
 
-export type ExtractionFailureReason =
+/** Panne d'un fichier copie, deplace ou ecrit : l'extraction, l'ecriture et la restauration la partagent. */
+export type FileFailureReason =
   | "permission_denied"
   | "disk_full"
   | "path_too_long"
@@ -38,7 +39,7 @@ export interface DuplicateResolution {
 
 export interface ExtractionFailure {
   readonly file_name: string
-  readonly reason: ExtractionFailureReason
+  readonly reason: FileFailureReason
 }
 
 export interface GetVersionCommand {
@@ -110,6 +111,30 @@ export interface ResolveByUrlCommand {
   readonly url: string
 }
 
+/** Confirmation globale : le point de non-retour, seul geste qui ecrit des fichiers. */
+export interface CommitRunCommand {
+  readonly command: "commit_run"
+  readonly run_id: string
+}
+
+/** Rejoue l'ecriture des seuls morceaux en echec. */
+export interface RetryWriteCommand {
+  readonly command: "retry_write"
+  readonly run_id: string
+}
+
+/** Decrit le dernier run annulable, pour la confirmation des Reglages. */
+export interface GetRollbackTargetCommand {
+  readonly command: "get_rollback_target"
+}
+
+/** Restaure un run entier depuis son dump, ou son seul morceau `track_id`. */
+export interface RollbackCommand {
+  readonly command: "rollback"
+  readonly run_id: string
+  readonly track_id: string | null
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
@@ -121,6 +146,10 @@ export type SidecarCommand =
   | ResolveArbitrationCommand
   | SwitchArbitrationSourceCommand
   | ResolveByUrlCommand
+  | CommitRunCommand
+  | RetryWriteCommand
+  | GetRollbackTargetCommand
+  | RollbackCommand
 
 export interface VersionEvent {
   readonly event: "version"
@@ -157,28 +186,73 @@ export interface ExtractionFinishedEvent {
 }
 
 /** Etat d'un morceau, en trois champs jamais interchangeables (ARCHITECTURE.md § API). */
-export type TrackState = "resolved" | "unresolved"
+export type TrackState = "resolved" | "unresolved" | "written" | "write_error" | "rolled_back"
 
 export type TrackResolution = "auto" | "arbitration" | "url" | "none"
 
-export type TrackFailureReason =
+/** Motif d'un morceau non resolu par la recherche. */
+export type ResolutionFailureReason =
   "empty_query" | "no_result" | "below_threshold" | "user_refused" | "source_unavailable"
+
+/** Un seul champ `failure_reason` sur le fil : les deux jeux y partagent un espace de chaines disjoint. */
+export type TrackFailureReason = ResolutionFailureReason | FileFailureReason
+
+/** `name_taken` n'est emis que par la restauration, qui refuse d'ecraser un fichier. */
+export type RollbackFailureReason = FileFailureReason | "name_taken"
 
 export type TrackSource = "beatport" | "bandcamp" | "soundcloud"
 
 /** `run_finished` porte la phase close : la boucle reseau, puis l'ecriture. */
 export type RunPhase = "network" | "write"
 
+/** Champs de la table des tags ecrits (ADR-011). */
+export type TagField =
+  | "artist"
+  | "remixer"
+  | "title"
+  | "album"
+  | "date"
+  | "genre"
+  | "label"
+  | "catalog_number"
+  | "bpm"
+  | "key"
+  | "isrc"
+  | "track_number"
+  | "url"
+  | "source_id"
+  | "source"
+
+export type TagSystem = "id3" | "vorbis"
+
+/** Une ligne du detail : `key` est celle du fichier ecrit, `value` nulle si absente. */
+export interface TagValue {
+  readonly field: TagField
+  readonly key: string
+  readonly value: string | null
+}
+
+/** Tags d'origine d'un morceau, tels que le fichier les portait a l'ouverture du run. */
+export interface TagsBefore {
+  readonly system: TagSystem
+  readonly comment: string | null
+  readonly fields: readonly TagValue[]
+}
+
 export interface TrackEntry {
   readonly track_id: string
   readonly file_name: string
   readonly artist: string
   readonly title: string
+  /** Nul quand le fichier etait illisible a l'ouverture du run. */
+  readonly tags_before: TagsBefore | null
 }
 
 export interface RunStartedEvent {
   readonly event: "run_started"
   readonly run_id: string
+  /** Dossier du run tel que le sidecar le lit. */
+  readonly folder: string
   readonly tracks: readonly TrackEntry[]
 }
 
@@ -206,6 +280,10 @@ export interface TrackResolvedEvent {
   readonly scores: TrackScores | null
   /** Chemin dans le cache, lu par `convertFileSrc` : jamais l'image elle-meme. */
   readonly artwork_path: string | null
+  /** Nul pour un non resolu. */
+  readonly tags_after: readonly TagValue[] | null
+  /** Le dump du run porte l'origine du morceau : le sidecar est seul a savoir si une restauration est possible. */
+  readonly restorable: boolean
 }
 
 /** Les deux seules sources qu'un arbitrage met en jeu : celles que le pipeline interroge. */
@@ -229,7 +307,7 @@ export interface ArbitrationState {
   readonly beatport_unavailable: boolean
   readonly candidates: readonly CandidatePayload[]
   /** Pourquoi la liste Bandcamp affichee est vide, `null` sinon. */
-  readonly empty_reason: TrackFailureReason | null
+  readonly empty_reason: ResolutionFailureReason | null
   /** La liste que `switch_arbitration_source` peut reafficher, `null` sinon. */
   readonly other_source: ArbitrationSource | null
 }
@@ -248,8 +326,44 @@ export interface RunFinishedEvent {
   readonly run_id: string
   readonly resolved: number
   readonly unresolved: number
+  readonly written: number
+  readonly write_error: number
   readonly awaiting_arbitration: number
 }
+
+/** Dernier run annulable : de quoi le nommer dans la confirmation. */
+export interface RollbackRun {
+  readonly run_id: string
+  readonly written_at: string
+  readonly folder: string
+  readonly tracks: number
+}
+
+/** `run` nul : rien a annuler, le bouton des Reglages se grise. */
+export interface RollbackTargetEvent {
+  readonly event: "rollback_target"
+  readonly run: RollbackRun | null
+}
+
+export interface RollbackFailure {
+  readonly track_id: string
+  readonly file_name: string
+  readonly reason: RollbackFailureReason
+}
+
+export interface RollbackFinishedEvent {
+  readonly event: "rollback_finished"
+  readonly run_id: string
+  readonly track_id: string | null
+  readonly restored: readonly string[]
+  readonly failed: readonly RollbackFailure[]
+}
+
+/** Une phase longue tourne deja : `params.phase` la nomme, `command` dit laquelle est refusee. */
+export const PHASE_BUSY = "phase_busy"
+
+/** Valeurs de `params.phase` d'un `phase_busy` : la phase qui tourne, la restauration comprise (absente de `Phase`). */
+export type BusyPhase = "extraction" | "tagging" | "write" | "rollback"
 
 /** `ErrorEvent` est un type DOM global : meme raison. */
 export interface SidecarErrorEvent {
@@ -275,4 +389,6 @@ export type SidecarEvent =
   | ArbitrationRequiredEvent
   | ArbitrationUpdatedEvent
   | RunFinishedEvent
+  | RollbackTargetEvent
+  | RollbackFinishedEvent
   | SidecarErrorEvent

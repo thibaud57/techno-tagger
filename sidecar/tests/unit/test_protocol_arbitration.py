@@ -55,11 +55,11 @@ def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> No
         (
             track_candidate().model_copy(
                 update={
-                    "label": Credit(name="Drumcode"),
+                    "label": Credit(name="Kestrel"),
                     "release": ReleaseInfo(release_date=date(2023, 6, 16)),
                 }
             ),
-            ("Drumcode", 2023),
+            ("Kestrel", 2023),
         ),
         (track_candidate(), (None, None)),
     ],

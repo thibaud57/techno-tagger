@@ -15,7 +15,7 @@ interface Case {
   readonly label: string
 }
 
-/** Les six lignes de DESIGN.md § Couleurs Semantiques que la Feature 2 fait circuler. */
+/** Les lignes de DESIGN.md § Couleurs Semantiques que le flux fait circuler. */
 const CASES: readonly Case[] = [
   {
     state: null,
@@ -64,6 +64,30 @@ const CASES: readonly Case[] = [
     severity: "danger",
     icon: "times",
     label: "tagging.state.unresolved",
+  },
+  {
+    state: "written",
+    resolution: "arbitration",
+    awaiting: false,
+    severity: "success",
+    icon: "check",
+    label: "tagging.state.arbitrated",
+  },
+  {
+    state: "write_error",
+    resolution: "auto",
+    awaiting: false,
+    severity: "danger",
+    icon: "exclamation-triangle",
+    label: "tagging.state.writeError",
+  },
+  {
+    state: "rolled_back",
+    resolution: "auto",
+    awaiting: false,
+    severity: "secondary",
+    icon: "undo",
+    label: "tagging.state.rolledBack",
   },
 ]
 

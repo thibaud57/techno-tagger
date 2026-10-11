@@ -37,7 +37,6 @@ import { FADE_IN } from "./shared/utils/motion"
     IconComponent,
   ],
   templateUrl: "./app.component.html",
-  styleUrl: "./app.component.css",
   // `overflow-hidden` tient la regle « la page ne defile jamais » : sans lui, un pixel de
   // trop fait defiler le document et la barre d'onglets quitte l'ecran.
   host: { class: "flex h-screen flex-col overflow-hidden" },
@@ -79,7 +78,7 @@ export class AppComponent {
   protected readonly arbitrationCount = this.sidecar.arbitrationCount
   /** L'etape lien d'un morceau sorti de la file garde la modale ouverte, meme file videe. */
   private readonly queueEmpty = computed(
-    () => this.sidecar.arbitrationCount() === 0 && this.recovery.linkStep() === null,
+    () => this.arbitrationCount() === 0 && this.recovery.linkStep() === null,
   )
   private readonly arbitrationDismissed = linkedSignal({
     source: () => [this.queueEmpty(), this.sidecar.arbitrationOpenings()],

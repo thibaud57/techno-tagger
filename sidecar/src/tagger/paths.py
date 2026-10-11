@@ -1,13 +1,13 @@
-"""Racine des donnees de l'application sur la machine de l'utilisateur.
-
-Source unique des chemins sous `appLocalDataDir()` : logs, cache, et plus tard
-plans de run et dump des tags d'origine.
-"""
+"""Racine des donnees de l'application, source unique des chemins sous `appLocalDataDir()`."""
 
 import os
 from pathlib import Path
+from typing import Final
 
 from tagger import BUNDLE_IDENTIFIER
+
+_EXTENDED_PREFIX: Final = "\\\\?\\"
+_UNC_PREFIX: Final = "\\\\"
 
 
 def app_data_dir() -> Path:
@@ -19,3 +19,17 @@ def app_data_dir() -> Path:
     base = os.getenv("LOCALAPPDATA")
     root = Path(base) if base else Path.home() / "AppData" / "Local"
     return root / BUNDLE_IDENTIFIER
+
+
+def extended_path(path: Path) -> Path:
+    """Chemin prefixe `\\\\?\\`, qui leve la limite de 260 caracteres de l'API Win32.
+
+    Le prefixe exige un chemin absolu et normalise. Seul le dossier est resolu : resoudre le
+    nom rendrait la casse deja sur le disque, et un renommage de casse seule n'aurait plus d'effet.
+    """
+    text = str(path.parent.resolve() / path.name)
+    if text.startswith(_EXTENDED_PREFIX):
+        return path
+    if text.startswith(_UNC_PREFIX):
+        return Path(f"{_EXTENDED_PREFIX}UNC\\{text.removeprefix(_UNC_PREFIX)}")
+    return Path(f"{_EXTENDED_PREFIX}{text}")

@@ -7,6 +7,7 @@ paths:
 
 ## À faire
 - N'écrire un test que s'il vérifie une règle métier du projet : une régression de notre code doit le faire échouer
+- Asserter le comportement observable (événements émis, fichier écrit), pas les appels internes : sur-mocker couple le test à l'implémentation
 - Garder par un test toute valeur recopiée entre deux manifestes quand aucune dérivation n'est possible : la divergence ne se verrait qu'à l'exécution du bundle. `test_main.py` porte nom, identifiant, binaire et versions
 - Structurer en Arrange / Act / Assert séparés par une ligne vide, sans commentaire de section
 - Nommer les tests en anglais, fonctions `test_*` comme `ids` de parametrize ; docstrings et commentaires en français
@@ -16,7 +17,8 @@ paths:
 - Patcher le symbole là où il est utilisé, pas là où il est défini
 - `@pytest.mark.parametrize(..., ids=[...])` pour les jeux de données, un cas par échec localisé
 - `pytest.raises(MonErreur, match=...)`, et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
-- Mettre les fixtures partagées dans `conftest.py`, avec teardown après `yield`
+- Mettre les fixtures partagées dans `conftest.py`, avec teardown après `yield`, et réserver `autouse=True` au setup transverse
+- Capturer les logs par `caplog` et les flux standard par `capsys` (`capfd` pour un sous-process) plutôt que de rediriger `sys.stdout` à la main
 - Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin. `conftest.py` ne garde que les fixtures
 
 ## À éviter

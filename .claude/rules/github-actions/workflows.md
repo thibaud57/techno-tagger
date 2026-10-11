@@ -2,6 +2,7 @@
 paths:
   - ".github/workflows/**/*.yml"
   - ".github/workflows/**/*.yaml"
+  - ".github/actions/**/action.yml"
 ---
 
 # GitHub Actions — Workflows, jobs & steps
@@ -14,6 +15,7 @@ paths:
 - Chaîner par `needs:` ce qui dépend d'un résultat antérieur, comme le build de release derrière release-please
 - Nommer les steps non triviaux : ce nom est ce qu'on lit dans l'onglet Actions quand la CI casse
 - Construire le sidecar PyInstaller et lancer `tauri build` dans le **même job** : `tauri-action` n'offre aucun hook pour produire un binaire externe avant son appel
+- Installer un outil dont la version sert à plusieurs jobs par une action composite locale (`./.github/actions/setup-uv`, `./.github/actions/setup-pnpm`), seul endroit où vit cette version : jamais de version recopiée d'un job à l'autre
 
 ## À éviter
 - Supposer qu'un fichier produit dans un job existe dans le suivant : chaque job repart d'un runner vierge, il faut un artifact ou un cache
@@ -23,7 +25,8 @@ paths:
 - Rejouer en CI ce que la CI joue déjà ailleurs : pas de hooks pre-commit, le même trio lint / typecheck / tests tourne sur chaque PR
 
 ## Gotchas
-- `actions/checkout` v7 est passé à ESM et bloque le checkout d'une PR de fork sur `pull_request_target`
+- `actions/checkout` v7 refuse par défaut de récupérer le code d'une PR de fork sous `pull_request_target` et sous `workflow_run` déclenché par une PR (opt-out `allow-unsafe-pr-checkout`). Un SHA épinglé sur une v6 ou antérieure ne reçoit pas cette garde
+- Une action composite locale s'appelle par `uses: ./.github/actions/<nom>` après `actions/checkout`, et Dependabot ne la scanne que si son dossier figure dans les `directories` de l'entrée `github-actions`
 - Le shell par défaut d'un job Windows est PowerShell : poser `shell: bash` explicitement si les commandes sont écrites pour bash
 
 ## Exemples

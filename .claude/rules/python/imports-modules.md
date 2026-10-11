@@ -17,12 +17,12 @@ paths:
 - `import *` hors REPL
 - Manipuler `sys.path` à la main : le package est installé et résolu par `uv sync`
 - Oublier un `__init__.py` : le dossier devient un namespace package (PEP 420) et masque des erreurs d'import
-- Un import différé posé pour contourner un cycle sans corriger le découpage
+- Un import différé posé pour contourner un cycle sans corriger le découpage : il n'est légitime que pour un module lourd ou optionnel, commentaire `# noqa: PLC0415` à l'appui
 
 ## Gotchas
 - `ImportError: cannot import name X from partially initialized module` désigne un import circulaire, pas un symbole manquant
 - Le code top-level d'un module ne s'exécute qu'une fois, au premier import : y placer un effet de bord vaut singleton implicite
-- PyInstaller n'analyse que les imports statiques : tout import dynamique se déclare en `--hidden-import` (cf. [build.md](../pyinstaller/build.md))
+- PyInstaller n'analyse que les imports statiques : tout import dynamique se déclare en `--hidden-import` (cf. [pyinstaller/build.md](../pyinstaller/build.md))
 
 ## Exemples
 ```python
@@ -33,7 +33,14 @@ from .vlc import list_playlists, extract_playlist
 
 __all__ = ["parse_m3u8", "list_playlists", "extract_playlist"]
 
-# ✅ import différé : le cycle est cassé à l'appel, le module est alors complet
+# ✅ import différé d'un module lourd, payé seulement sur le chemin qui s'en sert
+def init_monitoring(dsn: str | None) -> None:
+    if not dsn:
+        return
+    import sentry_sdk  # noqa: PLC0415
+    sentry_sdk.init(dsn=dsn)
+
+# ❌ import différé qui masque un cycle au lieu de corriger le découpage
 def build_report(run):
     from .plan import load_plan
     return render(load_plan(run.id))

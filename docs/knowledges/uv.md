@@ -1,8 +1,8 @@
 ---
 title: "uv — Gestionnaire de paquets et d'environnement Python"
-version: "0.12.16"
+version: "0.13.0"
 description: "Référence technique pour uv : projet et dependency groups, lockfile et politique de versionnement, sync en CI, gestion des versions de Python et exécution des outils."
-date: "2026-08-29"
+date: "2026-10-12"
 keywords: ["uv", "python", "lockfile", "pep-735", "pyproject", "ci"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller", "GitHub Actions", "Dependabot"]
@@ -60,16 +60,21 @@ Le lockfile fige la résolution complète. Son format est couvert par la politiq
 ### Exemple
 
 ```yaml
-- uses: astral-sh/setup-uv@v7
+# .github/actions/setup-uv/action.yml, seul endroit des workflows où vit la version
+- uses: astral-sh/setup-uv@<sha> # v10.3.0
   with:
-    version: "0.12.16"   # patch exact : la compatibilité du lock n'est garantie qu'au sein d'une mineure
+    version: "0.13.0"   # patch exact : la compatibilité du lock n'est garantie qu'au sein d'une mineure
 ```
 
 ### Points Importants
 
-- **Un lockfile ne peut être rejeté qu'entre versions mineures** d'uv : tous les patchs `0.12.x` sont interchangeables de ce point de vue
+- **Un lockfile ne peut être rejeté qu'entre versions mineures** d'uv : tous les patchs `0.13.x` sont interchangeables de ce point de vue
 - **D'où l'épinglage du patch exact en CI** : ce n'est pas de la prudence excessive, c'est le seul moyen d'être certain qu'un run futur ne re-résout rien
 - `uv.lock` se commite, toujours
+- Un patch peut quand même réécrire le contenu du lock sans changer son format : entre 0.12.19 et 0.12.22, uv a cessé d'y écrire les réglages de résolution inutilisés et s'est mis à y consigner les default groups. Le premier `uv lock` après montée produit donc un diff, à committer
+- **0.13.0 (2026-10-09) : le cache change de format.** uv peut retélécharger ou reconstruire des dépendances après la montée. Plusieurs versions d'uv partagent toujours le même cache
+- **0.13.0 : les tarballs passent par `tar-codec`**, plus strict (liens physiques et extensions non gérées rejetés). Les sdists produits par `uv_build` peuvent changer d'octets, donc de hash. `UV_LEGACY_TAR_BACKEND=1` rétablit l'ancien backend
+- **Le plancher `uv_build` de `[build-system]` suit le patch épinglé** (`>=0.13.0,<0.14`) : depuis 0.12.16, le backend embarqué ne sert que si sa version satisfait cette plage, sinon il se retélécharge depuis l'index à chaque build
 - **uv préfère les versions déjà verrouillées** : une nouvelle version disponible en amont ne périme pas le lockfile tant que les contraintes du projet sont satisfaites. Il n'y a donc pas d'upgrade implicite
 
 ---
@@ -136,6 +141,7 @@ uv python pin 3.14        # écrit .python-version
 
 - **`.python-version` et `requires-python` ne servent pas à la même chose** : le premier fixe l'interpréteur de développement, le second déclare la plage supportée par le projet. Le premier doit rester dans la plage du second
 - Python 3.14 est en support Tier 1 chez uv, donc testé en continu
+- **0.13.0 : Python 3.15 devient la version stable par défaut** quand rien n'est configuré. `.python-version` et la borne `<3.15` de `requires-python` l'écartent ; `uv python pin 3.14` rétablit le choix pour un projet sans pin
 - `uv python upgrade 3.14` monte au dernier patch de la mineure
 - L'interpréteur installé par uv est celui qu'embarquera PyInstaller : sa version décide des wheels utilisées
 
@@ -194,7 +200,7 @@ uv build                            # sdist + wheel dans dist/
 
 ## ✅ Recommandations
 
-- **Épingler le patch exact d'uv en CI** (`version: "0.12.16"` dans l'action de setup), la compatibilité du lock n'étant garantie qu'au sein d'une mineure
+- **Épingler le patch exact d'uv en CI** (`version: "0.13.0"` dans l'action composite `.github/actions/setup-uv`), la compatibilité du lock n'étant garantie qu'au sein d'une mineure. La 0.12.18 a en outre corrigé GHSA-2cv4-cqwr-gwf7, un path traversal Windows à l'installation d'une wheel
 - **Utiliser `uv sync --locked` en CI**, jamais `uv sync` nu
 - **Lancer tous les outils par `uv run`**, PyInstaller compris
 - **Séparer les groupes `dev` et `build`** : un job de test n'a pas besoin de PyInstaller
@@ -218,6 +224,7 @@ uv build                            # sdist + wheel dans dist/
 
 - [uv](https://docs.astral.sh/uv/)
 - [Politique de versionnement](https://docs.astral.sh/uv/reference/policies/versioning/)
+- [Notes de version 0.13.0](https://github.com/astral-sh/uv/releases/tag/0.13.0)
 - [Sync et lock](https://docs.astral.sh/uv/concepts/projects/sync/) · [Dépendances](https://docs.astral.sh/uv/concepts/projects/dependencies/)
 - [Versions de Python](https://docs.astral.sh/uv/concepts/python-versions/)
 - [Intégration GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/)

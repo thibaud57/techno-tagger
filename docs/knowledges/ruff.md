@@ -1,8 +1,8 @@
 ---
 title: "Ruff — Linter et formatter du sidecar"
-version: "0.16.9"
-description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0, select vs extend-select et ordre lint/format."
-date: "2026-08-29"
+version: "0.17.0"
+description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0 puis ajusté en 0.17.0, select vs extend-select et ordre lint/format."
+date: "2026-10-12"
 keywords: ["ruff", "lint", "format", "pyproject", "regles", "pre-commit"]
 scope: ["docs"]
 technologies: ["Python", "uv", "Mypy", "GitHub Actions"]
@@ -67,7 +67,30 @@ select = ["E4", "E7", "E9", "F"]
 - **Un `pyproject.toml` sans `select` hérite du nouveau jeu** : c'est le cas qui produit des centaines de violations sur du code inchangé
 - Le retrait des 18 règles n'a pas été documenté dans les notes de rupture : une règle qui « ne se déclenche plus » après montée de version vient peut-être de là
 - **Déclarer `select` explicitement est le seul moyen de maîtriser ce que le linter vérifie**, indépendamment des défauts de la version installée
-- **Épingler la version de Ruff** (en CI comme en pre-commit) évite qu'un changement de défaut arrive sans être décidé
+- **Épingler la version de Ruff** par `uv.lock`, que la CI lance par `uv run`, évite qu'un changement de défaut arrive sans être décidé
+
+---
+
+## Changements de la 0.17.0
+
+### Description
+
+La 0.17.0 (2026-10-09) ajuste le jeu par défaut, stabilise trois règles et change le calcul de largeur de ligne. Aucune règle n'est renommée ni retirée.
+
+### Exemple
+
+```toml
+[tool.ruff.lint]
+select = ["DTZ", "RUF", "TID"]   # DTZ quitte le défaut en 0.17.0 : explicite pour rester actif
+```
+
+### Points Importants
+
+- **`DTZ001`, `DTZ005`, `DTZ006`, `DTZ007`, `DTZ011`, `DTZ012` et `DTZ901` quittent le jeu par défaut**, `F406` y entre : sans effet avec un `select` explicite
+- **`TID254`, `TID255` et `RUF071` sont stabilisées** : elles s'appliquent dès que `TID` ou `RUF` est sélectionné
+- **Les commentaires pragma de fin de ligne ne comptent plus dans la largeur** pour le formateur, `I001`, `E501` et `W505` : un import peut être reformaté au passage
+- Python par défaut 3.11 (3.15 pour les erreurs de syntaxe), sans effet quand `requires-python` est posé
+- ruff-lsp est supprimé : l'extension VS Code utilise toujours le serveur natif
 
 ---
 
@@ -88,7 +111,7 @@ uv run ruff format
 
 - **L'ordre inverse laisse du code corrigé mais mal formaté**
 - `ruff format` est compatible Black à plus de 99,9 % sur du code déjà formaté par Black : la migration ne produit pas de diff significatif
-- En pre-commit, le hook `ruff-check --fix` se place avant `ruff-format`, et avant tout autre formatter
+- Le projet n'a pas de hook pre-commit : `just format-sidecar` enchaîne `ruff check --fix` puis `ruff format` en local, et la CI ne fait que vérifier par `ruff check` et `ruff format --check`
 
 ---
 
@@ -146,7 +169,7 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 ## ✅ Recommandations
 
 - **Déclarer `select` explicitement** plutôt que de dépendre du jeu par défaut de la version installée
-- **Épingler la version de Ruff** en CI et en pre-commit, et laisser Dependabot proposer la montée
+- **Épingler la version de Ruff** par `uv.lock`, et laisser Dependabot proposer la montée
 - **Lancer `ruff check --fix` puis `ruff format`**, dans cet ordre
 - **Cadrer une montée de version par `--statistics`** avant de regarder le diff
 - **Utiliser `per-file-ignores`** pour les tests et les `__init__.py` plutôt que de désactiver globalement
@@ -175,5 +198,6 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 ## Ressources Complémentaires
 
 - [Annonce Ruff 0.16.0](https://astral.sh/blog/ruff-v0.16.0)
+- [Notes de version 0.17.0](https://github.com/astral-sh/ruff/releases/tag/0.17.0)
 - [ruff-pre-commit](https://github.com/astral-sh/ruff-pre-commit)
 - [mypy.md](mypy.md) : répartition des responsabilités

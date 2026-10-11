@@ -1,9 +1,12 @@
-import { Injectable, computed, signal } from "@angular/core"
+import { computed, signal, Service } from "@angular/core"
 
 import type {
   ArbitrationRequiredEvent,
   RunFinishedEvent,
+  RollbackFinishedEvent,
   RunStartedEvent,
+  TagValue,
+  TagsBefore,
   TrackEntry,
   TrackFailureReason,
   TrackNames,
@@ -31,7 +34,11 @@ export interface TaggingTrack {
   readonly after: TrackNames | null
   readonly scores: TrackScores | null
   readonly artworkPath: string | null
+  readonly tagsBefore: TagsBefore | null
+  readonly tagsAfter: readonly TagValue[] | null
   readonly arbitration: ArbitrationRequiredEvent | null
+  /** Faux tant que le sidecar n'a rien dit : une ligne jamais resolue n'a pas d'origine au dump. */
+  readonly restorable: boolean
 }
 
 export interface RunProgress {
@@ -51,16 +58,17 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
   after: null,
   scores: null,
   artworkPath: null,
+  tagsBefore: entry.tags_before,
+  tagsAfter: null,
   arbitration: null,
+  restorable: false,
 })
 
-/**
- * Etat d'un run de re-tagging. `SidecarService` garde la frontiere du transport et
- * lui transmet les evenements : les Features 3 a 6 ajouteront leur propre store.
- */
-@Injectable({ providedIn: "root" })
+/** Etat d'un run de re-tagging, alimente par le routage des evenements de `SidecarService`. */
+@Service()
 export class TaggingRunStore {
   private readonly _runId = signal<string | null>(null)
+  private readonly _folder = signal<string | null>(null)
   // L'ordre d'insertion de la Map est celui du run : `patch` ne fait que remplacer
   // une cle existante, jamais en ajouter une.
   private readonly _rows = signal<ReadonlyMap<string, TaggingTrack>>(new Map())
@@ -68,31 +76,47 @@ export class TaggingRunStore {
   private readonly _running = signal(false)
   private readonly _finished = signal<RunFinishedEvent | null>(null)
   private readonly _interrupted = signal(false)
+  private readonly _lost = signal(false)
 
   readonly runId = this._runId.asReadonly()
+  /** Nul jusqu'a `run_started`. */
+  readonly folder = this._folder.asReadonly()
   /** Les lignes dans l'ordre du run, pretes pour la table. */
   readonly tracks = computed<readonly TaggingTrack[]>(() => [...this._rows().values()])
   readonly progress = this._progress.asReadonly()
   /** Vrai de l'envoi de `start_tagging` jusqu'a `run_finished` ou une erreur. */
   readonly running = this._running.asReadonly()
   readonly finished = this._finished.asReadonly()
-  /** Arrete par une erreur ou par la mort du process : ses morceaux non tranches ne le
-   * seront plus. Pose par `failed()`, au moment ou le fait est connu : le deduire d'un
-   * `running` retombe le rendrait faux le jour ou un arret volontaire l'eteindrait aussi. */
+  /** Arrete par une erreur ou la mort du process : ses morceaux non tranches ne le seront plus.
+   * Pose par `failed()` plutot que deduit de `running`, que d'autres arrets eteignent aussi. */
   readonly interrupted = this._interrupted.asReadonly()
+  /** Un nouveau moteur ne connait pas ce run : rien n'en sera ecrit. Ecrit, il reste restaurable par son dump. */
+  readonly lost = this._lost.asReadonly()
+  /** Morceaux qu'une ecriture toucherait : les resolus pas encore ecrits. */
+  readonly writableCount = computed(
+    () => this.tracks().filter((track) => track.state === "resolved").length,
+  )
+
+  /** Morceaux dont l'ecriture a echoue : ceux qu'une relance reprendrait. */
+  readonly writeFailureCount = computed(
+    () => this.tracks().filter((track) => track.state === "write_error").length,
+  )
 
   /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {
     this._runId.set(null)
+    this._folder.set(null)
     this._rows.set(new Map())
     this._progress.set(null)
     this._finished.set(null)
     this._interrupted.set(false)
+    this._lost.set(false)
     this._running.set(true)
   }
 
   started(event: RunStartedEvent): void {
     this._runId.set(event.run_id)
+    this._folder.set(event.folder)
     this._rows.set(new Map(event.tracks.map((track) => [track.track_id, pending(track)])))
   }
 
@@ -106,8 +130,40 @@ export class TaggingRunStore {
       after: event.after,
       scores: event.scores,
       artworkPath: event.artwork_path,
+      tagsAfter: event.tags_after,
       arbitration: null,
+      restorable: event.restorable,
     }))
+  }
+
+  /**
+   * Un run que le moteur ne tient plus restaure sans `track_resolved` : le bilan est alors le
+   * seul a dire quelles lignes sont rendues. Meme projection qu'un `track_resolved` en
+   * `rolled_back`, les lignes deja passees par lui ne bougent pas.
+   */
+  restored(event: RollbackFinishedEvent): void {
+    if (event.run_id !== this._runId()) {
+      return
+    }
+    for (const trackId of event.restored) {
+      const row = this._rows().get(trackId)
+      if (row === undefined || row.state === "rolled_back" || row.resolution === null) {
+        continue
+      }
+      this.resolved({
+        event: "track_resolved",
+        track_id: trackId,
+        state: "rolled_back",
+        resolution: row.resolution,
+        failure_reason: null,
+        source: null,
+        after: null,
+        scores: null,
+        artwork_path: null,
+        tags_after: null,
+        restorable: false,
+      })
+    }
   }
 
   awaiting(event: ArbitrationRequiredEvent): void {
@@ -123,13 +179,18 @@ export class TaggingRunStore {
     this._running.set(false)
   }
 
-  /** Erreur du sidecar ou process mort : le run s'arrete, les lignes restent. */
+  /** Erreur du sidecar ou annulation : le run s'arrete, les lignes restent. */
   failed(): void {
     this._running.set(false)
-    // Avant `run_started` aucune ligne n'existe et apres `run_finished` le run a sa fin :
-    // dans les deux cas il n'y a rien a etiqueter « non traite ». Le process peut mourir
-    // apres la fin du run, pendant l'ecriture.
+    // Avant `run_started` aucune ligne n'existe, apres `run_finished` le run a sa fin : rien
+    // a etiqueter « non traite ». Le process peut mourir apres, pendant l'ecriture.
     this._interrupted.set(this._runId() !== null && this._finished() === null)
+  }
+
+  /** Le process est mort : sans run affiche, il n'y a rien a perdre. */
+  engineLost(): void {
+    this.failed()
+    this._lost.set(this._runId() !== null)
   }
 
   private patch(trackId: string, update: (row: TaggingTrack) => TaggingTrack): void {

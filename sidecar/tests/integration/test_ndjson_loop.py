@@ -9,12 +9,12 @@ import json
 import logging
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Final, NoReturn
 
 import keyring
 import pytest
 from memory_keyring import MemoryKeyring, RefusingKeyring
-from ndjson_loop import drive, drive_raw, start_tagging
+from ndjson_loop import drive, drive_raw, extraction_command, start_tagging
 
 from tagger import __main__ as main
 from tagger import handlers
@@ -27,23 +27,16 @@ if TYPE_CHECKING:
     from tagger.protocol import Event, ExtractPlaylist, StartTagging
 
 # Large : il borne un deadlock, il ne cadence rien.
-WAIT_TIMEOUT = 10
+WAIT_TIMEOUT: Final = 10
 # Assez long pour que la boucle lise la commande suivante pendant que le run meurt.
-STOP_DELAY = 0.2
+STOP_DELAY: Final = 0.2
 
 
 def extract_command(
     library: Path, dump: Path, destination: Path, playlist_name: str = "test playlist"
 ) -> str:
     """Ligne `extract_playlist` prete a injecter."""
-    payload = {
-        "command": "extract_playlist",
-        "source_folder": str(library),
-        "destination_folder": str(destination),
-        "playlist_path": str(dump),
-        "playlist_name": playlist_name,
-    }
-    return json.dumps(payload) + "\n"
+    return json.dumps(extraction_command(library, dump, destination, playlist_name)) + "\n"
 
 
 def test_answers_a_version_request() -> None:
@@ -170,7 +163,7 @@ def extraction_waits_for_version(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_answers_a_version_request_while_an_extraction_is_in_progress(
     vlc_dump: Path, music_library: Path, tmp_path: Path
 ) -> None:
-    """La copie ne gele plus la lecture de stdin : une commande courte passe devant.
+    """La copie ne gele pas la lecture de stdin : une commande courte passe devant.
 
     Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
     laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.
@@ -195,7 +188,9 @@ def test_refuses_a_second_extraction_while_one_is_in_progress(
     events = drive(extraction * 2 + '{"command":"get_version"}\n')
 
     refusals = [event for event in events if event["event"] == "error"]
-    assert [event["code"] for event in refusals] == ["extraction_in_progress"]
+    assert [(event["code"], event["params"]) for event in refusals] == [
+        ("phase_busy", {"phase": "extraction"})
+    ]
     assert [event["event"] for event in events].count("extraction_finished") == 1
 
 
@@ -232,7 +227,7 @@ def test_a_cancelled_run_leaves_the_loop_alive(tmp_path: Path) -> None:
 @pytest.mark.usefixtures("tagging_slow_to_stop")
 def test_a_run_started_right_after_a_cancellation_is_not_refused(tmp_path: Path) -> None:
     """Regression : le run annule mourait encore quand la relance arrivait, qui repartait
-    en `tagging_in_progress`, code que l'interface lit comme un run qui continue.
+    en `phase_busy` du run, code que l'interface lit comme un run qui continue.
     """
     commands = start_tagging(tmp_path) + '{"command":"cancel_run"}\n' + start_tagging(tmp_path)
 
@@ -312,7 +307,7 @@ def test_every_line_parses_on_its_own(vlc_dump: Path) -> None:
         assert json.loads(line)
 
 
-SECRET = "sk-live-9f8e7d6c5b4a"
+SECRET: Final = "sk-live-9f8e7d6c5b4a"
 
 
 def _set_api_key(api_key: str) -> str:

@@ -45,4 +45,43 @@ describe("ErrorMessageComponent", () => {
 
     expect(fixture.componentInstance["params"]()).toEqual(expected)
   })
+
+  it.each(["extraction", "tagging", "write", "rollback"])(
+    "words a busy phase by the phase that runs (%s)",
+    (phase) => {
+      TestBed.configureTestingModule({
+        imports: [ErrorMessageComponent],
+        providers: [provideTranslateService()],
+      })
+      const fixture = TestBed.createComponent(ErrorMessageComponent)
+
+      fixture.componentRef.setInput("error", {
+        event: "error",
+        code: "phase_busy",
+        params: { phase },
+        message: "",
+        command: "start_tagging",
+      })
+
+      expect(fixture.componentInstance["key"]()).toBe(`errors.phase_busy.${phase}`)
+    },
+  )
+
+  it("keeps the code as the key of any other error", () => {
+    TestBed.configureTestingModule({
+      imports: [ErrorMessageComponent],
+      providers: [provideTranslateService()],
+    })
+    const fixture = TestBed.createComponent(ErrorMessageComponent)
+
+    fixture.componentRef.setInput("error", {
+      event: "error",
+      code: "write_not_open",
+      params: {},
+      message: "",
+      command: "commit_run",
+    })
+
+    expect(fixture.componentInstance["key"]()).toBe("errors.write_not_open")
+  })
 })

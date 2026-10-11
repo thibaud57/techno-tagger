@@ -7,6 +7,9 @@
 //   node cdp.mjs page/demo-run.js tagging              apres `extract`, par « Passer au tagging »
 //   node cdp.mjs page/demo-run.js run <dossier>        run seul, sans extraction dans la session
 //   node cdp.mjs page/demo-run.js state
+//   node cdp.mjs page/demo-run.js commit-dialog      ouvre la confirmation de l'ecriture, sans l'accepter
+//   node cdp.mjs page/demo-run.js column [onglet]    enfants de la colonne et marge sous le dernier visible
+//   node cdp.mjs page/demo-run.js fields              champs et cles du detail du premier resolu, du vrai sidecar
 //   node cdp.mjs page/demo-run.js tag-widths <cle>     ex. playlist.report.category
 ;(async () => {
   const [action, target] = __args
@@ -85,14 +88,49 @@
       ng.getComponent(document.querySelector("app-tagging-page")).folder.set(target)
       await wait(300)
     }
-    const play = document
-      .querySelector('app-tagging-page [data-p-icon="play"]')
-      ?.closest("button")
-    if (!play) throw new Error("bouton de lancement du run introuvable")
+    // Bouton d'action unique : `data-action="start"` tant qu'aucun run n'est a confirmer ni a relancer.
+    const play = document.querySelector('app-tagging-page button[data-action="start"]')
+    if (!play) throw new Error("bouton de lancement du run introuvable (le bouton d'action n'est pas en « Lancer le run »)")
     await until(() => !play.disabled, 10000)
     play.click()
     await until(() => service.taggingRunId() !== null, 30000)
     return { runId: service.taggingRunId(), tracks: service.taggingTracks().length }
+  }
+
+  if (action === "column") {
+    // Un hote vide compte comme enfant flex : il ajoute un gap sans rien afficher.
+    await openTab(new RegExp(target ?? "tagging", "i"))
+    const main = document.querySelector("main").getBoundingClientRect()
+    const host = document.querySelector("main > :not(router-outlet)")
+    const column = host.firstElementChild?.matches("div") ? host.firstElementChild : host
+    const items = [...column.children].map((el) => {
+      const r = el.getBoundingClientRect()
+      return { tag: el.tagName.toLowerCase(), display: getComputedStyle(el).display, top: Math.round(r.top), height: Math.round(r.height) }
+    })
+    const visible = items.filter((i) => i.display !== "contents" && i.height > 0)
+    const last = visible.at(-1)
+    return {
+      items,
+      mainContentBottom: Math.round(main.bottom - parseFloat(getComputedStyle(document.querySelector("main")).paddingBottom)),
+      lastVisibleBottom: last && last.top + last.height,
+    }
+  }
+
+  if (action === "fields") {
+    // Champs et cles du detail tels que le vrai sidecar les envoie, pour le premier resolu.
+    const track = service.taggingTracks().find((t) => t.tagsAfter !== null)
+    return track && { track: track.fileName, after: track.tagsAfter.map((f) => `${f.field}:${f.key}`) }
+  }
+
+  if (action === "commit-dialog") {
+    // Rien ne part vers le sidecar tant que la confirmation n'est pas acceptee.
+    const commit = document.querySelector('app-tagging-page [data-action="commit"]')
+    if (!commit) throw new Error("« Confirmer l'ecriture » absent : le run est-il cherche ?")
+    await until(() => !commit.disabled, 10000)
+    commit.click()
+    await until(() => document.querySelector(".p-confirmdialog") !== null, 5000)
+    await wait(400)
+    return document.querySelector(".p-confirmdialog .p-dialog-content")?.innerText ?? null
   }
 
   if (action === "tag-widths") {

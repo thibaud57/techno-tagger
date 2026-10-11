@@ -1,7 +1,7 @@
 """Client de l'API techno-scraper, seule source de donnees du sidecar.
 
 Couche anti-corruption : URL, routes, codes HTTP et noms de champs ne sortent pas
-de ce module (ARCHITECTURE.md § Patterns Utilises). Contrat de reference :
+de ce module (ARCHITECTURE.md § Patterns Utilises). Contrat de reference au 2026-10-02 :
 techno-scraper 4.0.0, `src/technoscraper/shared/schemas.py`.
 """
 
@@ -57,9 +57,10 @@ _NETWORK_FAILURES: Final = (httpx2.NetworkError, httpx2.ConnectTimeout, httpx2.R
 
 # Formes d'URL de morceau acceptees au rattrapage. Bandcamp recopie le pattern de
 # `/bandcamp/tracks`, qui rend 422 sur une query, `http://` ou `/album/` ; Beatport
-# n'a pas de route par URL, l'id se lit dans l'URL publique que l'API elle-meme rend.
+# n'a pas de route par URL, l'id se lit dans l'URL publique que l'API elle-meme rend. Le
+# site copie ses liens avec un segment de langue (`/fr`, `/pt-br`) que l'API ne rend pas.
 _BEATPORT_HOSTS: Final = frozenset({"www.beatport.com", "beatport.com"})
-_BEATPORT_TRACK_PATH: Final = re.compile(r"/track/[^/]+/(?P<id>\d+)")
+_BEATPORT_TRACK_PATH: Final = re.compile(r"(?:/[a-z]{2}(?:-[a-z]{2})?)?/track/[^/]+/(?P<id>\d+)")
 _BANDCAMP_HOST: Final = re.compile(r"[a-z0-9][a-z0-9-]*\.bandcamp\.com")
 _BANDCAMP_TRACK_PATH: Final = re.compile(r"/track/[\w-]+")
 
@@ -154,7 +155,7 @@ class ScraperError(TaggerError):
     """Echec d'un appel a techno-scraper, traduit depuis sa reponse.
 
     `request_id` vit sur la base : le pipeline le logue sans savoir laquelle des
-    quatre il vient de rattraper.
+    sous-classes il vient de rattraper.
     """
 
     code: ClassVar[str] = "scraper_error"

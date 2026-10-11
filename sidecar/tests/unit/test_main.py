@@ -4,10 +4,11 @@ sont donc armes avant que la boucle de commandes ne lise quoi que ce soit.
 
 import io
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from unittest.mock import Mock, patch
 
 from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, __main__, __version__
@@ -21,16 +22,31 @@ def test_logging_and_sentry_are_armed_before_the_loop() -> None:
     with (
         patch.object(__main__, "setup_logging", autospec=True) as setup,
         patch.object(__main__, "init_sentry", autospec=True) as sentry,
+        patch.object(__main__, "_purge_old_dumps", autospec=True) as purge,
         patch.object(__main__, "run_loop", autospec=True) as run_loop,
     ):
         parent.attach_mock(setup, "setup_logging")
         parent.attach_mock(sentry, "init_sentry")
+        parent.attach_mock(purge, "_purge_old_dumps")
         parent.attach_mock(run_loop, "run_loop")
 
         __main__.main()
 
     order = [call[0] for call in parent.mock_calls]
-    assert order == ["setup_logging", "init_sentry", "run_loop"]
+    assert order == ["setup_logging", "init_sentry", "_purge_old_dumps", "run_loop"]
+
+
+def test_a_failed_dump_purge_never_stops_the_startup(caplog: pytest.LogCaptureFixture) -> None:
+    with (
+        patch.object(__main__, "setup_logging", autospec=True),
+        patch.object(__main__, "init_sentry", autospec=True),
+        patch.object(__main__, "purge_dumps", autospec=True, side_effect=OSError(5, "denied")),
+        patch.object(__main__, "run_loop", autospec=True) as run_loop,
+    ):
+        __main__.main()
+
+    run_loop.assert_called_once()
+    assert "tag dump purge failed" in caplog.messages
 
 
 def test_the_protocol_streams_are_forced_to_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -76,7 +92,7 @@ def test_the_log_folder_follows_the_bundle_identifier(monkeypatch: pytest.Monkey
     assert result == Path("C:/Users/x/AppData/Local") / BUNDLE_IDENTIFIER / "logs"
 
 
-REPO = Path(__file__).parents[3]
+REPO: Final = Path(__file__).parents[3]
 
 
 def _at(path: str, *keys: str) -> object:
@@ -91,7 +107,7 @@ def _at(path: str, *keys: str) -> object:
 
 
 def test_the_application_identity_is_the_same_everywhere() -> None:
-    """Le nom et l'identifiant sont recopies a la main dans cinq fichiers que rien ne
+    """Le nom et l'identifiant sont recopies a la main dans plusieurs fichiers que rien ne
     synchronise, et chaque divergence est muette : un identifiant desaccorde envoie
     les deux cotes dans deux dossiers de donnees voisins, hors des scopes fs, et un
     nom desaccorde disperse les erreurs sur deux releases Sentry incomparables.
@@ -174,3 +190,39 @@ def test_the_four_manifests_carry_the_same_version() -> None:
     assert _at("package.json", "version") == __version__
     assert cargo["package"]["version"] == __version__
     assert _at(".release-please-manifest.json", ".") == __version__
+
+
+def _setup_input(action: str, key: str) -> str:
+    """Lit une entree `with:` d'une action composite de `.github/actions/`, seul
+    endroit des workflows ou vit la version d'un outil. Regex faute de lecteur YAML.
+    """
+    text = (REPO / f".github/actions/{action}/action.yml").read_text(encoding="utf-8")
+    values = re.findall(rf"^\s+{key}:\s*[\"']?([^\"'\s#]+)[\"']?\s*(?:#.*)?$", text, re.MULTILINE)
+    assert len(values) == 1, f"{key} attendu une fois dans {action}, trouve {values}"
+    return str(values[0])
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
+def test_the_ci_uv_satisfies_the_uv_build_range() -> None:
+    """Le backend `uv_build` embarque dans uv ne sert que si sa version satisfait
+    `[build-system]` : un plancher monte par Dependabot au-dessus de l'uv de la CI
+    fait retelecharger le backend depuis l'index a chaque build, sans erreur.
+    """
+    manifest = tomllib.loads((REPO / "sidecar/pyproject.toml").read_text(encoding="utf-8"))
+    bounds = re.fullmatch(r"uv_build>=([\d.]+),<([\d.]+)", manifest["build-system"]["requires"][0])
+    ci_uv = _version(_setup_input("setup-uv", "version"))
+
+    assert bounds is not None
+    assert _version(bounds[1]) <= ci_uv < _version(bounds[2])
+
+
+def test_the_ci_node_major_is_declared_in_engines() -> None:
+    """`engines.node` et le `runtime` de `setup-pnpm` montent ensemble au passage LTS :
+    un oubli laisse la CI construire sur une majeure que le projet ne declare pas.
+    """
+    major = _setup_input("setup-pnpm", "runtime").removeprefix("node@")
+
+    assert f"^{major}." in str(_at("package.json", "engines", "node"))

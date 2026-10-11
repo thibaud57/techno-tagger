@@ -89,7 +89,7 @@ if TYPE_CHECKING:
 _RECORD: Final = TrackRecord(
     track_id="a.mp3",
     path=Path("music/a.mp3"),
-    identity=IdentityTags(artist="Adam Beyer", title="Your Mind"),
+    identity=IdentityTags(artist="Lior Vance", title="Dim Orbit"),
 )
 
 
@@ -126,7 +126,7 @@ def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> No
 def test_carries_the_label_and_the_release_year_of_a_beatport_candidate() -> None:
     candidate = track_candidate().model_copy(
         update={
-            "label": Credit(name="Drumcode"),
+            "label": Credit(name="Kestrel"),
             "release": ReleaseInfo(release_date=date(2023, 6, 16)),
         }
     )
@@ -135,7 +135,7 @@ def test_carries_the_label_and_the_release_year_of_a_beatport_candidate() -> Non
     event = to_protocol_event(tagging.ArbitrationRequired(_awaiting(pending)))
 
     assert isinstance(event, ArbitrationRequired)
-    assert (event.candidates[0].label, event.candidates[0].year) == ("Drumcode", 2023)
+    assert (event.candidates[0].label, event.candidates[0].year) == ("Kestrel", 2023)
 
 
 def test_leaves_the_label_and_the_year_empty_when_the_search_omits_them() -> None:
@@ -520,8 +520,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-QUERY = "Adam Beyer Your Mind"
-BANDCAMP_URL = "https://adambeyer.bandcamp.com/track/your-mind"
+QUERY = "Lior Vance Dim Orbit"
+BANDCAMP_URL = "https://liorvance.bandcamp.com/track/dim-orbit"
 REFUSE_BEATPORT = {
     "command": "resolve_arbitration",
     "track_id": "a.mp3",
@@ -535,7 +535,7 @@ def folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Un morceau en zone grise, et un dossier de donnees d'application isole."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
+    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
     return folder
 
 
@@ -631,8 +631,8 @@ async def test_shows_the_beatport_list_again_without_calling_the_api(
 async def test_answers_an_awaiting_track_after_the_run_is_cancelled(
     folder: Path, api: FakeApi
 ) -> None:
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
-    slow = api.gate("/beatport/search", "Amelie Lens Basiel")
+    tagged_mp3(folder, "b.mp3", "Orla Quenby", "Kelvor")
+    slow = api.gate("/beatport/search", "Orla Quenby Kelvor")
 
     async with conversation() as talk:
         talk.send(**_start(folder))

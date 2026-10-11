@@ -139,8 +139,8 @@ import { ArbitrationDialogComponent } from "./arbitration-dialog.component"
 const ROW: TaggingTrack = {
   trackId: "a.mp3",
   fileName: "a.mp3",
-  artist: "Adam Beyer",
-  title: "Your Mind",
+  artist: "Lior Vance",
+  title: "Dim Orbit",
   state: null,
   resolution: null,
   failureReason: null,
@@ -157,15 +157,15 @@ const ON_BEATPORT: ArbitrationState = {
   beatport_unavailable: false,
   candidates: [
     {
-      artist: "Adam Beyer",
-      title: "Your Mind (Extended Mix)",
-      label: "Drumcode",
+      artist: "Lior Vance",
+      title: "Dim Orbit (Extended Mix)",
+      label: "Kestrel",
       year: 2023,
       scores: { artist: 96, title: 84, average: 90 },
     },
     {
-      artist: "Adam Beyer",
-      title: "Your Mind (Radio Edit)",
+      artist: "Lior Vance",
+      title: "Dim Orbit (Radio Edit)",
       label: null,
       year: null,
       scores: { artist: null, title: 80, average: 80 },
@@ -180,8 +180,8 @@ const AFTER_REFUSAL: ArbitrationState = {
   source: "bandcamp",
   candidates: [
     {
-      artist: "Adam Beyer",
-      title: "Your Mind",
+      artist: "Lior Vance",
+      title: "Dim Orbit",
       label: null,
       year: null,
       scores: { artist: 100, title: 100, average: 100 },
@@ -238,8 +238,8 @@ describe("ArbitrationDialogComponent", () => {
 
     const text = page().textContent ?? ""
 
-    expect(text).toContain("Adam Beyer - Your Mind (Extended Mix)")
-    expect(text).toContain("Drumcode · 2023")
+    expect(text).toContain("Lior Vance - Dim Orbit (Extended Mix)")
+    expect(text).toContain("Kestrel · 2023")
     expect(text).toContain("arbitration.score")
     expect(text).toContain("arbitration.scoreTitleOnly")
   })
@@ -268,7 +268,7 @@ describe("ArbitrationDialogComponent", () => {
     action("back")?.click()
 
     expect(page().textContent).toContain("arbitration.switched")
-    expect(page().textContent).not.toContain("Your Mind (Extended Mix)")
+    expect(page().textContent).not.toContain("Dim Orbit (Extended Mix)")
     expect(service.showArbitrationSource).toHaveBeenCalledWith("a.mp3", "beatport")
   })
 

@@ -1,4 +1,4 @@
-<!-- Figee : la bascule sur Bandcamp ne deplace aucun bouton. -->
+<!-- Taille figee : la bascule sur Bandcamp ne deplace aucun bouton. -->
 <p-dialog
   [visible]="visible() && (current() !== null || linkStep() !== null)"
   (visibleChange)="onVisibleChange($event)"
@@ -14,18 +14,12 @@
   [closeAriaLabel]="'arbitration.close' | translate"
 >
   <ng-template #header>
-    <div class="flex min-w-0 flex-1 items-center gap-3">
-      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h3 class="m-0 min-w-0 text-lg font-semibold" data-title>
-          <app-truncated-text [text]="title()" />
-        </h3>
-        <!-- Ligne gardee meme vide : d'un morceau a l'autre, la liste ne se decale pas sous le curseur. -->
-        <app-truncated-text class="min-h-4 text-xs text-muted-color" [text]="fileName()" />
-      </div>
-      @if (linkStep() === null && current(); as shown) {
-        <app-source-logo [source]="shown.source" [size]="20" />
-      }
-    </div>
+    <!-- Le logo nomme la source des candidats : rien a l'etape du lien, qui n'en a pas. -->
+    <app-dialog-header
+      [title]="title()"
+      [fileName]="fileName()"
+      [source]="linkStep() === null ? (current()?.source ?? null) : null"
+    />
   </ng-template>
 
   @if (linkStep(); as trackId) {
@@ -38,13 +32,13 @@
         Une seule cellule : le bandeau sortant reste une image de plus (animate.leave), superpose et non a cote.
       -->
       <div class="grid min-h-6.5 items-center *:col-start-1 *:row-start-1">
-        <!-- `animate-none` : l'entree de p-message fait glisser la liste sur le chemin de decision. -->
+        <!-- Sans animation d'entree : elle ferait glisser la liste sur le chemin de decision. -->
         @if (shown.beatport_unavailable) {
-          <p-message class="w-full animate-none" severity="warn" size="small">
+          <app-message severity="warn" size="small" [animated]="false">
             {{ "arbitration.beatportUnavailable" | translate }}
-          </p-message>
+          </app-message>
         } @else if (shown.other_source === "beatport") {
-          <p-message class="w-full animate-none" severity="info" size="small">
+          <app-message severity="info" size="small" [animated]="false">
             {{ "arbitration.switched" | translate }}
             <button
               pButton
@@ -57,7 +51,7 @@
             >
               {{ "arbitration.backToBeatport" | translate }}
             </button>
-          </p-message>
+          </app-message>
         } @else {
           <p class="text-xs text-muted-color">
             {{ "arbitration.uncertain" | translate: { count: options().length } }}

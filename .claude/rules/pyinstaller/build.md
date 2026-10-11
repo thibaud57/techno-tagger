@@ -9,7 +9,7 @@ paths:
 ## À faire
 - Lancer PyInstaller par `uv run` : sinon le binaire embarque les dépendances d'un autre environnement
 - Passer par un `.spec` versionné dès le deuxième hidden import : c'est du Python, donc relisible, diffable et commentable
-- Construire en `--onedir` et déclarer l'exe en `bundle.externalBin`, le dossier `_internal/` en `bundle.resources` ([ARCHITECTURE.md § Arborescence](../../../docs/ARCHITECTURE.md#arborescence))
+- Construire en `--onedir` et déclarer l'exe en `bundle.externalBin`, le dossier `_internal/` en `bundle.resources` (cf. [ARCHITECTURE.md § Arborescence](../../../docs/ARCHITECTURE.md#arborescence))
 - Rester en mode console : `--windowed` détache `stdin`/`stdout` sous Windows et casse le protocole NDJSON
 - Déclarer `pyinstaller-hooks-contrib` dans le groupe de dépendances de build : sans lui, sentry-sdk perd ses intégrations, silencieusement ou par `ImportError` selon la version
 - Forcer le backend keyring en code par `set_keyring()` : une régression du hook ne se verrait que dans le binaire figé (cf. [keyring/secrets.md](../keyring/secrets.md))

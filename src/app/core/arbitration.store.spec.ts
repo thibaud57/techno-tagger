@@ -184,6 +184,19 @@ describe("ArbitrationStore", () => {
     expect(store.isBusy("a.mp3")).toBe(false)
   })
 
+  it("reports a gesture in flight on any track, not only the displayed one", () => {
+    queue("a.mp3", "b.mp3")
+    store.sent("b.mp3")
+    const aggregated = store.anyBusy()
+    const displayed = store.currentBusy()
+
+    store.resolved("b.mp3")
+
+    expect(aggregated).toBe(true)
+    expect(displayed).toBe(false)
+    expect(store.anyBusy()).toBe(false)
+  })
+
   it("drops an arbitration the sidecar no longer holds", () => {
     queue("a.mp3", "b.mp3")
 

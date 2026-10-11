@@ -12,13 +12,13 @@ paths:
 - Personnaliser par `definePreset()` en redéfinissant des tokens, le Theme Designer étant hors Community License
 - Référencer une primitive (`{violet.500}`) plutôt que de recopier un hexadécimal, pour garder la palette cohérente
 - Surcharger un composant par ses tokens (clé `components` du preset), jamais par un sélecteur CSS
-- Écrire le `@custom-variant dark` de Tailwind sur **exactement** le sélecteur passé en `darkModeSelector`, dans le même commit (cf. [setup.md](../tailwindcss/setup.md))
+- Écrire le `@custom-variant dark` de Tailwind sur **exactement** le sélecteur passé en `darkModeSelector`, dans le même commit (cf. [tailwindcss/setup.md](../tailwindcss/setup.md))
 
 ## À éviter
 - Copier une configuration PrimeNG issue d'un projet en v21 : la base rem, les icônes et la licence ont toutes changé
 - Le preset `aura-compat` par confort : il fige le calibrage 14px que le projet a explicitement écarté
 - Écrire du CSS ciblant les classes internes des composants : il casse à la première montée de version, les tokens sont là pour ça
-- Ouvrir une issue sur le dépôt GitHub `primefaces/primeng` en attendant une réponse : il est archivé depuis juin 2026 et n'est plus le canal de support
+- Ouvrir une issue sur le dépôt GitHub `primefaces/primeng` en attendant une réponse : il ne porte plus que la lignée MIT 21.x en correctifs de sécurité, issues en lecture seule. Le code 22.x vit dans un dépôt privé, le support passe par PrimeUI
 
 > Le câblage de `providePrimeNG()` (preset importé, valeurs exactes de `darkModeSelector` et de `cssLayer`) est dans [angular/app-config.md](../angular/app-config.md), qui porte le bootstrap.
 

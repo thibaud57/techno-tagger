@@ -11,7 +11,7 @@ paths:
 - Utiliser `.update()` quand la nouvelle valeur dépend de l'ancienne, `.set()` pour un remplacement complet
 - Créer un nouvel objet ou tableau dans `.set()` / `.update()` : retourner la même référence ne notifie aucun consommateur
 - Utiliser `linkedSignal()` pour un état dérivé modifiable qui doit se réinitialiser quand sa source change (playlist sélectionnée, candidat retenu dans une file qui se réduit)
-- Passer par la forme `{ source, computation }` de `linkedSignal()` quand la sélection courante doit survivre au changement de source
+- Passer par la forme `{ source, computation }` de `linkedSignal()` quand la sélection courante doit survivre au changement de source, et par son option `set: (value, rawSet) => void` (22.1) pour rediriger une écriture vers la source
 - Exposer les signals d'un service en lecture seule avec `.asReadonly()` et garder le `WritableSignal` privé
 - Réserver `effect()` aux side-effects : persistance dans le `store` Tauri, DOM externe, log
 - Créer un `effect()` dans un injection context (champ de classe ou constructeur), sinon lui passer l'option `injector`

@@ -1,8 +1,8 @@
 ---
 title: "Pydantic — Modèles & validation du protocole"
-version: "2.13.5"
+version: "2.14.0"
 description: "Référence technique pour Pydantic v2 dans le sidecar : modèles du protocole NDJSON, validation des commandes reçues sur stdin, migration du plan de run, frontière avec techno-scraper et empaquetage de pydantic-core."
-date: "2026-08-30"
+date: "2026-10-09"
 keywords: ["pydantic", "validation", "ndjson", "protocole", "pydantic-core", "mypy"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller", "Mypy", "pytest"]
@@ -70,7 +70,8 @@ for line in sys.stdin:
     try:
         command = COMMANDS.validate_json(line)
     except ValidationError as exc:
-        emit_error("malformed_command", {"errors": exc.errors(include_url=False)})
+        errors = [{"loc": list(e["loc"]), "type": e["type"]} for e in exc.errors()]
+        emit_error("malformed_command", {"errors": errors})
         continue
     await dispatch(command)
 ```
@@ -78,7 +79,7 @@ for line in sys.stdin:
 ### Points Importants
 
 - Une commande malformée produit un événement `error` et **rien d'autre** : aucun effet de bord partiel
-- `include_url=False` retire l'URL de documentation que Pydantic ajoute à chaque erreur, inutile dans un log
+- **Seuls `loc` et `type` sortent** : `input` renverrait la valeur reçue, donc un chemin ou un titre de morceau, et `ctx` peut porter un objet que le JSON ne sérialise pas (l'exception d'un validateur)
 - Le champ `message` de l'événement reste technique et part dans `tagger.log`, l'interface affichant à partir du `code`
 - Un `TypeAdapter` sur une union discriminée par `type` évite d'écrire le dispatch de parsing à la main
 
@@ -175,6 +176,7 @@ report_path.write_text(
 - `exclude_none=True` allège un rapport, `exclude_unset=True` ne rend que ce qui a été explicitement fourni
 - `model_dump(mode="json")` rend un dict aux types JSON-compatibles (`datetime` en ISO), contrairement au défaut `mode="python"`
 - `@computed_field` expose une propriété calculée dans la sortie, et `exclude_if` (2.13) l'en retire selon un prédicat, sans post-traitement du dict
+- 2.14 : `ser_json_timedelta` ne s'applique plus aux autres types date en sérialisation inférée (champ `Any` ou union), et `model_config` n'est plus muté après la définition de la classe
 - Un `StrEnum` se sérialise en sa valeur primitive, ce qui rend les états du protocole lisibles côté TypeScript sans conversion
 
 ---

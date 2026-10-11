@@ -38,9 +38,9 @@ _DOWNLOAD: Final = re.compile(r"\bfree[\s_-]*(?:dl|download)\b", re.IGNORECASE)
 _ENCODING: Final = re.compile(r"\b(?:\d{2,3}\s*kbps|320|flac|wav|mp3)\b", re.IGNORECASE)
 _GROUP: Final = re.compile(r"[\[(](?P<content>[^\[\]()]*)[\])]")
 _SPACES: Final = re.compile(r"\s+")
-# Entoures d'espaces sauf ; et / : « Jay-Z » ne doit jamais etre coupe. Pas de « & » :
-# il appartient au nom du duo bien plus souvent qu'il ne separe deux artistes (« Pig &
-# Dan », « Hicky & Kalo »). Le signe de multiplication est un vrai separateur, pas une
+# Entoures d'espaces sauf ; et / : « Kay-Q » ne doit jamais etre coupe. Pas de « & » :
+# il appartient au nom du duo bien plus souvent qu'il ne separe deux artistes (« Elk &
+# Ivo », « Pixel & Moss »). Le signe de multiplication est un vrai separateur, pas une
 # faute de frappe pour x (d'ou le noqa).
 _ARTIST_SEPARATORS: Final = re.compile(
     r"\s*[;/]\s*|\s+(?:and|x|×|vs\.?|feat\.?|ft\.?|featuring)\s+",  # noqa: RUF001
@@ -48,12 +48,12 @@ _ARTIST_SEPARATORS: Final = re.compile(
 )
 # Un nom d'artiste porte des parentheses qui le designent, jamais de crochets : releve
 # le 2026-09-20 sur 963 credits Beatport, les 22 groupes parenthesees tiennent tous un
-# code pays ou de genre (« SOSA (UK) », « Aeon (PSY) »). Seuls les crochets et le bruit
-# de tag partent, un fichier mal tague pouvant porter « Adam Beyer (320kbps) ».
+# code pays ou de genre (« ZENO (UK) », « Lumo (PSY) »). Seuls les crochets et le bruit
+# de tag partent, un fichier mal tague pouvant porter « Lior Vance (320kbps) ».
 _ARTIST_NOISE: Final = re.compile(r"\[[^\[\]]*\]")
-# Un tag peut ecrire l'invite dans le titre (« Biome feat. BCCO ») en plus du champ artiste :
+# Un tag peut ecrire l'invite dans le titre (« Cairn feat. ZRVK ») en plus du champ artiste :
 # le titre de la requete se coupe a sa mention, l'axe artiste le scorant deja. Premier mot
-# toujours pris, arret devant un mot de version entier seulement (« feat. Dubfire »).
+# toujours pris, arret devant un mot de version entier seulement (« feat. Dubmoor »).
 _FEATURING: Final = re.compile(
     rf"(?<!\w)(?:feat\.?|ft\.?|featuring)(?!\w)\s*\S*(?:(?!{_VERSION_GUARD.pattern}).)*",
     re.IGNORECASE,
@@ -62,7 +62,7 @@ _AMPERSAND: Final = re.compile(r"\s+&\s+")
 # Reste d'un groupe dont le nettoyage a emporte tout le contenu.
 _EMPTY_GROUP: Final = re.compile(r"[\[(]\s*[\])]")
 _LETTER: Final = re.compile(r"[^\W\d_]")
-# Deux chiffres au plus : « 808 State » et « 999999999 » restent des artistes.
+# Deux chiffres au plus : « 707 Fable » et « 999999999 » restent des artistes.
 _TRACK_NUMBER: Final = re.compile(r"^\d{1,2}(?!\d)\s*[-._)]?\s*")
 _FILE_NAME_SEPARATOR: Final = " - "
 _EDGE_NOISE: Final = " -_.,;"
@@ -74,9 +74,9 @@ _VERSION_MATCH_FLOOR: Final = 70
 _REMIX_WORD: Final = re.compile(r"\bremix\b", re.IGNORECASE)
 # « Pt. 1 » et « Pt. 2 » sont deux morceaux, mais ne different que d'un caractere au score.
 # Toute divergence compte, un nombre ajoute d'un seul cote y compris : Beatport desambigue
-# parfois « Acperience » en « Acperience 1 » pour le meme morceau, qui passe donc en zone
-# grise a tort. C'est le cout assume du choix inverse, ou « Minimal Nation 2 » se validerait
-# tout seul sur le tag « Minimal Nation » : un arbitrage de plus coute une seconde, un
+# parfois « Fernhollow » en « Fernhollow 1 » pour le meme morceau, qui passe donc en zone
+# grise a tort. C'est le cout assume du choix inverse, ou « Quiet Meridian 2 » se validerait
+# tout seul sur le tag « Quiet Meridian » : un arbitrage de plus coute une seconde, un
 # mauvais tag ecrit sans relecture coute un fichier de la bibliotheque.
 _NUMBER: Final = re.compile(r"\d+")
 _MAX_SCORE: Final = 100
@@ -256,7 +256,7 @@ def classify(
     asked = _prepare(query)
     scored: list[ScoredCandidate] = []
     for candidate in candidates:
-        # Candidat deja normalise par techno-scraper. Seul le sous-titre qu'il garde (« PATT
+        # Candidat deja normalise par techno-scraper. Seul le sous-titre qu'il garde (« SLTD
         # (Party All The Time) ») part, comme de la requete : nettoyer un seul cote fait
         # tomber un morceau identique sous le plancher.
         offered = _Parts(_clean(candidate.title), candidate.mix_name or "")
@@ -378,7 +378,7 @@ def _artist_score(asked: tuple[str, ...], candidate: TrackCandidate) -> float:
 def _split_duos(asked: tuple[str, ...]) -> tuple[str, ...]:
     """Seconde lecture d'une esperluette : celle qui separe deux artistes.
 
-    « A & B » nomme un duo (« Pig & Dan ») ou deux artistes qu'un logiciel a joints, et
+    « A & B » nomme un duo (« Elk & Ivo ») ou deux artistes qu'un logiciel a joints, et
     la chaine seule ne le dit pas. Les deux lectures sont donc scorees et la meilleure
     gagne : c'est la façon dont la source credite qui tranche, jamais une regle devinee.
     """

@@ -2,7 +2,7 @@
 title: "mutagen — Lecture et écriture des tags audio"
 version: "1.48.1"
 description: "Référence technique pour mutagen : ID3 vs Vorbis Comments, écriture en ID3v2.3, pochettes APIC et FLAC, tags WAV/AIFF, dump pour rollback et gestion des fichiers verrouillés."
-date: "2026-08-29"
+date: "2026-10-11"
 keywords: ["mutagen", "id3", "vorbis-comments", "apic", "flac", "wav", "aiff", "tags"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller"]
@@ -46,7 +46,7 @@ audio["artist"] = "Artiste"
 | `artists` | `TPE1` | `ARTIST` |
 | `release` | `TALB` | `ALBUM` |
 | `track_number` | `TRCK` | `TRACKNUMBER` |
-| `release_date` | `TDRC` (v2.4) / `TYER`+`TDAT` (v2.3) | `DATE` |
+| `release_date` | `TDRC` (v2.4) / `TYER` (v2.3), année seule | `DATE` |
 | `label` | `TPUB` | `LABEL` |
 | `genre` | `TCON` | `GENRE` |
 | `bpm` | `TBPM` | `BPM` |
@@ -71,15 +71,17 @@ mutagen vise ID3v2.4 par défaut. Le projet écrit en v2.3, mieux lu par l'Explo
 ### Exemple
 
 ```python
+tags.update_to_v23()      # convertit TDRC en TYER et TDOR en TORY
 tags.save(v2_version=3)   # sans cet argument : v2.4
 ```
 
 ### Points Importants
 
-- **La conversion v2.4 → v2.3 n'est pas neutre** : le texte UTF-8 est réencodé en UTF-16, les valeurs multiples sont jointes par un séparateur (`v23_sep`, `/` par défaut), et **`TDRC` est éclaté en `TYER` + `TDAT` + `TIME`**
+- **La conversion v2.4 → v2.3 n'est pas neutre** : le texte UTF-8 est réencodé en UTF-16, les valeurs multiples sont jointes par un séparateur (`v23_sep`, `/` par défaut) et **`TDRC` est éclaté en `TYER` + `TDAT` + `TIME`** (techno-tagger réduit la date à l'année : `TYER` seul)
 - **Piège historique `EasyID3` + `v2_version=3`** : écrire `audio["date"]` puis sauver produisait une frame `TDRC` vide en plus du `TYER`. Le code actuel gère le cas en interne (sauvegarde des frames v2.4, conversion, restauration), mais **ce correctif est arrivé en cours de vie du projet** : écrire un test qui écrit une date, sauve en v2.3, relit le fichier et vérifie `TYER`
-- Le séparateur de valeurs multiples change le rendu d'une chaîne d'artistes : le choisir explicitement plutôt que subir le `/` par défaut
-- La conversion ne s'applique qu'à l'écriture : l'objet en mémoire reste en v2.4
+- **`update_to_v23()` convertit un `TDOR` existant en `TORY`**, mais techno-tagger n'écrit aucune année d'origine (la source ne rend que la date de la sortie, cf. [ADR-011](../adrs/011-politique-ecriture-tags.md), 2026-10-11) : un `TORY` ou un `ORIGINALDATE` déjà dans le fichier reste intact
+- Le séparateur de valeurs multiples (`v23_sep`) change le rendu d'une chaîne d'artistes, mais techno-tagger écrit une seule chaîne par champ, artistes joints par « , » : `v23_sep` ne s'applique pas (tranché le 2026-10-06, cf. [ADR-011](../adrs/011-politique-ecriture-tags.md))
+- **`save(v2_version=3)` ne convertit pas les frames** : sans `update_to_v23()` préalable, `TDRC` et `TDOR` restent sur le disque sous un en-tête v2.3 (constaté le 2026-10-06 sur 1.48.1, objet `ID3` complet compris). Asserter sur le fichier rechargé avec `translate=False`
 
 ---
 
@@ -101,6 +103,7 @@ tags.add(APIC(
     desc="Cover",
     data=image_bytes,
 ))
+tags.update_to_v23()
 tags.save(v2_version=3)
 ```
 
@@ -144,6 +147,7 @@ audio = WAVE("track.wav")
 if audio.tags is None:
     audio.add_tags()          # aucun chunk ID3 dans le fichier d'origine
 audio.tags["TIT2"] = TIT2(encoding=3, text=["Titre"])
+audio.tags.update_to_v23()
 audio.save(v2_version=3)
 ```
 
@@ -160,16 +164,21 @@ audio.save(v2_version=3)
 
 ### Description
 
-mutagen n'offre aucune API de dump ou de rollback. Le plan de run écrit un JSON des tags d'origine avant toute écriture (cf. [ADR-010](../adrs/010-ecriture-batch-et-plan-de-run.md)), conservé 30 jours.
+mutagen n'offre aucune API de dump ou de rollback. Le sidecar écrit un JSON des tags d'origine de chaque run avant toute écriture (cf. [ADR-010](../adrs/010-ecriture-batch-et-plan-de-run.md)), conservé 30 jours.
 
 ### Exemple
 
 ```python
-def dump_tags(path: Path) -> dict[str, list[str]]:
+def read_original_tags(path: Path) -> tuple[int | None, dict[str, list[str]]]:
     audio = mutagen.File(path)
-    if audio is None or audio.tags is None:
-        return {}
-    return {key: [str(v) for v in values] for key, values in audio.tags.items()}
+    tags = audio.tags if audio is not None else None
+    if isinstance(tags, ID3):
+        # Les seules clés de la table, avec toutes leurs valeurs et la version du fichier
+        fields = {key: [str(v) for v in tags[key].text] for key in ID3_KEYS if key in tags}
+        return tags.version[1], fields   # 3 ou 4
+    if tags is not None:
+        return None, {key: list(tags[key]) for key in VORBIS_KEYS if key in tags}
+    return None, {}
 ```
 
 ### Points Importants
@@ -178,6 +187,8 @@ def dump_tags(path: Path) -> dict[str, list[str]]:
 - `pprint()` donne un dump lisible pour les logs, **pas exploitable pour restaurer**
 - **Un rollback bit-exact demanderait une copie du fichier brut** avant écriture, mutagen modifiant en place. Le dump JSON restaure les tags, pas l'octet près
 - `mutagen.File()` rend `None` quand le format n'est pas reconnu : le cas se traite, il ne lève pas
+- **Restaurer dans la version d'origine** : `save(v2_version=4)` pour un fichier arrivé en v2.4, sinon `update_to_v23()` puis `save(v2_version=3)`. Retirer aussi les champs de la table absents du dump, que l'écriture a ajoutés
+- **Valeurs multiples d'un v2.3** : mutagen les relit en une seule chaîne jointe par `/`, restaurée telle quelle
 
 ---
 
@@ -185,7 +196,7 @@ def dump_tags(path: Path) -> dict[str, list[str]]:
 
 ### Description
 
-Sur Windows, un fichier ouvert dans un lecteur (Rekordbox, VLC) est verrouillé en écriture. C'est le mode de panne le plus courant de la phase d'écriture (cf. [ARCHITECTURE.md § Robustesse](../ARCHITECTURE.md#-robustesse--modes-de-panne)).
+Sur Windows, un fichier ouvert dans un lecteur (Rekordbox, VLC) est verrouillé en écriture. C'est le mode de panne le plus courant de la phase d'écriture (cf. [ARCHITECTURE.md § Robustesse](../ARCHITECTURE.md#%EF%B8%8F-robustesse--modes-de-panne)).
 
 ### Exemple
 
@@ -193,10 +204,11 @@ Sur Windows, un fichier ouvert dans un lecteur (Rekordbox, VLC) est verrouillé 
 from mutagen import MutagenError
 
 try:
+    audio.tags.update_to_v23()
     audio.save(v2_version=3)
 except (MutagenError, OSError) as exc:
     cause = getattr(exc, "__cause__", None) or exc
-    reason = "file_locked" if isinstance(cause, PermissionError) else "write_error"
+    reason = file_failure_reason(cause) if isinstance(cause, OSError) else FileFailureReason.WRITE_FAILED
     plan.mark_failed(track, reason)   # le run continue sur les suivants
 ```
 
@@ -205,7 +217,7 @@ except (MutagenError, OSError) as exc:
 - **`MutagenError` n'enveloppe pas systématiquement les erreurs OS** : un `PermissionError` peut remonter nu selon le point d'échec (ouverture ou `save()`). Capturer les deux
 - Depuis la 1.48.0, `MutagenError` préserve `__cause__` : c'est ce qui permet de distinguer un fichier verrouillé (`PermissionError`, errno 13) d'une corruption réelle
 - **Envelopper chaque fichier individuellement**, jamais le lot : un fichier en échec ne doit pas interrompre l'écriture des suivants
-- Le motif de renommage vient après l'écriture, puisqu'il relit les tags fraîchement écrits : un échec d'écriture doit aussi annuler le renommage de ce fichier
+- Le renommage vient après l'écriture et se calcule sur la projection, sans rouvrir le fichier : un morceau dont l'écriture a échoué n'est pas renommé
 
 ---
 
@@ -213,7 +225,8 @@ except (MutagenError, OSError) as exc:
 
 ## ✅ Recommandations
 
-- **Écrire un test qui écrit une date, sauve en `v2_version=3`, relit et vérifie `TYER`** : le comportement a changé en cours de vie de mutagen
+- **Appeler `update_to_v23()` avant `save(v2_version=3)`** : lui seul convertit `TDRC` et `TDOR` en `TYER` et `TORY`
+- **Écrire un test qui écrit une date, appelle `update_to_v23()`, sauve en `v2_version=3`, relit avec `translate=False` et vérifie `TYER`** : le comportement a changé en cours de vie de mutagen
 - **Appeler `clear_pictures()` avant `add_picture()`** sur FLAC, et vérifier le couple `(type, desc)` sur ID3
 - **Vérifier `audio.tags is None` et appeler `add_tags()`** avant d'écrire sur WAV ou AIFF
 - **Capturer `MutagenError` et `OSError` ensemble**, par fichier, et lire `__cause__` pour nommer la raison dans le rapport
@@ -223,6 +236,7 @@ except (MutagenError, OSError) as exc:
 ## ❌ Anti-Patterns
 
 - **`save()` sans `v2_version=3`** : le fichier part en v2.4, mal lu par l'Explorateur Windows
+- **`save(v2_version=3)` sans `update_to_v23()` préalable** : l'en-tête est v2.3 mais `TDRC` et `TDOR` restent sur le disque
 - **Traiter `audio["TIT2"]` comme une chaîne** : c'est un objet frame dont le texte est une liste
 - **Utiliser `EasyID3` pour tout** : sa table ne couvre ni les pochettes ni les champs maison
 - **Manipuler `METADATA_BLOCK_PICTURE` à la main sur un FLAC** : `add_picture()` est l'API du conteneur

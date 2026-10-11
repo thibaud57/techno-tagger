@@ -3,7 +3,7 @@
 Le script vit dans le skill, sa sortie dans le scratchpad : jamais un mp3 dans le depot,
 jamais une vraie bibliotheque touchee. Usage, depuis la racine du depot :
 
-    uv run --directory sidecar python <skill>/scripts/build_fixture.py <dossier> [option]
+    PYTHONPATH=tests/helpers uv run --directory sidecar python <skill>/scripts/build_fixture.py <dossier> [option]
 
 Sans option : trois morceaux dont deux que le faux serveur connait, un introuvable et un
 fichier non audio. `--unique N` : N titres inedits, chacun payant son aller-retour vers
@@ -11,41 +11,38 @@ l'API, pour qu'un run dure assez longtemps qu'une commande concurrente parte pen
 Un suffixe par appel les rend inedits d'une passe a l'autre, le cache de reponses etant
 reel : relancer sur les memes titres rendrait un run instantane et un faux vert.
 `--vlc-dump` : un dump `vlc_media.db`, playlists « test playlist » et « other playlist ».
-`--arbitration` : un seul morceau, « Amelie Lens - Basielians », que le faux serveur met
-en zone grise sur ses deux sources (titre a 75 contre « Basiel »).
+`--arbitration` : un seul morceau, « Orla Quenby - Kelvorians », que le faux serveur met
+en zone grise sur ses deux sources (titre a 75 contre « Kelvor »).
+`--formats` : un morceau par format (MP3, FLAC, WAV, AIFF), valide pour mutagen, nomme
+d'apres un titre du vrai catalogue et sali comme par `write_tags_probe.py` (commentaires,
+verso et recto, date complete en v2.4, frames Serato) : la fixture d'une ecriture contre la
+vraie API, par le binaire fige.
 La fixture complete de l'onglet Playlist, homonymes et echecs de transfert compris, est
 celle de `just demo`.
 """
 
-import json
 import shutil
 import sys
 import uuid
 from pathlib import Path
 
+from _probe import emit, fail
 
-def emit(payload: dict[str, object]) -> None:
-    """Le resultat sur stdout, en JSON, pour qu'un appelant le lise sans le parser a l'oeil."""
-    sys.stdout.write(json.dumps(payload) + "\n")
-
-
-def fail(message: str) -> None:
-    emit({"error": True, "message": message})
-    sys.exit(1)
-
-
-# Depuis l'emplacement du script et non du repertoire courant : .claude/skills/verify/scripts.
-HELPERS = Path(__file__).resolve().parents[4] / "sidecar" / "tests" / "helpers"
-sys.path.insert(0, str(HELPERS))
 try:
-    from audio_samples import tag, write_blank_mp3
+    from audio_samples import (
+        tag,
+        write_blank_aiff,
+        write_blank_flac,
+        write_blank_mp3,
+        write_blank_wav,
+    )
     from vlc_dump import build_dump
 except ImportError as error:
-    fail(f"{error} : les helpers de test sont attendus dans {HELPERS}")
+    fail(f"{error} : lancer par `PYTHONPATH=tests/helpers uv run --directory sidecar`")
 
 args = sys.argv[1:]
 if not args or args[0].startswith("--"):
-    fail("usage : build_fixture.py <dossier> [--unique N | --vlc-dump | --arbitration]")
+    fail("usage : build_fixture.py <dossier> [--unique N | --vlc-dump | --arbitration | --formats]")
 
 root = Path(args[0])
 if root.exists():
@@ -66,13 +63,30 @@ if "--unique" in args:
     run = uuid.uuid4().hex[:6]
     tracks = [("Verify Probe", f"Untitled {run} {n:02d}") for n in range(1, count + 1)]
 elif "--arbitration" in args:
-    tracks = [("Amelie Lens", "Basielians")]
+    tracks = [("Orla Quenby", "Kelvorians")]
 else:
     tracks = [
-        ("Adam Beyer", "Your Mind"),
-        ("Amelie Lens", "Basiel"),
+        ("Lior Vance", "Dim Orbit"),
+        ("Orla Quenby", "Kelvor"),
         ("Nobody", "Nothing Here At All"),
     ]
+
+if "--formats" in args:
+    from write_tags_probe import dirty
+
+    real = [
+        ("mp3", write_blank_mp3, "Teodor Hale", "Cairn feat. Dubmoor"),
+        ("flac", write_blank_flac, "Lior Vance", "Dim Orbit"),
+        ("wav", write_blank_wav, "Orla Quenby", "Kelvor"),
+        ("aiff", write_blank_aiff, "Silas Orman", "Quiet Meridian"),
+    ]
+    for index, (extension, write_blank, artist, title) in enumerate(real, start=1):
+        path = root / f"{index:02d} {artist.lower()} - {title.lower()}.{extension}"
+        write_blank(path)
+        tag(path, artist=[artist], title=[title])
+        dirty(path)
+    emit({"success": True, "folder": root.as_posix(), "tracks": len(real)})
+    sys.exit(0)
 
 for index, (artist, title) in enumerate(tracks, start=1):
     path = root / f"{index:02d} {artist.lower()} - {title.lower()}.mp3"

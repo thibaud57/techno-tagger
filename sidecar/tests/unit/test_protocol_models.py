@@ -16,6 +16,7 @@ from tagger.extraction import (
     ExtractionMode,
     ExtractionResult,
 )
+from tagger.file_failures import FileFailureReason
 from tagger.protocol import (
     AnyCommand,
     CancelRun,
@@ -30,12 +31,14 @@ from tagger.protocol import (
     Phase,
     Progress,
     Shutdown,
+    TrackResolved,
     Version,
     emit,
     error_from_business,
     error_from_validation,
     parse_command,
 )
+from tagger.tagging import FailureReason, Resolution, TrackState
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
@@ -121,6 +124,27 @@ def test_an_event_serialises_on_a_single_line() -> None:
 
     assert "\n" not in line
     assert json.loads(line)["version"] == "1.2.3"
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [FailureReason.NO_RESULT, FileFailureReason.FILE_LOCKED],
+    ids=["track-reason", "file-reason"],
+)
+def test_a_failure_reason_serialises_as_its_plain_name(
+    reason: FailureReason | FileFailureReason,
+) -> None:
+    event = TrackResolved(
+        event="track_resolved",
+        track_id="a.mp3",
+        state=TrackState.WRITE_ERROR,
+        resolution=Resolution.AUTO,
+        failure_reason=reason,
+    )
+
+    sent = json.loads(emit(event))
+
+    assert (sent["failure_reason"], sent["restorable"]) == (reason.value, False)
 
 
 def test_progress_matches_the_shape_protocol_ts_mirrors() -> None:

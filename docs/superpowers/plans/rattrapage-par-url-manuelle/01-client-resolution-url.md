@@ -83,7 +83,7 @@ from tagger.scraper_client import Source, TrackNotFoundError, UnsupportedTrackUr
 
 pytestmark = pytest.mark.asyncio
 
-BANDCAMP_TRACK = "https://amelielens.bandcamp.com/track/basiel"
+BANDCAMP_TRACK = "https://orlaquenby.bandcamp.com/track/kelvor"
 
 
 def _found(requests: list[httpx2.Request], source: Source) -> Handler:
@@ -94,8 +94,8 @@ def _found(requests: list[httpx2.Request], source: Source) -> Handler:
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://www.beatport.com/track/your-mind/22708005?utm_source=share",
-        "https://beatport.com/track/your-mind/22708005",
+        "https://www.beatport.com/track/dim-orbit/99000202?utm_source=share",
+        "https://beatport.com/track/dim-orbit/99000202",
     ],
     ids=["www-with-query", "bare-host"],
 )
@@ -105,7 +105,7 @@ async def test_resolves_a_beatport_url_through_the_track_id_route(
     async with make_client(_found(requests, Source.BEATPORT)) as client:
         candidate = await client.fetch_by_url(pasted)
 
-    assert [request.url.path for request in requests] == ["/beatport/tracks/22708005"]
+    assert [request.url.path for request in requests] == ["/beatport/tracks/99000202"]
     assert candidate.source is Source.BEATPORT
 
 
@@ -142,14 +142,14 @@ async def test_drops_the_query_string_the_fragment_and_the_trailing_slash_before
 
 async def test_lowercases_the_host(requests: list[httpx2.Request]) -> None:
     async with make_client(_found(requests, Source.BANDCAMP)) as client:
-        await client.fetch_by_url("https://AmelieLens.bandcamp.com/track/basiel")
+        await client.fetch_by_url("https://OrlaQuenby.bandcamp.com/track/kelvor")
 
     assert requests[0].url.params["url"] == BANDCAMP_TRACK
 
 
 async def test_rewrites_an_http_url_to_https(requests: list[httpx2.Request]) -> None:
     async with make_client(_found(requests, Source.BANDCAMP)) as client:
-        await client.fetch_by_url("http://amelielens.bandcamp.com/track/basiel")
+        await client.fetch_by_url("http://orlaquenby.bandcamp.com/track/kelvor")
 
     assert requests[0].url.params["url"] == BANDCAMP_TRACK
 
@@ -157,13 +157,13 @@ async def test_rewrites_an_http_url_to_https(requests: list[httpx2.Request]) -> 
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://amelielens.bandcamp.com/album/basiel",
-        "https://www.beatport.com/release/your-mind/4200000",
-        "https://www.beatport.com/fr/track/your-mind/22708005",
+        "https://orlaquenby.bandcamp.com/album/kelvor",
+        "https://www.beatport.com/release/dim-orbit/9900030",
+        "https://www.beatport.com/fr/track/dim-orbit/99000202",
         "https://www.youtube.com/watch?v=abc",
-        "www.beatport.com/track/your-mind/22708005",
-        "ftp://amelielens.bandcamp.com/track/basiel",
-        "https://[beatport.com/track/your-mind/22708005",
+        "www.beatport.com/track/dim-orbit/99000202",
+        "ftp://orlaquenby.bandcamp.com/track/kelvor",
+        "https://[beatport.com/track/dim-orbit/99000202",
         "",
     ],
     ids=[
@@ -191,7 +191,7 @@ async def test_keeps_the_pasted_url_out_of_the_refusal(requests: list[httpx2.Req
     """L'URL peut nommer l'artiste et le morceau : aucun titre ne part sans geste manuel."""
     async with make_client(_found(requests, Source.BEATPORT)) as client:
         with pytest.raises(UnsupportedTrackUrlError) as refusal:
-            await client.fetch_by_url("https://www.youtube.com/watch?v=adam-beyer-your-mind")
+            await client.fetch_by_url("https://www.youtube.com/watch?v=lior-vance-dim-orbit")
 
     assert refusal.value.code == "unsupported_url"
     assert refusal.value.params == {}
@@ -354,10 +354,10 @@ git commit -m "feat(sidecar): résoudre une URL de morceau Beatport ou Bandcamp 
 
 - [ ] **Step 1: Ajouter les corps SoundCloud aux helpers**
 
-Dans `sidecar/tests/helpers/scraper_responses.py`, après `page_payload`, ajouter (`SOUNDCLOUD_TRACK` en constante de module, à côté de `BASIEL`) :
+Dans `sidecar/tests/helpers/scraper_responses.py`, après `page_payload`, ajouter (`SOUNDCLOUD_TRACK` en constante de module, à côté de `KELVOR`) :
 
 ```python
-SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2"
+SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2"
 ```
 
 ```python
@@ -368,11 +368,11 @@ def soundcloud_track_payload(**overrides: object) -> dict[str, object]:
     texte source survit dans `source_title`, jamais decoupe sur `&`.
     """
     payload = track_payload(
-        id="2407606665",
-        title="Tarantula",
-        source_title="KASIA & Faithless - Tarantula - Drumcode - DCX017",
+        id="9900050505",
+        title="Mothlight",
+        source_title="ZELKA & Larkspur - Mothlight - Kestrel - KSX017",
         mix_name=None,
-        artists=[{"id": "318628", "name": "KASIA & Faithless", "social_links": []}],
+        artists=[{"id": "770001", "name": "ZELKA & Larkspur", "social_links": []}],
         genre=None,
         bpm=None,
         key=None,
@@ -382,11 +382,11 @@ def soundcloud_track_payload(**overrides: object) -> dict[str, object]:
         source="soundcloud",
         # Catalogue et pochette d'une release SoundCloud, pas ceux du gabarit Beatport.
         release={
-            "id": "2407606665",
-            "title": "Tarantula",
-            "catalog_number": "DCX017",
+            "id": "9900050505",
+            "title": "Mothlight",
+            "catalog_number": "KSX017",
             "release_date": "2026-09-19",
-            "artwork_url": "https://i1.sndcdn.com/artworks-DCX017-t500x500.jpg",
+            "artwork_url": "https://i1.sndcdn.com/artworks-KSX017-t500x500.jpg",
         },
     )
     return payload | overrides
@@ -396,9 +396,9 @@ def profile_payload() -> dict[str, object]:
     """`UserProfile` de `/soundcloud/resolve` : un profil et la premiere page de ses morceaux."""
     return {
         "profile": {
-            "id": "318628",
-            "name": "Drumcode",
-            "url": "https://soundcloud.com/drumcode",
+            "id": "770001",
+            "name": "Kestrel",
+            "url": "https://soundcloud.com/kestrel",
             "followers": 1000,
             "social_links": [],
         },
@@ -424,7 +424,7 @@ async def test_resolves_a_soundcloud_track_url_through_the_resolve_route_without
     assert requests[0].url.path == "/soundcloud/resolve"
     assert dict(requests[0].url.params) == {"url": SOUNDCLOUD_TRACK}
     assert candidate.source is Source.SOUNDCLOUD
-    assert candidate.title == "Tarantula"
+    assert candidate.title == "Mothlight"
 
 
 async def test_sends_a_soundcloud_short_link_to_the_resolve_route(
@@ -440,8 +440,8 @@ async def test_sends_a_soundcloud_short_link_to_the_resolve_route(
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://www.soundcloud.com/drumcode/kasia-faithless-tarantula-2",
-        "https://m.soundcloud.com/drumcode/kasia-faithless-tarantula-2/?si=abc#t=1:23",
+        "https://www.soundcloud.com/kestrel/zelka-larkspur-mothlight-2",
+        "https://m.soundcloud.com/kestrel/zelka-larkspur-mothlight-2/?si=abc#t=1:23",
     ],
     ids=["www", "mobile-with-query-and-slash"],
 )
@@ -458,8 +458,8 @@ async def test_rewrites_the_www_and_mobile_soundcloud_hosts(
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://soundcloud.com/drumcode/sets/drumcode-radio",
-        "https://soundcloud.com/drumcode",
+        "https://soundcloud.com/kestrel/sets/kestrel-radio",
+        "https://soundcloud.com/kestrel",
         "https://on.soundcloud.com/",
     ],
     ids=["playlist", "profile", "short-link-without-code"],
@@ -511,7 +511,7 @@ async def test_never_keeps_more_than_five_soundcloud_requests_in_flight() -> Non
     async with make_client(in_flight.handler) as client, asyncio.TaskGroup() as group:
         for index in range(10):
             group.create_task(
-                client.fetch_by_url(f"https://soundcloud.com/drumcode/track-{index}"),
+                client.fetch_by_url(f"https://soundcloud.com/kestrel/track-{index}"),
                 name=f"resolve:{index}",
             )
 

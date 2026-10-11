@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from "@angular/core"
+import { computed, inject, signal, Service } from "@angular/core"
 
 import { APP_WINDOW } from "./app-window"
 import { SidecarService } from "./sidecar.service"
@@ -7,8 +7,14 @@ export type PendingWork =
   | { readonly kind: "extraction" }
   | { readonly kind: "tagging" }
   | { readonly kind: "arbitration"; readonly count: number }
+  | { readonly kind: "write" }
+  | { readonly kind: "rollback" }
+  | { readonly kind: "unwritten" }
 
-@Injectable({ providedIn: "root" })
+/** Quitter couperait un fichier en plein travail : Tauri arrete le sidecar a la sortie. */
+const BLOCKING: ReadonlySet<PendingWork["kind"]> = new Set(["write", "rollback"])
+
+@Service()
 export class CloseGuard {
   private readonly appWindow = inject(APP_WINDOW)
   private readonly sidecar = inject(SidecarService)
@@ -28,11 +34,23 @@ export class CloseGuard {
     if (count > 0) {
       work.push({ kind: "arbitration", count })
     }
+    if (this.sidecar.writing()) {
+      work.push({ kind: "write" })
+    }
+    if (this.sidecar.rollingBack() !== null) {
+      work.push({ kind: "rollback" })
+    }
+    // Un run cherche que le moteur peut encore ecrire : quitter perdrait ses resultats.
+    if (this.sidecar.runConfirmable()) {
+      work.push({ kind: "unwritten" })
+    }
 
     return work
   })
   /** Instantane : un travail qui s'acheve pendant la lecture ne change pas la confirmation. */
   readonly request = this._request.asReadonly()
+  /** Lu en direct : l'ecriture peut finir modale ouverte, elle redevient alors quittable. */
+  readonly blocked = computed(() => this.pendingWork().some((work) => BLOCKING.has(work.kind)))
 
   async install(): Promise<void> {
     if (this.installed) {
@@ -54,6 +72,9 @@ export class CloseGuard {
 
   /** `destroy` ferme sans repasser par l'ecouteur. Refuse, l'application reste utilisable. */
   async leave(): Promise<void> {
+    if (this.blocked()) {
+      return
+    }
     try {
       await this.appWindow.destroy()
     } catch (error) {

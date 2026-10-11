@@ -21,8 +21,10 @@ paths:
 - `actions/upload-artifact@v3`, en fin de vie depuis janvier 2025, à ne jamais reprendre d'un exemple ancien
 
 ## Gotchas
-- Deux uploads d'artifact du même nom échouent avec `upload-artifact@v4`
-- Le cache est plafonné à 10 Go par dépôt, toutes branches et workflows confondus
+- Deux uploads d'artifact du même nom échouent (`upload-artifact@v7`), sauf avec `overwrite: true`
+- Le cache est plafonné à 10 Go par dépôt, toutes branches et workflows confondus, et une entrée non lue depuis 7 jours est supprimée : le build de release, mensuel au mieux, part à froid
+- Un run ne restaure que les caches de sa branche, de la branche par défaut et, pour une PR, de sa base : un cache créé par une PR ne sert qu'à ses re-runs
+- `cache-mode` (`read`, `write`, `none`…) restreint l'accès au cache par workflow ou par job ; sans lui, les défauts sécurisés de GitHub s'appliquent
 - `::add-mask::` masque une valeur calculée à l'exécution, ce que le masquage des secrets statiques ne couvre pas
 - La rétention par défaut d'un artifact est de 90 jours ; l'installeur distribué vit sur la Release, pas dans un artifact
 

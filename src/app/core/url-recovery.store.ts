@@ -1,4 +1,4 @@
-import { Injectable, signal } from "@angular/core"
+import { signal, Service } from "@angular/core"
 
 import type { SidecarErrorEvent } from "./models/protocol"
 import type { RunProgress } from "./tagging-run.store"
@@ -7,7 +7,7 @@ import type { RunProgress } from "./tagging-run.store"
  * Phase de rattrapage par URL. Ouverte par la premiere progression du sidecar, seul juge
  * de son ouverture comme de l'eligibilite d'un morceau : l'interface n'en deduit rien.
  */
-@Injectable({ providedIn: "root" })
+@Service()
 export class UrlRecoveryStore {
   private readonly _progress = signal<RunProgress | null>(null)
   private readonly _busy = signal<ReadonlySet<string>>(new Set())

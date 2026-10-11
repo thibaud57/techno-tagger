@@ -3,7 +3,7 @@
 // Lance par le MCP Playwright : `browser_run_code_unsafe` avec `filename` sur ce fichier,
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-recovery/.
 async (page) => {
-  const DIR = "C:/Users/thiba/Desktop/dev/techno-tagger/.playwright-mcp/verify-recovery/"
+  const DIR = ".playwright-mcp/verify-recovery/"
   const out = { checks: {}, failures: [] }
   const check = (name, ok, detail) => {
     out.checks[name] = ok ? "ok" : detail
@@ -26,6 +26,9 @@ async (page) => {
         h: Math.round(box.height),
         footerTop: footer ? Math.round(footer.getBoundingClientRect().top - box.top) : null,
         title: d.querySelector("h3")?.textContent.trim() ?? null,
+        // En-tete partage avec l'arbitrage (`app-dialog-header`), le `h3[data-title]` dedans.
+        sharedHeader: d.querySelector("app-dialog-header h3[data-title]") !== null,
+        errorWhiteSpace: error ? getComputedStyle(error.querySelector(".whitespace-pre-line") ?? error).whiteSpace : null,
         counter: d.querySelector("p-badge")?.textContent.trim() ?? null,
         field: field ? { disabled: field.disabled, value: field.value } : null,
         help: d.querySelector("[data-help]")?.textContent.trim() ?? null,
@@ -60,16 +63,16 @@ async (page) => {
   const unresolved = (t, reason) => ({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: reason, source: null, after: null, scores: null, artwork_path: null })
   const auto = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "auto", failure_reason: null, source: "beatport", after: { artist: t.artist, title: t.title }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null })
   const byUrl = (t, source) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "url", failure_reason: null, source, after: { artist: t.artist, title: t.title }, scores: null, artwork_path: null })
-  const arbitration = (t, source, other) => ({ track_id: t.track_id, source, beatport_unavailable: false, empty_reason: null, other_source: other, candidates: [{ artist: t.artist, title: `${t.title} (Original Mix)`, label: "Drumcode", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
+  const arbitration = (t, source, other) => ({ track_id: t.track_id, source, beatport_unavailable: false, empty_reason: null, other_source: other, candidates: [{ artist: t.artist, title: `${t.title} (Original Mix)`, label: "Kestrel", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
 
-  const A = track(1, "Amelie Lens", "Basiel")
-  const B = track(2, "Adam Beyer", "Your Mind")
-  const K = track(9, "Klangkuenstler", "Untergang")
+  const A = track(1, "Orla Quenby", "Kelvor")
+  const B = track(2, "Lior Vance", "Dim Orbit")
+  const K = track(9, "Nebelkuenstler", "Sternfall")
   const S = track(10, "SNTS", "Unkept Promises")
-  const N = track(11, "Nur Jaber", "Into the Void")
-  const H = track(12, "Hector Oaks", "Sentiment")
-  const I = track(24, "Ignez", "Ion")
-  const P = track(25, "Planetary Assault Systems", "Function Creep")
+  const N = track(11, "Ria Javel", "Over the Moor")
+  const H = track(12, "Ilan Thorne", "Tidewater")
+  const I = track(24, "Valka", "Ark")
+  const P = track(25, "Silent Orchard Foundation", "Copper Weather")
 
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto("http://localhost:4200/tagging")
@@ -139,8 +142,9 @@ async (page) => {
   await settle(1500)
   const opened = await dialog()
   check("badge opens Tagging", page.url().endsWith("/tagging"), page.url())
-  check("link dialog on the first unresolved, 720 wide", opened?.title === "Klangkuenstler - Untergang" && opened.w === 720 && opened.h < 400 && opened.counter === "1/4", opened)
+  check("link dialog on the first unresolved, 720 wide", opened?.title === "Nebelkuenstler - Sternfall" && opened.w === 720 && opened.h < 400 && opened.counter === "1/4", opened)
   check("field focused", opened?.focus === "url", opened?.focus)
+  check("header through app-dialog-header", opened?.sharedHeader === true, opened?.sharedHeader)
   await shot("2-modale-depuis-badge")
 
   // Collage puis Entree : geste en vol, puis refus sous le champ, pied immobile.
@@ -153,11 +157,17 @@ async (page) => {
   })
   check("enter sends the pasted link", (await sent()).includes(`resolve_by_url:${K.track_id}`), await sent())
   check("spinner while the gesture waits", busy.disabled === true && busy.spinner, busy)
-  check("start blocked during a gesture", await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Lancer le run/.test(b.textContent))?.disabled === true), "enabled")
+  // Bouton d'action unique de la rangee du dossier (lancer ou confirmer selon la phase).
+  const actionButton = await page.evaluate(() => {
+    const b = document.querySelector("app-tagging-page .grid > button[data-action]")
+    return b && { text: b.textContent.trim(), action: b.getAttribute("data-action"), disabled: b.disabled }
+  })
+  check("run action blocked during a gesture", actionButton?.disabled === true, actionButton)
   await line({ event: "error", code: "unsupported_url", params: { track_id: K.track_id }, message: "unsupported url", command: "resolve_by_url" })
   await page.waitForTimeout(2500)
   const refused = await dialog()
   check("error under the field, footer still", refused?.error !== null && refused.footerTop === opened.footerTop && refused.h === opened.h && refused.field.value.startsWith("https://www.youtube"), { opened, refused })
+  check("error text: one sentence per line", refused?.errorWhiteSpace === "pre-line" && /Soundcloud\.\n\s*Copiez|SoundCloud\.\n\s*Copiez/.test(refused.error ?? ""), refused && { ws: refused.errorWhiteSpace, error: refused.error })
   const gaps = await page.evaluate(() => {
     const d = [...document.querySelectorAll(".p-dialog")].find((x) => x.offsetParent !== null)
     const error = d.querySelector("app-error-message").getBoundingClientRect()
@@ -189,9 +199,9 @@ async (page) => {
   // Ligne « Coller un lien » : ouvre la modale sur ce morceau.
   await scrollTableTo(150)
   await settle()
-  await row("Nur Jaber").click()
+  await row("Ria Javel").click()
   await settle(800)
-  check("row opens its own link dialog", (await dialog())?.title === "Nur Jaber - Into the Void", await dialog())
+  check("row opens its own link dialog", (await dialog())?.title === "Ria Javel - Over the Moor", await dialog())
   await page.keyboard.press("Escape")
   await settle()
 
@@ -207,16 +217,16 @@ async (page) => {
   await line({ event: "progress", phase: "url_recovery", processed: 1, total: 5 })
   await settle(1200)
   const step = await dialog()
-  check("link step in the arbitration frame", step?.title === "Ignez - Ion" && step.w === before.w && step.h === before.h && step.counter === null && step.actions.includes("skip") && !step.actions.includes("refuse"), { before, step })
+  check("link step in the arbitration frame", step?.title === "Valka - Ark" && step.w === before.w && step.h === before.h && step.counter === null && step.actions.includes("skip") && !step.actions.includes("refuse"), { before, step })
   check("link step field focused", step?.focus === "url", step?.focus)
   await shot("4-etape-lien")
-  await page.keyboard.type("https://ignez.bandcamp.com/track/ion")
+  await page.keyboard.type("https://valka.bandcamp.com/track/ion")
   await page.keyboard.press("Enter")
   await settle()
   check("link step sends its link", (await sent()).includes(`resolve_by_url:${I.track_id}`), await sent())
   await line(byUrl(I, "bandcamp"))
   await settle(800)
-  check("accepted link moves to the next arbitration", (await dialog())?.title === "Planetary Assault Systems - Function Creep", await dialog())
+  check("accepted link moves to the next arbitration", (await dialog())?.title === "Silent Orchard Foundation - Copper Weather", await dialog())
   await page.locator('[data-action="refuse"]').click()
   await line(unresolved(P, "user_refused"))
   await settle(800)
@@ -245,7 +255,7 @@ async (page) => {
   await line({ event: "run_finished", phase: "network", run_id: "run-2", resolved: 0, unresolved: 2, awaiting_arbitration: 0 })
   await line({ event: "progress", phase: "url_recovery", processed: 0, total: 2 })
   await settle(4500)
-  await row("Klangkuenstler").click()
+  await row("Nebelkuenstler").click()
   await settle(800)
   check("pasted link forgotten by the next run", (await dialog())?.field?.value === "", await dialog())
   await page.keyboard.press("Escape")

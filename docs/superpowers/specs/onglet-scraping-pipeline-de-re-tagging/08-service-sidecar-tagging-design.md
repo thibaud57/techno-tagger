@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["07-protocole-ndjson-tagging-design.md"]
-date: "2026-09-20"
+date: "2026-10-11"
 ---
 
 # État du run de re-tagging côté webview
@@ -15,7 +15,7 @@ date: "2026-09-20"
 
 Couvre le miroir TypeScript des messages du run (`start_tagging`, `run_started`, `track_resolved`, `arbitration_required`, `run_finished`, et `progress` en phase `tagging`), un store dédié qui tient l'état du run en signals, et le routage des événements depuis `SidecarService`, qui expose le tout par délégation. Couvre aussi la précision de la rule `angular/services.md` sur le découpage retenu.
 
-Exclut l'affichage (sub-projects 09 et 10), la famille visuelle d'un état, dérivée par `StateTagComponent` (sub-project 09), la file d'arbitrage et sa modale (Feature 3), et tout calcul métier : le store range ce qu'il reçoit, il ne décide de rien.
+Exclut l'affichage (sub-projects 09 et 10), la famille visuelle d'un état, dérivée par `StateTagComponent` (sub-project 09), la file d'arbitrage et sa modale (epic `arbitrage-utilisateur`) et tout calcul métier : le store range ce qu'il reçoit, il ne décide de rien.
 
 ### État livré
 
@@ -38,12 +38,12 @@ Exclut l'affichage (sub-projects 09 et 10), la famille visuelle d'un état, dér
 
 - **Miroir maintenu à la main** (`core/models/protocol.ts`), sans génération de code, comme le reste du contrat. Les champs d'état sont des unions littérales (`"resolved" | "unresolved"`, `"auto" | "arbitration" | "url" | "none"`, les motifs d'échec) : sans littéral, aucun narrowing, et le `switch` du service ne serait plus vérifié (`.claude/rules/typescript/types.md`).
 - **`KNOWN_EVENTS` et le `switch` exhaustif restent la garde** : ajouter un événement côté sidecar sans le traiter ici devient une erreur de compilation, jamais une ligne perdue en silence.
-- **Un store dédié** `TaggingRunStore` dans `core/` (décision du 2026-09-20) : `SidecarService` reste la frontière du transport, de la version et des erreurs, et le store tient l'état d'une phase. Sans ce découpage, `SidecarService` porterait aussi l'arbitrage, le rattrapage, l'écriture et le récapitulatif des Features 3 à 6. La rule `angular/services.md` est précisée dans le même commit.
-- **État du store** : `runId`, l'ordre des `track_id` et une `Map` vers la ligne de chaque morceau. Une ligne porte l'identité lue, `state`, `resolution`, `failure_reason`, `source`, l'artiste et le titre « après », les scores, le chemin de la pochette et l'attente d'arbitrage. Tout vient du sidecar, rien n'est calculé (`.claude/rules/angular/services.md`).
-- **Signals en lecture seule** (`.claude/rules/angular/signals.md`) : `tracks` (les lignes dans l'ordre du run, dérivées par `computed`), `progress`, `running` (vrai de `start_tagging` jusqu'à `run_finished` ou une erreur), `finished` (les compteurs de fin de phase réseau, que le signal sonore du sub-project 10 écoutera). Les écritures passent par des méthodes, jamais par un signal exposé en écriture.
+- **Un store dédié** `TaggingRunStore` dans `core/` (décision du 2026-09-20) : `SidecarService` reste la frontière du transport, de la version et des erreurs et le store tient l'état d'une phase. Sans ce découpage, `SidecarService` porterait aussi l'arbitrage, le rattrapage, l'écriture et le récapitulatif : chacune de ces phases a son store (`ArbitrationStore`, `UrlRecoveryStore`, `WriteStore`). La rule `angular/services.md` est précisée dans le même commit.
+- **État du store** : `runId`, l'ordre des `track_id` et une `Map` vers la ligne de chaque morceau. Une ligne porte l'identité lue, `state`, `resolution`, `failure_reason`, `source`, l'artiste et le titre « après », les scores, le chemin de la pochette, les tags d'origine et ceux qui seront écrits et l'attente d'arbitrage. Tout vient du sidecar, rien n'est calculé (`.claude/rules/angular/services.md`).
+- **Signals en lecture seule** (`.claude/rules/angular/signals.md`) : `tracks` (les lignes dans l'ordre du run, dérivées par `computed`), `runId` et `folder` (nuls jusqu'à `run_started`), `progress`, `running` (vrai de `start_tagging` jusqu'à `run_finished` ou une erreur), `interrupted` (le run s'est arrêté avant sa fin, posé par `failed()`), `finished` (les compteurs de fin de phase réseau, que le signal sonore du sub-project 10 écoute). Les écritures passent par des méthodes, jamais par un signal exposé en écriture.
 - **Nouvelle référence à chaque mise à jour** : une ligne modifiée produit une nouvelle `Map` et un nouvel objet. Muter en place ne notifierait aucun consommateur.
-- **Routage dans `SidecarService`** : `startTagging(folder, thresholds?)` réinitialise le store puis envoie la commande. À la réception, `run_started`, `track_resolved`, `arbitration_required` et `run_finished` vont au store, et `progress` est réparti par phase : `extraction` alimente le signal existant, `tagging` le store. Une erreur reçue pendant un run arrête le run dans le store, comme `endRun` le fait déjà pour l'extraction.
-- **Délégation** : le service expose `taggingTracks`, `taggingProgress`, `tagging` et `taggingFinished`, pour que les composants n'injectent que `SidecarService`, comme l'onglet Playlist le fait aujourd'hui.
+- **Routage dans `SidecarService`** : `startTagging(folder, thresholds?)` réinitialise le store puis envoie la commande. À la réception, `run_started` et `track_resolved` vont au store, `arbitration_required` à la fois au store et à la file d'arbitrage, `run_finished` et `progress` sont répartis par phase : `extraction` alimente le signal existant, `tagging` et `network` le store, les phases suivantes leur propre store. Une erreur reçue pendant un run arrête le run dans le store, comme `endRun` le fait déjà pour l'extraction.
+- **Délégation** : le service expose `taggingTracks`, `taggingProgress`, `tagging` et `taggingFinished`, pour que les composants n'injectent que `SidecarService`, comme l'onglet Playlist.
 - **Aucun RxJS** : le flux est déjà découpé en lignes par Tauri et aucun opérateur ne s'applique, le handler écrit donc directement dans les signals (`.claude/rules/angular/rxjs-interop.md`).
 
 ## Acceptance criteria
@@ -89,10 +89,14 @@ Exclut l'affichage (sub-projects 09 et 10), la famille visuelle d'un état, dér
 - `src/app/core/tagging-run.store.spec.ts` :
   - lists every track of a started run in order
   - updates a track with its state, source, names, scores and artwork
+  - exposes the tags before from the start and the tags after once resolved
+  - keeps the folder of the run from its start and forgets it on reset
   - marks a track as awaiting arbitration
   - exposes the counters of a finished network phase
   - clears the previous run when a new one starts
+  - keeps the progress of the run
   - stops the run on failure
+  - ignores a track the run does not know
 - `src/app/core/sidecar.service.spec.ts` (ajouts) :
   - sends the start tagging command with and without thresholds (paramétré)
   - replays a whole tagging run and reports every track
@@ -105,7 +109,7 @@ Aucun test ne vérifie Angular lui-même : chacun échoue contre une régression
 - **`track_resolved` pour un `track_id` inconnu** (contrat désynchronisé) : ignoré, avec une trace en console, comme une ligne NDJSON illisible.
 - **`run_started` vide** : aucune ligne, progression à zéro, le run se termine aussitôt.
 - **Pochette absente** : `artwork_path` vaut `null`, la ligne reste valide.
-- **`run_finished` en phase `write`** (Feature 5) : ignoré par ce store, qui ne suit que la phase réseau.
+- **`run_finished` en phase `write`** : routé vers le store de la phase d'écriture, ce store ne suivant que la phase réseau.
 - **Mort du sidecar pendant un run** : `available` passe à faux, le run s'arrête, les lignes déjà reçues restent affichées.
 
 ## Architectural decisions
@@ -113,8 +117,8 @@ Aucun test ne vérifie Angular lui-même : chacun échoue contre une régression
 ### Décision : Où vit l'état du run
 
 **Options envisagées :**
-- **A. Un store dédié dans `core/`, alimenté par `SidecarService`** : la frontière reste au service, l'état d'une phase vit à côté, et les Features 3 à 6 ajouteront leur propre store.
-- **B. Tout dans `SidecarService`** : conforme à la lettre de la rule actuelle, au prix d'un fichier qui doublera avec l'arbitrage, le rattrapage, l'écriture et le récapitulatif.
+- **A. Un store dédié dans `core/`, alimenté par `SidecarService`** : la frontière reste au service, l'état d'une phase vit à côté et chaque phase suivante a son propre store.
+- **B. Tout dans `SidecarService`** : conforme à la lettre de la rule avant sa précision, au prix d'un fichier qui doublerait avec l'arbitrage, le rattrapage, l'écriture et le récapitulatif.
 
 **Choix : A**
 

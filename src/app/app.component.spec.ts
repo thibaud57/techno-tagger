@@ -6,7 +6,7 @@ import { MessageService } from "primeng/api"
 
 import { AppComponent } from "./app.component"
 import { CloseGuard } from "./core/close-guard.service"
-import { PENDING_TRACK } from "../fixtures/tagging"
+import { recoveredTrack, unresolvedTrack } from "../fixtures/tagging"
 
 import { SidecarService } from "./core/sidecar.service"
 import type { TaggingTrack } from "./core/tagging-run.store"
@@ -37,6 +37,7 @@ const mount = () => {
     taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal<readonly { track_id: string }[]>([]),
     tagging: signal(false),
+    committed: signal(false),
     taggingTracks: signal<readonly TaggingTrack[]>([]),
     recoverableTracks: signal<readonly TaggingTrack[]>([]),
     urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
@@ -71,22 +72,6 @@ const badge = (root: HTMLElement): HTMLButtonElement | null =>
 
 const recoveryBadge = (root: HTMLElement): HTMLButtonElement | null =>
   root.querySelector<HTMLButtonElement>("[data-recovery-badge]")
-
-const unresolved = (trackId: string): TaggingTrack => ({
-  ...PENDING_TRACK,
-  trackId,
-  state: "unresolved",
-  resolution: "none",
-  failureReason: "user_refused",
-})
-
-const recovered = (trackId: string): TaggingTrack => ({
-  ...PENDING_TRACK,
-  trackId,
-  state: "resolved",
-  resolution: "url",
-  source: "bandcamp",
-})
 
 describe("AppComponent", () => {
   it("opens the arbitration dialog as soon as the queue fills", () => {
@@ -150,7 +135,7 @@ describe("AppComponent", () => {
 
   it("hides the recovery badge when nothing is left to recover", () => {
     const { fixture, service } = mount()
-    service.recoverableTracks.set([recovered("a.mp3")])
+    service.recoverableTracks.set([recoveredTrack("a.mp3")])
 
     fixture.detectChanges()
 
@@ -159,7 +144,7 @@ describe("AppComponent", () => {
 
   it("hides the recovery badge during a search", () => {
     const { fixture, service } = mount()
-    service.recoverableTracks.set([unresolved("a.mp3")])
+    service.recoverableTracks.set([unresolvedTrack("a.mp3")])
     service.tagging.set(true)
 
     fixture.detectChanges()
@@ -169,7 +154,11 @@ describe("AppComponent", () => {
 
   it("counts the unresolved tracks only in the recovery badge", () => {
     const { fixture, service } = mount()
-    service.recoverableTracks.set([unresolved("a.mp3"), recovered("b.mp3"), unresolved("c.mp3")])
+    service.recoverableTracks.set([
+      unresolvedTrack("a.mp3"),
+      recoveredTrack("b.mp3"),
+      unresolvedTrack("c.mp3"),
+    ])
 
     fixture.detectChanges()
 
@@ -180,7 +169,7 @@ describe("AppComponent", () => {
 
   it("opens the link dialog on the first unresolved track and goes to the tagging page on a badge click", () => {
     const { fixture, service } = mount()
-    service.recoverableTracks.set([recovered("a.mp3"), unresolved("b.mp3")])
+    service.recoverableTracks.set([recoveredTrack("a.mp3"), unresolvedTrack("b.mp3")])
     fixture.detectChanges()
     const navigate = vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
 
@@ -193,7 +182,8 @@ describe("AppComponent", () => {
   it("keeps the arbitration dialog open on the link step of an emptied queue", () => {
     const { fixture, component, service } = mount()
     const recovery = TestBed.inject(RecoveryUiStore)
-    service.taggingTracks.set([unresolved("a.mp3")])
+    service.taggingTracks.set([unresolvedTrack("a.mp3")])
+    service.recoverableTracks.set([unresolvedTrack("a.mp3")])
     recovery.refused("a.mp3")
     fixture.detectChanges()
 

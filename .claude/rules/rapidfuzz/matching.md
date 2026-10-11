@@ -21,7 +21,7 @@ paths:
 - `token_set_ratio` comme critère d'auto-validation : il rend 100 dès qu'un candidat contient tous les mots de la requête, remix compris
 - Tenir 70 et 90 pour définitifs : ils viennent de la CLI d'origine, qui comparait d'autres chaînes
 - Appliquer le nettoyage de requête aux tags écrits : il porte sur la chaîne interrogée uniquement
-- Retirer une mention de version ou de featuring au nettoyage : `(Adam Beyer Remix)` et `feat. X` identifient le morceau (cf. [stdlib-donnees.md](../python/stdlib-donnees.md))
+- Retirer une mention de version ou de featuring au nettoyage : `(Lior Vance Remix)` et `feat. X` identifient le morceau (cf. [python/stdlib-donnees.md](../python/stdlib-donnees.md))
 - Comparer des scores obtenus avec des scorers différents : même échelle, distributions différentes
 
 ## Gotchas
@@ -50,5 +50,5 @@ best = process.extractOne(query, choices, scorer=fuzz.ratio,
                           processor=utils.default_process, score_cutoff=FLOOR)
 
 # ❌ processor omis
-fuzz.ratio("Adam Beyer", "adam beyer!")
+fuzz.ratio("Lior Vance", "lior vance!")
 ```

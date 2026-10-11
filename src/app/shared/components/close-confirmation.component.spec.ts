@@ -7,13 +7,14 @@ import { CloseGuard, type PendingWork } from "../../core/close-guard.service"
 
 import { CloseConfirmationComponent } from "./close-confirmation.component"
 
-const mount = () => {
+const mount = (blocked = false) => {
   const guard = {
     request: signal<readonly PendingWork[] | null>([
       { kind: "extraction" },
       { kind: "tagging" },
       { kind: "arbitration", count: 2 },
     ]),
+    blocked: signal(blocked),
     stay: vi.fn(),
     leave: vi.fn(() => Promise.resolve()),
   }
@@ -59,6 +60,16 @@ describe("CloseConfirmationComponent", () => {
 
     expect(guard.stay).toHaveBeenCalledOnce()
     expect(guard.leave).not.toHaveBeenCalled()
+  })
+
+  it("offers only to stay while files are being written", () => {
+    mount(true)
+
+    const text = page().textContent
+
+    expect(text).toContain("app.close.blockedTitle")
+    expect(action("leave")).toBeNull()
+    expect(action("stay")).not.toBeNull()
   })
 
   it("puts the focus on the stay button", async () => {

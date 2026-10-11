@@ -28,7 +28,7 @@
         JSON.stringify({
           event: "run_started",
           run_id: "verify",
-          tracks: tracks.map((id) => ({ track_id: id, file_name: id, artist: "Adam Beyer", title: "Your Mind" })),
+          tracks: tracks.map((id) => ({ track_id: id, file_name: id, artist: "Lior Vance", title: "Dim Orbit" })),
         }),
       )
       for (const id of tracks) {
@@ -40,9 +40,9 @@
             beatport_unavailable: false,
             candidates: [
               {
-                artist: "Adam Beyer",
-                title: "Your Mind (Radio Edit)",
-                label: "Drumcode",
+                artist: "Lior Vance",
+                title: "Dim Orbit (Radio Edit)",
+                label: "Kestrel",
                 year: 2023,
                 scores: { artist: 96, title: 84, average: 90 },
               },
@@ -98,6 +98,9 @@
       },
       items: [...dialog.querySelectorAll(".p-dialog-content li")].map((li) => li.textContent.trim()),
       itemFontSize: getComputedStyle(dialog.querySelector(".p-dialog-content ul")).fontSize,
+      // Une phrase par ligne : les `\n` des traductions (« Arbitrages en attente : N.\nIls seront perdus. »)
+      // ne s'affichent en retour a la ligne que sous `pre-line`, attendu ici.
+      itemWhiteSpace: getComputedStyle(dialog.querySelector(".p-dialog-content ul")).whiteSpace,
       buttons,
       footerJustify: footer && getComputedStyle(footer).justifyContent,
       closeLabel: close?.getAttribute("aria-label") ?? null,

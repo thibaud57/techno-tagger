@@ -1,13 +1,14 @@
-import { Injectable, computed, inject, signal } from "@angular/core"
+import { computed, inject, linkedSignal, signal, Service } from "@angular/core"
 
 import { SidecarService } from "../../core/sidecar.service"
+import type { TaggingTrack } from "../../core/tagging-run.store"
 
 /**
  * Etat d'interface du rattrapage par lien, partage par la modale du lien, l'etape lien de
  * l'arbitrage et le badge du shell. Aucun etat du sidecar ici : seulement ce que
  * l'utilisateur a colle et ce qu'il a ouvert.
  */
-@Injectable({ providedIn: "root" })
+@Service()
 export class RecoveryUiStore {
   private readonly sidecar = inject(SidecarService)
 
@@ -19,7 +20,15 @@ export class RecoveryUiStore {
     readonly runId: string | null
     readonly urls: ReadonlyMap<string, string>
   }>({ runId: null, urls: new Map() })
-  private readonly _target = signal<string | null>(null)
+  /** Retombe a `null` des que son morceau n'est plus rattrapable : run suivant ou run fige. */
+  private readonly _target = linkedSignal<readonly TaggingTrack[], string | null>({
+    source: this.sidecar.recoverableTracks,
+    computation: (tracks, previous) => {
+      const shown = previous?.value ?? null
+
+      return tracks.some((track) => track.trackId === shown) ? shown : null
+    },
+  })
   /**
    * Morceau dont l'utilisateur vient de refuser les candidats, avec son run : un run suivant
    * reprend les memes identifiants et ne doit pas rouvrir l'etape lien d'un ancien refus.
@@ -29,9 +38,9 @@ export class RecoveryUiStore {
     readonly trackId: string
   } | null>(null)
 
-  /** Morceau ouvert dans la modale du lien, `null` : modale fermee. */
+  /** Morceau affiche dans la modale du lien, `null` : modale fermee. */
   readonly target = this._target.asReadonly()
-  /** Le sidecar refuse le geste tant que le run tourne : le champ reste visible, desactive. */
+  /** Le sidecar refuse le geste pendant la recherche ; sur un run fige, plus aucun morceau n'est rattrapable. */
   readonly available = computed(() => !this.sidecar.tagging())
   readonly unresolvedCount = computed(
     () => this.sidecar.recoverableTracks().filter((track) => track.state === "unresolved").length,
@@ -54,7 +63,7 @@ export class RecoveryUiStore {
       return null
     }
     // Pas de filtre sur le motif : « Passer » sur une liste Bandcamp vide rend celui de la liste.
-    const row = this.sidecar.taggingTracks().find((track) => track.trackId === trackId)
+    const row = this.sidecar.recoverableTracks().find((track) => track.trackId === trackId)
 
     return row?.state === "unresolved" ? trackId : null
   })
@@ -77,7 +86,12 @@ export class RecoveryUiStore {
   }
 
   canResolve(trackId: string): boolean {
-    return this.available() && !this.isBusy(trackId) && this.draft(trackId) !== ""
+    return (
+      this.available() &&
+      !this.isBusy(trackId) &&
+      this.draft(trackId) !== "" &&
+      this.sidecar.recoverableTracks().some((track) => track.trackId === trackId)
+    )
   }
 
   /** La garde double celle du bouton : la touche Entree ne passe pas par `[disabled]`. */
@@ -87,12 +101,15 @@ export class RecoveryUiStore {
     }
   }
 
-  /** Sans morceau designe, le premier encore non resolu : le badge ne s'affiche qu'avec un. */
+  /**
+   * Sans morceau designe, le premier encore non resolu : le badge ne s'affiche qu'avec un.
+   * Sert aussi a naviguer d'un morceau a l'autre dans la modale.
+   */
   open(trackId?: string): void {
+    const recoverable = this.sidecar.recoverableTracks()
     const target =
-      trackId ??
-      this.sidecar.recoverableTracks().find((track) => track.state === "unresolved")?.trackId
-    this._target.set(target ?? null)
+      trackId ?? recoverable.find((track) => track.state === "unresolved")?.trackId ?? null
+    this._target.set(recoverable.some((track) => track.trackId === target) ? target : null)
   }
 
   close(): void {

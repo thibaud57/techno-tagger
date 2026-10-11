@@ -3,34 +3,36 @@
 <section class="flex flex-col gap-4">
   <h2 class="text-xl font-semibold">{{ "settings.api.title" | translate }}</h2>
 
-  <div class="flex items-start gap-4 border-b border-surface py-3">
-    <!-- Largeur mesuree a l'ecran sur le texte d'aide le plus long (FR) : trois lignes au plus. -->
-    <div class="flex w-64 shrink-0 flex-col gap-2">
-      <label pLabel for="api-key">{{ "settings.api.key.label" | translate }}</label>
-      <span class="text-xs text-pretty text-muted-color">{{
-        "settings.api.key.hint" | translate
-      }}</span>
-    </div>
+  <app-settings-row>
+    <label rowLabel pLabel for="api-key">{{ "settings.api.key.label" | translate }}</label>
 
-    <!-- gap-3, hors echelle : aligne sur le py-3 de la rangee, l'erreur garde le meme ecart
-         au-dessus et en dessous (DESIGN.md § Feedback). -->
-    <div class="flex min-w-0 flex-1 flex-col gap-3">
-      <div class="flex items-center gap-2">
-        <!-- p-password est deprecie en PrimeNG 22 : `pInputPassword` ne fournit que le model
-             `mask`, l'oeil de bascule se compose ici (decision du 2026-09-21). -->
-        <p-iconfield class="min-w-0 flex-1">
-          <input
-            pInputPassword
-            id="api-key"
-            pSize="small"
-            [formField]="fields.apiKey"
-            [fluid]="true"
-            [mask]="masked()"
-            [placeholder]="'settings.api.key.placeholder' | translate"
-          />
+    <div rowControl class="flex items-center gap-2">
+      <!-- p-password est deprecie en PrimeNG 22 : `pInputPassword` ne fournit que le model
+           `mask`, l'oeil de bascule se compose ici (decision du 2026-09-21). -->
+      <!-- L'etat de la cle en texte pour un lecteur d'ecran : les points du placeholder ne se
+           lisent pas. Rien tant que l'etat vaut `null` : la version n'est pas encore arrivee. -->
+      @let configured = apiKeyConfigured();
+      @if (configured !== null) {
+        <span id="api-key-state" class="sr-only">{{
+          (configured ? "settings.api.key.configured" : "settings.api.key.missing") | translate
+        }}</span>
+      }
+      <p-iconfield class="min-w-0 flex-1">
+        <input
+          pInputPassword
+          id="api-key"
+          pSize="small"
+          aria-describedby="api-key-state"
+          [formField]="fields.apiKey"
+          [fluid]="true"
+          [mask]="masked()"
+          [placeholder]="storedKeyMask() ?? ('settings.api.key.placeholder' | translate)"
+        />
+        <!-- L'oeil ne revele que la saisie : la cle enregistree n'est jamais relue. -->
+        @if (typing()) {
           <p-inputicon>
-            <!-- Une cle collee ne se relit nulle part ailleurs : sans cette bascule, une faute de
-                 copie ne se voit qu'au premier run, sur les 403 de l'API. -->
+            <!-- Une cle collee ne se relit nulle part ailleurs : sans bascule, une faute de copie
+                 ne se voit qu'au premier run, sur les 403 de l'API. -->
             <button
               type="button"
               class="cursor-pointer text-muted-color"
@@ -42,34 +44,76 @@
               <app-icon [name]="masked() ? 'eye' : 'eye-slash'" [size]="16" />
             </button>
           </p-inputicon>
-        </p-iconfield>
-        <button
-          pButton
-          type="button"
-          size="small"
-          class="shrink-0"
-          [disabled]="!canSave()"
-          (click)="save()"
-        >
-          {{ "settings.api.key.save" | translate }}
-        </button>
-        <!-- Rien tant que l'etat vaut `null` : la version n'est pas encore arrivee. -->
-        @let configured = apiKeyConfigured();
-        @if (configured !== null) {
-          <!-- shrink-0 : sinon le tag retrecit avec le champ fluide et son libelle passe sur deux lignes. -->
-          <p-tag
-            class="shrink-0"
-            [severity]="configured ? 'success' : 'secondary'"
-            [value]="
-              (configured ? 'settings.api.key.configured' : 'settings.api.key.missing') | translate
-            "
-          />
         }
-      </div>
-
-      @if (error(); as shown) {
-        <app-error-message [error]="shown" />
-      }
+      </p-iconfield>
+      <button
+        pButton
+        type="button"
+        size="small"
+        class="shrink-0"
+        [disabled]="!canSave()"
+        (click)="save()"
+      >
+        {{ "settings.api.key.save" | translate }}
+      </button>
     </div>
-  </div>
+
+    <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+      "settings.api.key.hint" | translate
+    }}</span>
+    @if (error(); as shown) {
+      <app-error-message [error]="shown" />
+    }
+  </app-settings-row>
 </section>
+
+<section class="flex flex-col gap-4">
+  <h2 class="text-xl font-semibold">{{ "settings.admin.title" | translate }}</h2>
+
+  <app-settings-row>
+    <span rowLabel class="text-sm">{{ "settings.admin.rollback.label" | translate }}</span>
+
+    <!-- Sans champ, l'aide prend la place du controle, sur la ligne du bouton. -->
+    <div rowControl class="flex min-w-0 items-center justify-between gap-4">
+      <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+        "settings.admin.rollback.hint" | translate
+      }}</span>
+      @let blocked = restoreBlockedReason() ? (restoreBlockedReason() | translate) : undefined;
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        class="shrink-0"
+        data-action="restore-last"
+        [disabled]="blocked !== undefined"
+        [pTooltip]="blocked"
+        [tooltipOptions]="tooltip"
+        (click)="restoreLast()"
+      >
+        <app-icon [name]="rollingBack() ? 'spinner' : 'refresh'" [size]="16" />
+        {{ "settings.admin.rollback.action" | translate }}
+      </button>
+    </div>
+
+    <!-- Le run vise sur une ligne tronquee (le dossier peut etre long), son compte dessous. Rien
+         sans run : le tooltip du bouton grise en dit deja la raison. -->
+    @if (targetLine(); as line) {
+      <div class="flex min-w-0 flex-col text-xs text-muted-color">
+        <app-truncated-text
+          data-rollback-target
+          [text]="'settings.admin.rollback.target' | translate: line"
+        />
+        <span>{{ "settings.admin.rollback.targetCount" | translate: line }}</span>
+      </div>
+    }
+    @if (rollbackError(); as shown) {
+      <app-error-message [error]="shown" />
+    }
+    @if (rollbackFailures().length > 0) {
+      <app-rollback-failures [failures]="rollbackFailures()" />
+    }
+  </app-settings-row>
+</section>
+
+<app-danger-confirm />

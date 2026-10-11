@@ -13,13 +13,15 @@
     "experimentalDecorators": true,
     "importHelpers": true,
     "target": "ES2022",
+    "lib": ["es2024", "dom"],
     "module": "preserve"
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,
     "strictInputAccessModifiers": true,
-    "strictTemplates": true
+    "strictTemplates": true,
+    "strictUnclaimedEventNames": true
   },
   "files": [],
   "references": [

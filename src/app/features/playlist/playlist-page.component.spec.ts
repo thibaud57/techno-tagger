@@ -29,6 +29,7 @@ type SidecarServiceStub = Pick<
   SidecarService,
   | "ready"
   | "extracting"
+  | "tagging"
   | "available"
   | "version"
   | "versionMismatch"
@@ -54,6 +55,7 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
   const service: SidecarServiceStub = {
     ready: signal(true),
     extracting: signal(false),
+    tagging: signal(false),
     available: signal(true),
     version: signal("1.0.0"),
     versionMismatch: signal(null),
@@ -252,6 +254,15 @@ describe("PlaylistPageComponent", () => {
     withAllPathsChosen(component)
 
     expect(component["canExtract"]()).toBe(false)
+  })
+
+  it("blocks extraction while a run searches and says why", () => {
+    const { component } = mountWith({ tagging: signal(true) })
+
+    withAllPathsChosen(component)
+
+    expect(component["canExtract"]()).toBe(false)
+    expect(component["extractHint"]()).toBe("playlist.blocked.tagging")
   })
 
   it("blocks extraction until the sidecar announces the format", () => {

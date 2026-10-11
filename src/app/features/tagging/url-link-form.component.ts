@@ -1,3 +1,4 @@
+import { AsyncPipe } from "@angular/common"
 import {
   Component,
   ElementRef,
@@ -9,11 +10,12 @@ import {
 } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { InputText } from "primeng/inputtext"
-import { Message } from "primeng/message"
 
 import { SidecarService } from "../../core/sidecar.service"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
-import { failureReasonKey, trackMainLine } from "../../shared/utils/identity"
+import { MessageComponent } from "../../shared/components/message.component"
+import { trackMainLine } from "../../shared/utils/identity"
+import { ReasonTextPipe, trackReasonKeys } from "../../shared/utils/reason"
 import { SOURCE_NAMES } from "../../shared/utils/sources"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
@@ -25,7 +27,14 @@ import { RecoveryUiStore } from "./recovery-ui.store"
  */
 @Component({
   selector: "app-url-link-form",
-  imports: [InputText, Message, TranslatePipe, ErrorMessageComponent],
+  imports: [
+    AsyncPipe,
+    InputText,
+    MessageComponent,
+    ReasonTextPipe,
+    TranslatePipe,
+    ErrorMessageComponent,
+  ],
   templateUrl: "./url-link-form.component.html",
   host: { class: "flex flex-col gap-4" },
 })
@@ -49,7 +58,7 @@ export class UrlLinkFormComponent {
       mainLine:
         track === undefined ? trackId : trackMainLine(track.artist, track.title, track.fileName),
       recoveredOn: recovered === null ? null : SOURCE_NAMES[recovered],
-      reasonKey: reason === null ? null : failureReasonKey(reason),
+      reason: reason === null ? null : trackReasonKeys(reason),
       url: this.recovery.draft(trackId),
       busy: this.recovery.isBusy(trackId),
       error: this.sidecar.urlRecoveryErrors().get(trackId) ?? null,

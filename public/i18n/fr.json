@@ -8,63 +8,83 @@
     "blocked": {
       "missing": {
         "title": "Le moteur de l'application est introuvable",
-        "text": "Le fichier {{file}} est attendu dans le dossier d'installation. Il a probablement été mis en quarantaine par l'antivirus : ajoutez-le aux exclusions, puis réessayez."
+        "text": "Le fichier {{file}} est attendu dans le dossier d'installation.\nIl a probablement été mis en quarantaine par l'antivirus : ajoutez-le aux exclusions, puis réessayez."
       },
       "versionMismatch": {
         "title": "La mise à jour est incomplète",
-        "text": "L'application est en version {{ui}}, mais son moteur en version {{sidecar}}. Réinstallez l'application."
+        "text": "L'application est en version {{ui}}, mais son moteur en version {{sidecar}}.\nRéinstallez l'application."
       },
       "retry": "Réessayer"
     },
     "close": {
       "title": "Quitter l'application ?",
+      "blockedTitle": "Impossible de quitter maintenant",
       "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut se retrouver corrompu.",
       "tagging": "Un run de tagging est en cours : les résultats de la recherche seront perdus.",
-      "arbitration": "Arbitrages en attente : {{count}}. Ils seront perdus.",
+      "arbitration": "Arbitrages en attente : {{count}}.\nIls seront perdus.",
+      "write": "L'écriture des fichiers est en cours : attendez qu'elle se termine pour quitter.",
+      "rollback": "Une restauration est en cours : attendez qu'elle se termine pour quitter.",
+      "unwritten": "Un run attend la confirmation de son écriture.\nRien n'a encore été écrit : en quittant, vous perdez les résultats de la recherche.",
       "stay": "Rester",
       "leave": "Quitter quand même"
     }
   },
+  "confirm": {
+    "cancel": "Annuler"
+  },
   "errors": {
-    "malformed_command": "Une erreur interne a interrompu l'opération. Relancez l'application.",
-    "unknown_error": "Une erreur inattendue a interrompu l'opération. Si elle revient, le détail se trouve dans le dossier des logs.",
-    "playlist_error": "Ce fichier de playlist n'a pas pu être lu. Choisissez-en un autre.",
+    "malformed_command": "Une erreur interne a interrompu l'opération.\nRelancez l'application.",
+    "unknown_error": "Une erreur inattendue a interrompu l'opération.\nSi elle revient, le détail se trouve dans le dossier des logs.",
+    "playlist_error": "Ce fichier de playlist n'a pas pu être lu.\nChoisissez-en un autre.",
     "unsupported_playlist_format": "{{filename}} n'est ni une médiathèque VLC ni une playlist M3U8 lisible.",
-    "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire. Installez la dernière version de l'application.",
+    "vlc_schema_mismatch": "Cette médiathèque VLC vient d'une version que l'application ne sait pas lire.\nInstallez la dernière version de l'application.",
     "playlist_not_found": "Aucune playlist nommée {{playlist_name}} dans cette médiathèque.",
     "playlist_file_unreadable": "{{filename}} ne peut pas être ouvert.",
     "unreadable_dump": "{{filename}} n'est pas une médiathèque VLC lisible.",
     "playlist_name_required": "Choisissez une playlist de cette médiathèque VLC.",
-    "extraction_error": "L'extraction a échoué avant de commencer. Réessayez.",
+    "extraction_error": "L'extraction a échoué avant de commencer.\nRéessayez.",
     "report_error": "Le rapport d'extraction n'a pas pu être produit.",
     "report_write_failed": "Les morceaux sont extraits mais le rapport n'a pas pu être écrit : {{filename}}.",
-    "source_folder_unreadable": "Le dossier source est illisible : {{folder}}. Vérifiez qu'il existe toujours.",
-    "artwork_unavailable": "La pochette n'a pas pu être téléchargée. Relancez le run pour réessayer.",
-    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}. Choisissez-en un autre.",
-    "sidecar_unavailable": "Le moteur de l'application ne répond pas. Relancez l'application.",
+    "source_folder_unreadable": "Le dossier source est illisible : {{folder}}.\nVérifiez qu'il existe toujours.",
+    "artwork_unavailable": "La pochette n'a pas pu être téléchargée.\nRelancez le run pour réessayer.",
+    "destination_folder_unwritable": "Le dossier destination ne peut pas être créé : {{folder}}.\nChoisissez-en un autre.",
+    "sidecar_unavailable": "Le moteur de l'application ne répond pas.\nRelancez l'application.",
     "files_error": "La lecture des fichiers audio a échoué.",
     "tagging_folder_unreadable": "Le dossier à re-tagger est introuvable ou illisible : {{folder}}.",
     "tags_unreadable": "Les tags de {{file}} n'ont pas pu être lus.",
-    "scraper_error": "La recherche a échoué. Réessayez plus tard.",
-    "api_key_rejected": "La clé API a été refusée. Vérifiez-la dans les Réglages.",
-    "source_unavailable": "{{source}} ne répond pas. Réessayez plus tard.",
-    "track_not_found": "Ce lien ne mène à aucun morceau sur {{source}}. Vérifiez le lien.",
-    "unsupported_url": "Ce lien ne désigne pas un morceau Beatport, Bandcamp ou SoundCloud. Copiez le lien de la page du morceau.",
-    "api_contract_error": "La recherche a reçu une réponse inattendue. Si le problème revient, le détail se trouve dans le dossier des logs.",
-    "api_key_error": "La clé API n'a pas pu être enregistrée. Réessayez.",
-    "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur. Réessayez.",
-    "api_key_malformed": "Cette clé contient un espace ou un caractère non accepté. Recopiez-la sans rien autour.",
-    "api_key_missing": "Aucune clé API enregistrée. Ajoutez-en une dans les Réglages.",
-    "keyring_unavailable": "Le Gestionnaire d'identification de Windows est inaccessible. Relancez l'application.",
-    "tagging_in_progress": "Un run est déjà en cours. Attendez sa fin avant d'en lancer un autre.",
-    "extraction_in_progress": "Une extraction est déjà en cours. Attendez sa fin avant d'en lancer une autre.",
-    "arbitration_error": "Cette décision n'a pas pu être prise en compte. Réessayez.",
-    "arbitration_not_pending": "Ce morceau n'attend plus de décision. Passez au suivant.",
-    "arbitration_candidate_unknown": "Candidat indisponible. Choisissez-en un autre dans la liste affichée.",
-    "arbitration_busy": "Une décision est déjà en cours pour ce morceau. Patientez un instant.",
-    "url_recovery_error": "Le lien n'a pas pu être résolu. Réessayez.",
-    "url_recovery_not_eligible": "Ce morceau a déjà une correspondance et n'attend plus de lien. Passez au morceau suivant.",
-    "url_recovery_busy": "Un lien est déjà en cours de résolution pour ce morceau. Patientez un instant.",
+    "tags_write_failed": "Les tags de {{file}} n'ont pas pu être écrits.",
+    "file_rename_failed": "Le fichier {{file}} n'a pas pu être renommé.",
+    "original_name_taken": "Un autre fichier porte déjà le nom {{file}}.",
+    "tag_dump_error": "La sauvegarde des tags d'origine a échoué.\nRelancez l'application, puis réessayez.",
+    "tag_dump_write_failed": "Les tags d'origine n'ont pas pu être sauvegardés : aucun fichier n'a été modifié.\nLibérez de l'espace disque, puis relancez l'écriture.",
+    "tag_dump_unreadable": "La sauvegarde des tags d'origine est illisible, ou vient d'une autre version de l'application.\nCes fichiers ne peuvent plus être restaurés : relancez un run pour les re-tagger.",
+    "scraper_error": "La recherche a échoué.\nRéessayez plus tard.",
+    "api_key_rejected": "La clé API a été refusée.\nVérifiez-la dans les Réglages.",
+    "source_unavailable": "{{source}} ne répond pas.\nRéessayez plus tard.",
+    "track_not_found": "Ce lien ne mène à aucun morceau sur {{source}}.\nVérifiez le lien.",
+    "unsupported_url": "Ce lien ne désigne pas un morceau Beatport, Bandcamp ou SoundCloud.\nCopiez le lien de la page du morceau.",
+    "api_contract_error": "La recherche a reçu une réponse inattendue.\nSi le problème revient, le détail se trouve dans le dossier des logs.",
+    "api_key_error": "La clé API n'a pas pu être enregistrée.\nRéessayez.",
+    "api_key_not_stored": "La clé n'a pas pu être enregistrée sur cet ordinateur.\nRéessayez.",
+    "api_key_malformed": "Cette clé contient un espace ou un caractère non accepté.\nRecopiez-la sans rien autour.",
+    "api_key_missing": "Aucune clé API enregistrée.\nAjoutez-en une dans les Réglages.",
+    "keyring_unavailable": "Le Gestionnaire d'identification de Windows est inaccessible.\nRelancez l'application.",
+    "write_not_open": "Ce run ne peut pas être écrit maintenant.",
+    "run_committed": "L'écriture de ce run est confirmée : ses morceaux ne peuvent plus être arbitrés ni rattrapés.",
+    "rollback_unavailable": "Rien à restaurer : ces fichiers ont déjà retrouvé leurs tags d'origine, ou leur sauvegarde a expiré.",
+    "phase_busy": {
+      "extraction": "Une extraction est en cours.\nAttendez sa fin.",
+      "tagging": "Une recherche est en cours.\nAttendez sa fin.",
+      "write": "L'écriture est en cours.\nAttendez qu'elle se termine.",
+      "rollback": "Une restauration est en cours.\nAttendez qu'elle se termine."
+    },
+    "arbitration_error": "Cette décision n'a pas pu être prise en compte.\nRéessayez.",
+    "arbitration_not_pending": "Ce morceau n'attend plus de décision.\nPassez au suivant.",
+    "arbitration_candidate_unknown": "Candidat indisponible.\nChoisissez-en un autre dans la liste affichée.",
+    "arbitration_busy": "Une décision est déjà en cours pour ce morceau.\nPatientez un instant.",
+    "url_recovery_error": "Le lien n'a pas pu être résolu.\nRéessayez.",
+    "url_recovery_not_eligible": "Ce morceau a déjà une correspondance et n'attend plus de lien.\nPassez au morceau suivant.",
+    "url_recovery_busy": "Un lien est déjà en cours de résolution pour ce morceau.\nPatientez un instant.",
     "url_recovery_not_open": "Vous pourrez coller un lien une fois la recherche terminée."
   },
   "playlist": {
@@ -107,6 +127,9 @@
       "file": "un fichier de playlist",
       "playlist": "une playlist"
     },
+    "blocked": {
+      "tagging": "Attendez la fin du run en cours sur l'onglet Tagging."
+    },
     "summary": {
       "expand": "Modifier",
       "expandDisabled": "Les choix sont figés pendant l'extraction."
@@ -130,14 +153,6 @@
         "largest_file": "Plus volumineux",
         "path_order": "Taille égale, premier chemin dans l'ordre alphabétique"
       },
-      "reason": {
-        "permission_denied": "Accès refusé",
-        "disk_full": "Plus d'espace sur le disque de destination",
-        "path_too_long": "Chemin de destination trop long",
-        "file_locked": "Fichier ouvert dans un autre programme",
-        "file_missing": "Fichier disparu pendant l'extraction",
-        "write_failed": "Échec de l'écriture"
-      },
       "category": {
         "extracted": "Extrait",
         "already_present": "Déjà présent",
@@ -151,10 +166,41 @@
   "tagging": {
     "title": "Tagging",
     "finished": "Recherche terminée",
+    "writeFinished": "Écriture terminée",
+    "writeFinishedWithFailures": "Écriture terminée\nFichiers en échec : {{count}}",
+    "rollbackFinished": "Restauration terminée",
+    "rollbackFinishedWithFailures": "Restauration terminée\nFichiers non restaurés : {{count}}",
     "start": "Lancer le run",
     "cancel": "Interrompre",
     "phase": "Recherche en cours",
     "progress": "{{processed}} sur {{total}}",
+    "commit": {
+      "action": "Confirmer l'écriture",
+      "header": "Confirmer l'écriture",
+      "message": "Dossier : {{folder}}\n\nFichiers à réécrire et renommer en « Artiste - Titre » : {{count}}",
+      "unresolved": "Non résolus, laissés intacts : {{count}}",
+      "awaiting": "Encore à arbitrer : {{count}}\nIls ne seront pas écrits et ne pourront plus être arbitrés.",
+      "backup": "Les tags d'origine sont sauvegardés avant l'écriture : vous pourrez restaurer tout le run ou un seul morceau.",
+      "accept": "Écrire les tags"
+    },
+    "retry": {
+      "action": "Relancer l'écriture",
+      "header": "Relancer l'écriture",
+      "message": "Fichiers en échec à réécrire : {{count}}\nSeuls ces fichiers sont repris, sans nouvelle recherche ni arbitrage.",
+      "accept": "Relancer l'écriture"
+    },
+    "rollback": {
+      "run": "Restaurer le run",
+      "track": "Restaurer ce morceau",
+      "header": "Restaurer les fichiers",
+      "message": "Fichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes et les commentaires retirés par l'écriture ne sont pas récupérés.",
+      "accept": "Restaurer",
+      "blocked": "Une écriture ou une restauration est en cours."
+    },
+    "write": {
+      "phase": "Écriture des tags et des pochettes, puis renommage",
+      "failed": "Fichiers en échec d'écriture : {{count}}\nLe motif de chaque échec s'affiche au survol de son état : corrigez-le, puis relancez l'écriture."
+    },
     "folder": {
       "action": "Choisir un dossier"
     },
@@ -164,7 +210,10 @@
       "api_key": "Enregistrez d'abord votre clé API dans les Réglages.",
       "folder": "Choisissez d'abord le dossier à re-tagger.",
       "extracting": "Attendez la fin de l'extraction en cours sur l'onglet Playlist.",
-      "sidecar": "Le moteur de l'application n'est pas encore prêt."
+      "sidecar": "Le moteur de l'application n'est pas encore prêt.",
+      "writing": "Attendez la fin de l'écriture en cours.",
+      "arbitrating": "Attendez la réponse de l'arbitrage en cours.",
+      "restoring": "Attendez la fin de la restauration en cours."
     },
     "empty": {
       "heading": "Aucun run lancé",
@@ -178,13 +227,15 @@
       "arbitrated": "Arbitré",
       "url": "URL",
       "unresolved": "Non résolu",
-      "notProcessed": "Non traité"
+      "notProcessed": "Non traité",
+      "writeError": "Échec d'écriture",
+      "rolledBack": "Restauré"
     },
     "reason": {
-      "empty_query": "Ni les tags ni le nom du fichier ne donnent d'artiste ou de titre. Renommez le fichier en « Artiste - Titre ».",
+      "empty_query": "Ni les tags ni le nom du fichier ne donnent d'artiste ou de titre.\nRenommez le fichier en « Artiste - Titre ».",
       "no_result": "Aucun résultat sur Beatport ni sur Bandcamp.",
       "below_threshold": "Aucun résultat ne correspond au morceau.",
-      "source_unavailable": "Beatport et Bandcamp n'ont pas répondu. Relancez le run plus tard.",
+      "source_unavailable": "Beatport et Bandcamp n'ont pas répondu.\nRelancez le run plus tard.",
       "user_refused": "Vous avez refusé tous les candidats."
     },
     "list": {
@@ -195,11 +246,33 @@
       "scoreArtist": "A",
       "scoreTitle": "T",
       "addLink": "Coller un lien",
+      "showDetail": "Afficher le détail",
       "state": "État",
       "empty": {
         "heading": "Aucun fichier audio dans ce dossier",
         "description": "Choisissez un dossier contenant des MP3, WAV, AIFF ou FLAC."
       }
+    },
+    "detail": {
+      "heading": { "field": "Champ", "before": "Avant", "after": "Après" },
+      "field": {
+        "artist": "Artiste",
+        "remixer": "Remixeur",
+        "title": "Titre",
+        "album": "Album",
+        "date": "Année",
+        "genre": "Genre",
+        "label": "Label",
+        "catalog_number": "Numéro de catalogue",
+        "bpm": "BPM",
+        "key": "Key",
+        "isrc": "ISRC",
+        "track_number": "Numéro de piste",
+        "url": "URL",
+        "source": "Source",
+        "comment": "Commentaire"
+      },
+      "unreadable": "Les tags de ce fichier n'ont pas pu être lus."
     },
     "recovery": {
       "badge": "{{count}} à rattraper",
@@ -222,12 +295,38 @@
       }
     }
   },
+  "rollback": {
+    "failures": "Fichiers non restaurés : {{count}}",
+    "failure": "{{file}} : {{reason}}",
+    "reason": {
+      "name_taken": "Un autre fichier porte déjà son nom d'origine.\nRenommez ou déplacez cet autre fichier, puis relancez la restauration."
+    }
+  },
+  "reason": {
+    "permission_denied": "L'accès au fichier a été refusé.",
+    "disk_full": "Le disque est plein.",
+    "path_too_long": "Le chemin du fichier est trop long.",
+    "file_locked": "Le fichier est ouvert dans un autre programme.",
+    "file_missing": "Le fichier a été déplacé, renommé ou supprimé.",
+    "write_failed": "Le fichier n'a pas pu être traité.",
+    "fix": {
+      "permission_denied": "Vérifiez ses droits, puis {{retry}}.",
+      "disk_full": "Libérez de l'espace disque, puis {{retry}}.",
+      "path_too_long": "Déplacez le dossier vers la racine du disque ou raccourcissez les noms de dossiers, puis {{retry}}.",
+      "file_locked": "Fermez-le, puis {{retry}}."
+    },
+    "retry": {
+      "write": "relancez l'écriture",
+      "rollback": "relancez la restauration",
+      "extraction": "relancez l'extraction"
+    }
+  },
   "arbitration": {
     "close": "Fermer",
     "uncertain": "Correspondances incertaines : {{count}}",
-    "switched": "Les candidats Beatport ont été refusés. Voir la liste Bandcamp ci-dessous.",
+    "switched": "Les candidats Beatport ont été refusés : voici la liste Bandcamp.",
     "backToBeatport": "Revenir à Beatport",
-    "beatportUnavailable": "Beatport ne répond pas. Voir les candidats Bandcamp ci-dessous.",
+    "beatportUnavailable": "Beatport ne répond pas : voici les candidats Bandcamp.",
     "empty": {
       "no_result": "Aucun candidat trouvé.",
       "below_threshold": "Aucun candidat ne correspond.",
@@ -258,6 +357,21 @@
         "save": "Enregistrer",
         "configured": "Clé enregistrée",
         "missing": "Aucune clé"
+      }
+    },
+    "admin": {
+      "title": "Administration",
+      "rollback": {
+        "label": "Restauration",
+        "hint": "Restaure le nom et les tags d'origine des fichiers du dernier run écrit.",
+        "action": "Restaurer le dernier run",
+        "target": "Run du {{date}} sur {{folder}}",
+        "targetCount": "Morceaux à restaurer : {{count}}",
+        "none": "Aucun run à restaurer : aucune sauvegarde de tags récente.",
+        "loading": "Recherche du dernier run écrit…",
+        "header": "Restaurer le dernier run",
+        "message": "Run du {{date}} sur {{folder}}\nFichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes et les commentaires retirés par l'écriture ne sont pas récupérés.",
+        "accept": "Restaurer"
       }
     }
   }

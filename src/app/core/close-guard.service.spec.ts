@@ -4,6 +4,7 @@ import { TestBed } from "@angular/core/testing"
 import { APP_WINDOW, type AppWindow, type CloseRequest } from "./app-window"
 import { CloseGuard } from "./close-guard.service"
 import { SidecarService } from "./sidecar.service"
+import type { RollbackInFlight } from "./write.store"
 
 class FakeWindow implements AppWindow {
   handler: ((request: CloseRequest) => void) | null = null
@@ -49,7 +50,10 @@ const setup = async ({ inTauri = true } = {}) => {
   const sidecar = {
     extracting: signal(false),
     tagging: signal(false),
+    runConfirmable: signal(false),
     arbitrationCount: signal(0),
+    writing: signal(false),
+    rollingBack: signal<RollbackInFlight | null>(null),
   }
   TestBed.configureTestingModule({
     providers: [
@@ -122,6 +126,17 @@ describe("CloseGuard", () => {
     ])
   })
 
+  it("counts a run that could still be written as pending work", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.runConfirmable.set(true)
+
+    const held = appWindow.close()
+
+    expect(held).toBe(true)
+    expect(guard.request()).toEqual([{ kind: "unwritten" }])
+    expect(guard.blocked()).toBe(false)
+  })
+
   it("closes the window for good when the user leaves", async () => {
     const { appWindow, sidecar, guard } = await setup()
     sidecar.tagging.set(true)
@@ -192,5 +207,54 @@ describe("CloseGuard", () => {
     await guard.leave()
 
     expect(guard.request()).toBeNull()
+  })
+
+  it("refuses to close while files are being written", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.writing.set(true)
+
+    const held = appWindow.close()
+    await guard.leave()
+
+    expect(held).toBe(true)
+    expect(guard.request()).toEqual([{ kind: "write" }])
+    expect(guard.blocked()).toBe(true)
+    expect(appWindow.destroyed).toBe(0)
+  })
+
+  it("refuses to close while a rollback runs", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.rollingBack.set({ runId: "a3f9c1", trackId: null })
+
+    const held = appWindow.close()
+    await guard.leave()
+
+    expect(held).toBe(true)
+    expect(guard.request()).toEqual([{ kind: "rollback" }])
+    expect(guard.blocked()).toBe(true)
+    expect(appWindow.destroyed).toBe(0)
+  })
+
+  it("lets the user leave a run that only waits", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.tagging.set(true)
+    appWindow.close()
+
+    await guard.leave()
+
+    expect(guard.blocked()).toBe(false)
+    expect(appWindow.destroyed).toBe(1)
+  })
+
+  it("lets the user leave once the write ends while the dialog is open", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.writing.set(true)
+    appWindow.close()
+
+    sidecar.writing.set(false)
+    await guard.leave()
+
+    expect(guard.blocked()).toBe(false)
+    expect(appWindow.destroyed).toBe(1)
   })
 })

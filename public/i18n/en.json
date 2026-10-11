@@ -8,63 +8,83 @@
     "blocked": {
       "missing": {
         "title": "The application engine cannot be found",
-        "text": "The file {{file}} is expected in the installation folder. It was probably quarantined by the antivirus: add it to the exclusions, then retry."
+        "text": "The file {{file}} is expected in the installation folder.\nIt was probably quarantined by the antivirus: add it to the exclusions, then retry."
       },
       "versionMismatch": {
         "title": "The update is incomplete",
-        "text": "The application is at version {{ui}}, but its engine is at version {{sidecar}}. Reinstall the application."
+        "text": "The application is at version {{ui}}, but its engine is at version {{sidecar}}.\nReinstall the application."
       },
       "retry": "Retry"
     },
     "close": {
       "title": "Quit the application?",
+      "blockedTitle": "You cannot quit right now",
       "extraction": "An extraction is in progress: the copy will be cut short and a file may end up corrupted.",
       "tagging": "A tagging run is in progress: the search results will be lost.",
-      "arbitration": "Arbitrations awaiting a decision: {{count}}. They will be lost.",
+      "arbitration": "Arbitrations awaiting a decision: {{count}}.\nThey will be lost.",
+      "write": "Files are being written: wait for it to finish before quitting.",
+      "rollback": "A restore is in progress: wait for it to finish before quitting.",
+      "unwritten": "A run is waiting for its write confirmation.\nNothing has been written yet: if you quit, the search results are lost.",
       "stay": "Stay",
       "leave": "Quit anyway"
     }
   },
+  "confirm": {
+    "cancel": "Cancel"
+  },
   "errors": {
-    "malformed_command": "An internal error interrupted the operation. Restart the application.",
-    "unknown_error": "An unexpected error interrupted the operation. If it happens again, the details are in the logs folder.",
-    "playlist_error": "This playlist file could not be read. Choose another one.",
+    "malformed_command": "An internal error interrupted the operation.\nRestart the application.",
+    "unknown_error": "An unexpected error interrupted the operation.\nIf it happens again, the details are in the logs folder.",
+    "playlist_error": "This playlist file could not be read.\nChoose another one.",
     "unsupported_playlist_format": "{{filename}} is neither a VLC media library nor a readable M3U8 playlist.",
-    "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read. Install the latest version of the application.",
+    "vlc_schema_mismatch": "This VLC media library comes from a version the application cannot read.\nInstall the latest version of the application.",
     "playlist_not_found": "No playlist named {{playlist_name}} in this media library.",
     "playlist_file_unreadable": "{{filename}} cannot be opened.",
     "unreadable_dump": "{{filename}} is not a readable VLC media library.",
     "playlist_name_required": "Choose a playlist from this VLC media library.",
-    "extraction_error": "The extraction failed before it started. Try again.",
+    "extraction_error": "The extraction failed before it started.\nTry again.",
     "report_error": "The extraction report could not be produced.",
     "report_write_failed": "The tracks were extracted but the report could not be written: {{filename}}.",
-    "source_folder_unreadable": "The source folder cannot be read: {{folder}}. Check that it still exists.",
-    "artwork_unavailable": "The artwork could not be downloaded. Start the run again to retry.",
-    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}. Choose another one.",
-    "sidecar_unavailable": "The application engine is not responding. Restart the application.",
+    "source_folder_unreadable": "The source folder cannot be read: {{folder}}.\nCheck that it still exists.",
+    "artwork_unavailable": "The artwork could not be downloaded.\nStart the run again to retry.",
+    "destination_folder_unwritable": "The destination folder cannot be created: {{folder}}.\nChoose another one.",
+    "sidecar_unavailable": "The application engine is not responding.\nRestart the application.",
     "files_error": "The audio files could not be read.",
     "tagging_folder_unreadable": "The folder to re-tag cannot be found or read: {{folder}}.",
     "tags_unreadable": "The tags of {{file}} could not be read.",
-    "scraper_error": "The search failed. Try again later.",
-    "api_key_rejected": "The API key was rejected. Check it in the settings.",
-    "source_unavailable": "{{source}} is not responding. Try again later.",
-    "track_not_found": "This link leads to no track on {{source}}. Check the link.",
-    "unsupported_url": "This link is not a Beatport, Bandcamp or SoundCloud track. Copy the link of the track page.",
-    "api_contract_error": "The search received an unexpected response. If the problem comes back, the details are in the logs folder.",
-    "api_key_error": "The API key could not be saved. Try again.",
-    "api_key_not_stored": "The key could not be saved on this computer. Try again.",
-    "api_key_malformed": "This key contains a space or a character that is not accepted. Paste it again with nothing around it.",
-    "api_key_missing": "No API key saved. Add one in the settings.",
-    "keyring_unavailable": "Windows Credential Manager is unavailable. Restart the application.",
-    "tagging_in_progress": "A run is already in progress. Wait for it to finish before starting another one.",
-    "extraction_in_progress": "An extraction is already in progress. Wait for it to finish before starting another one.",
-    "arbitration_error": "This decision could not be taken into account. Try again.",
-    "arbitration_not_pending": "This track is no longer awaiting a decision. Move on to the next one.",
-    "arbitration_candidate_unknown": "Candidate unavailable. Choose another one from the list shown.",
-    "arbitration_busy": "A decision is already in progress for this track. Please wait a moment.",
-    "url_recovery_error": "The link could not be resolved. Try again.",
-    "url_recovery_not_eligible": "This track already has a match and no longer takes a link. Move on to the next track.",
-    "url_recovery_busy": "A link is already being resolved for this track. Please wait a moment.",
+    "tags_write_failed": "The tags of {{file}} could not be written.",
+    "file_rename_failed": "The file {{file}} could not be renamed.",
+    "original_name_taken": "Another file is already named {{file}}.",
+    "tag_dump_error": "Saving the original tags failed.\nRestart the application and try again.",
+    "tag_dump_write_failed": "The original tags could not be saved: no file was changed.\nFree up disk space, then write again.",
+    "tag_dump_unreadable": "The saved original tags are unreadable, or come from another version of the application.\nThese files can no longer be restored: start a new run to retag them.",
+    "scraper_error": "The search failed.\nTry again later.",
+    "api_key_rejected": "The API key was rejected.\nCheck it in the settings.",
+    "source_unavailable": "{{source}} is not responding.\nTry again later.",
+    "track_not_found": "This link leads to no track on {{source}}.\nCheck the link.",
+    "unsupported_url": "This link is not a Beatport, Bandcamp or SoundCloud track.\nCopy the link of the track page.",
+    "api_contract_error": "The search received an unexpected response.\nIf the problem comes back, the details are in the logs folder.",
+    "api_key_error": "The API key could not be saved.\nTry again.",
+    "api_key_not_stored": "The key could not be saved on this computer.\nTry again.",
+    "api_key_malformed": "This key contains a space or a character that is not accepted.\nPaste it again with nothing around it.",
+    "api_key_missing": "No API key saved.\nAdd one in the settings.",
+    "keyring_unavailable": "Windows Credential Manager is unavailable.\nRestart the application.",
+    "write_not_open": "This run cannot be written now.",
+    "run_committed": "Writing this run is confirmed: its tracks can no longer be arbitrated or recovered.",
+    "rollback_unavailable": "Nothing to restore: these files already have their original tags back, or their backup has expired.",
+    "phase_busy": {
+      "extraction": "An extraction is in progress.\nWait for it to finish.",
+      "tagging": "A search is in progress.\nWait for it to finish.",
+      "write": "Writing is in progress.\nWait for it to finish.",
+      "rollback": "A restore is in progress.\nWait for it to finish."
+    },
+    "arbitration_error": "This decision could not be taken into account.\nTry again.",
+    "arbitration_not_pending": "This track is no longer awaiting a decision.\nMove on to the next one.",
+    "arbitration_candidate_unknown": "Candidate unavailable.\nChoose another one from the list shown.",
+    "arbitration_busy": "A decision is already in progress for this track.\nPlease wait a moment.",
+    "url_recovery_error": "The link could not be resolved.\nTry again.",
+    "url_recovery_not_eligible": "This track already has a match and no longer takes a link.\nMove on to the next track.",
+    "url_recovery_busy": "A link is already being resolved for this track.\nPlease wait a moment.",
     "url_recovery_not_open": "Links can be pasted once the search has finished."
   },
   "playlist": {
@@ -107,6 +127,9 @@
       "file": "a playlist file",
       "playlist": "a playlist"
     },
+    "blocked": {
+      "tagging": "Wait for the current run to finish on the Tagging tab."
+    },
     "summary": {
       "expand": "Edit",
       "expandDisabled": "Choices are frozen during the extraction."
@@ -130,14 +153,6 @@
         "largest_file": "Largest file",
         "path_order": "Same size, first path in alphabetical order"
       },
-      "reason": {
-        "permission_denied": "Permission denied",
-        "disk_full": "No space left on the destination drive",
-        "path_too_long": "Destination path too long",
-        "file_locked": "File open in another program",
-        "file_missing": "File disappeared during the extraction",
-        "write_failed": "Write failed"
-      },
       "category": {
         "extracted": "Extracted",
         "already_present": "Already present",
@@ -151,10 +166,41 @@
   "tagging": {
     "title": "Tagging",
     "finished": "Search complete",
+    "writeFinished": "Writing complete",
+    "writeFinishedWithFailures": "Writing complete\nFailed files: {{count}}",
+    "rollbackFinished": "Restore complete",
+    "rollbackFinishedWithFailures": "Restore complete\nFiles not restored: {{count}}",
     "start": "Start the run",
     "cancel": "Stop the run",
     "phase": "Searching",
     "progress": "{{processed}} of {{total}}",
+    "commit": {
+      "action": "Confirm writing",
+      "header": "Confirm writing",
+      "message": "Folder: {{folder}}\n\nFiles to rewrite and rename to “Artist - Title”: {{count}}",
+      "unresolved": "Unresolved, left untouched: {{count}}",
+      "awaiting": "Still awaiting arbitration: {{count}}\nThey will not be written and can no longer be arbitrated.",
+      "backup": "The original tags are backed up before writing: you can restore the whole run or a single track.",
+      "accept": "Write the tags"
+    },
+    "retry": {
+      "action": "Retry writing",
+      "header": "Retry writing",
+      "message": "Failed files to rewrite: {{count}}\nOnly these files are retried, with no new search or arbitration.",
+      "accept": "Retry writing"
+    },
+    "rollback": {
+      "run": "Restore the run",
+      "track": "Restore this track",
+      "header": "Restore files",
+      "message": "Files to restore: {{count}}\n\nThey get back their original name and tags.\nArtwork and comments removed by the write are not recovered.",
+      "accept": "Restore",
+      "blocked": "A write or a restore is in progress."
+    },
+    "write": {
+      "phase": "Writing tags and artwork, then renaming",
+      "failed": "Files that failed to write: {{count}}\nHover over each state to see why it failed: fix it, then retry writing."
+    },
     "folder": {
       "action": "Choose a folder"
     },
@@ -164,7 +210,10 @@
       "api_key": "Save your API key in the settings first.",
       "folder": "Choose the folder to re-tag first.",
       "extracting": "Wait for the current extraction on the Playlist tab to finish.",
-      "sidecar": "The application engine is not ready yet."
+      "sidecar": "The application engine is not ready yet.",
+      "writing": "Wait for the current write to finish.",
+      "arbitrating": "Wait for the current arbitration to answer.",
+      "restoring": "Wait for the restore in progress to finish."
     },
     "empty": {
       "heading": "No run yet",
@@ -178,13 +227,15 @@
       "arbitrated": "Arbitrated",
       "url": "URL",
       "unresolved": "Unresolved",
-      "notProcessed": "Not processed"
+      "notProcessed": "Not processed",
+      "writeError": "Write failed",
+      "rolledBack": "Restored"
     },
     "reason": {
-      "empty_query": "Neither the tags nor the file name give an artist or a title. Rename the file as \"Artist - Title\".",
+      "empty_query": "Neither the tags nor the file name give an artist or a title.\nRename the file as \"Artist - Title\".",
       "no_result": "No result on Beatport or Bandcamp.",
       "below_threshold": "No result matches the track.",
-      "source_unavailable": "Beatport and Bandcamp did not respond. Run it again later.",
+      "source_unavailable": "Beatport and Bandcamp did not respond.\nRun it again later.",
       "user_refused": "You refused every candidate."
     },
     "list": {
@@ -195,11 +246,33 @@
       "scoreArtist": "A",
       "scoreTitle": "T",
       "addLink": "Paste a link",
+      "showDetail": "Show details",
       "state": "State",
       "empty": {
         "heading": "No audio file in this folder",
         "description": "Choose a folder holding MP3, WAV, AIFF or FLAC files."
       }
+    },
+    "detail": {
+      "heading": { "field": "Field", "before": "Before", "after": "After" },
+      "field": {
+        "artist": "Artist",
+        "remixer": "Remixer",
+        "title": "Title",
+        "album": "Album",
+        "date": "Year",
+        "genre": "Genre",
+        "label": "Label",
+        "catalog_number": "Catalog number",
+        "bpm": "BPM",
+        "key": "Key",
+        "isrc": "ISRC",
+        "track_number": "Track number",
+        "url": "URL",
+        "source": "Source",
+        "comment": "Comment"
+      },
+      "unreadable": "This file's tags could not be read."
     },
     "recovery": {
       "badge": "{{count}} to recover",
@@ -222,12 +295,38 @@
       }
     }
   },
+  "rollback": {
+    "failures": "Files not restored: {{count}}",
+    "failure": "{{file}}: {{reason}}",
+    "reason": {
+      "name_taken": "Another file already has its original name.\nRename or move that file, then restore again."
+    }
+  },
+  "reason": {
+    "permission_denied": "Access to the file was denied.",
+    "disk_full": "The disk is full.",
+    "path_too_long": "The file path is too long.",
+    "file_locked": "The file is open in another program.",
+    "file_missing": "The file was moved, renamed or deleted.",
+    "write_failed": "The file could not be processed.",
+    "fix": {
+      "permission_denied": "Check its permissions, then {{retry}}.",
+      "disk_full": "Free up disk space, then {{retry}}.",
+      "path_too_long": "Move the folder to the drive root or shorten the folder names, then {{retry}}.",
+      "file_locked": "Close it, then {{retry}}."
+    },
+    "retry": {
+      "write": "retry the write",
+      "rollback": "restore again",
+      "extraction": "retry the extraction"
+    }
+  },
   "arbitration": {
     "close": "Close",
     "uncertain": "Uncertain matches: {{count}}",
-    "switched": "The Beatport candidates were refused. See the Bandcamp list below.",
+    "switched": "The Beatport candidates were refused: here is the Bandcamp list.",
     "backToBeatport": "Back to Beatport",
-    "beatportUnavailable": "Beatport is not responding. See the Bandcamp candidates below.",
+    "beatportUnavailable": "Beatport is not responding: here are the Bandcamp candidates.",
     "empty": {
       "no_result": "No candidate found.",
       "below_threshold": "No candidate matches.",
@@ -258,6 +357,21 @@
         "save": "Save",
         "configured": "Key saved",
         "missing": "No key"
+      }
+    },
+    "admin": {
+      "title": "Administration",
+      "rollback": {
+        "label": "Restore",
+        "hint": "Restores the original name and tags of the files from the last written run.",
+        "action": "Restore the last run",
+        "target": "Run of {{date}} on {{folder}}",
+        "targetCount": "Tracks to restore: {{count}}",
+        "none": "No run to restore: no recent tag backup.",
+        "loading": "Looking for the last written run…",
+        "header": "Restore the last run",
+        "message": "Run of {{date}} on {{folder}}\nFiles to restore: {{count}}\n\nThey get back their original name and tags.\nArtwork and comments removed by the write are not recovered.",
+        "accept": "Restore"
       }
     }
   }

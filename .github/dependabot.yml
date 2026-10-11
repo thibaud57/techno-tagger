@@ -34,7 +34,11 @@ updates:
           - minor
           - patch
   - package-ecosystem: "github-actions"
-    directory: "/"
+    # "/" ne couvre que .github/workflows : les actions composites locales
+    # epinglent aussi des actions tierces, a suivre par leur propre entree
+    directories:
+      - "/"
+      - "/.github/actions/*"
     target-branch: develop
     schedule:
       interval: "monthly"

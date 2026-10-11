@@ -9,7 +9,9 @@ import functools
 import io
 import logging
 import sys
-from typing import TYPE_CHECKING, ClassVar, assert_never
+from datetime import UTC, datetime
+from enum import UNIQUE, StrEnum, auto, verify
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never
 
 import keyring
 from keyring.backends.Windows import WinVaultKeyring
@@ -20,9 +22,14 @@ from tagger.arbitration import ArbitrationNotPendingError
 from tagger.build_info import SENTRY_DSN
 from tagger.errors import TaggerError
 from tagger.handlers import (
+    commit,
+    handle_commit_run,
     handle_extract_playlist,
+    handle_get_rollback_target,
     handle_get_version,
     handle_list_playlists,
+    handle_retry_write,
+    handle_rollback,
     handle_set_api_key,
     handle_start_tagging,
     url_progress,
@@ -32,13 +39,17 @@ from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
 from tagger.protocol import (
     CancelRun,
+    CommitRun,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
+    GetRollbackTarget,
     GetVersion,
     ListPlaylists,
     ResolveArbitration,
     ResolveByUrl,
+    RetryWrite,
+    Rollback,
     SetApiKey,
     Shutdown,
     StartTagging,
@@ -48,6 +59,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
+from tagger.tag_dump import dump_dir, purge_dumps
 from tagger.url_recovery import UrlRecoveryNotOpenError
 
 if TYPE_CHECKING:
@@ -81,7 +93,7 @@ def _force_utf8_streams() -> None:
 
     `line_buffering` sur la sortie : sans lui, un binaire PyInstaller lance par un
     pipe garde tout jusqu'a la fin du run, et `PYTHONUNBUFFERED` n'y peut rien
-    (cf. ADR-005). Pose ici une fois, il dispense de flusher chaque evenement.
+    (cf. ADR-005).
     """
     for stream in (sys.stdin, sys.stdout):
         # Un flux substitue (capture de test, redirection) n'est pas un
@@ -95,22 +107,52 @@ def _force_utf8_streams() -> None:
             )
 
 
-class TaggingInProgressError(TaggerError):
-    """Un run tourne deja : le lancer deux fois ecrirait deux fois les memes fichiers."""
+@verify(UNIQUE)
+class Phase(StrEnum):
+    """Phase longue de la session, valeur du parametre `phase` de `phase_busy`."""
 
-    code: ClassVar[str] = "tagging_in_progress"
+    EXTRACTION = auto()
+    TAGGING = auto()
+    WRITE = auto()
+    ROLLBACK = auto()
+
+
+class PhaseBusyError(TaggerError):
+    """Une phase longue tourne encore : aucune autre ne demarre avant sa fin.
+
+    Extraction, ecriture et rollback touchent aux fichiers de l'utilisateur, la recherche
+    reseau lit ceux qu'elle va faire ecrire : deux phases melees pourraient viser le meme
+    dossier.
+    """
+
+    code: ClassVar[str] = "phase_busy"
+
+    def __init__(self, phase: Phase) -> None:
+        super().__init__(f"a {phase} phase is already in progress", phase=phase)
+
+
+class WriteNotOpenError(TaggerError):
+    """Run inconnu ou remplace, phase reseau en cours, deja confirme pour `commit_run` ou
+    jamais confirme pour `retry_write`."""
+
+    code: ClassVar[str] = "write_not_open"
 
     def __init__(self) -> None:
-        super().__init__("a tagging run is already in progress")
+        super().__init__("the run is not open to writing")
 
 
-class ExtractionInProgressError(TaggerError):
-    """Une extraction tourne deja : la relancer copierait deux fois vers la meme destination."""
+class RunCommittedError(TaggerError):
+    """Run confirme : plus aucune decision n'entre sur ses morceaux, point de non-retour."""
 
-    code: ClassVar[str] = "extraction_in_progress"
+    code: ClassVar[str] = "run_committed"
 
-    def __init__(self) -> None:
-        super().__init__("an extraction is already in progress")
+    def __init__(self, track_id: str) -> None:
+        super().__init__("the run is committed", track_id=track_id)
+
+
+class _RunningPhase(NamedTuple):
+    phase: Phase
+    task: asyncio.Task[None]
 
 
 class _Session:
@@ -123,35 +165,30 @@ class _Session:
     def __init__(self, group: asyncio.TaskGroup, stdout: TextIO) -> None:
         self._group = group
         self._stdout = stdout
-        self._run: asyncio.Task[None] | None = None
-        self._extraction: asyncio.Task[None] | None = None
+        # Une seule phase longue a la fois : le slot garde la derniere, `_running` dit si elle vit.
+        self._phase_task: _RunningPhase | None = None
         self._current: CurrentRun | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
         """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant."""
-        if self._active_run() is not None:
-            raise TaggingInProgressError
+        self._ensure_idle()
         replaced, self._current = self._current, None
         start_work = functools.partial(self._replace, replaced, command)
-        self._run = self._group.create_task(self._phase(start_work, command), name="tagging")
+        self._spawn_phase(Phase.TAGGING, start_work, command)
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
         """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
-        if self._active(self._extraction) is not None:
-            raise ExtractionInProgressError
+        self._ensure_idle()
         start_work = functools.partial(
             asyncio.to_thread, handle_extract_playlist, command, self.send
         )
-        self._extraction = self._group.create_task(
-            self._phase(start_work, command), name="extraction"
-        )
+        self._spawn_phase(Phase.EXTRACTION, start_work, command)
 
     async def cancel_run(self) -> None:
-        """`shutdown` n'attend pas la fin d'un run, il l'annule.
+        """N'annule que la phase reseau, qui ne tient que du reseau et de la memoire.
 
-        L'extraction est au contraire attendue : le run ne tient que du reseau et de
-        la memoire, quand une copie coupee en vol laisserait un fichier a moitie ecrit
-        dans la destination de l'utilisateur.
+        Une copie, une ecriture ou une restauration coupee en vol laisserait un fichier a
+        moitie ecrit chez l'utilisateur.
 
         Une phase reseau interrompue ouvre le rattrapage : sa progression part, sans
         evenement de fin, l'interface sachant qu'elle a demande l'arret.
@@ -189,9 +226,39 @@ class _Session:
         )
         self._spawn_gesture(current, start_gesture, command, name="url_recovery")
 
+    def commit_run(self, command: CommitRun) -> None:
+        current = self._writable(command.run_id)
+        if current.committed:
+            raise WriteNotOpenError
+        writer = commit(current, self.send)
+        self._spawn_write(functools.partial(handle_commit_run, current, writer), command)
+
+    def retry_write(self, command: RetryWrite) -> None:
+        current = self._writable(command.run_id)
+        if current.writer is None:
+            raise WriteNotOpenError
+        self._spawn_write(functools.partial(handle_retry_write, current, current.writer), command)
+
+    def rollback(self, command: Rollback) -> None:
+        """Rollback en tache de fond, seul sur les fichiers.
+
+        Le run affiche ne suit que si c'est lui qu'on restaure : un ancien run du meme dossier
+        porte les memes `track_id`.
+        """
+        self._ensure_idle()
+        current = self._current
+        live = (
+            current.live if current is not None and current.live.run_id == command.run_id else None
+        )
+        start_work = functools.partial(handle_rollback, command, live, self.send)
+        self._spawn_phase(Phase.ROLLBACK, start_work, command, command.track_id)
+
     async def close(self, *, cancel: bool) -> None:
-        """Fin de session : `shutdown` annule la phase reseau, l'EOF l'attend ; le run courant
-        est ferme ensuite, ses gestes en vol annules."""
+        """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
+
+        Extraction, ecriture et rollback ne sont jamais annules, le `TaskGroup` de la boucle
+        les attend (cf. `cancel_run`).
+        """
         await self._settle_run(cancel=cancel)
         current, self._current = self._current, None
         if current is not None:
@@ -209,9 +276,28 @@ class _Session:
         task = self._phase(start_gesture, command, command.track_id)
         current.track(self._group.create_task(task, name=name))
 
+    def _spawn_write(
+        self, start_work: Callable[[], Awaitable[Event]], command: CommitRun | RetryWrite
+    ) -> None:
+        """Ecriture en tache de fond, comme l'extraction : stdin reste lu pendant sa progression."""
+        self._spawn_phase(Phase.WRITE, start_work, command)
+
+    def _spawn_phase(
+        self,
+        phase: Phase,
+        start_work: Callable[[], Awaitable[Event | None]],
+        command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback),
+        track_id: str | None = None,
+    ) -> None:
+        """Garde de `_ensure_idle` deja passee : elle precede les effets de bord du demarrage."""
+        task = self._group.create_task(self._phase(start_work, command, track_id), name=phase.value)
+        self._phase_task = _RunningPhase(phase, task)
+
     def _arbitrable(self, track_id: str) -> CurrentRun:
         if self._current is None:
             raise ArbitrationNotPendingError(track_id)
+        if self._current.committed:
+            raise RunCommittedError(track_id)
         return self._current
 
     def _recoverable(self, track_id: str) -> CurrentRun:
@@ -219,7 +305,29 @@ class _Session:
         interrompue (un run interrompu garde son ecriture, donc son rattrapage)."""
         if self._current is None or self._active_run() is not None:
             raise UrlRecoveryNotOpenError(track_id)
+        if self._current.committed:
+            raise RunCommittedError(track_id)
         return self._current
+
+    def _ensure_idle(self) -> None:
+        """Une seule phase longue a la fois, refusee en `phase_busy` portant celle qui tourne."""
+        running = self._running()
+        if running is not None:
+            raise PhaseBusyError(running.phase)
+
+    def _writable(self, run_id: str) -> CurrentRun:
+        """Run courant designe, sans phase longue ni geste en vol.
+
+        Un geste qui finirait pendant l'ecriture ecraserait un morceau ecrit. Une phase reseau
+        en cours rend `write_not_open`, le run n'etant pas encore ouvert a l'ecriture.
+        """
+        running = self._running()
+        if running is not None and running.phase is not Phase.TAGGING:
+            raise PhaseBusyError(running.phase)
+        current = self._current
+        if current is None or current.live.run_id != run_id or current.busy or running is not None:
+            raise WriteNotOpenError
+        return current
 
     async def _replace(self, replaced: CurrentRun | None, command: StartTagging) -> None:
         if replaced is not None:
@@ -247,29 +355,36 @@ class _Session:
         if cancel:
             running.cancel()
         # Attendu ici (`wait` ne releve pas l'annulation) : une relance trop tot serait
-        # refusee en `tagging_in_progress`.
+        # refusee en `phase_busy`.
         await asyncio.wait({running})
 
     def send(self, event: Event) -> None:
-        """Une ligne, un evenement. Le `line_buffering` pose par `_force_utf8_streams`
-        dispense de flusher ; un flux substitue en test n'en a pas besoin.
-        """
+        """Une ligne par evenement ; `line_buffering` (cf. `_force_utf8_streams`) evite le flush."""
         self._stdout.write(emit(event) + "\n")
 
-    def _active_run(self) -> asyncio.Task[None] | None:
-        """Le run en cours, `None` s'il n'y en a pas ou s'il est deja termine."""
-        return self._active(self._run)
-
-    @staticmethod
-    def _active(task: asyncio.Task[None] | None) -> asyncio.Task[None] | None:
-        if task is None or task.done():
+    def _running(self) -> _RunningPhase | None:
+        """La phase longue en cours, `None` si le slot est vide ou sa tache terminee."""
+        if self._phase_task is None or self._phase_task.task.done():
             return None
-        return task
+        return self._phase_task
+
+    def _active_run(self) -> asyncio.Task[None] | None:
+        """La phase reseau en cours, `None` si une autre phase tourne ou si aucune."""
+        running = self._running()
+        return running.task if running is not None and running.phase is Phase.TAGGING else None
 
     async def _phase(
         self,
         start_work: Callable[[], Awaitable[Event | None]],
-        command: StartTagging | ExtractPlaylist | ResolveArbitration | ResolveByUrl,
+        command: (
+            StartTagging
+            | ExtractPlaylist
+            | ResolveArbitration
+            | ResolveByUrl
+            | CommitRun
+            | RetryWrite
+            | Rollback
+        ),
         track_id: str | None = None,
     ) -> None:
         """Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait toute la session."""
@@ -291,12 +406,22 @@ def main() -> None:
     # `logger.exception` doit avoir un handler autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
+    _purge_old_dumps()
     # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
     # points rend une liste vide et keyring basculerait sur son backend `fail`.
     # `KeyringBackend.__init__` n'annote pas son retour (cf. memory_keyring.py).
     keyring.set_keyring(WinVaultKeyring())  # type: ignore[no-untyped-call]
 
     asyncio.run(run_loop(sys.stdin, sys.stdout))
+
+
+def _purge_old_dumps() -> None:
+    # Une purge ratee ne doit jamais empecher le sidecar de demarrer : le dump reste
+    # au pire quelques jours de plus.
+    try:
+        purge_dumps(dump_dir(), datetime.now(UTC))
+    except OSError:
+        logger.exception("tag dump purge failed")
 
 
 async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
@@ -307,15 +432,17 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    Les deux phases longues, extraction et re-tagging, tournent en tache de fond dans
-    le `TaskGroup` : la boucle lit les commandes suivantes pendant qu'elles avancent.
-    `shutdown` annule le run mais attend l'extraction, une copie coupee en vol laissant
-    un fichier a moitie ecrit ; l'EOF attend les deux.
+    Les phases longues (extraction, re-tagging, ecriture, rollback) tournent en
+    tache de fond dans le `TaskGroup` : la boucle lit les commandes suivantes pendant
+    qu'elles avancent. `shutdown` n'annule que la phase reseau (cf. `_Session.close`),
+    l'EOF les attend toutes.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
-    `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre
-    exception fait tomber le processus, volontairement : l'avaler cacherait un bug que
-    Sentry remonte comme crash du sidecar (cf. PRODUCTION.md § Alertes).
+    `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. La phase
+    d'ecriture isole l'echec inattendu d'un morceau (`write_error`) et remonte le bug par
+    `capture_exception`. Partout ailleurs, toute autre exception fait tomber le processus,
+    volontairement : l'avaler cacherait un bug que Sentry remonte comme crash du sidecar
+    (cf. PRODUCTION.md § Alertes).
     """
     async with asyncio.TaskGroup() as group:
         session = _Session(group, stdout)
@@ -347,17 +474,19 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
                 session.send(error_from_business(error, command.command))
 
 
-async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
+# PLR0912 : une branche par commande, le `match` ferme par `assert_never` etant ce qui
+# rend un oubli visible au typage.
+async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # noqa: PLR0912
     """Route une commande validee vers son handler.
 
     `Shutdown` est traite par la boucle et n'arrive jamais ici, ce que le type dit :
     le `match` couvre alors toutes les variantes et `assert_never` verrouille
     l'ajout d'une commande sans handler.
 
-    Les handlers sont bloquants — SQLite, parcours du dossier source, copie de
-    fichiers, trousseau Windows — et passent donc par `to_thread`, sans quoi la
-    boucle gelerait. Les deux phases longues vont plus loin et partent en tache de
-    fond, `to_thread` seul laissant la boucle attendre leur retour.
+    Les handlers sont bloquants (SQLite, parcours du dossier source, copie de
+    fichiers, trousseau Windows) et passent donc par `to_thread`, sans quoi la
+    boucle gelerait. Les phases longues partent en tache de fond, `to_thread`
+    seul laissant la boucle attendre leur retour.
     """
     match command:
         case GetVersion():
@@ -378,6 +507,14 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:
             session.switch_arbitration_source(command)
         case ResolveByUrl():
             session.resolve_by_url(command)
+        case CommitRun():
+            session.commit_run(command)
+        case RetryWrite():
+            session.retry_write(command)
+        case GetRollbackTarget():
+            session.send(await asyncio.to_thread(handle_get_rollback_target))
+        case Rollback():
+            session.rollback(command)
         case _:
             assert_never(command)
 

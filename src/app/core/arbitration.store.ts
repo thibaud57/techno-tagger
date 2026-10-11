@@ -1,4 +1,4 @@
-import { Injectable, computed, linkedSignal, signal } from "@angular/core"
+import { computed, linkedSignal, signal, Service } from "@angular/core"
 
 import type {
   ArbitrationRequiredEvent,
@@ -10,7 +10,7 @@ import type {
 const NOT_PENDING = "arbitration_not_pending"
 
 /** File des arbitrages dans l'ordre d'arrivee : un nouvel arbitrage n'y decale jamais celui affiche. */
-@Injectable({ providedIn: "root" })
+@Service()
 export class ArbitrationStore {
   // Map garde l'ordre d'insertion ; `set` sur une cle existante la remplace en place.
   private readonly _entries = signal<ReadonlyMap<string, ArbitrationState>>(new Map())
@@ -62,6 +62,8 @@ export class ArbitrationStore {
 
     return trackId !== null && this._busy().has(trackId)
   })
+  /** Un geste en vol sur n'importe quel morceau : `currentBusy` ne voit que celui affiche. */
+  readonly anyBusy = computed(() => this._busy().size > 0)
 
   isBusy(trackId: string): boolean {
     return this._busy().has(trackId)

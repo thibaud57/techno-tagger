@@ -75,87 +75,87 @@ COLLABORATION_WORDS = ["feat.", "ft.", "featuring", "with", "pres.", "vs."]
 
 
 def _title(title: str) -> str:
-    query = build_query("Adam Beyer", title, "track.mp3")
+    query = build_query("Lior Vance", title, "track.mp3")
     assert query is not None
     return query.title
 
 
 def _artist(artist: str) -> str:
-    query = build_query(artist, "Your Mind", "track.mp3")
+    query = build_query(artist, "Dim Orbit", "track.mp3")
     assert query is not None
     return query.artist
 
 
 def test_builds_the_query_from_clean_tags() -> None:
-    query = build_query("Adam Beyer", "Your Mind", "track.mp3")
+    query = build_query("Lior Vance", "Dim Orbit", "track.mp3")
 
-    assert query == TrackQuery(artist="Adam Beyer", title="Your Mind", origin=QueryOrigin.TAGS)
-    assert query.text == "Adam Beyer Your Mind"
+    assert query == TrackQuery(artist="Lior Vance", title="Dim Orbit", origin=QueryOrigin.TAGS)
+    assert query.text == "Lior Vance Dim Orbit"
 
 
 @pytest.mark.parametrize(
     "title",
-    ["Your Mind [FREE DL]", "Your Mind (Free Download)", "Your Mind free_dl"],
+    ["Dim Orbit [FREE DL]", "Dim Orbit (Free Download)", "Dim Orbit free_dl"],
     ids=["brackets", "parentheses", "bare"],
 )
 def test_removes_download_mentions_whatever_their_delimiter(title: str) -> None:
     cleaned = _title(title)
 
-    assert cleaned == "Your Mind"
+    assert cleaned == "Dim Orbit"
 
 
 @pytest.mark.parametrize(
     "title",
-    ["Your Mind (320kbps)", "Your Mind 320", "Your Mind FLAC", "Your Mind [wav]", "Your Mind mp3"],
+    ["Dim Orbit (320kbps)", "Dim Orbit 320", "Dim Orbit FLAC", "Dim Orbit [wav]", "Dim Orbit mp3"],
     ids=["kbps", "bitrate", "flac", "wav", "mp3"],
 )
 def test_removes_encoding_markers_as_whole_words(title: str) -> None:
     cleaned = _title(title)
 
-    assert cleaned == "Your Mind"
+    assert cleaned == "Dim Orbit"
 
 
 @pytest.mark.parametrize(
-    "title", ["Your Mind [Drumcode]", "Your Mind [HARD TECHNO]"], ids=["label", "genre"]
+    "title", ["Dim Orbit [Kestrel]", "Dim Orbit [HARD TECHNO]"], ids=["label", "genre"]
 )
 def test_removes_a_free_group_such_as_a_label_or_a_genre(title: str) -> None:
     cleaned = _title(title)
 
-    assert cleaned == "Your Mind"
+    assert cleaned == "Dim Orbit"
 
 
 @pytest.mark.parametrize("word", GUARD_WORDS)
 def test_keeps_a_group_holding_a_version_mention(word: str) -> None:
-    title = f"Your Mind (Special {word}) [FREE DL]"
+    title = f"Dim Orbit (Special {word}) [FREE DL]"
 
     cleaned = _title(title)
 
-    assert cleaned == f"Your Mind (Special {word})"
+    assert cleaned == f"Dim Orbit (Special {word})"
 
 
 @pytest.mark.parametrize("word", COLLABORATION_WORDS)
 def test_keeps_a_group_holding_a_collaboration_mention(word: str) -> None:
-    title = f"Your Mind ({word} Roisin Murphy) [Drumcode]"
+    title = f"Dim Orbit ({word} Wren Tolliver) [Kestrel]"
 
     cleaned = _title(title)
 
-    assert cleaned == f"Your Mind ({word} Roisin Murphy)"
+    assert cleaned == f"Dim Orbit ({word} Wren Tolliver)"
 
 
 @pytest.mark.parametrize(
     ("artist", "expected"),
     [
-        ("Farrago x Amelie Lens", "Farrago, Amelie Lens"),
-        ("Adam Beyer X Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Amelie Lens × Farrago", "Amelie Lens, Farrago"),
-        ("Adam Beyer;Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Adam Beyer / Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Chase & Status", "Chase, Status"),
-        ("Chase and Status", "Chase, Status"),
-        ("Adam Beyer vs. Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Adam Beyer feat. Roisin Murphy", "Adam Beyer, Roisin Murphy"),
-        ("Adam Beyer ft. Roisin Murphy", "Adam Beyer, Roisin Murphy"),
-        ("Adam Beyer featuring Roisin Murphy", "Adam Beyer, Roisin Murphy"),
+        ("Velmora x Orla Quenby", "Velmora, Orla Quenby"),
+        ("Lior Vance X Mara Quill", "Lior Vance, Mara Quill"),
+        ("Orla Quenby × Velmora", "Orla Quenby, Velmora"),
+        ("Lior Vance;Mara Quill", "Lior Vance, Mara Quill"),
+        ("Lior Vance / Mara Quill", "Lior Vance, Mara Quill"),
+        ("Chase & Status", "Lumen, Grains"),
+        ("Lumen and Grains", "Lumen, Grains"),
+        ("Lior Vance vs. Mara Quill", "Lior Vance, Mara Quill"),
+        ("Lior Vance feat. Wren Tolliver", "Lior Vance, Wren Tolliver"),
+        ("Lior Vance ft. Wren Tolliver", "Lior Vance, Wren Tolliver"),
+        ("Lior Vance featuring Wren Tolliver", "Lior Vance, Wren Tolliver"),
     ],
     ids=["x", "upper-x", "times", "semicolon", "slash", "ampersand", "and", "vs", "feat",
          "ft", "featuring"],
@@ -166,7 +166,7 @@ def test_normalises_artist_separators_to_a_comma(artist: str, expected: str) -> 
     assert normalised == expected
 
 
-@pytest.mark.parametrize("artist", ["Jay-Z", "Jax Jones", "Axwell"])
+@pytest.mark.parametrize("artist", ["Kay-Q", "Zed Marlo", "Torvex"])
 def test_never_splits_a_name_without_spaced_separator(artist: str) -> None:
     normalised = _artist(artist)
 
@@ -174,36 +174,36 @@ def test_never_splits_a_name_without_spaced_separator(artist: str) -> None:
 
 
 def test_falls_back_on_the_raw_tag_when_cleaning_empties_it() -> None:
-    query = build_query("Adam Beyer", "[FREE DL]", "track.mp3")
+    query = build_query("Lior Vance", "[FREE DL]", "track.mp3")
 
-    assert query == TrackQuery(artist="Adam Beyer", title="[FREE DL]", origin=QueryOrigin.TAGS)
+    assert query == TrackQuery(artist="Lior Vance", title="[FREE DL]", origin=QueryOrigin.TAGS)
 
 
 def test_falls_back_on_the_file_name_when_a_tag_has_no_letter() -> None:
-    query = build_query("", "Your Mind", "adam beyer - your mind.mp3")
+    query = build_query("", "Dim Orbit", "lior vance - dim orbit.mp3")
 
     assert query == TrackQuery(
-        artist="adam beyer", title="your mind", origin=QueryOrigin.FILENAME
+        artist="lior vance", title="dim orbit", origin=QueryOrigin.FILENAME
     )
 
 
 def test_replaces_underscores_in_a_file_name_without_spaces() -> None:
-    query = build_query("", "", "adam_beyer_-_your_mind.mp3")
+    query = build_query("", "", "lior_vance_-_dim_orbit.mp3")
 
     assert query is not None
-    assert (query.artist, query.title) == ("adam beyer", "your mind")
+    assert (query.artist, query.title) == ("lior vance", "dim orbit")
 
 
 def test_strips_a_leading_track_number_and_the_noise_of_a_file_name() -> None:
-    query = build_query("", "", "05 reinier zonneveld - move your body (320kbps).mp3")
+    query = build_query("", "", "05 oswald duskhaven - lose your step (320kbps).mp3")
 
     assert query is not None
-    assert (query.artist, query.title) == ("reinier zonneveld", "move your body")
+    assert (query.artist, query.title) == ("oswald duskhaven", "lose your step")
 
 
 @pytest.mark.parametrize(
     ("file_name", "artist"),
-    [("999999999 - Title.mp3", "999999999"), ("808 State - Pacific.mp3", "808 State")],
+    [("999999999 - Title.mp3", "999999999"), ("707 Fable - Estuary.mp3", "707 Fable")],
     ids=["nine-digits", "three-digits"],
 )
 def test_keeps_a_numeric_artist_that_is_not_a_track_number(file_name: str, artist: str) -> None:
@@ -214,16 +214,16 @@ def test_keeps_a_numeric_artist_that_is_not_a_track_number(file_name: str, artis
 
 
 def test_splits_the_file_name_on_the_first_spaced_dash() -> None:
-    query = build_query("", "", "Jay-Z - Title.flac")
+    query = build_query("", "", "Kay-Q - Title.flac")
 
     assert query is not None
-    assert (query.artist, query.title) == ("Jay-Z", "Title")
+    assert (query.artist, query.title) == ("Kay-Q", "Title")
 
 
 def test_puts_the_whole_file_name_in_the_title_without_a_spaced_dash() -> None:
-    query = build_query("", "", "10-sama-rise.mp3")
+    query = build_query("", "", "10-tide-glow.mp3")
 
-    assert query == TrackQuery(artist="", title="sama-rise", origin=QueryOrigin.FILENAME)
+    assert query == TrackQuery(artist="", title="tide-glow", origin=QueryOrigin.FILENAME)
 
 
 @pytest.mark.parametrize(
@@ -270,13 +270,13 @@ _DOWNLOAD: Final = re.compile(r"\bfree[\s_-]*(?:dl|download)\b", re.IGNORECASE)
 _ENCODING: Final = re.compile(r"\b(?:\d{2,3}\s*kbps|320|flac|wav|mp3)\b", re.IGNORECASE)
 _GROUP: Final = re.compile(r"[\[(]([^\[\]()]*)[\])]")
 _SPACES: Final = re.compile(r"\s+")
-# Formes entourees d'espaces seulement, sauf ; et / : « Jay-Z » et « Jax Jones »
+# Formes entourees d'espaces seulement, sauf ; et / : « Kay-Q » et « Zed Marlo »
 # ne doivent jamais etre coupes.
 _ARTIST_SEPARATORS: Final = re.compile(
     r"\s*[;/]\s*|\s+(?:&|and|x|×|vs\.?|feat\.?|ft\.?|featuring)\s+", re.IGNORECASE
 )
 _LETTER: Final = re.compile(r"[^\W\d_]")
-# Deux chiffres au plus : « 808 State » et « 999999999 » restent des artistes.
+# Deux chiffres au plus : « 707 Fable » et « 999999999 » restent des artistes.
 _TRACK_NUMBER: Final = re.compile(r"^\d{1,2}(?!\d)\s*[-._)]?\s*")
 _FILE_NAME_SEPARATOR: Final = " - "
 _EDGE_NOISE: Final = " -_.,;"
@@ -421,13 +421,13 @@ from tagger.matching import (
 )
 from tagger.scraper_client import Credit, Source, TrackCandidate
 
-YOUR_MIND = TrackQuery(artist="Adam Beyer", title="Your Mind", origin=QueryOrigin.TAGS)
+DIM_ORBIT = TrackQuery(artist="Lior Vance", title="Dim Orbit", origin=QueryOrigin.TAGS)
 
 
 def _candidate(
     title: str,
     mix_name: str | None = "Original Mix",
-    artists: tuple[str, ...] = ("Adam Beyer",),
+    artists: tuple[str, ...] = ("Lior Vance",),
     *,
     remixers: tuple[str, ...] = (),
     track_id: str = "1",
@@ -443,33 +443,33 @@ def _candidate(
 
 
 def test_compares_the_candidate_title_with_its_mix_name() -> None:
-    query = TrackQuery("Adam Beyer", "Your Mind (Extended Mix)", QueryOrigin.TAGS)
+    query = TrackQuery("Lior Vance", "Dim Orbit (Extended Mix)", QueryOrigin.TAGS)
 
-    classification = classify(query, [_candidate("Your Mind", "Extended Mix")])
+    classification = classify(query, [_candidate("Dim Orbit", "Extended Mix")])
 
     assert classification.outcome is Outcome.AUTO
     assert classification.retained[0].title_score == 100
 
 
 def test_does_not_repeat_a_mix_name_already_in_the_title() -> None:
-    query = TrackQuery("Adam Beyer", "Your Mind (Extended Mix)", QueryOrigin.TAGS)
+    query = TrackQuery("Lior Vance", "Dim Orbit (Extended Mix)", QueryOrigin.TAGS)
 
-    classification = classify(query, [_candidate("Your Mind (Extended Mix)", "Extended Mix")])
+    classification = classify(query, [_candidate("Dim Orbit (Extended Mix)", "Extended Mix")])
 
     assert classification.retained[0].title_score == 100
 
 
 def test_adds_original_mix_to_a_query_title_without_version() -> None:
-    classification = classify(YOUR_MIND, [_candidate("Your Mind", "Original Mix")])
+    classification = classify(DIM_ORBIT, [_candidate("Dim Orbit", "Original Mix")])
 
     assert classification.outcome is Outcome.AUTO
     assert classification.retained[0].via_bare_title is False
 
 
 def test_keeps_a_candidate_matched_on_its_bare_title_in_the_grey_zone() -> None:
-    candidates = [_candidate("Your Mind", "Extended Mix"), _candidate("Your Mind", "Radio Edit")]
+    candidates = [_candidate("Dim Orbit", "Extended Mix"), _candidate("Dim Orbit", "Radio Edit")]
 
-    classification = classify(YOUR_MIND, candidates)
+    classification = classify(DIM_ORBIT, candidates)
 
     assert classification.outcome is Outcome.GREY_ZONE
     assert all(scored.via_bare_title for scored in classification.retained)
@@ -477,51 +477,51 @@ def test_keeps_a_candidate_matched_on_its_bare_title_in_the_grey_zone() -> None:
 
 
 def test_validates_the_original_mix_automatically_when_an_extended_is_also_offered() -> None:
-    extended = _candidate("Your Mind", "Extended Mix", track_id="extended")
-    original = _candidate("Your Mind", "Original Mix", track_id="original")
+    extended = _candidate("Dim Orbit", "Extended Mix", track_id="extended")
+    original = _candidate("Dim Orbit", "Original Mix", track_id="original")
 
-    classification = classify(YOUR_MIND, [extended, original])
+    classification = classify(DIM_ORBIT, [extended, original])
 
     assert classification.outcome is Outcome.AUTO
     assert classification.retained[0].candidate.id == "original"
 
 
 def test_compares_a_candidate_without_mix_name_to_the_query_title_without_suffix() -> None:
-    bandcamp = _candidate("Your Mind", mix_name=None)
+    bandcamp = _candidate("Dim Orbit", mix_name=None)
 
-    classification = classify(YOUR_MIND, [bandcamp])
+    classification = classify(DIM_ORBIT, [bandcamp])
 
     assert classification.outcome is Outcome.AUTO
     assert classification.retained[0].via_bare_title is False
 
 
 def test_never_validates_automatically_when_auto_is_not_allowed() -> None:
-    classification = classify(YOUR_MIND, [_candidate("Your Mind")], allow_auto=False)
+    classification = classify(DIM_ORBIT, [_candidate("Dim Orbit")], allow_auto=False)
 
     assert classification.outcome is Outcome.GREY_ZONE
     assert classification.retained[0].score == 100
 
 
 def test_joins_candidate_artists_without_remixers() -> None:
-    candidate = _candidate("Your Mind", "Original Mix", remixers=("Bart Skils",))
+    candidate = _candidate("Dim Orbit", "Original Mix", remixers=("Mara Quill",))
 
-    classification = classify(YOUR_MIND, [candidate])
+    classification = classify(DIM_ORBIT, [candidate])
 
     assert classification.retained[0].artist_score == 100
 
 
 def test_uses_token_sort_ratio_for_several_artists() -> None:
-    query = TrackQuery("Adam Beyer, Bart Skils", "Your Mind", QueryOrigin.TAGS)
+    query = TrackQuery("Lior Vance, Mara Quill", "Dim Orbit", QueryOrigin.TAGS)
 
-    classification = classify(query, [_candidate("Your Mind", artists=("Bart Skils", "Adam Beyer"))])
+    classification = classify(query, [_candidate("Dim Orbit", artists=("Mara Quill", "Lior Vance"))])
 
     assert classification.scored[0].artist_score == 100
 
 
 def test_uses_ratio_for_a_single_artist() -> None:
-    query = TrackQuery("Beyer Adam", "Your Mind", QueryOrigin.TAGS)
+    query = TrackQuery("Vance Lior", "Dim Orbit", QueryOrigin.TAGS)
 
-    classification = classify(query, [_candidate("Your Mind")])
+    classification = classify(query, [_candidate("Dim Orbit")])
 
     artist_score = classification.scored[0].artist_score
     assert artist_score is not None
@@ -529,9 +529,9 @@ def test_uses_ratio_for_a_single_artist() -> None:
 
 
 def test_drops_a_candidate_without_remix_when_the_query_holds_one() -> None:
-    query = TrackQuery("Adam Beyer", "Your Mind (Bart Skils Remix)", QueryOrigin.TAGS)
-    original = _candidate("Your Mind", "Original Mix", track_id="original")
-    remix = _candidate("Your Mind", "Bart Skils Remix", track_id="remix")
+    query = TrackQuery("Lior Vance", "Dim Orbit (Mara Quill Remix)", QueryOrigin.TAGS)
+    original = _candidate("Dim Orbit", "Original Mix", track_id="original")
+    remix = _candidate("Dim Orbit", "Mara Quill Remix", track_id="remix")
 
     classification = classify(query, [original, remix])
 
@@ -543,12 +543,12 @@ def test_drops_a_candidate_without_remix_when_the_query_holds_one() -> None:
     "candidate",
     [
         _candidate("Totally Different"),
-        _candidate("Your Mind", artists=("Adam Port",)),
+        _candidate("Dim Orbit", artists=("Lior Pike",)),
     ],
     ids=["title-below-floor", "artist-below-floor"],
 )
 def test_rejects_a_candidate_below_the_floor_on_either_score(candidate: TrackCandidate) -> None:
-    classification = classify(YOUR_MIND, [candidate])
+    classification = classify(DIM_ORBIT, [candidate])
 
     assert classification.outcome is Outcome.EMPTY
     assert classification.retained == ()
@@ -557,7 +557,7 @@ def test_rejects_a_candidate_below_the_floor_on_either_score(candidate: TrackCan
 def test_validates_automatically_at_the_ceiling() -> None:
     thresholds = MatchingThresholds(floor=70, ceiling=100)
 
-    classification = classify(YOUR_MIND, [_candidate("Your Mind")], thresholds)
+    classification = classify(DIM_ORBIT, [_candidate("Dim Orbit")], thresholds)
 
     assert classification.outcome is Outcome.AUTO
 
@@ -565,34 +565,34 @@ def test_validates_automatically_at_the_ceiling() -> None:
 def test_does_not_validate_automatically_below_the_ceiling() -> None:
     thresholds = MatchingThresholds(floor=70, ceiling=100)
 
-    classification = classify(YOUR_MIND, [_candidate("Your Mind Tonight")], thresholds)
+    classification = classify(DIM_ORBIT, [_candidate("Dim Orbit Tonight")], thresholds)
 
     assert classification.outcome is Outcome.GREY_ZONE
 
 
 def test_returns_grey_zone_candidates_sorted_by_score() -> None:
     thresholds = MatchingThresholds(floor=70, ceiling=100)
-    tonight = _candidate("Your Mind Tonight", track_id="tonight")
-    mindset = _candidate("Your Mindset", track_id="mindset")
+    tonight = _candidate("Dim Orbit Tonight", track_id="tonight")
+    mindset = _candidate("Dim Orbitset", track_id="mindset")
 
-    classification = classify(YOUR_MIND, [tonight, mindset], thresholds)
+    classification = classify(DIM_ORBIT, [tonight, mindset], thresholds)
 
     assert [scored.candidate.id for scored in classification.retained] == ["mindset", "tonight"]
 
 
 def test_keeps_the_first_candidate_on_a_tie() -> None:
-    first = _candidate("Your Mind", track_id="first")
-    second = _candidate("Your Mind", track_id="second")
+    first = _candidate("Dim Orbit", track_id="first")
+    second = _candidate("Dim Orbit", track_id="second")
 
-    classification = classify(YOUR_MIND, [first, second])
+    classification = classify(DIM_ORBIT, [first, second])
 
     assert classification.retained[0].candidate.id == "first"
 
 
 def test_scores_the_title_only_for_a_query_without_artist() -> None:
-    query = TrackQuery("", "Your Mind", QueryOrigin.FILENAME)
+    query = TrackQuery("", "Dim Orbit", QueryOrigin.FILENAME)
 
-    classification = classify(query, [_candidate("Your Mind", artists=("Someone Else",))])
+    classification = classify(query, [_candidate("Dim Orbit", artists=("Someone Else",))])
 
     assert classification.outcome is Outcome.AUTO
     assert classification.retained[0].artist_score is None
@@ -600,12 +600,12 @@ def test_scores_the_title_only_for_a_query_without_artist() -> None:
 
 def test_records_every_scored_candidate() -> None:
     candidates = [
-        _candidate("Your Mind", track_id="match"),
+        _candidate("Dim Orbit", track_id="match"),
         _candidate("Totally Different", track_id="other-title"),
-        _candidate("Your Mind", artists=("Adam Port",), track_id="other-artist"),
+        _candidate("Dim Orbit", artists=("Lior Pike",), track_id="other-artist"),
     ]
 
-    classification = classify(YOUR_MIND, candidates)
+    classification = classify(DIM_ORBIT, candidates)
 
     assert [scored.candidate.id for scored in classification.scored] == [
         "match",
@@ -622,7 +622,7 @@ def test_rejects_inconsistent_thresholds(floor: float, ceiling: float) -> None:
         MatchingThresholds(floor=floor, ceiling=ceiling)
 ```
 
-Scores mesurés avec rapidfuzz 3.14, `default_process`, le 2026-09-19 : « Your Mind (Original Mix) » contre « Your Mind Tonight (Original Mix) » 85,2, contre « Your Mindset (Original Mix) » 93,9, contre « Totally Different (Original Mix) » 66,7 ; « Adam Beyer » contre « Adam Port » 63,2. Les tests n'en dépendent que par leur ordre et par le plancher.
+Scores mesurés avec rapidfuzz 3.14, `default_process`, le 2026-09-19 : « Dim Orbit (Original Mix) » contre « Dim Orbit Tonight (Original Mix) » 85,2, contre « Dim Orbitset (Original Mix) » 93,9, contre « Totally Different (Original Mix) » 66,7 ; « Lior Vance » contre « Lior Pike » 63,2. Les tests n'en dépendent que par leur ordre et par le plancher.
 
 - [ ] **Step 2: Vérifier que les tests échouent**
 

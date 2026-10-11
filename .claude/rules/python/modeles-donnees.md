@@ -8,7 +8,8 @@ paths:
 ## À faire
 - `@dataclass(frozen=True, slots=True)` pour les structures purement internes, jamais désérialisées depuis l'extérieur ; tout ce qui traverse une frontière est un `BaseModel` (cf. [pydantic/modeles.md](../pydantic/modeles.md))
 - `StrEnum` + `auto()` pour les champs à valeurs fermées (`state`, `resolution`, `failure_reason`), partagés par les deux familles de modèles
-- `field(default_factory=...)` pour tout défaut mutable
+- `field(default_factory=...)` pour tout défaut mutable, et `kw_only=True` dès que plusieurs champs du même type se suivent
+- `copy.replace(obj, champ=...)` (3.13) pour dériver une copie modifiée d'une dataclass frozen
 - `__post_init__` pour la validation d'invariant et les champs dérivés déclarés `field(init=False)`
 - `NamedTuple` pour un retour multiple nommé et déstructurable
 - Définir `__repr__` sur tout objet métier écrit hors dataclass
@@ -23,7 +24,9 @@ paths:
 
 ## Gotchas
 - 3.11+ : `str()` et `format()` d'un `StrEnum` / `IntEnum` rendent la valeur primitive, plus `NomEnum.MEMBRE` : un test qui parsait l'ancien format casse
-- Un `StrEnum` se sérialise tel quel, par `json.dumps` comme par `model_dump_json()`- `@dataclass(slots=True)` recrée la classe : une référence capturée avant le décorateur ne pointe pas sur la classe finale
+- Un `StrEnum` se sérialise tel quel, par `json.dumps` comme par `model_dump_json()`
+- `@dataclass(slots=True)` recrée la classe : une référence capturée avant le décorateur ne pointe pas sur la classe finale
+- 3.14 : évaluer `NotImplemented` dans un contexte booléen lève `TypeError`, un `__eq__` maison le retourne sans jamais le tester
 - `@dataclass` et `NamedTuple` génèrent `__match_args__`, dont dépendent les patterns positionnels (cf. [pattern-matching.md](pattern-matching.md))
 
 ## Exemples

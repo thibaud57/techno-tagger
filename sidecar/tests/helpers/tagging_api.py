@@ -7,12 +7,13 @@ l'objet de recherche, ce qui est le comportement documente.
 
 import asyncio
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, NamedTuple
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 import httpx2
 import pytest
 from audio_samples import tag, write_blank_mp3
-from scraper_responses import YOUR_MIND, make_client, page_payload, track_payload
+from scraper_responses import DIM_ORBIT, make_client, page_payload, track_payload
 
 from tagger.cache import ArtworkFetcher, DiskCache
 from tagger.matching import DEFAULT_THRESHOLDS
@@ -30,16 +31,18 @@ if TYPE_CHECKING:
 
 type Reply = Callable[[], httpx2.Response]
 
-JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+JPEG: Final = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 
-ONE_TRACK = "your mind.mp3"
-ORIGINAL = track_payload(mix_name="Original Mix")
-ORIGINAL_REFETCH = f"/beatport/tracks/{ORIGINAL['id']}"
-ON_BANDCAMP = track_payload(
+ONE_TRACK: Final = "dim orbit.mp3"
+CREATED: Final = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
+WRITTEN_NAME: Final = "Lior Vance - Dim Orbit (Original Mix).mp3"
+ORIGINAL: Final = track_payload(mix_name="Original Mix")
+ORIGINAL_REFETCH: Final = f"/beatport/tracks/{ORIGINAL['id']}"
+ON_BANDCAMP: Final = track_payload(
     id="42",
     source="bandcamp",
     mix_name=None,
-    url="https://adambeyer.bandcamp.com/track/your-mind",
+    url="https://liorvance.bandcamp.com/track/dim-orbit",
 )
 
 
@@ -56,9 +59,9 @@ def found(*items: dict[str, object]) -> Reply:
     return ok(page_payload(*items))
 
 
-def basiel(**overrides: object) -> dict[str, object]:
-    """Reponse « Basiel » d'Amelie Lens, l'autre morceau de `two_tracks`."""
-    return track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel", **overrides)
+def kelvor(**overrides: object) -> dict[str, object]:
+    """Reponse « Kelvor » d'Orla Quenby, l'autre morceau de `two_tracks`."""
+    return track_payload(artists=[{"name": "Orla Quenby"}], title="Kelvor", **overrides)
 
 
 def failing(status: int, api_code: str = "") -> Reply:
@@ -139,38 +142,38 @@ def tagged_mp3(folder: Path, name: str, artist: str, title: str) -> Path:
 
 
 def one_track(tmp_path: Path) -> Path:
-    """Dossier du run : « Your Mind » seul, en `ONE_TRACK`."""
+    """Dossier du run : « Dim Orbit » seul, en `ONE_TRACK`."""
     folder = tmp_path / "music"
-    tagged_mp3(folder, ONE_TRACK, "Adam Beyer", "Your Mind")
+    tagged_mp3(folder, ONE_TRACK, "Lior Vance", "Dim Orbit")
     return folder
 
 
 def two_tracks(tmp_path: Path) -> Path:
-    """Dossier du run : « Your Mind » en `a.mp3`, « Basiel » en `b.mp3`."""
+    """Dossier du run : « Dim Orbit » en `a.mp3`, « Kelvor » en `b.mp3`."""
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
+    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
+    tagged_mp3(folder, "b.mp3", "Orla Quenby", "Kelvor")
     return folder
 
 
 def three_tracks(tmp_path: Path) -> Path:
-    """`two_tracks`, plus « The Void » en `c.mp3`."""
+    """`two_tracks`, plus « The Weir » en `c.mp3`."""
     folder = two_tracks(tmp_path)
-    tagged_mp3(folder, "c.mp3", "Sara Landry", "The Void")
+    tagged_mp3(folder, "c.mp3", "Dara Winter", "The Weir")
     return folder
 
 
 def beatport_down(api: FakeApi, status: int = 503, api_code: str = "source_unavailable") -> None:
-    """Beatport en panne, Bandcamp connait « Your Mind » : il part en zone grise, jamais seul."""
+    """Beatport en panne, Bandcamp connait « Dim Orbit » : il part en zone grise, jamais seul."""
     api.on("/beatport/search", "*", failing(status, api_code))
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    api.on("/bandcamp/search", DIM_ORBIT, found(ON_BANDCAMP))
 
 
 def hold_on_beatport(api: FakeApi) -> None:
-    """Extended et Radio Edit de « Your Mind » : deux versions qui ne valent pas l'original."""
+    """Extended et Radio Edit de « Dim Orbit » : deux versions qui ne valent pas l'original."""
     api.on(
         "/beatport/search",
-        YOUR_MIND,
+        DIM_ORBIT,
         found(
             track_payload(id="1", mix_name="Extended Mix"),
             track_payload(id="2", mix_name="Radio Edit"),

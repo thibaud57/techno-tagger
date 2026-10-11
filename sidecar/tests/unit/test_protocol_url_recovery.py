@@ -1,5 +1,7 @@
 """Tests du modele et de la traduction du rattrapage par URL sur le protocole NDJSON."""
 
+from typing import Final
+
 import pytest
 from pydantic import ValidationError
 
@@ -9,7 +11,7 @@ from tagger.protocol import Phase, Progress, ResolveByUrl, error_from_business, 
 from tagger.scraper_client import UnsupportedTrackUrlError
 from tagger.url_recovery import UrlProgress
 
-URL = "https://amelielens.bandcamp.com/track/basiel"
+URL: Final = "https://orlaquenby.bandcamp.com/track/kelvor"
 
 
 def _resolve(fields: str) -> str:

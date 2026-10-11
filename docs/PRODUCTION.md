@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-09-06"
+date: "2026-10-11"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
@@ -290,7 +290,7 @@ Il n'y a **rien à faire redescendre** : aucun serveur ne sert cette application
 3. Vérifier la nouvelle Release : installeur + `latest.json` présents, smoke test d'installation et de mise à jour.
 4. **Prévenir les utilisateurs à la main** si la version fautive a pu être installée. C'est le seul canal disponible : aucun mécanisme ne permet de forcer une mise à jour ni de savoir qui tourne sur quelle version.
 
-> ⚠️ **Une régression qui a déjà écrit des tags n'est pas rattrapée par un rollback applicatif.** Le retour arrière des données passe par le **dump des tags d'origine** conservé avec le plan de run, via le bouton de rollback de l'application ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)). Le message aux utilisateurs doit le dire explicitement, sinon un rollback de version leur laisse croire que leurs fichiers sont revenus à l'état antérieur.
+> ⚠️ **Une régression qui a déjà écrit des tags n'est pas rattrapée par un rollback applicatif.** Le retour arrière des données passe par le **dump des tags d'origine**, conservé 30 jours indépendamment du plan de run, via le bouton de rollback de l'application ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)). Le message aux utilisateurs doit le dire explicitement, sinon un rollback de version leur laisse croire que leurs fichiers sont revenus à l'état antérieur.
 
 > **Cas particulier, le sidecar en quarantaine après mise à jour** : un binaire recompilé change d'empreinte et peut redevenir un faux positif alors que le précédent était exclu. Ce n'est pas une régression de code et un roll-forward n'y changerait rien, il faut refaire l'exclusion antivirus.
 
@@ -320,7 +320,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`dependabot.yml` commité, Dependency graph et Dependabot alerts actifs** : les deux réglages de sécurité du dépôt activés, condition de fonctionnement du graphe de dépendances que Dependabot consomme
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le bouton « ouvrir le dossier de logs » et le lien vers la fiche source : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
-- [ ] **Préfixe `\\?\` sur les chemins Windows** du sidecar : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage, et `LongPathsEnabled` ne suffit pas à un interpréteur Python non manifesté
+- [ ] **Préfixe `\\?\` sur les accès aux fichiers musicaux** (tags, renommage, rollback) : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
 - [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
@@ -387,14 +387,15 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 | Tauri (majeure) | Sur release majeure | PR dédiée, guide de migration, **build + smoke test d'installation obligatoires** avant merge |
 | Angular / PrimeNG (majeures) | Sur release majeure | PR dédiée, `ng update`, vérification visuelle des écrans |
 | Runtime Python du sidecar | Sur fin de support | Bump dans `pyproject.toml` et `.python-version`, rebuild PyInstaller, **retester les faux positifs antivirus** |
-| Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `pnpm/setup` et d'`engines.node`. Prochaine échéance : Node 26, LTS planifiée au 2026-10-28 |
-| Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. **Conditionné à l'issue de l'[ADR-003](adrs/003-primeng-community-license.md)**, rouvert depuis l'archivage du dépôt PrimeNG (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
+| Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `.github/actions/setup-pnpm` et d'`engines.node`. Prochaine échéance : Node 26, LTS planifiée au 2026-10-28 |
+| Outils de CI (uv, pnpm) | Sur montée retenue dans VERSIONS.md | Bump de `version:` dans `.github/actions/setup-uv` (et du plancher `uv_build` de `sidecar/pyproject.toml`) ou dans `.github/actions/setup-pnpm`, seuls endroits où vivent ces versions |
+| Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. Clé valable 12 mois avec 30 jours de grâce, décidée par l'[ADR-003](adrs/003-primeng-community-license.md) (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
 
-**Dependabot** : écosystèmes `npm`, `uv`, `cargo` et `github-actions` déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque.
+**Dependabot** : écosystèmes `npm`, `uv`, `cargo` et `github-actions` déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, celle de `github-actions` couvrant aussi les actions composites de `.github/actions/*`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque.
 
-> 🔴 **Le lockfile `pnpm-lock.yaml` doit rester mono-document : c'est l'invariant qui protège les alertes de sécurité Dependabot.** Sur un lockfile pnpm 11 multi-document, celui que pnpm produit dès que `packageManager` ou `devEngines.packageManager` est déclaré dans `package.json`, les PR de bump continuent de fonctionner mais le *dependency grapher* lit le mauvais document et rapporte zéro dépendance : **les alertes de sécurité se referment d'elles-mêmes**, sans rien afficher. Correctif en attente en amont ([dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794) ouverte, PR #15968 non mergée). Le projet supprime la cause à la racine plutôt que de la contourner : ces deux champs sont volontairement absents de `package.json`, le lockfile reste mono-document, et la version de pnpm se déclare en input `version` de `pnpm/setup`. Tant que cet invariant tient, le mode de panne ne s'applique pas. Détail dans [VERSIONS.md § Dependabot](VERSIONS.md#6-dependabot).
+> 🔴 **Le lockfile `pnpm-lock.yaml` doit rester mono-document : c'est l'invariant qui protège les alertes de sécurité Dependabot.** Sur un lockfile pnpm multi-document, celui que pnpm 11 comme 12 produit dès que `packageManager` ou `devEngines.packageManager` est déclaré dans `package.json`, les PR de bump continuent de fonctionner mais le *dependency grapher* lit le mauvais document et rapporte zéro dépendance : **les alertes de sécurité se referment d'elles-mêmes**, sans rien afficher. Aucun correctif constaté en amont au 2026-10-09 : [dependabot-core#14794](https://github.com/dependabot/dependabot-core/issues/14794) a été fermée le 2026-09-15 avec le support de pnpm 12 côté PR, sans que le graphe lise mieux un lockfile multi-document. Le projet supprime la cause à la racine plutôt que de la contourner : ces deux champs sont volontairement absents de `package.json`, le lockfile reste mono-document, et la version de pnpm se déclare en input `version` de `pnpm/setup`, dans `.github/actions/setup-pnpm`. Tant que cet invariant tient, le mode de panne ne s'applique pas. Détail dans [VERSIONS.md § Dependabot](VERSIONS.md#6-dependabot).
 
-> ⚠️ **Une PR de mise à jour peut faire échouer `pnpm install --frozen-lockfile`** si le lockfile régénéré pointe une transitive publiée dans les dernières 24 heures, `minimumReleaseAge` de pnpm 11 la rejetant (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`). Dependabot régénère le lockfile via la CLI pnpm elle-même, qui applique alors son propre `minimumReleaseAge` : rien à aligner côté configuration du bot. Garder `minimumReleaseAgeExclude` côté pnpm pour les paquets qui se republient sans cesse.
+> ⚠️ **Une PR de mise à jour peut faire échouer `pnpm install --frozen-lockfile`** si le lockfile régénéré pointe une transitive publiée dans les dernières 24 heures, `minimumReleaseAge` de pnpm la rejetant (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`). Dependabot régénère le lockfile via la CLI pnpm elle-même, qui applique alors son propre `minimumReleaseAge` : rien à aligner côté configuration du bot. Garder `minimumReleaseAgeExclude` côté pnpm pour les paquets qui se republient sans cesse.
 
 > ✅ **Toute mise à jour touchant le packaging se valide par un build complet**, pas par une CI verte : c'est `tauri build` et l'installeur qui cassent, pas les tests unitaires.
 > ❌ **Ne jamais bumper Tauri et le runtime Python dans la même PR** : les deux touchent l'empaquetage, un échec de build ne dirait plus lequel accuser.
@@ -457,6 +458,25 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 | `just audit` | `pnpm audit --audit-level=high` sur `src/`, `uv audit` sur `sidecar/` | À chaque run CI (`audit-ui`, `audit-sidecar`), et en local avant chaque release | **Non bloquant** en CI, une CVE publiée en amont ne doit pas figer une PR sans rapport ; la Checklist Release oblige à lire le résultat. `src-tauri/` non couvert, `cargo audit` exigerait une installation à part |
 
 > Dependabot est intégré et gratuit sur dépôt public, aucune app tierce à installer. Les alertes de sécurité restent produites par le graphe de dépendances de GitHub et non par `dependabot.yml` : les désactiver en croyant qu'elles font doublon avec les PR de mise à jour priverait le projet de sa seule veille CVE.
+
+## Réglages Actions du dépôt
+
+Le dépôt est public : n'importe qui peut ouvrir une PR depuis un fork, et ce que la CI exécute alors dépend autant des réglages de Settings → Actions que des workflows. Ces réglages ne vivent dans aucun fichier versionné, d'où leur relevé ici.
+
+| Réglage | Cible | Relevé le 2026-10-09 | Pourquoi |
+|---------|-------|----------------------|----------|
+| Permissions par défaut du `GITHUB_TOKEN` | `read` (restricted) | ✅ `read` | Chaque workflow redéclare ses scopes, un oubli retombe sur la lecture seule |
+| Autoriser Actions à approuver une PR | Désactivé | ✅ désactivé (corrigé le 2026-10-09) | Un workflow ne doit pas pouvoir valider la PR qu'il vient d'ouvrir |
+| Épinglage SHA obligatoire | Activé | ✅ activé (corrigé le 2026-10-09) | Transforme en règle de plateforme la convention SHA des workflows : une action en tag flottant est refusée au lieu de passer |
+| Approbation des workflows de fork | Tous les contributeurs externes | ✅ tous les contributeurs externes (corrigé le 2026-10-09) | Sinon, une seule contribution acceptée (une typo suffit) dispense de l'approbation toutes les suivantes |
+| Actor rules (workflow execution protections) | Aucune, ou `dependabot[bot]` inclus | ✅ aucune | Une actor rule qui oublie `dependabot[bot]` bloque ses PR sans erreur visible |
+
+```bash
+# Relire l'état réel
+gh api repos/thibaud57/techno-tagger/actions/permissions
+gh api repos/thibaud57/techno-tagger/actions/permissions/workflow
+gh api repos/thibaud57/techno-tagger/actions/permissions/fork-pr-contributor-approval
+```
 
 ---
 
@@ -530,7 +550,7 @@ Fichier local unique, une ligne par événement, au format **logfmt** : un préf
 
 ```
 2026-08-27 21:14:03 INFO    tagger.matching  candidat retenu     run=a3f9c1 track=42 score=91 source=beatport
-2026-08-27 21:14:04 WARNING tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=locked
+2026-08-27 21:14:04 WARNING tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=file_locked
 2026-08-27 21:14:09 ERROR   tagger.scraper   arrêt du run        run=a3f9c1 status=403 consecutive=3
 ```
 
@@ -566,7 +586,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 
 ### Règles
 - ✅ **Jeu de clés logfmt fixe** : `run`, `track`, `source`, `score`, `status`, `reason`, `request_id`. C'est le seul coût du format : une clé inventée au fil des commits (`track_id` à côté de `track`) rend un `grep` faux sans que rien ne casse ni ne se voie. `request_id` reprend l'en-tête `X-Request-ID` de techno-scraper, seul lien entre une ligne du sidecar et la ligne correspondante côté API (ajoutée le 2026-09-19).
-- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS.
+- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS, ainsi que l'artiste et le titre par le nom du fichier (tout chemin de lecteur ou UNC part en `<path>` depuis le 2026-10-11, [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
 - ✅ **Une ligne par décision de matching** : score, source, état retenu. C'est la trace qui permet de comprendre après coup pourquoi un morceau est parti en arbitrage.
 - ✅ **Distinguer les motifs d'échec** : « aucune source n'a répondu » et « on n'avait rien à demander après nettoyage » sont deux lignes différentes, elles n'appellent pas la même correction.
 - ✅ **Erreur loguée une seule fois**, au point où elle est traitée, jamais aussi au point de levée : sinon un incident produit deux lignes et deux events Sentry.
@@ -633,13 +653,14 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Secrets GitHub Actions (DSN, licence PrimeNG) | Sur changement | Permanente | Même archive, régénérables par ailleurs |
 | Code, historique, CHANGELOG | Continu | Permanente | GitHub (dépôt public) |
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
-| Plan de run, dump des tags, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
+| Plan de run, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
+| Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | `appLocalDataDir()/dumps`, aucune sauvegarde |
 
 > **Le mot de passe de l'archive ne va pas dans l'archive.** Il s'écrit sur papier, ou se mémorise. C'est le seul maillon qui n'a pas de copie numérique, par construction.
 
 > **Deux emplacements, pas un.** Drive seul tombe avec le compte Google, la clé USB seule tombe avec le tiroir. Le chiffrement AES-256 en amont est ce qui rend le dépôt sur Drive acceptable : sans lui, un compte Google compromis donnerait à quelqu'un la capacité de **signer une fausse mise à jour** que les installations existantes accepteraient et installeraient automatiquement.
 
-> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant, et le dump des tags d'origine vit avec le plan qu'il sert à annuler.
+> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant ; le dump des tags d'origine vit 30 jours pour qu'un run raté reste annulable d'un lancement à l'autre ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
 
 ## Recovery
 
@@ -651,7 +672,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Release cassée en ligne | ~30 min | — | Dépublier, roll-forward `PATCH` (cf. § Rollback) |
 | Variables `API_KEYS__*` perdues | ~1 h | — | Regénérer une clé par utilisateur connu, redéployer l'API, retransmettre. Coût réel : recontacter tout le monde |
 | Run interrompu (côté utilisateur) | Immédiat | 0 fichier touché | Reprise depuis le plan de run persisté au fil de l'eau, aucun fichier musical n'ayant été modifié avant confirmation globale |
-| Tags écrits par erreur (côté utilisateur) | Quelques minutes | 0 | Rollback par run ou par morceau depuis le dump des tags d'origine, tant que le plan n'a pas été purgé (30 jours) |
+| Tags écrits par erreur (côté utilisateur) | Quelques minutes | 0 | Rollback par run ou par morceau depuis le dump des tags d'origine, tant que son dump n'a pas été purgé (30 jours) |
 
 > **RTO** = Recovery Time Objective (temps max pour restaurer)
 > **RPO** = Recovery Point Objective (perte de données max acceptable)
@@ -710,7 +731,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 
 ## Ressources Complémentaires
 - [ARCHITECTURE.md](ARCHITECTURE.md) : infrastructure, sécurité et observabilité à haut niveau, modes de panne
-- [VERSIONS.md](VERSIONS.md) : versions retenues, matrice de compatibilité croisée et conflits connus, dont le mode de panne de Dependabot sur pnpm 11
+- [VERSIONS.md](VERSIONS.md) : versions retenues, matrice de compatibilité croisée et conflits connus, dont le mode de panne de Dependabot sur un lockfile pnpm multi-document
 - ADRs opérationnels : [012 clé API et keyring](adrs/012-securite-cle-api-keyring.md), [013 cache jetable](adrs/013-cache-disque-jetable.md), [014 observabilité et vie privée](adrs/014-observabilite-sentry-et-rgpd.md), [015 cibles de distribution](adrs/015-cibles-distribution-windows.md), [016 multi-clés](adrs/016-multi-cles-techno-scraper.md), [018 versionnement des artefacts](adrs/018-versionnement-plan-de-run.md), [021 visibilité du dépôt](adrs/021-visibilite-du-depot.md)
 - [techno-scraper : PRODUCTION.md](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/PRODUCTION.md) : chaîne release-please et pièges de squash-merge, dont ce projet hérite
 - [PythonGUIs : antivirus et PyInstaller](https://www.pythonguis.com/faq/problems-with-antivirus-software-and-pyinstaller/) : pourquoi `--onefile` déclenche les heuristiques

@@ -35,7 +35,7 @@ textarea {
   cursor: text;
 }
 
-/* DESIGN.md § Tokens de Tooltip : jamais entre le curseur et ce qu'il decrit, et une largeur
+/* DESIGN.md § Overlays : jamais entre le curseur et ce qu'il decrit, et une largeur
    `wide` pour ce qu'il montre en entier (cf. WIDE_TOOLTIP). Hors couche, ces regles
    passent devant celles de PrimeNG, rangees dans la couche `primeng`. */
 :root {

@@ -12,12 +12,12 @@ paths:
 - `raise MonErreur(...) from e` pour garder l'origine technique sous l'erreur métier, `from None` pour masquer un détail d'implémentation
 - Un logger par module via `logging.getLogger(__name__)`, la configuration se faisant une seule fois au point d'entrée
 - `logger.exception(...)` dans un `except` (traceback inclus), avec formatage lazy `%s`, pas de f-string
-- Trier les erreurs d'un `TaskGroup` par `except*`, une clause par famille
+- Trier les erreurs d'un `TaskGroup` par `except*`, une clause par famille : plusieurs clauses peuvent s'exécuter pour un même groupe, et `except*` ne se mélange pas avec un `except` classique dans le même `try`
 - Structurer les logs en logfmt avec le jeu de clés fixe (`run`, `track`, `source`, `score`, `status`, `reason`, `request_id`) : une clé inventée fausse un `grep` sans que rien ne casse
 - Rattacher un incident propre à un morceau à son `failure_reason`, pas à un message libre
 
 ## À éviter
-- `except:` nu, et `except Exception` sans re-raise : masque `KeyboardInterrupt` et les bugs
+- `except:` nu, qui capture aussi `KeyboardInterrupt` et `SystemExit`, et `except Exception` qui avale sans re-raise, qui masque les bugs
 - `print` pour du diagnostic : le binaire empaqueté n'a pas de console, et `stdout` porte le flux NDJSON
 - `assert` pour valider une commande reçue sur `stdin` : supprimé sous `python -O`
 - `return` / `break` / `continue` sortant d'un bloc `finally`

@@ -4,12 +4,12 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from scraper_responses import (
     BANDCAMP_TRACK,
-    YOUR_MIND,
+    DIM_ORBIT,
     bandcamp_track_payload,
     track_candidate,
     track_payload,
@@ -65,8 +65,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-BEATPORT_URL = "https://www.beatport.com/track/your-mind/22708005"
-ON_BEATPORT = track_payload(id="22708005")
+BEATPORT_URL: Final = "https://www.beatport.com/track/dim-orbit/99000202"
+ON_BEATPORT: Final = track_payload(id="99000202")
 
 
 @asynccontextmanager
@@ -139,7 +139,7 @@ async def test_emits_the_resolved_track_then_the_url_progress(tmp_path: Path) ->
 
 @pytest.mark.parametrize(
     ("second_url", "source", "candidate_id"),
-    [(BEATPORT_URL, Source.BEATPORT, "22708005"), (BANDCAMP_TRACK, Source.BANDCAMP, "7")],
+    [(BEATPORT_URL, Source.BEATPORT, "99000202"), (BANDCAMP_TRACK, Source.BANDCAMP, "7")],
     ids=["other-source", "same-url"],
 )
 async def test_replaces_a_track_already_resolved_by_url(
@@ -147,7 +147,7 @@ async def test_replaces_a_track_already_resolved_by_url(
 ) -> None:
     api = FakeApi()
     _bandcamp_found(api)
-    api.on("/beatport/tracks/22708005", "*", ok(ON_BEATPORT))
+    api.on("/beatport/tracks/99000202", "*", ok(ON_BEATPORT))
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
@@ -197,7 +197,7 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
 
 async def test_counts_zero_over_zero_when_nothing_is_left_to_recover(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
 
     async with _recovering(one_track(tmp_path), api) as (_opened, recovery):
         progress = recovery.progress()
@@ -293,7 +293,7 @@ async def test_releases_the_track_when_the_gesture_is_cancelled(tmp_path: Path) 
     assert after.resolution is Resolution.URL
 
 
-ARTWORK = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
+ARTWORK: Final = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
 
 
 @pytest.mark.parametrize(
@@ -418,7 +418,7 @@ async def test_never_logs_the_pasted_url(tmp_path: Path, caplog: pytest.LogCaptu
     async with _recovering(two_tracks(tmp_path), api) as (_opened, recovery):
         await recovery.resolve("a.mp3", BANDCAMP_TRACK)
         with pytest.raises(TrackNotFoundError):
-            await recovery.resolve("b.mp3", "https://amelielens.bandcamp.com/track/unknown")
+            await recovery.resolve("b.mp3", "https://orlaquenby.bandcamp.com/track/unknown")
 
     ours = [
         record.getMessage() for record in caplog.records if record.name == "tagger.url_recovery"

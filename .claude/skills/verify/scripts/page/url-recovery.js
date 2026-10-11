@@ -3,7 +3,7 @@
 //   `paste <url>` colle l'URL dans le champ de la modale ouverte, clique « Resoudre » et attend
 //                 la reponse du service
 //   `state`       releve la barre, le badge, la modale et, pour l'erreur affichee, son ecart au
-//                 champ qui la precede et au pied qui la suit (attendu egal, DESIGN.md § Feedback)
+//                 champ qui la precede et au pied qui la suit (attendu egal, DESIGN.md § Feedback et chargement)
 ;(async () => {
   const [action, arg] = __args
   const svc = __sidecarService()
@@ -46,6 +46,7 @@
     dialog: shown
       ? {
           title: shown.querySelector("h3")?.textContent.trim(),
+          sharedHeader: shown.querySelector("app-dialog-header h3[data-title]") !== null,
           height: Math.round(shown.getBoundingClientRect().height),
           error: error ? { text: error.textContent.replace(/\s+/g, " ").trim(), ...gap() } : null,
         }

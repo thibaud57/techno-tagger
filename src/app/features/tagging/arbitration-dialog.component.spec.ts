@@ -4,6 +4,7 @@ import { provideTranslateService } from "@ngx-translate/core"
 
 import { action, linkField, page, pasteLink } from "../../../fixtures/dialog"
 import { PENDING_TRACK } from "../../../fixtures/tagging"
+import { TRACK_URL } from "../../../fixtures/url-recovery"
 import type {
   ArbitrationState,
   SidecarCommand,
@@ -22,15 +23,15 @@ const ON_BEATPORT: ArbitrationState = {
   beatport_unavailable: false,
   candidates: [
     {
-      artist: "Adam Beyer",
-      title: "Your Mind (Extended Mix)",
-      label: "Drumcode",
+      artist: "Lior Vance",
+      title: "Dim Orbit (Extended Mix)",
+      label: "Kestrel",
       year: 2023,
       scores: { artist: 96, title: 84, average: 90 },
     },
     {
-      artist: "Adam Beyer",
-      title: "Your Mind (Radio Edit)",
+      artist: "Lior Vance",
+      title: "Dim Orbit (Radio Edit)",
       label: null,
       year: null,
       scores: { artist: null, title: 80, average: 80 },
@@ -45,8 +46,8 @@ const AFTER_REFUSAL: ArbitrationState = {
   source: "bandcamp",
   candidates: [
     {
-      artist: "Adam Beyer",
-      title: "Your Mind",
+      artist: "Lior Vance",
+      title: "Dim Orbit",
       label: null,
       year: null,
       scores: { artist: 100, title: 100, average: 100 },
@@ -70,6 +71,7 @@ const stub = () => ({
   urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
   urlRecoveryErrors: signal<ReadonlyMap<string, SidecarErrorEvent>>(new Map()),
   tagging: signal(false),
+  committed: signal(false),
   resolveByUrl: vi.fn(() => Promise.resolve()),
   lastError: signal<SidecarErrorEvent | null>(null),
   lastErrorCommand: signal<SidecarCommand["command"] | null>(null),
@@ -105,8 +107,8 @@ describe("ArbitrationDialogComponent", () => {
 
     const text = page().textContent
 
-    expect(text).toContain("Adam Beyer - Your Mind (Extended Mix)")
-    expect(text).toContain("Drumcode · 2023")
+    expect(text).toContain("Lior Vance - Dim Orbit (Extended Mix)")
+    expect(text).toContain("Kestrel · 2023")
     expect(text).toContain("arbitration.score")
     expect(text).toContain("arbitration.scoreTitleOnly")
   })
@@ -118,7 +120,7 @@ describe("ArbitrationDialogComponent", () => {
       line.textContent.trim(),
     )
 
-    expect(releases).toEqual(["Drumcode · 2023", ""])
+    expect(releases).toEqual(["Kestrel · 2023", ""])
   })
 
   it("falls back on the track id without a run row", () => {
@@ -155,7 +157,7 @@ describe("ArbitrationDialogComponent", () => {
 
     const title = page().querySelector("[data-title]")
 
-    expect(title?.textContent.trim()).toBe("Adam Beyer")
+    expect(title?.textContent.trim()).toBe("Lior Vance")
   })
 
   it("replaces the Beatport list by the Bandcamp list and offers to go back", () => {
@@ -166,7 +168,7 @@ describe("ArbitrationDialogComponent", () => {
     action("back")?.click()
 
     expect(page().textContent).toContain("arbitration.switched")
-    expect(page().textContent).not.toContain("Your Mind (Extended Mix)")
+    expect(page().textContent).not.toContain("Dim Orbit (Extended Mix)")
     expect(service.showArbitrationSource).toHaveBeenCalledWith("a.mp3", "beatport")
   })
 
@@ -429,6 +431,7 @@ describe("ArbitrationDialogComponent", () => {
       service.arbitrations.set([])
       service.currentArbitration.set(null)
       service.taggingTracks.set([UNRESOLVED])
+      service.recoverableTracks.set([UNRESOLVED])
       fixture.detectChanges()
     }
 
@@ -447,15 +450,12 @@ describe("ArbitrationDialogComponent", () => {
     it("sends the pasted link for the refused track", () => {
       const { fixture, service } = mountWith()
       refuseAndLeaveQueue(fixture, service)
-      pasteLink("https://amelielens.bandcamp.com/track/basiel")
+      pasteLink(TRACK_URL)
       fixture.detectChanges()
 
       action("resolve-url")?.click()
 
-      expect(service.resolveByUrl).toHaveBeenCalledWith(
-        "a.mp3",
-        "https://amelielens.bandcamp.com/track/basiel",
-      )
+      expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", TRACK_URL)
     })
 
     it("leaves the step on skip and keeps the track to recover", () => {
@@ -478,7 +478,7 @@ describe("ArbitrationDialogComponent", () => {
 
       expect(page().querySelector('input[data-field="url"]')).toBeNull()
       expect(action("skip")).toBeNull()
-      expect(page().textContent).toContain("Your Mind")
+      expect(page().textContent).toContain("Dim Orbit")
     })
   })
 })
