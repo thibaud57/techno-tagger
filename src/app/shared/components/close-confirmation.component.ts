@@ -5,7 +5,10 @@ import { Dialog } from "primeng/dialog"
 
 import { CloseGuard } from "../../core/close-guard.service"
 
-/** `p-dialog` et non `p-confirmdialog`, reserve aux actions qui touchent aux fichiers musicaux. */
+/**
+ * `p-dialog` et non `p-confirmdialog`, reserve aux actions qui touchent aux fichiers musicaux.
+ * Bloquee pendant une ecriture ou un rollback : Tauri arreterait le sidecar en plein fichier.
+ */
 @Component({
   selector: "app-close-confirmation",
   imports: [Dialog, ButtonDirective, TranslatePipe],
@@ -23,27 +26,31 @@ import { CloseGuard } from "../../core/close-guard.service"
       [closeAriaLabel]="'app.close.stay' | translate"
     >
       <ng-template #header>
-        <h3 class="m-0 text-lg font-semibold">{{ "app.close.title" | translate }}</h3>
+        <h3 class="m-0 text-lg font-semibold">
+          {{ (blocked() ? "app.close.blockedTitle" : "app.close.title") | translate }}
+        </h3>
       </ng-template>
 
-      <ul class="flex flex-col gap-2 text-sm">
+      <ul class="flex flex-col gap-2 text-sm whitespace-pre-line">
         @for (work of request() ?? []; track work.kind) {
           <li>{{ "app.close." + work.kind | translate: work }}</li>
         }
       </ul>
 
       <ng-template #footer>
-        <button
-          pButton
-          type="button"
-          size="small"
-          [outlined]="true"
-          severity="secondary"
-          data-action="leave"
-          (click)="leave()"
-        >
-          {{ "app.close.leave" | translate }}
-        </button>
+        @if (!blocked()) {
+          <button
+            pButton
+            type="button"
+            size="small"
+            [outlined]="true"
+            severity="secondary"
+            data-action="leave"
+            (click)="leave()"
+          >
+            {{ "app.close.leave" | translate }}
+          </button>
+        }
         <button #stay pButton type="button" size="small" data-action="stay" (click)="stayOpen()">
           {{ "app.close.stay" | translate }}
         </button>
@@ -55,6 +62,7 @@ export class CloseConfirmationComponent {
   private readonly guard = inject(CloseGuard)
 
   protected readonly request = this.guard.request
+  protected readonly blocked = this.guard.blocked
 
   private readonly stayButton = viewChild("stay", { read: ElementRef })
 

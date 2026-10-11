@@ -33,6 +33,18 @@ const UNRESOLVED: StateStyle = {
   icon: "times",
   label: "tagging.state.unresolved",
 }
+/** Meme rouge que « non resolu », icone distincte : on le rattrape par la relance. */
+const WRITE_ERROR: StateStyle = {
+  severity: "danger",
+  icon: "exclamation-triangle",
+  label: "tagging.state.writeError",
+}
+/** Rendu a son origine : ni ecrit ni en echec, aucune voie a montrer en vert. */
+const ROLLED_BACK: StateStyle = {
+  severity: "secondary",
+  icon: "undo",
+  label: "tagging.state.rolledBack",
+}
 /** Trois issues positives, toutes vertes : c'est le libelle qui porte la voie. */
 const RESOLVED: Record<TrackResolution, StateStyle> = {
   auto: { severity: "success", icon: "check", label: "tagging.state.auto" },
@@ -68,10 +80,16 @@ export class StateTagComponent {
       return AWAITING
     }
     switch (this.state()) {
+      // `written` garde le libelle de sa voie (DESIGN.md § Couleurs Semantiques).
       case "resolved":
+      case "written":
         return RESOLVED[this.resolution() ?? "none"]
       case "unresolved":
         return UNRESOLVED
+      case "write_error":
+        return WRITE_ERROR
+      case "rolled_back":
+        return ROLLED_BACK
       default:
         return this.interrupted() ? NOT_PROCESSED : PENDING
     }

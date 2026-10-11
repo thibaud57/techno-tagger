@@ -1,0 +1,50 @@
+import { Component, inject } from "@angular/core"
+import { TranslateService } from "@ngx-translate/core"
+import { ConfirmationService } from "primeng/api"
+import { ConfirmDialog } from "primeng/confirmdialog"
+
+/**
+ * Modale des gestes qui touchent aux fichiers musicaux (ecriture, relance, rollback), a poser
+ * une fois par ecran. 30rem comme la fiche `ConfirmDialog` ; message interpole et non en
+ * `innerHTML`, le chemin d'un dossier y figurant ; focus sur « Annuler » : Entree ne valide rien.
+ */
+@Component({
+  selector: "app-danger-confirm",
+  imports: [ConfirmDialog],
+  template: `
+    <p-confirmdialog styleClass="w-120" defaultFocus="reject">
+      <ng-template #message let-confirmation>
+        <p class="m-0 text-sm leading-normal whitespace-pre-line text-muted-color">
+          {{ confirmation.message }}
+        </p>
+      </ng-template>
+    </p-confirmdialog>
+  `,
+  // Hote vide dans une colonne : ni place ni gap.
+  host: { class: "contents" },
+})
+export class DangerConfirmComponent {}
+
+/**
+ * Ouvre la modale : `<prefix>.header` et `<prefix>.accept` nomment le geste. Le rouge ne marque que
+ * l'acceptation d'un geste destructif (le rollback) ; l'ecriture, dont l'origine est sauvegardee
+ * avant, reste `primary`.
+ */
+export const injectDangerConfirm = () => {
+  const confirmation = inject(ConfirmationService)
+  const translate = inject(TranslateService)
+  const t = (key: string): string => translate.instant(key) as string
+
+  return (prefix: string, message: string, accept: () => void, destructive: boolean): void => {
+    confirmation.confirm({
+      header: t(`${prefix}.header`),
+      message,
+      acceptLabel: t(`${prefix}.accept`),
+      rejectLabel: t("confirm.cancel"),
+      // `small` comme les boutons des autres modales et des pages.
+      acceptButtonProps: { size: "small", ...(destructive ? { severity: "danger" } : {}) },
+      rejectButtonProps: { size: "small", severity: "secondary", outlined: true },
+      accept,
+    })
+  }
+}

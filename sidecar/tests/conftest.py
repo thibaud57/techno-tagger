@@ -20,7 +20,8 @@ import pytest
 from audio_samples import BLANK_WRITERS
 from extraction_samples import sample_context, sample_result
 from memory_keyring import MemoryKeyring
-from tagging_api import FakeApi, FakeCdn, public_resolver
+from scraper_responses import DIM_ORBIT
+from tagging_api import ORIGINAL, FakeApi, FakeCdn, found, one_track, public_resolver
 from vlc_dump import build_dump
 
 from tagger import handlers
@@ -177,6 +178,13 @@ def api(monkeypatch: pytest.MonkeyPatch) -> FakeApi:
         ),
     )
     return fake
+
+
+@pytest.fixture
+def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
+    """« Dim Orbit » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
+    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    return one_track(tmp_path)
 
 
 @pytest.fixture

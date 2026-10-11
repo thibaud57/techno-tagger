@@ -188,9 +188,9 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-QUERY = "Adam Beyer Your Mind"
+QUERY = "Lior Vance Dim Orbit"
 ORIGINAL = track_payload(mix_name="Original Mix")
-BANDCAMP_URL = "https://adambeyer.bandcamp.com/track/your-mind"
+BANDCAMP_URL = "https://liorvance.bandcamp.com/track/dim-orbit"
 ON_BANDCAMP = track_payload(
     id="42", source="bandcamp", mix_name=None, url=BANDCAMP_URL
 )
@@ -198,7 +198,7 @@ ON_BANDCAMP = track_payload(
 
 def _music(tmp_path: Path) -> Path:
     folder = tmp_path / "music"
-    tagged_mp3(folder, "your mind.mp3", "Adam Beyer", "Your Mind")
+    tagged_mp3(folder, "dim orbit.mp3", "Lior Vance", "Dim Orbit")
     return folder
 
 
@@ -207,7 +207,7 @@ async def test_validates_automatically_on_beatport_without_calling_bandcamp(
 ) -> None:
     api = FakeApi()
     api.on("/beatport/search", QUERY, found(ORIGINAL))
-    api.on("/beatport/tracks/17492013", "*", ok(track_payload(mix_name="Original Mix", isrc="REFETCHED")))
+    api.on("/beatport/tracks/99000101", "*", ok(track_payload(mix_name="Original Mix", isrc="REFETCHED")))
 
     result = await run(_music(tmp_path), api)
 
@@ -287,7 +287,7 @@ async def test_marks_a_track_whose_candidates_are_below_the_floor_as_below_thres
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    stranger = track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel")
+    stranger = track_payload(artists=[{"name": "Orla Quenby"}], title="Kelvor")
     api.on("/beatport/search", QUERY, found(stranger))
 
     result = await run(_music(tmp_path), api)
@@ -326,7 +326,7 @@ async def test_marks_a_track_as_source_unavailable_when_both_sources_fail(
 async def test_keeps_the_search_candidate_when_the_refetch_fails(tmp_path: Path) -> None:
     api = FakeApi()
     api.on("/beatport/search", QUERY, found(ORIGINAL))
-    api.on("/beatport/tracks/17492013", "*", failing(503, "source_unavailable"))
+    api.on("/beatport/tracks/99000101", "*", failing(503, "source_unavailable"))
 
     result = await run(_music(tmp_path), api)
 
@@ -354,7 +354,7 @@ async def test_resolves_a_track_without_artwork_when_the_cdn_refuses_it(tmp_path
 async def test_falls_back_on_the_file_name_when_the_tags_are_unreadable(tmp_path: Path) -> None:
     folder = tmp_path / "music"
     folder.mkdir()
-    (folder / "Adam Beyer - Your Mind.mp3").write_bytes(b"not an audio file" * 16)
+    (folder / "Lior Vance - Dim Orbit.mp3").write_bytes(b"not an audio file" * 16)
     api = FakeApi()
     api.on("/beatport/search", QUERY, found(ORIGINAL))
 
@@ -392,9 +392,9 @@ pytestmark = pytest.mark.asyncio
 
 def _three_tracks(tmp_path: Path) -> Path:
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
-    tagged_mp3(folder, "c.mp3", "Sara Landry", "The Void")
+    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
+    tagged_mp3(folder, "b.mp3", "Orla Quenby", "Kelvor")
+    tagged_mp3(folder, "c.mp3", "Dara Winter", "The Weir")
     return folder
 
 
@@ -406,18 +406,18 @@ async def test_emits_run_started_first_with_every_track_and_its_identity(tmp_pat
     first = events[0]
     assert isinstance(first, RunStarted)
     assert [record.track_id for record in first.tracks] == ["a.mp3", "b.mp3", "c.mp3"]
-    assert first.tracks[1].identity.artist == "Amelie Lens"
+    assert first.tracks[1].identity.artist == "Orla Quenby"
 
 
 async def test_counts_a_track_as_processed_once_resolved_unresolved_or_on_hold(
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", "Adam Beyer Your Mind", found(track_payload(mix_name="Original Mix")))
+    api.on("/beatport/search", "Lior Vance Dim Orbit", found(track_payload(mix_name="Original Mix")))
     api.on(
         "/beatport/search",
-        "Amelie Lens Basiel",
-        found(track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel", mix_name="Extended Mix")),
+        "Orla Quenby Kelvor",
+        found(track_payload(artists=[{"name": "Orla Quenby"}], title="Kelvor", mix_name="Extended Mix")),
     )
     events: list[RunEvent] = []
 
@@ -864,7 +864,7 @@ async def test_stops_the_run_after_three_consecutive_rejections_of_the_key(
 ) -> None:
     folder = tmp_path / "music"
     for index in range(5):
-        tagged_mp3(folder, f"{index}.mp3", "Adam Beyer", f"Track {index}")
+        tagged_mp3(folder, f"{index}.mp3", "Lior Vance", f"Track {index}")
     api = FakeApi()
     api.on("/beatport/search", "*", failing(403))
     events: list[RunEvent] = []
@@ -891,7 +891,7 @@ async def test_resets_the_rejection_count_on_any_other_answer() -> None:
 
 async def test_reports_an_api_contract_error_to_sentry(tmp_path: Path) -> None:
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
+    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
     broken = track_payload()
     del broken["title"]
     api = FakeApi()

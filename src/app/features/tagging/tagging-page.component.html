@@ -12,32 +12,38 @@
     >
       <app-icon icon name="folder" [size]="16" />
     </app-path-picker>
-    <div class="flex items-center gap-4">
-      <!-- Le bouton reste visible et desactive pendant le run : `TaggingScreen.jsx` le fait
-           disparaitre hors phase `idle`, mais DESIGN.md interdit de masquer une action
-           desactivee, et c'est DESIGN.md qui tranche quand les deux se contredisent. -->
-      @if (running()) {
-        <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel()">
-          <app-icon name="stop" [size]="16" />{{ "tagging.cancel" | translate }}
-        </button>
-      }
-      @let blockedText = blockedReason() ? (blockedReason() | translate) : undefined;
-      <button
-        pButton
-        type="button"
-        [disabled]="!canStart()"
-        [pTooltip]="blockedText"
-        [showDelay]="tooltipDelay"
-        (click)="start()"
-      >
-        <app-icon name="play" [size]="16" />{{ "tagging.start" | translate }}
-      </button>
-    </div>
+    <!-- Un seul bouton d'action, dont le role suit la phase : jamais deux actions du run
+         cote a cote (arbitrage du 2026-10-06, DESIGN.md § Arbitrages). -->
+    @let shown = actionButton();
+    @let blocked = shown.blocked ? (shown.blocked | translate) : undefined;
+    <button
+      pButton
+      type="button"
+      size="small"
+      [severity]="shown.secondary ? 'secondary' : undefined"
+      [outlined]="shown.secondary"
+      [attr.data-action]="shown.action"
+      [disabled]="blocked !== undefined"
+      [pTooltip]="blocked"
+      [tooltipOptions]="tooltip"
+      (click)="shown.run()"
+    >
+      <app-icon [name]="shown.icon" [size]="16" />{{ shown.label | translate }}
+    </button>
   </div>
 
   @if (error(); as shown) {
     <app-error-message [error]="shown" />
   }
+
+  @if (writeFailures() > 0 && !writing()) {
+    <!-- Le texte seul : la relance est le bouton d'action du run, au bout de la ligne du dossier. -->
+    <app-message severity="error" data-write-failures>
+      {{ "tagging.write.failed" | translate: { count: writeFailures() } }}
+    </app-message>
+  }
+
+  <app-rollback-failures [failures]="runRollbackFailures()" />
 
   @if (running()) {
     @let current = progress();
@@ -46,6 +52,42 @@
       [counter]="current ? ('tagging.progress' | translate: current) : undefined"
       [value]="percentage()"
     />
+  } @else if (committed()) {
+    @let written = writeProgress();
+    <!-- Sans ecriture en cours ni palier recu (relance refusee), une barre indeterminee
+         laisserait croire que l'ecriture tourne encore. -->
+    @if (showsWriteBar() || canRestoreRun()) {
+      <div class="flex items-end gap-4">
+        @if (showsWriteBar()) {
+          <app-phase-progress
+            class="min-w-0 flex-1"
+            [label]="'tagging.write.phase' | translate"
+            [counter]="written ? ('tagging.progress' | translate: written) : undefined"
+            [value]="writePercentage()"
+          />
+        }
+        @if (canRestoreRun()) {
+          <!-- Hors de la barre : elle reste masquee quand l'ecriture n'a laisse aucun palier.
+               Jamais a cote du bouton d'action du run. -->
+          @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
+          <button
+            pButton
+            type="button"
+            size="small"
+            [outlined]="true"
+            class="ml-auto shrink-0"
+            data-action="restore-run"
+            [disabled]="filesBusy()"
+            [pTooltip]="restoreBusy"
+            [tooltipOptions]="tooltip"
+            (click)="restoreRun()"
+          >
+            <app-icon [name]="restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
+            {{ "tagging.rollback.run" | translate }}
+          </button>
+        }
+      </div>
+    }
   } @else if (recovery(); as phase) {
     <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run.
          La modale du lien s'ouvre par la ligne du morceau ; sans morceau a rattraper, l'etat
@@ -72,8 +114,13 @@
         [loading]="listing()"
         [interrupted]="interrupted()"
         [recoverable]="recoverableIds()"
+        [frozen]="runFrozen()"
+        [restorableIds]="restorableIds()"
+        [restoringTrackId]="restoringTrackId()"
+        [restoreBlocked]="filesBusy()"
         (arbitrate)="openArbitration($event)"
         (recover)="openRecovery($event)"
+        (restore)="restoreTrack($event)"
       />
     </div>
   } @else {
@@ -84,6 +131,8 @@
       [description]="idleDescription() | translate"
     />
   }
+
+  <app-danger-confirm />
 
   <!-- `contents` : l'hote vide ne doit ni prendre de place ni ajouter un gap-6 a la colonne. -->
   <app-url-recovery-dialog class="contents" />

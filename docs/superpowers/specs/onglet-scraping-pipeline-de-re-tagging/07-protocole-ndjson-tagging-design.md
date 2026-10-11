@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["02-client-techno-scraper-design.md", "03-requete-et-scoring-design.md", "04-cache-et-pochettes-design.md", "05-cle-api-design.md", "06-pipeline-resolution-design.md"]
-date: "2026-09-20"
+date: "2026-10-11"
 ---
 
 # Protocole NDJSON du run de re-tagging
@@ -15,7 +15,7 @@ date: "2026-09-20"
 
 Couvre la commande `start_tagging` et sa charge utile, les événements du run (`run_started`, `progress` en phase `tagging`, `track_resolved`, `arbitration_required`, `run_finished` en phase `network`) avec leurs champs, le handler qui lit la clé, ouvre les caches, construit le client et l'`ArtworkFetcher` puis traduit les événements internes du pipeline, et le passage de la boucle à un dispatch concurrent : le run tourne en tâche de fond pendant que `stdin` continue d'être lu. Couvre aussi la mise à jour de la table du contrat dans ARCHITECTURE.md.
 
-Exclut `resolve_arbitration` et `switch_arbitration_source` (Feature 3), `resolve_by_url` (Feature 4), `commit_run` et `retry_write` (Feature 5), la reprise et le rapport (Feature 6), le miroir TypeScript et l'état côté webview (sub-project 08).
+Exclut `resolve_arbitration` et `switch_arbitration_source` (epic `arbitrage-utilisateur`), `resolve_by_url` (epic `rattrapage-par-url-manuelle`), `commit_run`, `retry_write` et `rollback` (epic `ecriture-des-tags-et-renommage`), la reprise et le rapport (Feature 6), le miroir TypeScript et l'état côté webview (sub-project 08).
 
 ### État livré
 
@@ -23,7 +23,7 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (Feature 3), `resolv
 
 ## Dependencies
 
-- `06-pipeline-resolution-design.md` (statut: implemented) : `run_tagging`, `TaggingRun`, `TrackRecord`, événements internes, `ApiKeyRejectedRunError`.
+- `06-pipeline-resolution-design.md` (statut: implemented) : `open_run`, `resolve_run`, `LiveRun`, `TrackRecord`, événements internes, `RunSources` et `ApiKeyRejectedRunError`.
 - `05-cle-api-design.md` (statut: implemented) : `read_api_key`.
 - `04-cache-et-pochettes-design.md` (statut: implemented) : `DiskCache`, `ResponseCache`, `ArtworkFetcher`, `app_data_dir`.
 - `02-client-techno-scraper-design.md` (statut: implemented) : `TechnoScraperClient`.
@@ -44,25 +44,25 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (Feature 3), `resolv
 
 - **`protocol.py` reste la seule interface publique du sidecar** (ADR-005, ADR-022) : commandes en `extra="forbid"` et `strict`, événements construits en interne. Les modèles du run traduisent les enregistrements du pipeline, ils ne les exposent pas tels quels : le protocole ne porte que ce que l'interface affiche.
 - **Commande `start_tagging`** : `folder` et `thresholds` optionnel. `ThresholdsPayload(floor, ceiling)` valide `0 <= floor <= ceiling <= 100` par un `model_validator`, ce qui produit `malformed_command` en cas de valeurs incohérentes. Absente, la commande laisse le sidecar appliquer ses défauts, seule source des valeurs (ADR-008). La Feature 7 enverra les réglages.
-- **Événement `run_started`**, nouveau dans le contrat : `run_id` et la liste des morceaux avec `track_id`, `file_name`, `artist` et `title` lus. Sans lui, l'interface ne pourrait afficher aucune ligne avant la première résolution, alors que DESIGN.md § Couleurs Sémantiques prévoit l'état « rien n'est encore arrivé sur ce morceau ».
-- **Événement `track_resolved`** : `track_id`, l'état en trois champs (`state`, `resolution`, `failure_reason`), la `source`, l'artiste et le titre que la source écrira (`after`), les scores et le chemin de la pochette.
-  - **`after` est calculé dans le sidecar** : titre suivi de son `mix_name` entre parenthèses quand la source en fournit un et qu'il n'est pas déjà dans le titre, artistes joints par `", "`, remixeurs exclus (ADR-011). Les deux fonctions existent déjà dans `matching.py` pour le scoring : elles deviennent publiques (`full_title`, `credited_artists`) au lieu d'être dupliquées, et la Feature 5 les réutilisera pour écrire les tags. **Précision 2026-10-02** : techno-scraper ne laisse plus la version dans le titre (son ADR-012), `full_title` compose donc toujours « Titre (Mix Name) » sans chercher le mix dans le titre.
+- **Événement `run_started`** : `run_id`, `folder` et la liste des morceaux avec `track_id`, `file_name`, `artist` et `title` lus, plus leurs tags d'origine pour le détail avant / après. Sans lui, l'interface ne pourrait afficher aucune ligne avant la première résolution, alors que DESIGN.md § Couleurs Sémantiques prévoit l'état « rien n'est encore arrivé sur ce morceau ».
+- **Événement `track_resolved`** : `track_id`, l'état en trois champs (`state`, `resolution`, `failure_reason`), la `source`, l'artiste et le titre que la source écrira (`after`), les scores, le chemin de la pochette et les tags qui seront écrits (`tags_after`, nuls pour un non résolu).
+  - **`after` est calculé dans le sidecar** : titre suivi de son `mix_name` entre parenthèses quand la source en fournit un et qu'il n'est pas déjà dans le titre, artistes joints par `", "`, remixeurs exclus (ADR-011). Les deux fonctions existent déjà dans `matching.py` pour le scoring : elles deviennent publiques (`full_title`, `credited_artists`) au lieu d'être dupliquées et l'écriture des tags les réutilise. **Précision 2026-10-02** : techno-scraper ne laisse plus la version dans le titre (son ADR-012), `full_title` compose donc toujours « Titre (Mix Name) » sans chercher le mix dans le titre.
   - **Les scores partent arrondis** en entiers (`artist`, `title`, `average`), l'affichage étant « A 96 · T 92 » (DESIGN.md § Colonnes). `artist` vaut `null` quand la requête n'avait pas d'artiste.
   - **La pochette part en chemin, jamais en base64** : la webview la lit par `convertFileSrc` depuis le cache (`.claude/rules/tauri/sidecar.md`, DESIGN.md § Conventions de Code).
-- **Événement `arbitration_required`** : `track_id`, `source`, `beatport_unavailable` et les candidats en zone grise avec leur artiste, leur titre et leurs scores. La Feature 3 l'étendra avec ce dont sa modale a besoin.
-- **Événement `run_finished`** : `phase: "network"`, `run_id` et les compteurs `resolved`, `unresolved` et `awaiting_arbitration`. Le chemin des rapports arrivera avec la Feature 6, le champ `phase` distinguant déjà cette fin de celle de l'écriture (ARCHITECTURE.md § API).
-- **Deux axes de phase, deux enums** : `Phase` (`extraction`, `tagging`, `url_recovery`, `write`) qualifie un `progress`, c'est l'étape en cours d'une barre ; `RunPhase` (`network`, `write`) qualifie un `run_finished`, c'est la moitié du run qui vient de se clore. Elles partagent la valeur `write` sans être le même type : mypy refuse de les mélanger, et la Feature 5 posera son `write` sur les deux, l'un pour ses `progress`, l'autre pour sa fin. La distinction est écrite dans ARCHITECTURE.md § API.
+- **Événement `arbitration_required`** : `track_id`, `source`, `beatport_unavailable` et les candidats en zone grise avec leur artiste, leur titre et leurs scores. L'arbitrage en complète l'état (label, année, motif d'une liste vide, autre source réaffichable) et le renouvelle en bloc par `arbitration_updated`.
+- **Événement `run_finished`** : `phase: "network"`, `run_id` et les compteurs `resolved`, `unresolved` et `awaiting_arbitration` (`written` et `write_error` ne comptent que la phase d'écriture). Le chemin des rapports arrivera avec la Feature 6, le champ `phase` distinguant cette fin de celle de l'écriture (ARCHITECTURE.md § API).
+- **Deux axes de phase, deux enums** : `Phase` (`extraction`, `tagging`, `url_recovery`, `write`) qualifie un `progress`, c'est l'étape en cours d'une barre ; `RunPhase` (`network`, `write`) qualifie un `run_finished`, c'est la moitié du run qui vient de se clore. Elles partagent la valeur `write` sans être le même type : mypy refuse de les mélanger et l'écriture pose son `write` sur les deux, l'un pour ses `progress`, l'autre pour sa fin. La distinction est écrite dans ARCHITECTURE.md § API.
 - **Erreurs de run**, toutes en `error` avec un `code` que l'interface traduit :
   - `api_key_missing` : aucune clé dans le trousseau, rien ne démarre ;
   - `tagging_folder_unreadable` : le dossier a disparu ou n'en est pas un (sub-project 01) ;
   - `api_key_rejected` : le run s'est arrêté après trois 403 (sub-project 06) ;
   - `tagging_in_progress` : un second `start_tagging` arrive pendant un run.
-- **Boucle concurrente** (`__main__.py`) : `run_loop` enveloppe sa lecture dans un `asyncio.TaskGroup`. `start_tagging` y crée une tâche nommée et référencée, puis la boucle repart lire `stdin` : c'est ce qui permettra à la Feature 3 d'envoyer ses décisions pendant que le réseau tourne (ADR-009, « le pipeline ne s'arrête jamais »). Les autres commandes restent traitées l'une après l'autre.
+- **Boucle concurrente** (`__main__.py`) : `run_loop` enveloppe sa lecture dans un `asyncio.TaskGroup`. `start_tagging` y crée une tâche nommée et référencée, puis la boucle repart lire `stdin` : c'est ce qui permet à l'arbitrage d'envoyer ses décisions pendant que le réseau tourne (ADR-009, « le pipeline ne s'arrête jamais »). Les autres commandes restent traitées l'une après l'autre.
   - un second `start_tagging` pendant qu'une tâche est vivante produit `tagging_in_progress` et ne lance rien ;
   - `shutdown` annule la tâche du run avant de sortir ;
   - l'EOF attend la fin du run : le test d'intégration en dépend, et à la fermeture réelle Tauri arrête le sidecar de toute façon ;
-  - une `TaggerError` de la tâche devient un événement `error`, toute autre exception fait tomber le processus par le `TaskGroup`, comme aujourd'hui pour la boucle (PRODUCTION.md § Alertes).
-- **Handler** `handle_start_tagging` : lit la clé par `asyncio.to_thread`, ouvre les deux caches sous `app_data_dir() / "cache"`, construit `TechnoScraperClient` et `ArtworkFetcher` en context managers, appelle `run_tagging` avec un rappel qui traduit et émet, puis rend `run_finished`. Les transports viennent d'une fonction `tagging_transports()` qui rend `(None, None)` en production : les tests la remplacent par des `MockTransport`, sans toucher au reste (`.claude/rules/pytest/tests.md`).
+  - une `TaggerError` de la tâche devient un événement `error`, toute autre exception fait tomber le processus par le `TaskGroup`, comme pour la boucle (PRODUCTION.md § Alertes).
+- **Handler** `handle_start_tagging` : lit la clé par `asyncio.to_thread`, ouvre les deux caches sous `app_data_dir() / "cache"`, construit `TechnoScraperClient` et `ArtworkFetcher`, ouvre le run par `open_run` et le confie à la session avant la phase réseau (un morceau se tranche dès qu'il attend), résout par `resolve_run` avec un rappel qui traduit et émet, puis émet `run_finished`. Les transports et le résolveur d'hôte des pochettes viennent de `tagging_transports()`, qui rend `None` pour les deux transports et le résolveur réel en production : les tests remplacent les trois par des doubles, sans toucher au reste (`.claude/rules/pytest/tests.md`).
 - **Traduction des événements** : une fonction par événement interne, `match` fermé par `assert_never` (`.claude/rules/python/pattern-matching.md`). Ajouter un événement au pipeline sans le traduire devient une erreur de typage.
 - **Logs** : le handler ne logue rien de plus que le pipeline. Une erreur de run est loguée une seule fois, par la boucle, comme les erreurs métier existantes.
 
@@ -112,9 +112,13 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (Feature 3), `resolv
 - `sidecar/tests/unit/test_protocol_tagging.py` :
   - accepts a start tagging command without thresholds
   - rejects thresholds out of bounds (paramétré : plancher au-dessus du seuil haut, valeur négative, valeur au-delà de cent)
+  - lists every track of a started run
   - rounds the scores of a resolved track
   - renders the artist and the title a source will write (paramétré : avec mix name, sans mix name, mix name déjà dans le titre)
+  - carries no tags after for an unresolved track
   - reports no artist score for a query without artist
+  - carries the grey zone candidates of an arbitration
+  - maps the pipeline progress to the tagging phase
 
 ### Integration
 - `sidecar/tests/integration/test_ndjson_tagging.py` :
@@ -124,6 +128,8 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (Feature 3), `resolv
   - refuses a second tagging run while one is in progress
   - reports a missing api key without calling the api
   - reports a rejected api key and never finishes the run
+  - refuses thresholds out of bounds
+  - carries the tags before and after field by field
 
 Aucun test ne vérifie pydantic ni asyncio : chacun échoue contre une régression de notre contrat, de notre traduction ou de notre boucle.
 
@@ -131,7 +137,7 @@ Aucun test ne vérifie pydantic ni asyncio : chacun échoue contre une régressi
 
 - **Dossier vide** : `run_started` avec une liste vide, aucun `progress`, `run_finished` à zéro partout.
 - **`shutdown` pendant un run** : la tâche est annulée, aucun `run_finished` n'est émis, le processus s'arrête proprement.
-- **Morceau en attente d'arbitrage à la fin du run** : il compte dans `awaiting_arbitration` de `run_finished`. La Feature 3 le fera passer en résolu plus tard, la Feature 4 le rattrapera par URL.
+- **Morceau en attente d'arbitrage à la fin du run** : il compte dans `awaiting_arbitration` de `run_finished`. L'arbitrage le fera passer en résolu ensuite et le rattrapage par URL reprend un morceau non résolu.
 - **Pochette absente** : `artwork_path` vaut `null`, le morceau reste résolu.
 - **Chemin de pochette hors `appLocalDataDir()`** : impossible, le cache vit sous cette racine, que le scope asset de la webview autorise (sub-project 09).
 
@@ -140,8 +146,8 @@ Aucun test ne vérifie pydantic ni asyncio : chacun échoue contre une régressi
 ### Décision : Comment le run tourne pendant que la boucle lit `stdin`
 
 **Options envisagées :**
-- **A. Tâche de fond dans un `TaskGroup` au niveau de la boucle** : la boucle reste disponible, une exception inattendue du run fait tomber le processus comme aujourd'hui, et l'EOF attend la fin du run.
-- **B. Traitement séquentiel, comme les commandes actuelles** : la boucle serait bloquée pendant tout le run, donc incapable de recevoir les décisions d'arbitrage de la Feature 3, ce qu'ADR-009 exige.
+- **A. Tâche de fond dans un `TaskGroup` au niveau de la boucle** : la boucle reste disponible, une exception inattendue du run fait tomber le processus et l'EOF attend la fin du run.
+- **B. Traitement séquentiel, comme les commandes actuelles** : la boucle serait bloquée pendant tout le run, donc incapable de recevoir les décisions d'arbitrage, ce qu'ADR-009 exige.
 - **C. Un thread dédié au run** : même disponibilité, mais deux boucles d'événements et un accès concurrent à `stdout` à synchroniser.
 
 **Choix : A**

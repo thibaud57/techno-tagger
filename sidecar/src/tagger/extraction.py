@@ -6,24 +6,20 @@ source (ADR-019, ADR-020). Rien n'interrompt le run : introuvables, homonymes
 departages et copies en echec sont consignes, jamais leves.
 """
 
-import errno
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
+from typing import TYPE_CHECKING, ClassVar, NamedTuple
 
 from tagger.errors import TaggerError
+from tagger.file_failures import FileFailureReason, file_failure_reason
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-# Codes d'erreur Windows, absents des autres plateformes.
-WINDOWS_LOCK_ERRORS: Final = frozenset({32, 33})  # SHARING_VIOLATION, LOCK_VIOLATION
-WINDOWS_PATH_TOO_LONG: Final = 206  # FILENAME_EXCED_RANGE
 
 
 @verify(UNIQUE)
@@ -42,21 +38,6 @@ class DuplicateCriterion(StrEnum):
     PATH_ORDER = auto()
 
 
-@verify(UNIQUE)
-class ExtractionFailureReason(StrEnum):
-    """Motifs repris de la nomenclature d'ecriture d'ARCHITECTURE.md § Backend :
-    une meme panne de systeme de fichiers porte le meme nom dans les deux rapports
-    que produit un run.
-    """
-
-    PERMISSION_DENIED = auto()
-    DISK_FULL = auto()
-    PATH_TOO_LONG = auto()
-    FILE_LOCKED = auto()
-    FILE_MISSING = auto()
-    WRITE_FAILED = auto()
-
-
 @dataclass(frozen=True, slots=True)
 class DiscardedCandidate:
     """Homonyme ecarte, avec de quoi le retrouver a la main depuis le rapport."""
@@ -67,11 +48,7 @@ class DiscardedCandidate:
 
 @dataclass(frozen=True, slots=True)
 class DuplicateResolution:
-    """Trace d'un choix automatique entre homonymes.
-
-    Ce que la CLI d'origine faisait silencieusement, et qui est la vraie regression
-    corrigee ici : le choix reste automatique, mais il devient verifiable.
-    """
+    """Trace d'un choix automatique entre homonymes : automatique, mais verifiable."""
 
     file_name: str
     kept_path: Path
@@ -92,7 +69,7 @@ class ExtractionFailure:
     """Morceau trouve mais non transfere."""
 
     file_name: str
-    reason: ExtractionFailureReason
+    reason: FileFailureReason
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,12 +117,11 @@ class DestinationFolderUnwritableError(ExtractionError):
 def pick_file(file_name: str, candidates: Sequence[Path]) -> PickedFile:
     """Retient un chemin parmi des homonymes et rend la trace du choix.
 
-    Departage dans l'ordre : taille decroissante, puis ordre alphabetique
-    du chemin a taille egale. Ce second critere n'est pas cosmetique : sans lui, deux
-    runs sur le meme dossier pourraient retenir deux fichiers differents.
+    Departage dans l'ordre : taille decroissante, puis ordre alphabetique du chemin a
+    taille egale, sans quoi deux runs sur le meme dossier pourraient retenir deux
+    fichiers differents.
 
-    Rend `None` en `resolution` quand il n'y avait qu'un candidat : il n'y a alors
-    rien a consigner dans le rapport, et rien a mesurer non plus.
+    `resolution` vaut `None` quand il n'y avait qu'un candidat : rien a consigner.
     """
     if len(candidates) == 1:
         return PickedFile(candidates[0], None)
@@ -179,9 +155,8 @@ def build_source_index(
 ) -> dict[str, tuple[Path, ...]]:
     """Indexe le dossier source en une passe : nom de fichier vers ses chemins.
 
-    Une recherche par nom relirait l'arborescence autant de fois qu'il y a de
-    morceaux, et devrait de toute facon la parcourir entierement pour reperer les
-    homonymes a departager.
+    Une recherche par nom relirait l'arborescence a chaque morceau, et devrait de
+    toute facon la parcourir entierement pour reperer les homonymes.
 
     Les cles sont en minuscules : la cible est Windows, dont le systeme de fichiers
     est insensible a la casse. `excluded` ecarte un sous-dossier de `source`, compare
@@ -200,28 +175,6 @@ def build_source_index(
     logger.info("source indexed with %d names source=%s", len(grouped), source.name)
 
     return {name: tuple(paths) for name, paths in grouped.items()}
-
-
-def failure_reason(error: OSError) -> ExtractionFailureReason:
-    """Traduit une erreur systeme en motif du vocabulaire du projet.
-
-    Le code Windows se lit avant le type de l'exception : un fichier tenu par un
-    lecteur audio leve `PermissionError` comme un vrai refus de droits, et seul
-    `winerror` les distingue.
-    """
-    windows_code = getattr(error, "winerror", None)
-    if windows_code in WINDOWS_LOCK_ERRORS:
-        return ExtractionFailureReason.FILE_LOCKED
-    if windows_code == WINDOWS_PATH_TOO_LONG or error.errno == errno.ENAMETOOLONG:
-        return ExtractionFailureReason.PATH_TOO_LONG
-    if isinstance(error, FileNotFoundError):
-        return ExtractionFailureReason.FILE_MISSING
-    if isinstance(error, PermissionError):
-        return ExtractionFailureReason.PERMISSION_DENIED
-    if error.errno == errno.ENOSPC:
-        return ExtractionFailureReason.DISK_FULL
-
-    return ExtractionFailureReason.WRITE_FAILED
 
 
 class PreparedRun(NamedTuple):
@@ -318,7 +271,7 @@ def extract(
                     extracted.append(file_name)
                     transferred.add(key)
             except OSError as error:
-                reason = failure_reason(error)
+                reason = file_failure_reason(error)
                 logger.warning("transfer failed track=%s reason=%s", file_name, reason)
                 failures.append(ExtractionFailure(file_name=file_name, reason=reason))
 

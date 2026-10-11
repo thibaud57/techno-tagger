@@ -97,27 +97,27 @@ async def no_sleep(_delay: float) -> None:
 def track_payload(**overrides: object) -> dict[str, object]:
     """Un `Track` Beatport complet, surchargeable champ par champ."""
     payload: dict[str, object] = {
-        "id": "17492013",
-        "title": "Your Mind",
+        "id": "99000101",
+        "title": "Dim Orbit",
         "mix_name": "Extended Mix",
         "artists": [
-            {"id": "1", "name": "Adam Beyer", "kind": "artist", "social_links": []},
+            {"id": "1", "name": "Lior Vance", "kind": "artist", "social_links": []},
         ],
         "remixers": [],
         "release": {
             "id": "4200",
-            "title": "Your Mind",
-            "catalog_number": "DC287",
+            "title": "Dim Orbit",
+            "catalog_number": "KS287",
             "release_date": "2023-06-16",
             "artwork_url": "https://geo-media.beatport.com/image_size/500x500/cover.jpg",
         },
-        "label": {"id": "8", "name": "Drumcode", "kind": "label", "followers": 1000},
+        "label": {"id": "8", "name": "Kestrel", "kind": "label", "followers": 1000},
         "genre": "Techno (Peak Time / Driving)",
         "bpm": 134,
         "key": "4A",
-        "isrc": "SE5RN2312001",
+        "isrc": "ZZ0AA2300001",
         "track_number": 1,
-        "url": "https://www.beatport.com/track/your-mind/17492013",
+        "url": "https://www.beatport.com/track/dim-orbit/99000101",
         "source": "beatport",
     }
     return payload | overrides
@@ -167,18 +167,18 @@ async def test_sends_a_beatport_search_to_the_search_route_with_the_query_and_ty
     requests: list[httpx2.Request] = []
 
     async with make_client(_recording(requests, page_payload())) as client:
-        await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert requests[0].url.host == "techno-scraper.empiricmind.fr"
     assert requests[0].url.path == "/beatport/search"
-    assert dict(requests[0].url.params) == {"q": "Adam Beyer Your Mind", "type": "tracks"}
+    assert dict(requests[0].url.params) == {"q": "Lior Vance Dim Orbit", "type": "tracks"}
 
 
 async def test_sends_the_api_key_header_on_every_request() -> None:
     requests: list[httpx2.Request] = []
 
     async with make_client(_recording(requests, page_payload())) as client:
-        await client.search(Source.BANDCAMP, "Amelie Lens Basiel")
+        await client.search(Source.BANDCAMP, "Orla Quenby Kelvor")
 
     assert requests[0].headers["X-API-Key"] == TEST_API_KEY
 
@@ -187,15 +187,15 @@ async def test_maps_each_item_to_a_track_candidate_with_its_release_label_and_cr
     requests: list[httpx2.Request] = []
 
     async with make_client(_recording(requests, page_payload(track_payload()))) as client:
-        candidates = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        candidates = await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     candidate = candidates[0]
-    assert candidate.title == "Your Mind"
+    assert candidate.title == "Dim Orbit"
     assert candidate.mix_name == "Extended Mix"
-    assert candidate.artists == (Credit(name="Adam Beyer"),)
-    assert candidate.label == Credit(name="Drumcode")
+    assert candidate.artists == (Credit(name="Lior Vance"),)
+    assert candidate.label == Credit(name="Kestrel")
     assert candidate.release is not None
-    assert candidate.release.catalog_number == "DC287"
+    assert candidate.release.catalog_number == "KS287"
     assert candidate.source is Source.BEATPORT
 
 
@@ -204,7 +204,7 @@ async def test_ignores_fields_the_candidate_model_does_not_declare() -> None:
     item = track_payload(waveform_url="https://example.invalid/wave.png")
 
     async with make_client(_recording(requests, page_payload(item))) as client:
-        candidates = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        candidates = await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert "waveform_url" not in candidates[0].model_dump()
 
@@ -231,15 +231,15 @@ async def test_fetches_a_beatport_track_by_id() -> None:
     requests: list[httpx2.Request] = []
 
     async with make_client(_recording(requests, track_payload())) as client:
-        candidate = await client.fetch_beatport_track("17492013")
+        candidate = await client.fetch_beatport_track("99000101")
 
-    assert requests[0].url.path == "/beatport/tracks/17492013"
-    assert candidate.id == "17492013"
+    assert requests[0].url.path == "/beatport/tracks/99000101"
+    assert candidate.id == "99000101"
 
 
 async def test_fetches_a_bandcamp_track_by_url() -> None:
     requests: list[httpx2.Request] = []
-    url = "https://amelielens.bandcamp.com/track/basiel"
+    url = "https://orlaquenby.bandcamp.com/track/kelvor"
     body = track_payload(source="bandcamp", url=url, mix_name=None)
 
     async with make_client(_recording(requests, body)) as client:
@@ -525,7 +525,7 @@ async def test_raises_api_key_rejected_on_a_403_without_retrying() -> None:
 
     async with make_client(_answering(requests, response)) as client:
         with pytest.raises(ApiKeyRejectedError):
-            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert len(requests) == 1
 
@@ -543,7 +543,7 @@ async def test_raises_source_unavailable_on_server_errors_without_retrying(
 
     async with make_client(_answering(requests, response)) as client:
         with pytest.raises(SourceUnavailableError) as error:
-            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert error.value.reason == api_code
     assert len(requests) == 1
@@ -557,7 +557,7 @@ async def test_carries_the_status_the_api_code_and_the_request_id() -> None:
 
     async with make_client(_answering(requests, response)) as client:
         with pytest.raises(SourceUnavailableError) as error:
-            await client.search(Source.BANDCAMP, "Amelie Lens Basiel")
+            await client.search(Source.BANDCAMP, "Orla Quenby Kelvor")
 
     assert error.value.source is Source.BANDCAMP
     assert error.value.status == 504
@@ -570,7 +570,7 @@ async def test_raises_source_unavailable_on_a_local_timeout_without_retrying() -
 
     async with make_client(_raising(requests, httpx2.ReadTimeout)) as client:
         with pytest.raises(SourceUnavailableError) as error:
-            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert error.value.reason == "timeout"
     assert error.value.status is None
@@ -582,7 +582,7 @@ async def test_retries_a_network_error_twice_then_raises_source_unavailable() ->
 
     async with make_client(_raising(requests, httpx2.ConnectError)) as client:
         with pytest.raises(SourceUnavailableError) as error:
-            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert error.value.reason == "network"
     assert len(requests) == 3
@@ -598,7 +598,7 @@ async def test_returns_the_result_when_a_network_error_is_followed_by_a_success(
         return httpx2.Response(200, json=page_payload(track_payload()))
 
     async with make_client(flaky) as client:
-        candidates = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        candidates = await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert len(candidates) == 1
 
@@ -613,7 +613,7 @@ async def test_waits_one_then_two_seconds_between_attempts() -> None:
     client = make_client(_raising(requests, httpx2.ConnectError), sleep=recording_sleep)
     async with client:
         with pytest.raises(SourceUnavailableError):
-            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
     assert waited == [1.0, 2.0]
 
@@ -633,7 +633,7 @@ async def test_raises_api_contract_error_on_a_422() -> None:
 
     async with make_client(_answering(requests, response)) as client:
         with pytest.raises(ApiContractError):
-            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 
 
 async def test_raises_api_contract_error_on_a_response_that_does_not_validate() -> None:
@@ -644,7 +644,7 @@ async def test_raises_api_contract_error_on_a_response_that_does_not_validate() 
 
     async with make_client(_answering(requests, response)) as client:
         with pytest.raises(ApiContractError):
-            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
 ```
 
 - [ ] **Step 2: Vérifier que les tests échouent**

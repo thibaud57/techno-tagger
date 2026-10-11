@@ -8,6 +8,7 @@ import asyncio
 import io
 import json
 import queue
+import threading
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, override
 
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
     from pathlib import Path
 
+    import pytest
+
 # Borne de chaque attente : un evenement qui n'arrive pas echoue au lieu de geler la suite.
 EXPECT_TIMEOUT = 10
 
@@ -24,6 +27,19 @@ EXPECT_TIMEOUT = 10
 def start_tagging(folder: Path, **payload: object) -> str:
     """Ligne `start_tagging` prete a injecter."""
     return json.dumps({"command": "start_tagging", "folder": str(folder), **payload}) + "\n"
+
+
+def extraction_command(
+    library: Path, dump: Path, destination: Path, playlist_name: str = "test playlist"
+) -> dict[str, object]:
+    """Champs d'un `extract_playlist`, a envoyer tels quels ou en ligne."""
+    return {
+        "command": "extract_playlist",
+        "source_folder": str(library),
+        "destination_folder": str(destination),
+        "playlist_path": str(dump),
+        "playlist_name": playlist_name,
+    }
 
 
 def drive_raw(commands: str) -> str:
@@ -121,3 +137,40 @@ async def conversation() -> AsyncIterator[Conversation]:
         talk.hang_up()
         async with asyncio.timeout(EXPECT_TIMEOUT):
             await loop
+
+
+async def resolved_run(talk: Conversation, folder: Path) -> str:
+    """Lance un run sur `folder` et rend son `run_id`, phase reseau finie."""
+    talk.send(command="start_tagging", folder=str(folder))
+    started = await talk.expect("run_started")
+    await talk.expect("run_finished", phase="network")
+    run_id = started["run_id"]
+    assert isinstance(run_id, str)
+    return run_id
+
+
+class HeldCall:
+    """Appel retenu dans son thread : `reached` a son arrivee, `release` le lache."""
+
+    def __init__(self) -> None:
+        self.reached = threading.Event()
+        self.release = threading.Event()
+
+    async def wait_reached(self) -> None:
+        """Echoue a la cause : sans quoi le test poursuivrait sur un appel qui n'est pas retenu."""
+        if not await asyncio.to_thread(self.reached.wait, EXPECT_TIMEOUT):
+            raise TimeoutError("held call never reached")
+
+
+def held_call(monkeypatch: pytest.MonkeyPatch, module: object, name: str) -> HeldCall:
+    """Remplace `module.name` par un appel retenu jusqu'a `release`."""
+    held = HeldCall()
+    real = getattr(module, name)
+
+    def wrapper(*args: object, **kwargs: object) -> object:
+        held.reached.set()
+        held.release.wait(timeout=EXPECT_TIMEOUT)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(module, name, wrapper)
+    return held

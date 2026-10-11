@@ -33,8 +33,7 @@
         class="shrink-0"
         [disabled]="extracting()"
         [pTooltip]="extracting() ? ('playlist.summary.expandDisabled' | translate) : undefined"
-        [showDelay]="tooltipDelay"
-        tooltipPosition="left"
+        [tooltipOptions]="tooltip"
         (click)="expandForm()"
       >
         {{ "playlist.summary.expand" | translate }}
@@ -145,19 +144,17 @@
       <ng-template #item let-option>{{ option.labelKey | translate }}</ng-template>
     </p-selectbutton>
 
-    <!-- Sur la ligne du mode, a la largeur des libelles et des controles reunis : la
-         grille moins la colonne des chemins (le `100%` d'un item de grille) et le gap
-         `--form-gap` de la grille. `max-w-full` : des libelles plus longs retreciraient
-         le bouton au lieu de lui faire recouvrir le mode. -->
+    <!-- Sur la ligne du mode, a la largeur des libelles et des controles reunis : la grille
+         moins la colonne des chemins (le `100%` d'un item) et le gap. `max-w-full` : des
+         libelles plus longs retreciraient le bouton au lieu de lui faire recouvrir le mode. -->
     <button
       pButton
       type="button"
       size="small"
       class="col-start-3 w-[calc(100cqw-100%-var(--form-gap))] max-w-full justify-self-end"
       [disabled]="!canExtract()"
-      [pTooltip]="missingHint() ?? undefined"
-      [showDelay]="tooltipDelay"
-      tooltipPosition="left"
+      [pTooltip]="extractHint() ?? undefined"
+      [tooltipOptions]="tooltip"
       (click)="extract()"
     >
       {{ "playlist.extract" | translate }}

@@ -6,7 +6,7 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: []
-date: "2026-10-02"
+date: "2026-10-11"
 ---
 
 # Client techno-scraper : résolution d'une URL de morceau
@@ -40,13 +40,13 @@ Aucune : ce sub-project est autoporté.
 ## Architecture approach
 
 - **Couche anti-corruption** (ARCHITECTURE.md § Patterns Utilisés, `.claude/rules/techno-scraper/contrat.md`) : les formes d'URL acceptées recopient les contraintes des routes de l'API et de SoundCloud. Elles appartiennent au contrat et vivent dans `scraper_client.py` : un changement côté API ne touche que ce fichier.
-- **La reconnaissance d'URL vit dans le sidecar seul** (décision du propriétaire, 2026-09-29) : c'est la règle qui décide des sources acceptées, SoundCloud n'entrant que par là (ADR-009). L'interface ne garde aucune copie des hôtes. Le sub-project 05 en tire l'écart à la maquette et à DESIGN.md (« validation de l'hôte avant envoi »).
+- **La reconnaissance d'URL vit dans le sidecar seul** (décision du propriétaire, 2026-09-29) : c'est la règle qui décide des sources acceptées, SoundCloud n'entrant que par là (ADR-009). L'interface ne garde aucune copie des hôtes. Le sub-project 05 en tire l'écart à la maquette (DESIGN.md § Arbitrages, « Zone hôte du rattrapage »).
 - **Un seul point d'entrée public** `fetch_by_url(url) -> TrackCandidate`. Un parseur privé et pur rend la source et la cible de la requête, `fetch_by_url` appelle ensuite `fetch_beatport_track`, `fetch_bandcamp_track` ou la résolution SoundCloud. Le sub-project 02 n'a pas à savoir quelle source exige quoi.
 - **Normalisation avant contrôle** : espaces de bord retirés, découpage par `urllib.parse.urlsplit`, hôte en minuscules, query, fragment et `/` final retirés, schéma `http` réécrit en `https`. Motifs de chemin compilés une fois, ancrés, groupes nommés (`.claude/rules/python/stdlib-donnees.md`) :
 
   | Source | Hôtes acceptés | Chemin | Requête émise |
   |---|---|---|---|
-  | Beatport | `www.beatport.com`, `beatport.com` | `/track/<slug>/<id>`, id numérique | `/beatport/tracks/{id}` |
+  | Beatport | `www.beatport.com`, `beatport.com` | `[/<langue>]/track/<slug>/<id>`, id numérique, segment de langue facultatif (`xx` ou `xx-xx`) | `/beatport/tracks/{id}` |
   | Bandcamp | `<sous-domaine>.bandcamp.com` | `/track/<slug>` | `/bandcamp/tracks?url=` avec l'URL normalisée |
   | SoundCloud | `soundcloud.com`, `www.soundcloud.com`, `m.soundcloud.com` | `/<utilisateur>/<slug>` (deux segments exactement) | `/soundcloud/resolve?url=` avec l'hôte réécrit en `soundcloud.com` |
   | SoundCloud, lien court | `on.soundcloud.com` | `/<code>` (un segment) | `/soundcloud/resolve?url=` |
@@ -56,7 +56,7 @@ Aucune : ce sub-project est autoporté.
 - **Réponse de `/soundcloud/resolve`** : la route rend `UserProfile | Track`, la clé `profile` signalant un profil (`docs/knowledges/techno-scraper.md`). La réponse est validée contre l'union d'un `TrackCandidate` et d'une enveloppe profil réduite à cette clé : un profil lève `UnsupportedTrackUrlError`, jamais une `ApiContractError`. `tracks_cursor` n'est jamais envoyé, il rendrait `400 cursor_scope_mismatch` sur un morceau.
 - **Candidat lu tel que rendu** : `title`, `mix_name`, `artists`, `remixers` et `label` arrivent normalisés depuis techno-scraper 4.0.0 (ADR-012 de techno-scraper). Le client ne les redécoupe pas, `source_title` reste ignoré (`.claude/rules/techno-scraper/contrat.md`).
 - **Réponses de l'API** : la table de traduction existante s'applique telle quelle. Un `404` donne `TrackNotFoundError` (morceau supprimé ou privé, lien court vers une playlist), un `503 quota_exceeded` SoundCloud donne `SourceUnavailableError` comme tout `5xx`, un `422` malgré la normalisation donne `ApiContractError` (dérive du contrat).
-- **Sémaphore SoundCloud de 5**, constante `SOUNDCLOUD_CONCURRENCY` commentée comme miroir de la borne de l'API (techno-scraper, `core/limits.py`) et non comme réglage local (ADR-017, `.claude/rules/python/asyncio.md`). `_request`, `_get` et `_translate` passent de `SearchSource` à `Source`, `search` restant fermé sur Beatport et Bandcamp (`.claude/rules/python/type-hints.md`).
+- **Sémaphore SoundCloud de 5**, constante `SOUNDCLOUD_CONCURRENCY` commentée comme miroir de la borne de l'API (techno-scraper, `core/limits.py`) et non comme réglage local (ADR-017, `.claude/rules/python/asyncio.md`). `_request`, `_get` et `_translate` sont typés sur `Source`, `search` restant fermé sur Beatport et Bandcamp (`SearchSource`) (`.claude/rules/python/type-hints.md`).
 - **Cache** : la requête passe par `_get`, donc par `ResponseCache` sans changement. L'URL normalisée sert de clé : la même URL collée avec ou sans query tombe sur la même entrée.
 - **Docs** : ARCHITECTURE.md et ADR-017 se modifient avec le skill `architecture-doc`, la fiche avec `knowledge-doc`, la rule avec `rules-doc`.
 - **Qualité** : Ruff et Mypy strict (`.claude/rules/ruff/lint-format.md`, `.claude/rules/mypy/strict.md`), modèles selon `.claude/rules/pydantic/modeles.md`, client selon `.claude/rules/httpx2/client.md`, imports selon `.claude/rules/python/imports-modules.md`.
@@ -64,9 +64,9 @@ Aucune : ce sub-project est autoporté.
 ## Acceptance criteria
 
 ### Scénario 1 : URL Beatport
-**GIVEN** l'URL `https://www.beatport.com/track/your-mind/22708005?utm_source=share`
+**GIVEN** l'URL `https://www.beatport.com/track/dim-orbit/99000202?utm_source=share`
 **WHEN** le client la résout
-**THEN** une seule requête part sur `/beatport/tracks/22708005`
+**THEN** une seule requête part sur `/beatport/tracks/99000202`
 **AND** le client rend le `TrackCandidate` de la réponse
 
 ### Scénario 2 : URL Bandcamp copiée avec une query
@@ -75,9 +75,9 @@ Aucune : ce sub-project est autoporté.
 **THEN** la requête part sur `/bandcamp/tracks` avec `url=https://artist.bandcamp.com/track/some-track`
 
 ### Scénario 3 : URL SoundCloud mobile
-**GIVEN** l'URL `https://m.soundcloud.com/drumcode/kasia-faithless-tarantula-2?si=abc`
+**GIVEN** l'URL `https://m.soundcloud.com/kestrel/zelka-larkspur-mothlight-2?si=abc`
 **WHEN** le client la résout
-**THEN** la requête part sur `/soundcloud/resolve` avec `url=https://soundcloud.com/drumcode/kasia-faithless-tarantula-2`, sans `tracks_cursor`
+**THEN** la requête part sur `/soundcloud/resolve` avec `url=https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2`, sans `tracks_cursor`
 **AND** le client rend un `TrackCandidate` de source `soundcloud`
 
 ### Scénario 4 : URL qui ne désigne pas un morceau
@@ -105,16 +105,19 @@ Aucune : ce sub-project est autoporté.
 
 ### Unit
 - `sidecar/tests/unit/test_scraper_client_urls.py` :
-  - resolves a beatport url through the track id route
+  - resolves a beatport url through the track id route (paramétré : avec query, hôte nu, segment de langue `fr` `de` `es` `pt-br` ; `ids` en anglais)
   - resolves a bandcamp track url through the bandcamp track route
+  - drops the query string, the fragment and the trailing slash before sending (paramétré sur Bandcamp, espaces de bord compris)
+  - lowercases the host
+  - rewrites an http url to https
+  - refuses an url that is not a track without sending any request (paramétré : album Bandcamp, sortie Beatport, segment non langue Beatport, hôte inconnu, schéma absent, autre schéma, URL mal formée, chaîne vide)
+  - keeps the pasted url out of the refusal
+  - raises track not found when the api answers 404 for a well formed url
   - resolves a soundcloud track url through the resolve route without a tracks cursor
   - sends a soundcloud short link to the resolve route
-  - drops the query string, the fragment and the trailing slash before sending (paramétré par source, `ids` en anglais)
-  - lowercases the host and rewrites the www and mobile soundcloud hosts
-  - rewrites an http url to https
-  - refuses an url that is not a track without sending any request (paramétré : bandcamp album, soundcloud playlist, soundcloud profile, beatport release, unknown host, missing scheme)
+  - rewrites the www and mobile soundcloud hosts
+  - refuses a soundcloud url that is not a track without sending any request (paramétré : playlist, profil, lien court sans code)
   - refuses a soundcloud url that resolves to a profile
-  - raises track not found when the api answers 404 for a well formed url
 - `sidecar/tests/unit/test_scraper_client_concurrency.py` :
   - never keeps more than five soundcloud requests in flight
 
@@ -122,7 +125,7 @@ Aucune : ce sub-project est autoporté.
 
 ## Edge cases
 
-- **Beatport avec préfixe de langue ou forme inconnue** (`/fr/track/...`) : refusé en `unsupported_url`. La forme se reconnaît sur l'URL publique que l'API elle-même rend, un préfixe s'ajoutera sur un cas réel constaté.
+- **Beatport avec segment de langue** (`/fr/track/...`, `/de/`, `/pt-br/`) : accepté, le segment facultatif `xx` ou `xx-xx` précédant `/track/` est ignoré. Le site copie ses liens avec ce segment que l'API ne rend pas : le cas réel est arrivé le 2026-10-11 (lien copié depuis le site en français). Un segment qui n'est pas un code de langue (`/french/track/...`) ou toute autre forme inconnue reste refusé en `unsupported_url`.
 - **Sous-page de profil SoundCloud à deux segments** (`/<utilisateur>/likes`) : passe le contrôle local. L'API rend un profil (`unsupported_url`) ou un `404` (`TrackNotFoundError`). Lister les mots réservés de SoundCloud ferait vivre ici une connaissance de la source que SoundCloud tranche lui-même.
 - **Lien court `on.soundcloud.com` vers une playlist** : impossible à distinguer sans appel, l'API rend `404`, donc `TrackNotFoundError`.
 - **Quota SoundCloud épuisé** (`503 quota_exceeded`) : `SourceUnavailableError`, comme toute source injoignable.

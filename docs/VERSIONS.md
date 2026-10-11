@@ -1,7 +1,7 @@
 ---
 title: "VERSIONS - Matrice de compatibilité (Fullstack)"
 description: "Versions des dépendances du sidecar Python, de la webview Angular et de la coquille Tauri, compatibilité croisée, configuration et migration."
-date: "2026-10-09"
+date: "2026-10-11"
 keywords: ["versions", "dependencies", "compatibility", "setup", "migration", "fullstack", "tauri", "angular", "python"]
 scope: ["docs", "config", "setup"]
 technologies: ["Python", "Angular", "Tauri", "Rust"]
@@ -200,7 +200,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - Pur Python, aucune dépendance hors bibliothèque standard : c'est précisément l'argument de l'[ADR-011](adrs/011-politique-ecriture-tags.md) contre pytaglib. Aucun hook PyInstaller dédié n'existe dans `pyinstaller-hooks-contrib`, et aucun n'est nécessaire
 - Livre un `py.typed`, donc typé pour Mypy strict sans stub externe
 - **WAV** : seul le chunk ID3v2 est supporté, le chunk RIFF/INFO ne l'est pas. Le chunk est écrit en minuscules (`id3 `) là où d'autres implémentations attendent `ID3 `. La lecture côté mutagen est insensible à la casse, les autres logiciels pas forcément
-- **ID3v2.3** : `save(v2_version=3)` repasse les frames texte d'UTF-8 en UTF-16 et joint les valeurs multiples avec `v23_sep` (défaut `/`). Le `v23_sep=None` est déconseillé par la doc, il produit des séparateurs nuls que « some implementations might get confused about »
+- **ID3v2.3** : `save(v2_version=3)` repasse les frames texte d'UTF-8 en UTF-16, mais ne convertit pas `TDRC` ni `TDOR` : sans `update_to_v23()` préalable ils restent sur le disque sous un en-tête v2.3 (constaté le 2026-10-06 sur 1.48.1). techno-tagger écrit une seule chaîne par champ, `v23_sep` ne lui sert donc pas, et n'écrit aucun `TDOR` : seul un `TDOR` déjà présent dans le fichier est converti en `TORY`
 
 **Recommandation** : ⚠️ Retenu, sans alternative crédible. Deux points à couvrir par des tests, tous deux dans le périmètre déjà prévu par [ARCHITECTURE.md § Stratégie de Tests](ARCHITECTURE.md#stratégie-de-tests) :
 1. `EasyID3` combiné à `v2_version=3` a produit historiquement une frame `TDRC` v2.4 vide en plus du `TYER` v2.3 attendu (issue #188, fermée sans détail de correctif vérifiable). Écrire l'assertion sur le contenu réel du fichier, pas sur le retour de l'API
@@ -498,6 +498,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 - `peerDependencies` de 22.1.2 : `@angular/core`, `common`, `forms`, `router`, `platform-browser` et `cdk` en `^22.1.0`. **La contrainte est `^22.1.0`, pas `22.x`** : un projet resté sur Angular 22.0.0 déclencherait un avertissement de peer dependency. `@angular/cdk` n'étant tiré par aucun autre paquet, il est à déclarer explicitement
 - Dépendances directes : `@primeuix/utils`, `@primeuix/motion`, `@primeuix/styled`, `@primeuix/styles ^3.0.0`, `@primeicons/angular ^8.0.0`, `@primeui/license-manager`
 - **La clé de licence ne couvre que les versions publiées avant son expiration.** `providePrimeNG` compare la date de sortie gravée dans la version (`RELEASE_DATE`, `2026-09-29` en 22.1.2) à l'échéance de la clé, et affiche le bandeau « Invalid PrimeUI License » au-delà comme en l'absence de clé. Un build local sans `PRIMENG_LICENSE_KEY` l'affiche donc aussi (relevé le 2026-10-02 sur un build de release). Termes de la Community License, verbatim de primeui.dev : « Community Licenses are valid for 12 months from the date of issue », renouvelables gratuitement, avec « A 30-day grace period is provided after expiration »
+- **Scroll virtuel de `p-table`** : `virtualScrollItemSize` ne mesure aucune ligne et `#expandedrow` n'est pas supporté avec `[virtualScroll]`. Le détail déplié sous une ligne de la liste du run repose donc sur une marge non documentée du scroller : avec `virtualScrollOptions.numToleratedItems` fourni, il rend toujours au moins cette valeur moins un de lignes au-dessus de la première visible (lu dans `primeng-scroller.mjs` 22.1.2 le 2026-10-10). À revérifier à chaque montée de PrimeNG, cf. [knowledges/primeng.md § Détail déplié sous une ligne virtualisée](knowledges/primeng.md#détail-déplié-sous-une-ligne-virtualisée)
 - **Tabs et router** : aucune suppression formelle d'un « mode router » dans le guide de migration, mais plusieurs issues ouvertes (#17563, #17505, #11999) décrivent l'état actif d'onglet non synchronisé avec `routerLink`. La dizaine de lignes de dérivation depuis l'URL prévue par [ARCHITECTURE.md § Navigation](ARCHITECTURE.md#navigation) reste donc la bonne approche
 
 **Recommandation** : ⚠️ **Retenu, l'[ADR-003](adrs/003-primeng-community-license.md) ayant déjà instruit la sortie du code du dépôt public et la Community License.** Le désarchivage ne change rien à la décision : le dépôt rouvert ne sert que la lignée 21.x. Un seul point lui échappe, à ajouter à ses Négatives : le paquet d'icônes bascule sous la même licence, ce qui étend la dépendance à PrimeTek au-delà des composants (cf. [Conflits Potentiels](#conflits-potentiels)).
@@ -988,7 +989,7 @@ Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilot�
 
 **`[tool.ruff]`** : pas de `target-version` déclaré, Ruff le dérive de `requires-python` (l'écrire en ferait une seconde source à synchroniser). Sous `[tool.ruff.lint]`, un `select` explicite plutôt que le défaut de la 0.16.x (commentaire « Liste figee plutot que le defaut de Ruff », pour qu'une montée de version n'ajoute pas de règle silencieusement), et les règles incompatibles avec le formateur en `ignore` (`COM812` en premier lieu). Sous `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, interdire `asyncio.get_event_loop` et `sqlite3.version` avec un message renvoyant à leur remplaçant.
 
-**`[tool.mypy]`** : `strict = true` et `warn_unreachable = true`. Une section `[[tool.mypy.overrides]]` existe pour `tagger._build_info` (`ignore_missing_imports = true`) : ce module est gravé par `build.py` au packaging puis supprimé, donc absent d'un arbre propre où Mypy ne le trouve pas. Ciblée plutôt que globale, pour que la disparition des types d'une vraie dépendance reste une erreur. Toutes les autres dépendances livrent un `py.typed`. Ajouter `plugins = ["pydantic.mypy"]`, qui donne au checker la signature réelle des `__init__` générés.
+**`[tool.mypy]`** : `strict = true` et `warn_unreachable = true`. `untyped_calls_exclude = ["mutagen"]` sort mutagen du contrôle `disallow_untyped_calls` : son `py.typed` n'annote ni ses frames ni les méthodes de ses tags (`setall`, `delall`, `add`, `update_to_v23`, `add_picture`), et chaque appel demanderait sinon un `# type: ignore[no-untyped-call]`. Une section `[[tool.mypy.overrides]]` existe pour `tagger._build_info` (`ignore_missing_imports = true`) : ce module est gravé par `build.py` au packaging puis supprimé, donc absent d'un arbre propre où Mypy ne le trouve pas. Ciblée plutôt que globale, pour que la disparition des types d'une vraie dépendance reste une erreur. Toutes les autres dépendances livrent un `py.typed`. Ajouter `plugins = ["pydantic.mypy"]`, qui donne au checker la signature réelle des `__init__` générés.
 
 **`[tool.pytest.ini_options]`** : `asyncio_mode = "strict"`, `addopts` portant `--cov=tagger`.
 
@@ -1126,6 +1127,7 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 - [ ] Le variant `dark:` de Tailwind suit bien le `darkModeSelector` de PrimeNG
 - [ ] `tailwindcss-primeui` expose les tokens attendus sur `@primeuix/themes` 3.0.1
 - [ ] La table à scroll virtuel tient 100 lignes sans dégradation à 1024×700
+- [ ] À chaque montée de PrimeNG, un détail déplié dans la liste du run reste visible en défilant dans les deux sens, sans ligne vide découverte (cf. § PrimeNG, scroll virtuel de `p-table`)
 
 ## Montées Bloquées
 
@@ -1153,7 +1155,7 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 ## ROI / Avantages
 
 1. **Le facteur limitant est extérieur au projet.** Le débit vient de techno-scraper, pas de la machine : aucune des versions retenues n'est choisie pour la performance, ce qui simplifie tous les arbitrages.
-2. **Aucune dépendance ne manque de types.** Les six bibliothèques Python livrent un `py.typed`, le gate Mypy strict s'installe sans un seul `ignore_missing_imports`, et le contrat NDJSON est typable de bout en bout dès le premier jour.
+2. **Aucune dépendance ne manque de types.** Les six bibliothèques Python livrent un `py.typed`, le gate Mypy strict s'installe sans un seul `ignore_missing_imports` (seul mutagen, dont les frames et les méthodes de tags ne sont pas annotées, demande l'exclusion `untyped_calls_exclude`), et le contrat NDJSON est typable de bout en bout dès le premier jour.
 3. **Le coût de packaging est déjà payé par les outils.** RapidFuzz et sentry-sdk livrent leurs hooks PyInstaller, `pydantic` reçoit le sien de `pyinstaller-hooks-contrib`, mutagen n'en a pas besoin, `pywin32-ctypes` évite une extension compilée. Seul keyring demande un geste explicite.
 4. **La chaîne CI/CD ne coûte rien.** Dépôt public, runners standard, GitHub Releases pour la distribution et l'updater : la contrainte de budget nul d'[ARCHITECTURE.md](ARCHITECTURE.md#enjeux--contraintes) est tenue sans compromis, y compris sur les runners Windows.
 5. **Les trois zones sont indépendantes.** Un bump côté Angular ne touche pas le sidecar, un bump Python ne touche pas la webview, et les majeures isolées par Dependabot mettent d'office en quarantaine les mises à jour à risque.

@@ -9,10 +9,10 @@ import {
 } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { InputText } from "primeng/inputtext"
-import { Message } from "primeng/message"
 
 import { SidecarService } from "../../core/sidecar.service"
 import { ErrorMessageComponent } from "../../shared/components/error-message.component"
+import { MessageComponent } from "../../shared/components/message.component"
 import { failureReasonKey, trackMainLine } from "../../shared/utils/identity"
 import { SOURCE_NAMES } from "../../shared/utils/sources"
 
@@ -25,7 +25,7 @@ import { RecoveryUiStore } from "./recovery-ui.store"
  */
 @Component({
   selector: "app-url-link-form",
-  imports: [InputText, Message, TranslatePipe, ErrorMessageComponent],
+  imports: [InputText, MessageComponent, TranslatePipe, ErrorMessageComponent],
   templateUrl: "./url-link-form.component.html",
   host: { class: "flex flex-col gap-4" },
 })

@@ -4,11 +4,11 @@
 
 **Goal:** Afficher sous la liste du run le bloc qui permet de coller une URL par morceau sans correspondance et de suivre la phase de rattrapage.
 
-**Architecture:** Un composant de présentation `UrlRecoveryComponent` (`app-url-recovery`) lit `recoverableTracks`, `urlRecoveryBusy` et `urlRecoveryErrors` de `SidecarService` et en dérive ses lignes dans un `computed()` ; il tient le texte saisi par morceau dans un signal et envoie `resolveByUrl`. La page de tagging le monte sous la liste du run, borné en hauteur, et affiche la barre de la phase dans l'emplacement de celle du run. `ErrorMessageComponent` affiche le paramètre `source` par son nom de marque, `SOURCE_NAMES` passant dans `shared/utils`.
+**Architecture:** Un composant de présentation `UrlRecoveryComponent` (`app-url-recovery`) lit `recoverableTracks`, `urlRecoveryBusy` et `urlRecoveryErrors` de `SidecarService` et en dérive ses lignes dans un `computed()` ; il tient le texte saisi par morceau dans un signal et envoie `resolveByUrl`. La page de tagging le monte sous la liste du run, borné en hauteur ; elle affiche la barre de la phase dans l'emplacement de celle du run. `ErrorMessageComponent` affiche le paramètre `source` par son nom de marque, `SOURCE_NAMES` passant dans `shared/utils`.
 
 **Tech Stack:** Angular 22 (standalone, signals, contrôle de flux `@if`/`@for`), PrimeNG 22 (`p-inputgroup`, `pInputText`, `pButton`), Tailwind 4, ngx-translate 18, Vitest. Aucune dépendance nouvelle.
 
-**Spec:** `docs/superpowers/specs/rattrapage-par-url-manuelle/05-bloc-rattrapage-url-design.md`
+**Spec:** `docs/superpowers/specs/rattrapage-par-url-manuelle/05-modale-rattrapage-url-design.md`
 
 ## Global Constraints
 
@@ -16,7 +16,7 @@
 - **Références de design** : maquette `ui_kits/techno-tagger/TaggingScreen.jsx` → `UrlRescue` et son montage, `AppShell.jsx` → phase `urlRescue` ; fiches `InputGroup`, `InputText`, `Button`, `PhaseProgress`, `ErrorMessage`, `EmptyState`, `TruncatedText` (`.design-sync/design-system/`) ; `SourceLogo` ne sert qu'à la liste du run, le bloc ne montre aucune source. Lire `UrlRescue` avant d'écrire le template ; `.claude/rules/design/claude-design.md`.
 - **Écarts à la maquette, tranchés** : pas de zone hôte ni de bouton grisé tant que l'hôte n'est pas reconnu ; barre de phase dédiée « rattrapés sur à rattraper » dans l'emplacement de la barre du run ; lignes rattrapées conservées dans le bloc ; bloc affiché aussi après une interruption ; pas de bouton « Confirmer l'écriture » (Feature 5), « Lancer le run » reste actif pendant la phase et se bloque seulement pendant un geste en vol (`tagging.blocked.recovering`). Ces écarts se consignent dans DESIGN.md § Arbitrages (Task 4).
 - **Aucune logique métier** dans les composants : lignes, source et progression viennent du service.
-- **Champ d'URL** : `input pInputText` lié par `[value]` et `(input)` à un signal `ReadonlyMap<trackId, string>`, sans `form()` ; `aria-label` traduit (`tagging.recovery.field`) qui nomme le morceau ; Entrée vaut le clic sur « Résoudre », même garde. La liste des champs est dynamique et il n'y a rien à valider : `form()` ne servirait qu'au binding d'un composant PrimeNG (`.claude/rules/angular/forms.md` § Gotchas), et `pInputText` est une directive posée sur un `<input>` natif.
+- **Champ d'URL** : `input pInputText` lié par `[value]` et `(input)` à un signal `ReadonlyMap<trackId, string>`, sans `form()` ; `aria-label` traduit (`tagging.recovery.field`) qui nomme le morceau ; Entrée vaut le clic sur « Résoudre », même garde. La liste des champs est dynamique et il n'y a rien à valider : `form()` ne servirait qu'au binding d'un composant PrimeNG (`.claude/rules/angular/forms.md` § Gotchas) ; `pInputText` est une directive posée sur un `<input>` natif.
 - **Bouton « Résoudre »** : `button pButton` `[outlined]="true"` `severity="secondary"`, `data-action="resolve-url"`, désactivé si le champ est vide ou la ligne en attente ; spinner enfant `app-icon name="spinner"` pendant l'attente (`[loading]` déprécié en PrimeNG 22).
 - **Libellés** : clés `tagging.recovery.*` dans `fr.json` et `en.json` au même commit, vouvoiement, ` ` avant `:` en français. Tokens de couleur et classes Tailwind seulement, aucune largeur en dur sur un bouton ou un libellé.
 - **Fonctions** en `const nom = (...) => ...` (ESLint `func-style`).
@@ -137,7 +137,7 @@ Dans `src/app/shared/components/error-message.component.ts`, importer `import { 
   )
 ```
 
-et, après la classe :
+Puis, après la classe :
 
 ```typescript
 const displayed = (key: string, value: unknown): unknown => {
@@ -210,7 +210,7 @@ import type { TaggingTrack } from "../../core/tagging-run.store"
 
 import { UrlRecoveryComponent } from "./url-recovery.component"
 
-const URL = "https://amelielens.bandcamp.com/track/basiel"
+const URL = "https://orlaquenby.bandcamp.com/track/kelvor"
 
 const unresolved = (trackId: string, failureReason: TrackFailureReason): TaggingTrack => ({
   ...PENDING_TRACK,
@@ -224,8 +224,8 @@ const unresolved = (trackId: string, failureReason: TrackFailureReason): Tagging
 const FIRST = unresolved("a.mp3", "no_result")
 const SECOND: TaggingTrack = {
   ...unresolved("b.mp3", "below_threshold"),
-  artist: "Amelie Lens",
-  title: "Basiel",
+  artist: "Orla Quenby",
+  title: "Kelvor",
 }
 const TWO_LINES: readonly TaggingTrack[] = [FIRST, SECOND]
 
@@ -269,7 +269,7 @@ describe("UrlRecoveryComponent", () => {
     const shown = lines(fixture)
 
     expect(shown).toHaveLength(2)
-    expect(shown[0]?.textContent).toContain("Adam Beyer - Your Mind")
+    expect(shown[0]?.textContent).toContain("Lior Vance - Dim Orbit")
     expect(shown[0]?.textContent).toContain("tagging.reason.no_result")
     expect(shown[1]?.textContent).toContain("tagging.reason.below_threshold")
   })
@@ -331,7 +331,7 @@ describe("UrlRecoveryComponent", () => {
     fixture.detectChanges()
 
     expect(lines(fixture)[0]?.querySelector("input")?.getAttribute("aria-label")).toBe(
-      "Link for Adam Beyer - Your Mind",
+      "Link for Lior Vance - Dim Orbit",
     )
   })
 
@@ -706,7 +706,7 @@ Le cas `running` arme une phase ouverte pendant un run, ce que le sidecar n'éme
 - [ ] **Step 2: Vérifier qu'ils échouent**
 
 Run: `pnpm exec ng test --watch=false --include=src/app/features/tagging/tagging-page.component.spec.ts`
-Expected: FAIL, aucun `app-url-recovery` ni barre `tagging.recovery.phase`, et `blockedReason` rend `null` pendant un geste.
+Expected: FAIL, aucun `app-url-recovery` ni barre `tagging.recovery.phase` ; `blockedReason` rend `null` pendant un geste.
 
 - [ ] **Step 3: Brancher la page**
 
@@ -761,7 +761,7 @@ Dans `src/app/features/tagging/tagging-page.component.html`, remplacer le bloc `
   }
 ```
 
-et, dans `@if (showsRun())`, juste après la `div` `min-h-0 flex-1` qui contient `app-run-list` :
+Puis, dans `@if (showsRun())`, juste après la `div` `min-h-0 flex-1` qui contient `app-run-list` :
 
 ```html
     @if (recoveryOpen()) {

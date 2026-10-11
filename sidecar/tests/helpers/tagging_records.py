@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 RECORD: Final = TrackRecord(
     track_id="a.mp3",
     path=Path("music/a.mp3"),
-    identity=IdentityTags(artist="Adam Beyer", title="Your Mind"),
+    identity=IdentityTags(artist="Lior Vance", title="Dim Orbit"),
 )
 
 

@@ -95,13 +95,13 @@ if TYPE_CHECKING:
 FOLDER = Path("C:/Sets")
 
 
-def _candidate(title: str = "Your Mind", mix_name: str | None = "Original Mix") -> TrackCandidate:
+def _candidate(title: str = "Dim Orbit", mix_name: str | None = "Original Mix") -> TrackCandidate:
     return TrackCandidate(
-        id="17492013",
+        id="99000101",
         title=title,
         mix_name=mix_name,
-        artists=(Credit(name="Adam Beyer"),),
-        remixers=(Credit(name="Bart Skils"),),
+        artists=(Credit(name="Lior Vance"),),
+        remixers=(Credit(name="Mara Quill"),),
         release=ReleaseInfo(artwork_url="https://cdn.example/cover.jpg"),
         source=Source.BEATPORT,
     )
@@ -111,7 +111,7 @@ def _record(**overrides: object) -> TrackRecord:
     base = TrackRecord(
         track_id="a.mp3",
         path=FOLDER / "a.mp3",
-        identity=IdentityTags(artist="Adam Beyer", title="Your Mind"),
+        identity=IdentityTags(artist="Lior Vance", title="Dim Orbit"),
     )
     return replace(base, **overrides)  # type: ignore[arg-type]
 
@@ -371,7 +371,7 @@ def test_lists_every_track_of_a_started_run() -> None:
 
     assert isinstance(event, RunStarted)
     assert event.tracks[0].track_id == "a.mp3"
-    assert event.tracks[0].artist == "Adam Beyer"
+    assert event.tracks[0].artist == "Lior Vance"
 
 
 def test_rounds_the_scores_of_a_resolved_track() -> None:
@@ -393,9 +393,9 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
 @pytest.mark.parametrize(
     ("title", "mix_name", "expected"),
     [
-        ("Your Mind", "Original Mix", "Your Mind (Original Mix)"),
-        ("Your Mind", None, "Your Mind"),
-        ("Your Mind (Extended Mix)", "Extended Mix", "Your Mind (Extended Mix)"),
+        ("Dim Orbit", "Original Mix", "Dim Orbit (Original Mix)"),
+        ("Dim Orbit", None, "Dim Orbit"),
+        ("Dim Orbit (Extended Mix)", "Extended Mix", "Dim Orbit (Extended Mix)"),
     ],
     ids=["with-mix", "without-mix", "mix-already-in-title"],
 )
@@ -414,7 +414,7 @@ def test_renders_the_artist_and_the_title_a_source_will_write(
 
     assert isinstance(event, TrackResolved)
     assert event.after is not None
-    assert event.after == TrackNames(artist="Adam Beyer", title=expected)
+    assert event.after == TrackNames(artist="Lior Vance", title=expected)
 
 
 def test_reports_no_artist_score_for_a_query_without_artist() -> None:
@@ -442,7 +442,7 @@ def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
 
     assert isinstance(event, ArbitrationRequired)
     assert event.beatport_unavailable is True
-    assert event.candidates[0].title == "Your Mind (Original Mix)"
+    assert event.candidates[0].title == "Dim Orbit (Original Mix)"
 
 
 def test_maps_the_pipeline_progress_to_the_tagging_phase() -> None:
@@ -746,7 +746,7 @@ if TYPE_CHECKING:
 
     from memory_keyring import MemoryKeyring
 
-QUERY = "Adam Beyer Your Mind"
+QUERY = "Lior Vance Dim Orbit"
 ORIGINAL = track_payload(mix_name="Original Mix")
 
 
@@ -767,9 +767,9 @@ def run_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Trois morceaux, et un dossier de donnees d'application isole."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
-    tagged_mp3(folder, "c.mp3", "Sara Landry", "The Void")
+    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
+    tagged_mp3(folder, "b.mp3", "Orla Quenby", "Kelvor")
+    tagged_mp3(folder, "c.mp3", "Dara Winter", "The Weir")
     return folder
 
 
@@ -794,11 +794,11 @@ def _key(memory_keyring: MemoryKeyring) -> None:
 @pytest.mark.usefixtures("_key")
 def test_emits_the_whole_sequence_of_a_tagging_run(run_folder: Path, api: FakeApi) -> None:
     api.on("/beatport/search", QUERY, found(ORIGINAL))
-    api.on("/beatport/tracks/17492013", "*", found(ORIGINAL))
+    api.on("/beatport/tracks/99000101", "*", found(ORIGINAL))
     api.on(
         "/beatport/search",
-        "Amelie Lens Basiel",
-        found(track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel", mix_name="Club Mix")),
+        "Orla Quenby Kelvor",
+        found(track_payload(artists=[{"name": "Orla Quenby"}], title="Kelvor", mix_name="Club Mix")),
     )
 
     events = drive(start_tagging(run_folder))
@@ -825,7 +825,7 @@ def test_describes_a_resolved_track_with_its_source_its_scores_and_its_artwork(
     run_folder: Path, api: FakeApi
 ) -> None:
     api.on("/beatport/search", QUERY, found(ORIGINAL))
-    api.on("/beatport/tracks/17492013", "*", found(ORIGINAL))
+    api.on("/beatport/tracks/99000101", "*", found(ORIGINAL))
 
     events = drive(start_tagging(run_folder))
 
@@ -838,7 +838,7 @@ def test_describes_a_resolved_track_with_its_source_its_scores_and_its_artwork(
     assert resolved["resolution"] == "auto"
     assert resolved["failure_reason"] is None
     assert resolved["source"] == "beatport"
-    assert resolved["after"] == {"artist": "Adam Beyer", "title": "Your Mind (Original Mix)"}
+    assert resolved["after"] == {"artist": "Lior Vance", "title": "Dim Orbit (Original Mix)"}
     assert resolved["scores"] == {"artist": 100, "title": 100, "average": 100}
     assert str(resolved["artwork_path"]).endswith(".jpg")
 

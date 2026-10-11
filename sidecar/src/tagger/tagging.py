@@ -10,9 +10,15 @@ import logging
 import secrets
 from dataclasses import dataclass, replace
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, Self, override
 
-from tagger.files import IdentityTags, TagsUnreadableError, list_audio_files, read_identity
+from tagger.files import (
+    IdentityTags,
+    ShownTags,
+    TagsUnreadableError,
+    list_audio_files,
+    read_shown_tags,
+)
 from tagger.matching import (
     Outcome,
     ScoredCandidate,
@@ -32,6 +38,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
+    from tagger.file_failures import FileFailureReason
+    from tagger.files import TagField
     from tagger.scraper_client import TrackCandidate
     from tagger.sources import RunSources
 
@@ -40,10 +48,13 @@ logger = logging.getLogger(__name__)
 
 @verify(UNIQUE)
 class TrackState(StrEnum):
-    """Etat d'un morceau apres la phase reseau. La Feature 5 ajoutera l'ecriture."""
+    """Etat d'un morceau, apres la phase reseau, l'ecriture ou un rollback."""
 
     RESOLVED = auto()
     UNRESOLVED = auto()
+    WRITTEN = auto()
+    WRITE_ERROR = auto()
+    ROLLED_BACK = auto()
 
 
 @verify(UNIQUE)
@@ -58,13 +69,27 @@ class Resolution(StrEnum):
 
 @verify(UNIQUE)
 class FailureReason(StrEnum):
-    """Motif d'un non resolu : la correction a apporter n'est pas la meme."""
+    """Motif d'un morceau non resolu ou non ecrit : la correction a apporter n'est pas la meme."""
 
     EMPTY_QUERY = auto()
     NO_RESULT = auto()
     BELOW_THRESHOLD = auto()
     USER_REFUSED = auto()
     SOURCE_UNAVAILABLE = auto()
+    # Memes valeurs que `FileFailureReason`, garde par un test : le protocole n'a qu'un seul
+    # champ `failure_reason`.
+    PERMISSION_DENIED = auto()
+    DISK_FULL = auto()
+    PATH_TOO_LONG = auto()
+    FILE_LOCKED = auto()
+    FILE_MISSING = auto()
+    WRITE_FAILED = auto()
+    # Motif du rollback seul, hors `FileFailureReason` : l'ecriture suffixe un nom pris.
+    NAME_TAKEN = auto()
+
+    @classmethod
+    def from_file(cls, reason: FileFailureReason) -> Self:
+        return cls(reason.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +114,15 @@ class PendingArbitration:
 
 
 @dataclass(frozen=True, slots=True)
+class WriteOutcome:
+    """Ce que l'ecriture a pose sur le fichier, pour le rapport."""
+
+    fields: tuple[TagField, ...]
+    artwork: bool
+    truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
 class TrackRecord:
     """Tout ce que le run sait d'un morceau. `state` vide : en attente d'arbitrage ou en cours."""
 
@@ -104,6 +138,9 @@ class TrackRecord:
     scored: ScoredCandidate | None = None
     artwork: Path | None = None
     arbitration: PendingArbitration | None = None
+    written: WriteOutcome | None = None
+    # Pour l'affichage seul, `None` si illisibles : le dump relit le fichier.
+    tags_before: ShownTags | None = None
 
     @property
     def file_name(self) -> str:
@@ -133,6 +170,35 @@ class TrackRecord:
             scored=scored,
             artwork=artwork,
             arbitration=None,
+        )
+
+    def written_to(self, path: Path, outcome: WriteOutcome) -> TrackRecord:
+        """Morceau ecrit ; `path` suit le renommage, `track_id` reste celui du run."""
+        return replace(
+            self, state=TrackState.WRITTEN, failure_reason=None, path=path, written=outcome
+        )
+
+    def write_failed(self, reason: FileFailureReason) -> TrackRecord:
+        """Ecriture en echec : la resolution reste, la relance n'a rien a redemander."""
+        return replace(
+            self, state=TrackState.WRITE_ERROR, failure_reason=FailureReason.from_file(reason)
+        )
+
+    def rolled_back(self, path: Path) -> TrackRecord:
+        """Rendu a son origine : plus rien du candidat, la ligne retombe sur le fichier.
+
+        `resolution` reste, `_resolved` l'exigeant : l'etat la masque a l'ecran.
+        """
+        return replace(
+            self,
+            state=TrackState.ROLLED_BACK,
+            failure_reason=None,
+            path=path,
+            written=None,
+            source=None,
+            candidate=None,
+            scored=None,
+            artwork=None,
         )
 
     def unresolved(self, reason: FailureReason) -> TrackRecord:
@@ -189,6 +255,7 @@ class RunStarted:
     """Tous les morceaux du run avec leur identite lue, avant le premier appel reseau."""
 
     run_id: str
+    folder: Path
     tracks: tuple[TrackRecord, ...]
 
 
@@ -222,7 +289,7 @@ async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> Liv
     paths = await asyncio.to_thread(list_audio_files, folder)
     run_id = secrets.token_hex(3)
     records = await _read_identities(run_id, folder, paths)
-    on_event(RunStarted(run_id, tuple(records)))
+    on_event(RunStarted(run_id, folder, tuple(records)))
     return LiveRun(run_id, folder, records)
 
 
@@ -249,13 +316,14 @@ async def _read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -
     seule erreur qui doive arreter le run etant celle de `list_audio_files`, deja levee.
     """
     reads = await asyncio.gather(
-        *(asyncio.to_thread(read_identity, path) for path in paths), return_exceptions=True
+        *(asyncio.to_thread(read_shown_tags, path) for path in paths), return_exceptions=True
     )
     records: list[TrackRecord] = []
     for position, (path, read) in enumerate(zip(paths, reads, strict=True), start=1):
+        tags_before: ShownTags | None
         match read:
-            case IdentityTags():
-                identity = read
+            case ShownTags():
+                identity, tags_before = read.identity, read
             case TagsUnreadableError():
                 logger.warning(
                     "tags unreadable, file name used run=%s track=%d reason=%s",
@@ -263,11 +331,13 @@ async def _read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -
                     position,
                     read.reason,
                 )
-                identity = IdentityTags(artist="", title="")
+                identity, tags_before = IdentityTags(artist="", title=""), None
             case _:
                 raise read
         track_id = path.relative_to(folder).as_posix()
-        records.append(TrackRecord(track_id=track_id, path=path, identity=identity))
+        records.append(
+            TrackRecord(track_id=track_id, path=path, identity=identity, tags_before=tags_before)
+        )
     return records
 
 

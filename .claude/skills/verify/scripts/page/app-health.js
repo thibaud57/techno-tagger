@@ -11,6 +11,20 @@
   const here = () => ({
     url: location.pathname,
     h1: document.querySelector("main h1")?.textContent?.trim() ?? null,
+    // Reglages seulement : une cle enregistree se lit a son placeholder de 24 points, sans tag
+    // d'etat, l'oeil n'apparaissant que pendant une saisie.
+    ...(document.querySelector("app-settings-page")
+      ? {
+          keyPlaceholder: document.querySelector("#api-key")?.placeholder ?? null,
+          keyStateTag: document.querySelector("app-settings-page p-tag") !== null,
+          keyEye: document.querySelector("app-settings-page p-inputicon") !== null,
+          // Zone sous la ligne de chaque rangee : masquee quand elle ne porte aucun element.
+          rowZones: [...document.querySelectorAll("app-settings-row > div.col-start-2")].map((zone) => ({
+            display: getComputedStyle(zone).display,
+            nodes: [...zone.childNodes].map((n) => (n.nodeType === 1 ? n.tagName.toLowerCase() : `#${n.nodeType}`)),
+          })),
+        }
+      : {}),
   })
 
   if (action === "state") {

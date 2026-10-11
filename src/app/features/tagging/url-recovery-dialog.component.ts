@@ -6,8 +6,7 @@ import { Dialog, type DialogPassThrough } from "primeng/dialog"
 
 import { SidecarService } from "../../core/sidecar.service"
 import { IconComponent } from "../../shared/components/icon.component"
-import { SourceLogoComponent } from "../../shared/components/source-logo.component"
-import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+import { DialogHeaderComponent } from "../../shared/components/dialog-header.component"
 import { trackMainLine } from "../../shared/utils/identity"
 import { NO_MOTION } from "../../shared/utils/motion"
 
@@ -16,15 +15,15 @@ import { UrlLinkActionsComponent } from "./url-link-actions.component"
 import { UrlLinkFormComponent } from "./url-link-form.component"
 
 /**
- * Modale de rattrapage d'un morceau par son lien, ouverte par sa ligne du run ou par le badge
- * du shell. Navigue entre les morceaux rattrapables ; le sidecar reste seul juge de l'URL.
- */
-/**
  * Padding bas du contenu au `gap-4` du formulaire : une erreur garde le meme ecart au champ
- * et au pied (DESIGN.md § Feedback), le preset en posant 20px.
+ * et au pied (DESIGN.md § Feedback et chargement), le preset en posant 20px.
  */
 const DIALOG_PT: DialogPassThrough = { content: { class: "pb-4" } }
 
+/**
+ * Modale de rattrapage d'un morceau par son lien, ouverte par sa ligne du run ou par le badge
+ * du shell. Navigue entre les morceaux rattrapables ; le sidecar reste seul juge de l'URL.
+ */
 @Component({
   selector: "app-url-recovery-dialog",
   imports: [
@@ -33,8 +32,7 @@ const DIALOG_PT: DialogPassThrough = { content: { class: "pb-4" } }
     ButtonDirective,
     TranslatePipe,
     IconComponent,
-    SourceLogoComponent,
-    TruncatedTextComponent,
+    DialogHeaderComponent,
     UrlLinkFormComponent,
     UrlLinkActionsComponent,
   ],

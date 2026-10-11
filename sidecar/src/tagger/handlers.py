@@ -12,11 +12,12 @@ from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
-from tagger import __version__, arbitration, tagging, url_recovery
+from tagger import __version__, arbitration, tagging, url_recovery, writing
 from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.arbitration import Arbitration
 from tagger.cache import ArtworkFetcher, DiskCache, ResponseCache, resolve_host
 from tagger.extraction import extract
+from tagger.files import after_tags, project_tags, shown_key, tag_system_of
 from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
 from tagger.paths import app_data_dir
 from tagger.playlists import list_playlists, read_playlist
@@ -33,11 +34,18 @@ from tagger.protocol import (
     PlaylistEntry,
     PlaylistsListed,
     Progress,
+    Rollback,
+    RollbackFailurePayload,
+    RollbackFinished,
+    RollbackRun,
+    RollbackTarget,
     RunFinished,
     RunPhase,
     RunStarted,
     SetApiKey,
     StartTagging,
+    TagsBeforePayload,
+    TagValuePayload,
     TrackEntry,
     TrackNames,
     TrackResolved,
@@ -45,23 +53,29 @@ from tagger.protocol import (
     Version,
 )
 from tagger.reports import ReportContext, write_extraction_report
+from tagger.rollback import find_rollback_target, roll_back
 from tagger.scraper_client import TechnoScraperClient
 from tagger.sources import RunSources
+from tagger.tag_dump import TagDumpError, dump_dir
 from tagger.tagging import open_run, resolve_run
 from tagger.url_recovery import UrlRecovery
+from tagger.writing import RunWriter
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
+    from pathlib import Path
 
     import httpx2
 
     from tagger.arbitration import ArbitrationEvent
     from tagger.cache import HostResolver
+    from tagger.files import ShownTags, TagField, TagSystem
     from tagger.matching import ScoredCandidate
     from tagger.protocol import Event
     from tagger.scraper_client import TrackCandidate
     from tagger.tagging import LiveRun, TaggingRun, TrackRecord
     from tagger.url_recovery import UrlRecoveryEvent
+    from tagger.writing import WriteEvent
 
 logger = logging.getLogger(__name__)
 
@@ -186,12 +200,23 @@ class CurrentRun:
         self.sources = sources
         self.arbitration = arbitration
         self.url_recovery = url_recovery
+        # Pose a la confirmation : sa presence fige le run, plus aucune decision n'y entre.
+        self.writer: RunWriter | None = None
         self._stack = stack
         self._gestures: set[asyncio.Task[None]] = set()
 
     @override
     def __repr__(self) -> str:
         return f"CurrentRun(run_id={self.live.run_id!r}, gestures={len(self._gestures)})"
+
+    @property
+    def committed(self) -> bool:
+        return self.writer is not None
+
+    @property
+    def busy(self) -> bool:
+        """Un geste d'arbitrage ou de rattrapage est en vol."""
+        return any(not gesture.done() for gesture in self._gestures)
 
     def track(self, gesture: asyncio.Task[None]) -> None:
         """Reference forte sur un geste en vol, relachee a sa fin."""
@@ -263,8 +288,69 @@ async def handle_start_tagging(
     current = await open_tagging(command, emit)
     adopt(current)
     await resolve_run(current.live, current.sources, on_event=_relay(emit))
-    emit(_run_finished(current.live.snapshot()))
+    emit(_run_finished(current.live.snapshot(), RunPhase.NETWORK))
     emit(url_progress(current))
+
+
+def commit(current: CurrentRun, emit: Callable[[Event], None]) -> RunWriter:
+    """Fige le run a l'acceptation de `commit_run`, avant que l'ecriture ne demarre : une
+    decision lue juste apres n'y entre plus. Le `RunWriter` reste au run, pour la relance."""
+    current.writer = RunWriter(current.live, dump_dir(), _relay(emit))
+    return current.writer
+
+
+async def handle_commit_run(current: CurrentRun, writer: RunWriter) -> Event:
+    """Un dump qui ne s'enregistre pas n'a touche aucun fichier : le run redevient confirmable."""
+    try:
+        await writer.write()
+    except TagDumpError:
+        current.writer = None
+        raise
+    return _run_finished(current.live.snapshot(), RunPhase.WRITE)
+
+
+async def handle_retry_write(current: CurrentRun, writer: RunWriter) -> Event:
+    await writer.retry()
+    return _run_finished(current.live.snapshot(), RunPhase.WRITE)
+
+
+def handle_get_rollback_target() -> RollbackTarget:
+    """Relu sur le disque : le dernier run annulable peut venir d'une autre session."""
+    target = find_rollback_target(dump_dir())
+    return RollbackTarget(
+        event="rollback_target",
+        run=None if target is None else RollbackRun.model_validate(target, from_attributes=True),
+    )
+
+
+async def handle_rollback(
+    command: Rollback, live: LiveRun | None, emit: Callable[[Event], None]
+) -> RollbackFinished:
+    """`live` : le run affiche quand c'est lui qu'on restaure, ses morceaux rendus passent en
+    `rolled_back`.
+    """
+
+    def restored(track_id: str, path: Path) -> None:
+        if live is None:
+            return
+        record = live.record(track_id)
+        if record is None:
+            return
+        rolled_back = record.rolled_back(path)
+        live.update(rolled_back)
+        emit(_resolved(rolled_back))
+
+    summary = await roll_back(dump_dir(), command.run_id, command.track_id, restored)
+    return RollbackFinished(
+        event="rollback_finished",
+        run_id=summary.run_id,
+        track_id=command.track_id,
+        restored=summary.restored,
+        failed=tuple(
+            RollbackFailurePayload.model_validate(failure, from_attributes=True)
+            for failure in summary.failed
+        ),
+    )
 
 
 def _thresholds(command: StartTagging) -> MatchingThresholds:
@@ -273,20 +359,23 @@ def _thresholds(command: StartTagging) -> MatchingThresholds:
     return DEFAULT_THRESHOLDS if sent is None else sent.to_matching()
 
 
-def _relay(
-    emit: Callable[[Event], None],
-) -> Callable[[tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent], None]:
+type PipelineEvent = tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent | WriteEvent
+
+
+def _relay(emit: Callable[[Event], None]) -> Callable[[PipelineEvent], None]:
     return lambda event: emit(to_protocol_event(event))
 
 
-def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent) -> Event:
-    """Traduit un evenement pipeline, arbitrage ou rattrapage ; un cas oublie est une erreur
-    de typage."""
+# PLR0911 : une sortie par evenement traduit, le `match` ferme par `assert_never` etant
+# ce qui rend un oubli visible au typage.
+def to_protocol_event(event: PipelineEvent) -> Event:  # noqa: PLR0911
+    """Traduit un evenement pipeline, arbitrage, rattrapage ou ecriture."""
     match event:
         case tagging.RunStarted():
             return RunStarted(
                 event="run_started",
                 run_id=event.run_id,
+                folder=event.folder,
                 tracks=tuple(_entry(record) for record in event.tracks),
             )
         case tagging.TrackResolved():
@@ -309,16 +398,45 @@ def to_protocol_event(event: tagging.RunEvent | ArbitrationEvent | UrlRecoveryEv
                 processed=event.processed,
                 total=event.total,
             )
+        case writing.WriteProgress():
+            return Progress(
+                event="progress",
+                phase=Phase.WRITE,
+                processed=event.processed,
+                total=event.total,
+            )
         case _:
             assert_never(event)
 
 
 def _entry(record: TrackRecord) -> TrackEntry:
+    before = record.tags_before
     return TrackEntry(
         track_id=record.track_id,
         file_name=record.file_name,
         artist=record.identity.artist,
         title=record.identity.title,
+        tags_before=None if before is None else _tags_before(before),
+    )
+
+
+def _tags_before(shown: ShownTags) -> TagsBeforePayload:
+    return TagsBeforePayload(
+        system=shown.system, comment=shown.comment, fields=_rows(shown.fields, shown.system)
+    )
+
+
+def _tags_after(record: TrackRecord, candidate: TrackCandidate) -> tuple[TagValuePayload, ...]:
+    """Sans origine lisible, le systeme se deduit de l'extension."""
+    before = record.tags_before
+    system = tag_system_of(record.path) if before is None else before.system
+    return _rows(after_tags(project_tags(candidate), before), system)
+
+
+def _rows(values: Mapping[TagField, str | None], system: TagSystem) -> tuple[TagValuePayload, ...]:
+    return tuple(
+        TagValuePayload(field=field, key=shown_key(field, system), value=value)
+        for field, value in values.items()
     )
 
 
@@ -337,6 +455,7 @@ def _resolved(record: TrackRecord) -> TrackResolved:
         after=None if candidate is None else _names(candidate),
         scores=None if record.scored is None else _scores(record.scored),
         artwork_path=record.artwork,
+        tags_after=None if candidate is None else _tags_after(record, candidate),
     )
 
 
@@ -383,16 +502,17 @@ def _scores(scored: ScoredCandidate) -> TrackScores:
     )
 
 
-def _run_finished(run: TaggingRun) -> RunFinished:
-    # Les trois compteurs se lisent sur le champ qui porte chaque issue, jamais sur
-    # l'absence d'un autre : un `state` laisse vide pour une raison nouvelle gonflerait
-    # sinon en silence le compte des arbitrages.
+def _run_finished(run: TaggingRun, phase: RunPhase) -> RunFinished:
+    # Chaque compteur se lit sur le champ de son issue, jamais sur l'absence d'un autre : un
+    # `state` laisse vide gonflerait en silence le compte des arbitrages.
     states = Counter(record.state for record in run.tracks)
     return RunFinished(
         event="run_finished",
-        phase=RunPhase.NETWORK,
+        phase=phase,
         run_id=run.run_id,
         resolved=states[tagging.TrackState.RESOLVED],
         unresolved=states[tagging.TrackState.UNRESOLVED],
+        written=states[tagging.TrackState.WRITTEN],
+        write_error=states[tagging.TrackState.WRITE_ERROR],
         awaiting_arbitration=sum(1 for record in run.tracks if record.arbitration is not None),
     )

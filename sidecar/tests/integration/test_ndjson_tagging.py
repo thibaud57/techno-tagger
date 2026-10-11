@@ -4,9 +4,12 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
+from mutagen.id3 import COMM, ID3, TBPM
 from ndjson_loop import drive, start_tagging
-from scraper_responses import BASIEL, YOUR_MIND
-from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, basiel, failing, found, three_tracks
+from scraper_responses import DIM_ORBIT, KELVOR, track_payload
+from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, failing, found, kelvor, three_tracks
+
+from tagger.files import TAG_FIELDS
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,18 +22,18 @@ def run_folder(tmp_path: Path, app_data: None) -> Path:
 
 
 @pytest.fixture
-def api_knowing_your_mind(api: FakeApi) -> FakeApi:
-    """API qui valide « Adam Beyer - Your Mind », recherche et refetch compris."""
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+def api_knowing_dim_orbit(api: FakeApi) -> FakeApi:
+    """API qui valide « Lior Vance - Dim Orbit », recherche et refetch compris."""
+    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
     api.on(ORIGINAL_REFETCH, "*", found(ORIGINAL))
     return api
 
 
 @pytest.mark.usefixtures("_key")
 def test_emits_the_whole_sequence_of_a_tagging_run(
-    run_folder: Path, api_knowing_your_mind: FakeApi
+    run_folder: Path, api_knowing_dim_orbit: FakeApi
 ) -> None:
-    api_knowing_your_mind.on("/beatport/search", BASIEL, found(basiel(mix_name="Club Mix")))
+    api_knowing_dim_orbit.on("/beatport/search", KELVOR, found(kelvor(mix_name="Club Mix")))
 
     events = drive(start_tagging(run_folder))
 
@@ -49,6 +52,8 @@ def test_emits_the_whole_sequence_of_a_tagging_run(
         "run_id": events[0]["run_id"],
         "resolved": 1,
         "unresolved": 1,
+        "written": 0,
+        "write_error": 0,
         "awaiting_arbitration": 1,
     }
     assert events[-1] == {"event": "progress", "phase": "url_recovery", "processed": 0, "total": 1}
@@ -56,7 +61,7 @@ def test_emits_the_whole_sequence_of_a_tagging_run(
 
 @pytest.mark.usefixtures("_key")
 def test_describes_a_resolved_track_with_its_source_its_scores_and_its_artwork(
-    run_folder: Path, api_knowing_your_mind: FakeApi
+    run_folder: Path, api_knowing_dim_orbit: FakeApi
 ) -> None:
     events = drive(start_tagging(run_folder))
 
@@ -69,7 +74,7 @@ def test_describes_a_resolved_track_with_its_source_its_scores_and_its_artwork(
     assert resolved["resolution"] == "auto"
     assert resolved["failure_reason"] is None
     assert resolved["source"] == "beatport"
-    assert resolved["after"] == {"artist": "Adam Beyer", "title": "Your Mind (Original Mix)"}
+    assert resolved["after"] == {"artist": "Lior Vance", "title": "Dim Orbit (Original Mix)"}
     assert resolved["scores"] == {"artist": 100, "title": 100, "average": 100}
     assert str(resolved["artwork_path"]).endswith(".jpg")
 
@@ -125,3 +130,35 @@ def test_refuses_thresholds_out_of_bounds(run_folder: Path, api: FakeApi) -> Non
     assert [event["event"] for event in events] == ["error"]
     assert events[0]["code"] == "malformed_command"
     assert "95" not in json.dumps(events[0]["params"])
+
+
+@pytest.mark.usefixtures("_key")
+def test_carries_the_tags_before_and_after_field_by_field(run_folder: Path, api: FakeApi) -> None:
+    without_bpm = track_payload(mix_name="Original Mix", bpm=None)
+    api.on("/beatport/search", DIM_ORBIT, found(without_bpm))
+    api.on(ORIGINAL_REFETCH, "*", found(without_bpm))
+    tags = ID3(run_folder / "a.mp3")
+    tags.add(TBPM(encoding=3, text=["130"]))
+    tags.add(COMM(encoding=3, lang="eng", desc="", text=["Ripped by X"]))
+    tags.save()
+
+    events = drive(start_tagging(run_folder))
+
+    assert events[0]["folder"] == str(run_folder)
+    tracks = events[0]["tracks"]
+    assert isinstance(tracks, list)
+    before = tracks[0]["tags_before"]
+    assert (before["system"], before["comment"]) == ("id3", "Ripped by X")
+    assert [row["field"] for row in before["fields"]] == [field.value for field in TAG_FIELDS]
+    assert before["fields"][0] == {"field": "artist", "key": "TPE1", "value": "Lior Vance"}
+    assert {"field": "bpm", "key": "TBPM", "value": "130"} in before["fields"]
+    resolved = next(
+        event
+        for event in events
+        if event["event"] == "track_resolved" and event["track_id"] == "a.mp3"
+    )
+    after = resolved["tags_after"]
+    assert isinstance(after, list)
+    assert {"field": "title", "key": "TIT2", "value": "Dim Orbit (Original Mix)"} in after
+    assert {"field": "bpm", "key": "TBPM", "value": "130"} in after
+    assert {"field": "date", "key": "TYER", "value": "2023"} in after

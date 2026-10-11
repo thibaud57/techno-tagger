@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import Conversation, conversation
-from scraper_responses import BASIEL, YOUR_MIND
+from scraper_responses import DIM_ORBIT, KELVOR
 from tagging_api import (
     ON_BANDCAMP,
     ONE_TRACK,
@@ -56,7 +56,7 @@ def empty(tmp_path: Path) -> Path:
 def api(api: FakeApi) -> FakeApi:
     """Extended et Radio Edit sur Beatport, la version attendue sur Bandcamp."""
     hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    api.on("/bandcamp/search", DIM_ORBIT, found(ON_BANDCAMP))
     return api
 
 
@@ -66,7 +66,7 @@ def _start(folder: Path) -> dict[str, object]:
 
 async def _refusal_in_flight(talk: Conversation, folder: Path, api: FakeApi) -> Gate:
     """Run termine, refus de Beatport envoye, appel Bandcamp retenu par la porte rendue."""
-    slow = api.gate("/bandcamp/search", YOUR_MIND)
+    slow = api.gate("/bandcamp/search", DIM_ORBIT)
     talk.send(**_start(folder))
     await talk.expect("run_finished")
     talk.send(**REFUSE_BEATPORT)
@@ -115,7 +115,7 @@ async def test_answers_an_awaiting_track_after_the_run_is_cancelled(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
     folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", BASIEL)
+    slow = api.gate("/beatport/search", KELVOR)
 
     async with conversation() as talk:
         talk.send(**_start(folder))
@@ -132,7 +132,7 @@ async def test_keeps_the_current_run_arbitrable_when_a_second_run_is_refused(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
     folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", BASIEL)
+    slow = api.gate("/beatport/search", KELVOR)
 
     async with conversation() as talk:
         talk.send(**_start(folder))

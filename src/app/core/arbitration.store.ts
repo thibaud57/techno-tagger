@@ -62,6 +62,8 @@ export class ArbitrationStore {
 
     return trackId !== null && this._busy().has(trackId)
   })
+  /** Un geste en vol sur n'importe quel morceau : `currentBusy` ne voit que celui affiche. */
+  readonly anyBusy = computed(() => this._busy().size > 0)
 
   isBusy(trackId: string): boolean {
     return this._busy().has(trackId)

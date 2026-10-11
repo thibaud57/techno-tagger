@@ -6,14 +6,14 @@ status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["02-rattrapage-url-sidecar-design.md"]
-date: "2026-10-02"
+date: "2026-10-11"
 ---
 
 # Protocole NDJSON du rattrapage par URL
 
 ## Scope
 
-Couvre la commande `resolve_by_url` (modèle, unions, dispatch, geste en tâche de fond), le branchement d'`UrlRecovery` dans le run courant, l'ouverture de la phase de rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau) et son refus tant qu'elle n'est pas ouverte, l'émission de `progress` en phase `url_recovery`, le `track_id` joint à toute erreur d'un geste, et le miroir TypeScript de la commande.
+Couvre la commande `resolve_by_url` (modèle, unions, dispatch, geste en tâche de fond), le branchement d'`UrlRecovery` dans le run courant, l'ouverture de la phase de rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), son refus tant qu'elle n'est pas ouverte ou sur un run confirmé (`run_committed`), l'émission de `progress` en phase `url_recovery`, le `track_id` joint à toute erreur d'un geste, et le miroir TypeScript de la commande.
 
 Exclut le service et le store Angular (sub-project 04), l'écran (sub-project 05), le bouton de confirmation et `commit_run` (Feature 5) et la persistance de la décision (Feature 6).
 
@@ -23,7 +23,7 @@ Exclut le service et le store Angular (sub-project 04), l'écran (sub-project 05
 
 ## Dependencies
 
-- `02-rattrapage-url-sidecar-design.md` (statut: draft) : `UrlRecovery`, `UrlProgress`, `UrlRecoveryEvent`, erreurs `UrlRecovery*`, `TrackRecord.resolved` sans score.
+- `02-rattrapage-url-sidecar-design.md` (statut: implemented) : `UrlRecovery`, `UrlProgress`, `UrlRecoveryEvent`, erreurs `UrlRecovery*`, `TrackRecord.resolved` sans score.
 
 ## Files touched
 
@@ -40,16 +40,16 @@ Exclut le service et le store Angular (sub-project 04), l'écran (sub-project 05
 ## Architecture approach
 
 - **Patron de l'arbitrage** (spec `arbitrage-utilisateur/02-protocole-ndjson-arbitrage-design.md`) : le run courant (`CurrentRun`) survit à sa phase réseau jusqu'au run suivant, au `shutdown` ou à l'EOF. Il porte aussi `url_recovery`, instanciée dans `open_tagging` avec le même `relay` que l'arbitrage et le pipeline. Les gestes de rattrapage passent par `CurrentRun.track`, et `close` les annule comme ceux de l'arbitrage.
-- **Commande** `ResolveByUrl(Command)` : `command: Literal["resolve_by_url"]`, `track_id: str`, `url` chaîne non vide, héritant `extra="forbid"`, `frozen` et `strict` de `Command` (ADR-022, `.claude/rules/pydantic/modeles.md`). Ajoutée à `AnyCommand`, `ExecutableCommand` et `CommandName`, que `test_command_name_lists_every_command` garde alignés. Le dispatch gagne un cas, fermé par `assert_never` (`.claude/rules/python/pattern-matching.md`).
-- **Geste en tâche de fond**, comme `resolve_arbitration` : l'appel réseau ne gèle jamais la lecture de `stdin` (ARCHITECTURE.md § Concurrence). `_Session.resolve_by_url` vérifie l'ouverture de la phase dans la boucle, puis lance `url_recovery.resolve` dans le `TaskGroup` de la session par `_phase`.
-- **Ouverture de la phase** (décision du 2026-10-02) : la phase de rattrapage est ouverte dès qu'il y a un run courant dont la phase réseau ne tourne plus, terminée ou interrompue. Le spec F2 `11-interruption-du-run-design.md` laisse en effet l'écriture disponible après une interruption, et le rattrapage la précède. Sans run courant, ou tant que la phase réseau tourne, `resolve_by_url` lève `UrlRecoveryNotOpenError` (`url_recovery_not_open`, `params.track_id`), définie dans `url_recovery.py` à côté des autres erreurs de la famille.
+- **Commande** `ResolveByUrl(Command)` : `command: Literal["resolve_by_url"]`, `track_id: str`, `url` chaîne non vide, héritant `extra="forbid"`, `frozen` et `strict` de `Command` (ADR-022, `.claude/rules/pydantic/modeles.md`). Ajoutée à `AnyCommand`, `ExecutableCommand` et `CommandName`, que `test_command_name_lists_every_command` garde alignés. Le dispatch a un cas `resolve_by_url`, fermé par `assert_never` (`.claude/rules/python/pattern-matching.md`).
+- **Geste en tâche de fond**, comme `resolve_arbitration` : l'appel réseau ne gèle jamais la lecture de `stdin` (ARCHITECTURE.md § Concurrence). `_Session.resolve_by_url` vérifie l'ouverture de la phase dans la boucle (`_recoverable`), puis lance `url_recovery.resolve` dans le `TaskGroup` de la session par `_phase`.
+- **Ouverture de la phase** (décision du 2026-10-02) : la phase de rattrapage est ouverte dès qu'il y a un run courant dont la phase réseau ne tourne plus, terminée ou interrompue. Le spec F2 `11-interruption-du-run-design.md` laisse en effet l'écriture disponible après une interruption, et le rattrapage la précède. Sans run courant, ou tant que la phase réseau tourne, `resolve_by_url` lève `UrlRecoveryNotOpenError` (`url_recovery_not_open`, `params.track_id`), définie dans `url_recovery.py` à côté des autres erreurs de la famille. Sur un run confirmé par `commit_run`, il lève `RunCommittedError` (`run_committed`, `params.track_id`) : un run figé n'accepte plus aucune décision (spec `ecriture-des-tags-et-renommage/05-protocole-ndjson-ecriture-design.md`).
 - **Progression de la phase** (`progress`, phase `url_recovery`) :
   - à l'ouverture : `handle_start_tagging` émet `run_finished(network)` puis la progression d'`url_recovery.progress()`, et ne rend plus d'événement à `_phase` ; `cancel_run` l'émet aussi, seulement quand il a réellement interrompu une phase réseau d'un run courant. `cancel_run` reste sans événement de fin (ARCHITECTURE.md § API) ;
   - après un rattrapage réussi : émise par `UrlRecovery` elle-même (sub-project 02) ;
   - après un geste d'arbitrage, une fois la phase ouverte : émise par la session à la fin du geste, puisqu'un refus tardif grossit le total. Un geste d'arbitrage pendant la phase réseau n'en émet pas.
-  `to_protocol_event` gagne le seul cas `UrlProgress`, traduit en `Progress(phase=Phase.URL_RECOVERY)`. Le `TrackResolved` d'un rattrapage est celui de `tagging`, déjà traduit par `_resolved`, qui rend `scores` absent pour un `scored` nul.
-- **Erreurs d'un geste** : toute `error` née d'une commande qui vise un morceau (`resolve_arbitration`, `resolve_by_url`) porte `params.track_id`, joint par `error_from_business` à partir de la commande. Les erreurs du client (`unsupported_url`, `track_not_found`, `source_unavailable`, `api_key_rejected`, `api_contract_error`) n'en portaient pas : l'interface les affichera sur la bonne ligne (sub-project 05). Une erreur portant `resolve_by_url` ne clôt jamais le run côté interface (ARCHITECTURE.md § API, « Seul l'échec de la commande qui a ouvert un run le clôt »).
-- **Miroir TypeScript** : `ResolveByUrlCommand` (`command`, `track_id`, `url`) rejoint `SidecarCommand` dans `protocol.ts`, maintenu à la main (en-tête du fichier, `.claude/rules/pydantic/modeles.md`). `Phase` porte déjà `url_recovery`, `TrackResolution` déjà `url` : aucun événement nouveau, `KNOWN_EVENTS` inchangé.
+  `to_protocol_event` traduit `UrlProgress` en `Progress(phase=Phase.URL_RECOVERY)`. Le `TrackResolved` d'un rattrapage est celui de `tagging`, déjà traduit par `_resolved`, qui rend `scores` absent pour un `scored` nul.
+- **Erreurs d'un geste** : toute `error` née d'une commande qui vise un morceau (`resolve_arbitration`, `resolve_by_url`) porte `params.track_id`, joint par `error_from_business` à partir de la commande. Les erreurs du client (`unsupported_url`, `track_not_found`, `source_unavailable`, `api_key_rejected`, `api_contract_error`) n'en portent pas d'elles-mêmes : l'interface les affiche sous le champ du bon morceau (sub-project 05). Une erreur portant `resolve_by_url` ne clôt jamais le run côté interface (ARCHITECTURE.md § API, « Seul l'échec de la commande qui a ouvert un run le clôt »).
+- **Miroir TypeScript** : `ResolveByUrlCommand` (`command`, `track_id`, `url`) rejoint `SidecarCommand` dans `protocol.ts`, maintenu à la main (en-tête du fichier, `.claude/rules/pydantic/modeles.md`). `Phase` porte `url_recovery`, `TrackResolution` porte `url` : le rattrapage n'ajoute aucun événement à `KNOWN_EVENTS`.
 - **Docs** : ARCHITECTURE.md se modifie avec le skill `architecture-doc`.
 - **Qualité** : Ruff, Mypy strict, ESLint et `tsc` sur `protocol.ts` (`.claude/rules/typescript/types.md`), tests selon `.claude/rules/pytest/tests.md`.
 
@@ -114,15 +114,18 @@ Exclut le service et le store Angular (sub-project 04), l'écran (sub-project 05
   - refuses a url while the network phase is running
   - opens the url recovery phase when the run is cancelled
   - reports the url progress after a late arbitration refusal
+  - emits no url progress for an arbitration during the network phase
+  - emits nothing when cancelling a finished run
   - cancels a url gesture in flight when a new run starts
 
 `test_command_name_lists_every_command` couvre sans ajout l'alignement de `CommandName`, `test_error_translations.py` la traduction de `url_recovery_not_open`. Aucun test ne vérifie pydantic lui-même : chaque cas échoue contre une régression de notre modèle, de notre règle d'ouverture, de nos moments d'émission ou de notre rattachement des erreurs.
 
 ## Edge cases
 
-- **`cancel_run` sans run en cours** : aucun événement, comme avant (`test_a_cancelled_run_leaves_the_loop_alive`).
+- **`cancel_run` sans phase réseau en cours** : aucun événement, la progression ne repart pas (`test_emits_nothing_when_cancelling_a_finished_run`).
 - **Run qui s'arrête sur trois 403** : `start_tagging` finit en `error`, l'interface clôt le run, aucune phase de rattrapage ne s'ouvre ; un `resolve_by_url` suivant trouve le run courant sans phase réseau active et passe par l'éligibilité normale.
 - **Nouveau run pendant un geste en vol** : le run courant est fermé, le geste annulé, aucun événement ne sort pour l'ancien morceau ; un `resolve_by_url` arrivé pendant l'ouverture du nouveau run est refusé en `url_recovery_not_open`.
+- **Run confirmé** : `resolve_by_url` est refusé en `run_committed` avec `command` et `params.track_id` (couvert par `test_refuses_decisions_once_the_run_is_committed`, `tests/integration/test_ndjson_write.py`).
 - **`shutdown` pendant un geste** : la boucle s'arrête sans attendre l'API, comme pour l'arbitrage.
 - **Arbitrage choisi après la phase réseau** : suivi d'une progression inchangée, émise quand même (un calcul plutôt qu'une comparaison avec l'émission précédente).
 

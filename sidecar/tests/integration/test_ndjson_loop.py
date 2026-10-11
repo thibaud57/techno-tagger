@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, NoReturn
 import keyring
 import pytest
 from memory_keyring import MemoryKeyring, RefusingKeyring
-from ndjson_loop import drive, drive_raw, start_tagging
+from ndjson_loop import drive, drive_raw, extraction_command, start_tagging
 
 from tagger import __main__ as main
 from tagger import handlers
@@ -36,14 +36,7 @@ def extract_command(
     library: Path, dump: Path, destination: Path, playlist_name: str = "test playlist"
 ) -> str:
     """Ligne `extract_playlist` prete a injecter."""
-    payload = {
-        "command": "extract_playlist",
-        "source_folder": str(library),
-        "destination_folder": str(destination),
-        "playlist_path": str(dump),
-        "playlist_name": playlist_name,
-    }
-    return json.dumps(payload) + "\n"
+    return json.dumps(extraction_command(library, dump, destination, playlist_name)) + "\n"
 
 
 def test_answers_a_version_request() -> None:
@@ -170,7 +163,7 @@ def extraction_waits_for_version(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_answers_a_version_request_while_an_extraction_is_in_progress(
     vlc_dump: Path, music_library: Path, tmp_path: Path
 ) -> None:
-    """La copie ne gele plus la lecture de stdin : une commande courte passe devant.
+    """La copie ne gele pas la lecture de stdin : une commande courte passe devant.
 
     Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
     laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.

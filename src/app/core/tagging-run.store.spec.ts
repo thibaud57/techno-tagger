@@ -1,7 +1,14 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
+import {
+  RUN_STARTED,
+  TAGS_AFTER,
+  TAGS_BEFORE,
+  TRACK_RESOLVED,
+  arbitrationRequired,
+} from "../../fixtures/tagging"
+import { rollbackFinished } from "../../fixtures/write"
 import { ArbitrationRequiredEvent, RunFinishedEvent } from "./models/protocol"
 import { TaggingRunStore } from "./tagging-run.store"
 
@@ -17,6 +24,8 @@ const FINISHED: RunFinishedEvent = {
   run_id: "a3f9c1",
   resolved: 1,
   unresolved: 0,
+  written: 0,
+  write_error: 0,
   awaiting_arbitration: 1,
 }
 
@@ -50,9 +59,43 @@ describe("TaggingRunStore", () => {
     const track = store.tracks()[0]
     expect(track?.state).toBe("resolved")
     expect(track?.source).toBe("beatport")
-    expect(track?.after?.title).toBe("Your Mind (Original Mix)")
+    expect(track?.after?.title).toBe("Dim Orbit (Original Mix)")
     expect(track?.scores?.average).toBe(94)
     expect(track?.artworkPath).toBe("C:/AppData/cache/artworks/abc.jpg")
+  })
+
+  it("exposes the tags before from the start and the tags after once resolved", () => {
+    store.reset()
+    store.started({
+      ...RUN_STARTED,
+      tracks: [
+        {
+          track_id: "a.mp3",
+          file_name: "a.mp3",
+          artist: "Lior Vance",
+          title: "Dim Orbit",
+          tags_before: TAGS_BEFORE,
+        },
+      ],
+    })
+    const started = store.tracks()[0]
+
+    store.resolved({ ...TRACK_RESOLVED, tags_after: TAGS_AFTER })
+
+    expect(started?.tagsBefore).toEqual(TAGS_BEFORE)
+    expect(started?.tagsAfter).toBeNull()
+    expect(store.tracks()[0]?.tagsAfter).toEqual(TAGS_AFTER)
+  })
+
+  it("keeps the folder of the run from its start and forgets it on reset", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+    const started = store.folder()
+
+    store.reset()
+
+    expect(started).toBe("C:/Sets")
+    expect(store.folder()).toBeNull()
   })
 
   it("marks a track as awaiting arbitration", () => {
@@ -147,6 +190,75 @@ describe("TaggingRunStore", () => {
     play(store)
 
     expect(store.interrupted()).toBe(expected)
+  })
+
+  it("loses a started run with its engine until a new run starts", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+
+    store.engineLost()
+    const lost = store.lost()
+    store.reset()
+
+    expect(lost).toBe(true)
+    expect(store.lost()).toBe(false)
+  })
+
+  it("loses nothing when the engine dies before a run starts", () => {
+    store.engineLost()
+
+    expect(store.lost()).toBe(false)
+  })
+
+  it("rolls back a written row from the summary alone, as a rolled back resolution would", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+    store.resolved({ ...TRACK_RESOLVED, state: "written", tags_after: TAGS_AFTER })
+
+    store.restored(rollbackFinished())
+
+    expect(store.tracks()[0]).toMatchObject({
+      state: "rolled_back",
+      resolution: "auto",
+      failureReason: null,
+      source: null,
+      after: null,
+      scores: null,
+      artworkPath: null,
+      tagsAfter: null,
+    })
+  })
+
+  it("rolls back only the restored rows", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+    store.resolved({ ...TRACK_RESOLVED, state: "written" })
+    store.resolved({ ...TRACK_RESOLVED, track_id: "b.mp3", state: "write_error" })
+
+    store.restored({ ...rollbackFinished(), restored: ["b.mp3"] })
+
+    expect(store.tracks().map((track) => track.state)).toEqual(["written", "rolled_back"])
+  })
+
+  it("leaves a row already rolled back untouched", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+    store.resolved({ ...TRACK_RESOLVED, state: "rolled_back", source: null, after: null })
+    const rolledBack = store.tracks()[0]
+
+    store.restored(rollbackFinished())
+
+    expect(store.tracks()[0]).toBe(rolledBack)
+  })
+
+  it("ignores the summary of another run", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+    store.resolved({ ...TRACK_RESOLVED, state: "written" })
+
+    store.restored({ ...rollbackFinished(), run_id: "ffffff" })
+
+    expect(store.tracks()[0]?.state).toBe("written")
   })
 
   it("ignores a track the run does not know", () => {

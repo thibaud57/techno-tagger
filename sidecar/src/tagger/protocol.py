@@ -9,6 +9,7 @@ inconnu ou mal type est une commande malformee, pas un detail a ignorer
 (cf. ADR-022).
 """
 
+from datetime import datetime
 from enum import UNIQUE, StrEnum, auto, verify
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Final, Literal, Self, get_args
@@ -23,7 +24,9 @@ from pydantic import (
     model_validator,
 )
 
-from tagger.extraction import DuplicateCriterion, ExtractionFailureReason, ExtractionMode
+from tagger.extraction import DuplicateCriterion, ExtractionMode
+from tagger.file_failures import FileFailureReason
+from tagger.files import TagField, TagSystem
 from tagger.matching import MatchingThresholds, check_thresholds
 from tagger.playlists import PlaylistFormat
 from tagger.scraper_client import SearchSource, Source
@@ -162,6 +165,34 @@ class ResolveByUrl(Command):
     url: Annotated[str, Field(min_length=1)]
 
 
+class CommitRun(Command):
+    """Confirmation globale : le point de non-retour, seul geste qui ecrit des fichiers."""
+
+    command: Literal["commit_run"]
+    run_id: str
+
+
+class RetryWrite(Command):
+    """Rejoue l'ecriture des seuls morceaux en echec, sans reseau ni arbitrage."""
+
+    command: Literal["retry_write"]
+    run_id: str
+
+
+class GetRollbackTarget(Command):
+    """Dernier run annulable, pour que la confirmation des Reglages le nomme."""
+
+    command: Literal["get_rollback_target"]
+
+
+class Rollback(Command):
+    """Restaure un run entier depuis son dump, ou son seul morceau `track_id`."""
+
+    command: Literal["rollback"]
+    run_id: str
+    track_id: str | None = None
+
+
 type AnyCommand = Annotated[
     GetVersion
     | Shutdown
@@ -172,7 +203,11 @@ type AnyCommand = Annotated[
     | StartTagging
     | ResolveArbitration
     | SwitchArbitrationSource
-    | ResolveByUrl,
+    | ResolveByUrl
+    | CommitRun
+    | RetryWrite
+    | GetRollbackTarget
+    | Rollback,
     Field(discriminator="command"),
 ]
 
@@ -188,6 +223,10 @@ type ExecutableCommand = (
     | ResolveArbitration
     | SwitchArbitrationSource
     | ResolveByUrl
+    | CommitRun
+    | RetryWrite
+    | GetRollbackTarget
+    | Rollback
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -202,6 +241,10 @@ type CommandName = Literal[
     "resolve_arbitration",
     "switch_arbitration_source",
     "resolve_by_url",
+    "commit_run",
+    "retry_write",
+    "get_rollback_target",
+    "rollback",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -300,7 +343,7 @@ class FailurePayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     file_name: str
-    reason: ExtractionFailureReason
+    reason: FileFailureReason
 
 
 class ExtractionFinished(Event):
@@ -326,6 +369,26 @@ class RunPhase(StrEnum):
     WRITE = auto()
 
 
+class TagValuePayload(BaseModel):
+    """Une ligne du detail, `value` nulle si le champ est absent."""
+
+    model_config = ConfigDict(frozen=True)
+
+    field: TagField
+    key: str
+    value: str | None
+
+
+class TagsBeforePayload(BaseModel):
+    """Tags d'origine lus a l'ouverture, dans l'ordre de la table."""
+
+    model_config = ConfigDict(frozen=True)
+
+    system: TagSystem
+    comment: str | None
+    fields: tuple[TagValuePayload, ...]
+
+
 class TrackEntry(BaseModel):
     """Un morceau du run tel que la liste l'affiche avant toute resolution."""
 
@@ -335,6 +398,7 @@ class TrackEntry(BaseModel):
     file_name: str
     artist: str
     title: str
+    tags_before: TagsBeforePayload | None
 
 
 class RunStarted(Event):
@@ -344,6 +408,7 @@ class RunStarted(Event):
 
     event: Literal["run_started"]
     run_id: str
+    folder: Path
     tracks: tuple[TrackEntry, ...]
 
 
@@ -378,6 +443,8 @@ class TrackResolved(Event):
     after: TrackNames | None = None
     scores: TrackScores | None = None
     artwork_path: Path | None = None
+    # Nul pour un non resolu.
+    tags_after: tuple[TagValuePayload, ...] | None = None
 
 
 class CandidatePayload(BaseModel):
@@ -416,14 +483,52 @@ class ArbitrationUpdated(ArbitrationState):
 
 
 class RunFinished(Event):
-    """Fin d'une phase du run. Les rapports arriveront avec la Feature 6."""
+    """Fin d'une phase du run ; les compteurs se relisent sur l'etat de chaque morceau."""
 
     event: Literal["run_finished"]
     phase: RunPhase
     run_id: str
     resolved: int
     unresolved: int
+    written: int
+    write_error: int
     awaiting_arbitration: int
+
+
+class RollbackRun(BaseModel):
+    """Dernier run annulable : de quoi le nommer dans la confirmation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str
+    written_at: datetime
+    folder: Path
+    tracks: int
+
+
+class RollbackTarget(Event):
+    """`run` nul : rien a annuler, l'interface grise le bouton des Reglages."""
+
+    event: Literal["rollback_target"]
+    run: RollbackRun | None
+
+
+class RollbackFailurePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    track_id: str
+    file_name: str
+    reason: FailureReason
+
+
+class RollbackFinished(Event):
+    """Bilan d'un rollback ; un morceau en echec reste dans le dump, le suivant le retente."""
+
+    event: Literal["rollback_finished"]
+    run_id: str
+    track_id: str | None
+    restored: tuple[str, ...]
+    failed: tuple[RollbackFailurePayload, ...]
 
 
 class Error(Event):

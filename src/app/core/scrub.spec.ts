@@ -7,10 +7,10 @@ import { MASK, scrub } from "./scrub"
 describe("scrub", () => {
   it("masks the username in all three path forms, at any depth", () => {
     const event = {
-      message: "cannot read C:\\Users\\thibaud\\Music\\set.flac",
+      message: "cannot read C:\\Users\\jane\\Music\\set.flac",
       extra: {
-        posix: "/home/thibaud/Music/set.flac",
-        macos: "/Users/thibaud/Music/set.flac",
+        posix: "/home/jane/Music/set.flac",
+        macos: "/Users/jane/Music/set.flac",
         tracks: 42,
       },
     }
@@ -42,7 +42,7 @@ describe("scrub", () => {
   })
 
   it("masks a mapping key as well as its value", () => {
-    const event = { extra: { "C:\\Users\\thibaud\\Music": "locked" } }
+    const event = { extra: { "C:\\Users\\jane\\Music": "locked" } }
 
     const scrubbed = scrub(event as never, {}) as unknown as Record<string, unknown>
 
@@ -52,7 +52,7 @@ describe("scrub", () => {
   it("masks every path in an array", () => {
     const event = {
       extra: {
-        paths: ["C:\\Users\\thibaud\\Music\\a.flac", "C:\\Users\\thibaud\\Music\\b.flac"],
+        paths: ["C:\\Users\\jane\\Music\\a.flac", "C:\\Users\\jane\\Music\\b.flac"],
       },
     }
 

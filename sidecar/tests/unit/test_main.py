@@ -22,16 +22,31 @@ def test_logging_and_sentry_are_armed_before_the_loop() -> None:
     with (
         patch.object(__main__, "setup_logging", autospec=True) as setup,
         patch.object(__main__, "init_sentry", autospec=True) as sentry,
+        patch.object(__main__, "_purge_old_dumps", autospec=True) as purge,
         patch.object(__main__, "run_loop", autospec=True) as run_loop,
     ):
         parent.attach_mock(setup, "setup_logging")
         parent.attach_mock(sentry, "init_sentry")
+        parent.attach_mock(purge, "_purge_old_dumps")
         parent.attach_mock(run_loop, "run_loop")
 
         __main__.main()
 
     order = [call[0] for call in parent.mock_calls]
-    assert order == ["setup_logging", "init_sentry", "run_loop"]
+    assert order == ["setup_logging", "init_sentry", "_purge_old_dumps", "run_loop"]
+
+
+def test_a_failed_dump_purge_never_stops_the_startup(caplog: pytest.LogCaptureFixture) -> None:
+    with (
+        patch.object(__main__, "setup_logging", autospec=True),
+        patch.object(__main__, "init_sentry", autospec=True),
+        patch.object(__main__, "purge_dumps", autospec=True, side_effect=OSError(5, "denied")),
+        patch.object(__main__, "run_loop", autospec=True) as run_loop,
+    ):
+        __main__.main()
+
+    run_loop.assert_called_once()
+    assert "tag dump purge failed" in caplog.messages
 
 
 def test_the_protocol_streams_are_forced_to_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,7 +107,7 @@ def _at(path: str, *keys: str) -> object:
 
 
 def test_the_application_identity_is_the_same_everywhere() -> None:
-    """Le nom et l'identifiant sont recopies a la main dans cinq fichiers que rien ne
+    """Le nom et l'identifiant sont recopies a la main dans plusieurs fichiers que rien ne
     synchronise, et chaque divergence est muette : un identifiant desaccorde envoie
     les deux cotes dans deux dossiers de donnees voisins, hors des scopes fs, et un
     nom desaccorde disperse les erreurs sur deux releases Sentry incomparables.

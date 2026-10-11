@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-09-06"
+date: "2026-10-11"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
@@ -290,7 +290,7 @@ Il n'y a **rien à faire redescendre** : aucun serveur ne sert cette application
 3. Vérifier la nouvelle Release : installeur + `latest.json` présents, smoke test d'installation et de mise à jour.
 4. **Prévenir les utilisateurs à la main** si la version fautive a pu être installée. C'est le seul canal disponible : aucun mécanisme ne permet de forcer une mise à jour ni de savoir qui tourne sur quelle version.
 
-> ⚠️ **Une régression qui a déjà écrit des tags n'est pas rattrapée par un rollback applicatif.** Le retour arrière des données passe par le **dump des tags d'origine** conservé avec le plan de run, via le bouton de rollback de l'application ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)). Le message aux utilisateurs doit le dire explicitement, sinon un rollback de version leur laisse croire que leurs fichiers sont revenus à l'état antérieur.
+> ⚠️ **Une régression qui a déjà écrit des tags n'est pas rattrapée par un rollback applicatif.** Le retour arrière des données passe par le **dump des tags d'origine**, conservé 30 jours indépendamment du plan de run, via le bouton de rollback de l'application ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)). Le message aux utilisateurs doit le dire explicitement, sinon un rollback de version leur laisse croire que leurs fichiers sont revenus à l'état antérieur.
 
 > **Cas particulier, le sidecar en quarantaine après mise à jour** : un binaire recompilé change d'empreinte et peut redevenir un faux positif alors que le précédent était exclu. Ce n'est pas une régression de code et un roll-forward n'y changerait rien, il faut refaire l'exclusion antivirus.
 
@@ -320,7 +320,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`dependabot.yml` commité, Dependency graph et Dependabot alerts actifs** : les deux réglages de sécurité du dépôt activés, condition de fonctionnement du graphe de dépendances que Dependabot consomme
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le bouton « ouvrir le dossier de logs » et le lien vers la fiche source : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
-- [ ] **Préfixe `\\?\` sur les chemins Windows** du sidecar : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage, et `LongPathsEnabled` ne suffit pas à un interpréteur Python non manifesté
+- [ ] **Préfixe `\\?\` sur l'appel système du renommage** : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
 - [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
@@ -653,13 +653,14 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Secrets GitHub Actions (DSN, licence PrimeNG) | Sur changement | Permanente | Même archive, régénérables par ailleurs |
 | Code, historique, CHANGELOG | Continu | Permanente | GitHub (dépôt public) |
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
-| Plan de run, dump des tags, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
+| Plan de run, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
+| Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | `appLocalDataDir()/dumps`, aucune sauvegarde |
 
 > **Le mot de passe de l'archive ne va pas dans l'archive.** Il s'écrit sur papier, ou se mémorise. C'est le seul maillon qui n'a pas de copie numérique, par construction.
 
 > **Deux emplacements, pas un.** Drive seul tombe avec le compte Google, la clé USB seule tombe avec le tiroir. Le chiffrement AES-256 en amont est ce qui rend le dépôt sur Drive acceptable : sans lui, un compte Google compromis donnerait à quelqu'un la capacité de **signer une fausse mise à jour** que les installations existantes accepteraient et installeraient automatiquement.
 
-> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant, et le dump des tags d'origine vit avec le plan qu'il sert à annuler.
+> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant ; le dump des tags d'origine vit 30 jours pour qu'un run raté reste annulable d'un lancement à l'autre ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
 
 ## Recovery
 
@@ -671,7 +672,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Release cassée en ligne | ~30 min | — | Dépublier, roll-forward `PATCH` (cf. § Rollback) |
 | Variables `API_KEYS__*` perdues | ~1 h | — | Regénérer une clé par utilisateur connu, redéployer l'API, retransmettre. Coût réel : recontacter tout le monde |
 | Run interrompu (côté utilisateur) | Immédiat | 0 fichier touché | Reprise depuis le plan de run persisté au fil de l'eau, aucun fichier musical n'ayant été modifié avant confirmation globale |
-| Tags écrits par erreur (côté utilisateur) | Quelques minutes | 0 | Rollback par run ou par morceau depuis le dump des tags d'origine, tant que le plan n'a pas été purgé (30 jours) |
+| Tags écrits par erreur (côté utilisateur) | Quelques minutes | 0 | Rollback par run ou par morceau depuis le dump des tags d'origine, tant que son dump n'a pas été purgé (30 jours) |
 
 > **RTO** = Recovery Time Objective (temps max pour restaurer)
 > **RPO** = Recovery Point Objective (perte de données max acceptable)

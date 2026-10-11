@@ -1,18 +1,24 @@
 @if (blocked(); as reason) {
-  <!-- Ecran bloquant, pas une modale : les onglets ne sont meme pas rendus. Carte sur
-       surface neutre plutot qu'un pave d'alerte : le rouge signale, il ne baigne pas
-       la phrase qu'il faut lire pour s'en sortir. -->
+  <!-- Ecran bloquant, pas une modale : les onglets ne sont meme pas rendus. Carte neutre
+       plutot qu'un pave d'alerte : le rouge ne doit pas baigner la phrase qui dit quoi faire. -->
   <div class="flex flex-1 items-center justify-center p-8">
     <p-card class="max-w-lg border border-surface" [animate.enter]="fadeIn">
       <div class="flex flex-col items-center gap-6 text-center">
         <div class="flex flex-col gap-2">
           <p class="text-lg font-semibold">{{ "app.blocked." + reason + ".title" | translate }}</p>
-          <p class="text-sm text-muted-color">
+          <p class="text-sm whitespace-pre-line text-muted-color">
             {{ "app.blocked." + reason + ".text" | translate: blockedParams() }}
           </p>
         </div>
         @if (reason === "missing") {
-          <button pButton type="button" [outlined]="true" severity="secondary" (click)="retry()">
+          <button
+            pButton
+            type="button"
+            size="small"
+            [outlined]="true"
+            severity="secondary"
+            (click)="retry()"
+          >
             {{ "app.blocked.retry" | translate }}
           </button>
         }
@@ -25,7 +31,6 @@
       @for (tab of tabs; track tab) {
         <p-tab [value]="tab">{{ "nav." + tab | translate }}</p-tab>
       }
-      <!-- Les decisions en attente forment un groupe : gap-2 entre les badges, le px-4 au bord. -->
       <div class="ml-auto flex items-center gap-2 self-center px-4">
         @if (arbitrationCount() > 0) {
           <button
@@ -64,11 +69,10 @@
     <router-outlet />
   </main>
 
-  <!-- Hors du router-outlet : la modale suit l'utilisateur sur tous les onglets. Differee a
-       son premier affichage : son listbox tire les formulaires et le CDK, un tiers du bundle
-       initial pour un ecran qu'un run sans zone grise n'ouvre jamais. Prechargee au plus tard
-       5 s apres l'affichage de ce bloc : un run qui enchaine les evenements peut ne jamais
-       laisser la webview au repos, et l'arbitrage se chargerait alors a son ouverture. -->
+  <!-- Hors du router-outlet : la modale suit l'utilisateur sur tous les onglets. Differee :
+       son listbox tire les formulaires et le CDK, inutiles au demarrage pour un ecran qu'un
+       run sans zone grise n'ouvre jamais. Le prechargement force a 5 s couvre un run qui ne
+       laisse jamais la webview au repos. -->
   @defer (when arbitrationVisible(); prefetch on idle(5s)) {
     <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
   }

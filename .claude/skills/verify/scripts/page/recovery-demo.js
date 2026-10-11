@@ -10,11 +10,11 @@
   let finished = false
 
   const names = [
-    ["Amelie Lens", "Basiel"], ["Charlotte de Witte", "Selected"], ["Adam Beyer", "Your Mind"],
-    ["Enrico Sangiuliano", "Symbiosis"], ["I Hate Models", "Daydream"], ["Kobosil", "105 Tension"],
-    ["Klangkuenstler", "Untergang"], ["Nur Jaber", "Into the Void"], ["Hector Oaks", "Sentiment"],
-    ["VTSS", "Identity Process"], ["Paula Temple", "Gegen"], ["Perc", "Look What Your Love Has Done to Me"],
-    ["Ignez", "Ion"], ["Planetary Assault Systems", "Function Creep"],
+    ["Orla Quenby", "Kelvor"], ["Seraphine de Vossa", "Gossamer"], ["Lior Vance", "Dim Orbit"],
+    ["Silvio Marantelli", "Fernwater"], ["Odd Neon Owls", "Emberfly"], ["Tavrosk", "212 Cadence"],
+    ["Nebelkuenstler", "Sternfall"], ["Ria Javel", "Over the Moor"], ["Ilan Thorne", "Tidewater"],
+    ["QRLM", "Hollow Frequency"], ["Nadia Fenner", "Dunst"], ["Dorn", "Where Every Little Light Went Out"],
+    ["Valka", "Ark"], ["Silent Orchard Foundation", "Copper Weather"],
   ]
   const tracks = names.map(([artist, title], i) => ({
     track_id: `${String(i + 1).padStart(2, "0")} ${artist.toLowerCase()} - ${title.toLowerCase()}.mp3`,
@@ -25,8 +25,8 @@
   const byId = new Map(tracks.map((t) => [t.track_id, t]))
   const reasons = ["no_result", "below_threshold", "source_unavailable", "empty_query", "no_result", "below_threshold"]
   const candidates = (t, source) => [
-    { artist: t.artist, title: `${t.title} (Original Mix)`, label: source === "beatport" ? "Drumcode" : null, year: source === "beatport" ? 2021 : null, scores: { artist: 96, title: 74, average: 85 } },
-    { artist: t.artist, title: `${t.title} (Remix)`, label: source === "beatport" ? "Tresor" : null, year: source === "beatport" ? 2019 : null, scores: { artist: 96, title: 70, average: 83 } },
+    { artist: t.artist, title: `${t.title} (Original Mix)`, label: source === "beatport" ? "Kestrel" : null, year: source === "beatport" ? 2021 : null, scores: { artist: 96, title: 74, average: 85 } },
+    { artist: t.artist, title: `${t.title} (Remix)`, label: source === "beatport" ? "Vantor" : null, year: source === "beatport" ? 2019 : null, scores: { artist: 96, title: 70, average: 83 } },
   ]
   const arbitration = (t, source) => ({
     track_id: t.track_id, source, beatport_unavailable: false, empty_reason: null,

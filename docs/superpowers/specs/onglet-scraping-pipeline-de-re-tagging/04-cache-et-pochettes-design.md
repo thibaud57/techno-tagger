@@ -6,16 +6,16 @@ status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["02-client-techno-scraper-design.md"]
-date: "2026-09-19"
+date: "2026-10-11"
 ---
 
 # Cache disque des réponses et des pochettes
 
 ## Scope
 
-Couvre le cache disque du sidecar dans le répertoire de données de l'application : réponses réussies de techno-scraper et pochettes téléchargées, TTL de 30 jours, plafond de 500 Mo en éviction LRU, tolérance totale à un dossier supprimé ou corrompu (ADR-013). Couvre aussi le téléchargement des pochettes depuis le CDN de la source en pool de 6 (ADR-017), le branchement du cache dans le client du sub-project 02, et l'extraction de la racine des données de l'application dans un module unique, partagé avec les logs.
+Couvre le cache disque du sidecar dans le répertoire de données de l'application : réponses réussies de techno-scraper et pochettes téléchargées, TTL de 30 jours, plafond de 500 Mo en éviction LRU, tolérance totale à un dossier supprimé ou corrompu (ADR-013). Couvre aussi le téléchargement des pochettes depuis le CDN de la source en pool de 6 (ADR-017), derrière un contrôle d'URL qui n'accepte qu'un CDN public, le branchement du cache dans le client du sub-project 02 et l'extraction de la racine des données de l'application dans un module unique, partagé avec les logs.
 
-Exclut le bouton « vider le cache » et l'affichage de sa taille dans les Settings (Feature 7), le choix de la pochette à télécharger et le log de ses échecs avec le run et le morceau (sub-project 06), la lecture des vignettes par la webview et le scope du protocole asset (sub-project 09), l'intégration de la pochette aux tags (Feature 5).
+Exclut le bouton « vider le cache » et l'affichage de sa taille dans les Settings (Feature 7), le choix de la pochette à télécharger et le log de ses échecs avec le run et le morceau (sub-project 06), la lecture des vignettes par la webview et le scope du protocole asset (sub-project 09), l'intégration de la pochette aux tags (epic `ecriture-des-tags-et-renommage`).
 
 ### État livré
 
@@ -50,10 +50,12 @@ Exclut le bouton « vider le cache » et l'affichage de sa taille dans les Setti
 - **Éviction LRU** : quand la taille totale dépasse le plafond après une écriture, les entrées au `mtime` le plus ancien sont supprimées jusqu'à repasser sous le plafond. L'entrée qui vient d'être écrite n'est jamais évincée par sa propre écriture.
 - **Tolérance, le cache n'est jamais une cause d'échec** (ADR-013) : un `FileNotFoundError` sur un fichier ou un dossier disparu équivaut à un miss, le dossier est recréé à l'écriture suivante. Un JSON illisible est supprimé et compte comme un miss. Toute autre `OSError` d'écriture est loguée en WARNING avec `reason` et avalée, la réponse étant déjà en main (`.claude/rules/python/fichiers-io.md`).
 - **Cache des réponses** : `ResponseCache` enveloppe un `DiskCache` sur `cache/responses/`. La clé est la route suivie des paramètres triés, après la troncature de la requête. Le client du sub-project 02 reçoit un paramètre optionnel `cache`. Dans `_get`, la lecture précède le sémaphore : un hit ne consomme aucune place du pool. Seules les réponses 2xx sont écrites, résultat vide compris : un « rien trouvé » est mémorisé 30 jours, ce qu'ADR-013 accepte (« une correction de métadonnées côté source met jusqu'à 30 jours à devenir visible »). Aucune erreur n'est mise en cache. Une réponse servie depuis le cache porte un `request_id` vide.
-- **Pochettes** : `ArtworkFetcher`, context manager asynchrone, avec son propre `httpx2.AsyncClient`, sans `X-API-Key`, puisque `release.artwork_url` pointe le CDN de la source et ne traverse pas l'API (`.claude/rules/techno-scraper/contrat.md`). Timeout httpx2 par défaut, sémaphore de 6 distinct des pools de l'API (ADR-017, `.claude/rules/python/asyncio.md`), transport injectable (`.claude/rules/httpx2/client.md`).
+- **Pochettes** : `ArtworkFetcher`, context manager asynchrone, avec son propre `httpx2.AsyncClient`, sans `X-API-Key`, puisque `release.artwork_url` pointe le CDN de la source et ne traverse pas l'API (`.claude/rules/techno-scraper/contrat.md`). Timeouts du client de l'API, sauf `read` ramené à 30 s : un CDN sert un fichier statique, il n'a pas de budget de 90 s à couvrir. Sémaphore de 6 distinct des pools de l'API (ADR-017, `.claude/rules/python/asyncio.md`), transport injectable (`.claude/rules/httpx2/client.md`).
   - `fetch(url)` rend le chemin de la pochette en cache, ou la télécharge par `stream()` en écrivant au fil d'`aiter_bytes()` dans une écriture ouverte par `begin`, chaque accès disque délégué par `asyncio.to_thread` (`.claude/rules/httpx2/client.md`, `.claude/rules/python/asyncio.md`).
-  - L'extension vient du `Content-Type` : `image/jpeg` donne `.jpg`, `image/png` `.png`, `image/webp` `.webp`. Tout autre type est refusé.
-  - Un échec (erreur réseau, statut non 2xx, contenu qui n'est pas une image) lève `ArtworkUnavailableError` avec un `reason`. Le pipeline l'attrape, la logue avec `run` et `track` et poursuit sans pochette : un échec de pochette ne fait jamais échouer le morceau (`.claude/rules/httpx2/client.md`). Pas de nouvelle tentative : la pochette sera retentée au run suivant.
+  - **Un téléchargement par URL en vol** : deux morceaux d'une même sortie portent la même `artwork_url` et manqueraient tous deux le cache. Le second attend la tâche du premier, protégée de l'annulation de ses appelants par `shield` et la fermeture du fetcher annule celles qui restent.
+  - **Une URL de pochette ne désigne qu'un CDN public** : `artwork_url` est la seule valeur du contrat qui déclenche une requête vers une adresse libre et une API détournée pointerait sinon la boucle locale ou le réseau de l'utilisateur. Avant chaque requête, l'URL doit être en `https` et son hôte, résolu, ne rendre que des adresses globales ; après la connexion, l'adresse réellement jointe est contrôlée à nouveau (rebinding DNS). Les redirections sont suivies à la main, cinq au plus, chaque saut repassant le contrôle. Aucune liste blanche de domaines, les CDN n'étant documentés nulle part et un seul motif `blocked_url` pour toutes les adresses refusées, qui n'apprend rien sur ce qui répond en interne. La résolution est injectable, les tests ne résolvent aucun nom.
+  - L'extension vient du `Content-Type`, insensible à la casse : `image/jpeg` donne `.jpg`, `image/png` `.png`, `image/webp` `.webp`. Tout autre type est refusé.
+  - Un échec (erreur réseau, statut non 2xx, contenu qui n'est pas une image, URL refusée, redirections en boucle, écriture du cache impossible) lève `ArtworkUnavailableError` avec un `reason`. Le pipeline l'attrape, la logue avec `run` et `track` et poursuit sans pochette : un échec de pochette ne fait jamais échouer le morceau (`.claude/rules/httpx2/client.md`). Pas de nouvelle tentative : la pochette sera retentée au run suivant.
 - **Erreurs** : `ArtworkUnavailableError` hérite de `TaggerError`, `code` stable et `params` en attributs (`.claude/rules/python/gestion-erreurs.md`). L'URL n'entre pas dans les `params` : elle peut désigner une sortie, donc un titre.
 - **Modèles internes** en dataclasses gelées, constantes `Final` (`.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/type-hints.md`).
 
@@ -103,6 +105,17 @@ Exclut le bouton « vider le cache » et l'affichage de sa taille dans les Setti
 **THEN** une `ArtworkUnavailableError` est levée
 **AND** aucun fichier n'est publié dans le cache
 
+### Scénario 9 : URL qui ne désigne pas un CDN public
+**GIVEN** une `artwork_url` en `http`, vers une adresse locale ou privée, ou dont l'hôte se résout vers une telle adresse, ou qu'une redirection y mène
+**WHEN** la pochette est demandée
+**THEN** une `ArtworkUnavailableError` au motif `blocked_url` est levée
+**AND** aucune réponse n'est lue ni mise en cache
+
+### Scénario 10 : Pochette partagée par deux morceaux
+**GIVEN** deux morceaux d'une même sortie, donc de même `artwork_url`
+**WHEN** leurs pochettes sont demandées en même temps
+**THEN** une seule requête est émise
+
 ## Tests à écrire
 
 ### Unit
@@ -118,6 +131,8 @@ Exclut le bouton « vider le cache » et l'affichage de sa taille dans les Setti
   - misses without error once the folder is deleted, then recreates it on write
   - publishes nothing when the writer fails
   - deletes and misses an unreadable json response
+  - ignores and keeps a foreign file
+  - keeps the size counter consistent under concurrent writes
 - `sidecar/tests/unit/test_cache_artworks.py` :
   - downloads an artwork once and serves it from the cache
   - names the file after the content type (paramétré : jpeg, png, webp)
@@ -126,6 +141,11 @@ Exclut le bouton « vider le cache » et l'affichage de sa taille dans les Setti
   - raises artwork unavailable on a network error
   - never keeps more than six downloads in flight
   - sends no api key to the cdn
+  - downloads once when two tracks share an artwork
+  - accepts a content type whatever its case
+  - refuses a url that does not name a public cdn, a response from an address the guard would have blocked and a redirection towards the local machine
+  - follows a redirection towards another public host and gives up on a loop
+  - raises artwork unavailable when the cache cannot be written
 - `sidecar/tests/unit/test_scraper_client_requests.py` (ajouts) :
   - serves a repeated search from the cache without a request
   - caches an empty result

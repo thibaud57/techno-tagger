@@ -2,6 +2,7 @@
 // qui parte vers le sidecar (ni choix valide, ni refus).
 //   node cdp.mjs page/arbitration-dialog.js open      rouvre la modale par le badge de file
 //   node cdp.mjs page/arbitration-dialog.js state     taille, selection, options et leurs rectangles
+//   node cdp.mjs page/arbitration-dialog.js banner    cellule reservee au-dessus de la liste et son contenu
 //   node cdp.mjs page/arbitration-dialog.js footer    boutons du pied, badge compris
 //   node cdp.mjs page/arbitration-dialog.js covers    vignettes de la liste du run et leur cellule
 //   node cdp.mjs page/arbitration-dialog.js rows      lignes du run, onglet Tagging ouvert au besoin,
@@ -57,6 +58,18 @@
     }
   }
 
+  if (action === "banner") {
+    // Cellule reservee au-dessus de la liste : sa hauteur ne doit pas changer entre la ligne
+    // « Correspondances incertaines » et un bandeau de source, sinon la liste bouge.
+    const dialog = document.querySelector(".p-dialog")
+    const cell = dialog?.querySelector(".min-h-6\\.5")
+    return {
+      cell: rect(cell),
+      content: cell && [...cell.children].map((el) => ({ tag: el.tagName.toLowerCase(), ...rect(el) })),
+      list: rect(dialog?.querySelector("p-listbox")),
+    }
+  }
+
   if (action === "footer") {
     const root = dialog()
     if (!root) return { visible: false }
@@ -77,7 +90,8 @@
   if (action === "covers") {
     const rows = [...document.querySelectorAll("app-run-list tbody tr")].slice(0, 6)
     return rows.map((row) => {
-      const cell = row.querySelector("td")
+      // Deuxieme cellule : la premiere porte le bouton du detail (colonne de 48px).
+      const cell = row.querySelectorAll("td")[1]
       const cover = cell?.querySelector("img, p-skeleton, div")
       const style = cell && getComputedStyle(cell)
       return {
@@ -106,7 +120,8 @@
     const row = [...document.querySelectorAll("app-run-list tbody tr")].find((tr) =>
       tr.querySelector('app-state-tag + app-icon, app-icon[name="info-circle"]'),
     )
-    const cell = row?.querySelectorAll("td")[5]
+    // La cellule d'etat, reperee par son tag : son rang change avec les colonnes.
+    const cell = row?.querySelector("app-state-tag")?.closest("td")
     const tag = cell?.querySelector("p-tag")
     const host = cell?.querySelector(":scope app-state-tag ~ app-icon")
     const svg = host?.querySelector("svg")
@@ -161,7 +176,8 @@
     return {
       badge: cursorOf(document.querySelector("[data-arbitration-badge]")),
       badgeTag: cursorOf(document.querySelector("[data-arbitration-badge] p-tag")),
-      runButton: cursorOf(document.querySelector('app-tagging-page [data-p-icon="play"]')?.closest("button")),
+      // Bouton d'action unique : lancer, interrompre, confirmer ou relancer selon la phase.
+      actionButton: cursorOf(document.querySelector("app-tagging-page .grid > button[data-action]")),
       tab: cursorOf(document.querySelector("p-tab")),
       awaitingRow: cursorOf(firstRow),
       validate: cursorOf(dialog()?.querySelector('[data-action="validate"]')),

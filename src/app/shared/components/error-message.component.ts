@@ -1,22 +1,18 @@
 import { Component, computed, input } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
-import { Message } from "primeng/message"
 
 import type { SidecarErrorEvent } from "../../core/models/protocol"
 import { FADE_IN } from "../utils/motion"
 import { brandName } from "../utils/sources"
 
-import { IconComponent } from "./icon.component"
+import { MessageComponent } from "./message.component"
 
 /** Erreur du sidecar dans l'ecran concerne, traduite depuis son `code` et ses `params`. */
 @Component({
   selector: "app-error-message",
-  imports: [Message, TranslatePipe, IconComponent],
+  imports: [MessageComponent, TranslatePipe],
   template: `
-    <p-message severity="error">
-      <ng-template #icon><app-icon name="times-circle" [size]="20" /></ng-template>
-      {{ "errors." + error().code | translate: params() }}
-    </p-message>
+    <app-message severity="error">{{ "errors." + error().code | translate: params() }}</app-message>
   `,
   host: { class: "block", "animate.enter": FADE_IN },
 })

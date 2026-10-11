@@ -1,5 +1,6 @@
 import { Component, input } from "@angular/core"
 import { ArrowRight } from "@primeicons/angular/arrow-right"
+import { ChevronDown } from "@primeicons/angular/chevron-down"
 import { ChevronLeft } from "@primeicons/angular/chevron-left"
 import { ChevronRight } from "@primeicons/angular/chevron-right"
 import { Check } from "@primeicons/angular/check"
@@ -14,10 +15,12 @@ import { Image as ImageIcon } from "@primeicons/angular/image"
 import { InfoCircle } from "@primeicons/angular/info-circle"
 import { MinusCircle } from "@primeicons/angular/minus-circle"
 import { Play } from "@primeicons/angular/play"
+import { Refresh } from "@primeicons/angular/refresh"
 import { Spinner } from "@primeicons/angular/spinner"
 import { Stop } from "@primeicons/angular/stop"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
+import { Undo } from "@primeicons/angular/undo"
 
 /**
  * Les icones reellement utilisees, et non `string` : un nom ouvert imposerait un
@@ -26,6 +29,7 @@ import { TimesCircle } from "@primeicons/angular/times-circle"
  * parcoure la liste : Angular ne verifie pas l'exhaustivite d'un `@switch`.
  */
 export const ICON_NAMES = [
+  "chevron-down",
   "chevron-left",
   "chevron-right",
   "file",
@@ -45,6 +49,8 @@ export const ICON_NAMES = [
   "eye",
   "eye-slash",
   "spinner",
+  "refresh",
+  "undo",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -58,11 +64,13 @@ export type IconSize = 16 | 20 | 24
     ArrowRight,
     Check,
     CheckCircle,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     Clock,
     ExclamationTriangle,
     Play,
+    Refresh,
     Stop,
     Spinner,
     Eye,
@@ -74,9 +82,13 @@ export type IconSize = 16 | 20 | 24
     MinusCircle,
     Times,
     TimesCircle,
+    Undo,
   ],
   template: `
     @switch (name()) {
+      @case ("chevron-down") {
+        <svg data-p-icon="chevron-down" [size]="size()" />
+      }
       @case ("chevron-left") {
         <svg data-p-icon="chevron-left" [size]="size()" />
       }
@@ -133,6 +145,12 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("spinner") {
         <svg data-p-icon="spinner" [size]="size()" [spin]="true" />
+      }
+      @case ("refresh") {
+        <svg data-p-icon="refresh" [size]="size()" />
+      }
+      @case ("undo") {
+        <svg data-p-icon="undo" [size]="size()" />
       }
     }
   `,
