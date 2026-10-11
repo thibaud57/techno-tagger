@@ -11,6 +11,7 @@ paths:
 - Tenir toute la configuration dans `pyproject.toml` : `[project]`, `[tool.uv]`, `[dependency-groups]`, `[tool.*]`
 - Déclarer les outils de développement dans `[dependency-groups]` (PEP 735), jamais dans `[project.optional-dependencies]` réservé aux extras publiés
 - Séparer les groupes `dev` et `build` : un job de test n'a pas besoin de PyInstaller
+- Poser `required-version` sous `[tool.uv]` sur la mineure d'uv (garde locale, à monter avec `uv_build` et l'action composite `setup-uv`)
 - Poser `package = true` pour installer le projet en editable, ce qui rend le sidecar importable sans manipuler `PYTHONPATH`
 - Passer par la CLI pour toute dépendance : `uv add`, `uv add --dev`, `uv add --group build`, `uv remove`
 - Committer `uv.lock` dans le même commit que le `pyproject.toml` modifié
