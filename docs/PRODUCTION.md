@@ -466,7 +466,7 @@ Le dépôt est public : n'importe qui peut ouvrir une PR depuis un fork, et ce q
 | Réglage | Cible | Relevé le 2026-10-09 | Pourquoi |
 |---------|-------|----------------------|----------|
 | Permissions par défaut du `GITHUB_TOKEN` | `read` (restricted) | ✅ `read` | Chaque workflow redéclare ses scopes, un oubli retombe sur la lecture seule |
-| Autoriser Actions à approuver une PR | Désactivé | ✅ désactivé (corrigé le 2026-10-09) | Un workflow ne doit pas pouvoir valider la PR qu'il vient d'ouvrir |
+| Autoriser Actions à créer et approuver des PR | Activé, tant que release-please ouvre sa PR avec `GITHUB_TOKEN` | ✅ activé (rétabli le 2026-10-12, après une désactivation le 2026-10-09) | GitHub n'a qu'un interrupteur pour créer et approuver : désactivé, release-please n'ouvre plus la PR de release et la release s'arrête là, sans tag ni build |
 | Épinglage SHA obligatoire | Activé | ✅ activé (corrigé le 2026-10-09) | Transforme en règle de plateforme la convention SHA des workflows : une action en tag flottant est refusée au lieu de passer |
 | Approbation des workflows de fork | Tous les contributeurs externes | ✅ tous les contributeurs externes (corrigé le 2026-10-09) | Sinon, une seule contribution acceptée (une typo suffit) dispense de l'approbation toutes les suivantes |
 | Actor rules (workflow execution protections) | Aucune, ou `dependabot[bot]` inclus | ✅ aucune | Une actor rule qui oublie `dependabot[bot]` bloque ses PR sans erreur visible |
