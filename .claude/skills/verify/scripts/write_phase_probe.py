@@ -5,7 +5,7 @@ protocole. Usage, depuis la racine du depot, `LOCALAPPDATA` pointe vers le scrat
 
     LOCALAPPDATA=<scratch>/appdata uv run --directory sidecar python <skill>/scripts/write_phase_probe.py <dossier>
 
-Le dossier recoit cinq fichiers tagues « adam beyer / your mind » : deux resolus (MP3, FLAC), un
+Le dossier recoit cinq fichiers tagues « lior vance / dim orbit » : deux resolus (MP3, FLAC), un
 troisieme resolu tenu par un lecteur pendant l'ecriture, un non resolu et un en attente
 d'arbitrage. Le run part de `open_run`, comme en production ; seuls les etats sont poses a la
 main. `write()` sous le verrou, puis `retry()` une fois le verrou leve. Un espion sur
@@ -31,10 +31,10 @@ from tagger.scraper_client import Source  # noqa: E402
 from tagger.tag_dump import TagDump, dump_dir, dump_path, load_dump  # noqa: E402
 from tagger.tagging import FailureReason, Resolution, open_run  # noqa: E402
 
-RESOLVED = ("01 adam beyer - your mind.mp3", "02 adam beyer - your mind.flac")
-LOCKED = "03 adam beyer - your mind (copy).mp3"
+RESOLVED = ("01 lior vance - dim orbit.mp3", "02 lior vance - dim orbit.flac")
+LOCKED = "03 lior vance - dim orbit (copy).mp3"
 UNRESOLVED = "04 nobody - nothing.mp3"
-PENDING = "05 amelie lens - basielians.mp3"
+PENDING = "05 orla quenby - kelvorians.mp3"
 BUILDERS = {".mp3": write_blank_mp3, ".flac": write_blank_flac}
 
 
@@ -45,7 +45,7 @@ def emit(payload: dict[str, object]) -> None:
 def build(folder: Path) -> Path:
     for name in (*RESOLVED, LOCKED, UNRESOLVED, PENDING):
         path = BUILDERS[Path(name).suffix](folder / name)
-        tag(path, artist=["adam beyer"], title=["your mind"])
+        tag(path, artist=["lior vance"], title=["dim orbit"])
     cover = folder.parent / "cover.jpg"
     cover.write_bytes(JPEG)
     return cover

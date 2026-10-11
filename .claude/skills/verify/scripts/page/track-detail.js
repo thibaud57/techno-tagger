@@ -4,7 +4,7 @@
 // Lance par le MCP Playwright : `browser_run_code_unsafe` avec `filename` sur ce fichier,
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-detail/.
 async (page) => {
-  const DIR = "C:/Users/thiba/Desktop/dev/techno-tagger/.playwright-mcp/verify-detail/"
+  const DIR = ".playwright-mcp/verify-detail/"
   const BULK = 2000
   const ROW = 56
   const out = { checks: {}, failures: [], measures: {} }
@@ -109,12 +109,12 @@ async (page) => {
     ["album", "TALB"], ["track_number", "TRCK"], ["date", "TYER"],
     ["source", "SOURCE"], ["url", "WOAS"], ["source_id", "SOURCE_ID"],
   ]
-  const BEFORE = { artist: "adam beyer", title: "your mind", genre: "Techno", bpm: "130", date: "2019" }
+  const BEFORE = { artist: "lior vance", title: "dim orbit", genre: "Techno", bpm: "130", date: "2019" }
   const AFTER = {
-    artist: "Adam Beyer, Bart Skils", remixer: "Layton Giordani", title: "Your Mind (Layton Giordani Remix)",
-    album: "Your Mind (The Remixes)", date: "2023", genre: "Techno (Peak Time / Driving)",
-    label: "Drumcode", catalog_number: "DC293", bpm: "130", key: "8A", isrc: "SE5Q52300123", track_number: "2",
-    url: "https://www.beatport.com/track/your-mind-layton-giordani-remix/17492013", source_id: "17492013", source: "beatport",
+    artist: "Lior Vance, Mara Quill", remixer: "Kaelen Mirandor", title: "Dim Orbit (Kaelen Mirandor Remix)",
+    album: "Dim Orbit (The Remixes)", date: "2023", genre: "Techno (Peak Time / Driving)",
+    label: "Kestrel", catalog_number: "DC293", bpm: "130", key: "8A", isrc: "SE5Q52300123", track_number: "2",
+    url: "https://www.beatport.com/track/dim-orbit-kaelen-mirandor-remix/99000101", source_id: "99000101", source: "beatport",
   }
   const tagsBefore = (comment) => ({ system: "id3", comment, fields: KEYS.map(([f, k]) => value(f, k, BEFORE[f] ?? null)) })
   const tagsAfter = KEYS.map(([f, k]) => value(f, k, AFTER[f] ?? null))
@@ -125,15 +125,15 @@ async (page) => {
     title,
     tags_before: before,
   })
-  const resolved = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "auto", failure_reason: null, source: "beatport", after: { artist: "Adam Beyer, Bart Skils", title: "Your Mind (Layton Giordani Remix)" }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null, tags_after: tagsAfter })
+  const resolved = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "auto", failure_reason: null, source: "beatport", after: { artist: "Lior Vance, Mara Quill", title: "Dim Orbit (Kaelen Mirandor Remix)" }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null, tags_after: tagsAfter })
   const unresolved = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null })
-  const arbitration = (t) => ({ event: "arbitration_required", track_id: t.track_id, source: "beatport", beatport_unavailable: false, empty_reason: null, other_source: "bandcamp", candidates: [{ artist: t.artist, title: `${t.title} (Original Mix)`, label: "Drumcode", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
+  const arbitration = (t) => ({ event: "arbitration_required", track_id: t.track_id, source: "beatport", beatport_unavailable: false, empty_reason: null, other_source: "bandcamp", candidates: [{ artist: t.artist, title: `${t.title} (Original Mix)`, label: "Kestrel", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
 
-  const R = track(1, "Adam Beyer", "Your Mind", tagsBefore("Ripped by X"))
-  const U = track(2, "Nur Jaber", "Into the Void")
-  const A = track(3, "Amelie Lens", "Basiel")
-  const P = track(4, "Hector Oaks", "Sentiment")
-  const X = track(5, "Ignez", "Ion", null)
+  const R = track(1, "Lior Vance", "Dim Orbit", tagsBefore("Ripped by X"))
+  const U = track(2, "Ria Javel", "Over the Moor")
+  const A = track(3, "Orla Quenby", "Kelvor")
+  const P = track(4, "Ilan Thorne", "Tidewater")
+  const X = track(5, "Valka", "Ark", null)
   const fillers = Array.from({ length: 30 }, (_, i) => track(10 + i, "Filler", `Track ${i}`))
 
   await page.setViewportSize({ width: 1280, height: 800 })
@@ -188,7 +188,7 @@ async (page) => {
   check("open row highlighted and expanded", r?.highlighted === true && r.toggleExpanded === "true", r && { h: r.highlighted, e: r.toggleExpanded })
   check("resolved: 14 fields plus comment, no source id", r?.rows.length === 15 && !r?.rows.some((x) => x[1] === "SOURCE_ID"), r?.rows.map((x) => x[1]))
   check("resolved: fields in the sidecar order, custom keys without the TXXX: prefix", JSON.stringify(r?.rows.map((x) => x[0])) === JSON.stringify(["Artiste", "Titre", "Remixeur", "Genre", "BPM", "Key", "Label", "Numéro de catalogue", "ISRC", "Album", "Numéro de piste", "Année", "Source", "URL", "Commentaire"]) && JSON.stringify(r.rows.map((x) => x[1])) === JSON.stringify(["TPE1", "TIT2", "TPE4", "TCON", "TBPM", "TKEY", "TPUB", "CATALOGNUMBER", "TSRC", "TALB", "TRCK", "TYER", "SOURCE", "WOAS", ""]), r?.rows.map((x) => `${x[0]} ${x[1]}`))
-  check("resolved: first row, key beside the label", JSON.stringify(r?.rows[0]) === JSON.stringify(["Artiste", "TPE1", "adam beyer", "Adam Beyer, Bart Skils"]), r?.rows[0])
+  check("resolved: first row, key beside the label", JSON.stringify(r?.rows[0]) === JSON.stringify(["Artiste", "TPE1", "lior vance", "Lior Vance, Mara Quill"]), r?.rows[0])
   check("resolved: comment row, after em dash", JSON.stringify(r?.rows.at(-1)) === JSON.stringify(["Commentaire", "", "Ripped by X", "—"]), r?.rows.at(-1))
   check("artwork 160px left of the grid", r?.art?.w === 160 && r?.art?.left === true && r?.art?.frame, r?.art)
   check("frame of 7 rows, filled to the padding, next row right under it", r?.span === 7 && r.spanMatchesFrame && !r.scrolls && r.gapUnderLast <= 17 && r.nextRowTop === 0, r && { span: r.span, frame: r.frame, scrolls: r.scrolls, gap: r.gapUnderLast, next: r.nextRowTop })
@@ -223,7 +223,7 @@ async (page) => {
   check("pending: skeleton artwork", (await detail(P.file_name))?.art?.skeleton === true, (await detail(P.file_name))?.art)
   await line(resolved(P))
   await settle()
-  check("detail follows its track when resolved", (await detail(P.file_name))?.rows[0]?.[3] === "Adam Beyer, Bart Skils", (await detail(P.file_name))?.rows[0])
+  check("detail follows its track when resolved", (await detail(P.file_name))?.rows[0]?.[3] === "Lior Vance, Mara Quill", (await detail(P.file_name))?.rows[0])
   await toggle(P.file_name).click()
   await settle()
 

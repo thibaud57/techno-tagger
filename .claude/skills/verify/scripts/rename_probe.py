@@ -23,10 +23,10 @@ from tagger.paths import extended_path  # noqa: E402
 from tagger.renaming import MAX_PATH_LENGTH, RenameError, rename_track  # noqa: E402
 
 PREFIX = "\\?\\"
-ARTIST = "Adam Beyer"
-TITLE = "Your Mind (Extended Mix)"
-TARGET = "Adam Beyer - Your Mind (Extended Mix).mp3"
-LONG_TITLE = "Your Mind (Layton Giordani Extended Remix)"
+ARTIST = "Lior Vance"
+TITLE = "Dim Orbit (Extended Mix)"
+TARGET = "Lior Vance - Dim Orbit (Extended Mix).mp3"
+LONG_TITLE = "Dim Orbit (Kaelen Mirandor Extended Remix)"
 
 
 def emit(payload: dict[str, object]) -> None:
@@ -65,18 +65,18 @@ def main() -> int:
     results: dict[str, dict[str, object]] = {}
 
     folder = case_folder(root, "simple")
-    renamed = rename_track(make(folder, "adam beyer - your mind.MP3"), ARTIST, TITLE)
+    renamed = rename_track(make(folder, "lior vance - dim orbit.MP3"), ARTIST, TITLE)
     results["simple"] = {
         "ok": names(folder) == [TARGET] and renamed.path == folder / TARGET and prefix_free(renamed.path),
         "names": names(folder),
     }
 
     folder = case_folder(root, "forbidden")
-    first = rename_track(make(folder, "a.flac"), "AC/DC", "Back In Black")
+    first = rename_track(make(folder, "a.flac"), "QX/RT", "Down In Amber")
     second = rename_track(make(folder, "b.wav"), "Someone", "Mind: Body (Who? Remix)")
     results["forbidden"] = {
         "ok": [first.path.name, second.path.name]
-        == ["AC-DC - Back In Black.flac", "Someone - Mind - Body (Who Remix).wav"],
+        == ["QX-RT - Down In Amber.flac", "Someone - Mind - Body (Who Remix).wav"],
         "names": names(folder),
     }
 
@@ -96,7 +96,7 @@ def main() -> int:
     results["case_only"] = {"ok": names(folder) == [TARGET] and renamed.path.name == TARGET, "names": names(folder)}
 
     folder = case_folder(root, "no-artist")
-    renamed = rename_track(make(folder, "rip_0042.wav"), None, "Tarantula")
+    renamed = rename_track(make(folder, "rip_0042.wav"), None, "Mothlight")
     results["no_artist"] = {"ok": names(folder) == ["rip_0042.wav"] and renamed.path.name == "rip_0042.wav", "names": names(folder)}
 
     folder = case_folder(root, "truncated", length=MAX_PATH_LENGTH - 40 - 1)

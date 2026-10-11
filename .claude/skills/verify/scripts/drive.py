@@ -35,6 +35,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import override
 
 sys.path.insert(0, str(Path(__file__).parent))
 # Depuis l'emplacement du script : .claude/skills/verify/scripts.
@@ -116,8 +117,11 @@ for raw in source.splitlines():
 class _Outbox(io.StringIO):
     """stdout qui retient le dernier `run_id` annonce, pour les commandes `"$run_id"`."""
 
-    run_id: str | None = None
+    def __init__(self) -> None:
+        super().__init__()
+        self.run_id: str | None = None
 
+    @override
     def write(self, text: str, /) -> int:
         for line in text.splitlines():
             if '"run_started"' in line:

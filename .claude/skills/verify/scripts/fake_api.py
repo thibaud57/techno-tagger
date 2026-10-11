@@ -12,54 +12,54 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 TRACKS = {
-    "Your Mind": {
-        "id": "17492013",
-        "title": "Your Mind",
-        "source_title": "Your Mind",
+    "Dim Orbit": {
+        "id": "99000101",
+        "title": "Dim Orbit",
+        "source_title": "Dim Orbit",
         "mix_name": "Extended Mix",
-        "artists": [{"id": "1", "name": "Adam Beyer", "kind": "artist", "social_links": []}],
+        "artists": [{"id": "1", "name": "Lior Vance", "kind": "artist", "social_links": []}],
         "remixers": [],
         "release": {
             "id": "4200",
-            "title": "Your Mind",
-            "source_title": "Your Mind",
-            "catalog_number": "DC287",
+            "title": "Dim Orbit",
+            "source_title": "Dim Orbit",
+            "catalog_number": "KS287",
             "release_date": "2023-06-16",
             "artwork_url": None,
         },
-        "label": {"id": "8", "name": "Drumcode", "kind": "label"},
+        "label": {"id": "8", "name": "Kestrel", "kind": "label"},
         "genre": "Techno",
         "bpm": 134,
         "key": "4A",
-        "isrc": "SE5RN2312001",
+        "isrc": "ZZ0AA2300001",
         "track_number": 1,
-        "url": "https://www.beatport.com/track/your-mind/17492013",
+        "url": "https://www.beatport.com/track/dim-orbit/99000101",
         "source": "beatport",
     },
     # La gateway rend `title` sans version, rangee dans `mix_name` : la composition
     # « Titre (Mix Name) » se verifie ici de bout en bout.
-    "Basiel": {
+    "Kelvor": {
         "id": "20001",
-        "title": "Basiel",
-        "source_title": "Basiel",
+        "title": "Kelvor",
+        "source_title": "Kelvor",
         "mix_name": "Extended Mix",
-        "artists": [{"id": "2", "name": "Amelie Lens", "kind": "artist", "social_links": []}],
+        "artists": [{"id": "2", "name": "Orla Quenby", "kind": "artist", "social_links": []}],
         "remixers": [],
         "release": {
             "id": "4201",
-            "title": "Basiel",
-            "source_title": "Basiel",
+            "title": "Kelvor",
+            "source_title": "Kelvor",
             "catalog_number": "LENS02",
             "release_date": "2024-02-02",
             "artwork_url": None,
         },
-        "label": {"id": "9", "name": "Lenske", "kind": "label"},
+        "label": {"id": "9", "name": "Harlow", "kind": "label"},
         "genre": "Techno",
         "bpm": 140,
         "key": "8A",
         "isrc": "BE5RN2400001",
         "track_number": 1,
-        "url": "https://www.beatport.com/track/basiel/20001",
+        "url": "https://www.beatport.com/track/kelvor/20001",
         "source": "beatport",
     },
 }
@@ -69,34 +69,34 @@ TRACKS = {
 # Bandcamp ou SoundCloud absente d'ici prend le 404 de la gateway (`track_not_found`).
 BY_URL = {
     "/bandcamp/tracks": {
-        "https://amelielens.bandcamp.com/track/basiel": {
-            **TRACKS["Basiel"],
+        "https://orlaquenby.bandcamp.com/track/kelvor": {
+            **TRACKS["Kelvor"],
             "id": "7",
             "mix_name": None,
             "label": None,
-            "url": "https://amelielens.bandcamp.com/track/basiel",
+            "url": "https://orlaquenby.bandcamp.com/track/kelvor",
             "source": "bandcamp",
         },
     },
     "/soundcloud/resolve": {
-        "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2": {
-            **TRACKS["Your Mind"],
-            "id": "2407606665",
-            "title": "Tarantula",
-            "source_title": "KASIA & Faithless - Tarantula - Drumcode - DCX017",
+        "https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2": {
+            **TRACKS["Dim Orbit"],
+            "id": "9900050505",
+            "title": "Mothlight",
+            "source_title": "ZELKA & Larkspur - Mothlight - Kestrel - KSX017",
             "mix_name": None,
             "artists": [
-                {"id": "318628", "name": "KASIA & Faithless", "kind": "artist", "social_links": []}
+                {"id": "770001", "name": "ZELKA & Larkspur", "kind": "artist", "social_links": []}
             ],
-            "url": "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2",
+            "url": "https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2",
             "source": "soundcloud",
         },
         # Lien court qu'une vraie gateway resout en profil : le sidecar doit le refuser.
         "https://on.soundcloud.com/verifyprofile": {
             "profile": {
-                "id": "318628",
-                "name": "Drumcode",
-                "url": "https://soundcloud.com/drumcode",
+                "id": "770001",
+                "name": "Kestrel",
+                "url": "https://soundcloud.com/kestrel",
                 "social_links": [],
             },
             "tracks": {"items": [], "next_cursor": None},

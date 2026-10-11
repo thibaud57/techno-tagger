@@ -20,16 +20,16 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `build_fixture.py` | Bibliothèque de test : trois morceaux connus du faux serveur, `--unique N` titres inédits pour qu'un run dure, `--arbitration` un seul morceau en zone grise, `--vlc-dump` un dump `vlc_media.db`, ou `--formats` un morceau valide par format (MP3, FLAC, WAV, AIFF) nommé d'après un titre du vrai catalogue et sali comme par `write_tags_probe.py` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/build_fixture.py <dossier> [--unique N \| --arbitration \| --vlc-dump \| --formats]` |
 | `fake_api.py` | Faux techno-scraper sur une vraie socket. `FAKE_DELAY` tient les requêtes en vol, `REJECT_ALL` rend 403 à tout. `BY_URL` sert les routes par URL du rattrapage (`/bandcamp/tracks`, `/soundcloud/resolve`, morceau ou profil), `FAILING_IDS` fait rendre 403 ou 503 à un id Beatport précis | importé par `drive.py` |
 | `drive.py` | Vraie boucle NDJSON contre le faux serveur, ou contre une vraie gateway locale si `GATEWAY_URL` et `GATEWAY_KEY` sont posées. Une ligne `{"wait": 1.5}` du fichier de commandes retarde la suivante, `"$run_id"` dans une commande prend à son envoi le `run_id` du dernier `run_started`, une ligne `{"lock": "<fichier>", "for": 3}` tient ce fichier comme un lecteur audio pendant 3 s sans retarder la suivante. `BINARY=<exe>` lance le binaire figé à la place de la boucle en process, contre la vraie API et la clé du trousseau | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/drive.py <commandes.ndjson> [sortie.ndjson]` |
-| `write_tags_probe.py` | Écriture des tags hors protocole : bâtit un fichier par format, le salit (commentaires, verso et recto, date complète en v2.4, frames Serato), y écrit le candidat Beatport des fixtures avec une pochette, puis relit le disque par `translate=False` | `uv run --directory sidecar python c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/write_tags_probe.py <dossier> [mp3 wav aiff flac]` |
-| `restore_probe.py` | Aller-retour du dump des tags d'origine hors protocole : tague un MP3 v2.3, un MP3 v2.4, un WAV, un AIFF et un FLAC, lit leur origine, l'enregistre dans le dump sous `dump_dir()`, écrit le candidat Beatport des fixtures, consigne le chemin renommé, relit le dump du disque et restaure, puis compare le disque relu par `translate=False` avant et après | `LOCALAPPDATA=<scratch>/appdata uv run --directory sidecar python c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/restore_probe.py <dossier>` |
-| `rename_probe.py` | Renommage de vrais fichiers hors protocole : simple (extension en majuscules), caractères interdits, collision, casse seule, sans artiste, titre tronqué, titre d'emojis, fichier dont l'ancien chemin dépasse 259 caractères, fichier tenu par un lecteur. Chaque cas bat son sous-dossier et relit le disque sous le nouveau nom | `uv run --directory sidecar python c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/rename_probe.py <dossier>` |
-| `write_phase_probe.py` | Phase d'écriture d'un run hors protocole : cinq fichiers tagués (deux résolus MP3 et FLAC, un troisième résolu tenu par un lecteur, un non résolu, un en attente), run ouvert par `open_run`, `RunWriter.write()` sous le verrou puis `retry()` une fois levé ; un espion sur `write_tags` relit le dump au premier fichier écrit. Exige un dossier neuf | `LOCALAPPDATA=<scratch>/appdata uv run --directory sidecar python c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/write_phase_probe.py <dossier neuf>` |
+| `write_tags_probe.py` | Écriture des tags hors protocole : bâtit un fichier par format, le salit (commentaires, verso et recto, date complète en v2.4, frames Serato), y écrit le candidat Beatport des fixtures avec une pochette, puis relit le disque par `translate=False` | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/write_tags_probe.py <dossier> [mp3 wav aiff flac]` |
+| `restore_probe.py` | Aller-retour du dump des tags d'origine hors protocole : tague un MP3 v2.3, un MP3 v2.4, un WAV, un AIFF et un FLAC, lit leur origine, l'enregistre dans le dump sous `dump_dir()`, écrit le candidat Beatport des fixtures, consigne le chemin renommé, relit le dump du disque et restaure, puis compare le disque relu par `translate=False` avant et après | `LOCALAPPDATA=<scratch>/appdata uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/restore_probe.py <dossier>` |
+| `rename_probe.py` | Renommage de vrais fichiers hors protocole : simple (extension en majuscules), caractères interdits, collision, casse seule, sans artiste, titre tronqué, titre d'emojis, fichier dont l'ancien chemin dépasse 259 caractères, fichier tenu par un lecteur. Chaque cas bat son sous-dossier et relit le disque sous le nouveau nom | `uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/rename_probe.py <dossier>` |
+| `write_phase_probe.py` | Phase d'écriture d'un run hors protocole : cinq fichiers tagués (deux résolus MP3 et FLAC, un troisième résolu tenu par un lecteur, un non résolu, un en attente), run ouvert par `open_run`, `RunWriter.write()` sous le verrou puis `retry()` une fois levé ; un espion sur `write_tags` relit le dump au premier fichier écrit. Exige un dossier neuf | `LOCALAPPDATA=<scratch>/appdata uv run --directory sidecar python ${CLAUDE_SKILL_DIR}/scripts/write_phase_probe.py <dossier neuf>` |
 | `cdp.mjs` | Évalue un script de page dans la fenêtre Tauri, arguments dans `__args` ; `--key <touche>` frappe une vraie touche (`Input.dispatchKeyEvent`), `--screenshot <png>` capture la fenêtre, `--click <x> <y>` et `--move <x> <y>` donnent un vrai clic ou un survol souris (coordonnées CSS) ; une page qui meurt pendant l'appel rend `{"success": true, "pageClosed": true}` | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs <script.js> [argument ...]` |
 | `page/demo-run.js` | Parcours de la démo pour une revue à l'écran : `playlist <demo-data>` pose les chemins et la playlist, `extract` clique « Extraire », `tagging` passe au tagging et lance le run, `run <dossier>` lance un run sans extraction dans la session, `state` compte les issues, `commit-dialog` ouvre la confirmation de l'écriture sans l'accepter et rend son texte, `column [onglet]` relève les enfants de la colonne d'une page et la marge sous le dernier visible (attendue nulle : relevé le 2026-10-11, 48px sur Tagging, venus des balises hôtes des modales fermées, ramenés à 0), `last-destination [clear]` lit la préférence, ou l'efface quand la démo l'a posée, `tag-widths <clé>` mesure en pixels les libellés d'une clé, FR et EN, dans la police d'un tag affiché | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/demo-run.js <action> [cible]` |
 | `page/arbitration-dialog.js` | Mesures de la modale d'arbitrage et de la liste du run, sans geste envoyé : `open` (par le badge), `state` (taille de la modale, sélection, options, message vide et leurs rectangles), `banner` (cellule réservée au-dessus de la liste, son contenu et le haut de la liste : 26px et liste immobile, avant comme après un refus Beatport, relevé le 2026-10-11), `footer`, `covers`, `rows` (lignes du run et leurs rectangles, onglet Tagging ouvert au besoin, pour viser l'une d'elles par `--click`), `state-icons` (centres du tag d'état et de l'icône d'info, fond et transition du tag), `tag-demo` (couleur du premier tag alternée avec puis sans sa transition, pour la juger à l'œil), `cursors` (curseur des éléments cliquables, bouton d'action du run compris), `trace` puis `trace-read` (journal souris et valeurs de `choice`) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-dialog.js <action>` |
 | `page/dialog-header.js` | En-tête de la modale ouverte : padding, titre, croix et son icône, écart du titre au bord gauche face à celui de l'icône au bord droit, décalage vertical de l'icône sur la ligne du titre (attendus égaux et nul, relevé le 2026-10-11 : 19px, 19px, 0), logo de la source face au titre (`logoToTitleCenter`, attendu nul), passage par `app-dialog-header` (arbitrage et lien). Sonde réalignée le 2026-10-11, à rejouer | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/dialog-header.js`, modale ouverte par une autre sonde |
 | `page/close-guard.js` | Garde de fermeture : pose un travail en cours (`pending extraction`, `pending run-arbitrations`), lit la confirmation (`state`, retours à la ligne des phrases compris : `itemWhiteSpace` attendu à `pre-line`), clique `stay`, `leave` ou `cross`, bascule la langue (`lang en`) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/close-guard.js <action> [cible]` |
-| `page/app-health.js` | Premier contrôle après une montée de dépendances ou un changement de décorateur DI : `state` (service résolu par l'injecteur, `available`, `version`, `versionMismatch`, langue, onglets), `tabs` (chaque `p-tab` cliqué, URL et `h1` relevés, plus sur Réglages le placeholder de la clé, l'absence de tag d'état et de l'œil), `list <dump>` (`listPlaylists` par le vrai sidecar) | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/app-health.js <action> [dump]` |
+| `page/app-health.js` | Premier contrôle après une montée de dépendances ou un changement de décorateur DI : `state` (service résolu par l'injecteur, `available`, `version`, `versionMismatch`, langue, onglets), `tabs` (chaque `p-tab` cliqué, URL et `h1` relevés, plus sur Réglages le placeholder de la clé, l'absence de tag d'état et de l'œil), `list <dump>` (`listPlaylists` par le vrai sidecar) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/app-health.js <action> [dump]` |
 | `page/preamble.js` | Ce que toutes les sondes partagent : `wait`, `until` (attente d'une condition de page) et `__sidecarService()`, le service vivant de la page | préalable injecté par `cdp.mjs` devant chaque script de page, jamais recopié dans une sonde |
 | `page/cancel-run.js` | Interruption d'un run puis relance immédiate, de bout en bout, par le bouton d'action unique (`data-action` relevé à chaque étape). Un run interrompu qui garde un morceau résolu laisse « Confirmer l'écriture » sur son dossier : la relance passe alors par `service.startTagging`, le geste du bouton en `start`, et le rendu dit laquelle des deux voies a servi (`restart.via`) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/cancel-run.js <dossier>`, dossier de `build_fixture.py --unique 20` |
 | `page/arbitration-replay.js` | Rejoue dans la fenêtre le flux réel d'un run d'arbitrage (sortie de `drive.py`) en intercalant les gestes du service, `send` relevé au lieu d'envoyé ; les groupes en surplus partent après la dernière ligne, geste encore sans réponse, et `["click", "<sélecteur>"]` y clique un élément de la page | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/arbitration-replay.js "$(cat <sortie.ndjson>)" '<gestes JSON>'` |
@@ -38,8 +38,8 @@ Tout code de pilotage vit dans `scripts/` et s'y range : **jamais un script dans
 | `page/write-confirmation.js` | Confirmation et suivi de l'écriture sous `ng serve`, sidecar simulé : un contrôle par règle de § Pilotage de la confirmation d'écriture ; captures dans `.playwright-mcp/verify-write/` | MCP Playwright `browser_run_code_unsafe` avec `filename` sur ce fichier, `just dev-ui` lancé |
 | `page/rollback-ui.js` | Rollback depuis l'interface sous `ng serve`, sidecar simulé : un contrôle par règle de § Pilotage du rollback depuis l'interface, Réglages compris ; captures dans `.playwright-mcp/verify-rollback/` | MCP Playwright `browser_run_code_unsafe` avec `filename` sur ce fichier, `just dev-ui` lancé |
 | `page/playlist-run-guard.js` | « Extraire » sous `ng serve`, sidecar simulé : actif avant le run, désactivé pendant la recherche (tooltip `playlist.blocked.tagging` sous le bouton), réactivé à `run_finished` ; réalignée le 2026-10-11, à rejouer | MCP Playwright `browser_run_code_unsafe` avec `filename` sur ce fichier, `just dev-ui` lancé |
-| `page/url-recovery.js` | Modale du lien dans la fenêtre Tauri : `open <n>` l'ouvre par la ligne rattrapable d'index `n` (base 0), `paste <url>` colle, clique « Résoudre » et attend la réponse, `state` relève la barre, le badge, la modale (en-tête par `app-dialog-header`) et l'écart de l'erreur au champ et au pied (attendu égal, DESIGN.md § Feedback et chargement) | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/url-recovery.js <action> [n \| url]` |
-| `page/recovery-demo.js` | Démo vivante pour une revue à l'écran : un run simulé défile dans la fenêtre Tauri, puis chaque geste reçoit une réponse plausible (lien Beatport, Bandcamp ou SoundCloud rattrapé, autre lien refusé, refus Beatport puis Bandcamp vers l'étape lien) sans rien envoyer au sidecar ni à l'API. Perdue au moindre rechargement : ne rien éditer pendant la démo | `node c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/cdp.mjs c:/Users/thiba/Desktop/dev/techno-tagger/.claude/skills/verify/scripts/page/recovery-demo.js` |
+| `page/url-recovery.js` | Modale du lien dans la fenêtre Tauri : `open <n>` l'ouvre par la ligne rattrapable d'index `n` (base 0), `paste <url>` colle, clique « Résoudre » et attend la réponse, `state` relève la barre, le badge, la modale (en-tête par `app-dialog-header`) et l'écart de l'erreur au champ et au pied (attendu égal, DESIGN.md § Feedback et chargement) | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/url-recovery.js <action> [n \| url]` |
+| `page/recovery-demo.js` | Démo vivante pour une revue à l'écran : un run simulé défile dans la fenêtre Tauri, puis chaque geste reçoit une réponse plausible (lien Beatport, Bandcamp ou SoundCloud rattrapé, autre lien refusé, refus Beatport puis Bandcamp vers l'étape lien) sans rien envoyer au sidecar ni à l'API. Perdue au moindre rechargement : ne rien éditer pendant la démo | `node ${CLAUDE_SKILL_DIR}/scripts/cdp.mjs ${CLAUDE_SKILL_DIR}/scripts/page/recovery-demo.js` |
 
 Chaque script rend `{"success": true, ...}` ou `{"error": true, "message": "..."}` sur `stdout`, code de sortie 1 en erreur. Rapporter le message tel quel : il nomme le geste qui répare, lancer par `uv run --directory sidecar` ou ouvrir la fenêtre avec le port de débogage.
 
@@ -91,11 +91,11 @@ Le faux CDN se scinde en deux, parce qu'`ArtworkFetcher` refuse toute URL qui n'
 - Quatre formats : `written_fields` à 14 et `artwork` vrai, ID3 relu en `2.3.0` avec `TYER` seul à l'année du candidat (aucune année d'origine, ADR-011 du 2026-10-11) alors que le fichier portait `TDRC` « 2019-06-16 » en v2.4, ni `TDRC`, ni `TDAT`, ni `COMM` ; FLAC sans `COMMENT` ni `DESCRIPTION`. Une seule image partout, recto `image/jpeg`
 - Hors table : `PRIV:Serato` et `TXXX:SERATO_PLAYCOUNT` (ID3), `SERATO_PLAYCOUNT` (FLAC) intacts
 
-Parcours relevé le 2026-10-07, tous verts. Le parcours change au 2026-10-11 : plus de `TORY` (ADR-011), `written_fields` à 14.
+Parcours relevé le 2026-10-07, tous verts. Le parcours change au 2026-10-11 : plus de `TORY` (ADR-011), `written_fields` à 14. Rejoué le 2026-10-11 à la clôture de l'epic : quatre formats verts.
 
 ### Échec de transfert à l'extraction
 
-Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Héctor Oaks - As We Were.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
+Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Ilán Thorne - As We Were.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
 
 ## Pilotage du dump des tags d'origine
 
@@ -105,10 +105,10 @@ La purge se pilote par le vrai sidecar : poser dans `<LOCALAPPDATA>/fr.empiricmi
 
 ### Flux qui valent le coup
 
-- Aller-retour : les cinq cas `identical`, version relue identique à l'origine (`2.4.0` repart en `2.4.0` après une écriture en `2.3.0`, les v2.3 gardent `TYER` et `TDAT`), `TXXX:SERATO_PLAYCOUNT` intact. Deux artistes : deux valeurs en v2.4 et en FLAC, une chaîne `adam beyer/bart skils` en v2.3. Dump relu en `schema_version` 1, `renamed_path` renseigné, entrées dans l'ordre d'écriture
+- Aller-retour : les cinq cas `identical`, version relue identique à l'origine (`2.4.0` repart en `2.4.0` après une écriture en `2.3.0`, les v2.3 gardent `TYER` et `TDAT`), `TXXX:SERATO_PLAYCOUNT` intact. Deux artistes : deux valeurs en v2.4 et en FLAC, une chaîne `lior vance/mara quill` en v2.3. Dump relu en `schema_version` 1, `renamed_path` renseigné, entrées dans l'ordre d'écriture
 - Purge au démarrage : dumps et `.tmp` d'écriture coupée de plus de 30 jours supprimés, y compris ceux qui suivent un dump verrouillé, celui-ci gardé avec un `WARNING tag dump not purged run=<run_id> reason=unlink_failed` ; dump et `.tmp` récents, `notes.json` intacts ; `version` répondue, sortie 0
 
-Parcours relevé le 2026-10-07, tous verts.
+Parcours relevé le 2026-10-07, tous verts. Rejoué le 2026-10-11 à la clôture de l'epic : cinq cas `identical`.
 
 ## Pilotage du renommage
 
@@ -116,12 +116,12 @@ Parcours relevé le 2026-10-07, tous verts.
 
 ### Flux qui valent le coup
 
-- Noms : `adam beyer - your mind.MP3` devient `Adam Beyer - Your Mind (Extended Mix).mp3` ; `AC/DC` et `Mind: Body (Who? Remix)` donnent `AC-DC - Back In Black.flac` et `Someone - Mind - Body (Who Remix).wav` ; sans artiste, `rip_0042.wav` garde son nom
+- Noms : `lior vance - dim orbit.MP3` devient `Lior Vance - Dim Orbit (Extended Mix).mp3` ; `QX/RT` et `Mind: Body (Who? Remix)` donnent `QX-RT - Down In Amber.flac` et `Someone - Mind - Body (Who Remix).wav` ; sans artiste, `rip_0042.wav` garde son nom
 - Collision : le fichier existant reste intact (octets relus), les suivants prennent ` (2)` puis ` (3)`. Casse seule : renommé sans suffixe
 - Longueur : dans un dossier qui laisse 40 caractères au nom, le titre est coupé à 40 et le chemin rendu tient en 259. Un titre d'emojis se compte en unités UTF-16, comme NTFS et `MAX_PATH` : relevé à 258 unités pour 255 caractères Python. Un fichier dont l'ancien chemin fait 305 caractères est renommé et relu par le préfixe `\\?\`, le chemin rendu n'en porte pas
 - Verrou : `held_open` d'`audio_samples` autour de l'appel, `RenameError` au motif `file_locked` et le fichier garde son nom
 
-Parcours relevé le 2026-10-08, neuf cas verts. **Le cas du chemin de 305 caractères ne prouve pas la nécessité du préfixe sur une machine dont `LongPathsEnabled` vaut 1** (celle de développement) : Python, manifesté, y renomme aussi sans préfixe, contre-épreuve faite en remplaçant `extended_path` par l'identité dans `rename_track`. Le préfixe passé à l'appel est gardé par `test_renames_through_the_extended_path`. Pour le voir échouer, rejouer le script sur une machine où la clé vaut 0, ce qui est le défaut chez l'utilisateur.
+Parcours relevé le 2026-10-08, neuf cas verts, rejoués verts le 2026-10-11 à la clôture de l'epic. **Le cas du chemin de 305 caractères ne prouve pas la nécessité du préfixe sur une machine dont `LongPathsEnabled` vaut 1** (celle de développement) : Python, manifesté, y renomme aussi sans préfixe, contre-épreuve faite en remplaçant `extended_path` par l'identité dans `rename_track`. Le préfixe passé à l'appel est gardé par `test_renames_through_the_extended_path`. Pour le voir échouer, rejouer le script sur une machine où la clé vaut 0, ce qui est le défaut chez l'utilisateur.
 
 ## Pilotage de la phase d'écriture
 
@@ -129,20 +129,20 @@ Parcours relevé le 2026-10-08, neuf cas verts. **Le cas du chemin de 305 caract
 
 ### Flux qui valent le coup
 
-- Écriture sous verrou : bilan `written=2, failed=1`, MP3 et FLAC en `written` renommés `Adam Beyer - Your Mind (Extended Mix)`, 14 champs, pochette posée, nom non tronqué ; le fichier tenu par `held_open` en `write_error` / `file_locked`, nom d'origine gardé ; non résolu et en attente identiques à l'octet près et jamais passés par `write_tags`
-- Dump : au premier fichier écrit, il porte déjà l'origine des trois morceaux visés (titre `your mind`), jamais celle du non résolu ni de l'attente ; ensuite le chemin renommé de chacun
+- Écriture sous verrou : bilan `written=2, failed=1`, MP3 et FLAC en `written` renommés `Lior Vance - Dim Orbit (Extended Mix)`, 14 champs, pochette posée, nom non tronqué ; le fichier tenu par `held_open` en `write_error` / `file_locked`, nom d'origine gardé ; non résolu et en attente identiques à l'octet près et jamais passés par `write_tags`
+- Dump : au premier fichier écrit, il porte déjà l'origine des trois morceaux visés (titre `dim orbit`), jamais celle du non résolu ni de l'attente ; ensuite le chemin renommé de chacun
 - Événements : `TrackResolved` puis `WriteProgress` par morceau tranché
 - Relance, verrou levé : bilan `written=1, failed=0`, seul le fichier verrouillé repasse par `write_tags`, renommé avec ` (2)` (le premier MP3 tient déjà le nom), origine du dump inchangée
 - `stderr` : `write phase started` et `finished` en INFO avec `run`, `write failed run=<id> track=3 reason=file_locked` en ERROR, ni chemin ni titre
 
-Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : plus de `TORY` (ADR-011), les morceaux écrits portent 14 champs.
+Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : plus de `TORY` (ADR-011), les morceaux écrits portent 14 champs. Rejoué le 2026-10-11 à la clôture de l'epic : tous verts.
 
 ### Par le protocole
 
 `commit_run` et `retry_write` se pilotent par `drive.py` sur la fixture par défaut de `build_fixture.py` : ses deux morceaux connus partent en arbitrage, que `resolve_arbitration` à l'index 0 tranche en `resolved`, le troisième finit `unresolved`. Les `track_id` sont les noms de fichiers, le `run_id` vient de `"$run_id"`. `LOCALAPPDATA` vers le scratchpad, le dump s'écrivant sous `dump_dir()`.
 
 - Refus `write_not_open` : `retry_write` avant tout run, puis sur le run courant jamais confirmé ; `commit_run` sur un autre `run_id` ; second `commit_run` après l'écriture. Chacun porte sa `command`, la boucle continue
-- Écriture : un seul morceau tranché, `commit_run` rend `track_resolved` en `written` / `arbitration`, `progress` en `write` à `1/1`, `run_finished` en `write` à `written` 1, `write_error` 0, `awaiting_arbitration` 1. Sur le disque, `Adam Beyer - Your Mind (Extended Mix).mp3` ; le morceau en attente et le non résolu identiques à l'octet près (`md5sum` avant et après) ; dump `<horodatage>-<run_id>.json` en `schema_version` 1 avec la seule entrée écrite et son `renamed_path`
+- Écriture : un seul morceau tranché, `commit_run` rend `track_resolved` en `written` / `arbitration`, `progress` en `write` à `1/1`, `run_finished` en `write` à `written` 1, `write_error` 0, `awaiting_arbitration` 1. Sur le disque, `Lior Vance - Dim Orbit (Extended Mix).mp3` ; le morceau en attente et le non résolu identiques à l'octet près (`md5sum` avant et après) ; dump `<horodatage>-<run_id>.json` en `schema_version` 1 avec la seule entrée écrite et son `renamed_path`. Les `track_id` de la fixture sont `01 lior vance - dim orbit.mp3`, `02 orla quenby - kelvor.mp3` et `03 nobody - nothing here at all.mp3` ; deux morceaux tranchés sortent en `Lior Vance - Dim Orbit (Extended Mix).mp3` et `Orla Quenby - Kelvor (Extended Mix).mp3`
 - `commit_run` puis, dans le même bloc, un second `commit_run` et un `start_tagging` : tous deux en `write_in_progress`, l'écriture va à son terme. Course gagnée à chaque passe sur trois morceaux, le second arrivant pendant la lecture du dump ; un écart rendrait `write_not_open`, à relancer avant de conclure
 - Run figé : `resolve_arbitration` et `switch_arbitration_source` sur le morceau en attente, `resolve_by_url` sur le non résolu, tous en `run_committed` avec `params.track_id`
 - `retry_write` sans échec : accepté, `run_finished` en `write` aux mêmes compteurs
@@ -151,7 +151,7 @@ Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : p
 
 `shutdown` et l'EOF pendant l'écriture ne se provoquent pas par la vraie boucle : trois morceaux s'écrivent avant que la commande suivante soit lue. La preuve vit dans `test_neither_cancel_nor_the_end_of_the_session_cuts_a_write`, qui retient `write_tags` dans son thread.
 
-Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : plus de `TORY` (ADR-011), l'ID3 relu ne porte que `TYER`.
+Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : plus de `TORY` (ADR-011), l'ID3 relu ne porte que `TYER`. Rejoué le 2026-10-11 à la clôture de l'epic : tous verts, les deux courses gagnées du premier coup.
 
 ### Par le binaire figé, contre la vraie API
 
@@ -159,7 +159,7 @@ Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : p
 
 - Quatre `written`, `run_finished` en `write` à `written` 4, quatre noms `Artiste - Titre (Mix).ext` venus de la vraie API, dump à quatre entrées toutes `renamed_path`
 - Disque relu par `write_tags_probe.read_disk` : ID3 en `2.3.0` sur MP3, WAV et AIFF avec `TYER` et `TORY`, sans `TDRC` ni `COMM` ; FLAC sans `COMMENT` ni `DESCRIPTION` ; une seule image, recto `image/jpeg` téléchargée ; `PRIV:Serato` et `SERATO_PLAYCOUNT` intacts
-- Choix aveugle à l'index 0 : « Robert Hood - Minimal Nation » est tombé le 2026-10-09 sur le DJ mix « Minimal Nation DJ Mix ». C'est une preuve d'écriture et non de matching, à ne pas lire comme une régression
+- Choix aveugle à l'index 0 : « Silas Orman - Quiet Meridian » est tombé le 2026-10-09 sur le DJ mix « Quiet Meridian DJ Mix ». C'est une preuve d'écriture et non de matching, à ne pas lire comme une régression
 
 Parcours relevé le 2026-10-09 sur le binaire 0.5.0, tous verts.
 
@@ -174,9 +174,9 @@ Parcours relevé le 2026-10-09 sur le binaire 0.5.0, tous verts.
 - Ensuite : `get_rollback_target` vise le même run à 1 morceau ; `retry_write` ne réécrit pas le morceau restauré (`run_finished` en `write` à `written` 1) ; `rollback` d'un `run_id` sans dump en `rollback_unavailable`
 - `stderr` : `rollback started` et `finished` en INFO avec le seul `run`, refus en `command failed reason=rollback_in_progress` ou `background phase failed reason=rollback_unavailable`, aucun nom de fichier ni titre dans les lignes `tagger.rollback`
 
-Un rollback pendant une extraction, `shutdown` pendant un rollback et un nom d'origine pris ne se provoquent pas par la vraie boucle sur la fixture : leur preuve vit dans `test_ndjson_phases.py` et `test_ndjson_rollback.py`, qui retiennent l'appel dans son thread.
+Un rollback pendant une extraction et `shutdown` pendant un rollback ne se provoquent pas par la vraie boucle sur la fixture : leur preuve vit dans `test_ndjson_phases.py`, qui retient l'appel dans son thread. Un nom d'origine pris se provoque en posant un fichier au nom d'origine avant `rollback` : `rollback_finished.failed` porte `name_taken` avec le nom écrit en `file_name`, aucun `track_resolved`, le dump garde l'entrée et `get_rollback_target` vise encore le run ; l'intrus retiré, un second `rollback` restaure. `stderr` : `rollback failed run=<id> reason=name_taken` en ERROR, sans nom de fichier (gardé aussi par `test_ndjson_rollback.py`).
 
-Parcours relevé le 2026-10-09, tous verts.
+Parcours relevé le 2026-10-09, tous verts. Rejoué le 2026-10-11 à la clôture de l'epic : tous verts, nom d'origine pris compris. Deux pièges de pilotage : un `rollback` envoyé dans le même bloc qu'un `retry_write` rend `write_in_progress` (glisser un `{"wait": 1.5}` entre les deux), et `"$run_id"` ne vaut que dans la session qui a lancé le run : la session neuve reçoit le `run_id` en clair, lu dans la sortie de la première.
 
 ### Côté webview
 
@@ -204,8 +204,8 @@ rejoue la garde des trois refus.
 
 Placer un candidat en zone grise demande de viser l'intervalle des seuils, pas de
 l'approcher au jugé : artiste exact donne 100, donc le titre doit scorer entre 70 et 80
-pour que la moyenne reste sous 90. `fuzz.ratio("Basiel", "Basielians",
-processor=utils.default_process)` rend 75, d'où un arbitrage ; « Basiel Reprise » rend
+pour que la moyenne reste sous 90. `fuzz.ratio("Kelvor", "Kelvorians",
+processor=utils.default_process)` rend 75, d'où un arbitrage ; « Kelvor Reprise » rend
 60 et tombe sous le plancher.
 
 **Purger `appdata` entre deux runs** : le cache de réponses est réel et une réponse
@@ -239,7 +239,7 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
   `mix_name` à part, comme la gateway (ADR-012 de techno-scraper). Les deux morceaux connus de
   la fixture partent en arbitrage à 100/100 par la garde de version (le fichier ne nomme pas la
   version, le candidat dit « Extended Mix ») ; `resolve_arbitration` à l'index 0 rend leur
-  `track_resolved` avec `after.title` à « Your Mind (Extended Mix) » et « Basiel (Extended
+  `track_resolved` avec `after.title` à « Dim Orbit (Extended Mix) » et « Kelvor (Extended
   Mix) ». Relevé le 2026-10-02, identique sur le code d'avant la simplification de `full_title`
   (rejeu par `PYTHONPATH=<scratch>/base/sidecar/src` sur un `git archive HEAD sidecar/src`)
 - Candidat comparé tel que la gateway le rend (titre, `mix_name` et crédits non
@@ -247,7 +247,7 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
   gateway locale 4.0.0, 30 morceaux, zéro écart avec le code d'avant (8 auto, 19 non
   résolus, 3 arbitrages, scores identiques) ; mêmes chiffres en production 4.0.0 par le
   binaire figé
-- Invité au nom de version écrit dans le tag : « Tommy Sharp » / « Biome feat. Dubfire »
+- Invité au nom de version écrit dans le tag : « Teodor Hale » / « Cairn feat. Dubmoor »
   (copie d'un `.mp3` de la démo retaguée par mutagen) contre la gateway 4.0.0, auto à 100 ;
   le code d'avant le laissait en `below_threshold` (relevé le 2026-10-02)
 - Commande servie pendant un run : `get_version` envoyé après `start_tagging` répond
@@ -275,7 +275,7 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
 
 ### Gotchas du run
 
-- **httpx2 journalise l'URL complète en INFO**, donc `q=Adam+Beyer+Your+Mind` : le log
+- **httpx2 journalise l'URL complète en INFO**, donc `q=Lior+Vance+Dim+Orbit` : le log
   local porte les artistes et les titres du run. C'est admis (les logs restent locaux),
   et rien ne part vers Sentry tant qu'`observability.init_sentry` garde son
   `LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)`. Contrôler
@@ -312,11 +312,11 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
 
 ## Pilotage de l'arbitrage
 
-`build_fixture.py --arbitration` pose « Amelie Lens - Basielians », en zone grise sur les deux sources du faux serveur (titre à 75, moyenne 88). Son `track_id` est le nom du fichier, `01 amelie lens - basielians.mp3`, connu d'avance : les gestes s'écrivent dans le fichier de commandes de `drive.py` sans relire `run_started`. `FAKE_DELAY` tient aussi l'appel Bandcamp d'un refus, ce qui met un geste en vol.
+`build_fixture.py --arbitration` pose « Orla Quenby - Kelvorians », en zone grise sur les deux sources du faux serveur (titre à 75, moyenne 88). Son `track_id` est le nom du fichier, `01 orla quenby - kelvorians.mp3`, connu d'avance : les gestes s'écrivent dans le fichier de commandes de `drive.py` sans relire `run_started`. `FAKE_DELAY` tient aussi l'appel Bandcamp d'un refus, ce qui met un geste en vol.
 
 Le faux serveur rend le même objet complet sur `/beatport/search` et `/bandcamp/search` : `label` et `year` sortent donc renseignés sur la liste Bandcamp, alors que la vraie recherche Bandcamp ne les rend jamais. Un `null` attendu côté Bandcamp se vérifie par les tests, pas ici. Il ne rend jamais non plus de liste Bandcamp vide après un refus : « passer » sur une liste vide et son motif se vérifient par les tests.
 
-Les options de `build_fixture.py` s'excluent et chacune vide son dossier : un run qui mêle arbitrage et phase réseau longue se compose en copiant les `.mp3` d'un `--unique 2` dans le dossier d'un `--arbitration` (noms distincts). Sous `FAKE_DELAY=d`, le morceau en zone grise attend dès `d` et les titres inédits finissent à `2d` (Beatport puis Bandcamp) : entre les deux, le run est en phase réseau avec un arbitrage en attente. Deux arbitrages s'obtiennent en copiant le `.mp3` d'`--arbitration` sous `02 amelie lens - basielians.mp3`.
+Les options de `build_fixture.py` s'excluent et chacune vide son dossier : un run qui mêle arbitrage et phase réseau longue se compose en copiant les `.mp3` d'un `--unique 2` dans le dossier d'un `--arbitration` (noms distincts). Sous `FAKE_DELAY=d`, le morceau en zone grise attend dès `d` et les titres inédits finissent à `2d` (Beatport puis Bandcamp) : entre les deux, le run est en phase réseau avec un arbitrage en attente. Deux arbitrages s'obtiennent en copiant le `.mp3` d'`--arbitration` sous `02 orla quenby - kelvorians.mp3`.
 
 ### Flux qui valent le coup
 
@@ -360,9 +360,9 @@ La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(
 
 | URL collée | Réponse |
 |---|---|
-| `https://www.beatport.com/track/your-mind/17492013` | morceau Beatport |
-| `https://amelielens.bandcamp.com/track/basiel` (et ses variantes `http://`, majuscules, query, fragment, `/` final) | morceau Bandcamp |
-| `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2` (et `m.`, `www.`, query) | morceau SoundCloud |
+| `https://www.beatport.com/track/dim-orbit/99000101` | morceau Beatport |
+| `https://orlaquenby.bandcamp.com/track/kelvor` (et ses variantes `http://`, majuscules, query, fragment, `/` final) | morceau Bandcamp |
+| `https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2` (et `m.`, `www.`, query) | morceau SoundCloud |
 | `https://on.soundcloud.com/verifyprofile` | profil, que le sidecar refuse en `unsupported_url` |
 | `https://www.beatport.com/track/x/403403` / `.../503503` | 403 / 503 de la gateway |
 | toute autre URL Bandcamp ou SoundCloud de forme valide, tout autre id Beatport | 404, `track_not_found` |
@@ -378,7 +378,7 @@ Chaque requête partie se relit dans `logs/tagger.log` (httpx2 journalise l'URL 
 - `cancel_run` après la fin du run : aucun événement
 - `cancel_run` sous `FAKE_DELAY=1` à 1,5s sur un `--unique 3` : `progress` en `url_recovery` sans `run_finished`, à `0/0` (les morceaux jamais cherchés ne sont pas à rattraper), puis la boucle répond
 - Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason`
-- Formes d'URL : la variante Bandcamp `http://Amelielens.bandcamp.com/track/basiel/?from=search#lyrics` part en `url=https://amelielens.bandcamp.com/track/basiel`, la SoundCloud `m.` sans query ni `tracks_cursor` ; lien court résolu en profil → `unsupported_url` ; 404 → `track_not_found` avec `params.source` ; 503 → `source_unavailable` avec `status` et `reason` ; `soundcloud.com/<user>/sets` passe le contrôle local et revient en 404 du faux serveur
+- Formes d'URL : la variante Bandcamp `http://Orlaquenby.bandcamp.com/track/kelvor/?from=search#lyrics` part en `url=https://orlaquenby.bandcamp.com/track/kelvor`, la SoundCloud `m.` sans query ni `tracks_cursor` ; lien court résolu en profil → `unsupported_url` ; 404 → `track_not_found` avec `params.source` ; 503 → `source_unavailable` avec `status` et `reason` ; `soundcloud.com/<user>/sets` passe le contrôle local et revient en 404 du faux serveur
 - Non éligible, sans aucune requête émise par le geste : morceau en attente d'arbitrage, morceau arbitré (fixture par défaut, choix de l'index 0), `track_id` inconnu, morceau jamais atteint d'un run interrompu
 - Second geste sous `FAKE_DELAY=1`, 0,2s après le premier sur le même morceau : `url_recovery_busy`, puis le premier aboutit
 - Garde des 403 : trois gestes sur `403403` et trois morceaux d'un `--unique 3`, trois `api_key_rejected` dont le dernier au message `run stopped after repeated api key rejections`, la boucle répond ensuite
@@ -386,7 +386,7 @@ Chaque requête partie se relit dans `logs/tagger.log` (httpx2 journalise l'URL 
 - Refus d'arbitrage tardif : `.mp3` d'un `--unique 1` copié dans le dossier d'un `--arbitration`, refus Beatport puis refus Bandcamp (`candidate: null`, source `bandcamp`) après la fin du run, le total passe de 1 à 2
 - Geste en vol sous `FAKE_DELAY=1` : un nouveau `start_tagging` l'abandonne sans `track_resolved` et l'ancien morceau devient non éligible ; `shutdown` ou EOF sortent aussitôt, sans `track_resolved` ni coroutine orpheline sur `stderr`. Un `ConnectionAbortedError` sur `stderr` vient du faux serveur, pas du sidecar
 
-**Contre la vraie gateway** (§ Pilotage du run de re-tagging) : URL réelles relevées dans les tests de techno-scraper, `https://www.beatport.com/track/abilene/23382450`, `https://deestricted.bandcamp.com/track/good-question`, `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2`. Les trois aboutissent en `resolved` / `url`, pochette téléchargée dans `cache/artworks/` ; `soundcloud.com/drumcode/sets`, que la gateway résout en playlist ou profil, revient en `unsupported_url`. Relevé le 2026-10-05 contre la gateway locale 4.0.1. La gateway charge ses clés SoundCloud depuis son propre fichier d'environnement : sans elles, `/soundcloud/resolve` échoue.
+**Contre la vraie gateway** (§ Pilotage du run de re-tagging) : URL réelles relevées dans les tests de techno-scraper, `https://www.beatport.com/track/tamarin/23382450`, `https://deestricted.bandcamp.com/track/good-question`, `https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2`. Les trois aboutissent en `resolved` / `url`, pochette téléchargée dans `cache/artworks/` ; `soundcloud.com/kestrel/sets`, que la gateway résout en playlist ou profil, revient en `unsupported_url`. Relevé le 2026-10-05 contre la gateway locale 4.0.1. La gateway charge ses clés SoundCloud depuis son propre fichier d'environnement : sans elles, `/soundcloud/resolve` échoue.
 
 Parcours relevé le 2026-10-05, tous verts.
 
@@ -415,7 +415,7 @@ Parcours relevé le 2026-10-06, 27 contrôles verts. Un vrai run sous Tauri le m
 - En-tête collant : défilé de 120px, l'en-tête reste au-dessus du détail
 - Run de 2 000 morceaux : 27 lignes montées, aucune ligne vide découverte en balayant par pas de 28px dans les deux sens, détail ouvert
 
-Relevé le 2026-10-11 : 36 contrôles verts (colonne de 48px, ordre des champs, clés sans `TXXX:`). 2 000 morceaux sous `ng serve` (build de développement), rendu forcé : premier rendu en 53ms, 0,7ms médians et 1,6ms au 95e centile par événement, aucune tâche longue. La ligne dépliée de `p-table` sans scroll virtuel prenait 11,5s et 118ms (relevé le 2026-10-10 sur prototype).
+Relevé le 2026-10-11 : 36 contrôles verts (colonne de 48px, ordre des champs, clés sans `TXXX:`). 2 000 morceaux sous `ng serve` (build de développement), rendu forcé : premier rendu en 53ms, 0,7ms médians et 1,6ms au 95e centile par événement, aucune tâche longue. La ligne dépliée de `p-table` sans scroll virtuel prenait 11,5s et 118ms (relevé le 2026-10-10 sur prototype). Rejoué le 2026-10-11 à la clôture de l'epic : 36 verts.
 
 ## Pilotage de la confirmation d'écriture
 
@@ -430,7 +430,7 @@ Relevé le 2026-10-11 : 36 contrôles verts (colonne de 48px, ordre des champs, 
 
 Le dossier comparé par le bouton est celui de `run_started`, que le sidecar normalise (`/` en `\`, séparateur final retiré, relevé par `drive.py` le 2026-10-10) : le dialogue natif et la dernière destination rendent déjà cette forme.
 
-Parcours relevé le 2026-10-11 après la revue d'écran (bouton `retry`, message d'échec sans bouton, textes une phrase par ligne, boutons `small`) : 52 contrôles verts, run sans morceau résolu et moteur perdu compris. `page/url-recovery-modal.js` rejoué le même jour : 29 verts.
+Parcours relevé le 2026-10-11 après la revue d'écran (bouton `retry`, message d'échec sans bouton, textes une phrase par ligne, boutons `small`) : 52 contrôles verts, run sans morceau résolu et moteur perdu compris. `page/url-recovery-modal.js` rejoué le même jour : 29 verts. Rejoués le 2026-10-11 à la clôture de l'epic (chevron relevé, `filesBusy` et `pendingArbitrationCount` partagés par le service, fixtures communes) : 52 et 29 verts ; `page/playlist-run-guard.js` : 6 verts.
 
 ## Pilotage du rollback depuis l'interface
 
@@ -448,7 +448,7 @@ Parcours relevé le 2026-10-11 après la revue d'écran (bouton `retry`, message
 
 Les tooltips d'un bouton `disabled` s'affichent : Chromium délivre `mouseenter` et `mouseover` à un `<button disabled>` et le tooltip PrimeNG s'ouvre au survol réel (relevé le 2026-10-10 sur les boutons du détail, du run, d'action et des Réglages). WebView2 est le même moteur.
 
-Parcours relevé le 2026-10-10 : 140 contrôles, tous verts, ouverture à froid des Réglages comprise ; rejoué le même jour sur le détail déplié, 141 verts avec le cadre de 8 lignes (un premier passage du jour, 130 verts sur 131, avait révélé la requête jamais renvoyée). Rejoué le 2026-10-11 après la revue d'écran (libellés « Restaurer le run » et « Restauration », rangées `app-settings-row`, aide sur la ligne du bouton et cible dessous seulement avec un run, placeholder de la clé, relance en bouton d'action, tooltips sous l'élément) : 153 verts. Rejoué le même jour avec l'écart de l'erreur Restauration (12px au-dessus et en dessous, avec ou sans cible, après le `mt-1` d'un retour en tête de zone dans `app-settings-row`) : 155 verts. Le contrôle des écarts de la colonne (étape 5) voit un message à hauteur nulle tant que la fenêtre de Playwright n'a pas le focus : son animation d'entrée attend une image (§ Gotchas).
+Parcours relevé le 2026-10-10 : 140 contrôles, tous verts, ouverture à froid des Réglages comprise ; rejoué le même jour sur le détail déplié, 141 verts avec le cadre de 8 lignes (un premier passage du jour, 130 verts sur 131, avait révélé la requête jamais renvoyée). Rejoué le 2026-10-11 après la revue d'écran (libellés « Restaurer le run » et « Restauration », rangées `app-settings-row`, aide sur la ligne du bouton et cible dessous seulement avec un run, placeholder de la clé, relance en bouton d'action, tooltips sous l'élément) : 153 verts. Rejoué le même jour avec l'écart de l'erreur Restauration (12px au-dessus et en dessous, avec ou sans cible, après le `mt-1` d'un retour en tête de zone dans `app-settings-row`) : 155 verts. Le contrôle des écarts de la colonne (étape 5) voit un message à hauteur nulle tant que la fenêtre de Playwright n'a pas le focus : son animation d'entrée attend une image (§ Gotchas). Rejoué le 2026-10-11 à la clôture de l'epic : 155 verts ; l'aide de la clé API reste sur une ligne (exception à la rule ngx-translate, décidée le 2026-10-11, DESIGN.md § Arbitrages) ; le tooltip de la cible longue (étape 9) a manqué une fois sur trois, fenêtre sans focus, vert aux deux autres passes.
 
 ## Pilotage de la garde de fermeture
 
@@ -522,7 +522,7 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
   - grille du formulaire : boutons de sélection, `p-select` et `p-selectbutton` à la même largeur, chemins alignés sur le bord droit de la grille, « Extraire la playlist » sur la ligne du mode, calé sur le bord droit de la grille, à la largeur des libellés et des contrôles réunis, `p-skeleton` à la hauteur du `p-select` qui le remplace, bloc vide (icône 24px `text-muted-color`, titre `text-base`, phrase `text-sm`)
   - tags : familles de § Couleurs Sémantiques, lues sur la classe `p-tag-*` et l'icône `data-p-icon`
   - tooltip : suivre `.p-tooltip` toutes les 100ms après un `Input.dispatchMouseEvent` : visible à 400ms sur un texte coupé, jamais sur un texte entier, retiré dès la sortie, classe `tt-tooltip-wide`, `pointer-events: none`
-- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Robert Hood - Minimal Nation », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Relevé le 2026-10-02 contre la production 4.0.0 : 8 auto, 17 non résolus, 2 arbitrages, candidats affichés « Titre (Mix Name) » ; choix au clic puis Entrée passe la ligne en « Arbitré », refus de « Minimal Nation » rend une liste Bandcamp vide puis « Passer ». Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
+- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Silas Orman - Quiet Meridian », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Relevé le 2026-10-02 contre la production 4.0.0 : 8 auto, 17 non résolus, 2 arbitrages, candidats affichés « Titre (Mix Name) » ; choix au clic puis Entrée passe la ligne en « Arbitré », refus de « Quiet Meridian » rend une liste Bandcamp vide puis « Passer ». Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
   - « Passer au tagging » absent avant toute extraction, pendant l'extraction et après une playlist vide (aucun `progress` émis, comportement voulu), présent à la fin d'une extraction non vide
   - pendant le run, retour sur Playlist, « Modifier » : « Extraire » désactivé, tooltip `playlist.blocked.tagging` au survol, réactivé à la fin de la recherche. Une seule phase longue à la fois depuis le 2026-10-09 (§ Concurrence d'ARCHITECTURE.md) : le sidecar refuse aussi l'extraction en `tagging_in_progress`, ce que `test_refuses_an_extraction_while_a_run_searches` garde
   - pendant une extraction, « Lancer le run » désactivé, `blockedReason()` à `tagging.blocked.extracting`, réactivé à la fin. L'extraction de la démo dure une fraction de seconde : lancer `svc.extractPlaylist(svc.extractionRequest())` depuis l'onglet Tagging et échantillonner toutes les 5ms

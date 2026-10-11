@@ -28,7 +28,7 @@
         JSON.stringify({
           event: "run_started",
           run_id: "verify",
-          tracks: tracks.map((id) => ({ track_id: id, file_name: id, artist: "Adam Beyer", title: "Your Mind" })),
+          tracks: tracks.map((id) => ({ track_id: id, file_name: id, artist: "Lior Vance", title: "Dim Orbit" })),
         }),
       )
       for (const id of tracks) {
@@ -40,9 +40,9 @@
             beatport_unavailable: false,
             candidates: [
               {
-                artist: "Adam Beyer",
-                title: "Your Mind (Radio Edit)",
-                label: "Drumcode",
+                artist: "Lior Vance",
+                title: "Dim Orbit (Radio Edit)",
+                label: "Kestrel",
                 year: 2023,
                 scores: { artist: 96, title: 84, average: 90 },
               },
