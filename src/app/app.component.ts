@@ -37,7 +37,6 @@ import { FADE_IN } from "./shared/utils/motion"
     IconComponent,
   ],
   templateUrl: "./app.component.html",
-  styleUrl: "./app.component.css",
   // `overflow-hidden` tient la regle « la page ne defile jamais » : sans lui, un pixel de
   // trop fait defiler le document et la barre d'onglets quitte l'ecran.
   host: { class: "flex h-screen flex-col overflow-hidden" },
