@@ -13,13 +13,13 @@ date: "2026-10-11"
 
 ## Scope
 
-Couvre les commandes `commit_run` et `retry_write` (modèles, unions, dispatch, écriture en tâche de fond), leurs gardes (`write_not_open`, `write_in_progress`), le gel du run confirmé pour l'arbitrage, la bascule de source et le rattrapage (`run_committed`), le refus d'un nouveau run pendant l'écriture, une écriture que ni `cancel_run` ni `shutdown` ne coupent, la traduction de la progression d'écriture, `run_finished(write)` et ses compteurs `written` et `write_error`, et le miroir TypeScript du contrat.
+Couvre les commandes `commit_run` et `retry_write` (modèles, unions, dispatch, écriture en tâche de fond), leurs gardes (`write_not_open`, `phase_busy`), le gel du run confirmé pour l'arbitrage, la bascule de source et le rattrapage (`run_committed`), le refus d'un nouveau run pendant l'écriture, une écriture que ni `cancel_run` ni `shutdown` ne coupent, la traduction de la progression d'écriture, `run_finished(write)` et ses compteurs `written` et `write_error`, et le miroir TypeScript du contrat.
 
 Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran de confirmation et l'affichage des états (10), la commande `rollback` (06), et le rapport (Feature 6).
 
 ### État livré
 
-À la fin de ce sub-project, on peut : lancer `just test` et voir passer des tests d'intégration qui, en conversant avec la boucle NDJSON sur une API simulée, résolvent un run, le confirment par `commit_run`, reçoivent `track_resolved(written)`, `progress(write)` et `run_finished(write)` avec le fichier renommé sur le disque, relancent un échec par `retry_write`, et lisent chaque refus (`write_not_open`, `write_in_progress`, `run_committed`) avec sa commande.
+À la fin de ce sub-project, on peut : lancer `just test` et voir passer des tests d'intégration qui, en conversant avec la boucle NDJSON sur une API simulée, résolvent un run, le confirment par `commit_run`, reçoivent `track_resolved(written)`, `progress(write)` et `run_finished(write)` avec le fichier renommé sur le disque, relancent un échec par `retry_write`, et lisent chaque refus (`write_not_open`, `phase_busy`, `run_committed`) avec sa commande.
 
 ## Dependencies
 
@@ -35,19 +35,19 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 - **À modifier** : `sidecar/tests/integration/test_ndjson_tagging.py` (`run_finished(network)` porte `written` et `write_error` à 0)
 - **À modifier** : `src/app/core/models/protocol.ts` (`CommitRunCommand`, `RetryWriteCommand`, `TrackState`, `TrackFailureReason`, `RunFinishedEvent`)
 - **À modifier** : `src/app/core/tagging-run.store.spec.ts`, `src/app/core/sidecar.service.spec.ts` (événements `run_finished` complétés des deux compteurs)
-- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`errors.write_not_open`, `errors.write_in_progress`, `errors.run_committed`)
+- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`errors.write_not_open`, `errors.phase_busy`, `errors.run_committed`)
 - **À modifier** : `docs/ARCHITECTURE.md` (§ API : `commit_run`, `retry_write`, `shutdown`, `cancel_run`, `start_tagging`, `run_finished`, refus et gel du run ; § Concurrence : l'écriture attendue comme l'extraction ; § Robustesse : un sidecar mort en pleine écriture)
 
 ## Architecture approach
 
 - **Commandes strictes** (`extra="forbid"`, ADR-022, `.claude/rules/pydantic/modeles.md`) : `commit_run {run_id}` et `retry_write {run_id}`, ajoutées aux trois listes de `protocol.py` ; `test_command_name_lists_every_command` garde la recopie de `CommandName`
 - **Écriture en tâche de fond** dans le `TaskGroup` de la session, comme l'extraction : stdin reste lu et la progression part en direct. `_phase` émet `run_finished(write)` à la fin, ou l'`error` d'une `TaggerError` avec sa commande
-- **Garde `_writable(run_id)`** : `write_in_progress` si une écriture tourne (`rollback_in_progress` et `extraction_in_progress` pour les deux autres phases de fichiers, cf. 06) ; `write_not_open` sans run courant, sur un autre `run_id`, pendant la phase réseau ou pendant un geste d'arbitrage ou de rattrapage en vol (`CurrentRun.busy` : un geste qui finirait pendant l'écriture écraserait un morceau écrit). `commit_run` exige ensuite un run jamais confirmé, `retry_write` un run confirmé, sinon `write_not_open`
+- **Garde `_writable(run_id)`** : `phase_busy` si une phase longue tourne, `params.phase` nommant `write`, `rollback` ou `extraction` (cf. 06) ; la phase réseau reste en `write_not_open` ; `write_not_open` sans run courant, sur un autre `run_id`, pendant la phase réseau ou pendant un geste d'arbitrage ou de rattrapage en vol (`CurrentRun.busy` : un geste qui finirait pendant l'écriture écraserait un morceau écrit). `commit_run` exige ensuite un run jamais confirmé, `retry_write` un run confirmé, sinon `write_not_open`
 - **Run figé** : `CurrentRun.writer` est posé à la confirmation, sa présence (`committed`) refuse arbitrage, bascule de source et rattrapage en `run_committed` avec `params.track_id`. Quand la sauvegarde initiale du dump échoue, aucun fichier n'a été touché : le `writer` est retiré et le run redevient confirmable. Elle est la seule à lever vers la session, le sub-project 04 logue sans rien arrêter un échec de mise à jour du chemin renommé
-- **Écriture protégée** : `start_tagging` refusé en `write_in_progress` pendant l'écriture ; `cancel_run` n'arrête que la phase réseau ; `shutdown` et l'EOF n'annulent jamais l'écriture, attendue par le `TaskGroup` de la boucle comme l'extraction (un fichier coupé en vol resterait à moitié écrit)
+- **Écriture protégée** : `start_tagging` refusé en `phase_busy` (`params.phase` à `write`) pendant l'écriture ; `cancel_run` n'arrête que la phase réseau ; `shutdown` et l'EOF n'annulent jamais l'écriture, attendue par le `TaskGroup` de la boucle comme l'extraction (un fichier coupé en vol resterait à moitié écrit)
 - **Événements** : `track_resolved` du `RunWriter` traduit comme ceux du pipeline (états `written`, `write_error`, motifs d'écriture) ; `WriteProgress` devient `progress(phase=write)`. `run_finished` compte `resolved`, `unresolved`, `written`, `write_error` et les attentes d'arbitrage sur l'état de chaque morceau, dans les deux phases
 - **Traduction** : `to_protocol_event` couvre `PipelineEvent` (pipeline, arbitrage, rattrapage, écriture), `match` fermé par `assert_never` ; PLR0911 neutralisé avec sa justification, une sortie par événement traduit
-- **Miroir TypeScript** (ADR-005, manuel) : commandes, `TrackState` (`written`, `write_error`), `TrackFailureReason` (six motifs), `RunFinishedEvent` (`written`, `write_error`). Le comportement de l'interface reste au sub-project 08, qui traite `write_in_progress` reçu sur `start_tagging` comme `tagging_in_progress` : il refuse un lancement sans clore le run affiché
+- **Miroir TypeScript** (ADR-005, manuel) : commandes, `TrackState` (`written`, `write_error`), `TrackFailureReason` (six motifs), `RunFinishedEvent` (`written`, `write_error`). Le comportement de l'interface reste au sub-project 08, qui traite `phase_busy` reçu sur `start_tagging` comme un refus de lancement : il ne clôt pas le run affiché
 - **Erreurs** dans `__main__.py`, à côté de `TaggingInProgressError`, traduites dans les deux langues (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`, `.claude/rules/python/asyncio.md`, `.claude/rules/python/pattern-matching.md`)
 
 ## Acceptance criteria
@@ -71,7 +71,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 ### Scénario 4 : écriture en cours
 **GIVEN** une écriture en cours
 **WHEN** l'interface envoie `commit_run`, `retry_write` ou `start_tagging`
-**THEN** elle reçoit `error` `write_in_progress` portant la commande, et l'écriture se termine normalement
+**THEN** elle reçoit `error` `phase_busy` (`params.phase` à `write`) portant la commande, et l'écriture se termine normalement
 
 ### Scénario 5 : arrêt pendant l'écriture
 **GIVEN** une écriture en cours
@@ -95,7 +95,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
   - arbitrage, bascule de source et rattrapage après confirmation : `run_committed` avec `track_id`
   - dump impossible à la confirmation : `tag_dump_write_failed`, puis la même confirmation réussit
   - relance d'un fichier verrouillé : `write_error` puis `written`
-  - `commit_run`, `retry_write` et `start_tagging` pendant l'écriture : `write_in_progress`
+  - `commit_run`, `retry_write` et `start_tagging` pendant l'écriture : `phase_busy` (`params.phase` à `write`)
   - `cancel_run` et `shutdown` pendant l'écriture : elle va à son terme
 - `sidecar/tests/integration/test_ndjson_tagging.py` :
   - `run_finished(network)` porte `written` et `write_error` à 0

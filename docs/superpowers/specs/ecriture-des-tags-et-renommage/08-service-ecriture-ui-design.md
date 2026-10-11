@@ -23,8 +23,8 @@ Exclut les écrans : bouton et modale de confirmation, progression, modale de fe
 
 ## Dependencies
 
-- `05-protocole-ndjson-ecriture-design.md` (statut: implemented) : `commit_run`, `retry_write`, `run_finished(write)` et ses compteurs, codes `write_not_open`, `write_in_progress`, `run_committed`, `tag_dump_write_failed`, miroir TS des commandes et des états
-- `06-rollback-sidecar-design.md` (statut: implemented) : `get_rollback_target`, `rollback`, `RollbackTargetEvent`, `RollbackFinishedEvent` (que ce sub-project ajoute à `SidecarEvent`), codes `rollback_unavailable`, `rollback_in_progress`, état `rolled_back`
+- `05-protocole-ndjson-ecriture-design.md` (statut: implemented) : `commit_run`, `retry_write`, `run_finished(write)` et ses compteurs, codes `write_not_open`, `phase_busy`, `run_committed`, `tag_dump_write_failed`, miroir TS des commandes et des états
+- `06-rollback-sidecar-design.md` (statut: implemented) : `get_rollback_target`, `rollback`, `RollbackTargetEvent`, `RollbackFinishedEvent` (que ce sub-project ajoute à `SidecarEvent`), codes `rollback_unavailable`, `phase_busy`, état `rolled_back`
 - `07-contrat-detail-avant-apres-design.md` (statut: implemented) : `TaggingTrack.tagsBefore` / `tagsAfter`, que les fixtures complètent
 
 ## Files touched
@@ -47,10 +47,10 @@ Exclut les écrans : bouton et modale de confirmation, progression, modale de fe
 - **Routage** : `progress` de phase `write` vers le store (la branche réservée de `routeProgress`), `run_finished` de phase `write` vers `finished`, `rollback_target` et `rollback_finished` vers le store. Les deux événements rejoignent `SidecarEvent` et `KNOWN_EVENTS`, ce que le `switch` exhaustif impose (`.claude/rules/typescript/types.md`). `written`, `write_error` et `rolled_back` des lignes passent déjà par `track_resolved` et `TaggingRunStore`
 - **Cible rafraîchie** : `get_rollback_target` repart après `run_finished(write)` (un dump est créé) et après `rollback_finished` (un dump est consommé)
 - **Erreurs**, lues par `errorFor(...)` sur la commande qui a échoué :
-  - `commit_run` : fin de `writing`, et `committed` retombe sauf sur `write_in_progress`, l'écriture déjà lancée continuant ;
+  - `commit_run` : fin de `writing`, et `committed` retombe sauf sur `phase_busy` portant `write`, l'écriture déjà lancée continuant ;
   - `retry_write` : fin de `writing`, `committed` reste ;
   - `rollback` : `rollingBack` levé ;
-  - `start_tagging` : `write_in_progress` et `rollback_in_progress` ne ferment pas le run affiché, comme `tagging_in_progress` (spec 05) ;
+  - `start_tagging` : `phase_busy` ne ferme pas le run affiché, quelle que soit la phase qui tourne (spec 05) ;
   - `run_committed` sur un geste passe par le routage existant par morceau
 - **Nouveau run** : `startTagging` vide le store sauf `rollbackTarget`, qui ne dépend pas du run affiché
 - **Mort du moteur** : `endRun` arrête aussi l'écriture et le rollback
@@ -85,7 +85,7 @@ Exclut les écrans : bouton et modale de confirmation, progression, modale de fe
 
 ### Scénario 5 : relance sur `start_tagging` pendant l'écriture
 **GIVEN** une écriture en cours
-**WHEN** le sidecar refuse `start_tagging` en `write_in_progress`
+**WHEN** le sidecar refuse `start_tagging` en `phase_busy` (`params.phase` à `write`)
 **THEN** le run affiché reste en place, ses lignes intactes
 
 ## Tests à écrire
@@ -95,7 +95,7 @@ Exclut les écrans : bouton et modale de confirmation, progression, modale de fe
   - écriture de bout en bout, cible redemandée
   - confirmation refusée en `tag_dump_write_failed`
   - relance par `retryWrite()` : `retry_write` part, `writing` puis fin
-  - `write_in_progress` et `rollback_in_progress` sur `start_tagging` : run gardé
+  - `phase_busy` (`write` ou `rollback`) sur `start_tagging` : run gardé
   - double appel de `commitRun()` pendant l'écriture : une seule commande
   - rollback de bout en bout, puis `rollback_target` reçu exposé
   - rollback refusé en `rollback_unavailable` : `rollingBack` levé
@@ -110,7 +110,7 @@ Exclut les écrans : bouton et modale de confirmation, progression, modale de fe
 
 ## Edge cases
 
-- **Commit pendant un rollback** : refusé par le sidecar en `rollback_in_progress`, `committed` retombe
+- **Commit pendant un rollback** : refusé par le sidecar en `phase_busy` (`params.phase` à `rollback`), `committed` retombe
 - **`rollback_target` reçu pendant un nouveau run** : gardé, la cible ne dépend pas du run affiché
 - **Relance qui finit sans changement** (`retry_write` sans échec) : `run_finished(write)` arrive quand même, la fin s'annonce
 - **Écriture finie modale de fermeture ouverte** : `blocked` retombe, le sub-project 10 y rend alors « Quitter quand même »

@@ -9,7 +9,7 @@ paths:
 - Entrer par `asyncio.run(main())`, une seule fois ; `asyncio.get_running_loop()` si une référence au loop est nécessaire
 - Lancer les tâches concurrentes avec `asyncio.TaskGroup` et lire les résultats via les handles après le bloc
 - Borner la concurrence par un `asyncio.Semaphore` par source, aux tailles fixées par [ARCHITECTURE.md § Concurrence](../../../docs/ARCHITECTURE.md#concurrence) ; le pool des pochettes est distinct de celui des sources
-- Poser un `asyncio.timeout(...)` sur un enchaînement d'étapes, au-dessus du budget de l'API pour recevoir son 504 structuré ; le timeout par requête vit sur le client HTTP (cf. [client.md](../httpx2/client.md))
+- Poser un `asyncio.timeout(...)` sur un enchaînement d'étapes, au-dessus du budget de l'API pour recevoir son 504 structuré ; le timeout par requête vit sur le client HTTP (cf. [httpx2/client.md](../httpx2/client.md))
 - Déléguer tout appel bloquant (mutagen, sqlite3, keyring, système de fichiers) par `await asyncio.to_thread(...)`
 - Garder une référence forte sur toute `Task` et la nommer (`name=`) pour les traces
 - Re-lever `CancelledError` après le cleanup, jamais l'avaler, et garder ce cleanup court : un `await` long y retarde l'annulation

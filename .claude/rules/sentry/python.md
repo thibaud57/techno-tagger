@@ -34,7 +34,7 @@ paths:
 - Le DSN de la région EU passe par `ingest.de.sentry.io` : la résidence des données se choisit à la création de l'organisation et ne se change plus ensuite
 - La suite de tests du hook PyInstaller est épinglée sur une version antérieure du SDK : le mécanisme est stable, la combinaison exacte ne l'est pas sans essai
 
-> Ces réglages ne dispensent pas du scrubbing : ils ferment les canaux les plus larges, pas tous. La clé API ne doit apparaître dans aucun event (cf. [secrets.md](../keyring/secrets.md) et [ADR-014](../../../docs/adrs/014-observabilite-sentry-et-rgpd.md)).
+> Ces réglages ne dispensent pas du scrubbing : ils ferment les canaux les plus larges, pas tous. La clé API ne doit apparaître dans aucun event (cf. [keyring/secrets.md](../keyring/secrets.md) et [ADR-014](../../../docs/adrs/014-observabilite-sentry-et-rgpd.md)).
 
 ## Exemples
 ```python

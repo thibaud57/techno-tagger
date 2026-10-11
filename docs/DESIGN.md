@@ -111,7 +111,7 @@ Les sévérités, déjà câblées dans `p-tag`, `p-badge`, `p-message` et `pBut
 - **Auto contre Arbitré** : un morceau validé automatiquement à 94 est l'endroit le plus probable d'un mauvais match, puisque personne ne l'a regardé. Un glyphe ne se décode pas assez vite dans un tableau dense pour porter cette différence, le libellé si
 - **Horloge contre `minus-circle`** : une horloge promet une suite, ce qu'un run interrompu ne tiendra pas. Le `minus-circle` dit l'inverse sans changer de famille
 - **Restauré reste neutre** : ni écrit ni en échec, le morceau n'a aucune voie à montrer en vert ni aucune correction à attendre. `undo` le distingue de l'attente et du non traité
-- **Deux rouges, deux icônes** : leurs corrections sont opposées, l'un se rattrape par une URL, l'autre en relançant l'écriture (cf. [ARCHITECTURE.md § Robustesse](ARCHITECTURE.md#-robustesse--modes-de-panne))
+- **Deux rouges, deux icônes** : leurs corrections sont opposées, l'un se rattrape par une URL, l'autre en relançant l'écriture (cf. [ARCHITECTURE.md § Robustesse](ARCHITECTURE.md#%EF%B8%8F-robustesse--modes-de-panne))
 - **Libellé d'échec générique, motif au survol** : « Non résolu » couvre cinq `failure_reason`, « Échec d'écriture » plusieurs autres. Les nommer élargirait la colonne État ou la tronquerait : l'icône `info-circle` suit le tag et le motif s'ouvre en tooltip. Un motif est du diagnostic, pas de la colonne de balayage
 
 Le rapport d'extraction rattache ses catégories aux mêmes familles :

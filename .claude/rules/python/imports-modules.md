@@ -22,7 +22,7 @@ paths:
 ## Gotchas
 - `ImportError: cannot import name X from partially initialized module` désigne un import circulaire, pas un symbole manquant
 - Le code top-level d'un module ne s'exécute qu'une fois, au premier import : y placer un effet de bord vaut singleton implicite
-- PyInstaller n'analyse que les imports statiques : tout import dynamique se déclare en `--hidden-import` (cf. [build.md](../pyinstaller/build.md))
+- PyInstaller n'analyse que les imports statiques : tout import dynamique se déclare en `--hidden-import` (cf. [pyinstaller/build.md](../pyinstaller/build.md))
 
 ## Exemples
 ```python

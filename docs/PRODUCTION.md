@@ -320,7 +320,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`dependabot.yml` commité, Dependency graph et Dependabot alerts actifs** : les deux réglages de sécurité du dépôt activés, condition de fonctionnement du graphe de dépendances que Dependabot consomme
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le bouton « ouvrir le dossier de logs » et le lien vers la fiche source : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
-- [ ] **Préfixe `\\?\` sur l'appel système du renommage** : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
+- [ ] **Préfixe `\\?\` sur les accès aux fichiers musicaux** (tags, renommage, rollback) : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
 - [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
@@ -550,7 +550,7 @@ Fichier local unique, une ligne par événement, au format **logfmt** : un préf
 
 ```
 2026-08-27 21:14:03 INFO    tagger.matching  candidat retenu     run=a3f9c1 track=42 score=91 source=beatport
-2026-08-27 21:14:04 WARNING tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=locked
+2026-08-27 21:14:04 WARNING tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=file_locked
 2026-08-27 21:14:09 ERROR   tagger.scraper   arrêt du run        run=a3f9c1 status=403 consecutive=3
 ```
 
@@ -586,7 +586,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 
 ### Règles
 - ✅ **Jeu de clés logfmt fixe** : `run`, `track`, `source`, `score`, `status`, `reason`, `request_id`. C'est le seul coût du format : une clé inventée au fil des commits (`track_id` à côté de `track`) rend un `grep` faux sans que rien ne casse ni ne se voie. `request_id` reprend l'en-tête `X-Request-ID` de techno-scraper, seul lien entre une ligne du sidecar et la ligne correspondante côté API (ajoutée le 2026-09-19).
-- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS.
+- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS, ainsi que l'artiste et le titre par le nom du fichier (tout chemin de lecteur ou UNC part en `<path>` depuis le 2026-10-11, [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
 - ✅ **Une ligne par décision de matching** : score, source, état retenu. C'est la trace qui permet de comprendre après coup pourquoi un morceau est parti en arbitrage.
 - ✅ **Distinguer les motifs d'échec** : « aucune source n'a répondu » et « on n'avait rien à demander après nettoyage » sont deux lignes différentes, elles n'appellent pas la même correction.
 - ✅ **Erreur loguée une seule fois**, au point où elle est traitée, jamais aussi au point de levée : sinon un incident produit deux lignes et deux events Sentry.

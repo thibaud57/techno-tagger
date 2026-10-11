@@ -30,7 +30,7 @@ paths:
 ## Gotchas
 - httpx2 est le fork de httpx par Pydantic Services : API identique mais import `httpx2` et transport `httpcore2`, ce n'est pas un drop-in silencieux
 - Vérification SSL par `truststore` (trust store de l'OS) au lieu de `certifi` : plus de `cacert.pem` à bundler, mais des appels `ctypes` vers l'API Windows dans le binaire figé, à valider au premier build PyInstaller
-- Aucun mock HTTP ne supporte httpx2 (`respx` exige `httpx>=0.25.0`, `pytest-httpx` `httpx==0.28.*`) : la voie est `MockTransport`, natif et sans dépendance (cf. [tests.md](../pytest/tests.md))
+- Aucun mock HTTP ne supporte httpx2 (`respx` exige `httpx>=0.25.0`, `pytest-httpx` `httpx==0.28.*`) : la voie est `MockTransport`, natif et sans dépendance (cf. [pytest/tests.md](../pytest/tests.md))
 - 2.12.0 : décompression bornée à 1 MiB par étape de décodage, et zstd natif sur Python 3.14+
 
 ## Exemples

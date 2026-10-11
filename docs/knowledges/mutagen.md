@@ -196,7 +196,7 @@ def read_original_tags(path: Path) -> tuple[int | None, dict[str, list[str]]]:
 
 ### Description
 
-Sur Windows, un fichier ouvert dans un lecteur (Rekordbox, VLC) est verrouillé en écriture. C'est le mode de panne le plus courant de la phase d'écriture (cf. [ARCHITECTURE.md § Robustesse](../ARCHITECTURE.md#-robustesse--modes-de-panne)).
+Sur Windows, un fichier ouvert dans un lecteur (Rekordbox, VLC) est verrouillé en écriture. C'est le mode de panne le plus courant de la phase d'écriture (cf. [ARCHITECTURE.md § Robustesse](../ARCHITECTURE.md#%EF%B8%8F-robustesse--modes-de-panne)).
 
 ### Exemple
 
