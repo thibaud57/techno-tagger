@@ -6,7 +6,7 @@ sortie NDJSON sont ceux de production : seule l'URL de l'API est detournee, cons
 module qu'aucune variable d'environnement du sidecar ne redirige, et la cle face a une
 gateway locale. Usage, depuis la racine du depot :
 
-    uv run --directory sidecar python <skill>/scripts/drive.py <commandes.ndjson> [sortie.ndjson]
+    PYTHONPATH=tests/helpers uv run --directory sidecar python <skill>/scripts/drive.py <commandes.ndjson> [sortie.ndjson]
 
 Une ligne `{"wait": 1.5}` du fichier de commandes n'est pas envoyee : elle retarde la
 suivante. `stdin` est un vrai pipe alimente au fil de l'eau, sans quoi toutes les
@@ -37,24 +37,14 @@ import time
 from pathlib import Path
 from typing import override
 
-sys.path.insert(0, str(Path(__file__).parent))
-# Depuis l'emplacement du script : .claude/skills/verify/scripts.
-sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "sidecar" / "tests" / "helpers"))
-
-
-def emit(payload: dict[str, object]) -> None:
-    """Le verdict sur stdout, comme le sidecar y ecrit ses evenements."""
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
-
-
-def fail(message: str) -> None:
-    emit({"error": True, "message": message})
-    sys.exit(1)
-
+from _probe import emit, fail
 
 commands_path, *output_path = sys.argv[1:] or [""]
 if not commands_path:
-    fail("usage : uv run --directory sidecar python drive.py <commandes.ndjson> [sortie.ndjson]")
+    fail(
+        "usage : PYTHONPATH=tests/helpers uv run --directory sidecar python drive.py "
+        "<commandes.ndjson> [sortie.ndjson]"
+    )
 
 try:
     import fake_api
@@ -62,7 +52,7 @@ try:
 
     from tagger import scraper_client
 except ImportError as error:
-    fail(f"{error} : lancer par `uv run --directory sidecar`, le paquet tagger en depend")
+    fail(f"{error} : lancer par `PYTHONPATH=tests/helpers uv run --directory sidecar`")
 
 binary = os.getenv("BINARY")
 gateway_url = os.getenv("GATEWAY_URL")
@@ -195,5 +185,6 @@ emit(
             for event in events
         ],
         "counts": {kind: kinds.count(kind) for kind in ("run_started", "run_finished", "error")},
-    }
+    },
+    indent=2,
 )

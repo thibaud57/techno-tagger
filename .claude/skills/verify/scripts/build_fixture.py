@@ -3,7 +3,7 @@
 Le script vit dans le skill, sa sortie dans le scratchpad : jamais un mp3 dans le depot,
 jamais une vraie bibliotheque touchee. Usage, depuis la racine du depot :
 
-    uv run --directory sidecar python <skill>/scripts/build_fixture.py <dossier> [option]
+    PYTHONPATH=tests/helpers uv run --directory sidecar python <skill>/scripts/build_fixture.py <dossier> [option]
 
 Sans option : trois morceaux dont deux que le faux serveur connait, un introuvable et un
 fichier non audio. `--unique N` : N titres inedits, chacun payant son aller-retour vers
@@ -21,26 +21,13 @@ La fixture complete de l'onglet Playlist, homonymes et echecs de transfert compr
 celle de `just demo`.
 """
 
-import json
 import shutil
 import sys
 import uuid
 from pathlib import Path
 
+from _probe import emit, fail
 
-def emit(payload: dict[str, object]) -> None:
-    """Le resultat sur stdout, en JSON, pour qu'un appelant le lise sans le parser a l'oeil."""
-    sys.stdout.write(json.dumps(payload) + "\n")
-
-
-def fail(message: str) -> None:
-    emit({"error": True, "message": message})
-    sys.exit(1)
-
-
-# Depuis l'emplacement du script et non du repertoire courant : .claude/skills/verify/scripts.
-HELPERS = Path(__file__).resolve().parents[4] / "sidecar" / "tests" / "helpers"
-sys.path.insert(0, str(HELPERS))
 try:
     from audio_samples import (
         tag,
@@ -51,7 +38,7 @@ try:
     )
     from vlc_dump import build_dump
 except ImportError as error:
-    fail(f"{error} : les helpers de test sont attendus dans {HELPERS}")
+    fail(f"{error} : lancer par `PYTHONPATH=tests/helpers uv run --directory sidecar`")
 
 args = sys.argv[1:]
 if not args or args[0].startswith("--"):
