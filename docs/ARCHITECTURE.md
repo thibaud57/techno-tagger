@@ -86,7 +86,7 @@ techno-tagger/
 │   │   │   ├── scrub.ts                  # masquage PII avant envoi Sentry
 │   │   │   └── models/                   # types miroir du contrat JSON
 │   │   ├── shared/
-│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Composants Custom)
+│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Mapping Composants)
 │   │   │   └── utils/                    # fonctions et constantes d'affichage sans état
 │   │   ├── features/
 │   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement

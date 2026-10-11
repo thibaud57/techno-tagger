@@ -53,6 +53,11 @@ Un push, dans l'ordre :
   sync revérifie tout, ce que le skill appelle le choix honnête hors convertisseur.
 - **`config.json` porte `mode: manual`** : clé hors schéma du skill, qui ferait échouer un run du
   convertisseur avec un message nommant la clé. C'est voulu, il n'a rien à faire ici.
+- **Prévisualiser avant le push** : cartes et écrans lisent `_ds_bundle.js`, qui n'a un composant
+  ajouté qu'après la recompilation distante. Pour les contrôler en local, servir l'export
+  (`python -m http.server`) et substituer au bundle un build esbuild de `components/*/*.jsx`
+  (`--bundle --format=iife --global-name=TechnoTaggerDesignSystem_66daf6 --alias:react=<shim>`,
+  le shim rendant `window.React`), par une route Playwright sur `**/_ds_bundle.js`.
 - **Ne jamais modifier la maquette sans demande explicite** : c'est le fichier de design du
   propriétaire, pas un artefact généré.
 - **L'export local n'est un miroir que comparé au distant** : une session peut pousser sans le
@@ -64,14 +69,7 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- `TrackDetail` (`TaggingScreen.jsx`, `data.js` `detail`) : 12 lignes avec `TPE2`, date complète et « Traçabilité » ; le code livre les champs écrits sauf l'identifiant à la source (remixeur, numéro de piste, URL, source), `TYER` et une ligne Commentaire (2026-10-06, identifiant retiré le 2026-10-09, année d'origine et `TORY` retirés le 2026-10-11) ; colonne Champ à la largeur de son contenu, au lieu de trois tiers (2026-10-09), clé à côté du libellé comme la maquette (2026-10-10)
-- `TaggingScreen` : bouton d'action unique (lancer, interrompre, confirmer, relancer l'écriture), « Confirmer l'écriture » et « Relancer l'écriture » `primary` pleins ; le message d'échec d'écriture ne porte plus que le texte, la relance étant le bouton d'action (2026-10-11). Le `danger` ne reste qu'à l'acceptation du rollback, « Écrire les tags » et « Relancer l'écriture » acceptant en `primary` (2026-10-10) ; `AppShell` : lien de simulation `écriture ?` devenu inutile, `CloseConfirmation` à « Rester » seul pendant l'écriture (2026-10-06)
-- État « Restauré » (`StateTag`), bouton « Restaurer ce morceau » de `TrackDetail`, « Restaurer le run » au bout de la barre d'écriture, liste des fichiers non restaurés ; les trois déclencheurs en `primary` contour, icône `refresh`, le `danger` restant à l'acceptation de la modale (2026-10-10). Réglages : rangée « Restauration » (et non `Rollback`), bouton « Restaurer le dernier run » calé à droite, aide puis cible sur deux lignes dessous, « Aucun run à restaurer » (2026-10-11)
-- `SettingsScreen` : grille de rangées `16rem` / reste avec l'aide sous le contrôle (la maquette empile libellé et aide dans la colonne de gauche), et clé enregistrée signalée par 24 points en placeholder du champ, l'œil n'apparaissant que pendant une saisie, au lieu du `Tag` « Clé enregistrée » / « Aucune clé » (2026-10-11)
-- Boutons `size="small"` partout, « Lancer le run », « Interrompre », « Réessayer » et « Reprendre » compris (2026-10-11) ; tooltips sous l'élément (`TOOLTIP_POSITION`), là où le `Tooltip` du design system s'ouvre au-dessus par défaut (2026-10-11)
-- En-tête de modale : croix de fermeture calée sur la ligne du titre et sur le padding du contenu, logo de source posé sur la ligne du titre (`h-7`), nom de fichier dessous ; à comparer à `Dialog` et à `ArbitrationDialog` (2026-10-11)
-- Une phrase par ligne dans tous les messages (toasts, bandeaux, modales, tooltips, aides, écran bloquant), les modales longues séparant leurs blocs par une ligne vide : confirmation d'écriture (dossier ; comptes ; garantie de sauvegarde) et restauration (compte ; conséquences) (2026-10-11)
-- `TrackDetail` : champs par blocs (artiste, titre, remixeur ; genre, BPM, key ; label, numéro de catalogue, ISRC, album, numéro de piste, année ; source, URL ; commentaire), clé sans préfixe `TXXX:` ; liste du run : colonne du chevron à 48px, cellule sans marge droite (2026-10-11)
+Rien à pousser au 2026-10-11.
 
 ## Journal
 
@@ -177,7 +175,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   réaligné, `_ds_bundle.js`, `_ds_manifest.json` et `_adherence.oxlintrc.json` compris : miroir
   exact au 2026-10-05, hors binaires
   Troisième push après la revue en direct : un message d'erreur garde le même écart au-dessus et
-  en dessous (DESIGN.md § Feedback), `TaggingScreen`, la fiche `ErrorMessage` et le readme suivent
+  en dessous (DESIGN.md § Feedback et chargement), `TaggingScreen`, la fiche `ErrorMessage` et le readme suivent
 - **2026-10-06, variations du rattrapage par URL** : cinq directions explorées par
   `/swarm-ui-variations` pour rendre la hauteur à la liste du run. Retenue : la modale par ligne,
   ajustée (hauteur au contenu, badge dans le shell, étape lien dans l'arbitrage). Aucun push, écarts
@@ -191,3 +189,20 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   ouvre la modale du lien depuis une ligne non résolue, la carte des formulaires marque
   `InputGroup` réservé, et le readme et le README du kit disent le badge masqué et la modale
   désactivée pendant la recherche.
+- **2026-10-11, revue d'écran de l'écriture, du rollback et des Réglages** : `docs/DESIGN.md` réécrit
+  sur le gabarit du skill `design-doc` (Mapping par familles d'usage) et audité contre le code, puis
+  le design system réaligné et poussé après relecture du distant, identique à l'export pour chaque
+  fichier touché. 109 fichiers : `readme.md` (réserve n° 16), README du kit, `SKILL.md`, fiches et
+  composants (`Tag` au style de `p-tag`, `Button` `link`, `Tooltip` sous l'élément, `Dialog`,
+  `ConfirmDialog`, `Message`, `StateTag` « Restauré », `Badge`, `Toast`, `Password`, `DataTable` à
+  chevron), trois composants ajoutés (`DialogHeader`, `SettingsRow`, `RollbackFailures`), tokens et
+  cartes de fondations, maquette (bouton d'action unique, écriture et restauration, détail par
+  blocs, en-têtes de modale, Réglages en rangées, `Recap` gardé comme écran prévu derrière le lien
+  « récapitulatif ? »). `_ds_needs_recompile` posé. L'export local garde l'ancien `_ds_bundle.js`,
+  `_ds_manifest.json` et `_adherence.oxlintrc.json` : les relire du distant après la recompilation.
+  Second push le même jour : `SettingsRow` donne 12px à un retour en tête de zone, comme l'app. Troisième push :
+  les écrans de la maquette appellent `DialogHeader`, `RollbackFailures`, `ConfirmDialog`, `SettingsRow`,
+  `Message` et `StateTag` du catalogue au lieu de leurs recompositions locales, contrôlés avant le
+  push sur un bundle esbuild des sources (§ Comment ce dépôt se synchronise). `Message` `small` passe
+  à 26px, la hauteur mesurée dans l'app sur le bandeau de l'arbitrage (`min-h-6.5`) : à 28px, la liste
+  bougeait de 2px au changement de source.

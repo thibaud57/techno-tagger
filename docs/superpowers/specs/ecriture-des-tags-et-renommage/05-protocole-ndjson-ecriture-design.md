@@ -115,7 +115,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 - **B. Décisions encore admises**, avec une seconde confirmation pour écrire les morceaux tranchés après coup
 **Choix : A**
 **Rationale :**
-- Choix du propriétaire : la confirmation est le point de non-retour (DESIGN.md § Écriture et récapitulatif), un écran qui reste ouvert aux décisions après écriture le brouillerait
+- Choix du propriétaire : la confirmation est le point de non-retour (DESIGN.md § Overlays), un écran qui reste ouvert aux décisions après écriture le brouillerait
 
 ### Décision : compteurs d'écriture dans `run_finished`
 **Options envisagées :**

@@ -16,7 +16,7 @@ import { UrlLinkFormComponent } from "./url-link-form.component"
 
 /**
  * Padding bas du contenu au `gap-4` du formulaire : une erreur garde le meme ecart au champ
- * et au pied (DESIGN.md § Feedback), le preset en posant 20px.
+ * et au pied (DESIGN.md § Feedback et chargement), le preset en posant 20px.
  */
 const DIALOG_PT: DialogPassThrough = { content: { class: "pb-4" } }
 
