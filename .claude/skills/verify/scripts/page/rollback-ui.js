@@ -757,6 +757,19 @@ async (page) => {
       const e = document.querySelector("app-settings-page section:nth-of-type(2) app-error-message")
       return e ? e.textContent.replace(/\s+/g, " ").trim() : null
     })
+  // Ecart d'une erreur de la rangee Restauration a ce qui la precede (cible ou bouton) et au filet du
+  // bas : attendus egaux au py-3 de la rangee (DESIGN.md § Feedback et chargement).
+  const settingsErrorGaps = () =>
+    page.evaluate(() => {
+      const row = document.querySelector("app-settings-page section:nth-of-type(2) app-settings-row")
+      const host = row?.querySelector(":scope > div.col-start-2 > app-error-message")
+      if (!host) return null
+      const r = (host.querySelector(".p-message") ?? host).getBoundingClientRect()
+      const prev = host.previousElementSibling
+      const above = (prev ?? row.querySelector("[rowControl]")).getBoundingClientRect().bottom
+      const bottom = row.getBoundingClientRect().bottom - parseFloat(getComputedStyle(row).borderBottomWidth)
+      return { first: prev === null, above: Math.round(r.top - above), below: Math.round(bottom - r.bottom) }
+    })
   const TARGET = { run_id: "a3f9c1", written_at: "2026-10-06T14:30:00Z", folder: "D:\\Music\\Promo Octobre", tracks: 87 }
 
   await step("settings layout", async () => {
@@ -921,6 +934,16 @@ async (page) => {
     const e1 = await settingsError()
     out.measures.settingsRollbackError = e1
     check("12 rollback error under the row: translated, no raw code", e1 !== null && !e1.includes("tag_dump_unreadable") && e1.includes("sauvegarde des tags d'origine"), e1)
+    const g1 = await settingsErrorGaps()
+    out.measures.settingsErrorGapsWithTarget = g1
+    check("12 rollback error under the target: 12px above and below", g1 !== null && !g1.first && g1.above === 12 && g1.below === 12, g1)
+    await line({ event: "rollback_target", run: null })
+    await settle(400)
+    const g0 = await settingsErrorGaps()
+    out.measures.settingsErrorGapsAlone = g0
+    check("12 rollback error alone under the button: 12px above and below, as under the target", g0 !== null && g0.first && g0.above === 12 && g0.below === 12, g0)
+    await line({ event: "rollback_target", run: TARGET })
+    await settle(400)
     await line({ event: "error", code: "tag_dump_unreadable", params: {}, message: "", command: "get_rollback_target" })
     await settle(500)
     const e2 = await settingsError()

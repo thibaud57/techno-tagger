@@ -2,6 +2,7 @@
 // qui parte vers le sidecar (ni choix valide, ni refus).
 //   node cdp.mjs page/arbitration-dialog.js open      rouvre la modale par le badge de file
 //   node cdp.mjs page/arbitration-dialog.js state     taille, selection, options et leurs rectangles
+//   node cdp.mjs page/arbitration-dialog.js banner    cellule reservee au-dessus de la liste et son contenu
 //   node cdp.mjs page/arbitration-dialog.js footer    boutons du pied, badge compris
 //   node cdp.mjs page/arbitration-dialog.js covers    vignettes de la liste du run et leur cellule
 //   node cdp.mjs page/arbitration-dialog.js rows      lignes du run, onglet Tagging ouvert au besoin,
@@ -54,6 +55,18 @@
       list: rect(list),
       empty: empty && { text: empty.textContent.trim(), ...rect(empty) },
       validateDisabled: root.querySelector('[data-action="validate"]')?.disabled,
+    }
+  }
+
+  if (action === "banner") {
+    // Cellule reservee au-dessus de la liste : sa hauteur ne doit pas changer entre la ligne
+    // « Correspondances incertaines » et un bandeau de source, sinon la liste bouge.
+    const dialog = document.querySelector(".p-dialog")
+    const cell = dialog?.querySelector(".min-h-6\\.5")
+    return {
+      cell: rect(cell),
+      content: cell && [...cell.children].map((el) => ({ tag: el.tagName.toLowerCase(), ...rect(el) })),
+      list: rect(dialog?.querySelector("p-listbox")),
     }
   }
 

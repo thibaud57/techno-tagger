@@ -3,7 +3,7 @@
 //   `paste <url>` colle l'URL dans le champ de la modale ouverte, clique « Resoudre » et attend
 //                 la reponse du service
 //   `state`       releve la barre, le badge, la modale et, pour l'erreur affichee, son ecart au
-//                 champ qui la precede et au pied qui la suit (attendu egal, DESIGN.md § Feedback)
+//                 champ qui la precede et au pied qui la suit (attendu egal, DESIGN.md § Feedback et chargement)
 ;(async () => {
   const [action, arg] = __args
   const svc = __sidecarService()
