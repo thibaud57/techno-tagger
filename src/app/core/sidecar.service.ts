@@ -91,6 +91,29 @@ export class SidecarService {
   private readonly _extracting = signal(false)
   private readonly _lastError = signal<SidecarErrorEvent | null>(null)
   private readonly _lastErrorCommand = signal<SidecarCommand["command"] | null>(null)
+  /** Echec d'une commande d'ecriture : sa phase retombe, sauf sur le code qui dit qu'une autre tourne deja. */
+  private readonly writeErrorRoutes: Partial<
+    Record<SidecarCommand["command"], readonly [busyCode: string, fail: () => void]>
+  > = {
+    commit_run: [
+      WRITE_IN_PROGRESS,
+      () => {
+        this.writePhase.commitFailed()
+      },
+    ],
+    retry_write: [
+      WRITE_IN_PROGRESS,
+      () => {
+        this.writePhase.retryFailed()
+      },
+    ],
+    rollback: [
+      ROLLBACK_IN_PROGRESS,
+      () => {
+        this.writePhase.rollbackFailed()
+      },
+    ],
+  }
 
   readonly available = this._available.asReadonly()
   readonly version = this._version.asReadonly()
@@ -155,6 +178,14 @@ export class SidecarService {
   readonly rollbackTarget = this.writePhase.rollbackTarget
   /** Plus aucune decision n'entre dans le run affiche : le sidecar la refuserait ou l'ignorerait. */
   readonly runFrozen = computed(() => this.writePhase.committed() || this.taggingRun.lost())
+  /** Un run fige n'arbitrera plus : ses attentes ne sont pas un travail en suspens. */
+  readonly pendingArbitrationCount = computed(() =>
+    this.runFrozen() ? 0 : this.arbitration.count(),
+  )
+  /** Une seule operation sur les fichiers a la fois, comme le sidecar l'impose. */
+  readonly filesBusy = computed(
+    () => this.writePhase.writing() || this.writePhase.rollingBack() !== null,
+  )
   /**
    * Run que le moteur ecrirait : recherche finie, ni confirme ni perdu, au moins un morceau
    * resolu. Le sidecar reste seul juge et refuse le reste en `write_not_open`.
@@ -402,30 +433,14 @@ export class SidecarService {
     await this.send(command)
   }
 
-  /** Une seule operation sur les fichiers a la fois, comme le sidecar l'impose. */
-  private filesBusy(): boolean {
-    return this.writePhase.writing() || this.writePhase.rollingBack() !== null
-  }
-
   private routeWriteError(event: SidecarErrorEvent): void {
-    switch (event.command) {
-      case "commit_run":
-        if (event.code !== WRITE_IN_PROGRESS) {
-          this.writePhase.commitFailed()
-        }
-        break
-      case "retry_write":
-        if (event.code !== WRITE_IN_PROGRESS) {
-          this.writePhase.retryFailed()
-        }
-        break
-      case "rollback":
-        if (event.code !== ROLLBACK_IN_PROGRESS) {
-          this.writePhase.rollbackFailed()
-        }
-        break
-      default:
-        break
+    const { command, code } = event
+    const route =
+      command !== null && Object.hasOwn(this.writeErrorRoutes, command)
+        ? this.writeErrorRoutes[command]
+        : undefined
+    if (route !== undefined && code !== route[0]) {
+      route[1]()
     }
   }
 
@@ -543,6 +558,7 @@ export class SidecarService {
         break
       case "rollback_finished":
         this.writePhase.rolledBack(event)
+        this.taggingRun.restored(event)
         // Un dump vient d'etre consomme : la cible passe au run precedent.
         void this.loadRollbackTarget()
         break

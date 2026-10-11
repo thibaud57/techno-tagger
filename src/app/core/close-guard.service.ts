@@ -30,8 +30,7 @@ export class CloseGuard {
     if (this.sidecar.tagging()) {
       work.push({ kind: "tagging" })
     }
-    // Un run fige n'arbitrera plus : ses attentes ne sont pas un travail perdu.
-    const count = this.sidecar.runFrozen() ? 0 : this.sidecar.arbitrationCount()
+    const count = this.sidecar.pendingArbitrationCount()
     if (count > 0) {
       work.push({ kind: "arbitration", count })
     }

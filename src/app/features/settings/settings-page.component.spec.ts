@@ -1,4 +1,4 @@
-import { signal } from "@angular/core"
+import { computed, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import {
   TranslateService,
@@ -31,6 +31,7 @@ type SidecarServiceStub = Pick<
   | "rollingBack"
   | "rollbackFinished"
   | "writing"
+  | "filesBusy"
   | "tagging"
   | "loadRollbackTarget"
   | "rollback"
@@ -39,9 +40,10 @@ type SidecarServiceStub = Pick<
 /**
  * Ce qui se teste ici est la disponibilite de l'enregistrement et la commande
  * emise : la cle ne doit jamais rester dans l'ecran une fois envoyee.
+ * `filesBusy` suit `writing` et `rollingBack`, surcharges comprises.
  */
-const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
-  const service: SidecarServiceStub = {
+const mountWith = (overrides: Partial<Omit<SidecarServiceStub, "filesBusy">> = {}) => {
+  const base = {
     apiKeyConfigured: signal<boolean | null>(false),
     available: signal(true),
     lastError: signal(null),
@@ -56,6 +58,10 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
     loadRollbackTarget: vi.fn(() => Promise.resolve()),
     rollback: vi.fn(() => Promise.resolve()),
     ...overrides,
+  }
+  const service: SidecarServiceStub = {
+    ...base,
+    filesBusy: computed(() => base.writing() || base.rollingBack() !== null),
   }
 
   TestBed.configureTestingModule({

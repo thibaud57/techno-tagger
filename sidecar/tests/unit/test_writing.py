@@ -1,14 +1,18 @@
 """Tests de la phase d'ecriture d'un run : dump, tags, renommage, echecs et relance."""
 
-from datetime import UTC, datetime
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import pytest
 from audio_samples import BLANK_WRITERS, held_open, tag
 from mutagen import MutagenError
-from scraper_responses import track_payload
+from mutagen.id3 import ID3
+from path_limits import folder_leaving
+from scraper_responses import payload_candidate
 from stubs import raising
+from tagging_api import CREATED, JPEG
 
 from tagger import files, renaming, writing
 from tagger.file_failures import FileFailureReason
@@ -17,11 +21,20 @@ from tagger.files import (
     TagField,
     TagsUnreadableError,
     UnreadableReason,
+    project_tags,
     read_original_tags,
 )
 from tagger.renaming import RenamedTrack, RenameError
-from tagger.scraper_client import Source, TrackCandidate
-from tagger.tag_dump import TagDump, TagDumpWriteError, dump_path, load_dump, remove_entries
+from tagger.rollback import roll_back
+from tagger.scraper_client import Source
+from tagger.tag_dump import (
+    TagDump,
+    TagDumpWriteError,
+    dump_path,
+    load_dump,
+    record_renamed_path,
+    remove_entries,
+)
 from tagger.tagging import (
     FailureReason,
     LiveRun,
@@ -29,6 +42,7 @@ from tagger.tagging import (
     TrackRecord,
     TrackResolved,
     TrackState,
+    WriteOutcome,
 )
 from tagger.writing import RunWriter, WriteProgress, WriteSummary
 
@@ -37,19 +51,23 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-CREATED = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
-BEATPORT = TrackCandidate.model_validate(track_payload())
-WRITTEN_NAME = "Adam Beyer - Your Mind (Extended Mix)"
+BEATPORT = payload_candidate()
+WRITTEN_NAME = "Lior Vance - Dim Orbit (Extended Mix)"
 
 
-def _track(folder: Path, name: str, state: TrackState | None = TrackState.RESOLVED) -> TrackRecord:
-    """Fichier tague « adam beyer / your mind » et son morceau dans l'etat demande."""
+def _track(
+    folder: Path,
+    name: str,
+    state: TrackState | None = TrackState.RESOLVED,
+    artwork: Path | None = None,
+) -> TrackRecord:
+    """Fichier tague « lior vance / dim orbit » et son morceau dans l'etat demande."""
     path = BLANK_WRITERS[name.rsplit(".", 1)[1]](folder / name)
-    tag(path, artist=["adam beyer"], title=["your mind"])
-    record = TrackRecord(track_id=name, path=path, identity=IdentityTags("adam beyer", "your mind"))
+    tag(path, artist=["lior vance"], title=["dim orbit"])
+    record = TrackRecord(track_id=name, path=path, identity=IdentityTags("lior vance", "dim orbit"))
     match state:
         case TrackState.RESOLVED:
-            return record.resolved(Resolution.AUTO, Source.BEATPORT, BEATPORT, None, None)
+            return record.resolved(Resolution.AUTO, Source.BEATPORT, BEATPORT, None, artwork)
         case TrackState.UNRESOLVED:
             return record.unresolved(FailureReason.NO_RESULT)
         case _:
@@ -99,7 +117,7 @@ async def test_writes_and_renames_every_resolved_track(tmp_path: Path, music: Pa
         assert record.state is TrackState.WRITTEN
         assert record.path == music / f"{WRITTEN_NAME}{suffix}"
         assert read_original_tags(record.path).fields[TagField.TITLE] == (
-            "Your Mind (Extended Mix)",
+            "Dim Orbit (Extended Mix)",
         )
 
 
@@ -149,7 +167,7 @@ async def test_dumps_every_origin_before_writing_the_first_file(
 
     assert dumped_at_first_write == [{"a.mp3", "b.mp3"}]
     entry = load_dump(_dump(tmp_path, live)).entries["a.mp3"]
-    assert entry.fields[TagField.TITLE] == ("your mind",)
+    assert entry.fields[TagField.TITLE] == ("dim orbit",)
     assert entry.renamed_path == music / f"{WRITTEN_NAME}.mp3"
 
 
@@ -240,7 +258,7 @@ async def test_marks_a_failed_rename_after_written_tags(
 
     record = _record(live, "a.mp3")
     assert (record.state, record.path) == (TrackState.WRITE_ERROR, track.path)
-    assert read_original_tags(track.path).fields[TagField.TITLE] == ("Your Mind (Extended Mix)",)
+    assert read_original_tags(track.path).fields[TagField.TITLE] == ("Dim Orbit (Extended Mix)",)
 
 
 async def test_notes_the_rename_target_before_the_file_moves(
@@ -272,17 +290,143 @@ async def test_notes_the_rename_target_before_the_file_moves(
     [TagDumpWriteError(Path("dump.json")), KeyError("a.mp3")],
     ids=["dump_not_written", "entry_gone"],
 )
-async def test_keeps_a_written_track_when_the_dump_cannot_note_its_rename(
+async def test_refuses_the_rename_when_the_dump_cannot_note_it(
     tmp_path: Path, music: Path, monkeypatch: pytest.MonkeyPatch, error: Exception
 ) -> None:
-    live = _run(_track(music, "a.mp3"))
+    track = _track(music, "a.mp3")
+    live = _run(track)
+    writer = _writer(live, tmp_path)
     monkeypatch.setattr(writing, "record_renamed_path", raising(error))
+
+    summary = await writer.write()
+
+    record = _record(live, "a.mp3")
+    assert summary == WriteSummary(written=0, failed=1)
+    assert (record.state, record.failure_reason, record.path) == (
+        TrackState.WRITE_ERROR,
+        FailureReason.WRITE_FAILED,
+        track.path,
+    )
+    assert _names(music) == ["a.mp3"]
+    assert load_dump(_dump(tmp_path, live)).entries["a.mp3"].renamed_path is None
+
+
+async def test_rolls_back_the_tags_of_a_track_whose_rename_was_refused(
+    tmp_path: Path, music: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    live = _run(_track(music, "a.mp3"))
+    writer = _writer(live, tmp_path)
+    with monkeypatch.context() as patched:
+        patched.setattr(writing, "record_renamed_path", raising(TagDumpWriteError(tmp_path)))
+        await writer.write()
+
+    summary = await roll_back(tmp_path / "dumps", live.run_id, None, lambda *_: None)
+
+    assert summary.restored == ("a.mp3",)
+    assert summary.failed == ()
+    assert read_original_tags(music / "a.mp3").fields[TagField.TITLE] == ("dim orbit",)
+
+
+def _failing_after_the_note(
+    path: Path, _artist: str | None, _title: str | None, note: Callable[[Path], None]
+) -> RenamedTrack:
+    """Renommage qui note sa cible puis echoue, comme un fichier verrouille au dernier moment."""
+    note(path.with_name("Nova Pulse - Midnight Static.mp3"))
+    raise RenameError(path, FileFailureReason.FILE_LOCKED)
+
+
+async def test_forgets_the_noted_target_when_the_rename_then_fails(
+    tmp_path: Path, music: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    live = _run(_track(music, "a.mp3"))
+    monkeypatch.setattr(writing, "rename_track", _failing_after_the_note)
+
+    await _writer(live, tmp_path).write()
+
+    record = _record(live, "a.mp3")
+    assert (record.state, record.failure_reason) == (
+        TrackState.WRITE_ERROR,
+        FailureReason.FILE_LOCKED,
+    )
+    assert load_dump(_dump(tmp_path, live)).entries["a.mp3"].renamed_path is None
+
+
+async def test_keeps_the_failure_when_the_noted_target_cannot_be_forgotten(
+    tmp_path: Path, music: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    live = _run(_track(music, "a.mp3"))
+
+    def forgetting_fails(
+        folder: Path, dump: TagDump, track_id: str, renamed: Path | None
+    ) -> TagDump:
+        if renamed is None:
+            raise TagDumpWriteError(folder)
+        return record_renamed_path(folder, dump, track_id, renamed)
+
+    monkeypatch.setattr(writing, "rename_track", _failing_after_the_note)
+    monkeypatch.setattr(writing, "record_renamed_path", forgetting_fails)
 
     summary = await _writer(live, tmp_path).write()
 
-    assert summary == WriteSummary(written=1, failed=0)
-    assert (music / f"{WRITTEN_NAME}.mp3").is_file()
-    assert load_dump(_dump(tmp_path, live)).entries["a.mp3"].renamed_path is None
+    assert summary == WriteSummary(written=0, failed=1)
+    assert _record(live, "a.mp3").failure_reason is FailureReason.FILE_LOCKED
+    assert "reason=rename_note_kept" in caplog.text
+
+
+async def test_settles_a_track_hit_by_an_unexpected_error_and_writes_the_others(
+    tmp_path: Path, music: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    broken = _track(music, "broken.mp3")
+    live = _run(broken, _track(music, "a.mp3"))
+    real_write = files.write_tags
+    corruption = ValueError("unexpected frame")
+
+    def corrupt_one(path: Path, *args: object) -> object:
+        if path == broken.path:
+            raise corruption
+        return real_write(path, *args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(writing, "write_tags", corrupt_one)
+    caplog.set_level(logging.INFO, logger="tagger.writing")
+
+    with patch("tagger.writing.sentry_sdk.capture_exception", autospec=True) as capture:
+        summary = await _writer(live, tmp_path).write()
+
+    assert summary == WriteSummary(written=1, failed=1)
+    assert _record(live, "broken.mp3").failure_reason is FailureReason.WRITE_FAILED
+    assert _record(live, "a.mp3").state is TrackState.WRITTEN
+    errors = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+    private = [str(tmp_path), "broken.mp3", "a.mp3", "Dim Orbit", "Lior Vance"]
+    assert any("reason=write_failed" in message for message in errors)
+    assert [message for message in errors for secret in private if secret in message] == []
+    capture.assert_called_once_with(corruption)
+
+
+async def test_settles_a_track_whose_origin_read_fails_unexpectedly(
+    tmp_path: Path, music: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    broken = _track(music, "broken.mp3")
+    before = broken.path.read_bytes()
+    live = _run(broken, _track(music, "a.mp3"))
+    real_read = files.read_original_tags
+    corruption = ValueError("unexpected frame")
+
+    def corrupt_one(path: Path) -> object:
+        if path == broken.path:
+            raise corruption
+        return real_read(path)
+
+    monkeypatch.setattr(writing, "read_original_tags", corrupt_one)
+
+    with patch("tagger.writing.sentry_sdk.capture_exception", autospec=True) as capture:
+        summary = await _writer(live, tmp_path).write()
+
+    assert summary == WriteSummary(written=1, failed=1)
+    assert _record(live, "broken.mp3").failure_reason is FailureReason.WRITE_FAILED
+    assert broken.path.read_bytes() == before
+    assert set(load_dump(_dump(tmp_path, live)).entries) == {"a.mp3"}
+    assert "reason=write_failed" in caplog.text
+    capture.assert_called_once_with(corruption)
 
 
 async def test_retries_only_the_failures_and_keeps_the_dumped_origin(
@@ -315,7 +459,7 @@ async def test_retries_only_the_failures_and_keeps_the_dumped_origin(
     assert summary == WriteSummary(written=1, failed=0)
     assert written_paths == [failing.path]
     assert load_dump(_dump(tmp_path, live)).entries["a.mp3"].fields[TagField.TITLE] == (
-        "your mind",
+        "dim orbit",
     )
 
 
@@ -351,7 +495,7 @@ async def test_retry_dumps_again_an_origin_a_rollback_consumed(tmp_path: Path, m
     await writer.retry()
 
     assert load_dump(_dump(tmp_path, live)).entries["a.mp3"].fields[TagField.TITLE] == (
-        "your mind",
+        "dim orbit",
     )
 
 
@@ -380,7 +524,7 @@ async def test_keeps_a_correctly_named_file_and_records_no_rename(
 
 
 async def test_records_a_rename_that_only_changes_the_case(tmp_path: Path, music: Path) -> None:
-    track = _track(music, "adam beyer - your mind (extended mix).mp3")
+    track = _track(music, "lior vance - dim orbit (extended mix).mp3")
     live = _run(track)
 
     await _writer(live, tmp_path).write()
@@ -399,3 +543,73 @@ async def test_marks_a_corrupt_file_as_write_failed(tmp_path: Path, music: Path)
     await _writer(live, tmp_path).write()
 
     assert _record(live, "broken.mp3").failure_reason is FailureReason.WRITE_FAILED
+
+
+def _cover(tmp_path: Path) -> Path:
+    """Pochette telle que le cache la donne : un fichier JPEG."""
+    cover = tmp_path / "cover.jpg"
+    cover.write_bytes(JPEG)
+    return cover
+
+
+async def test_writes_the_cached_cover_onto_the_file(tmp_path: Path, music: Path) -> None:
+    live = _run(_track(music, "a.mp3", artwork=_cover(tmp_path)))
+
+    await _writer(live, tmp_path).write()
+
+    record = _record(live, "a.mp3")
+    assert [frame.data for frame in ID3(record.path).getall("APIC")] == [JPEG]
+    assert record.written is not None
+    assert record.written.artwork is True
+
+
+@pytest.mark.parametrize("with_cover", [True, False], ids=["with-cover", "without-cover"])
+async def test_reports_what_the_write_put_on_the_file(
+    tmp_path: Path, music: Path, with_cover: bool
+) -> None:
+    cover = _cover(tmp_path) if with_cover else None
+    live = _run(_track(music, "a.mp3", artwork=cover))
+
+    await _writer(live, tmp_path).write()
+
+    assert _record(live, "a.mp3").written == WriteOutcome(
+        fields=tuple(project_tags(BEATPORT)), artwork=with_cover, truncated=False
+    )
+
+
+async def test_reports_a_name_cut_to_fit_the_path_limit(tmp_path: Path) -> None:
+    music = folder_leaving(tmp_path, room=40)
+    live = _run(_track(music, "a.mp3"))
+
+    await _writer(live, tmp_path).write()
+
+    record = _record(live, "a.mp3")
+    assert record.state is TrackState.WRITTEN
+    assert record.written is not None
+    assert record.written.truncated is True
+    assert len(record.path.name) == 40
+
+
+async def test_logs_the_phase_and_each_failure_without_any_file_name_or_title(
+    tmp_path: Path, music: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Les logs partent vers Sentry : un nom de fichier ou un titre y serait une fuite."""
+    gone = _track(music, "gone.mp3")
+    gone.path.unlink()
+    live = _run(_track(music, "a.mp3"), gone)
+    caplog.set_level(logging.INFO, logger="tagger.writing")
+
+    await _writer(live, tmp_path).write()
+
+    records = [record for record in caplog.records if record.name == "tagger.writing"]
+    messages = [record.getMessage() for record in records]
+    private = [str(tmp_path), "a.mp3", "gone.mp3", WRITTEN_NAME, "Dim Orbit", "Lior Vance"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"write phase started run={live.run_id}"),
+        (
+            logging.ERROR,
+            f"write failed run={live.run_id} track={live.position('gone.mp3')} reason=file_missing",
+        ),
+        (logging.INFO, f"write phase finished run={live.run_id}"),
+    ]
+    assert [message for message in messages for secret in private if secret in message] == []

@@ -7,6 +7,7 @@ import {
   TAGS_AFTER,
   TAGS_BEFORE,
   arbitrationRequired,
+  resolvedTrack,
 } from "../../../fixtures/tagging"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 
@@ -18,11 +19,9 @@ vi.mock("@tauri-apps/api/core", () => ({
 }))
 
 const TRACK: TaggingTrack = {
-  ...PENDING_TRACK,
-  state: "resolved",
-  resolution: "auto",
+  ...resolvedTrack(PENDING_TRACK.trackId),
   source: "beatport",
-  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
+  after: { artist: "Lior Vance", title: "Dim Orbit (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
 }
@@ -148,6 +147,20 @@ describe("RunListComponent", () => {
     expect(artCell?.querySelector("p-skeleton")).toBeNull()
     expect(artCell?.querySelector('[data-p-icon="image"]')).not.toBeNull()
   })
+
+  it.each([
+    { name: "a run in progress", frozen: false, skeleton: true },
+    { name: "a settled run", frozen: true, skeleton: false },
+  ])(
+    "shows a skeleton artwork for a track awaiting its turn only in $name",
+    async ({ frozen, skeleton }) => {
+      const fixture = await mountWith([PENDING_TRACK], new Set(), frozen)
+
+      const artCell = cellOf(fixture, ART)
+
+      expect(artCell?.querySelector("p-skeleton") !== null).toBe(skeleton)
+    },
+  )
 
   it("shows the placeholder and not the skeleton on a track without a source", async () => {
     const fixture = await mountWith([
@@ -311,14 +324,19 @@ describe("RunListComponent", () => {
     const opened = kindsOf(fixture)
     const highlighted = rowsOf(fixture)[0]?.hasAttribute("data-shown")
     const expanded = toggleOf(fixture)?.getAttribute("aria-expanded")
+    const openIcon = toggleOf(fixture)?.querySelector("[data-p-icon]")?.getAttribute("data-p-icon")
     toggleOf(fixture)?.click()
     await settle(fixture)
 
     expect(opened).toEqual(["track", "carrier", ...Array<string>(6).fill("filler")])
     expect(highlighted).toBe(true)
     expect(expanded).toBe("true")
+    expect(openIcon).toBe("chevron-down")
     expect(rowsOf(fixture)).toHaveLength(1)
     expect(toggleOf(fixture)?.getAttribute("aria-expanded")).toBe("false")
+    expect(toggleOf(fixture)?.querySelector("[data-p-icon]")?.getAttribute("data-p-icon")).toBe(
+      "chevron-right",
+    )
     expect(rowsOf(fixture)[0]?.hasAttribute("data-shown")).toBe(false)
     expect(asked).not.toHaveBeenCalled()
   })
@@ -362,8 +380,8 @@ describe("RunListComponent", () => {
       ...PENDING_TRACK,
       trackId: "b.mp3",
       fileName: "b.mp3",
-      artist: "Amelie Lens",
-      title: "Basiel",
+      artist: "Orla Quenby",
+      title: "Kelvor",
     }
     const fixture = await mountWith([
       { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE },
@@ -417,7 +435,7 @@ describe("RunListComponent", () => {
     await settle(fixture)
 
     expect(detailsOf(fixture)).toHaveLength(1)
-    expect(detailsOf(fixture)[0]?.textContent).toContain("Adam Beyer")
+    expect(detailsOf(fixture)[0]?.textContent).toContain("Lior Vance")
   })
 
   it("closes the detail when its track leaves the list", async () => {

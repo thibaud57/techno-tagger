@@ -1,6 +1,5 @@
 import { Component, computed, input, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
-import { convertFileSrc } from "@tauri-apps/api/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
@@ -11,6 +10,8 @@ import { IconComponent } from "../../shared/components/icon.component"
 import { NoValueComponent } from "../../shared/components/no-value.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { TOOLTIP } from "../../shared/utils/tooltip"
+
+import type { RunRow } from "./run-list.component"
 
 /** Une ligne de la grille ; `key` nulle pour le commentaire, qui n'a pas de champ écrit. */
 interface DetailRow {
@@ -66,9 +67,7 @@ export const detailSpan = (track: TaggingTrack, restorable: boolean): number => 
 export class TrackDetailComponent {
   protected readonly tooltip = TOOLTIP
 
-  readonly track = input.required<TaggingTrack>()
-  /** Run arrêté avant ce morceau : sa pochette ne viendra plus, pas de squelette. */
-  readonly interrupted = input(false)
+  readonly track = input.required<RunRow>()
   /** Morceau écrit ou en échec d'un run confirmé : le dump peut le rendre. */
   readonly restorable = input(false)
   readonly restoring = input(false)
@@ -76,12 +75,6 @@ export class TrackDetailComponent {
   readonly blocked = input(false)
   readonly restore = output<string>()
 
-  protected readonly artworkUrl = computed(() => {
-    const path = this.track().artworkPath
-
-    return path === null ? null : convertFileSrc(path)
-  })
-  protected readonly pending = computed(() => this.track().state === null && !this.interrupted())
   /** `null` : ni avant ni après, le fichier n'a pas pu être lu et n'a pas été résolu. */
   protected readonly rows = computed<readonly DetailRow[] | null>(() => {
     const track = this.track()

@@ -95,6 +95,7 @@ export default class SettingsPageComponent {
 
     return target
       ? {
+          runId: target.run_id,
           date: runDate(target.written_at, this.translate.currentLang()),
           folder: target.folder,
           count: target.tracks,
@@ -105,7 +106,7 @@ export default class SettingsPageComponent {
     if (this.sidecar.tagging()) {
       return "tagging.blocked.running"
     }
-    if (this.sidecar.writing() || this.rollingBack()) {
+    if (this.sidecar.filesBusy()) {
       return "tagging.rollback.blocked"
     }
     const target = this.target()
@@ -146,21 +147,16 @@ export default class SettingsPageComponent {
   }
 
   protected restoreLast(): void {
-    const target = this.target()
+    // Sans cible, la raison de blocage est non nulle et la ligne l'est aussi.
     const line = this.targetLine()
-    if (
-      target === null ||
-      target === undefined ||
-      line === null ||
-      this.restoreBlockedReason() !== null
-    ) {
+    if (line === null || this.restoreBlockedReason() !== null) {
       return
     }
     this.confirmDanger(
       "settings.admin.rollback",
       this.translate.instant("settings.admin.rollback.message", line) as string,
       () => {
-        void this.sidecar.rollback(target.run_id)
+        void this.sidecar.rollback(line.runId)
       },
       true,
     )

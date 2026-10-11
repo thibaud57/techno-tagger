@@ -45,9 +45,9 @@ def _credit(name: str) -> dict[str, object]:
 
 BEATPORT: Final = payload_candidate()
 REMIX: Final = payload_candidate(
-    artists=[_credit("Adam Beyer"), _credit("Bart Skils")],
-    remixers=[_credit("Layton Giordani")],
-    mix_name="Layton Giordani Remix",
+    artists=[_credit("Lior Vance"), _credit("Mara Quill")],
+    remixers=[_credit("Kaelen Mirandor")],
+    mix_name="Kaelen Mirandor Remix",
 )
 BANDCAMP: Final = TrackCandidate.model_validate(
     bandcamp_track_payload(genre=None, bpm=None, key=None)
@@ -116,19 +116,19 @@ def test_projects_every_field_a_beatport_candidate_carries() -> None:
     values = project_tags(BEATPORT)
 
     assert dict(values) == {
-        TagField.ARTIST: "Adam Beyer",
-        TagField.TITLE: "Your Mind (Extended Mix)",
-        TagField.ALBUM: "Your Mind",
+        TagField.ARTIST: "Lior Vance",
+        TagField.TITLE: "Dim Orbit (Extended Mix)",
+        TagField.ALBUM: "Dim Orbit",
         TagField.DATE: "2023",
         TagField.GENRE: "Techno (Peak Time / Driving)",
-        TagField.LABEL: "Drumcode",
-        TagField.CATALOG_NUMBER: "DC287",
+        TagField.LABEL: "Kestrel",
+        TagField.CATALOG_NUMBER: "KS287",
         TagField.BPM: "134",
         TagField.KEY: "4A",
-        TagField.ISRC: "SE5RN2312001",
+        TagField.ISRC: "ZZ0AA2300001",
         TagField.TRACK_NUMBER: "1",
-        TagField.URL: "https://www.beatport.com/track/your-mind/17492013",
-        TagField.SOURCE_ID: "17492013",
+        TagField.URL: "https://www.beatport.com/track/dim-orbit/99000101",
+        TagField.SOURCE_ID: "99000101",
         TagField.SOURCE: "beatport",
     }
 
@@ -136,20 +136,20 @@ def test_projects_every_field_a_beatport_candidate_carries() -> None:
 def test_keeps_the_remixer_out_of_the_artist() -> None:
     values = project_tags(REMIX)
 
-    assert values[TagField.ARTIST] == "Adam Beyer, Bart Skils"
-    assert values[TagField.TITLE] == "Your Mind (Layton Giordani Remix)"
-    assert values[TagField.REMIXER] == "Layton Giordani"
+    assert values[TagField.ARTIST] == "Lior Vance, Mara Quill"
+    assert values[TagField.TITLE] == "Dim Orbit (Kaelen Mirandor Remix)"
+    assert values[TagField.REMIXER] == "Kaelen Mirandor"
 
 
 def test_joins_several_remixers_apart_from_the_artists() -> None:
     candidate = payload_candidate(
-        remixers=[_credit("Layton Giordani"), _credit("Charlotte de Witte")]
+        remixers=[_credit("Kaelen Mirandor"), _credit("Seraphine de Vossa")]
     )
 
     values = project_tags(candidate)
 
-    assert values[TagField.REMIXER] == "Layton Giordani, Charlotte de Witte"
-    assert values[TagField.ARTIST] == "Adam Beyer"
+    assert values[TagField.REMIXER] == "Kaelen Mirandor, Seraphine de Vossa"
+    assert values[TagField.ARTIST] == "Lior Vance"
 
 
 @pytest.mark.parametrize(
@@ -229,7 +229,7 @@ def test_omits_a_zero_bpm_or_track_number() -> None:
 def test_projects_what_a_soundcloud_candidate_carries() -> None:
     values = project_tags(SOUNDCLOUD)
 
-    assert (values[TagField.ARTIST], values[TagField.TITLE]) == ("KASIA & Faithless", "Tarantula")
+    assert (values[TagField.ARTIST], values[TagField.TITLE]) == ("ZELKA & Larkspur", "Mothlight")
     assert values[TagField.SOURCE] == "soundcloud"
     assert {TagField.GENRE, TagField.BPM, TagField.KEY, TagField.ISRC}.isdisjoint(values)
 
@@ -291,14 +291,33 @@ def test_saves_id3_v23_with_the_year_alone(
     assert {"TDRC", "TDOR", "TORY", "TDAT"}.isdisjoint(on_disk.keys())
 
 
+@pytest.mark.parametrize("version", [3, 4], ids=["from-v23", "from-v24"])
+def test_keeps_the_file_date_when_the_source_has_none(
+    blank_audio: Callable[[str], Path], version: int
+) -> None:
+    path = blank_audio("mp3")
+    audio = mutagen.File(path)
+    audio.add_tags()
+    audio.tags.add(TDRC(encoding=3, text=["2019-06-16"]))
+    if version == 3:
+        audio.tags.update_to_v23()
+    audio.save(v2_version=version)
+
+    write_tags(path, project_tags(payload_candidate(release=None)), None)
+
+    on_disk = type(mutagen.File(path))(path, translate=False).tags
+    assert str(on_disk["TYER"]) == "2019"
+    assert str(on_disk["TDAT"]) == "1606"
+
+
 @pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
 def test_keeps_accented_text_intact(blank_audio: Callable[[str], Path], audio_format: str) -> None:
     path = blank_audio(audio_format)
-    values = project_tags(payload_candidate(title="Für Élise", mix_name="Señor Remix"))
+    values = project_tags(payload_candidate(title="Für Éline", mix_name="Señor Remix"))
 
     write_tags(path, values, None)
 
-    assert _read_back(path)[TagField.TITLE] == "Für Élise (Señor Remix)"
+    assert _read_back(path)[TagField.TITLE] == "Für Éline (Señor Remix)"
 
 
 def test_replaces_existing_vorbis_values_whatever_their_case_or_count(
@@ -311,7 +330,7 @@ def test_replaces_existing_vorbis_values_whatever_their_case_or_count(
 
     write_tags(path, project_tags(BEATPORT), None)
 
-    assert FLAC(path)["ARTIST"] == ["Adam Beyer"]
+    assert FLAC(path)["ARTIST"] == ["Lior Vance"]
 
 
 @pytest.mark.parametrize(
@@ -337,26 +356,26 @@ def test_leaves_the_id3_frames_outside_the_table_alone(
     path = blank_audio("mp3")
     audio = mutagen.File(path)
     audio.add_tags()
-    audio.tags.add(TPE2(encoding=3, text=["Drumcode"]))
+    audio.tags.add(TPE2(encoding=3, text=["Kestrel"]))
     audio.tags.add(TXXX(encoding=3, desc="SERATO_PLAYCOUNT", text=["12"]))
     audio.save(v2_version=3)
 
     write_tags(path, project_tags(BEATPORT), None)
 
     tags = mutagen.File(path).tags
-    assert (str(tags["TPE2"]), str(tags["TXXX:SERATO_PLAYCOUNT"])) == ("Drumcode", "12")
+    assert (str(tags["TPE2"]), str(tags["TXXX:SERATO_PLAYCOUNT"])) == ("Kestrel", "12")
 
 
 def test_leaves_the_vorbis_keys_outside_the_table_alone(
     blank_audio: Callable[[str], Path],
 ) -> None:
     path = blank_audio("flac")
-    _preset(path, ALBUMARTIST="Drumcode", SERATO_PLAYCOUNT="12")
+    _preset(path, ALBUMARTIST="Kestrel", SERATO_PLAYCOUNT="12")
 
     write_tags(path, project_tags(BEATPORT), None)
 
     audio = FLAC(path)
-    assert (audio["ALBUMARTIST"], audio["SERATO_PLAYCOUNT"]) == (["Drumcode"], ["12"])
+    assert (audio["ALBUMARTIST"], audio["SERATO_PLAYCOUNT"]) == (["Kestrel"], ["12"])
 
 
 def test_removes_every_id3_comment(blank_audio: Callable[[str], Path]) -> None:
@@ -476,7 +495,7 @@ def test_treats_a_cover_the_cache_cannot_give_as_absent(
 
     assert _pictures(path) == [(PictureType.COVER_FRONT, "image/png", b"front")]
     assert not written.artwork
-    assert _read_back(path)[TagField.TITLE] == "Your Mind (Extended Mix)"
+    assert _read_back(path)[TagField.TITLE] == "Dim Orbit (Extended Mix)"
 
 
 def test_maps_a_windows_sharing_violation_to_file_locked(

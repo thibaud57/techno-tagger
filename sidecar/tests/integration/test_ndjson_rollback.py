@@ -4,8 +4,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import conversation, held_call, resolved_run
-from scraper_responses import YOUR_MIND
-from tagging_api import ONE_TRACK, ORIGINAL, FakeApi, found, one_track, tagged_mp3
+from scraper_responses import DIM_ORBIT
+from tagging_api import (
+    ONE_TRACK,
+    ORIGINAL,
+    WRITTEN_NAME,
+    FakeApi,
+    found,
+    tagged_mp3,
+)
 
 from tagger import rollback, writing
 from tagger.files import read_original_tags
@@ -16,15 +23,6 @@ if TYPE_CHECKING:
     from ndjson_loop import Conversation
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
-
-WRITTEN = "Adam Beyer - Your Mind (Original Mix).mp3"
-
-
-@pytest.fixture
-def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
-    """« Your Mind » que Beatport resout d'office : un morceau a ecrire puis a restaurer."""
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    return one_track(tmp_path)
 
 
 async def _written_run(talk: Conversation, folder: Path) -> str:
@@ -52,7 +50,7 @@ async def test_rolls_back_a_run_written_in_a_previous_session(folder: Path) -> N
     assert (run["run_id"], run["folder"], run["tracks"]) == (run_id, str(folder), 1)
     assert (finished["restored"], finished["failed"]) == ([ONE_TRACK], [])
     assert emptied["run"] is None
-    assert not (folder / WRITTEN).exists()
+    assert not (folder / WRITTEN_NAME).exists()
     assert read_original_tags(folder / ONE_TRACK) == origin
 
 
@@ -72,18 +70,45 @@ async def test_marks_a_restored_track_that_retry_leaves_alone(folder: Path) -> N
     assert (folder / ONE_TRACK).is_file()
 
 
+async def test_reports_a_name_taken_track_as_failed_and_restores_it_once_freed(
+    folder: Path,
+) -> None:
+    async with conversation() as talk:
+        run_id = await _written_run(talk, folder)
+        intruder = folder / ONE_TRACK
+        intruder.write_bytes(b"newcomer")
+
+        talk.send(command="rollback", run_id=run_id)
+        blocked = await talk.expect("rollback_finished")
+        rolled_back_while_blocked = [
+            event for event in talk.events if event.get("state") == "rolled_back"
+        ]
+        intruder.unlink()
+        talk.send(command="rollback", run_id=run_id)
+        freed = await talk.expect("rollback_finished")
+
+    assert blocked["restored"] == []
+    assert blocked["failed"] == [
+        {"track_id": ONE_TRACK, "file_name": WRITTEN_NAME, "reason": "name_taken"}
+    ]
+    assert rolled_back_while_blocked == []
+    assert (freed["restored"], freed["failed"]) == ([ONE_TRACK], [])
+    assert (folder / ONE_TRACK).is_file()
+    assert not (folder / WRITTEN_NAME).exists()
+
+
 async def test_leaves_the_displayed_run_alone_when_rolling_back_an_older_one(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    conform = tagged_mp3(tmp_path / "conform", WRITTEN, "Adam Beyer", "Your Mind").parent
+    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    conform = tagged_mp3(tmp_path / "conform", WRITTEN_NAME, "Lior Vance", "Dim Orbit").parent
     async with conversation() as talk:
         first = await _written_run(talk, conform)
         await resolved_run(talk, conform)
         talk.send(command="rollback", run_id=first)
         finished = await talk.expect("rollback_finished")
 
-    assert finished["restored"] == [WRITTEN]
+    assert finished["restored"] == [WRITTEN_NAME]
     assert not [event for event in talk.events if event.get("state") == "rolled_back"]
 
 
@@ -117,7 +142,7 @@ async def test_refuses_a_rollback_while_writing(
 
 
 async def test_refuses_a_rollback_during_the_network_phase(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", YOUR_MIND)
+    gate = api.gate("/beatport/search", DIM_ORBIT)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))

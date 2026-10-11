@@ -1,4 +1,4 @@
-import { Component, computed, input } from "@angular/core"
+import { Component, input } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 
 import type { RollbackFailure } from "../../core/models/protocol"
@@ -10,16 +10,20 @@ import { MessageComponent } from "./message.component"
   selector: "app-rollback-failures",
   imports: [MessageComponent, TranslatePipe],
   template: `
-    @if (rows().length > 0) {
+    @if (failures().length > 0) {
       <app-message severity="error" data-rollback-failures>
         <div class="flex flex-col gap-2">
-          <span>{{ "rollback.failures" | translate: { count: rows().length } }}</span>
-          <ul class="flex flex-col gap-1">
-            @for (row of rows(); track row.trackId) {
+          <span>{{ "rollback.failures" | translate: { count: failures().length } }}</span>
+          <ul class="flex flex-col gap-2">
+            @for (row of failures(); track row.track_id) {
               <li>
                 {{
                   "rollback.failure"
-                    | translate: { file: row.file, reason: (row.reasonKey | translate) }
+                    | translate
+                      : {
+                          file: row.file_name,
+                          reason: ("rollback.reason." + row.reason | translate),
+                        }
                 }}
               </li>
             }
@@ -33,12 +37,4 @@ import { MessageComponent } from "./message.component"
 })
 export class RollbackFailuresComponent {
   readonly failures = input.required<readonly RollbackFailure[]>()
-
-  protected readonly rows = computed(() =>
-    this.failures().map((failure) => ({
-      trackId: failure.track_id,
-      file: failure.file_name,
-      reasonKey: `rollback.reason.${failure.reason}`,
-    })),
-  )
 }

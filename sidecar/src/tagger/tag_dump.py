@@ -140,16 +140,20 @@ def save_entries(folder: Path, dump: TagDump, entries: Mapping[str, DumpEntry]) 
     return merged
 
 
-def record_renamed_path(folder: Path, dump: TagDump, track_id: str, renamed: Path) -> TagDump:
-    """Retient ou trouver le fichier apres son renommage, pour le rendre a son nom.
+def record_renamed_path(
+    folder: Path, dump: TagDump, track_id: str, renamed: Path | None
+) -> TagDump:
+    """Retient ou trouver le fichier apres son renommage, `None` l'oublie (renommage rate).
 
+    Le dump recu fait foi, sans relecture du disque : relire et revalider tout le dump a chaque
+    morceau rendrait la phase quadratique. L'appelant l'a resynchronise avec `save_entries`, et
+    la reecriture complete par morceau reste ce qui garantit "note avant que le fichier ne bouge".
     L'entree passe en fin de dump : un morceau renomme en relance peut prendre un nom libere par
     un morceau ecrit avant lui, le rollback qui inverse l'ordre doit le rendre en premier.
     """
-    base = dump_on_disk(folder, dump)
-    entry = base.entries[track_id].model_copy(update={"renamed_path": renamed})
-    others = {key: value for key, value in base.entries.items() if key != track_id}
-    updated = base.model_copy(update={"entries": {**others, track_id: entry}})
+    entry = dump.entries[track_id].model_copy(update={"renamed_path": renamed})
+    others = {key: value for key, value in dump.entries.items() if key != track_id}
+    updated = dump.model_copy(update={"entries": {**others, track_id: entry}})
     _write(dump_path(folder, updated), updated)
     return updated
 

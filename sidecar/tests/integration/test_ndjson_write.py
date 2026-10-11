@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import EXPECT_TIMEOUT, conversation, held_call, resolved_run
-from scraper_responses import BANDCAMP_TRACK, YOUR_MIND, bandcamp_track_payload
+from scraper_responses import BANDCAMP_TRACK, DIM_ORBIT, bandcamp_track_payload
 from stubs import raising
-from tagging_api import ONE_TRACK, ORIGINAL, FakeApi, found, ok, one_track
+from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, ok, one_track
 
 from tagger import files, handlers, tag_dump, writing
 from tagger.file_failures import FileFailureReason
@@ -19,15 +19,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
-
-WRITTEN = "Adam Beyer - Your Mind (Original Mix).mp3"
-
-
-@pytest.fixture
-def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
-    """« Your Mind » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    return one_track(tmp_path)
 
 
 def _locked_until_lifted(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
@@ -51,7 +42,7 @@ async def test_writes_a_committed_run_end_to_end(folder: Path, tmp_path: Path) -
     assert written["resolution"] == "auto"
     assert (progress["processed"], progress["total"]) == (1, 1)
     assert (finished["written"], finished["write_error"]) == (1, 0)
-    assert (folder / WRITTEN).is_file()
+    assert (folder / WRITTEN_NAME).is_file()
     assert list((tmp_path / "appdata").rglob(f"*-{run_id}.json"))
 
 
@@ -68,7 +59,7 @@ async def test_refuses_writing_another_run(folder: Path, command: str) -> None:
 
 
 async def test_refuses_a_commit_while_the_network_phase_runs(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", YOUR_MIND)
+    gate = api.gate("/beatport/search", DIM_ORBIT)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))
@@ -149,7 +140,7 @@ async def test_lets_the_run_be_confirmed_again_when_the_dump_cannot_be_saved(
         talk.send(command="commit_run", run_id=run_id)
         refused = await talk.expect("error")
         emitted_before = talk.events[: talk.events.index(refused)]
-        untouched = not (folder / WRITTEN).exists()
+        untouched = not (folder / WRITTEN_NAME).exists()
         monkeypatch.setattr(writing, "save_entries", tag_dump.save_entries)
         talk.send(command="commit_run", run_id=run_id)
         finished = await talk.expect("run_finished", phase="write")
@@ -162,7 +153,7 @@ async def test_lets_the_run_be_confirmed_again_when_the_dump_cannot_be_saved(
         if event.get("phase") == "write" or event.get("state") in ("written", "write_error")
     ]
     assert (finished["written"], finished["write_error"]) == (1, 0)
-    assert (folder / WRITTEN).is_file()
+    assert (folder / WRITTEN_NAME).is_file()
 
 
 async def test_retries_a_failed_write(folder: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -181,7 +172,7 @@ async def test_retries_a_failed_write(folder: Path, monkeypatch: pytest.MonkeyPa
     assert failed["failure_reason"] == "file_locked"
     assert (first["written"], first["write_error"]) == (0, 1)
     assert (second["written"], second["write_error"]) == (1, 0)
-    assert (folder / WRITTEN).is_file()
+    assert (folder / WRITTEN_NAME).is_file()
 
 
 @pytest.mark.parametrize(
@@ -246,7 +237,7 @@ async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
 
     assert not finished_early
     assert finished["written"] == 1
-    assert (folder / WRITTEN).is_file()
+    assert (folder / WRITTEN_NAME).is_file()
 
 
 async def test_refuses_a_commit_while_a_gesture_is_in_flight(

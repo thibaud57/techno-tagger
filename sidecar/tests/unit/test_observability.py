@@ -64,19 +64,19 @@ def test_scrubbing_masks_the_username_at_any_depth(
     """Le parcours doit atteindre les frames comme les champs libres : c'est la
     seule barriere une fois `include_local_variables` desactive.
     """
-    monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\thibaud", "C:/Users/thibaud"})
-    monkeypatch.setattr(obs, "_USERNAME", "thibaud")
+    monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\jane", "C:/Users/jane"})
+    monkeypatch.setattr(obs, "_USERNAME", "jane")
     event = {
         "exception": {
             "values": [
                 {
-                    "value": "cannot open C:/Users/thibaud/Music/set.flac",
-                    "stacktrace": {"frames": [{"abs_path": r"C:\Users\thibaud\app\run.py"}]},
+                    "value": "cannot open C:/Users/jane/Music/set.flac",
+                    "stacktrace": {"frames": [{"abs_path": r"C:\Users\jane\app\run.py"}]},
                 }
             ]
         },
-        "tags": {"user": "thibaud"},
-        "extra": {r"C:\Users\thibaud\Music": "locked", "tracks": 42},
+        "tags": {"user": "jane"},
+        "extra": {r"C:\Users\jane\Music": "locked", "tracks": 42},
     }
 
     scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
@@ -123,7 +123,7 @@ def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
     message de chaque exception de la chaine `__cause__`, et celui d'httpx2 porte
     l'URL de la recherche, donc l'artiste et le titre lus dans le fichier.
     """
-    error = _chained_contract_error("Adam Beyer Your Mind")
+    error = _chained_contract_error("Lior Vance Dim Orbit")
     assert error.__cause__ is not None
     event = {
         "exception": {
@@ -137,10 +137,10 @@ def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
     scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
 
     rendered = str(scrubbed)
-    # Par fragment d'un seul mot : l'URL encode les espaces, « Adam Beyer » n'y
+    # Par fragment d'un seul mot : l'URL encode les espaces, « Lior Vance » n'y
     # apparaitrait de toute facon pas tel quel et l'assertion passerait a vide.
-    assert "Beyer" not in rendered
-    assert "Mind" not in rendered
+    assert "Vance" not in rendered
+    assert "Orbit" not in rendered
     assert QUERY_MASK in rendered
     assert "techno-scraper.empiricmind.fr/beatport/search" in rendered
 
@@ -152,14 +152,14 @@ def test_scrubbing_strips_a_query_that_carries_a_second_question_mark() -> None:
     recopie dans un message) : masquer depuis le dernier laisserait passer la
     recherche elle-meme, donc l'artiste et le titre que l'ADR-014 interdit d'envoyer.
     """
-    message = "HTTPStatusError for https://api/beatport/search?q=Beyer+Mind&next=http://cdn?w=1"
+    message = "HTTPStatusError for https://api/beatport/search?q=Vance+Orbit&next=http://cdn?w=1"
     event = {"exception": {"values": [{"type": "HTTPStatusError", "value": message}]}}
 
     scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
 
     rendered = str(scrubbed)
-    assert "Beyer" not in rendered
-    assert "Mind" not in rendered
+    assert "Vance" not in rendered
+    assert "Orbit" not in rendered
     assert QUERY_MASK in rendered
 
 

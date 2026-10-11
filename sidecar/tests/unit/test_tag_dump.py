@@ -1,12 +1,13 @@
 """Tests du fichier de dump : ecriture, ajout sans ecrasement, relecture, purge."""
 
 import json
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from pathlib import Path
 from types import MappingProxyType
 
 import pytest
 from pydantic import ValidationError
+from tagging_api import CREATED
 
 from tagger.files import OriginalTags, TagField, TagSystem
 from tagger.tag_dump import (
@@ -24,13 +25,12 @@ from tagger.tag_dump import (
     save_entries,
 )
 
-CREATED = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
 ORIGIN = OriginalTags(
     TagSystem.ID3,
     3,
-    MappingProxyType({TagField.ARTIST: ("adam beyer",), TagField.BPM: ("130",)}),
+    MappingProxyType({TagField.ARTIST: ("lior vance",), TagField.BPM: ("130",)}),
 )
-WRITTEN = OriginalTags(TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Adam Beyer",)}))
+WRITTEN = OriginalTags(TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Lior Vance",)}))
 
 
 def _entry(name: str, original: OriginalTags = ORIGIN) -> DumpEntry:
@@ -61,12 +61,12 @@ def test_refuses_a_dump_dated_without_a_time_zone() -> None:
 
 
 def test_reloads_the_entries_it_saved(tmp_path: Path) -> None:
-    saved = save_entries(tmp_path, _dump(), {"your mind.mp3": _entry("your mind.mp3")})
+    saved = save_entries(tmp_path, _dump(), {"dim orbit.mp3": _entry("dim orbit.mp3")})
 
     reloaded = load_dump(dump_path(tmp_path, saved))
 
     assert reloaded == saved
-    assert reloaded.entries["your mind.mp3"].original_tags() == ORIGIN
+    assert reloaded.entries["dim orbit.mp3"].original_tags() == ORIGIN
 
 
 def test_never_replaces_an_entry_already_saved(tmp_path: Path) -> None:
@@ -89,24 +89,34 @@ def test_merges_onto_the_dump_on_disk(tmp_path: Path) -> None:
     assert set(load_dump(dump_path(tmp_path, saved)).entries) == {"a.mp3", "b.mp3"}
 
 
-def test_records_the_renamed_path_onto_the_dump_on_disk(tmp_path: Path) -> None:
-    save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3"), "b.mp3": _entry("b.mp3")})
-    stale = save_entries(tmp_path, _dump(), {})
-    stale_in_memory = stale.model_copy(update={"entries": {"a.mp3": _entry("a.mp3")}})
-    renamed = Path("D:/Sets/Octobre/Adam Beyer - Your Mind (Extended Mix).mp3")
+def test_records_the_renamed_path_without_rereading_the_disk(tmp_path: Path) -> None:
+    saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3"), "b.mp3": _entry("b.mp3")})
+    dump_path(tmp_path, saved).write_text("{not json", encoding="utf-8")
+    renamed = Path("D:/Sets/Octobre/Nova Pulse - Midnight Static.mp3")
 
-    updated = record_renamed_path(tmp_path, stale_in_memory, "a.mp3", renamed)
+    updated = record_renamed_path(tmp_path, saved, "a.mp3", renamed)
 
     reloaded = load_dump(dump_path(tmp_path, updated))
     assert set(reloaded.entries) == {"a.mp3", "b.mp3"}
     assert reloaded.entries["a.mp3"].renamed_path == renamed
 
 
+def test_forgets_a_renamed_path_when_given_none(tmp_path: Path) -> None:
+    saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
+    noted = record_renamed_path(
+        tmp_path, saved, "a.mp3", Path("D:/Sets/Octobre/Nova Pulse - Midnight Static.mp3")
+    )
+
+    updated = record_renamed_path(tmp_path, noted, "a.mp3", None)
+
+    assert load_dump(dump_path(tmp_path, updated)).entries["a.mp3"].renamed_path is None
+
+
 def test_moves_a_renamed_entry_after_the_others(tmp_path: Path) -> None:
     """Renomme en relance, apres les autres : le rollback doit lui rendre son nom en premier."""
     saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3"), "b.mp3": _entry("b.mp3")})
 
-    updated = record_renamed_path(tmp_path, saved, "a.mp3", tmp_path / "Adam Beyer - Your Mind.mp3")
+    updated = record_renamed_path(tmp_path, saved, "a.mp3", tmp_path / "Lior Vance - Dim Orbit.mp3")
 
     assert list(load_dump(dump_path(tmp_path, updated)).entries) == ["b.mp3", "a.mp3"]
 

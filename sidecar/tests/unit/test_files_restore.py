@@ -29,11 +29,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 BEATPORT = payload_candidate()
-ORIGINAL_URL = "https://adambeyer.bandcamp.com/track/your-mind"
+ORIGINAL_URL = "https://liorvance.bandcamp.com/track/dim-orbit"
 TAGGED_FIELDS = MappingProxyType(
     {
-        TagField.ARTIST: ("adam beyer", "bart skils"),
-        TagField.TITLE: ("your mind",),
+        TagField.ARTIST: ("lior vance", "mara quill"),
+        TagField.TITLE: ("dim orbit",),
         TagField.DATE: ("2019-06-16",),
         TagField.BPM: ("130",),
         TagField.URL: (ORIGINAL_URL,),
@@ -45,16 +45,16 @@ def _tag(path: Path, id3_version: int = 3) -> None:
     """Tags d'un fichier tague ailleurs : deux artistes, titre, date complete, BPM, URL."""
     audio = mutagen.File(path)
     if isinstance(audio, FLAC):
-        audio["ARTIST"] = ["adam beyer", "bart skils"]
-        audio["TITLE"] = ["your mind"]
+        audio["ARTIST"] = ["lior vance", "mara quill"]
+        audio["TITLE"] = ["dim orbit"]
         audio["DATE"] = ["2019-06-16"]
         audio["BPM"] = ["130"]
         audio["URL"] = [ORIGINAL_URL]
         audio.save()
         return
     audio.add_tags()
-    audio.tags.add(TPE1(encoding=3, text=["adam beyer", "bart skils"]))
-    audio.tags.add(TIT2(encoding=3, text=["your mind"]))
+    audio.tags.add(TPE1(encoding=3, text=["lior vance", "mara quill"]))
+    audio.tags.add(TIT2(encoding=3, text=["dim orbit"]))
     audio.tags.add(TDRC(encoding=3, text=["2019-06-16"]))
     audio.tags.add(TBPM(encoding=3, text=["130"]))
     audio.tags.add(WOAS(url=ORIGINAL_URL))

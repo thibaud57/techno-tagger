@@ -2,7 +2,12 @@ import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
 import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
-import { resolvedByUrl, urlProgress, urlRecoveryError } from "../../fixtures/url-recovery"
+import {
+  TRACK_URL,
+  resolvedByUrl,
+  urlProgress,
+  urlRecoveryError,
+} from "../../fixtures/url-recovery"
 import {
   NETWORK_FINISHED,
   ROLLBACK_RUN,
@@ -766,8 +771,6 @@ describe("SidecarService", () => {
   })
 
   describe("url recovery", () => {
-    const URL = "https://amelielens.bandcamp.com/track/basiel"
-
     const openPhase = async (): Promise<void> => {
       await service.start()
       transport.emit(RUN_STARTED)
@@ -777,22 +780,22 @@ describe("SidecarService", () => {
     it("sends a url recovery command with its track and its url", async () => {
       await openPhase()
 
-      await service.resolveByUrl("a.mp3", URL)
+      await service.resolveByUrl("a.mp3", TRACK_URL)
 
       expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
         command: "resolve_by_url",
         track_id: "a.mp3",
-        url: URL,
+        url: TRACK_URL,
       })
       expect(service.urlRecoveryBusy().has("a.mp3")).toBe(true)
     })
 
     it("ignores a second gesture while the first one waits", async () => {
       await openPhase()
-      await service.resolveByUrl("a.mp3", URL)
+      await service.resolveByUrl("a.mp3", TRACK_URL)
       const sent = transport.sent.length
 
-      await service.resolveByUrl("a.mp3", "https://www.beatport.com/track/your-mind/22708005")
+      await service.resolveByUrl("a.mp3", "https://www.beatport.com/track/dim-orbit/99000202")
 
       expect(transport.sent).toHaveLength(sent)
     })
@@ -822,7 +825,7 @@ describe("SidecarService", () => {
 
     it("releases a gesture on its resolution", async () => {
       await openPhase()
-      await service.resolveByUrl("a.mp3", URL)
+      await service.resolveByUrl("a.mp3", TRACK_URL)
 
       transport.emit(resolvedByUrl("a.mp3"))
 
@@ -832,7 +835,7 @@ describe("SidecarService", () => {
 
     it("attaches a url recovery error to its track", async () => {
       await openPhase()
-      await service.resolveByUrl("a.mp3", URL)
+      await service.resolveByUrl("a.mp3", TRACK_URL)
       const error = urlRecoveryError("a.mp3")
 
       transport.emit(error)
@@ -845,7 +848,7 @@ describe("SidecarService", () => {
 
     it("keeps a url error without track out of the phase", async () => {
       await openPhase()
-      await service.resolveByUrl("a.mp3", URL)
+      await service.resolveByUrl("a.mp3", TRACK_URL)
       const malformed = { ...urlRecoveryError("a.mp3", "malformed_command"), params: {} }
 
       transport.emit(malformed)
@@ -864,15 +867,15 @@ describe("SidecarService", () => {
           {
             track_id: "c.mp3",
             file_name: "c.mp3",
-            artist: "Sara Landry",
-            title: "The Void",
+            artist: "Dara Winter",
+            title: "The Weir",
             tags_before: null,
           },
           {
             track_id: "d.mp3",
             file_name: "d.mp3",
-            artist: "Kasia",
-            title: "Tarantula",
+            artist: "Zelka",
+            title: "Mothlight",
             tags_before: null,
           },
         ],
@@ -914,7 +917,7 @@ describe("SidecarService", () => {
       ],
     ])("closes the phase when %s", async (_moment, close) => {
       await openPhase()
-      await service.resolveByUrl("a.mp3", URL)
+      await service.resolveByUrl("a.mp3", TRACK_URL)
       transport.emit(urlRecoveryError("b.mp3"))
 
       await close()
@@ -1194,6 +1197,19 @@ describe("SidecarService", () => {
       expect(service.rollbackFinished()?.restored).toEqual(["a.mp3"])
       expect(service.taggingTracks()[0]?.state).toBe("rolled_back")
       expect(commandOf(transport.sent.at(-1) ?? "")).toBe("get_rollback_target")
+    })
+
+    it("rolls back the shown rows from a summary sent by a new engine", async () => {
+      await resolvedRun()
+      await service.commitRun()
+      transport.emit({ ...TRACK_RESOLVED, state: "written" })
+      transport.emit(WRITE_FINISHED)
+      transport.handlers?.onTerminated()
+      await service.rollback("a3f9c1")
+
+      transport.emit(rollbackFinished())
+
+      expect(service.taggingTracks()[0]?.state).toBe("rolled_back")
     })
 
     it("exposes the rollback target once asked", async () => {

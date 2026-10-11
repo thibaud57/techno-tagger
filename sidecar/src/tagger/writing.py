@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, override
 
+import sentry_sdk
+
 from tagger.file_failures import FileFailureReason, file_failure_reason
 from tagger.files import (
     OriginalTags,
@@ -133,6 +135,18 @@ class RunWriter:
                     entries[record.track_id] = DumpEntry.of(record.path, read)
                 case TagsUnreadableError():
                     failed.append(record.write_failed(_unreadable_reason(read)))
+                case Exception():
+                    # Hors `TagsUnreadableError` : mutagen laisse passer `struct.error` ou
+                    # `ValueError` sur un fichier corrompu, un seul morceau ne coupe pas la phase.
+                    logger.error(
+                        "original tags not read run=%s track=%d reason=write_failed",
+                        self._live.run_id,
+                        self._live.position(record.track_id),
+                        exc_info=read,
+                    )
+                    # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
+                    sentry_sdk.capture_exception(read)
+                    failed.append(record.write_failed(FileFailureReason.WRITE_FAILED))
                 case _:
                     raise read
         if entries:
@@ -146,34 +160,72 @@ class RunWriter:
         if candidate is None:
             raise ValueError("resolved track without candidate")
         values = project_tags(candidate)
+        noted = False
+
+        def note(target: Path) -> None:
+            nonlocal noted
+            self._note_rename(record, target)
+            noted = True
+
         try:
             written = write_tags(record.path, values, record.artwork)
             renamed = rename_track(
-                record.path,
-                values.get(TagField.ARTIST),
-                values.get(TagField.TITLE),
-                lambda target: self._note_rename(record.track_id, target),
+                record.path, values.get(TagField.ARTIST), values.get(TagField.TITLE), note
             )
         except (TagsWriteError, RenameError) as error:
-            return record.write_failed(error.reason)
+            return self._failed(record, error.reason, noted=noted)
+        except Exception as error:
+            # Hors `TagsWriteError` : mutagen laisse passer `struct.error` ou `ValueError` sur
+            # un fichier corrompu, un seul morceau ne coupe pas la phase. Pas de `BaseException` :
+            # l'annulation doit passer.
+            logger.exception(
+                "write failed unexpectedly run=%s track=%d reason=write_failed",
+                self._live.run_id,
+                self._live.position(record.track_id),
+            )
+            # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
+            sentry_sdk.capture_exception(error)
+            return self._failed(record, FileFailureReason.WRITE_FAILED, noted=noted)
         outcome = WriteOutcome(written.fields, written.artwork, renamed.truncated)
         return record.written_to(renamed.path, outcome)
 
-    def _note_rename(self, track_id: str, target: Path) -> None:
+    def _note_rename(self, record: TrackRecord, target: Path) -> None:
         """Note le chemin cible au dump avant que le fichier ne bouge.
 
         Une coupure entre les deux laisse un chemin que le rollback retrouve par l'ancien
-        nom. Un dump qui ne se met pas a jour n'arrete rien : le morceau passe `written`, son
-        rollback echouera en `file_missing`, faute de chemin renomme.
+        nom. Une note qui echoue refuse le renommage : un fichier renomme sans note ne se
+        retrouverait plus au rollback, et ses tags d'origine seraient oublies avec lui.
         """
         try:
-            self._dump = record_renamed_path(self._dump_folder, self._dump, track_id, target)
-        except TagDumpError, KeyError:  # KeyError : entree absente du dump relu sur disque
+            self._dump = record_renamed_path(self._dump_folder, self._dump, record.track_id, target)
+        except (TagDumpError, KeyError) as error:  # KeyError : entree absente du dump
             logger.exception(
-                "tag dump not updated after rename run=%s track=%d reason=rename_not_noted",
+                "tag dump not updated before rename run=%s track=%d reason=rename_not_noted",
                 self._live.run_id,
-                self._live.position(track_id),
+                self._live.position(record.track_id),
             )
+            raise RenameError(record.path, FileFailureReason.WRITE_FAILED) from error
+
+    def _failed(
+        self, record: TrackRecord, reason: FileFailureReason, *, noted: bool
+    ) -> TrackRecord:
+        """Morceau en `write_error` ; une note de renommage restee derriere est effacee.
+
+        Le nom note n'est pas occupe : un morceau suivant peut le prendre, et le rollback
+        rendrait alors le fichier de l'autre.
+        """
+        if noted:
+            try:
+                self._dump = record_renamed_path(
+                    self._dump_folder, self._dump, record.track_id, None
+                )
+            except TagDumpError, KeyError:
+                logger.exception(
+                    "tag dump note kept run=%s track=%d reason=rename_note_kept",
+                    self._live.run_id,
+                    self._live.position(record.track_id),
+                )
+        return record.write_failed(reason)
 
     def _settle(self, record: TrackRecord, settled: list[TrackRecord], total: int) -> None:
         self._live.update(record)

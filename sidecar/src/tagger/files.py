@@ -142,7 +142,7 @@ class OriginalTags:
 
 @dataclass(frozen=True, slots=True)
 class ShownTags:
-    """Champs affiches, `None` quand absents. Le dump relit le fichier lui-meme (ADR-010)."""
+    """Champs affiches, `None` quand absents. Le dump relit le fichier lui-meme."""
 
     system: TagSystem
     fields: Mapping[TagField, str | None]
@@ -158,7 +158,7 @@ class ShownTags:
 
 @dataclass(frozen=True, slots=True)
 class WrittenTags:
-    """Ce que l'ecriture a pose : le rapport compte les champs ecrits (ADR-011)."""
+    """Ce que l'ecriture a pose : le rapport compte les champs ecrits."""
 
     fields: tuple[TagField, ...]
     artwork: bool
@@ -241,13 +241,8 @@ def _sort_key(relative: Path) -> tuple[str, ...]:
     return tuple(part.casefold() for part in relative.parts)
 
 
-def read_identity(path: Path) -> IdentityTags:
-    """Artiste et titre du fichier, sans jamais l'ecrire."""
-    return read_shown_tags(path).identity
-
-
 def read_shown_tags(path: Path) -> ShownTags:
-    """Champs de la table et commentaire en une lecture, dont `read_identity` tire la requete.
+    """Champs de la table et commentaire en une lecture, dont `identity` tire la requete.
 
     La colonne suit le conteneur retenu par mutagen, pas l'extension : a score egal
     `mutagen.File()` departage par nom de classe, un FLAC renomme `.mp3` ressort `unreadable`.
@@ -376,7 +371,7 @@ def project_tags(candidate: TrackCandidate) -> TagValues:
 
 
 def after_tags(projection: TagValues, before: ShownTags | None) -> Mapping[TagField, str | None]:
-    """Valeur du candidat, sinon celle d'origine : un champ absent n'efface rien (ADR-011)."""
+    """Valeur du candidat, sinon celle d'origine : un champ absent n'efface rien."""
     return MappingProxyType(
         {
             field: projection.get(field) or (None if before is None else _kept(before, field))

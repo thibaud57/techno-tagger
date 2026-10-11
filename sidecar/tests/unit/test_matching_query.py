@@ -31,102 +31,102 @@ COLLABORATION_WORDS = ["feat.", "ft.", "featuring", "with", "pres.", "vs."]
 
 
 def _title(title: str) -> str:
-    query = build_query("Adam Beyer", title, "track.mp3")
+    query = build_query("Lior Vance", title, "track.mp3")
     assert query is not None
     return query.title
 
 
 def _artist(artist: str) -> str:
-    query = build_query(artist, "Your Mind", "track.mp3")
+    query = build_query(artist, "Dim Orbit", "track.mp3")
     assert query is not None
     return query.artist
 
 
 def test_builds_the_query_from_clean_tags() -> None:
-    query = build_query("Adam Beyer", "Your Mind", "track.mp3")
+    query = build_query("Lior Vance", "Dim Orbit", "track.mp3")
 
-    assert query == TrackQuery(artist="Adam Beyer", title="Your Mind", origin=QueryOrigin.TAGS)
-    assert query.text == "Adam Beyer Your Mind"
+    assert query == TrackQuery(artist="Lior Vance", title="Dim Orbit", origin=QueryOrigin.TAGS)
+    assert query.text == "Lior Vance Dim Orbit"
 
 
 @pytest.mark.parametrize(
     "title",
-    ["Your Mind [FREE DL]", "Your Mind (Free Download)", "Your Mind free_dl"],
+    ["Dim Orbit [FREE DL]", "Dim Orbit (Free Download)", "Dim Orbit free_dl"],
     ids=["brackets", "parentheses", "bare"],
 )
 def test_removes_download_mentions_whatever_their_delimiter(title: str) -> None:
     cleaned = _title(title)
 
-    assert cleaned == "Your Mind"
+    assert cleaned == "Dim Orbit"
 
 
 @pytest.mark.parametrize(
     "title",
-    ["Your Mind (320kbps)", "Your Mind 320", "Your Mind FLAC", "Your Mind [wav]", "Your Mind mp3"],
+    ["Dim Orbit (320kbps)", "Dim Orbit 320", "Dim Orbit FLAC", "Dim Orbit [wav]", "Dim Orbit mp3"],
     ids=["kbps", "bitrate", "flac", "wav", "mp3"],
 )
 def test_removes_encoding_markers_as_whole_words(title: str) -> None:
     cleaned = _title(title)
 
-    assert cleaned == "Your Mind"
+    assert cleaned == "Dim Orbit"
 
 
 @pytest.mark.parametrize(
-    "title", ["Your Mind [Drumcode]", "Your Mind [HARD TECHNO]"], ids=["label", "genre"]
+    "title", ["Dim Orbit [Kestrel]", "Dim Orbit [HARD TECHNO]"], ids=["label", "genre"]
 )
 def test_removes_a_free_group_such_as_a_label_or_a_genre(title: str) -> None:
     cleaned = _title(title)
 
-    assert cleaned == "Your Mind"
+    assert cleaned == "Dim Orbit"
 
 
 @pytest.mark.parametrize("word", GUARD_WORDS)
 def test_keeps_a_group_holding_a_version_mention(word: str) -> None:
-    title = f"Your Mind (Special {word}) [FREE DL]"
+    title = f"Dim Orbit (Special {word}) [FREE DL]"
 
     cleaned = _title(title)
 
-    assert cleaned == f"Your Mind (Special {word})"
+    assert cleaned == f"Dim Orbit (Special {word})"
 
 
 @pytest.mark.parametrize("word", INFLECTED_GUARD_WORDS)
 def test_keeps_a_group_holding_an_inflected_version_mention(word: str) -> None:
-    title = f"Your Mind ({word}) [Drumcode]"
+    title = f"Dim Orbit ({word}) [Kestrel]"
 
     cleaned = _title(title)
 
-    assert cleaned == f"Your Mind ({word})"
+    assert cleaned == f"Dim Orbit ({word})"
 
 
 def test_keeps_a_dj_tool_marker() -> None:
-    cleaned = _title("The Techno Code (DJ Tool) [NINETOZERO]")
+    cleaned = _title("The Neon Signal (DJ Tool) [FOURTOFIVE]")
 
-    assert cleaned == "The Techno Code (DJ Tool)"
+    assert cleaned == "The Neon Signal (DJ Tool)"
 
 
 @pytest.mark.parametrize(
     "title",
-    ["Your Mind (Mixture) [Drumcode]", "Your Mind (Introspective) [Drumcode]"],
+    ["Dim Orbit (Mixture) [Kestrel]", "Dim Orbit (Introspective) [Kestrel]"],
     ids=["mix-inside-a-word", "intro-inside-a-word"],
 )
 def test_removes_a_group_whose_only_match_is_inside_a_longer_word(title: str) -> None:
     cleaned = _title(title)
 
-    assert cleaned == "Your Mind"
+    assert cleaned == "Dim Orbit"
 
 
 @pytest.mark.parametrize("word", COLLABORATION_WORDS)
 def test_keeps_a_group_holding_a_collaboration_mention(word: str) -> None:
-    title = f"Your Mind ({word} Roisin Murphy) [Drumcode]"
+    title = f"Dim Orbit ({word} Wren Tolliver) [Kestrel]"
 
     cleaned = _title(title)
 
-    assert cleaned == f"Your Mind ({word} Roisin Murphy)"
+    assert cleaned == f"Dim Orbit ({word} Wren Tolliver)"
 
 
 @pytest.mark.parametrize(
     "title",
-    ["Your Mind (VIP-Mix)", "Your Mind (Radio-Edit)"],
+    ["Dim Orbit (VIP-Mix)", "Dim Orbit (Radio-Edit)"],
     ids=["vip-mix", "radio-edit"],
 )
 def test_keeps_a_group_holding_a_guard_word_welded_to_a_hyphen(title: str) -> None:
@@ -138,8 +138,8 @@ def test_keeps_a_group_holding_a_guard_word_welded_to_a_hyphen(title: str) -> No
 @pytest.mark.parametrize(
     ("title", "expected"),
     [
-        ("Your Mind (Extended Mix", "Your Mind (Extended Mix"),
-        ("Your Mind [Label (2023)]", "Your Mind [Label ]"),
+        ("Dim Orbit (Extended Mix", "Dim Orbit (Extended Mix"),
+        ("Dim Orbit [Label (2023)]", "Dim Orbit [Label ]"),
     ],
     ids=["unclosed", "nested"],
 )
@@ -152,16 +152,16 @@ def test_leaves_an_unclosed_or_nested_group_as_is(title: str, expected: str) -> 
 @pytest.mark.parametrize(
     ("artist", "expected"),
     [
-        ("Farrago x Amelie Lens", "Farrago, Amelie Lens"),
-        ("Adam Beyer X Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Amelie Lens × Farrago", "Amelie Lens, Farrago"),  # noqa: RUF001
-        ("Adam Beyer;Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Adam Beyer / Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Chase and Status", "Chase, Status"),
-        ("Adam Beyer vs. Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Adam Beyer feat. Roisin Murphy", "Adam Beyer, Roisin Murphy"),
-        ("Adam Beyer ft. Roisin Murphy", "Adam Beyer, Roisin Murphy"),
-        ("Adam Beyer featuring Roisin Murphy", "Adam Beyer, Roisin Murphy"),
+        ("Velmora x Orla Quenby", "Velmora, Orla Quenby"),
+        ("Lior Vance X Mara Quill", "Lior Vance, Mara Quill"),
+        ("Orla Quenby × Velmora", "Orla Quenby, Velmora"),  # noqa: RUF001
+        ("Lior Vance;Mara Quill", "Lior Vance, Mara Quill"),
+        ("Lior Vance / Mara Quill", "Lior Vance, Mara Quill"),
+        ("Lumen and Grains", "Lumen, Grains"),
+        ("Lior Vance vs. Mara Quill", "Lior Vance, Mara Quill"),
+        ("Lior Vance feat. Wren Tolliver", "Lior Vance, Wren Tolliver"),
+        ("Lior Vance ft. Wren Tolliver", "Lior Vance, Wren Tolliver"),
+        ("Lior Vance featuring Wren Tolliver", "Lior Vance, Wren Tolliver"),
     ],
     ids=[
         "x",
@@ -185,10 +185,10 @@ def test_normalises_artist_separators_to_a_comma(artist: str, expected: str) -> 
 @pytest.mark.parametrize(
     ("artist", "expected"),
     [
-        ("SOSA (UK)", "SOSA (UK)"),
-        ("Mendez (ES)", "Mendez (ES)"),
-        ("Adam Beyer [Drumcode]", "Adam Beyer"),
-        ("Adam Beyer [FREE DL]", "Adam Beyer"),
+        ("ZENO (UK)", "ZENO (UK)"),
+        ("Valdor (ES)", "Valdor (ES)"),
+        ("Lior Vance [Kestrel]", "Lior Vance"),
+        ("Lior Vance [FREE DL]", "Lior Vance"),
     ],
     ids=["regional-suffix", "another-suffix", "label", "download-noise"],
 )
@@ -199,7 +199,7 @@ def test_keeps_parentheses_of_an_artist_name_but_drops_brackets(artist: str, exp
     assert normalised == expected
 
 
-@pytest.mark.parametrize("artist", ["Jay-Z", "Jax Jones", "Axwell", "Pig & Dan"])
+@pytest.mark.parametrize("artist", ["Kay-Q", "Zed Marlo", "Torvex", "Elk & Ivo"])
 def test_never_splits_a_name_without_spaced_separator(artist: str) -> None:
     normalised = _artist(artist)
 
@@ -207,34 +207,34 @@ def test_never_splits_a_name_without_spaced_separator(artist: str) -> None:
 
 
 def test_falls_back_on_the_raw_tag_when_cleaning_empties_it() -> None:
-    query = build_query("Adam Beyer", "[FREE DL]", "track.mp3")
+    query = build_query("Lior Vance", "[FREE DL]", "track.mp3")
 
-    assert query == TrackQuery(artist="Adam Beyer", title="[FREE DL]", origin=QueryOrigin.TAGS)
+    assert query == TrackQuery(artist="Lior Vance", title="[FREE DL]", origin=QueryOrigin.TAGS)
 
 
 def test_falls_back_on_the_file_name_when_a_tag_has_no_letter() -> None:
-    query = build_query("", "Your Mind", "adam beyer - your mind.mp3")
+    query = build_query("", "Dim Orbit", "lior vance - dim orbit.mp3")
 
-    assert query == TrackQuery(artist="adam beyer", title="your mind", origin=QueryOrigin.FILENAME)
+    assert query == TrackQuery(artist="lior vance", title="dim orbit", origin=QueryOrigin.FILENAME)
 
 
 def test_replaces_underscores_in_a_file_name_without_spaces() -> None:
-    query = build_query("", "", "adam_beyer_-_your_mind.mp3")
+    query = build_query("", "", "lior_vance_-_dim_orbit.mp3")
 
     assert query is not None
-    assert (query.artist, query.title) == ("adam beyer", "your mind")
+    assert (query.artist, query.title) == ("lior vance", "dim orbit")
 
 
 def test_strips_a_leading_track_number_and_the_noise_of_a_file_name() -> None:
-    query = build_query("", "", "05 reinier zonneveld - move your body (320kbps).mp3")
+    query = build_query("", "", "05 oswald duskhaven - lose your step (320kbps).mp3")
 
     assert query is not None
-    assert (query.artist, query.title) == ("reinier zonneveld", "move your body")
+    assert (query.artist, query.title) == ("oswald duskhaven", "lose your step")
 
 
 @pytest.mark.parametrize(
     ("file_name", "artist"),
-    [("999999999 - Title.mp3", "999999999"), ("808 State - Pacific.mp3", "808 State")],
+    [("999999999 - Title.mp3", "999999999"), ("707 Fable - Estuary.mp3", "707 Fable")],
     ids=["nine-digits", "three-digits"],
 )
 def test_keeps_a_numeric_artist_that_is_not_a_track_number(file_name: str, artist: str) -> None:
@@ -245,16 +245,16 @@ def test_keeps_a_numeric_artist_that_is_not_a_track_number(file_name: str, artis
 
 
 def test_splits_the_file_name_on_the_first_spaced_dash() -> None:
-    query = build_query("", "", "Jay-Z - Title.flac")
+    query = build_query("", "", "Kay-Q - Title.flac")
 
     assert query is not None
-    assert (query.artist, query.title) == ("Jay-Z", "Title")
+    assert (query.artist, query.title) == ("Kay-Q", "Title")
 
 
 def test_puts_the_whole_file_name_in_the_title_without_a_spaced_dash() -> None:
-    query = build_query("", "", "10-sama-rise.mp3")
+    query = build_query("", "", "10-tide-glow.mp3")
 
-    assert query == TrackQuery(artist="", title="sama-rise", origin=QueryOrigin.FILENAME)
+    assert query == TrackQuery(artist="", title="tide-glow", origin=QueryOrigin.FILENAME)
 
 
 @pytest.mark.parametrize(

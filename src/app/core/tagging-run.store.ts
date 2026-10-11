@@ -3,6 +3,7 @@ import { computed, signal, Service } from "@angular/core"
 import type {
   ArbitrationRequiredEvent,
   RunFinishedEvent,
+  RollbackFinishedEvent,
   RunStartedEvent,
   TagValue,
   TagsBefore,
@@ -124,6 +125,35 @@ export class TaggingRunStore {
       tagsAfter: event.tags_after,
       arbitration: null,
     }))
+  }
+
+  /**
+   * Un run que le moteur ne tient plus restaure sans `track_resolved` : le bilan est alors le
+   * seul a dire quelles lignes sont rendues. Meme projection qu'un `track_resolved` en
+   * `rolled_back`, les lignes deja passees par lui ne bougent pas.
+   */
+  restored(event: RollbackFinishedEvent): void {
+    if (event.run_id !== this._runId()) {
+      return
+    }
+    for (const trackId of event.restored) {
+      const row = this._rows().get(trackId)
+      if (row === undefined || row.state === "rolled_back" || row.resolution === null) {
+        continue
+      }
+      this.resolved({
+        event: "track_resolved",
+        track_id: trackId,
+        state: "rolled_back",
+        resolution: row.resolution,
+        failure_reason: null,
+        source: null,
+        after: null,
+        scores: null,
+        artwork_path: null,
+        tags_after: null,
+      })
+    }
   }
 
   awaiting(event: ArbitrationRequiredEvent): void {

@@ -4,8 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import conversation, extraction_command, held_call, resolved_run
-from scraper_responses import YOUR_MIND
-from tagging_api import ORIGINAL, FakeApi, found, one_track
+from scraper_responses import DIM_ORBIT
 
 from tagger import __main__ as main
 from tagger import rollback, writing
@@ -13,14 +12,9 @@ from tagger import rollback, writing
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from tagging_api import FakeApi
+
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
-
-
-@pytest.fixture
-def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
-    """« Your Mind » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    return one_track(tmp_path)
 
 
 @pytest.fixture
@@ -31,7 +25,7 @@ def extraction(vlc_dump: Path, music_library: Path, tmp_path: Path) -> dict[str,
 async def test_refuses_an_extraction_while_a_run_searches(
     folder: Path, api: FakeApi, extraction: dict[str, object]
 ) -> None:
-    gate = api.gate("/beatport/search", YOUR_MIND)
+    gate = api.gate("/beatport/search", DIM_ORBIT)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))

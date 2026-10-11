@@ -28,7 +28,6 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-    from tagger.file_failures import FileFailureReason
     from tagger.tag_dump import DumpEntry, TagDump
 
 logger = logging.getLogger(__name__)
@@ -142,11 +141,11 @@ def _restore_one(track_id: str, entry: DumpEntry) -> RollbackFailure | None:
     except OriginalNameTakenError:
         return RollbackFailure(track_id, current.name, FailureReason.NAME_TAKEN)
     except RenameError as error:
-        return RollbackFailure(track_id, current.name, _reason(error.reason))
+        return RollbackFailure(track_id, current.name, FailureReason.from_file(error.reason))
     try:
         restore_tags(entry.path, entry.original_tags())
     except TagsWriteError as error:
-        return RollbackFailure(track_id, entry.path.name, _reason(error.reason))
+        return RollbackFailure(track_id, entry.path.name, FailureReason.from_file(error.reason))
     return None
 
 
@@ -201,7 +200,3 @@ def _common_folder(dump: TagDump) -> Path:
         ),
         first,
     )
-
-
-def _reason(reason: FileFailureReason) -> FailureReason:
-    return FailureReason(reason.value)

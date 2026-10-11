@@ -81,10 +81,7 @@ export default class TaggingPageComponent {
   protected readonly writeFailures = computed(
     () => this.tracks().filter((track) => track.state === "write_error").length,
   )
-  /** Une ecriture ou une restauration tourne : le moteur n'en accepte qu'une a la fois. */
-  protected readonly filesBusy = computed(
-    () => this.writing() || this.sidecar.rollingBack() !== null,
-  )
+  protected readonly filesBusy = this.sidecar.filesBusy
   /** Lignes que le dump peut rendre : ecrites, ou en echec dont les tags ont pu partir. */
   protected readonly restorableIds = computed<ReadonlySet<string>>(
     () =>
@@ -174,16 +171,15 @@ export default class TaggingPageComponent {
 
     return rewrite && this.writeFailures() > 0 ? "retry" : "start"
   })
-  /** Comptes lus sur les etats recus : l'interface ne decide rien de ce qui sera ecrit. */
-  private readonly counts = computed(() => {
-    const tracks = this.tracks()
-
-    return {
-      writable: this.sidecar.taggingWritableCount(),
-      unresolved: tracks.filter((track) => track.state === "unresolved").length,
-      awaiting: tracks.filter((track) => track.arbitration !== null).length,
-    }
-  })
+  /**
+   * Comptes lus sur les etats recus : l'interface ne decide rien de ce qui sera ecrit. Les
+   * attentes se comptent sur les lignes, la file d'arbitrage pouvant en retirer une que sa
+   * ligne porte encore (`arbitration_not_pending`).
+   */
+  private readonly counts = computed(() => ({
+    writable: this.sidecar.taggingWritableCount(),
+    awaiting: this.tracks().filter((track) => track.arbitration !== null).length,
+  }))
   protected readonly writeBlockedReason = computed(() => {
     if (this.sidecar.rollingBack() !== null) {
       return "tagging.blocked.restoring"
@@ -287,7 +283,8 @@ export default class TaggingPageComponent {
     if (this.writeBlockedReason() !== null) {
       return
     }
-    const { writable, unresolved, awaiting } = this.counts()
+    const { writable, awaiting } = this.counts()
+    const unresolved = this.recoveryUi.unresolvedCount()
     // Une ligne par compte, la garantie de restauration en bloc separe : la modale s'aere.
     const counts = [
       this.t("tagging.commit.message", {
@@ -322,27 +319,24 @@ export default class TaggingPageComponent {
   }
 
   protected restoreRun(): void {
-    const runId = this.sidecar.taggingRunId()
-    if (runId === null || this.filesBusy()) {
-      return
-    }
-    this.confirmRestore(this.restorableIds().size, () => this.sidecar.rollback(runId))
+    this.restore(this.restorableIds().size)
   }
 
   protected restoreTrack(trackId: string): void {
+    this.restore(1, trackId)
+  }
+
+  /** Sans `trackId`, tout le run. */
+  private restore(count: number, ...trackId: [] | [string]): void {
     const runId = this.sidecar.taggingRunId()
     if (runId === null || this.filesBusy()) {
       return
     }
-    this.confirmRestore(1, () => this.sidecar.rollback(runId, trackId))
-  }
-
-  private confirmRestore(count: number, restore: () => Promise<void>): void {
     this.confirmDanger(
       "tagging.rollback",
       this.t("tagging.rollback.message", { count }),
       () => {
-        void restore()
+        void this.sidecar.rollback(runId, ...trackId)
       },
       true,
     )

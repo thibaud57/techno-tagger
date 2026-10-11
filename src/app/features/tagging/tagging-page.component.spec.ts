@@ -1,4 +1,4 @@
-import { signal } from "@angular/core"
+import { computed, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { By } from "@angular/platform-browser"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
@@ -11,7 +11,7 @@ import type { RollbackFinishedEvent, SidecarErrorEvent } from "../../core/models
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
-import { PENDING_TRACK, arbitrationRequired } from "../../../fixtures/tagging"
+import { PENDING_TRACK, arbitrationRequired, resolvedTrack } from "../../../fixtures/tagging"
 import { rollbackFinished } from "../../../fixtures/write"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
@@ -36,7 +36,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({
  * spec (`isolate: false`) et y perturbe le mock de `@tauri-apps/plugin-store`.
  */
 const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
-  const service = {
+  const base = {
     ready: signal(true),
     available: signal(true),
     apiKeyConfigured: signal(true),
@@ -72,6 +72,11 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     commitRun: vi.fn(() => Promise.resolve()),
     retryWrite: vi.fn(() => Promise.resolve()),
     ...overrides,
+  }
+  // Suit `writing` et `rollingBack`, surcharges comprises.
+  const service = {
+    ...base,
+    filesBusy: computed(() => base.writing() || base.rollingBack() !== null),
   }
   vi.mocked(load).mockResolvedValue({
     get: vi.fn(() => Promise.resolve("D:/Sets/Aout")),
@@ -189,15 +194,12 @@ describe("TaggingPageComponent", () => {
     expect(service.cancelTagging).toHaveBeenCalled()
   })
 
-  const resolved = (trackId: string): TaggingTrack => ({
-    ...PENDING_TRACK,
-    trackId,
-    state: "resolved",
-    resolution: "auto",
+  const failed = (trackId: string): TaggingTrack => ({
+    ...resolvedTrack(trackId),
+    state: "write_error",
   })
-  const failed = (trackId: string): TaggingTrack => ({ ...resolved(trackId), state: "write_error" })
   const written = (trackId: string, state: TaggingTrack["state"] = "written"): TaggingTrack => ({
-    ...resolved(trackId),
+    ...resolvedTrack(trackId),
     state,
   })
 
@@ -306,7 +308,7 @@ describe("TaggingPageComponent", () => {
   ] as const)("blocks the confirmation %s", async (_name, overrides, reason) => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      taggingTracks: signal([resolved("a.mp3")]),
+      taggingTracks: signal([resolvedTrack("a.mp3")]),
       ...overrides,
     })
 
@@ -314,15 +316,23 @@ describe("TaggingPageComponent", () => {
   })
 
   it("tells the counts in the confirmation and commits only on accept", async () => {
+    const unresolvedRow: TaggingTrack = {
+      ...PENDING_TRACK,
+      trackId: "b.mp3",
+      state: "unresolved",
+      resolution: "none",
+    }
     const { component, service } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       taggingFolder: signal("D:/Sets/Aout"),
       taggingWritableCount: signal(1),
       taggingTracks: signal([
-        resolved("a.mp3"),
-        { ...PENDING_TRACK, trackId: "b.mp3", state: "unresolved", resolution: "none" },
+        resolvedTrack("a.mp3"),
+        unresolvedRow,
         { ...PENDING_TRACK, trackId: "c.mp3", arbitration: arbitrationRequired("c.mp3") },
       ]),
+      // Le compte des non resolus vient de la phase de rattrapage, pas des lignes.
+      recoverableTracks: signal([unresolvedRow]),
     })
     const translate = TestBed.inject(TranslateService)
     translate.setTranslation("en", {
@@ -352,7 +362,7 @@ describe("TaggingPageComponent", () => {
   it("leaves out the counts that are zero", async () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
-      taggingTracks: signal([resolved("a.mp3")]),
+      taggingTracks: signal([resolvedTrack("a.mp3")]),
     })
     const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
 
@@ -399,7 +409,7 @@ describe("TaggingPageComponent", () => {
     const { fixture } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       runFrozen: signal(true),
-      taggingTracks: signal([resolved("a.mp3")]),
+      taggingTracks: signal([resolvedTrack("a.mp3")]),
     })
 
     fixture.detectChanges()
@@ -462,7 +472,11 @@ describe("TaggingPageComponent", () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
-      taggingTracks: signal([written("a.mp3"), written("b.mp3", "write_error"), resolved("c.mp3")]),
+      taggingTracks: signal([
+        written("a.mp3"),
+        written("b.mp3", "write_error"),
+        resolvedTrack("c.mp3"),
+      ]),
     })
 
     expect([...component["restorableIds"]()]).toEqual(["a.mp3", "b.mp3"])

@@ -67,7 +67,7 @@
             </button>
           </td>
           <td>
-            <app-artwork [url]="track.artworkUrl" [pending]="track.state === null && !settled()" />
+            <app-artwork [url]="track.artworkUrl" [pending]="track.artworkPending" />
           </td>
           <td>
             <app-truncated-text [text]="track.mainLine" />
@@ -145,7 +145,6 @@
               <app-track-detail
                 class="h-full"
                 [track]="row"
-                [interrupted]="settled()"
                 [restorable]="row.restorable"
                 [restoring]="row.restoring"
                 [blocked]="restoreBlocked()"

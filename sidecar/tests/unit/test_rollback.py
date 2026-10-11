@@ -1,5 +1,6 @@
 """Tests du rollback : nom d'origine puis tags d'origine, dump consomme, dernier run."""
 
+import logging
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -7,7 +8,8 @@ from typing import NamedTuple
 
 import pytest
 from audio_samples import held_open
-from scraper_responses import track_payload
+from scraper_responses import payload_candidate
+from stubs import raising
 from tagging_api import tagged_mp3
 
 from tagger import rollback
@@ -29,13 +31,19 @@ from tagger.rollback import (
     find_rollback_target,
     roll_back,
 )
-from tagger.scraper_client import TrackCandidate
-from tagger.tag_dump import DumpEntry, TagDump, dump_path, load_dump, save_entries
+from tagger.tag_dump import (
+    DumpEntry,
+    TagDump,
+    TagDumpWriteError,
+    dump_path,
+    load_dump,
+    save_entries,
+)
 from tagger.tagging import FailureReason
 
 RUN = "a3f9c1"
 WRITTEN_AT = datetime(2026, 10, 5, 21, 14, 3, tzinfo=UTC)
-BEATPORT = TrackCandidate.model_validate(track_payload())
+BEATPORT = payload_candidate()
 ORIGINAL = "01 - untitled.mp3"
 
 
@@ -49,7 +57,7 @@ class _Written(NamedTuple):
 
 
 def _write(folder: Path, name: str) -> _Written:
-    path = tagged_mp3(folder, name, "adam beyer", "your mind")
+    path = tagged_mp3(folder, name, "lior vance", "dim orbit")
     origin = read_original_tags(path)
     values = project_tags(BEATPORT)
     write_tags(path, values, None)
@@ -173,7 +181,7 @@ async def test_gives_names_back_in_the_reverse_order_of_the_writing(tmp_path: Pa
     music = tmp_path / "music"
     first = _write(music, "a.mp3")
     # Le second morceau prend, une fois le premier renomme, le nom d'origine de celui-ci.
-    second_original = tagged_mp3(music, "b.mp3", "adam beyer", "your mind")
+    second_original = tagged_mp3(music, "b.mp3", "lior vance", "dim orbit")
     second_origin = read_original_tags(second_original)
     second_renamed = second_original.rename(first.original)
     second_entry = DumpEntry.of(second_original, second_origin).model_copy(
@@ -224,6 +232,58 @@ async def test_deletes_the_dump_once_every_track_is_restored(tmp_path: Path) -> 
     await roll_back(tmp_path / "dumps", RUN, None, _ignore)
 
     assert not dump_path(tmp_path / "dumps", dump).exists()
+
+
+@pytest.mark.asyncio
+async def test_restores_the_tracks_even_when_the_dump_cannot_be_updated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    track = _write(tmp_path / "music", ORIGINAL)
+    dump = _dumped(tmp_path / "dumps", track)
+    monkeypatch.setattr(rollback, "remove_entries", raising(TagDumpWriteError(tmp_path)))
+    caplog.set_level(logging.WARNING, logger="tagger.rollback")
+
+    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+
+    assert (summary.restored, summary.failed) == ((ORIGINAL,), ())
+    assert read_original_tags(track.original) == track.origin
+    assert [
+        record.getMessage() for record in caplog.records if record.name == "tagger.rollback"
+    ] == [f"tag dump not updated after rollback run={RUN}"]
+    assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {ORIGINAL}
+
+
+@pytest.mark.asyncio
+async def test_logs_a_rollback_without_any_file_name_path_or_title(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Les logs partent vers Sentry : un nom de fichier ou un titre y serait une fuite."""
+    music = tmp_path / "music"
+    restorable, vanished = _write(music, ORIGINAL), _write(music, "02 - untitled.mp3")
+    _dumped(tmp_path / "dumps", restorable, vanished)
+    vanished.renamed.unlink()
+    caplog.set_level(logging.INFO, logger="tagger.rollback")
+
+    await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+
+    messages = [
+        record.getMessage() for record in caplog.records if record.name == "tagger.rollback"
+    ]
+    private = [
+        str(tmp_path),
+        restorable.original.name,
+        restorable.renamed.name,
+        vanished.original.name,
+        vanished.renamed.name,
+        "Dim Orbit",
+        "Lior Vance",
+    ]
+    assert messages == [
+        f"rollback started run={RUN}",
+        f"rollback failed run={RUN} reason=file_missing",
+        f"rollback finished run={RUN}",
+    ]
+    assert [message for message in messages for secret in private if secret in message] == []
 
 
 @pytest.mark.asyncio

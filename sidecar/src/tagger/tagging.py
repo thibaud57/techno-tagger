@@ -10,7 +10,7 @@ import logging
 import secrets
 from dataclasses import dataclass, replace
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, Self, override
 
 from tagger.files import (
     IdentityTags,
@@ -86,6 +86,10 @@ class FailureReason(StrEnum):
     WRITE_FAILED = auto()
     # Motif du rollback seul, hors `FileFailureReason` : l'ecriture suffixe un nom pris.
     NAME_TAKEN = auto()
+
+    @classmethod
+    def from_file(cls, reason: FileFailureReason) -> Self:
+        return cls(reason.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +181,7 @@ class TrackRecord:
     def write_failed(self, reason: FileFailureReason) -> TrackRecord:
         """Ecriture en echec : la resolution reste, la relance n'a rien a redemander."""
         return replace(
-            self, state=TrackState.WRITE_ERROR, failure_reason=FailureReason(reason.value)
+            self, state=TrackState.WRITE_ERROR, failure_reason=FailureReason.from_file(reason)
         )
 
     def rolled_back(self, path: Path) -> TrackRecord:

@@ -1,4 +1,4 @@
-import { signal } from "@angular/core"
+import { computed, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 
 import { APP_WINDOW, type AppWindow, type CloseRequest } from "./app-window"
@@ -47,12 +47,15 @@ class FakeWindow implements AppWindow {
 const setup = async ({ inTauri = true } = {}) => {
   const appWindow = new FakeWindow()
   appWindow.inTauri = inTauri
+  const runFrozen = signal(false)
+  const arbitrationCount = signal(0)
   const sidecar = {
     extracting: signal(false),
     tagging: signal(false),
-    runFrozen: signal(false),
+    runFrozen,
     runConfirmable: signal(false),
-    arbitrationCount: signal(0),
+    arbitrationCount,
+    pendingArbitrationCount: computed(() => (runFrozen() ? 0 : arbitrationCount())),
     writing: signal(false),
     rollingBack: signal<RollbackInFlight | null>(null),
   }

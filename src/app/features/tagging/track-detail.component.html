@@ -1,5 +1,5 @@
 <div class="flex h-full items-start gap-6 p-4">
-  <app-artwork [url]="artworkUrl()" [pending]="pending()" [large]="true" />
+  <app-artwork [url]="track().artworkUrl" [pending]="track().artworkPending" [large]="true" />
 
   <!-- Étiré sur la hauteur du cadre : les lignes se répartissent l'espace, aucune bande vide
        sous la dernière. -->

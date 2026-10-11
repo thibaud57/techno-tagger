@@ -34,11 +34,13 @@ const ROW_HEIGHT = 56
  */
 const SCROLLER_OPTIONS = { numToleratedItems: MAX_DETAIL_SPAN + 1 }
 
-interface RunRow extends TaggingTrack {
+export interface RunRow extends TaggingTrack {
   readonly mainLine: string
   readonly afterLine: string | null
   readonly sourceName: string | null
   readonly artworkUrl: string | null
+  /** Sa pochette peut encore arriver : le morceau attend son tour dans un run qui tourne. */
+  readonly artworkPending: boolean
   readonly reasonKey: string | null
   readonly arbitrable: boolean
   readonly recoverable: boolean
@@ -111,6 +113,7 @@ export class RunListComponent {
   /** Calculee ici et non dans le template, ou chaque cycle la rejouerait pour chaque ligne. */
   protected readonly rows = computed<RunRow[]>(() => {
     const frozen = this.frozen()
+    const settled = this.settled()
     const recoverableIds = this.recoverable()
     const restorableIds = this.restorableIds()
     const restoringTrackId = this.restoringTrackId()
@@ -120,12 +123,14 @@ export class RunListComponent {
       const recoverable = !frozen && recoverableIds.has(track.trackId)
       const restorable = restorableIds.has(track.trackId)
       const restoring = restoringTrackId === track.trackId
+      const artworkPending = track.state === null && !settled
       const cached = this.rowCache.get(track)
       if (
         cached?.arbitrable === arbitrable &&
         cached.recoverable === recoverable &&
         cached.restorable === restorable &&
-        cached.restoring === restoring
+        cached.restoring === restoring &&
+        cached.artworkPending === artworkPending
       ) {
         return cached
       }
@@ -136,6 +141,7 @@ export class RunListComponent {
           track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
         sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
         artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
+        artworkPending,
         reasonKey: track.failureReason === null ? null : failureReasonKey(track.failureReason),
         arbitrable,
         recoverable,

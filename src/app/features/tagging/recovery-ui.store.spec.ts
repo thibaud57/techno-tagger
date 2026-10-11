@@ -1,23 +1,14 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 
-import { PENDING_TRACK } from "../../../fixtures/tagging"
+import { recoveredTrack, unresolvedTrack } from "../../../fixtures/tagging"
+import { TRACK_URL } from "../../../fixtures/url-recovery"
 import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
 
-const URL = "https://amelielens.bandcamp.com/track/basiel"
-
-const row = (trackId: string, state: TaggingTrack["state"]): TaggingTrack => ({
-  ...PENDING_TRACK,
-  trackId,
-  state,
-  resolution: state === "resolved" ? "url" : "none",
-  failureReason: state === "unresolved" ? "user_refused" : null,
-})
-
-const mount = (tracks: readonly TaggingTrack[] = [row("a.mp3", "unresolved")]) => {
+const mount = (tracks: readonly TaggingTrack[] = [unresolvedTrack("a.mp3")]) => {
   const service = {
     tagging: signal(false),
     runFrozen: signal(false),
@@ -90,7 +81,7 @@ describe("RecoveryUiStore", () => {
 
     it("targets a track passed on an empty Bandcamp list, unresolved with its list reason", () => {
       const { store, service } = mount([
-        { ...row("a.mp3", "unresolved"), failureReason: "no_result" },
+        { ...unresolvedTrack("a.mp3"), failureReason: "no_result" },
       ])
       service.arbitrations.set([{ track_id: "a.mp3" }])
       store.refused("a.mp3")
@@ -101,7 +92,7 @@ describe("RecoveryUiStore", () => {
     })
 
     it("stays empty when the refused track was resolved meanwhile", () => {
-      const { store } = mount([row("a.mp3", "resolved")])
+      const { store } = mount([recoveredTrack("a.mp3")])
 
       store.refused("a.mp3")
 
@@ -127,14 +118,14 @@ describe("RecoveryUiStore", () => {
 
     it("accepts a pasted link", () => {
       const { store } = mount()
-      store.edit("a.mp3", URL)
+      store.edit("a.mp3", TRACK_URL)
 
       expect(store.canResolve("a.mp3")).toBe(true)
     })
 
     it("refuses while a gesture is in flight for the track", () => {
       const { store, service } = mount()
-      store.edit("a.mp3", URL)
+      store.edit("a.mp3", TRACK_URL)
 
       service.urlRecoveryBusy.set(new Set(["a.mp3"]))
 
@@ -143,7 +134,7 @@ describe("RecoveryUiStore", () => {
 
     it("refuses during a search", () => {
       const { store, service } = mount()
-      store.edit("a.mp3", URL)
+      store.edit("a.mp3", TRACK_URL)
 
       service.tagging.set(true)
 
@@ -154,11 +145,11 @@ describe("RecoveryUiStore", () => {
   describe("resolve", () => {
     it("sends the pasted link for its track", () => {
       const { store, service } = mount()
-      store.edit("a.mp3", URL)
+      store.edit("a.mp3", TRACK_URL)
 
       store.resolve("a.mp3")
 
-      expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", URL)
+      expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", TRACK_URL)
     })
 
     it("sends nothing on an empty link", () => {
@@ -171,7 +162,7 @@ describe("RecoveryUiStore", () => {
 
     it("sends nothing while a gesture is in flight", () => {
       const { store, service } = mount()
-      store.edit("a.mp3", URL)
+      store.edit("a.mp3", TRACK_URL)
       service.urlRecoveryBusy.set(new Set(["a.mp3"]))
 
       store.resolve("a.mp3")
@@ -181,7 +172,7 @@ describe("RecoveryUiStore", () => {
 
     it("sends nothing during a search", () => {
       const { store, service } = mount()
-      store.edit("a.mp3", URL)
+      store.edit("a.mp3", TRACK_URL)
       service.tagging.set(true)
 
       store.resolve("a.mp3")
@@ -192,7 +183,7 @@ describe("RecoveryUiStore", () => {
 
   describe("open", () => {
     it("targets the given track", () => {
-      const { store } = mount([row("a.mp3", "unresolved"), row("b.mp3", "unresolved")])
+      const { store } = mount([unresolvedTrack("a.mp3"), unresolvedTrack("b.mp3")])
 
       store.open("b.mp3")
 
@@ -200,7 +191,7 @@ describe("RecoveryUiStore", () => {
     })
 
     it("targets the first unresolved track without an id", () => {
-      const { store } = mount([row("a.mp3", "resolved"), row("b.mp3", "unresolved")])
+      const { store } = mount([recoveredTrack("a.mp3"), unresolvedTrack("b.mp3")])
 
       store.open()
 
@@ -219,9 +210,9 @@ describe("RecoveryUiStore", () => {
 
   it("counts the unresolved recoverable tracks only", () => {
     const { store } = mount([
-      row("a.mp3", "unresolved"),
-      row("b.mp3", "resolved"),
-      row("c.mp3", "unresolved"),
+      unresolvedTrack("a.mp3"),
+      recoveredTrack("b.mp3"),
+      unresolvedTrack("c.mp3"),
     ])
 
     expect(store.unresolvedCount()).toBe(2)
@@ -229,7 +220,7 @@ describe("RecoveryUiStore", () => {
 
   it("forgets the links pasted during a previous run", () => {
     const { store, service } = mount()
-    store.edit("a.mp3", URL)
+    store.edit("a.mp3", TRACK_URL)
 
     service.taggingRunId.set("run-2")
 

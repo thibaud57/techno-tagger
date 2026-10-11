@@ -1,33 +1,47 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { PENDING_TRACK, TAGS_AFTER, TAGS_BEFORE } from "../../../fixtures/tagging"
+import { PENDING_TRACK, TAGS_AFTER, TAGS_BEFORE, resolvedTrack } from "../../../fixtures/tagging"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 
+import type { RunRow } from "./run-list.component"
 import { TrackDetailComponent } from "./track-detail.component"
 
-/** `convertFileSrc` n'existe pas hors Tauri. */
-vi.mock("@tauri-apps/api/core", () => ({
-  convertFileSrc: vi.fn((path: string) => `asset://localhost/${path}`),
-}))
-
 const RESOLVED: TaggingTrack = {
-  ...PENDING_TRACK,
-  state: "resolved",
-  resolution: "auto",
+  ...resolvedTrack(PENDING_TRACK.trackId),
   source: "beatport",
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
   tagsBefore: { ...TAGS_BEFORE, comment: null },
   tagsAfter: TAGS_AFTER,
 }
 
-const mount = (track: TaggingTrack, inputs: Record<string, unknown> = {}) => {
+/** La liste construit la ligne ; le détail ne lit d'elle que le morceau et l'état de sa pochette. */
+const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
+  ...track,
+  mainLine: "",
+  afterLine: null,
+  sourceName: null,
+  artworkUrl: null,
+  artworkPending: false,
+  reasonKey: null,
+  arbitrable: false,
+  recoverable: false,
+  restorable: false,
+  restoring: false,
+  ...shown,
+})
+
+const mount = (
+  track: TaggingTrack,
+  inputs: Record<string, unknown> = {},
+  shown: Partial<RunRow> = {},
+) => {
   TestBed.configureTestingModule({
     imports: [TrackDetailComponent],
     providers: [provideTranslateService()],
   })
   const fixture = TestBed.createComponent(TrackDetailComponent)
-  fixture.componentRef.setInput("track", track)
+  fixture.componentRef.setInput("track", asRow(track, shown))
   for (const [name, value] of Object.entries(inputs)) {
     fixture.componentRef.setInput(name, value)
   }
@@ -49,13 +63,13 @@ describe("TrackDetailComponent", () => {
     const rows = rowsOf(root)
 
     expect(rows).toEqual([
-      ["tagging.detail.field.artist", "TPE1", "adam beyer", "Adam Beyer"],
+      ["tagging.detail.field.artist", "TPE1", "lior vance", "Lior Vance"],
       ["tagging.detail.field.bpm", "TBPM", "130", "130"],
     ])
   })
 
   it("leaves the source id out of the grid", () => {
-    const sourceId = { field: "source_id", key: "TXXX:SOURCE_ID", value: "17492013" } as const
+    const sourceId = { field: "source_id", key: "TXXX:SOURCE_ID", value: "99000101" } as const
     const root = mount({
       ...RESOLVED,
       tagsBefore: { ...TAGS_BEFORE, comment: null, fields: [...TAGS_BEFORE.fields, sourceId] },
@@ -75,12 +89,12 @@ describe("TrackDetailComponent", () => {
         comment: null,
         fields: [{ field: "label", key: "TPUB", value: null }],
       },
-      tagsAfter: [{ field: "label", key: "TPUB", value: "Drumcode" }],
+      tagsAfter: [{ field: "label", key: "TPUB", value: "Kestrel" }],
     })
 
     const rows = rowsOf(root)
 
-    expect(rows).toEqual([["tagging.detail.field.label", "TPUB", "—", "Drumcode"]])
+    expect(rows).toEqual([["tagging.detail.field.label", "TPUB", "—", "Kestrel"]])
   })
 
   it("adds a comment row only when the file carries one", () => {
@@ -108,7 +122,7 @@ describe("TrackDetailComponent", () => {
     const rows = rowsOf(root)
 
     expect(rows.map((row) => [row[0], row[2], row[3]])).toEqual([
-      ["tagging.detail.field.artist", "—", "Adam Beyer"],
+      ["tagging.detail.field.artist", "—", "Lior Vance"],
       ["tagging.detail.field.bpm", "—", "130"],
     ])
   })
@@ -123,16 +137,16 @@ describe("TrackDetailComponent", () => {
   })
 
   it("shows the artwork in large", () => {
-    const root = mount(RESOLVED)
+    const root = mount(RESOLVED, {}, { artworkUrl: "asset://localhost/abc.jpg" })
 
     const image = root.querySelector("img")
 
-    expect(image?.getAttribute("src")).toBe(`asset://localhost/${RESOLVED.artworkPath}`)
+    expect(image?.getAttribute("src")).toBe("asset://localhost/abc.jpg")
     expect(image?.getAttribute("width")).toBe("160")
   })
 
   it("shows a skeleton artwork while the track awaits its turn", () => {
-    const root = mount({ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE })
+    const root = mount({ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }, {}, { artworkPending: true })
 
     const skeleton = root.querySelector("p-skeleton")
 
@@ -156,7 +170,7 @@ describe("TrackDetailComponent", () => {
       providers: [provideTranslateService()],
     })
     const fixture = TestBed.createComponent(TrackDetailComponent)
-    fixture.componentRef.setInput("track", RESOLVED)
+    fixture.componentRef.setInput("track", asRow(RESOLVED))
     fixture.componentRef.setInput("restorable", true)
     fixture.detectChanges()
     const asked = vi.fn()

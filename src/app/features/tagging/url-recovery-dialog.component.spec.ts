@@ -3,8 +3,8 @@ import { TestBed } from "@angular/core/testing"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 
 import { action, linkField, page, pasteLink } from "../../../fixtures/dialog"
-import { PENDING_TRACK } from "../../../fixtures/tagging"
-import { urlRecoveryError } from "../../../fixtures/url-recovery"
+import { PENDING_TRACK, recoveredTrack, unresolvedTrack } from "../../../fixtures/tagging"
+import { TRACK_URL, urlRecoveryError } from "../../../fixtures/url-recovery"
 import type { SidecarErrorEvent, TrackFailureReason } from "../../core/models/protocol"
 import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
@@ -12,22 +12,16 @@ import type { TaggingTrack } from "../../core/tagging-run.store"
 import { RecoveryUiStore } from "./recovery-ui.store"
 import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
 
-const URL = "https://amelielens.bandcamp.com/track/basiel"
-
 const unresolved = (trackId: string, failureReason: TrackFailureReason): TaggingTrack => ({
-  ...PENDING_TRACK,
-  trackId,
+  ...unresolvedTrack(trackId, failureReason),
   fileName: trackId,
-  state: "unresolved",
-  resolution: "none",
-  failureReason,
 })
 
 const FIRST = unresolved("a.mp3", "no_result")
 const SECOND: TaggingTrack = {
   ...unresolved("b.mp3", "below_threshold"),
-  artist: "Amelie Lens",
-  title: "Basiel",
+  artist: "Orla Quenby",
+  title: "Kelvor",
 }
 const TWO_LINES: readonly TaggingTrack[] = [FIRST, SECOND]
 
@@ -79,15 +73,13 @@ describe("UrlRecoveryDialogComponent", () => {
 
     const text = page().textContent
 
-    expect(text).toContain("Adam Beyer - Your Mind")
+    expect(text).toContain("Lior Vance - Dim Orbit")
     expect(text).toContain("tagging.reason.no_result")
   })
 
   it("names the source of a track already resolved by url", () => {
     const recovered: TaggingTrack = {
-      ...PENDING_TRACK,
-      state: "resolved",
-      resolution: "url",
+      ...recoveredTrack(PENDING_TRACK.trackId),
       source: "soundcloud",
     }
     const { fixture } = mount({ tracks: [recovered] })
@@ -106,18 +98,18 @@ describe("UrlRecoveryDialogComponent", () => {
 
   it("sends the pasted url for its track", () => {
     const { fixture, service } = mount()
-    pasteLink(URL)
+    pasteLink(TRACK_URL)
     fixture.detectChanges()
 
     action("resolve-url")?.click()
 
-    expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", URL)
+    expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", TRACK_URL)
   })
 
   it.each<[string, string, readonly string[], number]>([
-    ["a pasted field", URL, [], 1],
+    ["a pasted field", TRACK_URL, [], 1],
     ["an empty field", "", [], 0],
-    ["a waiting track", URL, ["a.mp3"], 0],
+    ["a waiting track", TRACK_URL, ["a.mp3"], 0],
   ])("sends the pasted url on enter and ignores enter on %s", (_case, url, busy, calls) => {
     const { fixture, service } = mount({ busy })
     pasteLink(url)
@@ -134,12 +126,12 @@ describe("UrlRecoveryDialogComponent", () => {
 
     fixture.detectChanges()
 
-    expect(linkField()?.getAttribute("aria-label")).toBe("Link for Adam Beyer - Your Mind")
+    expect(linkField()?.getAttribute("aria-label")).toBe("Link for Lior Vance - Dim Orbit")
   })
 
   it("keeps the pasted url in its field once the track is recovered", () => {
     const { fixture, service } = mount()
-    pasteLink(URL)
+    pasteLink(TRACK_URL)
     fixture.detectChanges()
     action("resolve-url")?.click()
     const recovered: TaggingTrack = {
@@ -154,12 +146,12 @@ describe("UrlRecoveryDialogComponent", () => {
     service.recoverableTracks.set([recovered, SECOND])
     fixture.detectChanges()
 
-    expect(linkField()?.value).toBe(URL)
+    expect(linkField()?.value).toBe(TRACK_URL)
   })
 
   it("shows a spinner and disables the button while the track waits", () => {
     const { fixture } = mount({ busy: ["a.mp3"] })
-    pasteLink(URL)
+    pasteLink(TRACK_URL)
     fixture.detectChanges()
 
     const button = action("resolve-url")
@@ -190,7 +182,7 @@ describe("UrlRecoveryDialogComponent", () => {
     action("skip")?.click()
     fixture.detectChanges()
 
-    expect(second).toContain("Amelie Lens - Basiel")
+    expect(second).toContain("Orla Quenby - Kelvor")
     expect(recovery.target()).toBeNull()
   })
 

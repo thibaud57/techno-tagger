@@ -455,9 +455,11 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     l'EOF les attend toutes.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
-    `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. Toute autre
-    exception fait tomber le processus, volontairement : l'avaler cacherait un bug que
-    Sentry remonte comme crash du sidecar (cf. PRODUCTION.md § Alertes).
+    `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. La phase
+    d'ecriture isole l'echec inattendu d'un morceau (`write_error`) et remonte le bug par
+    `capture_exception`. Partout ailleurs, toute autre exception fait tomber le processus,
+    volontairement : l'avaler cacherait un bug que Sentry remonte comme crash du sidecar
+    (cf. PRODUCTION.md § Alertes).
     """
     async with asyncio.TaskGroup() as group:
         session = _Session(group, stdout)

@@ -75,10 +75,8 @@ export class AppComponent {
     ...this.sidecar.versionMismatch(),
   }))
 
-  /** Un run fige n'accepte plus d'arbitrage : sa file reste, sans badge ni modale. */
-  protected readonly arbitrationCount = computed(() =>
-    this.sidecar.runFrozen() ? 0 : this.sidecar.arbitrationCount(),
-  )
+  /** Un run fige garde sa file, sans badge ni modale. */
+  protected readonly arbitrationCount = this.sidecar.pendingArbitrationCount
   /** L'etape lien d'un morceau sorti de la file garde la modale ouverte, meme file videe. */
   private readonly queueEmpty = computed(
     () => this.arbitrationCount() === 0 && this.recovery.linkStep() === null,
