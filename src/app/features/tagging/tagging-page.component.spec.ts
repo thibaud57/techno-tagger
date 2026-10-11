@@ -15,6 +15,7 @@ import { PENDING_TRACK, arbitrationRequired } from "../../../fixtures/tagging"
 import { rollbackFinished } from "../../../fixtures/write"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
+import { RunListComponent } from "./run-list.component"
 import TaggingPageComponent from "./tagging-page.component"
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -51,6 +52,9 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     taggingProgress: signal(null),
     taggingRunId: signal<string | null>(null),
     taggingInterrupted: signal(false),
+    runFrozen: signal(false),
+    runConfirmable: signal(false),
+    taggingWritableCount: signal(0),
     lastError: signal(null),
     lastErrorCommand: signal(null),
     errorFor: SidecarService.prototype.errorFor,
@@ -203,25 +207,22 @@ describe("TaggingPageComponent", () => {
 
   it("cycles its single action with the phase", async () => {
     const tagging = signal(false)
-    const runId = signal<string | null>(null)
-    const committed = signal(false)
+    const confirmable = signal(false)
     const writing = signal(false)
     const { component } = await mountWith({
       tagging,
-      taggingRunId: runId,
       taggingFolder: signal("D:/Sets/Aout"),
-      committed,
+      runConfirmable: confirmable,
       writing,
-      taggingTracks: signal([resolved("a.mp3")]),
     })
     const seen = [component["action"]()]
 
     tagging.set(true)
-    runId.set("a3f9c1")
     seen.push(component["action"]())
     tagging.set(false)
+    confirmable.set(true)
     seen.push(component["action"]())
-    committed.set(true)
+    confirmable.set(false)
     writing.set(true)
     seen.push(component["action"]())
     writing.set(false)
@@ -230,15 +231,15 @@ describe("TaggingPageComponent", () => {
     expect(seen).toEqual(["start", "cancel", "commit", "commit", "start"])
   })
 
-  it("offers to confirm an interrupted run", async () => {
+  it("starts the same folder again when its run cannot be confirmed", async () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       taggingFolder: signal("D:/Sets/Aout"),
       taggingInterrupted: signal(true),
-      taggingTracks: signal([resolved("a.mp3")]),
     })
 
-    expect(component["action"]()).toBe("commit")
+    expect(component["action"]()).toBe("start")
+    expect(component["canStart"]()).toBe(true)
   })
 
   it("starts over when another folder is chosen", async () => {
@@ -246,7 +247,7 @@ describe("TaggingPageComponent", () => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       taggingFolder: signal("D:/Sets/Aout"),
-      taggingTracks: signal([resolved("a.mp3")]),
+      runConfirmable: signal(true),
     })
     const before = component["action"]()
 
@@ -283,7 +284,6 @@ describe("TaggingPageComponent", () => {
       { arbitrationInFlight: signal(true) },
       "tagging.blocked.arbitrating",
     ],
-    ["without a resolved track", { taggingTracks: signal([]) }, "tagging.blocked.nothingToWrite"],
   ] as const)("blocks the confirmation %s", async (_name, overrides, reason) => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
@@ -298,6 +298,7 @@ describe("TaggingPageComponent", () => {
     const { component, service } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       taggingFolder: signal("D:/Sets/Aout"),
+      taggingWritableCount: signal(1),
       taggingTracks: signal([
         resolved("a.mp3"),
         { ...PENDING_TRACK, trackId: "b.mp3", state: "unresolved", resolution: "none" },
@@ -370,6 +371,19 @@ describe("TaggingPageComponent", () => {
     expect(service.retryWrite).toHaveBeenCalledTimes(1)
     expect(remaining).toContain("failed 1")
     expect(shown()).toBeUndefined()
+  })
+
+  it("freezes the rows of a run lost with its engine as of a committed one", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      runFrozen: signal(true),
+      taggingTracks: signal([resolved("a.mp3")]),
+    })
+
+    fixture.detectChanges()
+
+    const list = fixture.debugElement.query(By.directive(RunListComponent))
+    expect((list.componentInstance as RunListComponent).frozen()).toBe(true)
   })
 
   it("hides the failure message while the retry writes", async () => {

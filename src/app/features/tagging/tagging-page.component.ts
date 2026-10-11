@@ -58,6 +58,7 @@ export default class TaggingPageComponent {
   protected readonly progress = this.sidecar.taggingProgress
   protected readonly running = this.sidecar.tagging
   protected readonly committed = this.sidecar.committed
+  protected readonly runFrozen = this.sidecar.runFrozen
   protected readonly writing = this.sidecar.writing
   protected readonly writeProgress = this.sidecar.writeProgress
   protected readonly showsWriteBar = computed(() => this.writing() || this.writeProgress() !== null)
@@ -145,11 +146,10 @@ export default class TaggingPageComponent {
     if (this.running()) {
       return "cancel"
     }
-    // Un autre dossier abandonne le run non ecrit ; le meme dossier le laisse confirmable.
+    // Un autre dossier abandonne le run non ecrit. Le meme dossier se relance quand le run
+    // n'est pas confirmable, sinon un run vide ou perdu bloquerait son propre dossier.
     const unwritten =
-      this.sidecar.taggingRunId() !== null &&
-      !this.committed() &&
-      this.folder() === this.sidecar.taggingFolder()
+      this.sidecar.runConfirmable() && this.folder() === this.sidecar.taggingFolder()
 
     return this.writing() || unwritten ? "commit" : "start"
   })
@@ -158,7 +158,7 @@ export default class TaggingPageComponent {
     const tracks = this.tracks()
 
     return {
-      writable: tracks.filter((track) => track.state === "resolved").length,
+      writable: this.sidecar.taggingWritableCount(),
       unresolved: tracks.filter((track) => track.state === "unresolved").length,
       awaiting: tracks.filter((track) => track.arbitration !== null).length,
     }
@@ -175,9 +175,6 @@ export default class TaggingPageComponent {
     }
     if (this.sidecar.arbitrationInFlight()) {
       return "tagging.blocked.arbitrating"
-    }
-    if (this.counts().writable === 0) {
-      return "tagging.blocked.nothingToWrite"
     }
 
     return null

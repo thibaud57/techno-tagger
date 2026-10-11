@@ -133,6 +133,7 @@ export class SidecarService {
   readonly taggingRunId = this.taggingRun.runId
   readonly taggingFolder = this.taggingRun.folder
   readonly taggingInterrupted = this.taggingRun.interrupted
+  readonly taggingWritableCount = this.taggingRun.writableCount
   readonly arbitrations = this.arbitration.entries
   readonly currentArbitration = this.arbitration.current
   readonly arbitrationPosition = this.arbitration.position
@@ -152,6 +153,19 @@ export class SidecarService {
   readonly rollingBack = this.writePhase.rollingBack
   readonly rollbackFinished = this.writePhase.rollbackFinished
   readonly rollbackTarget = this.writePhase.rollbackTarget
+  /** Plus aucune decision n'entre dans le run affiche : le sidecar la refuserait ou l'ignore. */
+  readonly runFrozen = computed(() => this.writePhase.committed() || this.taggingRun.lost())
+  /**
+   * Run que le moteur ecrirait : recherche finie, ni confirme ni perdu, au moins un morceau
+   * resolu. Le sidecar reste seul juge et refuse le reste en `write_not_open`.
+   */
+  readonly runConfirmable = computed(
+    () =>
+      this.taggingRun.runId() !== null &&
+      !this.taggingRun.running() &&
+      !this.runFrozen() &&
+      this.taggingRun.writableCount() > 0,
+  )
   /**
    * Lignes a afficher dans la phase : non resolues, ou deja rattrapees pour corriger un
    * mauvais lien. Filtre d'affichage sur des etats recus ; le sidecar reste seul juge de
@@ -310,7 +324,8 @@ export class SidecarService {
   /** Point de non-retour : un second clic ne repart pas. */
   async commitRun(): Promise<void> {
     const runId = this.taggingRun.runId()
-    if (runId === null || this.writePhase.committed() || this.filesBusy()) {
+    // La confirmation peut etre acceptee apres la mort du moteur : rien ne partirait.
+    if (runId === null || !this.runConfirmable() || this.filesBusy()) {
       return
     }
     this.writePhase.committing()
@@ -345,14 +360,6 @@ export class SidecarService {
       return
     }
     await this.send({ command: "get_rollback_target" })
-  }
-
-  /**
-   * `Process.kill()` ne ciblerait que le bootloader d'un binaire PyInstaller et
-   * laisserait le process Python vivant : l'arret passe par le protocole.
-   */
-  async shutdown(): Promise<void> {
-    await this.send({ command: "shutdown" })
   }
 
   /**
@@ -454,7 +461,7 @@ export class SidecarService {
   /** Le process est perdu : toute phase longue s'arrete, quelle qu'en soit la cause. */
   private endRun(): void {
     this.endExtraction()
-    this.taggingRun.failed()
+    this.taggingRun.engineLost()
     this.writePhase.failed()
     this.arbitration.clear()
     this.urlRecovery.clear()

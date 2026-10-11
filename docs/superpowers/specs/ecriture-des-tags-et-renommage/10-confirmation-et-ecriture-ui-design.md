@@ -58,8 +58,8 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
 - **Bouton d'action unique**, dérivé par un `computed` de la page (`.claude/rules/angular/signals.md`), aligné à droite et à la largeur de son libellé :
   - `start` (« Lancer le run », principal) avant tout run, après une écriture finie, ou quand le dossier choisi diffère de celui du run affiché (`run_started.folder`, lu par `SidecarService.taggingFolder`) ;
   - `cancel` (« Interrompre », secondaire contour) pendant la phase réseau ;
-  - `commit` (« Confirmer l'écriture », `primary`) sur un run dont la phase réseau est finie ou interrompue et que l'on n'a pas confirmé ; en chargement (icône `spinner`, `[loading]` de `pButton` ne dessine rien sur un contenu projeté) pendant l'écriture.
-  Choisir un autre dossier abandonne le run non écrit : le bouton revient à `start` ; rechoisir le même le laisse confirmable. Une page recréée au retour sur l'onglet reprend d'abord le dossier du run affiché (`taggingFolder`), non la dernière destination. Grisé, il garde son libellé et dit sa raison en tooltip (geste en vol, rollback en cours, aucun morceau résolu, clé absente, dossier manquant), seule exception admise au tooltip porteur d'information (DESIGN.md § Tokens de Tooltip)
+  - `commit` (« Confirmer l'écriture », `primary`) sur un run que le moteur écrirait (`SidecarService.runConfirmable` : phase réseau finie ou interrompue, ni confirmé ni perdu avec le moteur, au moins un morceau résolu) ; en chargement (icône `spinner`, `[loading]` de `pButton` ne dessine rien sur un contenu projeté) pendant l'écriture.
+  Choisir un autre dossier abandonne le run non écrit : le bouton revient à `start` ; rechoisir le même le laisse confirmable. Un run qui n'est pas confirmable laisse `start` sur son propre dossier. Une page recréée au retour sur l'onglet reprend d'abord le dossier du run affiché (`taggingFolder`), non la dernière destination. Grisé, il garde son libellé et dit sa raison en tooltip (geste en vol, rollback en cours, clé absente, dossier manquant), seule exception admise au tooltip porteur d'information (DESIGN.md § Tokens de Tooltip)
 - **Confirmation** par `ConfirmationService` et `app-danger-confirm` (un `p-confirmdialog` posé par la page, ouvert par `injectDangerConfirm`), « Annuler » en `secondary` contour, bouton d'acceptation « Écrire les tags » en `primary`, le rouge étant réservé au rollback (DESIGN.md § Arbitrages, « Rouge des gestes sur les fichiers »), et focus par défaut sur « Annuler » (`defaultFocus="reject"` : Entrée ne valide pas une écriture) (`.claude/rules/primeng/composants.md`) : dossier du run, nombre de fichiers résolus, sauvegarde des tags d'origine et rollback possible, puis, quand leur nombre n'est pas nul, les non résolus non touchés et les morceaux encore à arbitrer qui ne seront ni écrits ni arbitrables. Les nombres se lisent sur les états reçus, l'interface ne décide rien
 - **Run figé** dès `committed` : `RunListComponent.frozen` retire toute ligne actionnable (ni clic, ni touche, ni `tabindex`), `RecoveryUiStore.available` devient faux, l'`app.component` masque le badge et la modale d'arbitrage, `CloseGuard` ne compte plus les arbitrages en attente. Les morceaux encore à arbitrer y passent en « Non traité », avec le cadre neutre de pochette et non un squelette. Une confirmation refusée (dump impossible) fait retomber `committed` et tout revient
 - **Progression** : `app-phase-progress` « Écriture des tags, pochettes et renommage » sur `writeProgress`, à la place des barres réseau et rattrapage dès la confirmation, gardée sur son dernier palier une fois l'écriture finie
@@ -110,6 +110,7 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
 - `src/app/features/tagging/tagging-page.component.spec.ts` :
   - le bouton suit le cycle start, cancel, commit, commit en chargement, start
   - un autre dossier choisi remet start sur un run non écrit, le même le laisse à commit
+  - un run qui n'est pas confirmable laisse start sur son propre dossier
   - une page recréée garde le dossier du run affiché
   - la confirmation porte les nombres, phrases conditionnelles comprises ; accepter appelle `commitRun`, annuler non
   - commit grisé avec sa raison pendant un geste en vol, un rollback et sans morceau résolu
@@ -134,7 +135,8 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
 ## Edge cases
 
 - **Run interrompu** pendant la recherche : il garde son écriture, le bouton passe à « Confirmer l'écriture »
-- **Aucun morceau résolu** : « Confirmer l'écriture » grisé, sa raison dit de rattraper par lien ou de rechoisir un dossier pour un autre run
+- **Aucun morceau résolu** : « Lancer le run » sur le même dossier ; un morceau rattrapé par lien rend le run confirmable
+- **Moteur mort** : le run affiché est figé, ses lignes restent sans geste possible, « Lancer le run » le remplace et la fermeture ne le compte plus
 - **Confirmation refusée** (dump impossible) : erreur affichée, run de nouveau confirmable, lignes et badges reviennent
 - **Même dossier rechoisi** : le run non écrit reste confirmable, seul un autre dossier l'abandonne
 - **Rollback en cours** : « Confirmer l'écriture » (raison au survol) et « Relancer l'écriture » grisés
@@ -169,3 +171,14 @@ Exclut le récapitulatif filtrable (Feature 6), les boutons de rollback et l'ét
 **Choix : A**
 **Rationale :**
 - La relance est livrée par la Feature 5, le récapitulatif par la Feature 6 (arbitrage de périmètre du 2026-10-06) ; DESIGN.md s'ajuste
+
+### Décision : relance du même dossier
+**Options envisagées :**
+- **A. « Confirmer l'écriture » grisé** tant que le dossier est celui du run non confirmé
+- **B. « Lancer le run »** quand le run n'est pas confirmable (sans morceau résolu, ou perdu avec le moteur)
+
+**Choix : B**
+
+**Rationale :**
+- Décision du propriétaire du 2026-10-11 : avec A, une clé refusée au premier run, une panne de la source ou un moteur relancé bloquaient le dossier, rien ne permettant de le relancer sans passer par un autre dossier
+- Rien n'est perdu : un run non confirmable n'a rien à écrire, et un morceau rattrapé par lien le rend confirmable

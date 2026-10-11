@@ -218,7 +218,6 @@
       "sidecar": "The application engine is not ready yet.",
       "writing": "Writing is in progress.",
       "arbitrating": "Wait for the current arbitration to answer.",
-      "nothingToWrite": "No resolved track to write. Recover some by link, or choose a folder to start another run.",
       "restoring": "Wait for the restore in progress to finish."
     },
     "empty": {

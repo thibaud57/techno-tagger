@@ -75,6 +75,7 @@ export class TaggingRunStore {
   private readonly _running = signal(false)
   private readonly _finished = signal<RunFinishedEvent | null>(null)
   private readonly _interrupted = signal(false)
+  private readonly _lost = signal(false)
 
   readonly runId = this._runId.asReadonly()
   /** Nul jusqu'a `run_started`. */
@@ -89,6 +90,12 @@ export class TaggingRunStore {
    * seront plus. Pose par `failed()`, au moment ou le fait est connu : le deduire d'un
    * `running` retombe le rendrait faux le jour ou un arret volontaire l'eteindrait aussi. */
   readonly interrupted = this._interrupted.asReadonly()
+  /** Un nouveau moteur ne connait pas ce run : rien n'en sera ecrit. Ecrit, il reste restaurable par son dump. */
+  readonly lost = this._lost.asReadonly()
+  /** Morceaux qu'une ecriture toucherait : les resolus pas encore ecrits. */
+  readonly writableCount = computed(
+    () => this.tracks().filter((track) => track.state === "resolved").length,
+  )
 
   /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {
@@ -98,6 +105,7 @@ export class TaggingRunStore {
     this._progress.set(null)
     this._finished.set(null)
     this._interrupted.set(false)
+    this._lost.set(false)
     this._running.set(true)
   }
 
@@ -135,13 +143,19 @@ export class TaggingRunStore {
     this._running.set(false)
   }
 
-  /** Erreur du sidecar ou process mort : le run s'arrete, les lignes restent. */
+  /** Erreur du sidecar ou annulation : le run s'arrete, les lignes restent. */
   failed(): void {
     this._running.set(false)
     // Avant `run_started` aucune ligne n'existe et apres `run_finished` le run a sa fin :
     // dans les deux cas il n'y a rien a etiqueter « non traite ». Le process peut mourir
     // apres la fin du run, pendant l'ecriture.
     this._interrupted.set(this._runId() !== null && this._finished() === null)
+  }
+
+  /** Le process est mort : sans run affiche, il n'y a rien a perdre. */
+  engineLost(): void {
+    this.failed()
+    this._lost.set(this._runId() !== null)
   }
 
   private patch(trackId: string, update: (row: TaggingTrack) => TaggingTrack): void {

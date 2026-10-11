@@ -30,8 +30,8 @@ export class CloseGuard {
     if (this.sidecar.tagging()) {
       work.push({ kind: "tagging" })
     }
-    // Un run confirme n'arbitrera plus : ses attentes ne sont pas un travail perdu.
-    const count = this.sidecar.committed() ? 0 : this.sidecar.arbitrationCount()
+    // Un run fige n'arbitrera plus : ses attentes ne sont pas un travail perdu.
+    const count = this.sidecar.runFrozen() ? 0 : this.sidecar.arbitrationCount()
     if (count > 0) {
       work.push({ kind: "arbitration", count })
     }
@@ -41,12 +41,8 @@ export class CloseGuard {
     if (this.sidecar.rollingBack() !== null) {
       work.push({ kind: "rollback" })
     }
-    // Un run cherche mais jamais confirme : rien n'est ecrit, ses resultats seraient perdus.
-    if (
-      this.sidecar.taggingRunId() !== null &&
-      !this.sidecar.committed() &&
-      !this.sidecar.tagging()
-    ) {
+    // Un run cherche que le moteur peut encore ecrire : quitter perdrait ses resultats.
+    if (this.sidecar.runConfirmable()) {
       work.push({ kind: "unwritten" })
     }
 

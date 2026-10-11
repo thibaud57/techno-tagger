@@ -420,7 +420,7 @@ Relevé le 2026-10-10 : 35 contrôles verts. 2 000 morceaux sous `ng serve` (bui
 
 `page/write-confirmation.js` rejoue un run simulé sous `ng serve` jusqu'à l'écriture et rend un contrôle par règle. La fermeture s'y ouvre par `_request` de `CloseGuard` (pas de fenêtre Tauri sous `ng serve`) : le passage par `onCloseRequested` se prouve au § Pilotage de la garde de fermeture.
 
-- Bouton d'action unique, calé à droite : « Lancer le run », « Interrompre » (`secondary` outlined, `stop`), « Confirmer l'écriture » (`primary`, `check`), le même en chargement (`spinner`, grisé) pendant l'écriture, puis « Lancer le run ». Le même dossier rechoisi le laisse confirmable, un autre l'abandonne ; un run interrompu reste confirmable
+- Bouton d'action unique, calé à droite : « Lancer le run », « Interrompre » (`secondary` outlined, `stop`), « Confirmer l'écriture » (`primary`, `check`), le même en chargement (`spinner`, grisé) pendant l'écriture, puis « Lancer le run ». Le même dossier rechoisi le laisse confirmable, un autre l'abandonne ; un run interrompu avec un morceau résolu reste confirmable ; un run sans morceau résolu, ou perdu avec le moteur (`svc.endRun()` puis `_available` à vrai simule la mort et la relance), laisse « Lancer le run » sur son dossier, ses lignes figées, et la fermeture ne le compte plus
 - Modale : 480px, message en `text-sm` `text-muted-color` avec le dossier, les fichiers à écrire et les non nuls (non résolus, à arbitrer), « Annuler » `secondary` outlined avec le focus, « Écrire les tags » `primary` (aucun `danger`), aucune icône ; « Annuler » n'envoie rien, accepter envoie un seul `commit_run`
 - Run figé : lignes sans `tabindex`, clic sans modale ni commande, attente d'arbitrage en « Non traité » sans squelette, badges de file et de rattrapage masqués ; un `commit_run` refusé (`tag_dump_write_failed`) rend tout, erreur affichée
 - Écriture : barre « Écriture des tags, pochettes et renommage » au compteur, gardée à « 3 sur 3 » une fois finie ; ligne écrite au libellé de sa voie en vert, échec en `danger` `exclamation-triangle` « Échec d'écriture » avec le motif au survol, sans retour à la ligne en FR comme en EN
@@ -429,7 +429,7 @@ Relevé le 2026-10-10 : 35 contrôles verts. 2 000 morceaux sous `ng serve` (bui
 
 Le dossier comparé par le bouton est celui de `run_started`, que le sidecar normalise (`/` en `\`, séparateur final retiré, relevé par `drive.py` le 2026-10-10) : le dialogue natif et la dernière destination rendent déjà cette forme.
 
-Parcours relevé le 2026-10-10 : 45 contrôles verts. `page/url-recovery-modal.js` rejoué le même jour, 27 verts, son contrôle du lancement pendant un geste visant désormais le bouton d'action unique.
+Parcours relevé le 2026-10-11 : 49 contrôles verts, run sans morceau résolu et moteur perdu compris. `page/url-recovery-modal.js` rejoué le même jour, 27 verts, son contrôle du lancement pendant un geste visant désormais le bouton d'action unique.
 
 ## Pilotage du rollback depuis l'interface
 

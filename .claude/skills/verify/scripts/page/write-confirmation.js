@@ -388,6 +388,36 @@ async (page) => {
   const interrupted = await action()
   check("interrupted run offers to confirm", interrupted?.action === "commit" && !interrupted.disabled, interrupted)
 
+  // 11 bis. Run sans morceau resolu : le meme dossier se relance, la fermeture ne le retient pas.
+  const unwrittenPending = () => page.evaluate(() => window.__guard.pendingWork().some((w) => w.kind === "unwritten"))
+  await page.evaluate(() => window.__svc.startTagging(ng.getComponent(document.querySelector("app-tagging-page")).folder()))
+  await line({ event: "run_started", run_id: "run-4", folder: FOLDER, tracks: [U, A] })
+  await line(unresolved(U))
+  await line(unresolved(A))
+  await line(finished("run-4", "network", { unresolved: 2 }))
+  await settle(600)
+  const empty = await action()
+  check("run without a resolved track: its folder starts again", empty?.action === "start" && !empty.disabled, empty)
+  check("run without a resolved track: closing loses nothing", !(await unwrittenPending()), await page.evaluate(() => window.__guard.pendingWork()))
+
+  // 11 ter. Moteur mort puis relance : le run affiche se fige, son dossier se relance.
+  await page.evaluate(() => window.__svc.startTagging(ng.getComponent(document.querySelector("app-tagging-page")).folder()))
+  await line({ event: "run_started", run_id: "run-5", folder: FOLDER, tracks: [R1, U] })
+  await line(resolved(R1))
+  await line(unresolved(U))
+  await line(finished("run-5", "network", { resolved: 1, unresolved: 1 }))
+  await settle(600)
+  const beforeDeath = { action: await action(), unwritten: await unwrittenPending(), recoverable: (await rowState("Nur Jaber"))?.tabindex }
+  await page.evaluate(() => {
+    window.__svc.endRun()
+    window.__svc._available.set(true)
+  })
+  await settle(600)
+  const afterDeath = { action: await action(), unwritten: await unwrittenPending(), recoverable: (await rowState("Nur Jaber"))?.tabindex, rows: await page.evaluate(() => document.querySelectorAll("app-run-list tbody tr").length) }
+  out.measures.engineLost = { beforeDeath, afterDeath }
+  check("engine lost: run was confirmable and pending before", beforeDeath.action?.action === "commit" && beforeDeath.unwritten && beforeDeath.recoverable === "0", beforeDeath)
+  check("engine lost: same folder starts again, rows kept but frozen, closing loses nothing", afterDeath.action?.action === "start" && !afterDeath.action.disabled && !afterDeath.unwritten && afterDeath.recoverable === null && afterDeath.rows === 2, afterDeath)
+
   // 12. Plancher 1024 x 700 : rangee d'actions sans debordement.
   await page.setViewportSize({ width: 1024, height: 700 })
   await settle(500)

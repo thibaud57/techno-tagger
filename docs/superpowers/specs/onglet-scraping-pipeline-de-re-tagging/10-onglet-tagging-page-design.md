@@ -139,7 +139,7 @@ Aucun test ne vérifie le rendu conditionnel d'un bloc ni PrimeNG : ce qui est t
 
 - **Web Audio indisponible** (contexte refusé par la webview) : l'annonce se poursuit sans son, le toast s'affiche, aucune erreur visible.
 - **Dossier disparu entre le choix et le lancement** : le sidecar répond `tagging_folder_unreadable`, affiché sous l'en-tête, aucune ligne n'existant encore et le lancement restant possible.
-- **Run relancé** : les lignes précédentes disparaissent dès l'envoi de la commande, le store étant réinitialisé. Sur le même dossier, le lancement n'est proposé qu'une fois le run écrit : tant qu'il ne l'est pas, le bouton d'action devient « Confirmer l'écriture », et un autre dossier abandonne le run.
+- **Run relancé** : les lignes précédentes disparaissent dès l'envoi de la commande, le store étant réinitialisé. Sur le même dossier, le bouton d'action devient « Confirmer l'écriture » tant que le run a un morceau à écrire et n'est pas confirmé ; écrit, sans morceau résolu ou perdu avec le moteur, il se relance. Un autre dossier abandonne le run.
 - **Onglet quitté pendant un run** : le run continue, la progression et les lignes sont retrouvées au retour, l'état vivant dans le store.
 - **Fin de phase réseau alors que des morceaux attendent un arbitrage** : le signal se déclenche quand même, comme le veut BRAINSTORM, l'arbitrage n'étant pas la phase réseau.
 - **Deux fins coup sur coup** (extraction puis run) : deux annonces distinctes, chacune déclenchée par sa transition.

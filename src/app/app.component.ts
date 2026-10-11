@@ -76,9 +76,9 @@ export class AppComponent {
     ...this.sidecar.versionMismatch(),
   }))
 
-  /** Un run confirme n'accepte plus d'arbitrage : sa file reste, sans badge ni modale. */
+  /** Un run fige n'accepte plus d'arbitrage : sa file reste, sans badge ni modale. */
   protected readonly arbitrationCount = computed(() =>
-    this.sidecar.committed() ? 0 : this.sidecar.arbitrationCount(),
+    this.sidecar.runFrozen() ? 0 : this.sidecar.arbitrationCount(),
   )
   /** L'etape lien d'un morceau sorti de la file garde la modale ouverte, meme file videe. */
   private readonly queueEmpty = computed(

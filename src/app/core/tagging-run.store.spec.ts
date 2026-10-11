@@ -191,6 +191,24 @@ describe("TaggingRunStore", () => {
     expect(store.interrupted()).toBe(expected)
   })
 
+  it("loses a started run with its engine until a new run starts", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+
+    store.engineLost()
+    const lost = store.lost()
+    store.reset()
+
+    expect(lost).toBe(true)
+    expect(store.lost()).toBe(false)
+  })
+
+  it("loses nothing when the engine dies before a run starts", () => {
+    store.engineLost()
+
+    expect(store.lost()).toBe(false)
+  })
+
   it("ignores a track the run does not know", () => {
     store.reset()
     store.started(RUN_STARTED)

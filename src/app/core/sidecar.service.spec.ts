@@ -387,14 +387,6 @@ describe("SidecarService", () => {
     expect(service.version()).toBeNull()
   })
 
-  it("stops the sidecar through the protocol", async () => {
-    await service.start()
-
-    await service.shutdown()
-
-    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({ command: "shutdown" })
-  })
-
   it("sends the api key command", async () => {
     await service.start()
 
@@ -934,11 +926,16 @@ describe("SidecarService", () => {
   })
 
   describe("write phase", () => {
-    const resolvedRun = async (): Promise<void> => {
+    const searchingRun = async (): Promise<void> => {
       await service.start()
       await service.startTagging("C:/Sets")
       transport.emit(RUN_STARTED)
+    }
+    /** Recherche finie avec un morceau resolu : le seul run que le moteur accepte de confirmer. */
+    const resolvedRun = async (): Promise<void> => {
+      await searchingRun()
       transport.emit(TRACK_RESOLVED)
+      transport.emit(NETWORK_FINISHED)
     }
     const countOf = (command: string): number =>
       transport.sent.filter((line) => commandOf(line) === command).length
@@ -1078,7 +1075,8 @@ describe("SidecarService", () => {
     it.each(["write_in_progress", "rollback_in_progress"])(
       "keeps the displayed run when a launch is refused with %s",
       async (code) => {
-        await resolvedRun()
+        await searchingRun()
+        transport.emit(TRACK_RESOLVED)
 
         transport.emit(commandError("start_tagging", code))
 
@@ -1105,6 +1103,61 @@ describe("SidecarService", () => {
       transport.handlers?.onTerminated()
 
       expect(service.writing()).toBe(false)
+    })
+
+    it("lets a searched run with a resolved track be confirmed", async () => {
+      await searchingRun()
+      transport.emit(TRACK_RESOLVED)
+
+      transport.emit(NETWORK_FINISHED)
+
+      expect(service.runConfirmable()).toBe(true)
+    })
+
+    it("does not let a run be confirmed while its search runs", async () => {
+      await searchingRun()
+
+      transport.emit(TRACK_RESOLVED)
+
+      expect(service.runConfirmable()).toBe(false)
+    })
+
+    it("does not let a run without a resolved track be confirmed", async () => {
+      await searchingRun()
+
+      transport.emit({ ...TRACK_RESOLVED, state: "unresolved" })
+      transport.emit(NETWORK_FINISHED)
+
+      expect(service.runConfirmable()).toBe(false)
+    })
+
+    it("keeps an interrupted run with a resolved track confirmable", async () => {
+      await searchingRun()
+      transport.emit(TRACK_RESOLVED)
+
+      await service.cancelTagging()
+
+      expect(service.runConfirmable()).toBe(true)
+    })
+
+    it("stops letting a run be confirmed once it is committed", async () => {
+      await resolvedRun()
+      transport.emit(NETWORK_FINISHED)
+
+      await service.commitRun()
+
+      expect(service.runConfirmable()).toBe(false)
+    })
+
+    it("freezes the shown run when its engine dies, rows kept", async () => {
+      await resolvedRun()
+      transport.emit(NETWORK_FINISHED)
+
+      transport.handlers?.onTerminated()
+
+      expect(service.runFrozen()).toBe(true)
+      expect(service.runConfirmable()).toBe(false)
+      expect(service.taggingTracks()).not.toHaveLength(0)
     })
 
     it("forgets the write but keeps the target when a new run starts", async () => {

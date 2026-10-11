@@ -50,7 +50,7 @@ Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sideca
 
 - **Jeton `APP_WINDOW`** (`core/app-window.ts`), sur le modèle de `SIDECAR_TRANSPORT` : `InjectionToken` fourni à la racine par une fabrique, d'interface `onCloseRequested(handler)` et `destroy()`. La fabrique enveloppe `getCurrentWindow()` de `@tauri-apps/api/window`. Hors Tauri (`ng serve`, Playwright), l'inscription échoue et le jeton l'absorbe, comme `pickPath` : l'écran reste utilisable (`.claude/rules/typescript/types.md`, frontière testable).
 - **`CloseGuard`** (`core/close-guard.service.ts`, `.claude/rules/angular/services.md`) :
-  - `pendingWork` : `computed` qui liste les travaux en cours par clé, dans un ordre fixe : `extraction` (`SidecarService.extracting`), `tagging` (`SidecarService.tagging`), `arbitration` (`arbitrationCount > 0`, avec le nombre d'arbitrages, compté 0 sur un run confirmé qui n'arbitrera plus), `write` (`writing`), `rollback` (`rollingBack`) et `unwritten` (un run cherché, hors recherche, jamais confirmé : rien n'est écrit, ses résultats seraient perdus). Une Feature y ajoute sa ligne sans toucher au reste ;
+  - `pendingWork` : `computed` qui liste les travaux en cours par clé, dans un ordre fixe : `extraction` (`SidecarService.extracting`), `tagging` (`SidecarService.tagging`), `arbitration` (`arbitrationCount > 0`, avec le nombre d'arbitrages, compté 0 sur un run figé, confirmé ou perdu avec le moteur, qui n'arbitrera plus), `write` (`writing`), `rollback` (`rollingBack`) et `unwritten` (`SidecarService.runConfirmable` : un run que le moteur écrirait, dont les résultats seraient perdus). Une Feature y ajoute sa ligne sans toucher au reste ;
   - `blocked` : `computed` vrai quand `write` ou `rollback` est en cours, lu en direct. Tauri arrête le sidecar à la sortie, qui couperait un fichier en plein travail : `leave()` est alors sans effet ;
   - `install()` : s'inscrit une seule fois sur la fermeture. Travail en cours : `preventDefault()` appelé de façon synchrone, avant toute attente, puis ouverture de la confirmation avec un instantané de `pendingWork` pris à cet instant. Rien en cours : la fermeture suit son cours ;
   - `request` : l'instantané en lecture, `null` hors confirmation ; `stay()` le remet à `null` ; `leave()` appelle `destroy()`, qui ferme sans repasser par la garde.
@@ -91,7 +91,7 @@ Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sideca
 **THEN** l'application reste ouverte
 
 ### Scénario 5 : Écran bloquant
-**GIVEN** le sidecar mort sans run affiché, écran bloquant affiché
+**GIVEN** le sidecar mort, avec ou sans run non confirmé affiché, écran bloquant affiché
 **WHEN** l'utilisateur ferme la fenêtre
 **THEN** elle se ferme, sans confirmation
 
@@ -113,8 +113,8 @@ Exclut la reprise d'un travail interrompu (Feature 6), l'arrêt propre du sideca
   - lets the window close when no work is pending
   - holds the window and asks for confirmation while work is pending (paramétré : extraction, run, arbitrages)
   - lists the pending work in a fixed order
-  - stops counting the arbitrations of a committed run
-  - counts an unwritten run as pending work, but not a committed run nor a run still searching
+  - stops counting the arbitrations of a frozen run
+  - counts a run that could still be written as pending work
   - closes the window for good when the user leaves
   - keeps the window open when the user stays
   - installs its listener only once

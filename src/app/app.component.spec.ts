@@ -38,6 +38,7 @@ const mount = () => {
     arbitrations: signal<readonly { track_id: string }[]>([]),
     tagging: signal(false),
     committed: signal(false),
+    runFrozen: signal(false),
     taggingTracks: signal<readonly TaggingTrack[]>([]),
     recoverableTracks: signal<readonly TaggingTrack[]>([]),
     urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
@@ -141,12 +142,12 @@ describe("AppComponent", () => {
     expect(component["arbitrationVisible"]()).toBe(true)
   })
 
-  it("hides the queue badge and dialog once the run is committed", () => {
+  it("hides the queue badge and dialog once the run is frozen", () => {
     const { fixture, component, service } = mount()
     service.arbitrationCount.set(2)
     fixture.detectChanges()
 
-    service.committed.set(true)
+    service.runFrozen.set(true)
     fixture.detectChanges()
 
     expect(badge(fixture.nativeElement as HTMLElement)).toBeNull()

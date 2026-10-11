@@ -218,7 +218,6 @@
       "sidecar": "Le moteur de l'application n'est pas encore prêt.",
       "writing": "L'écriture est en cours.",
       "arbitrating": "Attendez la réponse de l'arbitrage en cours.",
-      "nothingToWrite": "Aucun morceau résolu à écrire. Rattrapez-en par lien, ou choisissez un dossier pour lancer un autre run.",
       "restoring": "Attendez la fin de la restauration en cours."
     },
     "empty": {
