@@ -57,7 +57,9 @@ Un push, dans l'ordre :
   ajouté qu'après la recompilation distante. Pour les contrôler en local, servir l'export
   (`python -m http.server`) et substituer au bundle un build esbuild de `components/*/*.jsx`
   (`--bundle --format=iife --global-name=TechnoTaggerDesignSystem_66daf6 --alias:react=<shim>`,
-  le shim rendant `window.React`), par une route Playwright sur `**/_ds_bundle.js`.
+  le shim rendant `window.React`), par une route Playwright sur `**/_ds_bundle.js`. Le navigateur garde
+  l'ancien bundle en cache : vider le cache (CDP `Network.clearBrowserCache`) avant de conclure
+  qu'un composant manque.
 - **Ne jamais modifier la maquette sans demande explicite** : c'est le fichier de design du
   propriétaire, pas un artefact généré.
 - **L'export local n'est un miroir que comparé au distant** : une session peut pousser sans le
@@ -198,11 +200,14 @@ Rien à pousser au 2026-10-11.
   chevron), trois composants ajoutés (`DialogHeader`, `SettingsRow`, `RollbackFailures`), tokens et
   cartes de fondations, maquette (bouton d'action unique, écriture et restauration, détail par
   blocs, en-têtes de modale, Réglages en rangées, `Recap` gardé comme écran prévu derrière le lien
-  « récapitulatif ? »). `_ds_needs_recompile` posé. L'export local garde l'ancien `_ds_bundle.js`,
-  `_ds_manifest.json` et `_adherence.oxlintrc.json` : les relire du distant après la recompilation.
+  « récapitulatif ? »). `_ds_needs_recompile` posé.
   Second push le même jour : `SettingsRow` donne 12px à un retour en tête de zone, comme l'app. Troisième push :
   les écrans de la maquette appellent `DialogHeader`, `RollbackFailures`, `ConfirmDialog`, `SettingsRow`,
   `Message` et `StateTag` du catalogue au lieu de leurs recompositions locales, contrôlés avant le
   push sur un bundle esbuild des sources (§ Comment ce dépôt se synchronise). `Message` `small` passe
   à 26px, la hauteur mesurée dans l'app sur le bandeau de l'arbitrage (`min-h-6.5`) : à 28px, la liste
-  bougeait de 2px au changement de source.
+  bougeait de 2px au changement de source. Après la recompilation, `_ds_bundle.js`, `_ds_manifest.json` et
+  `_adherence.oxlintrc.json` relus du distant dans l'export, maquette et cartes rejouées sur ce bundle
+  sans erreur. Le gabarit `templates/app-shell`, resté à l'état d'avant le container unique (formulaire
+  à 768px, « Re-tagging », six colonnes), suit l'app et est poussé : sa description dans le manifeste
+  change à la recompilation suivante, à relire du distant.
