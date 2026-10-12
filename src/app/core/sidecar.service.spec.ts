@@ -1188,6 +1188,43 @@ describe("SidecarService", () => {
       expect(service.writing()).toBe(true)
     })
 
+    it("clears nothing while files are being written", async () => {
+      await resolvedRun()
+      transport.emit(NETWORK_FINISHED)
+      await service.commitRun()
+
+      service.clearRun()
+
+      expect(service.taggingTracks()).toHaveLength(2)
+      expect(service.writing()).toBe(true)
+    })
+
+    it("lets a new run start after the displayed one is cleared", async () => {
+      await resolvedRun()
+      transport.emit(WRITE_FINISHED)
+
+      service.clearRun()
+      const cleared = {
+        tagging: service.tagging(),
+        tracks: service.taggingTracks().length,
+        requested: service.requestedFolder(),
+      }
+      await service.startTagging("C:/Sets")
+
+      expect(cleared).toEqual({ tagging: false, tracks: 0, requested: null })
+      expect(countOf("start_tagging")).toBe(2)
+      expect(service.tagging()).toBe(true)
+    })
+
+    it("clears nothing while a search runs", async () => {
+      await searchingRun()
+
+      service.clearRun()
+
+      expect(service.taggingTracks()).toHaveLength(2)
+      expect(service.tagging()).toBe(true)
+    })
+
     it("lets the run be confirmed again when the engine is gone before the commit", async () => {
       await resolvedRun()
       transport.handlers?.onTerminated()

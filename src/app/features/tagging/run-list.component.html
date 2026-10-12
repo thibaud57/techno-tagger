@@ -170,11 +170,19 @@
         </td>
       } @else {
         <td colspan="7" class="border-b-0">
-          <app-empty-state
-            icon="folder"
-            [heading]="'tagging.list.empty.heading' | translate"
-            [description]="'tagging.list.empty.description' | translate"
-          />
+          @if (emptyState() === "search") {
+            <app-empty-state
+              icon="search"
+              [heading]="'recap.empty.heading' | translate"
+              [description]="'recap.empty.description' | translate"
+            />
+          } @else {
+            <app-empty-state
+              icon="folder"
+              [heading]="'tagging.list.empty.heading' | translate"
+              [description]="'tagging.list.empty.description' | translate"
+            />
+          }
         </td>
       }
     </tr>

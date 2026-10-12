@@ -172,6 +172,7 @@
     "rollbackFinishedWithFailures": "Restauration terminée\nFichiers non restaurés : {{count}}",
     "start": "Lancer le run",
     "cancel": "Interrompre",
+    "recap": "Récapitulatif",
     "phase": "Recherche en cours",
     "progress": "{{processed}} sur {{total}}",
     "commit": {
@@ -294,6 +295,27 @@
         "description": "Tous les morceaux du run ont trouvé une source."
       }
     }
+  },
+  "recap": {
+    "title": "Récapitulatif du run",
+    "filter": {
+      "label": "Filtrer les morceaux",
+      "all": "Tout",
+      "validated": "Validés",
+      "arbitrated": "Arbitrés",
+      "failed": "Échecs"
+    },
+    "search": "Rechercher",
+    "empty": {
+      "heading": "Aucun morceau ne correspond",
+      "description": "Changez de filtre ou videz la recherche."
+    },
+    "none": {
+      "heading": "Aucun run à récapituler",
+      "description": "Lancez un run depuis l'onglet Tagging."
+    },
+    "back": "Retour à la liste",
+    "newRun": "Nouveau run"
   },
   "rollback": {
     "failures": "Fichiers non restaurés : {{count}}",

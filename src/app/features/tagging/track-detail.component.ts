@@ -1,5 +1,6 @@
 import { Component, computed, input, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
+import { openUrl } from "@tauri-apps/plugin-opener"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
@@ -17,6 +18,8 @@ import type { RunRow } from "./run-list.component"
 interface DetailRow {
   readonly labelKey: string
   readonly key: string | null
+  /** Fiche de la source, ouverte depuis la ligne URL ; nulle sur toute autre ligne. */
+  readonly link: string | null
   readonly before: string | null
   readonly after: string | null
 }
@@ -89,6 +92,7 @@ export class TrackDetailComponent {
     const rows: DetailRow[] = shown.map(({ field, key }) => ({
       labelKey: `tagging.detail.field.${field}`,
       key,
+      link: field === "url" ? track.sourceUrl : null,
       before: before.get(field) ?? null,
       after: after.get(field) ?? null,
     }))
@@ -98,6 +102,7 @@ export class TrackDetailComponent {
       rows.push({
         labelKey: "tagging.detail.field.comment",
         key: null,
+        link: null,
         before: comment,
         after: null,
       })
@@ -105,4 +110,11 @@ export class TrackDetailComponent {
 
     return rows
   })
+
+  /** Le navigateur par defaut : la webview n'ouvre aucune page externe. */
+  protected openSource(url: string): void {
+    openUrl(url).catch((error: unknown) => {
+      console.error("[track-detail] fiche source non ouverte", error)
+    })
+  }
 }

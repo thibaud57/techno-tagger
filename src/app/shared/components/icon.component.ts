@@ -7,6 +7,7 @@ import { Check } from "@primeicons/angular/check"
 import { CheckCircle } from "@primeicons/angular/check-circle"
 import { Clock } from "@primeicons/angular/clock"
 import { ExclamationTriangle } from "@primeicons/angular/exclamation-triangle"
+import { ExternalLink } from "@primeicons/angular/external-link"
 import { Eye } from "@primeicons/angular/eye"
 import { EyeSlash } from "@primeicons/angular/eye-slash"
 import { File as FileIcon } from "@primeicons/angular/file"
@@ -15,7 +16,9 @@ import { Image as ImageIcon } from "@primeicons/angular/image"
 import { InfoCircle } from "@primeicons/angular/info-circle"
 import { MinusCircle } from "@primeicons/angular/minus-circle"
 import { Play } from "@primeicons/angular/play"
+import { Plus } from "@primeicons/angular/plus"
 import { Refresh } from "@primeicons/angular/refresh"
+import { Search } from "@primeicons/angular/search"
 import { Spinner } from "@primeicons/angular/spinner"
 import { Stop } from "@primeicons/angular/stop"
 import { Times } from "@primeicons/angular/times"
@@ -51,6 +54,9 @@ export const ICON_NAMES = [
   "spinner",
   "refresh",
   "undo",
+  "search",
+  "external-link",
+  "plus",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -83,6 +89,9 @@ export type IconSize = 16 | 20 | 24
     Times,
     TimesCircle,
     Undo,
+    ExternalLink,
+    Plus,
+    Search,
   ],
   template: `
     @switch (name()) {
@@ -151,6 +160,15 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("undo") {
         <svg data-p-icon="undo" [size]="size()" />
+      }
+      @case ("search") {
+        <svg data-p-icon="search" [size]="size()" />
+      }
+      @case ("external-link") {
+        <svg data-p-icon="external-link" [size]="size()" />
+      }
+      @case ("plus") {
+        <svg data-p-icon="plus" [size]="size()" />
       }
     }
   `,

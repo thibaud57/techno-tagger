@@ -172,6 +172,7 @@
     "rollbackFinishedWithFailures": "Restore complete\nFiles not restored: {{count}}",
     "start": "Start the run",
     "cancel": "Stop the run",
+    "recap": "Summary",
     "phase": "Searching",
     "progress": "{{processed}} of {{total}}",
     "commit": {
@@ -294,6 +295,27 @@
         "description": "Every track in the run found a source."
       }
     }
+  },
+  "recap": {
+    "title": "Run summary",
+    "filter": {
+      "label": "Filter the tracks",
+      "all": "All",
+      "validated": "Validated",
+      "arbitrated": "Arbitrated",
+      "failed": "Failures"
+    },
+    "search": "Search",
+    "empty": {
+      "heading": "No track matches",
+      "description": "Change the filter or clear the search."
+    },
+    "none": {
+      "heading": "No run to summarize",
+      "description": "Start a run from the Tagging tab."
+    },
+    "back": "Back to the list",
+    "newRun": "New run"
   },
   "rollback": {
     "failures": "Files not restored: {{count}}",

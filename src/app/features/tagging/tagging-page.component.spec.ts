@@ -1,18 +1,28 @@
 import { computed, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { By } from "@angular/platform-browser"
+import { Router } from "@angular/router"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import { ConfirmationService } from "primeng/api"
 import { Tooltip } from "primeng/tooltip"
 
-import type { RollbackFinishedEvent, SidecarErrorEvent } from "../../core/models/protocol"
+import type {
+  RollbackFinishedEvent,
+  RunFinishedEvent,
+  SidecarErrorEvent,
+} from "../../core/models/protocol"
 import { readLastDestination } from "../../core/preferences"
 import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
-import { PENDING_TRACK, arbitrationRequired, resolvedTrack } from "../../../fixtures/tagging"
-import { rollbackFinished } from "../../../fixtures/write"
+import {
+  PENDING_TRACK,
+  arbitrationRequired,
+  resolvedTrack,
+  writtenTrack as written,
+} from "../../../fixtures/tagging"
+import { WRITE_FINISHED, rollbackFinished } from "../../../fixtures/write"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
 import { RunListComponent } from "./run-list.component"
@@ -62,6 +72,7 @@ const mountWith = async (overrides: Partial<Record<string, unknown>> = {}) => {
     urlRecoveryErrors: signal(new Map()),
     resolveByUrl: vi.fn(() => Promise.resolve()),
     writing: signal(false),
+    writeFinished: signal<RunFinishedEvent | null>(null),
     writeProgress: signal<{ processed: number; total: number } | null>(null),
     runRetryable: signal(false),
     arbitrationInFlight: signal(false),
@@ -217,17 +228,6 @@ describe("TaggingPageComponent", () => {
     ...resolvedTrack(trackId),
     state: "write_error",
   })
-  /** Le dump porte l'origine d'une ligne ecrite ou en echec, pas d'une ligne restauree. */
-  const written = (
-    trackId: string,
-    state: TaggingTrack["state"] = "written",
-    restorable = state !== "rolled_back",
-  ): TaggingTrack => ({
-    ...resolvedTrack(trackId),
-    state,
-    restorable,
-  })
-
   it("cycles its single action with the phase", async () => {
     const tagging = signal(false)
     const confirmable = signal(false)
@@ -504,8 +504,8 @@ describe("TaggingPageComponent", () => {
       ]),
     })
 
-    expect([...component["restorableIds"]()]).toEqual(["a.mp3", "b.mp3"])
-    expect(component["canRestoreRun"]()).toBe(true)
+    expect([...component["runRestore"].restorableIds()]).toEqual(["a.mp3", "b.mp3"])
+    expect(component["runRestore"].canRestoreRun()).toBe(true)
   })
 
   it("leaves a failed track whose origin was never saved out of the restore", async () => {
@@ -515,7 +515,7 @@ describe("TaggingPageComponent", () => {
       taggingTracks: signal([written("a.mp3", "write_error", false), written("b.mp3")]),
     })
 
-    expect([...component["restorableIds"]()]).toEqual(["b.mp3"])
+    expect([...component["runRestore"].restorableIds()]).toEqual(["b.mp3"])
   })
 
   it("offers no restore when no track is flagged restorable", async () => {
@@ -525,7 +525,7 @@ describe("TaggingPageComponent", () => {
       taggingTracks: signal([written("a.mp3", "write_error", false)]),
     })
 
-    expect(component["canRestoreRun"]()).toBe(false)
+    expect(component["runRestore"].canRestoreRun()).toBe(false)
   })
 
   it("keeps the run button while a track is left to restore", async () => {
@@ -535,7 +535,7 @@ describe("TaggingPageComponent", () => {
       taggingTracks: signal([written("a.mp3", "rolled_back"), written("b.mp3", "write_error")]),
     })
 
-    expect(component["canRestoreRun"]()).toBe(true)
+    expect(component["runRestore"].canRestoreRun()).toBe(true)
   })
 
   it("drops the run button once every track is restored", async () => {
@@ -545,7 +545,7 @@ describe("TaggingPageComponent", () => {
       taggingTracks: signal([written("a.mp3", "rolled_back")]),
     })
 
-    expect(component["canRestoreRun"]()).toBe(false)
+    expect(component["runRestore"].canRestoreRun()).toBe(false)
   })
 
   it("shows the run restore button even when the write bar is hidden", async () => {
@@ -587,7 +587,7 @@ describe("TaggingPageComponent", () => {
       rollingBack: signal(rollingBack),
     })
 
-    const restoring = component["restoringRun"]()
+    const restoring = component["runRestore"].restoringRun()
 
     expect(restoring).toBe(expected)
   })
@@ -626,7 +626,7 @@ describe("TaggingPageComponent", () => {
     })
     const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
 
-    component["restoreRun"]()
+    component["runRestore"].restoreRun()
     const options = confirm.mock.calls[0]?.[0]
     const before = service.rollback.mock.calls.length
     options?.accept?.()
@@ -634,6 +634,52 @@ describe("TaggingPageComponent", () => {
     expect(options?.acceptButtonProps).toMatchObject({ severity: "danger" })
     expect(before).toBe(0)
     expect(service.rollback).toHaveBeenCalledWith("a3f9c1")
+  })
+
+  it("offers the run summary once the write phase is over", async () => {
+    const writeFinished = signal<RunFinishedEvent | null>(null)
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      writeFinished,
+    })
+    fixture.detectChanges()
+    const before = host(fixture).querySelector('[data-action="recap"]')
+
+    writeFinished.set(WRITE_FINISHED)
+    fixture.detectChanges()
+
+    expect(before).toBeNull()
+    expect(host(fixture).querySelector('[data-action="recap"]')).not.toBeNull()
+  })
+
+  it("keeps the run summary within reach when the write bar and the restore are hidden", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      writeFinished: signal(WRITE_FINISHED),
+      taggingTracks: signal([written("a.mp3", "rolled_back")]),
+    })
+
+    fixture.detectChanges()
+
+    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(host(fixture).querySelector('[data-action="restore-run"]')).toBeNull()
+    expect(host(fixture).querySelector('[data-action="recap"]')).not.toBeNull()
+  })
+
+  it("opens the run summary", async () => {
+    const { fixture } = await mountWith({
+      taggingRunId: signal("a3f9c1"),
+      committed: signal(true),
+      writeFinished: signal(WRITE_FINISHED),
+    })
+    const navigate = vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
+    fixture.detectChanges()
+
+    host(fixture).querySelector<HTMLButtonElement>('[data-action="recap"]')?.click()
+
+    expect(navigate).toHaveBeenCalledWith("/tagging/recap")
   })
 
   it("restores one track after its confirmation", async () => {
@@ -644,7 +690,7 @@ describe("TaggingPageComponent", () => {
     })
     const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
 
-    component["restoreTrack"]("a.mp3")
+    component["runRestore"].restoreTrack("a.mp3")
     confirm.mock.calls[0]?.[0].accept?.()
 
     expect(service.rollback).toHaveBeenCalledWith("a3f9c1", "a.mp3")
@@ -659,8 +705,8 @@ describe("TaggingPageComponent", () => {
     })
     const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
 
-    component["restoreRun"]()
-    component["restoreTrack"]("a.mp3")
+    component["runRestore"].restoreRun()
+    component["runRestore"].restoreTrack("a.mp3")
 
     expect(confirm).not.toHaveBeenCalled()
   })
@@ -674,7 +720,7 @@ describe("TaggingPageComponent", () => {
       taggingRunId: signal("a3f9c1"),
       rollbackFinished: signal(failedRollback),
     })
-    const ownFailures = shown.component["runRollbackFailures"]()
+    const ownFailures = shown.component["runRestore"].runRollbackFailures()
     TestBed.resetTestingModule()
 
     const other = await mountWith({
@@ -683,7 +729,7 @@ describe("TaggingPageComponent", () => {
     })
 
     expect(ownFailures).toHaveLength(1)
-    expect(other.component["runRollbackFailures"]()).toEqual([])
+    expect(other.component["runRestore"].runRollbackFailures()).toEqual([])
   })
 
   it("blocks a launch while a rollback runs", async () => {

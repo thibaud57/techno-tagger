@@ -9,6 +9,7 @@ import {
   arbitrationRequired,
   resolvedTrack,
 } from "../../../fixtures/tagging"
+import { settleScroller as settle, stubOffscreenLayout } from "../../../fixtures/virtual-scroll"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 
 import { RunListComponent } from "./run-list.component"
@@ -36,17 +37,6 @@ const UNRESOLVED: TaggingTrack = {
   artworkPath: null,
 }
 
-/**
- * Sans ces mesures, JSDOM n'en calculant aucune, `[virtualScroll]` ne monte pas une seule ligne.
- * Par `vi.spyOn` et non `Object.defineProperty` : le builder tourne en `isolate: false`, un stub
- * non restaure fuirait vers les specs suivantes (`showOnEllipsis` de `pTooltip`, entre autres).
- */
-const stubOffscreenLayout = (): void => {
-  vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockReturnValue(document.body)
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(600)
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800)
-}
-
 const mountWith = async (
   tracks: readonly TaggingTrack[],
   recoverable: ReadonlySet<string> = new Set(),
@@ -68,15 +58,6 @@ const mountWith = async (
   fixture.detectChanges()
 
   return fixture
-}
-
-/**
- * Laisse le scroller digerer un changement d'entree ou de clic. `fixture.whenStable()` n'y est
- * plus appele : sous faux timers il ne se resout pas (timeout de 5 s mesure le 2026-10-11).
- */
-const settle = async (fixture: { detectChanges: () => void }) => {
-  await vi.advanceTimersByTimeAsync(1)
-  fixture.detectChanges()
 }
 
 /** Les sept colonnes de la seule ligne montee, dans l'ordre du template. */

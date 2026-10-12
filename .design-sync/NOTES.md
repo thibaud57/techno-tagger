@@ -73,6 +73,9 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 
 - **`AppShell`** : états « dossier introuvable ou vidé », « plan illisible » et « plan corrompu » de l'invite de reprise, livrés par le code et absents de la maquette. Focus de l'invite coupé à l'ouverture. Dossier sur sa propre ligne sous le résumé, tronqué à gauche, là où la maquette l'écrit dans la phrase (décidé le 2026-10-12).
 - **`CloseConfirmation`** : lignes `tagging`, `arbitration` et `unwritten` retirées par le code (décidé le 2026-10-12).
+- **`AppShell`, `Recap`** : bouton « Récapitulatif » à la place du lien de simulation, « Envoyer ce rapport » absent, lien source dans `TrackDetail`, bouton « Retour à la liste » en tête du `Recap` (décidé le 2026-10-12).
+- **Fiche `Icon`** : l'inventaire des glyphes de l'app ne compte ni `search`, ni `external-link`, ni `plus`, que le code emploie (champ de recherche et état vide du récapitulatif pour `search`, lien source du détail pour `external-link`, « Nouveau run » pour `plus`) (constaté le 2026-10-12).
+- **Fiche `Button`** : la variante `link` n'y sert qu'à « Revenir à Beatport », le lien source du détail en est un second usage (constaté le 2026-10-12).
 
 ## Journal
 

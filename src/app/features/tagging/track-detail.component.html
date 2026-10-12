@@ -33,7 +33,19 @@
               }
             </span>
             <span class="min-w-0" data-cell>
-              @if (row.after; as after) {
+              @if (row.link; as url) {
+                <button
+                  pButton
+                  type="button"
+                  [link]="true"
+                  class="max-w-full border-0 p-0 text-xs"
+                  data-action="open-source"
+                  (click)="openSource(url)"
+                >
+                  <app-truncated-text [text]="url" />
+                  <app-icon name="external-link" [size]="16" />
+                </button>
+              } @else if (row.after; as after) {
                 <app-truncated-text [text]="after" />
               } @else {
                 <app-no-value />

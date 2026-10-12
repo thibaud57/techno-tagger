@@ -381,7 +381,8 @@ async (page) => {
       }
       const p = document.querySelector("app-tagging-page")
       const b = p.querySelector('[data-action="restore-run"]')
-      const row = b.parentElement
+      // Rangee de la barre : le bouton vit dans le groupe qu'il partage avec « Recapitulatif » (2026-10-12).
+      const row = b.closest(".items-end") ?? b.parentElement
       const bar = row.querySelector("app-phase-progress")
       return {
         row: R(row),
@@ -680,7 +681,8 @@ async (page) => {
       }
       const p = document.querySelector("app-tagging-page")
       const b = p.querySelector('[data-action="restore-run"]')
-      return { row: R(b.parentElement), btn: R(b), bar: R(b.parentElement.querySelector("app-phase-progress")), action: R(p.querySelector(".grid > button[data-action]")), list: R(p.querySelector("app-run-list")) }
+      const row = b.closest(".items-end") ?? b.parentElement
+      return { row: R(row), btn: R(b), bar: R(row.querySelector("app-phase-progress")), action: R(p.querySelector(".grid > button[data-action]")), list: R(p.querySelector("app-run-list")) }
     })
     out.measures.layoutNoBar = geo
     check("3 layout without bar: bar absent, button at the right end", geo.bar === null && Math.abs(geo.btn.r - geo.row.r) <= 0.5, geo)

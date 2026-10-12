@@ -258,7 +258,7 @@ Quatre opérations dans cet ordre, sur chaque morceau résolu : dump JSON des ta
 
 Le motif est `{artist} - {title}.{ext}`, débarrassé des caractères interdits par le système de fichiers, remplacés de façon lisible (`/ \ |` → `-`, `": "` → `" - "`, `:` → `-`, `"` → `'`, `? * < >` et caractères de contrôle supprimés), extension en minuscules, aucun renommage sans artiste ou sans titre, collision suffixée ` (2)`, ` (3)`… sans jamais écraser un fichier. Non configurable au MVP ; un motif libre à jetons reste une évolution possible.
 
-Un fichier en échec n'interrompt jamais la phase : il est consigné et l'écriture se poursuit sur les suivants (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)). Le run se termine par l'écriture du rapport dans le dossier du run et l'ouverture du récapitulatif filtrable.
+Un fichier en échec n'interrompt jamais la phase : il est consigné et l'écriture se poursuit sur les suivants (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)). Le run se termine par l'écriture du rapport dans le dossier du run. Le récapitulatif filtrable s'ouvre ensuite par le bouton « Récapitulatif » de l'onglet Tagging, la liste du run restant la vue par défaut.
 
 ### Use-case 6 : Reprise d'un run interrompu
 
@@ -377,7 +377,7 @@ Trois écrans et une file d'arbitrage ne justifient pas la cérémonie d'un NgRx
 
 ### Navigation
 
-**Angular Router**, trois routes lazy-loaded (`/playlist`, `/tagging`, `/settings`) rendues dans un `p-tabs`. Permet le deep-link vers le récapitulatif d'un run passé et évite de charger les trois features au démarrage.
+**Angular Router**, trois onglets lazy-loaded (`/playlist`, `/tagging`, `/settings`) rendus dans un `p-tabs`, l'onglet Tagging portant aussi `/tagging/recap`, le récapitulatif du run affiché. Évite de charger les trois features au démarrage. Le deep-link vers le récapitulatif d'un run passé (`tagging/recap/:runId`) est l'objet du sub-project 07 : la route n'existe pas avant lui.
 
 PrimeNG v22 ne fournit **aucun mode router** sur `p-tabs` et `p-tabMenu` a été supprimé de la bibliothèque. L'onglet actif se dérive donc de l'URL et la navigation se déclenche au changement de valeur, soit une dizaine de lignes dans le shell (cf. [DESIGN.md § Mapping Composants](DESIGN.md#mapping-composants)).
 
@@ -727,7 +727,7 @@ sequenceDiagram
     S-->>UI: run_finished (phase = write, récapitulatif)
     UI->>S: get_rollback_target
     S-->>UI: rollback_target (dernier run annulable)
-    UI->>U: écran récapitulatif filtrable
+    UI->>U: bouton « Récapitulatif », puis écran filtrable
 
     opt morceaux en write_error
         U->>UI: relance de l'écriture

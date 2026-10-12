@@ -36,6 +36,8 @@ export interface TaggingTrack {
   readonly artworkPath: string | null
   readonly tagsBefore: TagsBefore | null
   readonly tagsAfter: readonly TagValue[] | null
+  /** Fiche de la source retenue, ouverte depuis le detail ; nulle sans candidat. */
+  readonly sourceUrl: string | null
   readonly arbitration: ArbitrationRequiredEvent | null
   /** Faux tant que le sidecar n'a rien dit : une ligne jamais resolue n'a pas d'origine au dump. */
   readonly restorable: boolean
@@ -60,6 +62,7 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
   artworkPath: null,
   tagsBefore: entry.tags_before,
   tagsAfter: null,
+  sourceUrl: null,
   arbitration: null,
   restorable: false,
 })
@@ -102,8 +105,8 @@ export class TaggingRunStore {
     () => this.tracks().filter((track) => track.state === "write_error").length,
   )
 
-  /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
-  reset(): void {
+  /** Vide le run affiche sans en annoncer un autre : rien n'est « en cours », contrairement a `reset()`. */
+  clear(): void {
     this._runId.set(null)
     this._folder.set(null)
     this._rows.set(new Map())
@@ -111,6 +114,12 @@ export class TaggingRunStore {
     this._finished.set(null)
     this._interrupted.set(false)
     this._lost.set(false)
+    this._running.set(false)
+  }
+
+  /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
+  reset(): void {
+    this.clear()
     this._running.set(true)
   }
 
@@ -131,6 +140,7 @@ export class TaggingRunStore {
       scores: event.scores,
       artworkPath: event.artwork_path,
       tagsAfter: event.tags_after,
+      sourceUrl: event.source_url,
       arbitration: null,
       restorable: event.restorable,
     }))

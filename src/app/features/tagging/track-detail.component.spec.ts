@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
+import { openUrl } from "@tauri-apps/plugin-opener"
 
 import { PENDING_TRACK, TAGS_AFTER, TAGS_BEFORE, resolvedTrack } from "../../../fixtures/tagging"
 import type { TaggingTrack } from "../../core/tagging-run.store"
@@ -7,12 +8,27 @@ import type { TaggingTrack } from "../../core/tagging-run.store"
 import type { RunRow } from "./run-list.component"
 import { TrackDetailComponent } from "./track-detail.component"
 
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }))
+
 const RESOLVED: TaggingTrack = {
   ...resolvedTrack(PENDING_TRACK.trackId),
   source: "beatport",
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
   tagsBefore: { ...TAGS_BEFORE, comment: null },
   tagsAfter: TAGS_AFTER,
+}
+
+const SOURCE_URL = "https://www.beatport.com/track/dim-orbit/99000101"
+
+const WITH_SOURCE: TaggingTrack = {
+  ...RESOLVED,
+  sourceUrl: SOURCE_URL,
+  tagsBefore: {
+    ...TAGS_BEFORE,
+    comment: null,
+    fields: [...TAGS_BEFORE.fields, { field: "url", key: "WOAS", value: null }],
+  },
+  tagsAfter: [...TAGS_AFTER, { field: "url", key: "WOAS", value: SOURCE_URL }],
 }
 
 /** La liste construit la ligne ; le détail ne lit d'elle que le morceau et l'état de sa pochette. */
@@ -189,5 +205,30 @@ describe("TrackDetailComponent", () => {
     const button = root.querySelector<HTMLButtonElement>('[data-action="restore-track"]')
 
     expect(button?.disabled).toBe(true)
+  })
+
+  it("opens the source page from the url line", () => {
+    const root = mount(WITH_SOURCE)
+
+    root.querySelector<HTMLButtonElement>('[data-action="open-source"]')?.click()
+
+    expect(openUrl).toHaveBeenCalledWith(SOURCE_URL)
+  })
+
+  it("puts the link on the url line only", () => {
+    const root = mount(WITH_SOURCE)
+
+    const links = root.querySelectorAll('[data-action="open-source"]')
+
+    expect(links).toHaveLength(1)
+  })
+
+  it("keeps the url line as text without a source page", () => {
+    const root = mount({ ...WITH_SOURCE, sourceUrl: null })
+
+    const link = root.querySelector('[data-action="open-source"]')
+
+    expect(link).toBeNull()
+    expect(rowsOf(root).at(-1)?.[3]).toBe(SOURCE_URL)
   })
 })

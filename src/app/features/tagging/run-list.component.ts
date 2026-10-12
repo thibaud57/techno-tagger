@@ -86,6 +86,8 @@ export class RunListComponent {
   readonly tracks = input.required<readonly TaggingTrack[]>()
   /** Le sidecar parcourt encore le dossier : aucune ligne n'est connue. */
   readonly loading = input(false)
+  /** « folder » : dossier sans fichier audio ; « search » : filtre ou recherche du recapitulatif. */
+  readonly emptyState = input<"folder" | "search">("folder")
   readonly interrupted = input(false)
   /** Morceaux que le sidecar accepte de rattraper par lien : lus, jamais deduits ici (vides sur un run fige). */
   readonly recoverable = input<ReadonlySet<string>>(new Set())

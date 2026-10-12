@@ -62,6 +62,7 @@ export const PENDING_TRACK: TaggingTrack = {
   artworkPath: null,
   tagsBefore: null,
   tagsAfter: null,
+  sourceUrl: null,
   arbitration: null,
   restorable: false,
 }
@@ -72,6 +73,17 @@ export const resolvedTrack = (trackId: string): TaggingTrack => ({
   trackId,
   state: "resolved",
   resolution: "auto",
+})
+
+/** Ligne passee par l'ecriture : le dump garde l'origine d'une ligne ecrite ou en echec, pas restauree. */
+export const writtenTrack = (
+  trackId: string,
+  state: TaggingTrack["state"] = "written",
+  restorable = state !== "rolled_back",
+): TaggingTrack => ({
+  ...resolvedTrack(trackId),
+  state,
+  restorable,
 })
 
 /** Ligne non resolue, refusee par defaut : un test pose son motif ou ses ecarts. */

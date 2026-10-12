@@ -65,6 +65,18 @@ describe("TaggingRunStore", () => {
     expect(track?.artworkPath).toBe("C:/AppData/cache/artworks/abc.jpg")
   })
 
+  it("keeps the source page of a resolved track", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+
+    store.resolved({
+      ...TRACK_RESOLVED,
+      source_url: "https://www.beatport.com/track/dim-orbit/99000101",
+    })
+
+    expect(store.tracks()[0]?.sourceUrl).toBe("https://www.beatport.com/track/dim-orbit/99000101")
+  })
+
   it("exposes the tags before from the start and the tags after once resolved", () => {
     store.reset()
     store.started({
@@ -97,6 +109,18 @@ describe("TaggingRunStore", () => {
 
     expect(started).toBe("C:/Sets")
     expect(store.folder()).toBeNull()
+  })
+
+  it("empties the run without announcing one in progress", () => {
+    store.reset()
+    store.started(RUN_STARTED)
+    store.resolved(TRACK_RESOLVED)
+
+    store.clear()
+
+    expect(store.tracks()).toEqual([])
+    expect(store.runId()).toBeNull()
+    expect(store.running()).toBe(false)
   })
 
   it("marks a track as awaiting arbitration", () => {

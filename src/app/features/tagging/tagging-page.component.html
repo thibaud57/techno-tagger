@@ -43,7 +43,7 @@
     </app-message>
   }
 
-  <app-rollback-failures [failures]="runRollbackFailures()" />
+  <app-rollback-failures [failures]="runRestore.runRollbackFailures()" />
 
   @if (running()) {
     @let current = progress();
@@ -56,7 +56,7 @@
     @let written = writeProgress();
     <!-- Sans ecriture en cours ni palier recu (relance refusee), une barre indeterminee
          laisserait croire que l'ecriture tourne encore. -->
-    @if (showsWriteBar() || canRestoreRun()) {
+    @if (showsWriteBar() || recapAvailable() || runRestore.canRestoreRun()) {
       <div class="flex items-end gap-4">
         @if (showsWriteBar()) {
           <app-phase-progress
@@ -66,26 +66,40 @@
             [value]="writePercentage()"
           />
         }
-        @if (canRestoreRun()) {
-          <!-- Hors de la barre : elle reste masquee quand l'ecriture n'a laisse aucun palier.
-               Jamais a cote du bouton d'action du run. -->
-          @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
-          <button
-            pButton
-            type="button"
-            size="small"
-            [outlined]="true"
-            class="ml-auto shrink-0"
-            data-action="restore-run"
-            [disabled]="filesBusy()"
-            [pTooltip]="restoreBusy"
-            [tooltipOptions]="tooltip"
-            (click)="restoreRun()"
-          >
-            <app-icon [name]="restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
-            {{ "tagging.rollback.run" | translate }}
-          </button>
-        }
+        <!-- Hors de la barre : elle reste masquee quand l'ecriture n'a laisse aucun palier.
+             Jamais a cote du bouton d'action du run. -->
+        <div class="ml-auto flex shrink-0 gap-2">
+          @if (recapAvailable()) {
+            <button
+              pButton
+              type="button"
+              size="small"
+              [outlined]="true"
+              severity="secondary"
+              data-action="recap"
+              (click)="openRecap()"
+            >
+              {{ "tagging.recap" | translate }}
+            </button>
+          }
+          @if (runRestore.canRestoreRun()) {
+            @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
+            <button
+              pButton
+              type="button"
+              size="small"
+              [outlined]="true"
+              data-action="restore-run"
+              [disabled]="filesBusy()"
+              [pTooltip]="restoreBusy"
+              [tooltipOptions]="tooltip"
+              (click)="runRestore.restoreRun()"
+            >
+              <app-icon [name]="runRestore.restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
+              {{ "tagging.rollback.run" | translate }}
+            </button>
+          }
+        </div>
       </div>
     }
   } @else if (recovery(); as phase) {
@@ -115,12 +129,12 @@
         [interrupted]="interrupted()"
         [recoverable]="recoverableIds()"
         [frozen]="runFrozen()"
-        [restorableIds]="restorableIds()"
-        [restoringTrackId]="restoringTrackId()"
+        [restorableIds]="runRestore.restorableIds()"
+        [restoringTrackId]="runRestore.restoringTrackId()"
         [restoreBlocked]="filesBusy()"
         (arbitrate)="openArbitration($event)"
         (recover)="openRecovery($event)"
-        (restore)="restoreTrack($event)"
+        (restore)="runRestore.restoreTrack($event)"
       />
     </div>
   } @else {

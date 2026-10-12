@@ -1,4 +1,5 @@
 import { Component, computed, inject, linkedSignal } from "@angular/core"
+import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
@@ -23,6 +24,7 @@ import { TOOLTIP } from "../../shared/utils/tooltip"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
 import { RunListComponent } from "./run-list.component"
+import { injectRunRestore } from "./run-restore"
 import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
 
 interface ActionButton {
@@ -61,7 +63,9 @@ export default class TaggingPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly recoveryUi = inject(RecoveryUiStore)
   private readonly translate = inject(TranslateService)
+  private readonly router = inject(Router)
   private readonly confirmDanger = injectDangerConfirm()
+  protected readonly runRestore = injectRunRestore()
 
   /**
    * Dossier du champ : celui du run affiche (`requestedFolder`, la forme que compare `action`).
@@ -80,38 +84,13 @@ export default class TaggingPageComponent {
   protected readonly runFrozen = this.sidecar.runFrozen
   protected readonly writing = this.sidecar.writing
   protected readonly writeProgress = this.sidecar.writeProgress
+  /** Le bilan de l'ecriture est arrive : le recapitulatif a quelque chose a montrer. */
+  protected readonly recapAvailable = computed(() => this.sidecar.writeFinished() !== null)
   protected readonly showsWriteBar = computed(() => this.writing() || this.writeProgress() !== null)
   protected readonly writePercentage = computed(() => progressPercentage(this.writeProgress()))
   /** Compte sur les lignes : un morceau restaure sort du message et de la relance. */
   protected readonly writeFailures = this.sidecar.writeFailureCount
   protected readonly filesBusy = this.sidecar.filesBusy
-  /** Lignes que le dump peut rendre : le sidecar le dit par ligne, l'interface ne le deduit pas de l'etat. */
-  protected readonly restorableIds = computed<ReadonlySet<string>>(
-    () =>
-      new Set(
-        this.tracks()
-          .filter((track) => track.restorable)
-          .map((track) => track.trackId),
-      ),
-  )
-  protected readonly canRestoreRun = computed(
-    () => !this.writing() && this.restorableIds().size > 0,
-  )
-  /** Run affiche seulement : celui des Reglages ne fait pas tourner ce bouton. */
-  protected readonly restoringRun = computed(() => {
-    const inFlight = this.sidecar.rollingBack()
-
-    return inFlight?.trackId === null && inFlight.runId === this.sidecar.taggingRunId()
-  })
-  protected readonly restoringTrackId = computed(() => this.sidecar.rollingBack()?.trackId ?? null)
-  /** Le bilan ne vaut que pour le run qu'il nomme. */
-  protected readonly runRollbackFailures = computed(() => {
-    const finished = this.sidecar.rollbackFinished()
-
-    return finished !== null && finished.run_id === this.sidecar.taggingRunId()
-      ? finished.failed
-      : []
-  })
   /** Nul pendant le parcours du dossier : la liste s'affiche en squelette, jamais « aucun run ». */
   protected readonly listing = computed(() => this.sidecar.taggingRunId() === null)
   protected readonly showsRun = computed(
@@ -301,28 +280,8 @@ export default class TaggingPageComponent {
     )
   }
 
-  protected restoreRun(): void {
-    this.restore(this.restorableIds().size)
-  }
-
-  protected restoreTrack(trackId: string): void {
-    this.restore(1, trackId)
-  }
-
-  /** Sans `trackId`, tout le run. */
-  private restore(count: number, ...trackId: [] | [string]): void {
-    const runId = this.sidecar.taggingRunId()
-    if (runId === null || this.filesBusy()) {
-      return
-    }
-    this.confirmDanger(
-      "tagging.rollback",
-      this.t("tagging.rollback.message", { count }),
-      () => {
-        void this.sidecar.rollback(runId, ...trackId)
-      },
-      true,
-    )
+  protected openRecap(): void {
+    void this.router.navigateByUrl("/tagging/recap")
   }
 
   private t(key: string, params?: Record<string, unknown>): string {
