@@ -250,7 +250,7 @@ Aucun test unitaire neuf. La garde existante de `test_protocol_models.py` (`test
 
 **Rationale :**
 - Choix du propriétaire, le 2026-10-12.
-- Un refus de reprise ne doit jamais coûter un run en cours.
+- Un plan refusé à la validation (inconnu, confirmé ou déjà écrit) ne coûte jamais le run en cours. Un refus plus tard (clé API absente, dossier illisible) survient après l'abandon, ce qui est accepté : l'interface ne propose la reprise qu'au lancement, quand aucun run n'est ouvert.
 
 ### Décision : restaurabilité dans un récapitulatif passé
 **Options envisagées :**

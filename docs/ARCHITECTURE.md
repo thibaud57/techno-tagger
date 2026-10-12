@@ -187,7 +187,7 @@ graph TB
             side["Sidecar Python<br/>process long"]
         end
         fs[("Bibliothèque musicale<br/>MP3 / WAV / AIFF / FLAC")]
-        data[("appLocalDataDir<br/>plans de run (Feature 6), cache, dumps des tags, logs")]
+        data[("appLocalDataDir<br/>plans de run, registre des rapports, cache, dumps des tags, logs")]
         kr[("Credential Manager Windows")]
     end
 
@@ -258,7 +258,7 @@ Quatre opérations dans cet ordre, sur chaque morceau résolu : dump JSON des ta
 
 Le motif est `{artist} - {title}.{ext}`, débarrassé des caractères interdits par le système de fichiers, remplacés de façon lisible (`/ \ |` → `-`, `": "` → `" - "`, `:` → `-`, `"` → `'`, `? * < >` et caractères de contrôle supprimés), extension en minuscules, aucun renommage sans artiste ou sans titre, collision suffixée ` (2)`, ` (3)`… sans jamais écraser un fichier. Non configurable au MVP ; un motif libre à jetons reste une évolution possible.
 
-Un fichier en échec n'interrompt jamais la phase : il est consigné et l'écriture se poursuit sur les suivants (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)). Le run se termine par l'écriture du rapport dans le dossier destination et l'affichage du récapitulatif filtrable.
+Un fichier en échec n'interrompt jamais la phase : il est consigné et l'écriture se poursuit sur les suivants (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)). Le run se termine par l'écriture du rapport dans le dossier du run et l'ouverture du récapitulatif filtrable.
 
 ### Use-case 6 : Reprise d'un run interrompu
 
@@ -310,7 +310,7 @@ flowchart TD
     conf --> w["dump des tags d'origine<br/>écriture des tags<br/>pochettes<br/>renommage"]
     w --> ws["written"]
     w -->|"écriture impossible"| we["write_error<br/>file_locked, permission_denied,<br/>disk_full, path_too_long…"]
-    ws --> rep["rapport JSON + Markdown<br/>(Feature 6)"]
+    ws --> rep["rapport JSON + Markdown<br/>dans le dossier du run"]
     we --> rep
     we -->|"retry_write"| w
     ws -->|"rollback"| rb["rolled_back<br/>nom et tags d'origine rendus"]
@@ -443,7 +443,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | Commande | Charge utile |
 |---|---|
 | `get_version` | aucune. Émise au démarrage, avant toute autre commande |
-| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un et **attend l'extraction, l'écriture et le rollback** si elles sont en cours ; l'EOF attend les quatre. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
+| `shutdown` | aucune. Arrête la boucle, annule le run de re-tagging s'il en tourne un ainsi que les `load_run` en vol et **attend l'extraction, l'écriture et le rollback** si elles sont en cours ; l'EOF attend les quatre. La fermeture de la fenêtre ne l'émet pas, Tauri arrêtant le sidecar à la sortie de l'application (mesuré le 2026-09-18). Un run interrompu par la fermeture relève de la reprise de run (use-case 6). Ferme ensuite le run courant : son client et ses gestes en vol. |
 | `cancel_run` | aucune. Arrête le run sans fermer la session : un dossier lancé par erreur cesse de consommer le quota de l'API. Sans effet hors run et sans événement de fin, l'interface sachant qu'elle l'a demandé. Quand il interrompt la phase réseau d'un run courant, il ouvre le rattrapage par URL et en émet la progression, toujours sans événement de fin. `cancel_run` n'arrête que la phase réseau : l'extraction, l'écriture et le rollback restent attendus jusqu'à leur terme, comme sous `shutdown` |
 | `list_playlists` | chemin du dump VLC. Sans objet pour un M3U8, qui ne contient qu'une playlist |
 | `extract_playlist` | dossier source, dossier destination, chemin de la playlist, **nom de la playlist choisie** pour un dump VLC, mode copie ou déplacement. Refusée en `phase_busy` dès qu'une autre phase longue tourne, y compris une seconde extraction |
@@ -585,7 +585,7 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 
 **Le téléchargement des pochettes a son propre pool.** L'API fournit bien l'`artwork_url` dans le contrat `Track`, mais cette URL pointe vers le CDN de la source : le téléchargement de l'image ne passe donc pas par techno-scraper et ne consomme pas ses sémaphores. Le compter dans le pool de 3 briderait les images pour rien. **Sa taille est fixée à 6 et c'est un calibrage libre, pas une contrainte d'API** : contrairement aux deux autres, aucun sémaphore distant ne le dicte, seule la politesse envers le CDN. Un échec de téléchargement n'échoue jamais le morceau : les tags sont écrits sans pochette et le rapport le signale.
 
-**Les phases longues tournent en tâche de fond, la boucle ne les attend pas.** `extract_playlist` copie des fichiers, `start_tagging` interroge le réseau, `commit_run` (comme `retry_write`) écrit sur le disque et `rollback` restaure des fichiers depuis leur dump : les attendre dans la boucle gèlerait la lecture de `stdin` et une fermeture de fenêtre pendant la copie d'une grosse bibliothèque laisserait son `shutdown` dans le pipe jusqu'au dernier transfert. **Une seule tourne à la fois** : chacune refuse de démarrer tant qu'une autre tourne, par une seule erreur, `phase_busy`, dont `params.phase` nomme celle qui tourne (`extraction`, `tagging`, `write` ou `rollback`). Un seul emplacement garde la phase en cours, la garde précède tout effet de bord du démarrage. Extraction, écriture et rollback touchent aux fichiers de l'utilisateur, la recherche réseau lit ceux qu'elle fera écrire : deux phases mêlées pourraient viser le même dossier. Ces refus ne closent rien : ils disent au contraire que la phase en cours continue. Arbitrer et rattraper restent possibles pendant la recherche, ce sont des gestes du run et non des phases longues.
+**Les phases longues tournent en tâche de fond, la boucle ne les attend pas.** `extract_playlist` copie des fichiers, `start_tagging` et `resume_run` interrogent le réseau, `commit_run` (comme `retry_write`) écrit sur le disque et `rollback` restaure des fichiers depuis leur dump : les attendre dans la boucle gèlerait la lecture de `stdin` et une fermeture de fenêtre pendant la copie d'une grosse bibliothèque laisserait son `shutdown` dans le pipe jusqu'au dernier transfert. **Une seule tourne à la fois** : chacune refuse de démarrer tant qu'une autre tourne, par une seule erreur, `phase_busy`, dont `params.phase` nomme celle qui tourne (`extraction`, `tagging`, `write` ou `rollback`). Un seul emplacement garde la phase en cours, la garde précède tout effet de bord du démarrage. Extraction, écriture et rollback touchent aux fichiers de l'utilisateur, la recherche réseau lit ceux qu'elle fera écrire : deux phases mêlées pourraient viser le même dossier. Ces refus ne closent rien : ils disent au contraire que la phase en cours continue. Arbitrer et rattraper restent possibles pendant la recherche, ce sont des gestes du run et non des phases longues.
 
 **L'annulation les sépare.** `shutdown` annule le run de re-tagging, qui ne tient que du réseau et de la mémoire, mais attend l'extraction, l'écriture et le rollback : une copie, une écriture ou une restauration coupée en vol laisserait un fichier musical à moitié écrit ou à moitié rendu, dans la destination ou dans la bibliothèque de l'utilisateur, ce que la garantie sur la bibliothèque interdit. Seule la phase réseau est donc annulable. `shutdown` comme `cancel_run` attendent que le run annulé ait fini de mourir avant de lire la commande suivante : une relance lue entre-temps serait refusée en `phase_busy`.
 
@@ -723,7 +723,7 @@ sequenceDiagram
         S-->>UI: progress (phase = write)
     end
     S->>FS: réécriture du dump, journal retiré
-    S->>FS: rapport JSON + Markdown (Feature 6)
+    S->>FS: rapport JSON + Markdown dans le dossier du run
     S-->>UI: run_finished (phase = write, récapitulatif)
     UI->>S: get_rollback_target
     S-->>UI: rollback_target (dernier run annulable)
