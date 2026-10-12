@@ -2,6 +2,7 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
+import { PAST_RUN, TRACK_LOADED, runLoaded, runsListed } from "../../fixtures/past-runs"
 import { INTERRUPTED, interruptedRun } from "../../fixtures/resume"
 import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
 import {
@@ -20,6 +21,7 @@ import {
   writeProgress,
 } from "../../fixtures/write"
 import { BusyPhase, SidecarEvent } from "./models/protocol"
+import { PastRunsStore } from "./past-runs.store"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
 
@@ -1051,6 +1053,106 @@ describe("SidecarService", () => {
     })
   })
 
+  describe("past runs", () => {
+    it("feeds the past runs from the listing", async () => {
+      await service.start()
+
+      transport.emit(runsListed(PAST_RUN))
+
+      expect(service.pastRuns()).toEqual([PAST_RUN])
+    })
+
+    it("loads a past run", async () => {
+      await service.start()
+
+      await service.loadRun(PAST_RUN.run_id)
+      const loading = TestBed.inject(PastRunsStore).loading()
+      transport.emit(runLoaded(TRACK_LOADED))
+
+      expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+        command: "load_run",
+        run_id: PAST_RUN.run_id,
+      })
+      expect(loading).toBe(PAST_RUN.run_id)
+      expect(service.loadedRun()?.runId).toBe(PAST_RUN.run_id)
+      expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
+    })
+
+    it("asks for a run once while it loads", async () => {
+      await service.start()
+
+      await service.loadRun(PAST_RUN.run_id)
+      await service.loadRun(PAST_RUN.run_id)
+
+      const loads = transport.sent.filter((line) => commandOf(line) === "load_run")
+      expect(loads).toHaveLength(1)
+    })
+
+    it("ends the loading when the run is refused", async () => {
+      await service.start()
+      await service.loadRun("000000")
+
+      transport.emit(commandError("load_run", "run_not_found", { run_id: "000000" }))
+
+      expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
+      expect(service.loadRefusal()?.error.code).toBe("run_not_found")
+    })
+
+    it("keeps the refusal when another command is sent", async () => {
+      await service.start()
+      await service.loadRun("000000")
+      transport.emit(commandError("load_run", "run_not_found", { run_id: "000000" }))
+
+      await service.listRuns()
+
+      expect(service.loadRefusal()?.runId).toBe("000000")
+    })
+
+    it("ends the loading when a running phase refuses the run", async () => {
+      await service.start()
+      await service.loadRun(PAST_RUN.run_id)
+
+      transport.emit(phaseBusy("load_run", "tagging"))
+
+      expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
+      expect(service.loadRefusal()?.error.code).toBe("phase_busy")
+    })
+
+    it("ends the loading when the engine stops during it", async () => {
+      await service.start()
+      await service.loadRun(PAST_RUN.run_id)
+
+      transport.handlers?.onTerminated()
+
+      expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
+      expect(service.loadRefusal()).toBeNull()
+    })
+
+    it("lists the runs again once a write phase ends", async () => {
+      await service.start()
+
+      transport.emit(WRITE_FINISHED)
+
+      expect(transport.sent.map(commandOf)).toContain("list_runs")
+    })
+
+    it("sends nothing and keeps the displayed run when asked without an engine", async () => {
+      await service.start()
+      await service.startTagging("C:/Sets")
+      transport.emit(RUN_STARTED)
+      transport.handlers?.onTerminated()
+      const sent = transport.sent.length
+
+      await service.listRuns()
+      await service.loadRun(PAST_RUN.run_id)
+
+      expect(transport.sent).toHaveLength(sent)
+      expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
+      expect(service.errorFor("list_runs", "load_run")()).toBeNull()
+      expect(service.taggingTracks()).toHaveLength(2)
+    })
+  })
+
   describe("write phase", () => {
     const searchingRun = async (): Promise<void> => {
       await service.start()
@@ -1063,8 +1165,9 @@ describe("SidecarService", () => {
       transport.emit(TRACK_RESOLVED)
       transport.emit(NETWORK_FINISHED)
     }
-    const countOf = (command: string): number =>
-      transport.sent.filter((line) => commandOf(line) === command).length
+    const sentOf = (command: string): unknown[] =>
+      transport.sent.filter((line) => commandOf(line) === command).map(parseLine)
+    const countOf = (command: string): number => sentOf(command).length
 
     it("replays a whole write and asks for the rollback target again", async () => {
       await resolvedRun()
@@ -1075,17 +1178,14 @@ describe("SidecarService", () => {
       transport.emit({ ...TRACK_RESOLVED, state: "written" })
       transport.emit(WRITE_FINISHED)
 
-      expect(parseLine(transport.sent.at(-2) ?? "")).toEqual({
-        command: "commit_run",
-        run_id: "a3f9c1",
-      })
+      expect(sentOf("commit_run")).toEqual([{ command: "commit_run", run_id: "a3f9c1" }])
       expect(writing).toBe(true)
       expect(service.writing()).toBe(false)
       expect(service.committed()).toBe(true)
       expect(service.writeProgress()).toEqual({ processed: 1, total: 1 })
       expect(service.writeFinished()?.written).toBe(1)
       expect(service.taggingTracks()[0]?.state).toBe("written")
-      expect(commandOf(transport.sent.at(-1) ?? "")).toBe("get_rollback_target")
+      expect(countOf("get_rollback_target")).toBe(1)
     })
 
     it("lets the run be confirmed again when the dump cannot be written", async () => {
@@ -1108,10 +1208,7 @@ describe("SidecarService", () => {
       const writing = service.writing()
       transport.emit(WRITE_FINISHED)
 
-      expect(parseLine(transport.sent.at(-2) ?? "")).toEqual({
-        command: "retry_write",
-        run_id: "a3f9c1",
-      })
+      expect(sentOf("retry_write")).toEqual([{ command: "retry_write", run_id: "a3f9c1" }])
       expect(writing).toBe(true)
       expect(service.writing()).toBe(false)
       expect(service.committed()).toBe(true)
@@ -1500,16 +1597,14 @@ describe("SidecarService", () => {
       transport.emit({ ...TRACK_RESOLVED, state: "rolled_back" })
       transport.emit(rollbackFinished("a.mp3"))
 
-      expect(parseLine(transport.sent.at(-2) ?? "")).toEqual({
-        command: "rollback",
-        run_id: "a3f9c1",
-        track_id: "a.mp3",
-      })
+      expect(sentOf("rollback")).toEqual([
+        { command: "rollback", run_id: "a3f9c1", track_id: "a.mp3" },
+      ])
       expect(inFlight).toEqual({ runId: "a3f9c1", trackId: "a.mp3" })
       expect(service.rollingBack()).toBeNull()
       expect(service.rollbackFinished()?.restored).toEqual(["a.mp3"])
       expect(service.taggingTracks()[0]?.state).toBe("rolled_back")
-      expect(commandOf(transport.sent.at(-1) ?? "")).toBe("get_rollback_target")
+      expect(countOf("get_rollback_target")).toBe(2)
     })
 
     it("rolls back the shown rows from a summary sent by a new engine", async () => {

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from "@angular/core"
+import { Component, computed, effect, inject, input, signal, untracked } from "@angular/core"
 import { FormField, form } from "@angular/forms/signals"
 import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
@@ -12,10 +12,13 @@ import { Tooltip } from "primeng/tooltip"
 import { SidecarService } from "../../core/sidecar.service"
 import { DangerConfirmComponent } from "../../shared/components/danger-confirm.component"
 import { EmptyStateComponent } from "../../shared/components/empty-state.component"
+import { ErrorMessageComponent } from "../../shared/components/error-message.component"
 import { IconComponent } from "../../shared/components/icon.component"
 import { MessageComponent } from "../../shared/components/message.component"
 import { RollbackFailuresComponent } from "../../shared/components/rollback-failures.component"
+import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { runDate } from "../../shared/utils/run-date"
 import { TOOLTIP } from "../../shared/utils/tooltip"
 
 import {
@@ -33,7 +36,10 @@ interface RecapCriteria {
   query: string
 }
 
-/** Recapitulatif du run affiche (maquette `Recap`) ; la relance reste au bouton d'action de la liste. */
+/**
+ * Recapitulatif du run affiche (maquette `Recap`) ou, avec `runId`, d'un run passe relu dans son
+ * rapport, en lecture seule. La relance reste au bouton d'action de la liste.
+ */
 @Component({
   selector: "app-recap-page",
   imports: [
@@ -47,10 +53,12 @@ interface RecapCriteria {
     Tooltip,
     DangerConfirmComponent,
     EmptyStateComponent,
+    ErrorMessageComponent,
     IconComponent,
     MessageComponent,
     RollbackFailuresComponent,
     RunListComponent,
+    TruncatedTextComponent,
   ],
   templateUrl: "./recap-page.component.html",
   host: { class: PAGE_HOST, "animate.enter": FADE_IN },
@@ -67,7 +75,40 @@ export default class RecapPageComponent {
   protected readonly fields = form(this.criteria)
   protected readonly tooltip = TOOLTIP
 
-  protected readonly tracks = this.sidecar.taggingTracks
+  /** Lie par le Router (`withComponentInputBinding`) : un run passe, sinon le run affiche. */
+  readonly runId = input<string>()
+
+  protected readonly past = computed(() => this.runId() !== undefined)
+  /** Le run charge ne vaut que pour le `runId` de la route : un autre ne s'affiche pas sous son nom. */
+  protected readonly loaded = computed(() => {
+    const run = this.sidecar.loadedRun()
+
+    return run !== null && run.runId === this.runId() ? run : null
+  })
+  /** Le refus porte son run : celui d'un autre run, arrive plus tard, ne s'affiche pas ici. */
+  protected readonly refusal = computed(() => {
+    const refused = this.sidecar.loadRefusal()
+
+    return refused !== null && refused.runId === this.runId() ? refused.error : null
+  })
+  /** Tant que le run n'est ni charge ni refuse : le squelette occupe la table, jamais l'etat vide. */
+  protected readonly loading = computed(
+    () => this.past() && this.loaded() === null && this.refusal() === null,
+  )
+  protected readonly tracks = computed(() =>
+    this.past() ? (this.loaded()?.tracks ?? []) : this.sidecar.taggingTracks(),
+  )
+  protected readonly context = computed(() => {
+    const run = this.loaded()
+
+    return run === null
+      ? null
+      : { date: runDate(run.writtenAt, this.translate.currentLang()), folder: run.folder }
+  })
+  /** Lecture seule : les fichiers d'un run passe ont pu etre retagues depuis. */
+  protected readonly restorableIds = computed<ReadonlySet<string>>(() =>
+    this.past() ? new Set<string>() : this.runRestore.restorableIds(),
+  )
   protected readonly filesBusy = this.sidecar.filesBusy
   protected readonly writing = this.sidecar.writing
   /** Compte sur les morceaux affiches : un morceau restaure sort du message. */
@@ -90,6 +131,17 @@ export default class RecapPageComponent {
 
     return this.tracks().filter((track) => inFilter(track, filter) && matchesSearch(track, query))
   })
+
+  constructor() {
+    // Une commande par instance de la page : l'effet ne se rejoue que si `runId` ou la disponibilite
+    // du moteur change. `loadRun` ne renvoie pas un run deja en vol.
+    effect(() => {
+      const runId = this.runId()
+      if (runId !== undefined && this.sidecar.available() === true) {
+        untracked(() => void this.sidecar.loadRun(runId))
+      }
+    })
+  }
 
   protected backToList(): void {
     void this.router.navigateByUrl("/tagging")

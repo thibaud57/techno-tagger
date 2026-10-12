@@ -114,6 +114,50 @@
       <app-rollback-failures [failures]="rollbackFailures()" />
     }
   </app-settings-row>
+
+  <app-settings-row>
+    <span rowLabel id="past-run-label" class="text-sm">{{
+      "settings.admin.pastRuns.label" | translate
+    }}</span>
+
+    <div rowControl class="flex min-w-0 items-center gap-4">
+      <!-- Aucune largeur figee : le select prend le reste de la ligne et coupe le dossier.
+           `contain` : sans lui, un dossier long elargirait la colonne des controles. -->
+      <p-select
+        class="min-w-0 flex-1 contain-inline-size"
+        size="small"
+        data-field="past-run"
+        ariaLabelledBy="past-run-label"
+        [formField]="pastFields.runId"
+        [options]="pastRunOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [placeholder]="'settings.admin.pastRuns.none' | translate"
+      >
+        <!-- Ferme, le select coupe le texte : le tooltip le rend lisible. -->
+        <ng-template #selectedItem let-run>
+          <app-truncated-text [text]="run.label" />
+        </ng-template>
+      </p-select>
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        severity="secondary"
+        class="shrink-0"
+        data-action="open-past-run"
+        [disabled]="pastFields.runId().disabled()"
+        (click)="openPastRun()"
+      >
+        {{ "settings.admin.pastRuns.open" | translate }}
+      </button>
+    </div>
+
+    <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+      "settings.admin.pastRuns.hint" | translate
+    }}</span>
+  </app-settings-row>
 </section>
 
 <app-danger-confirm />

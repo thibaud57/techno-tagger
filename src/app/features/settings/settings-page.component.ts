@@ -1,11 +1,13 @@
 import { Component, computed, effect, inject, linkedSignal, signal, untracked } from "@angular/core"
-import { FormField, form } from "@angular/forms/signals"
+import { FormField, disabled, form } from "@angular/forms/signals"
+import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { IconField } from "primeng/iconfield"
 import { InputIcon } from "primeng/inputicon"
 import { InputPassword } from "primeng/inputpassword"
 import { Label } from "primeng/label"
+import { Select } from "primeng/select"
 import { Tooltip } from "primeng/tooltip"
 
 import { SidecarService } from "../../core/sidecar.service"
@@ -27,10 +29,19 @@ interface ApiKeyEntry {
   apiKey: string
 }
 
+interface PastRunOption {
+  readonly value: string
+  readonly label: string
+}
+
+interface PastRunChoice {
+  runId: string | null
+}
+
 /** Une cle enregistree se signale par des points en placeholder, sans etre relue (ADR-012). */
 export const STORED_KEY_MASK = "•".repeat(24)
 
-/** Section API et rangee Rollback. */
+/** Section API, rangee Rollback et rangee des runs passes. */
 @Component({
   selector: "app-settings-page",
   imports: [
@@ -41,6 +52,7 @@ export const STORED_KEY_MASK = "•".repeat(24)
     InputIcon,
     InputPassword,
     Label,
+    Select,
     Tooltip,
     ErrorMessageComponent,
     IconComponent,
@@ -56,6 +68,7 @@ export default class SettingsPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly translate = inject(TranslateService)
   private readonly confirmDanger = injectDangerConfirm()
+  private readonly router = inject(Router)
 
   /** Jamais prerempli : la cle n'est pas relue depuis le trousseau (ADR-012). */
   protected readonly entry = signal<ApiKeyEntry>({ apiKey: "" })
@@ -107,6 +120,35 @@ export default class SettingsPageComponent {
     () => this.sidecar.rollbackFinished()?.failed ?? [],
   )
   protected readonly rollbackError = this.sidecar.errorFor("rollback", "get_rollback_target")
+  /** Tableau modifiable : `p-select` n'accepte pas un tableau en lecture seule. */
+  protected readonly pastRunOptions = computed<PastRunOption[]>(() => {
+    // `currentLang()` est lu ici : la liste se retraduit au changement de langue.
+    const language = this.translate.currentLang()
+
+    return (this.sidecar.pastRuns() ?? []).map((run) => ({
+      value: run.run_id,
+      label: this.translate.instant("settings.admin.rollback.target", {
+        date: runDate(run.written_at, language),
+        folder: run.folder,
+      }) as string,
+    }))
+  })
+  /**
+   * Le plus recent par defaut, dans l'ordre du registre. Le choix survit a une nouvelle liste ou a
+   * un changement de langue tant que son run y figure.
+   */
+  protected readonly pastChoice = linkedSignal<PastRunOption[], PastRunChoice>({
+    source: this.pastRunOptions,
+    computation: (options, previous) => ({
+      runId:
+        options.find((option) => option.value === previous?.value.runId)?.value ??
+        options[0]?.value ??
+        null,
+    }),
+  })
+  protected readonly pastFields = form(this.pastChoice, (path) => {
+    disabled(path.runId, { when: () => this.pastRunOptions().length === 0 })
+  })
 
   constructor() {
     // Le dernier run annulable a pu etre ecrit dans une autre session : seul le moteur le sait.
@@ -114,7 +156,10 @@ export default class SettingsPageComponent {
     // moteur : la demande suit sa disponibilite, pas la construction.
     effect(() => {
       if (this.sidecar.available() === true) {
-        untracked(() => void this.sidecar.loadRollbackTarget())
+        untracked(() => {
+          void this.sidecar.loadRollbackTarget()
+          void this.sidecar.listRuns()
+        })
       }
     })
   }
@@ -147,5 +192,12 @@ export default class SettingsPageComponent {
       },
       true,
     )
+  }
+
+  protected openPastRun(): void {
+    const runId = this.pastChoice().runId
+    if (runId !== null) {
+      void this.router.navigateByUrl(`/tagging/recap/${runId}`)
+    }
   }
 }

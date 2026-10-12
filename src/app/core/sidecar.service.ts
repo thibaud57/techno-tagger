@@ -17,6 +17,7 @@ import {
   SwitchArbitrationSourceCommand,
   ThresholdsPayload,
 } from "./models/protocol"
+import { PastRunsStore } from "./past-runs.store"
 import { ResumeStore } from "./resume.store"
 import { SIDECAR_TRANSPORT } from "./sidecar-transport"
 import { TaggingRunStore } from "./tagging-run.store"
@@ -80,6 +81,7 @@ export class SidecarService {
   private readonly urlRecovery = inject(UrlRecoveryStore)
   private readonly writePhase = inject(WriteStore)
   private readonly resumeStore = inject(ResumeStore)
+  private readonly pastRunsStore = inject(PastRunsStore)
 
   /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
   private readonly _available = signal<boolean | null>(null)
@@ -205,6 +207,11 @@ export class SidecarService {
   readonly rollingBack = this.writePhase.rollingBack
   readonly rollbackFinished = this.writePhase.rollbackFinished
   readonly rollbackTarget = this.writePhase.rollbackTarget
+  /** Runs passes, nuls tant que le moteur n'a pas repondu a `list_runs`. */
+  readonly pastRuns = this.pastRunsStore.runs
+  readonly loadedRun = this.pastRunsStore.loaded
+  /** Refus de `load_run` avec son run : `lastError` est effacee par toute autre commande. */
+  readonly loadRefusal = this.pastRunsStore.refusal
   /** Plus aucune decision n'entre dans le run affiche : le sidecar la refuserait ou l'ignorerait. */
   readonly runFrozen = computed(() => this.writePhase.committed() || this.taggingRun.lost())
   /** Un run fige n'arbitrera plus : ses attentes ne sont pas un travail en suspens, le compte est nul. */
@@ -504,6 +511,24 @@ export class SidecarService {
     await this.send({ command: "get_rollback_target" })
   }
 
+  async listRuns(): Promise<void> {
+    // Lecture seule, comme `loadRollbackTarget` : sans moteur lance, pas de `reportUnavailable`, qui
+    // arreterait le run affiche.
+    if (this._available() !== true) {
+      return
+    }
+    await this.send({ command: "list_runs" })
+  }
+
+  /** Un run deja en chargement n'est pas redemande : chaque `load_run` retelecharge les pochettes. */
+  async loadRun(runId: string): Promise<void> {
+    if (this._available() !== true || this.pastRunsStore.loading() === runId) {
+      return
+    }
+    this.pastRunsStore.loadStarted(runId)
+    await this.send({ command: "load_run", run_id: runId })
+  }
+
   /**
    * La cle part une fois vers le sidecar et n'est gardee dans aucun signal : seul
    * son etat revient, par l'evenement `version`.
@@ -593,6 +618,12 @@ export class SidecarService {
     }
   }
 
+  private routeLoadRunError(event: SidecarErrorEvent): void {
+    if (event.command === "load_run") {
+      this.pastRunsStore.loadFailed(event)
+    }
+  }
+
   /**
    * Plus aucun evenement n'arrivera : un run en cours s'arrete quelle que soit la
    * commande refusee, a la difference d'une erreur recue sur le flux.
@@ -614,6 +645,8 @@ export class SidecarService {
     this.writePhase.failed()
     this.arbitration.clear()
     this.urlRecovery.clear()
+    // Le run charge reste affiche : seul l'attente tombe, sinon `loadRun` du meme id ne repart plus.
+    this.pastRunsStore.loadAbandoned()
   }
 
   private endExtraction(): void {
@@ -692,6 +725,8 @@ export class SidecarService {
           this.writePhase.completed(event)
           // Un dump vient d'etre cree : le dernier run annulable a change.
           void this.loadRollbackTarget()
+          // Un rapport vient d'etre ecrit : la liste des runs passes a change.
+          void this.listRuns()
         }
         break
       case "rollback_target":
@@ -704,14 +739,18 @@ export class SidecarService {
         void this.loadRollbackTarget()
         break
       case "runs_listed":
+        this.pastRunsStore.listed(event.runs)
+        break
       case "run_loaded":
-        // Contrat fige avant ses stores (ordre de developpement, ARCHITECTURE.md) : rien a router.
+        this.pastRunsStore.loadedRun(event)
         break
       case "error":
         this.setLastError(event)
         // Chaque phase longue ne tombe que sur l'echec de la commande qui l'a ouverte :
         // elles tournent en parallele, l'une ne dit rien de l'autre.
         this.routeLaunchError(event)
+        // `load_run` n'ouvre aucune phase, mais une phase occupee le refuse aussi : le chargement tombe.
+        this.routeLoadRunError(event)
         // Un refus pour phase occupee ne concerne que les lancements : aucun geste n'en recoit.
         if (event.code === PHASE_BUSY) {
           break

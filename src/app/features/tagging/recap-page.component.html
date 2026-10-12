@@ -1,54 +1,74 @@
 <!-- Comme la maquette, les filtres passent sous le titre quand la largeur manque (FR a 1024px). -->
-<div class="flex flex-wrap items-center gap-4">
-  <button
-    pButton
-    type="button"
-    size="small"
-    [text]="true"
-    severity="secondary"
-    class="shrink-0 whitespace-nowrap"
-    data-action="back"
-    (click)="backToList()"
-  >
-    <app-icon name="chevron-left" [size]="16" />
-    {{ "recap.back" | translate }}
-  </button>
-  <h1 class="text-2xl font-semibold whitespace-nowrap">{{ "recap.title" | translate }}</h1>
+<div class="flex flex-col gap-1">
+  <div class="flex flex-wrap items-center gap-4">
+    <button
+      pButton
+      type="button"
+      size="small"
+      [text]="true"
+      severity="secondary"
+      class="shrink-0 whitespace-nowrap"
+      data-action="back"
+      (click)="backToList()"
+    >
+      <app-icon name="chevron-left" [size]="16" />
+      {{ "recap.back" | translate }}
+    </button>
+    <h1 class="text-2xl font-semibold whitespace-nowrap">{{ "recap.title" | translate }}</h1>
 
-  @if (tracks().length > 0) {
-    <div class="ml-auto flex items-center gap-4">
-      <span id="recap-filter-label" class="sr-only">{{ "recap.filter.label" | translate }}</span>
-      <p-selectbutton
-        size="small"
-        [formField]="fields.filter"
-        [options]="options()"
-        optionValue="value"
-        [allowEmpty]="false"
-        ariaLabelledBy="recap-filter-label"
-      >
-        <ng-template #item let-option>
-          <span class="flex items-center gap-2" [attr.data-filter]="option.value">
-            {{ option.name }}
-            <span class="text-muted-color tabular-nums">{{ option.count }}</span>
-          </span>
-        </ng-template>
-      </p-selectbutton>
-      <p-iconfield>
-        <p-inputicon><app-icon name="search" [size]="16" /></p-inputicon>
-        <input
-          pInputText
-          pSize="small"
-          data-field="search"
-          [formField]="fields.query"
-          [placeholder]="'recap.search' | translate"
-          [attr.aria-label]="'recap.search' | translate"
-        />
-      </p-iconfield>
+    @if (tracks().length > 0) {
+      <div class="ml-auto flex items-center gap-4">
+        <span id="recap-filter-label" class="sr-only">{{ "recap.filter.label" | translate }}</span>
+        <p-selectbutton
+          size="small"
+          [formField]="fields.filter"
+          [options]="options()"
+          optionValue="value"
+          [allowEmpty]="false"
+          ariaLabelledBy="recap-filter-label"
+        >
+          <ng-template #item let-option>
+            <span class="flex items-center gap-2" [attr.data-filter]="option.value">
+              {{ option.name }}
+              <span class="text-muted-color tabular-nums">{{ option.count }}</span>
+            </span>
+          </ng-template>
+        </p-selectbutton>
+        <p-iconfield>
+          <p-inputicon><app-icon name="search" [size]="16" /></p-inputicon>
+          <input
+            pInputText
+            pSize="small"
+            data-field="search"
+            [formField]="fields.query"
+            [placeholder]="'recap.search' | translate"
+            [attr.aria-label]="'recap.search' | translate"
+          />
+        </p-iconfield>
+      </div>
+    }
+  </div>
+
+  @if (past() && refusal() === null) {
+    <!-- Rangée propre, de la hauteur d'une ligne : l'arrivée du run ne décale rien et le contexte
+         ne pousse ni le retour ni les filtres. -->
+    <div class="flex min-h-5 text-sm text-muted-color">
+      @if (context(); as line) {
+        <app-truncated-text [text]="'settings.admin.rollback.target' | translate: line" />
+      }
     </div>
   }
 </div>
 
-@if (tracks().length === 0) {
+@if (refusal(); as shown) {
+  <app-error-message [error]="shown" />
+  <app-empty-state
+    framed
+    icon="search"
+    [heading]="'recap.past.unavailable' | translate"
+    [description]="'recap.past.unavailableHint' | translate"
+  />
+} @else if (!past() && tracks().length === 0) {
   <app-empty-state
     framed
     icon="search"
@@ -56,59 +76,64 @@
     [description]="'recap.none.description' | translate"
   />
 } @else {
-  @if (!writing() && writeFailures() > 0) {
-    <!-- Le texte seul : la relance est le bouton d'action du run, dans l'onglet Tagging. -->
-    <app-message severity="error" data-write-failures>
-      {{ "tagging.write.failed" | translate: { count: writeFailures() } }}
-    </app-message>
-  }
+  @if (!past()) {
+    @if (!writing() && writeFailures() > 0) {
+      <!-- Le texte seul : la relance est le bouton d'action du run, dans l'onglet Tagging. -->
+      <app-message severity="error" data-write-failures>
+        {{ "tagging.write.failed" | translate: { count: writeFailures() } }}
+      </app-message>
+    }
 
-  <app-rollback-failures [failures]="runRestore.runRollbackFailures()" />
+    <app-rollback-failures [failures]="runRestore.runRollbackFailures()" />
+  }
 
   <div class="min-h-0 flex-1">
     <app-run-list
       [tracks]="visible()"
+      [loading]="loading()"
       [frozen]="true"
       emptyState="search"
-      [restorableIds]="runRestore.restorableIds()"
+      [restorableIds]="restorableIds()"
       [restoringTrackId]="runRestore.restoringTrackId()"
       [restoreBlocked]="filesBusy()"
       (restore)="runRestore.restoreTrack($event)"
     />
   </div>
 
-  <div class="flex items-center gap-2">
-    @if (runRestore.canRestoreRun()) {
-      @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
+  @if (!past()) {
+    <div class="flex items-center gap-2">
+      @if (runRestore.canRestoreRun()) {
+        @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
+        <button
+          pButton
+          type="button"
+          size="small"
+          [outlined]="true"
+          data-action="restore-run"
+          [disabled]="filesBusy()"
+          [pTooltip]="restoreBusy"
+          [tooltipOptions]="tooltip"
+          (click)="runRestore.restoreRun()"
+        >
+          <app-icon [name]="runRestore.restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
+          {{ "tagging.rollback.run" | translate }}
+        </button>
+      }
       <button
         pButton
         type="button"
         size="small"
-        [outlined]="true"
-        data-action="restore-run"
-        [disabled]="filesBusy()"
-        [pTooltip]="restoreBusy"
-        [tooltipOptions]="tooltip"
-        (click)="runRestore.restoreRun()"
+        [text]="true"
+        severity="secondary"
+        class="ml-auto"
+        data-action="new-run"
+        (click)="newRun()"
       >
-        <app-icon [name]="runRestore.restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
-        {{ "tagging.rollback.run" | translate }}
+        <app-icon name="plus" [size]="16" />
+        {{ "recap.newRun" | translate }}
       </button>
-    }
-    <button
-      pButton
-      type="button"
-      size="small"
-      [text]="true"
-      severity="secondary"
-      class="ml-auto"
-      data-action="new-run"
-      (click)="newRun()"
-    >
-      <app-icon name="plus" [size]="16" />
-      {{ "recap.newRun" | translate }}
-    </button>
-  </div>
+    </div>
+  }
 }
 
 <app-danger-confirm />

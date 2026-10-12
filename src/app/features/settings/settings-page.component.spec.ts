@@ -5,15 +5,18 @@ import {
   type TranslationObject,
   provideTranslateService,
 } from "@ngx-translate/core"
+import { Router, provideRouter } from "@angular/router"
 import { ConfirmationService } from "primeng/api"
 
 import type {
+  PastRun,
   RollbackFinishedEvent,
   RollbackRun,
   SidecarErrorEvent,
 } from "../../core/models/protocol"
 import { SidecarService } from "../../core/sidecar.service"
 import type { RollbackInFlight } from "../../core/write.store"
+import { PAST_RUN } from "../../../fixtures/past-runs"
 import { ROLLBACK_RUN, rollbackFinished } from "../../../fixtures/write"
 
 import SettingsPageComponent, { STORED_KEY_MASK } from "./settings-page.component"
@@ -35,6 +38,8 @@ type SidecarServiceStub = Pick<
   | "tagging"
   | "loadRollbackTarget"
   | "rollback"
+  | "pastRuns"
+  | "listRuns"
 >
 
 /**
@@ -56,6 +61,8 @@ const mountWith = (overrides: Partial<Omit<SidecarServiceStub, "filesBusy">> = {
     writing: signal(false),
     tagging: signal(false),
     loadRollbackTarget: vi.fn(() => Promise.resolve()),
+    pastRuns: signal<readonly PastRun[] | null>(null),
+    listRuns: vi.fn(() => Promise.resolve()),
     rollback: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
@@ -68,6 +75,7 @@ const mountWith = (overrides: Partial<Omit<SidecarServiceStub, "filesBusy">> = {
     imports: [SettingsPageComponent],
     providers: [
       provideTranslateService(),
+      provideRouter([]),
       ConfirmationService,
       { provide: SidecarService, useValue: service },
     ],
@@ -280,6 +288,116 @@ describe("SettingsPageComponent", () => {
     expect(options?.message).toBe("D:/Music/Promo Octobre 1")
     expect(options?.acceptButtonProps).toMatchObject({ severity: "danger" })
     expect(service.rollback).toHaveBeenCalledWith("a3f9c1")
+  })
+
+  describe("past runs", () => {
+    it("asks for the past runs once the engine is available", () => {
+      const available = signal<boolean | null>(null)
+      const { fixture, service } = mountWith({ available })
+      const before = vi.mocked(service.listRuns).mock.calls.length
+
+      available.set(true)
+      fixture.detectChanges()
+
+      expect(before).toBe(0)
+      expect(service.listRuns).toHaveBeenCalledTimes(1)
+    })
+
+    it("lists the past runs as the engine ordered them, the latest first", () => {
+      const pastRuns = signal<readonly PastRun[] | null>([
+        { ...PAST_RUN, run_id: "b4c5d6", folder: "D:/Sets/Septembre" },
+        PAST_RUN,
+      ])
+      const { component } = mountWith({ pastRuns })
+      translateWith({ rollback: { target: "{{folder}}" } })
+
+      const labels = component["pastRunOptions"]().map((option) => option.label)
+
+      expect(labels).toEqual(["D:/Sets/Septembre", "D:/Sets/Aout"])
+    })
+
+    it("chooses the latest run first", () => {
+      const pastRuns = signal<readonly PastRun[] | null>([
+        { ...PAST_RUN, run_id: "b4c5d6" },
+        PAST_RUN,
+      ])
+      const { component } = mountWith({ pastRuns })
+
+      const chosen = component["pastChoice"]().runId
+
+      expect(chosen).toBe("b4c5d6")
+    })
+
+    it("keeps the chosen run when the list is refreshed", () => {
+      const pastRuns = signal<readonly PastRun[] | null>([
+        PAST_RUN,
+        { ...PAST_RUN, run_id: "b4c5d6" },
+      ])
+      const { component } = mountWith({ pastRuns })
+      component["pastChoice"].set({ runId: "b4c5d6" })
+
+      pastRuns.set([{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN, { ...PAST_RUN, run_id: "b4c5d6" }])
+
+      expect(component["pastChoice"]().runId).toBe("b4c5d6")
+    })
+
+    it("falls back on the latest run when the chosen one is gone", () => {
+      const pastRuns = signal<readonly PastRun[] | null>([
+        PAST_RUN,
+        { ...PAST_RUN, run_id: "b4c5d6" },
+      ])
+      const { component } = mountWith({ pastRuns })
+      component["pastChoice"].set({ runId: "b4c5d6" })
+
+      pastRuns.set([{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN])
+
+      expect(component["pastChoice"]().runId).toBe("c7d8e9")
+    })
+
+    it("opens the summary of the chosen run", () => {
+      const { fixture } = mountWith({ pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) })
+      const navigate = vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
+      fixture.detectChanges()
+
+      const host = fixture.nativeElement as HTMLElement
+      host.querySelector<HTMLButtonElement>('[data-action="open-past-run"]')?.click()
+
+      expect(navigate).toHaveBeenCalledWith("/tagging/recap/a3f9c1")
+    })
+
+    it("names the selector after the row label", () => {
+      const { fixture } = mountWith({ pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) })
+
+      const host = fixture.nativeElement as HTMLElement
+      const named = host.querySelector('[data-field="past-run"] [aria-labelledby]')
+
+      expect(named?.getAttribute("aria-labelledby")).toBe("past-run-label")
+      expect(host.querySelector("#past-run-label")).not.toBeNull()
+    })
+
+    it("enables the row once a run is listed", () => {
+      const { fixture, component } = mountWith({
+        pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]),
+      })
+
+      const host = fixture.nativeElement as HTMLElement
+      const open = host.querySelector<HTMLButtonElement>('[data-action="open-past-run"]')
+
+      expect(open?.disabled).toBe(false)
+      expect(component["pastFields"].runId().disabled()).toBe(false)
+    })
+
+    it("disables the row without past runs", () => {
+      const { fixture, component } = mountWith({
+        pastRuns: signal<readonly PastRun[] | null>([]),
+      })
+
+      const host = fixture.nativeElement as HTMLElement
+      const open = host.querySelector<HTMLButtonElement>('[data-action="open-past-run"]')
+
+      expect(open?.disabled).toBe(true)
+      expect(component["pastFields"].runId().disabled()).toBe(true)
+    })
   })
 
   it("shows the files left as they were and the rollback error", () => {

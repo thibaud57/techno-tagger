@@ -76,6 +76,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 - **`AppShell`, `Recap`** : bouton « Récapitulatif » à la place du lien de simulation, « Envoyer ce rapport » absent, lien source dans `TrackDetail`, bouton « Retour à la liste » en tête du `Recap` (décidé le 2026-10-12).
 - **Fiche `Icon`** : l'inventaire des glyphes de l'app ne compte ni `search`, ni `external-link`, ni `plus`, que le code emploie (champ de recherche et état vide du récapitulatif pour `search`, lien source du détail pour `external-link`, « Nouveau run » pour `plus`) (constaté le 2026-10-12).
 - **Fiche `Button`** : la variante `link` n'y sert qu'à « Revenir à Beatport », le lien source du détail en est un second usage (constaté le 2026-10-12).
+- **`SettingsScreen`, `Recap`** : rangée « Runs passés » dans les Réglages (sélecteur de run et bouton « Ouvrir le récapitulatif »), absente de la maquette. `Recap` : ligne de contexte « Run du {date} sur {dossier} » sous l'en-tête, sur sa propre rangée et lecture seule d'un run passé, sans « Restaurer le run » ni « Nouveau run » (constaté le 2026-10-13).
 
 ## Journal
 

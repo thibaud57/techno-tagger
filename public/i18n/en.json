@@ -314,6 +314,10 @@
       "heading": "No run to summarize",
       "description": "Start a run from the Tagging tab."
     },
+    "past": {
+      "unavailable": "This run cannot be shown",
+      "unavailableHint": "Reopen it from the settings."
+    },
     "back": "Back to the list",
     "newRun": "New run"
   },
@@ -383,6 +387,12 @@
     },
     "admin": {
       "title": "Administration",
+      "pastRuns": {
+        "label": "Past runs",
+        "hint": "Reopens the summary of a written run, read from its report.",
+        "none": "No past run",
+        "open": "Open the summary"
+      },
       "rollback": {
         "label": "Restore",
         "hint": "Restores the original name and tags of the files from the last written run.",

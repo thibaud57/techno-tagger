@@ -290,7 +290,8 @@ async (page) => {
   const header = async () =>
     page.evaluate(() => {
       const h1 = document.querySelector("app-recap-page h1")
-      const row = h1.parentElement
+      // La rangee est l'en-tete `flex-wrap` : depuis le sub-project 07, la ligne de contexte d'un run passe a sa propre rangee dessous.
+      const row = h1.closest(".flex-wrap")
       const r = row.getBoundingClientRect()
       const kids = [...row.querySelectorAll(":scope > *, :scope > * > *")].map((k) => k.getBoundingClientRect())
       return {
