@@ -2,7 +2,7 @@
 feature: "Feature 6 : Plan de run, reprise et rapport"
 subproject: "rapport-re-tagging-sidecar"
 goal: "Écrire à la fin de chaque phase d'écriture un rapport de re-tagging JSON et Markdown dans le dossier du run, l'inscrire dans un registre local et savoir le relire"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-plan-run-sidecar-design.md"]

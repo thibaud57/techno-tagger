@@ -2,7 +2,7 @@
 feature: "Feature 6 : Plan de run, reprise et rapport"
 subproject: "reprise-run-sidecar"
 goal: "Détecter au lancement un run interrompu puis le résumer, reconstruire son état en mémoire depuis son plan pour ne relancer que les morceaux jamais traités, ou l'abandonner"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-plan-run-sidecar-design.md"]

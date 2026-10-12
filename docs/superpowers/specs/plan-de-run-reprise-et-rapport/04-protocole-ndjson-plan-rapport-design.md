@@ -2,7 +2,7 @@
 feature: "Feature 6 : Plan de run, reprise et rapport"
 subproject: "protocole-ndjson-plan-rapport"
 goal: "Figer dans le contrat NDJSON la détection, la reprise et l'abandon d'un run interrompu, les rapports de re-tagging et les runs passés, avant tout TypeScript qui s'en sert"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: ["01-plan-run-sidecar-design.md", "02-reprise-run-sidecar-design.md", "03-rapport-re-tagging-sidecar-design.md"]

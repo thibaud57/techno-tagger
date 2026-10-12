@@ -2,7 +2,7 @@
 feature: "Feature 6 : Plan de run, reprise et rapport"
 subproject: "plan-run-sidecar"
 goal: "Persister au fil de l'eau, dans appLocalDataDir(), un plan JSON versionné qui consigne chaque décision d'un run de tagging, puis purger au démarrage les plans qui ne servent plus"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []
