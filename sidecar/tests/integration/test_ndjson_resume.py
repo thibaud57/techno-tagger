@@ -198,12 +198,7 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
     assert (run["processed"], run["total"]) == (1, 2)
     assert replayed["resolution"] == "auto"
     assert plan_files() == plan_before
-    searched = {
-        request.url.params.get("q")
-        for request in api.requests
-        if request.url.path.endswith("/search")
-    }
-    assert searched == {KELVOR}
+    assert api.searched() == {KELVOR}
     assert finished["run_id"] == run_id
 
 

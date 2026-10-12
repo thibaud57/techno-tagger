@@ -399,7 +399,7 @@ class _Runner:
         live: LiveRun,
         on_event: Callable[[RunEvent], None],
         *,
-        processed: int = 0,
+        processed: int,
     ) -> None:
         self._total = total
         self._sources = sources

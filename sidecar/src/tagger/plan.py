@@ -24,9 +24,10 @@ from tagger.matching import (
 from tagger.paths import app_data_dir
 from tagger.run_files import (
     PENDING_SUFFIX,
-    RETENTION,
-    created_at_of,
+    exact_version,
+    find_by_run_id,
     newest_first,
+    purge_stamped,
     read_versioned,
     stamped_name,
     unlink_logged,
@@ -90,7 +91,6 @@ class PlanScores(_PlanModel):
         )
 
     def applied_to(self, candidate: TrackCandidate) -> ScoredCandidate:
-        """Scores poses sur le candidat retenu, celui que l'ecriture posera."""
         return ScoredCandidate(
             candidate,
             self.artist,
@@ -261,11 +261,12 @@ class RunPlan(_PlanModel):
 
 
 class RunPlanUnreadableError(TaggerError):
-    """Plan illisible ou d'une version de schema inconnue, jamais migre (ADR-018)."""
+    """Plan illisible ou d'une version de schema inconnue, jamais migre."""
 
     code: ClassVar[str] = "run_plan_unreadable"
 
-    def __init__(self, path: Path, found: object = None) -> None:
+    def __init__(self, path: Path, found: int | str | None = None) -> None:
+        self.found = found
         super().__init__(
             f"unreadable run plan: {path.name}",
             file=path.name,
@@ -283,13 +284,16 @@ def plan_path(folder: Path, plan: RunPlan) -> Path:
 
 
 def plans_newest_first(folder: Path) -> list[Path]:
-    """Plans du dossier du plus recent au plus ancien ; temporaires et noms etrangers ecartes."""
     return newest_first(folder, _SUFFIX)
+
+
+def find_plan(folder: Path, run_id: str) -> Path | None:
+    return find_by_run_id(folder, _SUFFIX, run_id)
 
 
 def load_plan(path: Path) -> RunPlan:
     """Relit un plan ; une version inconnue est refusee, jamais migree."""
-    return read_versioned(path, RunPlan, SCHEMA_VERSION, RunPlanUnreadableError)
+    return read_versioned(path, RunPlan, exact_version(SCHEMA_VERSION), RunPlanUnreadableError)
 
 
 def discard_plan(path: Path) -> None:
@@ -340,15 +344,11 @@ class PlanRecorder:
 
     async def commit(self) -> None:
         """Confirme le plan sur le disque avant que le premier fichier musical ne soit ecrit."""
-        self._plan = self._plan.model_copy(update={"committed": True})
-        self._wake()
-        await self.flush()
+        await self._set_committed(committed=True)
 
     async def reopen(self) -> None:
         """Le dump a echoue sans toucher aucun fichier : le run redevient confirmable."""
-        self._plan = self._plan.model_copy(update={"committed": False})
-        self._wake()
-        await self.flush()
+        await self._set_committed(committed=False)
 
     async def discard(self) -> None:
         """Run remplace avant sa confirmation : son plan part, plus rien ne l'ecrit.
@@ -362,6 +362,11 @@ class PlanRecorder:
             await asyncio.shield(self._flushing)
         await asyncio.to_thread(discard_plan, self._path)
 
+    async def _set_committed(self, *, committed: bool) -> None:
+        self._plan = self._plan.model_copy(update={"committed": committed})
+        self._wake()
+        await self.flush()
+
     def _wake(self) -> None:
         self._dirty = True
         if self._discarded:
@@ -374,9 +379,7 @@ class PlanRecorder:
             self._dirty = False
             plan = self._plan
             try:
-                await asyncio.to_thread(
-                    write_atomically, self._path, plan.model_dump_json(indent=2)
-                )
+                await asyncio.to_thread(_write, self._path, plan)
             except OSError as exc:
                 # Reste a ecrire : le prochain `flush` ou la prochaine decision retente.
                 self._dirty = True
@@ -395,16 +398,18 @@ def purge_plans(folder: Path, now: datetime) -> None:
     pouvoir dire pourquoi elle ne reprend pas. Un temporaire n'a aucun ecrivain au demarrage
     (instance unique) : c'est le reste d'une ecriture coupee.
     """
-    if not folder.is_dir():
-        return
-    for path in folder.iterdir():
-        if path.suffix not in (_SUFFIX, PENDING_SUFFIX):
-            continue
-        created = created_at_of(path)
-        if created is None:
-            continue
-        if path.suffix == PENDING_SUFFIX or now - created > RETENTION or _committed(path):
-            unlink_logged(path, "run plan not purged")
+    purge_stamped(
+        folder,
+        (_SUFFIX, PENDING_SUFFIX),
+        now,
+        "run plan not purged",
+        also_drop=lambda path: path.suffix == PENDING_SUFFIX or _committed(path),
+    )
+
+
+def _write(path: Path, plan: RunPlan) -> None:
+    """Serialise ici et non dans la boucle : le plan est `frozen`, le thread le lit sans risque."""
+    write_atomically(path, plan.model_dump_json(indent=2))
 
 
 def _committed(path: Path) -> bool:

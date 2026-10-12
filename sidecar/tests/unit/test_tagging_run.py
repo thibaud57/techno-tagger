@@ -19,15 +19,13 @@ from tagging_api import (
     three_tracks,
     two_tracks,
 )
-from tagging_records import scored_candidate
+from tagging_records import held
 
 from tagger.files import TaggingFolderUnreadableError
-from tagger.scraper_client import Source
 from tagger.sources import ApiKeyRejectedRunError, _RejectionGuard
 from tagger.tagging import (
     ArbitrationRequired,
     FailureReason,
-    PendingArbitration,
     RunProgress,
     RunStarted,
     TrackResolved,
@@ -123,19 +121,10 @@ async def test_reports_an_api_contract_error_to_sentry(tmp_path: Path) -> None:
     capture.assert_called_once()
 
 
-def _searched(api: FakeApi) -> set[str | None]:
-    return {
-        request.url.params.get("q")
-        for request in api.requests
-        if request.url.path.endswith("/search")
-    }
-
-
 def _hold(live: LiveRun, track_id: str) -> None:
     record = live.record(track_id)
     assert record is not None
-    held = PendingArbitration(Source.BEATPORT, (scored_candidate(),), beatport_unavailable=False)
-    live.update(replace(record, arbitration=held))
+    live.update(replace(record, arbitration=held()))
 
 
 def _refuse(live: LiveRun, track_id: str, reason: FailureReason) -> None:
@@ -153,7 +142,7 @@ async def test_never_sends_a_decided_track_back_to_the_api(tmp_path: Path) -> No
 
         await resolve_run(live, sources, on_event=events.append)
 
-    assert _searched(api) == {"Dara Winter The Weir"}
+    assert api.searched() == {"Dara Winter The Weir"}
     assert [event for event in events if isinstance(event, RunProgress)] == [RunProgress(3, 3)]
 
 
@@ -165,4 +154,4 @@ async def test_sends_back_to_the_api_a_track_whose_source_did_not_answer(tmp_pat
 
         await resolve_run(live, sources, on_event=lambda _event: None)
 
-    assert _searched(api) == {"Lior Vance Dim Orbit"}
+    assert api.searched() == {"Lior Vance Dim Orbit"}

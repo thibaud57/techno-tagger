@@ -9,7 +9,7 @@ from typing import Final
 
 import pytest
 from ndjson_loop import held_call
-from run_plans import music, plan_of, save_plan
+from run_plans import RUN_ID, music, plan_of, save_plan
 from scraper_responses import track_candidate
 from stubs import raising
 from tagging_api import CREATED
@@ -26,6 +26,7 @@ from tagger.plan import (
     RunPlan,
     RunPlanUnreadableError,
     discard_plan,
+    find_plan,
     load_plan,
     plan_path,
     purge_plans,
@@ -367,6 +368,24 @@ async def test_discarding_keeps_a_committed_plan(tmp_path: Path) -> None:
     await recorder.discard()
 
     assert _on_disk(tmp_path, recorder).committed
+
+
+def test_finds_a_plan_by_its_run(tmp_path: Path) -> None:
+    path = save_plan(tmp_path, plan_of(MUSIC, [WAITING]))
+    save_plan(tmp_path, plan_of(MUSIC, [WAITING], run_id="9e8f7a"))
+
+    found = find_plan(tmp_path, RUN_ID)
+
+    assert found == path
+
+
+@pytest.mark.parametrize("run_id", ["000000", "*"], ids=["unknown-run", "glob-pattern"])
+def test_finds_no_plan_for_an_unknown_run(tmp_path: Path, run_id: str) -> None:
+    save_plan(tmp_path, plan_of(MUSIC, [WAITING]))
+
+    found = find_plan(tmp_path, run_id)
+
+    assert found is None
 
 
 def test_discards_a_plan_file(tmp_path: Path) -> None:

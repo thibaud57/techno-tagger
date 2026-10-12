@@ -19,7 +19,6 @@ from tagger.resume import (
     InterruptedRun,
     UnreadablePlan,
     detect_interrupted,
-    find_plan,
     reopen_run,
 )
 from tagger.run_files import stamped_name
@@ -43,6 +42,7 @@ if TYPE_CHECKING:
     from tagger.tagging import RunEvent
 
 OLDER: Final = CREATED - timedelta(days=2)
+OLDER_RUN: Final = "9e8f7a"
 
 
 @pytest.fixture
@@ -95,12 +95,11 @@ def test_finds_no_interrupted_run_without_plans(plans: Path, dumps: Path) -> Non
 
 
 def test_sums_up_an_interrupted_run(plans: Path, dumps: Path, folder_with_audio: Path) -> None:
-    path = save_plan(plans, plan_of(folder_with_audio, _decided(62, 38)))
+    save_plan(plans, plan_of(folder_with_audio, _decided(62, 38)))
 
     detected = detect_interrupted(plans, dumps)
 
     assert detected == InterruptedRun(
-        path=path,
         run_id=RUN_ID,
         started_at=CREATED,
         folder=folder_with_audio,
@@ -138,7 +137,7 @@ def test_reports_a_plan_of_another_version(plans: Path, dumps: Path) -> None:
     detected = detect_interrupted(plans, dumps)
 
     assert isinstance(detected, UnreadablePlan)
-    assert (detected.path, detected.run_id, detected.started_at) == (path, RUN_ID, CREATED)
+    assert (detected.run_id, detected.started_at) == (RUN_ID, CREATED)
     assert detected.error.params == {"file": path.name, "found": 2, "expected": 1}
 
 
@@ -150,15 +149,13 @@ def test_drops_a_plan_whose_files_were_already_written(
 ) -> None:
     written = save_plan(plans, plan_of(folder_with_audio, _decided(1, 1)))
     (dumps / stamped_name(CREATED, RUN_ID, ".json")).write_text("{}", encoding="utf-8")
-    older = save_plan(
-        plans, plan_of(folder_with_audio, _decided(1, 1), run_id="9e8f7a", started_at=OLDER)
-    )
+    save_plan(plans, plan_of(folder_with_audio, _decided(1, 1), run_id=OLDER_RUN, started_at=OLDER))
 
     detected = detect_interrupted(plans, dumps)
 
     assert not written.exists()
     assert isinstance(detected, InterruptedRun)
-    assert detected.path == older
+    assert detected.run_id == OLDER_RUN
     assert "run plan dropped run=a3f9c1 reason=files_written" in caplog.messages
 
 
@@ -166,43 +163,39 @@ def test_skips_a_committed_plan_and_foreign_files(
     plans: Path, dumps: Path, folder_with_audio: Path
 ) -> None:
     save_plan(plans, plan_of(folder_with_audio, _decided(1, 1), committed=True))
-    older = save_plan(
-        plans, plan_of(folder_with_audio, _decided(1, 1), run_id="9e8f7a", started_at=OLDER)
-    )
+    save_plan(plans, plan_of(folder_with_audio, _decided(1, 1), run_id=OLDER_RUN, started_at=OLDER))
     (plans / "notes.json").write_text("{", encoding="utf-8")
     (plans / stamped_name(CREATED, "2c3d4e", ".tmp")).write_text("{", encoding="utf-8")
 
     detected = detect_interrupted(plans, dumps)
 
     assert isinstance(detected, InterruptedRun)
-    assert detected.path == older
+    assert detected.run_id == OLDER_RUN
 
 
 def test_reports_the_newest_plan_first_even_when_unreadable(
     plans: Path, dumps: Path, folder_with_audio: Path
 ) -> None:
-    save_plan(plans, plan_of(folder_with_audio, _decided(1, 1), run_id="9e8f7a", started_at=OLDER))
+    save_plan(plans, plan_of(folder_with_audio, _decided(1, 1), run_id=OLDER_RUN, started_at=OLDER))
     newest = plans / stamped_name(CREATED, RUN_ID, ".json")
     newest.write_text("{not json", encoding="utf-8")
 
     detected = detect_interrupted(plans, dumps)
 
     assert isinstance(detected, UnreadablePlan)
-    assert detected.path == newest
+    assert detected.run_id == RUN_ID
 
 
 def test_ignores_the_plan_of_the_run_still_open(
     plans: Path, dumps: Path, folder_with_audio: Path
 ) -> None:
     save_plan(plans, plan_of(folder_with_audio, _decided(1, 1)))
-    older = save_plan(
-        plans, plan_of(folder_with_audio, _decided(1, 1), run_id="9e8f7a", started_at=OLDER)
-    )
+    save_plan(plans, plan_of(folder_with_audio, _decided(1, 1), run_id=OLDER_RUN, started_at=OLDER))
 
     detected = detect_interrupted(plans, dumps, active_run_id=RUN_ID)
 
     assert isinstance(detected, InterruptedRun)
-    assert detected.path == older
+    assert detected.run_id == OLDER_RUN
 
 
 def test_finds_nothing_when_the_only_plan_is_the_run_still_open(
@@ -213,22 +206,6 @@ def test_finds_nothing_when_the_only_plan_is_the_run_still_open(
     detected = detect_interrupted(plans, dumps, active_run_id=RUN_ID)
 
     assert detected is None
-
-
-def test_finds_a_plan_by_its_run(plans: Path, music_folder: Path) -> None:
-    path = save_plan(plans, plan_of(music_folder, _decided(1, 1)))
-
-    found = find_plan(plans, RUN_ID)
-
-    assert found == path
-
-
-def test_finds_no_plan_for_an_unknown_run(plans: Path, music_folder: Path) -> None:
-    save_plan(plans, plan_of(music_folder, _decided(1, 1)))
-
-    found = find_plan(plans, "000000")
-
-    assert found is None
 
 
 def _query(record: TrackRecord) -> TrackQuery:
@@ -441,12 +418,8 @@ async def test_resumes_a_run_left_at_62_out_of_100(music_folder: Path) -> None:
         live = await reopen_run(plan, sources, on_event=events.append)
         await resolve_run(live, sources, on_event=events.append)
 
-    searched = [
-        request.url.params.get("q")
-        for request in api.requests
-        if request.url.path == "/beatport/search"
-    ]
-    assert sorted(searched) == sorted(_query(record).text for record in records[62:])
+    assert api.searched() == {_query(record).text for record in records[62:]}
+    assert api.paths().count("/beatport/search") == 38
     progress = [event for event in events if isinstance(event, RunProgress)]
     assert (progress[0], progress[-1]) == (RunProgress(62, 100), RunProgress(100, 100))
     held = live.record("t001.mp3")

@@ -20,9 +20,8 @@ from pydantic import ValidationError
 from tagger import RELEASE
 from tagger.arbitration import ArbitrationNotPendingError
 from tagger.build_info import SENTRY_DSN
-from tagger.errors import TaggerError
+from tagger.errors import RunNotFoundError, TaggerError
 from tagger.handlers import (
-    RunNotFoundError,
     commit,
     handle_commit_run,
     handle_extract_playlist,
@@ -37,13 +36,12 @@ from tagger.handlers import (
     handle_rollback,
     handle_set_api_key,
     handle_start_tagging,
-    read_resumable_plan,
     url_progress,
 )
 from tagger.logger import setup_logging
 from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
-from tagger.plan import discard_plan, plan_dir, purge_plans
+from tagger.plan import discard_plan, find_plan, plan_dir, purge_plans
 from tagger.protocol import (
     CancelRun,
     CommitRun,
@@ -71,7 +69,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
-from tagger.resume import find_plan
+from tagger.resume import load_resumable
 from tagger.tag_dump import dump_dir, purge_dumps
 from tagger.url_recovery import UrlRecoveryNotOpenError
 
@@ -196,15 +194,13 @@ class _Session:
         self._spawn_phase(Phase.TAGGING, start_work, command)
 
     def resume_run(self, command: ResumeRun) -> None:
-        """Meme traitement que `start_tagging` : la reprise part en tache de fond et devient le run
-        courant des que ses decisions sont rendues. Le run affiche n'est remplace qu'une fois le
-        plan valide, pour qu'un refus ne lui coute rien."""
+        """Le run affiche n'est remplace qu'une fois le plan valide : un refus ne lui coute rien."""
         self._ensure_idle()
         start_work = functools.partial(self._resume, command)
         self._spawn_phase(Phase.TAGGING, start_work, command)
 
     async def _resume(self, command: ResumeRun) -> None:
-        plan = await read_resumable_plan(command.run_id)
+        plan = await asyncio.to_thread(load_resumable, plan_dir(), dump_dir(), command.run_id)
         replaced, self._current = self._current, None
         if replaced is not None:
             await replaced.abandon()
@@ -305,7 +301,7 @@ class _Session:
         await asyncio.gather(*loads, return_exceptions=True)
 
     async def announce_interrupted_run(self) -> None:
-        """Annonce le plan a reprendre, sans le run ouvert : son plan est vivant, pas interrompu."""
+        """Annonce le plan a reprendre, le run ouvert excepte."""
         current = self._current
         active_run_id = None if current is None else current.live.run_id
         self.send(await asyncio.to_thread(handle_get_interrupted_run, active_run_id))

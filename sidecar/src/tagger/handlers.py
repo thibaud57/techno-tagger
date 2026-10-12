@@ -11,7 +11,7 @@ from collections import Counter
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never, override
+from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
 from tagger import __version__, arbitration, tagging, url_recovery, writing
 from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
@@ -23,13 +23,13 @@ from tagger.cache import (
     ResponseCache,
     resolve_host,
 )
-from tagger.errors import TaggerError
+from tagger.errors import RunNotFoundError
 from tagger.extraction import extract
 from tagger.files import TagField
 from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
 from tagger.paths import app_data_dir
 from tagger.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
-from tagger.plan import PlanRecorder, RunPlan, load_plan, plan_dir
+from tagger.plan import PlanRecorder, RunPlan, plan_dir
 from tagger.playlists import list_playlists, read_playlist
 from tagger.protocol import (
     ArbitrationRequired,
@@ -72,11 +72,11 @@ from tagger.protocol import (
 )
 from tagger.report_index import IndexEntry, index_path, list_reports, record_report
 from tagger.reports import ReportContext, ReportWriteError, write_extraction_report
-from tagger.resume import InterruptedRun, UnreadablePlan, detect_interrupted, find_plan, reopen_run
+from tagger.resume import InterruptedRun, UnreadablePlan, detect_interrupted, reopen_run
 from tagger.rollback import find_rollback_target, roll_back
 from tagger.scraper_client import TechnoScraperClient
 from tagger.sources import RunSources
-from tagger.tag_dump import TagDumpError, dump_dir, find_dump
+from tagger.tag_dump import TagDumpError, dump_dir
 from tagger.tagging import open_run, resolve_run
 from tagger.tagging_report import (
     after_rows,
@@ -96,7 +96,7 @@ if TYPE_CHECKING:
 
     from tagger.arbitration import ArbitrationEvent
     from tagger.cache import HostResolver
-    from tagger.files import ShownTags
+    from tagger.files import TagSystem
     from tagger.matching import ScoredCandidate
     from tagger.protocol import Event
     from tagger.reports import ReportPaths
@@ -119,20 +119,8 @@ def handle_get_version() -> Version:
     )
 
 
-class RunNotFoundError(TaggerError):
-    """Ni plan ni rapport pour ce run : supprime entre l'annonce et le geste, ou inconnu."""
-
-    code: ClassVar[str] = "run_not_found"
-
-    def __init__(self, run_id: str) -> None:
-        super().__init__(f"run not found: {run_id}", run_id=run_id)
-
-
 def handle_get_interrupted_run(active_run_id: str | None) -> InterruptedRunEvent:
-    """Relu sur le disque a chaque appel : un abandon change le plan a proposer.
-
-    Le plan du run ouvert est vivant, pas interrompu : `active_run_id` l'ecarte.
-    """
+    """Relu sur le disque a chaque appel : un abandon change le plan a proposer."""
     detected = detect_interrupted(plan_dir(), dump_dir(), active_run_id=active_run_id)
     return InterruptedRunEvent(event="interrupted_run", run=_detected(detected))
 
@@ -153,12 +141,10 @@ def _detected(
                 folder_missing=detected.folder_missing,
             )
         case UnreadablePlan():
-            found = detected.error.params.get("found")
             return UnreadablePlanPayload(
                 run_id=detected.run_id,
                 started_at=detected.started_at,
-                # Entier ou chaine seuls : un JSON corrompu ou sans version rend `None`.
-                found=found if isinstance(found, int | str) else None,
+                found=detected.error.found,
                 expected=PLAN_SCHEMA_VERSION,
             )
         case _:
@@ -343,15 +329,14 @@ async def _open_clients(stack: AsyncExitStack) -> tuple[TechnoScraperClient, Art
     if api_key is None:
         raise ApiKeyMissingError
 
-    cache_root = app_data_dir() / "cache"
     # Deux scans independants, superposes plutot qu'enchaines. `TaskGroup` et non
     # `gather` : si l'un leve, il annule l'autre au lieu de le laisser courir seul.
     async with asyncio.TaskGroup() as opening:
         responses_disk = opening.create_task(
-            asyncio.to_thread(DiskCache, cache_root / "responses"), name="cache:responses"
+            asyncio.to_thread(DiskCache, _cache_dir("responses")), name="cache:responses"
         )
         artworks_disk = opening.create_task(
-            asyncio.to_thread(DiskCache, cache_root / "artworks"), name="cache:artworks"
+            asyncio.to_thread(DiskCache, _cache_dir("artworks")), name="cache:artworks"
         )
     transports = tagging_transports()
     client = await stack.enter_async_context(
@@ -359,10 +344,16 @@ async def _open_clients(stack: AsyncExitStack) -> tuple[TechnoScraperClient, Art
             api_key, transport=transports.api, cache=ResponseCache(responses_disk.result())
         )
     )
-    artworks = await stack.enter_async_context(
-        ArtworkFetcher(artworks_disk.result(), transport=transports.cdn, resolve=transports.resolve)
-    )
+    artworks = await stack.enter_async_context(_artwork_fetcher(artworks_disk.result(), transports))
     return client, artworks
+
+
+def _cache_dir(name: str) -> Path:
+    return app_data_dir() / "cache" / name
+
+
+def _artwork_fetcher(disk: DiskCache, transports: TaggingTransports) -> ArtworkFetcher:
+    return ArtworkFetcher(disk, transport=transports.cdn, resolve=transports.resolve)
 
 
 def _build_current_run(
@@ -432,22 +423,6 @@ async def handle_start_tagging(
     current = await open_tagging(command, emit)
     adopt(current)
     await _network_phase(current, emit)
-
-
-async def read_resumable_plan(run_id: str) -> RunPlan:
-    """Plan a rouvrir, valide avant qu'on abandonne le run affiche.
-
-    Un plan confirme, ou dont le run a un dump, a vu des fichiers bouger : la reprise affirmerait
-    qu'aucun n'a ete touche. C'est la regle de `resume.detect_interrupted`, qui ne l'annonce pas.
-    """
-    path = await asyncio.to_thread(find_plan, plan_dir(), run_id)
-    if path is None:
-        raise RunNotFoundError(run_id)
-    plan = await asyncio.to_thread(load_plan, path)
-    dumped = await asyncio.to_thread(find_dump, dump_dir(), run_id) is not None
-    if plan.committed or dumped:
-        raise RunNotFoundError(run_id)
-    return plan
 
 
 async def handle_resume_run(
@@ -564,29 +539,27 @@ async def _artworks(report: TaggingReport) -> dict[str, Path]:
     """Pochettes retelechargees par un fetcher ouvert pour la tache, dont le pool est borne.
 
     Le cache du run vivant n'est pas emprunte : ses entrees expirent apres 30 jours, les rapports
-    jamais.
+    jamais. Une pochette partagee par plusieurs morceaux n'est demandee qu'une fois.
     """
-    wanted = {
-        track.track_id: track.artwork_url
-        for track in report.tracks
-        if track.artwork_url is not None
-    }
-    if not wanted:
+    urls = dict.fromkeys(
+        track.artwork_url for track in report.tracks if track.artwork_url is not None
+    )
+    if not urls:
         return {}
-    disk = await asyncio.to_thread(DiskCache, app_data_dir() / "cache" / "artworks")
-    transports = tagging_transports()
+    disk = await asyncio.to_thread(DiskCache, _cache_dir("artworks"))
     async with (
-        ArtworkFetcher(disk, transport=transports.cdn, resolve=transports.resolve) as fetcher,
+        _artwork_fetcher(disk, tagging_transports()) as fetcher,
         asyncio.TaskGroup() as group,
     ):
         fetches = {
-            track_id: group.create_task(_artwork_or_none(fetcher, url), name=f"artwork:{track_id}")
-            for track_id, url in wanted.items()
+            url: group.create_task(_artwork_or_none(fetcher, url), name=f"artwork:{position}")
+            for position, url in enumerate(urls, start=1)
         }
+    paths = {url: path for url, fetch in fetches.items() if (path := fetch.result()) is not None}
     return {
-        track_id: path
-        for track_id, fetch in fetches.items()
-        if (path := fetch.result()) is not None
+        track.track_id: path
+        for track in report.tracks
+        if track.artwork_url is not None and (path := paths.get(track.artwork_url)) is not None
     }
 
 
@@ -618,11 +591,7 @@ def _loaded(track: TaggingReportTrack, artwork: Path | None) -> TrackLoaded:
         # Systeme et lignes sont nuls ensemble : le rapport a lu les deux sur les memes tags.
         tags_before=None
         if track.system is None or track.tags_before is None
-        else TagsBeforePayload(
-            system=track.system,
-            comment=track.comment_before,
-            fields=_payload_rows(track.tags_before),
-        ),
+        else _tags_before(track.system, track.comment_before, track.tags_before),
         tags_after=None if track.tags_after is None else _payload_rows(track.tags_after),
         source_url=track.url,
         artwork_path=artwork,
@@ -740,16 +709,16 @@ def _entry(record: TrackRecord) -> TrackEntry:
         file_name=record.file_name,
         artist=record.identity.artist,
         title=record.identity.title,
-        tags_before=None if before is None else _tags_before(before),
+        tags_before=None
+        if before is None
+        else _tags_before(before.system, before.comment, tag_rows(before.fields, before.system)),
     )
 
 
-def _tags_before(shown: ShownTags) -> TagsBeforePayload:
-    return TagsBeforePayload(
-        system=shown.system,
-        comment=shown.comment,
-        fields=_payload_rows(tag_rows(shown.fields, shown.system)),
-    )
+def _tags_before(
+    system: TagSystem, comment: str | None, rows: Iterable[ReportTagValue]
+) -> TagsBeforePayload:
+    return TagsBeforePayload(system=system, comment=comment, fields=_payload_rows(rows))
 
 
 def _tags_after(record: TrackRecord, candidate: TrackCandidate) -> tuple[TagValuePayload, ...]:
@@ -758,7 +727,7 @@ def _tags_after(record: TrackRecord, candidate: TrackCandidate) -> tuple[TagValu
 
 def _payload_rows(rows: Iterable[ReportTagValue]) -> tuple[TagValuePayload, ...]:
     """Une seule projection des lignes pour l'ecran et le rapport, ici seulement convertie."""
-    return tuple(TagValuePayload(field=row.field, key=row.key, value=row.value) for row in rows)
+    return tuple(TagValuePayload.model_validate(row, from_attributes=True) for row in rows)
 
 
 def _resolved(record: TrackRecord) -> TrackResolved:

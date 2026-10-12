@@ -11,14 +11,15 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 from pydantic import BaseModel, ValidationError
 
-from tagger.reports import TIMESTAMP_FORMAT
-
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 PENDING_SUFFIX: Final = ".tmp"
+# Jamais `isoformat()` dans un nom de fichier : ses `:` sont interdits sous Windows.
+TIMESTAMP_FORMAT: Final = "%Y%m%dT%H%M%SZ"
 # Une seule duree pour les dumps et les plans : un run reste annulable aussi longtemps que repris.
 RETENTION: Final = timedelta(days=30)
 
@@ -26,7 +27,7 @@ RETENTION: Final = timedelta(days=30)
 class Unreadable(Protocol):
     """Erreur d'un fichier de run illisible : `found` porte la version de schema trouvee."""
 
-    def __call__(self, path: Path, found: object = None, /) -> Exception: ...
+    def __call__(self, path: Path, found: int | str | None = None, /) -> Exception: ...
 
 
 def stamped_name(created_at: datetime, run_id: str, suffix: str) -> str:
@@ -58,6 +59,11 @@ def newest_first(folder: Path, suffix: str) -> list[Path]:
     return sorted(stamped, reverse=True)
 
 
+def find_by_run_id(folder: Path, suffix: str, run_id: str) -> Path | None:
+    """Fichier d'un run ; compare, jamais glob : un `*` designerait tout."""
+    return next((path for path in newest_first(folder, suffix) if run_id_of(path) == run_id), None)
+
+
 def write_atomically(path: Path, text: str) -> None:
     """Temporaire voisin puis remplacement : une coupure ne laisse jamais un fichier tronque.
 
@@ -74,22 +80,29 @@ def write_atomically(path: Path, text: str) -> None:
         raise
 
 
+def exact_version(expected: int) -> Callable[[object], bool]:
+    """Politique du plan et du dump : seule la version courante se lit, jamais migree (ADR-018)."""
+    return lambda found: found == expected
+
+
 def read_versioned[Model: BaseModel](
-    path: Path, model: type[Model], version: int, unreadable: Unreadable
+    path: Path, model: type[Model], accepts: Callable[[object], bool], unreadable: Unreadable
 ) -> Model:
-    """Relit un fichier de run ; une version inconnue est refusee, jamais migree (ADR-018)."""
+    """Relit un fichier de run ; `accepts` dit quelles versions de schema se lisent."""
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise unreadable(path) from exc
 
     found = raw.get("schema_version") if isinstance(raw, dict) else None
-    if found != version:
-        raise unreadable(path, found)
+    # Entier ou chaine seuls : un JSON corrompu ou sans version n'a rien a rapporter.
+    reported = found if isinstance(found, int | str) else None
+    if not accepts(found):
+        raise unreadable(path, reported)
     try:
         return model.model_validate(raw)
     except ValidationError as exc:
-        raise unreadable(path, found) from exc
+        raise unreadable(path, reported) from exc
 
 
 def unlink_logged(path: Path, label: str) -> None:
@@ -98,3 +111,24 @@ def unlink_logged(path: Path, label: str) -> None:
         path.unlink(missing_ok=True)
     except OSError:
         logger.warning("%s run=%s reason=unlink_failed", label, run_id_of(path))
+
+
+def purge_stamped(
+    folder: Path,
+    suffixes: tuple[str, ...],
+    now: datetime,
+    label: str,
+    *,
+    also_drop: Callable[[Path], bool] = lambda _path: False,
+) -> None:
+    """Supprime les fichiers horodates passes la retention, ou que `also_drop` condamne."""
+    if not folder.is_dir():
+        return
+    for path in folder.iterdir():
+        if path.suffix not in suffixes:
+            continue
+        created = created_at_of(path)
+        if created is None:
+            continue
+        if now - created > RETENTION or also_drop(path):
+            unlink_logged(path, label)

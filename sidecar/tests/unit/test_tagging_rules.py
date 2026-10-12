@@ -4,16 +4,13 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from tagging_records import RECORD, scored_candidate
+from tagging_records import RECORD, held
 
-from tagger.scraper_client import Source
-from tagger.tagging import FailureReason, LiveRun, PendingArbitration, TrackRecord
+from tagger.tagging import FailureReason, LiveRun, TrackRecord
 
 HELD = replace(
     RECORD,
-    arbitration=PendingArbitration(
-        Source.BEATPORT, (scored_candidate(),), beatport_unavailable=False
-    ),
+    arbitration=held(),
 )
 
 

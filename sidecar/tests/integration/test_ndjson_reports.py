@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import httpx2
 import pytest
 from ndjson_loop import EXPECT_TIMEOUT, conversation, resolved_run
+from report_files import report_json
 from scraper_responses import DIM_ORBIT
 from stubs import raising
 from tagging_api import ONE_TRACK, ORIGINAL, WRITTEN_NAME, FakeApi, FakeCdn, public_resolver
@@ -23,11 +24,6 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
 
-def _report_json(folder: Path) -> Path:
-    (json_path,) = folder.glob("tagging-report-*.json")
-    return json_path
-
-
 async def test_names_the_report_when_the_write_phase_ends(folder: Path) -> None:
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))
@@ -36,7 +32,7 @@ async def test_names_the_report_when_the_write_phase_ends(folder: Path) -> None:
         written = await talk.expect("run_finished", phase="write")
 
     assert network["report_path"] is None
-    assert written["report_path"] == str(_report_json(folder))
+    assert written["report_path"] == str(report_json(folder))
 
 
 async def test_leaves_the_report_path_empty_when_the_report_cannot_be_written(

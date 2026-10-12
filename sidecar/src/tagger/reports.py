@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from tagger.errors import TaggerError
 from tagger.extraction import DuplicateCriterion, ExtractionMode
 from tagger.file_failures import FileFailureReason
+from tagger.run_files import TIMESTAMP_FORMAT
 
 if TYPE_CHECKING:
     from tagger.extraction import ExtractionResult
@@ -31,8 +32,6 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION: Final = 1
 REPORT_KIND: Final = "extraction"
 FILE_STEM: Final = "extraction-report"
-# Jamais `isoformat()` dans un nom de fichier : ses `:` sont interdits sous Windows.
-TIMESTAMP_FORMAT: Final = "%Y%m%dT%H%M%SZ"
 
 
 class ReportError(TaggerError):

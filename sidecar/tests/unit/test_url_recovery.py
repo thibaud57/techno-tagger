@@ -28,7 +28,7 @@ from tagging_api import (
     three_tracks,
     two_tracks,
 )
-from tagging_records import scored_candidate
+from tagging_records import held, scored_candidate
 
 from tagger.scraper_client import (
     ApiContractError,
@@ -41,7 +41,6 @@ from tagger.scraper_client import (
 from tagger.sources import ApiKeyRejectedRunError
 from tagger.tagging import (
     FailureReason,
-    PendingArbitration,
     Resolution,
     TrackResolved,
     TrackState,
@@ -98,7 +97,7 @@ def _awaiting(record: TrackRecord) -> TrackRecord:
         state=None,
         resolution=None,
         failure_reason=None,
-        arbitration=PendingArbitration(Source.BEATPORT, (scored_candidate(),), False),
+        arbitration=held(),
     )
 
 

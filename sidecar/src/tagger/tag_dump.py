@@ -22,13 +22,12 @@ from tagger.files import OriginalTags, TagField, TagSystem
 from tagger.paths import app_data_dir
 from tagger.run_files import (
     PENDING_SUFFIX,
-    RETENTION,
-    created_at_of,
+    exact_version,
+    find_by_run_id,
     newest_first,
+    purge_stamped,
     read_versioned,
-    run_id_of,
     stamped_name,
-    unlink_logged,
     write_atomically,
 )
 
@@ -111,7 +110,7 @@ class TagDumpUnreadableError(TagDumpError):
 
     code: ClassVar[str] = "tag_dump_unreadable"
 
-    def __init__(self, path: Path, found: object = None) -> None:
+    def __init__(self, path: Path, found: int | str | None = None) -> None:
         super().__init__(
             f"unreadable tag dump: {path.name}",
             file=path.name,
@@ -135,8 +134,7 @@ def journal_path(dump_file: Path) -> Path:
 
 
 def find_dump(folder: Path, run_id: str) -> Path | None:
-    """Dump d'un run, `None` s'il n'existe pas ; compare, jamais glob : un `*` designerait tout."""
-    return next((path for path in dumps_newest_first(folder) if run_id_of(path) == run_id), None)
+    return find_by_run_id(folder, _SUFFIX, run_id)
 
 
 def dumps_newest_first(folder: Path) -> list[Path]:
@@ -228,7 +226,7 @@ def load_dump(path: Path) -> TagDump:
 
 
 def _read_dump(path: Path) -> TagDump:
-    return read_versioned(path, TagDump, SCHEMA_VERSION, TagDumpUnreadableError)
+    return read_versioned(path, TagDump, exact_version(SCHEMA_VERSION), TagDumpUnreadableError)
 
 
 def purge_dumps(folder: Path, now: datetime) -> None:
@@ -237,15 +235,7 @@ def purge_dumps(folder: Path, now: datetime) -> None:
     Un temporaire laisse par une ecriture coupee porte les memes tags : meme retention. Le
     journal d'un run suit le sien, y compris quand son dump a deja disparu.
     """
-    if not folder.is_dir():
-        return
-    for path in folder.iterdir():
-        if path.suffix not in _RETAINED_SUFFIXES:
-            continue
-        created = created_at_of(path)
-        if created is None or now - created <= RETENTION:
-            continue
-        unlink_logged(path, "tag dump not purged")
+    purge_stamped(folder, _RETAINED_SUFFIXES, now, "tag dump not purged")
 
 
 def _replay(dump: TagDump, journal: str) -> TagDump:

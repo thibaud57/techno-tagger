@@ -103,6 +103,14 @@ class FakeApi:
     def paths(self) -> list[str]:
         return [request.url.path for request in self.requests]
 
+    def searched(self) -> set[str | None]:
+        """Requetes `q` des recherches recues, Beatport et Bandcamp confondus."""
+        return {
+            request.url.params.get("q")
+            for request in self.requests
+            if request.url.path.endswith("/search")
+        }
+
     async def gated_handler(self, request: httpx2.Request) -> httpx2.Response:
         gate = self._gates.get(_route(request))
         if gate is not None:

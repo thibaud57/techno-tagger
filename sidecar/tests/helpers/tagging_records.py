@@ -7,7 +7,8 @@ from scraper_responses import track_candidate
 
 from tagger.files import IdentityTags
 from tagger.matching import ScoredCandidate
-from tagger.tagging import TrackRecord
+from tagger.scraper_client import Source
+from tagger.tagging import PendingArbitration, TrackRecord
 
 if TYPE_CHECKING:
     from tagger.scraper_client import TrackCandidate
@@ -28,3 +29,8 @@ def scored_candidate(
     return ScoredCandidate(
         picked, artist, title, average, version_mismatch=False, number_mismatch=False
     )
+
+
+def held() -> PendingArbitration:
+    """Zone grise de Beatport, joignable : un seul candidat a trancher."""
+    return PendingArbitration(Source.BEATPORT, (scored_candidate(),), beatport_unavailable=False)

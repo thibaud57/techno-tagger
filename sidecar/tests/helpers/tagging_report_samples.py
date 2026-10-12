@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Final
 
 from scraper_responses import payload_candidate
-from tagging_records import RECORD, scored_candidate
+from tagging_records import RECORD, held, scored_candidate
 
 from tagger.file_failures import FileFailureReason
 from tagger.files import ShownTags, TagField, TagSystem, WrittenTags
@@ -13,7 +13,6 @@ from tagger.matching import QueryOrigin, TrackQuery
 from tagger.scraper_client import Source
 from tagger.tagging import (
     FailureReason,
-    PendingArbitration,
     Resolution,
     TaggingRun,
     TrackRecord,
@@ -53,9 +52,7 @@ UNRESOLVED: Final = _record("c.mp3").unresolved(FailureReason.NO_RESULT)
 WAITING: Final = _record("d.mp3")
 HELD: Final = replace(
     _record("e.mp3"),
-    arbitration=PendingArbitration(
-        Source.BEATPORT, (scored_candidate(),), beatport_unavailable=False
-    ),
+    arbitration=held(),
 )
 # Ecrit puis restaure : `rolled_back` efface la source et le candidat, la resolution reste.
 ROLLED_BACK: Final = (

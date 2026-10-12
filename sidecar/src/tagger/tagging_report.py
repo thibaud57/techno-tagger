@@ -6,14 +6,13 @@ Le rapport est permanent et se migre (ADR-018 option B) : la migration se posera
 est la seule. Le plan de run, jetable, refuse au contraire une version inconnue.
 """
 
-import json
 import logging
 from collections import Counter
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Final, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, ValidationError
+from pydantic import AwareDatetime, BaseModel, ConfigDict
 
 from tagger.errors import TaggerError
 from tagger.file_failures import FileFailureReason
@@ -21,7 +20,6 @@ from tagger.files import TagField, TagSystem, after_tags, project_tags, shown_ke
 from tagger.matching import QueryOrigin, credited_artists, full_title
 from tagger.plan import PlanScores
 from tagger.reports import (
-    TIMESTAMP_FORMAT,
     ReportWriteError,
     escape_markdown,
     format_instant,
@@ -29,7 +27,7 @@ from tagger.reports import (
     table_section,
     unused_report_paths,
 )
-from tagger.run_files import write_atomically
+from tagger.run_files import TIMESTAMP_FORMAT, read_versioned, write_atomically
 from tagger.scraper_client import Source
 from tagger.tagging import FailureReason, Resolution, TrackState
 
@@ -125,7 +123,7 @@ class TaggingReportUnreadableError(TaggerError):
 
     code: ClassVar[str] = "tagging_report_unreadable"
 
-    def __init__(self, path: Path, found: object = None) -> None:
+    def __init__(self, path: Path, found: int | str | None = None) -> None:
         super().__init__(
             f"unreadable tagging report: {path.name}",
             file=path.name,
@@ -158,18 +156,11 @@ def build_tagging_report(
 
 def load_tagging_report(path: Path) -> TaggingReport:
     """Relit un rapport ; une version future est refusee, un rapport plus ancien se migre ici."""
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise TaggingReportUnreadableError(path) from exc
+    return read_versioned(path, TaggingReport, _is_readable, TaggingReportUnreadableError)
 
-    found = raw.get("schema_version") if isinstance(raw, dict) else None
-    if not isinstance(found, int) or found > SCHEMA_VERSION:
-        raise TaggingReportUnreadableError(path, found)
-    try:
-        return TaggingReport.model_validate(raw)
-    except ValidationError as exc:
-        raise TaggingReportUnreadableError(path, found) from exc
+
+def _is_readable(found: object) -> bool:
+    return isinstance(found, int) and found <= SCHEMA_VERSION
 
 
 _WAV_NOTE: Final = (

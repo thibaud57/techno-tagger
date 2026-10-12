@@ -7,8 +7,15 @@ import logging
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+from tagger.errors import RunNotFoundError
 from tagger.files import TaggingFolderUnreadableError, list_audio_files
-from tagger.plan import RunPlanUnreadableError, discard_plan, load_plan, plans_newest_first
+from tagger.plan import (
+    RunPlanUnreadableError,
+    discard_plan,
+    find_plan,
+    load_plan,
+    plans_newest_first,
+)
 from tagger.run_files import created_at_of, run_id_of
 from tagger.tag_dump import find_dump
 from tagger.tagging import (
@@ -37,7 +44,6 @@ logger = logging.getLogger(__name__)
 class InterruptedRun:
     """Run a proposer a la reprise, resume tire du plan."""
 
-    path: Path
     run_id: str
     started_at: datetime
     folder: Path
@@ -51,7 +57,6 @@ class InterruptedRun:
 class UnreadablePlan:
     """Plan illisible ou d'une autre version : jamais repris, son erreur dit pourquoi (ADR-018)."""
 
-    path: Path
     run_id: str
     started_at: datetime
     error: RunPlanUnreadableError
@@ -69,6 +74,7 @@ def detect_interrupted(
 
     Un plan dont le run a un dump a vu des fichiers bouger : la reprise affirmerait qu'aucun
     n'a ete touche. Il est traite comme termine, la restauration des Reglages couvre le cas.
+    Un plan confirme part a la purge, un dump sans confirmation est ecarte ici.
     """
     for path, started_at in _stamped(plans):
         if run_id_of(path) == active_run_id:
@@ -76,15 +82,13 @@ def detect_interrupted(
         try:
             plan = load_plan(path)
         except RunPlanUnreadableError as error:
-            return UnreadablePlan(path, run_id_of(path), started_at, error)
-        if plan.committed:
-            continue
-        if find_dump(dumps, plan.run_id) is not None:
-            logger.warning("run plan dropped run=%s reason=files_written", plan.run_id)
-            discard_plan(path)
+            return UnreadablePlan(run_id_of(path), started_at, error)
+        if _files_written(plan, dumps):
+            if not plan.committed:
+                logger.warning("run plan dropped run=%s reason=files_written", plan.run_id)
+                discard_plan(path)
             continue
         return InterruptedRun(
-            path=path,
             run_id=plan.run_id,
             started_at=plan.started_at,
             folder=plan.folder,
@@ -95,9 +99,16 @@ def detect_interrupted(
     return None
 
 
-def find_plan(plans: Path, run_id: str) -> Path | None:
-    """Plan d'un run ; compare, jamais glob : un `*` designerait tout."""
-    return next((path for path in plans_newest_first(plans) if run_id_of(path) == run_id), None)
+def load_resumable(plans: Path, dumps: Path, run_id: str) -> RunPlan:
+    """Plan a rouvrir, valide avant qu'on abandonne le run affiche : `run_not_found` s'il manque
+    ou a vu des fichiers bouger."""
+    path = find_plan(plans, run_id)
+    if path is None:
+        raise RunNotFoundError(run_id)
+    plan = load_plan(path)
+    if _files_written(plan, dumps):
+        raise RunNotFoundError(run_id)
+    return plan
 
 
 async def reopen_run(
@@ -124,6 +135,11 @@ async def reopen_run(
             on_event(TrackResolved(record))
     on_event(RunProgress(sum(record.decided for record in records), len(records)))
     return LiveRun(plan.run_id, plan.folder, records)
+
+
+def _files_written(plan: RunPlan, dumps: Path) -> bool:
+    """Plan confirme ou dont le run a un dump : la regle unique du plan qui ne se reprend pas."""
+    return plan.committed or find_dump(dumps, plan.run_id) is not None
 
 
 def _stamped(plans: Path) -> list[tuple[Path, datetime]]:
