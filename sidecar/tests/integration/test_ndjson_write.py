@@ -362,6 +362,19 @@ async def test_rewrites_the_same_report_after_a_retry(
     assert _reports(folder) == [json_path, json_path.with_suffix(".md")]
 
 
+async def test_leaves_the_report_untouched_by_a_rollback(folder: Path) -> None:
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+        before = _report_texts(folder)
+        talk.send(command="rollback", run_id=run_id)
+        await talk.expect("rollback_finished")
+
+    assert _report_texts(folder) == before
+    assert load_tagging_report(_only_report(folder)[0]).counts.written == 1
+
+
 async def test_reports_a_restored_track_after_a_partial_rollback(folder: Path) -> None:
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)

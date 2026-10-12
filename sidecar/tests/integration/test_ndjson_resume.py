@@ -183,6 +183,7 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
     gate.release.set()
     api.requests.clear()
     run_id = started["run_id"]
+    plan_before = plan_files()
 
     async with conversation() as talk:
         talk.send(command="get_interrupted_run")
@@ -196,6 +197,7 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
     assert isinstance(run, dict)
     assert (run["processed"], run["total"]) == (1, 2)
     assert replayed["resolution"] == "auto"
+    assert plan_files() == plan_before
     searched = {
         request.url.params.get("q")
         for request in api.requests
