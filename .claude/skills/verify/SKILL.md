@@ -321,6 +321,20 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
   laisse aucune coroutine jamais attendue ; relevé le 2026-09-25, la contre-épreuve
   sur le code d'avant ne l'a montré ni par `drive.py` ni en quatre passes de pytest
 
+## Pilotage du plan de run, de la reprise et du rapport
+
+Trois sessions de `drive.py` sous le même `LOCALAPPDATA`, sur la fixture par défaut (deux arbitrages, un non résolu). Le plan vit sous `<LOCALAPPDATA>/fr.empiricmind.techno-tagger/plans/<horodatage>-<run_id>.json`, le registre à côté (`reports.json`), le rapport dans le dossier du run (`tagging-report-<horodatage>.json` et `.md`). **`drive.py` appelle `run_loop` sans passer par `main()` : la purge des plans au démarrage ne s'y voit pas**, elle se prouve par le vrai sidecar (`just dev-sidecar` alimenté par un pipe), comme la purge des dumps.
+
+### Flux qui valent le coup
+
+- Session 1, `start_tagging` puis EOF avec deux arbitrages en attente : un plan unique, `committed` faux, chaque morceau avec son état ou son arbitrage, aucun chemin de pochette (seul `artwork_url` du candidat) ; `get_interrupted_run` pendant le run répond `run: null` (le run ouvert n'est pas interrompu)
+- Session 2, nouveau process : `interrupted_run` en `interrupted` avec `processed` / `total` (un arbitrage en attente compte comme traité) ; `resume_run` rejoue `run_started`, les `arbitration_required` et le non résolu sans aucune recherche, puis `run_finished` en `network` ; les arbitrages se tranchent (`track_resolved` avec `source_url`) ; `commit_run` rend `run_finished` en `write` avec `report_path` ; `list_runs` liste le run ; `load_run` rend `run_loaded` avec `file_after` et `tags_before.system`, sans `restorable` ; `load_run` et `discard_run` d'un `run_id` inconnu en `run_not_found`. Le plan est alors `committed`
+- Rapport Markdown : en anglais, compteurs en tête, sections Written (colonnes Route, Cover, Truncated, Page) et Unresolved (Query, Reason), sections vides omises
+- Purge par le vrai sidecar, fichiers posés dans `plans/` : plan confirmé, plan de plus de 30 jours et `.tmp` supprimés, `notes.json` et plan illisible récent gardés ; ce dernier annoncé en `unreadable` avec `found` à la version lue s'il s'agit d'une autre version, nul s'il est corrompu (JSON invalide, ou bonne version et contenu invalide) ; `discard_run` sur lui le supprime et la réponse annonce `run: null`
+- Binaire figé (`just build-sidecar`) : `get_version`, `get_interrupted_run` et `list_runs` répondent avec les mêmes formes
+
+Parcours relevé le 2026-10-12 sur la branche du plan de run, tous verts. Il a révélé qu'un plan à la bonne version mais au contenu invalide était annoncé avec `found` égal à `expected`, ce que l'invite de reprise aurait lu comme une autre version : corrigé dans `run_files.read_versioned` le même jour.
+
 ## Pilotage de l'arbitrage
 
 `build_fixture.py --arbitration` pose « Orla Quenby - Kelvorians », en zone grise sur les deux sources du faux serveur (titre à 75, moyenne 88). Son `track_id` est le nom du fichier, `01 orla quenby - kelvorians.mp3`, connu d'avance : les gestes s'écrivent dans le fichier de commandes de `drive.py` sans relire `run_started`. `FAKE_DELAY` tient aussi l'appel Bandcamp d'un refus, ce qui met un geste en vol.
