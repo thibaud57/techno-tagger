@@ -7,37 +7,45 @@ Deux politiques de version voisines, a ne pas aligner (ADR-018) : le plan, jetab
 
 import asyncio
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Final, Self, override
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, model_validator
 
 from tagger.errors import TaggerError
-from tagger.matching import QueryOrigin, check_thresholds
+from tagger.matching import (
+    MatchingThresholds,
+    QueryOrigin,
+    ScoredCandidate,
+    TrackQuery,
+    check_thresholds,
+)
 from tagger.paths import app_data_dir
 from tagger.run_files import (
     PENDING_SUFFIX,
     RETENTION,
     created_at_of,
+    newest_first,
     read_versioned,
     stamped_name,
     unlink_logged,
     write_atomically,
 )
 from tagger.scraper_client import Source, TrackCandidate
-from tagger.tagging import FailureReason, Resolution, TrackState, is_decided
+from tagger.tagging import (
+    FailureReason,
+    PendingArbitration,
+    Resolution,
+    SourceList,
+    TrackState,
+    is_decided,
+)
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from tagger.matching import MatchingThresholds, ScoredCandidate, TrackQuery
-    from tagger.tagging import (
-        LiveRun,
-        PendingArbitration,
-        SourceList,
-        TrackFailureReason,
-        TrackRecord,
-    )
+    from tagger.tagging import LiveRun, TrackFailureReason, TrackRecord
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +65,9 @@ class PlanQuery(_PlanModel):
     @classmethod
     def of(cls, query: TrackQuery) -> Self:
         return cls(artist=query.artist, title=query.title, origin=query.origin)
+
+    def to_query(self) -> TrackQuery:
+        return TrackQuery(self.artist, self.title, self.origin)
 
 
 class PlanScores(_PlanModel):
@@ -78,6 +89,17 @@ class PlanScores(_PlanModel):
             number_mismatch=scored.number_mismatch,
         )
 
+    def applied_to(self, candidate: TrackCandidate) -> ScoredCandidate:
+        """Scores poses sur le candidat retenu, celui que l'ecriture posera."""
+        return ScoredCandidate(
+            candidate,
+            self.artist,
+            self.title,
+            self.average,
+            version_mismatch=self.version_mismatch,
+            number_mismatch=self.number_mismatch,
+        )
+
 
 class PlanScored(_PlanModel):
     candidate: TrackCandidate
@@ -86,6 +108,9 @@ class PlanScored(_PlanModel):
     @classmethod
     def of(cls, scored: ScoredCandidate) -> Self:
         return cls(candidate=scored.candidate, scores=PlanScores.of(scored))
+
+    def to_scored(self) -> ScoredCandidate:
+        return self.scores.applied_to(self.candidate)
 
 
 class PlanSourceList(_PlanModel):
@@ -99,6 +124,13 @@ class PlanSourceList(_PlanModel):
             source=kept.source,
             candidates=tuple(PlanScored.of(scored) for scored in kept.candidates),
             empty_reason=kept.empty_reason,
+        )
+
+    def to_source_list(self) -> SourceList:
+        return SourceList(
+            self.source,
+            tuple(scored.to_scored() for scored in self.candidates),
+            self.empty_reason,
         )
 
 
@@ -121,6 +153,15 @@ class PlanArbitration(_PlanModel):
             other=None if pending.other is None else PlanSourceList.of(pending.other),
         )
 
+    def to_pending(self) -> PendingArbitration:
+        return PendingArbitration(
+            self.source,
+            tuple(scored.to_scored() for scored in self.candidates),
+            self.beatport_unavailable,
+            self.empty_reason,
+            None if self.other is None else self.other.to_source_list(),
+        )
+
 
 class PlanThresholds(_PlanModel):
     """Seuils du run : la reprise classe les morceaux restants comme les premiers."""
@@ -133,6 +174,9 @@ class PlanThresholds(_PlanModel):
         # Un plan aux seuils incoherents est illisible des la relecture, pas en pleine reprise.
         check_thresholds(self.floor, self.ceiling)
         return self
+
+    def to_matching(self) -> MatchingThresholds:
+        return MatchingThresholds(floor=self.floor, ceiling=self.ceiling)
 
 
 class PlanTrack(_PlanModel):
@@ -165,6 +209,21 @@ class PlanTrack(_PlanModel):
             candidate=record.candidate,
             scores=None if scored is None else PlanScores.of(scored),
             arbitration=None if pending is None else PlanArbitration.of(pending),
+        )
+
+    def applied_to(self, record: TrackRecord) -> TrackRecord:
+        """Decision du plan posee sur le morceau relu ; sa pochette se retelecharge a part."""
+        candidate, scores = self.candidate, self.scores
+        return replace(
+            record,
+            state=self.state,
+            resolution=self.resolution,
+            failure_reason=self.failure_reason,
+            source=self.source,
+            query=None if self.query is None else self.query.to_query(),
+            candidate=candidate,
+            scored=None if scores is None or candidate is None else scores.applied_to(candidate),
+            arbitration=None if self.arbitration is None else self.arbitration.to_pending(),
         )
 
 
@@ -221,6 +280,11 @@ def plan_dir() -> Path:
 
 def plan_path(folder: Path, plan: RunPlan) -> Path:
     return folder / stamped_name(plan.started_at, plan.run_id, _SUFFIX)
+
+
+def plans_newest_first(folder: Path) -> list[Path]:
+    """Plans du dossier du plus recent au plus ancien ; temporaires et noms etrangers ecartes."""
+    return newest_first(folder, _SUFFIX)
 
 
 def load_plan(path: Path) -> RunPlan:

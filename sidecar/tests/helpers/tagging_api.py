@@ -240,3 +240,12 @@ async def opened_run(
     async with _wired(folder, api.gated_handler, cdn) as (client, artworks):
         live = await open_run(folder, on_event=sink.append)
         yield OpenedRun(live, RunSources(live.run_id, client, artworks, DEFAULT_THRESHOLDS))
+
+
+@asynccontextmanager
+async def run_sources(
+    folder: Path, api: FakeApi, run_id: str, *, cdn: FakeCdn | None = None
+) -> AsyncGenerator[RunSources]:
+    """Sources d'un run deja ouvert ailleurs (reprise) : rien n'est relu, rien n'est emis."""
+    async with _wired(folder, api.gated_handler, cdn) as (client, artworks):
+        yield RunSources(run_id, client, artworks, DEFAULT_THRESHOLDS)

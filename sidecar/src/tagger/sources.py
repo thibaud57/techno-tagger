@@ -83,7 +83,7 @@ class RunSources:
     ) -> tuple[TrackCandidate, Path | None]:
         """Candidat recharge et sa pochette ; ni l'un ni l'autre ne fait echouer le morceau."""
         candidate = await self._refetch(position, source, chosen.candidate)
-        return candidate, await self._artwork(position, candidate)
+        return candidate, await self.artwork(position, candidate)
 
     async def from_url(self, position: int, url: str) -> tuple[TrackCandidate, Path | None]:
         """Morceau designe par une URL collee et sa pochette ; seule la pochette peut manquer.
@@ -91,7 +91,7 @@ class RunSources:
         L'appel passe par `_call` : la garde des 403 du run compte aussi ces gestes.
         """
         candidate = await self._call(self._client.fetch_by_url(url))
-        return candidate, await self._artwork(position, candidate)
+        return candidate, await self.artwork(position, candidate)
 
     def log_source_failure(
         self,
@@ -138,7 +138,9 @@ class RunSources:
             )
             return candidate
 
-    async def _artwork(self, position: int, candidate: TrackCandidate) -> Path | None:
+    async def artwork(self, position: int, candidate: TrackCandidate) -> Path | None:
+        """Pochette du candidat, cache d'abord ; une indisponibilite ne fait jamais echouer le
+        morceau."""
         url = candidate.release.artwork_url if candidate.release else None
         if url is None:
             return None

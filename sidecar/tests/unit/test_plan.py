@@ -17,10 +17,11 @@ from tagging_records import RECORD, scored_candidate
 
 from tagger import plan as plan_module
 from tagger.file_failures import FileFailureReason
-from tagger.matching import DEFAULT_THRESHOLDS, QueryOrigin, TrackQuery
+from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, QueryOrigin, TrackQuery
 from tagger.plan import (
     PlanRecorder,
     PlanScores,
+    PlanThresholds,
     PlanTrack,
     RunPlan,
     RunPlanUnreadableError,
@@ -438,3 +439,24 @@ def test_purge_carries_on_after_a_plan_it_cannot_delete(
     assert locked.exists()
     assert not expired.exists()
     assert "run plan not purged run=1b2c3d reason=unlink_failed" in caplog.messages
+
+
+@pytest.mark.parametrize(
+    "record",
+    [AUTO, HELD, BY_URL, UNRESOLVED, WAITING],
+    ids=["auto", "held", "by-url", "unresolved", "waiting"],
+)
+def test_gives_back_the_decision_it_recorded(record: TrackRecord) -> None:
+    reread = TrackRecord(track_id=record.track_id, path=record.path, identity=record.identity)
+
+    restored = PlanTrack.of(record).applied_to(reread)
+
+    assert restored == replace(record, artwork=None)
+
+
+def test_gives_back_the_thresholds_of_the_run() -> None:
+    thresholds = PlanThresholds(floor=60, ceiling=85)
+
+    restored = thresholds.to_matching()
+
+    assert restored == MatchingThresholds(floor=60, ceiling=85)

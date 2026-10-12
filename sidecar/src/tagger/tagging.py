@@ -330,7 +330,7 @@ async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> Liv
     """Liste les fichiers et lit leur identite, avant tout appel reseau."""
     paths = await asyncio.to_thread(list_audio_files, folder)
     run_id = secrets.token_hex(3)
-    records = await _read_identities(run_id, folder, paths)
+    records = await read_identities(run_id, folder, paths)
     on_event(RunStarted(run_id, folder, tuple(records)))
     return LiveRun(run_id, folder, records)
 
@@ -338,18 +338,24 @@ async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> Liv
 async def resolve_run(
     live: LiveRun, sources: RunSources, *, on_event: Callable[[RunEvent], None]
 ) -> None:
-    """Ne s'arrete jamais sur un morceau : seuls trois 403 consecutifs arretent le run."""
+    """Ne s'arrete jamais sur un morceau : seuls trois 403 consecutifs arretent le run.
+
+    Un morceau deja traite (run repris) n'est jamais renvoye a l'API : la progression part du
+    nombre deja traite, sur le total du run.
+    """
     tracks = live.snapshot().tracks
-    runner = _Runner(len(tracks), sources, live, on_event)
+    waiting = [record for record in tracks if not record.decided]
+    runner = _Runner(len(tracks), sources, live, on_event, processed=len(tracks) - len(waiting))
     try:
         async with asyncio.TaskGroup() as group:
-            for position, record in enumerate(tracks, start=1):
+            for record in waiting:
+                position = live.position(record.track_id)
                 group.create_task(runner.process(position, record), name=f"track:{position}")
     except* ApiKeyRejectedRunError:
         raise ApiKeyRejectedRunError from None
 
 
-async def _read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -> list[TrackRecord]:
+async def read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -> list[TrackRecord]:
     """Identites lues avant tout appel reseau : la liste s'affiche entiere des le depart.
 
     Les lectures partent en parallele sur le pool de threads : enchainees, plusieurs
@@ -392,12 +398,14 @@ class _Runner:
         sources: RunSources,
         live: LiveRun,
         on_event: Callable[[RunEvent], None],
+        *,
+        processed: int = 0,
     ) -> None:
         self._total = total
         self._sources = sources
         self._live = live
         self._on_event = on_event
-        self._processed = 0
+        self._processed = processed
 
     async def process(self, position: int, record: TrackRecord) -> None:
         done = await self._resolve(position, record)

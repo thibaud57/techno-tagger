@@ -1,5 +1,6 @@
 """Tests du run : evenements, progression, garde des 403, incidents."""
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -12,25 +13,32 @@ from tagging_api import (
     found,
     kelvor,
     one_track,
+    opened_run,
     run,
     tagged_mp3,
     three_tracks,
+    two_tracks,
 )
+from tagging_records import scored_candidate
 
 from tagger.files import TaggingFolderUnreadableError
+from tagger.scraper_client import Source
 from tagger.sources import ApiKeyRejectedRunError, _RejectionGuard
 from tagger.tagging import (
     ArbitrationRequired,
+    FailureReason,
+    PendingArbitration,
     RunProgress,
     RunStarted,
     TrackResolved,
     TrackState,
+    resolve_run,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from tagger.tagging import RunEvent
+    from tagger.tagging import LiveRun, RunEvent
 
 pytestmark = pytest.mark.asyncio
 
@@ -113,3 +121,48 @@ async def test_reports_an_api_contract_error_to_sentry(tmp_path: Path) -> None:
         await run(one_track(tmp_path), api)
 
     capture.assert_called_once()
+
+
+def _searched(api: FakeApi) -> set[str | None]:
+    return {
+        request.url.params.get("q")
+        for request in api.requests
+        if request.url.path.endswith("/search")
+    }
+
+
+def _hold(live: LiveRun, track_id: str) -> None:
+    record = live.record(track_id)
+    assert record is not None
+    held = PendingArbitration(Source.BEATPORT, (scored_candidate(),), beatport_unavailable=False)
+    live.update(replace(record, arbitration=held))
+
+
+def _refuse(live: LiveRun, track_id: str, reason: FailureReason) -> None:
+    record = live.record(track_id)
+    assert record is not None
+    live.update(record.unresolved(reason))
+
+
+async def test_never_sends_a_decided_track_back_to_the_api(tmp_path: Path) -> None:
+    api = FakeApi()
+    events: list[RunEvent] = []
+    async with opened_run(three_tracks(tmp_path), api) as (live, sources):
+        _refuse(live, "a.mp3", FailureReason.USER_REFUSED)
+        _hold(live, "b.mp3")
+
+        await resolve_run(live, sources, on_event=events.append)
+
+    assert _searched(api) == {"Dara Winter The Weir"}
+    assert [event for event in events if isinstance(event, RunProgress)] == [RunProgress(3, 3)]
+
+
+async def test_sends_back_to_the_api_a_track_whose_source_did_not_answer(tmp_path: Path) -> None:
+    api = FakeApi()
+    async with opened_run(two_tracks(tmp_path), api) as (live, sources):
+        _refuse(live, "a.mp3", FailureReason.SOURCE_UNAVAILABLE)
+        _refuse(live, "b.mp3", FailureReason.NO_RESULT)
+
+        await resolve_run(live, sources, on_event=lambda _event: None)
+
+    assert _searched(api) == {"Lior Vance Dim Orbit"}
