@@ -20,6 +20,7 @@ from tagger.extraction import extract
 from tagger.files import after_tags, project_tags, shown_key, tag_system_of
 from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
 from tagger.paths import app_data_dir
+from tagger.plan import PlanRecorder, RunPlan, plan_dir
 from tagger.playlists import list_playlists, read_playlist
 from tagger.protocol import (
     ArbitrationRequired,
@@ -195,11 +196,14 @@ class CurrentRun:
         sources: RunSources,
         arbitration: Arbitration,
         url_recovery: UrlRecovery,
+        plan: PlanRecorder | None = None,
     ) -> None:
         self.live = live
         self.sources = sources
         self.arbitration = arbitration
         self.url_recovery = url_recovery
+        # `None` pour un dossier sans morceau : rien a reprendre.
+        self.plan = plan
         # Pose a la confirmation : sa presence fige le run, plus aucune decision n'y entre.
         self.writer: RunWriter | None = None
         self._stack = stack
@@ -224,13 +228,32 @@ class CurrentRun:
         gesture.add_done_callback(self._gestures.discard)
 
     async def close(self) -> None:
-        """`finally` : une annulation du `gather` en attente ne doit pas empecher la fermeture."""
+        """`finally` : une annulation du `gather` en attente ne doit pas empecher la fermeture.
+
+        Le plan est vide, jamais supprime : c'est lui que la reprise cherchera.
+        """
         try:
-            for gesture in self._gestures:
-                gesture.cancel()
-            await asyncio.gather(*self._gestures, return_exceptions=True)
+            await self._cancel_gestures()
+        finally:
+            try:
+                if self.plan is not None:
+                    await self.plan.flush()
+            finally:
+                await self._stack.aclose()
+
+    async def abandon(self) -> None:
+        """Run remplace par un nouveau : son plan non confirme part, sans etre vide d'abord."""
+        try:
+            await self._cancel_gestures()
+            if self.plan is not None:
+                await self.plan.discard()
         finally:
             await self._stack.aclose()
+
+    async def _cancel_gestures(self) -> None:
+        for gesture in self._gestures:
+            gesture.cancel()
+        await asyncio.gather(*self._gestures, return_exceptions=True)
 
 
 async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> CurrentRun:
@@ -265,10 +288,28 @@ async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> 
         )
         relay = _relay(emit)
         live = await open_run(command.folder, on_event=relay)
-        sources = RunSources(live.run_id, client, artworks, _thresholds(command))
+        thresholds = _thresholds(command)
+        sources = RunSources(live.run_id, client, artworks, thresholds)
+        plan = await _open_plan(live, thresholds)
         desk = Arbitration(live, sources, relay)
         recovery = UrlRecovery(live, sources, relay)
-        return CurrentRun(stack.pop_all(), live, sources, desk, recovery)
+        return CurrentRun(stack.pop_all(), live, sources, desk, recovery, plan)
+
+
+async def _open_plan(
+    live: LiveRun, thresholds: MatchingThresholds, *, started_at: datetime | None = None
+) -> PlanRecorder | None:
+    """Plan ecrit avant la phase reseau, tous morceaux en attente ; sans morceau, aucun plan.
+
+    `started_at` : l'instant de depart d'un run repris, qui garde ainsi le fichier de son plan.
+    """
+    if not live.snapshot().tracks:
+        return None
+    plan = RunPlan.opened(live, thresholds, started_at or datetime.now(UTC))
+    recorder = PlanRecorder(plan, plan_dir())
+    live.observe(recorder.record)
+    await recorder.flush()
+    return recorder
 
 
 def url_progress(current: CurrentRun) -> Event:
@@ -300,11 +341,19 @@ def commit(current: CurrentRun, emit: Callable[[Event], None]) -> RunWriter:
 
 
 async def handle_commit_run(current: CurrentRun, writer: RunWriter) -> Event:
-    """Un dump qui ne s'enregistre pas n'a touche aucun fichier : le run redevient confirmable."""
+    """Le plan est confirme sur le disque avant le premier fichier (write-ahead).
+
+    Un dump qui ne s'enregistre pas n'a touche aucun fichier : le run et son plan redeviennent
+    confirmables.
+    """
+    if current.plan is not None:
+        await current.plan.commit()
     try:
         await writer.write()
     except TagDumpError:
         current.writer = None
+        if current.plan is not None:
+            await current.plan.reopen()
         raise
     return _run_finished(current.live.snapshot(), RunPhase.WRITE)
 

@@ -89,6 +89,22 @@ class FailureReason(StrEnum):
 type TrackFailureReason = FailureReason | FileFailureReason
 
 
+def is_decided(
+    state: TrackState | None, failure_reason: TrackFailureReason | None, *, on_hold: bool
+) -> bool:
+    """Tranche, ou en attente d'une decision humaine.
+
+    Une source qui n'a pas repondu (`source_unavailable`) n'est pas une decision : le morceau
+    repart sur le reseau a la reprise, une fois la panne ou la cle corrigee.
+    """
+    if on_hold:
+        return True
+    unavailable = (
+        state is TrackState.UNRESOLVED and failure_reason is FailureReason.SOURCE_UNAVAILABLE
+    )
+    return state is not None and not unavailable
+
+
 @dataclass(frozen=True, slots=True)
 class SourceList:
     """Liste d'une source mise de cote pendant qu'une autre est affichee."""
@@ -144,6 +160,11 @@ class TrackRecord:
     def file_name(self) -> str:
         """Nom du fichier, sous-texte de la colonne Avant."""
         return self.path.name
+
+    @property
+    def decided(self) -> bool:
+        """Regle unique du « deja traite » : progression, reprise et pipeline selectif."""
+        return is_decided(self.state, self.failure_reason, on_hold=self.arbitration is not None)
 
     def resolved(
         self,
@@ -245,6 +266,7 @@ class LiveRun:
         self._positions = {
             record.track_id: position for position, record in enumerate(records, start=1)
         }
+        self._observer: Callable[[TrackRecord], None] | None = None
 
     @override
     def __repr__(self) -> str:
@@ -257,8 +279,14 @@ class LiveRun:
         """Rang du morceau dans le dossier, la cle `track` des logs."""
         return self._positions[track_id]
 
+    def observe(self, observer: Callable[[TrackRecord], None]) -> None:
+        """Appele a chaque `update` : le plan de run s'y branche sans que rien ne le sache."""
+        self._observer = observer
+
     def update(self, record: TrackRecord) -> None:
         self._records[record.track_id] = record
+        if self._observer is not None:
+            self._observer(record)
 
     def snapshot(self) -> TaggingRun:
         return TaggingRun(self.run_id, self.folder, tuple(self._records.values()))

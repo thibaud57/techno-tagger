@@ -37,6 +37,7 @@ from tagger.handlers import (
 from tagger.logger import setup_logging
 from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
+from tagger.plan import plan_dir, purge_plans
 from tagger.protocol import (
     CancelRun,
     CommitRun,
@@ -170,7 +171,11 @@ class _Session:
         self._current: CurrentRun | None = None
 
     def start_tagging(self, command: StartTagging) -> None:
-        """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant."""
+        """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant.
+
+        Le run remplace est abandonne : son plan non confirme est supprime, un seul run
+        interrompu peut exister a la fois.
+        """
         self._ensure_idle()
         replaced, self._current = self._current, None
         start_work = functools.partial(self._replace, replaced, command)
@@ -331,7 +336,7 @@ class _Session:
 
     async def _replace(self, replaced: CurrentRun | None, command: StartTagging) -> None:
         if replaced is not None:
-            await replaced.close()
+            await replaced.abandon()
         await handle_start_tagging(command, self.send, self._adopt)
 
     async def _then_url_progress(
@@ -407,6 +412,7 @@ def main() -> None:
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
     _purge_old_dumps()
+    _purge_old_plans()
     # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
     # points rend une liste vide et keyring basculerait sur son backend `fail`.
     # `KeyringBackend.__init__` n'annote pas son retour (cf. memory_keyring.py).
@@ -422,6 +428,14 @@ def _purge_old_dumps() -> None:
         purge_dumps(dump_dir(), datetime.now(UTC))
     except OSError:
         logger.exception("tag dump purge failed")
+
+
+def _purge_old_plans() -> None:
+    # Meme garde que les dumps : un plan qui reste quelques jours de plus ne gene personne.
+    try:
+        purge_plans(plan_dir(), datetime.now(UTC))
+    except OSError:
+        logger.exception("run plan purge failed")
 
 
 async def run_loop(stdin: TextIO, stdout: TextIO) -> None:

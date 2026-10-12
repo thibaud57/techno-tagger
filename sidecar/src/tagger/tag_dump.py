@@ -9,10 +9,8 @@ qu'une fois par phase.
 """
 
 import contextlib
-import json
 import logging
 import os
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Final, Self
@@ -22,20 +20,29 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationErro
 from tagger.errors import TaggerError
 from tagger.files import OriginalTags, TagField, TagSystem
 from tagger.paths import app_data_dir
-from tagger.reports import TIMESTAMP_FORMAT
+from tagger.run_files import (
+    PENDING_SUFFIX,
+    RETENTION,
+    created_at_of,
+    newest_first,
+    read_versioned,
+    run_id_of,
+    stamped_name,
+    unlink_logged,
+    write_atomically,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping
+    from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION: Final = 1
-RETENTION: Final = timedelta(days=30)
 _SUFFIX: Final = ".json"
-_PENDING_SUFFIX: Final = ".tmp"
 _JOURNAL_SUFFIX: Final = ".renames.ndjson"
 # Les trois sortes de fichiers qu'un run laisse, et que la retention emporte ensemble.
-_RETAINED_SUFFIXES: Final = (_SUFFIX, _PENDING_SUFFIX, ".ndjson")
+_RETAINED_SUFFIXES: Final = (_SUFFIX, PENDING_SUFFIX, ".ndjson")
 
 
 class DumpEntry(BaseModel):
@@ -119,8 +126,7 @@ def dump_dir() -> Path:
 
 def dump_path(folder: Path, dump: TagDump) -> Path:
     """Nom horodate : le dernier run et l'age d'un dump se lisent sans l'ouvrir."""
-    stamp = dump.created_at.astimezone(UTC).strftime(TIMESTAMP_FORMAT)
-    return folder / f"{stamp}-{dump.run_id}{_SUFFIX}"
+    return folder / stamped_name(dump.created_at, dump.run_id, _SUFFIX)
 
 
 def journal_path(dump_file: Path) -> Path:
@@ -130,17 +136,12 @@ def journal_path(dump_file: Path) -> Path:
 
 def find_dump(folder: Path, run_id: str) -> Path | None:
     """Dump d'un run, `None` s'il n'existe pas ; compare, jamais glob : un `*` designerait tout."""
-    return next((path for path in dumps_newest_first(folder) if _run_id_of(path) == run_id), None)
+    return next((path for path in dumps_newest_first(folder) if run_id_of(path) == run_id), None)
 
 
 def dumps_newest_first(folder: Path) -> list[Path]:
-    """Dumps du plus recent au plus ancien ; l'horodatage ouvre le nom, tout autre est ecarte."""
-    if not folder.is_dir():
-        return []
-    named_like_a_dump = (
-        path for path in folder.glob(f"*{_SUFFIX}") if _created_at(path) is not None
-    )
-    return sorted(named_like_a_dump, reverse=True)
+    """Dumps du plus recent au plus ancien."""
+    return newest_first(folder, _SUFFIX)
 
 
 def dump_on_disk(folder: Path, dump: TagDump) -> TagDump:
@@ -227,18 +228,7 @@ def load_dump(path: Path) -> TagDump:
 
 
 def _read_dump(path: Path) -> TagDump:
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise TagDumpUnreadableError(path) from exc
-
-    found = raw.get("schema_version") if isinstance(raw, dict) else None
-    if found != SCHEMA_VERSION:
-        raise TagDumpUnreadableError(path, found)
-    try:
-        return TagDump.model_validate(raw)
-    except ValidationError as exc:
-        raise TagDumpUnreadableError(path, found) from exc
+    return read_versioned(path, TagDump, SCHEMA_VERSION, TagDumpUnreadableError)
 
 
 def purge_dumps(folder: Path, now: datetime) -> None:
@@ -252,28 +242,10 @@ def purge_dumps(folder: Path, now: datetime) -> None:
     for path in folder.iterdir():
         if path.suffix not in _RETAINED_SUFFIXES:
             continue
-        created = _created_at(path)
+        created = created_at_of(path)
         if created is None or now - created <= RETENTION:
             continue
-        # Un dump verrouille (editeur, antivirus) ne doit pas bloquer la purge des suivants.
-        try:
-            path.unlink(missing_ok=True)
-        except OSError:
-            logger.warning("tag dump not purged run=%s reason=unlink_failed", _run_id_of(path))
-
-
-def _created_at(path: Path) -> datetime | None:
-    stamp, _, _ = path.stem.partition("-")
-    try:
-        return datetime.strptime(stamp, TIMESTAMP_FORMAT).replace(tzinfo=UTC)
-    except ValueError:
-        return None
-
-
-def _run_id_of(path: Path) -> str:
-    """Identifiant du run, que le fichier soit un dump, son temporaire ou son journal."""
-    _, _, run_id = path.name.partition("-")
-    return run_id.partition(".")[0]
+        unlink_logged(path, "tag dump not purged")
 
 
 def _replay(dump: TagDump, journal: str) -> TagDump:
@@ -335,13 +307,8 @@ def _write(path: Path, dump: TagDump) -> None:
 
     Ecrit le dump complet, journal compris : celui-ci n'a plus rien a dire et part ensuite.
     """
-    pending = path.with_suffix(_PENDING_SUFFIX)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        pending.write_text(dump.model_dump_json(indent=2), encoding="utf-8")
-        pending.replace(path)
+        write_atomically(path, dump.model_dump_json(indent=2))
     except OSError as exc:
-        with contextlib.suppress(OSError):
-            pending.unlink(missing_ok=True)
         raise TagDumpWriteError(path) from exc
     _drop_journal(path, dump)

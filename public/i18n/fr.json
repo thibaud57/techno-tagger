@@ -58,6 +58,7 @@
     "tag_dump_error": "La sauvegarde des tags d'origine a échoué.\nRelancez l'application, puis réessayez.",
     "tag_dump_write_failed": "Les tags d'origine n'ont pas pu être sauvegardés : aucun fichier n'a été modifié.\nLibérez de l'espace disque, puis relancez l'écriture.",
     "tag_dump_unreadable": "La sauvegarde des tags d'origine est illisible, ou vient d'une autre version de l'application.\nCes fichiers ne peuvent plus être restaurés : relancez un run pour les re-tagger.",
+    "run_plan_unreadable": "Le run interrompu ne peut pas être repris : il a été enregistré par une autre version de l'application, ou son enregistrement est illisible.\nRepartez de zéro pour relancer le run.",
     "scraper_error": "La recherche a échoué.\nRéessayez plus tard.",
     "api_key_rejected": "La clé API a été refusée.\nVérifiez-la dans les Réglages.",
     "source_unavailable": "{{source}} ne répond pas.\nRéessayez plus tard.",

@@ -12,7 +12,7 @@ from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, ok, one_track
 from tagger import files, handlers, tag_dump, writing
 from tagger.file_failures import FileFailureReason
 from tagger.files import TagsUnreadableError, TagsWriteError
-from tagger.tag_dump import TagDumpUnreadableError, TagDumpWriteError
+from tagger.tag_dump import TagDumpUnreadableError, TagDumpWriteError, dump_dir
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,7 +31,7 @@ def _locked_until_lifted(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
     return lambda: monkeypatch.setattr(writing, "write_tags", files.write_tags)
 
 
-async def test_writes_a_committed_run_end_to_end(folder: Path, tmp_path: Path) -> None:
+async def test_writes_a_committed_run_end_to_end(folder: Path) -> None:
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
         talk.send(command="commit_run", run_id=run_id)
@@ -44,7 +44,7 @@ async def test_writes_a_committed_run_end_to_end(folder: Path, tmp_path: Path) -
     assert (progress["processed"], progress["total"]) == (1, 1)
     assert (finished["written"], finished["write_error"]) == (1, 0)
     assert (folder / WRITTEN_NAME).is_file()
-    assert list((tmp_path / "appdata").rglob(f"*-{run_id}.json"))
+    assert list(dump_dir().glob(f"*-{run_id}.json"))
 
 
 @pytest.mark.parametrize(

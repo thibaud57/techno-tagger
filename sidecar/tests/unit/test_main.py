@@ -22,18 +22,26 @@ def test_logging_and_sentry_are_armed_before_the_loop() -> None:
     with (
         patch.object(__main__, "setup_logging", autospec=True) as setup,
         patch.object(__main__, "init_sentry", autospec=True) as sentry,
-        patch.object(__main__, "_purge_old_dumps", autospec=True) as purge,
+        patch.object(__main__, "_purge_old_dumps", autospec=True) as purge_dumps,
+        patch.object(__main__, "_purge_old_plans", autospec=True) as purge_plans,
         patch.object(__main__, "run_loop", autospec=True) as run_loop,
     ):
         parent.attach_mock(setup, "setup_logging")
         parent.attach_mock(sentry, "init_sentry")
-        parent.attach_mock(purge, "_purge_old_dumps")
+        parent.attach_mock(purge_dumps, "_purge_old_dumps")
+        parent.attach_mock(purge_plans, "_purge_old_plans")
         parent.attach_mock(run_loop, "run_loop")
 
         __main__.main()
 
     order = [call[0] for call in parent.mock_calls]
-    assert order == ["setup_logging", "init_sentry", "_purge_old_dumps", "run_loop"]
+    assert order == [
+        "setup_logging",
+        "init_sentry",
+        "_purge_old_dumps",
+        "_purge_old_plans",
+        "run_loop",
+    ]
 
 
 def test_a_failed_dump_purge_never_stops_the_startup(caplog: pytest.LogCaptureFixture) -> None:
@@ -41,12 +49,27 @@ def test_a_failed_dump_purge_never_stops_the_startup(caplog: pytest.LogCaptureFi
         patch.object(__main__, "setup_logging", autospec=True),
         patch.object(__main__, "init_sentry", autospec=True),
         patch.object(__main__, "purge_dumps", autospec=True, side_effect=OSError(5, "denied")),
+        patch.object(__main__, "_purge_old_plans", autospec=True),
         patch.object(__main__, "run_loop", autospec=True) as run_loop,
     ):
         __main__.main()
 
     run_loop.assert_called_once()
     assert "tag dump purge failed" in caplog.messages
+
+
+def test_a_failed_plan_purge_never_stops_the_startup(caplog: pytest.LogCaptureFixture) -> None:
+    with (
+        patch.object(__main__, "setup_logging", autospec=True),
+        patch.object(__main__, "init_sentry", autospec=True),
+        patch.object(__main__, "_purge_old_dumps", autospec=True),
+        patch.object(__main__, "purge_plans", autospec=True, side_effect=OSError(5, "denied")),
+        patch.object(__main__, "run_loop", autospec=True) as run_loop,
+    ):
+        __main__.main()
+
+    run_loop.assert_called_once()
+    assert "run plan purge failed" in caplog.messages
 
 
 def test_the_protocol_streams_are_forced_to_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
