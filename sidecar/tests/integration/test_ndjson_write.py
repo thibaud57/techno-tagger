@@ -9,14 +9,23 @@ from scraper_responses import BANDCAMP_TRACK, DIM_ORBIT, bandcamp_track_payload
 from stubs import raising
 from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, ok, one_track
 
-from tagger import files, handlers, tag_dump, writing
+from tagger import BUNDLE_IDENTIFIER, files, handlers, tag_dump, tagging_report, writing
+from tagger.api_key import SERVICE, USERNAME
 from tagger.file_failures import FileFailureReason
-from tagger.files import TagsUnreadableError, TagsWriteError
+from tagger.files import TagsUnreadableError, TagsWriteError, TagSystem
+from tagger.report_index import index_path, list_reports
+from tagger.run_files import write_atomically
 from tagger.tag_dump import TagDumpUnreadableError, TagDumpWriteError, dump_dir
+from tagger.tagging import TrackState
+from tagger.tagging_report import load_tagging_report
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
+
+    from memory_keyring import MemoryKeyring
+
+    from tagger.tagging_report import TaggingReport
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
@@ -290,3 +299,130 @@ async def test_refuses_a_commit_while_a_gesture_is_in_flight(
         await talk.expect("track_resolved", track_id=ONE_TRACK, resolution="url")
 
     assert (error["code"], error["command"]) == ("write_not_open", "commit_run")
+
+
+def _reports(folder: Path) -> list[Path]:
+    """Fichiers du rapport dans le dossier du run, JSON avant Markdown."""
+    return sorted(folder.glob("tagging-report-*"))
+
+
+def _only_report(folder: Path) -> tuple[Path, TaggingReport]:
+    """Le JSON unique du dossier et le rapport relu."""
+    (json_path,) = folder.glob("tagging-report-*.json")
+    return json_path, load_tagging_report(json_path)
+
+
+def _report_texts(folder: Path) -> str:
+    return "".join(path.read_text(encoding="utf-8") for path in _reports(folder))
+
+
+async def test_leaves_the_tagging_report_in_the_folder(folder: Path) -> None:
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+
+    json_path, report = _only_report(folder)
+    assert _reports(folder) == [json_path, json_path.with_suffix(".md")]
+    assert (report.run_id, report.counts.written) == (run_id, 1)
+    assert [entry.report_path for entry in list_reports(index_path())] == [json_path]
+
+
+async def test_keeps_the_api_key_and_the_data_folder_out_of_the_report(
+    folder: Path, memory_keyring: MemoryKeyring
+) -> None:
+    api_key = memory_keyring.secrets[(SERVICE, USERNAME)]
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+
+    reports = _report_texts(folder)
+    assert api_key not in reports
+    assert BUNDLE_IDENTIFIER not in reports
+
+
+async def test_rewrites_the_same_report_after_a_retry(
+    folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lift = _locked_until_lifted(monkeypatch)
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+        json_path, first = _only_report(folder)
+        lift()
+        talk.send(command="retry_write", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+
+    assert (first.counts.write_error, first.counts.written) == (1, 0)
+    assert load_tagging_report(json_path).counts.written == 1
+    assert _reports(folder) == [json_path, json_path.with_suffix(".md")]
+
+
+async def test_reports_a_restored_track_after_a_partial_rollback(folder: Path) -> None:
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+        talk.send(command="rollback", run_id=run_id, track_id=ONE_TRACK)
+        await talk.expect("rollback_finished")
+        talk.send(command="retry_write", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+
+    _, report = _only_report(folder)
+    (restored,) = report.tracks
+    assert (report.counts.rolled_back, report.counts.written) == (1, 0)
+    assert (restored.state, restored.source, restored.scores, restored.url) == (
+        TrackState.ROLLED_BACK,
+        None,
+        None,
+        None,
+    )
+    assert restored.tags_before is not None
+    assert restored.system is TagSystem.ID3
+
+
+async def test_finishes_the_write_phase_when_the_report_cannot_be_written(
+    folder: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    refusal = OSError(28, "No space left", "C:/private/profile/Music/x.json")
+    monkeypatch.setattr(tagging_report, "write_atomically", raising(refusal))
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        finished = await talk.expect("run_finished", phase="write")
+
+    assert finished["written"] == 1
+    assert _reports(folder) == []
+    assert list_reports(index_path()) == ()
+    assert "tagging report not written run=" in caplog.text
+    assert "reason=report_write_failed errno=28" in caplog.text
+    assert "C:/private" not in caplog.text
+
+
+async def test_keeps_one_pair_of_files_when_the_markdown_was_refused_once(
+    folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    refusing = True
+
+    def write(path: Path, text: str) -> None:
+        if refusing and path.suffix == ".md":
+            raise OSError(28, "No space left on device")
+        write_atomically(path, text)
+
+    monkeypatch.setattr(tagging_report, "write_atomically", write)
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="commit_run", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+        refusing = False
+        talk.send(command="retry_write", run_id=run_id)
+        await talk.expect("run_finished", phase="write")
+
+    assert [path.suffix for path in _reports(folder)] == [".json", ".md"]
+    assert len(list_reports(index_path())) == 1

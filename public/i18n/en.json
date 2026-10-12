@@ -58,6 +58,7 @@
     "tag_dump_error": "Saving the original tags failed.\nRestart the application and try again.",
     "tag_dump_write_failed": "The original tags could not be saved: no file was changed.\nFree up disk space, then write again.",
     "tag_dump_unreadable": "The saved original tags are unreadable, or come from another version of the application.\nThese files can no longer be restored: start a new run to retag them.",
+    "tagging_report_unreadable": "This run report is unreadable, or comes from a newer version of the application.\nUpdate the application, then open it again.",
     "run_plan_unreadable": "The interrupted run cannot be resumed: it was saved by another version of the application, or its record is unreadable.\nStart over to run it again.",
     "scraper_error": "The search failed.\nTry again later.",
     "api_key_rejected": "The API key was rejected.\nCheck it in the settings.",

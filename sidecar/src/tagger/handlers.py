@@ -17,7 +17,6 @@ from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.arbitration import Arbitration
 from tagger.cache import ArtworkFetcher, DiskCache, ResponseCache, resolve_host
 from tagger.extraction import extract
-from tagger.files import after_tags, project_tags, shown_key, tag_system_of
 from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
 from tagger.paths import app_data_dir
 from tagger.plan import PlanRecorder, RunPlan, plan_dir
@@ -53,28 +52,32 @@ from tagger.protocol import (
     TrackScores,
     Version,
 )
-from tagger.reports import ReportContext, write_extraction_report
+from tagger.report_index import IndexEntry, index_path, record_report
+from tagger.reports import ReportContext, ReportWriteError, write_extraction_report
 from tagger.rollback import find_rollback_target, roll_back
 from tagger.scraper_client import TechnoScraperClient
 from tagger.sources import RunSources
 from tagger.tag_dump import TagDumpError, dump_dir
 from tagger.tagging import open_run, resolve_run
+from tagger.tagging_report import after_rows, report_paths, tag_rows, write_tagging_report
 from tagger.url_recovery import UrlRecovery
 from tagger.writing import RunWriter
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterable
     from pathlib import Path
 
     import httpx2
 
     from tagger.arbitration import ArbitrationEvent
     from tagger.cache import HostResolver
-    from tagger.files import ShownTags, TagField, TagSystem
+    from tagger.files import ShownTags
     from tagger.matching import ScoredCandidate
     from tagger.protocol import Event
+    from tagger.reports import ReportPaths
     from tagger.scraper_client import TrackCandidate
     from tagger.tagging import LiveRun, TaggingRun, TrackRecord
+    from tagger.tagging_report import ReportTagValue
     from tagger.url_recovery import UrlRecoveryEvent
     from tagger.writing import WriteEvent
 
@@ -206,6 +209,11 @@ class CurrentRun:
         self.plan = plan
         # Pose a la confirmation : sa presence fige le run, plus aucune decision n'y entre.
         self.writer: RunWriter | None = None
+        # Noms du rapport, choisis a la premiere ecriture et gardes meme si elle echoue : une
+        # relance reecrit le meme couple, jamais un `-2`.
+        self.report_names: ReportPaths | None = None
+        # Dernier rapport ecrit avec succes, celui que `run_finished` annonce.
+        self.report: ReportPaths | None = None
         self._stack = stack
         self._gestures: set[asyncio.Task[None]] = set()
 
@@ -355,12 +363,44 @@ async def handle_commit_run(current: CurrentRun, writer: RunWriter) -> Event:
         if current.plan is not None:
             await current.plan.reopen()
         raise
+    await _write_report(current)
     return _run_finished(current.live.snapshot(), RunPhase.WRITE)
 
 
 async def handle_retry_write(current: CurrentRun, writer: RunWriter) -> Event:
     await writer.retry()
+    await _write_report(current)
     return _run_finished(current.live.snapshot(), RunPhase.WRITE)
+
+
+async def _write_report(current: CurrentRun) -> None:
+    """Rapport du run apres chaque phase d'ecriture, puis son inscription au registre.
+
+    Les fichiers musicaux sont deja ecrits : un rapport refuse se logue, il ne casse pas la phase.
+    """
+    run = current.live.snapshot()
+    written_at = datetime.now(UTC)
+    names = current.report_names
+    if names is None:
+        names = await asyncio.to_thread(report_paths, run.folder, written_at)
+        current.report_names = names
+    try:
+        await asyncio.to_thread(
+            write_tagging_report, run, current.sources.thresholds, written_at, names
+        )
+    except ReportWriteError as error:
+        cause = error.__cause__
+        logger.error(  # noqa: TRY400  (une trace porterait le chemin complet)
+            "tagging report not written run=%s reason=report_write_failed errno=%s",
+            run.run_id,
+            cause.errno if isinstance(cause, OSError) else None,
+        )
+        return
+    current.report = names
+    entry = IndexEntry(
+        run_id=run.run_id, written_at=written_at, folder=run.folder, report_path=names.json_path
+    )
+    await asyncio.to_thread(record_report, index_path(), entry)
 
 
 def handle_get_rollback_target() -> RollbackTarget:
@@ -480,22 +520,19 @@ def _entry(record: TrackRecord) -> TrackEntry:
 
 def _tags_before(shown: ShownTags) -> TagsBeforePayload:
     return TagsBeforePayload(
-        system=shown.system, comment=shown.comment, fields=_rows(shown.fields, shown.system)
+        system=shown.system,
+        comment=shown.comment,
+        fields=_payload_rows(tag_rows(shown.fields, shown.system)),
     )
 
 
 def _tags_after(record: TrackRecord, candidate: TrackCandidate) -> tuple[TagValuePayload, ...]:
-    """Sans origine lisible, le systeme se deduit de l'extension."""
-    before = record.tags_before
-    system = tag_system_of(record.path) if before is None else before.system
-    return _rows(after_tags(project_tags(candidate), before), system)
+    return _payload_rows(after_rows(record, candidate))
 
 
-def _rows(values: Mapping[TagField, str | None], system: TagSystem) -> tuple[TagValuePayload, ...]:
-    return tuple(
-        TagValuePayload(field=field, key=shown_key(field, system), value=value)
-        for field, value in values.items()
-    )
+def _payload_rows(rows: Iterable[ReportTagValue]) -> tuple[TagValuePayload, ...]:
+    """Une seule projection des lignes pour l'ecran et le rapport, ici seulement convertie."""
+    return tuple(TagValuePayload(field=row.field, key=row.key, value=row.value) for row in rows)
 
 
 def _resolved(record: TrackRecord) -> TrackResolved:

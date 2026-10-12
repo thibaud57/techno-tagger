@@ -208,7 +208,7 @@ def _render_markdown(report: ExtractionReport) -> str:
     lines = [
         "# Extraction report",
         "",
-        f"- Generated at: {_format_instant(report.generated_at)}",
+        f"- Generated at: {format_instant(report.generated_at)}",
         f"- Source folder: {report.source_folder}",
         f"- Destination folder: {report.destination_folder}",
         f"- Playlist: {_format_playlist(report.playlist)}",
@@ -229,11 +229,11 @@ def _render_markdown(report: ExtractionReport) -> str:
     lines += _bullet_section("Already present", report.already_present)
     lines += _bullet_section("Missing", report.missing)
 
-    lines += _table_section(
+    lines += table_section(
         "Duplicates resolved",
         ("File", "Kept", "Size", "Criterion", "Discarded"),
         [
-            _table_row(
+            table_row(
                 duplicate.file_name,
                 duplicate.kept_path,
                 duplicate.kept_size,
@@ -243,16 +243,16 @@ def _render_markdown(report: ExtractionReport) -> str:
             for duplicate in report.duplicates
         ],
     )
-    lines += _table_section(
+    lines += table_section(
         "Failures",
         ("File", "Reason"),
-        [_table_row(failure.file_name, failure.reason) for failure in report.failures],
+        [table_row(failure.file_name, failure.reason) for failure in report.failures],
     )
 
     return "\n".join(lines) + "\n"
 
 
-def _format_instant(instant: datetime) -> str:
+def format_instant(instant: datetime) -> str:
     """ISO 8601 UTC suffixe `Z`, identique au rendu JSON de pydantic : les deux
     rapports d'un meme run doivent porter le meme horodatage a la lettre pres."""
     return instant.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -269,7 +269,7 @@ def _format_playlist(playlist: PlaylistRef) -> str:
     return str(playlist.path)
 
 
-def _escape_markdown(value: object) -> str:
+def escape_markdown(value: object) -> str:
     """Neutralise ce qui casserait la structure Markdown dans une valeur venue de
     la playlist source : un nom introuvable n'est jamais confronte a un chemin
     Windows reel, rien ne garantit donc l'absence d'un `|` ou d'un retour ligne.
@@ -285,10 +285,10 @@ def _bullet_section(title: str, entries: tuple[str, ...]) -> list[str]:
     if not entries:
         return []
 
-    return ["", f"## {title}", "", *(f"- {_escape_markdown(entry)}" for entry in entries)]
+    return ["", f"## {title}", "", *(f"- {escape_markdown(entry)}" for entry in entries)]
 
 
-def _table_section(title: str, header: tuple[str, ...], rows: list[str]) -> list[str]:
+def table_section(title: str, header: tuple[str, ...], rows: list[str]) -> list[str]:
     """Rend une section en tableau, ou rien du tout si la categorie est vide."""
     if not rows:
         return []
@@ -297,12 +297,12 @@ def _table_section(title: str, header: tuple[str, ...], rows: list[str]) -> list
     return ["", f"## {title}", "", f"| {' | '.join(header)} |", f"| {separator} |", *rows]
 
 
-def _table_row(*cells: object) -> str:
+def table_row(*cells: object) -> str:
     """Assemble une ligne de tableau a partir des valeurs brutes : une cellule par
     colonne du header, jamais assemblees a la main au point d'appel, pour que les
     deux ne puissent pas diverger en nombre.
     """
-    return f"| {' | '.join(_escape_markdown(cell) for cell in cells)} |"
+    return f"| {' | '.join(escape_markdown(cell) for cell in cells)} |"
 
 
 class ReportPaths(NamedTuple):
@@ -324,8 +324,8 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     dossier reellement en cause : les morceaux sont deja extraits, seul le rapport
     manque, et l'appelant doit pouvoir dire ce qui a echoue.
     """
-    json_path, markdown_path = _unused_report_paths(
-        context.destination_folder, context.generated_at.strftime(TIMESTAMP_FORMAT)
+    json_path, markdown_path = unused_report_paths(
+        context.destination_folder, FILE_STEM, context.generated_at.strftime(TIMESTAMP_FORMAT)
     )
 
     try:
@@ -349,17 +349,17 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     return ReportPaths(json_path=json_path, markdown_path=markdown_path)
 
 
-def _unused_report_paths(folder: Path, stamp: str) -> ReportPaths:
+def unused_report_paths(folder: Path, file_stem: str, stamp: str) -> ReportPaths:
     """Suffixe `-2`, `-3`... si ce couple horodate existe deja.
 
-    L'horodatage est a la seconde, et un run qui ne trouve que des fichiers deja
-    presents se termine en quelques millisecondes : relance aussitot, il ecraserait
-    le rapport du premier.
+    L'horodatage est a la seconde. Un run qui ne trouve que des fichiers deja presents
+    se termine en quelques millisecondes : relance aussitot, il ecraserait le rapport
+    du premier.
     """
-    stem, attempt = f"{FILE_STEM}-{stamp}", 1
+    stem, attempt = f"{file_stem}-{stamp}", 1
     while (folder / f"{stem}.json").exists() or (folder / f"{stem}.md").exists():
         attempt += 1
-        stem = f"{FILE_STEM}-{stamp}-{attempt}"
+        stem = f"{file_stem}-{stamp}-{attempt}"
 
     return ReportPaths(json_path=folder / f"{stem}.json", markdown_path=folder / f"{stem}.md")
 
