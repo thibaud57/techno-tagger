@@ -161,6 +161,7 @@ export class TaggingRunStore {
         scores: null,
         artwork_path: null,
         tags_after: null,
+        source_url: null,
         restorable: false,
       })
     }

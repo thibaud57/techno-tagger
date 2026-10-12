@@ -193,6 +193,39 @@ class Rollback(Command):
     track_id: str | None = None
 
 
+class GetInterruptedRun(Command):
+    """Au lancement : un run interrompu attend-il ? Meme patron que `get_rollback_target`."""
+
+    command: Literal["get_interrupted_run"]
+
+
+class DiscardRun(Command):
+    """Repartir de zero : le plan part, l'annonce suivante dit s'il en reste un autre."""
+
+    command: Literal["discard_run"]
+    run_id: str
+
+
+class ResumeRun(Command):
+    """Reprend le run interrompu annonce : decisions rendues, seuls les restants partent."""
+
+    command: Literal["resume_run"]
+    run_id: str
+
+
+class ListRuns(Command):
+    """Runs passes relisibles depuis leurs rapports."""
+
+    command: Literal["list_runs"]
+
+
+class LoadRun(Command):
+    """Rouvre le recapitulatif d'un run passe depuis son rapport, sans rien rejouer."""
+
+    command: Literal["load_run"]
+    run_id: str
+
+
 type AnyCommand = Annotated[
     GetVersion
     | Shutdown
@@ -207,7 +240,12 @@ type AnyCommand = Annotated[
     | CommitRun
     | RetryWrite
     | GetRollbackTarget
-    | Rollback,
+    | Rollback
+    | GetInterruptedRun
+    | DiscardRun
+    | ResumeRun
+    | ListRuns
+    | LoadRun,
     Field(discriminator="command"),
 ]
 
@@ -227,6 +265,11 @@ type ExecutableCommand = (
     | RetryWrite
     | GetRollbackTarget
     | Rollback
+    | GetInterruptedRun
+    | DiscardRun
+    | ResumeRun
+    | ListRuns
+    | LoadRun
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -245,6 +288,11 @@ type CommandName = Literal[
     "retry_write",
     "get_rollback_target",
     "rollback",
+    "get_interrupted_run",
+    "discard_run",
+    "resume_run",
+    "list_runs",
+    "load_run",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -447,6 +495,8 @@ class TrackResolved(Event):
     tags_after: tuple[TagValuePayload, ...] | None = None
     # Vrai quand le dump du run porte l'origine du morceau : un rollback peut le rendre.
     restorable: bool = False
+    # Lien vers la fiche source, donnee de navigation : jamais lu dans les lignes du detail.
+    source_url: str | None = None
 
 
 class CandidatePayload(BaseModel):
@@ -495,6 +545,8 @@ class RunFinished(Event):
     written: int
     write_error: int
     awaiting_arbitration: int
+    # Le JSON du rapport en phase `write`, comme `extraction_finished.report_path` ; nul sinon.
+    report_path: Path | None = None
 
 
 class RollbackRun(BaseModel):
@@ -531,6 +583,93 @@ class RollbackFinished(Event):
     track_id: str | None
     restored: tuple[str, ...]
     failed: tuple[RollbackFailurePayload, ...]
+
+
+class InterruptedRunPayload(BaseModel):
+    """Run a proposer a la reprise ; `folder_missing` ne laisse que l'option de repartir de zero."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["interrupted"] = "interrupted"
+    run_id: str
+    started_at: datetime
+    folder: Path
+    processed: int
+    total: int
+    folder_missing: bool
+
+
+class UnreadablePlanPayload(BaseModel):
+    """Plan d'une autre version ou illisible : les deux versions font le message (ADR-018).
+
+    `found` est nul quand le plan n'a pas de version lisible (JSON corrompu) : l'interface dit
+    alors « illisible » et non « version null ».
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["unreadable"] = "unreadable"
+    run_id: str
+    started_at: datetime
+    found: int | str | None
+    expected: int
+
+
+class InterruptedRunEvent(Event):
+    """`run` nul : rien a reprendre."""
+
+    event: Literal["interrupted_run"]
+    run: (
+        Annotated[InterruptedRunPayload | UnreadablePlanPayload, Field(discriminator="kind")] | None
+    )
+
+
+class PastRunPayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str
+    written_at: datetime
+    folder: Path
+    report_path: Path
+
+
+class RunsListed(Event):
+    event: Literal["runs_listed"]
+    runs: tuple[PastRunPayload, ...]
+
+
+class TrackLoaded(BaseModel):
+    """Morceau d'un run passe, relu dans son rapport : ce que le recapitulatif affiche.
+
+    Sans `restorable` : un run passe se lit sans geste, la restauration reste aux Reglages.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    track_id: str
+    file_name: str
+    file_after: str | None
+    artist: str
+    title: str
+    state: TrackState | None
+    resolution: Resolution | None
+    failure_reason: TrackFailureReason | None
+    source: Source | None
+    after: TrackNames | None
+    scores: TrackScores | None
+    # Meme forme que dans `run_started` : l'interface hydrate un run passe comme un run vivant.
+    tags_before: TagsBeforePayload | None
+    tags_after: tuple[TagValuePayload, ...] | None
+    source_url: str | None
+    artwork_path: Path | None
+
+
+class RunLoaded(Event):
+    event: Literal["run_loaded"]
+    run_id: str
+    folder: Path
+    generated_at: datetime
+    tracks: tuple[TrackLoaded, ...]
 
 
 class Error(Event):

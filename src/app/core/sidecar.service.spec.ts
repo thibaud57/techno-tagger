@@ -468,6 +468,7 @@ describe("SidecarService", () => {
       written: 0,
       write_error: 0,
       awaiting_arbitration: 0,
+      report_path: null,
     })
 
     expect(service.taggingTracks()[0]?.state).toBe("resolved")
@@ -501,6 +502,7 @@ describe("SidecarService", () => {
       written: 0,
       write_error: 0,
       awaiting_arbitration: 0,
+      report_path: null,
     })
 
     expect(service.taggingFinished()).toBeNull()

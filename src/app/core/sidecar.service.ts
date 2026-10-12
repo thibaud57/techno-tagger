@@ -35,6 +35,9 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   run_finished: true,
   rollback_target: true,
   rollback_finished: true,
+  interrupted_run: true,
+  runs_listed: true,
+  run_loaded: true,
   error: true,
 }
 
@@ -617,6 +620,11 @@ export class SidecarService {
         this.taggingRun.restored(event)
         // Un dump vient d'etre consomme : la cible passe au run precedent.
         void this.loadRollbackTarget()
+        break
+      case "interrupted_run":
+      case "runs_listed":
+      case "run_loaded":
+        // Contrat fige avant ses stores (ordre de developpement, ARCHITECTURE.md) : rien a router.
         break
       case "error":
         this.setLastError(event)

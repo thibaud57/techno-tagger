@@ -19,6 +19,7 @@ export const WRITE_FINISHED: RunFinishedEvent = {
   written: 1,
   write_error: 0,
   awaiting_arbitration: 0,
+  report_path: "D:/Music/Promo Octobre/tagging-report-20261005T211403Z.json",
 }
 
 /** Fin de la phase reseau d'un run resolu : ce qui precede la confirmation. */
@@ -27,6 +28,7 @@ export const NETWORK_FINISHED: RunFinishedEvent = {
   phase: "network",
   resolved: 1,
   written: 0,
+  report_path: null,
 }
 
 export const writeProgress = (processed: number, total: number): ExtractionProgressEvent => ({

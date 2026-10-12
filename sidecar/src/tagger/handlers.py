@@ -10,16 +10,26 @@ import logging
 from collections import Counter
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, NamedTuple, assert_never, override
+from pathlib import PurePosixPath
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never, override
 
 from tagger import __version__, arbitration, tagging, url_recovery, writing
 from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.arbitration import Arbitration
-from tagger.cache import ArtworkFetcher, DiskCache, ResponseCache, resolve_host
+from tagger.cache import (
+    ArtworkFetcher,
+    ArtworkUnavailableError,
+    DiskCache,
+    ResponseCache,
+    resolve_host,
+)
+from tagger.errors import TaggerError
 from tagger.extraction import extract
+from tagger.files import TagField
 from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
 from tagger.paths import app_data_dir
-from tagger.plan import PlanRecorder, RunPlan, plan_dir
+from tagger.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
+from tagger.plan import PlanRecorder, RunPlan, load_plan, plan_dir
 from tagger.playlists import list_playlists, read_playlist
 from tagger.protocol import (
     ArbitrationRequired,
@@ -29,7 +39,11 @@ from tagger.protocol import (
     ExtractionFinished,
     ExtractPlaylist,
     FailurePayload,
+    InterruptedRunEvent,
+    InterruptedRunPayload,
     ListPlaylists,
+    LoadRun,
+    PastRunPayload,
     Phase,
     PlaylistEntry,
     PlaylistsListed,
@@ -40,26 +54,37 @@ from tagger.protocol import (
     RollbackRun,
     RollbackTarget,
     RunFinished,
+    RunLoaded,
     RunPhase,
+    RunsListed,
     RunStarted,
     SetApiKey,
     StartTagging,
     TagsBeforePayload,
     TagValuePayload,
     TrackEntry,
+    TrackLoaded,
     TrackNames,
     TrackResolved,
     TrackScores,
+    UnreadablePlanPayload,
     Version,
 )
-from tagger.report_index import IndexEntry, index_path, record_report
+from tagger.report_index import IndexEntry, index_path, list_reports, record_report
 from tagger.reports import ReportContext, ReportWriteError, write_extraction_report
+from tagger.resume import InterruptedRun, UnreadablePlan, detect_interrupted, find_plan, reopen_run
 from tagger.rollback import find_rollback_target, roll_back
 from tagger.scraper_client import TechnoScraperClient
 from tagger.sources import RunSources
-from tagger.tag_dump import TagDumpError, dump_dir
+from tagger.tag_dump import TagDumpError, dump_dir, find_dump
 from tagger.tagging import open_run, resolve_run
-from tagger.tagging_report import after_rows, report_paths, tag_rows, write_tagging_report
+from tagger.tagging_report import (
+    after_rows,
+    load_tagging_report,
+    report_paths,
+    tag_rows,
+    write_tagging_report,
+)
 from tagger.url_recovery import UrlRecovery
 from tagger.writing import RunWriter
 
@@ -75,9 +100,10 @@ if TYPE_CHECKING:
     from tagger.matching import ScoredCandidate
     from tagger.protocol import Event
     from tagger.reports import ReportPaths
+    from tagger.resume import DetectedPlan
     from tagger.scraper_client import TrackCandidate
     from tagger.tagging import LiveRun, TaggingRun, TrackRecord
-    from tagger.tagging_report import ReportTagValue
+    from tagger.tagging_report import ReportTagValue, TaggingReport, TaggingReportTrack
     from tagger.url_recovery import UrlRecoveryEvent
     from tagger.writing import WriteEvent
 
@@ -91,6 +117,52 @@ def handle_get_version() -> Version:
         version=__version__,
         api_key_configured=read_api_key() is not None,
     )
+
+
+class RunNotFoundError(TaggerError):
+    """Ni plan ni rapport pour ce run : supprime entre l'annonce et le geste, ou inconnu."""
+
+    code: ClassVar[str] = "run_not_found"
+
+    def __init__(self, run_id: str) -> None:
+        super().__init__(f"run not found: {run_id}", run_id=run_id)
+
+
+def handle_get_interrupted_run(active_run_id: str | None) -> InterruptedRunEvent:
+    """Relu sur le disque a chaque appel : un abandon change le plan a proposer.
+
+    Le plan du run ouvert est vivant, pas interrompu : `active_run_id` l'ecarte.
+    """
+    detected = detect_interrupted(plan_dir(), dump_dir(), active_run_id=active_run_id)
+    return InterruptedRunEvent(event="interrupted_run", run=_detected(detected))
+
+
+def _detected(
+    detected: DetectedPlan | None,
+) -> InterruptedRunPayload | UnreadablePlanPayload | None:
+    match detected:
+        case None:
+            return None
+        case InterruptedRun():
+            return InterruptedRunPayload(
+                run_id=detected.run_id,
+                started_at=detected.started_at,
+                folder=detected.folder,
+                processed=detected.processed,
+                total=detected.total,
+                folder_missing=detected.folder_missing,
+            )
+        case UnreadablePlan():
+            found = detected.error.params.get("found")
+            return UnreadablePlanPayload(
+                run_id=detected.run_id,
+                started_at=detected.started_at,
+                # Entier ou chaine seuls : un JSON corrompu ou sans version rend `None`.
+                found=found if isinstance(found, int | str) else None,
+                expected=PLAN_SCHEMA_VERSION,
+            )
+        case _:
+            assert_never(detected)
 
 
 def handle_set_api_key(command: SetApiKey) -> Version:
@@ -264,9 +336,9 @@ class CurrentRun:
         await asyncio.gather(*self._gestures, return_exceptions=True)
 
 
-async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> CurrentRun:
-    """Ouvre caches et client, branche l'arbitrage ; client et fetcher survivent dans la pile
-    rendue au `CurrentRun`, et une ouverture ratee referme ce qu'elle a deja ouvert."""
+async def _open_clients(stack: AsyncExitStack) -> tuple[TechnoScraperClient, ArtworkFetcher]:
+    """Cle, caches, client et pochettes d'un run, poses dans `stack` : un run neuf et un run
+    repris partagent tout ce qui precede l'ouverture du run lui-meme."""
     api_key = await asyncio.to_thread(read_api_key)
     if api_key is None:
         raise ApiKeyMissingError
@@ -282,26 +354,52 @@ async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> 
             asyncio.to_thread(DiskCache, cache_root / "artworks"), name="cache:artworks"
         )
     transports = tagging_transports()
+    client = await stack.enter_async_context(
+        TechnoScraperClient(
+            api_key, transport=transports.api, cache=ResponseCache(responses_disk.result())
+        )
+    )
+    artworks = await stack.enter_async_context(
+        ArtworkFetcher(artworks_disk.result(), transport=transports.cdn, resolve=transports.resolve)
+    )
+    return client, artworks
 
+
+def _build_current_run(
+    stack: AsyncExitStack,
+    live: LiveRun,
+    sources: RunSources,
+    relay: Callable[[PipelineEvent], None],
+    plan: PlanRecorder | None,
+) -> CurrentRun:
+    desk = Arbitration(live, sources, relay)
+    recovery = UrlRecovery(live, sources, relay)
+    return CurrentRun(stack.pop_all(), live, sources, desk, recovery, plan)
+
+
+async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> CurrentRun:
+    """Ouvre clients et run neuf, branche l'arbitrage ; client et fetcher survivent dans la pile
+    rendue au `CurrentRun` et une ouverture ratee referme ce qu'elle a deja ouvert."""
     async with AsyncExitStack() as stack:
-        client = await stack.enter_async_context(
-            TechnoScraperClient(
-                api_key, transport=transports.api, cache=ResponseCache(responses_disk.result())
-            )
-        )
-        artworks = await stack.enter_async_context(
-            ArtworkFetcher(
-                artworks_disk.result(), transport=transports.cdn, resolve=transports.resolve
-            )
-        )
+        client, artworks = await _open_clients(stack)
         relay = _relay(emit)
         live = await open_run(command.folder, on_event=relay)
         thresholds = _thresholds(command)
         sources = RunSources(live.run_id, client, artworks, thresholds)
         plan = await _open_plan(live, thresholds)
-        desk = Arbitration(live, sources, relay)
-        recovery = UrlRecovery(live, sources, relay)
-        return CurrentRun(stack.pop_all(), live, sources, desk, recovery, plan)
+        return _build_current_run(stack, live, sources, relay, plan)
+
+
+async def open_resumed_tagging(plan: RunPlan, emit: Callable[[Event], None]) -> CurrentRun:
+    """Rouvre le run d'un plan avec ses seuils ; son plan continue dans le meme fichier."""
+    async with AsyncExitStack() as stack:
+        client, artworks = await _open_clients(stack)
+        relay = _relay(emit)
+        thresholds = plan.thresholds.to_matching()
+        sources = RunSources(plan.run_id, client, artworks, thresholds)
+        live = await reopen_run(plan, sources, on_event=relay)
+        recorder = await _open_plan(live, thresholds, started_at=plan.started_at)
+        return _build_current_run(stack, live, sources, relay, recorder)
 
 
 async def _open_plan(
@@ -330,12 +428,42 @@ async def handle_start_tagging(
     emit: Callable[[Event], None],
     adopt: Callable[[CurrentRun], None],
 ) -> None:
-    """Confie le run a la session avant la phase reseau : un morceau se tranche des qu'il attend.
-
-    La fin de la phase reseau ouvre le rattrapage : sa progression suit `run_finished`.
-    """
+    """Confie le run a la session avant la phase reseau : un morceau se tranche des qu'il attend."""
     current = await open_tagging(command, emit)
     adopt(current)
+    await _network_phase(current, emit)
+
+
+async def read_resumable_plan(run_id: str) -> RunPlan:
+    """Plan a rouvrir, valide avant qu'on abandonne le run affiche.
+
+    Un plan confirme, ou dont le run a un dump, a vu des fichiers bouger : la reprise affirmerait
+    qu'aucun n'a ete touche. C'est la regle de `resume.detect_interrupted`, qui ne l'annonce pas.
+    """
+    path = await asyncio.to_thread(find_plan, plan_dir(), run_id)
+    if path is None:
+        raise RunNotFoundError(run_id)
+    plan = await asyncio.to_thread(load_plan, path)
+    dumped = await asyncio.to_thread(find_dump, dump_dir(), run_id) is not None
+    if plan.committed or dumped:
+        raise RunNotFoundError(run_id)
+    return plan
+
+
+async def handle_resume_run(
+    plan: RunPlan,
+    emit: Callable[[Event], None],
+    adopt: Callable[[CurrentRun], None],
+) -> None:
+    """Rejoue le run interrompu, puis ne lance la phase reseau que sur ses morceaux restants."""
+    current = await open_resumed_tagging(plan, emit)
+    adopt(current)
+    await _network_phase(current, emit)
+
+
+async def _network_phase(current: CurrentRun, emit: Callable[[Event], None]) -> None:
+    """Phase reseau d'un run neuf ou repris ; sa fin ouvre le rattrapage, dont la progression
+    suit `run_finished`."""
     await resolve_run(current.live, current.sources, on_event=_relay(emit))
     emit(_run_finished(current.live.snapshot(), RunPhase.NETWORK))
     emit(url_progress(current))
@@ -364,13 +492,13 @@ async def handle_commit_run(current: CurrentRun, writer: RunWriter) -> Event:
             await current.plan.reopen()
         raise
     await _write_report(current)
-    return _run_finished(current.live.snapshot(), RunPhase.WRITE)
+    return _run_finished(current.live.snapshot(), RunPhase.WRITE, current.report)
 
 
 async def handle_retry_write(current: CurrentRun, writer: RunWriter) -> Event:
     await writer.retry()
     await _write_report(current)
-    return _run_finished(current.live.snapshot(), RunPhase.WRITE)
+    return _run_finished(current.live.snapshot(), RunPhase.WRITE, current.report)
 
 
 async def _write_report(current: CurrentRun) -> None:
@@ -401,6 +529,104 @@ async def _write_report(current: CurrentRun) -> None:
         run_id=run.run_id, written_at=written_at, folder=run.folder, report_path=names.json_path
     )
     await asyncio.to_thread(record_report, index_path(), entry)
+
+
+def handle_list_runs() -> RunsListed:
+    """Runs passes du registre, du plus recent au plus ancien, rapports disparus ecartes."""
+    return RunsListed(
+        event="runs_listed",
+        runs=tuple(
+            PastRunPayload.model_validate(entry, from_attributes=True)
+            for entry in list_reports(index_path())
+        ),
+    )
+
+
+async def handle_load_run(command: LoadRun) -> RunLoaded:
+    """Recapitulatif d'un run passe, relu dans son rapport (migration ADR-018 B), sans rien
+    rejouer ; les pochettes passent par le cache puis le CDN, jamais par l'API."""
+    entries = await asyncio.to_thread(list_reports, index_path())
+    entry = next((known for known in entries if known.run_id == command.run_id), None)
+    if entry is None:
+        raise RunNotFoundError(command.run_id)
+    report = await asyncio.to_thread(load_tagging_report, entry.report_path)
+    artworks = await _artworks(report)
+    return RunLoaded(
+        event="run_loaded",
+        run_id=report.run_id,
+        folder=report.folder,
+        generated_at=report.generated_at,
+        tracks=tuple(_loaded(track, artworks.get(track.track_id)) for track in report.tracks),
+    )
+
+
+async def _artworks(report: TaggingReport) -> dict[str, Path]:
+    """Pochettes retelechargees par un fetcher ouvert pour la tache, dont le pool est borne.
+
+    Le cache du run vivant n'est pas emprunte : ses entrees expirent apres 30 jours, les rapports
+    jamais.
+    """
+    wanted = {
+        track.track_id: track.artwork_url
+        for track in report.tracks
+        if track.artwork_url is not None
+    }
+    if not wanted:
+        return {}
+    disk = await asyncio.to_thread(DiskCache, app_data_dir() / "cache" / "artworks")
+    transports = tagging_transports()
+    async with (
+        ArtworkFetcher(disk, transport=transports.cdn, resolve=transports.resolve) as fetcher,
+        asyncio.TaskGroup() as group,
+    ):
+        fetches = {
+            track_id: group.create_task(_artwork_or_none(fetcher, url), name=f"artwork:{track_id}")
+            for track_id, url in wanted.items()
+        }
+    return {
+        track_id: path
+        for track_id, fetch in fetches.items()
+        if (path := fetch.result()) is not None
+    }
+
+
+async def _artwork_or_none(fetcher: ArtworkFetcher, url: str) -> Path | None:
+    """Une pochette indisponible laisse le morceau sans image, jamais le run sans recapitulatif."""
+    try:
+        return await fetcher.fetch(url)
+    except ArtworkUnavailableError:
+        return None
+
+
+def _loaded(track: TaggingReportTrack, artwork: Path | None) -> TrackLoaded:
+    before = {row.field: row.value for row in track.tags_before or ()}
+    scores = track.scores
+    return TrackLoaded(
+        track_id=track.track_id,
+        file_name=PurePosixPath(track.file_before).name,
+        file_after=None if track.file_after is None else PurePosixPath(track.file_after).name,
+        artist=before.get(TagField.ARTIST) or "",
+        title=before.get(TagField.TITLE) or "",
+        state=track.state,
+        resolution=track.resolution,
+        failure_reason=track.failure_reason,
+        source=track.source,
+        after=None
+        if track.artist is None or track.title is None
+        else TrackNames(artist=track.artist, title=track.title),
+        scores=None if scores is None else _rounded(scores.artist, scores.title, scores.average),
+        # Systeme et lignes sont nuls ensemble : le rapport a lu les deux sur les memes tags.
+        tags_before=None
+        if track.system is None or track.tags_before is None
+        else TagsBeforePayload(
+            system=track.system,
+            comment=track.comment_before,
+            fields=_payload_rows(track.tags_before),
+        ),
+        tags_after=None if track.tags_after is None else _payload_rows(track.tags_after),
+        source_url=track.url,
+        artwork_path=artwork,
+    )
 
 
 def handle_get_rollback_target() -> RollbackTarget:
@@ -552,6 +778,7 @@ def _resolved(record: TrackRecord) -> TrackResolved:
         artwork_path=record.artwork,
         tags_after=None if candidate is None else _tags_after(record, candidate),
         restorable=record.restorable,
+        source_url=None if candidate is None else candidate.url,
     )
 
 
@@ -591,14 +818,20 @@ def _names(candidate: TrackCandidate) -> TrackNames:
 
 def _scores(scored: ScoredCandidate) -> TrackScores:
     """Arrondis : l'ecran affiche « A 96 · T 92 »."""
+    return _rounded(scored.artist_score, scored.title_score, scored.score)
+
+
+def _rounded(artist: float | None, title: float, average: float) -> TrackScores:
     return TrackScores(
-        artist=None if scored.artist_score is None else round(scored.artist_score),
-        title=round(scored.title_score),
-        average=round(scored.score),
+        artist=None if artist is None else round(artist),
+        title=round(title),
+        average=round(average),
     )
 
 
-def _run_finished(run: TaggingRun, phase: RunPhase) -> RunFinished:
+def _run_finished(
+    run: TaggingRun, phase: RunPhase, report: ReportPaths | None = None
+) -> RunFinished:
     # Chaque compteur se lit sur le champ de son issue, jamais sur l'absence d'un autre : un
     # `state` laisse vide gonflerait en silence le compte des arbitrages.
     states = Counter(record.state for record in run.tracks)
@@ -611,4 +844,5 @@ def _run_finished(run: TaggingRun, phase: RunPhase) -> RunFinished:
         written=states[tagging.TrackState.WRITTEN],
         write_error=states[tagging.TrackState.WRITE_ERROR],
         awaiting_arbitration=sum(1 for record in run.tracks if record.arbitration is not None),
+        report_path=None if report is None else report.json_path,
     )

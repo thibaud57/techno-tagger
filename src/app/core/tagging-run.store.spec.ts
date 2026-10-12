@@ -27,6 +27,7 @@ const FINISHED: RunFinishedEvent = {
   written: 0,
   write_error: 0,
   awaiting_arbitration: 1,
+  report_path: null,
 }
 
 describe("TaggingRunStore", () => {

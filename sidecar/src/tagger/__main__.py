@@ -22,33 +22,44 @@ from tagger.arbitration import ArbitrationNotPendingError
 from tagger.build_info import SENTRY_DSN
 from tagger.errors import TaggerError
 from tagger.handlers import (
+    RunNotFoundError,
     commit,
     handle_commit_run,
     handle_extract_playlist,
+    handle_get_interrupted_run,
     handle_get_rollback_target,
     handle_get_version,
     handle_list_playlists,
+    handle_list_runs,
+    handle_load_run,
+    handle_resume_run,
     handle_retry_write,
     handle_rollback,
     handle_set_api_key,
     handle_start_tagging,
+    read_resumable_plan,
     url_progress,
 )
 from tagger.logger import setup_logging
 from tagger.observability import init_sentry
 from tagger.paths import app_data_dir
-from tagger.plan import plan_dir, purge_plans
+from tagger.plan import discard_plan, plan_dir, purge_plans
 from tagger.protocol import (
     CancelRun,
     CommitRun,
+    DiscardRun,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
+    GetInterruptedRun,
     GetRollbackTarget,
     GetVersion,
     ListPlaylists,
+    ListRuns,
+    LoadRun,
     ResolveArbitration,
     ResolveByUrl,
+    ResumeRun,
     RetryWrite,
     Rollback,
     SetApiKey,
@@ -60,6 +71,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
+from tagger.resume import find_plan
 from tagger.tag_dump import dump_dir, purge_dumps
 from tagger.url_recovery import UrlRecoveryNotOpenError
 
@@ -169,6 +181,8 @@ class _Session:
         # Une seule phase longue a la fois : le slot garde la derniere, `_running` dit si elle vit.
         self._phase_task: _RunningPhase | None = None
         self._current: CurrentRun | None = None
+        # Chargements de runs passes en vol : lecture seule, annules a la fermeture de la session.
+        self._loads: set[asyncio.Task[None]] = set()
 
     def start_tagging(self, command: StartTagging) -> None:
         """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant.
@@ -180,6 +194,21 @@ class _Session:
         replaced, self._current = self._current, None
         start_work = functools.partial(self._replace, replaced, command)
         self._spawn_phase(Phase.TAGGING, start_work, command)
+
+    def resume_run(self, command: ResumeRun) -> None:
+        """Meme traitement que `start_tagging` : la reprise part en tache de fond et devient le run
+        courant des que ses decisions sont rendues. Le run affiche n'est remplace qu'une fois le
+        plan valide, pour qu'un refus ne lui coute rien."""
+        self._ensure_idle()
+        start_work = functools.partial(self._resume, command)
+        self._spawn_phase(Phase.TAGGING, start_work, command)
+
+    async def _resume(self, command: ResumeRun) -> None:
+        plan = await read_resumable_plan(command.run_id)
+        replaced, self._current = self._current, None
+        if replaced is not None:
+            await replaced.abandon()
+        await handle_resume_run(plan, self.send, self._adopt)
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
         """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
@@ -258,6 +287,47 @@ class _Session:
         start_work = functools.partial(handle_rollback, command, live, self.send)
         self._spawn_phase(Phase.ROLLBACK, start_work, command, command.track_id)
 
+    def load_run(self, command: LoadRun) -> None:
+        """Lecture seule en tache de fond : aucun fichier de musique n'est touche et les pochettes
+        ne gelent pas la lecture de stdin. Refuse pendant une phase longue, dont elle partage le
+        dossier des pochettes ; la fermeture de la session l'annule."""
+        self._ensure_idle()
+        start_work = functools.partial(handle_load_run, command)
+        load = self._group.create_task(self._phase(start_work, command), name="load_run")
+        self._loads.add(load)
+        load.add_done_callback(self._loads.discard)
+
+    async def _cancel_loads(self) -> None:
+        """Rien a proteger dans un chargement : l'attendre retarderait seulement la sortie."""
+        loads = tuple(self._loads)
+        for load in loads:
+            load.cancel()
+        await asyncio.gather(*loads, return_exceptions=True)
+
+    async def announce_interrupted_run(self) -> None:
+        """Annonce le plan a reprendre, sans le run ouvert : son plan est vivant, pas interrompu."""
+        current = self._current
+        active_run_id = None if current is None else current.live.run_id
+        self.send(await asyncio.to_thread(handle_get_interrupted_run, active_run_id))
+
+    async def discard_run(self, command: DiscardRun) -> None:
+        """Repartir de zero : le plan part ; sur le run courant, le run est abandonne avec lui.
+
+        Refuse pendant une phase longue, qui peut tenir ce plan (une reprise en cours). L'annonce
+        suivante part toujours : elle dit s'il reste un autre run a reprendre.
+        """
+        self._ensure_idle()
+        current = self._current
+        if current is not None and current.live.run_id == command.run_id:
+            self._current = None
+            await current.abandon()
+        else:
+            path = await asyncio.to_thread(find_plan, plan_dir(), command.run_id)
+            if path is None:
+                raise RunNotFoundError(command.run_id)
+            await asyncio.to_thread(discard_plan, path)
+        await self.announce_interrupted_run()
+
     async def close(self, *, cancel: bool) -> None:
         """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
 
@@ -265,6 +335,7 @@ class _Session:
         les attend (cf. `cancel_run`).
         """
         await self._settle_run(cancel=cancel)
+        await self._cancel_loads()
         current, self._current = self._current, None
         if current is not None:
             await current.close()
@@ -291,7 +362,7 @@ class _Session:
         self,
         phase: Phase,
         start_work: Callable[[], Awaitable[Event | None]],
-        command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback),
+        command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback | ResumeRun),
         track_id: str | None = None,
     ) -> None:
         """Garde de `_ensure_idle` deja passee : elle precede les effets de bord du demarrage."""
@@ -389,6 +460,8 @@ class _Session:
             | CommitRun
             | RetryWrite
             | Rollback
+            | ResumeRun
+            | LoadRun
         ),
         track_id: str | None = None,
     ) -> None:
@@ -529,6 +602,16 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
             session.send(await asyncio.to_thread(handle_get_rollback_target))
         case Rollback():
             session.rollback(command)
+        case ListRuns():
+            session.send(await asyncio.to_thread(handle_list_runs))
+        case LoadRun():
+            session.load_run(command)
+        case ResumeRun():
+            session.resume_run(command)
+        case GetInterruptedRun():
+            await session.announce_interrupted_run()
+        case DiscardRun():
+            await session.discard_run(command)
         case _:
             assert_never(command)
 

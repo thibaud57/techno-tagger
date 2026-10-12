@@ -60,6 +60,7 @@
     "tag_dump_unreadable": "The saved original tags are unreadable, or come from another version of the application.\nThese files can no longer be restored: start a new run to retag them.",
     "tagging_report_unreadable": "This run report is unreadable, or comes from a newer version of the application.\nUpdate the application, then open it again.",
     "run_plan_unreadable": "The interrupted run cannot be resumed: it was saved by another version of the application, or its record is unreadable.\nStart over to run it again.",
+    "run_not_found": "This run no longer exists: its record or its report was deleted.\nStart a new run on the folder.",
     "scraper_error": "The search failed.\nTry again later.",
     "api_key_rejected": "The API key was rejected.\nCheck it in the settings.",
     "source_unavailable": "{{source}} is not responding.\nTry again later.",

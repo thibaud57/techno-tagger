@@ -55,6 +55,7 @@ def test_emits_the_whole_sequence_of_a_tagging_run(
         "written": 0,
         "write_error": 0,
         "awaiting_arbitration": 1,
+        "report_path": None,
     }
     assert events[-1] == {"event": "progress", "phase": "url_recovery", "processed": 0, "total": 1}
 
@@ -77,6 +78,17 @@ def test_describes_a_resolved_track_with_its_source_its_scores_and_its_artwork(
     assert resolved["after"] == {"artist": "Lior Vance", "title": "Dim Orbit (Original Mix)"}
     assert resolved["scores"] == {"artist": 100, "title": 100, "average": 100}
     assert str(resolved["artwork_path"]).endswith(".jpg")
+
+
+@pytest.mark.usefixtures("_key")
+def test_gives_the_source_page_of_a_resolved_track_only(
+    run_folder: Path, api_knowing_dim_orbit: FakeApi
+) -> None:
+    events = drive(start_tagging(run_folder))
+
+    resolved = {event["track_id"]: event for event in events if event["event"] == "track_resolved"}
+    assert resolved["a.mp3"]["source_url"] == ORIGINAL["url"]
+    assert resolved["b.mp3"]["source_url"] is None
 
 
 @pytest.mark.usefixtures("_key")

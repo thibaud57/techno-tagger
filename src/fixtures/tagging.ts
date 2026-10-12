@@ -44,6 +44,7 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
   artwork_path: "C:/AppData/cache/artworks/abc.jpg",
   tags_after: null,
   restorable: false,
+  source_url: null,
 }
 
 /** Ligne du run avant resolution, le premier morceau de `RUN_STARTED`. Un test pose son etat par spread. */

@@ -135,6 +135,33 @@ export interface RollbackCommand {
   readonly track_id: string | null
 }
 
+/** Au lancement : un run interrompu attend-il ? */
+export interface GetInterruptedRunCommand {
+  readonly command: "get_interrupted_run"
+}
+
+/** Repartir de zero : le sidecar repond par l'annonce suivante. */
+export interface DiscardRunCommand {
+  readonly command: "discard_run"
+  readonly run_id: string
+}
+
+/** Reprend le run annonce : decisions rendues, seuls les morceaux restants partent. */
+export interface ResumeRunCommand {
+  readonly command: "resume_run"
+  readonly run_id: string
+}
+
+export interface ListRunsCommand {
+  readonly command: "list_runs"
+}
+
+/** Rouvre le recapitulatif d'un run passe, sans rien rejouer. */
+export interface LoadRunCommand {
+  readonly command: "load_run"
+  readonly run_id: string
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
@@ -150,6 +177,11 @@ export type SidecarCommand =
   | RetryWriteCommand
   | GetRollbackTargetCommand
   | RollbackCommand
+  | GetInterruptedRunCommand
+  | DiscardRunCommand
+  | ResumeRunCommand
+  | ListRunsCommand
+  | LoadRunCommand
 
 export interface VersionEvent {
   readonly event: "version"
@@ -284,6 +316,8 @@ export interface TrackResolvedEvent {
   readonly tags_after: readonly TagValue[] | null
   /** Le dump du run porte l'origine du morceau : le sidecar est seul a savoir si une restauration est possible. */
   readonly restorable: boolean
+  /** Lien vers la fiche du candidat retenu, nul sans candidat. */
+  readonly source_url: string | null
 }
 
 /** Les deux seules sources qu'un arbitrage met en jeu : celles que le pipeline interroge. */
@@ -329,6 +363,8 @@ export interface RunFinishedEvent {
   readonly written: number
   readonly write_error: number
   readonly awaiting_arbitration: number
+  /** JSON du rapport de re-tagging en phase `write`, nul en phase `network` ou si le rapport n'a pas pu etre ecrit. */
+  readonly report_path: string | null
 }
 
 /** Dernier run annulable : de quoi le nommer dans la confirmation. */
@@ -357,6 +393,70 @@ export interface RollbackFinishedEvent {
   readonly track_id: string | null
   readonly restored: readonly string[]
   readonly failed: readonly RollbackFailure[]
+}
+
+/** Run a proposer a la reprise ; `folder_missing` ne laisse que l'option de repartir de zero. */
+export interface InterruptedRun {
+  readonly kind: "interrupted"
+  readonly run_id: string
+  readonly started_at: string
+  readonly folder: string
+  readonly processed: number
+  readonly total: number
+  readonly folder_missing: boolean
+}
+
+/** Plan d'une autre version ou illisible : `found` est nul quand le plan n'a pas de version lisible. */
+export interface UnreadablePlan {
+  readonly kind: "unreadable"
+  readonly run_id: string
+  readonly started_at: string
+  readonly found: number | string | null
+  readonly expected: number
+}
+
+export interface InterruptedRunEvent {
+  readonly event: "interrupted_run"
+  readonly run: InterruptedRun | UnreadablePlan | null
+}
+
+export interface PastRun {
+  readonly run_id: string
+  readonly written_at: string
+  readonly folder: string
+  readonly report_path: string
+}
+
+export interface RunsListedEvent {
+  readonly event: "runs_listed"
+  readonly runs: readonly PastRun[]
+}
+
+/** Morceau d'un run passe, relu dans son rapport : sans `restorable`, un run passe se lit sans geste. */
+export interface TrackLoaded {
+  readonly track_id: string
+  readonly file_name: string
+  readonly file_after: string | null
+  readonly artist: string
+  readonly title: string
+  readonly state: TrackState | null
+  readonly resolution: TrackResolution | null
+  readonly failure_reason: TrackFailureReason | null
+  readonly source: TrackSource | null
+  readonly after: TrackNames | null
+  readonly scores: TrackScores | null
+  readonly tags_before: TagsBefore | null
+  readonly tags_after: readonly TagValue[] | null
+  readonly source_url: string | null
+  readonly artwork_path: string | null
+}
+
+export interface RunLoadedEvent {
+  readonly event: "run_loaded"
+  readonly run_id: string
+  readonly folder: string
+  readonly generated_at: string
+  readonly tracks: readonly TrackLoaded[]
 }
 
 /** Une phase longue tourne deja : `params.phase` la nomme, `command` dit laquelle est refusee. */
@@ -391,4 +491,7 @@ export type SidecarEvent =
   | RunFinishedEvent
   | RollbackTargetEvent
   | RollbackFinishedEvent
+  | InterruptedRunEvent
+  | RunsListedEvent
+  | RunLoadedEvent
   | SidecarErrorEvent
