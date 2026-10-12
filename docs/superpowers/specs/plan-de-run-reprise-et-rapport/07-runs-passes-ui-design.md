@@ -2,7 +2,7 @@
 feature: "Feature 6 : Plan de run, reprise et rapport"
 subproject: "runs-passes-ui"
 goal: "Permettre de rouvrir en lecture seule, depuis les Réglages, le récapitulatif d'un run passé relu dans son rapport"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["04-protocole-ndjson-plan-rapport-design.md", "05-reprise-ui-design.md", "06-ecran-recapitulatif-ui-design.md"]
@@ -65,15 +65,15 @@ Le reste est recopié champ par champ, sans rien recalculer : le sidecar est seu
 ### Service
 
 - **`listRuns()`** envoie `list_runs`. Il est appelé par les Réglages quand le moteur devient disponible (l'`effect` qui lit déjà la cible de restauration) et par le service après chaque `run_finished` en phase `write`, comme `loadRollbackTarget` : un nouveau rapport vient d'être écrit. Il n'envoie rien tant que le moteur n'est pas disponible : une lecture seule ne doit pas passer par `reportUnavailable`, qui arrêterait le run affiché.
-- **`loadRun(runId)`** suit la même garde et ne renvoie pas la commande d'un run déjà en chargement. Il pose `loading`, vide `loaded` s'il désigne un autre run, puis envoie `load_run`.
+- **`loadRun(runId)`** suit la même garde et ne renvoie pas la commande d'un run déjà en chargement. Il pose `loading`, vide `loaded` s'il désigne un autre run et le refus précédent, puis envoie `load_run`.
 - **Routage** : `runs_listed` et `run_loaded` sont routés vers le store, à la place des cas sans effet du sub-project 04.
-- **Refus de `load_run`** (`run_not_found`, `tagging_report_unreadable`, ou `phase_busy` quand une phase longue tourne) : `routeLoadRunError`, sur le patron de `routeArbitrationError`, vide `loading`. Le refus s'affiche par `errorFor("load_run")`.
+- **Refus de `load_run`** (`run_not_found`, `tagging_report_unreadable`, ou `phase_busy` quand une phase longue tourne) : `routeLoadRunError`, sur le patron de `routeArbitrationError`, confie l'événement au store. Le store garde le refus avec son `runId` (le `run_id` des paramètres, sinon le run en chargement : un `phase_busy` n'en porte pas) et ne vide `loading` que si le refus vise le run attendu. Le service l'expose en lecture seule (`loadRefusal`) : `lastError` ne convient pas, toute autre commande l'efface. Un `run_loaded` qui ne désigne pas le run attendu est ignoré : `load_run` n'occupe aucune phase, deux chargements peuvent courir et la réponse d'un run que personne n'attend ne remplace rien. Le refus est vidé par la demande suivante d'un run ; la page ne montre que celui de son run.
 
 ### Rangée des Réglages
 
 La rangée « Runs passés » se place sous « Restauration », au patron `SettingsRow` (arbitrage « Rangée de Réglages » : le libellé à gauche, le contrôle et son aide à droite).
 - **Sélecteur** : un `p-select` `size="small"` lié par Signal Forms (`[formField]`, comme la page Playlist, `.claude/rules/angular/forms.md`). Chaque option est « Run du {date} sur {dossier} », par la clé `settings.admin.rollback.target` que la rangée « Restauration » emploie déjà : une seule clé pour nommer un run. La date est `written_at` passée par `runDate` (sub-project 05). L'ordre est celui du registre, le plus récent d'abord : l'interface ne trie pas.
-- **Largeur** : aucune largeur figée. Le sélecteur prend le reste de la ligne et coupe le dossier, dont le tooltip montre le texte entier (`TruncatedTextComponent` dans `#selectedItem`).
+- **Largeur** : aucune largeur figée. Le sélecteur prend le reste de la ligne et coupe le dossier, dont le tooltip montre le texte entier (`TruncatedTextComponent` dans `#selectedItem`). Le libellé de la rangée nomme le sélecteur pour un lecteur d'écran (`id` du libellé repris par `ariaLabelledBy`).
 - **Choix** : le run le plus récent par défaut. Le choix survit à une nouvelle liste ou à un changement de langue tant que son run y figure, sinon il retombe sur le plus récent.
 - **Bouton** : « Ouvrir le récapitulatif » (`secondary` outlined, `size="small"`) navigue vers `/tagging/recap/:runId` et l'onglet Tagging devient actif.
 - **Sans run** : le sélecteur est désactivé par une règle du formulaire, avec le placeholder « Aucun run passé » et le bouton est désactivé.
@@ -88,7 +88,7 @@ La route `tagging/recap/:runId` charge le même `RecapPageComponent`. Son entré
 - **Données** : les morceaux viennent de `loaded` quand il désigne le `runId` de la route, sinon du run affiché. Filtres, recherche, détail et lien source sont ceux du sub-project 06.
 - **En-tête** : le titre est suivi d'une ligne `text-sm text-muted-color`, « Run du {date} sur {dossier} », par la même clé `settings.admin.rollback.target` et la même date que les Réglages.
 - **Lecture seule** : ni « Restaurer le run », ni « Restaurer ce morceau » (`restorableIds` vide), ni « Nouveau run ». Le message d'échec d'écriture et le bilan de restauration appartiennent au run vivant : ils n'apparaissent pas sur un run passé.
-- **Refus** : le message d'erreur traduit (`app-error-message`) et un `EmptyState` encadré remplacent la table.
+- **Refus** : le message d'erreur traduit (`app-error-message`) et un `EmptyState` encadré remplacent la table, seulement quand le refus porté par le store vise le `runId` de la route : le refus d'un autre run ne s'affiche pas.
 
 ### Textes
 
@@ -132,16 +132,19 @@ Aucun `changeDetection` déclaré (`.claude/rules/angular/change-detection.md`).
 - `src/app/core/past-runs.store.spec.ts` :
   - un `TrackLoaded` devient un `TaggingTrack` aux mêmes noms, états, tags avant et après et `sourceUrl`, avec `restorable` faux
   - le run chargé est gardé et le chargement levé, oublié quand un autre run est demandé
+  - la réponse d'un run que personne n'attend ne remplace ni ne lève le chargement du run attendu, qu'elle arrive avant ou après la sienne
+  - un refus est gardé avec son run, attribué au run en chargement sans `run_id`, vidé par la demande suivante, et ne lève pas le chargement d'un autre run
 - `src/app/core/sidecar.service.spec.ts` :
   - `list_runs` part après une écriture terminée
   - `runs_listed` et `run_loaded` alimentent `pastRuns` et `loadedRun`
   - un run en chargement n'est pas redemandé
-  - un refus de `load_run`, y compris en `phase_busy`, vide le chargement et s'affiche par `errorFor("load_run")`
+  - un refus de `load_run`, y compris en `phase_busy`, vide le chargement et se lit par `loadRefusal`, qu'une autre commande envoyée ensuite n'efface pas
   - sans moteur, ni `list_runs` ni `load_run` ne partent et le run affiché reste
 - `src/app/features/settings/settings-page.component.spec.ts` :
   - `list_runs` part quand le moteur devient disponible
   - chaque option nomme son run par sa date et son dossier, dans l'ordre du sidecar (scénario 1)
   - le choix survit à une nouvelle liste tant que son run y figure
+  - le sélecteur est nommé par le libellé de la rangée
   - « Ouvrir le récapitulatif » navigue vers `/tagging/recap/<runId>` (scénario 2)
   - sans run, sélecteur et bouton désactivés (scénario 5)
 - `src/app/features/tagging/recap-page.component.spec.ts` :
@@ -150,6 +153,7 @@ Aucun `changeDetection` déclaré (`.claude/rules/angular/change-detection.md`).
   - aucun bouton de restauration ni « Nouveau run » même quand le run vivant est restaurable (scénario 3)
   - ni message d'échec d'écriture ni bilan de restauration sur un run passé (scénario 3)
   - un refus de `load_run` remplace la table par le message (scénario 4)
+  - le refus d'un autre run laisse les squelettes
   - sans `runId`, le run affiché revient malgré un run chargé
 
 ## Edge cases
