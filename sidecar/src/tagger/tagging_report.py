@@ -6,9 +6,9 @@ Le rapport est permanent et se migre (ADR-018 option B) : la migration se posera
 est la seule. Le plan de run, jetable, refuse au contraire une version inconnue.
 """
 
+import copy
 import logging
 from collections import Counter
-from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Final, Literal
 
@@ -18,7 +18,6 @@ from tagger.errors import TaggerError
 from tagger.file_failures import FileFailureReason
 from tagger.files import TagField, TagSystem, after_tags, project_tags, shown_key, tag_system_of
 from tagger.matching import QueryOrigin, credited_artists, full_title
-from tagger.plan import PlanScores
 from tagger.reports import (
     ReportWriteError,
     escape_markdown,
@@ -62,6 +61,16 @@ class ReportTagValue(_ReportModel):
     value: str | None
 
 
+class ReportScores(_ReportModel):
+    """Scores bruts du candidat retenu ; distincts de ceux du plan, jetable et jamais migre."""
+
+    artist: float | None
+    title: float
+    average: float
+    version_mismatch: bool
+    number_mismatch: bool
+
+
 class ReportThresholds(_ReportModel):
     floor: float
     ceiling: float
@@ -92,8 +101,7 @@ class TaggingReportTrack(_ReportModel):
     state: TrackState | None
     resolution: Resolution | None
     failure_reason: FailureReason | FileFailureReason | None
-    # Forme du plan de run : un changement de `PlanScores` change aussi ce rapport.
-    scores: PlanScores | None
+    scores: ReportScores | None
     artist: str | None
     title: str | None
     url: str | None
@@ -325,7 +333,7 @@ def _track(record: TrackRecord) -> TaggingReportTrack:
     if record.state is TrackState.ROLLED_BACK:
         # La restauration efface source, candidat et pochette du run vivant mais garde la voie et
         # la requete, que l'ecran masque : le rapport ne les garde pas non plus.
-        record = replace(record, resolution=None, query=None)
+        record = copy.replace(record, resolution=None, query=None)
     candidate, written, query, before = (
         record.candidate,
         record.written,
@@ -346,7 +354,15 @@ def _track(record: TrackRecord) -> TaggingReportTrack:
         state=record.state,
         resolution=record.resolution,
         failure_reason=record.failure_reason,
-        scores=None if record.scored is None else PlanScores.of(record.scored),
+        scores=None
+        if record.scored is None
+        else ReportScores(
+            artist=record.scored.artist_score,
+            title=record.scored.title_score,
+            average=record.scored.score,
+            version_mismatch=record.scored.version_mismatch,
+            number_mismatch=record.scored.number_mismatch,
+        ),
         artist=None if candidate is None else credited_artists(candidate),
         title=None if candidate is None else full_title(candidate),
         url=None if candidate is None else candidate.url,

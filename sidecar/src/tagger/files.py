@@ -234,6 +234,13 @@ def list_audio_files(folder: Path) -> tuple[Path, ...]:
     return tuple(sorted(found, key=lambda path: _sort_key(path.relative_to(folder))))
 
 
+def has_audio_files(folder: Path) -> bool:
+    """S'arrete au premier fichier audio : un dossier de bibliotheque se parcourt entier sinon."""
+    return any(
+        path.suffix.lower() in AUDIO_EXTENSIONS and path.is_file() for path in folder.rglob("*")
+    )
+
+
 def _sort_key(relative: Path) -> tuple[str, ...]:
     return tuple(part.casefold() for part in relative.parts)
 

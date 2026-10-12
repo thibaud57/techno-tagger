@@ -6,8 +6,8 @@ Deux politiques de version voisines, a ne pas aligner (ADR-018) : le plan, jetab
 """
 
 import asyncio
+import copy
 import logging
-from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Final, Self, override
 
@@ -214,7 +214,7 @@ class PlanTrack(_PlanModel):
     def applied_to(self, record: TrackRecord) -> TrackRecord:
         """Decision du plan posee sur le morceau relu ; sa pochette se retelecharge a part."""
         candidate, scores = self.candidate, self.scores
-        return replace(
+        return copy.replace(
             record,
             state=self.state,
             resolution=self.resolution,

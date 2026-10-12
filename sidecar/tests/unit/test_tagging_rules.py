@@ -2,13 +2,14 @@
 
 from dataclasses import replace
 from pathlib import Path
+from typing import Final
 
 import pytest
 from tagging_records import RECORD, held
 
 from tagger.tagging import FailureReason, LiveRun, TrackRecord
 
-HELD = replace(
+HELD: Final = replace(
     RECORD,
     arbitration=held(),
 )

@@ -3,12 +3,13 @@ son plan. Hors protocole NDJSON : les evenements sortent par un rappel.
 """
 
 import asyncio
+import copy
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from tagger.errors import RunNotFoundError
-from tagger.files import TaggingFolderUnreadableError, list_audio_files
+from tagger.files import TaggingFolderUnreadableError, has_audio_files, list_audio_files
 from tagger.plan import (
     RunPlanUnreadableError,
     discard_plan,
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class InterruptedRun:
     """Run a proposer a la reprise, resume tire du plan."""
 
@@ -153,10 +154,7 @@ def _stamped(plans: Path) -> list[tuple[Path, datetime]]:
 
 def _folder_missing(folder: Path) -> bool:
     """Un dossier vide vaut un dossier introuvable : `reopen_run` n'aurait rien a rouvrir."""
-    try:
-        return not list_audio_files(folder)
-    except TaggingFolderUnreadableError:
-        return True
+    return not (folder.is_dir() and has_audio_files(folder))
 
 
 def _decided_or_waiting(plan: RunPlan, record: TrackRecord) -> TrackRecord:
@@ -185,7 +183,7 @@ async def _with_artworks(records: list[TrackRecord], sources: RunSources) -> lis
             if record.state is TrackState.RESOLVED and record.candidate is not None
         }
     return [
-        replace(record, artwork=fetches[record.track_id].result())
+        copy.replace(record, artwork=fetches[record.track_id].result())
         if record.track_id in fetches
         else record
         for record in records

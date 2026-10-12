@@ -23,7 +23,9 @@ def test_reads_back_the_time_of_a_stamped_name(tmp_path: Path) -> None:
     assert created == CREATED
 
 
-@pytest.mark.parametrize("suffix", [".json", ".tmp", ".renames.ndjson"])
+@pytest.mark.parametrize(
+    "suffix", [".json", ".tmp", ".renames.ndjson"], ids=["json", "pending", "journal"]
+)
 def test_reads_back_the_run_of_a_stamped_name_whatever_its_suffix(
     tmp_path: Path, suffix: str
 ) -> None:

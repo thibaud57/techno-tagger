@@ -1,7 +1,7 @@
 """Detection, reprise et abandon d'un run interrompu, de bout en bout sur la boucle."""
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from ndjson_loop import conversation, resolved_run
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key", "app_data")]
 
-OTHER_RUN = "9e8f7a"
+OTHER_RUN: Final = "9e8f7a"
 
 
 async def test_announces_no_interrupted_run_without_plans() -> None:

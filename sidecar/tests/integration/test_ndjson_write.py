@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import pytest
 from ndjson_loop import EXPECT_TIMEOUT, conversation, held_call, resolved_run
@@ -404,6 +405,23 @@ async def test_finishes_the_write_phase_when_the_report_cannot_be_written(
     assert "tagging report not written run=" in caplog.text
     assert "reason=report_write_failed errno=28" in caplog.text
     assert "C:/private" not in caplog.text
+
+
+async def test_finishes_the_write_phase_when_the_report_fails_unexpectedly(
+    folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bug = ValueError("bug")
+    monkeypatch.setattr(handlers, "write_tagging_report", raising(bug))
+
+    with patch("tagger.handlers.sentry_sdk.capture_exception", autospec=True) as capture:
+        async with conversation() as talk:
+            run_id = await resolved_run(talk, folder)
+            talk.send(command="commit_run", run_id=run_id)
+            finished = await talk.expect("run_finished", phase="write")
+
+    assert (finished["written"], finished["report_path"]) == (1, None)
+    assert list_reports(index_path()) == ()
+    capture.assert_called_once_with(bug)
 
 
 async def test_keeps_one_pair_of_files_when_the_markdown_was_refused_once(

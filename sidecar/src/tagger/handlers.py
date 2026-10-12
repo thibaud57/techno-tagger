@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
+import sentry_sdk
+
 from tagger import __version__, arbitration, tagging, url_recovery, writing
 from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.arbitration import Arbitration
@@ -498,6 +500,13 @@ async def _write_report(current: CurrentRun) -> None:
             run.run_id,
             cause.errno if isinstance(cause, OSError) else None,
         )
+        return
+    except Exception as error:
+        # Les fichiers musicaux sont ecrits : un bug du rapport ne doit pas priver l'interface de
+        # la fin de phase. Pas de `BaseException` : l'annulation doit passer.
+        logger.exception("tagging report failed unexpectedly run=%s", run.run_id)
+        # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
+        sentry_sdk.capture_exception(error)
         return
     current.report = names
     entry = IndexEntry(
