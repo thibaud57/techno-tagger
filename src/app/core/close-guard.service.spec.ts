@@ -47,6 +47,7 @@ class FakeWindow implements AppWindow {
 const setup = async ({ inTauri = true } = {}) => {
   const appWindow = new FakeWindow()
   appWindow.inTauri = inTauri
+  // `tagging`, `runConfirmable` et `arbitrationCount` : la garde ne les lit plus (plan de run).
   const sidecar = {
     extracting: signal(false),
     tagging: signal(false),
@@ -67,8 +68,6 @@ const setup = async ({ inTauri = true } = {}) => {
   return { appWindow, sidecar, guard }
 }
 
-type Sidecar = Awaited<ReturnType<typeof setup>>["sidecar"]
-
 describe("CloseGuard", () => {
   afterEach(() => {
     vi.restoreAllMocks()
@@ -83,63 +82,45 @@ describe("CloseGuard", () => {
     expect(guard.request()).toBeNull()
   })
 
-  it.each<[string, (sidecar: Sidecar) => void]>([
-    [
-      "an extraction",
-      (sidecar) => {
-        sidecar.extracting.set(true)
-      },
-    ],
-    [
-      "a tagging run",
-      (sidecar) => {
-        sidecar.tagging.set(true)
-      },
-    ],
-    [
-      "pending arbitrations",
-      (sidecar) => {
-        sidecar.arbitrationCount.set(2)
-      },
-    ],
-  ])("holds the window and asks for confirmation during %s", async (_work, start) => {
+  it("holds the window and asks for confirmation during an extraction", async () => {
     const { appWindow, sidecar, guard } = await setup()
-    start(sidecar)
+    sidecar.extracting.set(true)
 
     const held = appWindow.close()
 
     expect(held).toBe(true)
-    expect(guard.request()).toHaveLength(1)
+    expect(guard.request()).toEqual([{ kind: "extraction" }])
+  })
+
+  it("lets the window close during a run, with arbitrations pending or a run left unwritten", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.tagging.set(true)
+    sidecar.arbitrationCount.set(3)
+    sidecar.runConfirmable.set(true)
+
+    const held = appWindow.close()
+
+    expect(held).toBe(false)
+    expect(guard.request()).toBeNull()
   })
 
   it("lists the pending work in a fixed order", async () => {
     const { sidecar, guard } = await setup()
 
-    sidecar.arbitrationCount.set(2)
-    sidecar.tagging.set(true)
+    sidecar.rollingBack.set({ runId: "a3f9c1", trackId: null })
+    sidecar.writing.set(true)
     sidecar.extracting.set(true)
 
     expect(guard.pendingWork()).toEqual([
       { kind: "extraction" },
-      { kind: "tagging" },
-      { kind: "arbitration", count: 2 },
+      { kind: "write" },
+      { kind: "rollback" },
     ])
-  })
-
-  it("counts a run that could still be written as pending work", async () => {
-    const { appWindow, sidecar, guard } = await setup()
-    sidecar.runConfirmable.set(true)
-
-    const held = appWindow.close()
-
-    expect(held).toBe(true)
-    expect(guard.request()).toEqual([{ kind: "unwritten" }])
-    expect(guard.blocked()).toBe(false)
   })
 
   it("closes the window for good when the user leaves", async () => {
     const { appWindow, sidecar, guard } = await setup()
-    sidecar.tagging.set(true)
+    sidecar.extracting.set(true)
     appWindow.close()
 
     await guard.leave()
@@ -149,7 +130,7 @@ describe("CloseGuard", () => {
 
   it("keeps the window open when the user stays", async () => {
     const { appWindow, sidecar, guard } = await setup()
-    sidecar.tagging.set(true)
+    sidecar.extracting.set(true)
     appWindow.close()
 
     guard.stay()
@@ -178,30 +159,30 @@ describe("CloseGuard", () => {
 
   it("keeps the snapshot when the work ends during the confirmation", async () => {
     const { appWindow, sidecar, guard } = await setup()
-    sidecar.tagging.set(true)
+    sidecar.extracting.set(true)
     appWindow.close()
 
-    sidecar.tagging.set(false)
+    sidecar.extracting.set(false)
 
-    expect(guard.request()).toEqual([{ kind: "tagging" }])
+    expect(guard.request()).toEqual([{ kind: "extraction" }])
   })
 
   it("replaces the snapshot when closing is asked again", async () => {
     const { appWindow, sidecar, guard } = await setup()
-    sidecar.tagging.set(true)
+    sidecar.extracting.set(true)
     appWindow.close()
-    sidecar.arbitrationCount.set(1)
+    sidecar.writing.set(true)
 
     appWindow.close()
 
-    expect(guard.request()).toEqual([{ kind: "tagging" }, { kind: "arbitration", count: 1 }])
+    expect(guard.request()).toEqual([{ kind: "extraction" }, { kind: "write" }])
   })
 
   it("reopens the application when the window refuses to close", async () => {
     const { appWindow, sidecar, guard } = await setup()
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     appWindow.refuseDestroy = true
-    sidecar.tagging.set(true)
+    sidecar.extracting.set(true)
     appWindow.close()
 
     await guard.leave()
@@ -235,9 +216,9 @@ describe("CloseGuard", () => {
     expect(appWindow.destroyed).toBe(0)
   })
 
-  it("lets the user leave a run that only waits", async () => {
+  it("lets the user leave during an extraction", async () => {
     const { appWindow, sidecar, guard } = await setup()
-    sidecar.tagging.set(true)
+    sidecar.extracting.set(true)
     appWindow.close()
 
     await guard.leave()

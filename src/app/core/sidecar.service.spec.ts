@@ -2,6 +2,7 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
+import { INTERRUPTED, interruptedRun } from "../../fixtures/resume"
 import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../fixtures/tagging"
 import {
   TRACK_URL,
@@ -61,7 +62,7 @@ class FakeTransport implements SidecarTransport {
 const BUSY_PHASES: readonly BusyPhase[] = ["extraction", "tagging", "write", "rollback"]
 
 type LaunchCommand =
-  "extract_playlist" | "start_tagging" | "commit_run" | "retry_write" | "rollback"
+  "extract_playlist" | "start_tagging" | "resume_run" | "commit_run" | "retry_write" | "rollback"
 
 const parseLine = (line: string): unknown => JSON.parse(line)
 const commandOf = (line: string): string => (parseLine(line) as { command: string }).command
@@ -343,10 +344,10 @@ describe("SidecarService", () => {
       message: "x",
       command: "list_playlists",
     })
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
 
     expect(service.lastError()?.code).toBe("playlist_not_found")
-    expect(service.version()).toBe(APP_VERSION)
+    expect(service.progress()?.processed).toBe(5)
   })
 
   it("ends the run on an error", async () => {
@@ -926,6 +927,130 @@ describe("SidecarService", () => {
     })
   })
 
+  describe("interrupted run", () => {
+    const VERSION = { event: "version", version: APP_VERSION, api_key_configured: true } as const
+    const askedCount = (): number =>
+      transport.sent.filter((line) => commandOf(line) === "get_interrupted_run").length
+
+    it("asks for an interrupted run once the engine version matches", async () => {
+      await service.start()
+
+      transport.emit(VERSION)
+
+      expect(transport.sent.map(commandOf)).toEqual(["get_version", "get_interrupted_run"])
+    })
+
+    it("does not ask for an interrupted run from a mismatched engine", async () => {
+      await service.start()
+
+      transport.emit({ ...VERSION, version: "0.0.0-other" })
+
+      expect(askedCount()).toBe(0)
+    })
+
+    it("asks again after a restart", async () => {
+      await service.start()
+      transport.emit(VERSION)
+
+      await service.restart()
+      transport.emit(VERSION)
+
+      expect(askedCount()).toBe(2)
+    })
+
+    it("does not ask again when the version is echoed after set_api_key", async () => {
+      await service.start()
+      transport.emit(VERSION)
+
+      await service.setApiKey("key")
+      transport.emit(VERSION)
+
+      expect(askedCount()).toBe(1)
+    })
+
+    it("drops the announced run at a restart until the engine announces again", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      await service.restart()
+      const stale = service.interruptedRun()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      expect(stale).toBeNull()
+      expect(service.interruptedRun()).toEqual(INTERRUPTED)
+    })
+
+    it("feeds the announced run", async () => {
+      await service.start()
+
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      expect(service.interruptedRun()).toEqual(INTERRUPTED)
+    })
+
+    it("sends resume_run only once", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      await service.resume(INTERRUPTED)
+      await service.resume(INTERRUPTED)
+
+      const resumed = transport.sent.filter((line) => commandOf(line) === "resume_run")
+      expect(resumed.map(parseLine)).toEqual([{ command: "resume_run", run_id: "a3f9c1" }])
+      expect(service.interruptedRun()).toBeNull()
+    })
+
+    it("shows the resumed run as launched on its folder", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      await service.resume(INTERRUPTED)
+
+      expect(service.requestedFolder()).toBe(INTERRUPTED.folder)
+      expect(service.tagging()).toBe(true)
+    })
+
+    it("fills the run from the events the engine replays", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+      await service.resume(INTERRUPTED)
+
+      transport.emit(RUN_STARTED)
+      transport.emit(TRACK_RESOLVED)
+      transport.emit(arbitrationRequired("b.mp3"))
+
+      expect(service.taggingTracks().map((track) => track.state)).toEqual(["resolved", null])
+      expect(service.arbitrationCount()).toBe(1)
+    })
+
+    it("closes the prompt at the gesture then prompts the next run", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      await service.discard(INTERRUPTED.run_id)
+      const closed = service.interruptedRun()
+      transport.emit(interruptedRun({ ...INTERRUPTED, run_id: "1b2c3d" }))
+
+      expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
+        command: "discard_run",
+        run_id: "a3f9c1",
+      })
+      expect(closed).toBeNull()
+      expect(service.interruptedRun()?.run_id).toBe("1b2c3d")
+    })
+
+    it("sends discard_run only once", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      await service.discard(INTERRUPTED.run_id)
+      await service.discard(INTERRUPTED.run_id)
+
+      const discarded = transport.sent.filter((line) => commandOf(line) === "discard_run")
+      expect(discarded).toHaveLength(1)
+    })
+  })
+
   describe("write phase", () => {
     const searchingRun = async (): Promise<void> => {
       await service.start()
@@ -1426,6 +1551,22 @@ describe("SidecarService", () => {
         observe: () => ({ tagging: service.tagging(), shown: service.taggingTracks().length > 0 }),
         sent: { tagging: true, shown: true },
         refused: { tagging: false, shown: true },
+      },
+      {
+        command: "resume_run",
+        own: "tagging",
+        launch: async () => {
+          await service.start()
+          transport.emit(interruptedRun(INTERRUPTED))
+          await service.resume(INTERRUPTED)
+        },
+        // Le run affiche est vide des l'envoi et l'invite fermee : seul « en cours » retombe.
+        observe: () => ({
+          tagging: service.tagging(),
+          prompted: service.interruptedRun() !== null,
+        }),
+        sent: { tagging: true, prompted: false },
+        refused: { tagging: false, prompted: false },
       },
       {
         command: "commit_run",

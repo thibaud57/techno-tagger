@@ -76,6 +76,13 @@
   @defer (when arbitrationVisible(); prefetch on idle(5s)) {
     <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
   }
+
+  <!-- Differee comme les deux autres modales : `p-dialog` n'a rien a faire au demarrage et la
+       plupart des lancements n'ont aucun run a reprendre. Dans la branche non bloquee : un moteur
+       absent ou en conflit de version n'a rien a proposer. -->
+  @defer (when interruptedRun() !== null; prefetch on idle(5s)) {
+    <app-resume-dialog />
+  }
 }
 
 <!-- Hors des deux branches : l'ecran bloquant peut coexister avec une demande de sortie.

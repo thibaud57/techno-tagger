@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from "@angular/core"
+import { Component, computed, inject, linkedSignal } from "@angular/core"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
@@ -63,7 +63,14 @@ export default class TaggingPageComponent {
   private readonly translate = inject(TranslateService)
   private readonly confirmDanger = injectDangerConfirm()
 
-  protected readonly folder = signal("")
+  /**
+   * Dossier du champ : celui du run affiche (`requestedFolder`, la forme que compare `action`).
+   * Une reprise le pose pendant que la page est montee et le champ le suit.
+   */
+  protected readonly folder = linkedSignal<string | null, string>({
+    source: this.sidecar.requestedFolder,
+    computation: (requested, previous) => requested ?? previous?.value ?? "",
+  })
   protected readonly tooltip = TOOLTIP
 
   protected readonly tracks = this.sidecar.taggingTracks
@@ -212,6 +219,8 @@ export default class TaggingPageComponent {
   })
   protected readonly error = this.sidecar.errorFor(
     "start_tagging",
+    "resume_run",
+    "discard_run",
     "commit_run",
     "retry_write",
     "rollback",
@@ -321,12 +330,8 @@ export default class TaggingPageComponent {
   }
 
   private async prefill(): Promise<void> {
-    // Page recreee : le run affiche prime sur la derniere destination, sous la forme demandee
-    // (celle que compare `action`), pas sous celle que le sidecar a normalisee.
-    const runFolder = this.sidecar.requestedFolder()
-    if (runFolder !== null) {
-      this.folder.set(runFolder)
-
+    // Page recreee : le run affiche prime sur la derniere destination et `folder` le suit deja.
+    if (this.sidecar.requestedFolder() !== null) {
       return
     }
     const destination = await readLastDestination()

@@ -9,6 +9,7 @@ import { CloseGuard } from "./core/close-guard.service"
 import { recoveredTrack, unresolvedTrack } from "../fixtures/tagging"
 
 import { SidecarService } from "./core/sidecar.service"
+import type { DetectedRun } from "./core/resume.store"
 import type { TaggingTrack } from "./core/tagging-run.store"
 import { RecoveryUiStore } from "./features/tagging/recovery-ui.store"
 
@@ -41,6 +42,8 @@ const mount = () => {
     taggingTracks: signal<readonly TaggingTrack[]>([]),
     recoverableTracks: signal<readonly TaggingTrack[]>([]),
     urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
+    // Lu par le `@defer` de l'invite de reprise.
+    interruptedRun: signal<DetectedRun | null>(null),
   }
   const closeGuard = {
     install: vi.fn(() => Promise.resolve()),

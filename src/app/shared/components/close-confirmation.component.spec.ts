@@ -9,11 +9,7 @@ import { CloseConfirmationComponent } from "./close-confirmation.component"
 
 const mount = (blocked = false) => {
   const guard = {
-    request: signal<readonly PendingWork[] | null>([
-      { kind: "extraction" },
-      { kind: "tagging" },
-      { kind: "arbitration", count: 2 },
-    ]),
+    request: signal<readonly PendingWork[] | null>([{ kind: "extraction" }, { kind: "write" }]),
     blocked: signal(blocked),
     stay: vi.fn(),
     leave: vi.fn(() => Promise.resolve()),
@@ -34,9 +30,7 @@ describe("CloseConfirmationComponent", () => {
 
     const text = page().textContent
 
-    const positions = ["extraction", "tagging", "arbitration"].map((kind) =>
-      text.indexOf(`app.close.${kind}`),
-    )
+    const positions = ["extraction", "write"].map((kind) => text.indexOf(`app.close.${kind}`))
     expect(positions.every((position) => position >= 0)).toBe(true)
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)
   })

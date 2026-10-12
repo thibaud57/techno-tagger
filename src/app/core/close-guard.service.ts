@@ -4,12 +4,7 @@ import { APP_WINDOW } from "./app-window"
 import { SidecarService } from "./sidecar.service"
 
 export type PendingWork =
-  | { readonly kind: "extraction" }
-  | { readonly kind: "tagging" }
-  | { readonly kind: "arbitration"; readonly count: number }
-  | { readonly kind: "write" }
-  | { readonly kind: "rollback" }
-  | { readonly kind: "unwritten" }
+  { readonly kind: "extraction" } | { readonly kind: "write" } | { readonly kind: "rollback" }
 
 /** Quitter couperait un fichier en plein travail : Tauri arrete le sidecar a la sortie. */
 const BLOCKING: ReadonlySet<PendingWork["kind"]> = new Set(["write", "rollback"])
@@ -22,27 +17,20 @@ export class CloseGuard {
   private readonly _request = signal<readonly PendingWork[] | null>(null)
   private installed = false
 
+  /**
+   * Seul ce qui perd vraiment quelque chose retient la fenetre. Un run, ses arbitrages et un run
+   * non confirme vivent dans le plan de run : ils sont proposes a la reprise au lancement suivant.
+   */
   readonly pendingWork = computed<readonly PendingWork[]>(() => {
     const work: PendingWork[] = []
     if (this.sidecar.extracting()) {
       work.push({ kind: "extraction" })
-    }
-    if (this.sidecar.tagging()) {
-      work.push({ kind: "tagging" })
-    }
-    const count = this.sidecar.arbitrationCount()
-    if (count > 0) {
-      work.push({ kind: "arbitration", count })
     }
     if (this.sidecar.writing()) {
       work.push({ kind: "write" })
     }
     if (this.sidecar.rollingBack() !== null) {
       work.push({ kind: "rollback" })
-    }
-    // Un run cherche que le moteur peut encore ecrire : quitter perdrait ses resultats.
-    if (this.sidecar.runConfirmable()) {
-      work.push({ kind: "unwritten" })
     }
 
     return work

@@ -4,7 +4,6 @@
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-rollback/.
 async (page) => {
   const DIR = ".playwright-mcp/verify-rollback/"
-  const VERSION = "0.5.0"
   const FOLDER = "C:\\Musique\\Extraction"
   const NBSP = "\u00a0"
   const out = { checks: {}, failures: [], measures: {}, errors: [] }
@@ -300,6 +299,12 @@ async (page) => {
     window.__svc._available.set(true)
     await new Promise((r) => setTimeout(r, 800))
     window.__svc.send = async (command) => window.__sent.push(command)
+  })
+  // Version de l'interface lue sur la page (celle que compare `versionMismatch`) : figee ici,
+  // elle perimait a chaque release (0.5.0 restait apres la 0.6.0, ecran bloquant, 2026-10-12).
+  const VERSION = await page.evaluate(() => {
+    window.__svc.handleLine(JSON.stringify({ event: "version", version: "0.0.0-probe", api_key_configured: true }))
+    return window.__svc.versionMismatch().ui
   })
   await line({ event: "version", version: VERSION, api_key_configured: true })
   await page.waitForSelector("app-tagging-page")
@@ -1017,7 +1022,7 @@ async (page) => {
     const blockedOnLoad = await page.evaluate(() => ({ blockingCard: !!document.querySelector("app-root p-card"), settingsMounted: !!document.querySelector("app-settings-page") }))
     out.measures.coldBlockedOnLoad = blockedOnLoad
     // Le service est neuf (page rechargee) : on rejoue le lancement tel que le vit Tauri, `available` nul puis vrai.
-    const result = await page.evaluate(async () => {
+    const result = await page.evaluate(async (version) => {
       const root = ng.getInjector(document.querySelector("app-root"))
       let svc
       for (const injector of ng["ɵgetInjectorResolutionPath"](root)) {
@@ -1053,7 +1058,7 @@ async (page) => {
       await wait(900)
       log.afterTrue = snap()
       log.sentAfterTrue = [...sent]
-      svc.handleLine(JSON.stringify({ event: "version", version: "0.5.0", api_key_configured: true }))
+      svc.handleLine(JSON.stringify({ event: "version", version, api_key_configured: true }))
       await wait(600)
       log.afterVersion = snap()
       log.sentAfterVersion = [...sent]
@@ -1079,7 +1084,7 @@ async (page) => {
       log.restartFalse.settingsMounted = !!document.querySelector("app-settings-page")
       log.total = count()
       return log
-    })
+    }, VERSION)
     out.measures.coldOpen = result
     check("14 shell: no blocking screen while available is null (page is constructed then)", result.whileNull.available === null && result.whileNull.blockingCard === false && result.whileNull.settingsMounted === true, result.whileNull)
     check("14 cold open: nothing sent while the service was not available", !result.sentWhileNull.includes("get_rollback_target"), result.sentWhileNull)

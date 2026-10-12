@@ -726,6 +726,43 @@ describe("TaggingPageComponent", () => {
     expect(component["error"]()?.code).toBe("tag_dump_write_failed")
   })
 
+  it.each([
+    ["resume_run", "tagging_folder_unreadable"],
+    ["discard_run", "run_not_found"],
+  ] as const)("shows a refused %s like a refused start", async (command, code) => {
+    const failure: SidecarErrorEvent = {
+      event: "error",
+      code,
+      params: {},
+      message: "",
+      command,
+    }
+    const { component } = await mountWith({
+      lastError: signal(failure),
+      lastErrorCommand: signal(command),
+    })
+
+    const shown = component["error"]()
+
+    expect(shown?.code).toBe(code)
+  })
+
+  it("follows the folder of a run resumed while the page is shown", async () => {
+    const requestedFolder = signal<string | null>(null)
+    const { component } = await mountWith({
+      requestedFolder,
+      taggingRunId: signal("a3f9c1"),
+      runConfirmable: signal(true),
+    })
+    const before = component["action"]()
+
+    requestedFolder.set("D:/Sets/Resumed")
+
+    expect(before).toBe("start")
+    expect(component["folder"]()).toBe("D:/Sets/Resumed")
+    expect(component["action"]()).toBe("commit")
+  })
+
   afterEach(() => {
     vi.resetAllMocks()
   })

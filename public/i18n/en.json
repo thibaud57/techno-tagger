@@ -20,11 +20,8 @@
       "title": "Quit the application?",
       "blockedTitle": "You cannot quit right now",
       "extraction": "An extraction is in progress: the copy will be cut short and a file may end up corrupted.",
-      "tagging": "A tagging run is in progress: the search results will be lost.",
-      "arbitration": "Arbitrations awaiting a decision: {{count}}.\nThey will be lost.",
       "write": "Files are being written: wait for it to finish before quitting.",
       "rollback": "A restore is in progress: wait for it to finish before quitting.",
-      "unwritten": "A run is waiting for its write confirmation.\nNothing has been written yet: if you quit, the search results are lost.",
       "stay": "Stay",
       "leave": "Quit anyway"
     }
@@ -377,5 +374,18 @@
         "accept": "Restore"
       }
     }
+  },
+  "resume": {
+    "title": "Resume the interrupted run?",
+    "summary": "Run of {{date}}, {{processed}} / {{total}} processed, on:",
+    "safe": "No file was touched since: resuming is safe.",
+    "folderMissing": "This folder cannot be found or no longer holds any audio file.\nPlug the drive back in or put the files back, then restart the application.",
+    "unreadable": {
+      "version": "This run was saved by another version of the application (version {{found}}, expected {{expected}}).\nIt cannot be resumed: start over.",
+      "corrupted": "The file of this run is damaged.\nIt cannot be resumed: start over."
+    },
+    "resume": "Resume",
+    "discard": "Start over",
+    "later": "Later"
   }
 }

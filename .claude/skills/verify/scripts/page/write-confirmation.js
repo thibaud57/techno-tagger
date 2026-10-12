@@ -4,7 +4,6 @@
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-write/.
 async (page) => {
   const DIR = ".playwright-mcp/verify-write/"
-  const VERSION = "0.5.0"
   const FOLDER = "C:\\Musique\\Extraction"
   const out = { checks: {}, failures: [], measures: {} }
   const check = (name, ok, detail) => {
@@ -186,6 +185,12 @@ async (page) => {
     await new Promise((r) => setTimeout(r, 800))
     window.__svc.send = async (command) => window.__sent.push(command)
   })
+  // Version de l'interface lue sur la page (celle que compare `versionMismatch`) : figee ici,
+  // elle perimait a chaque release (0.5.0 restait apres la 0.6.0, ecran bloquant, 2026-10-12).
+  const VERSION = await page.evaluate(() => {
+    window.__svc.handleLine(JSON.stringify({ event: "version", version: "0.0.0-probe", api_key_configured: true }))
+    return window.__svc.versionMismatch().ui
+  })
   await line({ event: "version", version: VERSION, api_key_configured: true })
   await page.waitForSelector("app-tagging-page")
   await setFolder(FOLDER)
@@ -222,12 +227,10 @@ async (page) => {
   await settle(200)
   check("choosing the run folder again offers commit", (await action())?.action === "commit", await action())
 
-  // 3. Fermeture d'un run cherche non confirme : nomme le travail perdu, sans bloquer.
-  await requestClose()
-  await settle(700)
-  const unwritten = await closeConfirmation()
-  check("unwritten run: close names it and still offers to leave", unwritten?.title?.startsWith("Quitter l'application") && unwritten.items.some((i) => i.startsWith("Un run attend la confirmation de son écriture.") && i.includes("Rien n'a encore été écrit")) && unwritten.buttons.some((b) => b.text === "Quitter quand même"), unwritten)
-  await stay()
+  // 3. Run cherche non confirme : la fermeture ne le retient plus, le plan de run le rend a la
+  // reprise (2026-10-12). La garde ne compte que l'extraction, l'ecriture et le rollback.
+  const heldBy = () => page.evaluate(() => window.__guard.pendingWork())
+  check("unwritten run: closing holds nothing", (await heldBy()).length === 0, await heldBy())
 
   // 4. Modale de confirmation : nombres, boutons, focus ; Annuler n'envoie rien.
   await clearSent()
@@ -397,8 +400,7 @@ async (page) => {
   const interrupted = await action()
   check("interrupted run offers to confirm", interrupted?.action === "commit" && !interrupted.disabled, interrupted)
 
-  // 11 bis. Run sans morceau resolu : le meme dossier se relance, la fermeture ne le retient pas.
-  const unwrittenPending = () => page.evaluate(() => window.__guard.pendingWork().some((w) => w.kind === "unwritten"))
+  // 11 bis. Run sans morceau resolu : le meme dossier se relance.
   await page.evaluate(() => window.__svc.startTagging(ng.getComponent(document.querySelector("app-tagging-page")).folder()))
   await line({ event: "run_started", run_id: "run-4", folder: FOLDER, tracks: [U, A] })
   await line(unresolved(U))
@@ -407,7 +409,7 @@ async (page) => {
   await settle(600)
   const empty = await action()
   check("run without a resolved track: its folder starts again", empty?.action === "start" && !empty.disabled, empty)
-  check("run without a resolved track: closing loses nothing", !(await unwrittenPending()), await page.evaluate(() => window.__guard.pendingWork()))
+  check("run without a resolved track: closing holds nothing", (await heldBy()).length === 0, await heldBy())
 
   // 11 ter. Moteur mort puis relance : le run affiche se fige, son dossier se relance.
   await page.evaluate(() => window.__svc.startTagging(ng.getComponent(document.querySelector("app-tagging-page")).folder()))
@@ -416,16 +418,16 @@ async (page) => {
   await line(unresolved(U))
   await line(finished("run-5", "network", { resolved: 1, unresolved: 1 }))
   await settle(600)
-  const beforeDeath = { action: await action(), unwritten: await unwrittenPending(), recoverable: (await rowState("Ria Javel"))?.tabindex }
+  const beforeDeath = { action: await action(), held: (await heldBy()).length > 0, recoverable: (await rowState("Ria Javel"))?.tabindex }
   await page.evaluate(() => {
     window.__svc.endRun()
     window.__svc._available.set(true)
   })
   await settle(600)
-  const afterDeath = { action: await action(), unwritten: await unwrittenPending(), recoverable: (await rowState("Ria Javel"))?.tabindex, rows: await page.evaluate(() => document.querySelectorAll("app-run-list tbody tr").length) }
+  const afterDeath = { action: await action(), held: (await heldBy()).length > 0, recoverable: (await rowState("Ria Javel"))?.tabindex, rows: await page.evaluate(() => document.querySelectorAll("app-run-list tbody tr").length) }
   out.measures.engineLost = { beforeDeath, afterDeath }
-  check("engine lost: run was confirmable and pending before", beforeDeath.action?.action === "commit" && beforeDeath.unwritten && beforeDeath.recoverable === "0", beforeDeath)
-  check("engine lost: same folder starts again, rows kept but frozen, closing loses nothing", afterDeath.action?.action === "start" && !afterDeath.action.disabled && !afterDeath.unwritten && afterDeath.recoverable === null && afterDeath.rows === 2, afterDeath)
+  check("engine lost: run was confirmable before, closing holding nothing", beforeDeath.action?.action === "commit" && !beforeDeath.held && beforeDeath.recoverable === "0", beforeDeath)
+  check("engine lost: same folder starts again, rows kept but frozen, closing holds nothing", afterDeath.action?.action === "start" && !afterDeath.action.disabled && !afterDeath.held && afterDeath.recoverable === null && afterDeath.rows === 2, afterDeath)
 
   // 12. Plancher 1024 x 700 : rangee d'actions sans debordement.
   await page.setViewportSize({ width: 1024, height: 700 })

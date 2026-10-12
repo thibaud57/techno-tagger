@@ -7,6 +7,7 @@ import {
   ExtractionFinishedEvent,
   ExtractionProgressEvent,
   ExtractionRequest,
+  InterruptedRun,
   PlaylistsListedEvent,
   PHASE_BUSY,
   ResolveArbitrationCommand,
@@ -16,6 +17,7 @@ import {
   SwitchArbitrationSourceCommand,
   ThresholdsPayload,
 } from "./models/protocol"
+import { ResumeStore } from "./resume.store"
 import { SIDECAR_TRANSPORT } from "./sidecar-transport"
 import { TaggingRunStore } from "./tagging-run.store"
 import { UrlRecoveryStore } from "./url-recovery.store"
@@ -77,6 +79,7 @@ export class SidecarService {
   private readonly arbitration = inject(ArbitrationStore)
   private readonly urlRecovery = inject(UrlRecoveryStore)
   private readonly writePhase = inject(WriteStore)
+  private readonly resumeStore = inject(ResumeStore)
 
   /** `null` tant que le lancement n'a pas repondu : l'ecran bloquant ne doit pas clignoter au demarrage. */
   private readonly _available = signal<boolean | null>(null)
@@ -93,6 +96,16 @@ export class SidecarService {
   private readonly _lastError = signal<SidecarErrorEvent | null>(null)
   private readonly _lastErrorCommand = signal<SidecarCommand["command"] | null>(null)
   /**
+   * Lancement d'un run, neuf ou repris : `failed()` ne vide pas le run affiche, seul l'etat
+   * « en cours » du lancement retombe.
+   */
+  private readonly taggingLaunch = {
+    phase: "tagging",
+    undo: () => {
+      this.taggingRun.failed()
+    },
+  } as const
+  /**
    * Commandes qui ouvrent une phase longue : la phase qu'elles lancent, et ce que leur envoi a pose
    * d'optimiste et que leur echec defait. Un `phase_busy` sur cette meme phase dit que la vraie
    * tourne : rien a defaire. Sur une autre, l'etat pose par la commande refusee ne repose sur rien.
@@ -104,13 +117,8 @@ export class SidecarService {
         this.endExtraction()
       },
     },
-    // `failed()` ne vide pas le run affiche : seul l'etat « en cours » du lancement retombe.
-    start_tagging: {
-      phase: "tagging",
-      undo: () => {
-        this.taggingRun.failed()
-      },
-    },
+    start_tagging: this.taggingLaunch,
+    resume_run: this.taggingLaunch,
     commit_run: {
       phase: "write",
       undo: () => {
@@ -174,6 +182,8 @@ export class SidecarService {
   readonly taggingFolder = this.taggingRun.folder
   /** Dossier du dernier `startTagging`, tel qu'envoye : aucune regle de chemin dupliquee ici. */
   readonly requestedFolder = this._requestedFolder.asReadonly()
+  /** Run interrompu a proposer au lancement, ou nul : l'annonce du demarrage, puis ce qu'en ont fait les gestes. */
+  readonly interruptedRun = this.resumeStore.prompt
   readonly taggingInterrupted = this.taggingRun.interrupted
   readonly taggingWritableCount = this.taggingRun.writableCount
   readonly writeFailureCount = this.taggingRun.writeFailureCount
@@ -325,6 +335,8 @@ export class SidecarService {
     this._available.set(null)
     this._version.set(null)
     this._apiKeyConfigured.set(null)
+    // L'annonce du moteur precedent est caduque : sans cela, elle clignoterait avant la nouvelle reponse.
+    this.resumeStore.announced(null)
     await this.start()
   }
 
@@ -352,12 +364,7 @@ export class SidecarService {
     if (this.taggingRun.running() || this.filesBusy()) {
       return
     }
-    this._requestedFolder.set(folder)
-    this.taggingRun.reset()
-    this.writePhase.reset()
-    // Le sidecar jette les arbitrages de l'ancien run a la reception de la commande.
-    this.arbitration.clear()
-    this.urlRecovery.clear()
+    this.prepareRun(folder)
     // `JSON.stringify` omet une cle `undefined` : la commande part sans `thresholds`.
     await this.send({ command: "start_tagging", folder, thresholds })
   }
@@ -369,6 +376,39 @@ export class SidecarService {
     }
     await this.send({ command: "cancel_run" })
     this.taggingRun.failed()
+  }
+
+  /**
+   * Les evenements rejoues par le moteur remplissent le run comme un lancement. L'invite est deja
+   * fermee et le run marque en cours a l'envoi : un second clic ne repart pas. Rend `false` quand
+   * rien n'est parti, pour que l'invite ne quitte pas l'onglet courant.
+   */
+  async resume(run: InterruptedRun): Promise<boolean> {
+    if (
+      this.interruptedRun()?.run_id !== run.run_id ||
+      this.taggingRun.running() ||
+      this.filesBusy()
+    ) {
+      return false
+    }
+    this.resumeStore.cleared()
+    this.prepareRun(run.folder)
+    await this.send({ command: "resume_run", run_id: run.run_id })
+
+    return true
+  }
+
+  /** L'annonce qui revient dit s'il reste un autre run a reprendre. */
+  async discard(runId: string): Promise<void> {
+    if (this.interruptedRun()?.run_id !== runId) {
+      return
+    }
+    this.resumeStore.cleared()
+    await this.send({ command: "discard_run", run_id: runId })
+  }
+
+  dismissInterruptedRun(): void {
+    this.resumeStore.cleared()
   }
 
   async chooseCandidate(trackId: string, source: ArbitrationSource, index: number): Promise<void> {
@@ -483,6 +523,24 @@ export class SidecarService {
     }
   }
 
+  /** Seulement face au moteur attendu : un moteur en conflit ne reprend rien. */
+  private async askInterruptedRun(): Promise<void> {
+    if (this.versionMismatch() !== null) {
+      return
+    }
+    await this.send({ command: "get_interrupted_run" })
+  }
+
+  /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
+  private prepareRun(folder: string): void {
+    this._requestedFolder.set(folder)
+    this.taggingRun.reset()
+    this.writePhase.reset()
+    // Le sidecar jette les arbitrages de l'ancien run a la reception de la commande.
+    this.arbitration.clear()
+    this.urlRecovery.clear()
+  }
+
   /** Un geste par morceau a la fois : un double clic ne repart pas avant la reponse. */
   private async gesture(trackId: string, command: ArbitrationCommand): Promise<void> {
     if (this.arbitration.isBusy(trackId)) {
@@ -571,10 +629,17 @@ export class SidecarService {
     }
 
     switch (event.event) {
-      case "version":
+      case "version": {
+        // Seule la premiere `version` d'un moteur demande le run interrompu : `set_api_key` la
+        // renvoie, et `restart()` remet la version a nul.
+        const firstAnswer = this._version() === null
         this._version.set(event.version)
         this._apiKeyConfigured.set(event.api_key_configured)
+        if (firstAnswer) {
+          void this.askInterruptedRun()
+        }
         break
+      }
       case "playlists_listed":
         this._listing.set(event)
         break
@@ -602,6 +667,9 @@ export class SidecarService {
       case "arbitration_updated":
         this.arbitration.updated(event)
         break
+      case "interrupted_run":
+        this.resumeStore.announced(event.run)
+        break
       case "run_finished":
         // Le service route par phase, comme pour `progress` : l'ecriture a son propre store.
         if (event.phase === "network") {
@@ -621,7 +689,6 @@ export class SidecarService {
         // Un dump vient d'etre consomme : la cible passe au run precedent.
         void this.loadRollbackTarget()
         break
-      case "interrupted_run":
       case "runs_listed":
       case "run_loaded":
         // Contrat fige avant ses stores (ordre de developpement, ARCHITECTURE.md) : rien a router.

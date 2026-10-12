@@ -20,11 +20,8 @@
       "title": "Quitter l'application ?",
       "blockedTitle": "Impossible de quitter maintenant",
       "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut se retrouver corrompu.",
-      "tagging": "Un run de tagging est en cours : les résultats de la recherche seront perdus.",
-      "arbitration": "Arbitrages en attente : {{count}}.\nIls seront perdus.",
       "write": "L'écriture des fichiers est en cours : attendez qu'elle se termine pour quitter.",
       "rollback": "Une restauration est en cours : attendez qu'elle se termine pour quitter.",
-      "unwritten": "Un run attend la confirmation de son écriture.\nRien n'a encore été écrit : en quittant, vous perdez les résultats de la recherche.",
       "stay": "Rester",
       "leave": "Quitter quand même"
     }
@@ -377,5 +374,18 @@
         "accept": "Restaurer"
       }
     }
+  },
+  "resume": {
+    "title": "Reprendre le run interrompu ?",
+    "summary": "Run du {{date}}, {{processed}} / {{total}} traités, sur :",
+    "safe": "Aucun fichier n'a été touché entre-temps : la reprise est sans risque.",
+    "folderMissing": "Ce dossier est introuvable ou ne contient plus de fichier audio.\nRebranchez le disque ou remettez les fichiers en place, puis relancez l'application.",
+    "unreadable": {
+      "version": "Ce run a été enregistré par une autre version de l'application (version {{found}}, attendue {{expected}}).\nIl ne peut pas être repris : repartez de zéro.",
+      "corrupted": "Le fichier de ce run est endommagé.\nIl ne peut pas être repris : repartez de zéro."
+    },
+    "resume": "Reprendre",
+    "discard": "Repartir de zéro",
+    "later": "Plus tard"
   }
 }

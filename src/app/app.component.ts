@@ -18,6 +18,7 @@ import { ArbitrationDialogComponent } from "./features/tagging/arbitration-dialo
 import { RecoveryUiStore } from "./features/tagging/recovery-ui.store"
 import { CloseConfirmationComponent } from "./shared/components/close-confirmation.component"
 import { IconComponent } from "./shared/components/icon.component"
+import { ResumeDialogComponent } from "./shared/components/resume-dialog.component"
 import { FADE_IN } from "./shared/utils/motion"
 
 @Component({
@@ -34,6 +35,7 @@ import { FADE_IN } from "./shared/utils/motion"
     Toast,
     ArbitrationDialogComponent,
     CloseConfirmationComponent,
+    ResumeDialogComponent,
     IconComponent,
   ],
   templateUrl: "./app.component.html",
@@ -76,6 +78,7 @@ export class AppComponent {
   }))
 
   protected readonly arbitrationCount = this.sidecar.arbitrationCount
+  protected readonly interruptedRun = this.sidecar.interruptedRun
   /** L'etape lien d'un morceau sorti de la file garde la modale ouverte, meme file videe. */
   private readonly queueEmpty = computed(
     () => this.arbitrationCount() === 0 && this.recovery.linkStep() === null,

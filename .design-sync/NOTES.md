@@ -71,7 +71,8 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-Rien à pousser au 2026-10-11.
+- **`AppShell`** : états « dossier introuvable ou vidé », « plan illisible » et « plan corrompu » de l'invite de reprise, livrés par le code et absents de la maquette. Focus de l'invite coupé à l'ouverture. Dossier sur sa propre ligne sous le résumé, tronqué à gauche, là où la maquette l'écrit dans la phrase (décidé le 2026-10-12).
+- **`CloseConfirmation`** : lignes `tagging`, `arbitration` et `unwritten` retirées par le code (décidé le 2026-10-12).
 
 ## Journal
 

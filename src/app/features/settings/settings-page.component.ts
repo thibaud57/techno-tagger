@@ -18,6 +18,7 @@ import { IconComponent } from "../../shared/components/icon.component"
 import { RollbackFailuresComponent } from "../../shared/components/rollback-failures.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { runDate } from "../../shared/utils/run-date"
 import { TOOLTIP } from "../../shared/utils/tooltip"
 
 import { SettingsRowComponent } from "./settings-row.component"
@@ -28,20 +29,6 @@ interface ApiKeyEntry {
 
 /** Une cle enregistree se signale par des points en placeholder, sans etre relue (ADR-012). */
 export const STORED_KEY_MASK = "•".repeat(24)
-
-/** `Intl` et non `DatePipe` : aucune locale FR n'est enregistree. */
-const runDate = (iso: string, language: string | null): string => {
-  const date = new Date(iso)
-  // `format` leve une RangeError sur une date invalide, et un computed la relancerait a chaque lecture.
-  if (Number.isNaN(date.getTime())) {
-    return iso
-  }
-
-  return new Intl.DateTimeFormat(language ?? undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date)
-}
 
 /** Section API et rangee Rollback. */
 @Component({
