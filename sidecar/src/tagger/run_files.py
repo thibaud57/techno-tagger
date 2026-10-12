@@ -102,7 +102,8 @@ def read_versioned[Model: BaseModel](
     try:
         return model.model_validate(raw)
     except ValidationError as exc:
-        raise unreadable(path, reported) from exc
+        # Version lisible, contenu invalide : un fichier corrompu, pas une autre version.
+        raise unreadable(path) from exc
 
 
 def unlink_logged(path: Path, label: str) -> None:

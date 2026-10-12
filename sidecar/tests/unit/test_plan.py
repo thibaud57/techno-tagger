@@ -167,12 +167,14 @@ def test_refuses_a_plan_of_an_unknown_version(tmp_path: Path) -> None:
     ["{not json", "[]", json.dumps({"schema_version": 1, "run_id": "a3f9c1"})],
     ids=["corrupt", "not-an-object", "invalid-model"],
 )
-def test_refuses_an_unreadable_plan(tmp_path: Path, content: str) -> None:
+def test_refuses_an_unreadable_plan_without_naming_a_version(tmp_path: Path, content: str) -> None:
     path = tmp_path / "20261006T211403Z-a3f9c1.json"
     path.write_text(content, encoding="utf-8")
 
-    with pytest.raises(RunPlanUnreadableError):
+    with pytest.raises(RunPlanUnreadableError) as error:
         load_plan(path)
+
+    assert error.value.found is None
 
 
 def test_refuses_a_plan_with_inconsistent_thresholds(tmp_path: Path) -> None:
