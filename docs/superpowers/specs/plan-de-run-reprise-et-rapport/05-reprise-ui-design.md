@@ -2,7 +2,7 @@
 feature: "Feature 6 : Plan de run, reprise et rapport"
 subproject: "reprise-ui"
 goal: "Proposer au lancement de reprendre ou d'abandonner un run interrompu et réduire la confirmation de sortie à ce qui perd encore quelque chose"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["04-protocole-ndjson-plan-rapport-design.md"]
@@ -65,12 +65,7 @@ Ce sub-project ajoute l'annonce d'un run interrompu au lancement (`ResumeStore` 
 
 ### Store
 
-`ResumeStore` est un `@Service()` à signals (`.claude/rules/angular/signals.md`, `.claude/rules/angular/services.md`). Le signal `detected` vaut :
-- `undefined` tant que l'interface n'a pas demandé ;
-- `null` s'il n'y a rien à reprendre ;
-- sinon un `InterruptedRun` ou un `UnreadablePlan`.
-
-Il porte aussi `dismissed`, posé par « Plus tard » et valable pour la session. Le `computed` `prompt` vaut le run à proposer, ou `null`. Aucun composant n'injecte le store : `SidecarService` le ré-expose (`interruptedRun`), comme pour les autres stores de phase.
+`ResumeStore` est un `@Service()` à signals (`.claude/rules/angular/signals.md`, `.claude/rules/angular/services.md`). Son signal `prompt` vaut le run à proposer (un `InterruptedRun` ou un `UnreadablePlan`), ou `null` sans annonce, sans run, après un geste ou après « Plus tard ». « Plus tard » vaut pour la session : seule l'annonce d'un nouveau démarrage du moteur rouvre l'invite. Aucun composant n'injecte le store : `SidecarService` le ré-expose (`interruptedRun`), comme pour les autres stores de phase.
 
 ### Service
 
