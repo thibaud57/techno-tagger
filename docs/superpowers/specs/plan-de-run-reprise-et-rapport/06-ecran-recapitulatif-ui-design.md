@@ -2,7 +2,7 @@
 feature: "Feature 6 : Plan de run, reprise et rapport"
 subproject: "ecran-recapitulatif-ui"
 goal: "Afficher le récapitulatif filtrable d'un run écrit, avec la recherche, l'avant / après de chaque morceau et le lien vers sa fiche source"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["04-protocole-ndjson-plan-rapport-design.md", "05-reprise-ui-design.md"]
@@ -53,7 +53,7 @@ Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Ré
 - **À modifier** : `src/app/features/tagging/tagging-page.component.ts`, `.html`, `.spec.ts` (restauration par `injectRunRestore()`, bouton « Récapitulatif »)
 - **À modifier** : `src/app/shared/components/icon.component.ts` (`search`, `external-link`, `plus` : imports, `@case` et test d'exhaustivité existant)
 - **À modifier** : `src/fixtures/tagging.ts` (`sourceUrl` de `PENDING_TRACK`)
-- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`recap.*`, `tagging.recap`, `tagging.detail.openSource`)
+- **À modifier** : `public/i18n/fr.json`, `public/i18n/en.json` (`recap.*`, `tagging.recap`)
 - **À modifier** : `docs/DESIGN.md` (ligne « Récapitulatif filtrable », mapping du lien source, arbitrages)
 - **À modifier** : `docs/ARCHITECTURE.md` (récapitulatif ouvert par un bouton et non automatiquement : § Écriture, diagramme de séquence, § Navigation)
 - **À modifier** : `.design-sync/NOTES.md` (§ Reste ouvert)
@@ -63,7 +63,7 @@ Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Ré
 ### Ouverture
 
 - **Bouton « Récapitulatif »** : il apparaît dans la page Tagging dès que la phase d'écriture a rendu son bilan, dans un groupe `ml-auto flex gap-2` avec « Restaurer le run » : il y reste visible même quand ni la barre d'écriture ni « Restaurer le run » ne le sont. Il navigue vers `/tagging/recap`. La liste du run reste la vue par défaut après l'écriture : la relance et la restauration y vivent (maquette `Recap`, arbitrage « Relance de l'écriture »).
-- **Route `tagging/recap`** : `loadComponent` en `export default` (`.claude/rules/angular/routing.md`, `.claude/rules/angular/lazy-loading.md`), placée avant le `**`. `tabFromUrl` lit le premier segment, donc l'onglet Tagging reste actif et un clic sur l'onglet ramène à la liste.
+- **Route `tagging/recap`** : `loadComponent` en `export default` (`.claude/rules/angular/routing.md`, `.claude/rules/angular/lazy-loading.md`), placée avant le `**`. `tabFromUrl` lit le premier segment, donc l'onglet Tagging reste actif et le retour à la liste passe par « Retour à la liste » dans l'en-tête du récapitulatif.
 
 ### Règle des filtres
 
@@ -85,7 +85,7 @@ Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Ré
 
 `RecapPageComponent` vit dans `features/tagging/`, car il n'a qu'un seul écran (DESIGN § Librairies UI). Il lit les morceaux du run affiché par `SidecarService` et n'injecte aucun store (`.claude/rules/angular/services.md`). Son hôte porte `PAGE_HOST` et le fondu `animate.enter`, comme les trois pages d'onglet.
 
-- **En-tête** : le titre « Récapitulatif du run » (`text-2xl font-semibold`) à gauche. À droite, un `p-selectbutton` `size="small"` à quatre options puis un `p-iconfield` de recherche (`.claude/rules/primeng/composants.md`).
+- **En-tête** : le bouton « Retour à la liste » (`text` `secondary`, `chevron-left`) puis le titre « Récapitulatif du run » (`text-2xl font-semibold`) à gauche. À droite, un `p-selectbutton` `size="small"` à quatre options puis un `p-iconfield` de recherche (`.claude/rules/primeng/composants.md`).
   - Le filtre et la recherche sont deux champs d'un même `signal`, lus par `form()` et liés par `[formField]`, comme la page Playlist (`.claude/rules/angular/forms.md`).
   - Chaque option porte son compteur selon la fiche `SelectButton` et un `label` traduit : sans lui, PrimeNG pose `aria-label="[object Object]"` sur chaque bouton. Le groupe est nommé par `ariaLabelledBy`, la recherche par un `aria-label`.
 - **Échecs d'écriture** : le message existant (`tagging.write.failed`), en texte seul, compté sur les morceaux affichés par la page, suivi de `RollbackFailuresComponent`.
@@ -95,7 +95,7 @@ Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Ré
 - **Pied** :
   - « Restaurer le run », qui reprend le geste et la confirmation existants de la page Tagging ;
   - « Nouveau run » en `text` `secondary` avec l'icône `plus`, qui appelle `SidecarService.clearRun()` puis navigue vers `/tagging`.
-- **Sans run** (route ouverte directement, run vidé) : `EmptyStateComponent` encadré, « Aucun run à récapituler ».
+- **Sans run** (route ouverte directement, run vidé) : `EmptyStateComponent` encadré, « Aucun run à récapituler », sous l'en-tête réduit au retour et au titre.
 - **Espacement** : `gap-6` entre les sections, la page ne défile jamais (DESIGN § Layout, `.claude/rules/tailwindcss/echelles.md`).
 
 ### Restauration partagée
@@ -118,7 +118,7 @@ Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Ré
 
 ### Textes
 
-`recap.*` (titre, quatre filtres et leur libellé de groupe, recherche, état vide, sans run, Nouveau run), `tagging.recap` et `tagging.detail.openSource` (libellé accessible du lien), en FR et EN dans le même commit (`.claude/rules/ngx-translate/i18n.md`).
+`recap.*` (titre, quatre filtres et leur libellé de groupe, recherche, état vide, sans run, Nouveau run, Retour à la liste) et `tagging.recap`, en FR et EN dans le même commit (`.claude/rules/ngx-translate/i18n.md`).
 
 ### Tokens et conventions
 
