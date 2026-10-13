@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import conversation, held_call, resolved_run, written_run
-from scraper_responses import DIM_ORBIT
+from scraper_responses import YOUR_MIND
 from tagging_api import (
     ONE_TRACK,
     ORIGINAL,
@@ -125,8 +125,8 @@ async def test_keeps_offering_a_restore_for_a_failure_that_keeps_its_dump_entry(
 async def test_leaves_the_displayed_run_alone_when_rolling_back_an_older_one(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    conform = tagged_mp3(tmp_path / "conform", WRITTEN_NAME, "Lior Vance", "Dim Orbit").parent
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    conform = tagged_mp3(tmp_path / "conform", WRITTEN_NAME, "Adam Beyer", "Your Mind").parent
     async with conversation() as talk:
         first = await written_run(talk, conform)
         await resolved_run(talk, conform)

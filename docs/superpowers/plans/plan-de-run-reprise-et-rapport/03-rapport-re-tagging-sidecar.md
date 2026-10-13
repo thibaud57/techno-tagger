@@ -109,15 +109,15 @@ from tagger.tagging import (
 )
 
 FOLDER: Final = Path("music")
-QUERY: Final = TrackQuery("Lior Vance", "Dim Orbit", QueryOrigin.TAGS)
+QUERY: Final = TrackQuery("Adam Beyer", "Your Mind", QueryOrigin.TAGS)
 # Toute la table, absente comprise : `after_tags` lit chaque champ d'origine.
 BEFORE: Final = ShownTags(
     system=TagSystem.ID3,
-    fields=dict.fromkeys(TagField) | {TagField.ARTIST: "lior vance", TagField.TITLE: "dim orbit"},
+    fields=dict.fromkeys(TagField) | {TagField.ARTIST: "adam beyer", TagField.TITLE: "your mind"},
     comment="ripped from vinyl",
 )
 CANDIDATE: Final = payload_candidate()
-WRITTEN_AS: Final = "Lior Vance - Dim Orbit (Extended Mix).mp3"
+WRITTEN_AS: Final = "Adam Beyer - Your Mind (Extended Mix).mp3"
 
 
 def _record(name: str) -> TrackRecord:
@@ -198,7 +198,7 @@ def test_records_what_was_written_for_each_track() -> None:
         True,
     )
     assert written.query is not None
-    assert written.query.text == "Lior Vance Dim Orbit"
+    assert written.query.text == "Adam Beyer Your Mind"
     assert (written.source, written.state, written.resolution) == (
         Source.BEATPORT,
         TrackState.WRITTEN,
@@ -700,7 +700,7 @@ def test_escapes_a_value_that_would_break_a_table() -> None:
 
 
 def test_warns_about_wav_files_once_one_is_written() -> None:
-    wav = replace(WRITTEN, path=RUN.folder / "Lior Vance - Dim Orbit.wav")
+    wav = replace(WRITTEN, path=RUN.folder / "Adam Beyer - Your Mind.wav")
     run = TaggingRun(RUN.run_id, RUN.folder, (wav,))
 
     markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))

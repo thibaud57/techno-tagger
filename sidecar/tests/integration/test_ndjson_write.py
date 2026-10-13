@@ -15,7 +15,7 @@ from ndjson_loop import (
     written_run,
 )
 from report_files import only_report, report_files
-from scraper_responses import BANDCAMP_TRACK, DIM_ORBIT, bandcamp_track_payload
+from scraper_responses import BANDCAMP_TRACK, YOUR_MIND, bandcamp_track_payload
 from stubs import raising
 from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, ok, one_track
 
@@ -81,7 +81,7 @@ async def test_refuses_writing_another_run(folder: Path, command: str) -> None:
 
 
 async def test_refuses_a_commit_while_the_network_phase_runs(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", DIM_ORBIT)
+    gate = api.gate("/beatport/search", YOUR_MIND)
 
     async with conversation() as talk:
         talk.send(**start_command(folder))

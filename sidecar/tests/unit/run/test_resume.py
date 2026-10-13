@@ -241,7 +241,7 @@ def _nothing(_event: RunEvent) -> None:
 @pytest.mark.asyncio
 async def test_gives_back_the_decisions_of_the_plan(music_folder: Path) -> None:
     auto, held = music(music_folder, 2)
-    nested = tagged_mp3(music_folder / "sub", "b.mp3", "Orla Quenby", "Kelvor")
+    nested = tagged_mp3(music_folder / "sub", "b.mp3", "Amelie Lens", "Basiel")
     refused = TrackRecord(track_id="sub/b.mp3", path=nested, identity=RECORD.identity)
     plan = plan_of(music_folder, [_auto(auto), _held(held), _refused(refused)])
 
@@ -264,7 +264,7 @@ async def test_rebuilds_the_run_on_the_folder_as_it_is_now(
     kept, gone = music(music_folder, 2)
     plan = plan_of(music_folder, [_refused(kept), _refused(gone)])
     gone.path.unlink()
-    tagged_mp3(music_folder, "new.mp3", "Dara Winter", "The Weir")
+    tagged_mp3(music_folder, "new.mp3", "Sara Landry", "The Void")
 
     async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
         live = await reopen_run(plan, sources, on_event=_nothing)

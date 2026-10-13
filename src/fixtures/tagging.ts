@@ -18,15 +18,15 @@ export const RUN_STARTED: RunStartedEvent = {
     {
       track_id: "a.mp3",
       file_name: "a.mp3",
-      artist: "Lior Vance",
-      title: "Dim Orbit",
+      artist: "Adam Beyer",
+      title: "Your Mind",
       tags_before: null,
     },
     {
       track_id: "b.mp3",
       file_name: "b.mp3",
-      artist: "Orla Quenby",
-      title: "Kelvor",
+      artist: "Amelie Lens",
+      title: "Basiel",
       tags_before: null,
     },
   ],
@@ -39,7 +39,7 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
   resolution: "auto",
   failure_reason: null,
   source: "beatport",
-  after: { artist: "Lior Vance", title: "Dim Orbit (Original Mix)" },
+  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artwork_path: "C:/AppData/cache/artworks/abc.jpg",
   tags_after: null,
@@ -51,8 +51,8 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
 export const PENDING_TRACK: TaggingTrack = {
   trackId: "a.mp3",
   fileName: "a.mp3",
-  artist: "Lior Vance",
-  title: "Dim Orbit",
+  artist: "Adam Beyer",
+  title: "Your Mind",
   state: null,
   resolution: null,
   failureReason: null,
@@ -118,14 +118,14 @@ export const TAGS_BEFORE: TagsBefore = {
   system: "id3",
   comment: "Ripped by X",
   fields: [
-    { field: "artist", key: "TPE1", value: "lior vance" },
+    { field: "artist", key: "TPE1", value: "adam beyer" },
     { field: "bpm", key: "TBPM", value: "130" },
   ],
 }
 
 /** Tags apres ecriture, memes champs et memes cles que `TAGS_BEFORE`. */
 export const TAGS_AFTER: readonly TagValue[] = [
-  { field: "artist", key: "TPE1", value: "Lior Vance" },
+  { field: "artist", key: "TPE1", value: "Adam Beyer" },
   { field: "bpm", key: "TBPM", value: "130" },
 ]
 
@@ -137,9 +137,9 @@ export const arbitrationRequired = (trackId: string): ArbitrationRequiredEvent =
   beatport_unavailable: false,
   candidates: [
     {
-      artist: "Lior Vance",
-      title: "Dim Orbit (Radio Edit)",
-      label: "Kestrel",
+      artist: "Adam Beyer",
+      title: "Your Mind (Radio Edit)",
+      label: "Drumcode",
       year: 2023,
       scores: { artist: 96, title: 84, average: 90 },
     },

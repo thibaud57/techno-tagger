@@ -28,7 +28,7 @@
 
 ## Review Focus
 
-- **Fichier dont seule la casse change** (`lior vance - …` vers `Lior Vance - …`) : renommé sans ` (2)`, malgré un `exists()` vrai sous Windows (Task 1, `test_fixes_the_case_without_a_copy_marker`).
+- **Fichier dont seule la casse change** (`adam beyer - …` vers `Adam Beyer - …`) : renommé sans ` (2)`, malgré un `exists()` vrai sous Windows (Task 1, `test_fixes_the_case_without_a_copy_marker`).
 - **Fichier déjà suffixé par un run précédent** (`X (2).mp3` avec `X.mp3` présent) : garde son nom, pas de ` (3)` (Task 1, `test_keeps_a_name_already_suffixed_by_a_previous_run`).
 - **Collision dans un dossier au chemin long** : le marqueur tient sous 259 caractères (Task 1, `test_keeps_the_copy_marker_within_the_path_limit`).
 - **Tag contenant une tabulation ou un caractère de contrôle** : mots séparés par une espace, aucun caractère invisible dans le nom (Task 1, `test_replaces_the_characters_windows_forbids_readably`, cas `control-characters`).
@@ -114,9 +114,9 @@ from tagger.renaming import (
     track_file_name,
 )
 
-ARTIST = "Lior Vance"
-TITLE = "Dim Orbit (Extended Mix)"
-TARGET = "Lior Vance - Dim Orbit (Extended Mix).mp3"
+ARTIST = "Adam Beyer"
+TITLE = "Your Mind (Extended Mix)"
+TARGET = "Adam Beyer - Your Mind (Extended Mix).mp3"
 
 
 def _file(folder: Path, name: str, content: bytes = b"audio") -> Path:
@@ -142,7 +142,7 @@ def _folder_leaving(tmp_path: Path, room: int) -> Path:
         ("Someone", "12:00 <Live>", "Someone - 12-00 Live.mp3"),
         ("Some\tone", "Bell\x07 Ring", "Some one - Bell Ring.mp3"),
         ("Mr. Zeff", "Slow Haze.", "Mr. Zeff - Slow Haze.mp3"),
-        ("Lior  Vance", "Dim   Orbit", "Lior Vance - Dim Orbit.mp3"),
+        ("Adam  Beyer", "Your   Mind", "Adam Beyer - Your Mind.mp3"),
     ],
     ids=[
         "slash",
@@ -167,32 +167,32 @@ def test_replaces_the_characters_windows_forbids_readably(
     ("suffix", "expected"), [(".MP3", ".mp3"), (".Flac", ".flac"), (".AIF", ".aif")]
 )
 def test_lowercases_the_extension(suffix: str, expected: str) -> None:
-    named = track_file_name(ARTIST, "Dim Orbit", suffix, room=255)
+    named = track_file_name(ARTIST, "Your Mind", suffix, room=255)
 
-    assert named == TrackFileName(f"Lior Vance - Dim Orbit{expected}", truncated=False)
+    assert named == TrackFileName(f"Adam Beyer - Your Mind{expected}", truncated=False)
 
 
 def test_cuts_the_end_of_the_title_to_fit_the_room() -> None:
-    named = track_file_name(ARTIST, "Dim Orbit (Kaelen Mirandor Extended Remix)", ".mp3", room=30)
+    named = track_file_name(ARTIST, "Your Mind (Layton Giordani Extended Remix)", ".mp3", room=30)
 
-    assert named == TrackFileName("Lior Vance - Dim Orbit (Ka.mp3", truncated=True)
+    assert named == TrackFileName("Adam Beyer - Your Mind (Ka.mp3", truncated=True)
 
 
 def test_cleans_the_loose_end_a_cut_leaves() -> None:
-    named = track_file_name(ARTIST, "Dim Orbit", ".mp3", room=17)
+    named = track_file_name(ARTIST, "Your Mind", ".mp3", room=17)
 
-    assert named == TrackFileName("Lior Vance.mp3", truncated=True)
+    assert named == TrackFileName("Adam Beyer.mp3", truncated=True)
 
 
 def test_keeps_the_copy_marker_inside_the_room() -> None:
-    named = track_file_name(ARTIST, "Dim Orbit", ".mp3", room=30, copy=2)
+    named = track_file_name(ARTIST, "Your Mind", ".mp3", room=30, copy=2)
 
-    assert named == TrackFileName("Lior Vance - Dim Orbit (2).mp3", truncated=False)
+    assert named == TrackFileName("Adam Beyer - Your Mind (2).mp3", truncated=False)
 
 
 @pytest.mark.parametrize(
     ("artist", "title"),
-    [("", "Mothlight"), ("Lior Vance", ""), ("???", "Mothlight"), ("Lior Vance", "*")],
+    [("", "Tarantula"), ("Adam Beyer", ""), ("???", "Tarantula"), ("Adam Beyer", "*")],
     ids=["no-artist", "no-title", "artist-of-forbidden-characters", "title-of-forbidden"],
 )
 def test_names_nothing_without_an_artist_and_a_title(artist: str, title: str) -> None:
@@ -202,7 +202,7 @@ def test_names_nothing_without_an_artist_and_a_title(artist: str, title: str) ->
 
 
 def test_renames_the_file_in_its_folder(tmp_path: Path) -> None:
-    path = _file(tmp_path, "lior vance - dim orbit.MP3")
+    path = _file(tmp_path, "adam beyer - your mind.MP3")
 
     renamed = rename_track(path, ARTIST, TITLE)
 
@@ -224,7 +224,7 @@ def test_leaves_a_correctly_named_file_alone(
 
 
 def test_fixes_the_case_without_a_copy_marker(tmp_path: Path) -> None:
-    path = _file(tmp_path, "lior vance - dim orbit (extended mix).mp3")
+    path = _file(tmp_path, "adam beyer - your mind (extended mix).mp3")
 
     renamed = rename_track(path, ARTIST, TITLE)
 
@@ -240,8 +240,8 @@ def test_adds_a_copy_marker_on_collision(tmp_path: Path) -> None:
     renamed = [rename_track(second, ARTIST, TITLE), rename_track(third, ARTIST, TITLE)]
 
     assert [track.path.name for track in renamed] == [
-        "Lior Vance - Dim Orbit (Extended Mix) (2).mp3",
-        "Lior Vance - Dim Orbit (Extended Mix) (3).mp3",
+        "Adam Beyer - Your Mind (Extended Mix) (2).mp3",
+        "Adam Beyer - Your Mind (Extended Mix) (3).mp3",
     ]
     assert (tmp_path / TARGET).read_bytes() == b"existing"
 
@@ -250,7 +250,7 @@ def test_cuts_a_name_that_would_exceed_the_path_limit(tmp_path: Path) -> None:
     folder = _folder_leaving(tmp_path, room=40)
     path = _file(folder, "track.mp3")
 
-    renamed = rename_track(path, ARTIST, "Dim Orbit (Kaelen Mirandor Extended Remix)")
+    renamed = rename_track(path, ARTIST, "Your Mind (Layton Giordani Extended Remix)")
 
     assert renamed.truncated
     assert len(str(renamed.path)) <= MAX_PATH_LENGTH
@@ -259,7 +259,7 @@ def test_cuts_a_name_that_would_exceed_the_path_limit(tmp_path: Path) -> None:
 
 def test_keeps_the_copy_marker_within_the_path_limit(tmp_path: Path) -> None:
     folder = _folder_leaving(tmp_path, room=40)
-    title = "Dim Orbit (Kaelen Mirandor Extended Remix)"
+    title = "Your Mind (Layton Giordani Extended Remix)"
     rename_track(_file(folder, "first.mp3"), ARTIST, title)
 
     renamed = rename_track(_file(folder, "second.mp3"), ARTIST, title)
@@ -271,7 +271,7 @@ def test_keeps_the_copy_marker_within_the_path_limit(tmp_path: Path) -> None:
 def test_keeps_the_name_without_an_artist(tmp_path: Path) -> None:
     path = _file(tmp_path, "rip_0042.wav")
 
-    renamed = rename_track(path, None, "Mothlight")
+    renamed = rename_track(path, None, "Tarantula")
 
     assert renamed == RenamedTrack(path, truncated=False)
     assert path.is_file()
@@ -280,13 +280,13 @@ def test_keeps_the_name_without_an_artist(tmp_path: Path) -> None:
 def test_keeps_the_name_without_an_artist_even_when_the_folder_leaves_no_room() -> None:
     path = Path("C:/") / ("x" * 300) / "track.mp3"
 
-    renamed = rename_track(path, None, "Mothlight")
+    renamed = rename_track(path, None, "Tarantula")
 
     assert renamed == RenamedTrack(path, truncated=False)
 
 
 def test_announces_the_target_just_before_renaming(tmp_path: Path) -> None:
-    path = _file(tmp_path, "lior vance - dim orbit.MP3")
+    path = _file(tmp_path, "adam beyer - your mind.MP3")
     announced: list[tuple[Path, bool]] = []
 
     renamed = rename_track(
@@ -343,7 +343,7 @@ def test_raises_file_missing_for_a_vanished_file(tmp_path: Path) -> None:
 
 def test_keeps_a_name_already_suffixed_by_a_previous_run(tmp_path: Path) -> None:
     _file(tmp_path, TARGET)
-    path = _file(tmp_path, "Lior Vance - Dim Orbit (Extended Mix) (2).mp3")
+    path = _file(tmp_path, "Adam Beyer - Your Mind (Extended Mix) (2).mp3")
 
     renamed = rename_track(path, ARTIST, TITLE)
 

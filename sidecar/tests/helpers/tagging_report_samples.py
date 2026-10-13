@@ -20,14 +20,14 @@ from tagger.run.tagging import (
 from tagger.tags.files import ShownTags, TagField, TagSystem, WrittenTags
 
 FOLDER: Final = Path("music")
-QUERY: Final = TrackQuery("Lior Vance", "Dim Orbit", QueryOrigin.TAGS)
+QUERY: Final = TrackQuery("Adam Beyer", "Your Mind", QueryOrigin.TAGS)
 # Toute la table, absente comprise : `after_tags` lit chaque champ d'origine.
 BEFORE: Final = ShownTags(
     system=TagSystem.ID3,
-    fields=dict.fromkeys(TagField) | {TagField.ARTIST: "lior vance", TagField.TITLE: "dim orbit"},
+    fields=dict.fromkeys(TagField) | {TagField.ARTIST: "adam beyer", TagField.TITLE: "your mind"},
     comment="ripped from vinyl",
 )
-WRITTEN_AS: Final = "Lior Vance - Dim Orbit (Extended Mix).mp3"
+WRITTEN_AS: Final = "Adam Beyer - Your Mind (Extended Mix).mp3"
 
 
 def _record(name: str) -> TrackRecord:

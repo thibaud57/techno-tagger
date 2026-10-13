@@ -18,7 +18,7 @@ const RESOLVED: TaggingTrack = {
   tagsAfter: TAGS_AFTER,
 }
 
-const SOURCE_URL = "https://www.beatport.com/track/dim-orbit/99000101"
+const SOURCE_URL = "https://www.beatport.com/track/your-mind/99000101"
 
 const WITH_SOURCE: TaggingTrack = {
   ...RESOLVED,
@@ -82,7 +82,7 @@ describe("TrackDetailComponent", () => {
     const rows = rowsOf(root)
 
     expect(rows).toEqual([
-      ["tagging.detail.field.artist", "TPE1", "lior vance", "Lior Vance"],
+      ["tagging.detail.field.artist", "TPE1", "adam beyer", "Adam Beyer"],
       ["tagging.detail.field.bpm", "TBPM", "130", "130"],
     ])
   })
@@ -125,12 +125,12 @@ describe("TrackDetailComponent", () => {
         comment: null,
         fields: [{ field: "label", key: "TPUB", value: null }],
       },
-      tagsAfter: [{ field: "label", key: "TPUB", value: "Kestrel" }],
+      tagsAfter: [{ field: "label", key: "TPUB", value: "Drumcode" }],
     })
 
     const rows = rowsOf(root)
 
-    expect(rows).toEqual([["tagging.detail.field.label", "TPUB", "—", "Kestrel"]])
+    expect(rows).toEqual([["tagging.detail.field.label", "TPUB", "—", "Drumcode"]])
   })
 
   it("adds a comment row when the file carries one", () => {
@@ -163,7 +163,7 @@ describe("TrackDetailComponent", () => {
     const rows = rowsOf(root)
 
     expect(rows.map((row) => [row[0], row[2], row[3]])).toEqual([
-      ["tagging.detail.field.artist", "—", "Lior Vance"],
+      ["tagging.detail.field.artist", "—", "Adam Beyer"],
       ["tagging.detail.field.bpm", "—", "130"],
     ])
   })

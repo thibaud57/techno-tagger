@@ -6,8 +6,8 @@ import pytest
 from ndjson_loop import conversation, start_command
 from scraper_responses import (
     BANDCAMP_TRACK,
-    DIM_ORBIT,
-    KELVOR,
+    BASIEL,
+    YOUR_MIND,
     bandcamp_track_payload,
 )
 from tagging_api import (
@@ -56,7 +56,7 @@ async def test_resolves_a_track_by_url_end_to_end(unresolved_folder: Path, api: 
 async def test_reports_a_track_that_is_not_eligible_with_its_command_and_its_track(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
 
     async with conversation() as talk:
         talk.send(**start_command(unresolved_folder))
@@ -86,7 +86,7 @@ async def test_refuses_a_url_before_any_run() -> None:
 async def test_refuses_a_url_while_the_network_phase_is_running(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
-    slow = api.gate("/beatport/search", DIM_ORBIT)
+    slow = api.gate("/beatport/search", YOUR_MIND)
 
     async with conversation() as talk:
         talk.send(**start_command(unresolved_folder))
@@ -154,7 +154,7 @@ async def test_opens_the_url_recovery_phase_when_the_run_is_cancelled(
 ) -> None:
     """Un run interrompu garde son ecriture (spec F2 11), donc son rattrapage."""
     folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", KELVOR)
+    slow = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
         talk.send(**start_command(folder))
@@ -187,7 +187,7 @@ async def test_emits_nothing_when_cancelling_a_finished_run(
 async def test_reports_the_url_progress_after_a_late_arbitration_refusal(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    """« Dim Orbit » attend un arbitrage, Bandcamp ne trouve rien : deux refus le rendent
+    """« Your Mind » attend un arbitrage, Bandcamp ne trouve rien : deux refus le rendent
     `unresolved` et le total du rattrapage passe de 1 a 2."""
     hold_on_beatport(api)
     folder = two_tracks(tmp_path)
@@ -215,7 +215,7 @@ async def test_emits_no_url_progress_for_an_arbitration_during_the_network_phase
     resolu avant n'emet rien, l'ouverture de la phase s'en charge."""
     hold_on_beatport(api)
     folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", KELVOR)
+    slow = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
         talk.send(**start_command(folder))

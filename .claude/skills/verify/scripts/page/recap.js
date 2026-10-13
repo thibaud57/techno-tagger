@@ -89,16 +89,16 @@ async (page) => {
     fields: KEYS.map(([field, key]) => ({ field, key, value: { artist: artist.toLowerCase(), title: title.toLowerCase() }[field] ?? null })),
   })
   const tagsAfter = (t, link) =>
-    KEYS.map(([field, key]) => ({ field, key, value: { artist: t.artist, title: `${t.title} (Original Mix)`, genre: "Techno", bpm: "130", label: "Kestrel", date: "2023", source: "beatport", url: link }[field] ?? null }))
-  const LONG = "https://www.beatport.com/track/dim-orbit-kaelen-mirandor-extended-remix-with-a-very-long-slug/99000101"
+    KEYS.map(([field, key]) => ({ field, key, value: { artist: t.artist, title: `${t.title} (Original Mix)`, genre: "Techno", bpm: "130", label: "Drumcode", date: "2023", source: "beatport", url: link }[field] ?? null }))
+  const LONG = "https://www.beatport.com/track/your-mind-layton-giordani-extended-remix-with-a-very-long-slug/99000101"
   const track = (id, artist, title) => ({ track_id: id, file_name: `${artist} - ${title}.mp3`, artist, title, tags_before: tagsBefore(artist, title) })
-  const A = track("a.mp3", "Lior Vance", "Dim Orbit")
-  const B = track("b.mp3", "Orla Quenby", "Kelvor")
-  const C = track("c.mp3", "Ria Javel", "Over the Moor")
-  const D = track("d.mp3", "Ilan Thorne", "Tidewater")
+  const A = track("a.mp3", "Adam Beyer", "Your Mind")
+  const B = track("b.mp3", "Amelie Lens", "Basiel")
+  const C = track("c.mp3", "Nur Jaber", "Into the Void")
+  const D = track("d.mp3", "Hector Oaks", "Sentiment")
   const E = track("e.mp3", "Nobody", "Nothing Here")
-  const F = track("f.mp3", "Valka", "Ark")
-  const linkOf = { "a.mp3": LONG, "b.mp3": "https://www.beatport.com/track/kelvor/99000102", "c.mp3": "https://orlaquenby.bandcamp.com/track/over-the-moor", "d.mp3": "https://www.beatport.com/track/tidewater/99000104", "f.mp3": "https://www.beatport.com/track/ark/99000106" }
+  const F = track("f.mp3", "Ignez", "Ark")
+  const linkOf = { "a.mp3": LONG, "b.mp3": "https://www.beatport.com/track/basiel/99000102", "c.mp3": "https://amelielens.bandcamp.com/track/into-the-void", "d.mp3": "https://www.beatport.com/track/tidewater/99000104", "f.mp3": "https://www.beatport.com/track/ark/99000106" }
   const decided = (t, state, resolution, extra = {}) => ({
     event: "track_resolved", track_id: t.track_id, state, resolution, failure_reason: null, source: "beatport",
     after: { artist: t.artist, title: `${t.title} (Original Mix)` }, scores: { artist: 98, title: 95, average: 96 },
@@ -223,7 +223,7 @@ async (page) => {
   }
   const has = (list, name) => list.some((r) => r.includes(name))
   check("filter rows follow the rule", byFilter.validated.length === 2 && byFilter.arbitrated.length === 1 && byFilter.failed.length === 2 && byFilter.all.length === 6, Object.fromEntries(Object.entries(byFilter).map(([k, v]) => [k, v.length])))
-  check("write error arbitrated only under failures", has(byFilter.failed, "Tidewater") && !has(byFilter.arbitrated, "Tidewater"), byFilter.failed)
+  check("write error arbitrated only under failures", has(byFilter.failed, "Sentiment") && !has(byFilter.arbitrated, "Sentiment"), byFilter.failed)
   check("restored track only under all", has(byFilter.all, "Ark") && !["validated", "arbitrated", "failed"].some((k) => has(byFilter[k], "Ark")), null)
   const select = await page.evaluate(() => {
     const group = document.querySelector("app-recap-page p-selectbutton")
@@ -238,13 +238,13 @@ async (page) => {
   check("filter buttons named, never [object Object]", select.ariaLabels.length >= 4 && select.ariaLabels.every((l) => !l.includes("[object")), select)
 
   // 3. Recherche : casse et espaces de bord ignores, etat vide quand rien ne correspond.
-  await search("  DIM orbit ")
+  await search("  YOUR mind ")
   const found = await rows()
-  check("search ignores case and edge spaces", found.length === 1 && found[0].includes("Dim Orbit"), found)
+  check("search ignores case and edge spaces", found.length === 1 && found[0].includes("Your Mind"), found)
   await search("Ark.mp3")
   check("search covers the file name", (await rows()).length === 1, await rows())
   await filter("validated")
-  await search("kelvorians")
+  await search("basielians")
   const empty = await page.evaluate(() => document.querySelector("app-recap-page app-run-list")?.textContent.replace(/[ \t\r\n]+/g, " "))
   check("empty state when nothing matches", (await rows()).length === 0 && /Aucun morceau ne correspond/.test(empty) && /Changez de filtre ou videz la recherche/.test(empty), empty)
   await shot("03-empty-search")
@@ -253,7 +253,7 @@ async (page) => {
 
   // 4. Detail deplie : lien de la ligne URL, URL longue tronquee, ligne a la hauteur des autres, rien ne defile.
   const toggleOf = (name) => page.locator("app-recap-page tr", { hasText: name }).locator("[data-row-toggle]")
-  await toggleOf("Dim Orbit").click()
+  await toggleOf("Your Mind").click()
   await settle()
   const detail = await page.evaluate(() => {
     const host = document.querySelector("app-recap-page app-track-detail")

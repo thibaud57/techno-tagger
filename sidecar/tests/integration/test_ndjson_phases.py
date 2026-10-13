@@ -11,7 +11,7 @@ from ndjson_loop import (
     start_command,
     written_run,
 )
-from scraper_responses import DIM_ORBIT
+from scraper_responses import YOUR_MIND
 
 from tagger import __main__ as main
 from tagger.run import rollback, writing
@@ -51,7 +51,7 @@ def command_of(
 async def test_refuses_a_command_while_a_run_searches(
     folder: Path, api: FakeApi, command_of: Callable[[str, str], dict[str, object]], command: str
 ) -> None:
-    gate = api.gate("/beatport/search", DIM_ORBIT)
+    gate = api.gate("/beatport/search", YOUR_MIND)
 
     async with conversation() as talk:
         talk.send(**start_command(folder))

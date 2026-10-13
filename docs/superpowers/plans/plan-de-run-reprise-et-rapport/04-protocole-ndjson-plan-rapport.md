@@ -98,7 +98,7 @@ Dans `sidecar/tests/integration/test_ndjson_tagging.py`, ajouter `"report_path":
 ```python
 @pytest.mark.usefixtures("_key")
 def test_gives_the_source_page_of_a_resolved_track_only(
-    run_folder: Path, api_knowing_dim_orbit: FakeApi
+    run_folder: Path, api_knowing_your_mind: FakeApi
 ) -> None:
     events = drive(start_tagging(run_folder))
 
@@ -364,7 +364,7 @@ from typing import TYPE_CHECKING
 import pytest
 from ndjson_loop import conversation, resolved_run
 from run_plans import RUN_ID, music, only_plan, plan_files, plan_of, save_plan
-from scraper_responses import DIM_ORBIT
+from scraper_responses import YOUR_MIND
 from tagging_api import CREATED
 
 from tagger.plan import plan_dir
@@ -506,7 +506,7 @@ async def test_discarding_the_current_run_abandons_it(folder: Path) -> None:
 
 
 async def test_refuses_to_discard_while_a_phase_runs(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", DIM_ORBIT)
+    gate = api.gate("/beatport/search", YOUR_MIND)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))
@@ -824,7 +824,7 @@ export interface ResumeRunCommand {
 Dans `sidecar/tests/integration/test_ndjson_resume.py`, fusionner ces imports avec ceux du module :
 
 ```python
-from scraper_responses import DIM_ORBIT, KELVOR
+from scraper_responses import YOUR_MIND, BASIEL
 from tagging_api import CREATED, ORIGINAL, found, two_tracks
 
 from tagger.run_files import run_id_of, stamped_name
@@ -835,8 +835,8 @@ et sous `if TYPE_CHECKING:`, `from memory_keyring import MemoryKeyring`. Remplac
 
 ```python
 async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeApi) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    gate = api.gate("/beatport/search", KELVOR)
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    gate = api.gate("/beatport/search", BASIEL)
     folder = two_tracks(tmp_path)
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))
@@ -865,7 +865,7 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
         for request in api.requests
         if request.url.path.endswith("/search")
     }
-    assert searched == {KELVOR}
+    assert searched == {BASIEL}
     assert finished["run_id"] == run_id
 
 
@@ -1237,7 +1237,7 @@ from typing import TYPE_CHECKING
 import httpx2
 import pytest
 from ndjson_loop import EXPECT_TIMEOUT, conversation, resolved_run
-from scraper_responses import DIM_ORBIT
+from scraper_responses import YOUR_MIND
 from stubs import raising
 from tagging_api import ONE_TRACK, ORIGINAL, WRITTEN_NAME, FakeApi, FakeCdn, public_resolver
 
@@ -1336,7 +1336,7 @@ async def test_reports_an_unreadable_report(folder: Path) -> None:
 
 
 async def test_refuses_to_load_a_run_while_a_phase_runs(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", DIM_ORBIT)
+    gate = api.gate("/beatport/search", YOUR_MIND)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))

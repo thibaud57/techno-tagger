@@ -103,7 +103,7 @@ Parcours relevé le 2026-10-07, tous verts. Le parcours change au 2026-10-11 : p
 
 ### Échec de transfert à l'extraction
 
-Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/core/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Ilán Thorne - As We Stayed.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
+Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/core/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Héctor Oaks - As We Were.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
 
 ## Pilotage du dump des tags d'origine
 
@@ -113,7 +113,7 @@ La purge se pilote par le vrai sidecar : poser dans `<LOCALAPPDATA>/fr.empiricmi
 
 ### Flux qui valent le coup
 
-- Aller-retour : les cinq cas `identical`, version relue identique à l'origine (`2.4.0` repart en `2.4.0` après une écriture en `2.3.0`, les v2.3 gardent `TYER` et `TDAT`), `TXXX:SERATO_PLAYCOUNT` intact. Deux artistes : deux valeurs en v2.4 et en FLAC, une chaîne `lior vance/mara quill` en v2.3. Dump relu en `schema_version` 1, `folder` gardé, `renamed_path` renseigné, entrées dans l'ordre d'écriture
+- Aller-retour : les cinq cas `identical`, version relue identique à l'origine (`2.4.0` repart en `2.4.0` après une écriture en `2.3.0`, les v2.3 gardent `TYER` et `TDAT`), `TXXX:SERATO_PLAYCOUNT` intact. Deux artistes : deux valeurs en v2.4 et en FLAC, une chaîne `adam beyer/bart skils` en v2.3. Dump relu en `schema_version` 1, `folder` gardé, `renamed_path` renseigné, entrées dans l'ordre d'écriture
 - Journal des renommages : avant la réécriture, `.renames.ndjson` voisin présent et le fichier du dump sans aucun `renamed_path` (0 sur 5), `load_dump` les fusionne (5 sur 5) ; après `rewrite_dump`, journal supprimé et les 5 `renamed_path` dans le fichier du dump
 - Purge au démarrage : dumps et `.tmp` d'écriture coupée de plus de 30 jours supprimés, y compris ceux qui suivent un dump verrouillé, celui-ci gardé avec un `WARNING tag dump not purged run=<run_id> reason=unlink_failed` ; dump et `.tmp` récents, `notes.json` intacts ; `version` répondue, sortie 0
 
@@ -126,7 +126,7 @@ Parcours relevé le 2026-10-07, tous verts. Rejoué le 2026-10-11 à la clôture
 ### Flux qui valent le coup
 
 - Plan : `plan_rename` rend la cible (`RenamePlan.target`, sans préfixe `\\?\`) alors que le fichier n'a pas bougé ; `None` quand le fichier garde son nom (sans artiste, ou déjà au nom voulu)
-- Noms : `lior vance - dim orbit.MP3` devient `Lior Vance - Dim Orbit (Extended Mix).mp3` ; `QX/RT` et `Mind: Body (Who? Remix)` donnent `QX-RT - Down In Amber.flac` et `Someone - Mind - Body (Who Remix).wav` ; sans artiste, `rip_0042.wav` garde son nom
+- Noms : `adam beyer - your mind.MP3` devient `Adam Beyer - Your Mind (Extended Mix).mp3` ; `QX/RT` et `Mind: Body (Who? Remix)` donnent `QX-RT - Down In Amber.flac` et `Someone - Mind - Body (Who Remix).wav` ; sans artiste, `rip_0042.wav` garde son nom
 - Collision : le fichier existant reste intact (octets relus), les suivants prennent ` (2)` puis ` (3)`. Casse seule : renommé sans suffixe
 - Longueur : dans un dossier qui laisse 40 caractères au nom, le titre est coupé à 40 et le chemin rendu tient en 259. Un titre d'emojis se compte en unités UTF-16, comme NTFS et `MAX_PATH` : relevé à 258 unités pour 255 caractères Python. Un fichier dont l'ancien chemin fait 305 caractères est renommé et relu par le préfixe `\\?\`, le chemin rendu n'en porte pas
 - Verrou : `held_open` d'`audio_samples` autour de l'appel, `RenameError` au motif `file_locked` levée par `apply()` (le plan, lui, est calculé) et le fichier garde son nom
@@ -139,8 +139,8 @@ Parcours relevé le 2026-10-08, neuf cas verts, rejoués verts le 2026-10-11 à 
 
 ### Flux qui valent le coup
 
-- Écriture sous verrou : bilan `summary` à `written` 2 et `failed` 1 (`WriteSummary` a disparu : `write()` ne rend rien, la sonde compte les états des `TrackResolved` de la phase), MP3 et FLAC en `written` renommés `Lior Vance - Dim Orbit (Extended Mix)`, 14 champs, pochette posée, nom non tronqué, `restorable` vrai ; le fichier tenu par `held_open` en `write_error` / `file_locked`, nom d'origine gardé, `restorable` vrai (son origine est au dump) ; non résolu et en attente identiques à l'octet près, `restorable` faux, et jamais passés par `write_tags`
-- Dump : au premier fichier écrit, il porte déjà l'origine des trois morceaux visés (titre `dim orbit`), jamais celle du non résolu ni de l'attente, sans journal encore (la note d'un fichier suit son `write_tags`). Juste avant le premier renommage (espion sur `RenamePlan.apply`), le journal `.renames.ndjson` porte déjà la cible de ce fichier alors que la source existe encore et la cible pas : noté avant que le fichier ne bouge. En fin de phase le journal est supprimé et le dump porte le chemin renommé de chacun, `folder` du run gardé
+- Écriture sous verrou : bilan `summary` à `written` 2 et `failed` 1 (`WriteSummary` a disparu : `write()` ne rend rien, la sonde compte les états des `TrackResolved` de la phase), MP3 et FLAC en `written` renommés `Adam Beyer - Your Mind (Extended Mix)`, 14 champs, pochette posée, nom non tronqué, `restorable` vrai ; le fichier tenu par `held_open` en `write_error` / `file_locked`, nom d'origine gardé, `restorable` vrai (son origine est au dump) ; non résolu et en attente identiques à l'octet près, `restorable` faux, et jamais passés par `write_tags`
+- Dump : au premier fichier écrit, il porte déjà l'origine des trois morceaux visés (titre `your mind`), jamais celle du non résolu ni de l'attente, sans journal encore (la note d'un fichier suit son `write_tags`). Juste avant le premier renommage (espion sur `RenamePlan.apply`), le journal `.renames.ndjson` porte déjà la cible de ce fichier alors que la source existe encore et la cible pas : noté avant que le fichier ne bouge. En fin de phase le journal est supprimé et le dump porte le chemin renommé de chacun, `folder` du run gardé
 - Événements : `TrackResolved` puis `WriteProgress` par morceau tranché
 - Relance, verrou levé : bilan `written` 1 et `failed` 0, seul le fichier verrouillé repasse par `write_tags`, renommé avec ` (2)` (le premier MP3 tient déjà le nom), origine du dump inchangée, journal de nouveau supprimé en fin de phase
 - `stderr` : `write phase started` et `finished` en INFO avec `run`, `write failed run=<id> track=3 reason=file_locked` en ERROR, ni chemin ni titre
@@ -152,7 +152,7 @@ Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : p
 `commit_run` et `retry_write` se pilotent par `drive.py` sur la fixture par défaut de `build_fixture.py` : ses deux morceaux connus partent en arbitrage, que `resolve_arbitration` à l'index 0 tranche en `resolved`, le troisième finit `unresolved`. Les `track_id` sont les noms de fichiers, le `run_id` vient de `"$run_id"`. `LOCALAPPDATA` vers le scratchpad, le dump s'écrivant sous `dump_dir()`.
 
 - Refus `write_not_open` : `retry_write` avant tout run, puis sur le run courant jamais confirmé ; `commit_run` sur un autre `run_id` ; second `commit_run` après l'écriture. Chacun porte sa `command`, la boucle continue
-- Écriture : un seul morceau tranché, `commit_run` rend `track_resolved` en `written` / `arbitration` avec `restorable` vrai (il vaut faux sur le `resolved` d'avant l'écriture, le non résolu et tous les autres états), `progress` en `write` à `1/1`, `run_finished` en `write` à `written` 1, `write_error` 0, `awaiting_arbitration` 1. Sur le disque, `Lior Vance - Dim Orbit (Extended Mix).mp3` ; le morceau en attente et le non résolu identiques à l'octet près (`md5sum` avant et après) ; dump `<horodatage>-<run_id>.json` en `schema_version` 1 avec le `folder` du run, la seule entrée écrite et son `renamed_path`, aucun `.renames.ndjson` à côté (supprimé en fin de phase). Les `track_id` de la fixture sont `01 lior vance - dim orbit.mp3`, `02 orla quenby - kelvor.mp3` et `03 nobody - nothing here at all.mp3` ; deux morceaux tranchés sortent en `Lior Vance - Dim Orbit (Extended Mix).mp3` et `Orla Quenby - Kelvor (Extended Mix).mp3`
+- Écriture : un seul morceau tranché, `commit_run` rend `track_resolved` en `written` / `arbitration` avec `restorable` vrai (il vaut faux sur le `resolved` d'avant l'écriture, le non résolu et tous les autres états), `progress` en `write` à `1/1`, `run_finished` en `write` à `written` 1, `write_error` 0, `awaiting_arbitration` 1. Sur le disque, `Adam Beyer - Your Mind (Extended Mix).mp3` ; le morceau en attente et le non résolu identiques à l'octet près (`md5sum` avant et après) ; dump `<horodatage>-<run_id>.json` en `schema_version` 1 avec le `folder` du run, la seule entrée écrite et son `renamed_path`, aucun `.renames.ndjson` à côté (supprimé en fin de phase). Les `track_id` de la fixture sont `01 adam beyer - your mind.mp3`, `02 amelie lens - basiel.mp3` et `03 nobody - nothing here at all.mp3` ; deux morceaux tranchés sortent en `Adam Beyer - Your Mind (Extended Mix).mp3` et `Amelie Lens - Basiel (Extended Mix).mp3`
 - `commit_run` puis, dans le même bloc, un second `commit_run` et un `start_tagging` : tous deux en `phase_busy` avec `params.phase` à `write` (les anciens `write_in_progress`, `rollback_in_progress`, `tagging_in_progress` et `extraction_in_progress` n'existent plus : `phase` nomme la phase qui tourne, la commande refusée reste dans `command`), l'écriture va à son terme. Course gagnée à chaque passe sur trois morceaux, le second arrivant pendant la lecture du dump ; un écart rendrait `write_not_open`, à relancer avant de conclure
 - Run figé : `resolve_arbitration` et `switch_arbitration_source` sur le morceau en attente, `resolve_by_url` sur le non résolu, tous en `run_committed` avec `params.track_id`
 - `retry_write` sans échec : accepté, `run_finished` en `write` aux mêmes compteurs
@@ -169,7 +169,7 @@ Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : p
 
 - Quatre `written`, `run_finished` en `write` à `written` 4, quatre noms `Artiste - Titre (Mix).ext` venus de la vraie API, dump à quatre entrées toutes `renamed_path`
 - Disque relu par `_probe.read_disk` (l'ancien `write_tags_probe.read_disk`) : ID3 en `2.3.0` sur MP3, WAV et AIFF avec `TYER` seul (plus de `TORY`, ADR-011), sans `TDRC` ni `COMM` ; FLAC sans `COMMENT` ni `DESCRIPTION` ; une seule image, recto `image/jpeg` téléchargée ; `PRIV:Serato` et `SERATO_PLAYCOUNT` intacts
-- Choix aveugle à l'index 0 : « Silas Orman - Quiet Meridian » est tombé le 2026-10-09 sur le DJ mix « Quiet Meridian DJ Mix ». C'est une preuve d'écriture et non de matching, à ne pas lire comme une régression
+- Choix aveugle à l'index 0 : « Robert Hood - Minimal Nation » est tombé le 2026-10-09 sur le DJ mix « Minimal Nation DJ Mix ». C'est une preuve d'écriture et non de matching, à ne pas lire comme une régression
 
 Parcours relevé le 2026-10-09 sur le binaire 0.5.0, tous verts. Le parcours change au 2026-10-11 : plus de `TORY` (ADR-011), l'ID3 attendu ne porte que `TYER`. Il n'a pas été rejoué sur le binaire figé depuis : l'attente ci-dessus est celle du code, pas un relevé.
 
@@ -214,8 +214,8 @@ rejoue la garde des trois refus.
 
 Placer un candidat en zone grise demande de viser l'intervalle des seuils, pas de
 l'approcher au jugé : artiste exact donne 100, donc le titre doit scorer entre 70 et 80
-pour que la moyenne reste sous 90. `fuzz.ratio("Kelvor", "Kelvorians",
-processor=utils.default_process)` rend 75, d'où un arbitrage ; « Kelvor Reprise » rend
+pour que la moyenne reste sous 90. `fuzz.ratio("Basiel", "Basielians",
+processor=utils.default_process)` rend 75, d'où un arbitrage ; « Basiel Reprise » rend
 60 et tombe sous le plancher.
 
 **Purger `appdata` entre deux runs** : le cache de réponses est réel et une réponse
@@ -250,7 +250,7 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
   `mix_name` à part, comme la gateway (ADR-012 de techno-scraper). Les deux morceaux connus de
   la fixture partent en arbitrage à 100/100 par la garde de version (le fichier ne nomme pas la
   version, le candidat dit « Extended Mix ») ; `resolve_arbitration` à l'index 0 rend leur
-  `track_resolved` avec `after.title` à « Dim Orbit (Extended Mix) » et « Kelvor (Extended
+  `track_resolved` avec `after.title` à « Your Mind (Extended Mix) » et « Basiel (Extended
   Mix) ». Relevé le 2026-10-02, identique sur le code d'avant la simplification de `full_title`
   (rejeu par `PYTHONPATH=<scratch>/base/sidecar/src` sur un `git archive HEAD sidecar/src`)
 - Candidat comparé tel que la gateway le rend (titre, `mix_name` et crédits non
@@ -258,7 +258,7 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
   gateway locale 4.0.0, 30 morceaux, zéro écart avec le code d'avant (8 auto, 19 non
   résolus, 3 arbitrages, scores identiques) ; mêmes chiffres en production 4.0.0 par le
   binaire figé
-- Invité au nom de version écrit dans le tag : « Teodor Hale » / « Cairn feat. Dubmoor »
+- Invité au nom de version écrit dans le tag : « Tommy Sharp » / « Biome feat. Dubfire »
   (copie d'un `.mp3` de la démo retaguée par mutagen) contre la gateway 4.0.0, auto à 100 ;
   le code d'avant le laissait en `below_threshold` (relevé le 2026-10-02)
 - Commande servie pendant un run : `get_version` envoyé après `start_tagging` répond
@@ -290,7 +290,7 @@ Comparer par `track_id` les `track_resolved` et `arbitration_required`, scores c
 
 ### Gotchas du run
 
-- **httpx2 journalise l'URL complète en INFO**, donc `q=Lior+Vance+Dim+Orbit` : le log
+- **httpx2 journalise l'URL complète en INFO**, donc `q=Adam+Beyer+Your+Mind` : le log
   local porte les artistes et les titres du run. C'est admis (les logs restent locaux),
   et rien ne part vers Sentry tant qu'`observability.init_sentry` garde son
   `LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)`. Contrôler
@@ -343,7 +343,7 @@ Parcours relevé le 2026-10-12 sur la branche du plan de run, tous verts. Il a r
 
 La fenêtre Tauri, lancée sous le `LOCALAPPDATA` de la recette (`LOCALAPPDATA=<scratch>/appdata WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev`), lit les plans que `drive.py` a laissés sous le même dossier : la session de `drive.py` qui crée le plan tourne contre le faux serveur, et la fenêtre ne repart pas sur le réseau tant que tous les morceaux du plan sont traités. Un plan posé pendant que la fenêtre est ouverte se repropose par `page/resume-prompt.js restart`, sans rouvrir l'application. `src-tauri/binaries/` doit porter le sidecar du dernier commit de `sidecar/src` (§ Gotchas).
 
-- Plan : `start_tagging` sur la fixture par défaut, `resolve_arbitration` à l'index 0 sur `01 lior vance - dim orbit.mp3`, puis `get_version` et fin de `stdin` : un résolu, un arbitrage en attente, un non résolu. Un dossier au chemin long montre la troncature
+- Plan : `start_tagging` sur la fixture par défaut, `resolve_arbitration` à l'index 0 sur `01 adam beyer - your mind.mp3`, puis `get_version` et fin de `stdin` : un résolu, un arbitrage en attente, un non résolu. Un dossier au chemin long montre la troncature
 - Au lancement : invite « Reprendre le run interrompu ? » en `text-lg` 600, sans croix, 480px, rayon 12px, masque `rgba(0, 0, 0, 0.6)` ; « Run du <date localisée>, N / M traités, sur : » puis le dossier seul sur sa ligne, `rtl`, coupé par la gauche en `text-color`, puis la garantie ; `text-sm` `text-muted-color` en `pre-line` ; aucun bouton focalisé, Entrée au vrai clavier (`cdp.mjs --key Enter`) ne ferme rien et le plan reste ; « Repartir de zéro » `text` `secondary` puis « Reprendre » `primary`, `small`, aucun `danger`
 - « Reprendre » : invite fermée, onglet Tagging, champ dossier sur celui du run, bouton d'action en `commit` (« Confirmer l'écriture »), lignes rejouées (`resolved`, attente, `unresolved`), modale d'arbitrage rouverte, badges « 1 à arbitrer » et « 1 à rattraper »
 - « Repartir de zéro » après `restart` : invite fermée, plan supprimé du disque, `lastError` nul
@@ -356,11 +356,11 @@ Parcours relevé le 2026-10-12 sur le sub-project reprise-ui, sidecar reconstrui
 
 ## Pilotage de l'arbitrage
 
-`build_fixture.py --arbitration` pose « Orla Quenby - Kelvorians », en zone grise sur les deux sources du faux serveur (titre à 75, moyenne 88). Son `track_id` est le nom du fichier, `01 orla quenby - kelvorians.mp3`, connu d'avance : les gestes s'écrivent dans le fichier de commandes de `drive.py` sans relire `run_started`. `FAKE_DELAY` tient aussi l'appel Bandcamp d'un refus, ce qui met un geste en vol.
+`build_fixture.py --arbitration` pose « Amelie Lens - Basielians », en zone grise sur les deux sources du faux serveur (titre à 75, moyenne 88). Son `track_id` est le nom du fichier, `01 amelie lens - basielians.mp3`, connu d'avance : les gestes s'écrivent dans le fichier de commandes de `drive.py` sans relire `run_started`. `FAKE_DELAY` tient aussi l'appel Bandcamp d'un refus, ce qui met un geste en vol.
 
 Le faux serveur rend le même objet complet sur `/beatport/search` et `/bandcamp/search` : `label` et `year` sortent donc renseignés sur la liste Bandcamp, alors que la vraie recherche Bandcamp ne les rend jamais. Un `null` attendu côté Bandcamp se vérifie par les tests, pas ici. Il ne rend jamais non plus de liste Bandcamp vide après un refus : « passer » sur une liste vide et son motif se vérifient par les tests.
 
-Les options de `build_fixture.py` s'excluent et chacune vide son dossier : un run qui mêle arbitrage et phase réseau longue se compose en copiant les `.mp3` d'un `--unique 2` dans le dossier d'un `--arbitration` (noms distincts). Sous `FAKE_DELAY=d`, le morceau en zone grise attend dès `d` et les titres inédits finissent à `2d` (Beatport puis Bandcamp) : entre les deux, le run est en phase réseau avec un arbitrage en attente. Deux arbitrages s'obtiennent en copiant le `.mp3` d'`--arbitration` sous `02 orla quenby - kelvorians.mp3`.
+Les options de `build_fixture.py` s'excluent et chacune vide son dossier : un run qui mêle arbitrage et phase réseau longue se compose en copiant les `.mp3` d'un `--unique 2` dans le dossier d'un `--arbitration` (noms distincts). Sous `FAKE_DELAY=d`, le morceau en zone grise attend dès `d` et les titres inédits finissent à `2d` (Beatport puis Bandcamp) : entre les deux, le run est en phase réseau avec un arbitrage en attente. Deux arbitrages s'obtiennent en copiant le `.mp3` d'`--arbitration` sous `02 amelie lens - basielians.mp3`.
 
 ### Flux qui valent le coup
 
@@ -404,9 +404,9 @@ La modale se pilote sur l'instance du service (§ Gotchas : `svc._available.set(
 
 | URL collée | Réponse |
 |---|---|
-| `https://www.beatport.com/track/dim-orbit/99000101` | morceau Beatport |
-| `https://orlaquenby.bandcamp.com/track/kelvor` (et ses variantes `http://`, majuscules, query, fragment, `/` final) | morceau Bandcamp |
-| `https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2` (et `m.`, `www.`, query) | morceau SoundCloud |
+| `https://www.beatport.com/track/your-mind/99000101` | morceau Beatport |
+| `https://amelielens.bandcamp.com/track/basiel` (et ses variantes `http://`, majuscules, query, fragment, `/` final) | morceau Bandcamp |
+| `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2` (et `m.`, `www.`, query) | morceau SoundCloud |
 | `https://on.soundcloud.com/verifyprofile` | profil, que le sidecar refuse en `unsupported_url` |
 | `https://www.beatport.com/track/x/403403` / `.../503503` | 403 / 503 de la gateway |
 | toute autre URL Bandcamp ou SoundCloud de forme valide, tout autre id Beatport | 404, `track_not_found` |
@@ -422,7 +422,7 @@ Chaque requête partie se relit dans `logs/tagger.log` (httpx2 journalise l'URL 
 - `cancel_run` après la fin du run : aucun événement
 - `cancel_run` sous `FAKE_DELAY=1` à 1,5s sur un `--unique 3` : `progress` en `url_recovery` sans `run_finished`, à `0/0` (les morceaux jamais cherchés ne sont pas à rattraper), puis la boucle répond
 - Sur `stderr`, chaque geste refusé laisse un `logger.exception` avec son seul `reason`
-- Formes d'URL : la variante Bandcamp `http://Orlaquenby.bandcamp.com/track/kelvor/?from=search#lyrics` part en `url=https://orlaquenby.bandcamp.com/track/kelvor`, la SoundCloud `m.` sans query ni `tracks_cursor` ; lien court résolu en profil → `unsupported_url` ; 404 → `track_not_found` avec `params.source` ; 503 → `source_unavailable` avec `status` et `reason` ; `soundcloud.com/<user>/sets` passe le contrôle local et revient en 404 du faux serveur
+- Formes d'URL : la variante Bandcamp `http://Amelielens.bandcamp.com/track/basiel/?from=search#lyrics` part en `url=https://amelielens.bandcamp.com/track/basiel`, la SoundCloud `m.` sans query ni `tracks_cursor` ; lien court résolu en profil → `unsupported_url` ; 404 → `track_not_found` avec `params.source` ; 503 → `source_unavailable` avec `status` et `reason` ; `soundcloud.com/<user>/sets` passe le contrôle local et revient en 404 du faux serveur
 - Non éligible, sans aucune requête émise par le geste : morceau en attente d'arbitrage, morceau arbitré (fixture par défaut, choix de l'index 0), `track_id` inconnu, morceau jamais atteint d'un run interrompu
 - Second geste sous `FAKE_DELAY=1`, 0,2s après le premier sur le même morceau : `url_recovery_busy`, puis le premier aboutit
 - Garde des 403 : trois gestes sur `403403` et trois morceaux d'un `--unique 3`, trois `api_key_rejected` dont le dernier au message `run stopped after repeated api key rejections`, la boucle répond ensuite
@@ -430,7 +430,7 @@ Chaque requête partie se relit dans `logs/tagger.log` (httpx2 journalise l'URL 
 - Refus d'arbitrage tardif : `.mp3` d'un `--unique 1` copié dans le dossier d'un `--arbitration`, refus Beatport puis refus Bandcamp (`candidate: null`, source `bandcamp`) après la fin du run, le total passe de 1 à 2
 - Geste en vol sous `FAKE_DELAY=1` : un nouveau `start_tagging` l'abandonne sans `track_resolved` et l'ancien morceau devient non éligible ; `shutdown` ou EOF sortent aussitôt, sans `track_resolved` ni coroutine orpheline sur `stderr`. Un `ConnectionAbortedError` sur `stderr` vient du faux serveur, pas du sidecar
 
-**Contre la vraie gateway** (§ Pilotage du run de re-tagging) : URL réelles relevées dans les tests de techno-scraper, `https://www.beatport.com/track/tamarin/23382450`, `https://deestricted.bandcamp.com/track/good-question`, `https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2`. Les trois aboutissent en `resolved` / `url`, pochette téléchargée dans `cache/artworks/` ; `soundcloud.com/kestrel/sets`, que la gateway résout en playlist ou profil, revient en `unsupported_url`. Relevé le 2026-10-05 contre la gateway locale 4.0.1. La gateway charge ses clés SoundCloud depuis son propre fichier d'environnement : sans elles, `/soundcloud/resolve` échoue.
+**Contre la vraie gateway** (§ Pilotage du run de re-tagging) : URL réelles relevées dans les tests de techno-scraper, `https://www.beatport.com/track/abilene/23382450`, `https://deestricted.bandcamp.com/track/good-question`, `https://soundcloud.com/drumcode/kasia-faithless-tarantula-2`. Les trois aboutissent en `resolved` / `url`, pochette téléchargée dans `cache/artworks/` ; `soundcloud.com/drumcode/sets`, que la gateway résout en playlist ou profil, revient en `unsupported_url`. Relevé le 2026-10-05 contre la gateway locale 4.0.1. La gateway charge ses clés SoundCloud depuis son propre fichier d'environnement : sans elles, `/soundcloud/resolve` échoue.
 
 Parcours relevé le 2026-10-05, tous verts.
 
@@ -513,7 +513,7 @@ Rejoué le 2026-10-13 après le pied commun aux deux runs (sans « Restaurer le 
 - Sans run : état encadré « Aucun run à récapituler », sans liste, sous l'en-tête réduit au titre, « Retour à la liste » au pied
 - Entrée : « Récapitulatif » absent avant le bilan de l'écriture, puis `outlined` `secondary` `small` à côté de « Restaurer le run » ; il ouvre `/tagging/recap`, onglet Tagging sélectionné, titre « Récapitulatif du run » en 24px 600
 - Filtres : compteurs 6 / 2 / 1 / 2, lignes conformes à la règle, l'échec d'écriture arbitré sous « Échecs » seul, le restauré sous « Tout » seul ; `aria-label` de chaque option au libellé et au compteur, jamais `[object Object]` ; libellés et compteurs suivent la langue
-- Recherche : `"  DIM orbit "` trouve « Dim Orbit », le nom de fichier aussi ; rien sous « Validés » pour un titre absent : « Aucun morceau ne correspond » et « Changez de filtre ou videz la recherche. » dans la table
+- Recherche : `"  YOUR mind "` trouve « Your Mind », le nom de fichier aussi ; rien sous « Validés » pour un titre absent : « Aucun morceau ne correspond » et « Changez de filtre ou videz la recherche. » dans la table
 - Détail : un seul lien, sur la ligne URL, bouton `link` en 12px avec l'icône `external-link`, nommé par l'URL qu'il affiche (aucun `aria-label`), URL longue tronquée dans sa cellule ; toutes les lignes de champs à 20px (la bordure du bouton `link` en ajoutait 2, retirée par `border-0`, relevé le 2026-10-12), rien ne défile dans le cadre ; un clic relève `open_url` avec l'URL du candidat ; un filtre qui retire le morceau referme son détail, qui ne revient pas avec lui
 - Page : en-tête au titre puis aux filtres, message d'échec d'écriture compté sur les morceaux affichés ; pied à 8px sous la table, « Retour à la liste » `text` `secondary` `small` `chevron-left` en bas à gauche, ligne de contexte « Run du … sur … » en 14px muted en bas à droite dès `rollback_target` du run écrit ; ni « Restaurer le run », ni « Nouveau run », ni « Envoyer ce rapport » (Feature 9) ; aucun défilement à 1280 × 800
 - En-tête au plancher 1024 × 700 : rien ne déborde, titre sur une ligne en FR comme en EN, retour sur une ligne au pied ; en FR, filtres et recherche passent sous le titre (`flex-wrap`, comme la maquette)
@@ -614,7 +614,7 @@ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev  #
   - grille du formulaire : boutons de sélection, `p-select` et `p-selectbutton` à la même largeur, chemins alignés sur le bord droit de la grille, « Extraire la playlist » sur la ligne du mode, calé sur le bord droit de la grille, à la largeur des libellés et des contrôles réunis, `p-skeleton` à la hauteur du `p-select` qui le remplace, bloc vide (icône 24px `text-muted-color`, titre `text-base`, phrase `text-sm`)
   - tags : familles de § Couleurs Sémantiques, lues sur la classe `p-tag-*` et l'icône `data-p-icon`
   - tooltip : suivre `.p-tooltip` toutes les 100ms après un `Input.dispatchMouseEvent` : visible à 400ms sur un texte coupé, jamais sur un texte entier, retiré dès la sortie, classe `tt-tooltip-wide`, `pointer-events: none`
-- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Silas Orman - Quiet Meridian », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Relevé le 2026-10-02 contre la production 4.0.0 : 8 auto, 17 non résolus, 2 arbitrages, candidats affichés « Titre (Mix Name) » ; choix au clic puis Entrée passe la ligne en « Arbitré », refus de « Quiet Meridian » rend une liste Bandcamp vide puis « Passer ». Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
+- Parcours métier complet sous Tauri, sur `just demo` fraîchement bâtie : extraction de `test playlist` du dump vers `demo-data/Extraction`, « Passer au tagging », run sur les 27 fichiers de la destination. Les titres de la démo sont en partie inventés, la vraie API rend donc d'elle-même les trois issues. Relevé le 2026-09-25 : 9 auto (tagués et repli sur le nom de fichier), 17 non résolus en `below_threshold`, 1 arbitrage (« Robert Hood - Minimal Nation », tag `p-tag-info` « À arbitrer », squelette à la place de la pochette). Relevé le 2026-10-02 contre la production 4.0.0 : 8 auto, 17 non résolus, 2 arbitrages, candidats affichés « Titre (Mix Name) » ; choix au clic puis Entrée passe la ligne en « Arbitré », refus de « Minimal Nation » rend une liste Bandcamp vide puis « Passer ». Ces chiffres suivent le catalogue de la source, un écart se lit dans les réponses du cache avant de conclure à une régression :
   - « Passer au tagging » absent avant toute extraction, pendant l'extraction et après une playlist vide (aucun `progress` émis, comportement voulu), présent à la fin d'une extraction non vide
   - pendant le run, retour sur Playlist, « Modifier » : « Extraire » désactivé, tooltip `playlist.blocked.tagging` au survol, réactivé à la fin de la recherche. Une seule phase longue à la fois depuis le 2026-10-09 (§ Concurrence d'ARCHITECTURE.md) : le sidecar refuse aussi l'extraction en `phase_busy` (`params.phase` à `tagging`), ce que `test_refuses_an_extraction_while_a_run_searches` garde
   - pendant une extraction, « Lancer le run » désactivé, `blockedReason()` à `tagging.blocked.extracting`, réactivé à la fin. L'extraction de la démo dure une fraction de seconde : lancer `svc.extractPlaylist(svc.extractionRequest())` depuis l'onglet Tagging et échantillonner toutes les 5ms

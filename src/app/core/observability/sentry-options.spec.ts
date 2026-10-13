@@ -42,7 +42,7 @@ describe("sentryOptions", () => {
   })
 
   it("sends no console line as a breadcrumb", async () => {
-    console.warn("Silas Orman - Quiet Meridian")
+    console.warn("Robert Hood - Minimal Nation")
 
     Sentry.captureException(new Error("boom"))
     await Sentry.flush()

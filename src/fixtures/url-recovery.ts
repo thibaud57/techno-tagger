@@ -25,7 +25,7 @@ export const resolvedByUrl = (trackId: string): TrackResolvedEvent => ({
   resolution: "url",
   failure_reason: null,
   source: "bandcamp",
-  after: { artist: "Orla Quenby", title: "Kelvor" },
+  after: { artist: "Amelie Lens", title: "Basiel" },
   scores: null,
   artwork_path: null,
   tags_after: null,

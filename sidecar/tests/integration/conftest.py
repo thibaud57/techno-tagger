@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
-from scraper_responses import DIM_ORBIT
+from scraper_responses import YOUR_MIND
 from tagging_api import ORIGINAL, FakeApi, FakeCdn, found, one_track, public_resolver
 
 from tagger import handlers
@@ -32,8 +32,8 @@ def api(monkeypatch: pytest.MonkeyPatch) -> FakeApi:
 
 @pytest.fixture
 def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
-    """« Dim Orbit » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    """« Your Mind » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
     return one_track(tmp_path)
 
 

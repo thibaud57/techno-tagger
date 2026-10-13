@@ -8,7 +8,7 @@ import { RollbackFailuresComponent } from "./rollback-failures.component"
 
 const TAKEN: RollbackFailure = {
   track_id: "a.mp3",
-  file_name: "Lior Vance - Dim Orbit.mp3",
+  file_name: "Adam Beyer - Your Mind.mp3",
   reason: "name_taken",
 }
 
@@ -44,7 +44,7 @@ describe("RollbackFailuresComponent", () => {
     const text = root.querySelector("[data-rollback-failures]")?.textContent ?? ""
 
     expect(text).toContain("not restored 1")
-    expect(text).toContain("Lior Vance - Dim Orbit.mp3 = taken")
+    expect(text).toContain("Adam Beyer - Your Mind.mp3 = taken")
   })
 
   it("composes a shared file reason with the gesture to restore again", () => {

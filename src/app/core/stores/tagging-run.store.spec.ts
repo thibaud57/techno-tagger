@@ -50,7 +50,7 @@ describe("TaggingRunStore", () => {
     const track = store.tracks()[0]
     expect(track?.state).toBe("resolved")
     expect(track?.source).toBe("beatport")
-    expect(track?.after?.title).toBe("Dim Orbit (Original Mix)")
+    expect(track?.after?.title).toBe("Your Mind (Original Mix)")
     expect(track?.scores?.average).toBe(94)
     expect(track?.artworkPath).toBe("C:/AppData/cache/artworks/abc.jpg")
   })
@@ -61,10 +61,10 @@ describe("TaggingRunStore", () => {
 
     store.resolved({
       ...TRACK_RESOLVED,
-      source_url: "https://www.beatport.com/track/dim-orbit/99000101",
+      source_url: "https://www.beatport.com/track/your-mind/99000101",
     })
 
-    expect(store.tracks()[0]?.sourceUrl).toBe("https://www.beatport.com/track/dim-orbit/99000101")
+    expect(store.tracks()[0]?.sourceUrl).toBe("https://www.beatport.com/track/your-mind/99000101")
   })
 
   it("exposes the tags before from the start and the tags after once resolved", () => {
@@ -75,8 +75,8 @@ describe("TaggingRunStore", () => {
         {
           track_id: "a.mp3",
           file_name: "a.mp3",
-          artist: "Lior Vance",
-          title: "Dim Orbit",
+          artist: "Adam Beyer",
+          title: "Your Mind",
           tags_before: TAGS_BEFORE,
         },
       ],

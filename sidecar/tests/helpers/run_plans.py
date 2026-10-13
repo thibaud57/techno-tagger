@@ -25,12 +25,12 @@ def _letters(number: int) -> str:
 
 
 def music(folder: Path, count: int) -> list[TrackRecord]:
-    """Morceaux de Lior Vance, « Orbit aa »..., sur `count` MP3 tagues `t000.mp3`..."""
+    """Morceaux de Adam Beyer, « Mind aa »..., sur `count` MP3 tagues `t000.mp3`..."""
     records: list[TrackRecord] = []
     for number in range(count):
-        name, title = f"t{number:03d}.mp3", f"Orbit {_letters(number)}"
-        path = tagged_mp3(folder, name, "Lior Vance", title)
-        identity = IdentityTags(artist="Lior Vance", title=title)
+        name, title = f"t{number:03d}.mp3", f"Mind {_letters(number)}"
+        path = tagged_mp3(folder, name, "Adam Beyer", title)
+        identity = IdentityTags(artist="Adam Beyer", title=title)
         records.append(TrackRecord(track_id=name, path=path, identity=identity))
     return records
 

@@ -27,12 +27,12 @@ def _found(requests: list[httpx2.Request], source: Source) -> Handler:
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://www.beatport.com/track/dim-orbit/99000202?utm_source=share",
-        "https://beatport.com/track/dim-orbit/99000202",
-        "https://www.beatport.com/fr/track/dim-orbit/99000202",
-        "https://www.beatport.com/de/track/dim-orbit/99000202",
-        "https://www.beatport.com/es/track/dim-orbit/99000202",
-        "https://www.beatport.com/pt-br/track/dim-orbit/99000202/",
+        "https://www.beatport.com/track/your-mind/99000202?utm_source=share",
+        "https://beatport.com/track/your-mind/99000202",
+        "https://www.beatport.com/fr/track/your-mind/99000202",
+        "https://www.beatport.com/de/track/your-mind/99000202",
+        "https://www.beatport.com/es/track/your-mind/99000202",
+        "https://www.beatport.com/pt-br/track/your-mind/99000202/",
     ],
     ids=["www-with-query", "bare-host", "fr", "de", "es", "pt-br"],
 )
@@ -63,8 +63,8 @@ async def test_resolves_a_bandcamp_track_url_through_the_bandcamp_track_route(
         f"{BANDCAMP_TRACK}?from=search#lyrics",
         f"{BANDCAMP_TRACK}/",
         f"  {BANDCAMP_TRACK} \n",
-        "https://OrlaQuenby.bandcamp.com/track/kelvor",
-        "http://orlaquenby.bandcamp.com/track/kelvor",
+        "https://AmelieLens.bandcamp.com/track/basiel",
+        "http://amelielens.bandcamp.com/track/basiel",
     ],
     ids=[
         "query-and-fragment",
@@ -88,13 +88,13 @@ async def test_sends_a_bandcamp_url_in_its_single_normalised_form(
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://orlaquenby.bandcamp.com/album/kelvor",
-        "https://www.beatport.com/release/dim-orbit/9900030",
-        "https://www.beatport.com/french/track/dim-orbit/99000202",
+        "https://amelielens.bandcamp.com/album/basiel",
+        "https://www.beatport.com/release/your-mind/9900030",
+        "https://www.beatport.com/french/track/your-mind/99000202",
         "https://www.youtube.com/watch?v=abc",
-        "www.beatport.com/track/dim-orbit/99000202",
-        "ftp://orlaquenby.bandcamp.com/track/kelvor",
-        "https://[beatport.com/track/dim-orbit/99000202",
+        "www.beatport.com/track/your-mind/99000202",
+        "ftp://amelielens.bandcamp.com/track/basiel",
+        "https://[beatport.com/track/your-mind/99000202",
         "",
     ],
     ids=[
@@ -122,7 +122,7 @@ async def test_keeps_the_pasted_url_out_of_the_refusal(requests: list[httpx2.Req
     """L'URL peut nommer l'artiste et le morceau : aucun titre ne part sans geste manuel."""
     async with make_client(_found(requests, Source.BEATPORT)) as client:
         with pytest.raises(UnsupportedTrackUrlError) as refusal:
-            await client.fetch_by_url("https://www.youtube.com/watch?v=lior-vance-dim-orbit")
+            await client.fetch_by_url("https://www.youtube.com/watch?v=adam-beyer-your-mind")
 
     assert refusal.value.code == "unsupported_url"
     assert refusal.value.params == {}
@@ -147,7 +147,7 @@ async def test_resolves_a_soundcloud_track_url_through_the_resolve_route_without
     assert requests[0].url.path == "/soundcloud/resolve"
     assert dict(requests[0].url.params) == {"url": SOUNDCLOUD_TRACK}
     assert candidate.source is Source.SOUNDCLOUD
-    assert candidate.title == "Mothlight"
+    assert candidate.title == "Tarantula"
 
 
 async def test_sends_a_soundcloud_short_link_to_the_resolve_route(
@@ -163,8 +163,8 @@ async def test_sends_a_soundcloud_short_link_to_the_resolve_route(
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://www.soundcloud.com/kestrel/zelka-larkspur-mothlight-2",
-        "https://m.soundcloud.com/kestrel/zelka-larkspur-mothlight-2/?si=abc#t=1:23",
+        "https://www.soundcloud.com/drumcode/kasia-faithless-tarantula-2",
+        "https://m.soundcloud.com/drumcode/kasia-faithless-tarantula-2/?si=abc#t=1:23",
     ],
     ids=["www", "mobile-with-query-and-slash"],
 )
@@ -181,8 +181,8 @@ async def test_rewrites_the_www_and_mobile_soundcloud_hosts(
 @pytest.mark.parametrize(
     "pasted",
     [
-        "https://soundcloud.com/kestrel/sets/kestrel-radio",
-        "https://soundcloud.com/kestrel",
+        "https://soundcloud.com/drumcode/sets/drumcode-radio",
+        "https://soundcloud.com/drumcode",
         "https://on.soundcloud.com/",
     ],
     ids=["playlist", "profile", "short-link-without-code"],

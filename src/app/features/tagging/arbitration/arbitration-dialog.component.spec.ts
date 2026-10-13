@@ -27,15 +27,15 @@ const ON_BEATPORT: ArbitrationState = {
   ...arbitrationRequired("a.mp3"),
   candidates: [
     {
-      artist: "Lior Vance",
-      title: "Dim Orbit (Extended Mix)",
-      label: "Kestrel",
+      artist: "Adam Beyer",
+      title: "Your Mind (Extended Mix)",
+      label: "Drumcode",
       year: 2023,
       scores: { artist: 96, title: 84, average: 90 },
     },
     {
-      artist: "Lior Vance",
-      title: "Dim Orbit (Radio Edit)",
+      artist: "Adam Beyer",
+      title: "Your Mind (Radio Edit)",
       label: null,
       year: null,
       scores: { artist: null, title: 80, average: 80 },
@@ -48,8 +48,8 @@ const AFTER_REFUSAL: ArbitrationState = {
   source: "bandcamp",
   candidates: [
     {
-      artist: "Lior Vance",
-      title: "Dim Orbit",
+      artist: "Adam Beyer",
+      title: "Your Mind",
       label: null,
       year: null,
       scores: { artist: 100, title: 100, average: 100 },
@@ -86,8 +86,8 @@ describe("ArbitrationDialogComponent", () => {
 
     const text = page().textContent
 
-    expect(text).toContain("Lior Vance - Dim Orbit (Extended Mix)")
-    expect(text).toContain("Kestrel · 2023")
+    expect(text).toContain("Adam Beyer - Your Mind (Extended Mix)")
+    expect(text).toContain("Drumcode · 2023")
     expect(text).toContain("arbitration.score")
     expect(text).toContain("arbitration.scoreTitleOnly")
   })
@@ -99,7 +99,7 @@ describe("ArbitrationDialogComponent", () => {
       line.textContent.trim(),
     )
 
-    expect(releases).toEqual(["Kestrel · 2023", ""])
+    expect(releases).toEqual(["Drumcode · 2023", ""])
   })
 
   it("falls back on the track id without a run row", () => {
@@ -136,7 +136,7 @@ describe("ArbitrationDialogComponent", () => {
 
     const title = page().querySelector("[data-title]")
 
-    expect(title?.textContent.trim()).toBe("Lior Vance")
+    expect(title?.textContent.trim()).toBe("Adam Beyer")
   })
 
   it("replaces the Beatport list by the Bandcamp list and offers to go back", () => {
@@ -147,7 +147,7 @@ describe("ArbitrationDialogComponent", () => {
     action("back")?.click()
 
     expect(page().textContent).toContain("arbitration.switched")
-    expect(page().textContent).not.toContain("Dim Orbit (Extended Mix)")
+    expect(page().textContent).not.toContain("Your Mind (Extended Mix)")
     expect(service.showArbitrationSource).toHaveBeenCalledWith("a.mp3", "beatport")
   })
 
@@ -443,7 +443,7 @@ describe("ArbitrationDialogComponent", () => {
 
       expect(page().querySelector('input[data-field="url"]')).toBeNull()
       expect(action("skip")).toBeNull()
-      expect(page().textContent).toContain("Dim Orbit")
+      expect(page().textContent).toContain("Your Mind")
     })
   })
 })

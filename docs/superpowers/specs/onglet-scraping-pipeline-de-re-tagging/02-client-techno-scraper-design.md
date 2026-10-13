@@ -73,7 +73,7 @@ Aucune : ce sub-project est autoporté.
 
 ### Scénario 1 : Recherche Beatport avec résultats
 **GIVEN** une API qui rend deux morceaux pour une recherche Beatport
-**WHEN** le client cherche « Lior Vance Dim Orbit » sur Beatport
+**WHEN** le client cherche « Adam Beyer Your Mind » sur Beatport
 **THEN** la requête part sur `/beatport/search` avec `q`, `type=tracks` et `limit` et porte l'en-tête `X-API-Key`
 **AND** le client rend deux `TrackCandidate` portant titre, `mix_name`, artistes, remixeurs, sortie, label et source
 

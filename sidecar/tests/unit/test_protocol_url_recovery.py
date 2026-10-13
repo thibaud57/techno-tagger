@@ -11,7 +11,7 @@ from tagger.resolution.scraper_client import UnsupportedTrackUrlError
 from tagger.run.arbitration import ArbitrationNotPendingError
 from tagger.run.url_recovery import UrlProgress
 
-URL: Final = "https://orlaquenby.bandcamp.com/track/kelvor"
+URL: Final = "https://amelielens.bandcamp.com/track/basiel"
 
 
 def _resolve(fields: str) -> str:

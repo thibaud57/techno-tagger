@@ -59,8 +59,8 @@ C'est la différence de comportement la plus piégeuse avec fuzzywuzzy. **Depuis
 ```python
 from rapidfuzz import fuzz, utils
 
-fuzz.ratio("Lior Vance", "lior vance!")                                  # score dégradé
-fuzz.ratio("Lior Vance", "lior vance!", processor=utils.default_process) # score attendu
+fuzz.ratio("Adam Beyer", "adam beyer!")                                  # score dégradé
+fuzz.ratio("Adam Beyer", "adam beyer!", processor=utils.default_process) # score attendu
 ```
 
 ### Points Importants
@@ -174,7 +174,7 @@ hiddenimports = [*collect_submodules("rapidfuzz")]
 - **Utiliser `token_set_ratio` pour l'auto-validation** : il rend 100 dès qu'un candidat contient tous les mots de la requête, remix compris
 - **Reprendre 70 et 90 comme des constantes définitives** : ce sont des points de départ à recalibrer
 - **Appliquer le nettoyage de requête aux tags du fichier** : il porte sur la chaîne interrogée, jamais sur ce qui est écrit
-- **Retirer une mention de version ou de collaboration au nettoyage** : `(Lior Vance Remix)` et `feat. X` identifient le morceau, et leur suppression casse la règle qui écarte un candidat sans remix
+- **Retirer une mention de version ou de collaboration au nettoyage** : `(Adam Beyer Remix)` et `feat. X` identifient le morceau, et leur suppression casse la règle qui écarte un candidat sans remix
 - **Comparer des scores obtenus avec des scorers différents** : les échelles sont les mêmes, pas les distributions
 
 ---

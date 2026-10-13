@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Final
 import pytest
 from ndjson_loop import conversation, resolved_run, start_command
 from run_plans import RUN_ID, music, only_plan, plan_files, plan_of, save_plan
-from scraper_responses import DIM_ORBIT, KELVOR
+from scraper_responses import BASIEL, YOUR_MIND
 from tagging_api import CREATED, ORIGINAL, found, two_tracks
 
 from tagger.core.run_files import run_id_of, stamped_name
@@ -174,8 +174,8 @@ async def test_discarding_the_current_run_abandons_it(folder: Path) -> None:
 
 
 async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeApi) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    gate = api.gate("/beatport/search", KELVOR)
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    gate = api.gate("/beatport/search", BASIEL)
     folder = two_tracks(tmp_path)
     async with conversation() as talk:
         talk.send(**start_command(folder))
@@ -201,7 +201,7 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
     assert (run["processed"], run["total"]) == (1, 2)
     assert replayed["resolution"] == "auto"
     assert plan_files() == plan_before
-    assert api.searched() == {KELVOR}
+    assert api.searched() == {BASIEL}
     assert finished["run_id"] == run_id
 
 

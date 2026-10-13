@@ -127,7 +127,7 @@ Le registre est le fichier `app_data_dir() / "reports.json"`, modèle `ReportInd
 ## Acceptance criteria
 
 ### Scénario 1 : rapport à la fin de l'écriture
-**GIVEN** un run résolu sur « Dim Orbit » et confirmé par `commit_run`
+**GIVEN** un run résolu sur « Your Mind » et confirmé par `commit_run`
 **WHEN** la phase d'écriture se termine
 **THEN** le dossier contient `tagging-report-<horodatage>.json` et `.md`
 **AND** le JSON porte le morceau écrit avec sa requête, sa source, sa voie `auto`, ses scores, l'ancien et le nouveau nom, les champs écrits et l'URL de la fiche source

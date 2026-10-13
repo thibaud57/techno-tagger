@@ -17,7 +17,7 @@
     fields: KEYS.map(([field, key]) => ({ field, key, value: { artist: t.artist.toLowerCase(), title: t.title.toLowerCase(), bpm: "130" }[field] ?? null })),
   })
   const tagsAfter = (t, source, link) =>
-    KEYS.map(([field, key]) => ({ field, key, value: { artist: t.artist, title: `${t.title} (Original Mix)`, genre: "Techno", bpm: "130", label: "Kestrel", date: "2023", source, url: link }[field] ?? null }))
+    KEYS.map(([field, key]) => ({ field, key, value: { artist: t.artist, title: `${t.title} (Original Mix)`, genre: "Techno", bpm: "130", label: "Drumcode", date: "2023", source, url: link }[field] ?? null }))
   const LINK = {
     beatport: (t) => `https://www.beatport.com/track/${t.title.toLowerCase().replace(/\W+/g, "-")}/990001${t.n}`,
     bandcamp: (t) => `https://${t.artist.toLowerCase().replace(/\W+/g, "")}.bandcamp.com/track/${t.title.toLowerCase().replace(/\W+/g, "-")}`,
@@ -25,17 +25,17 @@
   }
   // [artiste, titre, etat, voie, source, motif]
   const ROWS = [
-    ["Lior Vance", "Dim Orbit", "written", "auto", "beatport", null],
-    ["Orla Quenby", "Kelvor", "written", "auto", "beatport", null],
-    ["Seraphine de Vossa", "Gossamer", "written", "auto", "beatport", null],
-    ["Valka", "Ark", "written", "auto", "beatport", null],
-    ["Ria Javel", "Over the Moor", "written", "arbitration", "bandcamp", null],
-    ["Ilan Thorne", "Tidewater", "written", "arbitration", "beatport", null],
-    ["Nadia Fenner", "Dunst", "written", "url", "soundcloud", null],
-    ["Tavrosk", "212 Cadence", "write_error", "arbitration", "beatport", "file_locked"],
-    ["QRLM", "Hollow Frequency", "unresolved", "none", null, "no_result"],
-    ["Dorn", "Where Every Little Light Went Out", "unresolved", "none", null, "user_refused"],
-    ["Odd Neon Owls", "Emberfly", "rolled_back", "auto", "beatport", null],
+    ["Adam Beyer", "Your Mind", "written", "auto", "beatport", null],
+    ["Amelie Lens", "Basiel", "written", "auto", "beatport", null],
+    ["Charlotte de Witte", "Selected", "written", "auto", "beatport", null],
+    ["Ignez", "Ark", "written", "auto", "beatport", null],
+    ["Nur Jaber", "Into the Void", "written", "arbitration", "bandcamp", null],
+    ["Hector Oaks", "Sentiment", "written", "arbitration", "beatport", null],
+    ["Paula Temple", "Gegen", "written", "url", "soundcloud", null],
+    ["Kobosil", "105 Tension", "write_error", "arbitration", "beatport", "file_locked"],
+    ["VTSS", "Identity Process", "unresolved", "none", null, "no_result"],
+    ["Perc", "Look What Your Love Has Done To Me", "unresolved", "none", null, "user_refused"],
+    ["I Hate Models", "Daydream", "rolled_back", "auto", "beatport", null],
   ]
   const tracks = ROWS.map(([artist, title, state, resolution, source, reason], i) => {
     const t = { artist, title, n: String(i + 1).padStart(2, "0") }

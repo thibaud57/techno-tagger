@@ -62,8 +62,8 @@ def renamed_count(dump: TagDump) -> int:
 def tag_origin(path: Path, id3_version: int | None) -> None:
     audio = mutagen.File(path)
     if isinstance(audio, FLAC):
-        audio["ARTIST"] = ["lior vance", "mara quill"]
-        audio["TITLE"] = ["dim orbit"]
+        audio["ARTIST"] = ["adam beyer", "bart skils"]
+        audio["TITLE"] = ["your mind"]
         audio["DATE"] = ["2019-06-16"]
         audio["BPM"] = ["130"]
         audio["SERATO_PLAYCOUNT"] = ["12"]
@@ -72,11 +72,11 @@ def tag_origin(path: Path, id3_version: int | None) -> None:
         return
     audio.add_tags()
     tags = audio.tags
-    tags.add(TPE1(encoding=3, text=["lior vance", "mara quill"]))
-    tags.add(TIT2(encoding=3, text=["dim orbit"]))
+    tags.add(TPE1(encoding=3, text=["adam beyer", "bart skils"]))
+    tags.add(TIT2(encoding=3, text=["your mind"]))
     tags.add(TDRC(encoding=3, text=["2019-06-16"]))
     tags.add(TBPM(encoding=3, text=["130"]))
-    tags.add(WOAS(url="https://liorvance.bandcamp.com/track/dim-orbit"))
+    tags.add(WOAS(url="https://adambeyer.bandcamp.com/track/your-mind"))
     tags.add(TXXX(encoding=3, desc="SERATO_PLAYCOUNT", text=["12"]))
     tags.add(COMM(encoding=3, lang="eng", desc="", text=["ripped by X"]))
     if id3_version == 3:

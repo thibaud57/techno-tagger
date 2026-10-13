@@ -34,7 +34,7 @@
 ## Review Focus
 
 - **Run entièrement restauré** (tous `rolled_back`) : « Tout » les montre, les trois autres filtres valent 0 (Task 1, `counts nothing in the three filters for a fully restored run`).
-- **Recherche avec espaces autour** (`"  orbit "`) : même résultat que `"orbit"` (Task 1, `ignores the spaces around the search`).
+- **Recherche avec espaces autour** (`"  mind "`) : même résultat que `"mind"` (Task 1, `ignores the spaces around the search`).
 - **Morceau sans URL de source** (rattrapage sans URL, run d'avant le sub-project 04) : la ligne URL reste du texte, sans lien (Task 2, `keeps the url line as text without a source page`).
 - **Récapitulatif ouvert sans run** (route saisie, run vidé) : état encadré « Aucun run à récapituler » (Task 5, `shows a framed empty state without a run`).
 - **Restauration en cours depuis le récapitulatif** : « Restaurer le run » désactivé avec son tooltip, comme dans la liste (Task 5, `disables the run restore while files are busy`).
@@ -134,9 +134,9 @@ describe("recap filters", () => {
   })
 
   it("searches the original artist, title and file name, ignoring case", () => {
-    const tagged = track({ artist: "Lior Vance", title: "Dim Orbit", fileName: "a.mp3" })
+    const tagged = track({ artist: "Adam Beyer", title: "Your Mind", fileName: "a.mp3" })
 
-    const matches = ["lior", "ORBIT", "a.mp3", "kelvor"].map((query) =>
+    const matches = ["adam", "MIND", "a.mp3", "basiel"].map((query) =>
       matchesSearch(tagged, query),
     )
 
@@ -144,9 +144,9 @@ describe("recap filters", () => {
   })
 
   it("ignores the spaces around the search", () => {
-    const tagged = track({ title: "Dim Orbit" })
+    const tagged = track({ title: "Your Mind" })
 
-    const matched = matchesSearch(tagged, "  orbit ")
+    const matched = matchesSearch(tagged, "  mind ")
 
     expect(matched).toBe(true)
   })
@@ -259,10 +259,10 @@ Dans `src/app/core/tagging-run.store.spec.ts`, après `updates a track with its 
 
     store.resolved({
       ...TRACK_RESOLVED,
-      source_url: "https://www.beatport.com/track/dim-orbit/99000101",
+      source_url: "https://www.beatport.com/track/your-mind/99000101",
     })
 
-    expect(store.tracks()[0]?.sourceUrl).toBe("https://www.beatport.com/track/dim-orbit/99000101")
+    expect(store.tracks()[0]?.sourceUrl).toBe("https://www.beatport.com/track/your-mind/99000101")
   })
 ```
 
@@ -277,7 +277,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resol
 2. Après la constante `RESOLVED`, la fiche d'un morceau écrit depuis Beatport, dont le fichier porte la ligne `url` (clé `WOAS` en ID3) :
 
 ```ts
-const SOURCE_URL = "https://www.beatport.com/track/dim-orbit/99000101"
+const SOURCE_URL = "https://www.beatport.com/track/your-mind/99000101"
 
 const WITH_SOURCE: TaggingTrack = {
   ...RESOLVED,
@@ -1019,7 +1019,7 @@ describe("RecapPageComponent", () => {
   })
 
   it("narrows the table to the chosen filter", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit"), unresolvedTrack("b")])
+    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
     const before = rowsIn(fixture)
 
     hostOf(fixture).querySelector<HTMLElement>('[data-filter="failed"]')?.click()
@@ -1031,8 +1031,8 @@ describe("RecapPageComponent", () => {
 
   it("gives each filter option its count", async () => {
     const { component } = await mountWith([
-      written("a", "Dim Orbit"),
-      written("b", "Kelvor"),
+      written("a", "Your Mind"),
+      written("b", "Basiel"),
       unresolvedTrack("c"),
     ])
 
@@ -1042,16 +1042,16 @@ describe("RecapPageComponent", () => {
   })
 
   it("shows the empty state when the search matches nothing", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit")])
+    const { fixture } = await mountWith([written("a", "Your Mind")])
 
-    await search(fixture, "kelvor")
+    await search(fixture, "basiel")
 
     expect(rowsIn(fixture)).toBe(0)
     expect(hostOf(fixture).textContent).toContain("recap.empty.heading")
   })
 
   it("closes the detail of a track the filter hides", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit"), unresolvedTrack("b")])
+    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
     hostOf(fixture).querySelector<HTMLElement>("[data-row-toggle]")?.click()
     await settleScroller(fixture)
     const opened = hostOf(fixture).querySelectorAll("app-track-detail").length
@@ -1065,8 +1065,8 @@ describe("RecapPageComponent", () => {
 
   it("announces the write failures of the displayed tracks", async () => {
     const { fixture, component } = await mountWith([
-      written("a", "Dim Orbit"),
-      { ...written("b", "Kelvor"), state: "write_error" },
+      written("a", "Your Mind"),
+      { ...written("b", "Basiel"), state: "write_error" },
     ])
 
     expect(component["writeFailures"]()).toBe(1)
@@ -1074,13 +1074,13 @@ describe("RecapPageComponent", () => {
   })
 
   it("stays silent about write failures when every track was written", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit")])
+    const { fixture } = await mountWith([written("a", "Your Mind")])
 
     expect(hostOf(fixture).querySelector("[data-write-failures]")).toBeNull()
   })
 
   it("starts a new run from the tagging tab", async () => {
-    const { fixture, service, navigate } = await mountWith([written("a", "Dim Orbit")])
+    const { fixture, service, navigate } = await mountWith([written("a", "Your Mind")])
 
     hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="new-run"]')?.click()
 
@@ -1098,7 +1098,7 @@ describe("RecapPageComponent", () => {
   })
 
   it("disables the run restore while files are busy", async () => {
-    const { fixture } = await mountWith([{ ...written("a", "Dim Orbit"), restorable: true }], {
+    const { fixture } = await mountWith([{ ...written("a", "Your Mind"), restorable: true }], {
       rollingBack: signal({ runId: "a3f9c1", trackId: "a" }),
     })
 

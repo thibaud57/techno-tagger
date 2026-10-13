@@ -120,7 +120,7 @@ def write_tagged_wavpack(path: Path) -> Path:
         + struct.pack("<III", frames, 0, frames)
         + struct.pack("<II", flags, 0)
     )
-    path.write_bytes(header + _ape_tag({"Artist": "Dara Winter", "Title": "The Weir"}))
+    path.write_bytes(header + _ape_tag({"Artist": "Sara Landry", "Title": "The Void"}))
     return path
 
 

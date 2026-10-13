@@ -83,7 +83,7 @@ def test_lists_every_track_of_a_started_run() -> None:
     assert isinstance(event, RunStarted)
     assert event.folder == Path("D:/Sets")
     assert event.tracks[0].track_id == "a.mp3"
-    assert event.tracks[0].artist == "Lior Vance"
+    assert event.tracks[0].artist == "Adam Beyer"
 
 
 def test_rounds_the_scores_of_a_resolved_track() -> None:
@@ -105,8 +105,8 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
 @pytest.mark.parametrize(
     ("title", "mix_name", "expected"),
     [
-        ("Dim Orbit", "Original Mix", "Dim Orbit (Original Mix)"),
-        ("Dim Orbit", None, "Dim Orbit"),
+        ("Your Mind", "Original Mix", "Your Mind (Original Mix)"),
+        ("Your Mind", None, "Your Mind"),
     ],
     ids=["with-mix", "without-mix"],
 )
@@ -125,7 +125,7 @@ def test_renders_the_artist_and_the_title_a_source_will_write(
 
     assert isinstance(event, TrackResolved)
     assert event.after is not None
-    assert event.after == TrackNames(artist="Lior Vance", title=expected)
+    assert event.after == TrackNames(artist="Adam Beyer", title=expected)
 
 
 def test_carries_no_tags_after_for_an_unresolved_track() -> None:
@@ -160,8 +160,8 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
     rows = {row.field: row for row in resolved.tags_after}
     assert list(rows) == list(TAG_FIELDS)
     assert rows[TagField.ARTIST].key == "ARTIST"
-    assert rows[TagField.ARTIST].value == "Lior Vance"
-    assert rows[TagField.TITLE].value == "Dim Orbit (Original Mix)"
+    assert rows[TagField.ARTIST].value == "Adam Beyer"
+    assert rows[TagField.TITLE].value == "Your Mind (Original Mix)"
     assert rows[TagField.ALBUM].value is None
     assert rows[TagField.BPM].value is None
 
@@ -193,7 +193,7 @@ def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
 
     assert isinstance(event, ArbitrationRequired)
     assert event.beatport_unavailable is True
-    assert event.candidates[0].title == "Dim Orbit (Original Mix)"
+    assert event.candidates[0].title == "Your Mind (Original Mix)"
 
 
 def test_maps_the_pipeline_progress_to_the_tagging_phase() -> None:

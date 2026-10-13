@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 const TRACK: TaggingTrack = {
   ...resolvedTrack(PENDING_TRACK.trackId),
   source: "beatport",
-  after: { artist: "Lior Vance", title: "Dim Orbit (Original Mix)" },
+  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
 }
@@ -374,8 +374,8 @@ describe("RunListComponent", () => {
       ...PENDING_TRACK,
       trackId: "b.mp3",
       fileName: "b.mp3",
-      artist: "Orla Quenby",
-      title: "Kelvor",
+      artist: "Amelie Lens",
+      title: "Basiel",
     }
     const fixture = await mountWith([
       { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE },
@@ -429,7 +429,7 @@ describe("RunListComponent", () => {
     await settle(fixture)
 
     expect(detailsOf(fixture)).toHaveLength(1)
-    expect(detailsOf(fixture)[0]?.textContent).toContain("Lior Vance")
+    expect(detailsOf(fixture)[0]?.textContent).toContain("Adam Beyer")
   })
 
   it("closes the detail when its track leaves the list", async () => {

@@ -150,10 +150,10 @@ Un fichier verrouillé est loggué en WARNING et ne bloque pas les suivants.
 ## Acceptance criteria
 
 ### Scénario 1 : une validation automatique entre au plan
-**GIVEN** un dossier de deux morceaux, dont « Dim Orbit » trouvé sur Beatport au-dessus du seuil haut
+**GIVEN** un dossier de deux morceaux, dont « Your Mind » trouvé sur Beatport au-dessus du seuil haut
 **WHEN** `start_tagging` est envoyé sur `stdin` et que la phase réseau se termine
 **THEN** `plans/` contient un seul plan `<horodatage>-<run_id>.json` portant le `run_id` de `run_started`
-**AND** « Dim Orbit » y est `resolved`, en voie `auto`, avec la source, le candidat retenu et ses scores, sans chemin de pochette
+**AND** « Your Mind » y est `resolved`, en voie `auto`, avec la source, le candidat retenu et ses scores, sans chemin de pochette
 
 ### Scénario 2 : un arbitrage en attente puis tranché
 **GIVEN** un morceau en zone grise sur Beatport

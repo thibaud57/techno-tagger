@@ -346,7 +346,7 @@ Ajouter à `sidecar/tests/unit/test_tagging_run.py` (`RunProgress` y est déjà 
 
 ```diff
 @@ from tagging_api import (
-     kelvor,
+     basiel,
      one_track,
 +    opened_run,
      run,
@@ -414,7 +414,7 @@ async def test_never_sends_a_decided_track_back_to_the_api(tmp_path: Path) -> No
 
         await resolve_run(live, sources, on_event=events.append)
 
-    assert _searched(api) == {"Dara Winter The Weir"}
+    assert _searched(api) == {"Sara Landry The Void"}
     assert [event for event in events if isinstance(event, RunProgress)] == [RunProgress(3, 3)]
 
 
@@ -426,7 +426,7 @@ async def test_sends_back_to_the_api_a_track_whose_source_did_not_answer(tmp_pat
 
         await resolve_run(live, sources, on_event=lambda _event: None)
 
-    assert _searched(api) == {"Lior Vance Dim Orbit"}
+    assert _searched(api) == {"Adam Beyer Your Mind"}
 ```
 
 Le test d'un run neuf (tous les morceaux traités, progression de 1 à M) existe déjà : `test_counts_a_track_as_processed_once_resolved_unresolved_or_on_hold`. Il doit rester vert sans modification.
@@ -1082,7 +1082,7 @@ def _nothing(_event: RunEvent) -> None:
 @pytest.mark.asyncio
 async def test_gives_back_the_decisions_of_the_plan(music_folder: Path) -> None:
     auto, held = music(music_folder, 2)
-    nested = tagged_mp3(music_folder / "sub", "b.mp3", "Orla Quenby", "Kelvor")
+    nested = tagged_mp3(music_folder / "sub", "b.mp3", "Amelie Lens", "Basiel")
     refused = TrackRecord(track_id="sub/b.mp3", path=nested, identity=RECORD.identity)
     plan = plan_of(music_folder, [_auto(auto), _held(held), _refused(refused)])
 
@@ -1105,7 +1105,7 @@ async def test_rebuilds_the_run_on_the_folder_as_it_is_now(
     kept, gone = music(music_folder, 2)
     plan = plan_of(music_folder, [_refused(kept), _refused(gone)])
     gone.path.unlink()
-    tagged_mp3(music_folder, "new.mp3", "Dara Winter", "The Weir")
+    tagged_mp3(music_folder, "new.mp3", "Sara Landry", "The Void")
 
     async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
         live = await reopen_run(plan, sources, on_event=_nothing)

@@ -83,7 +83,7 @@ async def test_lists_and_loads_a_past_run(folder: Path) -> None:
         "written",
     )
     assert track["source_url"] == ORIGINAL["url"]
-    assert track["after"] == {"artist": "Lior Vance", "title": "Dim Orbit (Original Mix)"}
+    assert track["after"] == {"artist": "Adam Beyer", "title": "Your Mind (Original Mix)"}
     assert track["artwork_path"] is not None
     assert track["tags_before"] is not None
     assert "restorable" not in track

@@ -33,10 +33,10 @@ from tagger.tags.tag_dump import (
 ORIGIN: Final = OriginalTags(
     TagSystem.ID3,
     3,
-    MappingProxyType({TagField.ARTIST: ("lior vance",), TagField.BPM: ("130",)}),
+    MappingProxyType({TagField.ARTIST: ("adam beyer",), TagField.BPM: ("130",)}),
 )
 WRITTEN: Final = OriginalTags(
-    TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Lior Vance",)})
+    TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Adam Beyer",)})
 )
 
 
@@ -71,12 +71,12 @@ def test_refuses_a_dump_dated_without_a_time_zone() -> None:
 
 
 def test_reloads_the_entries_it_saved(tmp_path: Path) -> None:
-    saved = save_entries(tmp_path, _dump(), {"dim orbit.mp3": _entry("dim orbit.mp3")})
+    saved = save_entries(tmp_path, _dump(), {"your mind.mp3": _entry("your mind.mp3")})
 
     reloaded = load_dump(dump_path(tmp_path, saved))
 
     assert reloaded == saved
-    assert reloaded.entries["dim orbit.mp3"].original_tags() == ORIGIN
+    assert reloaded.entries["your mind.mp3"].original_tags() == ORIGIN
 
 
 def test_never_replaces_an_entry_already_saved(tmp_path: Path) -> None:
@@ -157,11 +157,11 @@ def test_merges_the_journal_into_the_entries_on_reload(tmp_path: Path) -> None:
 def test_keeps_the_last_note_of_a_track(tmp_path: Path) -> None:
     saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
     first = record_renamed_path(tmp_path, saved, "a.mp3", MIDNIGHT)
-    record_renamed_path(tmp_path, first, "a.mp3", RUN_FOLDER / "Lior Vance - Dim Orbit.mp3")
+    record_renamed_path(tmp_path, first, "a.mp3", RUN_FOLDER / "Adam Beyer - Your Mind.mp3")
 
     reloaded = load_dump(dump_path(tmp_path, saved))
 
-    assert reloaded.entries["a.mp3"].renamed_path == RUN_FOLDER / "Lior Vance - Dim Orbit.mp3"
+    assert reloaded.entries["a.mp3"].renamed_path == RUN_FOLDER / "Adam Beyer - Your Mind.mp3"
 
 
 def test_ignores_a_journal_line_cut_short_by_a_power_failure(tmp_path: Path) -> None:
@@ -264,7 +264,7 @@ def test_moves_a_renamed_entry_after_the_others(tmp_path: Path) -> None:
     """Renomme en relance, apres les autres : le rollback doit lui rendre son nom en premier."""
     saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3"), "b.mp3": _entry("b.mp3")})
 
-    updated = record_renamed_path(tmp_path, saved, "a.mp3", tmp_path / "Lior Vance - Dim Orbit.mp3")
+    updated = record_renamed_path(tmp_path, saved, "a.mp3", tmp_path / "Adam Beyer - Your Mind.mp3")
 
     assert list(load_dump(dump_path(tmp_path, updated)).entries) == ["b.mp3", "a.mp3"]
 

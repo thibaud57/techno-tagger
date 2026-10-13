@@ -286,7 +286,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import conversation, held_call, resolved_run
-from scraper_responses import DIM_ORBIT
+from scraper_responses import YOUR_MIND
 from tagging_api import ONE_TRACK, ORIGINAL, FakeApi, found, one_track
 
 from tagger import files, tag_dump, writing
@@ -300,13 +300,13 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
-WRITTEN = "Lior Vance - Dim Orbit (Original Mix).mp3"
+WRITTEN = "Adam Beyer - Your Mind (Original Mix).mp3"
 
 
 @pytest.fixture
 def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
-    """« Dim Orbit » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    """« Your Mind » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
     return one_track(tmp_path)
 
 
@@ -347,7 +347,7 @@ async def test_refuses_writing_another_run(folder: Path, command: str) -> None:
 
 
 async def test_refuses_a_commit_while_the_network_phase_runs(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", DIM_ORBIT)
+    gate = api.gate("/beatport/search", YOUR_MIND)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(folder))

@@ -23,10 +23,10 @@ from tagger.core.paths import extended_path
 from tagger.tags.renaming import MAX_PATH_LENGTH, RenameError, plan_rename
 
 PREFIX = "\\?\\"
-ARTIST = "Lior Vance"
-TITLE = "Dim Orbit (Extended Mix)"
-TARGET = "Lior Vance - Dim Orbit (Extended Mix).mp3"
-LONG_TITLE = "Dim Orbit (Kaelen Mirandor Extended Remix)"
+ARTIST = "Adam Beyer"
+TITLE = "Your Mind (Extended Mix)"
+TARGET = "Adam Beyer - Your Mind (Extended Mix).mp3"
+LONG_TITLE = "Your Mind (Layton Giordani Extended Remix)"
 
 
 def case_folder(root: Path, name: str, length: int | None = None) -> Path:
@@ -61,7 +61,7 @@ def main() -> int:
     results: dict[str, dict[str, object]] = {}
 
     folder = case_folder(root, "simple")
-    original = make(folder, "lior vance - dim orbit.MP3")
+    original = make(folder, "adam beyer - your mind.MP3")
     plan = plan_rename(original, ARTIST, TITLE)
     planned = plan is not None and plan.target == folder / TARGET and prefix_free(plan.target)
     untouched_by_plan = names(folder) == [original.name]
@@ -104,7 +104,7 @@ def main() -> int:
     folder = case_folder(root, "no-artist")
     kept = make(folder, "rip_0042.wav")
     results["no_artist"] = {
-        "ok": plan_rename(kept, None, "Mothlight") is None and names(folder) == ["rip_0042.wav"],
+        "ok": plan_rename(kept, None, "Tarantula") is None and names(folder) == ["rip_0042.wav"],
         "names": names(folder),
     }
 

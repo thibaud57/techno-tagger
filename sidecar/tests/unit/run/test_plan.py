@@ -48,7 +48,7 @@ from tagger.run.tagging import (
     TrackState,
 )
 
-QUERY: Final = TrackQuery("Lior Vance", "Dim Orbit", QueryOrigin.TAGS)
+QUERY: Final = TrackQuery("Adam Beyer", "Your Mind", QueryOrigin.TAGS)
 WAITING: Final = replace(RECORD, track_id="e.mp3", path=Path("music/e.mp3"))
 AUTO: Final = replace(RECORD, query=QUERY).resolved(
     Resolution.AUTO,

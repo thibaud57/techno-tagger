@@ -32,7 +32,7 @@ _URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>?]*)\?[^\s'\"<
 
 # Chemin de lecteur (`D:\...`, `D:/...`) ou UNC (`\\serveur\partage\...`) : le nom du
 # fichier porte l'artiste et le titre, donc un morceau. Les espaces font partie du
-# chemin (« Nova Pulse - Dim Orbit.mp3 ») : le chemin s'arrete aux guillemets, `<>`, a
+# chemin (« Nova Pulse - Your Mind.mp3 ») : le chemin s'arrete aux guillemets, `<>`, a
 # la fin de ligne, avant un champ logfmt de la liste fermee des cles de log (voir
 # `gestion-erreurs.md`) et avant `: ` (Windows interdit `:` dans un nom de fichier).
 # Pas de `, ` ni de cle generique `[a-z_]+=` : un nom de fichier peut en contenir

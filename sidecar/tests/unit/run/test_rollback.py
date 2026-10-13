@@ -59,7 +59,7 @@ class _Written(NamedTuple):
 
 
 def _write(folder: Path, name: str) -> _Written:
-    path = tagged_mp3(folder, name, "lior vance", "dim orbit")
+    path = tagged_mp3(folder, name, "adam beyer", "your mind")
     origin = read_original_tags(path)
     values = project_tags(BEATPORT_CANDIDATE)
     write_tags(path, values, None)
@@ -209,7 +209,7 @@ async def test_gives_names_back_in_the_reverse_order_of_the_writing(tmp_path: Pa
     music = tmp_path / "music"
     first = _write(music, "a.mp3")
     # Le second morceau prend, une fois le premier renomme, le nom d'origine de celui-ci.
-    second_original = tagged_mp3(music, "b.mp3", "lior vance", "dim orbit")
+    second_original = tagged_mp3(music, "b.mp3", "adam beyer", "your mind")
     second_origin = read_original_tags(second_original)
     second_renamed = second_original.rename(first.original)
     second_entry = DumpEntry.of(second_original, second_origin).model_copy(
@@ -320,8 +320,8 @@ async def test_logs_a_rollback_without_any_file_name_path_or_title(
         restorable.renamed.name,
         vanished.original.name,
         vanished.renamed.name,
-        "Dim Orbit",
-        "Lior Vance",
+        "Your Mind",
+        "Adam Beyer",
     ]
     assert messages == [
         f"rollback started run={RUN}",

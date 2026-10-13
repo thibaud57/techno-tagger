@@ -503,12 +503,12 @@ def _letters(number: int) -> str:
 
 
 def music(folder: Path, count: int) -> list[TrackRecord]:
-    """Morceaux de Lior Vance, « Orbit aa »..., sur `count` MP3 tagues `t000.mp3`..."""
+    """Morceaux de Adam Beyer, « Mind aa »..., sur `count` MP3 tagues `t000.mp3`..."""
     records: list[TrackRecord] = []
     for number in range(count):
-        name, title = f"t{number:03d}.mp3", f"Orbit {_letters(number)}"
-        path = tagged_mp3(folder, name, "Lior Vance", title)
-        identity = IdentityTags(artist="Lior Vance", title=title)
+        name, title = f"t{number:03d}.mp3", f"Mind {_letters(number)}"
+        path = tagged_mp3(folder, name, "Adam Beyer", title)
+        identity = IdentityTags(artist="Adam Beyer", title=title)
         records.append(TrackRecord(track_id=name, path=path, identity=identity))
     return records
 
@@ -620,7 +620,7 @@ from tagger.tagging import (
     TrackState,
 )
 
-QUERY: Final = TrackQuery("Lior Vance", "Dim Orbit", QueryOrigin.TAGS)
+QUERY: Final = TrackQuery("Adam Beyer", "Your Mind", QueryOrigin.TAGS)
 WAITING: Final = replace(RECORD, track_id="e.mp3", path=Path("music/e.mp3"))
 AUTO: Final = replace(RECORD, query=QUERY).resolved(
     Resolution.AUTO,
@@ -1882,7 +1882,7 @@ from typing import TYPE_CHECKING, Final
 import pytest
 from ndjson_loop import conversation, held_call, resolved_run
 from run_plans import only_plan, plan_files
-from scraper_responses import BANDCAMP_TRACK, DIM_ORBIT, KELVOR, bandcamp_track_payload
+from scraper_responses import BANDCAMP_TRACK, YOUR_MIND, BASIEL, bandcamp_track_payload
 from stubs import raising
 from tagging_api import (
     ONE_TRACK,
@@ -1979,8 +1979,8 @@ async def test_records_a_recovery_by_url(tmp_path: Path, app_data: None, api: Fa
 async def test_keeps_the_plan_of_a_run_shut_down_mid_network(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    gate = api.gate("/beatport/search", KELVOR)
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    gate = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(two_tracks(tmp_path)))
@@ -1996,8 +1996,8 @@ async def test_keeps_the_plan_of_a_run_shut_down_mid_network(
 async def test_keeps_the_plan_of_a_run_stopped_by_cancel_run(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    gate = api.gate("/beatport/search", KELVOR)
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    gate = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
         talk.send(command="start_tagging", folder=str(two_tracks(tmp_path)))

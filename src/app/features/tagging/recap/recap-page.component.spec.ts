@@ -84,7 +84,7 @@ describe("RecapPageComponent", () => {
   })
 
   it("narrows the table to the chosen filter", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit"), unresolvedTrack("b")])
+    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
     const before = rowsIn(fixture)
 
     hostOf(fixture).querySelector<HTMLElement>('[data-filter="failed"]')?.click()
@@ -96,8 +96,8 @@ describe("RecapPageComponent", () => {
 
   it("gives each filter option its count", async () => {
     const { fixture } = await mountWith([
-      written("a", "Dim Orbit"),
-      written("b", "Kelvor"),
+      written("a", "Your Mind"),
+      written("b", "Basiel"),
       unresolvedTrack("c"),
     ])
 
@@ -109,16 +109,16 @@ describe("RecapPageComponent", () => {
   })
 
   it("shows the empty state when the search matches nothing", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit")])
+    const { fixture } = await mountWith([written("a", "Your Mind")])
 
-    await search(fixture, "kelvor")
+    await search(fixture, "basiel")
 
     expect(rowsIn(fixture)).toBe(0)
     expect(hostOf(fixture).textContent).toContain("recap.empty.heading")
   })
 
   it("closes the detail of a track the filter hides", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit"), unresolvedTrack("b")])
+    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
     hostOf(fixture).querySelector<HTMLElement>("[data-row-toggle]")?.click()
     await settleScroller(fixture)
     const opened = hostOf(fixture).querySelectorAll("app-track-detail").length
@@ -131,7 +131,7 @@ describe("RecapPageComponent", () => {
   })
 
   it("keeps the detail of a track the filter still shows", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit"), unresolvedTrack("b")])
+    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
     hostOf(fixture).querySelector<HTMLElement>("[data-row-toggle]")?.click()
     await settleScroller(fixture)
 
@@ -143,8 +143,8 @@ describe("RecapPageComponent", () => {
 
   it("announces the write failures of the displayed tracks", async () => {
     const { fixture, component } = await mountWith([
-      written("a", "Dim Orbit"),
-      { ...written("b", "Kelvor"), state: "write_error" },
+      written("a", "Your Mind"),
+      { ...written("b", "Basiel"), state: "write_error" },
     ])
 
     expect(component["writeFailures"]()).toBe(1)
@@ -152,7 +152,7 @@ describe("RecapPageComponent", () => {
   })
 
   it("holds the write failures back while a write runs", async () => {
-    const { fixture } = await mountWith([{ ...written("a", "Dim Orbit"), state: "write_error" }], {
+    const { fixture } = await mountWith([{ ...written("a", "Your Mind"), state: "write_error" }], {
       writing: signal(true),
     })
 
@@ -162,13 +162,13 @@ describe("RecapPageComponent", () => {
   })
 
   it("stays silent about write failures when every track was written", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit")])
+    const { fixture } = await mountWith([written("a", "Your Mind")])
 
     expect(hostOf(fixture).querySelector("[data-write-failures]")).toBeNull()
   })
 
   it("goes back to the run list", async () => {
-    const { fixture, navigate } = await mountWith([written("a", "Dim Orbit")])
+    const { fixture, navigate } = await mountWith([written("a", "Your Mind")])
 
     hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="back"]')?.click()
 
@@ -186,7 +186,7 @@ describe("RecapPageComponent", () => {
   })
 
   it("dates the live run by the rollback target of the run just written", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit")], {
+    const { fixture } = await mountWith([written("a", "Your Mind")], {
       rollbackTarget: signal(ROLLBACK_RUN),
     })
 
@@ -196,7 +196,7 @@ describe("RecapPageComponent", () => {
   })
 
   it("leaves the live run undated when the rollback target is another run", async () => {
-    const { fixture } = await mountWith([written("a", "Dim Orbit")], {
+    const { fixture } = await mountWith([written("a", "Your Mind")], {
       rollbackTarget: signal({ ...ROLLBACK_RUN, run_id: "b4c5d6" }),
     })
 
@@ -249,7 +249,7 @@ describe("RecapPageComponent", () => {
 
     it("offers no track restore on a past run", async () => {
       const { fixture } = await mountWith(
-        [{ ...written("live", "Kelvor"), restorable: true }],
+        [{ ...written("live", "Basiel"), restorable: true }],
         { loadedRun: signal(LOADED) },
         "a3f9c1",
       )
@@ -264,7 +264,7 @@ describe("RecapPageComponent", () => {
     it("leaves the write failure message to the live run", async () => {
       const failed = { ...loadedTrack(TRACK_LOADED), state: "write_error" as const }
       const { fixture } = await mountWith(
-        [{ ...written("live", "Kelvor"), state: "write_error" }],
+        [{ ...written("live", "Basiel"), state: "write_error" }],
         { loadedRun: signal({ ...LOADED, tracks: [failed] }) },
         "a3f9c1",
       )
@@ -278,7 +278,7 @@ describe("RecapPageComponent", () => {
         { track_id: "b.mp3", file_name: "X - Y.mp3", reason: "file_locked" },
       ])
       const { fixture } = await mountWith(
-        [written("live", "Kelvor")],
+        [written("live", "Basiel")],
         { rollbackFinished: signal(failedRollback), loadedRun: signal(LOADED) },
         "a3f9c1",
       )
@@ -315,7 +315,7 @@ describe("RecapPageComponent", () => {
     })
 
     it("shows the live run without a run id", async () => {
-      const { fixture, component } = await mountWith([written("live", "Kelvor")], {
+      const { fixture, component } = await mountWith([written("live", "Basiel")], {
         loadedRun: signal(LOADED),
       })
 

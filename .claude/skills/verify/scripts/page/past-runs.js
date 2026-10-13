@@ -192,16 +192,16 @@ async (page) => {
     fields: KEYS.map(([field, key]) => ({ field, key, value: { artist: artist.toLowerCase(), title: title.toLowerCase() }[field] ?? null })),
   })
   const tagsAfter = (t, link) =>
-    KEYS.map(([field, key]) => ({ field, key, value: { artist: t.artist, title: `${t.title} (Original Mix)`, genre: "Techno", bpm: "130", label: "Kestrel", date: "2023", source: "beatport", url: link }[field] ?? null }))
-  const LONG = "https://www.beatport.com/track/dim-orbit-kaelen-mirandor-extended-remix-with-a-very-long-slug/99000101"
+    KEYS.map(([field, key]) => ({ field, key, value: { artist: t.artist, title: `${t.title} (Original Mix)`, genre: "Techno", bpm: "130", label: "Drumcode", date: "2023", source: "beatport", url: link }[field] ?? null }))
+  const LONG = "https://www.beatport.com/track/your-mind-layton-giordani-extended-remix-with-a-very-long-slug/99000101"
   const track = (id, artist, title) => ({ track_id: id, file_name: `${artist} - ${title}.mp3`, artist, title, tags_before: tagsBefore(artist, title) })
-  const A = track("a.mp3", "Lior Vance", "Dim Orbit")
-  const B = track("b.mp3", "Orla Quenby", "Kelvor")
-  const C = track("c.mp3", "Ria Javel", "Over the Moor")
-  const D = track("d.mp3", "Ilan Thorne", "Tidewater")
+  const A = track("a.mp3", "Adam Beyer", "Your Mind")
+  const B = track("b.mp3", "Amelie Lens", "Basiel")
+  const C = track("c.mp3", "Nur Jaber", "Into the Void")
+  const D = track("d.mp3", "Hector Oaks", "Sentiment")
   const E = track("e.mp3", "Nobody", "Nothing Here")
-  const F = track("f.mp3", "Valka", "Ark")
-  const linkOf = { "a.mp3": LONG, "b.mp3": "https://www.beatport.com/track/kelvor/99000102", "c.mp3": "https://orlaquenby.bandcamp.com/track/over-the-moor", "d.mp3": "https://www.beatport.com/track/tidewater/99000104", "f.mp3": "https://www.beatport.com/track/ark/99000106" }
+  const F = track("f.mp3", "Ignez", "Ark")
+  const linkOf = { "a.mp3": LONG, "b.mp3": "https://www.beatport.com/track/basiel/99000102", "c.mp3": "https://amelielens.bandcamp.com/track/into-the-void", "d.mp3": "https://www.beatport.com/track/tidewater/99000104", "f.mp3": "https://www.beatport.com/track/ark/99000106" }
   // Evenement du run vivant (`track_resolved`).
   const decided = (t, state, resolution, extra = {}) => ({
     event: "track_resolved", track_id: t.track_id, state, resolution, failure_reason: null, source: "beatport",
@@ -480,15 +480,15 @@ async (page) => {
     byFilter[value] = await rows()
   }
   check("filter rows follow the rule", byFilter.validated.length === 3 && byFilter.arbitrated.length === 1 && byFilter.failed.length === 2 && byFilter.all.length === 6, Object.fromEntries(Object.entries(byFilter).map(([k, v]) => [k, v.length])))
-  check("write error arbitrated only under failures", has(byFilter.failed, "Tidewater") && !has(byFilter.arbitrated, "Tidewater") && has(byFilter.failed, "Nothing Here"), byFilter.failed)
-  await search("  DIM orbit ")
+  check("write error arbitrated only under failures", has(byFilter.failed, "Sentiment") && !has(byFilter.arbitrated, "Sentiment") && has(byFilter.failed, "Nothing Here"), byFilter.failed)
+  await search("  YOUR mind ")
   const found = await rows()
-  check("search ignores case and edge spaces", found.length === 1 && found[0].includes("Dim Orbit"), found)
+  check("search ignores case and edge spaces", found.length === 1 && found[0].includes("Your Mind"), found)
   await search("")
 
   // Detail avant / apres et lien source, comme `recap.js`.
   const toggleOf = (name) => page.locator("app-recap-page tr", { hasText: name }).locator("[data-row-toggle]")
-  await toggleOf("Dim Orbit").click()
+  await toggleOf("Your Mind").click()
   await settle()
   const detail = await page.evaluate(() => {
     const host = document.querySelector("app-recap-page app-track-detail")
@@ -502,13 +502,13 @@ async (page) => {
     }
   })
   out.measures.detail = detail
-  check("detail: before and after, one source link on the url line", detail.links === 1 && /lior vance/.test(detail.text) && /Original Mix/.test(detail.text) && detail.ariaLabel === null && detail.truncated === true && detail.hostScrolls === false, detail)
+  check("detail: before and after, one source link on the url line", detail.links === 1 && /adam beyer/.test(detail.text) && /Original Mix/.test(detail.text) && detail.ariaLabel === null && detail.truncated === true && detail.hostScrolls === false, detail)
   await shot("03-past-detail")
   await page.locator('app-recap-page [data-action="open-source"]').click()
   await settle()
   const openedUrl = await page.evaluate(() => window.__opened)
   check("detail: the link opens the source page", openedUrl.length === 1 && openedUrl[0]?.url === LONG, openedUrl)
-  await toggleOf("Tidewater").click()
+  await toggleOf("Sentiment").click()
   await settle()
 
   // Lecture seule : aucun geste de restauration, aucun « Nouveau run », ni message ni bilan du run vivant.
@@ -539,8 +539,8 @@ async (page) => {
   const scroll = await pageScroll()
   out.measures.layout = layout
   check("sections 24px apart, no send-report button, no page scroll at 1280 x 800", layout.gaps.every((g) => g === 24) && layout.sendReport === false && !scroll.v && !scroll.h, { layout, scroll })
-  await toggleOf("Dim Orbit").click()
-  await toggleOf("Tidewater").click()
+  await toggleOf("Your Mind").click()
+  await toggleOf("Sentiment").click()
   await settle()
   await eachView(async (w, lang) => {
     await shot(`recap-past-${w}-${lang}`)
@@ -738,14 +738,14 @@ async (page) => {
   await line({ event: "track_resolved", track_id: F.track_id, state: "rolled_back", resolution: "auto", failure_reason: null, source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false, source_url: null })
   await line({ event: "rollback_finished", run_id: LIVE, track_id: "f.mp3", restored: ["f.mp3"], failed: [] })
   await page.evaluate((id) => window.__svc.rollback(id, "a.mp3"), LIVE)
-  await line({ event: "rollback_finished", run_id: LIVE, track_id: "a.mp3", restored: [], failed: [{ track_id: "a.mp3", file_name: "Lior Vance - Dim Orbit (Original Mix).mp3", reason: "name_taken" }] })
+  await line({ event: "rollback_finished", run_id: LIVE, track_id: "a.mp3", restored: [], failed: [{ track_id: "a.mp3", file_name: "Adam Beyer - Your Mind (Original Mix).mp3", reason: "name_taken" }] })
   await settle()
 
   // Le run vivant porte tout ce qu'un run passe ne doit pas montrer : on le prouve d'abord.
   await page.locator('[data-action="recap"]').click()
   await page.waitForSelector("app-recap-page app-run-list")
   await settle()
-  await toggleOf("Dim Orbit").click()
+  await toggleOf("Your Mind").click()
   await settle()
   const liveRo = await readOnly()
   const liveCounts = await counts()
@@ -785,8 +785,8 @@ async (page) => {
   const overlay = await readOnly()
   const overlayCounts = await counts()
   const overlayContext = (await block()).ctxText
-  await toggleOf("Dim Orbit").click()
-  await toggleOf("Tidewater").click()
+  await toggleOf("Your Mind").click()
+  await toggleOf("Sentiment").click()
   await settle()
   const overlayDetail = await readOnly()
   out.measures.overlay = { overlay, overlayCounts, overlayContext, overlayDetail }

@@ -722,7 +722,7 @@ describe("SidecarService", () => {
       await service.resolveByUrl("a.mp3", TRACK_URL)
       const sent = transport.sent.length
 
-      await service.resolveByUrl("a.mp3", "https://www.beatport.com/track/dim-orbit/99000202")
+      await service.resolveByUrl("a.mp3", "https://www.beatport.com/track/your-mind/99000202")
 
       expect(transport.sent).toHaveLength(sent)
     })
@@ -794,15 +794,15 @@ describe("SidecarService", () => {
           {
             track_id: "c.mp3",
             file_name: "c.mp3",
-            artist: "Dara Winter",
-            title: "The Weir",
+            artist: "Sara Landry",
+            title: "The Void",
             tags_before: null,
           },
           {
             track_id: "d.mp3",
             file_name: "d.mp3",
-            artist: "Zelka",
-            title: "Mothlight",
+            artist: "Kasia",
+            title: "Tarantula",
             tags_before: null,
           },
         ],

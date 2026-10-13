@@ -10,7 +10,7 @@ import pytest
 from scraper_responses import (
     ARTWORK_URL,
     BANDCAMP_TRACK,
-    DIM_ORBIT,
+    YOUR_MIND,
     bandcamp_track_payload,
     track_candidate,
     track_payload,
@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-BEATPORT_URL: Final = "https://www.beatport.com/track/dim-orbit/99000202"
+BEATPORT_URL: Final = "https://www.beatport.com/track/your-mind/99000202"
 ON_BEATPORT: Final = track_payload(id="99000202")
 
 
@@ -194,7 +194,7 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
 
 async def test_counts_zero_over_zero_when_nothing_is_left_to_recover(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
 
     async with _recovering(one_track(tmp_path), api) as (_opened, recovery):
         progress = recovery.progress()
@@ -410,7 +410,7 @@ async def test_never_logs_the_pasted_url(tmp_path: Path, caplog: pytest.LogCaptu
     async with _recovering(two_tracks(tmp_path), api) as (_opened, recovery):
         await recovery.resolve("a.mp3", BANDCAMP_TRACK)
         with pytest.raises(TrackNotFoundError):
-            await recovery.resolve("b.mp3", "https://orlaquenby.bandcamp.com/track/unknown")
+            await recovery.resolve("b.mp3", "https://amelielens.bandcamp.com/track/unknown")
 
     ours = [
         record.getMessage() for record in caplog.records if record.name == "tagger.run.url_recovery"

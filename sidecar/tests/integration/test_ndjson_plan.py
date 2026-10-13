@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from ndjson_loop import CHOOSE_ON_BEATPORT, conversation, held_call, resolved_run, start_command
 from run_plans import only_plan, plan_files
-from scraper_responses import BANDCAMP_TRACK, DIM_ORBIT, KELVOR, bandcamp_track_payload
+from scraper_responses import BANDCAMP_TRACK, BASIEL, YOUR_MIND, bandcamp_track_payload
 from stubs import raising
 from tagging_api import (
     ONE_TRACK,
@@ -95,8 +95,8 @@ async def test_records_a_recovery_by_url(tmp_path: Path, app_data: None, api: Fa
 async def test_keeps_the_plan_of_a_run_shut_down_mid_network(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    gate = api.gate("/beatport/search", KELVOR)
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    gate = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
         talk.send(**start_command(two_tracks(tmp_path)))
@@ -112,8 +112,8 @@ async def test_keeps_the_plan_of_a_run_shut_down_mid_network(
 async def test_keeps_the_plan_of_a_run_stopped_by_cancel_run(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    gate = api.gate("/beatport/search", KELVOR)
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    gate = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
         talk.send(**start_command(two_tracks(tmp_path)))

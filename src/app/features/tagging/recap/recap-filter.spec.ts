@@ -48,19 +48,17 @@ describe("recap filters", () => {
   })
 
   it("searches the original artist, title and file name, ignoring case", () => {
-    const tagged = track({ artist: "Lior Vance", title: "Dim Orbit", fileName: "a.mp3" })
+    const tagged = track({ artist: "Adam Beyer", title: "Your Mind", fileName: "a.mp3" })
 
-    const matches = ["lior", "ORBIT", "a.mp3", "kelvor"].map((query) =>
-      matchesSearch(tagged, query),
-    )
+    const matches = ["adam", "MIND", "a.mp3", "basiel"].map((query) => matchesSearch(tagged, query))
 
     expect(matches).toEqual([true, true, true, false])
   })
 
   it("ignores the spaces around the search", () => {
-    const tagged = track({ title: "Dim Orbit" })
+    const tagged = track({ title: "Your Mind" })
 
-    const matched = matchesSearch(tagged, "  orbit ")
+    const matched = matchesSearch(tagged, "  mind ")
 
     expect(matched).toBe(true)
   })

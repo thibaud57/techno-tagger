@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from scraper_responses import DIM_ORBIT, KELVOR, track_payload
+from scraper_responses import BASIEL, YOUR_MIND, track_payload
 from tagging_api import (
     ORIGINAL,
     FakeApi,
+    basiel,
     failing,
     found,
-    kelvor,
     must_record,
     one_track,
     opened_run,
@@ -50,15 +50,15 @@ async def test_emits_run_started_first_with_every_track_and_its_identity(tmp_pat
     first = events[0]
     assert isinstance(first, RunStarted)
     assert [record.track_id for record in first.tracks] == ["a.mp3", "b.mp3", "c.mp3"]
-    assert first.tracks[1].identity.artist == "Orla Quenby"
+    assert first.tracks[1].identity.artist == "Amelie Lens"
 
 
 async def test_counts_a_track_as_processed_once_resolved_unresolved_or_on_hold(
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    api.on("/beatport/search", KELVOR, found(kelvor(mix_name="Extended Mix")))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    api.on("/beatport/search", BASIEL, found(basiel(mix_name="Extended Mix")))
     events: list[RunEvent] = []
 
     await run(three_tracks(tmp_path), api, events=events)
@@ -85,7 +85,7 @@ async def test_stops_the_run_after_three_consecutive_rejections_of_the_key(
 ) -> None:
     folder = tmp_path / "music"
     for index in range(5):
-        tagged_mp3(folder, f"{index}.mp3", "Lior Vance", f"Track {index}")
+        tagged_mp3(folder, f"{index}.mp3", "Adam Beyer", f"Track {index}")
     api = FakeApi()
     api.on("/beatport/search", "*", failing(403))
     events: list[RunEvent] = []
@@ -128,7 +128,7 @@ async def test_never_sends_a_decided_track_back_to_the_api(tmp_path: Path) -> No
 
         await resolve_run(live, sources, on_event=events.append)
 
-    assert api.searched() == {"Dara Winter The Weir"}
+    assert api.searched() == {"Sara Landry The Void"}
     assert [event for event in events if isinstance(event, RunProgress)] == [RunProgress(3, 3)]
 
 
@@ -140,4 +140,4 @@ async def test_sends_back_to_the_api_a_track_whose_source_did_not_answer(tmp_pat
 
         await resolve_run(live, sources, on_event=lambda _event: None)
 
-    assert api.searched() == {"Lior Vance Dim Orbit"}
+    assert api.searched() == {"Adam Beyer Your Mind"}

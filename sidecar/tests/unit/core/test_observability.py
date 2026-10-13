@@ -105,7 +105,7 @@ def test_scrubbing_masks_the_track_under_the_home_folder_but_keeps_the_code_path
     monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\jane", "C:/Users/jane"})
     monkeypatch.setattr(obs, "_USERNAME", "jane")
     event = {
-        "message": r"cannot open C:\Users\jane\Music\Nova Pulse - Dim Orbit.mp3",
+        "message": r"cannot open C:\Users\jane\Music\Nova Pulse - Your Mind.mp3",
         "frames": [{"abs_path": r"C:\Users\jane\AppData\Local\tagger\writing.py"}],
     }
 
@@ -145,7 +145,7 @@ def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
     message de chaque exception de la chaine `__cause__`, et celui d'httpx2 porte
     l'URL de la recherche, donc l'artiste et le titre lus dans le fichier.
     """
-    error = _chained_contract_error("Lior Vance Dim Orbit")
+    error = _chained_contract_error("Adam Beyer Your Mind")
     assert error.__cause__ is not None
     event = {
         "exception": {
@@ -159,10 +159,10 @@ def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
     scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
 
     rendered = str(scrubbed)
-    # Par fragment d'un seul mot : l'URL encode les espaces, « Lior Vance » n'y
+    # Par fragment d'un seul mot : l'URL encode les espaces, « Adam Beyer » n'y
     # apparaitrait de toute facon pas tel quel et l'assertion passerait a vide.
-    assert "Vance" not in rendered
-    assert "Orbit" not in rendered
+    assert "Beyer" not in rendered
+    assert "Mind" not in rendered
     assert QUERY_MASK in rendered
     assert SEARCH_URL.removeprefix("https://") in rendered
 
@@ -174,14 +174,14 @@ def test_scrubbing_strips_a_query_that_carries_a_second_question_mark() -> None:
     recopie dans un message) : masquer depuis le dernier laisserait passer la
     recherche elle-meme, donc l'artiste et le titre que l'ADR-014 interdit d'envoyer.
     """
-    message = "HTTPStatusError for https://api/beatport/search?q=Vance+Orbit&next=http://cdn?w=1"
+    message = "HTTPStatusError for https://api/beatport/search?q=Beyer+Mind&next=http://cdn?w=1"
     event = {"exception": {"values": [{"type": "HTTPStatusError", "value": message}]}}
 
     scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
 
     rendered = str(scrubbed)
-    assert "Vance" not in rendered
-    assert "Orbit" not in rendered
+    assert "Beyer" not in rendered
+    assert "Mind" not in rendered
     assert QUERY_MASK in rendered
 
 
@@ -200,9 +200,9 @@ def test_scrubbing_leaves_envelope_fields_intact(
 @pytest.mark.parametrize(
     "path",
     [
-        r"D:\Musique\Nova Pulse - Dim Orbit.mp3",
-        "D:/Musique/Nova Pulse - Dim Orbit.mp3",
-        r"\\nas\partage\Nova Pulse - Dim Orbit.mp3",
+        r"D:\Musique\Nova Pulse - Your Mind.mp3",
+        "D:/Musique/Nova Pulse - Your Mind.mp3",
+        r"\\nas\partage\Nova Pulse - Your Mind.mp3",
     ],
     ids=["drive-backslash", "drive-slash", "unc"],
 )
@@ -223,23 +223,23 @@ def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None
     ("message", "expected"),
     [
         (
-            r"write failed D:\Music\Nova Pulse - Dim Orbit.mp3 run=abc reason=file_locked",
+            r"write failed D:\Music\Nova Pulse - Your Mind.mp3 run=abc reason=file_locked",
             f"write failed {PATH_MASK} run=abc reason=file_locked",
         ),
         (
-            r"cannot open D:\Music\Nova Pulse - Dim Orbit.mp3: permission denied",
+            r"cannot open D:\Music\Nova Pulse - Your Mind.mp3: permission denied",
             f"cannot open {PATH_MASK}: permission denied",
         ),
         (
-            r"copy \\nas\share\Nova Pulse - Dim Orbit.mp3 status=error",
+            r"copy \\nas\share\Nova Pulse - Your Mind.mp3 status=error",
             f"copy {PATH_MASK} status=error",
         ),
         (
-            r"skip D:\Music\Nova Pulse, Dim Orbit.mp3 reason=locked",
+            r"skip D:\Music\Nova Pulse, Your Mind.mp3 reason=locked",
             f"skip {PATH_MASK} reason=locked",
         ),
         (
-            r"skip D:\Music\Nova Pulse vol=2 - Dim Orbit.mp3 reason=locked",
+            r"skip D:\Music\Nova Pulse vol=2 - Your Mind.mp3 reason=locked",
             f"skip {PATH_MASK} reason=locked",
         ),
     ],
@@ -256,7 +256,7 @@ def test_scrubbing_stops_a_path_before_the_log_fields_without_leaking_the_name(
     scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
 
     assert scrubbed == {"message": expected}
-    assert not {"Nova", "Pulse", "Dim", "Orbit"} & set(str(scrubbed).replace(",", " ").split())
+    assert not {"Nova", "Pulse", "Your", "Mind"} & set(str(scrubbed).replace(",", " ").split())
 
 
 def test_scrubbing_does_not_take_a_url_scheme_for_a_drive() -> None:

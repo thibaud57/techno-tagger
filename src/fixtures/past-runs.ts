@@ -17,18 +17,18 @@ export const PAST_RUN: PastRun = {
 export const TRACK_LOADED: TrackLoaded = {
   track_id: "a.mp3",
   file_name: "a.mp3",
-  file_after: "Lior Vance - Dim Orbit (Original Mix).mp3",
-  artist: "Lior Vance",
-  title: "Dim Orbit",
+  file_after: "Adam Beyer - Your Mind (Original Mix).mp3",
+  artist: "Adam Beyer",
+  title: "Your Mind",
   state: "written",
   resolution: "auto",
   failure_reason: null,
   source: "beatport",
-  after: { artist: "Lior Vance", title: "Dim Orbit (Original Mix)" },
+  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   tags_before: TAGS_BEFORE,
   tags_after: TAGS_AFTER,
-  source_url: "https://www.beatport.com/track/dim-orbit/99000101",
+  source_url: "https://www.beatport.com/track/your-mind/99000101",
   artwork_path: null,
 }
 

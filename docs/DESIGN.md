@@ -45,7 +45,7 @@ Trois glyphes, trois rôles qui ne se recouvrent pas : un glyphe employé pour d
 
 | Glyphe | Rôle | Exemple |
 |--------|------|---------|
-| `-` entouré d'espaces | Artiste et titre d'un même morceau | `Lior Vance - Dim Orbit` |
+| `-` entouré d'espaces | Artiste et titre d'un même morceau | `Adam Beyer - Your Mind` |
 | `·` | Deux valeurs de même rang | `A 96 · T 92`, `Beatport · 2024` |
 | `—` seul | Cellule sans valeur (§ États des Composants) | la colonne Source d'un morceau non résolu |
 

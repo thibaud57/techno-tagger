@@ -17,8 +17,8 @@ import { UrlRecoveryDialogComponent } from "./url-recovery-dialog.component"
 const FIRST = unresolvedTrack("a.mp3", "no_result")
 const SECOND: TaggingTrack = {
   ...unresolvedTrack("b.mp3", "below_threshold"),
-  artist: "Orla Quenby",
-  title: "Kelvor",
+  artist: "Amelie Lens",
+  title: "Basiel",
 }
 const TWO_LINES: readonly TaggingTrack[] = [FIRST, SECOND]
 
@@ -60,7 +60,7 @@ describe("UrlRecoveryDialogComponent", () => {
 
     const text = page().textContent
 
-    expect(text).toContain("Lior Vance - Dim Orbit")
+    expect(text).toContain("Adam Beyer - Your Mind")
     expect(text).toContain("tagging.reason.no_result")
   })
 
@@ -113,7 +113,7 @@ describe("UrlRecoveryDialogComponent", () => {
 
     fixture.detectChanges()
 
-    expect(linkField()?.getAttribute("aria-label")).toBe("Link for Lior Vance - Dim Orbit")
+    expect(linkField()?.getAttribute("aria-label")).toBe("Link for Adam Beyer - Your Mind")
   })
 
   it("keeps the pasted url in its field once the track is recovered", () => {
@@ -169,7 +169,7 @@ describe("UrlRecoveryDialogComponent", () => {
     action("skip")?.click()
     fixture.detectChanges()
 
-    expect(second).toContain("Orla Quenby - Kelvor")
+    expect(second).toContain("Amelie Lens - Basiel")
     expect(recovery.target()).toBeNull()
   })
 

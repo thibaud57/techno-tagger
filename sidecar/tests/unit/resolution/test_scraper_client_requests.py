@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 import httpx2
 import pytest
 from scraper_responses import (
-    DIM_ORBIT,
-    KELVOR,
+    BASIEL,
     TEST_API_KEY,
+    YOUR_MIND,
     answering,
     make_client,
     page_payload,
@@ -33,8 +33,8 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("source", "query", "route"),
     [
-        (Source.BEATPORT, DIM_ORBIT, "/beatport/search"),
-        (Source.BANDCAMP, KELVOR, "/bandcamp/search"),
+        (Source.BEATPORT, YOUR_MIND, "/beatport/search"),
+        (Source.BANDCAMP, BASIEL, "/bandcamp/search"),
     ],
     ids=["beatport", "bandcamp"],
 )
@@ -64,15 +64,15 @@ async def test_maps_each_item_to_a_track_candidate_with_its_release_label_and_cr
     requests: list[httpx2.Request],
 ) -> None:
     async with make_client(answering(requests, page_payload(track_payload()))) as client:
-        candidates = await client.search(Source.BEATPORT, DIM_ORBIT)
+        candidates = await client.search(Source.BEATPORT, YOUR_MIND)
 
     candidate = candidates[0]
-    assert candidate.title == "Dim Orbit"
+    assert candidate.title == "Your Mind"
     assert candidate.mix_name == "Extended Mix"
-    assert candidate.artists == (Credit(name="Lior Vance"),)
-    assert candidate.label == Credit(name="Kestrel")
+    assert candidate.artists == (Credit(name="Adam Beyer"),)
+    assert candidate.label == Credit(name="Drumcode")
     assert candidate.release is not None
-    assert candidate.release.catalog_number == "KS287"
+    assert candidate.release.catalog_number == "DC287"
     assert candidate.source is Source.BEATPORT
 
 
@@ -82,7 +82,7 @@ async def test_ignores_fields_the_candidate_model_does_not_declare(
     item = track_payload(waveform_url="https://example.invalid/wave.png")
 
     async with make_client(answering(requests, page_payload(item))) as client:
-        candidates = await client.search(Source.BEATPORT, DIM_ORBIT)
+        candidates = await client.search(Source.BEATPORT, YOUR_MIND)
 
     assert "waveform_url" not in candidates[0].model_dump()
 
@@ -105,7 +105,7 @@ async def test_fetches_a_beatport_track_by_id(requests: list[httpx2.Request]) ->
 
 
 async def test_fetches_a_bandcamp_track_by_url(requests: list[httpx2.Request]) -> None:
-    url = "https://orlaquenby.bandcamp.com/track/kelvor"
+    url = "https://amelielens.bandcamp.com/track/basiel"
     body = track_payload(source="bandcamp", url=url, mix_name=None)
 
     async with make_client(answering(requests, body)) as client:
@@ -126,8 +126,8 @@ async def test_serves_a_repeated_search_from_the_cache_without_a_request(
     handler = answering(requests, page_payload(track_payload()))
 
     async with make_client(handler, cache=_cache(tmp_path)) as client:
-        first = await client.search(Source.BEATPORT, DIM_ORBIT)
-        second = await client.search(Source.BEATPORT, DIM_ORBIT)
+        first = await client.search(Source.BEATPORT, YOUR_MIND)
+        second = await client.search(Source.BEATPORT, YOUR_MIND)
 
     assert second == first
     assert len(requests) == 1
@@ -153,8 +153,8 @@ async def test_never_caches_an_error_response(
 
     async with make_client(unavailable_then_found, cache=_cache(tmp_path)) as client:
         with pytest.raises(SourceUnavailableError):
-            await client.search(Source.BEATPORT, DIM_ORBIT)
-        candidates = await client.search(Source.BEATPORT, DIM_ORBIT)
+            await client.search(Source.BEATPORT, YOUR_MIND)
+        candidates = await client.search(Source.BEATPORT, YOUR_MIND)
 
     assert len(candidates) == 1
     assert len(requests) == 2
@@ -172,8 +172,8 @@ async def test_never_caches_a_response_the_model_rejects(
 
     async with make_client(broken_then_fixed, cache=_cache(tmp_path)) as client:
         with pytest.raises(ApiContractError):
-            await client.search(Source.BEATPORT, DIM_ORBIT)
-        candidates = await client.search(Source.BEATPORT, DIM_ORBIT)
+            await client.search(Source.BEATPORT, YOUR_MIND)
+        candidates = await client.search(Source.BEATPORT, YOUR_MIND)
 
     assert len(candidates) == 1
     assert len(requests) == 2
@@ -185,12 +185,12 @@ async def test_discards_a_cached_response_the_model_rejects_and_retries(
     cache = _cache(tmp_path)
     poisoned = track_payload()
     del poisoned["title"]
-    params = {"q": DIM_ORBIT, "type": "tracks", "limit": "10"}
+    params = {"q": YOUR_MIND, "type": "tracks", "limit": "10"}
     cache.put("/beatport/search", params, page_payload(poisoned))
     handler = answering(requests, page_payload(track_payload()))
 
     async with make_client(handler, cache=cache) as client:
-        candidates = await client.search(Source.BEATPORT, DIM_ORBIT)
+        candidates = await client.search(Source.BEATPORT, YOUR_MIND)
 
     assert len(candidates) == 1
     assert len(requests) == 1

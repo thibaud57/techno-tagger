@@ -25,11 +25,11 @@ def test_reads_artist_and_title_from_the_tags(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    tag(path, artist=["Lior Vance"], title=["Dim Orbit"])
+    tag(path, artist=["Adam Beyer"], title=["Your Mind"])
 
     identity = read_shown_tags(path).identity
 
-    assert identity == IdentityTags(artist="Lior Vance", title="Dim Orbit")
+    assert identity == IdentityTags(artist="Adam Beyer", title="Your Mind")
 
 
 @pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
@@ -37,20 +37,20 @@ def test_joins_multiple_artist_values_with_a_comma(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    tag(path, artist=["Lior Vance", "Mara Quill"], title=["Dim Orbit"])
+    tag(path, artist=["Adam Beyer", "Bart Skils"], title=["Your Mind"])
 
     identity = read_shown_tags(path).identity
 
-    assert identity.artist == "Lior Vance, Mara Quill"
+    assert identity.artist == "Adam Beyer, Bart Skils"
 
 
 def test_strips_blanks_and_drops_empty_values(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
-    tag(path, artist=[" Lior Vance ", "", "  "], title=["  Dim Orbit"])
+    tag(path, artist=[" Adam Beyer ", "", "  "], title=["  Your Mind"])
 
     identity = read_shown_tags(path).identity
 
-    assert identity == IdentityTags(artist="Lior Vance", title="Dim Orbit")
+    assert identity == IdentityTags(artist="Adam Beyer", title="Your Mind")
 
 
 @pytest.mark.parametrize(
@@ -136,7 +136,7 @@ def test_leaves_the_file_bytes_unchanged_after_reading(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    tag(path, artist=["Dara Winter"], title=["The Weir"])
+    tag(path, artist=["Sara Landry"], title=["The Void"])
     before = path.read_bytes()
 
     read_shown_tags(path)

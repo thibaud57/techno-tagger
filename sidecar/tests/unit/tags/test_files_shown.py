@@ -23,7 +23,7 @@ from tagger.tags.files import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-URL: Final = "https://liorvance.bandcamp.com/track/dim-orbit"
+URL: Final = "https://adambeyer.bandcamp.com/track/your-mind"
 
 
 def _shown(system: TagSystem = TagSystem.ID3, **values: str) -> ShownTags:
@@ -37,8 +37,8 @@ def test_reads_every_field_of_the_table_in_order_with_its_comment(
 ) -> None:
     path = blank_audio("mp3")
     tags = ID3()
-    tags.add(TPE1(encoding=3, text=["Lior Vance", "Mara Quill"]))
-    tags.add(TIT2(encoding=3, text=["Dim Orbit"]))
+    tags.add(TPE1(encoding=3, text=["Adam Beyer", "Bart Skils"]))
+    tags.add(TIT2(encoding=3, text=["Your Mind"]))
     tags.add(TBPM(encoding=3, text=["130"]))
     tags.add(WOAS(url=URL))
     tags.add(COMM(encoding=3, lang="eng", desc="", text=["Ripped by X"]))
@@ -48,11 +48,11 @@ def test_reads_every_field_of_the_table_in_order_with_its_comment(
 
     assert shown.system is TagSystem.ID3
     assert list(shown.fields) == list(TAG_FIELDS)
-    assert shown.fields[TagField.ARTIST] == "Lior Vance, Mara Quill"
+    assert shown.fields[TagField.ARTIST] == "Adam Beyer, Bart Skils"
     assert (shown.fields[TagField.BPM], shown.fields[TagField.URL]) == ("130", URL)
     assert shown.fields[TagField.ALBUM] is None
     assert shown.comment == "Ripped by X"
-    assert (shown.identity.artist, shown.identity.title) == ("Lior Vance, Mara Quill", "Dim Orbit")
+    assert (shown.identity.artist, shown.identity.title) == ("Adam Beyer, Bart Skils", "Your Mind")
 
 
 def test_lists_the_fields_in_the_order_the_detail_shows_them() -> None:
@@ -80,7 +80,7 @@ def test_lists_the_fields_in_the_order_the_detail_shows_them() -> None:
 def test_reads_the_vorbis_comments_of_a_flac(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
     audio = mutagen.File(path)
-    audio["ARTIST"] = ["Lior Vance"]
+    audio["ARTIST"] = ["Adam Beyer"]
     audio["COMMENT"] = ["Ripped by X"]
     audio.save()
 
@@ -88,7 +88,7 @@ def test_reads_the_vorbis_comments_of_a_flac(blank_audio: Callable[[str], Path])
 
     assert (shown.system, shown.fields[TagField.ARTIST], shown.comment) == (
         TagSystem.VORBIS,
-        "Lior Vance",
+        "Adam Beyer",
         "Ripped by X",
     )
 
@@ -143,13 +143,13 @@ def test_names_a_field_by_the_key_the_written_file_carries(
 
 
 def test_keeps_the_original_value_the_candidate_leaves_out() -> None:
-    before = _shown(artist="lior vance", bpm="130")
+    before = _shown(artist="adam beyer", bpm="130")
 
-    after = after_tags({TagField.ARTIST: "Lior Vance"}, before)
+    after = after_tags({TagField.ARTIST: "Adam Beyer"}, before)
 
     assert list(after) == list(TAG_FIELDS)
     assert (after[TagField.ARTIST], after[TagField.BPM], after[TagField.KEY]) == (
-        "Lior Vance",
+        "Adam Beyer",
         "130",
         None,
     )
@@ -178,7 +178,7 @@ def test_names_the_frames_the_written_id3_file_carries(
         path,
         {
             TagField.DATE: "2023",
-            TagField.CATALOG_NUMBER: "KS287",
+            TagField.CATALOG_NUMBER: "DC287",
         },
         None,
     )
@@ -192,9 +192,9 @@ def test_names_the_frames_the_written_id3_file_carries(
 
 
 def test_shows_only_the_candidate_without_original_tags() -> None:
-    after = after_tags({TagField.ARTIST: "Lior Vance"}, None)
+    after = after_tags({TagField.ARTIST: "Adam Beyer"}, None)
 
-    assert (after[TagField.ARTIST], after[TagField.BPM]) == ("Lior Vance", None)
+    assert (after[TagField.ARTIST], after[TagField.BPM]) == ("Adam Beyer", None)
 
 
 @pytest.mark.parametrize(
