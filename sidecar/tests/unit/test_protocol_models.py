@@ -38,7 +38,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
-from tagger.run.tagging import FailureReason, Resolution, TrackState
+from tagger.run.models import FailureReason, Resolution, TrackState
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance

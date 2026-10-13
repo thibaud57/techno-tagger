@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.paths import extended_path
-from tagger.run.tagging import FailureReason
+from tagger.run.models import FailureReason
 from tagger.tags.files import TagsWriteError, restore_tags
 from tagger.tags.renaming import OriginalNameTakenError, RenameError, restore_name
 from tagger.tags.tag_dump import (
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-    from tagger.run.tagging import TrackFailureReason
+    from tagger.run.models import TrackFailureReason
     from tagger.tags.tag_dump import DumpEntry, TagDump
 
 logger = logging.getLogger(__name__)

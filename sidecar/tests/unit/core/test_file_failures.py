@@ -5,7 +5,7 @@ import errno
 import pytest
 
 from tagger.core.file_failures import FileFailureReason, file_failure_reason
-from tagger.run.tagging import FailureReason
+from tagger.run.models import FailureReason
 
 
 @pytest.mark.parametrize(

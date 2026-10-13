@@ -14,7 +14,7 @@ from tagger.resolution.scraper_client import (
     SourceUnavailableError,
 )
 from tagger.resolution.sources import ApiKeyRejectedRunError
-from tagger.run.tagging import (
+from tagger.run.models import (
     FailureReason,
     PendingArbitration,
     Resolution,
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from tagger.resolution.matching import TrackQuery
     from tagger.resolution.sources import RunSources
-    from tagger.run.tagging import LiveRun, TrackRecord
+    from tagger.run.models import LiveRun, TrackRecord
 
 logger = logging.getLogger(__name__)
 

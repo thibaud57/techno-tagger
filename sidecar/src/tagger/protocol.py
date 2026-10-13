@@ -29,7 +29,7 @@ from tagger.playlists import PlaylistFormat
 from tagger.playlists.extraction import DuplicateCriterion, ExtractionMode
 from tagger.resolution.matching import MatchingThresholds, check_thresholds
 from tagger.resolution.scraper_client import SearchSource, Source
-from tagger.run.tagging import FailureReason, Resolution, TrackFailureReason, TrackState
+from tagger.run.models import FailureReason, Resolution, TrackFailureReason, TrackState
 from tagger.tags.files import TagField, TagSystem
 
 if TYPE_CHECKING:

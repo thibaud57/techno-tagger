@@ -7,7 +7,7 @@ from tagging_records import RECORD
 from tagging_report_samples import HELD
 
 from tagger.resolution.sources import ApiKeyRejectedRunError, _RejectionGuard
-from tagger.run.tagging import FailureReason, LiveRun, TrackRecord
+from tagger.run.models import FailureReason, LiveRun, TrackRecord
 
 
 @pytest.mark.parametrize(

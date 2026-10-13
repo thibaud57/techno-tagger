@@ -10,6 +10,14 @@ from typing import TYPE_CHECKING
 
 from tagger.core.errors import RunNotFoundError
 from tagger.core.run_files import created_at_of, run_id_of
+from tagger.run.models import (
+    ArbitrationRequired,
+    LiveRun,
+    RunProgress,
+    RunStarted,
+    TrackResolved,
+    TrackState,
+)
 from tagger.run.plan import (
     RunPlanUnreadableError,
     discard_plan,
@@ -17,15 +25,7 @@ from tagger.run.plan import (
     load_plan,
     plans_newest_first,
 )
-from tagger.run.tagging import (
-    ArbitrationRequired,
-    LiveRun,
-    RunProgress,
-    RunStarted,
-    TrackResolved,
-    TrackState,
-    read_identities,
-)
+from tagger.run.tagging import read_identities
 from tagger.tags.files import TaggingFolderUnreadableError, has_audio_files, list_audio_files
 from tagger.tags.tag_dump import find_dump
 
@@ -35,8 +35,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from tagger.resolution.sources import RunSources
+    from tagger.run.models import RunEvent, TrackRecord
     from tagger.run.plan import RunPlan
-    from tagger.run.tagging import RunEvent, TrackRecord
 
 logger = logging.getLogger(__name__)
 

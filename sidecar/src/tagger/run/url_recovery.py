@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, ClassVar, override
 
 from tagger.core.errors import TaggerError
 from tagger.resolution.scraper_client import ScraperError
-from tagger.run.tagging import Resolution, TrackResolved, TrackState
+from tagger.run.models import Resolution, TrackResolved, TrackState
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
     from tagger.resolution.sources import RunSources
-    from tagger.run.tagging import LiveRun, TrackRecord
+    from tagger.run.models import LiveRun, TrackRecord
 
 logger = logging.getLogger(__name__)
 

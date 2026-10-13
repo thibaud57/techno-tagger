@@ -14,7 +14,7 @@ from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason
 from tagger.playlists.extraction import DuplicateCriterion
 from tagger.protocol import API_KEY_MALFORMED, MALFORMED_COMMAND
-from tagger.run.tagging import FailureReason
+from tagger.run.models import FailureReason
 
 if TYPE_CHECKING:
     from enum import StrEnum

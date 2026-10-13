@@ -9,14 +9,15 @@ from tagging_api import FakeApi, cancelled, hold_on_beatport, must_record, opene
 
 from tagger.resolution.scraper_client import Source
 from tagger.run.arbitration import Arbitration
-from tagger.run.tagging import ArbitrationRequired, TrackState, resolve_run
+from tagger.run.models import ArbitrationRequired, TrackState
+from tagger.run.tagging import resolve_run
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from tagging_api import OpenedRun
 
-    from tagger.run.tagging import RunEvent
+    from tagger.run.models import RunEvent
 
 pytestmark = pytest.mark.asyncio
 

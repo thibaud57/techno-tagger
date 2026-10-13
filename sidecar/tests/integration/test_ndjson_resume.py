@@ -11,8 +11,8 @@ from scraper_responses import BASIEL, YOUR_MIND
 from tagging_api import CREATED, ORIGINAL, found, two_tracks
 
 from tagger.core.run_files import run_id_of, stamped_name
+from tagger.run.models import FailureReason
 from tagger.run.plan import plan_dir
-from tagger.run.tagging import FailureReason
 from tagger.tags.tag_dump import dump_dir
 
 if TYPE_CHECKING:

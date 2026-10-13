@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from scraper_responses import Handler
 
     from tagger.resolution.scraper_client import TechnoScraperClient
-    from tagger.run.tagging import LiveRun, RunEvent, TaggingRun, TrackRecord
+    from tagger.run.models import LiveRun, RunEvent, TaggingRun, TrackRecord
 
 type Reply = Callable[[], httpx2.Response]
 

@@ -7,7 +7,7 @@ from scraper_responses import track_candidate
 
 from tagger.resolution.matching import ScoredCandidate
 from tagger.resolution.scraper_client import Source
-from tagger.run.tagging import PendingArbitration, TrackRecord
+from tagger.run.models import PendingArbitration, TrackRecord
 from tagger.tags.files import IdentityTags
 
 if TYPE_CHECKING:

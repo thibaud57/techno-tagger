@@ -16,13 +16,7 @@ from tagger.core.run_files import stamped_name
 from tagger.resolution.matching import TrackQuery, build_query
 from tagger.resolution.scraper_client import Source
 from tagger.run.arbitration import Arbitration
-from tagger.run.resume import (
-    InterruptedRun,
-    UnreadablePlan,
-    detect_interrupted,
-    reopen_run,
-)
-from tagger.run.tagging import (
+from tagger.run.models import (
     ArbitrationRequired,
     FailureReason,
     PendingArbitration,
@@ -33,13 +27,19 @@ from tagger.run.tagging import (
     TrackRecord,
     TrackResolved,
     TrackState,
-    resolve_run,
 )
+from tagger.run.resume import (
+    InterruptedRun,
+    UnreadablePlan,
+    detect_interrupted,
+    reopen_run,
+)
+from tagger.run.tagging import resolve_run
 from tagger.tags.files import TaggingFolderUnreadableError
 
 if TYPE_CHECKING:
     from tagger.resolution.scraper_client import TrackCandidate
-    from tagger.run.tagging import RunEvent
+    from tagger.run.models import RunEvent
 
 OLDER: Final = CREATED - timedelta(days=2)
 OLDER_RUN: Final = "9e8f7a"

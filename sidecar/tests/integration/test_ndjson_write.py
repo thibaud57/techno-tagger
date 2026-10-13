@@ -27,7 +27,7 @@ from tagger.reports import tagging as tagging_report
 from tagger.reports.index import index_path, list_reports
 from tagger.reports.tagging import load_tagging_report
 from tagger.run import writing
-from tagger.run.tagging import TrackState
+from tagger.run.models import TrackState
 from tagger.tags import files, tag_dump
 from tagger.tags.files import TagsUnreadableError, TagsWriteError, TagSystem
 from tagger.tags.tag_dump import TagDumpUnreadableError, TagDumpWriteError, dump_dir

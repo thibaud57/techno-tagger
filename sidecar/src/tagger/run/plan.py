@@ -34,7 +34,7 @@ from tagger.resolution.matching import (
     check_thresholds,
 )
 from tagger.resolution.scraper_client import Source, TrackCandidate
-from tagger.run.tagging import (
+from tagger.run.models import (
     FailureReason,
     PendingArbitration,
     Resolution,
@@ -46,7 +46,7 @@ from tagger.run.tagging import (
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from tagger.run.tagging import LiveRun, TrackFailureReason, TrackRecord
+    from tagger.run.models import LiveRun, TrackFailureReason, TrackRecord
 
 logger = logging.getLogger(__name__)
 

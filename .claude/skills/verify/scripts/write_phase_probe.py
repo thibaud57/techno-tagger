@@ -30,14 +30,8 @@ from tagging_api import JPEG
 
 from tagger.resolution.scraper_client import Source
 from tagger.run import writing
-from tagger.run.tagging import (
-    FailureReason,
-    Resolution,
-    TrackRecord,
-    TrackResolved,
-    TrackState,
-    open_run,
-)
+from tagger.run.models import FailureReason, Resolution, TrackRecord, TrackResolved, TrackState
+from tagger.run.tagging import open_run
 from tagger.tags import files, renaming
 from tagger.tags.files import TagField, read_original_tags
 from tagger.tags.tag_dump import TagDump, dump_dir, dump_path, journal_path, load_dump

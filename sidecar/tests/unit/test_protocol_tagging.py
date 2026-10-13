@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from scraper_responses import track_candidate
 from tagging_records import RECORD, scored_candidate
 
-from tagger.handlers import to_protocol_event
 from tagger.protocol import (
     ArbitrationRequired,
     Progress,
@@ -20,9 +19,10 @@ from tagger.protocol import (
     parse_command,
 )
 from tagger.resolution.scraper_client import Source, TrackCandidate
-from tagger.run import tagging
-from tagger.run.tagging import PendingArbitration, Resolution, TrackRecord, TrackState
+from tagger.run import models
+from tagger.run.models import PendingArbitration, Resolution, TrackRecord, TrackState
 from tagger.tags.files import TAG_FIELDS, TagField
+from tagger.translation import to_protocol_event
 
 if TYPE_CHECKING:
     from tagger.resolution.matching import ScoredCandidate
@@ -78,7 +78,7 @@ def _record(
 
 
 def test_lists_every_track_of_a_started_run() -> None:
-    event = to_protocol_event(tagging.RunStarted("a3f9c1", Path("D:/Sets"), (_record(),)))
+    event = to_protocol_event(models.RunStarted("a3f9c1", Path("D:/Sets"), (_record(),)))
 
     assert isinstance(event, RunStarted)
     assert event.folder == Path("D:/Sets")
@@ -95,7 +95,7 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
         scored=scored_candidate(),
     )
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.scores is not None
@@ -121,7 +121,7 @@ def test_renders_the_artist_and_the_title_a_source_will_write(
         scored=scored_candidate(),
     )
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.after is not None
@@ -131,7 +131,7 @@ def test_renders_the_artist_and_the_title_a_source_will_write(
 def test_carries_no_tags_after_for_an_unresolved_track() -> None:
     record = _record(state=TrackState.UNRESOLVED, resolution=Resolution.NONE)
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.tags_after is None
@@ -150,8 +150,8 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
         tags_before=None,
     )
 
-    started = to_protocol_event(tagging.RunStarted("a3f9c1", Path("D:/Sets"), (record,)))
-    resolved = to_protocol_event(tagging.TrackResolved(record))
+    started = to_protocol_event(models.RunStarted("a3f9c1", Path("D:/Sets"), (record,)))
+    resolved = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(started, RunStarted)
     assert started.tracks[0].tags_before is None
@@ -175,7 +175,7 @@ def test_reports_no_artist_score_for_a_query_without_artist() -> None:
         scored=scored_candidate(artist=None, title=100),
     )
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.scores is not None
@@ -189,7 +189,7 @@ def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
         )
     )
 
-    event = to_protocol_event(tagging.ArbitrationRequired(record))
+    event = to_protocol_event(models.ArbitrationRequired(record))
 
     assert isinstance(event, ArbitrationRequired)
     assert event.beatport_unavailable is True
@@ -197,7 +197,7 @@ def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
 
 
 def test_maps_the_pipeline_progress_to_the_tagging_phase() -> None:
-    event = to_protocol_event(tagging.RunProgress(2, 3))
+    event = to_protocol_event(models.RunProgress(2, 3))
 
     assert isinstance(event, Progress)
     assert event.phase == "tagging"

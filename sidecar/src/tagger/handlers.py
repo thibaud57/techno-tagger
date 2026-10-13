@@ -7,7 +7,6 @@ le contrat etant appele a grandir bien au-dela des commandes actuelles.
 
 import asyncio
 import logging
-from collections import Counter
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
@@ -22,9 +21,6 @@ from tagger.core.paths import app_data_dir
 from tagger.playlists import list_playlists, read_playlist
 from tagger.playlists.extraction import extract
 from tagger.protocol import (
-    ArbitrationRequired,
-    ArbitrationUpdated,
-    CandidatePayload,
     DuplicatePayload,
     ExtractionFinished,
     ExtractPlaylist,
@@ -43,30 +39,21 @@ from tagger.protocol import (
     RollbackFinished,
     RollbackRun,
     RollbackTarget,
-    RunFinished,
     RunLoaded,
     RunPhase,
     RunsListed,
-    RunStarted,
     SetApiKey,
     StartTagging,
-    TagsBeforePayload,
-    TagValuePayload,
-    TrackEntry,
     TrackLoaded,
     TrackNames,
-    TrackResolved,
-    TrackScores,
     UnreadablePlanPayload,
     Version,
 )
 from tagger.reports.extraction import ReportContext, ReportWriteError, write_extraction_report
 from tagger.reports.index import IndexEntry, index_path, list_reports, record_report
 from tagger.reports.tagging import (
-    after_rows,
     load_tagging_report,
     report_paths,
-    tag_rows,
     write_tagging_report,
 )
 from tagger.resolution.cache import (
@@ -79,12 +66,9 @@ from tagger.resolution.cache import (
 from tagger.resolution.matching import (
     DEFAULT_THRESHOLDS,
     MatchingThresholds,
-    credited_artists,
-    full_title,
 )
 from tagger.resolution.scraper_client import TechnoScraperClient
 from tagger.resolution.sources import RunSources
-from tagger.run import arbitration, tagging, url_recovery, writing
 from tagger.run.arbitration import Arbitration
 from tagger.run.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
 from tagger.run.plan import PlanRecorder, RunPlan, plan_dir
@@ -95,25 +79,29 @@ from tagger.run.url_recovery import UrlRecovery
 from tagger.run.writing import RunWriter
 from tagger.tags.files import TagField
 from tagger.tags.tag_dump import TagDumpError, dump_dir
+from tagger.translation import (
+    payload_rows,
+    relay_into,
+    resolved_event,
+    rounded_scores,
+    run_finished_event,
+    tags_before_payload,
+    to_protocol_event,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
     from pathlib import Path
 
     import httpx2
 
     from tagger.protocol import Event
     from tagger.reports.extraction import ReportPaths
-    from tagger.reports.tagging import ReportTagValue, TaggingReport, TaggingReportTrack
+    from tagger.reports.tagging import TaggingReport, TaggingReportTrack
     from tagger.resolution.cache import HostResolver
-    from tagger.resolution.matching import ScoredCandidate
-    from tagger.resolution.scraper_client import TrackCandidate
-    from tagger.run.arbitration import ArbitrationEvent
+    from tagger.run.models import LiveRun
     from tagger.run.resume import DetectedPlan
-    from tagger.run.tagging import LiveRun, TaggingRun, TrackRecord
-    from tagger.run.url_recovery import UrlRecoveryEvent
-    from tagger.run.writing import WriteEvent
-    from tagger.tags.files import TagSystem
+    from tagger.translation import PipelineEvent
 
 logger = logging.getLogger(__name__)
 
@@ -381,7 +369,7 @@ async def open_tagging(command: StartTagging, emit: Callable[[Event], None]) -> 
     rendue au `CurrentRun` et une ouverture ratee referme ce qu'elle a deja ouvert."""
     async with AsyncExitStack() as stack:
         client, artworks = await _open_clients(stack)
-        relay = _relay(emit)
+        relay = relay_into(emit)
         live = await open_run(command.folder, on_event=relay)
         thresholds = _thresholds(command)
         sources = RunSources(live.run_id, client, artworks, thresholds)
@@ -393,7 +381,7 @@ async def open_resumed_tagging(plan: RunPlan, emit: Callable[[Event], None]) -> 
     """Rouvre le run d'un plan avec ses seuils ; son plan continue dans le meme fichier."""
     async with AsyncExitStack() as stack:
         client, artworks = await _open_clients(stack)
-        relay = _relay(emit)
+        relay = relay_into(emit)
         thresholds = plan.thresholds.to_matching()
         sources = RunSources(plan.run_id, client, artworks, thresholds)
         live = await reopen_run(plan, sources, on_event=relay)
@@ -447,15 +435,15 @@ async def handle_resume_run(
 async def _network_phase(current: CurrentRun, emit: Callable[[Event], None]) -> None:
     """Phase reseau d'un run neuf ou repris ; sa fin ouvre le rattrapage, dont la progression
     suit `run_finished`."""
-    await resolve_run(current.live, current.sources, on_event=_relay(emit))
-    emit(_run_finished(current.live.snapshot(), RunPhase.NETWORK))
+    await resolve_run(current.live, current.sources, on_event=relay_into(emit))
+    emit(run_finished_event(current.live.snapshot(), RunPhase.NETWORK))
     emit(url_progress(current))
 
 
 def commit(current: CurrentRun, emit: Callable[[Event], None]) -> RunWriter:
     """Fige le run a l'acceptation de `commit_run`, avant que l'ecriture ne demarre : une
     decision lue juste apres n'y entre plus. Le `RunWriter` reste au run, pour la relance."""
-    current.writer = RunWriter(current.live, dump_dir(), _relay(emit))
+    current.writer = RunWriter(current.live, dump_dir(), relay_into(emit))
     return current.writer
 
 
@@ -475,13 +463,13 @@ async def handle_commit_run(current: CurrentRun, writer: RunWriter) -> Event:
             await current.plan.reopen()
         raise
     await _write_report(current)
-    return _run_finished(current.live.snapshot(), RunPhase.WRITE, current.report)
+    return run_finished_event(current.live.snapshot(), RunPhase.WRITE, current.report)
 
 
 async def handle_retry_write(current: CurrentRun, writer: RunWriter) -> Event:
     await writer.retry()
     await _write_report(current)
-    return _run_finished(current.live.snapshot(), RunPhase.WRITE, current.report)
+    return run_finished_event(current.live.snapshot(), RunPhase.WRITE, current.report)
 
 
 async def _write_report(current: CurrentRun) -> None:
@@ -602,12 +590,14 @@ def _loaded(track: TaggingReportTrack, artwork: Path | None) -> TrackLoaded:
         after=None
         if track.artist is None or track.title is None
         else TrackNames(artist=track.artist, title=track.title),
-        scores=None if scores is None else _rounded(scores.artist, scores.title, scores.average),
+        scores=None
+        if scores is None
+        else rounded_scores(scores.artist, scores.title, scores.average),
         # Systeme et lignes sont nuls ensemble : le rapport a lu les deux sur les memes tags.
         tags_before=None
         if track.system is None or track.tags_before is None
-        else _tags_before(track.system, track.comment_before, track.tags_before),
-        tags_after=None if track.tags_after is None else _payload_rows(track.tags_after),
+        else tags_before_payload(track.system, track.comment_before, track.tags_before),
+        tags_after=None if track.tags_after is None else payload_rows(track.tags_after),
         source_url=track.url,
         artwork_path=artwork,
     )
@@ -637,7 +627,7 @@ async def handle_rollback(
             return
         rolled_back = record.rolled_back(path)
         live.update(rolled_back)
-        emit(_resolved(rolled_back))
+        emit(resolved_event(rolled_back))
 
     summary = await roll_back(dump_dir(), command.run_id, command.track_id, restored)
     # Entree retiree sans restauration : l'etat reste, mais l'interface ne doit plus proposer
@@ -648,7 +638,7 @@ async def handle_rollback(
             if record is not None:
                 unrestorable = record.unrestorable()
                 live.update(unrestorable)
-                emit(_resolved(unrestorable))
+                emit(resolved_event(unrestorable))
     return RollbackFinished(
         event="rollback_finished",
         run_id=summary.run_id,
@@ -665,168 +655,3 @@ def _thresholds(command: StartTagging) -> MatchingThresholds:
     """Sans seuils dans la commande, ceux du sidecar : une valeur, une source."""
     sent = command.thresholds
     return DEFAULT_THRESHOLDS if sent is None else sent.to_matching()
-
-
-type PipelineEvent = tagging.RunEvent | ArbitrationEvent | UrlRecoveryEvent | WriteEvent
-
-
-def _relay(emit: Callable[[Event], None]) -> Callable[[PipelineEvent], None]:
-    return lambda event: emit(to_protocol_event(event))
-
-
-# PLR0911 : une sortie par evenement traduit, le `match` ferme par `assert_never` etant
-# ce qui rend un oubli visible au typage.
-def to_protocol_event(event: PipelineEvent) -> Event:  # noqa: PLR0911
-    """Traduit un evenement pipeline, arbitrage, rattrapage ou ecriture."""
-    match event:
-        case tagging.RunStarted():
-            return RunStarted(
-                event="run_started",
-                run_id=event.run_id,
-                folder=event.folder,
-                tracks=tuple(_entry(record) for record in event.tracks),
-            )
-        case tagging.TrackResolved():
-            return _resolved(event.record)
-        case tagging.ArbitrationRequired():
-            return _arbitration_state(ArbitrationRequired, event.record)
-        case arbitration.ArbitrationUpdated():
-            return _arbitration_state(ArbitrationUpdated, event.record)
-        case tagging.RunProgress():
-            return Progress(
-                event="progress",
-                phase=Phase.TAGGING,
-                processed=event.processed,
-                total=event.total,
-            )
-        case url_recovery.UrlProgress():
-            return Progress(
-                event="progress",
-                phase=Phase.URL_RECOVERY,
-                processed=event.processed,
-                total=event.total,
-            )
-        case writing.WriteProgress():
-            return Progress(
-                event="progress",
-                phase=Phase.WRITE,
-                processed=event.processed,
-                total=event.total,
-            )
-        case _:
-            assert_never(event)
-
-
-def _entry(record: TrackRecord) -> TrackEntry:
-    before = record.tags_before
-    return TrackEntry(
-        track_id=record.track_id,
-        file_name=record.file_name,
-        artist=record.identity.artist,
-        title=record.identity.title,
-        tags_before=None
-        if before is None
-        else _tags_before(before.system, before.comment, tag_rows(before.fields, before.system)),
-    )
-
-
-def _tags_before(
-    system: TagSystem, comment: str | None, rows: Iterable[ReportTagValue]
-) -> TagsBeforePayload:
-    return TagsBeforePayload(system=system, comment=comment, fields=_payload_rows(rows))
-
-
-def _tags_after(record: TrackRecord, candidate: TrackCandidate) -> tuple[TagValuePayload, ...]:
-    return _payload_rows(after_rows(record, candidate))
-
-
-def _payload_rows(rows: Iterable[ReportTagValue]) -> tuple[TagValuePayload, ...]:
-    """Une seule projection des lignes pour l'ecran et le rapport, ici seulement convertie."""
-    return tuple(TagValuePayload.model_validate(row, from_attributes=True) for row in rows)
-
-
-def _resolved(record: TrackRecord) -> TrackResolved:
-    if record.state is None or record.resolution is None:
-        logger.error("track without state track=%s", record.track_id)
-        raise ValueError("track without state")
-    candidate = record.candidate
-    return TrackResolved(
-        event="track_resolved",
-        track_id=record.track_id,
-        state=record.state,
-        resolution=record.resolution,
-        failure_reason=record.failure_reason,
-        source=record.source,
-        after=None if candidate is None else _names(candidate),
-        scores=None if record.scored is None else _scores(record.scored),
-        artwork_path=record.artwork,
-        tags_after=None if candidate is None else _tags_after(record, candidate),
-        restorable=record.restorable,
-        source_url=None if candidate is None else candidate.url,
-    )
-
-
-def _arbitration_state(
-    kind: type[ArbitrationRequired | ArbitrationUpdated], record: TrackRecord
-) -> ArbitrationRequired | ArbitrationUpdated:
-    pending = record.arbitration
-    if pending is None:
-        logger.error("track without arbitration track=%s", record.track_id)
-        raise ValueError("track without arbitration")
-    return kind(
-        track_id=record.track_id,
-        source=pending.source,
-        beatport_unavailable=pending.beatport_unavailable,
-        candidates=tuple(_candidate(scored) for scored in pending.candidates),
-        empty_reason=pending.empty_reason,
-        other_source=None if pending.other is None else pending.other.source,
-    )
-
-
-def _candidate(scored: ScoredCandidate) -> CandidatePayload:
-    candidate = scored.candidate
-    released = candidate.release.release_date if candidate.release else None
-    return CandidatePayload(
-        artist=credited_artists(candidate),
-        title=full_title(candidate),
-        label=None if candidate.label is None else candidate.label.name,
-        year=None if released is None else released.year,
-        scores=_scores(scored),
-    )
-
-
-def _names(candidate: TrackCandidate) -> TrackNames:
-    """Ce que la source ecrira : regle de titre et d'artistes de l'ADR-011."""
-    return TrackNames(artist=credited_artists(candidate), title=full_title(candidate))
-
-
-def _scores(scored: ScoredCandidate) -> TrackScores:
-    """Arrondis : l'ecran affiche « A 96 · T 92 »."""
-    return _rounded(scored.artist_score, scored.title_score, scored.score)
-
-
-def _rounded(artist: float | None, title: float, average: float) -> TrackScores:
-    return TrackScores(
-        artist=None if artist is None else round(artist),
-        title=round(title),
-        average=round(average),
-    )
-
-
-def _run_finished(
-    run: TaggingRun, phase: RunPhase, report: ReportPaths | None = None
-) -> RunFinished:
-    # Chaque compteur se lit sur le champ de son issue, jamais sur l'absence d'un autre : un
-    # `state` laisse vide gonflerait en silence le compte des arbitrages.
-    states = Counter(record.state for record in run.tracks)
-    return RunFinished(
-        event="run_finished",
-        phase=phase,
-        run_id=run.run_id,
-        resolved=states[tagging.TrackState.RESOLVED],
-        unresolved=states[tagging.TrackState.UNRESOLVED],
-        written=states[tagging.TrackState.WRITTEN],
-        write_error=states[tagging.TrackState.WRITE_ERROR],
-        awaiting_arbitration=sum(1 for record in run.tracks if record.arbitration is not None),
-        report_path=None if report is None else report.json_path,
-    )

@@ -41,13 +41,8 @@ from tagger.resolution.scraper_client import (
     UnsupportedTrackUrlError,
 )
 from tagger.resolution.sources import ApiKeyRejectedRunError
-from tagger.run.tagging import (
-    FailureReason,
-    Resolution,
-    TrackResolved,
-    TrackState,
-    resolve_run,
-)
+from tagger.run.models import FailureReason, Resolution, TrackResolved, TrackState
+from tagger.run.tagging import resolve_run
 from tagger.run.url_recovery import (
     UrlProgress,
     UrlRecovery,
@@ -61,7 +56,7 @@ if TYPE_CHECKING:
 
     from tagging_api import OpenedRun, Reply
 
-    from tagger.run.tagging import TrackRecord
+    from tagger.run.models import TrackRecord
     from tagger.run.url_recovery import UrlRecoveryEvent
 
 pytestmark = pytest.mark.asyncio

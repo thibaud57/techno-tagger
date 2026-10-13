@@ -23,21 +23,21 @@ from tagging_api import (
 from tagging_records import held
 
 from tagger.resolution.sources import ApiKeyRejectedRunError
-from tagger.run.tagging import (
+from tagger.run.models import (
     ArbitrationRequired,
     FailureReason,
     RunProgress,
     RunStarted,
     TrackResolved,
     TrackState,
-    resolve_run,
 )
+from tagger.run.tagging import resolve_run
 from tagger.tags.files import TaggingFolderUnreadableError
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from tagger.run.tagging import LiveRun, RunEvent
+    from tagger.run.models import LiveRun, RunEvent
 
 pytestmark = pytest.mark.asyncio
 

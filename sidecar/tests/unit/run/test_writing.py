@@ -18,8 +18,7 @@ from tagging_api import CREATED, JPEG, must_record
 from tagger.core.file_failures import FileFailureReason
 from tagger.resolution.scraper_client import Source
 from tagger.run import writing
-from tagger.run.rollback import roll_back
-from tagger.run.tagging import (
+from tagger.run.models import (
     FailureReason,
     LiveRun,
     Resolution,
@@ -28,6 +27,7 @@ from tagger.run.tagging import (
     TrackState,
     WriteOutcome,
 )
+from tagger.run.rollback import roll_back
 from tagger.run.writing import RunWriter, WriteProgress
 from tagger.tags import files
 from tagger.tags.files import (

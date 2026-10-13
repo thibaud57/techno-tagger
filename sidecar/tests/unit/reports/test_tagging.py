@@ -24,7 +24,7 @@ from tagger.reports.tagging import (
 )
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
 from tagger.resolution.scraper_client import Source
-from tagger.run.tagging import Resolution, TaggingRun, TrackState, WriteOutcome
+from tagger.run.models import Resolution, TaggingRun, TrackState, WriteOutcome
 from tagger.tags.files import TagField, TagSystem, WrittenTags
 
 if TYPE_CHECKING:

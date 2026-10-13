@@ -27,7 +27,7 @@ from tagger.reports.extraction import (
 )
 from tagger.resolution.matching import QueryOrigin, credited_artists, full_title
 from tagger.resolution.scraper_client import Source
-from tagger.run.tagging import FailureReason, Resolution, TrackState
+from tagger.run.models import FailureReason, Resolution, TrackState
 from tagger.tags.files import (
     TagField,
     TagSystem,
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from tagger.reports.extraction import ReportPaths
     from tagger.resolution.matching import MatchingThresholds
     from tagger.resolution.scraper_client import TrackCandidate
-    from tagger.run.tagging import TaggingRun, TrackRecord
+    from tagger.run.models import TaggingRun, TrackRecord
 
 logger = logging.getLogger(__name__)
 

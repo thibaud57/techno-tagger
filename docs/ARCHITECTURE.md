@@ -114,12 +114,13 @@ techno-tagger/
 │   ├── src/tagger/                       # un package par étape du pipeline, chacun n'importe que ceux au-dessus de lui (cf. § Backend > Structure du Code)
 │   │   ├── __main__.py                   # boucle de commandes, émission d'événements
 │   │   ├── protocol.py                   # modèles des commandes et des événements
-│   │   ├── handlers.py                   # handlers des commandes, run courant, événements traduits
+│   │   ├── handlers.py                   # handlers des commandes, run courant
+│   │   ├── translation.py                # événements du pipeline traduits en événements du protocole
 │   │   ├── core/                         # socle transverse : erreurs, chemins, logs, Sentry, clé API, fichiers d'un run
 │   │   ├── playlists/                    # parsing VLC SQLite et M3U8, copie ou déplacement des morceaux
 │   │   ├── resolution/                   # scoring rapidfuzz, client techno-scraper, cache, sources
 │   │   ├── tags/                         # mutagen, dump des tags d'origine, renommage
-│   │   ├── run/                          # run vivant : pipeline, arbitrage, rattrapage URL, écriture, rollback, plan, reprise
+│   │   ├── run/                          # run vivant : état (models), pipeline, arbitrage, rattrapage URL, écriture, rollback, plan, reprise
 │   │   └── reports/                      # rapports d'extraction et de re-tagging, registre des runs passés
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
 │   │   ├── unit/                         # un module isole, un sous-dossier par package de src/tagger/
@@ -426,13 +427,14 @@ Deux réglages ne passent pas par un plugin :
 
 Modules à responsabilité unique sous `src/tagger/`, sans framework ni couche d'injection. `protocol.py` définit les modèles **Pydantic** (cf. [ADR-022](adrs/022-modeles-pydantic-du-protocole.md)) de commandes et d'événements et constitue la seule interface publique du sidecar ; tout le reste est appelé depuis la boucle de `__main__.py`.
 
-Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre où un run les traverse. Chaque package n'importe que ceux listés avant lui, ce qui interdit les cycles : `core` ← `playlists` ← `resolution` ← `tags` ← `run` ← `reports`, et seuls `protocol.py` et `handlers.py`, à la racine, les voient tous.
+Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre où un run les traverse. Chaque package n'importe que ceux listés avant lui, ce qui interdit les cycles : `core` ← `playlists` ← `resolution` ← `tags` ← `run` ← `reports`. À la racine, `protocol.py` décrit le contrat sans rien importer du métier, `translation.py` projette l'état d'un run sur ce contrat, `handlers.py` exécute les commandes et voit tout.
 
 | Package | Module | Rôle |
 |---|---|---|
 | racine | `__main__.py` | Boucle de commandes, émission d'événements |
 | | `protocol.py` | Modèles des commandes et des événements |
-| | `handlers.py` | Handlers des commandes, run courant, événements traduits |
+| | `handlers.py` | Handlers des commandes, run courant |
+| | `translation.py` | Événements du pipeline, de l'arbitrage, du rattrapage et de l'écriture traduits en événements du protocole |
 | `core/` | `errors.py` | Erreurs métier : code stable et params structurés |
 | | `file_failures.py` | Motifs d'échec d'un fichier, classifieur unique (extraction, écriture, restauration) |
 | | `paths.py` | Racine des données applicatives, préfixe `\\?\` des chemins |
@@ -450,7 +452,8 @@ Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre
 | `tags/` | `files.py` | mutagen : lecture/écriture des tags |
 | | `tag_dump.py` | Dump des tags d'origine d'un run et journal des renommages, purgés après 30 jours |
 | | `renaming.py` | Plan de renommage artiste - titre, collisions, chemins longs |
-| `run/` | `tagging.py` | Pipeline de résolution, run vivant en mémoire |
+| `run/` | `models.py` | État d'un run : enums d'issue (`TrackState`, `Resolution`, `FailureReason`), fiche d'un morceau, run gelé ou vivant, événements internes du pipeline |
+| | `tagging.py` | Pipeline de résolution : lecture des identités, cascade Beatport puis Bandcamp |
 | | `arbitration.py` | Gestes d'arbitrage sur un run vivant |
 | | `url_recovery.py` | Rattrapage d'un morceau par URL |
 | | `writing.py` | Phase d'écriture d'un run : dump, tags, renommage, relance |
@@ -461,7 +464,7 @@ Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre
 | | `tagging.py` | Rapport de re-tagging d'un run, JSON et Markdown, relecture migrable |
 | | `index.py` | Registre des rapports écrits, pour rouvrir un run passé |
 
-Les tests unitaires suivent le même découpage : `tests/unit/<package>/`, les tests de la racine (`__main__`, `protocol`, `handlers`) restant dans `tests/unit/`.
+Les tests unitaires suivent le même découpage : `tests/unit/<package>/`, les tests de la racine (`__main__`, `protocol`, `handlers`, `translation`) restant dans `tests/unit/`.
 
 ### API
 

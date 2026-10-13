@@ -10,13 +10,7 @@ from tagging_records import RECORD, held, scored_candidate
 from tagger.core.file_failures import FileFailureReason
 from tagger.resolution.matching import QueryOrigin, TrackQuery
 from tagger.resolution.scraper_client import Source
-from tagger.run.tagging import (
-    FailureReason,
-    Resolution,
-    TaggingRun,
-    TrackRecord,
-    WriteOutcome,
-)
+from tagger.run.models import FailureReason, Resolution, TaggingRun, TrackRecord, WriteOutcome
 from tagger.tags.files import ShownTags, TagField, TagSystem, WrittenTags
 
 FOLDER: Final = Path("music")

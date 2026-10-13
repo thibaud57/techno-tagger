@@ -22,7 +22,7 @@ from tagging_api import (
 )
 
 from tagger.resolution.scraper_client import Source
-from tagger.run.tagging import FailureReason, Resolution, TrackState
+from tagger.run.models import FailureReason, Resolution, TrackState
 
 if TYPE_CHECKING:
     from pathlib import Path

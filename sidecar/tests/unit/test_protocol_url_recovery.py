@@ -5,11 +5,11 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from tagger.handlers import to_protocol_event
 from tagger.protocol import Phase, Progress, ResolveByUrl, error_from_business, parse_command
 from tagger.resolution.scraper_client import UnsupportedTrackUrlError
 from tagger.run.arbitration import ArbitrationNotPendingError
 from tagger.run.url_recovery import UrlProgress
+from tagger.translation import to_protocol_event
 
 URL: Final = "https://amelielens.bandcamp.com/track/basiel"
 

@@ -34,7 +34,8 @@ from tagger.run.arbitration import (
     ArbitrationNotPendingError,
     ArbitrationUpdated,
 )
-from tagger.run.tagging import FailureReason, Resolution, TrackResolved, TrackState, resolve_run
+from tagger.run.models import FailureReason, Resolution, TrackResolved, TrackState
+from tagger.run.tagging import resolve_run
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
     from tagging_api import OpenedRun, Reply
 
     from tagger.run.arbitration import ArbitrationEvent
-    from tagger.run.tagging import PendingArbitration
+    from tagger.run.models import PendingArbitration
 
     type Gesture = Callable[[Arbitration, str], Awaitable[None]]
 

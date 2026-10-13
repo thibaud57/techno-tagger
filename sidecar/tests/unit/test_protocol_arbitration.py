@@ -10,7 +10,6 @@ from pydantic import ValidationError
 from scraper_responses import track_candidate
 from tagging_records import RECORD, scored_candidate
 
-from tagger.handlers import to_protocol_event
 from tagger.protocol import (
     ArbitrationRequired,
     ArbitrationUpdated,
@@ -18,8 +17,9 @@ from tagger.protocol import (
     parse_command,
 )
 from tagger.resolution.scraper_client import Credit, ReleaseInfo, Source
-from tagger.run import arbitration, tagging
-from tagger.run.tagging import FailureReason, PendingArbitration, SourceList, TrackRecord
+from tagger.run import arbitration, models
+from tagger.run.models import FailureReason, PendingArbitration, SourceList, TrackRecord
+from tagger.translation import to_protocol_event
 
 if TYPE_CHECKING:
     from tagger.resolution.scraper_client import TrackCandidate
@@ -72,7 +72,7 @@ def test_translates_the_label_and_the_release_year(
         Source.BEATPORT, (scored_candidate(candidate=candidate),), beatport_unavailable=False
     )
 
-    event = to_protocol_event(tagging.ArbitrationRequired(_awaiting(pending)))
+    event = to_protocol_event(models.ArbitrationRequired(_awaiting(pending)))
 
     assert isinstance(event, ArbitrationRequired)
     assert (event.candidates[0].label, event.candidates[0].year) == expected

@@ -25,6 +25,15 @@ from tagger.resolution.matching import (
 )
 from tagger.resolution.scraper_client import Source
 from tagger.run import plan as plan_module
+from tagger.run.models import (
+    FailureReason,
+    LiveRun,
+    PendingArbitration,
+    Resolution,
+    SourceList,
+    TrackRecord,
+    TrackState,
+)
 from tagger.run.plan import (
     PlanRecorder,
     PlanScores,
@@ -37,15 +46,6 @@ from tagger.run.plan import (
     load_plan,
     plan_path,
     purge_plans,
-)
-from tagger.run.tagging import (
-    FailureReason,
-    LiveRun,
-    PendingArbitration,
-    Resolution,
-    SourceList,
-    TrackRecord,
-    TrackState,
 )
 
 QUERY: Final = TrackQuery("Adam Beyer", "Your Mind", QueryOrigin.TAGS)

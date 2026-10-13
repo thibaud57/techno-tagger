@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, override
 import sentry_sdk
 
 from tagger.core.file_failures import FileFailureReason
-from tagger.run.tagging import TrackResolved, TrackState, WriteOutcome
+from tagger.run.models import TrackResolved, TrackState, WriteOutcome
 from tagger.tags.files import (
     OriginalTags,
     TagField,
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
-    from tagger.run.tagging import LiveRun, TrackRecord
+    from tagger.run.models import LiveRun, TrackRecord
 
 logger = logging.getLogger(__name__)
 

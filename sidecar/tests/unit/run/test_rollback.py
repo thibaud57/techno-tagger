@@ -15,6 +15,7 @@ from tagging_api import tagged_mp3
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.run import rollback
+from tagger.run.models import FailureReason
 from tagger.run.rollback import (
     RollbackFailure,
     RollbackTarget,
@@ -22,7 +23,6 @@ from tagger.run.rollback import (
     find_rollback_target,
     roll_back,
 )
-from tagger.run.tagging import FailureReason
 from tagger.tags.files import (
     OriginalTags,
     TagField,
