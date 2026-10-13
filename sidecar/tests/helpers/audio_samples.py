@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
+    from mutagen.id3 import ID3
+
 # MPEG-1 Layer III, 128 kbit/s, 44,1 kHz, mono, sans CRC ni padding : une trame
 # fait 144 * 128000 / 44100 = 417 octets. Plusieurs trames, mutagen se
 # synchronisant sur une suite de trames coherente.
@@ -54,6 +56,12 @@ def write_blank_mp3(path: Path) -> Path:
     """Suite de trames MPEG silencieuses, sans tag ID3."""
     frame = _MP3_FRAME_HEADER + b"\x00" * (_MP3_FRAME_LENGTH - len(_MP3_FRAME_HEADER))
     path.write_bytes(frame * _MP3_FRAME_COUNT)
+    return path
+
+
+def write_not_audio(path: Path) -> Path:
+    """Octets que mutagen ne rattache a aucun format, quelle que soit l'extension."""
+    path.write_bytes(b"not an audio file" * 16)
     return path
 
 
@@ -114,7 +122,7 @@ def write_tagged_wavpack(path: Path) -> Path:
         + struct.pack("<III", frames, 0, frames)
         + struct.pack("<II", flags, 0)
     )
-    path.write_bytes(header + _ape_tag({"Artist": "Dara Winter", "Title": "The Weir"}))
+    path.write_bytes(header + _ape_tag({"Artist": "Sara Landry", "Title": "The Void"}))
     return path
 
 
@@ -152,6 +160,12 @@ def tag(path: Path, *, artist: list[str], title: list[str]) -> None:
         audio.tags.add(TPE1(encoding=3, text=artist))
         audio.tags.add(TIT2(encoding=3, text=title))
     audio.save()
+
+
+def id3_as_written(path: Path) -> ID3:
+    """Frames telles qu'ecrites sur le disque : rechargees sans la remontee en v2.4 de mutagen."""
+    tags: ID3 = type(mutagen.File(path))(path, translate=False).tags
+    return tags
 
 
 def append_id3v1(path: Path, *, comment: str) -> None:

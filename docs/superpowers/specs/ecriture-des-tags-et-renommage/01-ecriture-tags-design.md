@@ -86,16 +86,16 @@ L'ordre des lignes est celui de `TAG_FIELDS`, donc celui du détail avant / apr�
 ## Acceptance criteria
 
 ### Scénario 1 : candidat Beatport complet sur un MP3 mal tagué
-**GIVEN** un MP3 tagué `TPE1` « lior vance », `TIT2` « dim orbit », un commentaire et deux images
-**WHEN** on écrit la projection du candidat Beatport des fixtures (« Dim Orbit », mix « Extended Mix », sortie du 2023-06-16) avec sa pochette
-**THEN** le fichier relu en ID3v2.3 porte chacun des 14 champs que le candidat renseigne (tous sauf le remixeur), dont `TIT2` « Dim Orbit (Extended Mix) » et `TYER` « 2023 »
+**GIVEN** un MP3 tagué `TPE1` « adam beyer », `TIT2` « your mind », un commentaire et deux images
+**WHEN** on écrit la projection du candidat Beatport des fixtures (« Your Mind », mix « Extended Mix », sortie du 2023-06-16) avec sa pochette
+**THEN** le fichier relu en ID3v2.3 porte chacun des 14 champs que le candidat renseigne (tous sauf le remixeur), dont `TIT2` « Your Mind (Extended Mix) » et `TYER` « 2023 »
 **AND** il ne contient ni `TDRC`, ni `TDAT`, ni commentaire, et une seule image : la pochette fournie, en recto
 
 ### Scénario 2 : remix à plusieurs artistes
-**GIVEN** un candidat aux artistes « Lior Vance » et « Mara Quill », remixeur « Kaelen Mirandor », mix « Kaelen Mirandor Remix »
+**GIVEN** un candidat aux artistes « Adam Beyer » et « Bart Skils », remixeur « Layton Giordani », mix « Layton Giordani Remix »
 **WHEN** on l'écrit sur un fichier des quatre formats
-**THEN** l'artiste vaut « Lior Vance, Mara Quill », sans le remixeur
-**AND** le titre vaut « Dim Orbit (Kaelen Mirandor Remix) » et le champ remixeur « Kaelen Mirandor »
+**THEN** l'artiste vaut « Adam Beyer, Bart Skils », sans le remixeur
+**AND** le titre vaut « Your Mind (Layton Giordani Remix) » et le champ remixeur « Layton Giordani »
 
 ### Scénario 3 : candidat Bandcamp sur un FLAC déjà renseigné
 **GIVEN** un FLAC portant `BPM`, `KEY` et `GENRE`, et un candidat Bandcamp sans ces trois champs

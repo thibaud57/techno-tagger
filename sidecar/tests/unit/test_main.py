@@ -7,46 +7,93 @@ import json
 import re
 import sys
 import tomllib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, NamedTuple
 from unittest.mock import Mock, patch
 
+import pytest
+from run_plans import plan_of, save_plan
+from tagging_records import RECORD
+
 from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, __main__, __version__
+from tagger.run.plan import plan_dir
 
 if TYPE_CHECKING:
-    import pytest
+    from collections.abc import Iterator
 
 
-def test_logging_and_sentry_are_armed_before_the_loop() -> None:
-    parent = Mock()
+class _Startup(NamedTuple):
+    setup_logging: Mock
+    init_sentry: Mock
+    run_loop: Mock
+
+
+@pytest.fixture
+def startup() -> Iterator[_Startup]:
+    """Les trois etapes du demarrage que ces tests ne veulent pas executer pour de vrai."""
     with (
         patch.object(__main__, "setup_logging", autospec=True) as setup,
         patch.object(__main__, "init_sentry", autospec=True) as sentry,
-        patch.object(__main__, "_purge_old_dumps", autospec=True) as purge,
         patch.object(__main__, "run_loop", autospec=True) as run_loop,
     ):
-        parent.attach_mock(setup, "setup_logging")
-        parent.attach_mock(sentry, "init_sentry")
-        parent.attach_mock(purge, "_purge_old_dumps")
-        parent.attach_mock(run_loop, "run_loop")
+        yield _Startup(setup, sentry, run_loop)
+
+
+def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None:
+    parent = Mock()
+
+    with (
+        patch.object(__main__, "_purge_old_dumps", autospec=True) as purge_dumps,
+        patch.object(__main__, "_purge_old_plans", autospec=True) as purge_plans,
+    ):
+        parent.attach_mock(startup.setup_logging, "setup_logging")
+        parent.attach_mock(startup.init_sentry, "init_sentry")
+        parent.attach_mock(purge_dumps, "_purge_old_dumps")
+        parent.attach_mock(purge_plans, "_purge_old_plans")
+        parent.attach_mock(startup.run_loop, "run_loop")
 
         __main__.main()
 
     order = [call[0] for call in parent.mock_calls]
-    assert order == ["setup_logging", "init_sentry", "_purge_old_dumps", "run_loop"]
+    assert order == [
+        "setup_logging",
+        "init_sentry",
+        "_purge_old_dumps",
+        "_purge_old_plans",
+        "run_loop",
+    ]
 
 
-def test_a_failed_dump_purge_never_stops_the_startup(caplog: pytest.LogCaptureFixture) -> None:
+@pytest.mark.parametrize(
+    ("failing", "skipped", "message"),
+    [
+        ("purge_dumps", "_purge_old_plans", "tag dump purge failed"),
+        ("purge_plans", "_purge_old_dumps", "run plan purge failed"),
+    ],
+    ids=["dumps", "plans"],
+)
+def test_a_failed_purge_never_stops_the_startup(
+    startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str, skipped: str, message: str
+) -> None:
     with (
-        patch.object(__main__, "setup_logging", autospec=True),
-        patch.object(__main__, "init_sentry", autospec=True),
-        patch.object(__main__, "purge_dumps", autospec=True, side_effect=OSError(5, "denied")),
-        patch.object(__main__, "run_loop", autospec=True) as run_loop,
+        patch.object(__main__, failing, autospec=True, side_effect=OSError(5, "denied")),
+        patch.object(__main__, skipped, autospec=True),
     ):
         __main__.main()
 
-    run_loop.assert_called_once()
-    assert "tag dump purge failed" in caplog.messages
+    startup.run_loop.assert_called_once()
+    assert message in caplog.messages
+
+
+@pytest.mark.usefixtures("app_data")
+def test_the_startup_purge_removes_the_plans_older_than_thirty_days(tmp_path: Path) -> None:
+    started_at = datetime.now(UTC) - timedelta(days=31)
+    expired = save_plan(plan_dir(), plan_of(tmp_path, [RECORD], started_at=started_at))
+
+    __main__._purge_old_plans()
+
+    assert not expired.exists()
 
 
 def test_the_protocol_streams_are_forced_to_utf8(monkeypatch: pytest.MonkeyPatch) -> None:

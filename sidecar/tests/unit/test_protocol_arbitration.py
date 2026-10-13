@@ -1,5 +1,3 @@
-"""Tests des modeles et de la traduction de l'arbitrage sur le protocole NDJSON."""
-
 import json
 from dataclasses import replace
 from datetime import date
@@ -10,19 +8,19 @@ from pydantic import ValidationError
 from scraper_responses import track_candidate
 from tagging_records import RECORD, scored_candidate
 
-from tagger import arbitration, tagging
-from tagger.handlers import to_protocol_event
 from tagger.protocol import (
     ArbitrationRequired,
     ArbitrationUpdated,
     ResolveArbitration,
     parse_command,
 )
-from tagger.scraper_client import Credit, ReleaseInfo, Source
-from tagger.tagging import FailureReason, PendingArbitration, SourceList, TrackRecord
+from tagger.resolution.scraper_client import Credit, ReleaseInfo, Source
+from tagger.run import arbitration, models
+from tagger.run.models import FailureReason, PendingArbitration, SourceList, TrackRecord
+from tagger.translation import to_protocol_event
 
 if TYPE_CHECKING:
-    from tagger.scraper_client import TrackCandidate
+    from tagger.resolution.scraper_client import TrackCandidate
 
 
 def _awaiting(pending: PendingArbitration) -> TrackRecord:
@@ -55,11 +53,11 @@ def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> No
         (
             track_candidate().model_copy(
                 update={
-                    "label": Credit(name="Kestrel"),
+                    "label": Credit(name="Drumcode"),
                     "release": ReleaseInfo(release_date=date(2023, 6, 16)),
                 }
             ),
-            ("Kestrel", 2023),
+            ("Drumcode", 2023),
         ),
         (track_candidate(), (None, None)),
     ],
@@ -72,7 +70,7 @@ def test_translates_the_label_and_the_release_year(
         Source.BEATPORT, (scored_candidate(candidate=candidate),), beatport_unavailable=False
     )
 
-    event = to_protocol_event(tagging.ArbitrationRequired(_awaiting(pending)))
+    event = to_protocol_event(models.ArbitrationRequired(_awaiting(pending)))
 
     assert isinstance(event, ArbitrationRequired)
     assert (event.candidates[0].label, event.candidates[0].year) == expected

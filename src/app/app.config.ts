@@ -14,10 +14,10 @@ import { providePrimeNG } from "primeng/config"
 import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
-import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/language"
-import { CompletionSignalService } from "./core/completion-signal.service"
-import { SidecarService } from "./core/sidecar.service"
-import { TECHNO_TAGGER_PRESET } from "./core/theme"
+import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/i18n/language"
+import { CompletionSignalService } from "./core/platform/completion-signal.service"
+import { TECHNO_TAGGER_PRESET } from "./core/platform/theme"
+import { SidecarService } from "./core/sidecar/sidecar.service"
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -27,7 +27,7 @@ export const appConfig: ApplicationConfig = {
     // Au root : CompletionSignalService (root) l'injecte, un provider pose sur AppComponent
     // lui serait invisible (NullInjectorError).
     MessageService,
-    // Partage par les `p-confirmdialog` de l'ecriture et du rollback.
+    // Une seule instance entre `injectDangerConfirm` et le `p-confirmdialog` de chaque page.
     ConfirmationService,
     providePrimeNG({
       theme: {
@@ -65,7 +65,7 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       void inject(SidecarService).start()
     }),
-    // Construit des le demarrage, hors de tout ecran : une phase s'annonce quel que soit l'onglet.
+    // Construit des le demarrage : une phase s'annonce quel que soit l'onglet.
     provideAppInitializer(() => {
       inject(CompletionSignalService)
     }),

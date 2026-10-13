@@ -50,7 +50,7 @@ try:
     import fake_api
     from audio_samples import held_open
 
-    from tagger import scraper_client
+    from tagger.resolution import scraper_client
 except ImportError as error:
     fail(f"{error} : lancer par `PYTHONPATH=tests/helpers uv run --directory sidecar`")
 
@@ -79,7 +79,7 @@ if gateway_url:
     # `handlers` importe `read_api_key` par son nom : c'est ce nom qu'il faut remplacer, sans
     # quoi la cle du trousseau partirait vers la gateway de developpement.
     handlers.read_api_key = _gateway_key
-from tagger.logger import setup_logging  # noqa: E402
+from tagger.core.logger import setup_logging  # noqa: E402
 
 if not binary:
     setup_logging(log_dir())

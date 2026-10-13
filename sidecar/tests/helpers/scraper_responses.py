@@ -9,20 +9,22 @@ from typing import TYPE_CHECKING, Final
 
 import httpx2
 
-from tagger.scraper_client import Credit, Source, TechnoScraperClient, TrackCandidate
+from tagger.resolution.scraper_client import Credit, Source, TechnoScraperClient, TrackCandidate
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
 
-    from tagger.cache import ResponseCache
+    from tagger.resolution.cache import ResponseCache
 
 TEST_API_KEY: Final = "test-key"
 
-# Requetes des deux morceaux des tests ; `track_payload` rend « Dim Orbit » par defaut.
-DIM_ORBIT: Final = "Lior Vance Dim Orbit"
-KELVOR: Final = "Orla Quenby Kelvor"
-SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2"
-BANDCAMP_TRACK: Final = "https://orlaquenby.bandcamp.com/track/kelvor"
+# Requetes des deux morceaux des tests ; `track_payload` rend « Your Mind » par defaut.
+YOUR_MIND: Final = "Adam Beyer Your Mind"
+BASIEL: Final = "Amelie Lens Basiel"
+SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2"
+BANDCAMP_TRACK: Final = "https://amelielens.bandcamp.com/track/basiel"
+# Pochette du gabarit Beatport : une seule source pour `track_payload` et les tests qui la lisent.
+ARTWORK_URL: Final = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
 
 # Union de deux signatures (et non un retour union sur une seule) : c'est la forme
 # qu'attend `httpx2.MockTransport`, covariance du retour oblige.
@@ -40,31 +42,38 @@ def track_payload(**overrides: object) -> dict[str, object]:
     """Un `Track` Beatport complet, surchargeable champ par champ."""
     payload: dict[str, object] = {
         "id": "99000101",
-        "title": "Dim Orbit",
-        "source_title": "Dim Orbit",
+        "title": "Your Mind",
+        "source_title": "Your Mind",
         "mix_name": "Extended Mix",
         "artists": [
-            {"id": "1", "name": "Lior Vance", "kind": "artist", "social_links": []},
+            {"id": "1", "name": "Adam Beyer", "kind": "artist", "social_links": []},
         ],
         "remixers": [],
         "release": {
             "id": "4200",
-            "title": "Dim Orbit",
-            "source_title": "Dim Orbit",
-            "catalog_number": "KS287",
+            "title": "Your Mind",
+            "source_title": "Your Mind",
+            "catalog_number": "DC287",
             "release_date": "2023-06-16",
-            "artwork_url": "https://geo-media.beatport.com/image_size/500x500/cover.jpg",
+            "artwork_url": ARTWORK_URL,
         },
-        "label": {"id": "8", "name": "Kestrel", "kind": "label", "followers": 1000},
+        "label": {"id": "8", "name": "Drumcode", "kind": "label", "followers": 1000},
         "genre": "Techno (Peak Time / Driving)",
         "bpm": 134,
         "key": "4A",
         "isrc": "ZZ0AA2300001",
         "track_number": 1,
-        "url": "https://www.beatport.com/track/dim-orbit/99000101",
+        "url": "https://www.beatport.com/track/your-mind/99000101",
         "source": "beatport",
     }
     return payload | overrides
+
+
+def invalid_track_payload() -> dict[str, object]:
+    """Un `Track` sans `title`, champ requis : le modele le refuse comme hors contrat."""
+    payload = track_payload()
+    del payload["title"]
+    return payload
 
 
 def payload_candidate(**overrides: object) -> TrackCandidate:
@@ -72,10 +81,13 @@ def payload_candidate(**overrides: object) -> TrackCandidate:
     return TrackCandidate.model_validate(track_payload(**overrides))
 
 
+BEATPORT_CANDIDATE: Final = payload_candidate()
+
+
 def track_candidate(
-    title: str = "Dim Orbit",
+    title: str = "Your Mind",
     mix_name: str | None = "Original Mix",
-    artists: tuple[str, ...] = ("Lior Vance",),
+    artists: tuple[str, ...] = ("Adam Beyer",),
     *,
     remixers: tuple[str, ...] = (),
     track_id: str = "1",
@@ -110,10 +122,10 @@ def soundcloud_track_payload(**overrides: object) -> dict[str, object]:
     """
     payload = track_payload(
         id="9900050505",
-        title="Mothlight",
-        source_title="ZELKA & Larkspur - Mothlight - Kestrel - KSX017",
+        title="Tarantula",
+        source_title="KASIA & Faithless - Tarantula - Drumcode - DCX017",
         mix_name=None,
-        artists=[{"id": "770001", "name": "ZELKA & Larkspur", "social_links": []}],
+        artists=[{"id": "770001", "name": "KASIA & Faithless", "social_links": []}],
         genre=None,
         bpm=None,
         key=None,
@@ -124,10 +136,10 @@ def soundcloud_track_payload(**overrides: object) -> dict[str, object]:
         # Catalogue et pochette d'une release SoundCloud, pas ceux du gabarit Beatport.
         release={
             "id": "9900050505",
-            "title": "Mothlight",
-            "catalog_number": "KSX017",
+            "title": "Tarantula",
+            "catalog_number": "DCX017",
             "release_date": "2026-09-19",
-            "artwork_url": "https://i1.sndcdn.com/artworks-KSX017-t500x500.jpg",
+            "artwork_url": "https://i1.sndcdn.com/artworks-DCX017-t500x500.jpg",
         },
     )
     return payload | overrides
@@ -138,8 +150,8 @@ def profile_payload() -> dict[str, object]:
     return {
         "profile": {
             "id": "770001",
-            "name": "Kestrel",
-            "url": "https://soundcloud.com/kestrel",
+            "name": "Drumcode",
+            "url": "https://soundcloud.com/drumcode",
             "followers": 1000,
             "social_links": [],
         },
@@ -155,6 +167,11 @@ def recording(requests: list[httpx2.Request], response: httpx2.Response) -> Hand
         return response
 
     return handler
+
+
+def answering(requests: list[httpx2.Request], body: dict[str, object]) -> Handler:
+    """Handler qui note chaque requete puis rend toujours un 200 portant ce corps JSON."""
+    return recording(requests, httpx2.Response(200, json=body))
 
 
 def make_client(

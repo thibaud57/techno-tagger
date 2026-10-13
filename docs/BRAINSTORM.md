@@ -211,7 +211,7 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Un run interrompu est détecté au lancement suivant : « Run du 2 août sur `D:\Sets\Août`, 62/100 traités, reprendre ou repartir de zéro ? ». Aucun fichier n'a été touché entre-temps.
 - Purge automatique au démarrage : les plans des runs terminés et écrits sont supprimés, les runs interrompus conservés, plafond d'ancienneté à 30 jours
 - Écran récapitulatif final dans l'app : tableau filtrable (tout, validés, arbitrés, échecs), avant/après par morceau, lien vers la fiche source
-- **Deux rapports distincts** écrits dans le dossier destination, l'un par l'extraction et l'autre par le re-tagging, chacun en deux formats : JSON (source de vérité, relu par l'app pour rouvrir un run passé) et Markdown (lisible hors application)
+- **Deux rapports distincts**, celui de l'extraction dans le dossier destination, celui du re-tagging dans le dossier du run (le dossier re-tagué), chacun en deux formats : JSON (source de vérité, relu par l'app pour rouvrir un run passé) et Markdown (lisible hors application)
 - Le rapport de re-tagging détaille par morceau : requête envoyée, source ayant répondu, décision et son origine, champs écrits, ancien et nouveau nom de fichier, erreurs
 
 ### Feature 7 : Settings
@@ -245,7 +245,19 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 
 ## Post-MVP
 
-### Feature 1 : Agent IA d'arbitrage (PydanticAI)
+### Feature 1 : Édition manuelle des tags
+
+Formulaire dans l'application pour corriger un champ à la main quand aucune source ne convient et qu'aucune URL n'existe.
+
+### Feature 2 : Tests bout-en-bout
+
+Pilotage de l'application empaquetée via WebdriverIO et `tauri-driver`, le WebDriver officiel de Tauri.
+
+Rien au MVP : le contrat NDJSON est déjà testable en ligne de commande sans interface, ce qui couvre le vrai risque du projet. Un e2e complet impose un runner Windows dédié en CI et des tests lents, pour valider une UI à deux écrans.
+
+Justifié le jour où l'application est distribuée à plusieurs personnes et où une régression de la chaîne UI vers sidecar cesse d'être détectable à l'œil, et dans tous les cas avant l'agent IA, qui modifie la chaîne de décision.
+
+### Feature 3 : Agent IA d'arbitrage (PydanticAI)
 
 **En renfort du fuzzy, pas à sa place.** Le scoring rapidfuzz reste le moteur, l'agent est un mode activable dans les Settings, désactivé par défaut, qui intervient là où le fuzzy s'arrête. Sans clé API renseignée, l'application se comporte exactement comme au MVP.
 
@@ -258,14 +270,6 @@ Implique une section Settings dédiée : clé API du fournisseur (chacun met la 
 
 Pas de n8n : l'orchestration reste dans le sidecar, PydanticAI côté Python.
 
-### Feature 2 : Édition manuelle des tags
-
-Formulaire dans l'application pour corriger un champ à la main quand aucune source ne convient et qu'aucune URL n'existe.
-
-### Feature 3 : Formats de playlist supplémentaires
-
-Parsing du TXT Rekordbox, destiné à KUVO et donc orienté affichage : ses colonnes dépendent de la langue d'export, il faudrait rendre leurs clés configurables. Et du XML, qui exporte la collection entière et non une playlist.
-
 ### Feature 4 : macOS et Linux
 
 Deuxième et troisième cibles de distribution, à ajouter le jour où un utilisateur le demande vraiment.
@@ -274,13 +278,9 @@ macOS est la plus coûteuse : un runner macOS en CI (minutes facturées x10 sur 
 
 Linux est indolore par comparaison : runner GitHub gratuit, aucune signature exigée.
 
-### Feature 5 : Tests bout-en-bout
+### Feature 5 : Formats de playlist supplémentaires
 
-Pilotage de l'application empaquetée via WebdriverIO et `tauri-driver`, le WebDriver officiel de Tauri.
-
-Rien au MVP : le contrat NDJSON est déjà testable en ligne de commande sans interface, ce qui couvre le vrai risque du projet. Un e2e complet impose un runner Windows dédié en CI et des tests lents, pour valider une UI à deux écrans.
-
-Justifié le jour où l'application est distribuée à plusieurs personnes et où une régression de la chaîne UI vers sidecar cesse d'être détectable à l'œil.
+Parsing du TXT Rekordbox, destiné à KUVO et donc orienté affichage : ses colonnes dépendent de la langue d'export, il faudrait rendre leurs clés configurables. Et du XML, qui exporte la collection entière et non une playlist.
 
 ### Feature 6 : Canal beta
 
@@ -370,6 +370,7 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 - **Décision vie privée** : durcissement du SDK plutôt que consentement (une case à cocher n'empêche aucune donnée de partir, la configuration si), scrubbing des chemins, région EU, aucun titre de morceau envoyé automatiquement
 - **Décision Clé API** : une clé par utilisateur saisie dans les Settings vs clé partagée embarquée (une clé compilée dans le binaire est extractible, et la révoquer obligerait à rediffuser l'app à tout le monde)
 - **Décision Cibles** : Windows seul au MVP, macOS et Linux en Post-MVP (aucun utilisateur Mac confirmé à ce jour, et la cible coûtait à elle seule 99 $/an de notarisation, un runner macOS facturé x10 en CI et un second build PyInstaller ; sans notarisation, Gatekeeper bloque au premier lancement et le contournement par Contrôle-clic ne suffit plus depuis macOS Sequoia)
+- **Décision Ordre du Post-MVP** : édition manuelle, tests bout-en-bout puis agent IA vs agent IA en premier (l'édition manuelle comble à moindre coût le dernier trou de la chaîne de résolution ; le filet e2e précède l'agent IA, plus gros changement de comportement à venir ; macOS et Linux, formats de playlist et canal beta suivent la demande)
 - **Décision Dépôt** : dépôt neuf vs évolution de `BeatportScrapper-TrackTagger` (la CLI sert de référence à lire, rien n'est porté tel quel, l'arborescence à plat ne correspond pas à la structure Tauri)
 
 **Principes directeurs :**

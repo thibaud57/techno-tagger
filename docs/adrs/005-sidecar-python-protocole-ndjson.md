@@ -103,7 +103,7 @@ Le protocole est traité comme une petite API, pas comme un détail d'implément
 
 ## Négatives
 
-- Le contrat est maintenu en double : modèles dans `protocol.py`, types TypeScript miroir dans `core/models/`, sans génération de code
+- Le contrat est maintenu en double : modèles dans `protocol.py`, types TypeScript miroir dans `core/sidecar/protocol.ts`, sans génération de code
 - Cycle de vie du process à gérer : détection de mort, redémarrage, fermeture propre, y compris quand l'utilisateur ferme la fenêtre pendant un run
 - PyInstaller ne cross-compile pas, chaque plateforme cible impose son runner CI (cf. [ADR-015](015-cibles-distribution-windows.md))
 - Un protocole mal figé au départ coûterait cher à faire évoluer une fois l'interface écrite contre lui

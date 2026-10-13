@@ -9,15 +9,16 @@ import { Tag } from "primeng/tag"
 import { Toast } from "primeng/toast"
 import { filter, map } from "rxjs"
 
-import { CloseGuard } from "./core/close-guard.service"
-import { languageFromTag } from "./core/language"
-import { SIDECAR_FILE } from "./core/sidecar-transport"
-import { SidecarService } from "./core/sidecar.service"
-import { TABS, isTabName, tabFromUrl, type TabValue } from "./core/tabs"
-import { ArbitrationDialogComponent } from "./features/tagging/arbitration-dialog.component"
-import { RecoveryUiStore } from "./features/tagging/recovery-ui.store"
-import { CloseConfirmationComponent } from "./shared/components/close-confirmation.component"
-import { IconComponent } from "./shared/components/icon.component"
+import { languageFromTag } from "./core/i18n/language"
+import { CloseGuard } from "./core/platform/close-guard.service"
+import { TABS, isTabName, tabFromUrl, type TabValue } from "./core/platform/tabs"
+import { SIDECAR_FILE } from "./core/sidecar/sidecar-transport"
+import { SidecarService } from "./core/sidecar/sidecar.service"
+import { ArbitrationDialogComponent } from "./features/tagging/arbitration/arbitration-dialog.component"
+import { RecoveryUiStore } from "./features/tagging/url-recovery/recovery-ui.store"
+import { CloseConfirmationComponent } from "./shared/components/dialogs/close-confirmation.component"
+import { ResumeDialogComponent } from "./shared/components/dialogs/resume-dialog.component"
+import { IconComponent } from "./shared/components/display/icon.component"
 import { FADE_IN } from "./shared/utils/motion"
 
 @Component({
@@ -34,6 +35,7 @@ import { FADE_IN } from "./shared/utils/motion"
     Toast,
     ArbitrationDialogComponent,
     CloseConfirmationComponent,
+    ResumeDialogComponent,
     IconComponent,
   ],
   templateUrl: "./app.component.html",
@@ -76,6 +78,7 @@ export class AppComponent {
   }))
 
   protected readonly arbitrationCount = this.sidecar.arbitrationCount
+  protected readonly interruptedRun = this.sidecar.interruptedRun
   /** L'etape lien d'un morceau sorti de la file garde la modale ouverte, meme file videe. */
   private readonly queueEmpty = computed(
     () => this.arbitrationCount() === 0 && this.recovery.linkStep() === null,

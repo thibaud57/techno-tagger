@@ -56,7 +56,7 @@
 - Test: `sidecar/tests/unit/test_url_recovery.py` (création)
 
 **Interfaces:**
-- Consumes: `LiveRun.record/position/update/snapshot`, `TrackRecord.resolved`, `TrackResolved`, `Resolution`, `TrackState` (`tagger.tagging`) ; `RunSources._call`, `RunSources._artwork` ; `TechnoScraperClient.fetch_by_url` (sub-project 01) ; helpers `FakeApi`, `FakeCdn`, `ok`, `found`, `opened_run`, `one_track`, `three_tracks`, `ONE_TRACK`, `ORIGINAL` (`tagging_api`), `track_payload`, `DIM_ORBIT` (`scraper_responses`).
+- Consumes: `LiveRun.record/position/update/snapshot`, `TrackRecord.resolved`, `TrackResolved`, `Resolution`, `TrackState` (`tagger.tagging`) ; `RunSources._call`, `RunSources._artwork` ; `TechnoScraperClient.fetch_by_url` (sub-project 01) ; helpers `FakeApi`, `FakeCdn`, `ok`, `found`, `opened_run`, `one_track`, `three_tracks`, `ONE_TRACK`, `ORIGINAL` (`tagging_api`), `track_payload`, `YOUR_MIND` (`scraper_responses`).
 - Produces:
   - `TrackRecord.resolved(resolution: Resolution, source: Source, candidate: TrackCandidate, scored: ScoredCandidate | None, artwork: Path | None) -> TrackRecord`, `failure_reason=None` dans le résultat
   - `RunSources.from_url(position: int, url: str) -> tuple[TrackCandidate, Path | None]`
@@ -75,7 +75,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import pytest
-from scraper_responses import DIM_ORBIT, track_payload
+from scraper_responses import YOUR_MIND, track_payload
 from tagging_api import (
     ONE_TRACK,
     ORIGINAL,
@@ -102,8 +102,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-BANDCAMP_URL = "https://orlaquenby.bandcamp.com/track/kelvor"
-BEATPORT_URL = "https://www.beatport.com/track/dim-orbit/99000202"
+BANDCAMP_URL = "https://amelielens.bandcamp.com/track/basiel"
+BEATPORT_URL = "https://www.beatport.com/track/your-mind/99000202"
 ON_BANDCAMP = track_payload(id="7", source="bandcamp", mix_name=None, url=BANDCAMP_URL)
 ON_BEATPORT = track_payload(id="99000202")
 
@@ -225,7 +225,7 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
 
 async def test_counts_zero_over_zero_when_nothing_is_left_to_recover(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
+    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
 
     async with _recovering(one_track(tmp_path), api) as (_opened, recovery):
         progress = recovery.progress()
@@ -737,7 +737,7 @@ async def test_never_logs_the_pasted_url(
     async with _recovering(two_tracks(tmp_path), api) as (_opened, recovery):
         await recovery.resolve("a.mp3", BANDCAMP_URL)
         with pytest.raises(TrackNotFoundError):
-            await recovery.resolve("b.mp3", "https://orlaquenby.bandcamp.com/track/unknown")
+            await recovery.resolve("b.mp3", "https://amelielens.bandcamp.com/track/unknown")
 
     ours = [record.getMessage() for record in caplog.records if record.name == "tagger.url_recovery"]
     assert len(ours) == 2

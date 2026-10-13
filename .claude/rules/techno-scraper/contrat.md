@@ -1,7 +1,7 @@
 ---
 paths:
-  - "sidecar/src/tagger/scraper_client.py"
-  - "sidecar/src/tagger/matching.py"
+  - "sidecar/src/tagger/resolution/scraper_client.py"
+  - "sidecar/src/tagger/resolution/matching.py"
 ---
 
 # Contrat techno-scraper — Règles

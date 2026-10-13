@@ -1,7 +1,7 @@
 ---
 paths:
-  - "sidecar/src/tagger/scraper_client.py"
-  - "sidecar/src/tagger/cache.py"
+  - "sidecar/src/tagger/resolution/scraper_client.py"
+  - "sidecar/src/tagger/resolution/cache.py"
 ---
 
 # httpx2 — Client HTTP

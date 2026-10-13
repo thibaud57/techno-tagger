@@ -169,7 +169,7 @@ Les trois champs sans équivalent Picard (`SOURCE_ID`, `SOURCE`, et l'URL en Vor
 - Un fichier tagué depuis Bandcamp conserve des champs anciens et faux si le fichier en avait, sans qu'aucune source ne les corrige
 - Les frames TPE4 et TKEY ne sont pas exposées par EasyID3 et doivent être enregistrées explicitement
 - La cible v2.3 et l'année seule font perdre à la date de sortie le jour et le mois, sur les quatre formats. Les valeurs multiples sont tranchées le 2026-10-06 : une seule chaîne par champ, jointe par « , », `v23_sep` sans objet
-- **Un rollback ne rend ni les commentaires ni les pochettes** retirés par l'écriture : le dump ne les garde pas, choix acté par la spec du dump des tags d'origine
+- **Un rollback ne rend ni les commentaires ni les pochettes** retirés par l'écriture : le dump ne les garde pas, choix acté par la spec du dump des tags d'origine. **La pochette posée par l'écriture reste donc après un rollback**, y compris sur un fichier qui n'en avait pas : retirer l'image seulement dans ce cas ferait deux comportements pour un gain marginal, écarté le 2026-10-13. La confirmation de la restauration le dit
 
 ---
 

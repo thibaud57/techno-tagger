@@ -11,8 +11,8 @@ l'API, pour qu'un run dure assez longtemps qu'une commande concurrente parte pen
 Un suffixe par appel les rend inedits d'une passe a l'autre, le cache de reponses etant
 reel : relancer sur les memes titres rendrait un run instantane et un faux vert.
 `--vlc-dump` : un dump `vlc_media.db`, playlists « test playlist » et « other playlist ».
-`--arbitration` : un seul morceau, « Orla Quenby - Kelvorians », que le faux serveur met
-en zone grise sur ses deux sources (titre a 75 contre « Kelvor »).
+`--arbitration` : un seul morceau, « Amelie Lens - Basielians », que le faux serveur met
+en zone grise sur ses deux sources (titre a 75 contre « Basiel »).
 `--formats` : un morceau par format (MP3, FLAC, WAV, AIFF), valide pour mutagen, nomme
 d'apres un titre du vrai catalogue et sali comme par `write_tags_probe.py` (commentaires,
 verso et recto, date complete en v2.4, frames Serato) : la fixture d'une ecriture contre la
@@ -63,11 +63,11 @@ if "--unique" in args:
     run = uuid.uuid4().hex[:6]
     tracks = [("Verify Probe", f"Untitled {run} {n:02d}") for n in range(1, count + 1)]
 elif "--arbitration" in args:
-    tracks = [("Orla Quenby", "Kelvorians")]
+    tracks = [("Amelie Lens", "Basielians")]
 else:
     tracks = [
-        ("Lior Vance", "Dim Orbit"),
-        ("Orla Quenby", "Kelvor"),
+        ("Adam Beyer", "Your Mind"),
+        ("Amelie Lens", "Basiel"),
         ("Nobody", "Nothing Here At All"),
     ]
 
@@ -75,10 +75,10 @@ if "--formats" in args:
     from write_tags_probe import dirty
 
     real = [
-        ("mp3", write_blank_mp3, "Teodor Hale", "Cairn feat. Dubmoor"),
-        ("flac", write_blank_flac, "Lior Vance", "Dim Orbit"),
-        ("wav", write_blank_wav, "Orla Quenby", "Kelvor"),
-        ("aiff", write_blank_aiff, "Silas Orman", "Quiet Meridian"),
+        ("mp3", write_blank_mp3, "Tommy Sharp", "Biome feat. Dubfire"),
+        ("flac", write_blank_flac, "Adam Beyer", "Your Mind"),
+        ("wav", write_blank_wav, "Amelie Lens", "Basiel"),
+        ("aiff", write_blank_aiff, "Robert Hood", "Minimal Nation"),
     ]
     for index, (extension, write_blank, artist, title) in enumerate(real, start=1):
         path = root / f"{index:02d} {artist.lower()} - {title.lower()}.{extension}"

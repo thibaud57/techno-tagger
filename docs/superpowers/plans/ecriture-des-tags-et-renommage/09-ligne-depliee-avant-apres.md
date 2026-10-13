@@ -159,7 +159,7 @@ describe("TrackDetailComponent", () => {
     const rows = rowsOf(root)
 
     expect(rows).toEqual([
-      ["tagging.detail.field.artist", "TPE1", "lior vance", "Lior Vance"],
+      ["tagging.detail.field.artist", "TPE1", "adam beyer", "Adam Beyer"],
       ["tagging.detail.field.bpm", "TBPM", "130", "130"],
     ])
   })
@@ -172,12 +172,12 @@ describe("TrackDetailComponent", () => {
         comment: null,
         fields: [{ field: "label", key: "TPUB", value: null }],
       },
-      tagsAfter: [{ field: "label", key: "TPUB", value: "Kestrel" }],
+      tagsAfter: [{ field: "label", key: "TPUB", value: "Drumcode" }],
     })
 
     const rows = rowsOf(root)
 
-    expect(rows).toEqual([["tagging.detail.field.label", "TPUB", "—", "Kestrel"]])
+    expect(rows).toEqual([["tagging.detail.field.label", "TPUB", "—", "Drumcode"]])
   })
 
   it("adds a comment row only when the file carries one", () => {
@@ -205,7 +205,7 @@ describe("TrackDetailComponent", () => {
     const rows = rowsOf(root)
 
     expect(rows.map((row) => [row[0], row[2], row[3]])).toEqual([
-      ["tagging.detail.field.artist", "—", "Lior Vance"],
+      ["tagging.detail.field.artist", "—", "Adam Beyer"],
       ["tagging.detail.field.bpm", "—", "130"],
     ])
   })
@@ -565,7 +565,7 @@ Importer `TAGS_AFTER` et `TAGS_BEFORE` des fixtures, puis ajouter :
 
     const detail = (fixture.nativeElement as HTMLElement).querySelector("app-track-detail")
     expect(detail).not.toBeNull()
-    expect(detail?.textContent).toContain("Lior Vance")
+    expect(detail?.textContent).toContain("Adam Beyer")
   })
 ```
 

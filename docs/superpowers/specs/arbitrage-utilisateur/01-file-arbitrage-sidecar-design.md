@@ -74,7 +74,7 @@ Aucune : ce sub-project est autoporté.
 ## Acceptance criteria
 
 ### Scénario 1 : Choix d'un candidat Beatport
-**GIVEN** un morceau « Dim Orbit » en attente d'arbitrage avec l'Extended et le Radio Edit de Beatport
+**GIVEN** un morceau « Your Mind » en attente d'arbitrage avec l'Extended et le Radio Edit de Beatport
 **WHEN** l'utilisateur choisit le Radio Edit
 **THEN** le morceau est `resolved` / `arbitration`, source Beatport, avec le candidat rechargé et sa pochette en cache
 **AND** `TrackResolved` est émis pour ce morceau

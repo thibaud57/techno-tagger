@@ -2,8 +2,8 @@
 paths:
   - "src-tauri/tauri.conf.json"
   - "src-tauri/src/lib.rs"
-  - "src/app/core/sidecar.service.ts"
-  - "src/app/core/sidecar-transport.ts"
+  - "src/app/core/sidecar/sidecar.service.ts"
+  - "src/app/core/sidecar/sidecar-transport.ts"
   - "sidecar/build.py"
 ---
 

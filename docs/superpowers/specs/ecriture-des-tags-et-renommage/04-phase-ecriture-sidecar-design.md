@@ -53,7 +53,7 @@ Exclut les commandes `commit_run` et `retry_write`, les gardes de phase, l'atten
 ### Scénario 1 : écriture d'un run
 **GIVEN** un run avec deux morceaux résolus (MP3 et FLAC), un non résolu et un en attente d'arbitrage
 **WHEN** on écrit le run
-**THEN** les deux résolus sont en `written`, tagués et renommés `Lior Vance - Dim Orbit (Extended Mix)`
+**THEN** les deux résolus sont en `written`, tagués et renommés `Adam Beyer - Your Mind (Extended Mix)`
 **AND** le non résolu et celui en attente sont identiques à l'octet près
 
 ### Scénario 2 : dump avant le premier fichier

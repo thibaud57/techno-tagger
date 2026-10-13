@@ -12,6 +12,8 @@ import threading
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Final, override
 
+from tagging_api import ONE_TRACK
+
 from tagger.__main__ import run_loop
 
 if TYPE_CHECKING:
@@ -24,9 +26,22 @@ if TYPE_CHECKING:
 EXPECT_TIMEOUT: Final = 10
 
 
+CHOOSE_ON_BEATPORT: Final = {
+    "command": "resolve_arbitration",
+    "track_id": ONE_TRACK,
+    "source": "beatport",
+    "candidate": 0,
+}
+
+
+def start_command(folder: Path) -> dict[str, object]:
+    """Champs d'un `start_tagging`, a envoyer tels quels ou en ligne."""
+    return {"command": "start_tagging", "folder": str(folder)}
+
+
 def start_tagging(folder: Path, **payload: object) -> str:
     """Ligne `start_tagging` prete a injecter."""
-    return json.dumps({"command": "start_tagging", "folder": str(folder), **payload}) + "\n"
+    return json.dumps({**start_command(folder), **payload}) + "\n"
 
 
 def extraction_command(
@@ -69,25 +84,32 @@ class _Inbox(io.StringIO):
 
 
 class _Outbox(io.StringIO):
-    """stdout qui decode chaque ligne complete et la remet a la conversation."""
+    """stdout qui decode chaque ligne complete et la remet a la conversation.
+
+    `write` s'execute aussi dans le thread de l'extraction, qui emet sa progression
+    depuis `to_thread` : le tampon est donc verrouille.
+    """
 
     def __init__(self, on_event: Callable[[dict[str, object]], None]) -> None:
         super().__init__()
         self._on_event = on_event
         self._pending = ""
+        self._lock = threading.Lock()
 
     @override
     def write(self, text: str, /) -> int:
-        self._pending += text
-        *lines, self._pending = self._pending.split("\n")
-        for line in lines:
-            if line:
-                self._on_event(json.loads(line))
+        with self._lock:
+            self._pending += text
+            *lines, self._pending = self._pending.split("\n")
+            for line in lines:
+                if line:
+                    self._on_event(json.loads(line))
         return len(text)
 
 
 class Conversation:
-    """Dialogue avec la boucle ; l'extraction seule emet depuis `to_thread`, pas la boucle.
+    """Dialogue avec la boucle ; l'extraction seule emet depuis `to_thread`, pas la boucle,
+    d'ou le reveil de `expect` par `call_soon_threadsafe`.
 
     Une commande ne part qu'apres l'evenement qui la rend valide.
     """
@@ -95,6 +117,7 @@ class Conversation:
     def __init__(self) -> None:
         self.events: list[dict[str, object]] = []
         self._lines: queue.SimpleQueue[str] = queue.SimpleQueue()
+        self._loop = asyncio.get_running_loop()
         self._arrived = asyncio.Event()
         self._read = 0
         self.stdin = _Inbox(self._lines)
@@ -111,6 +134,7 @@ class Conversation:
         """Prochain evenement `event`/`fields` ; les precedents sont depasses, jamais revus."""
         async with asyncio.timeout(EXPECT_TIMEOUT):
             while True:
+                self._arrived.clear()
                 for index in range(self._read, len(self.events)):
                     received = self.events[index]
                     if received["event"] == event and all(
@@ -118,12 +142,11 @@ class Conversation:
                     ):
                         self._read = index + 1
                         return received
-                self._arrived.clear()
                 await self._arrived.wait()
 
     def _received(self, event: dict[str, object]) -> None:
         self.events.append(event)
-        self._arrived.set()
+        self._loop.call_soon_threadsafe(self._arrived.set)
 
 
 @asynccontextmanager
@@ -141,11 +164,19 @@ async def conversation() -> AsyncIterator[Conversation]:
 
 async def resolved_run(talk: Conversation, folder: Path) -> str:
     """Lance un run sur `folder` et rend son `run_id`, phase reseau finie."""
-    talk.send(command="start_tagging", folder=str(folder))
+    talk.send(**start_command(folder))
     started = await talk.expect("run_started")
     await talk.expect("run_finished", phase="network")
     run_id = started["run_id"]
     assert isinstance(run_id, str)
+    return run_id
+
+
+async def written_run(talk: Conversation, folder: Path) -> str:
+    """Comme `resolved_run`, puis confirme le run et attend la fin de l'ecriture."""
+    run_id = await resolved_run(talk, folder)
+    talk.send(command="commit_run", run_id=run_id)
+    await talk.expect("run_finished", phase="write")
     return run_id
 
 

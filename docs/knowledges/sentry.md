@@ -88,7 +88,7 @@ Initialisation dans `main.ts` avant le bootstrap, gestionnaire d'erreurs fourni 
 ### Exemple
 
 ```typescript
-// core/sentry-options.ts, appelé par main.ts avant le bootstrap
+// core/observability/sentry-options.ts, appelé par main.ts avant le bootstrap
 const PRIVATE_INTEGRATIONS = new Set(['Breadcrumbs', 'Console', 'Replay', 'CultureContext']);
 
 export const sentryOptions = (dsn: string, release: string, environment: string): BrowserOptions => ({

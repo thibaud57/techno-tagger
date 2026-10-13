@@ -11,43 +11,53 @@ import logging
 import sys
 from datetime import UTC, datetime
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never, override
 
 import keyring
 from keyring.backends.Windows import WinVaultKeyring
 from pydantic import ValidationError
 
 from tagger import RELEASE
-from tagger.arbitration import ArbitrationNotPendingError
-from tagger.build_info import SENTRY_DSN
-from tagger.errors import TaggerError
+from tagger.core.build_info import SENTRY_DSN
+from tagger.core.errors import RunNotFoundError, TaggerError
+from tagger.core.logger import setup_logging
+from tagger.core.observability import init_sentry
+from tagger.core.paths import app_data_dir
+from tagger.core.tasks import cancel_all
 from tagger.handlers import (
     commit,
     handle_commit_run,
     handle_extract_playlist,
+    handle_get_interrupted_run,
     handle_get_rollback_target,
     handle_get_version,
     handle_list_playlists,
+    handle_list_runs,
+    handle_load_run,
+    handle_resume_run,
     handle_retry_write,
     handle_rollback,
     handle_set_api_key,
     handle_start_tagging,
     url_progress,
 )
-from tagger.logger import setup_logging
-from tagger.observability import init_sentry
-from tagger.paths import app_data_dir
 from tagger.protocol import (
     CancelRun,
     CommitRun,
+    DiscardRun,
+    Error,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
+    GetInterruptedRun,
     GetRollbackTarget,
     GetVersion,
     ListPlaylists,
+    ListRuns,
+    LoadRun,
     ResolveArbitration,
     ResolveByUrl,
+    ResumeRun,
     RetryWrite,
     Rollback,
     SetApiKey,
@@ -59,8 +69,11 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
-from tagger.tag_dump import dump_dir, purge_dumps
-from tagger.url_recovery import UrlRecoveryNotOpenError
+from tagger.run.arbitration import ArbitrationNotPendingError
+from tagger.run.plan import discard_plan, plan_dir, purge_plans, require_plan
+from tagger.run.resume import load_resumable
+from tagger.run.url_recovery import UrlRecoveryNotOpenError
+from tagger.tags.tag_dump import dump_dir, purge_dumps
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -73,7 +86,6 @@ logger = logging.getLogger(__name__)
 
 
 def log_dir() -> Path:
-    """Dossier des logs, sous la racine des donnees de l'application."""
     # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
     # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
     # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
@@ -155,6 +167,12 @@ class _RunningPhase(NamedTuple):
     task: asyncio.Task[None]
 
 
+def _error_of(error: TaggerError, command: ExecutableCommand, track_id: str | None = None) -> Error:
+    """Seul chemin d'emission d'une erreur de commande : tout refus de `load_run` nomme son run."""
+    run_id = command.run_id if isinstance(command, LoadRun) else None
+    return error_from_business(error, command.command, track_id, run_id=run_id)
+
+
 class _Session:
     """Etat de la session : le run de re-tagging tourne pendant que stdin est lu.
 
@@ -168,16 +186,41 @@ class _Session:
         # Une seule phase longue a la fois : le slot garde la derniere, `_running` dit si elle vit.
         self._phase_task: _RunningPhase | None = None
         self._current: CurrentRun | None = None
+        # Chargements de runs passes en vol : lecture seule, annules a la fermeture de la session.
+        self._loads: set[asyncio.Task[None]] = set()
+
+    @override
+    def __repr__(self) -> str:
+        running = self._running()
+        phase = None if running is None else running.phase
+        return f"_Session(phase={phase}, current={self._current!r}, loads={len(self._loads)})"
 
     def start_tagging(self, command: StartTagging) -> None:
-        """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant."""
+        """Lance le run en tache de fond ; le run affiche cesse d'etre courant sur-le-champ.
+
+        Il est abandonne, plan non confirme supprime : un seul run interrompu peut
+        exister a la fois.
+        """
         self._ensure_idle()
         replaced, self._current = self._current, None
         start_work = functools.partial(self._replace, replaced, command)
         self._spawn_phase(Phase.TAGGING, start_work, command)
 
+    def resume_run(self, command: ResumeRun) -> None:
+        """Le run affiche ne part qu'une fois le run repris ouvert : un refus ne lui coute rien."""
+        self._ensure_idle()
+        if self._current is not None and self._current.live.run_id == command.run_id:
+            # Jamais annonce : le reprendre supprimerait le plan qu'il ecrit.
+            raise RunNotFoundError(command.run_id)
+        start_work = functools.partial(self._resume, command)
+        self._spawn_phase(Phase.TAGGING, start_work, command)
+
+    async def _resume(self, command: ResumeRun) -> None:
+        plan = await asyncio.to_thread(load_resumable, plan_dir(), dump_dir(), command.run_id)
+        await handle_resume_run(plan, self.send, self._take_over)
+
     def start_extraction(self, command: ExtractPlaylist) -> None:
-        """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
+        """Thread de fond : la copie gelerait sinon la lecture de stdin."""
         self._ensure_idle()
         start_work = functools.partial(
             asyncio.to_thread, handle_extract_playlist, command, self.send
@@ -253,6 +296,39 @@ class _Session:
         start_work = functools.partial(handle_rollback, command, live, self.send)
         self._spawn_phase(Phase.ROLLBACK, start_work, command, command.track_id)
 
+    def load_run(self, command: LoadRun) -> None:
+        """Lecture seule en tache de fond : aucun fichier de musique n'est touche et les pochettes
+        ne gelent pas la lecture de stdin. Refuse pendant une phase longue, dont elle partage le
+        dossier des pochettes ; la fermeture de la session l'annule."""
+        self._ensure_idle()
+        start_work = functools.partial(handle_load_run, command)
+        load = self._group.create_task(self._phase(start_work, command), name="load_run")
+        self._loads.add(load)
+        load.add_done_callback(self._loads.discard)
+
+    async def announce_interrupted_run(self) -> None:
+        """Annonce le plan a reprendre, le run ouvert excepte."""
+        current = self._current
+        active_run_id = None if current is None else current.live.run_id
+        self.send(await asyncio.to_thread(handle_get_interrupted_run, active_run_id))
+
+    async def discard_run(self, command: DiscardRun) -> None:
+        """Repartir de zero : le plan part ; sur le run courant, le run est abandonne avec lui.
+
+        Refuse pendant une phase longue, qui peut tenir ce plan (une reprise en cours). L'annonce
+        suivante, qui dit s'il reste un autre run a reprendre, ne part qu'apres un abandon
+        reussi : sur un refus (`phase_busy`, `run_not_found`), l'interface la redemande.
+        """
+        self._ensure_idle()
+        current = self._current
+        if current is not None and current.live.run_id == command.run_id:
+            self._current = None
+            await current.abandon()
+        else:
+            path = await asyncio.to_thread(require_plan, plan_dir(), command.run_id)
+            await asyncio.to_thread(discard_plan, path)
+        await self.announce_interrupted_run()
+
     async def close(self, *, cancel: bool) -> None:
         """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
 
@@ -260,6 +336,8 @@ class _Session:
         les attend (cf. `cancel_run`).
         """
         await self._settle_run(cancel=cancel)
+        # Rien a proteger dans un chargement : l'attendre retarderait seulement la sortie.
+        await cancel_all(self._loads)
         current, self._current = self._current, None
         if current is not None:
             await current.close()
@@ -279,14 +357,13 @@ class _Session:
     def _spawn_write(
         self, start_work: Callable[[], Awaitable[Event]], command: CommitRun | RetryWrite
     ) -> None:
-        """Ecriture en tache de fond, comme l'extraction : stdin reste lu pendant sa progression."""
         self._spawn_phase(Phase.WRITE, start_work, command)
 
     def _spawn_phase(
         self,
         phase: Phase,
         start_work: Callable[[], Awaitable[Event | None]],
-        command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback),
+        command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback | ResumeRun),
         track_id: str | None = None,
     ) -> None:
         """Garde de `_ensure_idle` deja passee : elle precede les effets de bord du demarrage."""
@@ -331,7 +408,7 @@ class _Session:
 
     async def _replace(self, replaced: CurrentRun | None, command: StartTagging) -> None:
         if replaced is not None:
-            await replaced.close()
+            await replaced.abandon()
         await handle_start_tagging(command, self.send, self._adopt)
 
     async def _then_url_progress(
@@ -346,6 +423,11 @@ class _Session:
 
     def _adopt(self, current: CurrentRun) -> None:
         self._current = current
+
+    async def _take_over(self, current: CurrentRun) -> None:
+        replaced, self._current = self._current, current
+        if replaced is not None:
+            await replaced.abandon()
 
     async def _settle_run(self, *, cancel: bool) -> None:
         """Attend la fin de la phase reseau en cours, apres l'avoir annulee si `cancel`."""
@@ -384,6 +466,8 @@ class _Session:
             | CommitRun
             | RetryWrite
             | Rollback
+            | ResumeRun
+            | LoadRun
         ),
         track_id: str | None = None,
     ) -> None:
@@ -393,7 +477,7 @@ class _Session:
             finished = await start_work()
         except TaggerError as error:
             logger.exception("background phase failed reason=%s", error.code)
-            self.send(error_from_business(error, command.command, track_id))
+            self.send(_error_of(error, command, track_id))
             return
         if finished is not None:
             self.send(finished)
@@ -407,6 +491,7 @@ def main() -> None:
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
     _purge_old_dumps()
+    _purge_old_plans()
     # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
     # points rend une liste vide et keyring basculerait sur son backend `fail`.
     # `KeyringBackend.__init__` n'annote pas son retour (cf. memory_keyring.py).
@@ -424,6 +509,14 @@ def _purge_old_dumps() -> None:
         logger.exception("tag dump purge failed")
 
 
+def _purge_old_plans() -> None:
+    # Meme garde que les dumps : un plan qui reste quelques jours de plus ne gene personne.
+    try:
+        purge_plans(plan_dir(), datetime.now(UTC))
+    except OSError:
+        logger.exception("run plan purge failed")
+
+
 async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     """Lit les commandes ligne a ligne et emet les evenements produits.
 
@@ -432,15 +525,14 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    Les phases longues (extraction, re-tagging, ecriture, rollback) tournent en
-    tache de fond dans le `TaskGroup` : la boucle lit les commandes suivantes pendant
-    qu'elles avancent. `shutdown` n'annule que la phase reseau (cf. `_Session.close`),
-    l'EOF les attend toutes.
+    Les phases longues tournent en tache de fond dans le `TaskGroup` : la boucle lit
+    les commandes suivantes pendant qu'elles avancent. `shutdown` n'annule que la phase
+    reseau (cf. `_Session.close`), l'EOF les attend toutes.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. La phase
     d'ecriture isole l'echec inattendu d'un morceau (`write_error`) et remonte le bug par
-    `capture_exception`. Partout ailleurs, toute autre exception fait tomber le processus,
+    `capture_unexpected`. Partout ailleurs, toute autre exception fait tomber le processus,
     volontairement : l'avaler cacherait un bug que Sentry remonte comme crash du sidecar
     (cf. PRODUCTION.md § Alertes).
     """
@@ -471,17 +563,13 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
                 await _dispatch(command, session)
             except TaggerError as error:
                 logger.exception("command failed reason=%s", error.code)
-                session.send(error_from_business(error, command.command))
+                session.send(_error_of(error, command))
 
 
-# PLR0912 : une branche par commande, le `match` ferme par `assert_never` etant ce qui
-# rend un oubli visible au typage.
+# PLR0912 : une branche par commande. `Shutdown` etant traite par la boucle, le `match`
+# couvre toutes les variantes et `assert_never` rend l'oubli d'un handler visible au typage.
 async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # noqa: PLR0912
     """Route une commande validee vers son handler.
-
-    `Shutdown` est traite par la boucle et n'arrive jamais ici, ce que le type dit :
-    le `match` couvre alors toutes les variantes et `assert_never` verrouille
-    l'ajout d'une commande sans handler.
 
     Les handlers sont bloquants (SQLite, parcours du dossier source, copie de
     fichiers, trousseau Windows) et passent donc par `to_thread`, sans quoi la
@@ -515,6 +603,16 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
             session.send(await asyncio.to_thread(handle_get_rollback_target))
         case Rollback():
             session.rollback(command)
+        case ListRuns():
+            session.send(await asyncio.to_thread(handle_list_runs))
+        case LoadRun():
+            session.load_run(command)
+        case ResumeRun():
+            session.resume_run(command)
+        case GetInterruptedRun():
+            await session.announce_interrupted_run()
+        case DiscardRun():
+            await session.discard_run(command)
         case _:
             assert_never(command)
 

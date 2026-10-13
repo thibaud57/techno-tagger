@@ -2,9 +2,10 @@
 paths:
   - "sidecar/src/tagger/protocol.py"
   - "sidecar/src/tagger/handlers.py"
-  - "sidecar/src/tagger/plan.py"
-  - "sidecar/src/tagger/scraper_client.py"
-  - "sidecar/src/tagger/reports.py"
+  - "sidecar/src/tagger/translation.py"
+  - "sidecar/src/tagger/run/plan.py"
+  - "sidecar/src/tagger/resolution/scraper_client.py"
+  - "sidecar/src/tagger/reports/extraction.py"
 ---
 
 # Pydantic — Modèles & validation

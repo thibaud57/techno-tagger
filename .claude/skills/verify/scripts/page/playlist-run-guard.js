@@ -42,7 +42,13 @@ async (page) => {
     await new Promise((r) => setTimeout(r, 800))
     window.__svc.send = async (command) => window.__sent.push(command)
   })
-  await line({ event: "version", version: "0.5.0", api_key_configured: true })
+  // Version de l'interface lue sur la page (celle que compare `versionMismatch`) : figee ici,
+  // elle perimait a chaque release (0.5.0 restait apres la 0.6.0, ecran bloquant, 2026-10-12).
+  const version = await page.evaluate(() => {
+    window.__svc.handleLine(JSON.stringify({ event: "version", version: "0.0.0-probe", api_key_configured: true }))
+    return window.__svc.versionMismatch().ui
+  })
+  await line({ event: "version", version, api_key_configured: true })
   await page.waitForFunction(() => document.querySelector("app-playlist-page") !== null)
   await onPage(`c.sourceFolder.set("C:/lib"); c.destinationFolder.set("C:/work"); c.playlistPath.set("C:/x/vlc_media.db")`)
   await line({ event: "playlists_listed", playlist_format: "vlc_dump", playlists: [{ playlist_id: 1, name: "set", track_count: 8 }] })
