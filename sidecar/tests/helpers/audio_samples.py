@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
+    from mutagen.id3 import ID3
+
 # MPEG-1 Layer III, 128 kbit/s, 44,1 kHz, mono, sans CRC ni padding : une trame
 # fait 144 * 128000 / 44100 = 417 octets. Plusieurs trames, mutagen se
 # synchronisant sur une suite de trames coherente.
@@ -158,6 +160,12 @@ def tag(path: Path, *, artist: list[str], title: list[str]) -> None:
         audio.tags.add(TPE1(encoding=3, text=artist))
         audio.tags.add(TIT2(encoding=3, text=title))
     audio.save()
+
+
+def id3_as_written(path: Path) -> ID3:
+    """Frames telles qu'ecrites sur le disque : rechargees sans la remontee en v2.4 de mutagen."""
+    tags: ID3 = type(mutagen.File(path))(path, translate=False).tags
+    return tags
 
 
 def append_id3v1(path: Path, *, comment: str) -> None:

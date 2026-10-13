@@ -1,16 +1,14 @@
-"""Tests de la facade du package `playlists`."""
-
 from typing import TYPE_CHECKING
 
 import pytest
 from vlc_dump import PLAYLIST_MAIN, PLAYLIST_OTHER, TRACKS
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 from tagger import playlists
 from tagger.playlists.errors import PlaylistNameRequiredError, UnsupportedPlaylistFormatError
 from tagger.playlists.models import PlaylistFormat
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_detects_a_vlc_dump(vlc_dump: Path) -> None:

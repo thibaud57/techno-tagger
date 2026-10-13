@@ -13,7 +13,7 @@ export const MESSAGE_ICONS = {
   error: "times-circle",
 } as const satisfies Record<MessageSeverity, IconName>
 
-/** Message inline, seule voie vers `p-message` : texte projete, icone suivant la severite. */
+/** Message inline, seule voie vers `p-message` (texte projete). */
 @Component({
   selector: "app-message",
   imports: [Message, IconComponent],

@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
+import { hostOf } from "../../../../fixtures/dom"
 import { ICON_NAMES, IconComponent } from "./icon.component"
 
 /** Parcourt `ICON_NAMES` : Angular ne verifie pas l'exhaustivite d'un `@switch`. */
@@ -14,7 +15,6 @@ describe("IconComponent", () => {
 
     fixture.detectChanges()
 
-    const host = fixture.nativeElement as HTMLElement
-    expect(host.querySelector(`svg[data-p-icon="${name}"]`)).not.toBeNull()
+    expect(hostOf(fixture).querySelector(`svg[data-p-icon="${name}"]`)).not.toBeNull()
   })
 })

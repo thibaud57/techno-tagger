@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
+import { hostOf } from "../../../../fixtures/dom"
 import type { TrackResolution, TrackState } from "../../../core/sidecar/protocol"
 
 import { StateTagComponent } from "./state-tag.component"
@@ -89,6 +90,15 @@ const CASES: readonly Case[] = [
     icon: "undo",
     label: "tagging.state.rolledBack",
   },
+  {
+    state: null,
+    resolution: null,
+    awaiting: false,
+    interrupted: true,
+    severity: "secondary",
+    icon: "minus-circle",
+    label: "tagging.state.notProcessed",
+  },
 ]
 
 const mount = (shown: Partial<Case>) => {
@@ -99,7 +109,7 @@ const mount = (shown: Partial<Case>) => {
   fixture.componentRef.setInput("interrupted", shown.interrupted ?? false)
   fixture.detectChanges()
 
-  return fixture
+  return hostOf(fixture)
 }
 
 describe("StateTagComponent", () => {
@@ -111,28 +121,15 @@ describe("StateTagComponent", () => {
   })
 
   it.each(CASES)("renders the family, the icon and the label of $label", (shown) => {
-    const fixture = mount(shown)
-
-    const element = fixture.nativeElement as HTMLElement
+    const element = mount(shown)
 
     expect(element.textContent).toContain(shown.label)
     expect(element.querySelector(`[data-severity="${shown.severity}"]`)).not.toBeNull()
     expect(element.querySelector(`[data-p-icon="${shown.icon}"]`)).not.toBeNull()
   })
 
-  it("shows a track left behind by an interrupted run as not processed", () => {
-    const fixture = mount({ interrupted: true })
-
-    const element = fixture.nativeElement as HTMLElement
-    expect(element.textContent).toContain("tagging.state.notProcessed")
-    expect(element.querySelector('[data-severity="secondary"]')).not.toBeNull()
-    expect(element.querySelector('[data-p-icon="minus-circle"]')).not.toBeNull()
-  })
-
   it("prefers the pending arbitration over the received state", () => {
-    const fixture = mount({ state: "unresolved", resolution: "none", awaiting: true })
-
-    const element = fixture.nativeElement as HTMLElement
+    const element = mount({ state: "unresolved", resolution: "none", awaiting: true })
 
     expect(element.textContent).toContain("tagging.state.awaiting")
   })

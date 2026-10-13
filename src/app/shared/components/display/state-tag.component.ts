@@ -45,7 +45,7 @@ const ROLLED_BACK: StateStyle = {
   icon: "undo",
   label: "tagging.state.rolledBack",
 }
-/** Trois issues positives, toutes vertes : c'est le libelle qui porte la voie. */
+/** Issues positives, toutes vertes : c'est le libelle qui porte la voie. */
 const RESOLVED: Record<TrackResolution, StateStyle> = {
   auto: { severity: "success", icon: "check", label: "tagging.state.auto" },
   arbitration: { severity: "success", icon: "check", label: "tagging.state.arbitrated" },
@@ -80,7 +80,7 @@ export class StateTagComponent {
       return AWAITING
     }
     switch (this.state()) {
-      // `written` garde le libelle de sa voie (DESIGN.md § Couleurs Semantiques).
+      // `written` garde le libelle de sa voie.
       case "resolved":
       case "written":
         return RESOLVED[this.resolution() ?? "none"]

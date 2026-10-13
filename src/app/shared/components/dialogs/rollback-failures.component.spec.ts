@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
+import { hostOf } from "../../../../fixtures/dom"
 import { translateWith } from "../../../../fixtures/translate"
 import type { RollbackFailure } from "../../../core/sidecar/protocol"
 
@@ -34,7 +35,7 @@ const mount = (failures: readonly RollbackFailure[]) => {
   fixture.componentRef.setInput("failures", failures)
   fixture.detectChanges()
 
-  return fixture.nativeElement as HTMLElement
+  return hostOf(fixture)
 }
 
 describe("RollbackFailuresComponent", () => {

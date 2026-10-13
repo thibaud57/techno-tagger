@@ -1,19 +1,14 @@
-import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
+import { closeGuardStub } from "../../../../fixtures/close-guard"
 import { action, page } from "../../../../fixtures/dialog"
-import { CloseGuard, type PendingWork } from "../../../core/platform/close-guard.service"
+import { CloseGuard } from "../../../core/platform/close-guard.service"
 
 import { CloseConfirmationComponent } from "./close-confirmation.component"
 
 const mount = (blocked = false) => {
-  const guard = {
-    request: signal<readonly PendingWork[] | null>([{ kind: "extraction" }, { kind: "write" }]),
-    blocked: signal(blocked),
-    stay: vi.fn(),
-    leave: vi.fn(() => Promise.resolve()),
-  }
+  const guard = closeGuardStub([{ kind: "extraction" }, { kind: "write" }], blocked)
   TestBed.configureTestingModule({
     imports: [CloseConfirmationComponent],
     providers: [provideTranslateService(), { provide: CloseGuard, useValue: guard }],

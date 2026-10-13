@@ -47,6 +47,8 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
 /** Seul code d'erreur que l'interface emet elle-meme : les autres viennent du sidecar. */
 export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
 
+const API_KEY_MISSING = "api_key_missing"
+
 /** Phase longue en cours, une seule a la fois : celle qui tient les fichiers prime sur les autres. */
 export type SidecarPhase = "idle" | "extracting" | "searching" | "writing" | "rollingBack"
 
@@ -495,20 +497,11 @@ export class SidecarService {
   }
 
   async loadRollbackTarget(): Promise<void> {
-    // Lecture seule : sans moteur lance, pas de `reportUnavailable`, qui arreterait le run.
-    if (this._available() !== true) {
-      return
-    }
-    await this.send({ command: "get_rollback_target" })
+    await this.query({ command: "get_rollback_target" })
   }
 
   async listRuns(): Promise<void> {
-    // Lecture seule, comme `loadRollbackTarget` : sans moteur lance, pas de `reportUnavailable`, qui
-    // arreterait le run affiche.
-    if (this._available() !== true) {
-      return
-    }
-    await this.send({ command: "list_runs" })
+    await this.query({ command: "list_runs" })
   }
 
   /** Un run deja en chargement n'est pas redemande : chaque `load_run` retelecharge les pochettes. */
@@ -526,6 +519,14 @@ export class SidecarService {
    */
   async setApiKey(apiKey: string): Promise<void> {
     await this.send({ command: "set_api_key", api_key: apiKey })
+  }
+
+  /** Lecture seule : sans moteur lance, pas de `reportUnavailable`, qui arreterait le run affiche. */
+  private async query(command: SidecarCommand): Promise<void> {
+    if (this._available() !== true) {
+      return
+    }
+    await this.send(command)
   }
 
   private async send(command: SidecarCommand): Promise<void> {
@@ -604,6 +605,20 @@ export class SidecarService {
     }
   }
 
+  /**
+   * Le plan reste sur disque apres un refus : on redemande l'annonce. Sauf `phase_busy` et cle
+   * absente, ou l'invite non fermable enfermerait l'utilisateur qui doit d'abord agir ailleurs.
+   */
+  private routeResumeError(event: SidecarErrorEvent): void {
+    if (event.command !== "resume_run" && event.command !== "discard_run") {
+      return
+    }
+    if (event.code === PHASE_BUSY || event.code === API_KEY_MISSING) {
+      return
+    }
+    void this.askInterruptedRun()
+  }
+
   private routeLoadRunError(event: SidecarErrorEvent): void {
     if (event.command === "load_run") {
       this.pastRunsStore.loadFailed(event)
@@ -663,12 +678,13 @@ export class SidecarService {
 
     switch (event.event) {
       case "version": {
-        // Seule la premiere `version` d'un moteur demande le run interrompu : `set_api_key` la
-        // renvoie, et `restart()` remet la version a nul.
+        // Seulement la premiere `version` d'un moteur (`restart()` la remet a nul) ou une cle tout
+        // juste enregistree : `set_api_key` renvoie une `version`.
         const firstAnswer = this._version() === null
+        const keySaved = this._apiKeyConfigured() === false && event.api_key_configured
         this._version.set(event.version)
         this._apiKeyConfigured.set(event.api_key_configured)
-        if (firstAnswer) {
+        if (firstAnswer || keySaved) {
           void this.askInterruptedRun()
         }
         break
@@ -731,6 +747,8 @@ export class SidecarService {
         this.pastRunsStore.loadedRun(event)
         break
       case "error":
+        // Avant `setLastError` : la relance de l'annonce passe par `send`, qui efface l'erreur courante.
+        this.routeResumeError(event)
         this.setLastError(event)
         // Chaque phase longue ne tombe que sur l'echec de la commande qui l'a ouverte :
         // elles tournent en parallele, l'une ne dit rien de l'autre.

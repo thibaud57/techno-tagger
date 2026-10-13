@@ -1,8 +1,6 @@
-"""Execution d'une commande validee : du modele du protocole au metier, puis a
-l'evenement.
+"""Execution d'une commande validee, du modele du protocole a l'evenement.
 
-Separe de `__main__.py` pour que le point d'entree reste le moteur et le routage,
-le contrat etant appele a grandir bien au-dela des commandes actuelles.
+Separe de `__main__.py` pour que le point d'entree reste le moteur et le routage.
 """
 
 import asyncio
@@ -12,12 +10,12 @@ from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
-import sentry_sdk
-
 from tagger import __version__
 from tagger.core.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.core.errors import RunNotFoundError
+from tagger.core.observability import capture_unexpected
 from tagger.core.paths import app_data_dir
+from tagger.core.tasks import cancel_all
 from tagger.playlists import list_playlists, read_playlist
 from tagger.playlists.extraction import extract
 from tagger.protocol import (
@@ -90,7 +88,7 @@ from tagger.translation import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable, Mapping
     from pathlib import Path
 
     import httpx2
@@ -128,14 +126,7 @@ def _detected(
         case None:
             return None
         case InterruptedRun():
-            return InterruptedRunPayload(
-                run_id=detected.run_id,
-                started_at=detected.started_at,
-                folder=detected.folder,
-                processed=detected.processed,
-                total=detected.total,
-                folder_missing=detected.folder_missing,
-            )
+            return InterruptedRunPayload.model_validate(detected, from_attributes=True)
         case UnreadablePlan():
             return UnreadablePlanPayload(
                 run_id=detected.run_id,
@@ -154,7 +145,6 @@ def handle_set_api_key(command: SetApiKey) -> Version:
 
 
 def handle_list_playlists(command: ListPlaylists) -> PlaylistsListed:
-    """Liste les playlists d'un dump VLC pour alimenter le selecteur."""
     listing = list_playlists(command.playlist_path)
 
     return PlaylistsListed(
@@ -170,10 +160,8 @@ def handle_list_playlists(command: ListPlaylists) -> PlaylistsListed:
 def handle_extract_playlist(
     command: ExtractPlaylist, on_progress: Callable[[Progress], None]
 ) -> ExtractionFinished:
-    """Lit la playlist, extrait ses morceaux, ecrit le rapport.
-
-    Le module d'extraction ignore le protocole : il recoit un rappel `(traites,
-    total)` que ce handler traduit en evenement.
+    """Le module d'extraction ignore le protocole : son rappel `(traites, total)` devient ici
+    l'evenement `progress`.
     """
     file_names = read_playlist(command.playlist_path, command.playlist_name)
 
@@ -212,7 +200,7 @@ def handle_extract_playlist(
         missing=result.missing,
         # Les modeles de frontiere reprennent champ pour champ les dataclasses du
         # metier : `from_attributes` les recopie, `discarded` compris, plutot qu'une
-        # enumeration a tenir a jour ici et dans le rapport (cf. `reports.py`).
+        # enumeration a tenir a jour ici et dans le rapport (cf. `reports/extraction.py`).
         duplicates=tuple(
             DuplicatePayload.model_validate(duplicate, from_attributes=True)
             for duplicate in result.duplicates
@@ -226,10 +214,8 @@ def handle_extract_playlist(
 
 
 class TaggingTransports(NamedTuple):
-    """Transports du client et du CDN, et resolveur d'hote des pochettes.
-
-    `None` et le resolveur reel en production : les tests remplacent les trois d'un
-    coup, sans quoi l'hote d'un CDN simule partirait quand meme au DNS.
+    """Transports du client et du CDN, et resolveur d'hote des pochettes : `None` et le
+    resolveur reel en production.
     """
 
     api: httpx2.AsyncBaseTransport | None
@@ -238,7 +224,7 @@ class TaggingTransports(NamedTuple):
 
 
 def tagging_transports() -> TaggingTransports:
-    """Transports de production ; remplaces au complet par les tests."""
+    """Remplace au complet par les tests : un CDN simule partirait sinon au DNS."""
     return TaggingTransports(None, None, resolve_host)
 
 
@@ -313,9 +299,7 @@ class CurrentRun:
             await self._stack.aclose()
 
     async def _cancel_gestures(self) -> None:
-        for gesture in self._gestures:
-            gesture.cancel()
-        await asyncio.gather(*self._gestures, return_exceptions=True)
+        await cancel_all(self._gestures)
 
 
 async def _open_clients(stack: AsyncExitStack) -> tuple[TechnoScraperClient, ArtworkFetcher]:
@@ -424,11 +408,14 @@ async def handle_start_tagging(
 async def handle_resume_run(
     plan: RunPlan,
     emit: Callable[[Event], None],
-    adopt: Callable[[CurrentRun], None],
+    take_over: Callable[[CurrentRun], Awaitable[None]],
 ) -> None:
-    """Rejoue le run interrompu, puis ne lance la phase reseau que sur ses morceaux restants."""
+    """Rejoue le run interrompu, puis ne lance la phase reseau que sur ses morceaux restants.
+
+    `take_over` attend le run repris ouvert : un refus ne coute rien au run affiche.
+    """
     current = await open_resumed_tagging(plan, emit)
-    adopt(current)
+    await take_over(current)
     await _network_phase(current, emit)
 
 
@@ -499,8 +486,7 @@ async def _write_report(current: CurrentRun) -> None:
         # Les fichiers musicaux sont ecrits : un bug du rapport ne doit pas priver l'interface de
         # la fin de phase. Pas de `BaseException` : l'annulation doit passer.
         logger.exception("tagging report failed unexpectedly run=%s", run.run_id)
-        # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
-        sentry_sdk.capture_exception(error)
+        capture_unexpected(error)
         return
     current.report = names
     entry = IndexEntry(
@@ -534,14 +520,15 @@ async def handle_load_run(command: LoadRun) -> RunLoaded:
         run_id=report.run_id,
         folder=report.folder,
         generated_at=report.generated_at,
-        tracks=tuple(_loaded(track, artworks.get(track.track_id)) for track in report.tracks),
+        tracks=tuple(_loaded(track, artworks) for track in report.tracks),
     )
 
 
 async def _artworks(report: TaggingReport) -> dict[str, Path]:
-    """Pochettes retelechargees par un fetcher ouvert pour la tache, dont le pool est borne.
+    """Chemin des pochettes par URL, retelechargees par un fetcher ouvert pour la tache, dont le
+    pool est borne.
 
-    Le cache du run vivant n'est pas emprunte : ses entrees expirent apres 30 jours, les rapports
+    Le cache du run vivant n'est pas emprunte : ses entrees expirent apres `CACHE_TTL`, les rapports
     jamais. Une pochette partagee par plusieurs morceaux n'est demandee qu'une fois.
     """
     urls = dict.fromkeys(
@@ -558,12 +545,7 @@ async def _artworks(report: TaggingReport) -> dict[str, Path]:
             url: group.create_task(_artwork_or_none(fetcher, url), name=f"artwork:{position}")
             for position, url in enumerate(urls, start=1)
         }
-    paths = {url: path for url, fetch in fetches.items() if (path := fetch.result()) is not None}
-    return {
-        track.track_id: path
-        for track in report.tracks
-        if track.artwork_url is not None and (path := paths.get(track.artwork_url)) is not None
-    }
+    return {url: path for url, fetch in fetches.items() if (path := fetch.result()) is not None}
 
 
 async def _artwork_or_none(fetcher: ArtworkFetcher, url: str) -> Path | None:
@@ -574,13 +556,12 @@ async def _artwork_or_none(fetcher: ArtworkFetcher, url: str) -> Path | None:
         return None
 
 
-def _loaded(track: TaggingReportTrack, artwork: Path | None) -> TrackLoaded:
+def _loaded(track: TaggingReportTrack, artworks: Mapping[str, Path]) -> TrackLoaded:
     before = {row.field: row.value for row in track.tags_before or ()}
     scores = track.scores
     return TrackLoaded(
         track_id=track.track_id,
         file_name=PurePosixPath(track.file_before).name,
-        file_after=None if track.file_after is None else PurePosixPath(track.file_after).name,
         artist=before.get(TagField.ARTIST) or "",
         title=before.get(TagField.TITLE) or "",
         state=track.state,
@@ -599,7 +580,7 @@ def _loaded(track: TaggingReportTrack, artwork: Path | None) -> TrackLoaded:
         else tags_before_payload(track.system, track.comment_before, track.tags_before),
         tags_after=None if track.tags_after is None else payload_rows(track.tags_after),
         source_url=track.url,
-        artwork_path=artwork,
+        artwork_path=None if track.artwork_url is None else artworks.get(track.artwork_url),
     )
 
 

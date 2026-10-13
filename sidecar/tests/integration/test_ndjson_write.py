@@ -1,5 +1,3 @@
-"""Protocole NDJSON de l'ecriture d'un run, de bout en bout sur la boucle."""
-
 import asyncio
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -286,9 +284,7 @@ def _report_texts(folder: Path) -> str:
 
 async def test_leaves_the_tagging_report_in_the_folder(folder: Path) -> None:
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        run_id = await written_run(talk, folder)
 
     json_path, report = only_report(folder)
     assert report_files(folder) == [json_path, json_path.with_suffix(".md")]
@@ -302,9 +298,7 @@ async def test_keeps_the_api_key_and_the_data_folder_out_of_the_report(
     api_key = memory_keyring.secrets[(SERVICE, USERNAME)]
 
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        await written_run(talk, folder)
 
     reports = _report_texts(folder)
     assert api_key not in reports
@@ -385,7 +379,7 @@ async def test_finishes_the_write_phase_when_the_report_fails_unexpectedly(
     bug = ValueError("bug")
     monkeypatch.setattr(handlers, "write_tagging_report", raising(bug))
 
-    with patch("tagger.handlers.sentry_sdk.capture_exception", autospec=True) as capture:
+    with patch("sentry_sdk.capture_exception", autospec=True) as capture:
         async with conversation() as talk:
             run_id = await resolved_run(talk, folder)
             talk.send(command="commit_run", run_id=run_id)

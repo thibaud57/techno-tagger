@@ -1,5 +1,3 @@
-"""Tests de la projection d'un candidat et de l'ecriture des tags, relus sur le fichier."""
-
 import errno
 import stat
 from typing import TYPE_CHECKING, Final
@@ -9,6 +7,7 @@ import pytest
 from audio_samples import (
     append_id3v1,
     held_open,
+    id3_as_written,
     locked_by_another_process,
     write_not_audio,
     write_tagged_wavpack,
@@ -23,7 +22,7 @@ from scraper_responses import (
     payload_candidate,
     soundcloud_track_payload,
 )
-from tagging_api import JPEG
+from tagging_api import JPEG, write_cover
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.resolution.scraper_client import TrackCandidate
@@ -104,6 +103,16 @@ def _add_pictures(path: Path, *pictures: tuple[int, bytes]) -> None:
     for kind, data in pictures:
         audio.tags.add(APIC(encoding=3, mime="image/png", type=kind, desc=str(kind), data=data))
     audio.save(v2_version=3)
+
+
+def _tag_with_a_full_date(path: Path, id3_version: int) -> None:
+    """Fichier tague ailleurs en ID3 v2.3 ou v2.4, date complete comprise."""
+    audio = mutagen.File(path)
+    audio.add_tags()
+    audio.tags.add(TDRC(encoding=3, text=["2019-06-16"]))
+    if id3_version == 3:
+        audio.tags.update_to_v23()
+    audio.save(v2_version=id3_version)
 
 
 def _pictures(path: Path) -> list[tuple[int, str, bytes]]:
@@ -275,17 +284,11 @@ def test_saves_id3_v23_with_the_year_alone(
     blank_audio: Callable[[str], Path], audio_format: str, version: int
 ) -> None:
     path = blank_audio(audio_format)
-    audio = mutagen.File(path)
-    audio.add_tags()
-    audio.tags.add(TDRC(encoding=3, text=["2019-06-16"]))
-    if version == 3:
-        audio.tags.update_to_v23()
-    audio.save(v2_version=version)
+    _tag_with_a_full_date(path, version)
 
     write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
 
-    # Rechargees sans la remontee en v2.4 : les frames telles qu'ecrites sur le disque.
-    on_disk = type(mutagen.File(path))(path, translate=False).tags
+    on_disk = id3_as_written(path)
     assert on_disk.version == (2, 3, 0)
     assert str(on_disk["TYER"]) == "2023"
     # Une seule date au contrat, celle de la sortie : aucune annee d'origine n'est ecrite.
@@ -297,16 +300,11 @@ def test_keeps_the_file_date_when_the_source_has_none(
     blank_audio: Callable[[str], Path], version: int
 ) -> None:
     path = blank_audio("mp3")
-    audio = mutagen.File(path)
-    audio.add_tags()
-    audio.tags.add(TDRC(encoding=3, text=["2019-06-16"]))
-    if version == 3:
-        audio.tags.update_to_v23()
-    audio.save(v2_version=version)
+    _tag_with_a_full_date(path, version)
 
     write_tags(path, project_tags(payload_candidate(release=None)), None)
 
-    on_disk = type(mutagen.File(path))(path, translate=False).tags
+    on_disk = id3_as_written(path)
     assert str(on_disk["TYER"]) == "2019"
     assert str(on_disk["TDAT"]) == "1606"
 
@@ -418,8 +416,7 @@ def test_replaces_every_picture_with_the_given_cover(
 ) -> None:
     path = blank_audio(audio_format)
     _add_pictures(path, (PictureType.COVER_BACK, b"back"), (PictureType.COVER_FRONT, b"old front"))
-    cover = tmp_path / "cover.jpg"
-    cover.write_bytes(JPEG)
+    cover = write_cover(tmp_path)
 
     written = write_tags(path, project_tags(BEATPORT_CANDIDATE), cover)
 
@@ -432,8 +429,7 @@ def test_writing_twice_still_leaves_a_single_cover(
     blank_audio: Callable[[str], Path], tmp_path: Path, audio_format: str
 ) -> None:
     path = blank_audio(audio_format)
-    cover = tmp_path / "cover.jpg"
-    cover.write_bytes(JPEG)
+    cover = write_cover(tmp_path)
     write_tags(path, project_tags(BEATPORT_CANDIDATE), cover)
 
     write_tags(path, project_tags(BEATPORT_CANDIDATE), cover)
@@ -560,8 +556,19 @@ def test_names_a_full_disk_met_while_saving(
     assert error.value.params == {"file": "track.mp3", "reason": FileFailureReason.DISK_FULL}
 
 
-def test_refuses_a_container_outside_the_four_formats(tmp_path: Path) -> None:
-    path = write_tagged_wavpack(tmp_path / "track.wav")
+@pytest.mark.parametrize(
+    ("name", "build"),
+    [
+        ("notes.mp3", write_not_audio),
+        ("notes.txt", write_not_audio),
+        ("track.wav", write_tagged_wavpack),
+    ],
+    ids=["corrupt-mp3", "unknown", "wavpack"],
+)
+def test_refuses_a_file_outside_the_four_formats(
+    tmp_path: Path, name: str, build: Callable[[Path], Path]
+) -> None:
+    path = build(tmp_path / name)
     before = path.read_bytes()
 
     with pytest.raises(TagsWriteError) as error:
@@ -569,13 +576,3 @@ def test_refuses_a_container_outside_the_four_formats(tmp_path: Path) -> None:
 
     assert error.value.reason is FileFailureReason.WRITE_FAILED
     assert path.read_bytes() == before
-
-
-@pytest.mark.parametrize("name", ["notes.mp3", "notes.txt"], ids=["corrupt-mp3", "unknown"])
-def test_refuses_a_file_that_is_not_audio(tmp_path: Path, name: str) -> None:
-    path = write_not_audio(tmp_path / name)
-
-    with pytest.raises(TagsWriteError) as error:
-        write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
-
-    assert error.value.reason is FileFailureReason.WRITE_FAILED

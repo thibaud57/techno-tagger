@@ -1,5 +1,3 @@
-"""Tests de la reprise d'un run interrompu : detection, designation, reconstruction."""
-
 import json
 from dataclasses import replace
 from datetime import timedelta
@@ -7,10 +5,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from run_plans import RUN_ID, music, plan_of, save_plan
+from audio_samples import tag
+from run_plans import music, plan_of, save_plan
 from scraper_responses import ARTWORK_URL, BEATPORT_CANDIDATE
+from stubs import ignore
 from tagging_api import CREATED, FakeApi, FakeCdn, must_record, run_sources, tagged_mp3
-from tagging_records import RECORD, scored_candidate
+from tagging_records import RECORD, RUN_ID, scored_candidate
 
 from tagger.core.run_files import stamped_name
 from tagger.resolution.matching import TrackQuery, build_query
@@ -35,9 +35,11 @@ from tagger.run.resume import (
     reopen_run,
 )
 from tagger.run.tagging import resolve_run
-from tagger.tags.files import TaggingFolderUnreadableError
+from tagger.tags.files import IdentityTags, TaggingFolderUnreadableError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from tagger.resolution.scraper_client import TrackCandidate
     from tagger.run.models import RunEvent
 
@@ -101,18 +103,12 @@ def test_sums_up_an_interrupted_run(plans: Path, dumps: Path, folder_with_audio:
     )
 
 
-def test_flags_a_run_whose_folder_is_gone(plans: Path, dumps: Path, tmp_path: Path) -> None:
-    path = save_plan(plans, plan_of(tmp_path / "unplugged", _decided(1, 1)))
-
-    detected = detect_interrupted(plans, dumps)
-
-    assert isinstance(detected, InterruptedRun)
-    assert detected.folder_missing
-    assert path.exists()
-
-
-def test_flags_a_run_whose_folder_was_emptied(plans: Path, dumps: Path, music_folder: Path) -> None:
-    path = save_plan(plans, plan_of(music_folder, _decided(1, 1)))
+@pytest.mark.parametrize("emptied", [True, False], ids=["emptied", "gone"])
+def test_flags_a_run_whose_folder_is_gone_or_was_emptied(
+    plans: Path, dumps: Path, tmp_path: Path, music_folder: Path, emptied: bool
+) -> None:
+    folder = music_folder if emptied else tmp_path / "unplugged"
+    path = save_plan(plans, plan_of(folder, _decided(1, 1)))
 
     detected = detect_interrupted(plans, dumps)
 
@@ -234,19 +230,16 @@ def _silent(record: TrackRecord) -> TrackRecord:
     return replace(record, query=_query(record)).unresolved(FailureReason.SOURCE_UNAVAILABLE)
 
 
-def _nothing(_event: RunEvent) -> None:
-    """Rappel d'un test qui n'observe pas les evenements."""
-
-
 @pytest.mark.asyncio
 async def test_gives_back_the_decisions_of_the_plan(music_folder: Path) -> None:
     auto, held = music(music_folder, 2)
     nested = tagged_mp3(music_folder / "sub", "b.mp3", "Amelie Lens", "Basiel")
-    refused = TrackRecord(track_id="sub/b.mp3", path=nested, identity=RECORD.identity)
+    identity = IdentityTags(artist="Amelie Lens", title="Basiel")
+    refused = TrackRecord(track_id="sub/b.mp3", path=nested, identity=identity)
     plan = plan_of(music_folder, [_auto(auto), _held(held), _refused(refused)])
 
     async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
-        live = await reopen_run(plan, sources, on_event=_nothing)
+        live = await reopen_run(plan, sources, on_event=ignore)
 
     reopened = {record.track_id: record for record in live.snapshot().tracks}
     assert reopened["t000.mp3"].resolution is Resolution.AUTO
@@ -255,6 +248,31 @@ async def test_gives_back_the_decisions_of_the_plan(music_folder: Path) -> None:
     assert pending.other is not None
     assert (pending.source, pending.other.source) == (Source.BEATPORT, Source.BANDCAMP)
     assert reopened["sub/b.mp3"].failure_reason is FailureReason.USER_REFUSED
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "decide", [_auto, _held, _refused], ids=["resolved", "arbitrated", "refused"]
+)
+async def test_sends_a_retagged_file_back_to_the_network(
+    music_folder: Path, decide: Callable[[TrackRecord], TrackRecord]
+) -> None:
+    (record,) = music(music_folder, 1)
+    plan = plan_of(music_folder, [decide(record)])
+    tag(record.path, artist=["Sara Landry"], title=["The Void"])
+    events: list[RunEvent] = []
+
+    async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
+        live = await reopen_run(plan, sources, on_event=events.append)
+
+    retagged = must_record(live, "t000.mp3")
+    assert (retagged.state, retagged.failure_reason, retagged.candidate, retagged.arbitration) == (
+        None,
+        None,
+        None,
+        None,
+    )
+    assert events[-1] == RunProgress(processed=0, total=1)
 
 
 @pytest.mark.asyncio
@@ -267,7 +285,7 @@ async def test_rebuilds_the_run_on_the_folder_as_it_is_now(
     tagged_mp3(music_folder, "new.mp3", "Sara Landry", "The Void")
 
     async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
-        live = await reopen_run(plan, sources, on_event=_nothing)
+        live = await reopen_run(plan, sources, on_event=ignore)
 
     reopened = {record.track_id: record for record in live.snapshot().tracks}
     assert set(reopened) == {"t000.mp3", "new.mp3"}
@@ -290,7 +308,7 @@ async def test_replays_the_events_of_a_live_run(music_folder: Path) -> None:
         ArbitrationRequired,
         RunProgress,
     ]
-    assert events[-1] == RunProgress(2, 3)
+    assert events[-1] == RunProgress(processed=2, total=3)
 
 
 @pytest.mark.asyncio
@@ -321,7 +339,7 @@ async def test_downloads_again_the_artwork_of_a_resolved_track(music_folder: Pat
     plan = plan_of(music_folder, [_auto(auto)])
 
     async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
-        live = await reopen_run(plan, sources, on_event=_nothing)
+        live = await reopen_run(plan, sources, on_event=ignore)
 
     reopened = must_record(live, "t000.mp3")
     assert reopened.artwork is not None
@@ -337,7 +355,7 @@ async def test_keeps_a_track_resolved_when_its_artwork_is_unavailable(
     cdn.refused.add(ARTWORK_URL)
 
     async with run_sources(music_folder, FakeApi(), RUN_ID, cdn=cdn) as sources:
-        live = await reopen_run(plan, sources, on_event=_nothing)
+        live = await reopen_run(plan, sources, on_event=ignore)
 
     reopened = must_record(live, "t000.mp3")
     assert (reopened.state, reopened.artwork) == (TrackState.RESOLVED, None)
@@ -373,7 +391,7 @@ async def test_leaves_a_track_whose_source_did_not_answer_to_the_network(
 
     reopened = must_record(live, "t001.mp3")
     assert reopened.state is None
-    assert events[-1] == RunProgress(1, 2)
+    assert events[-1] == RunProgress(processed=1, total=2)
 
 
 @pytest.mark.asyncio
@@ -382,8 +400,8 @@ async def test_a_reopened_arbitration_can_still_be_decided(music_folder: Path) -
     plan = plan_of(music_folder, [_held(held)])
 
     async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
-        live = await reopen_run(plan, sources, on_event=_nothing)
-        desk = Arbitration(live, sources, lambda _event: None)
+        live = await reopen_run(plan, sources, on_event=ignore)
+        desk = Arbitration(live, sources, ignore)
 
         await desk.choose("t000.mp3", Source.BEATPORT, 0)
 
@@ -406,7 +424,10 @@ async def test_resumes_a_run_left_at_62_out_of_100(music_folder: Path) -> None:
     assert api.searched() == {_query(record).text for record in records[62:]}
     assert api.paths().count("/beatport/search") == 38
     progress = [event for event in events if isinstance(event, RunProgress)]
-    assert (progress[0], progress[-1]) == (RunProgress(62, 100), RunProgress(100, 100))
+    assert (progress[0], progress[-1]) == (
+        RunProgress(processed=62, total=100),
+        RunProgress(processed=100, total=100),
+    )
     held = must_record(live, "t001.mp3")
     assert held.arbitration is not None
     assert held.arbitration.other is not None

@@ -1,15 +1,15 @@
 """Pipeline de resolution d'un run de re-tagging (use-case 2).
 
-Orchestre `files`, `matching`, `scraper_client` et `cache` sans rien reimplementer,
+Orchestre `tags.files`, `resolution.matching` et `resolution.sources` sans rien reimplementer,
 et ignore le protocole NDJSON : les evenements sortent par un rappel, que le handler
-traduit. Aucun fichier musical n'est ecrit ici (ADR-010). L'etat du run vit dans `models`.
+traduit. Aucun fichier musical n'est ecrit ici (ADR-010). L'etat du run vit dans `run.models`.
 """
 
 import asyncio
+import copy
 import logging
 import secrets
-from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from tagger.resolution.matching import Outcome, ScoredCandidate, build_query, classify
 from tagger.resolution.scraper_client import (
@@ -60,7 +60,8 @@ async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> Liv
 async def resolve_run(
     live: LiveRun, sources: RunSources, *, on_event: Callable[[RunEvent], None]
 ) -> None:
-    """Ne s'arrete jamais sur un morceau : seuls trois 403 consecutifs arretent le run.
+    """Ne s'arrete jamais sur un morceau : seuls `API_KEY_REJECTION_LIMIT` 403 consecutifs
+    arretent le run.
 
     Un morceau deja traite (run repris) n'est jamais renvoye a l'API : la progression part du
     nombre deja traite, sur le total du run.
@@ -129,13 +130,17 @@ class _Runner:
         self._on_event = on_event
         self._processed = processed
 
+    @override
+    def __repr__(self) -> str:
+        return f"_Runner(processed={self._processed}, total={self._total})"
+
     async def process(self, position: int, record: TrackRecord) -> None:
         done = await self._resolve(position, record)
         self._live.update(done)
         event = ArbitrationRequired(done) if done.arbitration else TrackResolved(done)
         self._on_event(event)
         self._processed += 1
-        self._on_event(RunProgress(self._processed, self._total))
+        self._on_event(RunProgress(processed=self._processed, total=self._total))
 
     # PLR0911 : une sortie par issue de la cascade (deux sources, trois classements
     # chacune) est plus lisible qu'un decoupage en sous-fonctions qui eclaterait l'etat.
@@ -144,7 +149,7 @@ class _Runner:
         query = build_query(identity.artist, identity.title, record.file_name)
         if query is None:
             return self._unresolved(position, record, FailureReason.EMPTY_QUERY)
-        record = replace(record, query=query)
+        record = copy.replace(record, query=query)
 
         beatport_unavailable = False
         had_candidates = False
@@ -236,7 +241,7 @@ class _Runner:
             source,
             candidates[0].score,
         )
-        return replace(
+        return copy.replace(
             record, arbitration=PendingArbitration(source, candidates, beatport_unavailable)
         )
 

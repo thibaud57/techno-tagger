@@ -1,5 +1,3 @@
-"""Fixtures propres aux tests d'integration : API simulee et dossiers de run."""
-
 from typing import TYPE_CHECKING
 
 import httpx2

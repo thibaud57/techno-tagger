@@ -22,7 +22,8 @@ try {
   const errors = []
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()))
   const out = await run(page)
-  console.log(JSON.stringify({ success: true, ...out, consoleErrors: errors }))
+  // Une sonde qui ne pose pas `success` est jugee sur ses `failures` : sinon un controle rouge sortait vert.
+  console.log(JSON.stringify({ success: !out?.failures?.length, ...out, consoleErrors: errors }))
 } catch (error) {
   console.log(JSON.stringify({ error: true, message: String(error?.stack ?? error) }))
   process.exitCode = 1

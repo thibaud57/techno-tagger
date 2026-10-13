@@ -384,26 +384,32 @@ describe("SidecarService", () => {
     expect(service.version()).toBeNull()
   })
 
-  it("sends the api key command", async () => {
+  it.each<[string, (target: SidecarService) => Promise<void>, unknown]>([
+    [
+      "the api key",
+      (target) => target.setApiKey("k3y-t0k3n"),
+      { command: "set_api_key", api_key: "k3y-t0k3n" },
+    ],
+    [
+      "a tagging start without thresholds",
+      (target) => target.startTagging("C:/Sets"),
+      { command: "start_tagging", folder: "C:/Sets" },
+    ],
+    [
+      "a tagging start with the thresholds the settings impose",
+      (target) => target.startTagging("C:/Sets", { floor: 75, ceiling: 95 }),
+      {
+        command: "start_tagging",
+        folder: "C:/Sets",
+        thresholds: { floor: 75, ceiling: 95 },
+      },
+    ],
+  ])("sends %s as its command", async (_command, send, expected) => {
     await service.start()
 
-    await service.setApiKey("k3y-t0k3n")
+    await send(service)
 
-    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
-      command: "set_api_key",
-      api_key: "k3y-t0k3n",
-    })
-  })
-
-  it("sends the start tagging command without thresholds", async () => {
-    await service.start()
-
-    await service.startTagging("C:/Sets")
-
-    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
-      command: "start_tagging",
-      folder: "C:/Sets",
-    })
+    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual(expected)
   })
 
   it("cancels a running run and stops it locally", async () => {
@@ -423,18 +429,6 @@ describe("SidecarService", () => {
     await service.cancelTagging()
 
     expect(transport.sent.length).toBe(before)
-  })
-
-  it("sends the thresholds when the settings impose them", async () => {
-    await service.start()
-
-    await service.startTagging("C:/Sets", { floor: 75, ceiling: 95 })
-
-    expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
-      command: "start_tagging",
-      folder: "C:/Sets",
-      thresholds: { floor: 75, ceiling: 95 },
-    })
   })
 
   it("replays a whole tagging run and reports every track", async () => {
@@ -896,6 +890,15 @@ describe("SidecarService", () => {
       expect(askedCount()).toBe(1)
     })
 
+    it("asks again once the api key is saved", async () => {
+      await service.start()
+      transport.emit({ ...VERSION, api_key_configured: false })
+
+      transport.emit(VERSION)
+
+      expect(askedCount()).toBe(2)
+    })
+
     it("drops the announced run at a restart until the engine announces again", async () => {
       await service.start()
       transport.emit(interruptedRun(INTERRUPTED))
@@ -978,6 +981,42 @@ describe("SidecarService", () => {
       expect(discarded).toHaveLength(1)
     })
 
+    it.each([
+      ["resume_run", "run_not_found"],
+      ["resume_run", "tagging_folder_unreadable"],
+      ["discard_run", "run_not_found"],
+    ] as const)("asks again when %s is refused with %s", async (command, code) => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      transport.emit(commandError(command, code))
+
+      expect(askedCount()).toBe(1)
+    })
+
+    it("keeps the refusal displayed when it asks again", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      transport.emit(commandError("resume_run", "run_not_found"))
+
+      expect(service.errorFor("resume_run")()?.code).toBe("run_not_found")
+    })
+
+    it.each([
+      ["a busy phase refuses resume_run", phaseBusy("resume_run", "write")],
+      ["a busy phase refuses discard_run", phaseBusy("discard_run", "write")],
+      ["the api key is missing for resume_run", commandError("resume_run", "api_key_missing")],
+      ["another command is refused", commandError("start_tagging", "tagging_folder_unreadable")],
+    ])("does not ask again when %s", async (_name, error) => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      transport.emit(error)
+
+      expect(askedCount()).toBe(0)
+    })
+
     it("closes the prompt without sending anything when put off", async () => {
       await service.start()
       transport.emit(interruptedRun(FOLDER_MISSING))
@@ -1025,14 +1064,27 @@ describe("SidecarService", () => {
       expect(loads).toHaveLength(1)
     })
 
-    it("ends the loading when the run is refused", async () => {
+    it.each([
+      [
+        "the run is refused",
+        "000000",
+        commandError("load_run", "run_not_found", { run_id: "000000" }),
+        "run_not_found",
+      ],
+      [
+        "a running phase refuses the run",
+        PAST_RUN.run_id,
+        phaseBusy("load_run", "tagging"),
+        "phase_busy",
+      ],
+    ])("ends the loading when %s", async (_case, runId, refusal, code) => {
       await service.start()
-      await service.loadRun("000000")
+      await service.loadRun(runId)
 
-      transport.emit(commandError("load_run", "run_not_found", { run_id: "000000" }))
+      transport.emit(refusal)
 
       expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
-      expect(service.loadRefusal()?.error.code).toBe("run_not_found")
+      expect(service.loadRefusal()?.error.code).toBe(code)
     })
 
     it("keeps the refusal when another command is sent", async () => {
@@ -1043,16 +1095,6 @@ describe("SidecarService", () => {
       await service.listRuns()
 
       expect(service.loadRefusal()?.runId).toBe("000000")
-    })
-
-    it("ends the loading when a running phase refuses the run", async () => {
-      await service.start()
-      await service.loadRun(PAST_RUN.run_id)
-
-      transport.emit(phaseBusy("load_run", "tagging"))
-
-      expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
-      expect(service.loadRefusal()?.error.code).toBe("phase_busy")
     })
 
     it("ends the loading when the engine stops during it", async () => {

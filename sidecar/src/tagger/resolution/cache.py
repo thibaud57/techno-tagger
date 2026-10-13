@@ -19,7 +19,7 @@ import time
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import TYPE_CHECKING, BinaryIO, ClassVar, Final, NamedTuple, Self
+from typing import TYPE_CHECKING, BinaryIO, ClassVar, Final, NamedTuple, Self, override
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -102,6 +102,11 @@ class DiskCache:
         # mutent aussi depuis le meme thread. Un Lock simple y ferait un interblocage.
         self._lock = threading.RLock()
         self._size = self._open()
+
+    @override
+    def __repr__(self) -> str:
+        # Sans la racine : elle est sous le profil de l'utilisateur.
+        return f"DiskCache(size={self._size}, max_bytes={self._max_bytes})"
 
     @property
     def size(self) -> int:
@@ -272,6 +277,10 @@ class ResponseCache:
     def __init__(self, disk: DiskCache) -> None:
         self._disk = disk
 
+    @override
+    def __repr__(self) -> str:
+        return f"ResponseCache(disk={self._disk!r})"
+
     def get(self, path: str, params: Mapping[str, str]) -> CachedResponse | None:
         """Corps JSON en cache, `None` si absent, expire ou illisible."""
         entry = self._disk.get(response_key(path, params))
@@ -338,13 +347,16 @@ class ArtworkFetcher:
         # registre, tous deux manquent le cache et telechargent la meme image.
         self._in_flight: dict[str, asyncio.Task[Path]] = {}
 
+    @override
+    def __repr__(self) -> str:
+        return f"ArtworkFetcher(cache={self._cache!r}, in_flight={len(self._in_flight)})"
+
     async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *_exc_info: object) -> None:
-        # `shield` detache les telechargements de l'annulation de leurs appelants : un
-        # run avorte les laisse en vol, et fermer le client sous eux leverait dans une
-        # tache que plus personne n'attend.
+        # `shield` (cf. `fetch`) laisse en vol le telechargement d'un appelant annule : fermer
+        # le client sous lui leverait dans une tache que plus personne n'attend.
         pending = list(self._in_flight.values())
         for running in pending:
             running.cancel()

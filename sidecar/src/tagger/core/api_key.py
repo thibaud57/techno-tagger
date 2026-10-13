@@ -46,8 +46,6 @@ class KeyringUnavailableError(ApiKeyError):
 
 
 class ApiKeyMissingError(ApiKeyError):
-    """Aucune cle enregistree : rien ne peut etre demande a l'API."""
-
     code: ClassVar[str] = "api_key_missing"
 
     def __init__(self) -> None:
@@ -68,7 +66,6 @@ def read_api_key() -> str | None:
 
 
 def store_api_key(key: str) -> None:
-    """Range la cle, en remplacant la precedente."""
     try:
         keyring.set_password(SERVICE, USERNAME, key)
     except NoKeyringError as exc:

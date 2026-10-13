@@ -1,5 +1,3 @@
-"""Tests du modele et de la traduction du rattrapage par URL sur le protocole NDJSON."""
-
 from typing import Final
 
 import pytest

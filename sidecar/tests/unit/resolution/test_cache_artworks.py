@@ -1,5 +1,3 @@
-"""Tests du telechargement des pochettes depuis le CDN de la source."""
-
 import asyncio
 from typing import TYPE_CHECKING
 
@@ -7,7 +5,7 @@ import httpx2
 import pytest
 from scraper_responses import ARTWORK_URL, recording
 from stubs import raising
-from tagging_api import JPEG, image, public_resolver
+from tagging_api import JPEG, InFlight, image, public_resolver
 
 from tagger.resolution.cache import (
     ARTWORK_CONCURRENCY,
@@ -17,6 +15,7 @@ from tagger.resolution.cache import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from scraper_responses import Handler
@@ -28,10 +27,29 @@ def _entries(root: Path) -> list[Path]:
     return list(root.iterdir())
 
 
-def _fetcher(root: Path, handler: Handler) -> ArtworkFetcher:
-    return ArtworkFetcher(
-        DiskCache(root), transport=httpx2.MockTransport(handler), resolve=public_resolver
-    )
+def _fetcher(
+    root: Path, handler: Handler, resolve: Callable[[str], list[str]] = public_resolver
+) -> ArtworkFetcher:
+    return ArtworkFetcher(DiskCache(root), transport=httpx2.MockTransport(handler), resolve=resolve)
+
+
+def _unreachable(request: httpx2.Request) -> httpx2.Response:
+    raise httpx2.ConnectError("unreachable", request=request)
+
+
+def _redirecting_to(location: str, status: int = 302) -> Handler:
+    """CDN de la pochette qui renvoie ailleurs ; la cible, elle, sert l'image."""
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.host == "geo-media.beatport.com":
+            return httpx2.Response(status, headers={"Location": location})
+        return image()
+
+    return handler
+
+
+def _looping(request: httpx2.Request) -> httpx2.Response:
+    return httpx2.Response(302, headers={"Location": str(request.url)})
 
 
 async def test_downloads_an_artwork_once_and_serves_it_from_the_cache(
@@ -61,20 +79,31 @@ async def test_names_the_file_after_the_content_type(
 
 
 @pytest.mark.parametrize(
-    ("response", "reason"),
+    ("handler", "reason"),
     [
-        (httpx2.Response(404), "status_404"),
+        (lambda _request: httpx2.Response(404), "status_404"),
         (
-            httpx2.Response(200, content=b"<html>", headers={"Content-Type": "text/html"}),
+            lambda _request: httpx2.Response(
+                200, content=b"<html>", headers={"Content-Type": "text/html"}
+            ),
             "not_an_image",
         ),
+        (_unreachable, "network"),
+        (_redirecting_to("https://127.0.0.1:8000/cover.jpg"), "blocked_url"),
+        (_looping, "too_many_redirects"),
     ],
-    ids=["error-status", "not-an-image"],
+    ids=[
+        "error-status",
+        "not-an-image",
+        "network-error",
+        "redirect-to-the-local-machine",
+        "redirect-loop",
+    ],
 )
 async def test_raises_artwork_unavailable_and_publishes_nothing(
-    tmp_path: Path, response: httpx2.Response, reason: str
+    tmp_path: Path, handler: Handler, reason: str
 ) -> None:
-    async with _fetcher(tmp_path, lambda _request: response) as fetcher:
+    async with _fetcher(tmp_path, handler) as fetcher:
         with pytest.raises(ArtworkUnavailableError) as error:
             await fetcher.fetch(ARTWORK_URL)
 
@@ -82,35 +111,17 @@ async def test_raises_artwork_unavailable_and_publishes_nothing(
     assert await asyncio.to_thread(_entries, tmp_path) == []
 
 
-async def test_raises_artwork_unavailable_on_a_network_error(tmp_path: Path) -> None:
-    def unreachable(request: httpx2.Request) -> httpx2.Response:
-        raise httpx2.ConnectError("unreachable", request=request)
-
-    async with _fetcher(tmp_path, unreachable) as fetcher:
-        with pytest.raises(ArtworkUnavailableError) as error:
-            await fetcher.fetch(ARTWORK_URL)
-
-    assert error.value.reason == "network"
-
-
 async def test_never_keeps_more_downloads_in_flight_than_the_pool_allows(tmp_path: Path) -> None:
-    in_flight = {"current": 0, "peak": 0}
-
-    async def slow_cdn(_request: httpx2.Request) -> httpx2.Response:
-        in_flight["current"] += 1
-        in_flight["peak"] = max(in_flight["peak"], in_flight["current"])
-        await asyncio.sleep(0.01)
-        in_flight["current"] -= 1
-        return image()
+    in_flight = InFlight(image)
 
     async with (
-        _fetcher(tmp_path, slow_cdn) as fetcher,
+        _fetcher(tmp_path, in_flight.handler) as fetcher,
         asyncio.TaskGroup() as group,
     ):
         for index in range(ARTWORK_CONCURRENCY * 2):
             group.create_task(fetcher.fetch(f"{ARTWORK_URL}?v={index}"), name=f"artwork:{index}")
 
-    assert in_flight["peak"] == ARTWORK_CONCURRENCY
+    assert in_flight.peak == ARTWORK_CONCURRENCY
 
 
 async def test_sends_no_api_key_to_the_cdn(tmp_path: Path, requests: list[httpx2.Request]) -> None:
@@ -180,6 +191,18 @@ class _ConnectedTo:
         return (self._address, 443) if name == "server_addr" else None
 
 
+def _connected_to(address: str) -> Handler:
+    def handler(_request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            content=JPEG,
+            headers={"Content-Type": "image/jpeg"},
+            extensions={"network_stream": _ConnectedTo(address)},
+        )
+
+    return handler
+
+
 @pytest.mark.parametrize(
     "connected",
     ["127.0.0.1", "192.168.1.10", "10.0.0.5"],
@@ -191,16 +214,7 @@ async def test_refuses_a_response_from_an_address_the_guard_would_have_blocked(
     """Rebinding : le resolveur annonce une adresse publique, la connexion en joint une
     autre. Relire l'adresse connectee refuse la reponse avant de la lire ou de la cacher.
     """
-
-    def rebinding(_request: httpx2.Request) -> httpx2.Response:
-        return httpx2.Response(
-            200,
-            content=JPEG,
-            headers={"Content-Type": "image/jpeg"},
-            extensions={"network_stream": _ConnectedTo(connected)},
-        )
-
-    async with _fetcher(tmp_path, rebinding) as fetcher:
+    async with _fetcher(tmp_path, _connected_to(connected)) as fetcher:
         with pytest.raises(ArtworkUnavailableError) as error:
             await fetcher.fetch(ARTWORK_URL)
 
@@ -209,38 +223,14 @@ async def test_refuses_a_response_from_an_address_the_guard_would_have_blocked(
 
 
 async def test_accepts_a_response_from_the_public_address_it_resolved(tmp_path: Path) -> None:
-    def cdn(_request: httpx2.Request) -> httpx2.Response:
-        return httpx2.Response(
-            200,
-            content=JPEG,
-            headers={"Content-Type": "image/jpeg"},
-            extensions={"network_stream": _ConnectedTo("93.184.216.34")},
-        )
-
-    async with _fetcher(tmp_path, cdn) as fetcher:
+    async with _fetcher(tmp_path, _connected_to("93.184.216.34")) as fetcher:
         stored = await fetcher.fetch(ARTWORK_URL)
 
     assert stored.read_bytes() == JPEG
 
 
-async def test_refuses_a_redirection_towards_the_local_machine(tmp_path: Path) -> None:
-    def redirecting(request: httpx2.Request) -> httpx2.Response:
-        if request.url.host == "geo-media.beatport.com":
-            return httpx2.Response(302, headers={"Location": "https://127.0.0.1:8000/cover.jpg"})
-        return image()
-
-    async with _fetcher(tmp_path, redirecting) as fetcher:
-        with pytest.raises(ArtworkUnavailableError) as error:
-            await fetcher.fetch(ARTWORK_URL)
-
-    assert error.value.reason == "blocked_url"
-
-
 async def test_follows_a_redirection_towards_another_public_host(tmp_path: Path) -> None:
-    def redirecting(request: httpx2.Request) -> httpx2.Response:
-        if request.url.host == "geo-media.beatport.com":
-            return httpx2.Response(301, headers={"Location": "https://cdn.example.com/cover.jpg"})
-        return image()
+    redirecting = _redirecting_to("https://cdn.example.com/cover.jpg", status=301)
 
     async with _fetcher(tmp_path, redirecting) as fetcher:
         artwork = await fetcher.fetch(ARTWORK_URL)
@@ -248,24 +238,22 @@ async def test_follows_a_redirection_towards_another_public_host(tmp_path: Path)
     assert artwork.read_bytes() == JPEG
 
 
-async def test_gives_up_on_a_redirection_loop(tmp_path: Path) -> None:
-    def looping(request: httpx2.Request) -> httpx2.Response:
-        return httpx2.Response(302, headers={"Location": str(request.url)})
-
-    async with _fetcher(tmp_path, looping) as fetcher:
-        with pytest.raises(ArtworkUnavailableError) as error:
-            await fetcher.fetch(ARTWORK_URL)
-
-    assert error.value.reason == "too_many_redirects"
-
-
+@pytest.mark.parametrize(
+    "refused",
+    [
+        ["tagger.resolution.cache.DiskCache.begin"],
+        ["tagger.resolution.cache.DiskCache.commit", "pathlib.Path.unlink"],
+    ],
+    ids=["begin", "commit-and-cleanup"],
+)
 async def test_raises_artwork_unavailable_when_the_cache_cannot_be_written(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, refused: list[str]
 ) -> None:
-    monkeypatch.setattr(
-        "tagger.resolution.cache.DiskCache.begin",
-        raising(PermissionError(13, "locked by another process")),
-    )
+    """Le nettoyage qui echoue lui aussi ne doit pas masquer le motif `cache_write`."""
+    locked = raising(PermissionError(13, "locked by another process"))
+    for target in refused:
+        monkeypatch.setattr(target, locked)
+
     async with _fetcher(tmp_path, lambda _request: image()) as fetcher:
         with pytest.raises(ArtworkUnavailableError) as error:
             await fetcher.fetch(ARTWORK_URL)
@@ -282,28 +270,9 @@ async def test_refuses_a_hostname_that_resolves_to_a_private_address(
     tmp_path: Path, requests: list[httpx2.Request], resolved: list[str]
 ) -> None:
     """Un nom de domaine se juge sur ce qu'il resout, jamais sur sa seule forme."""
-    fetcher = ArtworkFetcher(
-        DiskCache(tmp_path),
-        transport=httpx2.MockTransport(recording(requests, image())),
-        resolve=lambda _host: resolved,
-    )
-
-    async with fetcher:
+    async with _fetcher(tmp_path, recording(requests, image()), lambda _host: resolved) as fetcher:
         with pytest.raises(ArtworkUnavailableError) as error:
             await fetcher.fetch("https://cdn.attaquant.example/cover.jpg")
 
     assert error.value.reason == "blocked_url"
     assert requests == []
-
-
-async def test_reports_artwork_unavailable_even_when_the_cleanup_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    locked = raising(PermissionError(13, "locked by another process"))
-    monkeypatch.setattr("tagger.resolution.cache.DiskCache.commit", locked)
-    monkeypatch.setattr("pathlib.Path.unlink", locked)
-    async with _fetcher(tmp_path, lambda _request: image()) as fetcher:
-        with pytest.raises(ArtworkUnavailableError) as error:
-            await fetcher.fetch(ARTWORK_URL)
-
-    assert error.value.reason == "cache_write"

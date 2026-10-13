@@ -1,14 +1,13 @@
-"""Detection, reprise et abandon d'un run interrompu, de bout en bout sur la boucle."""
-
 import json
 from datetime import timedelta
 from typing import TYPE_CHECKING, Final
 
 import pytest
 from ndjson_loop import conversation, resolved_run, start_command
-from run_plans import RUN_ID, music, only_plan, plan_files, plan_of, save_plan
+from run_plans import music, only_plan, plan_files, plan_of, save_plan
 from scraper_responses import BASIEL, YOUR_MIND
 from tagging_api import CREATED, ORIGINAL, found, two_tracks
+from tagging_records import RUN_ID
 
 from tagger.core.run_files import run_id_of, stamped_name
 from tagger.run.models import FailureReason
@@ -101,6 +100,16 @@ async def test_does_not_announce_the_run_in_progress(folder: Path) -> None:
     assert only_plan().run_id == run_id
 
 
+async def test_refuses_to_resume_the_run_in_progress(folder: Path) -> None:
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        talk.send(command="resume_run", run_id=run_id)
+        refused = await talk.expect("error")
+
+    assert (refused["code"], refused["params"]) == ("run_not_found", {"run_id": run_id})
+    assert only_plan().run_id == run_id
+
+
 async def test_discards_a_plan_and_announces_what_remains(tmp_path: Path) -> None:
     folder = tmp_path / "music"
     save_plan(plan_dir(), plan_of(folder, music(folder, 1)))
@@ -177,6 +186,7 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
     api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
     gate = api.gate("/beatport/search", BASIEL)
     folder = two_tracks(tmp_path)
+
     async with conversation() as talk:
         talk.send(**start_command(folder))
         started = await talk.expect("run_started")
@@ -237,6 +247,43 @@ async def test_refuses_a_plan_that_cannot_be_resumed_and_keeps_the_open_run(
     )
     assert finished["written"] == 1
     assert OTHER_RUN in {run_id_of(path) for path in plan_files()}
+
+
+def _lose_the_key(keyring: MemoryKeyring, _other: Path) -> None:
+    keyring.secrets.clear()
+
+
+def _empty_the_folder(_keyring: MemoryKeyring, other: Path) -> None:
+    for path in other.glob("*.mp3"):
+        path.unlink()
+
+
+@pytest.mark.parametrize(
+    ("spoil", "code"),
+    [(_lose_the_key, "api_key_missing"), (_empty_the_folder, "tagging_folder_unreadable")],
+    ids=["no-key", "unreadable-folder"],
+)
+async def test_a_resume_refused_at_opening_keeps_the_open_run_and_its_plan(
+    folder: Path,
+    tmp_path: Path,
+    memory_keyring: MemoryKeyring,
+    spoil: Callable[[MemoryKeyring, Path], None],
+    code: str,
+) -> None:
+    other = tmp_path / "other"
+    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=OTHER_RUN))
+
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        spoil(memory_keyring, other)
+        talk.send(command="resume_run", run_id=OTHER_RUN)
+        refused = await talk.expect("error")
+        talk.send(command="commit_run", run_id=run_id)
+        finished = await talk.expect("run_finished", phase="write")
+
+    assert (refused["code"], refused["command"]) == (code, "resume_run")
+    assert finished["written"] == 1
+    assert {run_id_of(path) for path in plan_files()} == {run_id, OTHER_RUN}
 
 
 @pytest.mark.parametrize("kind", ["removed", "emptied"], ids=["removed", "emptied"])

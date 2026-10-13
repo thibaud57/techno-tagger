@@ -1,32 +1,22 @@
 import { FALLBACK_LANGUAGE, languageFromTag, resolveInitialLanguage } from "./language"
 
 describe("languageFromTag", () => {
-  it("resolves French from a regional tag", () => {
-    expect(languageFromTag("fr-FR")).toBe("fr")
+  it.each([
+    ["a regional tag", "fr-FR"],
+    ["a tag without region", "fr"],
+    ["another region, matching on the prefix", "fr-BE"],
+    ["a script subtag, matching on the prefix", "fr-Latn-FR"],
+    ["a tag in another case", "FR-fr"],
+  ])("resolves French from %s", (_case, tag) => {
+    expect(languageFromTag(tag)).toBe("fr")
   })
 
-  it("resolves French from a tag without region", () => {
-    expect(languageFromTag("fr")).toBe("fr")
+  it.each(["de-DE", "en-US"])("resolves English from %s", (tag) => {
+    expect(languageFromTag(tag)).toBe("en")
   })
 
-  it("matches on the prefix, not on equality", () => {
-    expect(languageFromTag("fr-BE")).toBe("fr")
-    expect(languageFromTag("fr-Latn-FR")).toBe("fr")
-  })
-
-  it("resolves English for any other language", () => {
-    expect(languageFromTag("de-DE")).toBe("en")
-    expect(languageFromTag("en-US")).toBe("en")
-  })
-
-  it("ignores the tag case", () => {
-    expect(languageFromTag("FR-fr")).toBe("fr")
-  })
-
-  it("resolves English for a missing or empty value", () => {
-    expect(languageFromTag(null)).toBe(FALLBACK_LANGUAGE)
-    expect(languageFromTag(undefined)).toBe(FALLBACK_LANGUAGE)
-    expect(languageFromTag("")).toBe(FALLBACK_LANGUAGE)
+  it.each([null, undefined, ""])("resolves English for the missing value %j", (tag) => {
+    expect(languageFromTag(tag)).toBe(FALLBACK_LANGUAGE)
   })
 })
 

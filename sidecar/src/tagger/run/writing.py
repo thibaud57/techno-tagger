@@ -11,9 +11,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, override
 
-import sentry_sdk
-
 from tagger.core.file_failures import FileFailureReason
+from tagger.core.observability import capture_unexpected
 from tagger.run.models import TrackResolved, TrackState, WriteOutcome
 from tagger.tags.files import (
     OriginalTags,
@@ -45,7 +44,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class WriteProgress:
     """Morceaux traites, ecrits ou en echec, sur morceaux vises par la phase."""
 
@@ -138,8 +137,7 @@ class RunWriter:
                         self._live.position(record.track_id),
                         exc_info=read,
                     )
-                    # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
-                    sentry_sdk.capture_exception(read)
+                    capture_unexpected(read)
                     failed.append(
                         record.write_failed(FileFailureReason.WRITE_FAILED, restorable=False)
                     )
@@ -170,16 +168,14 @@ class RunWriter:
         except (TagsWriteError, RenameError) as error:
             return self._failed(record, error.reason, noted=noted)
         except Exception as error:
-            # Hors `TagsWriteError` : mutagen laisse passer `struct.error` ou `ValueError` sur
-            # un fichier corrompu, un seul morceau ne coupe pas la phase. Pas de `BaseException` :
-            # l'annulation doit passer.
+            # Hors `TagsWriteError`, meme piege mutagen que dans `_dump_originals`. Pas de
+            # `BaseException` : l'annulation doit passer.
             logger.exception(
                 "write failed unexpectedly run=%s track=%d reason=write_failed",
                 self._live.run_id,
                 self._live.position(record.track_id),
             )
-            # `LoggingIntegration` est coupee : le log ne part pas, le bug doit remonter.
-            sentry_sdk.capture_exception(error)
+            capture_unexpected(error)
             return self._failed(record, FileFailureReason.WRITE_FAILED, noted=noted)
         outcome = WriteOutcome(written, renamed.truncated)
         return record.written_to(renamed.path, outcome)
@@ -240,4 +236,4 @@ class RunWriter:
                 record.failure_reason,
             )
         self._on_event(TrackResolved(record))
-        self._on_event(WriteProgress(processed, total))
+        self._on_event(WriteProgress(processed=processed, total=total))

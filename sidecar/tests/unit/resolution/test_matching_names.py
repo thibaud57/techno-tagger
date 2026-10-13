@@ -1,4 +1,4 @@
-"""Tests du rendu des noms ecrits dans les tags : titre avec sa version, artistes credites."""
+"""Rendu des noms ecrits dans les tags (ADR-011)."""
 
 from scraper_responses import track_candidate
 
@@ -6,7 +6,6 @@ from tagger.resolution.matching import credited_artists, full_title
 
 
 def test_appends_the_mix_name_to_the_title() -> None:
-    """ADR-011 : avec `mix_name`, on rend « Titre (Mix Name) »."""
     candidate = track_candidate("Your Mind", "Extended Mix")
 
     rendered = full_title(candidate)
@@ -15,7 +14,7 @@ def test_appends_the_mix_name_to_the_title() -> None:
 
 
 def test_takes_the_title_as_is_when_the_source_carries_no_mix_name() -> None:
-    """ADR-011 : sans `mix_name`, le titre s'ecrit tel quel, sous-titre compris."""
+    """Sans `mix_name`, le titre s'ecrit tel quel, sous-titre compris."""
     candidate = track_candidate("PATT (Party All The Time)", mix_name=None)
 
     rendered = full_title(candidate)

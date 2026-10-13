@@ -1,9 +1,3 @@
-"""Protocole NDJSON de bout en bout, par injection de commandes sur `stdin`.
-
-Aucune interface n'est lancee : le contrat se teste en ligne de commande, ce qui
-est sa raison d'etre (ADR-005).
-"""
-
 import asyncio
 import json
 import logging

@@ -61,19 +61,14 @@ describe("PastRunsStore", () => {
     expect(store.loaded()?.runId).toBe(PAST_RUN.run_id)
   })
 
-  it("ends the loading and keeps the refusal under the run id of the error", () => {
+  it.each([
+    [
+      "the run id of the error",
+      commandError("load_run", "run_not_found", { run_id: PAST_RUN.run_id }),
+    ],
+    ["the run being loaded when the error names none", phaseBusy("load_run", "tagging")],
+  ])("ends the loading and keeps the refusal under %s", (_case, refusal) => {
     store.loadStarted(PAST_RUN.run_id)
-    const refusal = commandError("load_run", "run_not_found", { run_id: PAST_RUN.run_id })
-
-    store.loadFailed(refusal)
-
-    expect(store.loading()).toBeNull()
-    expect(store.refusal()).toEqual({ runId: PAST_RUN.run_id, error: refusal })
-  })
-
-  it("attributes a refusal without run id to the run being loaded", () => {
-    store.loadStarted(PAST_RUN.run_id)
-    const refusal = phaseBusy("load_run", "tagging")
 
     store.loadFailed(refusal)
 

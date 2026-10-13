@@ -1,5 +1,3 @@
-"""Tests de la lecture de l'artiste et du titre, sur les quatre formats."""
-
 import stat
 from typing import TYPE_CHECKING
 
@@ -66,12 +64,24 @@ def test_returns_an_empty_identity_for_a_file_without_tags(
     assert identity == IdentityTags(artist="", title="")
 
 
-@pytest.mark.parametrize("name", ["broken.mp3", "notes.txt"], ids=["corrupt-mp3", "unknown"])
-def test_raises_unreadable_when_the_content_matches_no_format(tmp_path: Path, name: str) -> None:
+@pytest.mark.parametrize(
+    ("name", "build"),
+    [
+        ("broken.mp3", write_not_audio),
+        ("notes.txt", write_not_audio),
+        ("track.wav", write_tagged_wavpack),
+    ],
+    ids=["corrupt-mp3", "unknown", "wavpack"],
+)
+def test_raises_unreadable_when_the_content_matches_none_of_the_four_formats(
+    tmp_path: Path, name: str, build: Callable[[Path], Path]
+) -> None:
     """`read_shown_tags` est appelable hors du filtre de `list_audio_files` : un contenu
-    que mutagen ne rattache a aucun format rend `unreadable`, il ne plante pas.
+    que mutagen ne rattache a aucun format rend `unreadable`, il ne plante pas. Un WavPack
+    sous extension `.wav` passe ce filtre : ses tags APEv2 existent sans que nous sachions
+    les lire, il ne doit pas passer pour un fichier non tague.
     """
-    path = write_not_audio(tmp_path / name)
+    path = build(tmp_path / name)
 
     with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
         read_shown_tags(path)
@@ -80,53 +90,31 @@ def test_raises_unreadable_when_the_content_matches_no_format(tmp_path: Path, na
     assert error.value.params == {"file": name, "reason": FileFailureReason.WRITE_FAILED}
 
 
-def test_raises_unreadable_when_the_container_is_not_one_of_the_four_formats(
-    tmp_path: Path,
-) -> None:
-    """Un WavPack sous extension `.wav` passe le filtre de `list_audio_files` : ses
-    tags APEv2 existent sans que nous sachions les lire, il ne doit pas passer pour
-    un fichier non tague.
-    """
-    path = write_tagged_wavpack(tmp_path / "track.wav")
-
-    with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
-        read_shown_tags(path)
-
-    assert error.value.reason is FileFailureReason.WRITE_FAILED
-
-
-def test_raises_locked_when_the_read_fails_on_a_permission_error(
-    blank_audio: Callable[[str], Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    path = blank_audio("mp3")
-
-    def locked_file(_path: Path) -> None:
-        raise MutagenError("file in use") from PermissionError(13, "Permission denied")
-
-    monkeypatch.setattr(mutagen, "File", locked_file)
-
-    with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
-        read_shown_tags(path)
-
-    assert error.value.reason is FileFailureReason.FILE_LOCKED
-
-
-def test_keeps_permission_denied_when_a_read_only_file_refuses_the_read(
-    blank_audio: Callable[[str], Path], monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("read_only", "reason"),
+    [(False, FileFailureReason.FILE_LOCKED), (True, FileFailureReason.PERMISSION_DENIED)],
+    ids=["writable-file", "read-only-file"],
+)
+def test_tells_a_locked_file_from_a_read_only_one_when_the_read_is_refused(
+    blank_audio: Callable[[str], Path],
+    monkeypatch: pytest.MonkeyPatch,
+    read_only: bool,
+    reason: FileFailureReason,
 ) -> None:
     """Meme classement qu'a l'ecriture : seul un fichier inscriptible passe pour verrouille."""
     path = blank_audio("mp3")
-    path.chmod(stat.S_IREAD)
+    if read_only:
+        path.chmod(stat.S_IREAD)
 
     def refused(_path: Path) -> None:
-        raise MutagenError("refused") from PermissionError(13, "Permission denied")
+        raise MutagenError("file in use") from PermissionError(13, "Permission denied")
 
     monkeypatch.setattr(mutagen, "File", refused)
 
-    with pytest.raises(TagsUnreadableError) as error:
+    with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
         read_shown_tags(path)
 
-    assert error.value.reason is FileFailureReason.PERMISSION_DENIED
+    assert error.value.reason is reason
 
 
 @pytest.mark.parametrize(

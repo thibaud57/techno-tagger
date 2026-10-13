@@ -27,7 +27,7 @@ export const appConfig: ApplicationConfig = {
     // Au root : CompletionSignalService (root) l'injecte, un provider pose sur AppComponent
     // lui serait invisible (NullInjectorError).
     MessageService,
-    // Partage par les `p-confirmdialog` de l'ecriture et du rollback.
+    // Une seule instance entre `injectDangerConfirm` et le `p-confirmdialog` de chaque page.
     ConfirmationService,
     providePrimeNG({
       theme: {
@@ -65,7 +65,7 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       void inject(SidecarService).start()
     }),
-    // Construit des le demarrage, hors de tout ecran : une phase s'annonce quel que soit l'onglet.
+    // Construit des le demarrage : une phase s'annonce quel que soit l'onglet.
     provideAppInitializer(() => {
       inject(CompletionSignalService)
     }),

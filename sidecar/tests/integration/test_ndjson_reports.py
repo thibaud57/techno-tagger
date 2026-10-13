@@ -1,5 +1,3 @@
-"""Rapports de re-tagging et runs passes, de bout en bout sur la boucle."""
-
 import asyncio
 import shutil
 from typing import TYPE_CHECKING
@@ -9,7 +7,7 @@ import pytest
 from ndjson_loop import EXPECT_TIMEOUT, conversation, start_command, written_run
 from report_files import report_json
 from stubs import raising
-from tagging_api import ONE_TRACK, ORIGINAL, WRITTEN_NAME, FakeApi, FakeCdn, public_resolver
+from tagging_api import ONE_TRACK, ORIGINAL, FakeApi, FakeCdn, public_resolver
 
 from tagger import handlers
 from tagger.core.paths import app_data_dir
@@ -77,11 +75,7 @@ async def test_lists_and_loads_a_past_run(folder: Path) -> None:
     tracks = loaded["tracks"]
     assert isinstance(tracks, list)
     (track,) = tracks
-    assert (track["file_name"], track["file_after"], track["state"]) == (
-        ONE_TRACK,
-        WRITTEN_NAME,
-        "written",
-    )
+    assert (track["file_name"], track["state"]) == (ONE_TRACK, "written")
     assert track["source_url"] == ORIGINAL["url"]
     assert track["after"] == {"artist": "Adam Beyer", "title": "Your Mind (Original Mix)"}
     assert track["artwork_path"] is not None
@@ -120,6 +114,9 @@ async def test_reports_an_unreadable_report(folder: Path) -> None:
         error = await talk.expect("error")
 
     assert (error["code"], error["command"]) == ("tagging_report_unreadable", "load_run")
+    params = error["params"]
+    assert isinstance(params, dict)
+    assert params["run_id"] == run_id
 
 
 async def test_cancels_a_load_in_flight_when_the_session_ends(

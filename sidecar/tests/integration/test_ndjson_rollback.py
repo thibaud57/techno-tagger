@@ -1,5 +1,3 @@
-"""Rollback d'un run sur la boucle NDJSON, dans la session qui l'a ecrit ou une suivante."""
-
 from typing import TYPE_CHECKING
 
 import pytest
@@ -25,6 +23,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
 async def test_rolls_back_a_run_written_in_a_previous_session(folder: Path) -> None:
     origin = read_original_tags(folder / ONE_TRACK)
+
     async with conversation() as talk:
         run_id = await written_run(talk, folder)
 
@@ -127,6 +126,7 @@ async def test_leaves_the_displayed_run_alone_when_rolling_back_an_older_one(
 ) -> None:
     api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
     conform = tagged_mp3(tmp_path / "conform", WRITTEN_NAME, "Adam Beyer", "Your Mind").parent
+
     async with conversation() as talk:
         first = await written_run(talk, conform)
         await resolved_run(talk, conform)

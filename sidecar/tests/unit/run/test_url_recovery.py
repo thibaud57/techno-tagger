@@ -1,5 +1,3 @@
-"""Tests du rattrapage par URL sur un run vivant, apres sa phase reseau."""
-
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -7,6 +5,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 import pytest
+from log_capture import messages_of
 from scraper_responses import (
     ARTWORK_URL,
     BANDCAMP_TRACK,
@@ -24,9 +23,9 @@ from tagging_api import (
     failing,
     found,
     must_record,
+    networked_run,
     ok,
     one_track,
-    opened_run,
     three_tracks,
     two_tracks,
 )
@@ -42,7 +41,6 @@ from tagger.resolution.scraper_client import (
 )
 from tagger.resolution.sources import ApiKeyRejectedRunError
 from tagger.run.models import FailureReason, Resolution, TrackResolved, TrackState
-from tagger.run.tagging import resolve_run
 from tagger.run.url_recovery import (
     UrlProgress,
     UrlRecovery,
@@ -61,6 +59,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
+LOGGER: Final = "tagger.run.url_recovery"
 BEATPORT_URL: Final = "https://www.beatport.com/track/your-mind/99000202"
 ON_BEATPORT: Final = track_payload(id="99000202")
 
@@ -78,8 +77,7 @@ async def _recovering(
     finit `unresolved`, motif `no_result`.
     """
     sink: list[UrlRecoveryEvent] = events if events is not None else []
-    async with opened_run(folder, api, cdn=cdn) as opened:
-        await resolve_run(opened.live, opened.sources, on_event=lambda _event: None)
+    async with networked_run(folder, api, cdn=cdn) as opened:
         yield opened, UrlRecovery(opened.live, opened.sources, sink.append)
 
 
@@ -165,7 +163,7 @@ async def test_counts_recovered_tracks_over_tracks_to_recover(tmp_path: Path) ->
         await recovery.resolve("a.mp3", BANDCAMP_TRACK)
         after = recovery.progress()
 
-    assert (before, after) == (UrlProgress(0, 3), UrlProgress(1, 3))
+    assert (before, after) == (UrlProgress(processed=0, total=3), UrlProgress(processed=1, total=3))
 
 
 async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
@@ -184,7 +182,7 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
         opened.live.update(_awaiting(late).unresolved(FailureReason.USER_REFUSED))
 
         after = recovery.progress()
-    assert (before, after) == (UrlProgress(1, 2), UrlProgress(1, 3))
+    assert (before, after) == (UrlProgress(processed=1, total=2), UrlProgress(processed=1, total=3))
 
 
 async def test_counts_zero_over_zero_when_nothing_is_left_to_recover(tmp_path: Path) -> None:
@@ -194,7 +192,7 @@ async def test_counts_zero_over_zero_when_nothing_is_left_to_recover(tmp_path: P
     async with _recovering(one_track(tmp_path), api) as (_opened, recovery):
         progress = recovery.progress()
 
-    assert progress == UrlProgress(0, 0)
+    assert progress == UrlProgress(processed=0, total=0)
 
 
 def _resolved_by(resolution: Resolution) -> Callable[[TrackRecord], TrackRecord]:
@@ -335,16 +333,14 @@ async def test_logs_the_state_the_track_keeps_when_a_correction_fails(
     """Un grep sur `status=unresolved` ne doit pas remonter un morceau toujours rattrape."""
     api = FakeApi()
     _bandcamp_found(api)
-    caplog.set_level(logging.WARNING, logger="tagger.run.url_recovery")
+    caplog.set_level(logging.WARNING, logger=LOGGER)
 
     async with _recovering(one_track(tmp_path), api) as (_opened, recovery):
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
         with pytest.raises(TrackNotFoundError):
             await recovery.resolve(ONE_TRACK, BEATPORT_URL)
 
-    failures = [
-        record.getMessage() for record in caplog.records if record.name == "tagger.run.url_recovery"
-    ]
+    failures = messages_of(caplog, LOGGER)
     assert len(failures) == 1
     assert "status=resolved" in failures[0]
 
@@ -400,15 +396,13 @@ async def test_never_logs_the_pasted_url(tmp_path: Path, caplog: pytest.LogCaptu
     """Le slug nomme l'artiste et le morceau : rien de l'URL dans les logs du module."""
     api = FakeApi()
     _bandcamp_found(api)
-    caplog.set_level(logging.INFO, logger="tagger.run.url_recovery")
+    caplog.set_level(logging.INFO, logger=LOGGER)
 
     async with _recovering(two_tracks(tmp_path), api) as (_opened, recovery):
         await recovery.resolve("a.mp3", BANDCAMP_TRACK)
         with pytest.raises(TrackNotFoundError):
             await recovery.resolve("b.mp3", "https://amelielens.bandcamp.com/track/unknown")
 
-    ours = [
-        record.getMessage() for record in caplog.records if record.name == "tagger.run.url_recovery"
-    ]
+    ours = messages_of(caplog, LOGGER)
     assert len(ours) == 2
     assert not any("bandcamp.com" in message for message in ours)

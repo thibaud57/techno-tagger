@@ -1,10 +1,9 @@
-"""Tests du run vivant : ce que le pipeline y laisse, pendant et apres sa phase reseau."""
-
 import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
 from scraper_responses import BASIEL
+from stubs import ignore
 from tagging_api import FakeApi, cancelled, hold_on_beatport, must_record, opened_run, two_tracks
 
 from tagger.resolution.scraper_client import Source
@@ -42,7 +41,7 @@ async def test_holds_a_grey_zone_track_after_the_network_phase(tmp_path: Path) -
     hold_on_beatport(api)
 
     async with opened_run(two_tracks(tmp_path), api) as opened:
-        await resolve_run(opened.live, opened.sources, on_event=lambda _event: None)
+        await resolve_run(opened.live, opened.sources, on_event=ignore)
 
         record = must_record(opened.live, "a.mp3")
         assert record.arbitration is not None
@@ -77,7 +76,7 @@ async def test_resolves_an_awaiting_track_while_another_one_is_still_in_flight(
 
     async with opened_run(two_tracks(tmp_path), api) as opened:
         phase = await _until_held(opened)
-        arbitration = Arbitration(opened.live, opened.sources, lambda _event: None)
+        arbitration = Arbitration(opened.live, opened.sources, ignore)
 
         await arbitration.choose("a.mp3", Source.BEATPORT, 0)
 
@@ -97,7 +96,7 @@ async def test_answers_an_awaiting_track_after_the_run_is_cancelled(tmp_path: Pa
         phase = await _until_held(opened)
         await slow.reached.wait()
         await cancelled(phase)
-        arbitration = Arbitration(opened.live, opened.sources, lambda _event: None)
+        arbitration = Arbitration(opened.live, opened.sources, ignore)
 
         await arbitration.choose("a.mp3", Source.BEATPORT, 1)
 

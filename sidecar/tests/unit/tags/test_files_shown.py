@@ -1,5 +1,3 @@
-"""Tests de la lecture des tags pour l'ecran et des valeurs que l'ecriture laissera."""
-
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final

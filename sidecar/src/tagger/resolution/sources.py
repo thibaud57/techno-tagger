@@ -1,13 +1,12 @@
-"""Acces aux sources d'un run : une seule garde des 403, partagee par pipeline et arbitrage
-(ARCHITECTURE.md § Cle API invalide ou revoquee).
+"""Acces aux sources d'un run : une seule garde des 403, partagee par le pipeline, l'arbitrage
+et le rattrapage par URL (ARCHITECTURE.md § Cle API invalide ou revoquee).
 """
 
 import logging
 from typing import TYPE_CHECKING, ClassVar, Final, override
 
-import sentry_sdk
-
 from tagger.core.errors import TaggerError
+from tagger.core.observability import capture_unexpected
 from tagger.resolution.cache import ArtworkUnavailableError
 from tagger.resolution.scraper_client import (
     ApiContractError,
@@ -31,7 +30,7 @@ API_KEY_REJECTION_LIMIT: Final = 3
 
 
 class ApiKeyRejectedRunError(TaggerError):
-    """Run arrete apres trois 403 consecutifs : la cle est a corriger dans les Settings."""
+    """Run arrete apres `API_KEY_REJECTION_LIMIT` 403 consecutifs : cle a corriger (Settings)."""
 
     code: ClassVar[str] = "api_key_rejected"
 
@@ -44,6 +43,10 @@ class _RejectionGuard:
 
     def __init__(self) -> None:
         self._consecutive = 0
+
+    @override
+    def __repr__(self) -> str:
+        return f"_RejectionGuard(consecutive={self._consecutive})"
 
     def rejected(self) -> None:
         self._consecutive += 1
@@ -167,7 +170,7 @@ class RunSources:
             logger.exception(
                 "api contract broken run=%s request_id=%s", self.run_id, exc.request_id
             )
-            sentry_sdk.capture_exception(exc)
+            capture_unexpected(exc)
             raise
         except SourceUnavailableError as exc:
             # Une erreur reseau n'est pas une reponse : elle ne remet pas la garde a zero.

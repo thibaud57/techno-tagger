@@ -11,9 +11,6 @@ from typing import TYPE_CHECKING
 import pytest
 from vlc_dump import PLAYLIST_MAIN, PLAYLIST_OTHER, TRACKS, build_dump
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 from tagger.playlists import vlc
 from tagger.playlists.errors import (
     IncompatibleDumpSchemaError,
@@ -21,6 +18,9 @@ from tagger.playlists.errors import (
     UnreadableDumpError,
     UnreadablePlaylistFileError,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_fixture_declares_vlc_custom_collation(vlc_dump: Path) -> None:

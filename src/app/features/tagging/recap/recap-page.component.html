@@ -50,8 +50,8 @@
   <app-rollback-failures [failures]="runRestore.runRollbackFailures()" />
 }
 
-<!-- Pied comme sous le rapport de Playlist : la restauration du run et le nouveau run restent
-     dans l'onglet Tagging, d'ou le recapitulatif s'ouvre. -->
+<!-- Pied comme sous le rapport de Playlist : la restauration du run reste dans l'onglet
+     Tagging, d'ou le recapitulatif s'ouvre. -->
 <div class="flex min-h-0 flex-1 flex-col gap-2">
   @if (refusal() !== null) {
     <app-empty-state

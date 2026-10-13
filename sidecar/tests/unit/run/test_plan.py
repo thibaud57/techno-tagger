@@ -1,5 +1,3 @@
-"""Tests du plan de run : modele, relecture, enregistrement, purge."""
-
 import asyncio
 import json
 from dataclasses import replace
@@ -9,20 +7,15 @@ from typing import Final
 
 import pytest
 from ndjson_loop import held_call
-from run_plans import RUN_ID, music, plan_of, save_plan
+from run_plans import music, plan_of, save_plan
 from scraper_responses import track_candidate
 from stubs import raising, unlink_except
 from tagging_api import CREATED
-from tagging_records import RECORD, scored_candidate
+from tagging_records import QUERY, RECORD, RUN_ID, scored_candidate
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.run_files import write_atomically
-from tagger.resolution.matching import (
-    DEFAULT_THRESHOLDS,
-    MatchingThresholds,
-    QueryOrigin,
-    TrackQuery,
-)
+from tagger.resolution.matching import DEFAULT_THRESHOLDS, MatchingThresholds
 from tagger.resolution.scraper_client import Source
 from tagger.run import plan as plan_module
 from tagger.run.models import (
@@ -48,7 +41,6 @@ from tagger.run.plan import (
     purge_plans,
 )
 
-QUERY: Final = TrackQuery("Adam Beyer", "Your Mind", QueryOrigin.TAGS)
 WAITING: Final = replace(RECORD, track_id="e.mp3", path=Path("music/e.mp3"))
 AUTO: Final = replace(RECORD, query=QUERY).resolved(
     Resolution.AUTO,
@@ -193,7 +185,7 @@ def test_refuses_a_plan_with_inconsistent_thresholds(tmp_path: Path) -> None:
 
 
 def _live(*records: TrackRecord) -> LiveRun:
-    return LiveRun("a3f9c1", MUSIC, records)
+    return LiveRun(RUN_ID, MUSIC, records)
 
 
 def _recorder(folder: Path, live: LiveRun) -> PlanRecorder:
@@ -202,8 +194,10 @@ def _recorder(folder: Path, live: LiveRun) -> PlanRecorder:
     return recorder
 
 
-def _on_disk(folder: Path, recorder: PlanRecorder) -> RunPlan:
-    return load_plan(plan_path(folder, recorder.plan))
+def _on_disk(folder: Path) -> RunPlan:
+    path = find_plan(folder, RUN_ID)
+    assert path is not None
+    return load_plan(path)
 
 
 def _files(folder: Path) -> list[Path]:
@@ -220,7 +214,7 @@ async def test_leaves_the_last_state_of_each_track_on_disk(tmp_path: Path) -> No
 
     await recorder.flush()
 
-    on_disk = _on_disk(tmp_path, recorder)
+    on_disk = _on_disk(tmp_path)
     assert (on_disk.tracks["a.mp3"].resolution, on_disk.tracks["a.mp3"].arbitration) == (
         Resolution.AUTO,
         None,
@@ -249,7 +243,7 @@ async def test_merges_a_burst_of_decisions_into_few_writes(
     await recorder.flush()
 
     assert len(writes) <= 2
-    assert _on_disk(tmp_path / "plans", recorder).processed_count() == 20
+    assert _on_disk(tmp_path / "plans").processed_count() == 20
 
 
 @pytest.mark.asyncio
@@ -266,7 +260,7 @@ async def test_writes_a_change_that_arrives_while_a_write_is_in_flight(
 
     await first
 
-    assert _on_disk(tmp_path, recorder).tracks["a.mp3"].resolution is Resolution.AUTO
+    assert _on_disk(tmp_path).tracks["a.mp3"].resolution is Resolution.AUTO
 
 
 @pytest.mark.asyncio
@@ -297,7 +291,7 @@ async def test_retries_a_failed_write_on_the_next_flush(
 
     await recorder.flush()
 
-    assert _on_disk(tmp_path, recorder).run_id == "a3f9c1"
+    assert _on_disk(tmp_path).run_id == "a3f9c1"
 
 
 @pytest.mark.asyncio
@@ -306,21 +300,23 @@ async def test_confirms_the_plan_on_disk(tmp_path: Path) -> None:
 
     await recorder.commit()
 
-    assert _on_disk(tmp_path, recorder).committed
+    assert _on_disk(tmp_path).committed
 
 
 @pytest.mark.asyncio
-async def test_confirms_without_raising_when_the_plan_cannot_be_written(
+async def test_keeps_the_confirmation_to_write_when_the_plan_cannot_be_written(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         plan_module, "write_atomically", raising(OSError(28, "No space left on device"))
     )
     recorder = _recorder(tmp_path, _live(AUTO))
-
     await recorder.commit()
+    monkeypatch.setattr(plan_module, "write_atomically", write_atomically)
 
-    assert recorder.plan.committed
+    await recorder.flush()
+
+    assert _on_disk(tmp_path).committed
 
 
 @pytest.mark.asyncio
@@ -332,7 +328,7 @@ async def test_stops_recording_once_committed(tmp_path: Path) -> None:
 
     await recorder.flush()
 
-    assert _on_disk(tmp_path, recorder).tracks["a.mp3"].state is TrackState.RESOLVED
+    assert _on_disk(tmp_path).tracks["a.mp3"].state is TrackState.RESOLVED
 
 
 @pytest.mark.asyncio
@@ -342,7 +338,7 @@ async def test_reopens_a_committed_plan(tmp_path: Path) -> None:
 
     await recorder.reopen()
 
-    assert not _on_disk(tmp_path, recorder).committed
+    assert not _on_disk(tmp_path).committed
 
 
 @pytest.mark.asyncio
@@ -374,7 +370,7 @@ async def test_discarding_keeps_a_committed_plan(tmp_path: Path) -> None:
 
     await recorder.discard()
 
-    assert _on_disk(tmp_path, recorder).committed
+    assert _on_disk(tmp_path).committed
 
 
 def test_finds_a_plan_by_its_run(tmp_path: Path) -> None:

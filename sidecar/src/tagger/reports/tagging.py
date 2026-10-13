@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, ClassVar, Final, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict
 
 from tagger.core.errors import TaggerError
-from tagger.core.file_failures import FileFailureReason
 from tagger.core.run_files import TIMESTAMP_FORMAT, read_versioned, write_atomically
 from tagger.reports.extraction import (
     ReportWriteError,
@@ -27,7 +26,7 @@ from tagger.reports.extraction import (
 )
 from tagger.resolution.matching import QueryOrigin, credited_artists, full_title
 from tagger.resolution.scraper_client import Source
-from tagger.run.models import FailureReason, Resolution, TrackState
+from tagger.run.models import Resolution, TrackFailureReason, TrackState
 from tagger.tags.files import (
     TagField,
     TagSystem,
@@ -107,7 +106,7 @@ class TaggingReportTrack(_ReportModel):
     source: Source | None
     state: TrackState | None
     resolution: Resolution | None
-    failure_reason: FailureReason | FileFailureReason | None
+    failure_reason: TrackFailureReason | None
     scores: ReportScores | None
     artist: str | None
     title: str | None
@@ -150,8 +149,9 @@ class TaggingReportUnreadableError(TaggerError):
 def build_tagging_report(
     run: TaggingRun, thresholds: MatchingThresholds, generated_at: datetime
 ) -> TaggingReport:
-    # Chaque compteur se lit sur son `state`, jamais sur l'absence d'un autre (cf. `_run_finished`).
-    # Aucun `resolved` apres la confirmation : l'ecriture le fait passer en written ou write_error.
+    # Chaque compteur se lit sur son `state`, jamais sur l'absence d'un autre
+    # (cf. `run_finished_event`). Aucun `resolved` apres la confirmation : l'ecriture le
+    # fait passer en written ou write_error.
     states = Counter(record.state for record in run.tracks)
     return TaggingReport(
         generated_at=generated_at,
@@ -171,11 +171,9 @@ def build_tagging_report(
 
 def load_tagging_report(path: Path) -> TaggingReport:
     """Relit un rapport ; une version future est refusee, un rapport plus ancien se migre ici."""
-    return read_versioned(path, TaggingReport, _is_readable, TaggingReportUnreadableError)
-
-
-def _is_readable(found: object) -> bool:
-    return isinstance(found, int) and found <= SCHEMA_VERSION
+    return read_versioned(
+        path, TaggingReport, SCHEMA_VERSION, TaggingReportUnreadableError, migrates=True
+    )
 
 
 _WAV_NOTE: Final = (

@@ -7,6 +7,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
+def ignore(*_args: object) -> None:
+    """Rappel d'un test qui n'observe pas ce qu'on lui passe."""
+
+
 def raising(error: BaseException) -> Callable[..., NoReturn]:
     """Remplacant d'une fonction qui leve toujours `error`."""
 

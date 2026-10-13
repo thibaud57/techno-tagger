@@ -1,11 +1,10 @@
-"""Tests du run : evenements, progression, garde des 403, incidents."""
-
 from dataclasses import replace
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from scraper_responses import BASIEL, YOUR_MIND, track_payload
+from scraper_responses import BASIEL, YOUR_MIND, invalid_track_payload
+from stubs import ignore
 from tagging_api import (
     ORIGINAL,
     FakeApi,
@@ -98,12 +97,10 @@ async def test_stops_the_run_after_three_consecutive_rejections_of_the_key(
 
 
 async def test_reports_an_api_contract_error_to_sentry(tmp_path: Path) -> None:
-    broken = track_payload()
-    del broken["title"]
     api = FakeApi()
-    api.on("/beatport/search", "*", found(broken))
+    api.on("/beatport/search", "*", found(invalid_track_payload()))
 
-    with patch("tagger.resolution.sources.sentry_sdk.capture_exception", autospec=True) as capture:
+    with patch("sentry_sdk.capture_exception", autospec=True) as capture:
         await run(one_track(tmp_path), api)
 
     capture.assert_called_once()
@@ -122,6 +119,7 @@ def _refuse(live: LiveRun, track_id: str, reason: FailureReason) -> None:
 async def test_never_sends_a_decided_track_back_to_the_api(tmp_path: Path) -> None:
     api = FakeApi()
     events: list[RunEvent] = []
+
     async with opened_run(three_tracks(tmp_path), api) as (live, sources):
         _refuse(live, "a.mp3", FailureReason.USER_REFUSED)
         _hold(live, "b.mp3")
@@ -129,15 +127,18 @@ async def test_never_sends_a_decided_track_back_to_the_api(tmp_path: Path) -> No
         await resolve_run(live, sources, on_event=events.append)
 
     assert api.searched() == {"Sara Landry The Void"}
-    assert [event for event in events if isinstance(event, RunProgress)] == [RunProgress(3, 3)]
+    assert [event for event in events if isinstance(event, RunProgress)] == [
+        RunProgress(processed=3, total=3)
+    ]
 
 
 async def test_sends_back_to_the_api_a_track_whose_source_did_not_answer(tmp_path: Path) -> None:
     api = FakeApi()
+
     async with opened_run(two_tracks(tmp_path), api) as (live, sources):
         _refuse(live, "a.mp3", FailureReason.SOURCE_UNAVAILABLE)
         _refuse(live, "b.mp3", FailureReason.NO_RESULT)
 
-        await resolve_run(live, sources, on_event=lambda _event: None)
+        await resolve_run(live, sources, on_event=ignore)
 
     assert api.searched() == {"Adam Beyer Your Mind"}

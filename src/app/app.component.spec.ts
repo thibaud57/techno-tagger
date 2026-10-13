@@ -4,6 +4,8 @@ import { Router, provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 
+import { closeGuardStub } from "../fixtures/close-guard"
+import { hostOf } from "../fixtures/dom"
 import { sidecarStub } from "../fixtures/sidecar-stub"
 import { recoveredTrack, unresolvedTrack } from "../fixtures/tagging"
 import { AppComponent } from "./app.component"
@@ -30,12 +32,7 @@ class ResizeObserverStub {
 const mount = () => {
   // `RecoveryUiStore`, reel ici, lit le run : le badge et la modale du lien en dependent.
   const service = sidecarStub({ taggingRunId: signal<string | null>("run-1") })
-  const closeGuard = {
-    install: vi.fn(() => Promise.resolve()),
-    request: signal(null),
-    stay: vi.fn(),
-    leave: vi.fn(() => Promise.resolve()),
-  }
+  const closeGuard = closeGuardStub()
   TestBed.configureTestingModule({
     imports: [AppComponent],
     // Les deux modales ont leurs propres tests : ici, seule leur visibilite compte.
@@ -55,11 +52,11 @@ const mount = () => {
   return { fixture, component: fixture.componentInstance, service, closeGuard }
 }
 
-const badge = (root: HTMLElement): HTMLButtonElement | null =>
-  root.querySelector<HTMLButtonElement>("[data-arbitration-badge]")
+const badge = (fixture: { nativeElement: unknown }): HTMLButtonElement | null =>
+  hostOf(fixture).querySelector<HTMLButtonElement>("[data-arbitration-badge]")
 
-const recoveryBadge = (root: HTMLElement): HTMLButtonElement | null =>
-  root.querySelector<HTMLButtonElement>("[data-recovery-badge]")
+const recoveryBadge = (fixture: { nativeElement: unknown }): HTMLButtonElement | null =>
+  hostOf(fixture).querySelector<HTMLButtonElement>("[data-recovery-badge]")
 
 describe("AppComponent", () => {
   it("opens the arbitration dialog as soon as the queue fills", () => {
@@ -79,9 +76,9 @@ describe("AppComponent", () => {
     service.arbitrationCount.set(2)
     fixture.detectChanges()
     const suspended = component["arbitrationVisible"]()
-    const label = badge(fixture.nativeElement as HTMLElement)?.textContent
+    const label = badge(fixture)?.textContent
 
-    badge(fixture.nativeElement as HTMLElement)?.click()
+    badge(fixture)?.click()
 
     expect(suspended).toBe(false)
     expect(label).toContain("arbitration.badge")
@@ -116,28 +113,22 @@ describe("AppComponent", () => {
   it("hides the queue badge on an empty queue", () => {
     const { fixture } = mount()
 
-    const found = badge(fixture.nativeElement as HTMLElement)
+    const found = badge(fixture)
 
     expect(found).toBeNull()
   })
 
-  it("hides the recovery badge when nothing is left to recover", () => {
+  it.each([
+    { case: "nothing is left to recover", tracks: [recoveredTrack("a.mp3")], tagging: false },
+    { case: "a search runs", tracks: [unresolvedTrack("a.mp3")], tagging: true },
+  ])("hides the recovery badge when $case", ({ tracks, tagging }) => {
     const { fixture, service } = mount()
-    service.recoverableTracks.set([recoveredTrack("a.mp3")])
+    service.recoverableTracks.set(tracks)
+    service.tagging.set(tagging)
 
     fixture.detectChanges()
 
-    expect(recoveryBadge(fixture.nativeElement as HTMLElement)).toBeNull()
-  })
-
-  it("hides the recovery badge during a search", () => {
-    const { fixture, service } = mount()
-    service.recoverableTracks.set([unresolvedTrack("a.mp3")])
-    service.tagging.set(true)
-
-    fixture.detectChanges()
-
-    expect(recoveryBadge(fixture.nativeElement as HTMLElement)).toBeNull()
+    expect(recoveryBadge(fixture)).toBeNull()
   })
 
   it("counts the unresolved tracks only in the recovery badge", () => {
@@ -150,7 +141,7 @@ describe("AppComponent", () => {
 
     fixture.detectChanges()
 
-    const label = recoveryBadge(fixture.nativeElement as HTMLElement)?.textContent
+    const label = recoveryBadge(fixture)?.textContent
     expect(label).toContain("tagging.recovery.badge")
     expect(TestBed.inject(RecoveryUiStore).unresolvedCount()).toBe(2)
   })
@@ -161,7 +152,7 @@ describe("AppComponent", () => {
     fixture.detectChanges()
     const navigate = vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
 
-    recoveryBadge(fixture.nativeElement as HTMLElement)?.click()
+    recoveryBadge(fixture)?.click()
 
     expect(TestBed.inject(RecoveryUiStore).target()).toBe("b.mp3")
     expect(navigate).toHaveBeenCalledWith(["tagging"])

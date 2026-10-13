@@ -17,7 +17,7 @@ import { TruncatedTextComponent } from "../../../shared/components/display/trunc
 import { ErrorMessageComponent } from "../../../shared/components/feedback/error-message.component"
 import { MessageComponent } from "../../../shared/components/feedback/message.component"
 import { FADE_IN, PAGE_HOST } from "../../../shared/utils/motion"
-import { runDate } from "../../../shared/utils/run-date"
+import { runLine } from "../../../shared/utils/run-date"
 
 import {
   inFilter,
@@ -36,7 +36,7 @@ interface RecapCriteria {
 
 /**
  * Recapitulatif du run affiche (maquette `Recap`) ou, avec `runId`, d'un run passe relu dans son
- * rapport, en lecture seule. La relance reste au bouton d'action de la liste.
+ * rapport, en lecture seule. La relance reste au bouton d'action du run, onglet Tagging.
  */
 @Component({
   selector: "app-recap-page",
@@ -94,23 +94,24 @@ export default class RecapPageComponent {
   protected readonly tracks = computed(() =>
     this.past() ? (this.loaded()?.tracks ?? []) : this.sidecar.taggingTracks(),
   )
-  /** Le run affiche se date par la cible de restauration, demandee juste apres son ecriture. */
+  /**
+   * Le run affiche se date par son entree des runs passes, relue apres chaque ecriture, et non
+   * par la cible de restauration : celle-ci passe au run precedent des que le run affiche est
+   * restaure.
+   */
   private readonly written = computed(() => {
     if (this.past()) {
       return this.loaded()
     }
-    const target = this.sidecar.rollbackTarget()
+    const runId = this.sidecar.taggingRunId()
+    const entry = this.sidecar.pastRuns()?.find((run) => run.run_id === runId)
 
-    return target?.run_id === this.sidecar.taggingRunId()
-      ? { writtenAt: target.written_at, folder: target.folder }
-      : null
+    return entry === undefined ? null : { writtenAt: entry.written_at, folder: entry.folder }
   })
   protected readonly context = computed(() => {
     const run = this.written()
 
-    return run === null
-      ? null
-      : { date: runDate(run.writtenAt, this.translate.currentLang()), folder: run.folder }
+    return run === null ? null : runLine(run.writtenAt, run.folder, this.translate.currentLang())
   })
   /** Lecture seule : les fichiers d'un run passe ont pu etre retagues depuis. */
   protected readonly restorableIds = computed<ReadonlySet<string>>(() =>

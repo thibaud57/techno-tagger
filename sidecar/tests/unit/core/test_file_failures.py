@@ -1,5 +1,3 @@
-"""Tests de la traduction d'une erreur systeme en motif d'echec de fichier."""
-
 import errno
 
 import pytest

@@ -1,9 +1,7 @@
-"""Tests de la lecture et de l'ecriture de la cle dans le trousseau."""
-
 import keyring
 import pytest
 from keyring.backends import fail
-from memory_keyring import FailingKeyring, MemoryKeyring, RefusingKeyring
+from memory_keyring import FailingKeyring, RefusingKeyring
 
 from tagger.core.api_key import (
     ApiKeyNotStoredError,
@@ -13,13 +11,13 @@ from tagger.core.api_key import (
 )
 
 
-def test_reads_no_key_from_an_empty_keyring(memory_keyring: MemoryKeyring) -> None:
+def test_reads_no_key_from_an_empty_keyring() -> None:
     key = read_api_key()
 
     assert key is None
 
 
-def test_stores_then_reads_the_key(memory_keyring: MemoryKeyring) -> None:
+def test_stores_then_reads_the_key() -> None:
     store_api_key("k3y-t0k3n")
 
     key = read_api_key()

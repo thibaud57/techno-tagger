@@ -1,5 +1,3 @@
-"""Tests du rendu JSON du rapport d'extraction."""
-
 import json
 from dataclasses import fields, replace
 from datetime import datetime, timedelta, timezone
@@ -34,20 +32,22 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
-def test_carries_its_schema_version(
-    extraction_result: ExtractionResult, report_context: ReportContext
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
+        ("schema_version", SCHEMA_VERSION),
+        ("kind", REPORT_KIND),
+        ("generated_at", "2026-09-08T22:15:00Z"),
+    ],
+    ids=["schema-version", "kind", "generation-instant"],
+)
+def test_carries_its_header_fields(
+    extraction_result: ExtractionResult, report_context: ReportContext, key: str, expected: object
 ) -> None:
+    """`kind` distingue ce rapport de celui du re-tagging."""
     payload = json.loads(render_json(extraction_result, report_context))
 
-    assert payload["schema_version"] == SCHEMA_VERSION
-
-
-def test_distinguishes_the_extraction_report_from_the_tagging_one(
-    extraction_result: ExtractionResult, report_context: ReportContext
-) -> None:
-    payload = json.loads(render_json(extraction_result, report_context))
-
-    assert payload["kind"] == REPORT_KIND
+    assert payload[key] == expected
 
 
 def test_carries_the_five_categories(
@@ -79,18 +79,9 @@ def test_counts_match_the_categories(
 
 
 def test_an_empty_result_still_reports_zero_counts(
-    extraction_result: ExtractionResult, report_context: ReportContext
+    empty_extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    empty = replace(
-        extraction_result,
-        extracted=(),
-        already_present=(),
-        missing=(),
-        duplicates=(),
-        failures=(),
-    )
-
-    payload = json.loads(render_json(empty, report_context))
+    payload = json.loads(render_json(empty_extraction_result, report_context))
 
     assert payload["counts"] == {
         "extracted": 0,
@@ -129,14 +120,6 @@ def test_keeps_non_ascii_readable(
     rendered = render_json(extraction_result, report_context)
 
     assert CYRILLIC_TRACK in rendered
-
-
-def test_carries_the_generation_instant_in_full_iso(
-    extraction_result: ExtractionResult, report_context: ReportContext
-) -> None:
-    payload = json.loads(render_json(extraction_result, report_context))
-
-    assert payload["generated_at"] == "2026-09-08T22:15:00Z"
 
 
 def test_is_deterministic(

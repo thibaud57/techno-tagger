@@ -1,7 +1,7 @@
 """Modeles Pydantic des commandes et des evenements du protocole NDJSON.
 
 Seule interface publique du sidecar : tout le reste est appele depuis la boucle
-de `__main__.py`. Les types TypeScript de `src/app/core/models/` sont maintenus
+de `__main__.py`. Les types TypeScript de `src/app/core/sidecar/protocol.ts` sont maintenus
 a la main en miroir de ce fichier.
 
 Les commandes entrantes sont fermees (`extra="forbid"`) et strictes : un champ
@@ -56,8 +56,8 @@ class GetVersion(Command):
 
 
 class Shutdown(Command):
-    """Emise a la fermeture de la fenetre. L'EOF sur `stdin` reste le filet si
-    l'application est tuee.
+    """La fermeture de la fenetre ne l'emet pas : Tauri arrete le sidecar, l'EOF sur
+    `stdin` faisant le meme travail.
     """
 
     command: Literal["shutdown"]
@@ -90,7 +90,7 @@ class ExtractPlaylist(Command):
 
 
 # ASCII imprimable sans espace : contrainte du decodage latin-1 des en-tetes cote
-# API (PRODUCTION.md § Regles). 2560 : plafond du Credential Manager.
+# API (PRODUCTION.md § Gestion des cles utilisateurs). 2560 : plafond du Credential Manager.
 _API_KEY_PATTERN: Final = r"^[\x21-\x7e]+$"
 _API_KEY_MAX_LENGTH: Final = 2560
 
@@ -166,7 +166,7 @@ class ResolveByUrl(Command):
 
 
 class CommitRun(Command):
-    """Confirmation globale : le point de non-retour, seul geste qui ecrit des fichiers."""
+    """Confirmation globale : le point de non-retour, avant lequel aucun tag n'est ecrit."""
 
     command: Literal["commit_run"]
     run_id: str
@@ -341,8 +341,6 @@ class Version(Event):
 
 
 class PlaylistEntry(BaseModel):
-    """Une playlist du dump, telle que le selecteur l'affiche."""
-
     model_config = ConfigDict(frozen=True)
 
     playlist_id: int
@@ -648,7 +646,6 @@ class TrackLoaded(BaseModel):
 
     track_id: str
     file_name: str
-    file_after: str | None
     artist: str
     title: str
     state: TrackState | None
@@ -722,8 +719,7 @@ def error_from_validation(exc: ValidationError) -> Error:
         loc = error["loc"]
         details.append({"loc": list(loc), "type": error["type"]})
         code = _TYPED_BY_HAND.get(loc[:2], code)
-        # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union
-        # imbriquee qu'un futur modele pourrait declarer.
+        # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union imbriquee.
         if error["type"] == UNKNOWN_COMMAND_ERROR and not loc:
             params["command"] = error.get("ctx", {}).get("tag")
         # Un champ refuse sur une commande connue : Pydantic ouvre `loc` par son
@@ -741,16 +737,26 @@ def error_from_validation(exc: ValidationError) -> Error:
 
 
 def error_from_business(
-    exc: TaggerError, command: CommandName, track_id: str | None = None
+    exc: TaggerError,
+    command: CommandName,
+    track_id: str | None = None,
+    *,
+    run_id: str | None = None,
 ) -> Error:
     """Convertit une erreur metier en evenement, en gardant son code et ses params.
 
     `track_id` : le morceau d'un geste, que les erreurs du client ne portent pas et sans
     lequel l'interface ne saurait sur quelle ligne afficher l'erreur.
+
+    `run_id` : le run vise par une commande qui peut courir en double (`load_run`) ; sans lui,
+    un refus sans `run_id` propre (`phase_busy`, rapport illisible) serait rattache au dernier
+    chargement demande plutot qu'au sien.
     """
     params = dict(exc.params)
     if track_id is not None:
         params["track_id"] = track_id
+    if run_id is not None:
+        params["run_id"] = run_id
     return Error(code=exc.code, params=params, message=str(exc), command=command)
 
 

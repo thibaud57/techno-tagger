@@ -1,4 +1,4 @@
-"""Dump des tags d'origine d'un run, de quoi les restaurer pendant 30 jours (ADR-010).
+"""Dump des tags d'origine d'un run, de quoi les restaurer le temps de la retention (ADR-010).
 
 Un fichier par run, hors plan de run : un run rate se decouvre au lancement suivant.
 Seuls les champs de la table y vont, ni images ni commentaires.
@@ -21,7 +21,6 @@ from tagger.core.errors import TaggerError
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import (
     PENDING_SUFFIX,
-    exact_version,
     find_by_run_id,
     newest_first,
     purge_stamped,
@@ -91,8 +90,6 @@ class _RenameNote(BaseModel):
 
 
 class TagDumpError(TaggerError):
-    """Erreur d'ecriture ou de lecture d'un dump des tags d'origine."""
-
     code: ClassVar[str] = "tag_dump_error"
 
 
@@ -138,7 +135,6 @@ def find_dump(folder: Path, run_id: str) -> Path | None:
 
 
 def dumps_newest_first(folder: Path) -> list[Path]:
-    """Dumps du plus recent au plus ancien."""
     return newest_first(folder, _SUFFIX)
 
 
@@ -209,12 +205,12 @@ def remove_entries(folder: Path, dump: TagDump, track_ids: Collection[str]) -> T
 
 
 def load_dump(path: Path) -> TagDump:
-    """Relit un dump et fusionne son journal ; une version de schema inconnue est refusee.
+    """Relit un dump et fusionne son journal ; un schema inconnu est refuse, jamais migre.
 
-    Jamais migre. Le journal est lu avec le dump : un rollback apres une coupure entre une note
+    Le journal est lu avec le dump : un rollback apres une coupure entre une note
     et la reecriture finale retrouve quand meme le fichier renomme.
     """
-    dump = _read_dump(path)
+    dump = read_versioned(path, TagDump, SCHEMA_VERSION, TagDumpUnreadableError)
     journal = journal_path(path)
     try:
         raw = journal.read_bytes()
@@ -223,10 +219,6 @@ def load_dump(path: Path) -> TagDump:
     except OSError as exc:
         raise TagDumpUnreadableError(journal) from exc
     return _replay(dump, raw.decode("utf-8", errors="replace"))
-
-
-def _read_dump(path: Path) -> TagDump:
-    return read_versioned(path, TagDump, exact_version(SCHEMA_VERSION), TagDumpUnreadableError)
 
 
 def purge_dumps(folder: Path, now: datetime) -> None:

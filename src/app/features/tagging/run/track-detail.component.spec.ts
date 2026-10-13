@@ -2,6 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { openUrl } from "@tauri-apps/plugin-opener"
 
+import { hostOf } from "../../../../fixtures/dom"
 import { PENDING_TRACK, TAGS_AFTER, TAGS_BEFORE, resolvedTrack } from "../../../../fixtures/tagging"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
@@ -10,11 +11,13 @@ import { TrackDetailComponent } from "./track-detail.component"
 
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }))
 
+const BEFORE_WITHOUT_COMMENT = { ...TAGS_BEFORE, comment: null }
+
 const RESOLVED: TaggingTrack = {
   ...resolvedTrack(PENDING_TRACK.trackId),
   source: "beatport",
   artworkPath: "C:/AppData/cache/artworks/abc.jpg",
-  tagsBefore: { ...TAGS_BEFORE, comment: null },
+  tagsBefore: BEFORE_WITHOUT_COMMENT,
   tagsAfter: TAGS_AFTER,
 }
 
@@ -24,8 +27,7 @@ const WITH_SOURCE: TaggingTrack = {
   ...RESOLVED,
   sourceUrl: SOURCE_URL,
   tagsBefore: {
-    ...TAGS_BEFORE,
-    comment: null,
+    ...BEFORE_WITHOUT_COMMENT,
     fields: [...TAGS_BEFORE.fields, { field: "url", key: "WOAS", value: null }],
   },
   tagsAfter: [...TAGS_AFTER, { field: "url", key: "WOAS", value: SOURCE_URL }],
@@ -46,7 +48,7 @@ const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
   ...shown,
 })
 
-const mount = (
+const mountFixture = (
   track: TaggingTrack,
   inputs: Record<string, unknown> = {},
   shown: Partial<RunRow> = {},
@@ -62,8 +64,11 @@ const mount = (
   }
   fixture.detectChanges()
 
-  return fixture.nativeElement as HTMLElement
+  return fixture
 }
+
+const mount = (...args: Parameters<typeof mountFixture>): HTMLElement =>
+  hostOf(mountFixture(...args))
 
 /** Textes de chaque ligne : libelle (cle brute sans fichier de langue), cle, avant, apres. */
 const rowsOf = (root: HTMLElement): string[][] =>
@@ -91,7 +96,7 @@ describe("TrackDetailComponent", () => {
     const sourceId = { field: "source_id", key: "TXXX:SOURCE_ID", value: "99000101" } as const
     const root = mount({
       ...RESOLVED,
-      tagsBefore: { ...TAGS_BEFORE, comment: null, fields: [...TAGS_BEFORE.fields, sourceId] },
+      tagsBefore: { ...BEFORE_WITHOUT_COMMENT, fields: [...TAGS_BEFORE.fields, sourceId] },
       tagsAfter: [...TAGS_AFTER, sourceId],
     })
 
@@ -105,8 +110,7 @@ describe("TrackDetailComponent", () => {
     const root = mount({
       ...RESOLVED,
       tagsBefore: {
-        ...TAGS_BEFORE,
-        comment: null,
+        ...BEFORE_WITHOUT_COMMENT,
         fields: [...TAGS_BEFORE.fields, { ...source, value: null }],
       },
       tagsAfter: [...TAGS_AFTER, source],
@@ -121,8 +125,7 @@ describe("TrackDetailComponent", () => {
     const root = mount({
       ...RESOLVED,
       tagsBefore: {
-        ...TAGS_BEFORE,
-        comment: null,
+        ...BEFORE_WITHOUT_COMMENT,
         fields: [{ field: "label", key: "TPUB", value: null }],
       },
       tagsAfter: [{ field: "label", key: "TPUB", value: "Drumcode" }],
@@ -193,37 +196,23 @@ describe("TrackDetailComponent", () => {
     expect(skeleton).not.toBeNull()
   })
 
-  it("offers no restore on a track that is not restorable", () => {
-    const root = mount(RESOLVED)
+  it.each([
+    { case: "a restorable track", inputs: { restorable: true }, offered: true },
+    { case: "a track that is not restorable", inputs: {}, offered: false },
+  ])("tells whether the restore is offered on $case", ({ inputs, offered }) => {
+    const root = mount(RESOLVED, inputs)
 
-    const offered = root.querySelector('[data-action="restore-track"]')
+    const button = root.querySelector('[data-action="restore-track"]')
 
-    expect(offered).toBeNull()
-  })
-
-  it("offers to restore a restorable track", () => {
-    const root = mount(RESOLVED, { restorable: true })
-
-    const offered = root.querySelector('[data-action="restore-track"]')
-
-    expect(offered).not.toBeNull()
+    expect(button !== null).toBe(offered)
   })
 
   it("asks to restore its track on click", () => {
-    TestBed.configureTestingModule({
-      imports: [TrackDetailComponent],
-      providers: [provideTranslateService()],
-    })
-    const fixture = TestBed.createComponent(TrackDetailComponent)
-    fixture.componentRef.setInput("track", asRow(RESOLVED))
-    fixture.componentRef.setInput("restorable", true)
-    fixture.detectChanges()
+    const fixture = mountFixture(RESOLVED, { restorable: true })
     const asked = vi.fn()
     fixture.componentInstance.restore.subscribe(asked)
 
-    ;(fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('[data-action="restore-track"]')
-      ?.click()
+    hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-track"]')?.click()
 
     expect(asked).toHaveBeenCalledWith(RESOLVED.trackId)
   })

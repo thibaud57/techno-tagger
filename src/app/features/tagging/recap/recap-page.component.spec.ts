@@ -4,16 +4,19 @@ import { Router, provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService } from "primeng/api"
 
+import { hostOf } from "../../../../fixtures/dom"
 import { PAST_RUN, TRACK_LOADED } from "../../../../fixtures/past-runs"
 import { type SidecarStubOverrides, sidecarStub } from "../../../../fixtures/sidecar-stub"
 import { unresolvedTrack, writtenTrack } from "../../../../fixtures/tagging"
 import { settleScroller, stubOffscreenLayout } from "../../../../fixtures/virtual-scroll"
-import { ROLLBACK_RUN, commandError, rollbackFinished } from "../../../../fixtures/write"
+import { ROLLBACK_RUN, commandError, failedRollback } from "../../../../fixtures/write"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import { type LoadedRun, loadedTrack } from "../../../core/stores/past-runs.store"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import RecapPageComponent from "./recap-page.component"
+
+const OTHER_ROLLBACK_RUN = { ...ROLLBACK_RUN, run_id: "b4c5d6" }
 
 /** Non restaurable : seul un test du run passe pose un morceau restaurable. */
 const written = (trackId: string, title: string): TaggingTrack => ({
@@ -21,7 +24,6 @@ const written = (trackId: string, title: string): TaggingTrack => ({
   title,
 })
 
-/** Ce qui se teste ici : les morceaux affiches, les filtres, le retour et la ligne de contexte. */
 const mountWith = async (
   tracks: readonly TaggingTrack[],
   overrides: SidecarStubOverrides = {},
@@ -51,9 +53,6 @@ const mountWith = async (
 
   return { fixture, component: fixture.componentInstance, service, navigate }
 }
-
-const hostOf = (fixture: { nativeElement: unknown }): HTMLElement =>
-  fixture.nativeElement as HTMLElement
 
 /** Une ligne par bouton d'ouverture du detail : le scroll virtuel ne monte que les lignes visibles. */
 const rowsIn = (fixture: { nativeElement: unknown }): number =>
@@ -151,20 +150,19 @@ describe("RecapPageComponent", () => {
     expect(hostOf(fixture).querySelector("[data-write-failures]")).not.toBeNull()
   })
 
-  it("holds the write failures back while a write runs", async () => {
-    const { fixture } = await mountWith([{ ...written("a", "Your Mind"), state: "write_error" }], {
-      writing: signal(true),
-    })
+  it.each([
+    {
+      case: "a write runs",
+      tracks: [{ ...written("a", "Your Mind"), state: "write_error" as const }],
+      overrides: { writing: signal(true) },
+    },
+    { case: "every track was written", tracks: [written("a", "Your Mind")], overrides: {} },
+  ])("shows no write failure message when $case", async ({ tracks, overrides }) => {
+    const { fixture } = await mountWith(tracks, overrides)
 
     const message = hostOf(fixture).querySelector("[data-write-failures]")
 
     expect(message).toBeNull()
-  })
-
-  it("stays silent about write failures when every track was written", async () => {
-    const { fixture } = await mountWith([written("a", "Your Mind")])
-
-    expect(hostOf(fixture).querySelector("[data-write-failures]")).toBeNull()
   })
 
   it("goes back to the run list", async () => {
@@ -185,9 +183,16 @@ describe("RecapPageComponent", () => {
     expect(hostOf(fixture).querySelector('[data-action="back"]')).not.toBeNull()
   })
 
-  it("dates the live run by the rollback target of the run just written", async () => {
+  // La restauration d'un run fait passer la cible au run precedent, sans changer
+  // l'ecriture du run affiche.
+  it.each([
+    { case: "the rollback target is this run", target: ROLLBACK_RUN },
+    { case: "the rollback target moved to the previous run", target: OTHER_ROLLBACK_RUN },
+    { case: "no run is left to restore", target: null },
+  ])("dates the live run by its past runs entry when $case", async ({ target }) => {
     const { fixture } = await mountWith([written("a", "Your Mind")], {
-      rollbackTarget: signal(ROLLBACK_RUN),
+      pastRuns: signal([PAST_RUN]),
+      rollbackTarget: signal(target),
     })
 
     const context = hostOf(fixture).querySelector("[data-run-context]")
@@ -195,9 +200,10 @@ describe("RecapPageComponent", () => {
     expect(context).not.toBeNull()
   })
 
-  it("leaves the live run undated when the rollback target is another run", async () => {
+  it("leaves the live run undated when the past runs do not list it", async () => {
     const { fixture } = await mountWith([written("a", "Your Mind")], {
-      rollbackTarget: signal({ ...ROLLBACK_RUN, run_id: "b4c5d6" }),
+      pastRuns: signal([{ ...PAST_RUN, run_id: "b4c5d6" }]),
+      rollbackTarget: signal(ROLLBACK_RUN),
     })
 
     const context = hostOf(fixture).querySelector("[data-run-context]")
@@ -274,12 +280,9 @@ describe("RecapPageComponent", () => {
     })
 
     it("leaves the rollback failures to the live run", async () => {
-      const failedRollback = rollbackFinished(null, [
-        { track_id: "b.mp3", file_name: "X - Y.mp3", reason: "file_locked" },
-      ])
       const { fixture } = await mountWith(
         [written("live", "Basiel")],
-        { rollbackFinished: signal(failedRollback), loadedRun: signal(LOADED) },
+        { rollbackFinished: signal(failedRollback()), loadedRun: signal(LOADED) },
         "a3f9c1",
       )
 

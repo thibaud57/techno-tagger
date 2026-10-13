@@ -43,7 +43,7 @@ const definePreference = <T>(
  * re-tagging reecrit les fichiers de destination.
  */
 export const DEFAULT_EXTRACTION_MODE: ExtractionMode = "copy"
-/** Le signal sonore est actif par defaut : BRAINSTORM le decrit comme desactivable. */
+/** Actif par defaut : BRAINSTORM le decrit comme desactivable. */
 export const DEFAULT_SOUND_SIGNAL = true
 
 const extractionMode = definePreference<ExtractionMode>(
@@ -62,12 +62,11 @@ const lastDestination = definePreference<string | null>(
   (stored): stored is string => typeof stored === "string",
 )
 
-/** Lit le mode retenu au dernier run. */
 export const readExtractionMode = extractionMode.read
 export const writeExtractionMode = extractionMode.write
 
 export const readSoundSignal = soundSignal.read
-/** Ecrit par les Reglages (Feature 7). */
+/** Sans appelant au 2026-10-13 : la bascule du son est un reglage de la Feature 7. */
 export const writeSoundSignal = soundSignal.write
 
 /** Le dossier re-taggue est presque toujours la destination de la derniere extraction. */

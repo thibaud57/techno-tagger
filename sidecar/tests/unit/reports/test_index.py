@@ -1,5 +1,3 @@
-"""Tests du registre des rapports de re-tagging."""
-
 import json
 from datetime import timedelta
 from typing import TYPE_CHECKING

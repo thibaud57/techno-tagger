@@ -84,13 +84,11 @@ _MAX_SCORE: Final = 100
 
 @verify(UNIQUE)
 class QueryOrigin(StrEnum):
-    """D'ou vient la requete : les tags du fichier ou son nom."""
-
     TAGS = auto()
     FILENAME = auto()
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class TrackQuery:
     """Artiste et titre nettoyes d'un morceau. Artiste vide : inconnu."""
 
@@ -104,7 +102,7 @@ class TrackQuery:
         return f"{self.artist} {self.title}".strip()
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MatchingThresholds:
     """Plancher en ET sur les deux scores, seuil haut sur leur moyenne.
 
@@ -131,7 +129,7 @@ def check_thresholds(floor: float, ceiling: float) -> None:
 DEFAULT_THRESHOLDS: Final = MatchingThresholds()
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ScoredCandidate:
     """Scores d'un candidat, gardes pour le rapport et le recalibrage des seuils.
 
@@ -161,7 +159,7 @@ class _Parts(NamedTuple):
     version: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _AskedFor:
     """Ce qu'un morceau demande, derive une fois puis compare a chaque candidat."""
 
@@ -173,8 +171,6 @@ class _AskedFor:
 
 @verify(UNIQUE)
 class Outcome(StrEnum):
-    """Issue du classement des candidats d'une source."""
-
     AUTO = auto()
     GREY_ZONE = auto()
     EMPTY = auto()
@@ -190,10 +186,8 @@ class Classification:
 
 
 def build_query(artist: str, title: str, file_name: str) -> TrackQuery | None:
-    """Requete du morceau, ou `None` quand rien n'est exploitable (`empty_query`).
-
-    Les tags d'abord, le nom de fichier en repli (ARCHITECTURE.md § Requete vide
-    apres nettoyage).
+    """Requete du morceau, ou `None` quand rien n'est exploitable (`empty_query`, cf.
+    ARCHITECTURE.md § Requete vide apres nettoyage).
     """
     return _from_tags(artist, title) or _from_file_name(file_name)
 
@@ -205,7 +199,7 @@ def _from_tags(artist: str, title: str) -> TrackQuery | None:
     query_title = _clean(title) or title.strip()
     if not (_LETTER.search(query_artist) and _LETTER.search(query_title)):
         return None
-    return TrackQuery(query_artist, query_title, QueryOrigin.TAGS)
+    return TrackQuery(artist=query_artist, title=query_title, origin=QueryOrigin.TAGS)
 
 
 def _from_file_name(file_name: str) -> TrackQuery | None:
@@ -217,8 +211,10 @@ def _from_file_name(file_name: str) -> TrackQuery | None:
         return None
     artist, separator, title = cleaned.partition(_FILE_NAME_SEPARATOR)
     if not separator:
-        return TrackQuery("", cleaned, QueryOrigin.FILENAME)
-    return TrackQuery(_normalise_artists(artist), title.strip(), QueryOrigin.FILENAME)
+        return TrackQuery(artist="", title=cleaned, origin=QueryOrigin.FILENAME)
+    return TrackQuery(
+        artist=_normalise_artists(artist), title=title.strip(), origin=QueryOrigin.FILENAME
+    )
 
 
 def _clean(text: str) -> str:
@@ -248,10 +244,10 @@ def classify(
     *,
     allow_auto: bool = True,
 ) -> Classification:
-    """Classe les candidats d'une source en auto, zone grise ou vide (spec 03).
+    """Tri stable : a score egal, l'ordre de l'API departage.
 
-    Tri stable : a score egal l'ordre de l'API departage. `allow_auto=False` force la
-    zone grise, ce dont le pipeline se sert quand Beatport n'a pas repondu.
+    `allow_auto=False` force la zone grise, ce dont le pipeline se sert quand Beatport
+    n'a pas repondu.
     """
     asked = _prepare(query)
     scored: list[ScoredCandidate] = []
@@ -298,7 +294,7 @@ def _prepare(query: TrackQuery) -> _AskedFor:
     bare, version = _split_version(_clean(query.title))
     title = _SPACES.sub(" ", _FEATURING.sub(" ", bare)).strip(_EDGE_NOISE + "([")
     artists = tuple(part.strip() for part in query.artist.split(",") if part.strip())
-    return _AskedFor(title, version, artists, _numbers(title))
+    return _AskedFor(title=title, version=version, artists=artists, numbers=_numbers(title))
 
 
 def _split_version(title: str) -> _Parts:
@@ -337,7 +333,14 @@ def _score(asked: _AskedFor, candidate: TrackCandidate, offered: _Parts) -> Scor
     renumbered = asked.numbers != _numbers(offered.title)
     artist_score = _artist_score(asked.artists, candidate) if asked.artists else None
     score = title_score if artist_score is None else (artist_score + title_score) / 2
-    return ScoredCandidate(candidate, artist_score, title_score, score, mismatch, renumbered)
+    return ScoredCandidate(
+        candidate=candidate,
+        artist_score=artist_score,
+        title_score=title_score,
+        score=score,
+        version_mismatch=mismatch,
+        number_mismatch=renumbered,
+    )
 
 
 def _numbers(title: str) -> tuple[int, ...]:
@@ -380,7 +383,7 @@ def _split_duos(asked: tuple[str, ...]) -> tuple[str, ...]:
 
     « A & B » nomme un duo (« Pig & Dan ») ou deux artistes qu'un logiciel a joints, et
     la chaine seule ne le dit pas. Les deux lectures sont donc scorees et la meilleure
-    gagne : c'est la façon dont la source credite qui tranche, jamais une regle devinee.
+    gagne : c'est la facon dont la source credite qui tranche, jamais une regle devinee.
     """
     return tuple(part.strip() for name in asked for part in _AMPERSAND.split(name) if part.strip())
 

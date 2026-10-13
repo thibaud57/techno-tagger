@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from tagger.core.errors import RunNotFoundError
 from tagger.core.run_files import created_at_of, run_id_of
+from tagger.resolution.matching import build_query
 from tagger.run.models import (
     ArbitrationRequired,
     LiveRun,
@@ -21,9 +22,9 @@ from tagger.run.models import (
 from tagger.run.plan import (
     RunPlanUnreadableError,
     discard_plan,
-    find_plan,
     load_plan,
     plans_newest_first,
+    require_plan,
 )
 from tagger.run.tagging import read_identities
 from tagger.tags.files import TaggingFolderUnreadableError, has_audio_files, list_audio_files
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
 
     from tagger.resolution.sources import RunSources
     from tagger.run.models import RunEvent, TrackRecord
-    from tagger.run.plan import RunPlan
+    from tagger.run.plan import PlanTrack, RunPlan
 
 logger = logging.getLogger(__name__)
 
@@ -101,12 +102,8 @@ def detect_interrupted(
 
 
 def load_resumable(plans: Path, dumps: Path, run_id: str) -> RunPlan:
-    """Plan a rouvrir, valide avant qu'on abandonne le run affiche : `run_not_found` s'il manque
-    ou a vu des fichiers bouger."""
-    path = find_plan(plans, run_id)
-    if path is None:
-        raise RunNotFoundError(run_id)
-    plan = load_plan(path)
+    """Plan a rouvrir : `run_not_found` s'il manque ou a vu des fichiers bouger."""
+    plan = load_plan(require_plan(plans, run_id))
     if _files_written(plan, dumps):
         raise RunNotFoundError(run_id)
     return plan
@@ -134,7 +131,7 @@ async def reopen_run(
             on_event(ArbitrationRequired(record))
         elif record.state is not None:
             on_event(TrackResolved(record))
-    on_event(RunProgress(sum(record.decided for record in records), len(records)))
+    on_event(RunProgress(processed=sum(record.decided for record in records), total=len(records)))
     return LiveRun(plan.run_id, plan.folder, records)
 
 
@@ -158,9 +155,18 @@ def _folder_missing(folder: Path) -> bool:
 
 
 def _decided_or_waiting(plan: RunPlan, record: TrackRecord) -> TrackRecord:
-    """Decision du plan posee sur le morceau ; fichier nouveau ou source muette : en attente."""
+    """Decision du plan posee sur le morceau ; fichier nouveau, source muette ou requete changee
+    depuis le plan (fichier retague) : en attente."""
     track = plan.tracks.get(record.track_id)
-    return record if track is None or not track.processed else track.applied_to(record)
+    if track is None or not track.processed or not _same_query(track, record):
+        return record
+    return track.applied_to(record)
+
+
+def _same_query(track: PlanTrack, record: TrackRecord) -> bool:
+    identity = record.identity
+    current = build_query(identity.artist, identity.title, record.file_name)
+    return current == (None if track.query is None else track.query.to_query())
 
 
 def _log_missing(plan: RunPlan, on_disk: Collection[str]) -> None:

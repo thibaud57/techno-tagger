@@ -5,16 +5,14 @@ from pathlib import Path
 from typing import Final
 
 from scraper_responses import BEATPORT_CANDIDATE
-from tagging_records import RECORD, held, scored_candidate
+from tagging_records import QUERY, RECORD, RUN_ID, held, scored_candidate
 
 from tagger.core.file_failures import FileFailureReason
-from tagger.resolution.matching import QueryOrigin, TrackQuery
 from tagger.resolution.scraper_client import Source
 from tagger.run.models import FailureReason, Resolution, TaggingRun, TrackRecord, WriteOutcome
 from tagger.tags.files import ShownTags, TagField, TagSystem, WrittenTags
 
 FOLDER: Final = Path("music")
-QUERY: Final = TrackQuery("Adam Beyer", "Your Mind", QueryOrigin.TAGS)
 # Toute la table, absente comprise : `after_tags` lit chaque champ d'origine.
 BEFORE: Final = ShownTags(
     system=TagSystem.ID3,
@@ -53,4 +51,4 @@ ROLLED_BACK: Final = (
     )
     .rolled_back(FOLDER / "f.mp3")
 )
-RUN: Final = TaggingRun("a3f9c1", FOLDER, (WRITTEN, FAILED, UNRESOLVED, WAITING, HELD, ROLLED_BACK))
+RUN: Final = TaggingRun(RUN_ID, FOLDER, (WRITTEN, FAILED, UNRESOLVED, WAITING, HELD, ROLLED_BACK))

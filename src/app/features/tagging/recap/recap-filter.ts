@@ -30,7 +30,7 @@ export const inFilter = (track: TaggingTrack, filter: RecapFilter): boolean => {
   }
 }
 
-/** La somme des trois filtres peut etre inferieure a « Tout » : les restaures n'y sont pas. */
+/** La somme des filtres peut etre inferieure a « Tout » : les restaures n'y sont pas. */
 export const recapCounts = (tracks: readonly TaggingTrack[]): Record<RecapFilter, number> => ({
   all: tracks.length,
   validated: tracks.filter((track) => inFilter(track, "validated")).length,

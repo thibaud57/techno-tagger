@@ -4,20 +4,21 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { Router, provideRouter } from "@angular/router"
 import { ConfirmationService } from "primeng/api"
 
+import { hostOf } from "../../../fixtures/dom"
 import { PAST_RUN } from "../../../fixtures/past-runs"
-import { type SidecarStubOverrides, sidecarStub } from "../../../fixtures/sidecar-stub"
+import {
+  type SidecarStubOverrides,
+  commandFailed,
+  sidecarStub,
+} from "../../../fixtures/sidecar-stub"
 import { translateWith } from "../../../fixtures/translate"
-import { ROLLBACK_RUN, commandError, rollbackFinished } from "../../../fixtures/write"
+import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
 import type { PastRun } from "../../core/sidecar/protocol"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 import type { RollbackInFlight } from "../../core/stores/write.store"
 
 import SettingsPageComponent, { STORED_KEY_MASK } from "./settings-page.component"
 
-/**
- * Ce qui se teste ici est la disponibilite de l'enregistrement et la commande
- * emise : la cle ne doit jamais rester dans l'ecran une fois envoyee.
- */
 const mountWith = (overrides: SidecarStubOverrides = {}) => {
   const service = sidecarStub({ apiKeyConfigured: signal<boolean | null>(false), ...overrides })
 
@@ -44,7 +45,7 @@ describe("SettingsPageComponent", () => {
   ])("signals a stored key in the placeholder ($configured)", ({ configured, placeholder }) => {
     const { fixture } = mountWith({ apiKeyConfigured: signal(configured) })
 
-    const input = (fixture.nativeElement as HTMLElement).querySelector("input#api-key")
+    const input = hostOf(fixture).querySelector("input#api-key")
 
     expect(input?.getAttribute("placeholder")).toBe(placeholder)
   })
@@ -52,29 +53,21 @@ describe("SettingsPageComponent", () => {
   it("offers no visibility toggle while nothing is typed", () => {
     const { fixture } = mountWith({ apiKeyConfigured: signal(true) })
 
-    const host = fixture.nativeElement as HTMLElement
-
-    expect(host.querySelector('svg[data-p-icon="eye"]')).toBeNull()
+    expect(hostOf(fixture).querySelector('svg[data-p-icon="eye"]')).toBeNull()
   })
 
   it("shows a key storage error under the row", () => {
-    const { fixture } = mountWith({
-      lastError: signal(commandError("set_api_key", "api_key_not_stored")),
-      lastErrorCommand: signal("set_api_key"),
-    })
+    const { fixture } = mountWith(commandFailed("set_api_key", "api_key_not_stored"))
 
-    const errorMessage = (fixture.nativeElement as HTMLElement).querySelector("app-error-message")
+    const errorMessage = hostOf(fixture).querySelector("app-error-message")
 
     expect(errorMessage).not.toBeNull()
   })
 
   it("ignores an error raised by another screen", () => {
-    const { fixture } = mountWith({
-      lastError: signal(commandError("list_playlists", "malformed_command")),
-      lastErrorCommand: signal("list_playlists"),
-    })
+    const { fixture } = mountWith(commandFailed("list_playlists", "malformed_command"))
 
-    const errorMessage = (fixture.nativeElement as HTMLElement).querySelector("app-error-message")
+    const errorMessage = hostOf(fixture).querySelector("app-error-message")
 
     expect(errorMessage).toBeNull()
   })
@@ -86,7 +79,7 @@ describe("SettingsPageComponent", () => {
     component["toggleMask"]()
     fixture.detectChanges()
 
-    const host = fixture.nativeElement as HTMLElement
+    const host = hostOf(fixture)
     expect(host.querySelector('svg[data-p-icon="eye-slash"]')).not.toBeNull()
     expect(host.querySelector('svg[data-p-icon="eye"]')).toBeNull()
   })
@@ -126,47 +119,42 @@ describe("SettingsPageComponent", () => {
     })
     fixture.detectChanges()
 
-    const line = (fixture.nativeElement as HTMLElement).querySelector("[data-rollback-target]")
+    const line = hostOf(fixture).querySelector("[data-rollback-target]")
 
     expect(service.loadRollbackTarget).toHaveBeenCalled()
     expect(line?.textContent).toContain("|D:/Music/Promo Octobre|1")
     expect(line?.textContent).toContain("2026")
   })
 
-  it("asks for the target once the engine answers, not at construction", () => {
-    const available = signal<boolean | null>(null)
-    const { fixture, service } = mountWith({ available })
-    const before = vi.mocked(service.loadRollbackTarget).mock.calls.length
+  it.each(["loadRollbackTarget", "listRuns"] as const)(
+    "calls %s once the engine answers, not at construction",
+    (method) => {
+      const available = signal<boolean | null>(null)
+      const { fixture, service } = mountWith({ available })
+      const before = service[method].mock.calls.length
 
-    available.set(true)
-    fixture.detectChanges()
+      available.set(true)
+      fixture.detectChanges()
 
-    expect(before).toBe(0)
-    expect(service.loadRollbackTarget).toHaveBeenCalledTimes(1)
-  })
+      expect(before).toBe(0)
+      expect(service[method]).toHaveBeenCalledTimes(1)
+    },
+  )
 
-  it("waits for the target before offering anything", () => {
-    const { fixture, component } = mountWith()
+  it.each([
+    ["waits for the target before offering anything", {}, "settings.admin.rollback.loading"],
+    [
+      "leaves the reason to the button tooltip without a target",
+      { rollbackTarget: signal(null) },
+      "settings.admin.rollback.none",
+    ],
+  ])("%s", (_case, overrides, reason) => {
+    const { fixture, component } = mountWith(overrides)
 
-    const line = (fixture.nativeElement as HTMLElement).querySelector("[data-rollback-target]")
+    const line = hostOf(fixture).querySelector("[data-rollback-target]")
 
     expect(line).toBeNull()
-    expect(component["restoreBlockedReason"]()).toBe("settings.admin.rollback.loading")
-  })
-
-  it("leaves the reason to the button tooltip without a target", () => {
-    const { fixture, component } = mountWith({ rollbackTarget: signal(null) })
-
-    const line = (fixture.nativeElement as HTMLElement).querySelector("[data-rollback-target]")
-
-    expect(line).toBeNull()
-    expect(component["restoreBlockedReason"]()).toBe("settings.admin.rollback.none")
-  })
-
-  it("waits for the end of a run in progress before offering the undo", () => {
-    const { component } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN), tagging: signal(true) })
-
-    expect(component["restoreBlockedReason"]()).toBe("tagging.blocked.running")
+    expect(component["restoreBlockedReason"]()).toBe(reason)
   })
 
   it("renders the raw date of a run whose date cannot be parsed", () => {
@@ -177,15 +165,18 @@ describe("SettingsPageComponent", () => {
 
     fixture.detectChanges()
 
-    const line = (fixture.nativeElement as HTMLElement).querySelector("[data-rollback-target]")
+    const line = hostOf(fixture).querySelector("[data-rollback-target]")
     expect(line?.textContent).toContain("not-a-date|D:/Music/Promo Octobre")
   })
 
-  it("gives a run in progress priority over a write in progress", () => {
+  it.each([
+    ["alone", {}],
+    ["ahead of a write in progress", { writing: signal(true) }],
+  ])("blocks the undo with the run in progress %s", (_case, overrides) => {
     const { component } = mountWith({
       rollbackTarget: signal(ROLLBACK_RUN),
       tagging: signal(true),
-      writing: signal(true),
+      ...overrides,
     })
 
     expect(component["restoreBlockedReason"]()).toBe("tagging.blocked.running")
@@ -202,9 +193,7 @@ describe("SettingsPageComponent", () => {
   ])("blocks the undo while $name is in progress", ({ overrides }) => {
     const { fixture, component } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN), ...overrides })
 
-    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
-      '[data-action="restore-last"]',
-    )
+    const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-last"]')
 
     expect(component["restoreBlockedReason"]()).toBe("tagging.rollback.blocked")
     expect(button?.disabled).toBe(true)
@@ -225,18 +214,6 @@ describe("SettingsPageComponent", () => {
   })
 
   describe("past runs", () => {
-    it("asks for the past runs once the engine is available", () => {
-      const available = signal<boolean | null>(null)
-      const { fixture, service } = mountWith({ available })
-      const before = vi.mocked(service.listRuns).mock.calls.length
-
-      available.set(true)
-      fixture.detectChanges()
-
-      expect(before).toBe(0)
-      expect(service.listRuns).toHaveBeenCalledTimes(1)
-    })
-
     it("lists the past runs as the engine ordered them, the latest first", () => {
       const pastRuns = signal<readonly PastRun[] | null>([
         { ...PAST_RUN, run_id: "b4c5d6", folder: "D:/Sets/Septembre" },
@@ -266,7 +243,18 @@ describe("SettingsPageComponent", () => {
       expect(chosen).toBe("b4c5d6")
     })
 
-    it("keeps the chosen run when the list is refreshed", () => {
+    it.each([
+      [
+        "keeps the chosen run when the list is refreshed",
+        [{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN, { ...PAST_RUN, run_id: "b4c5d6" }],
+        "b4c5d6",
+      ],
+      [
+        "falls back on the latest run when the chosen one is gone",
+        [{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN],
+        "c7d8e9",
+      ],
+    ])("%s", (_case, refreshed, expected) => {
       const pastRuns = signal<readonly PastRun[] | null>([
         PAST_RUN,
         { ...PAST_RUN, run_id: "b4c5d6" },
@@ -274,22 +262,9 @@ describe("SettingsPageComponent", () => {
       const { component } = mountWith({ pastRuns })
       component["pastChoice"].set({ runId: "b4c5d6" })
 
-      pastRuns.set([{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN, { ...PAST_RUN, run_id: "b4c5d6" }])
+      pastRuns.set(refreshed)
 
-      expect(component["pastChoice"]().runId).toBe("b4c5d6")
-    })
-
-    it("falls back on the latest run when the chosen one is gone", () => {
-      const pastRuns = signal<readonly PastRun[] | null>([
-        PAST_RUN,
-        { ...PAST_RUN, run_id: "b4c5d6" },
-      ])
-      const { component } = mountWith({ pastRuns })
-      component["pastChoice"].set({ runId: "b4c5d6" })
-
-      pastRuns.set([{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN])
-
-      expect(component["pastChoice"]().runId).toBe("c7d8e9")
+      expect(component["pastChoice"]().runId).toBe(expected)
     })
 
     it("opens the summary of the chosen run", () => {
@@ -297,8 +272,7 @@ describe("SettingsPageComponent", () => {
       const navigate = vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
       fixture.detectChanges()
 
-      const host = fixture.nativeElement as HTMLElement
-      host.querySelector<HTMLButtonElement>('[data-action="open-past-run"]')?.click()
+      hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="open-past-run"]')?.click()
 
       expect(navigate).toHaveBeenCalledWith("/tagging/recap/a3f9c1")
     })
@@ -306,51 +280,36 @@ describe("SettingsPageComponent", () => {
     it("names the selector after the row label", () => {
       const { fixture } = mountWith({ pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) })
 
-      const host = fixture.nativeElement as HTMLElement
+      const host = hostOf(fixture)
       const named = host.querySelector('[data-field="past-run"] [aria-labelledby]')
 
       expect(named?.getAttribute("aria-labelledby")).toBe("past-run-label")
       expect(host.querySelector("#past-run-label")).not.toBeNull()
     })
 
-    it("enables the row once a run is listed", () => {
+    it.each([
+      { case: "enables the row once a run is listed", runs: [PAST_RUN], disabled: false },
+      { case: "disables the row without past runs", runs: [], disabled: true },
+    ])("$case", ({ runs, disabled }) => {
       const { fixture, component } = mountWith({
-        pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]),
+        pastRuns: signal<readonly PastRun[] | null>(runs),
       })
 
-      const host = fixture.nativeElement as HTMLElement
-      const open = host.querySelector<HTMLButtonElement>('[data-action="open-past-run"]')
+      const open = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="open-past-run"]')
 
-      expect(open?.disabled).toBe(false)
-      expect(component["pastFields"].runId().disabled()).toBe(false)
-    })
-
-    it("disables the row without past runs", () => {
-      const { fixture, component } = mountWith({
-        pastRuns: signal<readonly PastRun[] | null>([]),
-      })
-
-      const host = fixture.nativeElement as HTMLElement
-      const open = host.querySelector<HTMLButtonElement>('[data-action="open-past-run"]')
-
-      expect(open?.disabled).toBe(true)
-      expect(component["pastFields"].runId().disabled()).toBe(true)
+      expect(open?.disabled).toBe(disabled)
+      expect(component["pastFields"].runId().disabled()).toBe(disabled)
     })
   })
 
   it("shows the files left as they were and the rollback error", () => {
     const { fixture } = mountWith({
       rollbackTarget: signal(null),
-      rollbackFinished: signal(
-        rollbackFinished(null, [
-          { track_id: "a.mp3", file_name: "X - Y.mp3", reason: "name_taken" },
-        ]),
-      ),
-      lastError: signal(commandError("rollback", "tag_dump_unreadable")),
-      lastErrorCommand: signal("rollback"),
+      rollbackFinished: signal(failedRollback("name_taken")),
+      ...commandFailed("rollback", "tag_dump_unreadable"),
     })
 
-    const root = fixture.nativeElement as HTMLElement
+    const root = hostOf(fixture)
 
     expect(root.querySelector("[data-rollback-failures]")).not.toBeNull()
     expect(root.querySelector("app-error-message")).not.toBeNull()

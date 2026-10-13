@@ -1,5 +1,3 @@
-"""Fixtures des tests du run de re-tagging."""
-
 from typing import TYPE_CHECKING
 
 import pytest

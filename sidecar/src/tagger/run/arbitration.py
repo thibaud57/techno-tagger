@@ -1,8 +1,9 @@
 """Arbitrage en zone grise (use-case 3, ADR-009), hors protocole NDJSON : rendu par rappel."""
 
+import copy
 import logging
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, NamedTuple, override
 
 from tagger.core.errors import TaggerError
@@ -99,7 +100,6 @@ class Arbitration:
         return f"Arbitration(run_id={self._live.run_id!r}, busy={len(self._busy)})"
 
     async def choose(self, track_id: str, source: Source, index: int) -> None:
-        """Retient un candidat de la liste affichee : `resolved` / `arbitration`."""
         current = self._pending(track_id)
         shown = current.arbitration
         if source is not shown.source or not 0 <= index < len(shown.candidates):
@@ -173,7 +173,7 @@ class Arbitration:
     def _show(self, current: _Pending, kept: SourceList) -> None:
         """`kept` passe a l'affichage, la liste affichee est mise de cote."""
         shown = current.arbitration
-        record = replace(
+        record = copy.replace(
             current.record,
             arbitration=PendingArbitration(
                 kept.source,

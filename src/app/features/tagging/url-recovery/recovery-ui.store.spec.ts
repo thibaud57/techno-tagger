@@ -1,7 +1,7 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 
-import { sidecarStub } from "../../../../fixtures/sidecar-stub"
+import { type SidecarStub, sidecarStub } from "../../../../fixtures/sidecar-stub"
 import { arbitrationRequired, recoveredTrack, unresolvedTrack } from "../../../../fixtures/tagging"
 import { TRACK_URL } from "../../../../fixtures/url-recovery"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
@@ -19,6 +19,27 @@ const mount = (tracks: readonly TaggingTrack[] = [unresolvedTrack("a.mp3")]) => 
 
   return { store: TestBed.inject(RecoveryUiStore), service }
 }
+
+const BLOCKERS: [string, (service: SidecarStub) => void][] = [
+  [
+    "a gesture is in flight for the track",
+    (service) => {
+      service.urlRecoveryBusy.set(new Set(["a.mp3"]))
+    },
+  ],
+  [
+    "a search runs",
+    (service) => {
+      service.tagging.set(true)
+    },
+  ],
+  [
+    "the track is no longer recoverable",
+    (service) => {
+      service.recoverableTracks.set([])
+    },
+  ],
+]
 
 describe("RecoveryUiStore", () => {
   describe("available", () => {
@@ -128,29 +149,11 @@ describe("RecoveryUiStore", () => {
       expect(store.canResolve("a.mp3")).toBe(true)
     })
 
-    it("refuses while a gesture is in flight for the track", () => {
+    it.each(BLOCKERS)("refuses when %s", (_case, block) => {
       const { store, service } = mount()
       store.edit("a.mp3", TRACK_URL)
 
-      service.urlRecoveryBusy.set(new Set(["a.mp3"]))
-
-      expect(store.canResolve("a.mp3")).toBe(false)
-    })
-
-    it("refuses during a search", () => {
-      const { store, service } = mount()
-      store.edit("a.mp3", TRACK_URL)
-
-      service.tagging.set(true)
-
-      expect(store.canResolve("a.mp3")).toBe(false)
-    })
-
-    it("refuses a track that is no longer recoverable", () => {
-      const { store, service } = mount()
-      store.edit("a.mp3", TRACK_URL)
-
-      service.recoverableTracks.set([])
+      block(service)
 
       expect(store.canResolve("a.mp3")).toBe(false)
     })
@@ -174,20 +177,10 @@ describe("RecoveryUiStore", () => {
       expect(service.resolveByUrl).not.toHaveBeenCalled()
     })
 
-    it("sends nothing while a gesture is in flight", () => {
+    it.each(BLOCKERS)("sends nothing when %s", (_case, block) => {
       const { store, service } = mount()
       store.edit("a.mp3", TRACK_URL)
-      service.urlRecoveryBusy.set(new Set(["a.mp3"]))
-
-      store.resolve("a.mp3")
-
-      expect(service.resolveByUrl).not.toHaveBeenCalled()
-    })
-
-    it("sends nothing during a search", () => {
-      const { store, service } = mount()
-      store.edit("a.mp3", TRACK_URL)
-      service.tagging.set(true)
+      block(service)
 
       store.resolve("a.mp3")
 

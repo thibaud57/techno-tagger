@@ -45,8 +45,8 @@ def command_of(
 
 @pytest.mark.parametrize(
     "command",
-    ["extract_playlist", "load_run", "discard_run", "rollback"],
-    ids=["extract-playlist", "load-run", "discard-run", "rollback"],
+    ["extract_playlist", "discard_run", "rollback"],
+    ids=["extract-playlist", "discard-run", "rollback"],
 )
 async def test_refuses_a_command_while_a_run_searches(
     folder: Path, api: FakeApi, command_of: Callable[[str, str], dict[str, object]], command: str
@@ -66,6 +66,27 @@ async def test_refuses_a_command_while_a_run_searches(
         "phase_busy",
         {"phase": "tagging"},
         command,
+    )
+
+
+async def test_names_the_run_of_a_load_refused_while_a_run_searches(
+    folder: Path, api: FakeApi
+) -> None:
+    gate = api.gate("/beatport/search", YOUR_MIND)
+
+    async with conversation() as talk:
+        talk.send(**start_command(folder))
+        await talk.expect("run_started")
+        await gate.reached.wait()
+        talk.send(command="load_run", run_id="a3f9c1")
+        error = await talk.expect("error")
+        gate.release.set()
+        await talk.expect("run_finished", phase="network")
+
+    assert (error["code"], error["params"], error["command"]) == (
+        "phase_busy",
+        {"phase": "tagging", "run_id": "a3f9c1"},
+        "load_run",
     )
 
 

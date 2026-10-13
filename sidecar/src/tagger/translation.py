@@ -53,7 +53,6 @@ def relay_into(emit: Callable[[Event], None]) -> Callable[[PipelineEvent], None]
 # PLR0911 : une sortie par evenement traduit, le `match` ferme par `assert_never` etant
 # ce qui rend un oubli visible au typage.
 def to_protocol_event(event: PipelineEvent) -> Event:  # noqa: PLR0911
-    """Traduit un evenement pipeline, arbitrage, rattrapage ou ecriture."""
     match event:
         case models.RunStarted():
             return RunStarted(
@@ -114,10 +113,6 @@ def tags_before_payload(
     return TagsBeforePayload(system=system, comment=comment, fields=payload_rows(rows))
 
 
-def _tags_after(record: TrackRecord, candidate: TrackCandidate) -> tuple[TagValuePayload, ...]:
-    return payload_rows(after_rows(record, candidate))
-
-
 def payload_rows(rows: Iterable[ReportTagValue]) -> tuple[TagValuePayload, ...]:
     """Une seule projection des lignes pour l'ecran et le rapport, ici seulement convertie."""
     return tuple(TagValuePayload.model_validate(row, from_attributes=True) for row in rows)
@@ -138,7 +133,7 @@ def resolved_event(record: TrackRecord) -> TrackResolved:
         after=None if candidate is None else _names(candidate),
         scores=None if record.scored is None else _scores(record.scored),
         artwork_path=record.artwork,
-        tags_after=None if candidate is None else _tags_after(record, candidate),
+        tags_after=None if candidate is None else payload_rows(after_rows(record, candidate)),
         restorable=record.restorable,
         source_url=None if candidate is None else candidate.url,
     )

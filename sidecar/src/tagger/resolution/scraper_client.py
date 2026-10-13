@@ -11,7 +11,16 @@ import re
 from datetime import date
 from enum import UNIQUE, StrEnum, auto, verify
 from http import HTTPStatus
-from typing import TYPE_CHECKING, ClassVar, Final, Literal, NamedTuple, Self, assert_never
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Final,
+    Literal,
+    NamedTuple,
+    Self,
+    assert_never,
+    override,
+)
 from urllib.parse import urlsplit
 
 import httpx2
@@ -97,8 +106,6 @@ class Credit(_ApiModel):
 
 
 class ReleaseInfo(_ApiModel):
-    """Sortie du morceau, qui porte date, catalogue et pochette."""
-
     id: str | None = None
     title: str | None = None
     catalog_number: str | None = None
@@ -228,10 +235,8 @@ class UnsupportedTrackUrlError(TaggerError):
 
 
 class TechnoScraperClient:
-    """Recherche, refetch et resolution d'URL de morceaux sur techno-scraper.
-
-    Le transport et l'attente entre deux tentatives sont injectables : c'est ce
-    qui rend le client testable sous `MockTransport` sans dormir.
+    """Le transport et l'attente entre deux tentatives sont injectables : c'est ce qui
+    rend le client testable sous `MockTransport` sans dormir.
     """
 
     def __init__(
@@ -255,6 +260,11 @@ class TechnoScraperClient:
             Source.BANDCAMP: asyncio.Semaphore(BANDCAMP_CONCURRENCY),
             Source.SOUNDCLOUD: asyncio.Semaphore(SOUNDCLOUD_CONCURRENCY),
         }
+
+    @override
+    def __repr__(self) -> str:
+        # Jamais la cle : elle vit dans les headers du client HTTP.
+        return f"TechnoScraperClient(cached={self._cache is not None})"
 
     async def __aenter__(self) -> Self:
         return self
@@ -342,7 +352,7 @@ class TechnoScraperClient:
         Le cache est lu avant le semaphore : un hit ne prend aucune place du pool.
         Invariant : une reponse n'entre au cache qu'apres validation reussie, et une
         entree que le modele rejette est jetee puis rejouee en requete reelle, ce qui
-        lui evite de rejouer la meme erreur pendant trente jours.
+        lui evite de rejouer la meme erreur jusqu'a l'expiration du cache.
         """
         if self._cache is not None:
             cached = await asyncio.to_thread(self._cache.get, path, params)

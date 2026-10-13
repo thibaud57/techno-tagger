@@ -46,7 +46,7 @@ def _codes(base: type[TaggerError]) -> set[str]:
     return {base.code}.union(*(_codes(sub) for sub in base.__subclasses__()))
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", LANGUAGES, ids=LANGUAGES)
 def test_every_error_code_has_a_translation(language: str) -> None:
     """Importe tous les modules : une erreur ajoutee ailleurs est couverte d'office."""
     for module in pkgutil.walk_packages(tagger.__path__, "tagger."):
@@ -58,7 +58,7 @@ def test_every_error_code_has_a_translation(language: str) -> None:
     assert not missing
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", LANGUAGES, ids=LANGUAGES)
 def test_every_busy_phase_has_a_sentence(language: str) -> None:
     """`phase_busy` se traduit par la phase qui tourne : le geste qui repare en depend."""
     sentences = _section(language, ("errors", "phase_busy"))
@@ -68,7 +68,7 @@ def test_every_busy_phase_has_a_sentence(language: str) -> None:
     assert not missing
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", LANGUAGES, ids=LANGUAGES)
 @pytest.mark.parametrize(
     ("reasons", "section"),
     [
@@ -90,7 +90,7 @@ def test_every_shown_reason_has_a_translation(
     assert not missing
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", LANGUAGES, ids=LANGUAGES)
 @pytest.mark.parametrize(
     "section",
     [("tagging", "reason"), ("rollback", "reason"), ("playlist", "report")],
@@ -105,7 +105,7 @@ def test_a_shared_file_reason_is_worded_once(language: str, section: tuple[str, 
     assert not repeated
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", LANGUAGES, ids=LANGUAGES)
 def test_every_retry_context_has_a_sentence(language: str) -> None:
     """Le geste qui repare nomme ce qu'on relance : une cle de contexte par phase."""
     contexts = _section(language, ("reason", "retry"))
@@ -113,7 +113,7 @@ def test_every_retry_context_has_a_sentence(language: str) -> None:
     assert contexts.keys() == RETRY_CONTEXTS
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", LANGUAGES, ids=LANGUAGES)
 def test_every_fix_names_a_shared_reason_and_takes_the_retry(language: str) -> None:
     """Un geste sans motif commun ne s'afficherait jamais, un sans `{{retry}}` perdrait sa suite."""
     fixes = _section(language, ("reason", "fix"))

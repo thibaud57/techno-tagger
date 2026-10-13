@@ -17,7 +17,19 @@ DSN: Final = "https://key@o1.ingest.de.sentry.io/1"
 SEARCH_URL: Final = f"{API_BASE_URL}/beatport/search"
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from sentry_sdk.types import Event, Hint
+
+
+def _scrubbed(event: Mapping[str, object]) -> Event | None:
+    return _scrub(cast("Event", event), cast("Hint", {}))
+
+
+@pytest.fixture
+def jane_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\jane", "C:/Users/jane"})
+    monkeypatch.setattr(obs, "_USERNAME", "jane")
 
 
 def test_an_empty_dsn_does_not_initialise_the_sdk() -> None:
@@ -56,17 +68,14 @@ def test_an_initialisation_failure_does_not_propagate(caplog: pytest.LogCaptureF
     ):
         init_sentry(DSN, RELEASE)
 
-    assert "initialisation de Sentry impossible" in caplog.text
+    assert "sentry initialization failed" in caplog.text
 
 
-def test_scrubbing_masks_the_username_at_any_depth(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+@pytest.mark.usefixtures("jane_home")
+def test_scrubbing_masks_the_username_at_any_depth() -> None:
     """Le parcours doit atteindre les frames comme les champs libres : c'est la
     seule barriere une fois `include_local_variables` desactive.
     """
-    monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\jane", "C:/Users/jane"})
-    monkeypatch.setattr(obs, "_USERNAME", "jane")
     event = {
         "exception": {
             "values": [
@@ -80,7 +89,7 @@ def test_scrubbing_masks_the_username_at_any_depth(
         "extra": {r"C:\Users\jane\Music": "locked", "tracks": 42},
     }
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     assert scrubbed == {
         "exception": {
@@ -96,20 +105,17 @@ def test_scrubbing_masks_the_username_at_any_depth(
     }
 
 
-def test_scrubbing_masks_the_track_under_the_home_folder_but_keeps_the_code_paths(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+@pytest.mark.usefixtures("jane_home")
+def test_scrubbing_masks_the_track_under_the_home_folder_but_keeps_the_code_paths() -> None:
     """Le nom d'un morceau sous le dossier personnel ne sort pas, le chemin d'une frame garde
     sa trace : il ne porte que le compte de l'OS, masque, et sert a deboguer.
     """
-    monkeypatch.setattr(obs, "_HOME_FORMS", {r"C:\Users\jane", "C:/Users/jane"})
-    monkeypatch.setattr(obs, "_USERNAME", "jane")
     event = {
         "message": r"cannot open C:\Users\jane\Music\Nova Pulse - Your Mind.mp3",
         "frames": [{"abs_path": r"C:\Users\jane\AppData\Local\tagger\writing.py"}],
     }
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     assert scrubbed == {
         "message": f"cannot open {PATH_MASK}",
@@ -141,7 +147,7 @@ def _chained_contract_error(query: str) -> ApiContractError:
 
 
 def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
-    """Un titre de morceau ne part jamais vers Sentry (ADR-014) : le SDK recopie le
+    """Un titre de morceau ne part jamais vers Sentry : le SDK recopie le
     message de chaque exception de la chaine `__cause__`, et celui d'httpx2 porte
     l'URL de la recherche, donc l'artiste et le titre lus dans le fichier.
     """
@@ -156,7 +162,7 @@ def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
         }
     }
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     rendered = str(scrubbed)
     # Par fragment d'un seul mot : l'URL encode les espaces, « Adam Beyer » n'y
@@ -172,12 +178,12 @@ def test_scrubbing_strips_a_query_that_carries_a_second_question_mark() -> None:
 
     Une valeur de parametre peut en porter un (une URL de redirection, un `Location`
     recopie dans un message) : masquer depuis le dernier laisserait passer la
-    recherche elle-meme, donc l'artiste et le titre que l'ADR-014 interdit d'envoyer.
+    recherche elle-meme, donc l'artiste et le titre, qui ne doivent jamais partir.
     """
     message = "HTTPStatusError for https://api/beatport/search?q=Beyer+Mind&next=http://cdn?w=1"
     event = {"exception": {"values": [{"type": "HTTPStatusError", "value": message}]}}
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     rendered = str(scrubbed)
     assert "Beyer" not in rendered
@@ -192,7 +198,7 @@ def test_scrubbing_leaves_envelope_fields_intact(
     monkeypatch.setattr(obs, "_USERNAME", "dev")
     event = {"environment": "development", "level": "error", "release": RELEASE}
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     assert scrubbed == event
 
@@ -212,7 +218,7 @@ def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None
     """
     event = {"exception": {"values": [{"type": "OSError", "value": f"cannot open '{path}'"}]}}
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     assert scrubbed == {
         "exception": {"values": [{"type": "OSError", "value": f"cannot open '{PATH_MASK}'"}]}
@@ -253,7 +259,7 @@ def test_scrubbing_stops_a_path_before_the_log_fields_without_leaking_the_name(
     """
     event = {"message": message}
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     assert scrubbed == {"message": expected}
     assert not {"Nova", "Pulse", "Your", "Mind"} & set(str(scrubbed).replace(",", " ").split())
@@ -263,6 +269,6 @@ def test_scrubbing_does_not_take_a_url_scheme_for_a_drive() -> None:
     message = "HTTPStatusError for https://api.example/beatport/tracks/42"
     event = {"exception": {"values": [{"type": "HTTPStatusError", "value": message}]}}
 
-    scrubbed = _scrub(cast("Event", event), cast("Hint", {}))
+    scrubbed = _scrubbed(event)
 
     assert scrubbed == event

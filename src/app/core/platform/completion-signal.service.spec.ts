@@ -6,7 +6,12 @@ import { MessageService } from "primeng/api"
 import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
 import { type SidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
 import { storeStub } from "../../../fixtures/tauri-store"
-import { NETWORK_FINISHED, WRITE_FINISHED, rollbackFinished } from "../../../fixtures/write"
+import {
+  NETWORK_FINISHED,
+  WRITE_FINISHED,
+  failedRollback,
+  rollbackFinished,
+} from "../../../fixtures/write"
 import { SidecarService } from "../sidecar/sidecar.service"
 import { CompletionSignalService } from "./completion-signal.service"
 
@@ -151,11 +156,7 @@ describe("CompletionSignalService", () => {
 
     sidecar.rollbackFinished.set(rollbackFinished())
     TestBed.tick()
-    sidecar.rollbackFinished.set(
-      rollbackFinished(null, [
-        { track_id: "b.mp3", file_name: "X - Y.mp3", reason: "file_locked" },
-      ]),
-    )
+    sidecar.rollbackFinished.set(failedRollback())
     TestBed.tick()
 
     expect(announce.mock.calls).toEqual([

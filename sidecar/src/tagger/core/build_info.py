@@ -4,7 +4,7 @@ PyInstaller n'a pas d'equivalent au `--define` d'esbuild : `build.py` grave donc
 module `_build_info` a la racine de `tagger/`, gitignore parce qu'il porte le DSN. Ce
 fichier-ci est la facade versionnee, seule importee par le reste du sidecar.
 
-La version en fait partie : dans le binaire figee, `importlib.metadata` ne trouve
+La version en fait partie : dans le binaire fige, `importlib.metadata` ne trouve
 aucun `tagger.dist-info`, la spec ne collectant que celui de keyring. La lire ici
 leverait `PackageNotFoundError` au demarrage, et seulement chez l'utilisateur.
 """

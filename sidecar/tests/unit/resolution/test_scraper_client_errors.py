@@ -1,11 +1,10 @@
-"""Tests de la traduction des reponses et de la nouvelle tentative reseau."""
-
 import httpx2
 import pytest
 from scraper_responses import (
     BASIEL,
     YOUR_MIND,
     Handler,
+    invalid_track_payload,
     make_client,
     page_payload,
     recording,
@@ -80,9 +79,7 @@ async def test_raises_track_not_found_on_a_404_refetch(requests: list[httpx2.Req
 async def test_raises_api_contract_error_on_a_response_that_does_not_validate(
     requests: list[httpx2.Request],
 ) -> None:
-    item = track_payload()
-    del item["title"]
-    response = httpx2.Response(200, json=page_payload(item))
+    response = httpx2.Response(200, json=page_payload(invalid_track_payload()))
 
     async with make_client(recording(requests, response)) as client:
         with pytest.raises(ApiContractError):
@@ -168,6 +165,7 @@ async def test_waits_one_then_two_seconds_between_attempts(
         waited.append(delay)
 
     client = make_client(_raising(requests, httpx2.ConnectError), sleep=recording_sleep)
+
     async with client:
         with pytest.raises(SourceUnavailableError):
             await client.search(Source.BEATPORT, YOUR_MIND)

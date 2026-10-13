@@ -10,8 +10,6 @@ if TYPE_CHECKING:
 
 
 class PlaylistError(TaggerError):
-    """Base des erreurs de lecture de playlist."""
-
     code: ClassVar[str] = "playlist_error"
 
 
@@ -39,8 +37,6 @@ class IncompatibleDumpSchemaError(PlaylistError):
 
 
 class PlaylistNotFoundError(PlaylistError):
-    """Aucune playlist de ce nom dans le dump."""
-
     code: ClassVar[str] = "playlist_not_found"
 
     def __init__(self, name: str) -> None:

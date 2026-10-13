@@ -21,9 +21,8 @@ import { SOURCE_NAMES } from "../../../shared/utils/sources"
 import { RecoveryUiStore } from "./recovery-ui.store"
 
 /**
- * Champ de lien d'un morceau, commun a la modale du lien et a l'etape lien de l'arbitrage :
- * motif ou source du rattrapage, aide, champ et place de l'erreur. Les boutons restent au
- * pied de la modale qui l'accueille.
+ * Champ de lien d'un morceau, commun a la modale du lien et a l'etape lien de l'arbitrage. Les
+ * boutons restent au pied de la modale qui l'accueille.
  */
 @Component({
   selector: "app-url-link-form",

@@ -1,7 +1,9 @@
 import { type Signal, type WritableSignal, computed, signal } from "@angular/core"
 import { type Mock, vi } from "vitest"
 
+import type { SidecarCommand, SidecarErrorEvent } from "../app/core/sidecar/protocol"
 import { type SidecarPhase, SidecarService } from "../app/core/sidecar/sidecar.service"
+import { commandError } from "./write"
 
 // Faux `SidecarService` partage par les specs de composants et de services : chaque test pose
 // ses ecarts par surcharge, jamais en recreant le stub. Type contre le vrai service, une
@@ -35,6 +37,16 @@ export type SidecarStubOverrides = Partial<StubbedState>
 export type SidecarStub = StubbedState &
   DerivedState &
   Pick<SidecarService, "errorFor" | "runAction">
+
+/** Surcharges qui montrent l'erreur `code` de `command`, comme l'ecran qui l'a emise la lit. */
+export const commandFailed = (
+  command: SidecarCommand["command"],
+  code: string,
+  params: Record<string, unknown> = {},
+): SidecarStubOverrides => ({
+  lastError: signal<SidecarErrorEvent | null>(commandError(command, code, params)),
+  lastErrorCommand: signal<SidecarCommand["command"] | null>(command),
+})
 
 const defaults = (): StubbedState => ({
   ready: signal(true),

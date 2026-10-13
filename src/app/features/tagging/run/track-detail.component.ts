@@ -119,7 +119,7 @@ export class TrackDetailComponent {
     return rows
   })
 
-  /** Le navigateur par defaut : la webview n'ouvre aucune page externe. */
+  /** Le navigateur par défaut : la webview n'ouvre aucune page externe. */
   protected openSource(url: string): void {
     openUrl(url).catch((error: unknown) => {
       console.error("[track-detail] fiche source non ouverte", error)

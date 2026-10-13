@@ -1,5 +1,3 @@
-"""Tests des gestes d'arbitrage sur un run vivant."""
-
 import asyncio
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Final
@@ -7,7 +5,6 @@ from typing import TYPE_CHECKING, Final
 import pytest
 from scraper_responses import BASIEL, YOUR_MIND, track_payload
 from tagging_api import (
-    ON_BANDCAMP,
     ONE_TRACK,
     ORIGINAL,
     FakeApi,
@@ -17,10 +14,11 @@ from tagging_api import (
     failing,
     found,
     hold_on_beatport,
+    hold_with_bandcamp_fallback,
     must_record,
+    networked_run,
     ok,
     one_track,
-    opened_run,
     tagged_mp3,
     two_tracks,
 )
@@ -35,7 +33,6 @@ from tagger.run.arbitration import (
     ArbitrationUpdated,
 )
 from tagger.run.models import FailureReason, Resolution, TrackResolved, TrackState
-from tagger.run.tagging import resolve_run
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -68,8 +65,7 @@ async def _arbitrating(
 ) -> AsyncGenerator[tuple[OpenedRun, Arbitration]]:
     """Run ouvert apres sa phase reseau, et l'arbitrage qui porte sur lui."""
     sink: list[ArbitrationEvent] = events if events is not None else []
-    async with opened_run(folder, api) as opened:
-        await resolve_run(opened.live, opened.sources, on_event=lambda _event: None)
+    async with networked_run(folder, api) as opened:
         yield opened, Arbitration(opened.live, opened.sources, sink.append)
 
 
@@ -209,8 +205,7 @@ async def test_calls_bandcamp_once_and_shows_its_list_when_beatport_is_refused(
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
     events: list[ArbitrationEvent] = []
 
     async with _arbitrating(one_track(tmp_path), api, events) as (opened, arbitration):
@@ -228,8 +223,7 @@ async def test_keeps_a_bandcamp_candidate_above_the_ceiling_in_the_list_after_a_
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
 
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
         await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
@@ -242,8 +236,7 @@ async def test_keeps_a_bandcamp_candidate_above_the_ceiling_in_the_list_after_a_
 
 async def test_shows_the_beatport_list_again_without_calling_any_source(tmp_path: Path) -> None:
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
     events: list[ArbitrationEvent] = []
 
     async with _arbitrating(one_track(tmp_path), api, events) as (opened, arbitration):
@@ -263,8 +256,7 @@ async def test_shows_the_known_bandcamp_list_again_on_a_second_refusal_without_c
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
 
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
         await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
@@ -280,8 +272,7 @@ async def test_leaves_a_track_unresolved_as_user_refused_when_bandcamp_is_refuse
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
     events: list[ArbitrationEvent] = []
 
     async with _arbitrating(one_track(tmp_path), api, events) as (opened, arbitration):
@@ -458,8 +449,7 @@ async def test_rejects_choosing_in_an_empty_bandcamp_list(tmp_path: Path) -> Non
 
 async def test_rejects_a_refusal_of_a_list_that_is_no_longer_shown(tmp_path: Path) -> None:
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
 
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
         await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
@@ -479,8 +469,7 @@ async def test_rejects_showing_the_list_already_shown(
     tmp_path: Path, refusals: tuple[Source, ...]
 ) -> None:
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
     events: list[ArbitrationEvent] = []
 
     async with _arbitrating(one_track(tmp_path), api, events) as (opened, arbitration):
@@ -499,8 +488,7 @@ async def test_rejects_showing_the_list_already_shown(
 async def test_calls_bandcamp_again_after_a_cancelled_refusal(tmp_path: Path) -> None:
     """La requete annulee n'atteint jamais l'API simulee : seule la seconde est comptee."""
     api = FakeApi()
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
     slow = api.gate("/bandcamp/search", YOUR_MIND)
 
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):

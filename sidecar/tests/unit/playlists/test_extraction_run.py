@@ -1,5 +1,3 @@
-"""Tests de l'extraction vers le dossier destination."""
-
 from pathlib import Path
 
 import pytest

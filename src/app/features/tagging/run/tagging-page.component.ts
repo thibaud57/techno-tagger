@@ -103,8 +103,8 @@ export default class TaggingPageComponent {
 
   /**
    * Aide du bouton quand l'action est `start`, priorisee du plus proche de l'utilisateur au
-   * plus lointain. `ready()` mele plusieurs causes, mais toutes sauf l'extraction bloquent
-   * deja l'app entiere par son ecran bloquant : seule celle-ci merite un libelle ici.
+   * plus lointain. `ready()` mele plusieurs causes : l'ecran bloquant couvre deja un moteur absent
+   * ou en conflit de version, il ne reste que l'extraction et le demarrage du moteur.
    */
   protected readonly blockedReason = computed(() => {
     if (this.sidecar.tagging()) {

@@ -1,6 +1,6 @@
 @if (blocked(); as reason) {
-  <!-- Ecran bloquant, pas une modale : les onglets ne sont meme pas rendus. Carte neutre
-       plutot qu'un pave d'alerte : le rouge ne doit pas baigner la phrase qui dit quoi faire. -->
+  <!-- Ecran bloquant et non modale. Carte neutre plutot qu'un pave d'alerte : le rouge ne doit
+       pas baigner la phrase qui dit quoi faire. -->
   <div class="flex flex-1 items-center justify-center p-8">
     <p-card class="max-w-lg border border-surface" [animate.enter]="fadeIn">
       <div class="flex flex-col items-center gap-6 text-center">
@@ -64,7 +64,7 @@
     </p-tablist>
   </p-tabs>
 
-  <!-- Le layout est ici, une fois pour les trois onglets : une page ne pose que son contenu. -->
+  <!-- Le layout est ici, une fois pour tous les onglets : une page ne pose que son contenu. -->
   <main class="flex min-h-0 flex-1 flex-col px-16 py-8">
     <router-outlet />
   </main>
@@ -77,16 +77,15 @@
     <app-arbitration-dialog [visible]="arbitrationVisible()" (dismissed)="dismissArbitration()" />
   }
 
-  <!-- Differee comme les deux autres modales : `p-dialog` n'a rien a faire au demarrage et la
-       plupart des lancements n'ont aucun run a reprendre. Dans la branche non bloquee : un moteur
-       absent ou en conflit de version n'a rien a proposer. -->
+  <!-- Differee : la plupart des lancements n'ont aucun run a reprendre. Dans la branche non
+       bloquee : un moteur absent ou en conflit de version n'a rien a proposer. -->
   @defer (when interruptedRun() !== null; prefetch on idle(5s)) {
     <app-resume-dialog />
   }
 }
 
 <!-- Hors des deux branches : l'ecran bloquant peut coexister avec une demande de sortie.
-     Differee comme la modale d'arbitrage : `p-dialog` n'a rien a faire au demarrage. -->
+     Differee : `p-dialog` n'a rien a faire au demarrage. -->
 @defer (when closeRequested(); prefetch on idle(5s)) {
   <app-close-confirmation />
 }

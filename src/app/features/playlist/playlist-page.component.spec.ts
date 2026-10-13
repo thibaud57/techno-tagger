@@ -6,9 +6,12 @@ import { open } from "@tauri-apps/plugin-dialog"
 import { load } from "@tauri-apps/plugin-store"
 
 import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
-import { type SidecarStubOverrides, sidecarStub } from "../../../fixtures/sidecar-stub"
+import {
+  type SidecarStubOverrides,
+  commandFailed,
+  sidecarStub,
+} from "../../../fixtures/sidecar-stub"
 import { storeStub } from "../../../fixtures/tauri-store"
-import { commandError } from "../../../fixtures/write"
 import type { PlaylistFormat } from "../../core/sidecar/protocol"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 
@@ -27,11 +30,6 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(() => Promise.reject(new TypeError("store unavailable"))),
 }))
 
-/**
- * Ce qui se teste ici est la disponibilite de l'action et la commande emise :
- * le reste de l'ecran affiche ce qu'il recoit, et tester qu'un `@if` masque un
- * bloc reviendrait a tester Angular.
- */
 const mountWith = (overrides: SidecarStubOverrides = {}) => {
   const service = sidecarStub(overrides)
   const router = { navigate: vi.fn(() => Promise.resolve(true)) }
@@ -50,7 +48,6 @@ const mountWith = (overrides: SidecarStubOverrides = {}) => {
   return { fixture, component: fixture.componentInstance, service, router }
 }
 
-/** Acces par crochets aux membres `protected` : piloter l'ecran sans elargir sa surface. */
 const choosePlaylist = (component: PlaylistPageComponent, name: string | null): void => {
   component["choice"].update((current) => ({ ...current, playlist: name }))
 }
@@ -163,8 +160,7 @@ describe("PlaylistPageComponent", () => {
     const { component } = mountWith({
       playlistFormat: signal(null),
       playlists: signal([]),
-      lastError: signal(commandError("list_playlists", "vlc_schema_mismatch")),
-      lastErrorCommand: signal("list_playlists"),
+      ...commandFailed("list_playlists", "vlc_schema_mismatch"),
     })
     component["sourceFolder"].set("C:/lib")
     component["destinationFolder"].set("C:/work")

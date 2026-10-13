@@ -196,7 +196,6 @@ export class RunListComponent {
   /** Garde le DOM de la ligne et le focus du bouton de detail d'un evenement a l'autre. */
   protected readonly byKey = (_index: number, row: RenderRow): string => row.key
 
-  /** Un clic ouvre le detail de la ligne, un second le ferme ; les autres lignes restent ouvertes. */
   protected toggleDetail(row: RunRow): void {
     this.openIds.update((open) => {
       const next = new Set(open)

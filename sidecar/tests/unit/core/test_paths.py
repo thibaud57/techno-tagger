@@ -1,5 +1,3 @@
-"""Tests de la racine des donnees de l'application."""
-
 from pathlib import Path
 from typing import TYPE_CHECKING
 

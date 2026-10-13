@@ -182,11 +182,13 @@ async (page) => {
   await line(decided(C, "written", "arbitration"))
   await line(decided(D, "write_error", "arbitration", { failure_reason: "file_locked" }))
   await line({ event: "run_finished", phase: "write", run_id: RUN, resolved: 0, unresolved: 1, written: 4, write_error: 1, awaiting_arbitration: 0, report_path: "C:/Sets/tagging-report-20261012T200000Z.json" })
-  // Le contexte du pied vient de la cible de restauration, demandee juste apres l'ecriture.
-  await line({ event: "rollback_target", run: { run_id: RUN, written_at: "2026-10-12T20:00:00Z", folder: "C:\\Sets", tracks: 4 } })
+  // Le contexte du pied vient des runs passes, relus juste apres l'ecriture.
+  await line({ event: "runs_listed", runs: [{ run_id: RUN, written_at: "2026-10-12T20:00:00Z", folder: "C:\\Sets", report_path: "C:/Sets/tagging-report-20261012T200000Z.json" }] })
   await page.evaluate((id) => window.__svc.rollback(id, "f.mp3"), RUN)
   await line({ event: "track_resolved", track_id: F.track_id, state: "rolled_back", resolution: "auto", failure_reason: null, source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false, source_url: null })
   await line({ event: "rollback_finished", run_id: RUN, track_id: "f.mp3", restored: ["f.mp3"], failed: [] })
+  // La cible de restauration passe a un autre run apres la restauration : le contexte doit rester.
+  await line({ event: "rollback_target", run: { run_id: "0a1b2c", written_at: "2026-10-01T20:00:00Z", folder: "C:\\Old", tracks: 2 } })
   await settle()
 
   // 1. Entree : le bouton n'apparait qu'au bilan de l'ecriture, ouvre /tagging/recap, onglet Tagging gardé.
@@ -321,7 +323,7 @@ async (page) => {
   check("live run: header holds the title then the filters, no back in it", foot.headIsDirectChild && !foot.headHasBack && JSON.stringify(foot.headKids) === JSON.stringify(["h1", "div"]), foot)
   check("live run: footer 8px under the table, at the bottom of the column", foot.col && foot.footerIsLast && foot.gap === 8 && foot.footerAtColumnBottom && /items-center/.test(foot.footerClass ?? "") && /gap-4/.test(foot.footerClass ?? ""), foot)
   check("live run: back at the bottom left, text secondary small, chevron-left", foot.backCount === 1 && foot.back && /p-button-text/.test(foot.back.cls) && /p-button-secondary/.test(foot.back.cls) && /p-button-sm/.test(foot.back.cls) && foot.back.icon === "chevron-left" && foot.back.leftDelta <= 1 && /Retour à la liste/.test(foot.back.text), foot.back)
-  check("live run: context at the bottom right, 14px muted, from the rollback target", foot.ctx && /^Run du .+ sur C:\\Sets$/.test(foot.ctx.text) && foot.ctx.size === "14px" && foot.ctx.muted && foot.ctx.rightDelta <= 1 && foot.ctx.afterBack, foot.ctx)
+  check("live run: context at the bottom right, 14px muted, from the past runs, kept when the rollback target moves to another run", foot.ctx && /^Run du .+ sur C:\\Sets$/.test(foot.ctx.text) && foot.ctx.size === "14px" && foot.ctx.muted && foot.ctx.rightDelta <= 1 && foot.ctx.afterBack, foot.ctx)
   check("live run: no Restaurer le run, no Nouveau run on the recap", foot.restoreRun === 0 && foot.newRun === 0, { restoreRun: foot.restoreRun, newRun: foot.newRun })
   check("no send-report button (Feature 9)", layout.sendReport === false, null)
   check("no page scroll at 1280 x 800", layout.pageScroll === false, null)

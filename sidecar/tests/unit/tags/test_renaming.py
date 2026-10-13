@@ -1,12 +1,10 @@
-"""Tests du renommage d'un fichier ecrit, calcul du nom puis application sur le disque."""
-
 from pathlib import Path
 from typing import Final
 
 import pytest
 from audio_samples import held_open
 from path_limits import folder_leaving
-from rename_samples import rename_now
+from rename_samples import ORIGINAL_NAME, rename_now
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.tags.renaming import (
@@ -23,7 +21,6 @@ from tagger.tags.renaming import (
 ARTIST: Final = "Adam Beyer"
 TITLE: Final = "Your Mind (Extended Mix)"
 TARGET: Final = "Adam Beyer - Your Mind (Extended Mix).mp3"
-ORIGINAL_NAME: Final = "01 - untitled.mp3"
 LONG_TITLE: Final = "Your Mind (Layton Giordani Extended Remix)"
 # Hors du plan multilingue de base : deux unites UTF-16, comme NTFS et MAX_PATH le comptent.
 FIRE: Final = "🔥"
@@ -72,7 +69,9 @@ def test_replaces_the_characters_windows_forbids_readably(
 
 
 @pytest.mark.parametrize(
-    ("suffix", "expected"), [(".MP3", ".mp3"), (".Flac", ".flac"), (".AIF", ".aif")]
+    ("suffix", "expected"),
+    [(".MP3", ".mp3"), (".Flac", ".flac"), (".AIF", ".aif")],
+    ids=["upper", "capitalised", "short-form"],
 )
 def test_lowercases_the_extension(suffix: str, expected: str) -> None:
     named = track_file_name(ARTIST, "Your Mind", suffix, room=255)

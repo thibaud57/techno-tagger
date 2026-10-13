@@ -5,16 +5,18 @@ slots, unicite d'enum, egalite de dataclass...) est de la mecanique du langage
 que Python garantit deja (cf. `.claude/rules/pytest/tests.md` § A eviter).
 """
 
+import pytest
+
 from tagger.playlists.models import PlaylistFormat
 
 
-class TestPlaylistFormat:
-    """Valeurs litterales de l'enum : elles deviendront des cles du protocole
-    NDJSON (sub-project 04), une regression ici doit donc etre visible.
+@pytest.mark.parametrize(
+    ("playlist_format", "value"),
+    [(PlaylistFormat.VLC_DUMP, "vlc_dump"), (PlaylistFormat.M3U8, "m3u8")],
+    ids=["vlc-dump", "m3u8"],
+)
+def test_format_values_are_the_protocol_keys(playlist_format: PlaylistFormat, value: str) -> None:
+    """Valeurs litterales de l'enum : elles sont des cles du protocole NDJSON, une
+    regression ici doit donc etre visible.
     """
-
-    def test_vlc_dump_value(self) -> None:
-        assert PlaylistFormat.VLC_DUMP.value == "vlc_dump"
-
-    def test_m3u8_value(self) -> None:
-        assert PlaylistFormat.M3U8.value == "m3u8"
+    assert playlist_format.value == value

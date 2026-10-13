@@ -11,7 +11,7 @@ import logging
 import sys
 from datetime import UTC, datetime
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never, override
 
 import keyring
 from keyring.backends.Windows import WinVaultKeyring
@@ -23,6 +23,7 @@ from tagger.core.errors import RunNotFoundError, TaggerError
 from tagger.core.logger import setup_logging
 from tagger.core.observability import init_sentry
 from tagger.core.paths import app_data_dir
+from tagger.core.tasks import cancel_all
 from tagger.handlers import (
     commit,
     handle_commit_run,
@@ -44,6 +45,7 @@ from tagger.protocol import (
     CancelRun,
     CommitRun,
     DiscardRun,
+    Error,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
@@ -68,7 +70,7 @@ from tagger.protocol import (
     parse_command,
 )
 from tagger.run.arbitration import ArbitrationNotPendingError
-from tagger.run.plan import discard_plan, find_plan, plan_dir, purge_plans
+from tagger.run.plan import discard_plan, plan_dir, purge_plans, require_plan
 from tagger.run.resume import load_resumable
 from tagger.run.url_recovery import UrlRecoveryNotOpenError
 from tagger.tags.tag_dump import dump_dir, purge_dumps
@@ -84,7 +86,6 @@ logger = logging.getLogger(__name__)
 
 
 def log_dir() -> Path:
-    """Dossier des logs, sous la racine des donnees de l'application."""
     # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
     # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
     # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
@@ -166,6 +167,12 @@ class _RunningPhase(NamedTuple):
     task: asyncio.Task[None]
 
 
+def _error_of(error: TaggerError, command: ExecutableCommand, track_id: str | None = None) -> Error:
+    """Seul chemin d'emission d'une erreur de commande : tout refus de `load_run` nomme son run."""
+    run_id = command.run_id if isinstance(command, LoadRun) else None
+    return error_from_business(error, command.command, track_id, run_id=run_id)
+
+
 class _Session:
     """Etat de la session : le run de re-tagging tourne pendant que stdin est lu.
 
@@ -182,11 +189,17 @@ class _Session:
         # Chargements de runs passes en vol : lecture seule, annules a la fermeture de la session.
         self._loads: set[asyncio.Task[None]] = set()
 
-    def start_tagging(self, command: StartTagging) -> None:
-        """Lance le run en tache de fond ; il cesse aussitot d'etre le run courant.
+    @override
+    def __repr__(self) -> str:
+        running = self._running()
+        phase = None if running is None else running.phase
+        return f"_Session(phase={phase}, current={self._current!r}, loads={len(self._loads)})"
 
-        Le run remplace est abandonne : son plan non confirme est supprime, un seul run
-        interrompu peut exister a la fois.
+    def start_tagging(self, command: StartTagging) -> None:
+        """Lance le run en tache de fond ; le run affiche cesse d'etre courant sur-le-champ.
+
+        Il est abandonne, plan non confirme supprime : un seul run interrompu peut
+        exister a la fois.
         """
         self._ensure_idle()
         replaced, self._current = self._current, None
@@ -194,20 +207,20 @@ class _Session:
         self._spawn_phase(Phase.TAGGING, start_work, command)
 
     def resume_run(self, command: ResumeRun) -> None:
-        """Le run affiche n'est remplace qu'une fois le plan valide : un refus ne lui coute rien."""
+        """Le run affiche ne part qu'une fois le run repris ouvert : un refus ne lui coute rien."""
         self._ensure_idle()
+        if self._current is not None and self._current.live.run_id == command.run_id:
+            # Jamais annonce : le reprendre supprimerait le plan qu'il ecrit.
+            raise RunNotFoundError(command.run_id)
         start_work = functools.partial(self._resume, command)
         self._spawn_phase(Phase.TAGGING, start_work, command)
 
     async def _resume(self, command: ResumeRun) -> None:
         plan = await asyncio.to_thread(load_resumable, plan_dir(), dump_dir(), command.run_id)
-        replaced, self._current = self._current, None
-        if replaced is not None:
-            await replaced.abandon()
-        await handle_resume_run(plan, self.send, self._adopt)
+        await handle_resume_run(plan, self.send, self._take_over)
 
     def start_extraction(self, command: ExtractPlaylist) -> None:
-        """Meme traitement que le run : sans quoi la copie gelerait la lecture de stdin."""
+        """Thread de fond : la copie gelerait sinon la lecture de stdin."""
         self._ensure_idle()
         start_work = functools.partial(
             asyncio.to_thread, handle_extract_playlist, command, self.send
@@ -293,13 +306,6 @@ class _Session:
         self._loads.add(load)
         load.add_done_callback(self._loads.discard)
 
-    async def _cancel_loads(self) -> None:
-        """Rien a proteger dans un chargement : l'attendre retarderait seulement la sortie."""
-        loads = tuple(self._loads)
-        for load in loads:
-            load.cancel()
-        await asyncio.gather(*loads, return_exceptions=True)
-
     async def announce_interrupted_run(self) -> None:
         """Annonce le plan a reprendre, le run ouvert excepte."""
         current = self._current
@@ -310,7 +316,8 @@ class _Session:
         """Repartir de zero : le plan part ; sur le run courant, le run est abandonne avec lui.
 
         Refuse pendant une phase longue, qui peut tenir ce plan (une reprise en cours). L'annonce
-        suivante part toujours : elle dit s'il reste un autre run a reprendre.
+        suivante, qui dit s'il reste un autre run a reprendre, ne part qu'apres un abandon
+        reussi : sur un refus (`phase_busy`, `run_not_found`), l'interface la redemande.
         """
         self._ensure_idle()
         current = self._current
@@ -318,9 +325,7 @@ class _Session:
             self._current = None
             await current.abandon()
         else:
-            path = await asyncio.to_thread(find_plan, plan_dir(), command.run_id)
-            if path is None:
-                raise RunNotFoundError(command.run_id)
+            path = await asyncio.to_thread(require_plan, plan_dir(), command.run_id)
             await asyncio.to_thread(discard_plan, path)
         await self.announce_interrupted_run()
 
@@ -331,7 +336,8 @@ class _Session:
         les attend (cf. `cancel_run`).
         """
         await self._settle_run(cancel=cancel)
-        await self._cancel_loads()
+        # Rien a proteger dans un chargement : l'attendre retarderait seulement la sortie.
+        await cancel_all(self._loads)
         current, self._current = self._current, None
         if current is not None:
             await current.close()
@@ -351,7 +357,6 @@ class _Session:
     def _spawn_write(
         self, start_work: Callable[[], Awaitable[Event]], command: CommitRun | RetryWrite
     ) -> None:
-        """Ecriture en tache de fond, comme l'extraction : stdin reste lu pendant sa progression."""
         self._spawn_phase(Phase.WRITE, start_work, command)
 
     def _spawn_phase(
@@ -419,6 +424,11 @@ class _Session:
     def _adopt(self, current: CurrentRun) -> None:
         self._current = current
 
+    async def _take_over(self, current: CurrentRun) -> None:
+        replaced, self._current = self._current, current
+        if replaced is not None:
+            await replaced.abandon()
+
     async def _settle_run(self, *, cancel: bool) -> None:
         """Attend la fin de la phase reseau en cours, apres l'avoir annulee si `cancel`."""
         running = self._active_run()
@@ -467,7 +477,7 @@ class _Session:
             finished = await start_work()
         except TaggerError as error:
             logger.exception("background phase failed reason=%s", error.code)
-            self.send(error_from_business(error, command.command, track_id))
+            self.send(_error_of(error, command, track_id))
             return
         if finished is not None:
             self.send(finished)
@@ -515,15 +525,14 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
     evenements `progress` de partir pendant qu'une commande bloquante est traitee.
 
-    Les phases longues (extraction, re-tagging, ecriture, rollback) tournent en
-    tache de fond dans le `TaskGroup` : la boucle lit les commandes suivantes pendant
-    qu'elles avancent. `shutdown` n'annule que la phase reseau (cf. `_Session.close`),
-    l'EOF les attend toutes.
+    Les phases longues tournent en tache de fond dans le `TaskGroup` : la boucle lit
+    les commandes suivantes pendant qu'elles avancent. `shutdown` n'annule que la phase
+    reseau (cf. `_Session.close`), l'EOF les attend toutes.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. La phase
     d'ecriture isole l'echec inattendu d'un morceau (`write_error`) et remonte le bug par
-    `capture_exception`. Partout ailleurs, toute autre exception fait tomber le processus,
+    `capture_unexpected`. Partout ailleurs, toute autre exception fait tomber le processus,
     volontairement : l'avaler cacherait un bug que Sentry remonte comme crash du sidecar
     (cf. PRODUCTION.md § Alertes).
     """
@@ -554,17 +563,13 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
                 await _dispatch(command, session)
             except TaggerError as error:
                 logger.exception("command failed reason=%s", error.code)
-                session.send(error_from_business(error, command.command))
+                session.send(_error_of(error, command))
 
 
-# PLR0912 : une branche par commande, le `match` ferme par `assert_never` etant ce qui
-# rend un oubli visible au typage.
+# PLR0912 : une branche par commande. `Shutdown` etant traite par la boucle, le `match`
+# couvre toutes les variantes et `assert_never` rend l'oubli d'un handler visible au typage.
 async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # noqa: PLR0912
     """Route une commande validee vers son handler.
-
-    `Shutdown` est traite par la boucle et n'arrive jamais ici, ce que le type dit :
-    le `match` couvre alors toutes les variantes et `assert_never` verrouille
-    l'ajout d'une commande sans handler.
 
     Les handlers sont bloquants (SQLite, parcours du dossier source, copie de
     fichiers, trousseau Windows) et passent donc par `to_thread`, sans quoi la

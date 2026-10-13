@@ -1,8 +1,7 @@
-"""Tests de la construction de la requete : nettoyage, gardes, repli."""
-
 from typing import Final
 
 import pytest
+from tagging_records import QUERY
 
 from tagger.resolution.matching import QueryOrigin, TrackQuery, build_query
 
@@ -47,7 +46,7 @@ def _artist(artist: str) -> str:
 def test_builds_the_query_from_clean_tags() -> None:
     query = build_query("Adam Beyer", "Your Mind", "track.mp3")
 
-    assert query == TrackQuery(artist="Adam Beyer", title="Your Mind", origin=QueryOrigin.TAGS)
+    assert query == QUERY
     assert query.text == "Adam Beyer Your Mind"
 
 
@@ -82,7 +81,7 @@ def test_removes_a_free_group_such_as_a_label_or_a_genre(title: str) -> None:
     assert cleaned == "Your Mind"
 
 
-@pytest.mark.parametrize("word", GUARD_WORDS)
+@pytest.mark.parametrize("word", GUARD_WORDS, ids=GUARD_WORDS)
 def test_keeps_a_group_holding_a_version_mention(word: str) -> None:
     title = f"Your Mind (Special {word}) [FREE DL]"
 
@@ -91,7 +90,7 @@ def test_keeps_a_group_holding_a_version_mention(word: str) -> None:
     assert cleaned == f"Your Mind (Special {word})"
 
 
-@pytest.mark.parametrize("word", INFLECTED_GUARD_WORDS)
+@pytest.mark.parametrize("word", INFLECTED_GUARD_WORDS, ids=INFLECTED_GUARD_WORDS)
 def test_keeps_a_group_holding_an_inflected_version_mention(word: str) -> None:
     title = f"Your Mind ({word}) [Drumcode]"
 
@@ -117,7 +116,7 @@ def test_removes_a_group_whose_only_match_is_inside_a_longer_word(title: str) ->
     assert cleaned == "Your Mind"
 
 
-@pytest.mark.parametrize("word", COLLABORATION_WORDS)
+@pytest.mark.parametrize("word", COLLABORATION_WORDS, ids=COLLABORATION_WORDS)
 def test_keeps_a_group_holding_a_collaboration_mention(word: str) -> None:
     title = f"Your Mind ({word} Roisin Murphy) [Drumcode]"
 
@@ -201,7 +200,11 @@ def test_keeps_parentheses_of_an_artist_name_but_drops_brackets(artist: str, exp
     assert normalised == expected
 
 
-@pytest.mark.parametrize("artist", ["Jay-Z", "Jax Jones", "Axwell", "Pig & Dan"])
+@pytest.mark.parametrize(
+    "artist",
+    ["Jay-Z", "Jax Jones", "Axwell", "Pig & Dan"],
+    ids=["hyphen", "x-in-a-first-name", "x-in-a-single-name", "ampersand"],
+)
 def test_never_splits_a_name_without_spaced_separator(artist: str) -> None:
     normalised = _artist(artist)
 

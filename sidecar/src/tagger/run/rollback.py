@@ -46,7 +46,7 @@ class RollbackTarget:
     tracks: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class RollbackFailure:
     """Morceau laisse en l'etat ; `file_name` est son nom actuel, celui que l'utilisateur voit."""
 
@@ -142,17 +142,21 @@ def _restore_one(track_id: str, entry: DumpEntry) -> RollbackFailure | None:
     current = _located(entry)
     if current is None:
         missing = entry.renamed_path or entry.path
-        return RollbackFailure(track_id, missing.name, FileFailureReason.FILE_MISSING)
+        return RollbackFailure(
+            track_id=track_id, file_name=missing.name, reason=FileFailureReason.FILE_MISSING
+        )
     try:
         restore_name(current, entry.path)
     except OriginalNameTakenError:
-        return RollbackFailure(track_id, current.name, FailureReason.NAME_TAKEN)
+        return RollbackFailure(
+            track_id=track_id, file_name=current.name, reason=FailureReason.NAME_TAKEN
+        )
     except RenameError as error:
-        return RollbackFailure(track_id, current.name, error.reason)
+        return RollbackFailure(track_id=track_id, file_name=current.name, reason=error.reason)
     try:
         restore_tags(entry.path, entry.original_tags())
     except TagsWriteError as error:
-        return RollbackFailure(track_id, entry.path.name, error.reason)
+        return RollbackFailure(track_id=track_id, file_name=entry.path.name, reason=error.reason)
     return None
 
 

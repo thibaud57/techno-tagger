@@ -80,15 +80,20 @@ def write_atomically(path: Path, text: str) -> None:
         raise
 
 
-def exact_version(expected: int) -> Callable[[object], bool]:
-    """Politique du plan et du dump : seule la version courante se lit, jamais migree (ADR-018)."""
-    return lambda found: found == expected
-
-
 def read_versioned[Model: BaseModel](
-    path: Path, model: type[Model], accepts: Callable[[object], bool], unreadable: Unreadable
+    path: Path,
+    model: type[Model],
+    current: int,
+    unreadable: Unreadable,
+    *,
+    migrates: bool = False,
 ) -> Model:
-    """Relit un fichier de run ; `accepts` dit quelles versions de schema se lisent."""
+    """Relit un fichier de run de schema `current`.
+
+    Deux politiques (ADR-018) : par defaut, seule la version courante se lit, jamais migree
+    (plan et dump, jetables) ; `migrates` lit aussi une version passee, que le modele migre
+    (rapport, permanent). Une version future est refusee dans les deux cas.
+    """
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -97,7 +102,8 @@ def read_versioned[Model: BaseModel](
     found = raw.get("schema_version") if isinstance(raw, dict) else None
     # Entier ou chaine seuls : un JSON corrompu ou sans version n'a rien a rapporter.
     reported = found if isinstance(found, int | str) else None
-    if not accepts(found):
+    readable = (isinstance(found, int) and found <= current) if migrates else found == current
+    if not readable:
         raise unreadable(path, reported)
     try:
         return model.model_validate(raw)

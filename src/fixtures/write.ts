@@ -1,6 +1,7 @@
 import type {
   BusyPhase,
   ExtractionProgressEvent,
+  RollbackFailure,
   RollbackFinishedEvent,
   RollbackRun,
   RunFinishedEvent,
@@ -55,6 +56,12 @@ export const rollbackFinished = (
   restored: ["a.mp3"],
   failed,
 })
+
+/** Restauration qui a laisse un fichier tel quel : `reason` dit pourquoi. */
+export const failedRollback = (
+  reason: RollbackFailure["reason"] = "file_locked",
+): RollbackFinishedEvent =>
+  rollbackFinished(null, [{ track_id: "b.mp3", file_name: "X - Y.mp3", reason }])
 
 export const commandError = (
   command: SidecarCommand["command"],

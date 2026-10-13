@@ -1,5 +1,3 @@
-"""Tests des issues d'un morceau dans le pipeline de resolution."""
-
 from typing import TYPE_CHECKING
 
 import pytest

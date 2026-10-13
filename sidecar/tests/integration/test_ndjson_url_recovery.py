@@ -1,9 +1,7 @@
-"""Protocole NDJSON du rattrapage par URL, de bout en bout sur la boucle."""
-
 from typing import TYPE_CHECKING
 
 import pytest
-from ndjson_loop import conversation, start_command
+from ndjson_loop import conversation, resolved_run, start_command
 from scraper_responses import (
     BANDCAMP_TRACK,
     BASIEL,
@@ -39,8 +37,7 @@ def _recover(url: str = BANDCAMP_TRACK, track_id: str = ONE_TRACK) -> dict[str, 
 
 async def test_resolves_a_track_by_url_end_to_end(unresolved_folder: Path, api: FakeApi) -> None:
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**_recover())
         resolved = await talk.expect("track_resolved", track_id=ONE_TRACK, resolution="url")
         progress = await talk.expect("progress", phase="url_recovery")
@@ -59,8 +56,7 @@ async def test_reports_a_track_that_is_not_eligible_with_its_command_and_its_tra
     api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
 
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**_recover())
         error = await talk.expect("error")
 
@@ -105,8 +101,7 @@ async def test_cancels_a_url_gesture_in_flight_when_a_new_run_starts(
     fetch = api.gate("/bandcamp/tracks", BANDCAMP_TRACK)
 
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**_recover())
         await fetch.reached.wait()
         talk.send(**start_command(empty_folder))
@@ -137,8 +132,7 @@ async def test_reports_a_client_error_with_its_command_and_its_track(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**_recover("https://www.youtube.com/watch?v=abc"))
         error = await talk.expect("error")
 

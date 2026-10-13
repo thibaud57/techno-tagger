@@ -14,6 +14,7 @@ import httpx2
 import pytest
 from audio_samples import tag, write_blank_mp3
 from scraper_responses import YOUR_MIND, make_client, page_payload, track_payload
+from stubs import ignore
 
 from tagger.resolution.cache import ArtworkFetcher, DiskCache
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
@@ -146,6 +147,29 @@ class FakeCdn:
         return image()
 
 
+class InFlight:
+    """Repond `reply()` apres une attente et retient le pic de requetes simultanees."""
+
+    def __init__(self, reply: Reply) -> None:
+        self.current = 0
+        self.peak = 0
+        self._reply = reply
+
+    async def handler(self, _request: httpx2.Request) -> httpx2.Response:
+        self.current += 1
+        self.peak = max(self.peak, self.current)
+        await asyncio.sleep(0.01)
+        self.current -= 1
+        return self._reply()
+
+
+def write_cover(folder: Path) -> Path:
+    """Pochette telle que le cache la donne : un fichier JPEG."""
+    cover = folder / "cover.jpg"
+    cover.write_bytes(JPEG)
+    return cover
+
+
 def tagged_mp3(folder: Path, name: str, artist: str, title: str) -> Path:
     """Fichier MP3 vierge tague, dans le dossier du run."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -192,6 +216,12 @@ def hold_on_beatport(api: FakeApi) -> None:
             track_payload(id="2", mix_name="Radio Edit"),
         ),
     )
+
+
+def hold_with_bandcamp_fallback(api: FakeApi) -> None:
+    """`hold_on_beatport`, et la version attendue sur Bandcamp une fois Beatport refuse."""
+    hold_on_beatport(api)
+    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
 
 
 def must_record(live: LiveRun, track_id: str) -> TrackRecord:
@@ -260,6 +290,16 @@ async def opened_run(
     async with _wired(folder, api.gated_handler, cdn) as (client, artworks):
         live = await open_run(folder, on_event=sink.append)
         yield OpenedRun(live, RunSources(live.run_id, client, artworks, DEFAULT_THRESHOLDS))
+
+
+@asynccontextmanager
+async def networked_run(
+    folder: Path, api: FakeApi, *, cdn: FakeCdn | None = None
+) -> AsyncGenerator[OpenedRun]:
+    """`opened_run` une fois sa phase reseau finie, ses evenements n'etant observes par personne."""
+    async with opened_run(folder, api, cdn=cdn) as opened:
+        await resolve_run(opened.live, opened.sources, on_event=ignore)
+        yield opened
 
 
 @asynccontextmanager

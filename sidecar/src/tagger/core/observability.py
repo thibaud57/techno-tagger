@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MASK = "<user>"
-QUERY_MASK = "<query>"
-PATH_MASK = "<path>"
+MASK: Final = "<user>"
+QUERY_MASK: Final = "<query>"
+PATH_MASK: Final = "<path>"
 
 # httpx2 ecrit l'URL entiere, donc l'artiste et le titre, dans le message de
 # `HTTPStatusError`, que le SDK recopie via la chaine `__cause__` : sans masquage le
@@ -45,17 +45,17 @@ _WINDOWS_PATH: Final = re.compile(
 )
 
 # `USERNAME` sous Windows, `USER` sur les runners Linux de la CI.
-_USERNAME = os.getenv("USERNAME") or os.getenv("USER") or ""
+_USERNAME: Final = os.getenv("USERNAME") or os.getenv("USER") or ""
 # Les deux ecritures : le SDK rend des chemins Windows en `\`, les tracebacks de
 # modules importes en `/`. Une seule des deux formes laisserait passer l'autre.
-_HOME = str(Path.home())
-_HOME_FORMS = {_HOME, _HOME.replace("\\", "/")}
+_HOME: Final = str(Path.home())
+_HOME_FORMS: Final = {_HOME, _HOME.replace("\\", "/")}
 
 
 def _mask(text: str) -> str:
     text = _URL_QUERY.sub(rf"\g<url>?{QUERY_MASK}", text)
-    # Chemins avant le dossier personnel : remplace d'abord, ce dernier retirerait la lettre de
-    # lecteur et la fin du chemin, nom du morceau compris, echapperait au masque.
+    # Chemins d'abord : masquer le dossier personnel en premier retirerait la lettre de
+    # lecteur, et la fin du chemin, nom du morceau compris, echapperait au masque.
     text = _WINDOWS_PATH.sub(PATH_MASK, text)
     return _mask_account(text)
 
@@ -72,7 +72,7 @@ def _mask_account(text: str) -> str:
 # Sentry route et regroupe sur ces champs, qui ne portent aucune donnee de
 # l'utilisateur. Les masquer casserait le tri des qu'un nom de compte est le
 # substring d'une valeur : `dev` rendrait `environment` egal a `<user>elopment`.
-_ENVELOPE_KEYS = frozenset(
+_ENVELOPE_KEYS: Final = frozenset(
     {
         "environment",
         "event_id",
@@ -90,7 +90,7 @@ _ENVELOPE_KEYS = frozenset(
 
 # Chemins de code d'une frame : ils ne portent aucun morceau, seulement le compte de l'OS, et
 # le masque `<path>` y effacerait la trace de la pile qui sert a deboguer.
-_CODE_PATH_KEYS = frozenset({"abs_path", "filename", "module", "package"})
+_CODE_PATH_KEYS: Final = frozenset({"abs_path", "filename", "module", "package"})
 
 
 def _mask_deep(value: object) -> object:
@@ -118,13 +118,15 @@ def _mask_deep(value: object) -> object:
 
 
 def _scrub(event: Event, _hint: Hint) -> Event | None:
-    """Masque le nom d'utilisateur de l'OS partout ou il peut se glisser : chemins
-    de frames, messages d'exception, tags, contextes. Le parcours est recursif et
-    sans liste de champs, pour qu'un nouveau champ soit couvert d'office.
+    """Masque ce qui designe un morceau ou le compte de l'OS : chemins de frames, messages
+    d'exception, tags, contextes. Le parcours est recursif et sans liste de champs, pour
+    qu'un nouveau champ soit couvert d'office.
     """
     masked = {
         key: value if key in _ENVELOPE_KEYS else _mask_deep(value) for key, value in event.items()
     }
+    # Mypy ne reconstruit pas un TypedDict a cles dynamiques (`Event(**masked)` est refuse) :
+    # le dict garde exactement les cles de `event`, seules les valeurs sont masquees.
     return cast("Event", masked)
 
 
@@ -156,7 +158,7 @@ def init_sentry(dsn: str, release: str) -> None:
             # Les trois canaux de la LoggingIntegration fermes : chacun embarquerait
             # chemins et titres dans un event. Defauts ouverts, INFO pour les
             # breadcrumbs et ERROR pour les events issus d'un `logger.error`. Le
-            # troisieme est inerte sans `enable_logs`, mais un ajout futur le rouvre.
+            # troisieme est inerte sans `enable_logs`, mais l'activer le rouvrirait.
             integrations=[LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)],
             # Sonde des integrations framework toutes absentes d'ici : du temps au
             # demarrage, et autant de modules embarques par le hook au build.
@@ -165,4 +167,16 @@ def init_sentry(dsn: str, release: str) -> None:
     except Exception:
         # Le SDK importe ses integrations par importlib sans intercepter
         # ImportError : init() peut tomber dans le binaire fige.
-        logger.exception("initialisation de Sentry impossible")
+        logger.exception("sentry initialization failed")
+
+
+def capture_unexpected(error: BaseException) -> None:
+    """Remonte a Sentry un bug que le site a deja logue.
+
+    `LoggingIntegration` est coupee (cf. `init_sentry`) : le log ne part pas, le bug doit
+    remonter par ici.
+    """
+    # Meme import differe que `init_sentry` : le SDK n'est paye que sur le chemin qui s'en sert.
+    import sentry_sdk  # noqa: PLC0415
+
+    sentry_sdk.capture_exception(error)

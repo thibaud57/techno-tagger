@@ -1,5 +1,3 @@
-"""Cycle de vie du plan de run, de bout en bout sur la boucle NDJSON."""
-
 from typing import TYPE_CHECKING
 
 import pytest

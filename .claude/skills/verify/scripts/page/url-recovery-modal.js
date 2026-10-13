@@ -217,7 +217,7 @@ async (page) => {
   await line({ event: "progress", phase: "url_recovery", processed: 1, total: 5 })
   await settle(1200)
   const step = await dialog()
-  check("link step in the arbitration frame", step?.title === "Ignez - Ion" && step.w === before.w && step.h === before.h && step.counter === null && step.actions.includes("skip") && !step.actions.includes("refuse"), { before, step })
+  check("link step in the arbitration frame", step?.title === "Ignez - Ark" && step.w === before.w && step.h === before.h && step.counter === null && step.actions.includes("skip") && !step.actions.includes("refuse"), { before, step })
   check("link step field focused", step?.focus === "url", step?.focus)
   await shot("4-etape-lien")
   await page.keyboard.type("https://ignez.bandcamp.com/track/ion")

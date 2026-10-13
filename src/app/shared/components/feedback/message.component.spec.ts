@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
+import { hostOf } from "../../../../fixtures/dom"
 import { MessageComponent, type MessageSeverity } from "./message.component"
 
 describe("MessageComponent", () => {
@@ -16,8 +17,7 @@ describe("MessageComponent", () => {
 
     fixture.detectChanges()
 
-    const host = fixture.nativeElement as HTMLElement
-    expect(host.querySelector(`[data-p-icon="${icon}"]`)).not.toBeNull()
+    expect(hostOf(fixture).querySelector(`[data-p-icon="${icon}"]`)).not.toBeNull()
     expect(fixture.componentInstance["iconSize"]()).toBe(iconSize)
   })
 })

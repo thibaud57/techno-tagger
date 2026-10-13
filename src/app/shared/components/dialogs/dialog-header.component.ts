@@ -4,8 +4,8 @@ import { SourceLogoComponent, type SourceName } from "../display/source-logo.com
 import { TruncatedTextComponent } from "../display/truncated-text.component"
 
 /**
- * En-tete des modales d'un morceau (arbitrage, lien) : titre, nom de fichier dessous et logo de
- * la source sur la ligne du titre (h-7, sa hauteur de ligne), comme la croix du preset.
+ * En-tete des modales d'un morceau (arbitrage, lien). Le logo de la source se cale sur la
+ * ligne du titre (h-7, sa hauteur de ligne), comme la croix du preset.
  */
 @Component({
   selector: "app-dialog-header",

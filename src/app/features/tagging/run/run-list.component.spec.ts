@@ -2,6 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { convertFileSrc } from "@tauri-apps/api/core"
 
+import { hostOf } from "../../../../fixtures/dom"
 import {
   PENDING_TRACK,
   TAGS_AFTER,
@@ -37,6 +38,13 @@ const UNRESOLVED: TaggingTrack = {
   artworkPath: null,
 }
 
+const AWAITING: TaggingTrack = {
+  ...PENDING_TRACK,
+  arbitration: arbitrationRequired(PENDING_TRACK.trackId),
+}
+
+const READABLE: TaggingTrack = { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }
+
 const mountWith = async (
   tracks: readonly TaggingTrack[],
   recoverable: ReadonlySet<string> = new Set(),
@@ -51,11 +59,7 @@ const mountWith = async (
   fixture.componentRef.setInput("recoverable", recoverable)
   fixture.componentRef.setInput("frozen", frozen)
   fixture.detectChanges()
-
-  // Le scroller s'initialise sur un microtask puis calcule ses lignes dans un `setTimeout(…, 1)`.
-  await Promise.resolve()
-  vi.advanceTimersByTime(1)
-  fixture.detectChanges()
+  await settle(fixture)
 
   return fixture
 }
@@ -68,20 +72,20 @@ const SOURCE = 4
 const SCORE = 5
 
 const cellOf = (fixture: { nativeElement: unknown }, column: number): HTMLElement | undefined =>
-  (fixture.nativeElement as HTMLElement).querySelectorAll("td")[column]
+  hostOf(fixture).querySelectorAll("td")[column]
 
 const mainLineOf = (fixture: { nativeElement: unknown }): string | undefined =>
   cellOf(fixture, BEFORE)?.querySelector("app-truncated-text span")?.textContent.trim()
 
 const togglesOf = (fixture: { nativeElement: unknown }): HTMLElement[] => [
-  ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>("[data-row-toggle]"),
+  ...hostOf(fixture).querySelectorAll<HTMLElement>("[data-row-toggle]"),
 ]
 
 const toggleOf = (fixture: { nativeElement: unknown }, index = 0): HTMLElement | null =>
   togglesOf(fixture)[index] ?? null
 
 const rowsOf = (fixture: { nativeElement: unknown }): HTMLElement[] => [
-  ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>("tbody tr"),
+  ...hostOf(fixture).querySelectorAll<HTMLElement>("tbody tr"),
 ]
 
 const carriersOf = (fixture: { nativeElement: unknown }): HTMLElement[] =>
@@ -100,7 +104,7 @@ const fillersOf = (fixture: { nativeElement: unknown }): HTMLElement[] =>
   rowsOf(fixture).filter((row) => row.getAttribute("aria-hidden") === "true")
 
 const detailsOf = (fixture: { nativeElement: unknown }): HTMLElement[] => [
-  ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>("app-track-detail"),
+  ...hostOf(fixture).querySelectorAll<HTMLElement>("app-track-detail"),
 ]
 
 describe("RunListComponent", () => {
@@ -117,14 +121,26 @@ describe("RunListComponent", () => {
   it("converts an artwork path into an asset url", async () => {
     const fixture = await mountWith([TRACK])
 
-    const image = (fixture.nativeElement as HTMLElement).querySelector("img")
+    const image = hostOf(fixture).querySelector("img")
 
     expect(convertFileSrc).toHaveBeenCalledWith(TRACK.artworkPath)
     expect(image?.getAttribute("src")).toBe(`asset://localhost/${TRACK.artworkPath}`)
   })
 
-  it("falls back to a placeholder when a resolved track has no artwork", async () => {
-    const fixture = await mountWith([{ ...TRACK, artworkPath: null }])
+  it.each<{ case: string; track: TaggingTrack }>([
+    { case: "a resolved track has no artwork", track: { ...TRACK, artworkPath: null } },
+    {
+      case: "a track has no source",
+      track: {
+        ...TRACK,
+        state: "unresolved",
+        resolution: "none",
+        artworkPath: null,
+        after: null,
+      },
+    },
+  ])("shows the placeholder and not the skeleton when $case", async ({ track }) => {
+    const fixture = await mountWith([track])
 
     const artCell = cellOf(fixture, ART)
 
@@ -147,28 +163,8 @@ describe("RunListComponent", () => {
     },
   )
 
-  it("shows the placeholder and not the skeleton on a track without a source", async () => {
-    const fixture = await mountWith([
-      { ...TRACK, state: "unresolved", resolution: "none", artworkPath: null, after: null },
-    ])
-
-    const artCell = cellOf(fixture, ART)
-
-    expect(artCell?.querySelector("p-skeleton")).toBeNull()
-    expect(artCell?.querySelector('[data-p-icon="image"]')).not.toBeNull()
-  })
-
   it("marks every valueless cell of an unresolved track with an em dash", async () => {
-    const fixture = await mountWith([
-      {
-        ...TRACK,
-        state: "unresolved",
-        resolution: "none",
-        source: null,
-        after: null,
-        scores: null,
-      },
-    ])
+    const fixture = await mountWith([UNRESOLVED])
 
     const valueless = [AFTER, SOURCE, SCORE].map((column) =>
       cellOf(fixture, column)?.textContent.trim(),
@@ -177,44 +173,31 @@ describe("RunListComponent", () => {
     expect(valueless).toEqual(["—", "—", "—"])
   })
 
-  it("asks for the arbitration of a row that awaits one when it is clicked", async () => {
-    const fixture = await mountWith([
-      { ...PENDING_TRACK, arbitration: arbitrationRequired(PENDING_TRACK.trackId) },
-    ])
+  it.each([
+    { output: "arbitrate", track: AWAITING, recoverable: new Set<string>() },
+    { output: "recover", track: UNRESOLVED, recoverable: new Set([UNRESOLVED.trackId]) },
+  ] as const)(
+    "emits $output with the track id when a row that offers it is clicked",
+    async (row) => {
+      const fixture = await mountWith([row.track], row.recoverable)
+      const asked = vi.fn()
+      fixture.componentInstance[row.output].subscribe(asked)
+
+      hostOf(fixture).querySelector<HTMLElement>("tbody tr")?.click()
+
+      expect(asked).toHaveBeenCalledWith(row.track.trackId)
+    },
+  )
+
+  it.each([
+    { output: "arbitrate", track: TRACK },
+    { output: "recover", track: UNRESOLVED },
+  ] as const)("does not emit $output when a row that does not offer it is clicked", async (row) => {
+    const fixture = await mountWith([row.track])
     const asked = vi.fn()
-    fixture.componentInstance.arbitrate.subscribe(asked)
+    fixture.componentInstance[row.output].subscribe(asked)
 
-    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
-
-    expect(asked).toHaveBeenCalledWith(PENDING_TRACK.trackId)
-  })
-
-  it("asks for nothing when a row without arbitration is clicked", async () => {
-    const fixture = await mountWith([TRACK])
-    const asked = vi.fn()
-    fixture.componentInstance.arbitrate.subscribe(asked)
-
-    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
-
-    expect(asked).not.toHaveBeenCalled()
-  })
-
-  it("asks to recover a recoverable row when it is clicked", async () => {
-    const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
-    const asked = vi.fn()
-    fixture.componentInstance.recover.subscribe(asked)
-
-    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
-
-    expect(asked).toHaveBeenCalledWith(UNRESOLVED.trackId)
-  })
-
-  it("asks to recover nothing when a row that is not recoverable is clicked", async () => {
-    const fixture = await mountWith([UNRESOLVED])
-    const asked = vi.fn()
-    fixture.componentInstance.recover.subscribe(asked)
-
-    ;(fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")?.click()
+    hostOf(fixture).querySelector<HTMLElement>("tbody tr")?.click()
 
     expect(asked).not.toHaveBeenCalled()
   })
@@ -225,7 +208,7 @@ describe("RunListComponent", () => {
       const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
       const asked = vi.fn()
       fixture.componentInstance.recover.subscribe(asked)
-      const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")
+      const row = hostOf(fixture).querySelector<HTMLElement>("tbody tr")
 
       row?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))
 
@@ -237,22 +220,18 @@ describe("RunListComponent", () => {
   it("keeps a row without action out of the tab order", async () => {
     const fixture = await mountWith([UNRESOLVED])
 
-    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>("tbody tr")
+    const row = hostOf(fixture).querySelector<HTMLElement>("tbody tr")
 
     expect(row?.hasAttribute("tabindex")).toBe(false)
   })
 
   it("leaves the rows of a committed run without action", async () => {
     // Sur un run fige le service ne rend aucun morceau rattrapable : l'ensemble arrive vide.
-    const fixture = await mountWith(
-      [{ ...PENDING_TRACK, arbitration: arbitrationRequired(PENDING_TRACK.trackId) }, UNRESOLVED],
-      new Set(),
-      true,
-    )
+    const fixture = await mountWith([AWAITING, UNRESOLVED], new Set(), true)
     const asked = vi.fn()
     fixture.componentInstance.arbitrate.subscribe(asked)
     fixture.componentInstance.recover.subscribe(asked)
-    const root = fixture.nativeElement as HTMLElement
+    const root = hostOf(fixture)
     const rows = root.querySelectorAll<HTMLElement>("tbody tr")
 
     rows.forEach((row) => {
@@ -265,20 +244,23 @@ describe("RunListComponent", () => {
     expect(root.textContent).toContain("tagging.state.notProcessed")
   })
 
-  it("hints at pasting a link on an unresolved recoverable row", async () => {
-    const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+  it.each([
+    {
+      case: "an unresolved recoverable row",
+      recoverable: new Set([UNRESOLVED.trackId]),
+      hinted: true,
+    },
+    {
+      case: "an unresolved row that is not recoverable",
+      recoverable: new Set<string>(),
+      hinted: false,
+    },
+  ])("tells whether the paste hint shows on $case", async ({ recoverable, hinted }) => {
+    const fixture = await mountWith([UNRESOLVED], recoverable)
 
-    const hinted = cellOf(fixture, AFTER)?.querySelector("[data-recover-hint]")
+    const hint = cellOf(fixture, AFTER)?.querySelector("[data-recover-hint]")
 
-    expect(hinted).not.toBeNull()
-  })
-
-  it("hints at nothing on an unresolved row that is not recoverable", async () => {
-    const fixture = await mountWith([UNRESOLVED])
-
-    const hinted = cellOf(fixture, AFTER)?.querySelector("[data-recover-hint]")
-
-    expect(hinted).toBeNull()
+    expect(hint !== null).toBe(hinted)
   })
 
   it("shows the file name without its extension as the main line when the tags are empty", async () => {
@@ -288,26 +270,20 @@ describe("RunListComponent", () => {
     expect(cellOf(fixture, BEFORE)?.textContent).toContain("a.mp3")
   })
 
-  it("shows only the artist, without an orphan separator, when the title is empty", async () => {
-    const fixture = await mountWith([{ ...TRACK, title: "" }])
+  it.each([
+    { case: "the title is empty", empty: { title: "" }, shown: TRACK.artist },
+    { case: "the artist is empty", empty: { artist: "" }, shown: TRACK.title },
+  ])(
+    "shows only the other tag, without an orphan separator, when $case",
+    async ({ empty, shown }) => {
+      const fixture = await mountWith([{ ...TRACK, ...empty }])
 
-    expect(mainLineOf(fixture)).toBe(TRACK.artist)
-  })
-
-  it("shows only the title, without an orphan separator, when the artist is empty", async () => {
-    const fixture = await mountWith([{ ...TRACK, artist: "" }])
-
-    expect(mainLineOf(fixture)).toBe(TRACK.title)
-  })
+      expect(mainLineOf(fixture)).toBe(shown)
+    },
+  )
 
   it("opens the detail under its row on one carrier row followed by aria-hidden fillers, and closes it on a second click, without asking for arbitration", async () => {
-    const fixture = await mountWith([
-      {
-        ...PENDING_TRACK,
-        tagsBefore: TAGS_BEFORE,
-        arbitration: arbitrationRequired(PENDING_TRACK.trackId),
-      },
-    ])
+    const fixture = await mountWith([{ ...AWAITING, tagsBefore: TAGS_BEFORE }])
     const asked = vi.fn()
     fixture.componentInstance.arbitrate.subscribe(asked)
 
@@ -336,7 +312,7 @@ describe("RunListComponent", () => {
   // `h-14` est la hauteur que `virtualScrollItemSize` suppose : une ligne qui en sort decale
   // toutes les suivantes (rule primeng/ligne-depliee.md).
   it("puts the detail inside the carrier row and keeps every row at the scroller height", async () => {
-    const fixture = await mountWith([{ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }])
+    const fixture = await mountWith([READABLE])
 
     toggleOf(fixture)?.click()
     await settle(fixture)
@@ -377,10 +353,7 @@ describe("RunListComponent", () => {
       artist: "Amelie Lens",
       title: "Basiel",
     }
-    const fixture = await mountWith([
-      { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE },
-      { ...other, tagsBefore: TAGS_BEFORE },
-    ])
+    const fixture = await mountWith([READABLE, { ...other, tagsBefore: TAGS_BEFORE }])
 
     toggleOf(fixture, 0)?.click()
     await settle(fixture)
@@ -394,9 +367,7 @@ describe("RunListComponent", () => {
   })
 
   it.each(["Enter", " "])("keeps the chevron keys away from the row action (%j)", async (key) => {
-    const fixture = await mountWith([
-      { ...PENDING_TRACK, arbitration: arbitrationRequired(PENDING_TRACK.trackId) },
-    ])
+    const fixture = await mountWith([AWAITING])
     const asked = vi.fn()
     fixture.componentInstance.arbitrate.subscribe(asked)
 
@@ -419,7 +390,7 @@ describe("RunListComponent", () => {
   })
 
   it("makes the detail follow its track when it is resolved", async () => {
-    const fixture = await mountWith([{ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }])
+    const fixture = await mountWith([READABLE])
     toggleOf(fixture)?.click()
     await settle(fixture)
 
@@ -433,7 +404,7 @@ describe("RunListComponent", () => {
   })
 
   it("closes the detail when its track leaves the list", async () => {
-    const fixture = await mountWith([{ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }])
+    const fixture = await mountWith([READABLE])
     toggleOf(fixture)?.click()
     await settle(fixture)
 
@@ -447,14 +418,13 @@ describe("RunListComponent", () => {
   })
 
   it("keeps the detail closed when a track of the same id comes back with a new run", async () => {
-    const first = { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }
-    const fixture = await mountWith([first])
+    const fixture = await mountWith([READABLE])
     toggleOf(fixture)?.click()
     await settle(fixture)
     fixture.componentRef.setInput("tracks", [{ ...PENDING_TRACK, trackId: "z.mp3" }])
     await settle(fixture)
 
-    fixture.componentRef.setInput("tracks", [first])
+    fixture.componentRef.setInput("tracks", [READABLE])
     await settle(fixture)
 
     expect(detailsOf(fixture)).toHaveLength(0)

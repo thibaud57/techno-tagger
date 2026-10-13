@@ -1,5 +1,3 @@
-"""Tests des modeles et de la traduction de l'arbitrage sur le protocole NDJSON."""
-
 import json
 from dataclasses import replace
 from datetime import date

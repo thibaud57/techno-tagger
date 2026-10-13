@@ -1,4 +1,4 @@
-/** Les trois onglets du shell, dans l'ordre de la barre. Chacun est le premier segment de sa route. */
+/** Onglets du shell, dans l'ordre de la barre. Chacun est le premier segment de sa route. */
 export const TABS = ["playlist", "tagging", "settings"] as const
 /** `Tab` est deja le composant de PrimeNG : le nom evite l'alias a chaque import. */
 export type TabName = (typeof TABS)[number]

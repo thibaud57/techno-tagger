@@ -1,7 +1,5 @@
-"""Rapports de run, ecrits dans le dossier destination.
-
-Rapport d'extraction en JSON et en Markdown, tous deux en anglais quelle que soit la
-langue de l'interface (cf. ARCHITECTURE.md § Donnees).
+"""Rapport d'extraction, ecrit dans le dossier destination en JSON et en Markdown, tous
+deux en anglais quelle que soit la langue de l'interface (cf. ARCHITECTURE.md § Donnees).
 
 Le JSON porte un champ de version des sa premiere version : l'ajouter apres coup
 laisserait une generation de rapports non identifiables, precisement le cas que le
@@ -35,9 +33,6 @@ FILE_STEM: Final = "extraction-report"
 
 
 class ReportError(TaggerError):
-    """Base des erreurs de rapport, comme `ExtractionError` et `PlaylistError`
-    le sont pour leur propre domaine."""
-
     code: ClassVar[str] = "report_error"
 
 
@@ -55,7 +50,7 @@ class ReportWriteError(ReportError):
         super().__init__(f"cannot write report: {path.name}", filename=path.name)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ReportContext:
     """Ce qu'un rapport dit du run, en plus de son resultat.
 
@@ -163,7 +158,7 @@ def build_report(result: ExtractionResult, context: ReportContext) -> Extraction
         already_present=result.already_present,
         missing=result.missing,
         # Meme recopie que celle de l'evenement `extraction_finished` : les deux schemas
-        # restent libres d'evoluer separement (ADR-018), leur remplissage non.
+        # restent libres d'evoluer separement, leur remplissage non.
         duplicates=tuple(
             DuplicateEntry.model_validate(duplicate, from_attributes=True)
             for duplicate in result.duplicates

@@ -1,5 +1,3 @@
-"""Protocole NDJSON d'un run de re-tagging, de bout en bout sur la boucle."""
-
 import json
 from typing import TYPE_CHECKING
 

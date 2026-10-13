@@ -35,16 +35,17 @@ describe("recap filters", () => {
     expect(result).toEqual(expected)
   })
 
-  it("counts each filter with the same rule", () => {
-    const counts = recapCounts(RUN)
+  it.each<[string, TaggingTrack[], Record<RecapFilter, number>]>([
+    ["each filter with the same rule", RUN, { all: 6, validated: 1, arbitrated: 2, failed: 2 }],
+    [
+      "nothing in the three filters for a fully restored run",
+      [RESTORED, { ...RESTORED, trackId: "restored-2" }],
+      { all: 2, validated: 0, arbitrated: 0, failed: 0 },
+    ],
+  ])("counts %s", (_case, tracks, expected) => {
+    const counts = recapCounts(tracks)
 
-    expect(counts).toEqual({ all: 6, validated: 1, arbitrated: 2, failed: 2 })
-  })
-
-  it("counts nothing in the three filters for a fully restored run", () => {
-    const counts = recapCounts([RESTORED, { ...RESTORED, trackId: "restored-2" }])
-
-    expect(counts).toEqual({ all: 2, validated: 0, arbitrated: 0, failed: 0 })
+    expect(counts).toEqual(expected)
   })
 
   it("searches the original artist, title and file name, ignoring case", () => {

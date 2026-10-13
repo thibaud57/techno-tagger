@@ -1,8 +1,8 @@
 """Plan de run : chaque decision d'un run, persistee au fil de l'eau avant tout fichier
 ecrit (ADR-010), relue pour la reprise et purgee au demarrage.
 
-Deux politiques de version voisines, a ne pas aligner (ADR-018) : le plan, jetable sous
-30 jours, refuse une version inconnue ; le rapport, permanent, se migre.
+Deux politiques de version voisines, a ne pas aligner (ADR-018) : le plan, jetable,
+refuse une version inconnue ; le rapport, permanent, se migre.
 """
 
 import asyncio
@@ -13,11 +13,10 @@ from typing import TYPE_CHECKING, ClassVar, Final, Self, override
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, model_validator
 
-from tagger.core.errors import TaggerError
+from tagger.core.errors import RunNotFoundError, TaggerError
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import (
     PENDING_SUFFIX,
-    exact_version,
     find_by_run_id,
     newest_first,
     purge_stamped,
@@ -68,7 +67,7 @@ class PlanQuery(_PlanModel):
         return cls(artist=query.artist, title=query.title, origin=query.origin)
 
     def to_query(self) -> TrackQuery:
-        return TrackQuery(self.artist, self.title, self.origin)
+        return TrackQuery(artist=self.artist, title=self.title, origin=self.origin)
 
 
 class PlanScores(_PlanModel):
@@ -92,10 +91,10 @@ class PlanScores(_PlanModel):
 
     def applied_to(self, candidate: TrackCandidate) -> ScoredCandidate:
         return ScoredCandidate(
-            candidate,
-            self.artist,
-            self.title,
-            self.average,
+            candidate=candidate,
+            artist_score=self.artist,
+            title_score=self.title,
+            score=self.average,
             version_mismatch=self.version_mismatch,
             number_mismatch=self.number_mismatch,
         )
@@ -291,9 +290,16 @@ def find_plan(folder: Path, run_id: str) -> Path | None:
     return find_by_run_id(folder, _SUFFIX, run_id)
 
 
+def require_plan(folder: Path, run_id: str) -> Path:
+    """Le plan d'un run ; `run_not_found` s'il a disparu entre l'annonce et le geste."""
+    path = find_plan(folder, run_id)
+    if path is None:
+        raise RunNotFoundError(run_id)
+    return path
+
+
 def load_plan(path: Path) -> RunPlan:
-    """Relit un plan ; une version inconnue est refusee, jamais migree."""
-    return read_versioned(path, RunPlan, exact_version(SCHEMA_VERSION), RunPlanUnreadableError)
+    return read_versioned(path, RunPlan, SCHEMA_VERSION, RunPlanUnreadableError)
 
 
 def discard_plan(path: Path) -> None:
@@ -320,10 +326,6 @@ class PlanRecorder:
     @override
     def __repr__(self) -> str:
         return f"PlanRecorder(run_id={self._plan.run_id!r}, committed={self._plan.committed})"
-
-    @property
-    def plan(self) -> RunPlan:
-        return self._plan
 
     def record(self, record: TrackRecord) -> None:
         """Observateur de `LiveRun.update` ; ecriture, relance et rollback ne changent rien."""
@@ -392,9 +394,9 @@ class PlanRecorder:
 
 
 def purge_plans(folder: Path, now: datetime) -> None:
-    """Supprime les plans qui ne serviront plus : confirmes, ou passes les 30 jours.
+    """Supprime les plans qui ne serviront plus : confirmes, ou passes la retention.
 
-    Un plan illisible ou d'une version inconnue reste jusqu'a ses 30 jours : la reprise doit
+    Un plan illisible ou d'une version inconnue reste jusqu'a la retention : la reprise doit
     pouvoir dire pourquoi elle ne reprend pas. Un temporaire n'a aucun ecrivain au demarrage
     (instance unique) : c'est le reste d'une ecriture coupee.
     """
@@ -408,8 +410,11 @@ def purge_plans(folder: Path, now: datetime) -> None:
 
 
 def _write(path: Path, plan: RunPlan) -> None:
-    """Serialise ici et non dans la boucle : le plan est `frozen`, le thread le lit sans risque."""
-    write_atomically(path, plan.model_dump_json(indent=2))
+    """Serialise ici et non dans la boucle : le plan est `frozen`, le thread le lit sans risque.
+
+    Sans `indent` : fichier jetable que seule l'application relit, reecrit a chaque vidage.
+    """
+    write_atomically(path, plan.model_dump_json())
 
 
 def _committed(path: Path) -> bool:

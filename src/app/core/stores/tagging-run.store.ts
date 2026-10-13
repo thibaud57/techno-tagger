@@ -84,7 +84,6 @@ export class TaggingRunStore {
   readonly runId = this._runId.asReadonly()
   /** Nul jusqu'a `run_started`. */
   readonly folder = this._folder.asReadonly()
-  /** Les lignes dans l'ordre du run, pretes pour la table. */
   readonly tracks = computed<readonly TaggingTrack[]>(() => [...this._rows().values()])
   readonly progress = this._progress.asReadonly()
   /** Vrai de l'envoi de `start_tagging` jusqu'a `run_finished` ou une erreur. */
@@ -105,8 +104,8 @@ export class TaggingRunStore {
     () => this.tracks().filter((track) => track.state === "write_error").length,
   )
 
-  /** Vide le run affiche sans en annoncer un autre : rien n'est « en cours », contrairement a `reset()`. */
-  clear(): void {
+  /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
+  reset(): void {
     this._runId.set(null)
     this._folder.set(null)
     this._rows.set(new Map())
@@ -114,12 +113,6 @@ export class TaggingRunStore {
     this._finished.set(null)
     this._interrupted.set(false)
     this._lost.set(false)
-    this._running.set(false)
-  }
-
-  /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
-  reset(): void {
-    this.clear()
     this._running.set(true)
   }
 

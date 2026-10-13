@@ -26,6 +26,7 @@
     <!-- Meme cadre que les listes : passer des candidats au lien ne deplace aucun bouton. -->
     <app-url-link-form [trackId]="trackId" />
   } @else if (current(); as shown) {
+    <!-- gap-3 hors echelle : l'espacement de colonne de la maquette `ArbitrationDialog` (12px). -->
     <div class="flex h-full flex-col gap-3" data-keys tabindex="-1" (keydown)="onKeydown($event)">
       <!--
         Hauteur mesuree sur un p-message small : la liste reste a sa place quand la source change.
@@ -76,6 +77,7 @@
           [ariaLabel]="'arbitration.candidates' | translate"
         >
           <ng-template #item let-option>
+            <!-- gap-3 hors echelle : l'ecart des options du `Listbox` de la maquette (12px). -->
             <div class="flex w-full min-w-0 items-center gap-3">
               <div class="flex min-w-0 flex-1 flex-col">
                 <app-truncated-text class="text-sm" [text]="option.names" />

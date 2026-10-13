@@ -69,6 +69,13 @@ def track_payload(**overrides: object) -> dict[str, object]:
     return payload | overrides
 
 
+def invalid_track_payload() -> dict[str, object]:
+    """Un `Track` sans `title`, champ requis : le modele le refuse comme hors contrat."""
+    payload = track_payload()
+    del payload["title"]
+    return payload
+
+
 def payload_candidate(**overrides: object) -> TrackCandidate:
     """Candidat tire du JSON complet de la gateway : tous les champs que l'ecriture projette."""
     return TrackCandidate.model_validate(track_payload(**overrides))

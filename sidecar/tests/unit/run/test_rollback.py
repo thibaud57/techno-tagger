@@ -1,5 +1,3 @@
-"""Tests du rollback : nom d'origine puis tags d'origine, dump consomme, dernier run."""
-
 import logging
 import shutil
 import time
@@ -8,10 +6,12 @@ from typing import TYPE_CHECKING, Final, NamedTuple
 
 import pytest
 from audio_samples import held_open
-from rename_samples import rename_now
+from log_capture import leaked, messages_of
+from rename_samples import ORIGINAL_NAME, rename_now
 from scraper_responses import BEATPORT_CANDIDATE
-from stubs import raising
+from stubs import ignore, raising
 from tagging_api import tagged_mp3
+from tagging_records import RUN_ID
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.run import rollback
@@ -44,9 +44,8 @@ from tagger.tags.tag_dump import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-RUN: Final = "a3f9c1"
 WRITTEN_AT: Final = datetime(2026, 10, 5, 21, 14, 3, tzinfo=UTC)
-ORIGINAL_NAME: Final = "01 - untitled.mp3"
+LOGGER: Final = "tagger.run.rollback"
 
 
 class _Written(NamedTuple):
@@ -71,7 +70,7 @@ def _write(folder: Path, name: str) -> _Written:
 def _dumped(
     folder: Path,
     *tracks: _Written,
-    run_id: str = RUN,
+    run_id: str = RUN_ID,
     written_at: datetime = WRITTEN_AT,
     run_folder: Path | None = None,
 ) -> TagDump:
@@ -99,10 +98,6 @@ def _remove_tree(folder: Path) -> None:
             return
 
 
-def _ignore(_track_id: str, _path: Path) -> None:
-    """Le run restaure n'est pas celui qu'affiche l'interface."""
-
-
 @pytest.mark.asyncio
 async def test_gives_a_renamed_file_back_its_name_and_tags(tmp_path: Path) -> None:
     track = _write(tmp_path / "music", ORIGINAL_NAME)
@@ -110,7 +105,7 @@ async def test_gives_a_renamed_file_back_its_name_and_tags(tmp_path: Path) -> No
     restored: list[tuple[str, Path]] = []
 
     summary = await roll_back(
-        tmp_path / "dumps", RUN, None, lambda track_id, path: restored.append((track_id, path))
+        tmp_path / "dumps", RUN_ID, None, lambda track_id, path: restored.append((track_id, path))
     )
 
     assert (summary.restored, summary.failed) == ((ORIGINAL_NAME,), ())
@@ -126,10 +121,12 @@ async def test_leaves_a_track_whose_original_name_is_taken_untouched(tmp_path: P
     track.original.write_bytes(b"newcomer")
     written = read_original_tags(track.renamed)
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert summary.failed == (
-        RollbackFailure(ORIGINAL_NAME, track.renamed.name, FailureReason.NAME_TAKEN),
+        RollbackFailure(
+            track_id=ORIGINAL_NAME, file_name=track.renamed.name, reason=FailureReason.NAME_TAKEN
+        ),
     )
     assert read_original_tags(track.renamed) == written
     assert track.original.read_bytes() == b"newcomer"
@@ -142,10 +139,14 @@ async def test_reports_a_file_gone_under_both_names(tmp_path: Path) -> None:
     _dumped(tmp_path / "dumps", track)
     track.renamed.unlink()
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert summary.failed == (
-        RollbackFailure(ORIGINAL_NAME, track.renamed.name, FileFailureReason.FILE_MISSING),
+        RollbackFailure(
+            track_id=ORIGINAL_NAME,
+            file_name=track.renamed.name,
+            reason=FileFailureReason.FILE_MISSING,
+        ),
     )
 
 
@@ -156,7 +157,7 @@ async def test_leaves_the_tags_of_a_locked_file_untouched(tmp_path: Path) -> Non
     written = read_original_tags(track.renamed)
 
     with held_open(track.renamed):
-        summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+        summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert [failure.reason for failure in summary.failed] == [FileFailureReason.FILE_LOCKED]
     assert read_original_tags(track.renamed) == written
@@ -179,13 +180,15 @@ async def test_replays_a_track_whose_tags_failed_after_its_name_came_back(
 
     monkeypatch.setattr(rollback, "restore_tags", fail_once)
 
-    first = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    first = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
     name_back = track.original.is_file() and not track.renamed.exists()
     kept = set(load_dump(dump_path(tmp_path / "dumps", dump)).entries)
-    second = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    second = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert first.failed == (
-        RollbackFailure(ORIGINAL_NAME, ORIGINAL_NAME, FileFailureReason.FILE_LOCKED),
+        RollbackFailure(
+            track_id=ORIGINAL_NAME, file_name=ORIGINAL_NAME, reason=FileFailureReason.FILE_LOCKED
+        ),
     )
     assert (name_back, kept) == (True, {ORIGINAL_NAME})
     assert (second.restored, second.failed) == ((ORIGINAL_NAME,), ())
@@ -198,7 +201,7 @@ async def test_restores_a_file_already_back_under_its_name(tmp_path: Path) -> No
     _dumped(tmp_path / "dumps", track)
     track.renamed.rename(track.original)
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert summary.restored == (ORIGINAL_NAME,)
     assert read_original_tags(track.original) == track.origin
@@ -221,7 +224,7 @@ async def test_gives_names_back_in_the_reverse_order_of_the_writing(tmp_path: Pa
         _Written(second_original, second_renamed, second_origin, second_entry),
     )
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert summary.failed == ()
     assert summary.restored == ("b.mp3", "a.mp3")
@@ -235,7 +238,7 @@ async def test_forgets_restored_and_vanished_tracks_and_keeps_the_others(tmp_pat
     vanished.renamed.unlink()
     taken.original.write_bytes(b"newcomer")
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {"c.mp3"}
     assert summary.forgotten == ("b.mp3",)
@@ -248,7 +251,7 @@ async def test_keeps_the_dump_entry_of_a_track_whose_whole_folder_is_gone(tmp_pa
     dump = _dumped(tmp_path / "dumps", track)
     _remove_tree(music)
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert [failure.reason for failure in summary.failed] == [FileFailureReason.FILE_MISSING]
     assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {ORIGINAL_NAME}
@@ -264,7 +267,7 @@ async def test_does_not_report_a_vanished_track_forgotten_when_the_dump_cannot_b
     track.renamed.unlink()
     monkeypatch.setattr(rollback, "remove_entries", raising(TagDumpWriteError(tmp_path)))
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert summary.forgotten == ()
     assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {ORIGINAL_NAME}
@@ -274,7 +277,7 @@ async def test_does_not_report_a_vanished_track_forgotten_when_the_dump_cannot_b
 async def test_deletes_the_dump_once_every_track_is_restored(tmp_path: Path) -> None:
     dump = _dumped(tmp_path / "dumps", _write(tmp_path / "music", ORIGINAL_NAME))
 
-    await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert not dump_path(tmp_path / "dumps", dump).exists()
 
@@ -286,15 +289,13 @@ async def test_restores_the_tracks_even_when_the_dump_cannot_be_updated(
     track = _write(tmp_path / "music", ORIGINAL_NAME)
     dump = _dumped(tmp_path / "dumps", track)
     monkeypatch.setattr(rollback, "remove_entries", raising(TagDumpWriteError(tmp_path)))
-    caplog.set_level(logging.WARNING, logger="tagger.run.rollback")
+    caplog.set_level(logging.WARNING, logger=LOGGER)
 
-    summary = await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     assert (summary.restored, summary.failed) == ((ORIGINAL_NAME,), ())
     assert read_original_tags(track.original) == track.origin
-    assert [
-        record.getMessage() for record in caplog.records if record.name == "tagger.run.rollback"
-    ] == [f"tag dump not updated after rollback run={RUN}"]
+    assert messages_of(caplog, LOGGER) == [f"tag dump not updated after rollback run={RUN_ID}"]
     assert load_dump(dump_path(tmp_path / "dumps", dump)).entries.keys() == {ORIGINAL_NAME}
 
 
@@ -307,13 +308,11 @@ async def test_logs_a_rollback_without_any_file_name_path_or_title(
     restorable, vanished = _write(music, ORIGINAL_NAME), _write(music, "02 - untitled.mp3")
     _dumped(tmp_path / "dumps", restorable, vanished)
     vanished.renamed.unlink()
-    caplog.set_level(logging.INFO, logger="tagger.run.rollback")
+    caplog.set_level(logging.INFO, logger=LOGGER)
 
-    await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
-    messages = [
-        record.getMessage() for record in caplog.records if record.name == "tagger.run.rollback"
-    ]
+    messages = messages_of(caplog, LOGGER)
     private = [
         str(tmp_path),
         restorable.original.name,
@@ -324,11 +323,11 @@ async def test_logs_a_rollback_without_any_file_name_path_or_title(
         "Adam Beyer",
     ]
     assert messages == [
-        f"rollback started run={RUN}",
-        f"rollback failed run={RUN} reason=file_missing",
-        f"rollback finished run={RUN}",
+        f"rollback started run={RUN_ID}",
+        f"rollback failed run={RUN_ID} reason=file_missing",
+        f"rollback finished run={RUN_ID}",
     ]
-    assert [message for message in messages for secret in private if secret in message] == []
+    assert leaked(messages, private) == []
 
 
 @pytest.mark.asyncio
@@ -337,7 +336,7 @@ async def test_rolls_back_a_single_track_only(tmp_path: Path) -> None:
     first, second = _write(music, "a.mp3"), _write(music, "b.mp3")
     dump = _dumped(tmp_path / "dumps", first, second)
 
-    summary = await roll_back(tmp_path / "dumps", RUN, "a.mp3", _ignore)
+    summary = await roll_back(tmp_path / "dumps", RUN_ID, "a.mp3", ignore)
 
     assert summary.restored == ("a.mp3",)
     assert second.renamed.is_file()
@@ -347,7 +346,7 @@ async def test_rolls_back_a_single_track_only(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("run_id", "track_id"),
-    [("000000", None), (RUN, "absent.mp3")],
+    [("000000", None), (RUN_ID, "absent.mp3")],
     ids=["run-without-dump", "track-absent-from-dump"],
 )
 async def test_refuses_what_the_dump_cannot_restore(
@@ -356,7 +355,7 @@ async def test_refuses_what_the_dump_cannot_restore(
     _dumped(tmp_path / "dumps", _write(tmp_path / "music", ORIGINAL_NAME))
 
     with pytest.raises(RollbackUnavailableError) as error:
-        await roll_back(tmp_path / "dumps", run_id, track_id, _ignore)
+        await roll_back(tmp_path / "dumps", run_id, track_id, ignore)
 
     assert error.value.params == {"run_id": run_id, "track_id": track_id}
 
@@ -373,7 +372,7 @@ def test_targets_the_newest_run_left_to_restore(tmp_path: Path) -> None:
 
     target = find_rollback_target(tmp_path / "dumps")
 
-    assert target == RollbackTarget(run_id=RUN, written_at=WRITTEN_AT, folder=music, tracks=2)
+    assert target == RollbackTarget(run_id=RUN_ID, written_at=WRITTEN_AT, folder=music, tracks=2)
 
 
 def test_targets_the_folder_the_dump_records_not_one_deduced_from_the_files(
@@ -398,7 +397,7 @@ async def test_targets_the_previous_run_once_the_newest_is_restored(tmp_path: Pa
         written_at=WRITTEN_AT - timedelta(days=1),
     )
     _dumped(tmp_path / "dumps", _write(music, "b.mp3"))
-    await roll_back(tmp_path / "dumps", RUN, None, _ignore)
+    await roll_back(tmp_path / "dumps", RUN_ID, None, ignore)
 
     target = find_rollback_target(tmp_path / "dumps")
 
@@ -413,7 +412,7 @@ def test_skips_an_unreadable_dump(tmp_path: Path) -> None:
     target = find_rollback_target(tmp_path / "dumps")
 
     assert target is not None
-    assert target.run_id == RUN
+    assert target.run_id == RUN_ID
 
 
 def test_targets_nothing_without_a_dump(tmp_path: Path) -> None:

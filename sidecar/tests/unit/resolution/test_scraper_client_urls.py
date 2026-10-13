@@ -1,5 +1,3 @@
-"""Tests de la resolution d'une URL de morceau collee par l'utilisateur."""
-
 import httpx2
 import pytest
 from scraper_responses import (
@@ -96,6 +94,9 @@ async def test_sends_a_bandcamp_url_in_its_single_normalised_form(
         "ftp://amelielens.bandcamp.com/track/basiel",
         "https://[beatport.com/track/your-mind/99000202",
         "",
+        "https://soundcloud.com/drumcode/sets/drumcode-radio",
+        "https://soundcloud.com/drumcode",
+        "https://on.soundcloud.com/",
     ],
     ids=[
         "bandcamp-album",
@@ -106,6 +107,9 @@ async def test_sends_a_bandcamp_url_in_its_single_normalised_form(
         "other-scheme",
         "malformed",
         "empty",
+        "soundcloud-playlist",
+        "soundcloud-profile",
+        "soundcloud-short-link-without-code",
     ],
 )
 async def test_refuses_an_url_that_is_not_a_track_without_sending_any_request(
@@ -176,25 +180,6 @@ async def test_rewrites_the_www_and_mobile_soundcloud_hosts(
         await client.fetch_by_url(pasted)
 
     assert requests[0].url.params["url"] == SOUNDCLOUD_TRACK
-
-
-@pytest.mark.parametrize(
-    "pasted",
-    [
-        "https://soundcloud.com/drumcode/sets/drumcode-radio",
-        "https://soundcloud.com/drumcode",
-        "https://on.soundcloud.com/",
-    ],
-    ids=["playlist", "profile", "short-link-without-code"],
-)
-async def test_refuses_a_soundcloud_url_that_is_not_a_track_without_sending_any_request(
-    requests: list[httpx2.Request], pasted: str
-) -> None:
-    async with make_client(answering(requests, soundcloud_track_payload())) as client:
-        with pytest.raises(UnsupportedTrackUrlError):
-            await client.fetch_by_url(pasted)
-
-    assert requests == []
 
 
 async def test_refuses_a_soundcloud_url_that_resolves_to_a_profile(

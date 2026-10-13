@@ -1,4 +1,4 @@
-"""Tests de l'execution des commandes, sans passer par la boucle."""
+"""Commandes executees directement, sans passer par la boucle NDJSON."""
 
 import asyncio
 from contextlib import AsyncExitStack
@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
+from stubs import ignore
 from tagging_api import FakeApi, one_track, opened_run
 from vlc_dump import TRACKS
 
@@ -58,7 +59,7 @@ def test_lists_the_playlists_of_a_dump(vlc_dump: Path) -> None:
 def test_extracts_and_writes_a_report(vlc_dump: Path, music_library: Path, tmp_path: Path) -> None:
     command = extract_command(music_library, vlc_dump, tmp_path / "work")
 
-    event = handle_extract_playlist(command, lambda _: None)
+    event = handle_extract_playlist(command, ignore)
 
     assert event.report_path.is_file()
 
@@ -81,7 +82,7 @@ def test_reports_a_playlist_track_absent_from_the_library_as_missing(
 ) -> None:
     command = extract_command(music_library, vlc_dump, tmp_path / "work")
 
-    event = handle_extract_playlist(command, lambda _: None)
+    event = handle_extract_playlist(command, ignore)
 
     assert set(event.missing) == set(TRACKS)
     assert (event.extracted, event.already_present, event.duplicates, event.failures) == (
@@ -168,8 +169,8 @@ async def test_closes_the_client_even_when_closing_is_cancelled(tmp_path: Path) 
     stack.push_async_callback(record_closed)
     async with opened_run(one_track(tmp_path), FakeApi()) as opened:
         live, sources = opened.live, opened.sources
-    arbitration = Arbitration(live, sources, lambda _event: None)
-    recovery = UrlRecovery(live, sources, lambda _event: None)
+    arbitration = Arbitration(live, sources, ignore)
+    recovery = UrlRecovery(live, sources, ignore)
     current = CurrentRun(stack, live, sources, arbitration, recovery)
     cancelled_seen, released = asyncio.Event(), asyncio.Event()
     current.track(asyncio.create_task(gesture(cancelled_seen, released), name="gesture"))

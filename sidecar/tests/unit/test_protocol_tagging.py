@@ -1,5 +1,3 @@
-"""Tests des modeles du run et de la traduction des evenements du pipeline."""
-
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -7,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 from scraper_responses import track_candidate
-from tagging_records import RECORD, scored_candidate
+from tagging_records import RECORD, RUN_ID, scored_candidate
 
 from tagger.protocol import (
     ArbitrationRequired,
@@ -78,7 +76,7 @@ def _record(
 
 
 def test_lists_every_track_of_a_started_run() -> None:
-    event = to_protocol_event(models.RunStarted("a3f9c1", Path("D:/Sets"), (_record(),)))
+    event = to_protocol_event(models.RunStarted(RUN_ID, Path("D:/Sets"), (_record(),)))
 
     assert isinstance(event, RunStarted)
     assert event.folder == Path("D:/Sets")
@@ -150,7 +148,7 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
         tags_before=None,
     )
 
-    started = to_protocol_event(models.RunStarted("a3f9c1", Path("D:/Sets"), (record,)))
+    started = to_protocol_event(models.RunStarted(RUN_ID, Path("D:/Sets"), (record,)))
     resolved = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(started, RunStarted)
@@ -197,7 +195,7 @@ def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
 
 
 def test_maps_the_pipeline_progress_to_the_tagging_phase() -> None:
-    event = to_protocol_event(models.RunProgress(2, 3))
+    event = to_protocol_event(models.RunProgress(processed=2, total=3))
 
     assert isinstance(event, Progress)
     assert event.phase == "tagging"

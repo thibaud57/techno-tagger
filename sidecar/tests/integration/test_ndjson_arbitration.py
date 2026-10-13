@@ -1,18 +1,15 @@
-"""Protocole NDJSON de l'arbitrage, de bout en bout sur la boucle."""
-
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from ndjson_loop import CHOOSE_ON_BEATPORT, Conversation, conversation, start_command
-from scraper_responses import BASIEL, YOUR_MIND
-from tagging_api import (
-    ON_BANDCAMP,
-    ONE_TRACK,
-    FakeApi,
-    found,
-    hold_on_beatport,
-    two_tracks,
+from ndjson_loop import (
+    CHOOSE_ON_BEATPORT,
+    Conversation,
+    conversation,
+    resolved_run,
+    start_command,
 )
+from scraper_responses import BASIEL, YOUR_MIND
+from tagging_api import ONE_TRACK, FakeApi, hold_with_bandcamp_fallback, two_tracks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -34,16 +31,14 @@ REFUSE_BEATPORT: Final = {
 @pytest.fixture
 def api(api: FakeApi) -> FakeApi:
     """Extended et Radio Edit sur Beatport, la version attendue sur Bandcamp."""
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
     return api
 
 
 async def _refusal_in_flight(talk: Conversation, folder: Path, api: FakeApi) -> Gate:
     """Run termine, refus de Beatport envoye, appel Bandcamp retenu par la porte rendue."""
     slow = api.gate("/bandcamp/search", YOUR_MIND)
-    talk.send(**start_command(folder))
-    await talk.expect("run_finished")
+    await resolved_run(talk, folder)
     talk.send(**REFUSE_BEATPORT)
     await slow.reached.wait()
     return slow
@@ -53,8 +48,7 @@ async def test_refuses_beatport_then_resolves_the_track_on_a_bandcamp_candidate(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**REFUSE_BEATPORT)
         switched = await talk.expect("arbitration_updated")
         talk.send(command="resolve_arbitration", track_id=ONE_TRACK, source="bandcamp", candidate=0)
@@ -72,8 +66,7 @@ async def test_shows_the_beatport_list_again_without_calling_the_api(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**REFUSE_BEATPORT)
         await talk.expect("arbitration_updated")
         calls = len(api.requests)
@@ -126,8 +119,7 @@ async def test_drops_the_arbitrations_of_a_run_replaced_by_a_new_one(
     unresolved_folder: Path, empty_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**start_command(empty_folder))
         await talk.expect("run_finished")
         talk.send(**CHOOSE_ON_BEATPORT)
@@ -144,8 +136,7 @@ async def test_reports_a_rejected_gesture_with_its_command_and_its_track(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(command="switch_arbitration_source", track_id=ONE_TRACK, source="beatport")
         error = await talk.expect("error")
 
@@ -208,8 +199,7 @@ async def test_leaves_no_arbitrable_run_when_a_new_one_fails_to_open(
     unresolved_folder: Path, api: FakeApi, memory_keyring: MemoryKeyring
 ) -> None:
     async with conversation() as talk:
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         memory_keyring.secrets.clear()
         talk.send(**start_command(unresolved_folder))
         await talk.expect("error", code="api_key_missing")

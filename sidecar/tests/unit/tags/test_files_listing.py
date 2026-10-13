@@ -1,5 +1,3 @@
-"""Tests de l'enumeration des fichiers audio du dossier a re-tagger."""
-
 from pathlib import Path
 from typing import TYPE_CHECKING
 

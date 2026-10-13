@@ -1,5 +1,3 @@
-"""Tests des requetes emises et du mapping des reponses techno-scraper."""
-
 from typing import TYPE_CHECKING
 
 import httpx2
@@ -9,6 +7,7 @@ from scraper_responses import (
     TEST_API_KEY,
     YOUR_MIND,
     answering,
+    invalid_track_payload,
     make_client,
     page_payload,
     track_payload,
@@ -19,12 +18,14 @@ from tagger.resolution.scraper_client import (
     API_BASE_URL,
     ApiContractError,
     Credit,
+    ScraperError,
     SearchSource,
     Source,
     SourceUnavailableError,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 pytestmark = pytest.mark.asyncio
@@ -142,36 +143,34 @@ async def test_caches_an_empty_result(requests: list[httpx2.Request], tmp_path: 
     assert len(requests) == 1
 
 
-async def test_never_caches_an_error_response(
-    requests: list[httpx2.Request], tmp_path: Path
+@pytest.mark.parametrize(
+    ("first_reply", "error"),
+    [
+        (
+            lambda: httpx2.Response(503, json={"code": "source_unavailable"}),
+            SourceUnavailableError,
+        ),
+        (
+            lambda: httpx2.Response(200, json=page_payload(invalid_track_payload())),
+            ApiContractError,
+        ),
+    ],
+    ids=["error-status", "response-the-model-rejects"],
+)
+async def test_never_caches_a_response_that_failed(
+    requests: list[httpx2.Request],
+    tmp_path: Path,
+    first_reply: Callable[[], httpx2.Response],
+    error: type[ScraperError],
 ) -> None:
-    def unavailable_then_found(request: httpx2.Request) -> httpx2.Response:
+    def failing_then_found(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
         if len(requests) == 1:
-            return httpx2.Response(503, json={"code": "source_unavailable"})
+            return first_reply()
         return httpx2.Response(200, json=page_payload(track_payload()))
 
-    async with make_client(unavailable_then_found, cache=_cache(tmp_path)) as client:
-        with pytest.raises(SourceUnavailableError):
-            await client.search(Source.BEATPORT, YOUR_MIND)
-        candidates = await client.search(Source.BEATPORT, YOUR_MIND)
-
-    assert len(candidates) == 1
-    assert len(requests) == 2
-
-
-async def test_never_caches_a_response_the_model_rejects(
-    requests: list[httpx2.Request], tmp_path: Path
-) -> None:
-    def broken_then_fixed(request: httpx2.Request) -> httpx2.Response:
-        requests.append(request)
-        item = track_payload()
-        if len(requests) == 1:
-            del item["title"]
-        return httpx2.Response(200, json=page_payload(item))
-
-    async with make_client(broken_then_fixed, cache=_cache(tmp_path)) as client:
-        with pytest.raises(ApiContractError):
+    async with make_client(failing_then_found, cache=_cache(tmp_path)) as client:
+        with pytest.raises(error):
             await client.search(Source.BEATPORT, YOUR_MIND)
         candidates = await client.search(Source.BEATPORT, YOUR_MIND)
 
@@ -183,10 +182,8 @@ async def test_discards_a_cached_response_the_model_rejects_and_retries(
     requests: list[httpx2.Request], tmp_path: Path
 ) -> None:
     cache = _cache(tmp_path)
-    poisoned = track_payload()
-    del poisoned["title"]
     params = {"q": YOUR_MIND, "type": "tracks", "limit": "10"}
-    cache.put("/beatport/search", params, page_payload(poisoned))
+    cache.put("/beatport/search", params, page_payload(invalid_track_payload()))
     handler = answering(requests, page_payload(track_payload()))
 
     async with make_client(handler, cache=cache) as client:

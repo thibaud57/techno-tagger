@@ -27,7 +27,5 @@ export const sentryOptions = (
     urlQueryParams: false,
     stackFrameVariables: false,
   },
-  // Pendant du before_send du sidecar : les chemins que le sidecar envoie dans
-  // ses evenements finissent affiches, donc dans un message d'erreur.
   beforeSend: scrub,
 })

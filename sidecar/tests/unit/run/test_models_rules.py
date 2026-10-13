@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from tagging_records import RECORD
+from tagging_records import RECORD, RUN_ID
 from tagging_report_samples import HELD
 
 from tagger.resolution.sources import ApiKeyRejectedRunError, _RejectionGuard
@@ -30,7 +30,7 @@ def test_tells_a_decided_track_from_one_to_send_back_to_the_network(
 
 
 def test_tells_the_observer_of_each_update() -> None:
-    live = LiveRun("a3f9c1", Path("music"), [RECORD])
+    live = LiveRun(RUN_ID, Path("music"), [RECORD])
     seen: list[TrackRecord] = []
     live.observe(seen.append)
     updated = RECORD.unresolved(FailureReason.NO_RESULT)

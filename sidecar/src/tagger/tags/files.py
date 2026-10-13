@@ -108,7 +108,7 @@ _ID3_V24: Final = 4
 _ID3_V23_KEYS: Final = {TagField.DATE: "TYER"}
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class IdentityTags:
     """Artiste et titre lus dans un fichier, chaine vide quand le tag est absent."""
 
@@ -173,8 +173,6 @@ class _TypedPicture(Protocol):
 
 
 class FilesError(TaggerError):
-    """Erreur de lecture du dossier ou d'un fichier audio."""
-
     code: ClassVar[str] = "files_error"
 
 
@@ -221,11 +219,7 @@ def list_audio_files(folder: Path) -> tuple[Path, ...]:
     if not folder.is_dir():
         raise TaggingFolderUnreadableError(folder)
 
-    found = [
-        path
-        for path in folder.rglob("*")
-        if path.suffix.lower() in AUDIO_EXTENSIONS and path.is_file()
-    ]
+    found = [path for path in folder.rglob("*") if _is_audio(path)]
     # `rglob` avale l'OSError de son scandir : sans ce second controle, un support
     # debranche en cours de parcours rendrait une liste tronquee sans erreur.
     if not folder.is_dir():
@@ -236,9 +230,11 @@ def list_audio_files(folder: Path) -> tuple[Path, ...]:
 
 def has_audio_files(folder: Path) -> bool:
     """S'arrete au premier fichier audio : un dossier de bibliotheque se parcourt entier sinon."""
-    return any(
-        path.suffix.lower() in AUDIO_EXTENSIONS and path.is_file() for path in folder.rglob("*")
-    )
+    return any(_is_audio(path) for path in folder.rglob("*"))
+
+
+def _is_audio(path: Path) -> bool:
+    return path.suffix.lower() in AUDIO_EXTENSIONS and path.is_file()
 
 
 def _sort_key(relative: Path) -> tuple[str, ...]:

@@ -1,5 +1,3 @@
-"""Fixtures des tests de tags : lecture, ecriture et restauration des fichiers audio."""
-
 from typing import TYPE_CHECKING
 
 import pytest

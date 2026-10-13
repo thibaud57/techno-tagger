@@ -80,7 +80,7 @@ def track_file_name(
     """Nom `Artiste - Titre.ext` tenant en `room` caracteres, extension et marqueur compris.
 
     `None` sans artiste ou titre, et quand l'extension et le marqueur de `copy` (au-dela de 1,
-    ` (copy)` avant l'extension) ne laissent aucune place au nom : un nom hors limite ne se
+    ` (2)`, ` (3)`... avant l'extension) ne laissent aucune place au nom : un nom hors limite ne se
     fabrique pas. La coupe entame le titre, l'artiste en dernier recours.
     """
     readable_artist, readable_title = _readable(artist), _readable_title(title)
@@ -104,7 +104,7 @@ def track_file_name(
     return TrackFileName(f"{cut}{marker}{extension}", truncated=True)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class RenamePlan:
     """Renommage calcule, pas encore fait : la cible est connue avant que le fichier ne bouge.
 
@@ -143,7 +143,9 @@ def plan_rename(path: Path, artist: str | None, title: str | None) -> RenamePlan
         raise RenameError(path, file_failure_reason(error)) from error
     if named is None:
         return None
-    return RenamePlan(path, source, path.with_name(named.name), named.truncated)
+    return RenamePlan(
+        path=path, source=source, target=path.with_name(named.name), truncated=named.truncated
+    )
 
 
 def restore_name(current: Path, original: Path) -> None:

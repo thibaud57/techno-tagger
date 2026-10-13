@@ -1,5 +1,3 @@
-"""Tests de l'index du dossier source et du departage des homonymes."""
-
 from typing import TYPE_CHECKING
 
 import pytest

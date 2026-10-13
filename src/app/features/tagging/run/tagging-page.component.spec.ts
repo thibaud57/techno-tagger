@@ -7,7 +7,12 @@ import { open } from "@tauri-apps/plugin-dialog"
 import { load } from "@tauri-apps/plugin-store"
 import { ConfirmationService } from "primeng/api"
 
-import { type SidecarStubOverrides, sidecarStub } from "../../../../fixtures/sidecar-stub"
+import { hostOf } from "../../../../fixtures/dom"
+import {
+  type SidecarStubOverrides,
+  commandFailed,
+  sidecarStub,
+} from "../../../../fixtures/sidecar-stub"
 import { storeStub } from "../../../../fixtures/tauri-store"
 import { translateWith } from "../../../../fixtures/translate"
 import { readLastDestination } from "../../../core/platform/preferences"
@@ -20,7 +25,7 @@ import {
   resolvedTrack,
   writtenTrack as written,
 } from "../../../../fixtures/tagging"
-import { WRITE_FINISHED, commandError, rollbackFinished } from "../../../../fixtures/write"
+import { WRITE_FINISHED, failedRollback } from "../../../../fixtures/write"
 import { TOOLTIP } from "../../../shared/utils/tooltip"
 
 import { RecoveryUiStore } from "../url-recovery/recovery-ui.store"
@@ -31,15 +36,15 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn(() => Promise.resolve("D:/Sets/Aout")),
 }))
 
-/** `readLastDestination` passe par `load()` de ce paquet npm : le builder unit-test interdit de mocker un import relatif de l'app. */
+/**
+ * `readLastDestination` passe par `load()` de ce paquet npm : le builder unit-test interdit de
+ * mocker un import relatif de l'app.
+ */
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(),
 }))
 
 /**
- * Ce qui se teste ici : la disponibilite du lancement et la commande emise. Le reste de
- * l'ecran affiche ce qu'il recoit ; le signal de fin vit dans `CompletionSignalService`.
- *
  * Rappeler `readLastDestination()` attend le `prefill()` que le constructeur lance sans
  * l'attendre : sans cette barriere le dossier est encore vide, et `blockedReason` nomme le
  * dossier au lieu du moteur (mesure le 2026-10-13, deux tests en echec sur trois runs).
@@ -69,10 +74,12 @@ describe("TaggingPageComponent", () => {
   })
 
   const cancelButton = (fixture: { nativeElement: unknown }): HTMLElement | null =>
-    (fixture.nativeElement as HTMLElement).querySelector('[data-p-icon="stop"]')
+    hostOf(fixture).querySelector('[data-p-icon="stop"]')
 
-  const host = (fixture: { nativeElement: unknown }): HTMLElement =>
-    fixture.nativeElement as HTMLElement
+  const failed = (trackId: string): TaggingTrack => ({
+    ...resolvedTrack(trackId),
+    state: "write_error",
+  })
 
   it("shows the recovery progress bar after an interrupted run", async () => {
     const { fixture } = await mountWith({
@@ -83,8 +90,8 @@ describe("TaggingPageComponent", () => {
 
     fixture.detectChanges()
 
-    expect(host(fixture).querySelector("app-phase-progress")).not.toBeNull()
-    expect(host(fixture).querySelector("[data-recovery-empty]")).toBeNull()
+    expect(hostOf(fixture).querySelector("app-phase-progress")).not.toBeNull()
+    expect(hostOf(fixture).querySelector("[data-recovery-empty]")).toBeNull()
   })
 
   it("shows nothing about recovery while the phase is closed", async () => {
@@ -92,8 +99,8 @@ describe("TaggingPageComponent", () => {
 
     fixture.detectChanges()
 
-    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
-    expect(host(fixture).querySelector("[data-recovery-empty]")).toBeNull()
+    expect(hostOf(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(hostOf(fixture).querySelector("[data-recovery-empty]")).toBeNull()
   })
 
   it("shows the empty recovery state in place of the bar on zero out of zero", async () => {
@@ -104,8 +111,8 @@ describe("TaggingPageComponent", () => {
 
     fixture.detectChanges()
 
-    expect(host(fixture).querySelector("[data-recovery-empty]")).not.toBeNull()
-    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(hostOf(fixture).querySelector("[data-recovery-empty]")).not.toBeNull()
+    expect(hostOf(fixture).querySelector("app-phase-progress")).toBeNull()
   })
 
   it("opens the link dialog on the track of a clicked run row", async () => {
@@ -133,19 +140,54 @@ describe("TaggingPageComponent", () => {
 
       fixture.detectChanges()
 
-      const bars = host(fixture).querySelectorAll("app-phase-progress")
+      const bars = hostOf(fixture).querySelectorAll("app-phase-progress")
       expect(bars).toHaveLength(1)
       expect(bars[0]?.textContent).toContain(label)
     },
   )
 
-  it("blocks a new run while a url recovery waits", async () => {
-    const { component } = await mountWith({
-      taggingRunId: signal("a3f9c1"),
-      urlRecoveryBusy: signal(new Set(["a.mp3"])),
-    })
+  it.each([
+    [
+      "a url recovery waits",
+      { taggingRunId: signal("a3f9c1"), urlRecoveryBusy: signal(new Set(["a.mp3"])) },
+      "tagging.blocked.recovering",
+    ],
+    [
+      "a rollback runs",
+      { rollingBack: signal({ runId: "a3f9c1", trackId: null }) },
+      "tagging.blocked.restoring",
+    ],
+    [
+      "a run is in progress, ahead of every other cause",
+      { tagging: signal(true), apiKeyConfigured: signal(false) },
+      "tagging.blocked.running",
+    ],
+    [
+      "the api key is missing, ahead of the folder",
+      { apiKeyConfigured: signal(false) },
+      "tagging.blocked.api_key",
+    ],
+    [
+      "the Playlist extraction keeps the sidecar unready",
+      { ready: signal(false), extracting: signal(true) },
+      "tagging.blocked.extracting",
+    ],
+    [
+      "the sidecar is unready outside an extraction",
+      { ready: signal(false) },
+      "tagging.blocked.sidecar",
+    ],
+  ] as const)("names the launch blocker when %s", async (_case, overrides, reason) => {
+    const { component } = await mountWith(overrides)
 
-    expect(component["blockedReason"]()).toBe("tagging.blocked.recovering")
+    expect(component["blockedReason"]()).toBe(reason)
+  })
+
+  it("names the missing folder once the api key is configured", async () => {
+    const { component } = await mountWith()
+    component["folder"].set("")
+
+    expect(component["blockedReason"]()).toBe("tagging.blocked.folder")
   })
 
   it("offers no way to interrupt before a run starts", async () => {
@@ -164,10 +206,6 @@ describe("TaggingPageComponent", () => {
     expect(service.cancelTagging).toHaveBeenCalled()
   })
 
-  const failed = (trackId: string): TaggingTrack => ({
-    ...resolvedTrack(trackId),
-    state: "write_error",
-  })
   it("cycles its single action with the phase", async () => {
     const tagging = signal(false)
     const confirmable = signal(false)
@@ -346,7 +384,7 @@ describe("TaggingPageComponent", () => {
     translateWith({ tagging: { write: { failed: "failed {{count}}" } } })
     const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
     const shown = (): string | undefined =>
-      host(fixture).querySelector("[data-write-failures]")?.textContent
+      hostOf(fixture).querySelector("[data-write-failures]")?.textContent
     fixture.detectChanges()
     const before = shown()
 
@@ -390,8 +428,8 @@ describe("TaggingPageComponent", () => {
 
     fixture.detectChanges()
 
-    const action = host(fixture).querySelector('[data-action="retry"]')
-    expect(host(fixture).querySelector("[data-write-failures]")).toBeNull()
+    const action = hostOf(fixture).querySelector('[data-action="retry"]')
+    expect(hostOf(fixture).querySelector("[data-write-failures]")).toBeNull()
     expect(action?.querySelector('[data-p-icon="spinner"]')).not.toBeNull()
   })
 
@@ -406,7 +444,7 @@ describe("TaggingPageComponent", () => {
     })
     fixture.detectChanges()
 
-    const retry = host(fixture).querySelector<HTMLButtonElement>('[data-action="retry"]')
+    const retry = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="retry"]')
 
     expect(retry?.disabled).toBe(true)
   })
@@ -420,13 +458,13 @@ describe("TaggingPageComponent", () => {
       taggingTracks: signal([failed("a.mp3")]),
     })
     fixture.detectChanges()
-    const during = host(fixture).querySelector("app-phase-progress")
+    const during = hostOf(fixture).querySelector("app-phase-progress")
 
     writing.set(false)
     fixture.detectChanges()
 
     expect(during).not.toBeNull()
-    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(hostOf(fixture).querySelector("app-phase-progress")).toBeNull()
   })
 
   it("offers to restore the tracks the sidecar flags as restorable", async () => {
@@ -454,34 +492,26 @@ describe("TaggingPageComponent", () => {
     expect([...component["runRestore"].restorableIds()]).toEqual(["b.mp3"])
   })
 
-  it("offers no restore when no track is flagged restorable", async () => {
+  it.each([
+    {
+      case: "a track is left to restore",
+      tracks: [written("a.mp3", "rolled_back"), written("b.mp3", "write_error")],
+      offered: true,
+    },
+    {
+      case: "no track is flagged restorable",
+      tracks: [written("a.mp3", "write_error", false)],
+      offered: false,
+    },
+    { case: "every track is restored", tracks: [written("a.mp3", "rolled_back")], offered: false },
+  ])("tells whether the run restore is offered when $case", async ({ tracks, offered }) => {
     const { component } = await mountWith({
       taggingRunId: signal("a3f9c1"),
       committed: signal(true),
-      taggingTracks: signal([written("a.mp3", "write_error", false)]),
+      taggingTracks: signal(tracks),
     })
 
-    expect(component["runRestore"].canRestoreRun()).toBe(false)
-  })
-
-  it("keeps the run button while a track is left to restore", async () => {
-    const { component } = await mountWith({
-      taggingRunId: signal("a3f9c1"),
-      committed: signal(true),
-      taggingTracks: signal([written("a.mp3", "rolled_back"), written("b.mp3", "write_error")]),
-    })
-
-    expect(component["runRestore"].canRestoreRun()).toBe(true)
-  })
-
-  it("drops the run button once every track is restored", async () => {
-    const { component } = await mountWith({
-      taggingRunId: signal("a3f9c1"),
-      committed: signal(true),
-      taggingTracks: signal([written("a.mp3", "rolled_back")]),
-    })
-
-    expect(component["runRestore"].canRestoreRun()).toBe(false)
+    expect(component["runRestore"].canRestoreRun()).toBe(offered)
   })
 
   it("shows the run restore button even when the write bar is hidden", async () => {
@@ -493,8 +523,8 @@ describe("TaggingPageComponent", () => {
 
     fixture.detectChanges()
 
-    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
-    expect(host(fixture).querySelector('[data-action="restore-run"]')).not.toBeNull()
+    expect(hostOf(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(hostOf(fixture).querySelector('[data-action="restore-run"]')).not.toBeNull()
   })
 
   it("disables the run restore while files are busy", async () => {
@@ -506,7 +536,7 @@ describe("TaggingPageComponent", () => {
     })
     fixture.detectChanges()
 
-    const button = host(fixture).querySelector<HTMLButtonElement>('[data-action="restore-run"]')
+    const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-run"]')
 
     expect(button?.disabled).toBe(true)
   })
@@ -548,7 +578,7 @@ describe("TaggingPageComponent", () => {
       fixture.detectChanges()
 
       vi.useFakeTimers()
-      const button = host(fixture).querySelector<HTMLButtonElement>('[data-action="restore-run"]')
+      const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-run"]')
       button?.dispatchEvent(new MouseEvent("mouseenter"))
       vi.advanceTimersByTime(TOOLTIP.showDelay ?? 0)
 
@@ -583,13 +613,13 @@ describe("TaggingPageComponent", () => {
       writeFinished,
     })
     fixture.detectChanges()
-    const before = host(fixture).querySelector('[data-action="recap"]')
+    const before = hostOf(fixture).querySelector('[data-action="recap"]')
 
     writeFinished.set(WRITE_FINISHED)
     fixture.detectChanges()
 
     expect(before).toBeNull()
-    expect(host(fixture).querySelector('[data-action="recap"]')).not.toBeNull()
+    expect(hostOf(fixture).querySelector('[data-action="recap"]')).not.toBeNull()
   })
 
   it("keeps the run summary within reach when the write bar and the restore are hidden", async () => {
@@ -602,9 +632,9 @@ describe("TaggingPageComponent", () => {
 
     fixture.detectChanges()
 
-    expect(host(fixture).querySelector("app-phase-progress")).toBeNull()
-    expect(host(fixture).querySelector('[data-action="restore-run"]')).toBeNull()
-    expect(host(fixture).querySelector('[data-action="recap"]')).not.toBeNull()
+    expect(hostOf(fixture).querySelector("app-phase-progress")).toBeNull()
+    expect(hostOf(fixture).querySelector('[data-action="restore-run"]')).toBeNull()
+    expect(hostOf(fixture).querySelector('[data-action="recap"]')).not.toBeNull()
   })
 
   it("opens the run summary", async () => {
@@ -616,7 +646,7 @@ describe("TaggingPageComponent", () => {
     const navigate = vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
     fixture.detectChanges()
 
-    host(fixture).querySelector<HTMLButtonElement>('[data-action="recap"]')?.click()
+    hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="recap"]')?.click()
 
     expect(navigate).toHaveBeenCalledWith("/tagging/recap")
   })
@@ -654,12 +684,9 @@ describe("TaggingPageComponent", () => {
     ["the shown run", "a3f9c1", 1],
     ["another run", "b7e2d4", 0],
   ])("lists the rollback failures of %s only", async (_name, shownRunId, expected) => {
-    const failedRollback = rollbackFinished(null, [
-      { track_id: "b.mp3", file_name: "X - Y.mp3", reason: "file_locked" },
-    ])
     const { component } = await mountWith({
       taggingRunId: signal(shownRunId),
-      rollbackFinished: signal(failedRollback),
+      rollbackFinished: signal(failedRollback()),
     })
 
     const failures = component["runRestore"].runRollbackFailures()
@@ -667,43 +694,13 @@ describe("TaggingPageComponent", () => {
     expect(failures).toHaveLength(expected)
   })
 
-  it("blocks a launch while a rollback runs", async () => {
-    const { component } = await mountWith({
-      rollingBack: signal({ runId: "a3f9c1", trackId: null }),
-    })
-
-    expect(component["blockedReason"]()).toBe("tagging.blocked.restoring")
-  })
-
-  it("shows an error raised by rollback", async () => {
-    const failure = commandError("rollback", "rollback_unavailable")
-    const { component } = await mountWith({
-      lastError: signal(failure),
-      lastErrorCommand: signal("rollback"),
-    })
-
-    expect(component["error"]()?.code).toBe("rollback_unavailable")
-  })
-
-  it("shows an error raised by commit_run", async () => {
-    const failure = commandError("commit_run", "tag_dump_write_failed")
-    const { component } = await mountWith({
-      lastError: signal(failure),
-      lastErrorCommand: signal("commit_run"),
-    })
-
-    expect(component["error"]()?.code).toBe("tag_dump_write_failed")
-  })
-
   it.each([
+    ["rollback", "rollback_unavailable"],
+    ["commit_run", "tag_dump_write_failed"],
     ["resume_run", "tagging_folder_unreadable"],
     ["discard_run", "run_not_found"],
-  ] as const)("shows a refused %s like a refused start", async (command, code) => {
-    const failure = commandError(command, code)
-    const { component } = await mountWith({
-      lastError: signal(failure),
-      lastErrorCommand: signal(command),
-    })
+  ] as const)("shows the error raised by %s", async (command, code) => {
+    const { component } = await mountWith(commandFailed(command, code))
 
     const shown = component["error"]()
 
@@ -788,52 +785,14 @@ describe("TaggingPageComponent", () => {
     expect(hint).toBe(expected)
   })
 
-  it("names the run in progress first, ahead of every other cause", async () => {
-    const { component } = await mountWith({
-      tagging: signal(true),
-      apiKeyConfigured: signal(false),
-    })
-
-    expect(component["blockedReason"]()).toBe("tagging.blocked.running")
-  })
-
   it.each([
     ["shows an error raised by its own command", "start_tagging", "api_key_rejected"],
     ["ignores an error raised by another screen", "set_api_key", null],
   ] as const)("%s", async (_name, command, expected) => {
-    const failure = commandError(command, "api_key_rejected")
-    const { component } = await mountWith({
-      lastError: signal(failure),
-      lastErrorCommand: signal(command),
-    })
+    const { component } = await mountWith(commandFailed(command, "api_key_rejected"))
 
     const shown = component["error"]()
 
     expect(shown?.code ?? null).toBe(expected)
-  })
-
-  it("names the missing api key ahead of the folder", async () => {
-    const { component } = await mountWith({ apiKeyConfigured: signal(false) })
-
-    expect(component["blockedReason"]()).toBe("tagging.blocked.api_key")
-  })
-
-  it("names the missing folder once the api key is configured", async () => {
-    const { component } = await mountWith()
-    component["folder"].set("")
-
-    expect(component["blockedReason"]()).toBe("tagging.blocked.folder")
-  })
-
-  it("names the Playlist extraction when it is what keeps the sidecar unready", async () => {
-    const { component } = await mountWith({ ready: signal(false), extracting: signal(true) })
-
-    expect(component["blockedReason"]()).toBe("tagging.blocked.extracting")
-  })
-
-  it("falls back to a generic sidecar reason when unready outside an extraction", async () => {
-    const { component } = await mountWith({ ready: signal(false) })
-
-    expect(component["blockedReason"]()).toBe("tagging.blocked.sidecar")
   })
 })

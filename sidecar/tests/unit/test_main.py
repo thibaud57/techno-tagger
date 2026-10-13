@@ -42,6 +42,7 @@ def startup() -> Iterator[_Startup]:
 
 def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None:
     parent = Mock()
+
     with (
         patch.object(__main__, "_purge_old_dumps", autospec=True) as purge_dumps,
         patch.object(__main__, "_purge_old_plans", autospec=True) as purge_plans,

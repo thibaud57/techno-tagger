@@ -1,5 +1,3 @@
-"""Tests de la lecture des tags d'origine et de leur restauration, sur les quatre formats."""
-
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
@@ -7,6 +5,7 @@ import mutagen
 import pytest
 from audio_samples import (
     BLANK_WRITERS,
+    id3_as_written,
     locked_by_another_process,
     write_not_audio,
     write_tagged_wavpack,
@@ -15,7 +14,7 @@ from mutagen.flac import FLAC
 from mutagen.id3 import TBPM, TDRC, TIT2, TPE1, TXXX, WOAS
 from path_limits import folder_beyond_the_limit
 from scraper_responses import BEATPORT_CANDIDATE
-from tagging_api import JPEG
+from tagging_api import JPEG, write_cover
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.paths import extended_path
@@ -137,8 +136,7 @@ def test_saves_the_file_back_in_its_original_id3_version(
 
     restore_tags(path, original)
 
-    # Rechargees sans la remontee en v2.4 : les frames telles qu'ecrites sur le disque.
-    on_disk = type(mutagen.File(path))(path, translate=False).tags
+    on_disk = id3_as_written(path)
     assert on_disk.version == (2, id3_version, 0)
     expected_dates = {"TYER", "TDAT"} if id3_version == 3 else {"TDRC"}
     assert expected_dates <= on_disk.keys()
@@ -195,8 +193,7 @@ def test_leaves_pictures_and_foreign_tags_alone(
     audio.tags.add(TXXX(encoding=3, desc="SERATO_PLAYCOUNT", text=["12"]))
     audio.save(v2_version=3)
     original = read_original_tags(path)
-    cover = tmp_path / "cover.jpg"
-    cover.write_bytes(JPEG)
+    cover = write_cover(tmp_path)
     write_tags(path, project_tags(BEATPORT_CANDIDATE), cover)
 
     restore_tags(path, original)

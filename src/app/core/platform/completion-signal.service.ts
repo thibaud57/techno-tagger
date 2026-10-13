@@ -24,10 +24,7 @@ const ROLLBACK_END: EndMessages = {
   withFailures: "tagging.rollbackFinishedWithFailures",
 }
 
-/**
- * Signal de fin d'une phase longue : un son, puis un toast.
- * Le bip est synthetise : aucun fichier audio dans le depot, ni binaire a relire ni licence a suivre.
- */
+/** Fin d'une phase longue : un bip synthetise (aucun fichier audio, ni binaire a relire ni licence a suivre), puis un toast. */
 @Service()
 export class CompletionSignalService {
   private readonly messages = inject(MessageService)
@@ -35,8 +32,8 @@ export class CompletionSignalService {
   private readonly sidecar = inject(SidecarService)
 
   /**
-   * Service racine construit au demarrage : branche sur un ecran, l'`effect()` mourrait avec
-   * lui. Un signal ne notifiant que sur une nouvelle valeur, chaque fin s'annonce une fois.
+   * Branche sur un ecran, l'`effect()` mourrait avec lui. Un signal ne notifiant que sur une
+   * nouvelle valeur, chaque fin s'annonce une fois.
    */
   constructor() {
     const ends = [

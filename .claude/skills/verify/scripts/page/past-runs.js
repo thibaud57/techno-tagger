@@ -766,17 +766,21 @@ async (page) => {
     return { ...(await block()), ...extra, ctxAfterTarget }
   }
   const liveNoTarget = await liveFoot(false)
-  check("live run before its rollback target: header holds the title only, back alone in the footer 8px under the table, no context, no restore-run or new-run", liveNoTarget.h1InHead && liveNoTarget.headIsDirectChild && !liveNoTarget.backInHead && liveNoTarget.backInFooter && liveNoTarget.backCount === 1 && JSON.stringify(liveNoTarget.footerButtons) === JSON.stringify([1]) && Math.abs(liveNoTarget.backLeftDelta) <= 1 && liveNoTarget.gap === 8 && liveNoTarget.colGap === 8 && liveNoTarget.footerNextToTable && liveNoTarget.ctx === false && liveNoTarget.noContextRow && liveNoTarget.restoreRun === 0 && liveNoTarget.newRun === 0, liveNoTarget)
-  await line({ event: "rollback_target", run: { run_id: LIVE, written_at: LIVE_WRITTEN_AT, folder: "C:\\Sets", tracks: 4 } })
+  check("live run before the past runs list it: header holds the title only, back alone in the footer 8px under the table, no context, no restore-run or new-run", liveNoTarget.h1InHead && liveNoTarget.headIsDirectChild && !liveNoTarget.backInHead && liveNoTarget.backInFooter && liveNoTarget.backCount === 1 && JSON.stringify(liveNoTarget.footerButtons) === JSON.stringify([1]) && Math.abs(liveNoTarget.backLeftDelta) <= 1 && liveNoTarget.gap === 8 && liveNoTarget.colGap === 8 && liveNoTarget.footerNextToTable && liveNoTarget.ctx === false && liveNoTarget.noContextRow && liveNoTarget.restoreRun === 0 && liveNoTarget.newRun === 0, liveNoTarget)
+  // La date du run vivant vient des runs passes, relus apres l'ecriture ; une cible de restauration
+  // passee a un autre run ne l'efface pas.
+  const LIVE_RUN = run(LIVE, LIVE_WRITTEN_AT, "C:\\Sets")
+  await listed(LIVE_RUN, R5, R2)
+  await line({ event: "rollback_target", run: { run_id: R5.run_id, written_at: R5.written_at, folder: R5.folder, tracks: 3 } })
   await settle()
   const liveBlockCtx = await liveFoot(true)
   const expectedLive = await label(LIVE_WRITTEN_AT, "C:\\Sets", "fr")
   out.measures.liveFooter = { liveBlock, liveNoTarget, liveBlockCtx }
-  check("live run once its target is known: context at the bottom right of the footer (same line as the settings), 14px muted, centered with the back, footer still 8px under the table", liveBlockCtx.ctxText === expectedLive && liveBlockCtx.ctxInFooter === true && Math.abs(liveBlockCtx.ctxRightDelta) <= 1 && liveBlockCtx.ctxAfterBack === true && liveBlockCtx.ctxSize === "14px" && /text-muted-color/.test(liveBlockCtx.ctxClass ?? "") && liveBlockCtx.ctxColor !== liveBlockCtx.titleColor && liveBlockCtx.ctxCenterDelta <= 2 && liveBlockCtx.gap === 8 && liveBlockCtx.restoreRun === 0 && liveBlockCtx.newRun === 0, { liveBlockCtx, expectedLive })
+  check("live run once the past runs list it, the rollback target on another run: context at the bottom right of the footer (same line as the settings), 14px muted, centered with the back, footer still 8px under the table", liveBlockCtx.ctxText === expectedLive && liveBlockCtx.ctxInFooter === true && Math.abs(liveBlockCtx.ctxRightDelta) <= 1 && liveBlockCtx.ctxAfterBack === true && liveBlockCtx.ctxSize === "14px" && /text-muted-color/.test(liveBlockCtx.ctxClass ?? "") && liveBlockCtx.ctxColor !== liveBlockCtx.titleColor && liveBlockCtx.ctxCenterDelta <= 2 && liveBlockCtx.gap === 8 && liveBlockCtx.restoreRun === 0 && liveBlockCtx.newRun === 0, { liveBlockCtx, expectedLive })
 
   // Un run passe par-dessus le run vivant.
   await clearSent()
-  await listed(R5, R2)
+  await listed(LIVE_RUN, R5, R2)
   await navigate(`/tagging/recap/${R2.run_id}`)
   await page.waitForSelector("app-recap-page")
   await settle()

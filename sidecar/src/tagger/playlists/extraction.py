@@ -58,8 +58,6 @@ class DuplicateResolution:
 
 
 class PickedFile(NamedTuple):
-    """Retour de `pick_file`."""
-
     path: Path
     resolution: DuplicateResolution | None
 
@@ -72,7 +70,7 @@ class ExtractionFailure:
     reason: FileFailureReason
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ExtractionResult:
     """Issue d'une extraction, en quatre categories exclusives plus les doublons.
 
@@ -178,8 +176,6 @@ def build_source_index(
 
 
 class PreparedRun(NamedTuple):
-    """Retour de `_prepare_run`."""
-
     source_index: dict[str, tuple[Path, ...]]
     extracts_in_place: bool
 
@@ -220,11 +216,11 @@ def extract(
     mode: ExtractionMode = ExtractionMode.COPY,
     on_progress: Callable[[int, int], None] | None = None,
 ) -> ExtractionResult:
-    """Extrait les morceaux nommes du dossier source vers le dossier destination.
+    """Copie par defaut : la bibliotheque source doit rester intacte pendant que le
+    re-tagging reecrit les fichiers de destination.
 
-    Copie par defaut : la bibliotheque source doit rester intacte pendant que le
-    re-tagging reecrit les fichiers de destination. Seuls un dossier source illisible
-    et un dossier destination impossible a creer levent, et avant tout transfert.
+    Seuls un dossier source illisible et un dossier destination impossible a creer
+    levent, et avant tout transfert.
     """
     index, extracts_in_place = _prepare_run(file_names, source, destination)
 

@@ -1,5 +1,3 @@
-"""Tests du rapport de re-tagging : modele, compteurs, relecture, rendu, ecriture."""
-
 import json
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -24,7 +22,7 @@ from tagger.reports.tagging import (
 )
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
 from tagger.resolution.scraper_client import Source
-from tagger.run.models import Resolution, TaggingRun, TrackState, WriteOutcome
+from tagger.run.models import Resolution, TrackState, WriteOutcome
 from tagger.tags.files import TagField, TagSystem, WrittenTags
 
 if TYPE_CHECKING:
@@ -93,7 +91,7 @@ def test_reports_a_restored_track_without_its_decision() -> None:
 
 def test_leaves_the_system_empty_when_the_origin_was_unreadable() -> None:
     unreadable = replace(WRITTEN, tags_before=None)
-    run = TaggingRun(RUN.run_id, RUN.folder, (unreadable,))
+    run = replace(RUN, tracks=(unreadable,))
 
     report = build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED)
 
@@ -166,7 +164,7 @@ def test_renders_each_track_in_the_section_of_its_outcome() -> None:
 
 
 def test_leaves_out_an_empty_section() -> None:
-    run = TaggingRun(RUN.run_id, RUN.folder, (WRITTEN,))
+    run = replace(RUN, tracks=(WRITTEN,))
 
     markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
 
@@ -189,7 +187,7 @@ def test_flags_a_cover_the_source_offered_but_that_was_not_written() -> None:
         WRITTEN,
         written=WriteOutcome(WrittenTags((TagField.ARTIST,), artwork=False), truncated=False),
     )
-    run = TaggingRun(RUN.run_id, RUN.folder, (without_cover,))
+    run = replace(RUN, tracks=(without_cover,))
 
     markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
 
@@ -204,7 +202,7 @@ def test_flags_a_written_track_whose_source_offered_no_cover() -> None:
         candidate=payload_candidate(release=None),
         written=WriteOutcome(WrittenTags((TagField.ARTIST,), artwork=False), truncated=False),
     )
-    run = TaggingRun(RUN.run_id, RUN.folder, (without_cover,))
+    run = replace(RUN, tracks=(without_cover,))
 
     markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
 
@@ -215,7 +213,7 @@ def test_flags_a_written_track_whose_source_offered_no_cover() -> None:
 
 def test_escapes_a_value_that_would_break_a_table() -> None:
     piped = replace(WRITTEN, track_id="a | b\nc.mp3")
-    run = TaggingRun(RUN.run_id, RUN.folder, (piped,))
+    run = replace(RUN, tracks=(piped,))
 
     markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
 
@@ -224,7 +222,7 @@ def test_escapes_a_value_that_would_break_a_table() -> None:
 
 def test_warns_about_wav_files_once_one_is_written() -> None:
     wav = replace(WRITTEN, path=RUN.folder / "Adam Beyer - Your Mind.wav")
-    run = TaggingRun(RUN.run_id, RUN.folder, (wav,))
+    run = replace(RUN, tracks=(wav,))
 
     markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
 
@@ -232,7 +230,7 @@ def test_warns_about_wav_files_once_one_is_written() -> None:
 
 
 def test_writes_the_json_and_markdown_reports_in_the_folder(tmp_path: Path) -> None:
-    run = TaggingRun(RUN.run_id, tmp_path, RUN.tracks)
+    run = replace(RUN, folder=tmp_path)
     paths = report_paths(tmp_path, CREATED)
 
     write_tagging_report(run, DEFAULT_THRESHOLDS, CREATED, paths)
@@ -243,7 +241,7 @@ def test_writes_the_json_and_markdown_reports_in_the_folder(tmp_path: Path) -> N
 
 
 def test_rewrites_the_same_pair_of_files(tmp_path: Path) -> None:
-    run = TaggingRun(RUN.run_id, tmp_path, RUN.tracks)
+    run = replace(RUN, folder=tmp_path)
     paths = report_paths(tmp_path, CREATED)
     write_tagging_report(run, DEFAULT_THRESHOLDS, CREATED, paths)
 
@@ -273,7 +271,7 @@ def test_logs_a_json_left_without_its_markdown(
         write_atomically(path, text)
 
     monkeypatch.setattr(tagging_report, "write_atomically", refuse_markdown)
-    run = TaggingRun(RUN.run_id, tmp_path, RUN.tracks)
+    run = replace(RUN, folder=tmp_path)
     paths = report_paths(tmp_path, CREATED)
 
     with pytest.raises(ReportWriteError):

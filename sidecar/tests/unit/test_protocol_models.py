@@ -1,5 +1,3 @@
-"""Tests des modeles du protocole NDJSON."""
-
 import json
 from dataclasses import fields
 from pathlib import Path
@@ -247,18 +245,6 @@ def test_command_name_lists_every_command() -> None:
     assert declared == set(get_args(CommandName.__value__))
 
 
-def test_a_malformed_known_command_is_attributed_to_its_command() -> None:
-    """Regression : une commande refusee sur un champ n'etait nommee nulle part et aucun
-    ecran n'affichait son erreur.
-    """
-    with pytest.raises(ValidationError) as excinfo:
-        parse_command(EXTRA_FIELD_LINE)
-
-    event = error_from_validation(excinfo.value)
-
-    assert event.command == "list_playlists"
-
-
 def test_an_api_key_pasted_with_a_space_says_what_to_fix() -> None:
     """Regression : ce refus sortait en erreur interne, la ou la cle seule est a corriger."""
     with pytest.raises(ValidationError) as excinfo:
@@ -282,16 +268,24 @@ def test_a_refused_value_never_travels_with_its_error() -> None:
     assert "do-not-leak" not in event.model_dump_json()
 
 
-def test_a_malformed_command_names_no_command() -> None:
-    """L'interface n'attribue une erreur a un ecran que si le sidecar l'a nommee : une
-    ligne qui n'a pas valide ne designe aucune commande du contrat.
+@pytest.mark.parametrize(
+    ("line", "command"),
+    [(EXTRA_FIELD_LINE, "list_playlists"), (UNKNOWN_COMMAND_LINE, None)],
+    ids=["known-command", "unknown-command"],
+)
+def test_a_validation_error_names_the_command_only_when_the_line_designates_one(
+    line: str, command: str | None
+) -> None:
+    """L'interface n'attribue une erreur a un ecran que si le sidecar l'a nommee. Regression :
+    une commande connue refusee sur un champ n'etait nommee nulle part, aucun ecran n'affichait
+    son erreur ; une ligne inconnue ne designe aucune commande du contrat.
     """
     with pytest.raises(ValidationError) as excinfo:
-        parse_command(UNKNOWN_COMMAND_LINE)
+        parse_command(line)
 
     event = error_from_validation(excinfo.value)
 
-    assert event.command is None
+    assert event.command == command
 
 
 @pytest.mark.parametrize(

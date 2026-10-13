@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { sidecarStub } from "../../../fixtures/sidecar-stub"
+import { type SidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
 import { SidecarService } from "../sidecar/sidecar.service"
 import { APP_WINDOW, type AppWindow, type CloseRequest } from "./app-window"
 import { CloseGuard } from "./close-guard.service"
@@ -46,7 +46,6 @@ class FakeWindow implements AppWindow {
 const setup = async ({ inTauri = true } = {}) => {
   const appWindow = new FakeWindow()
   appWindow.inTauri = inTauri
-  // `tagging`, `runConfirmable` et `arbitrationCount` : la garde ne les lit plus (plan de run).
   const sidecar = sidecarStub()
   TestBed.configureTestingModule({
     providers: [
@@ -182,28 +181,30 @@ describe("CloseGuard", () => {
     expect(guard.request()).toBeNull()
   })
 
-  it("refuses to close while files are being written", async () => {
+  it.each([
+    [
+      "files are being written",
+      "write",
+      (sidecar: SidecarStub) => {
+        sidecar.writing.set(true)
+      },
+    ],
+    [
+      "a rollback runs",
+      "rollback",
+      (sidecar: SidecarStub) => {
+        sidecar.rollingBack.set({ runId: "a3f9c1", trackId: null })
+      },
+    ],
+  ] as const)("refuses to close while %s", async (_case, kind, start) => {
     const { appWindow, sidecar, guard } = await setup()
-    sidecar.writing.set(true)
+    start(sidecar)
 
     const held = appWindow.close()
     await guard.leave()
 
     expect(held).toBe(true)
-    expect(guard.request()).toEqual([{ kind: "write" }])
-    expect(guard.blocked()).toBe(true)
-    expect(appWindow.destroyed).toBe(0)
-  })
-
-  it("refuses to close while a rollback runs", async () => {
-    const { appWindow, sidecar, guard } = await setup()
-    sidecar.rollingBack.set({ runId: "a3f9c1", trackId: null })
-
-    const held = appWindow.close()
-    await guard.leave()
-
-    expect(held).toBe(true)
-    expect(guard.request()).toEqual([{ kind: "rollback" }])
+    expect(guard.request()).toEqual([{ kind }])
     expect(guard.blocked()).toBe(true)
     expect(appWindow.destroyed).toBe(0)
   })

@@ -111,7 +111,7 @@ export interface ResolveByUrlCommand {
   readonly url: string
 }
 
-/** Confirmation globale : le point de non-retour, seul geste qui ecrit des fichiers. */
+/** Confirmation globale : le point de non-retour, aucun tag n'est ecrit avant. */
 export interface CommitRunCommand {
   readonly command: "commit_run"
   readonly run_id: string
@@ -288,7 +288,7 @@ export interface RunStartedEvent {
   readonly tracks: readonly TrackEntry[]
 }
 
-/** Artiste et titre que la source ecrira, calcules par le sidecar (ADR-011). */
+/** Artiste et titre que la source ecrira, calcules par le sidecar. */
 export interface TrackNames {
   readonly artist: string
   readonly title: string
@@ -436,7 +436,6 @@ export interface RunsListedEvent {
 export interface TrackLoaded {
   readonly track_id: string
   readonly file_name: string
-  readonly file_after: string | null
   readonly artist: string
   readonly title: string
   readonly state: TrackState | null

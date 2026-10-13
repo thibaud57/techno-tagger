@@ -101,18 +101,6 @@ describe("TaggingRunStore", () => {
     expect(store.folder()).toBeNull()
   })
 
-  it("empties the run without announcing one in progress", () => {
-    store.reset()
-    store.started(RUN_STARTED)
-    store.resolved(TRACK_RESOLVED)
-
-    store.clear()
-
-    expect(store.tracks()).toEqual([])
-    expect(store.runId()).toBeNull()
-    expect(store.running()).toBe(false)
-  })
-
   it("marks a track as awaiting arbitration", () => {
     store.reset()
     store.started(RUN_STARTED)
@@ -142,6 +130,7 @@ describe("TaggingRunStore", () => {
     store.reset()
 
     expect(store.tracks()).toEqual([])
+    expect(store.runId()).toBeNull()
     expect(store.finished()).toBeNull()
     expect(store.running()).toBe(true)
   })

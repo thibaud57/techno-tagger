@@ -108,8 +108,7 @@ export default class PlaylistPageComponent {
 
   /**
    * Les deux choix de l'ecran en un seul signal : `form()` en derive les champs que
-   * `[formField]` lie aux composants PrimeNG (`ControlValueAccessor`). Sans validateur,
-   * il n'y a rien a valider.
+   * `[formField]` lie aux composants PrimeNG (`ControlValueAccessor`).
    */
   protected readonly choice = signal<PlaylistChoice>({
     playlist:
@@ -181,10 +180,10 @@ export default class PlaylistPageComponent {
   )
 
   /**
-   * `ready` couvre le sidecar lance, la version controlee et aucune extraction en cours.
-   * Le format doit etre annonce : tant qu'il est nul, le dump peut encore se reveler
-   * exiger une playlist, et une erreur de listage le laisse nul aussi. Le sidecar refuse
-   * une extraction pendant la recherche d'un run : le bouton ne l'offre pas.
+   * `ready` couvre aussi l'extraction en cours. Le format doit etre annonce : tant qu'il est
+   * nul, le dump peut encore se reveler exiger une playlist, et une erreur de listage le
+   * laisse nul aussi. Le sidecar refuse une extraction pendant la recherche d'un run : le
+   * bouton ne l'offre pas.
    */
   protected readonly canExtract = computed(
     () =>

@@ -6,16 +6,13 @@ import { action, linkField, page, pasteLink } from "../../../../fixtures/dialog"
 import {
   type SidecarStub,
   type SidecarStubOverrides,
+  commandFailed,
   sidecarStub,
 } from "../../../../fixtures/sidecar-stub"
 import { PENDING_TRACK, arbitrationRequired, unresolvedTrack } from "../../../../fixtures/tagging"
 import { TRACK_URL } from "../../../../fixtures/url-recovery"
 import { commandError } from "../../../../fixtures/write"
-import type {
-  ArbitrationState,
-  SidecarCommand,
-  SidecarErrorEvent,
-} from "../../../core/sidecar/protocol"
+import type { ArbitrationState } from "../../../core/sidecar/protocol"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
@@ -310,15 +307,14 @@ describe("ArbitrationDialogComponent", () => {
   })
 
   it("shows only the error of the current track", () => {
-    const refusal = (trackId: string): SidecarErrorEvent =>
-      commandError("resolve_arbitration", "arbitration_busy", { track_id: trackId })
-    const { fixture, service } = mountWith({
-      lastError: signal<SidecarErrorEvent | null>(refusal("b.mp3")),
-      lastErrorCommand: signal<SidecarCommand["command"] | null>("resolve_arbitration"),
-    })
+    const { fixture, service } = mountWith(
+      commandFailed("resolve_arbitration", "arbitration_busy", { track_id: "b.mp3" }),
+    )
     const elsewhere = page().querySelector("app-error-message")
 
-    service.lastError.set(refusal("a.mp3"))
+    service.lastError.set(
+      commandError("resolve_arbitration", "arbitration_busy", { track_id: "a.mp3" }),
+    )
     fixture.detectChanges()
 
     expect(elsewhere).toBeNull()
@@ -431,7 +427,7 @@ describe("ArbitrationDialogComponent", () => {
       fixture.detectChanges()
 
       expect(TestBed.inject(RecoveryUiStore).linkStep()).toBeNull()
-      expect(page().querySelector('input[data-field="url"]')).toBeNull()
+      expect(linkField()).toBeNull()
     })
 
     it("offers no link step while the refused track stays in the queue for the Bandcamp list", () => {
@@ -441,7 +437,7 @@ describe("ArbitrationDialogComponent", () => {
       service.arbitrations.set([AFTER_REFUSAL])
       fixture.detectChanges()
 
-      expect(page().querySelector('input[data-field="url"]')).toBeNull()
+      expect(linkField()).toBeNull()
       expect(action("skip")).toBeNull()
       expect(page().textContent).toContain("Your Mind")
     })

@@ -1,5 +1,3 @@
-"""Fixtures des tests de resolution : client techno-scraper et caches."""
-
 from typing import TYPE_CHECKING
 
 import pytest

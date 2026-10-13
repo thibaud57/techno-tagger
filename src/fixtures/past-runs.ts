@@ -17,7 +17,6 @@ export const PAST_RUN: PastRun = {
 export const TRACK_LOADED: TrackLoaded = {
   track_id: "a.mp3",
   file_name: "a.mp3",
-  file_after: "Adam Beyer - Your Mind (Original Mix).mp3",
   artist: "Adam Beyer",
   title: "Your Mind",
   state: "written",

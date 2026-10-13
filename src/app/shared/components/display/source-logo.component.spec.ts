@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
+import { hostOf } from "../../../../fixtures/dom"
 import { SourceLogoComponent, type SourceName } from "./source-logo.component"
 
 /** Une source sans trace rendrait une cellule vide, sans erreur. */
@@ -16,7 +17,7 @@ describe("SourceLogoComponent", () => {
 
       fixture.detectChanges()
 
-      const path = (fixture.nativeElement as HTMLElement).querySelector("path")
+      const path = hostOf(fixture).querySelector("path")
       expect(path?.getAttribute("d")).toBeTruthy()
     },
   )

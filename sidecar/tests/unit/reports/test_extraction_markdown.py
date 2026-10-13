@@ -1,5 +1,3 @@
-"""Tests du rendu Markdown du rapport d'extraction."""
-
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -78,18 +76,9 @@ def test_escapes_markdown_breaking_characters_in_a_playlist_sourced_name(
 
 
 def test_an_empty_result_still_writes_a_report_with_no_detail_sections(
-    extraction_result: ExtractionResult, report_context: ReportContext
+    empty_extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    empty = replace(
-        extraction_result,
-        extracted=(),
-        already_present=(),
-        missing=(),
-        duplicates=(),
-        failures=(),
-    )
-
-    rendered = render_markdown(empty, report_context)
+    rendered = render_markdown(empty_extraction_result, report_context)
 
     assert "## Summary" in rendered
     assert "## Extracted" not in rendered

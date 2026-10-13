@@ -11,3 +11,10 @@ export const runDate = (iso: string, language: string | null): string => {
     timeStyle: "short",
   }).format(date)
 }
+
+/** Parametres de `settings.admin.rollback.target` : la date d'ecriture d'un run et son dossier. */
+export const runLine = (
+  writtenAt: string,
+  folder: string,
+  language: string | null,
+): { date: string; folder: string } => ({ date: runDate(writtenAt, language), folder })

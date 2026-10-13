@@ -7,7 +7,7 @@ import { CloseGuard } from "../../../core/platform/close-guard.service"
 
 /**
  * `p-dialog` et non `p-confirmdialog`, reserve aux actions qui touchent aux fichiers musicaux.
- * Bloquee pendant une ecriture ou un rollback : Tauri arreterait le sidecar en plein fichier.
+ * Sans « Quitter quand meme » pendant une ecriture ou un rollback (`CloseGuard.blocked`).
  */
 @Component({
   selector: "app-close-confirmation",

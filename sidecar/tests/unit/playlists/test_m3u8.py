@@ -1,5 +1,3 @@
-"""Tests du parser de playlists M3U8."""
-
 from typing import TYPE_CHECKING, Final
 
 import pytest
@@ -46,7 +44,7 @@ def test_reduces_posix_paths_to_their_file_name(m3u8_playlist: Path) -> None:
 def test_absorbs_the_byte_order_mark(m3u8_playlist: Path) -> None:
     names = m3u8.read_playlist(m3u8_playlist)
 
-    assert not names[0].startswith("﻿")
+    assert not names[0].startswith("\ufeff")
 
 
 def test_keeps_non_ascii_names_intact(m3u8_playlist: Path) -> None:

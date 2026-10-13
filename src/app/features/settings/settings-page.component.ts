@@ -20,7 +20,7 @@ import { IconComponent } from "../../shared/components/display/icon.component"
 import { TruncatedTextComponent } from "../../shared/components/display/truncated-text.component"
 import { ErrorMessageComponent } from "../../shared/components/feedback/error-message.component"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
-import { runDate } from "../../shared/utils/run-date"
+import { runLine } from "../../shared/utils/run-date"
 import { TOOLTIP } from "../../shared/utils/tooltip"
 
 import { SettingsRowComponent } from "./settings-row.component"
@@ -41,7 +41,6 @@ interface PastRunChoice {
 /** Une cle enregistree se signale par des points en placeholder, sans etre relue (ADR-012). */
 export const STORED_KEY_MASK = "•".repeat(24)
 
-/** Section API, rangee Rollback et rangee des runs passes. */
 @Component({
   selector: "app-settings-page",
   imports: [
@@ -70,7 +69,7 @@ export default class SettingsPageComponent {
   private readonly confirmDanger = injectDangerConfirm()
   private readonly router = inject(Router)
 
-  /** Jamais prerempli : la cle n'est pas relue depuis le trousseau (ADR-012). */
+  /** Jamais prerempli : la cle n'est pas relue depuis le trousseau. */
   protected readonly entry = signal<ApiKeyEntry>({ apiKey: "" })
   protected readonly fields = form(this.entry)
   protected readonly typing = computed(() => this.entry().apiKey !== "")
@@ -96,8 +95,7 @@ export default class SettingsPageComponent {
     return target
       ? {
           runId: target.run_id,
-          date: runDate(target.written_at, this.translate.currentLang()),
-          folder: target.folder,
+          ...runLine(target.written_at, target.folder, this.translate.currentLang()),
           count: target.tracks,
         }
       : null
@@ -127,10 +125,10 @@ export default class SettingsPageComponent {
 
     return (this.sidecar.pastRuns() ?? []).map((run) => ({
       value: run.run_id,
-      label: this.translate.instant("settings.admin.rollback.target", {
-        date: runDate(run.written_at, language),
-        folder: run.folder,
-      }) as string,
+      label: this.translate.instant(
+        "settings.admin.rollback.target",
+        runLine(run.written_at, run.folder, language),
+      ) as string,
     }))
   })
   /**

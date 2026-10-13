@@ -1,5 +1,3 @@
-"""Tests des fichiers horodates d'un run, partages par les dumps et les plans."""
-
 from datetime import timedelta
 from pathlib import Path
 

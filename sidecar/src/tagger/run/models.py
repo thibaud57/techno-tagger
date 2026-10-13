@@ -1,8 +1,10 @@
 """Etat d'un run de re-tagging : enums d'issue, fiche d'un morceau, run gele ou vivant,
-evenements internes du pipeline. Aucun appel reseau ni fichier : le pipeline vit dans `tagging`.
+evenements internes du pipeline. Aucun appel reseau ni fichier : le pipeline vit dans
+`run/tagging.py`.
 """
 
-from dataclasses import dataclass, replace
+import copy
+from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
 from typing import TYPE_CHECKING, override
 
@@ -150,7 +152,7 @@ class TrackRecord:
         `scored` nul : une URL collee n'a traverse aucun scoring. Le motif d'echec tombe,
         un non resolu rattrape ne doit pas garder son `no_result`.
         """
-        return replace(
+        return copy.replace(
             self,
             state=TrackState.RESOLVED,
             resolution=resolution,
@@ -164,7 +166,7 @@ class TrackRecord:
 
     def written_to(self, path: Path, outcome: WriteOutcome) -> TrackRecord:
         """Morceau ecrit ; `path` suit le renommage, `track_id` reste celui du run."""
-        return replace(
+        return copy.replace(
             self,
             state=TrackState.WRITTEN,
             failure_reason=None,
@@ -178,7 +180,7 @@ class TrackRecord:
 
         `restorable` faux quand l'origine n'a jamais pu etre lue, donc jamais mise au dump.
         """
-        return replace(
+        return copy.replace(
             self,
             state=TrackState.WRITE_ERROR,
             failure_reason=reason,
@@ -188,9 +190,9 @@ class TrackRecord:
     def rolled_back(self, path: Path) -> TrackRecord:
         """Rendu a son origine : plus rien du candidat, la ligne retombe sur le fichier.
 
-        `resolution` reste, `_resolved` l'exigeant : l'etat la masque a l'ecran.
+        `resolution` reste, `resolved_event` l'exigeant : l'etat la masque a l'ecran.
         """
-        return replace(
+        return copy.replace(
             self,
             state=TrackState.ROLLED_BACK,
             failure_reason=None,
@@ -205,11 +207,11 @@ class TrackRecord:
 
     def unrestorable(self) -> TrackRecord:
         """Entree retiree du dump sans restauration : l'etat reste, plus rien n'est a rendre."""
-        return replace(self, restorable=False)
+        return copy.replace(self, restorable=False)
 
     def unresolved(self, reason: FailureReason) -> TrackRecord:
         """Morceau non resolu, sorti de l'attente d'arbitrage s'il y etait."""
-        return replace(
+        return copy.replace(
             self,
             state=TrackState.UNRESOLVED,
             resolution=Resolution.NONE,
@@ -281,12 +283,10 @@ class TrackResolved:
 
 @dataclass(frozen=True, slots=True)
 class ArbitrationRequired:
-    """Un morceau mis en attente d'une decision humaine."""
-
     record: TrackRecord
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class RunProgress:
     """Morceaux traites : resolus, non resolus ou en attente d'arbitrage."""
 
