@@ -71,12 +71,7 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- **`AppShell`** : états « dossier introuvable ou vidé », « plan illisible » et « plan corrompu » de l'invite de reprise, livrés par le code et absents de la maquette. Focus de l'invite coupé à l'ouverture. Dossier sur sa propre ligne sous le résumé, tronqué à gauche, là où la maquette l'écrit dans la phrase (décidé le 2026-10-12).
-- **`CloseConfirmation`** : lignes `tagging`, `arbitration` et `unwritten` retirées par le code (décidé le 2026-10-12).
-- **`AppShell`, `Recap`** : bouton « Récapitulatif » à la place du lien de simulation, « Envoyer ce rapport » absent, lien source dans `TrackDetail`, bouton « Retour à la liste » en tête du `Recap` (décidé le 2026-10-12).
-- **Fiche `Icon`** : l'inventaire des glyphes de l'app ne compte ni `search`, ni `external-link`, ni `plus`, que le code emploie (champ de recherche et état vide du récapitulatif pour `search`, lien source du détail pour `external-link`, « Nouveau run » pour `plus`) (constaté le 2026-10-12).
-- **Fiche `Button`** : la variante `link` n'y sert qu'à « Revenir à Beatport », le lien source du détail en est un second usage (constaté le 2026-10-12).
-- **`SettingsScreen`, `Recap`** : rangée « Runs passés » dans les Réglages (sélecteur de run et bouton « Ouvrir le récapitulatif »), absente de la maquette. `Recap` : ligne de contexte « Run du {date} sur {dossier} » sous l'en-tête, sur sa propre rangée et lecture seule d'un run passé, sans « Restaurer le run » ni « Nouveau run » (constaté le 2026-10-13).
+Rien au 2026-10-13.
 
 ## Journal
 
@@ -216,3 +211,4 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   sans erreur. Le gabarit `templates/app-shell`, resté à l'état d'avant le container unique (formulaire
   à 768px, « Re-tagging », six colonnes), suit l'app et est poussé : sa description dans le manifeste
   change à la recompilation suivante, à relire du distant.
+- **2026-10-13, réalignement de la Feature 6** : les écarts laissés par la reprise, le récapitulatif et les runs passés sont poussés. `AppShell` ouvre le récapitulatif par « Récapitulatif » à côté de « Restaurer le run », rend les trois états de l'invite de reprise sans focus, dossier sur sa ligne, et une confirmation de sortie réduite à l'extraction, l'écriture et la restauration. `Recap` perd « Envoyer ce rapport », « Restaurer le run » et « Nouveau run » au profit d'un pied commun aux deux runs, retour à gauche et contexte à droite. `TrackDetail` passe à une pochette de 168px, « Restaurer ce morceau » dessous, 7 lignes dans tous les cas, ligne Source par logo et nom. `SettingsScreen` gagne la rangée « Runs passés ». `SourceLabel` rejoint le catalogue, `Icon` compte `search` et `external-link`, `Button` le second usage de `link`, `--tt-artwork-size-large` passe à 168px. Réserve n° 17 datée, `_ds_needs_recompile` posé. Écrans non rendus en local avant le push.

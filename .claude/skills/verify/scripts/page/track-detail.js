@@ -71,6 +71,20 @@ async (page) => {
             left: grid ? art.getBoundingClientRect().right <= grid.getBoundingClientRect().left : null,
           },
           valueWidth: cells[0] ? Math.round(cells[0][3].getBoundingClientRect().width) : null,
+          rowHeights: rows.map((x) => Math.round(x.getBoundingClientRect().height)),
+          restoreButtons: d.querySelectorAll('[data-action="restore-track"]').length,
+          source: (() => {
+            const r = rows.find((x) => x.querySelector("[data-cell]")?.textContent.trim() === "Source")
+            const label = r?.querySelectorAll("[data-cell]")[3]?.querySelector("app-source-label")
+            const logo = label?.querySelector("app-source-logo svg, app-source-logo img")?.getBoundingClientRect()
+            return label && {
+              text: label.textContent.trim(),
+              display: getComputedStyle(label).display,
+              logoFirst: label.firstElementChild?.tagName === "APP-SOURCE-LOGO",
+              logoW: logo ? Math.round(logo.width) : null,
+              logoBeforeText: logo ? logo.right <= label.getBoundingClientRect().right - 8 : null,
+            }
+          })(),
           zIndex: getComputedStyle(frame).zIndex,
         }
       },
@@ -190,7 +204,16 @@ async (page) => {
   check("resolved: fields in the sidecar order, custom keys without the TXXX: prefix", JSON.stringify(r?.rows.map((x) => x[0])) === JSON.stringify(["Artiste", "Titre", "Remixeur", "Genre", "BPM", "Key", "Label", "Numéro de catalogue", "ISRC", "Album", "Numéro de piste", "Année", "Source", "URL", "Commentaire"]) && JSON.stringify(r.rows.map((x) => x[1])) === JSON.stringify(["TPE1", "TIT2", "TPE4", "TCON", "TBPM", "TKEY", "TPUB", "CATALOGNUMBER", "TSRC", "TALB", "TRCK", "TYER", "SOURCE", "WOAS", ""]), r?.rows.map((x) => `${x[0]} ${x[1]}`))
   check("resolved: first row, key beside the label", JSON.stringify(r?.rows[0]) === JSON.stringify(["Artiste", "TPE1", "lior vance", "Lior Vance, Mara Quill"]), r?.rows[0])
   check("resolved: comment row, after em dash", JSON.stringify(r?.rows.at(-1)) === JSON.stringify(["Commentaire", "", "Ripped by X", "—"]), r?.rows.at(-1))
-  check("artwork 160px left of the grid", r?.art?.w === 160 && r?.art?.left === true && r?.art?.frame, r?.art)
+  check("artwork 168px left of the grid", r?.art?.w === 168 && r?.art?.left === true && r?.art?.frame, r?.art)
+  check("not restorable: no restore button, frame still 7 rows", r?.restoreButtons === 0 && r.frame === 7 * ROW, r && { buttons: r.restoreButtons, frame: r.frame })
+  check("source row: brand logo 16px then the brand name, not the raw value", r?.source?.text === "Beatport" && r.source.display === "inline-flex" && r.source.logoFirst && r.source.logoW === 16 && r.source.logoBeforeText && r.rows[12][3] === "Beatport", r?.source)
+  const listSource = await page.evaluate((name) => {
+    const tr = [...document.querySelectorAll("app-run-list tbody tr")].find((x) => x.textContent.includes(name))
+    const label = tr.querySelector("td app-source-label")
+    return label && { text: label.textContent.trim(), logo: label.querySelector("app-source-logo svg, app-source-logo img") !== null, display: getComputedStyle(label).display }
+  }, R.file_name)
+  check("every detail row as tall as the others, Source row included", new Set(r?.rowHeights).size === 1, r?.rowHeights)
+  check("list Source column: brand logo then brand name", listSource?.text === "Beatport" && listSource.logo && listSource.display === "inline-flex", listSource)
   check("frame of 7 rows, filled to the padding, next row right under it", r?.span === 7 && r.spanMatchesFrame && !r.scrolls && r.gapUnderLast <= 17 && r.nextRowTop === 0, r && { span: r.span, frame: r.frame, scrolls: r.scrolls, gap: r.gapUnderLast, next: r.nextRowTop })
   check("no z-index on the frame", r?.zIndex === "auto", r?.zIndex)
   check("no field label cut", r?.cut.length === 0, r?.cut)

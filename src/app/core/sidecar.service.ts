@@ -385,15 +385,6 @@ export class SidecarService {
     this.taggingRun.failed()
   }
 
-  /** « Nouveau run » du recapitulatif : l'onglet Tagging repart vide, aucune commande ne part. */
-  clearRun(): void {
-    if (this.taggingRun.running() || this.filesBusy()) {
-      return
-    }
-    this.dropRun(null)
-    this.taggingRun.clear()
-  }
-
   /**
    * Les evenements rejoues par le moteur remplissent le run comme un lancement. L'invite est deja
    * fermee et le run marque en cours a l'envoi : un second clic ne repart pas. Rend `false` quand
@@ -567,17 +558,12 @@ export class SidecarService {
 
   /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   private prepareRun(folder: string): void {
-    this.dropRun(folder)
-    this.taggingRun.reset()
-  }
-
-  /** Oublie l'ecriture, les arbitrages et le rattrapage du run affiche, sans en annoncer un autre. */
-  private dropRun(folder: string | null): void {
     this._requestedFolder.set(folder)
     this.writePhase.reset()
     // Le sidecar jette les arbitrages de l'ancien run a la reception de la commande.
     this.arbitration.clear()
     this.urlRecovery.clear()
+    this.taggingRun.reset()
   }
 
   /** Un geste par morceau a la fois : un double clic ne repart pas avant la reponse. */

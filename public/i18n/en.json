@@ -318,8 +318,7 @@
       "heading": "This run cannot be shown",
       "description": "Reopen a run from the Settings tab."
     },
-    "back": "Back to the list",
-    "newRun": "New run"
+    "back": "Back to the list"
   },
   "rollback": {
     "failures": "Files not restored: {{count}}",

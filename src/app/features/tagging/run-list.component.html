@@ -91,10 +91,7 @@
           </td>
           <td>
             @if (track.source; as source) {
-              <span class="flex items-center gap-2">
-                <app-source-logo [source]="source" [size]="16" />
-                {{ track.sourceName }}
-              </span>
+              <app-source-label [source]="source" />
             } @else {
               <app-no-value />
             }

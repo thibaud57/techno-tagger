@@ -82,37 +82,66 @@ async (page) => {
     await page.waitForSelector("app-recap-page")
     await settle()
   }
-  // En-tete du recapitulatif (`flex-wrap`), rangee de contexte sous lui (`min-h-5`, enfant direct du
-  // conteneur `flex-col`, absente d'un run vivant et d'un refus) et haut de la table.
+  // Mise en page du recapitulatif : en-tete (`flex-wrap`, enfant direct de la page), colonne
+  // `flex-1 flex-col` qui porte la table (ou le cadre d'un refus) puis le pied, et ses mesures. Le pied
+  // tient, pour un run passe comme pour le run vivant, le retour a gauche et le contexte a droite (celui du
+  // run vivant vient de la cible de restauration). Le conteneur de la table sert de repere pour les bords.
   const block = () =>
     page.evaluate(() => {
       const host = document.querySelector("app-recap-page")
       const h1 = host.querySelector("h1")
       const head = h1.closest(".flex-wrap")
-      const wrap = head.parentElement
-      const row = wrap.querySelector(":scope > .min-h-5")
-      const ctx = row?.querySelector("app-truncated-text") ?? null
+      const col = [...host.children].find((k) => k.matches("div.flex.min-h-0.flex-1.flex-col")) ?? null
+      const tableBox = col?.firstElementChild ?? null
+      const footer = col?.lastElementChild ?? null
       const list = host.querySelector("app-run-list")
+      const back = host.querySelector('[data-action="back"]')
+      const ctx = host.querySelector("[data-run-context]")
+      const span = ctx?.querySelector("span") ?? null
+      const filters = head.querySelector("p-selectbutton")
       const rect = (e) => e.getBoundingClientRect()
+      const mid = (r) => (r.top + r.bottom) / 2
+      const hr = rect(head)
+      const t = rect(h1)
+      const backInFooter = !!back && !!footer && footer.contains(back)
       return {
         h1InHead: h1.parentElement === head,
-        backInHead: head.contains(host.querySelector('[data-action="back"]')),
-        headHeight: Math.round(rect(head).height),
-        wrapHeight: Math.round(rect(wrap).height),
-        row: row !== null,
-        rowHeight: row ? Math.round(rect(row).height) : null,
-        rowClass: row?.className ?? null,
-        rowSize: row ? getComputedStyle(row).fontSize : null,
-        rowColor: row ? getComputedStyle(row).color : null,
-        rowBelowHead: row ? rect(row).top >= rect(head).bottom - 1 : null,
-        gap: row ? Math.round(rect(row).top - rect(head).bottom) : null,
+        headIsDirectChild: head.parentElement === host,
+        noContextRow: host.querySelector(".min-h-5") === null,
+        backInHead: !!back && head.contains(back),
+        backInFooter,
+        backCount: host.querySelectorAll('[data-action="back"]').length,
+        headHeight: Math.round(hr.height),
+        headOverflow: head.scrollWidth > head.clientWidth + 1 || [...head.children].some((k) => rect(k).right > hr.right + 1),
+        titleHeight: Math.round(t.height),
+        backHeight: back ? Math.round(rect(back).height) : null,
+        backSameLineAsTitle: !!back && head.contains(back) && rect(back).right <= t.left && Math.abs(mid(rect(back)) - mid(t)) <= 2,
+        filtersBelowTitle: filters ? rect(filters).top >= t.bottom - 1 : null,
+        col: col !== null,
+        colGap: col ? Math.round(parseFloat(getComputedStyle(col).rowGap)) : null,
+        footer: footer !== null && footer !== tableBox,
+        footerNextToTable: !!tableBox && tableBox.nextElementSibling === footer,
+        footerClass: footer?.className ?? null,
+        footerHeight: footer ? Math.round(rect(footer).height) : null,
+        footerOverflow: footer ? footer.scrollWidth > footer.clientWidth + 1 : null,
+        gap: tableBox && footer ? Math.round(rect(footer).top - rect(tableBox).bottom) : null,
+        tableTop: tableBox ? Math.round(rect(tableBox).top) : null,
+        tableIsList: !!list && !!tableBox && tableBox.contains(list),
+        backLeftDelta: backInFooter ? Math.round((rect(back).left - rect(tableBox).left) * 10) / 10 : null,
         ctx: ctx !== null,
         ctxText: ctx?.textContent.trim() ?? null,
+        ctxClass: ctx?.className ?? null,
+        ctxSize: ctx ? getComputedStyle(ctx).fontSize : null,
         ctxColor: ctx ? getComputedStyle(ctx).color : null,
-        tableTop: list ? Math.round(rect(list.parentElement).top) : null,
+        titleColor: getComputedStyle(h1).color,
+        ctxRightDelta: ctx ? Math.round((rect(ctx).right - rect(tableBox).right) * 10) / 10 : null,
+        ctxCenterDelta: ctx && backInFooter ? Math.round(Math.abs(mid(rect(ctx)) - mid(rect(back))) * 10) / 10 : null,
+        ctxAfterBack: ctx && backInFooter ? rect(ctx).left >= rect(back).right - 1 : null,
+        ctxInFooter: ctx && footer ? footer.contains(ctx) && rect(ctx).right <= rect(footer).right + 1 : null,
+        ctxCut: span ? span.scrollWidth > span.clientWidth : null,
+        pageWide: document.scrollingElement.scrollWidth > document.scrollingElement.clientWidth,
       }
     })
-
   // Selecteur des Reglages.
   const selectState = () =>
     page.evaluate(() => {
@@ -403,7 +432,6 @@ async (page) => {
   await settle()
   const skeleton = await page.evaluate(() => {
     const host = document.querySelector("app-recap-page")
-    const back = host.querySelector('[data-action="back"]')
     return {
       path: location.pathname,
       tab: document.querySelector('p-tab[aria-selected="true"], .p-tab-active')?.textContent.trim(),
@@ -411,7 +439,6 @@ async (page) => {
       text: host.textContent.replace(/[ \t\r\n]+/g, " "),
       emptyStates: host.querySelectorAll("app-empty-state").length,
       rows: host.querySelectorAll("[data-row-toggle]").length,
-      backBeforeTitle: back && back.getBoundingClientRect().right <= host.querySelector("h1").getBoundingClientRect().left,
       actions: host.querySelectorAll('[data-action="restore-run"], [data-action="new-run"], [data-write-failures]').length,
     }
   })
@@ -421,7 +448,9 @@ async (page) => {
   check("open: route /tagging/recap/<runId>, Tagging tab active", skeleton.path === `/tagging/recap/${R2.run_id}` && /Tagging/.test(skeleton.tab ?? ""), skeleton)
   check("open: exactly one load_run, with the chosen run_id", opened.length === 1 && opened[0].run_id === R2.run_id, opened)
   check("open: skeleton rows until run_loaded, never the empty state", skeleton.skeleton && !/Aucun run à récapituler|No run to summarize/.test(skeleton.text) && skeleton.emptyStates === 0 && skeleton.rows === 0, skeleton)
-  check("open: back button before the title, no write gesture while loading", skeleton.backBeforeTitle === true && skeleton.actions === 0, skeleton)
+  check("open: no back button in the header, no write gesture while loading", skeletonBlock.backInHead === false && skeleton.actions === 0, { skeleton, skeletonBlock })
+  check("skeleton: header direct under the page, no context row, column of 8px (gap-2) with the table then the footer row", skeletonBlock.h1InHead && skeletonBlock.headIsDirectChild && skeletonBlock.noContextRow && skeletonBlock.col && skeletonBlock.colGap === 8 && skeletonBlock.tableIsList && skeletonBlock.footer && skeletonBlock.footerNextToTable, skeletonBlock)
+  check("skeleton: back button alone in the footer row at the bottom left, 8px under the table, no context", skeletonBlock.backInFooter && skeletonBlock.backCount === 1 && Math.abs(skeletonBlock.backLeftDelta) <= 1 && skeletonBlock.gap === 8 && skeletonBlock.ctx === false && /flex/.test(skeletonBlock.footerClass ?? "") && /items-center/.test(skeletonBlock.footerClass ?? ""), skeletonBlock)
   await shot("02-past-skeleton")
 
   await loaded(R2)
@@ -429,19 +458,17 @@ async (page) => {
   const reopened = (await sentOf("load_run")).length
   const body = await page.evaluate(() => {
     const host = document.querySelector("app-recap-page")
-    const h1 = host.querySelector("h1")
-    const back = host.querySelector('[data-action="back"]')
     return {
       skeleton: host.querySelector("app-skeleton-rows") !== null,
-      h1: h1.textContent.trim(),
-      backBeforeTitle: back.getBoundingClientRect().right <= h1.getBoundingClientRect().left,
+      h1: host.querySelector("h1").textContent.trim(),
     }
   })
   const loadedBlock = await block()
   out.measures.body = { ...body, block: loadedBlock }
-  check("loaded: skeleton gone, title, then the context line (same date and key as the settings)", !body.skeleton && body.h1 === "Récapitulatif du run" && loadedBlock.ctxText === expected2 && loadedBlock.rowBelowHead === true && body.backBeforeTitle, { body, loadedBlock, expected2 })
-  check("context row: its own row under the header, title directly in the header, 20px, text-sm muted, 4px below", skeletonBlock.h1InHead && skeletonBlock.backInHead && loadedBlock.h1InHead && loadedBlock.backInHead && loadedBlock.rowHeight === 20 && loadedBlock.rowSize === "14px" && /min-h-5/.test(loadedBlock.rowClass ?? "") && /text-muted-color/.test(loadedBlock.rowClass ?? "") && loadedBlock.ctxColor === loadedBlock.rowColor && loadedBlock.gap === 4, { skeletonBlock, loadedBlock })
-  check("no layout jump at run_loaded: reserved row of the same 20px, same header, table top does not move (1280 x 800)", skeletonBlock.row && !skeletonBlock.ctx && skeletonBlock.rowHeight === 20 && loadedBlock.rowHeight === skeletonBlock.rowHeight && loadedBlock.headHeight === skeletonBlock.headHeight && loadedBlock.wrapHeight === skeletonBlock.wrapHeight && loadedBlock.tableTop - skeletonBlock.tableTop === 0, { skeletonBlock, loadedBlock })
+  check("loaded: skeleton gone, title, then the context line in the footer (same date and key as the settings)", !body.skeleton && body.h1 === "Récapitulatif du run" && loadedBlock.ctxText === expected2 && loadedBlock.ctxInFooter === true, { body, loadedBlock, expected2 })
+  check("loaded: no back button in the header, back in the footer row at the bottom left (table left edge within 1px), footer row next to the table and 8px under it", loadedBlock.backInHead === false && loadedBlock.backInFooter && loadedBlock.backCount === 1 && Math.abs(loadedBlock.backLeftDelta) <= 1 && loadedBlock.footerNextToTable && loadedBlock.gap === 8 && loadedBlock.colGap === 8 && loadedBlock.headIsDirectChild && loadedBlock.noContextRow, loadedBlock)
+  check("loaded: context at the right of the footer row (table right edge within 1px), 14px muted, centered with the back button within 2px", loadedBlock.ctx && Math.abs(loadedBlock.ctxRightDelta) <= 1 && loadedBlock.ctxAfterBack === true && loadedBlock.ctxSize === "14px" && /text-muted-color/.test(loadedBlock.ctxClass ?? "") && /ml-auto/.test(loadedBlock.ctxClass ?? "") && loadedBlock.ctxColor !== loadedBlock.titleColor && loadedBlock.ctxCenterDelta <= 2, loadedBlock)
+  check("no layout jump at run_loaded: table top and footer row height unchanged, header unchanged (1280 x 800)", skeletonBlock.ctx === false && loadedBlock.tableTop === skeletonBlock.tableTop && loadedBlock.footerHeight === skeletonBlock.footerHeight && loadedBlock.headHeight === skeletonBlock.headHeight && loadedBlock.gap === skeletonBlock.gap, { skeletonBlock, loadedBlock })
   check("load_run sent once per page instance", reopened === 1, reopened)
 
   const c = await counts()
@@ -519,43 +546,13 @@ async (page) => {
     await shot(`recap-past-${w}-${lang}`)
   })
 
-  // En-tete au plancher 1024 x 700, FR puis EN : contexte court puis dossier tres long.
-  const header = () =>
-    page.evaluate(() => {
-      const h1 = document.querySelector("app-recap-page h1")
-      const row = h1.closest(".flex-wrap")
-      const ctxRow = row.parentElement.querySelector(":scope > .min-h-5")
-      const back = row.querySelector('[data-action="back"]')
-      const r = row.getBoundingClientRect()
-      const b = back.getBoundingClientRect()
-      const t = h1.getBoundingClientRect()
-      const kids = [...row.children].map((k) => k.getBoundingClientRect())
-      const ctx = ctxRow?.querySelector("app-truncated-text") ?? null
-      const span = ctx?.querySelector("span")
-      const filters = row.querySelector("p-selectbutton")
-      const cr = ctxRow?.getBoundingClientRect()
-      return {
-        overflow: row.scrollWidth > row.clientWidth + 1 || kids.some((k) => k.right > r.right + 1),
-        titleHeight: Math.round(t.height),
-        backHeight: Math.round(b.height),
-        // Le retour reste a gauche du titre, sur la meme ligne (le contexte n'est plus dans l'en-tete).
-        backSameLine: b.right <= t.left && Math.abs((b.top + b.bottom) / 2 - (t.top + t.bottom) / 2) <= 2,
-        contextRowHeight: cr ? Math.round(cr.height) : null,
-        contextCut: span ? span.scrollWidth > span.clientWidth : null,
-        contextWidth: ctx ? Math.round(ctx.getBoundingClientRect().width) : null,
-        contextOverflow: ctxRow ? ctxRow.scrollWidth > ctxRow.clientWidth + 1 || (ctx !== null && ctx.getBoundingClientRect().right > cr.right + 1) : null,
-        filtersBelowTitle: filters ? filters.getBoundingClientRect().top >= t.bottom - 1 : null,
-        rowWidth: Math.round(r.width),
-        rowHeight: Math.round(r.height),
-        blockHeight: Math.round(row.parentElement.getBoundingClientRect().height),
-        pageWide: document.scrollingElement.scrollWidth > document.scrollingElement.clientWidth,
-      }
-    })
+  // Plancher 1024 x 700, FR puis EN : contexte court puis dossier tres long. Rien ne deborde de la page,
+  // le retour reste a gauche du pied sur une ligne, le contexte est coupe a droite avec son tooltip.
   await page.setViewportSize({ width: 1024, height: 700 })
   await settle()
-  const shortFr = await header()
+  const shortFr = await block()
   await setLang("en")
-  const shortEn = await header()
+  const shortEn = await block()
   await setLang("fr")
   await navigate("/tagging")
   await page.waitForSelector("app-tagging-page")
@@ -564,10 +561,10 @@ async (page) => {
   await page.waitForSelector("app-recap-page")
   await loaded(R3)
   await settle()
-  const longFr = await header()
-  await shot("04-header-long-1024-fr")
+  const longFr = await block()
+  await shot("04-footer-long-1024-fr")
   const tipOfContext = async () => {
-    await page.locator("app-recap-page .min-h-5 app-truncated-text span").hover()
+    await page.locator("app-recap-page [data-run-context] span").hover()
     await page.waitForTimeout(900)
     const tip = await page.evaluate(() => document.querySelector(".p-tooltip")?.textContent.replace(/[ \t\r\n]+/g, " ").trim() ?? null)
     await page.mouse.move(0, 0)
@@ -575,22 +572,23 @@ async (page) => {
   }
   const longTip = await tipOfContext()
   await setLang("en")
-  const longEn = await header()
-  await shot("04-header-long-1024-en")
+  const longEn = await block()
+  await shot("04-footer-long-1024-en")
   const expected3En = await label(R3.written_at, R3.folder, "en")
   const longTipEn = await tipOfContext()
   await setLang("fr")
-  out.measures.header = { shortFr, shortEn, longFr, longEn, longTip, longTipEn }
-  const fits = (h) => !h.overflow && !h.pageWide && h.titleHeight <= 32 && h.backHeight <= 32
-  check("header fits at 1024px in FR and EN with the short context", fits(shortFr) && fits(shortEn) && shortFr.backSameLine && shortEn.backSameLine, { shortFr, shortEn })
-  check("very long folder (100 characters) at 1024 x 700, FR and EN: back left of the title on the same line, context cut in its own row, nothing overflows", fits(longFr) && fits(longEn) && longFr.backSameLine && longEn.backSameLine && longFr.contextCut === true && longEn.contextCut === true && longFr.contextOverflow === false && longEn.contextOverflow === false && longFr.contextRowHeight === 20 && longEn.contextRowHeight === 20 && R3.folder.length >= 100, { longFr, longEn, folderLength: R3.folder.length })
+  out.measures.floor = { shortFr, shortEn, longFr, longEn, longTip, longTipEn }
+  const fits = (h) => !h.headOverflow && !h.pageWide && h.titleHeight <= 32 && h.footerOverflow === false && h.backHeight <= 32
+  const footerLeft = (h) => h.backInFooter && !h.backInHead && Math.abs(h.backLeftDelta) <= 1 && h.gap === 8 && h.footerNextToTable
+  check("past run at 1024px in FR and EN with the short context: nothing overflows, no back in the header, back at the bottom left, context right-aligned", fits(shortFr) && fits(shortEn) && footerLeft(shortFr) && footerLeft(shortEn) && Math.abs(shortFr.ctxRightDelta) <= 1 && Math.abs(shortEn.ctxRightDelta) <= 1 && shortFr.ctxCenterDelta <= 2 && shortEn.ctxCenterDelta <= 2, { shortFr, shortEn })
+  check("very long folder (100 characters) at 1024 x 700, FR and EN: nothing overflows, back on one line at the left, context cut at the right of the same row", R3.folder.length >= 100 && fits(longFr) && fits(longEn) && footerLeft(longFr) && footerLeft(longEn) && longFr.ctxCut === true && longEn.ctxCut === true && longFr.ctxInFooter === true && longEn.ctxInFooter === true && longFr.ctxAfterBack === true && longEn.ctxAfterBack === true && longFr.ctxCenterDelta <= 2 && longEn.ctxCenterDelta <= 2, { longFr, longEn, folderLength: R3.folder.length })
   check("long context: the tooltip shows the whole line, FR and EN", longTip === expected3 && longTipEn === expected3En, { longTip, expected3, longTipEn, expected3En })
   await page.setViewportSize({ width: 1280, height: 800 })
   await settle()
 
-  // La rangee de contexte garde sa hauteur de 20px de l'ouverture (squelettes) a `run_loaded`, dans chaque
-  // vue, FR et EN : le haut de la table ne bouge que de ce que l'en-tete lui-meme change (les filtres
-  // arrivent avec les morceaux et passent sous le titre en FR a 1024px), jamais de la ligne de contexte.
+  // Aucun saut a `run_loaded`, dans chaque vue, FR et EN : le haut de la table ne bouge que de ce que
+  // l'en-tete lui-meme change (les filtres arrivent avec les morceaux et passent sous le titre en FR a
+  // 1024px), la hauteur du pied jamais, et l'ecart de 8px reste le meme.
   const reserved = {}
   let n = 0
   await eachView(async (w, lang) => {
@@ -604,8 +602,8 @@ async (page) => {
     reserved[`${w}-${lang}`] = { before, after, headDelta: after.headHeight - before.headHeight, tableDelta: after.tableTop - before.tableTop }
   })
   out.measures.reserved = reserved
-  check("context row reserved in every view: 20px before and after run_loaded, table moves only with the header", Object.values(reserved).every((v) => v.before.row && !v.before.ctx && v.after.ctx && v.before.rowHeight === 20 && v.after.rowHeight === 20 && v.before.gap === v.after.gap && v.tableDelta === v.headDelta), reserved)
-  check("context row reserved: the table top does not move at 1280 x 800, FR and EN", reserved["1280-fr"].tableDelta === 0 && reserved["1280-en"].tableDelta === 0, { fr: reserved["1280-fr"], en: reserved["1280-en"] })
+  check("footer row in every view: same height before and after run_loaded, still 8px under the table, context only after, table moves only with the header", Object.values(reserved).every((v) => !v.before.ctx && v.after.ctx && v.before.footerHeight === v.after.footerHeight && v.before.gap === 8 && v.after.gap === 8 && v.tableDelta === v.headDelta), reserved)
+  check("no layout jump: the table top and the footer row height do not move at 1280 x 800, FR and EN", ["1280-fr", "1280-en"].every((k) => reserved[k].tableDelta === 0 && reserved[k].headDelta === 0 && reserved[k].before.footerHeight === reserved[k].after.footerHeight), { fr: reserved["1280-fr"], en: reserved["1280-en"] })
 
   // ======================================================================== Refus
   const refusalView = () =>
@@ -624,7 +622,12 @@ async (page) => {
         skeleton: host.querySelector("app-skeleton-rows") !== null,
         back: back !== null,
         filters: host.querySelector("p-selectbutton") !== null,
-        contextRow: host.querySelector("h1").closest(".flex-wrap").parentElement.querySelector(":scope > .min-h-5") !== null,
+        context: host.querySelector("[data-run-context]") !== null,
+        backInHead: back !== null && host.querySelector("h1").closest(".flex-wrap").contains(back),
+        footerUnderEmpty: (() => {
+          const footer = back?.closest("div.flex.items-center")
+          return !!footer && !!empty && footer.previousElementSibling === empty && Math.round(footer.getBoundingClientRect().top - empty.getBoundingClientRect().bottom) === 8 && Math.abs(back.getBoundingClientRect().left - empty.getBoundingClientRect().left) <= 1
+        })(),
         actions: host.querySelectorAll('[data-action="restore-run"], [data-action="new-run"], [data-write-failures]').length,
       }
     })
@@ -638,8 +641,8 @@ async (page) => {
   const notFound = await refusalView()
   out.measures.notFound = { sentNotFound, loadingNotFound, notFound }
   check("deep link: one load_run, skeleton first", sentNotFound.length === 1 && sentNotFound[0].run_id === "000000" && loadingNotFound.skeleton && loadingNotFound.message === null, { sentNotFound, loadingNotFound })
-  check("refusal: no context row (reserved while loading, gone once refused)", loadingNotFound.contextRow === true && notFound.contextRow === false, { loadingNotFound: loadingNotFound.contextRow, notFound: notFound.contextRow })
-  check("run_not_found: translated message, framed empty state, back kept, no table", /Ce run n'existe plus/.test(notFound.message ?? "") && /Impossible d'afficher ce run/.test(notFound.emptyText ?? "") && notFound.messageAbove && notFound.messageBelowHeader && notFound.emptyFramed && !notFound.table && !notFound.skeleton && notFound.back && !notFound.filters && notFound.actions === 0, notFound)
+  check("refusal: back in the footer, no context, neither while loading nor once refused", !loadingNotFound.backInHead && loadingNotFound.back && !loadingNotFound.context && !notFound.backInHead && notFound.back && !notFound.context, { loadingNotFound, notFound })
+  check("run_not_found: translated message, framed empty state, back kept, no table", /Ce run n'existe plus/.test(notFound.message ?? "") && /Impossible d'afficher ce run/.test(notFound.emptyText ?? "") && notFound.messageAbove && notFound.messageBelowHeader && notFound.emptyFramed && notFound.footerUnderEmpty && !notFound.table && !notFound.skeleton && notFound.back && !notFound.filters && notFound.actions === 0, notFound)
   // Une autre commande efface `lastError`, pas le refus de la page.
   await page.evaluate(async () => {
     await window.__svc.loadRollbackTarget()
@@ -674,7 +677,7 @@ async (page) => {
   await setLang("fr")
   out.measures.phaseBusy = { busy, busyAfter, busyEn }
   check("phase_busy: the sentence of the running phase, framed empty state, no table", /L'écriture est en cours/.test(busy.message ?? "") && /Impossible d'afficher ce run/.test(busy.emptyText ?? "") && busy.emptyFramed && !busy.table && !busy.skeleton && busy.back, busy)
-  check("phase_busy: no context row", busy.contextRow === false && busyAfter.contextRow === false, { busy: busy.contextRow, busyAfter: busyAfter.contextRow })
+  check("phase_busy: back in the footer under the framed empty state, no context", busy.footerUnderEmpty && busyAfter.footerUnderEmpty && !busy.backInHead && !busy.context && !busyAfter.context, { busy, busyAfter })
   check("phase_busy: another command keeps the refusal", /L'écriture est en cours/.test(busyAfter.message ?? "") && !busyAfter.skeleton, busyAfter)
   check("phase_busy: message in EN", /Writing is in progress/.test(busyEn.message ?? ""), busyEn)
   await shot("05-refusal-phase-busy")
@@ -730,6 +733,7 @@ async (page) => {
   await settle()
   const afterWrite = (await sentOf("list_runs")).length
   check("list_runs: none after the search phase, one after the write phase", afterNetwork === 0 && afterWrite === 1, { afterNetwork, afterWrite })
+  const LIVE_WRITTEN_AT = "2026-10-12T20:00:00Z"
   await page.evaluate((id) => window.__svc.rollback(id, "f.mp3"), LIVE)
   await line({ event: "track_resolved", track_id: F.track_id, state: "rolled_back", resolution: "auto", failure_reason: null, source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false, source_url: null })
   await line({ event: "rollback_finished", run_id: LIVE, track_id: "f.mp3", restored: ["f.mp3"], failed: [] })
@@ -746,9 +750,29 @@ async (page) => {
   const liveRo = await readOnly()
   const liveCounts = await counts()
   out.measures.live = { liveRo, liveCounts }
-  check("live run: the probe sees the restore gestures, failure message and restore summary", liveRo.restoreRun === 1 && liveRo.restoreTrack === 1 && liveRo.newRun === 1 && liveRo.writeFailures === 1 && liveRo.rollbackFailuresText > 0, liveRo)
+  check("live run: the probe sees the per-track restore, failure message and restore summary; restore-run and new-run are gone from the recap", liveRo.restoreRun === 0 && liveRo.newRun === 0 && liveRo.restoreTrack === 1 && liveRo.writeFailures === 1 && liveRo.rollbackFailuresText > 0, liveRo)
   const liveBlock = await block()
-  check("live run: no context row, not even a reserved one", liveBlock.row === false && liveBlock.ctx === false, liveBlock)
+  // Pied du run vivant, comme celui d'un run passe : retour a gauche, contexte a droite une fois la cible connue,
+  // 8px sous la table, rien d'autre.
+  const liveFoot = async (ctxAfterTarget) => {
+    const extra = await page.evaluate(() => {
+      const host = document.querySelector("app-recap-page")
+      return {
+        restoreRun: host.querySelectorAll('[data-action="restore-run"]').length,
+        newRun: host.querySelectorAll('[data-action="new-run"]').length,
+        footerButtons: [...host.querySelectorAll('[data-action="back"]')].map((b) => b.parentElement.querySelectorAll("button").length),
+      }
+    })
+    return { ...(await block()), ...extra, ctxAfterTarget }
+  }
+  const liveNoTarget = await liveFoot(false)
+  check("live run before its rollback target: header holds the title only, back alone in the footer 8px under the table, no context, no restore-run or new-run", liveNoTarget.h1InHead && liveNoTarget.headIsDirectChild && !liveNoTarget.backInHead && liveNoTarget.backInFooter && liveNoTarget.backCount === 1 && JSON.stringify(liveNoTarget.footerButtons) === JSON.stringify([1]) && Math.abs(liveNoTarget.backLeftDelta) <= 1 && liveNoTarget.gap === 8 && liveNoTarget.colGap === 8 && liveNoTarget.footerNextToTable && liveNoTarget.ctx === false && liveNoTarget.noContextRow && liveNoTarget.restoreRun === 0 && liveNoTarget.newRun === 0, liveNoTarget)
+  await line({ event: "rollback_target", run: { run_id: LIVE, written_at: LIVE_WRITTEN_AT, folder: "C:\\Sets", tracks: 4 } })
+  await settle()
+  const liveBlockCtx = await liveFoot(true)
+  const expectedLive = await label(LIVE_WRITTEN_AT, "C:\\Sets", "fr")
+  out.measures.liveFooter = { liveBlock, liveNoTarget, liveBlockCtx }
+  check("live run once its target is known: context at the bottom right of the footer (same line as the settings), 14px muted, centered with the back, footer still 8px under the table", liveBlockCtx.ctxText === expectedLive && liveBlockCtx.ctxInFooter === true && Math.abs(liveBlockCtx.ctxRightDelta) <= 1 && liveBlockCtx.ctxAfterBack === true && liveBlockCtx.ctxSize === "14px" && /text-muted-color/.test(liveBlockCtx.ctxClass ?? "") && liveBlockCtx.ctxColor !== liveBlockCtx.titleColor && liveBlockCtx.ctxCenterDelta <= 2 && liveBlockCtx.gap === 8 && liveBlockCtx.restoreRun === 0 && liveBlockCtx.newRun === 0, { liveBlockCtx, expectedLive })
 
   // Un run passe par-dessus le run vivant.
   await clearSent()
@@ -777,25 +801,28 @@ async (page) => {
   const live = await readOnly()
   const liveAgain = await counts()
   const liveAgainBlock = await block()
-  const liveHeader = await page.evaluate((ctxFound) => ({ context: ctxFound, skeleton: document.querySelector("app-recap-page app-skeleton-rows") !== null, empty: document.querySelectorAll("app-recap-page app-empty-state").length }), liveAgainBlock.row || liveAgainBlock.ctx)
+  const liveHeader = await page.evaluate((ctxFound) => ({ context: ctxFound, skeleton: document.querySelector("app-recap-page app-skeleton-rows") !== null, empty: document.querySelectorAll("app-recap-page app-empty-state").length }), liveAgainBlock.ctx)
   out.measures.liveAgain = { live, liveAgain, liveHeader }
-  check("back on /tagging/recap: the live run returns, without context line, with its restore buttons", num(liveAgain.all) === 6 && num(liveAgain.validated) === 2 && num(liveAgain.arbitrated) === 1 && num(liveAgain.failed) === 2 && liveHeader.context === false && !liveHeader.skeleton && liveHeader.empty === 0 && live.restoreRun === 1 && live.newRun === 1 && live.writeFailures === 1 && live.rollbackFailuresText > 0, { liveAgain, liveHeader, live })
-  // Reference : le meme en-tete sans ligne de contexte, au plancher, pour savoir ce que le contexte coute.
+  check("back on /tagging/recap: the live run returns with its own context and its messages, no restore-run or new-run", num(liveAgain.all) === 6 && num(liveAgain.validated) === 2 && num(liveAgain.arbitrated) === 1 && num(liveAgain.failed) === 2 && liveHeader.context === true && liveAgainBlock.ctxText === expectedLive && !liveHeader.skeleton && liveHeader.empty === 0 && live.restoreRun === 0 && live.newRun === 0 && live.writeFailures === 1 && live.rollbackFailuresText > 0, { liveAgain, liveHeader, live, ctxText: liveAgainBlock.ctxText })
+  // Reference du run vivant au plancher : retour et contexte dans le pied, le titre du run passe est aussi haut.
   await page.setViewportSize({ width: 1024, height: 700 })
   await settle()
-  const liveFr = await header()
+  const liveFr = await block()
   await setLang("en")
-  const liveEn = await header()
+  const liveEn = await block()
   await setLang("fr")
   await page.setViewportSize({ width: 1280, height: 800 })
   await settle()
   out.measures.headerLive = { liveFr, liveEn }
-  const sameHeader = (past, live) => past.rowHeight === live.rowHeight && past.titleHeight === live.titleHeight && past.backHeight === live.backHeight && past.rowWidth === live.rowWidth && past.filtersBelowTitle === live.filtersBelowTitle
-  check("past run header (short and 100-character folder) as high as the live run's at 1024 x 700, FR and EN: the context line changes nothing in it", sameHeader(shortFr, liveFr) && sameHeader(longFr, liveFr) && sameHeader(shortEn, liveEn) && sameHeader(longEn, liveEn) && liveFr.backSameLine && liveEn.backSameLine && liveFr.contextRowHeight === null && liveEn.contextRowHeight === null, { shortFr, longFr, liveFr, shortEn, longEn, liveEn })
-  check("the context adds exactly its reserved row below the header: 20px and a 4px gap", [[shortFr, liveFr], [longFr, liveFr], [shortEn, liveEn], [longEn, liveEn]].every(([p, l]) => p.blockHeight - l.blockHeight === 24 && p.contextRowHeight === 20), { shortFr, longFr, liveFr, shortEn, longEn, liveEn })
+  const liveFits = (h) => !h.backInHead && h.backInFooter && Math.abs(h.backLeftDelta) <= 1 && h.gap === 8 && !h.headOverflow && !h.pageWide && h.footerOverflow === false && h.ctx === true && Math.abs(h.ctxRightDelta) <= 1 && h.ctxCenterDelta <= 2 && h.titleHeight <= 32 && h.backHeight <= 32
+  check("live run at 1024 x 700, FR and EN: back at the bottom left on one line, context at the right of the same row, nothing overflows", liveFits(liveFr) && liveFits(liveEn), { liveFr, liveEn })
+  const sameTitle = (past, live) => past.titleHeight === live.titleHeight && past.headHeight <= live.headHeight
+  check("past run header (short and 100-character folder) holds only the title: as high as the live run's at 1024 x 700, FR and EN", sameTitle(shortFr, liveFr) && sameTitle(longFr, liveFr) && sameTitle(shortEn, liveEn) && sameTitle(longEn, liveEn), { shortFr, longFr, liveFr, shortEn, longEn, liveEn })
   await page.locator('app-recap-page [data-action="back"]').click()
   await page.waitForSelector("app-tagging-page")
   check("back to the list from the live recap leads to /tagging", (await url()) === "/tagging", await url())
+  const taggingBar = await page.evaluate(() => ({ restoreRun: document.querySelectorAll('app-tagging-page [data-action="restore-run"]').length, newRun: document.querySelectorAll('[data-action="new-run"]').length }))
+  check("Restaurer le run stays in the Tagging bar after the recap, no Nouveau run", taggingBar.restoreRun === 1 && taggingBar.newRun === 0, taggingBar)
   await navigate(`/tagging/recap/${R2.run_id}`)
   await page.waitForSelector("app-recap-page")
   await settle()

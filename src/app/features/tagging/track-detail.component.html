@@ -1,5 +1,26 @@
 <div class="flex h-full items-start gap-6 p-4">
-  <app-artwork [url]="track().artworkUrl" [pending]="track().artworkPending" [large]="true" />
+  <!-- Le bouton sous la pochette : la place y est libre, le détail garde sa hauteur avec ou sans lui. -->
+  <div class="flex w-42 shrink-0 flex-col gap-4">
+    <app-artwork [url]="track().artworkUrl" [pending]="track().artworkPending" [large]="true" />
+    @if (restorable()) {
+      @let busy = blocked() ? ("tagging.rollback.blocked" | translate) : undefined;
+      <button
+        pButton
+        type="button"
+        size="small"
+        [outlined]="true"
+        class="w-full justify-center whitespace-nowrap"
+        data-action="restore-track"
+        [disabled]="blocked()"
+        [pTooltip]="busy"
+        [tooltipOptions]="tooltip"
+        (click)="restore.emit(track().trackId)"
+      >
+        <app-icon [name]="restoring() ? 'spinner' : 'refresh'" [size]="16" />
+        {{ "tagging.rollback.track" | translate }}
+      </button>
+    }
+  </div>
 
   <!-- Étiré sur la hauteur du cadre : les lignes se répartissent l'espace, aucune bande vide
        sous la dernière. -->
@@ -26,7 +47,9 @@
               <span class="text-surface-600" data-cell>{{ row.key }}</span>
             </span>
             <span class="min-w-0 text-muted-color" data-cell>
-              @if (row.before; as before) {
+              @if (row.beforeSource; as source) {
+                <app-source-label class="align-top" [source]="source" />
+              } @else if (row.before; as before) {
                 <app-truncated-text [text]="before" />
               } @else {
                 <app-no-value />
@@ -45,6 +68,8 @@
                   <app-truncated-text [text]="url" />
                   <app-icon name="external-link" [size]="16" />
                 </button>
+              } @else if (row.afterSource; as source) {
+                <app-source-label class="align-top" [source]="source" />
               } @else if (row.after; as after) {
                 <app-truncated-text [text]="after" />
               } @else {
@@ -56,26 +81,6 @@
       </div>
     } @else {
       <p class="text-muted-color" data-unreadable>{{ "tagging.detail.unreadable" | translate }}</p>
-    }
-
-    @if (restorable()) {
-      @let busy = blocked() ? ("tagging.rollback.blocked" | translate) : undefined;
-      <div class="mt-4 flex justify-end">
-        <button
-          pButton
-          type="button"
-          size="small"
-          [outlined]="true"
-          data-action="restore-track"
-          [disabled]="blocked()"
-          [pTooltip]="busy"
-          [tooltipOptions]="tooltip"
-          (click)="restore.emit(track().trackId)"
-        >
-          <app-icon [name]="restoring() ? 'spinner' : 'refresh'" [size]="16" />
-          {{ "tagging.rollback.track" | translate }}
-        </button>
-      </div>
     }
   </div>
 </div>

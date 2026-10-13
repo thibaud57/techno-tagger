@@ -4,12 +4,14 @@ import { openUrl } from "@tauri-apps/plugin-opener"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
-import type { TagField, TagValue } from "../../core/models/protocol"
+import type { TagField, TagValue, TrackSource } from "../../core/models/protocol"
 import type { TaggingTrack } from "../../core/tagging-run.store"
 import { ArtworkComponent } from "../../shared/components/artwork.component"
 import { IconComponent } from "../../shared/components/icon.component"
 import { NoValueComponent } from "../../shared/components/no-value.component"
+import { SourceLabelComponent } from "../../shared/components/source-label.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+import { isTrackSource } from "../../shared/utils/sources"
 import { TOOLTIP } from "../../shared/utils/tooltip"
 
 import type { RunRow } from "./run-list.component"
@@ -22,7 +24,13 @@ interface DetailRow {
   readonly link: string | null
   readonly before: string | null
   readonly after: string | null
+  /** Ligne Source : la valeur du contrat, montrée par son logo et son nom de marque. */
+  readonly beforeSource: TrackSource | null
+  readonly afterSource: TrackSource | null
 }
+
+const sourceOf = (field: string, value: string | null): TrackSource | null =>
+  field === "source" && isTrackSource(value) ? value : null
 
 /** Écrit dans le fichier mais sans intérêt à l'écran (DESIGN.md § Arbitrages). */
 const HIDDEN_FIELD: TagField = "source_id"
@@ -37,20 +45,15 @@ const fieldsOf = (track: TaggingTrack): readonly TagValue[] | null =>
 /**
  * Lignes de la liste du run (56px) que le détail occupe sous son morceau, mesurées en `text-xs`
  * (le 2026-10-10, 377px pour 16 lignes de champs) : les 15 lignes au plus tiennent dans 7, le bouton
- * « Restaurer » en demande une de plus, la phrase des tags illisibles tient à côté de la
- * pochette de 160px dans 4. À remesurer si la grille change ; au-delà, le détail défile.
+ * « Restaurer » sous la pochette de 168px n'en demande pas de plus, la phrase des tags illisibles
+ * tient à côté d'elle dans 4. À remesurer si la grille change ; au-delà, le détail défile.
  */
-const DETAIL_SPANS = { unreadable: 4, fields: 7, restorable: 8 } as const
+const DETAIL_SPANS = { unreadable: 4, fields: 7 } as const
 
 export const MAX_DETAIL_SPAN = Math.max(...Object.values(DETAIL_SPANS))
 
-export const detailSpan = (track: TaggingTrack, restorable: boolean): number => {
-  if (fieldsOf(track) === null) {
-    return DETAIL_SPANS.unreadable
-  }
-
-  return restorable ? DETAIL_SPANS.restorable : DETAIL_SPANS.fields
-}
+export const detailSpan = (track: TaggingTrack): number =>
+  fieldsOf(track) === null ? DETAIL_SPANS.unreadable : DETAIL_SPANS.fields
 
 /** Détail d'un morceau déplié (maquette `TrackDetail`) ; ordre et clés viennent du sidecar. */
 @Component({
@@ -62,6 +65,7 @@ export const detailSpan = (track: TaggingTrack, restorable: boolean): number => 
     ArtworkComponent,
     IconComponent,
     NoValueComponent,
+    SourceLabelComponent,
     TruncatedTextComponent,
   ],
   templateUrl: "./track-detail.component.html",
@@ -95,6 +99,8 @@ export class TrackDetailComponent {
       link: field === "url" ? track.sourceUrl : null,
       before: before.get(field) ?? null,
       after: after.get(field) ?? null,
+      beforeSource: sourceOf(field, before.get(field) ?? null),
+      afterSource: sourceOf(field, after.get(field) ?? null),
     }))
     const comment = tagsBefore?.comment ?? null
     if (comment !== null) {
@@ -105,6 +111,8 @@ export class TrackDetailComponent {
         link: null,
         before: comment,
         after: null,
+        beforeSource: null,
+        afterSource: null,
       })
     }
 

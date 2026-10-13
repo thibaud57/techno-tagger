@@ -13,7 +13,7 @@ date: "2026-10-12"
 
 ## Scope
 
-Ce sub-project ajoute la liste des runs passés (`PastRunsStore`, routage de `runs_listed` et `run_loaded`, gestes `listRuns` et `loadRun`) et une rangée « Runs passés » dans les Réglages : un sélecteur des runs écrits et un bouton qui ouvre le récapitulatif. Il ajoute aussi la route `tagging/recap/:runId`, qui montre le récapitulatif d'un run passé en lecture seule, sous une ligne de contexte. Il exclut la restauration d'un run passé (celle du dernier run reste dans les Réglages, Feature 5), le rapport d'extraction et « Envoyer ce rapport » (Feature 9).
+Ce sub-project ajoute la liste des runs passés (`PastRunsStore`, routage de `runs_listed` et `run_loaded`, gestes `listRuns` et `loadRun`) et une rangée « Runs passés » dans les Réglages : un sélecteur des runs écrits et un bouton qui ouvre le récapitulatif. Il ajoute aussi la route `tagging/recap/:runId`, qui montre le récapitulatif d'un run passé en lecture seule, avec une ligne de contexte au pied de la table. Il exclut la restauration d'un run passé (celle du dernier run reste dans les Réglages, Feature 5), le rapport d'extraction et « Envoyer ce rapport » (Feature 9).
 
 ### État livré
 
@@ -149,7 +149,7 @@ Aucun `changeDetection` déclaré (`.claude/rules/angular/change-detection.md`).
   - sans run, sélecteur et bouton désactivés (scénario 5)
 - `src/app/features/tagging/recap-page.component.spec.ts` :
   - avec un `runId`, `load_run` part une fois par page, une fois le moteur disponible
-  - les squelettes s'affichent jusqu'au chargement, puis les morceaux sous la ligne de contexte (scénario 2)
+  - les squelettes s'affichent jusqu'au chargement, puis les morceaux et la ligne de contexte au pied de la table (scénario 2)
   - aucun bouton de restauration ni « Nouveau run » même quand le run vivant est restaurable (scénario 3)
   - ni message d'échec d'écriture ni bilan de restauration sur un run passé (scénario 3)
   - un refus de `load_run` remplace la table par le message (scénario 4)

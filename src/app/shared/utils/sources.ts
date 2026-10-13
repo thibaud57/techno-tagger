@@ -7,7 +7,7 @@ export const SOURCE_NAMES: Record<TrackSource, string> = {
   soundcloud: "SoundCloud",
 }
 
-const isTrackSource = (value: unknown): value is TrackSource =>
+export const isTrackSource = (value: unknown): value is TrackSource =>
   typeof value === "string" && Object.hasOwn(SOURCE_NAMES, value)
 
 /** Le sidecar envoie la valeur du contrat (`bandcamp`) ; toute autre valeur passe telle quelle. */

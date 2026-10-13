@@ -8,7 +8,7 @@ import { PAST_RUN, TRACK_LOADED } from "../../../fixtures/past-runs"
 import { unresolvedTrack, writtenTrack } from "../../../fixtures/tagging"
 import { settleScroller, stubOffscreenLayout } from "../../../fixtures/virtual-scroll"
 import { commandError, rollbackFinished } from "../../../fixtures/write"
-import type { RollbackFinishedEvent } from "../../core/models/protocol"
+import type { RollbackFinishedEvent, RollbackRun } from "../../core/models/protocol"
 import { type LoadedRun, type LoadRefusal, loadedTrack } from "../../core/past-runs.store"
 import { SidecarService } from "../../core/sidecar.service"
 import type { TaggingTrack } from "../../core/tagging-run.store"
@@ -16,14 +16,14 @@ import type { RollbackInFlight } from "../../core/write.store"
 
 import RecapPageComponent from "./recap-page.component"
 
-/** Non restaurable : seul le test de la restauration pose le bouton du run. */
+/** Non restaurable : seul un test du run passe pose un morceau restaurable. */
 const written = (trackId: string, title: string): TaggingTrack => ({
   ...writtenTrack(trackId, "written", false),
   title,
 })
 
 /**
- * Ce qui se teste ici : les morceaux affiches, les filtres et les gestes du pied. Le service est
+ * Ce qui se teste ici : les morceaux affiches, les filtres, le retour et la ligne de contexte. Le service est
  * un stub ; `filesBusy` suit `writing` et `rollingBack`, `writeFailureCount` les morceaux,
  * surcharges comprises.
  */
@@ -38,8 +38,8 @@ const mountWith = async (
     writing: signal(false),
     rollingBack: signal<RollbackInFlight | null>(null),
     rollbackFinished: signal<RollbackFinishedEvent | null>(null),
+    rollbackTarget: signal<RollbackRun | null | undefined>(undefined),
     rollback: vi.fn(() => Promise.resolve()),
-    clearRun: vi.fn(),
     available: signal<boolean | null>(true),
     loadedRun: signal<LoadedRun | null>(null),
     loadRun: vi.fn(() => Promise.resolve()),
@@ -188,22 +188,12 @@ describe("RecapPageComponent", () => {
     expect(hostOf(fixture).querySelector("[data-write-failures]")).toBeNull()
   })
 
-  it("starts a new run from the tagging tab", async () => {
-    const { fixture, service, navigate } = await mountWith([written("a", "Dim Orbit")])
-
-    hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="new-run"]')?.click()
-
-    expect(service.clearRun).toHaveBeenCalledOnce()
-    expect(navigate).toHaveBeenCalledWith("/tagging")
-  })
-
-  it("goes back to the run list without clearing the run", async () => {
-    const { fixture, service, navigate } = await mountWith([written("a", "Dim Orbit")])
+  it("goes back to the run list", async () => {
+    const { fixture, navigate } = await mountWith([written("a", "Dim Orbit")])
 
     hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="back"]')?.click()
 
     expect(navigate).toHaveBeenCalledWith("/tagging")
-    expect(service.clearRun).not.toHaveBeenCalled()
   })
 
   it("shows a framed empty state without a run", async () => {
@@ -216,14 +206,34 @@ describe("RecapPageComponent", () => {
     expect(hostOf(fixture).querySelector('[data-action="back"]')).not.toBeNull()
   })
 
-  it("disables the run restore while files are busy", async () => {
-    const { fixture } = await mountWith([{ ...written("a", "Dim Orbit"), restorable: true }], {
-      rollingBack: signal({ runId: "a3f9c1", trackId: "a" }),
+  it("dates the live run by the rollback target of the run just written", async () => {
+    const { fixture } = await mountWith([written("a", "Dim Orbit")], {
+      rollbackTarget: signal({
+        run_id: "a3f9c1",
+        written_at: "2026-08-02T21:30:00Z",
+        folder: "D:/Sets/Aout",
+        tracks: 1,
+      }),
     })
 
-    const restore = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-run"]')
+    const context = hostOf(fixture).querySelector("[data-run-context]")
 
-    expect(restore?.disabled).toBe(true)
+    expect(context).not.toBeNull()
+  })
+
+  it("leaves the live run undated when the rollback target is another run", async () => {
+    const { fixture } = await mountWith([written("a", "Dim Orbit")], {
+      rollbackTarget: signal({
+        run_id: "b4c5d6",
+        written_at: "2026-08-02T21:30:00Z",
+        folder: "D:/Sets/Aout",
+        tracks: 1,
+      }),
+    })
+
+    const context = hostOf(fixture).querySelector("[data-run-context]")
+
+    expect(context).toBeNull()
   })
 
   describe("past run", () => {
@@ -252,7 +262,7 @@ describe("RecapPageComponent", () => {
       expect(service.loadRun).toHaveBeenCalledExactlyOnceWith("a3f9c1")
     })
 
-    it("shows skeleton rows until the run is loaded, then its tracks under the context line", async () => {
+    it("shows skeleton rows until the run is loaded, then its tracks and the context line", async () => {
       const loadedRun = signal<LoadedRun | null>(null)
       const { fixture } = await mountWith([], { loadedRun }, "a3f9c1")
       const waiting = hostOf(fixture).querySelector("app-skeleton-rows")
@@ -268,7 +278,7 @@ describe("RecapPageComponent", () => {
       expect(hostOf(fixture).textContent).toContain("settings.admin.rollback.target")
     })
 
-    it("offers no restore and no new run on a past run", async () => {
+    it("offers no track restore on a past run", async () => {
       const { fixture } = await mountWith(
         [{ ...written("live", "Kelvor"), restorable: true }],
         { loadedRun: signal(LOADED) },
@@ -277,11 +287,9 @@ describe("RecapPageComponent", () => {
       hostOf(fixture).querySelector<HTMLElement>("[data-row-toggle]")?.click()
       await settleScroller(fixture)
 
-      const offered = ["restore-run", "restore-track", "new-run"].map((name) =>
-        hostOf(fixture).querySelector(`[data-action="${name}"]`),
-      )
+      const offered = hostOf(fixture).querySelector('[data-action="restore-track"]')
 
-      expect(offered).toEqual([null, null, null])
+      expect(offered).toBeNull()
     })
 
     it("leaves the write failure message to the live run", async () => {

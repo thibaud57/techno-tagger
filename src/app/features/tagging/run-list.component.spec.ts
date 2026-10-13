@@ -342,7 +342,7 @@ describe("RunListComponent", () => {
 
   it.each([
     ["readable tags", { tagsBefore: TAGS_BEFORE }, new Set<string>(), 7],
-    ["the restore button", { tagsBefore: TAGS_BEFORE }, new Set([PENDING_TRACK.trackId]), 8],
+    ["the restore button", { tagsBefore: TAGS_BEFORE }, new Set([PENDING_TRACK.trackId]), 7],
     ["unreadable tags", {}, new Set<string>(), 4],
   ] as const)(
     "sizes the detail frame on its content (%s)",

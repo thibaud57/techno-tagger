@@ -37,6 +37,47 @@ async (page) => {
     await settle()
   }
 
+  // Colonne `flex-1 flex-col` sous l'en-tete : la table (ou l'etat encadre) puis le pied, retour a gauche
+  // et contexte du run a droite. Ni « Restaurer le run » ni « Nouveau run » : ils vivent dans l'onglet Tagging.
+  const footerBlock = () =>
+    page.evaluate(() => {
+      const host = document.querySelector("app-recap-page")
+      const rect = (e) => e.getBoundingClientRect()
+      const col = [...host.children].find((k) => k.matches("div.flex.min-h-0.flex-1.flex-col")) ?? null
+      const tableBox = col?.firstElementChild ?? null
+      const footer = col?.lastElementChild ?? null
+      const head = host.querySelector("h1").closest(".flex-wrap")
+      const back = footer?.querySelector('[data-action="back"]') ?? null
+      const ctx = footer?.querySelector("[data-run-context]") ?? null
+      const muted = host.querySelector("[data-filter] .text-muted-color")
+      return {
+        col: col !== null,
+        footerIsLast: !!footer && footer !== tableBox,
+        footerClass: footer?.className ?? null,
+        headIsDirectChild: head.parentElement === host,
+        headHasBack: head.querySelector('[data-action="back"]') !== null,
+        headKids: [...head.children].map((k) => k.tagName.toLowerCase()),
+        backCount: host.querySelectorAll('[data-action="back"]').length,
+        restoreRun: host.querySelectorAll('[data-action="restore-run"]').length,
+        newRun: host.querySelectorAll('[data-action="new-run"]').length,
+        gap: tableBox && footer ? Math.round(rect(footer).top - rect(tableBox).bottom) : null,
+        footerAtColumnBottom: !!footer && Math.abs(rect(footer).bottom - rect(col).bottom) <= 1,
+        back: back && {
+          cls: back.className,
+          icon: back.querySelector("[data-p-icon]")?.getAttribute("data-p-icon"),
+          text: back.textContent.trim(),
+          leftDelta: Math.round((rect(back).left - rect(tableBox).left) * 10) / 10,
+        },
+        ctx: ctx && {
+          text: ctx.textContent.replace(/[ \t\r\n]+/g, " ").trim(),
+          size: getComputedStyle(ctx).fontSize,
+          muted: !!muted && getComputedStyle(ctx).color === getComputedStyle(muted).color,
+          rightDelta: Math.round((rect(tableBox).right - rect(ctx).right) * 10) / 10,
+          afterBack: !!back && rect(back).right <= rect(ctx).left,
+        },
+      }
+    })
+
   // Tags du sidecar (TAG_FIELDS) : la ligne URL porte la fiche de la source retenue.
   const KEYS = [
     ["artist", "TPE1"], ["title", "TIT2"], ["genre", "TCON"], ["bpm", "TBPM"], ["label", "TPUB"],
@@ -110,7 +151,7 @@ async (page) => {
   await line({ event: "version", version, api_key_configured: true })
   await page.waitForFunction(() => document.querySelector("app-tagging-page") !== null)
 
-  // 0. Sans run : etat encadre sous l'en-tete reduit au retour et au titre, jamais une impasse.
+  // 0. Sans run : etat encadre sous l'en-tete reduit au titre, retour dans le pied, jamais une impasse.
   await navigate("/tagging/recap")
   await page.waitForSelector("app-recap-page")
   await settle()
@@ -120,6 +161,8 @@ async (page) => {
     back: document.querySelector('app-recap-page [data-action="back"]') !== null,
   }))
   check("no run: framed empty state with the way back", /Aucun run à récapituler|No run to summarize/.test(none.text) && !none.list && none.back, none)
+  const noneFoot = await footerBlock()
+  check("no run: header holds the title only, footer holds the back at the left, no context, no restore or new run", noneFoot.col && noneFoot.footerIsLast && noneFoot.headIsDirectChild && !noneFoot.headHasBack && JSON.stringify(noneFoot.headKids) === JSON.stringify(["h1"]) && noneFoot.backCount === 1 && noneFoot.back?.leftDelta <= 1 && noneFoot.ctx === null && noneFoot.restoreRun === 0 && noneFoot.newRun === 0 && noneFoot.gap === 8, noneFoot)
   await shot("00-no-run")
   await navigate("/tagging")
   await page.waitForSelector("app-tagging-page")
@@ -139,6 +182,8 @@ async (page) => {
   await line(decided(C, "written", "arbitration"))
   await line(decided(D, "write_error", "arbitration", { failure_reason: "file_locked" }))
   await line({ event: "run_finished", phase: "write", run_id: RUN, resolved: 0, unresolved: 1, written: 4, write_error: 1, awaiting_arbitration: 0, report_path: "C:/Sets/tagging-report-20261012T200000Z.json" })
+  // Le contexte du pied vient de la cible de restauration, demandee juste apres l'ecriture.
+  await line({ event: "rollback_target", run: { run_id: RUN, written_at: "2026-10-12T20:00:00Z", folder: "C:\\Sets", tracks: 4 } })
   await page.evaluate((id) => window.__svc.rollback(id, "f.mp3"), RUN)
   await line({ event: "track_resolved", track_id: F.track_id, state: "rolled_back", resolution: "auto", failure_reason: null, source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false, source_url: null })
   await line({ event: "rollback_finished", run_id: RUN, track_id: "f.mp3", restored: ["f.mp3"], failed: [] })
@@ -260,28 +305,24 @@ async (page) => {
   // Pied, messages et ecarts de la colonne (fidelite a la maquette `Recap`).
   const layout = await page.evaluate(() => {
     const host = document.querySelector("app-recap-page")
-    const btn = (s) => host.querySelector(s)
-    const restore = btn('[data-action="restore-run"]')
-    const fresh = btn('[data-action="new-run"]')
-    const back = btn('[data-action="back"]')
     const kids = [...host.children].flatMap((k) => (getComputedStyle(k).display === "contents" ? [...k.children] : [k])).filter((k) => k.getBoundingClientRect().height > 0)
     const gaps = kids.slice(1).map((k, i) => Math.round(k.getBoundingClientRect().top - kids[i].getBoundingClientRect().bottom))
     return {
       gaps,
       writeFailure: host.querySelector("[data-write-failures]")?.textContent.replace(/[ \t\r\n]+/g, " ").trim(),
-      restore: restore && { cls: restore.className, icon: restore.querySelector("[data-p-icon]")?.getAttribute("data-p-icon"), text: restore.textContent.trim() },
-      newRun: fresh && { cls: fresh.className, icon: fresh.querySelector("[data-p-icon]")?.getAttribute("data-p-icon"), text: fresh.textContent.trim(), right: Math.round(host.getBoundingClientRect().right - fresh.getBoundingClientRect().right) },
-      back: back && { cls: back.className, icon: back.querySelector("[data-p-icon]")?.getAttribute("data-p-icon"), text: back.textContent.trim(), beforeTitle: back.getBoundingClientRect().right <= host.querySelector("h1").getBoundingClientRect().left },
       sendReport: /Envoyer ce rapport|Send this report/.test(host.textContent),
       pageScroll: document.scrollingElement.scrollHeight > document.scrollingElement.clientHeight || document.querySelector("main").scrollHeight > document.querySelector("main").clientHeight + 1,
     }
   })
-  out.measures.layout = layout
+  const foot = await footerBlock()
+  out.measures.layout = { ...layout, foot }
   check("write failure message counts the displayed tracks", /: 1\b|:\s*1\b/.test(layout.writeFailure ?? ""), layout.writeFailure)
   check("sections 24px apart", layout.gaps.every((g) => g === 24), layout.gaps)
-  check("restore run: outlined primary small, refresh", layout.restore && /p-button-outlined/.test(layout.restore.cls) && !/p-button-secondary|p-button-danger/.test(layout.restore.cls) && /p-button-sm/.test(layout.restore.cls) && layout.restore.icon === "refresh", layout.restore)
-  check("new run: text secondary small, plus, at the right edge", layout.newRun && /p-button-text/.test(layout.newRun.cls) && /p-button-secondary/.test(layout.newRun.cls) && /p-button-sm/.test(layout.newRun.cls) && layout.newRun.icon === "plus" && layout.newRun.right <= 1, layout.newRun)
-  check("back: text secondary small, chevron-left, before the title", layout.back && /p-button-text/.test(layout.back.cls) && /p-button-secondary/.test(layout.back.cls) && /p-button-sm/.test(layout.back.cls) && layout.back.icon === "chevron-left" && layout.back.beforeTitle, layout.back)
+  check("live run: header holds the title then the filters, no back in it", foot.headIsDirectChild && !foot.headHasBack && JSON.stringify(foot.headKids) === JSON.stringify(["h1", "div"]), foot)
+  check("live run: footer 8px under the table, at the bottom of the column", foot.col && foot.footerIsLast && foot.gap === 8 && foot.footerAtColumnBottom && /items-center/.test(foot.footerClass ?? "") && /gap-4/.test(foot.footerClass ?? ""), foot)
+  check("live run: back at the bottom left, text secondary small, chevron-left", foot.backCount === 1 && foot.back && /p-button-text/.test(foot.back.cls) && /p-button-secondary/.test(foot.back.cls) && /p-button-sm/.test(foot.back.cls) && foot.back.icon === "chevron-left" && foot.back.leftDelta <= 1 && /Retour à la liste/.test(foot.back.text), foot.back)
+  check("live run: context at the bottom right, 14px muted, from the rollback target", foot.ctx && /^Run du .+ sur C:\\Sets$/.test(foot.ctx.text) && foot.ctx.size === "14px" && foot.ctx.muted && foot.ctx.rightDelta <= 1 && foot.ctx.afterBack, foot.ctx)
+  check("live run: no Restaurer le run, no Nouveau run on the recap", foot.restoreRun === 0 && foot.newRun === 0, { restoreRun: foot.restoreRun, newRun: foot.newRun })
   check("no send-report button (Feature 9)", layout.sendReport === false, null)
   check("no page scroll at 1280 x 800", layout.pageScroll === false, null)
   await shot("05-recap-1280")
@@ -290,7 +331,7 @@ async (page) => {
   const header = async () =>
     page.evaluate(() => {
       const h1 = document.querySelector("app-recap-page h1")
-      // La rangee est l'en-tete `flex-wrap` : depuis le sub-project 07, la ligne de contexte d'un run passe a sa propre rangee dessous.
+      // La rangee est l'en-tete `flex-wrap` (titre puis filtres) ; le retour vit dans le pied.
       const row = h1.closest(".flex-wrap")
       const r = row.getBoundingClientRect()
       const kids = [...row.querySelectorAll(":scope > *, :scope > * > *")].map((k) => k.getBoundingClientRect())
@@ -298,7 +339,11 @@ async (page) => {
         overflow: row.scrollWidth > row.clientWidth + 1 || kids.some((k) => k.right > r.right + 1),
         // Titre et retour sur une ligne chacun : un libelle coupe en deux trahit un en-tete sans `flex-wrap`.
         titleHeight: Math.round(h1.getBoundingClientRect().height),
-        backHeight: Math.round(row.querySelector('[data-action="back"]').getBoundingClientRect().height),
+        backHeight: Math.round(document.querySelector('app-recap-page [data-action="back"]').getBoundingClientRect().height),
+        footerOverflow: (() => {
+          const footer = document.querySelector('app-recap-page [data-action="back"]').parentElement
+          return footer.scrollWidth > footer.clientWidth + 1
+        })(),
         rowWidth: Math.round(r.width),
         height: Math.round(r.height),
         pageWide: document.scrollingElement.scrollWidth > document.scrollingElement.clientWidth,
@@ -316,8 +361,8 @@ async (page) => {
   await page.evaluate(() => ng.getComponent(document.querySelector("app-recap-page")).translate.use("fr"))
   await page.waitForTimeout(600)
   out.measures.header = { fr, en, enCounts }
-  check("header fits at 1024px in FR", !fr.overflow && !fr.pageWide && fr.titleHeight <= 32 && fr.backHeight <= 32, fr)
-  check("header fits at 1024px in EN", !en.overflow && !en.pageWide && en.titleHeight <= 32 && en.backHeight <= 32, en)
+  check("header and footer fit at 1024px in FR", !fr.overflow && !fr.footerOverflow && !fr.pageWide && fr.titleHeight <= 32 && fr.backHeight <= 32, fr)
+  check("header and footer fit at 1024px in EN", !en.overflow && !en.footerOverflow && !en.pageWide && en.titleHeight <= 32 && en.backHeight <= 32, en)
   check("filter labels follow the language", /All/.test(enCounts.all ?? "") && /Failures/.test(enCounts.failed ?? ""), enCounts)
   await page.setViewportSize({ width: 1280, height: 800 })
   await settle()
@@ -327,40 +372,29 @@ async (page) => {
   await settle()
   check("active Tagging tab click stays on the recap", (await url()) === "/tagging/recap", await url())
 
-  // 7. Restauration en cours : « Restaurer le run » desactive.
+  // 7. Restauration en cours : le recapitulatif n'offre toujours ni « Restaurer le run » ni « Nouveau run », le retour reste actif.
   await page.evaluate((id) => window.__svc.rollback(id, null), RUN)
   await settle()
-  const busy = await page.evaluate(() => document.querySelector('app-recap-page [data-action="restore-run"]')?.disabled)
+  const busy = await footerBlock()
+  const busyBack = await page.evaluate(() => document.querySelector('app-recap-page [data-action="back"]')?.disabled)
   await shot("07-restore-busy")
   await line({ event: "rollback_finished", run_id: RUN, track_id: null, restored: [], failed: [] })
   await settle()
-  check("restore run disabled while a restore runs", busy === true, busy)
+  check("restore running: still no restore-run or new-run on the recap, back enabled", busy.restoreRun === 0 && busy.newRun === 0 && busyBack === false, { restoreRun: busy.restoreRun, newRun: busy.newRun, busyBack })
 
-  // 5. Retour a la liste : /tagging, run garde.
+  // 5. Retour a la liste : /tagging, run garde, « Restaurer le run » toujours dans la barre de l'onglet Tagging.
   await page.locator('app-recap-page [data-action="back"]').click()
   await page.waitForSelector("app-tagging-page")
   await settle()
-  const back = await page.evaluate(() => ({ path: location.pathname, tracks: window.__svc.taggingTracks().length, recap: document.querySelector('[data-action="recap"]') !== null }))
-  check("back to the list keeps the run", back.path === "/tagging" && back.tracks === 6 && back.recap, back)
-
-  // 6. Nouveau run : onglet vide, puis un run repart.
-  await page.locator('[data-action="recap"]').click()
-  await page.waitForSelector('app-recap-page [data-action="new-run"]')
-  await page.locator('app-recap-page [data-action="new-run"]').click()
-  await page.waitForSelector("app-tagging-page")
-  await settle()
-  const cleared = await page.evaluate(() => ({
+  const back = await page.evaluate(() => ({
     path: location.pathname,
     tracks: window.__svc.taggingTracks().length,
-    requested: window.__svc.requestedFolder(),
-    tagging: window.__svc.tagging(),
     recap: document.querySelector('[data-action="recap"]') !== null,
+    restoreRun: document.querySelectorAll('app-tagging-page [data-action="restore-run"]').length,
+    newRun: document.querySelectorAll('[data-action="new-run"]').length,
   }))
-  check("new run empties the Tagging tab", cleared.path === "/tagging" && cleared.tracks === 0 && cleared.requested === null && cleared.tagging === false && !cleared.recap, cleared)
-  await shot("06-after-new-run")
-  await page.evaluate(() => window.__svc.startTagging("C:/Other"))
-  const relaunched = await page.evaluate(() => ({ tagging: window.__svc.tagging(), sent: window.__sent.filter((c) => c.command === "start_tagging").length }))
-  check("a new run starts after clearing", relaunched.tagging === true && relaunched.sent === 2, relaunched)
+  check("back to the list keeps the run", back.path === "/tagging" && back.tracks === 6 && back.recap, back)
+  check("Restaurer le run stays in the Tagging bar, no Nouveau run", back.restoreRun === 1 && back.newRun === 0, back)
 
   out.sent = await page.evaluate(() => window.__sent.map((c) => c.command))
   out.success = out.failures.length === 0

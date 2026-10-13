@@ -31,7 +31,7 @@ import { IconComponent } from "./icon.component"
       <div
         class="flex items-center justify-center rounded-sm border border-surface bg-surface-800 text-muted-color"
         [class.size-8]="!large()"
-        [class.size-40]="large()"
+        [class.size-42]="large()"
       >
         <app-icon name="image" [size]="large() ? 24 : 16" />
       </div>
@@ -45,8 +45,8 @@ export class ArtworkComponent {
   readonly url = input.required<string | null>()
   /** Le morceau attend son tour : sa pochette peut encore arriver. */
   readonly pending = input.required<boolean>()
-  /** Pochette du détail (160px) plutôt que vignette de la liste (32px). */
+  /** Pochette du détail (168px, la largeur de « Restaurer ce morceau » sous elle) plutôt que vignette de la liste (32px). */
   readonly large = input(false)
 
-  protected readonly px = computed(() => (this.large() ? 160 : 32))
+  protected readonly px = computed(() => (this.large() ? 168 : 32))
 }

@@ -318,8 +318,7 @@
       "heading": "Impossible d'afficher ce run",
       "description": "Rouvrez un run depuis l'onglet Réglages."
     },
-    "back": "Retour à la liste",
-    "newRun": "Nouveau run"
+    "back": "Retour à la liste"
   },
   "rollback": {
     "failures": "Fichiers non restaurés : {{count}}",

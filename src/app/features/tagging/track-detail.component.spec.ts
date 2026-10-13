@@ -36,7 +36,6 @@ const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
   ...track,
   mainLine: "",
   afterLine: null,
-  sourceName: null,
   artworkUrl: null,
   artworkPending: false,
   reason: null,
@@ -95,6 +94,23 @@ describe("TrackDetailComponent", () => {
     const labels = rowsOf(root).map((row) => row[0])
 
     expect(labels).toEqual(["tagging.detail.field.artist", "tagging.detail.field.bpm"])
+  })
+
+  it("shows the source row by its brand name, not the contract value", () => {
+    const source = { field: "source", key: "TXXX:SOURCE", value: "bandcamp" } as const
+    const root = mount({
+      ...RESOLVED,
+      tagsBefore: {
+        ...TAGS_BEFORE,
+        comment: null,
+        fields: [...TAGS_BEFORE.fields, { ...source, value: null }],
+      },
+      tagsAfter: [...TAGS_AFTER, source],
+    })
+
+    const row = rowsOf(root).at(-1)
+
+    expect(row?.[3]).toBe("Bandcamp")
   })
 
   it("marks a missing value with an em dash", () => {
@@ -158,7 +174,7 @@ describe("TrackDetailComponent", () => {
     const image = root.querySelector("img")
 
     expect(image?.getAttribute("src")).toBe("asset://localhost/abc.jpg")
-    expect(image?.getAttribute("width")).toBe("160")
+    expect(image?.getAttribute("width")).toBe("168")
   })
 
   it("shows a skeleton artwork while the track awaits its turn", () => {

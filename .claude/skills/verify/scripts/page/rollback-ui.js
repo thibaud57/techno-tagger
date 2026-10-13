@@ -461,7 +461,23 @@ async (page) => {
     const b = await trackBtn()
     out.measures.trackButton = b
     const restorableDetail = await detail()
-    check("2 written row: detail frame of 8 rows for the restore button, nothing scrolls", restorableDetail?.frame === 8 * 56 && restorableDetail.scrolls === false, restorableDetail && { frame: restorableDetail.frame, scrolls: restorableDetail.scrolls })
+    check("2 written row: detail frame of 7 rows, same as without the button, nothing scrolls", restorableDetail?.frame === 7 * 56 && restorableDetail.scrolls === false, restorableDetail && { frame: restorableDetail.frame, scrolls: restorableDetail.scrolls })
+    // Bouton sous la pochette : meme largeur que la grande pochette (168px), 16px dessous, a gauche de la grille.
+    const underArt = await page.evaluate(() => {
+      const d = document.querySelector("app-run-list tr[data-detail-carrier] app-track-detail")
+      const art = d.querySelector("app-artwork").getBoundingClientRect()
+      const btn = d.querySelector('[data-action="restore-track"]').getBoundingClientRect()
+      const grid = d.querySelector(".grid").getBoundingClientRect()
+      return {
+        artW: Math.round(art.width),
+        btnW: Math.round(btn.width),
+        leftAligned: Math.abs(btn.left - art.left) < 1,
+        gap: Math.round(btn.top - art.bottom),
+        leftOfGrid: btn.right <= grid.left,
+        outsideGrid: d.querySelector(".grid [data-action='restore-track']") === null,
+      }
+    })
+    check("2 written row: restore button under the artwork, same 168px width, 16px below, left of the grid", underArt.artW === 168 && underArt.btnW === 168 && underArt.leftAligned && underArt.gap === 16 && underArt.leftOfGrid && underArt.outsideGrid, underArt)
     check("2 written row: Restaurer ce morceau, outlined primary, refresh 16px, enabled", b?.text === "Restaurer ce morceau" && b.primaryOutlined && b.icon === "refresh" && b.iconSize === 16 && !b.disabled, b)
     // Ordre et cles du sidecar, source avant URL, identifiant a la source masque, cle sans `TXXX:`.
     const labelsFr = ["Artiste", "Titre", "Remixeur", "Genre", "BPM", "Key", "Label", "Numéro de catalogue", "ISRC", "Album", "Numéro de piste", "Année", "Source", "URL"]

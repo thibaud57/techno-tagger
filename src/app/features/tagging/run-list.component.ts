@@ -12,12 +12,11 @@ import { EmptyStateComponent } from "../../shared/components/empty-state.compone
 import { IconComponent } from "../../shared/components/icon.component"
 import { NoValueComponent } from "../../shared/components/no-value.component"
 import { SkeletonRowsComponent } from "../../shared/components/skeleton-rows.component"
-import { SourceLogoComponent } from "../../shared/components/source-logo.component"
+import { SourceLabelComponent } from "../../shared/components/source-label.component"
 import { StateTagComponent } from "../../shared/components/state-tag.component"
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { joinIdentity, trackMainLine } from "../../shared/utils/identity"
 import { type ReasonKeys, ReasonTextPipe, trackReasonKeys } from "../../shared/utils/reason"
-import { SOURCE_NAMES } from "../../shared/utils/sources"
 import { fullHeightTable } from "../../shared/utils/table"
 import { WIDE_TOOLTIP } from "../../shared/utils/tooltip"
 
@@ -39,7 +38,6 @@ const SCROLLER_OPTIONS = { numToleratedItems: MAX_DETAIL_SPAN + 1 }
 export interface RunRow extends TaggingTrack {
   readonly mainLine: string
   readonly afterLine: string | null
-  readonly sourceName: string | null
   readonly artworkUrl: string | null
   /** Sa pochette peut encore arriver : le morceau attend son tour dans un run qui tourne. */
   readonly artworkPending: boolean
@@ -65,7 +63,7 @@ type RenderRow =
     ReasonTextPipe,
     TranslatePipe,
     StateTagComponent,
-    SourceLogoComponent,
+    SourceLabelComponent,
     IconComponent,
     TruncatedTextComponent,
     EmptyStateComponent,
@@ -145,7 +143,6 @@ export class RunListComponent {
         mainLine: trackMainLine(track.artist, track.title, track.fileName),
         afterLine:
           track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
-        sourceName: track.source === null ? null : SOURCE_NAMES[track.source],
         artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
         artworkPending,
         reason: track.failureReason === null ? null : trackReasonKeys(track.failureReason),
@@ -237,7 +234,7 @@ export class RunListComponent {
   private expansionOf(row: RunRow): readonly RenderRow[] {
     let expansion = this.expansions.get(row)
     if (expansion === undefined) {
-      const span = detailSpan(row, row.restorable)
+      const span = detailSpan(row)
       expansion = Array.from({ length: span }, (_, index): RenderRow =>
         index === 0
           ? { kind: "detail", key: `detail:${row.trackId}`, row, height: span * ROW_HEIGHT }

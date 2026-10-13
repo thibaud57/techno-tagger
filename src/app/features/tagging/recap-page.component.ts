@@ -7,7 +7,6 @@ import { IconField } from "primeng/iconfield"
 import { InputIcon } from "primeng/inputicon"
 import { InputText } from "primeng/inputtext"
 import { SelectButton } from "primeng/selectbutton"
-import { Tooltip } from "primeng/tooltip"
 
 import { SidecarService } from "../../core/sidecar.service"
 import { DangerConfirmComponent } from "../../shared/components/danger-confirm.component"
@@ -19,7 +18,6 @@ import { RollbackFailuresComponent } from "../../shared/components/rollback-fail
 import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { runDate } from "../../shared/utils/run-date"
-import { TOOLTIP } from "../../shared/utils/tooltip"
 
 import {
   inFilter,
@@ -50,7 +48,6 @@ interface RecapCriteria {
     InputIcon,
     InputText,
     SelectButton,
-    Tooltip,
     DangerConfirmComponent,
     EmptyStateComponent,
     ErrorMessageComponent,
@@ -73,7 +70,6 @@ export default class RecapPageComponent {
   /** Filtre et recherche en un seul signal : `form()` en derive les champs que `[formField]` lie. */
   protected readonly criteria = signal<RecapCriteria>({ filter: "all", query: "" })
   protected readonly fields = form(this.criteria)
-  protected readonly tooltip = TOOLTIP
 
   /** Lie par le Router (`withComponentInputBinding`) : un run passe, sinon le run affiche. */
   readonly runId = input<string>()
@@ -98,8 +94,19 @@ export default class RecapPageComponent {
   protected readonly tracks = computed(() =>
     this.past() ? (this.loaded()?.tracks ?? []) : this.sidecar.taggingTracks(),
   )
+  /** Le run affiche se date par la cible de restauration, demandee juste apres son ecriture. */
+  private readonly written = computed(() => {
+    if (this.past()) {
+      return this.loaded()
+    }
+    const target = this.sidecar.rollbackTarget()
+
+    return target?.run_id === this.sidecar.taggingRunId()
+      ? { writtenAt: target.written_at, folder: target.folder }
+      : null
+  })
   protected readonly context = computed(() => {
-    const run = this.loaded()
+    const run = this.written()
 
     return run === null
       ? null
@@ -144,11 +151,6 @@ export default class RecapPageComponent {
   }
 
   protected backToList(): void {
-    void this.router.navigateByUrl("/tagging")
-  }
-
-  protected newRun(): void {
-    this.sidecar.clearRun()
     void this.router.navigateByUrl("/tagging")
   }
 }

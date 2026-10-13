@@ -16,7 +16,6 @@ import { Image as ImageIcon } from "@primeicons/angular/image"
 import { InfoCircle } from "@primeicons/angular/info-circle"
 import { MinusCircle } from "@primeicons/angular/minus-circle"
 import { Play } from "@primeicons/angular/play"
-import { Plus } from "@primeicons/angular/plus"
 import { Refresh } from "@primeicons/angular/refresh"
 import { Search } from "@primeicons/angular/search"
 import { Spinner } from "@primeicons/angular/spinner"
@@ -56,7 +55,6 @@ export const ICON_NAMES = [
   "undo",
   "search",
   "external-link",
-  "plus",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -90,7 +88,6 @@ export type IconSize = 16 | 20 | 24
     TimesCircle,
     Undo,
     ExternalLink,
-    Plus,
     Search,
   ],
   template: `
@@ -166,9 +163,6 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("external-link") {
         <svg data-p-icon="external-link" [size]="size()" />
-      }
-      @case ("plus") {
-        <svg data-p-icon="plus" [size]="size()" />
       }
     }
   `,
