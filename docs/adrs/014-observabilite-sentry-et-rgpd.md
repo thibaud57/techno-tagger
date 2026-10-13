@@ -101,7 +101,7 @@ Le consentement est écarté parce qu'il **déplace la protection au mauvais end
 
 | Réglage | Valeur | Pourquoi |
 |---|---|---|
-| `include_local_variables` | `False` | **Vaut `True` par défaut.** Le SDK joint alors un instantané des variables locales de chaque frame : chemins complets, artiste et titre en cours, et potentiellement la clé API si elle passe par une variable locale de `scraper_client.py`. |
+| `include_local_variables` | `False` | **Vaut `True` par défaut.** Le SDK joint alors un instantané des variables locales de chaque frame : chemins complets, artiste et titre en cours, et potentiellement la clé API si elle passe par une variable locale de `resolution/scraper_client.py`. |
 | `server_name` | valeur fixe | Auto-détecté par défaut, donc le nom de la machine part avec chaque événement. |
 | `send_default_pii` | défaut conservé | Déjà à `False`, ne pas l'activer. |
 
@@ -111,7 +111,7 @@ S'y ajoute le **scrubbing des chemins de fichiers** dans les frames, qui contien
 
 - **Sentry** : `sentry-sdk` côté Python, `@sentry/angular` côté webview. Plan Developer gratuit, **région EU**. Erreurs techniques uniquement : sidecar qui tombe, API injoignable, parsing cassé.
 - **Logs locaux** : `logging` Python vers un fichier tournant dans `appLocalDataDir()`, avec un bouton « ouvrir le dossier de logs » dans les Settings. `stderr` seul serait invisible dans une application empaquetée.
-- **Rapport de run** dans le dossier destination, en **JSON** (source de vérité, relu par l'application, base de l'envoi de feedback) et en **Markdown** (rendu lisible hors application). Les deux sont **en anglais**, quelle que soit la langue de l'interface.
+- **Rapport de run** dans le dossier du run, celui qu'on re-tague (le rapport d'extraction, lui, dans le dossier destination), en **JSON** (source de vérité, relu par l'application, base de l'envoi de feedback) et en **Markdown** (rendu lisible hors application). Les deux sont **en anglais**, quelle que soit la langue de l'interface.
 - **Bouton « envoyer ce rapport pour améliorer le matching »** dans l'écran final. C'est le **seul endroit où des titres de morceaux quittent la machine**, donc le seul où un geste explicite a un sens. Ne consomme pas le quota Sentry.
 
   **Forme retenue : une issue GitHub pré-remplie**, ouverte dans le navigateur par le plugin `opener`, avec un label dédié au retour de matching. Aucun endpoint à héberger, ce que le budget nul impose, et l'application ne pousse rien d'elle-même.

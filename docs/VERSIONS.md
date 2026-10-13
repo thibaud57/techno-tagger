@@ -1,7 +1,7 @@
 ---
 title: "VERSIONS - Matrice de compatibilité (Fullstack)"
 description: "Versions des dépendances du sidecar Python, de la webview Angular et de la coquille Tauri, compatibilité croisée, configuration et migration."
-date: "2026-10-12"
+date: "2026-10-13"
 keywords: ["versions", "dependencies", "compatibility", "setup", "migration", "fullstack", "tauri", "angular", "python"]
 scope: ["docs", "config", "setup"]
 technologies: ["Python", "Angular", "Tauri", "Rust"]
@@ -999,9 +999,9 @@ Métadonnées : nom `tagger`, `requires-python = ">=3.14,<3.15"`, version pilot�
 
 **`[tool.ruff]`** : pas de `target-version` déclaré, Ruff le dérive de `requires-python` (l'écrire en ferait une seconde source à synchroniser). Sous `[tool.ruff.lint]`, un `select` explicite plutôt que le défaut de la 0.16.x (commentaire « Liste figee plutot que le defaut de Ruff », pour qu'une montée de version n'ajoute pas de règle silencieusement), et les règles incompatibles avec le formateur en `ignore` (`COM812` en premier lieu). Sous `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, interdire `asyncio.get_event_loop` et `sqlite3.version` avec un message renvoyant à leur remplaçant.
 
-**`[tool.mypy]`** : `strict = true` et `warn_unreachable = true`. `untyped_calls_exclude = ["mutagen"]` sort mutagen du contrôle `disallow_untyped_calls` : son `py.typed` n'annote ni ses frames ni les méthodes de ses tags (`setall`, `delall`, `add`, `update_to_v23`, `add_picture`), et chaque appel demanderait sinon un `# type: ignore[no-untyped-call]`. Une section `[[tool.mypy.overrides]]` existe pour `tagger._build_info` (`ignore_missing_imports = true`) : ce module est gravé par `build.py` au packaging puis supprimé, donc absent d'un arbre propre où Mypy ne le trouve pas. Ciblée plutôt que globale, pour que la disparition des types d'une vraie dépendance reste une erreur. Toutes les autres dépendances livrent un `py.typed`. Ajouter `plugins = ["pydantic.mypy"]`, qui donne au checker la signature réelle des `__init__` générés.
+**`[tool.mypy]`** : `strict = true` et `warn_unreachable = true`. `untyped_calls_exclude = ["mutagen"]` sort mutagen du contrôle `disallow_untyped_calls` : son `py.typed` n'annote ni ses frames ni les méthodes de ses tags (`setall`, `delall`, `add`, `update_to_v23`, `add_picture`), et chaque appel demanderait sinon un `# type: ignore[no-untyped-call]`. Une section `[[tool.mypy.overrides]]` existe pour `tagger._build_info` (`ignore_missing_imports = true`) : ce module est gravé par `build.py` au packaging puis supprimé, donc absent d'un arbre propre où Mypy ne le trouve pas. Ciblée plutôt que globale, pour que la disparition des types d'une vraie dépendance reste une erreur. Toutes les autres dépendances livrent un `py.typed`. Ajouter `plugins = ["pydantic.mypy"]`, qui donne au checker la signature réelle des `__init__` générés. `explicit_package_bases = true` et un `mypy_path` ancré sur le fichier (`$MYPY_CONFIG_FILE_DIR`) sur `src`, `tests/helpers` et `tests` : les tests ne sont pas des packages (pytest en `importlib`), et sans bases explicites deux `conftest.py` donnent le même module `conftest`, ce qui arrête Mypy.
 
-**`[tool.pytest.ini_options]`** : `asyncio_mode = "strict"`, `addopts` portant `--cov=tagger`.
+**`[tool.pytest.ini_options]`** : `asyncio_mode = "strict"`, `pythonpath = ["tests/helpers"]` (helpers importables à plat), `addopts` portant `--cov=tagger` et `--import-mode=importlib`.
 
 Le seuil `--cov-fail-under=80` vit dans la recette `just test` et non dans `addopts` : il mesure la couverture globale, donc dans `addopts` il ferait échouer toute exécution ciblée sur un seul fichier.
 

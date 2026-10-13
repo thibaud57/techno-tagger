@@ -101,7 +101,7 @@ La date passe par `runDate()`, extrait vers `shared/utils/run-date.ts` et partag
 - « Repartir de zéro » appelle `discard`, sans confirmation : aucun fichier n'est touché et les confirmations du projet sont réservées aux gestes sur les fichiers ;
 - « Plus tard » pose `dismissed`.
 
-**Erreur de reprise** : l'invite disparaît au geste. Un refus de `resume_run` ou de `discard_run` s'affiche dans la page Tagging au même emplacement qu'un refus de `start_tagging` (`errorFor`) ; le plan reste sur le disque et sera reproposé au prochain lancement. Le sidecar n'émet jamais de phrase et l'interface traduit le code (`.claude/rules/ngx-translate/i18n.md`).
+**Erreur de reprise** : l'invite disparaît au geste. Un refus de `resume_run` ou de `discard_run` s'affiche dans la page Tagging au même emplacement qu'un refus de `start_tagging` (`errorFor`) . L'interface redemande alors l'annonce (`get_interrupted_run`), qui repropose le plan restant ou un autre : un dossier devenu illisible revient avec « Plus tard ». Sauf sur `phase_busy` et `api_key_missing`, où l'invite non fermable enfermerait l'utilisateur : le plan reste sur le disque, et l'annonce est redemandée dès qu'une clé est enregistrée, sinon au prochain lancement. Révisé le 2026-10-13 (le plan n'était reproposé qu'au prochain lancement). Le sidecar n'émet jamais de phrase et l'interface traduit le code (`.claude/rules/ngx-translate/i18n.md`).
 
 **Page Tagging déjà affichée** : `resume()` pose `requestedFolder` et le champ dossier de la page est un `linkedSignal` sur `requestedFolder()`. Il suit donc la reprise sans recréer la page. Sans cela, `runAction` rendrait `start` au lieu de `commit` tant que le champ garde l'ancien dossier.
 
@@ -160,7 +160,7 @@ Seulement des classes `tailwindcss-primeui` (`text-sm`, `text-muted-color`, `tex
 **GIVEN** un `resume_run` refusé en `tagging_folder_unreadable`, ou un `discard_run` refusé en `run_not_found`
 **WHEN** l'erreur revient
 **THEN** la page Tagging l'affiche comme un refus de lancement et le run n'est pas marqué en cours
-**AND** le plan reste sur le disque et sera reproposé au prochain lancement
+**AND** l'interface redemande l'annonce, qui repropose le plan restant (révisé le 2026-10-13) ; sur `phase_busy` ou `api_key_missing`, le plan reste sur le disque et revient à l'enregistrement d'une clé ou au prochain lancement
 
 ### Scénario 8 : reprise depuis l'onglet Tagging
 **GIVEN** l'onglet Tagging affiché et le champ dossier vide
@@ -204,7 +204,7 @@ Seulement des classes `tailwindcss-primeui` (`text-sm`, `text-muted-color`, `tex
 ## Edge cases
 
 - **Moteur absent ou en conflit de version** : aucune demande n'est envoyée et aucune invite ne s'ouvre. L'écran bloquant prime et l'invite, montée dans la branche non bloquée, est démontée avec elle.
-- **Geste refusé** : l'invite a déjà disparu au clic. L'erreur s'affiche sur l'onglet Tagging et le plan est reproposé au prochain lancement.
+- **Geste refusé** : l'invite a déjà disparu au clic. L'erreur s'affiche sur l'onglet Tagging et l'annonce est redemandée, sauf sur `phase_busy` et `api_key_missing` (révisé le 2026-10-13).
 - **Deux plans à la suite** : après « Repartir de zéro », l'annonce suivante rouvre l'invite sur le plan plus ancien.
 - **« Plus tard » sur un dossier introuvable** : le plan reste et l'invite revient au lancement suivant.
 - **Dossier vidé** : traité comme un dossier introuvable, car `reopen_run` ne trouverait aucun morceau.

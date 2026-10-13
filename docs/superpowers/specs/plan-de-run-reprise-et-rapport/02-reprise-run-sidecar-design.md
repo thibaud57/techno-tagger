@@ -192,7 +192,7 @@ Ce sont deux `dataclass(frozen=True, slots=True)` (`.claude/rules/python/modeles
 
 ## Edge cases
 
-- **Fichier modifié par un autre outil depuis le plan** : la décision s'applique toujours à son `track_id`. Identité et tags d'origine sont relus et l'écriture dumpera l'état actuel.
+- **Fichier modifié par un autre outil depuis le plan** : la requête reconstruite depuis l'identité relue est comparée à celle du plan. Différente, le morceau repart non traité et la phase réseau le recherche : une décision prise sur d'autres tags ne s'écrit jamais. Identique, la décision s'applique, et l'écriture dumpera l'état actuel. Révisé le 2026-10-13 (la décision s'appliquait toujours).
 - **Tags devenus illisibles** : l'identité est vide, comme dans `open_run` et la décision du plan s'applique quand même.
 - **Run arrêté par trois 403 consécutifs** : ses morceaux non atteints sont en attente dans le plan et les deux premiers 403, consignés `source_unavailable`, ne comptent pas comme traités. La reprise les relance tous, une fois la clé corrigée.
 - **Run arrêté par `cancel_run`** : il garde son plan et est proposé à la reprise comme un run interrompu. La reprise relance les recherches des morceaux non atteints, ce qui consomme du quota (décision du 2026-10-12).

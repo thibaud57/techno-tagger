@@ -87,7 +87,7 @@ Chaque champ ajouté au contrat Python a, dans la même tâche et le même commi
 
 - **`list_runs`** répond `runs_listed` : une liste de `PastRunPayload` (`run_id`, `written_at`, `folder`, `report_path`), issue de `list_reports(index_path())`.
 - **`load_run(run_id)`** répond `run_loaded`, qui porte `run_id`, `folder`, `generated_at` et `tracks`. Chaque `TrackLoaded` contient :
-  - `track_id`, `file_name`, `file_after` ;
+  - `track_id`, `file_name` ;
   - `artist` et `title` d'origine, lus dans les lignes `tags_before` ;
   - `state`, `resolution`, `failure_reason`, `source` ;
   - `after` (`TrackNames`) et `scores` (`TrackScores`, arrondis comme dans `track_resolved`) ;
@@ -243,14 +243,15 @@ Aucun test unitaire neuf. La garde existante de `test_protocol_models.py` (`test
 
 ### Décision : ordre de la reprise
 **Options envisagées :**
-- **A. Valider le plan, puis abandonner le run affiché, puis rouvrir** : un refus laisse le run affiché et le plan intacts.
+- **A. Valider le plan, puis abandonner le run affiché, puis rouvrir** : un refus à la validation laisse le run affiché et le plan intacts, un refus à la réouverture survient après l'abandon.
 - **B. Abandonner d'abord, comme `start_tagging`** : un seul chemin pour les deux lancements, mais un `resume_run` refusé a déjà supprimé le plan du run affiché, voire celui qu'il voulait reprendre.
+- **C. Valider le plan, rouvrir le run repris, puis seulement retirer le run affiché** : tout ce qui peut refuser (plan, clé API, clients, dossier) passe avant l'abandon.
 
-**Choix : A**
+**Choix : C** (révisé le 2026-10-13, A le 2026-10-12)
 
 **Rationale :**
-- Choix du propriétaire, le 2026-10-12.
-- Un plan refusé à la validation (inconnu, confirmé ou déjà écrit) ne coûte jamais le run en cours. Un refus plus tard (clé API absente, dossier illisible) survient après l'abandon, ce qui est accepté : l'interface ne propose la reprise qu'au lancement, quand aucun run n'est ouvert.
+- Choix du propriétaire.
+- Aucun refus ne coûte le run en cours ni son plan : ses décisions restent reprenables au lancement suivant.
 
 ### Décision : restaurabilité dans un récapitulatif passé
 **Options envisagées :**
