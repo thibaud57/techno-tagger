@@ -6,7 +6,6 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from fake_clock import FakeClock
 from stubs import raising
 
 from tagger.resolution.cache import DiskCache, ResponseCache, response_key
@@ -16,6 +15,19 @@ if TYPE_CHECKING:
     from typing import BinaryIO
 
 TEN_BYTES: Final = b"0123456789"
+
+
+class FakeClock:
+    """Horloge reglable en secondes epoch : TTL et LRU se testent sans attendre ni dormir."""
+
+    def __init__(self, now: float = 1_800_000_000.0) -> None:
+        self.now = now
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, delta: timedelta) -> None:
+        self.now += delta.total_seconds()
 
 
 def _write(cache: DiskCache, key: str, data: bytes = TEN_BYTES) -> None:
