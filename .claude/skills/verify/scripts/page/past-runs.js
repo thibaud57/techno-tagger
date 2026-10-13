@@ -276,8 +276,8 @@ async (page) => {
   const emptyEn = await selectState()
   await setLang("fr")
   out.measures.empty = { waiting, emptyFr, emptyEn }
-  check("empty registry: select and button disabled, placeholder in FR", emptyFr.formDisabled && emptyFr.comboDisabled && emptyFr.buttonDisabled && /Aucun run passé/.test(emptyFr.shown ?? ""), emptyFr)
-  check("empty registry: placeholder in EN", emptyEn.formDisabled && emptyEn.buttonDisabled && /No past run/.test(emptyEn.shown ?? ""), emptyEn)
+  check("empty registry: select and button disabled, placeholder in FR", emptyFr.formDisabled && emptyFr.comboDisabled && emptyFr.buttonDisabled && /Aucun run à rouvrir/.test(emptyFr.shown ?? ""), emptyFr)
+  check("empty registry: placeholder in EN", emptyEn.formDisabled && emptyEn.buttonDisabled && /No run to reopen/.test(emptyEn.shown ?? ""), emptyEn)
   check("list not yet received: select and button disabled", waiting.formDisabled && waiting.buttonDisabled, waiting)
   await shot("00-settings-empty")
 

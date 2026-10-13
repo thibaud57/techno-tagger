@@ -315,8 +315,8 @@
       "description": "Lancez un run depuis l'onglet Tagging."
     },
     "past": {
-      "unavailable": "Impossible d'afficher ce run",
-      "unavailableHint": "Rouvrez-le depuis les Réglages."
+      "heading": "Impossible d'afficher ce run",
+      "description": "Rouvrez un run depuis l'onglet Réglages."
     },
     "back": "Retour à la liste",
     "newRun": "Nouveau run"
@@ -389,8 +389,8 @@
       "title": "Administration",
       "pastRuns": {
         "label": "Runs passés",
-        "hint": "Rouvre le récapitulatif d'un run écrit, relu dans son rapport.",
-        "none": "Aucun run passé",
+        "hint": "Rouvre le récapitulatif d'un run déjà écrit, en lecture seule.",
+        "none": "Aucun run à rouvrir",
         "open": "Ouvrir le récapitulatif"
       },
       "rollback": {

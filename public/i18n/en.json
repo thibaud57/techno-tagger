@@ -315,8 +315,8 @@
       "description": "Start a run from the Tagging tab."
     },
     "past": {
-      "unavailable": "This run cannot be shown",
-      "unavailableHint": "Reopen it from the settings."
+      "heading": "This run cannot be shown",
+      "description": "Reopen a run from the Settings tab."
     },
     "back": "Back to the list",
     "newRun": "New run"
@@ -389,8 +389,8 @@
       "title": "Administration",
       "pastRuns": {
         "label": "Past runs",
-        "hint": "Reopens the summary of a written run, read from its report.",
-        "none": "No past run",
+        "hint": "Reopens the summary of a run already written, read-only.",
+        "none": "No run to reopen",
         "open": "Open the summary"
       },
       "rollback": {

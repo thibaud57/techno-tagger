@@ -854,8 +854,8 @@ async (page) => {
       return {
         display: b ? getComputedStyle(b).display : null,
         children: b ? [...b.children].map((c) => `${c.tagName.toLowerCase()}: ${c.textContent.trim().slice(0, 80)}`) : null,
-        // « Aucun run passé » est le placeholder de la rangée des runs passés (sub-project 07), pas la raison du bouton.
-        pageHasNoRunText: !/Aucun run(?! passé)/.test(document.querySelector("app-settings-page").textContent),
+        // « Aucun run à rouvrir » est le placeholder de la rangée des runs passés (sub-project 07), pas la raison du bouton.
+        pageHasNoRunText: !/Aucun run(?! à rouvrir)/.test(document.querySelector("app-settings-page").textContent),
       }
     })
     check("9 null target: no target line, no « Aucun run » text, the area under the row hidden (the reason lives in the button tooltip)", el1 === null && emptyBelow.pageHasNoRunText && emptyBelow.display === (emptyBelow.children?.length ? "flex" : "none"), { el1, emptyBelow })

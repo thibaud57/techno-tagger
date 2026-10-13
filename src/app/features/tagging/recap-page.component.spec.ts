@@ -321,7 +321,7 @@ describe("RecapPageComponent", () => {
       const text = hostOf(fixture).textContent
 
       expect(text).toContain("errors.run_not_found")
-      expect(text).toContain("recap.past.unavailable")
+      expect(text).toContain("recap.past.heading")
       expect(hostOf(fixture).querySelector("app-run-list")).toBeNull()
       expect(hostOf(fixture).querySelector('[data-action="back"]')).not.toBeNull()
     })

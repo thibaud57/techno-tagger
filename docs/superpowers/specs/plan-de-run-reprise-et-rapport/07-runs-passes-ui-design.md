@@ -76,7 +76,7 @@ La rangée « Runs passés » se place sous « Restauration », au patron `Setti
 - **Largeur** : aucune largeur figée. Le sélecteur prend le reste de la ligne et coupe le dossier, dont le tooltip montre le texte entier (`TruncatedTextComponent` dans `#selectedItem`). Le libellé de la rangée nomme le sélecteur pour un lecteur d'écran (`id` du libellé repris par `ariaLabelledBy`).
 - **Choix** : le run le plus récent par défaut. Le choix survit à une nouvelle liste ou à un changement de langue tant que son run y figure, sinon il retombe sur le plus récent.
 - **Bouton** : « Ouvrir le récapitulatif » (`secondary` outlined, `size="small"`) navigue vers `/tagging/recap/:runId` et l'onglet Tagging devient actif.
-- **Sans run** : le sélecteur est désactivé par une règle du formulaire, avec le placeholder « Aucun run passé » et le bouton est désactivé.
+- **Sans run** : le sélecteur est désactivé par une règle du formulaire, avec le placeholder « Aucun run à rouvrir » et le bouton est désactivé.
 
 Un sélecteur plutôt qu'une table, car la page des Réglages ne défile pas (DESIGN § Layout) et la liste n'a pas de borne.
 
@@ -124,7 +124,7 @@ Aucun `changeDetection` déclaré (`.claude/rules/angular/change-detection.md`).
 ### Scénario 5 : aucun run passé
 **GIVEN** un registre vide
 **WHEN** l'utilisateur ouvre les Réglages
-**THEN** le sélecteur est désactivé sur « Aucun run passé » et le bouton aussi
+**THEN** le sélecteur est désactivé sur « Aucun run à rouvrir » et le bouton aussi
 
 ## Tests à écrire
 

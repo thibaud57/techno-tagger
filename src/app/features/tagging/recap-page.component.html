@@ -65,8 +65,8 @@
   <app-empty-state
     framed
     icon="search"
-    [heading]="'recap.past.unavailable' | translate"
-    [description]="'recap.past.unavailableHint' | translate"
+    [heading]="'recap.past.heading' | translate"
+    [description]="'recap.past.description' | translate"
   />
 } @else if (!past() && tracks().length === 0) {
   <app-empty-state
