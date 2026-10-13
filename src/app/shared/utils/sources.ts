@@ -1,4 +1,4 @@
-import type { TrackSource } from "../../core/models/protocol"
+import type { TrackSource } from "../../core/sidecar/protocol"
 
 /** Noms de marque : identiques dans les deux langues, aucune cle i18n a tenir. */
 export const SOURCE_NAMES: Record<TrackSource, string> = {

@@ -4,14 +4,13 @@ import { Router, provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 
-import { AppComponent } from "./app.component"
-import { CloseGuard } from "./core/close-guard.service"
+import { sidecarStub } from "../fixtures/sidecar-stub"
 import { recoveredTrack, unresolvedTrack } from "../fixtures/tagging"
+import { AppComponent } from "./app.component"
+import { CloseGuard } from "./core/platform/close-guard.service"
 
-import { SidecarService } from "./core/sidecar.service"
-import type { DetectedRun } from "./core/resume.store"
-import type { TaggingTrack } from "./core/tagging-run.store"
-import { RecoveryUiStore } from "./features/tagging/recovery-ui.store"
+import { SidecarService } from "./core/sidecar/sidecar.service"
+import { RecoveryUiStore } from "./features/tagging/url-recovery/recovery-ui.store"
 
 /** jsdom n'implemente pas `ResizeObserver` qu'observe `p-tablist` (jsdom/jsdom#3368). */
 class ResizeObserverStub {
@@ -29,22 +28,8 @@ class ResizeObserverStub {
   ResizeObserverStub as unknown as typeof ResizeObserver
 
 const mount = () => {
-  const service = {
-    available: signal<boolean | null>(true),
-    versionMismatch: signal(null),
-    arbitrationCount: signal(0),
-    arbitrationOpenings: signal(0),
-    // Lus par `RecoveryUiStore`, reel ici : le badge et la modale du lien en dependent.
-    taggingRunId: signal<string | null>("run-1"),
-    arbitrations: signal<readonly { track_id: string }[]>([]),
-    tagging: signal(false),
-    committed: signal(false),
-    taggingTracks: signal<readonly TaggingTrack[]>([]),
-    recoverableTracks: signal<readonly TaggingTrack[]>([]),
-    urlRecoveryBusy: signal<ReadonlySet<string>>(new Set()),
-    // Lu par le `@defer` de l'invite de reprise.
-    interruptedRun: signal<DetectedRun | null>(null),
-  }
+  // `RecoveryUiStore`, reel ici, lit le run : le badge et la modale du lien en dependent.
+  const service = sidecarStub({ taggingRunId: signal<string | null>("run-1") })
   const closeGuard = {
     install: vi.fn(() => Promise.resolve()),
     request: signal(null),

@@ -24,12 +24,12 @@ Ce sub-project écrit le rapport de re-tagging d'un run (modèle versionné, ren
 
 ## Dependencies
 
-- `01-plan-run-sidecar-design.md` (statut: draft) : `run_files.write_atomically` pour les fichiers du rapport et le registre, `plan.PlanScores` pour les scores consignés et `handle_commit_run` tel que 01 le réorganise (confirmation du plan avant l'écriture). C'est la seule dépendance : la reprise (02) n'intervient pas ici.
+- `01-plan-run-sidecar-design.md` (statut: draft) : `run_files.write_atomically` pour les fichiers du rapport et le registre et `handle_commit_run` tel que 01 le réorganise (confirmation du plan avant l'écriture). C'est la seule dépendance : la reprise (02) n'intervient pas ici.
 
 ## Files touched
 
 - **À créer** : `sidecar/src/tagger/tagging_report.py` :
-  - modèles `TaggingReport`, `TaggingReportTrack`, `TaggingReportCounts`, `ReportQuery`, `ReportThresholds`, `ReportTagValue` (les scores réutilisent `plan.PlanScores`) ;
+  - modèles `TaggingReport`, `TaggingReportTrack`, `TaggingReportCounts`, `ReportQuery`, `ReportThresholds`, `ReportTagValue`, `ReportScores` ;
   - fonctions `build_tagging_report`, `render_tagging_markdown`, `report_paths`, `write_tagging_report`, `load_tagging_report` ;
   - projections `tag_rows` et `after_rows`, que `handlers.py` réutilise ;
   - erreur `TaggingReportUnreadableError`.
@@ -62,7 +62,7 @@ Le rapport est un `TaggingReport` Pydantic gelé en `extra="forbid"` (ADR-022, `
   - `truncated` ;
   - `query` (texte envoyé et origine, `None` pour une requête vide) ;
   - `source`, `state`, `resolution`, `failure_reason` (motif réseau ou motif de fichier) ;
-  - `scores` du candidat retenu, au format de `plan.PlanScores` (artiste, titre, moyenne, `version_mismatch`, `number_mismatch`, valeurs brutes) ;
+  - `scores` du candidat retenu, en `ReportScores` (artiste, titre, moyenne, `version_mismatch`, `number_mismatch`, valeurs brutes) ;
   - `artist` et `title` écrits (règle de l'ADR-011, `credited_artists` et `full_title`) ;
   - `url` (fiche source) et `artwork_url` ;
   - `system` (`TagSystem` des tags d'origine, `None` quand ils étaient illisibles), `tags_before` (lignes champ, clé, valeur et commentaire) et `tags_after` (lignes champ, clé, valeur, projetées comme pour la colonne Après) ;
@@ -74,7 +74,7 @@ Le rapport est un `TaggingReport` Pydantic gelé en `extra="forbid"` (ADR-022, `
 
 `build_tagging_report(run: TaggingRun, thresholds, generated_at)` est une fonction pure sur l'instantané du run. Les lignes de tags passent par `tag_rows` et `after_rows`, bâties sur la projection et les clés de `files` (`project_tags`, `after_tags`, `shown_key`). `handlers.py` s'en sert pour `run_started` et `track_resolved` : la table de correspondance est la même partout.
 
-Les scores sont ceux du plan de run (`PlanScores`, même forme). Un changement de ce modèle change donc aussi le rapport, ce qui exige d'en monter la version.
+Les scores ont leur propre modèle, `ReportScores`, distinct de `plan.PlanScores` : le plan est jetable et jamais migré, le rapport est permanent et migré (ADR-018). Un changement du plan ne touche donc pas la version du rapport.
 
 ### Rendu Markdown
 

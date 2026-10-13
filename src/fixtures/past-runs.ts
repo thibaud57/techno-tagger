@@ -3,7 +3,7 @@ import type {
   RunLoadedEvent,
   RunsListedEvent,
   TrackLoaded,
-} from "../app/core/models/protocol"
+} from "../app/core/sidecar/protocol"
 
 import { TAGS_AFTER, TAGS_BEFORE } from "./tagging"
 

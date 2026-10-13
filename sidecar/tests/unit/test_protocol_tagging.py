@@ -9,8 +9,6 @@ from pydantic import ValidationError
 from scraper_responses import track_candidate
 from tagging_records import RECORD, scored_candidate
 
-from tagger import tagging
-from tagger.files import TAG_FIELDS, TagField
 from tagger.handlers import to_protocol_event
 from tagger.protocol import (
     ArbitrationRequired,
@@ -21,11 +19,13 @@ from tagger.protocol import (
     TrackResolved,
     parse_command,
 )
-from tagger.scraper_client import Source, TrackCandidate
-from tagger.tagging import PendingArbitration, Resolution, TrackRecord, TrackState
+from tagger.resolution.scraper_client import Source, TrackCandidate
+from tagger.run import tagging
+from tagger.run.tagging import PendingArbitration, Resolution, TrackRecord, TrackState
+from tagger.tags.files import TAG_FIELDS, TagField
 
 if TYPE_CHECKING:
-    from tagger.matching import ScoredCandidate
+    from tagger.resolution.matching import ScoredCandidate
 
 
 def test_accepts_a_start_tagging_command_without_thresholds() -> None:

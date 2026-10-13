@@ -28,11 +28,9 @@ from audio_samples import held_open, tag, write_blank_flac, write_blank_mp3
 from scraper_responses import payload_candidate
 from tagging_api import JPEG
 
-from tagger import files, renaming, writing
-from tagger.files import TagField, read_original_tags
-from tagger.scraper_client import Source
-from tagger.tag_dump import TagDump, dump_dir, dump_path, journal_path, load_dump
-from tagger.tagging import (
+from tagger.resolution.scraper_client import Source
+from tagger.run import writing
+from tagger.run.tagging import (
     FailureReason,
     Resolution,
     TrackRecord,
@@ -40,6 +38,9 @@ from tagger.tagging import (
     TrackState,
     open_run,
 )
+from tagger.tags import files, renaming
+from tagger.tags.files import TagField, read_original_tags
+from tagger.tags.tag_dump import TagDump, dump_dir, dump_path, journal_path, load_dump
 
 RESOLVED = ("01 lior vance - dim orbit.mp3", "02 lior vance - dim orbit.flac")
 LOCKED = "03 lior vance - dim orbit (copy).mp3"

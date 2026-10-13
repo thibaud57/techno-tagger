@@ -1,6 +1,6 @@
 ---
 paths:
-  - "sidecar/src/tagger/matching.py"
+  - "sidecar/src/tagger/resolution/matching.py"
 ---
 
 # RapidFuzz — Scoring & seuils

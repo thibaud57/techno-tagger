@@ -1,6 +1,6 @@
 """Sidecar metier de techno-tagger."""
 
-from tagger.build_info import VERSION
+from tagger.core.build_info import VERSION
 
 __version__ = VERSION
 

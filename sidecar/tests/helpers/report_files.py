@@ -2,12 +2,12 @@
 
 from typing import TYPE_CHECKING
 
-from tagger.tagging_report import FILE_STEM, load_tagging_report
+from tagger.reports.tagging import FILE_STEM, load_tagging_report
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from tagger.tagging_report import TaggingReport
+    from tagger.reports.tagging import TaggingReport
 
 
 def report_files(folder: Path) -> list[Path]:

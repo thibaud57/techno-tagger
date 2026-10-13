@@ -10,11 +10,11 @@ import pytest
 
 import tagger
 from tagger.__main__ import Phase as BusyPhase
-from tagger.errors import TaggerError
-from tagger.extraction import DuplicateCriterion
-from tagger.file_failures import FileFailureReason
+from tagger.core.errors import TaggerError
+from tagger.core.file_failures import FileFailureReason
+from tagger.playlists.extraction import DuplicateCriterion
 from tagger.protocol import API_KEY_MALFORMED, MALFORMED_COMMAND
-from tagger.tagging import FailureReason
+from tagger.run.tagging import FailureReason
 
 if TYPE_CHECKING:
     from enum import StrEnum
@@ -92,7 +92,9 @@ def test_every_shown_reason_has_a_translation(
 
 @pytest.mark.parametrize("language", LANGUAGES)
 @pytest.mark.parametrize(
-    "section", [("tagging", "reason"), ("rollback", "reason"), ("playlist", "report")]
+    "section",
+    [("tagging", "reason"), ("rollback", "reason"), ("playlist", "report")],
+    ids=["tagging", "rollback", "playlist"],
 )
 def test_a_shared_file_reason_is_worded_once(language: str, section: tuple[str, ...]) -> None:
     """Un motif de fichier repete dans le jeu d'une phase divergerait du jeu commun."""

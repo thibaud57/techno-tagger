@@ -1,9 +1,9 @@
 """Cycle de vie du plan de run, de bout en bout sur la boucle NDJSON."""
 
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 import pytest
-from ndjson_loop import conversation, held_call, resolved_run
+from ndjson_loop import CHOOSE_ON_BEATPORT, conversation, held_call, resolved_run, start_command
 from run_plans import only_plan, plan_files
 from scraper_responses import BANDCAMP_TRACK, DIM_ORBIT, KELVOR, bandcamp_track_payload
 from stubs import raising
@@ -18,22 +18,15 @@ from tagging_api import (
     two_tracks,
 )
 
-from tagger import writing
-from tagger.scraper_client import Source
-from tagger.tag_dump import TagDumpWriteError
-from tagger.tagging import Resolution, TrackState
+from tagger.resolution.scraper_client import Source
+from tagger.run import writing
+from tagger.run.tagging import Resolution, TrackState
+from tagger.tags.tag_dump import TagDumpWriteError
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
-
-CHOOSE_ON_BEATPORT: Final = {
-    "command": "resolve_arbitration",
-    "track_id": ONE_TRACK,
-    "source": "beatport",
-    "candidate": 0,
-}
 
 
 async def test_records_an_automatic_validation(folder: Path) -> None:
@@ -106,7 +99,7 @@ async def test_keeps_the_plan_of_a_run_shut_down_mid_network(
     gate = api.gate("/beatport/search", KELVOR)
 
     async with conversation() as talk:
-        talk.send(command="start_tagging", folder=str(two_tracks(tmp_path)))
+        talk.send(**start_command(two_tracks(tmp_path)))
         await talk.expect("track_resolved", track_id="a.mp3")
         await gate.reached.wait()
         talk.send(command="shutdown")
@@ -123,7 +116,7 @@ async def test_keeps_the_plan_of_a_run_stopped_by_cancel_run(
     gate = api.gate("/beatport/search", KELVOR)
 
     async with conversation() as talk:
-        talk.send(command="start_tagging", folder=str(two_tracks(tmp_path)))
+        talk.send(**start_command(two_tracks(tmp_path)))
         await talk.expect("track_resolved", track_id="a.mp3")
         await gate.reached.wait()
         talk.send(command="cancel_run")
@@ -142,12 +135,11 @@ async def test_deletes_the_plan_of_a_run_replaced_by_a_new_one(folder: Path) -> 
 
 
 @pytest.mark.usefixtures("api")
-async def test_leaves_no_plan_for_a_folder_without_audio(tmp_path: Path, app_data: None) -> None:
-    empty = tmp_path / "empty"
-    empty.mkdir()
-
+async def test_leaves_no_plan_for_a_folder_without_audio(
+    empty_folder: Path, app_data: None
+) -> None:
     async with conversation() as talk:
-        talk.send(command="start_tagging", folder=str(empty))
+        talk.send(**start_command(empty_folder))
         await talk.expect("run_finished", phase="network")
 
     assert plan_files() == []

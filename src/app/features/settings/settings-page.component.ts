@@ -10,15 +10,15 @@ import { Label } from "primeng/label"
 import { Select } from "primeng/select"
 import { Tooltip } from "primeng/tooltip"
 
-import { SidecarService } from "../../core/sidecar.service"
+import { SidecarService } from "../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
   injectDangerConfirm,
-} from "../../shared/components/danger-confirm.component"
-import { ErrorMessageComponent } from "../../shared/components/error-message.component"
-import { IconComponent } from "../../shared/components/icon.component"
-import { RollbackFailuresComponent } from "../../shared/components/rollback-failures.component"
-import { TruncatedTextComponent } from "../../shared/components/truncated-text.component"
+} from "../../shared/components/dialogs/danger-confirm.component"
+import { RollbackFailuresComponent } from "../../shared/components/dialogs/rollback-failures.component"
+import { IconComponent } from "../../shared/components/display/icon.component"
+import { TruncatedTextComponent } from "../../shared/components/display/truncated-text.component"
+import { ErrorMessageComponent } from "../../shared/components/feedback/error-message.component"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { runDate } from "../../shared/utils/run-date"
 import { TOOLTIP } from "../../shared/utils/tooltip"

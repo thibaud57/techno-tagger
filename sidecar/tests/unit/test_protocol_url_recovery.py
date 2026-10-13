@@ -5,11 +5,11 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from tagger.arbitration import ArbitrationNotPendingError
 from tagger.handlers import to_protocol_event
 from tagger.protocol import Phase, Progress, ResolveByUrl, error_from_business, parse_command
-from tagger.scraper_client import UnsupportedTrackUrlError
-from tagger.url_recovery import UrlProgress
+from tagger.resolution.scraper_client import UnsupportedTrackUrlError
+from tagger.run.arbitration import ArbitrationNotPendingError
+from tagger.run.url_recovery import UrlProgress
 
 URL: Final = "https://orlaquenby.bandcamp.com/track/kelvor"
 

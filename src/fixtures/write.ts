@@ -6,7 +6,7 @@ import type {
   RunFinishedEvent,
   SidecarCommand,
   SidecarErrorEvent,
-} from "../app/core/models/protocol"
+} from "../app/core/sidecar/protocol"
 
 // Evenements partages par les specs : chaque test pose ses ecarts par spread.
 
@@ -45,12 +45,15 @@ export const ROLLBACK_RUN: RollbackRun = {
   tracks: 1,
 }
 
-export const rollbackFinished = (trackId: string | null = null): RollbackFinishedEvent => ({
+export const rollbackFinished = (
+  trackId: string | null = null,
+  failed: RollbackFinishedEvent["failed"] = [],
+): RollbackFinishedEvent => ({
   event: "rollback_finished",
   run_id: "a3f9c1",
   track_id: trackId,
   restored: ["a.mp3"],
-  failed: [],
+  failed,
 })
 
 export const commandError = (

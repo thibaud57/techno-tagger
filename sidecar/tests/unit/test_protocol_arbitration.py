@@ -10,7 +10,6 @@ from pydantic import ValidationError
 from scraper_responses import track_candidate
 from tagging_records import RECORD, scored_candidate
 
-from tagger import arbitration, tagging
 from tagger.handlers import to_protocol_event
 from tagger.protocol import (
     ArbitrationRequired,
@@ -18,11 +17,12 @@ from tagger.protocol import (
     ResolveArbitration,
     parse_command,
 )
-from tagger.scraper_client import Credit, ReleaseInfo, Source
-from tagger.tagging import FailureReason, PendingArbitration, SourceList, TrackRecord
+from tagger.resolution.scraper_client import Credit, ReleaseInfo, Source
+from tagger.run import arbitration, tagging
+from tagger.run.tagging import FailureReason, PendingArbitration, SourceList, TrackRecord
 
 if TYPE_CHECKING:
-    from tagger.scraper_client import TrackCandidate
+    from tagger.resolution.scraper_client import TrackCandidate
 
 
 def _awaiting(pending: PendingArbitration) -> TrackRecord:

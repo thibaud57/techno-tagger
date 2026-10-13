@@ -19,8 +19,8 @@ from _probe import emit
 from audio_samples import held_open
 from rename_samples import rename_now
 
-from tagger.paths import extended_path
-from tagger.renaming import MAX_PATH_LENGTH, RenameError, plan_rename
+from tagger.core.paths import extended_path
+from tagger.tags.renaming import MAX_PATH_LENGTH, RenameError, plan_rename
 
 PREFIX = "\\?\\"
 ARTIST = "Lior Vance"

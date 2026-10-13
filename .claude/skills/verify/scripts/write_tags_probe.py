@@ -24,8 +24,8 @@ from mutagen.id3 import APIC, COMM, PRIV, TDRC, TXXX, PictureType
 from scraper_responses import track_payload
 from tagging_api import JPEG
 
-from tagger.files import project_tags, write_tags
-from tagger.scraper_client import TrackCandidate
+from tagger.resolution.scraper_client import TrackCandidate
+from tagger.tags.files import project_tags, write_tags
 
 BUILDERS = {
     "mp3": write_blank_mp3,

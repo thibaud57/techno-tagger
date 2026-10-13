@@ -80,17 +80,18 @@ Un par zone, aucun outil de workspace transverse. **pnpm** côté Angular, suppo
 techno-tagger/
 ├── src/                                  # Angular : UI uniquement
 │   ├── app/
-│   │   ├── core/
-│   │   │   ├── sidecar.service.ts        # flux NDJSON <-> sidecar
-│   │   │   ├── sidecar-transport.ts      # frontière Tauri du sidecar, remplacée en test
-│   │   │   ├── scrub.ts                  # masquage PII avant envoi Sentry
-│   │   │   └── models/                   # types miroir du contrat JSON
+│   │   ├── core/                         # singletons et état, sans écran
+│   │   │   ├── sidecar/                  # flux NDJSON <-> sidecar, frontière Tauri remplacée en test, types miroir du contrat (protocol.ts)
+│   │   │   ├── stores/                   # un store signal par domaine du contrat : run, arbitrage, rattrapage URL, écriture, reprise, runs passés
+│   │   │   ├── platform/                 # fenêtre, garde de fermeture, signal de fin, thème, préférences, onglets
+│   │   │   ├── i18n/                     # choix de langue, spec de cohérence des JSON
+│   │   │   └── observability/            # masquage PII et options Sentry
 │   │   ├── shared/
-│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Mapping Composants)
+│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Mapping Composants) : dialogs/, display/, feedback/, inputs/
 │   │   │   └── utils/                    # fonctions et constantes d'affichage sans état
 │   │   ├── features/
 │   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
-│   │   │   ├── tagging/                  # onglet 2 : liste, arbitrage, récapitulatif
+│   │   │   ├── tagging/                  # onglet 2, un dossier par vue : run/, arbitration/, url-recovery/, recap/
 │   │   │   └── settings/                 # clé API, langue, seuils, copie/déplacement,
 │   │   │                                 # signal sonore, cache, logs
 │   │   ├── app.component.ts
@@ -110,38 +111,18 @@ techno-tagger/
 ├── sidecar/                              # le métier Python
 │   ├── pyproject.toml                    # pydantic, mutagen, rapidfuzz, httpx2, keyring, sentry-sdk
 │   ├── uv.lock
-│   ├── src/tagger/
+│   ├── src/tagger/                       # un package par étape du pipeline, chacun n'importe que ceux au-dessus de lui (cf. § Backend > Structure du Code)
 │   │   ├── __main__.py                   # boucle de commandes, émission d'événements
-│   │   ├── build_info.py                 # façade des constantes gravées au packaging
-│   │   ├── paths.py                      # racine des données applicatives, préfixe `\\?\` des chemins
-│   │   ├── logger.py                     # fichier tournant + stderr, jamais stdout
-│   │   ├── observability.py              # init Sentry durci, scrubbing PII
 │   │   ├── protocol.py                   # modèles des commandes et des événements
-│   │   ├── errors.py                     # erreurs métier : code stable et params structurés
-│   │   ├── file_failures.py              # motifs d'échec d'un fichier, classifieur unique (extraction, écriture, restauration)
 │   │   ├── handlers.py                   # handlers des commandes, run courant, événements traduits
-│   │   ├── playlists/                    # parsing VLC SQLite et M3U8
-│   │   ├── extraction.py                 # copie ou déplacement des morceaux d'une playlist
-│   │   ├── reports.py                    # rapports d'extraction, JSON et Markdown
-│   │   ├── tagging_report.py             # rapport de re-tagging d'un run, JSON et Markdown, relecture migrable
-│   │   ├── report_index.py               # registre des rapports écrits, pour rouvrir un run passé
-│   │   ├── api_key.py                    # clé API dans le trousseau, via keyring
-│   │   ├── files.py                      # mutagen : lecture/écriture des tags
-│   │   ├── tag_dump.py                   # dump des tags d'origine d'un run et journal des renommages, purgés après 30 jours
-│   │   ├── renaming.py                   # plan de renommage artiste - titre, collisions, chemins longs
-│   │   ├── matching.py                   # scoring rapidfuzz
-│   │   ├── scraper_client.py             # appels techno-scraper + X-API-Key
-│   │   ├── cache.py                      # réponses API et artworks
-│   │   ├── tagging.py                    # pipeline de résolution, run vivant en mémoire
-│   │   ├── writing.py                    # phase d'écriture d'un run : dump, tags, renommage, relance
-│   │   ├── rollback.py                   # restauration d'un run ou d'un morceau depuis son dump
-│   │   ├── sources.py                    # accès aux sources d'un run, garde des 403
-│   │   ├── arbitration.py                # gestes d'arbitrage sur un run vivant
-│   │   ├── run_files.py                  # nom horodaté, écriture atomique et rétention des fichiers d'un run, partagés par dumps et plans
-│   │   ├── plan.py                       # plan de run : modèle, enregistrement, relecture, purge
-│   │   └── resume.py                     # détection d'un run interrompu, reconstruction depuis son plan
+│   │   ├── core/                         # socle transverse : erreurs, chemins, logs, Sentry, clé API, fichiers d'un run
+│   │   ├── playlists/                    # parsing VLC SQLite et M3U8, copie ou déplacement des morceaux
+│   │   ├── resolution/                   # scoring rapidfuzz, client techno-scraper, cache, sources
+│   │   ├── tags/                         # mutagen, dump des tags d'origine, renommage
+│   │   ├── run/                          # run vivant : pipeline, arbitrage, rattrapage URL, écriture, rollback, plan, reprise
+│   │   └── reports/                      # rapports d'extraction et de re-tagging, registre des runs passés
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
-│   │   ├── unit/                         # un module isole, miroir de src/tagger/
+│   │   ├── unit/                         # un module isole, un sous-dossier par package de src/tagger/
 │   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
 │   │   ├── fixtures/                     # donnees figees : audio, vlc_media.db, M3U8
 │   │   └── helpers/                      # constructeurs partages, importables a plat
@@ -408,7 +389,20 @@ Deux réglages ne passent pas par un plugin :
 
 ### Structure du Code
 
-`core/` pour le service sidecar et les modèles miroir du contrat, `features/` pour les trois écrans autonomes. Aucune logique métier côté Angular : le calcul des scores, la construction des requêtes et les règles d'écriture vivent dans le sidecar.
+`core/` pour ce qui vit sans écran, `features/` pour les trois onglets, `shared/` pour ce que plusieurs onglets affichent. Aucune logique métier côté Angular : le calcul des scores, la construction des requêtes et les règles d'écriture vivent dans le sidecar.
+
+| Dossier | Contenu |
+|---|---|
+| `core/sidecar/` | `sidecar.service.ts` (flux NDJSON), `sidecar-transport.ts` (frontière Tauri, remplacée en test), `protocol.ts` (types miroir du contrat, maintenus à la main) |
+| `core/stores/` | Un store signal par domaine du contrat : `tagging-run`, `arbitration`, `url-recovery`, `write`, `resume`, `past-runs`. Le service sidecar les alimente, les écrans les lisent |
+| `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, préférences persistées, onglets |
+| `core/i18n/` | Choix de langue et spec de cohérence des deux JSON de `public/i18n/` |
+| `core/observability/` | Masquage PII et options Sentry de la webview |
+| `features/playlist/` | Onglet 1 : dossiers, playlist, lignes d'extraction |
+| `features/tagging/` | Onglet 2, un dossier par vue : `run/` (page, liste, détail d'un morceau, restauration), `arbitration/`, `url-recovery/`, `recap/` |
+| `features/settings/` | Onglet 3 : clé API, langue, seuils, copie ou déplacement, signal sonore, cache, logs |
+| `shared/components/` | `dialogs/` (en-tête, confirmations, reprise, échecs de rollback), `display/` (pochette, icône, étiquettes d'état et de source, texte tronqué, états vides), `feedback/` (messages), `inputs/` (sélecteur de chemin) |
+| `shared/utils/` | Fonctions et constantes d'affichage sans état |
 
 ### i18n
 
@@ -431,6 +425,43 @@ Deux réglages ne passent pas par un plugin :
 ### Structure du Code
 
 Modules à responsabilité unique sous `src/tagger/`, sans framework ni couche d'injection. `protocol.py` définit les modèles **Pydantic** (cf. [ADR-022](adrs/022-modeles-pydantic-du-protocole.md)) de commandes et d'événements et constitue la seule interface publique du sidecar ; tout le reste est appelé depuis la boucle de `__main__.py`.
+
+Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre où un run les traverse. Chaque package n'importe que ceux listés avant lui, ce qui interdit les cycles : `core` ← `playlists` ← `resolution` ← `tags` ← `run` ← `reports`, et seuls `protocol.py` et `handlers.py`, à la racine, les voient tous.
+
+| Package | Module | Rôle |
+|---|---|---|
+| racine | `__main__.py` | Boucle de commandes, émission d'événements |
+| | `protocol.py` | Modèles des commandes et des événements |
+| | `handlers.py` | Handlers des commandes, run courant, événements traduits |
+| `core/` | `errors.py` | Erreurs métier : code stable et params structurés |
+| | `file_failures.py` | Motifs d'échec d'un fichier, classifieur unique (extraction, écriture, restauration) |
+| | `paths.py` | Racine des données applicatives, préfixe `\\?\` des chemins |
+| | `logger.py` | Fichier tournant + stderr, jamais stdout |
+| | `observability.py` | Init Sentry durci, scrubbing PII |
+| | `build_info.py` | Façade des constantes gravées au packaging |
+| | `api_key.py` | Clé API dans le trousseau, via keyring |
+| | `run_files.py` | Nom horodaté, écriture atomique et rétention des fichiers d'un run, partagés par dumps, plans et rapports |
+| `playlists/` | `vlc.py`, `m3u8.py`, `models.py`, `errors.py` | Parsing VLC SQLite et M3U8, façade dans `__init__.py` |
+| | `extraction.py` | Copie ou déplacement des morceaux d'une playlist |
+| `resolution/` | `matching.py` | Scoring rapidfuzz |
+| | `scraper_client.py` | Appels techno-scraper + X-API-Key |
+| | `cache.py` | Réponses API et artworks |
+| | `sources.py` | Accès aux sources d'un run, garde des 403 |
+| `tags/` | `files.py` | mutagen : lecture/écriture des tags |
+| | `tag_dump.py` | Dump des tags d'origine d'un run et journal des renommages, purgés après 30 jours |
+| | `renaming.py` | Plan de renommage artiste - titre, collisions, chemins longs |
+| `run/` | `tagging.py` | Pipeline de résolution, run vivant en mémoire |
+| | `arbitration.py` | Gestes d'arbitrage sur un run vivant |
+| | `url_recovery.py` | Rattrapage d'un morceau par URL |
+| | `writing.py` | Phase d'écriture d'un run : dump, tags, renommage, relance |
+| | `rollback.py` | Restauration d'un run ou d'un morceau depuis son dump |
+| | `plan.py` | Plan de run : modèle, enregistrement, relecture, purge |
+| | `resume.py` | Détection d'un run interrompu, reconstruction depuis son plan |
+| `reports/` | `extraction.py` | Rapport d'extraction, JSON et Markdown |
+| | `tagging.py` | Rapport de re-tagging d'un run, JSON et Markdown, relecture migrable |
+| | `index.py` | Registre des rapports écrits, pour rouvrir un run passé |
+
+Les tests unitaires suivent le même découpage : `tests/unit/<package>/`, les tests de la racine (`__main__`, `protocol`, `handlers`) restant dans `tests/unit/`.
 
 ### API
 

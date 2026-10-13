@@ -57,6 +57,12 @@ def write_blank_mp3(path: Path) -> Path:
     return path
 
 
+def write_not_audio(path: Path) -> Path:
+    """Octets que mutagen ne rattache a aucun format, quelle que soit l'extension."""
+    path.write_bytes(b"not an audio file" * 16)
+    return path
+
+
 def write_blank_wav(path: Path) -> Path:
     """RIFF/WAVE mono 16 bits, un centieme de seconde de silence."""
     with wave.open(str(path), "wb") as audio:

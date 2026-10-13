@@ -2,10 +2,10 @@
 paths:
   - "src/main.ts"
   - "src/app/app.config.ts"
-  - "src/app/core/scrub.ts"
-  - "src/app/core/scrub.spec.ts"
-  - "src/app/core/sentry-options.ts"
-  - "src/app/core/sentry-options.spec.ts"
+  - "src/app/core/observability/scrub.ts"
+  - "src/app/core/observability/scrub.spec.ts"
+  - "src/app/core/observability/sentry-options.ts"
+  - "src/app/core/observability/sentry-options.spec.ts"
 ---
 
 # Sentry — SDK Angular
@@ -14,7 +14,7 @@ paths:
 - Initialiser dans `main.ts` **avant** `bootstrapApplication()`
 - Retirer du jeu par défaut `Breadcrumbs` (interactions), `Console` (lignes de console, à part depuis Sentry 11), `Replay` (le DOM) et `CultureContext` (locale et fuseau) : les trois premières portent ce que l'écran affiche, la dernière localise l'utilisateur
 - Fermer explicitement chaque catégorie de `dataCollection` (`userInfo`, `cookies`, `httpHeaders`, `httpBodies`, `urlQueryParams`, `stackFrameVariables`) : depuis Sentry 11, l'option absente collecte tout, IP comprise
-- Garder les options dans `core/sentry-options.ts`, testées sur l'événement réellement envoyé : un défaut qui change à la montée du SDK fait alors échouer un test au lieu de fuiter
+- Garder les options dans `core/observability/sentry-options.ts`, testées sur l'événement réellement envoyé : un défaut qui change à la montée du SDK fait alors échouer un test au lieu de fuiter
 - Enregistrer le gestionnaire par `{ provide: ErrorHandler, useValue: Sentry.createErrorHandler() }` : il n'existe aucun `provideErrorHandler`
 - Poser la même `release` que le sidecar, préfixe compris (`techno-tagger@X.Y.Z`), et `environment`, tous deux venus du `define` esbuild
 - Générer les source maps en `hidden`, les uploader puis **les supprimer de `dist/`** dans les scripts npm de `pnpm build` : `tauri-codegen` embarque tout `frontendDist` sans filtre

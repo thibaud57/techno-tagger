@@ -14,10 +14,10 @@ import { providePrimeNG } from "primeng/config"
 import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
-import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/language"
-import { CompletionSignalService } from "./core/completion-signal.service"
-import { SidecarService } from "./core/sidecar.service"
-import { TECHNO_TAGGER_PRESET } from "./core/theme"
+import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/i18n/language"
+import { CompletionSignalService } from "./core/platform/completion-signal.service"
+import { TECHNO_TAGGER_PRESET } from "./core/platform/theme"
+import { SidecarService } from "./core/sidecar/sidecar.service"
 
 export const appConfig: ApplicationConfig = {
   providers: [

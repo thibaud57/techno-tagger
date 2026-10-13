@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from tagger.renaming import RenamedTrack, plan_rename
+from tagger.tags.renaming import RenamedTrack, plan_rename
 
 if TYPE_CHECKING:
     from pathlib import Path

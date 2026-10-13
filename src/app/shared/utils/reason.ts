@@ -6,7 +6,7 @@ import type {
   FileFailureReason,
   RollbackFailureReason,
   TrackFailureReason,
-} from "../../core/models/protocol"
+} from "../../core/sidecar/protocol"
 
 /** Ce que l'utilisateur relance pour que le geste qui repare serve : l'ecriture, la restauration, l'extraction. */
 export type FileReasonContext = "write" | "rollback" | "extraction"

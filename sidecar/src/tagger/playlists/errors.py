@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, ClassVar
 
-from tagger.errors import TaggerError
+from tagger.core.errors import TaggerError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

@@ -27,8 +27,8 @@ from mutagen.id3 import COMM, TBPM, TDRC, TIT2, TPE1, TXXX, WOAS
 from scraper_responses import payload_candidate
 from tagging_api import JPEG
 
-from tagger.files import project_tags, read_original_tags, restore_tags, write_tags
-from tagger.tag_dump import (
+from tagger.tags.files import project_tags, read_original_tags, restore_tags, write_tags
+from tagger.tags.tag_dump import (
     DumpEntry,
     TagDump,
     dump_dir,

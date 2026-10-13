@@ -15,24 +15,12 @@ from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
 import sentry_sdk
 
-from tagger import __version__, arbitration, tagging, url_recovery, writing
-from tagger.api_key import ApiKeyMissingError, read_api_key, store_api_key
-from tagger.arbitration import Arbitration
-from tagger.cache import (
-    ArtworkFetcher,
-    ArtworkUnavailableError,
-    DiskCache,
-    ResponseCache,
-    resolve_host,
-)
-from tagger.errors import RunNotFoundError
-from tagger.extraction import extract
-from tagger.files import TagField
-from tagger.matching import DEFAULT_THRESHOLDS, MatchingThresholds, credited_artists, full_title
-from tagger.paths import app_data_dir
-from tagger.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
-from tagger.plan import PlanRecorder, RunPlan, plan_dir
+from tagger import __version__
+from tagger.core.api_key import ApiKeyMissingError, read_api_key, store_api_key
+from tagger.core.errors import RunNotFoundError
+from tagger.core.paths import app_data_dir
 from tagger.playlists import list_playlists, read_playlist
+from tagger.playlists.extraction import extract
 from tagger.protocol import (
     ArbitrationRequired,
     ArbitrationUpdated,
@@ -72,23 +60,41 @@ from tagger.protocol import (
     UnreadablePlanPayload,
     Version,
 )
-from tagger.report_index import IndexEntry, index_path, list_reports, record_report
-from tagger.reports import ReportContext, ReportWriteError, write_extraction_report
-from tagger.resume import InterruptedRun, UnreadablePlan, detect_interrupted, reopen_run
-from tagger.rollback import find_rollback_target, roll_back
-from tagger.scraper_client import TechnoScraperClient
-from tagger.sources import RunSources
-from tagger.tag_dump import TagDumpError, dump_dir
-from tagger.tagging import open_run, resolve_run
-from tagger.tagging_report import (
+from tagger.reports.extraction import ReportContext, ReportWriteError, write_extraction_report
+from tagger.reports.index import IndexEntry, index_path, list_reports, record_report
+from tagger.reports.tagging import (
     after_rows,
     load_tagging_report,
     report_paths,
     tag_rows,
     write_tagging_report,
 )
-from tagger.url_recovery import UrlRecovery
-from tagger.writing import RunWriter
+from tagger.resolution.cache import (
+    ArtworkFetcher,
+    ArtworkUnavailableError,
+    DiskCache,
+    ResponseCache,
+    resolve_host,
+)
+from tagger.resolution.matching import (
+    DEFAULT_THRESHOLDS,
+    MatchingThresholds,
+    credited_artists,
+    full_title,
+)
+from tagger.resolution.scraper_client import TechnoScraperClient
+from tagger.resolution.sources import RunSources
+from tagger.run import arbitration, tagging, url_recovery, writing
+from tagger.run.arbitration import Arbitration
+from tagger.run.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
+from tagger.run.plan import PlanRecorder, RunPlan, plan_dir
+from tagger.run.resume import InterruptedRun, UnreadablePlan, detect_interrupted, reopen_run
+from tagger.run.rollback import find_rollback_target, roll_back
+from tagger.run.tagging import open_run, resolve_run
+from tagger.run.url_recovery import UrlRecovery
+from tagger.run.writing import RunWriter
+from tagger.tags.files import TagField
+from tagger.tags.tag_dump import TagDumpError, dump_dir
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -96,18 +102,18 @@ if TYPE_CHECKING:
 
     import httpx2
 
-    from tagger.arbitration import ArbitrationEvent
-    from tagger.cache import HostResolver
-    from tagger.files import TagSystem
-    from tagger.matching import ScoredCandidate
     from tagger.protocol import Event
-    from tagger.reports import ReportPaths
-    from tagger.resume import DetectedPlan
-    from tagger.scraper_client import TrackCandidate
-    from tagger.tagging import LiveRun, TaggingRun, TrackRecord
-    from tagger.tagging_report import ReportTagValue, TaggingReport, TaggingReportTrack
-    from tagger.url_recovery import UrlRecoveryEvent
-    from tagger.writing import WriteEvent
+    from tagger.reports.extraction import ReportPaths
+    from tagger.reports.tagging import ReportTagValue, TaggingReport, TaggingReportTrack
+    from tagger.resolution.cache import HostResolver
+    from tagger.resolution.matching import ScoredCandidate
+    from tagger.resolution.scraper_client import TrackCandidate
+    from tagger.run.arbitration import ArbitrationEvent
+    from tagger.run.resume import DetectedPlan
+    from tagger.run.tagging import LiveRun, TaggingRun, TrackRecord
+    from tagger.run.url_recovery import UrlRecoveryEvent
+    from tagger.run.writing import WriteEvent
+    from tagger.tags.files import TagSystem
 
 logger = logging.getLogger(__name__)
 

@@ -38,8 +38,8 @@ Ce sub-project expose dans le contrat NDJSON le domaine des sub-projects 01 à 0
 - **À modifier** : `sidecar/src/tagger/handlers.py` :
   - `open_tagging` factorisé : ouverture des clients d'un côté, ouverture du run de l'autre (`open_resumed_tagging` pour la reprise) ;
   - `handle_get_interrupted_run`, `read_resumable_plan`, `handle_resume_run`, `handle_list_runs`, `handle_load_run` ;
-  - `RunNotFoundError` ;
   - `source_url` dans `_resolved` et `report_path` dans `_run_finished`.
+- **À modifier** : `sidecar/src/tagger/errors.py` (`RunNotFoundError`).
 - **À modifier** : `sidecar/src/tagger/__main__.py` (dispatch des cinq commandes ; `resume_run` sur la mécanique de `start_tagging` ; `load_run` en tâche de fond, refusée pendant une phase longue et annulée à la fermeture de la session).
 - **À modifier** : `src/app/core/models/protocol.ts` (cinq commandes, trois événements, deux champs, `TrackLoaded` et charges).
 - **À modifier** : `src/app/core/sidecar.service.ts` (`KNOWN_EVENTS`, cas sans effet dans `handleLine`).

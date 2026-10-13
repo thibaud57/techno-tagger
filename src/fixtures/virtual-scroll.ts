@@ -2,8 +2,9 @@ import { vi } from "vitest"
 
 /**
  * Sans ces mesures, JSDOM n'en calculant aucune, `[virtualScroll]` ne monte pas une seule ligne.
- * Par `vi.spyOn` et non `Object.defineProperty` : le builder tourne en `isolate: false`, un stub
- * non restaure fuirait vers les specs suivantes (`showOnEllipsis` de `pTooltip`, entre autres).
+ * Par `vi.spyOn` et non `Object.defineProperty` : `vi.restoreAllMocks()` le retire, sinon un stub
+ * sur le prototype fuirait vers les tests suivants du fichier (`showOnEllipsis` de `pTooltip`,
+ * entre autres).
  */
 export const stubOffscreenLayout = (): void => {
   vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockReturnValue(document.body)

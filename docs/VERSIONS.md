@@ -665,7 +665,7 @@ Autrement dit, **le projet scaffoldé par défaut tombe dans le cas cassant**, e
 - **Zoneless** : aucune déclaration officielle de Sentry sur le comportement en Angular zoneless. L'`ErrorHandler` ne dépend pas de Zone.js, donc le cas d'usage retenu ici n'est pas concerné. L'issue `sentry-javascript#8983` (le `finalTimeout` du tracing bloque la stabilisation de `NgZone`) ne s'applique qu'avec `browserTracingIntegration`, non utilisée
 - Aucune documentation Sentry ne couvre Tauri : le SDK fonctionne comme dans n'importe quelle webview, sans enrichissement du contexte machine côté Rust
 
-**Recommandation** : ⚠️ Ne pas activer `browserTracing`, fermer explicitement chaque catégorie de `dataCollection` et retirer `Breadcrumbs`, `Console`, `Replay` et `CultureContext`. En v11 les défauts ne sont plus les bons : la config vit dans `core/sentry-options.ts`, dont le test lit l'événement réellement envoyé.
+**Recommandation** : ⚠️ Ne pas activer `browserTracing`, fermer explicitement chaque catégorie de `dataCollection` et retirer `Breadcrumbs`, `Console`, `Replay` et `CultureContext`. En v11 les défauts ne sont plus les bons : la config vit dans `core/observability/sentry-options.ts`, dont le test lit l'événement réellement envoyé.
 
 ### 14. Vitest
 **Version actuelle** : `5.0.3` (2026-09-30)

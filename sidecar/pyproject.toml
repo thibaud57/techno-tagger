@@ -113,6 +113,11 @@ strict = true
 warn_unreachable = true  # non couvert par strict
 python_version = "3.14"
 plugins = ["pydantic.mypy"]
+# Les tests ne sont pas des packages (pytest en importlib) : sans bases explicites,
+# deux `conftest.py` donnent le meme module `conftest` et mypy s'arrete.
+explicit_package_bases = true
+# Ancre sur ce fichier : un chemin relatif suivrait le dossier courant (un IDE lance d'ailleurs)
+mypy_path = ["$MYPY_CONFIG_FILE_DIR/src", "$MYPY_CONFIG_FILE_DIR/tests/helpers", "$MYPY_CONFIG_FILE_DIR/tests"]
 # mutagen livre un py.typed sans annoter ses frames ni les methodes de ses tags
 # (setall, delall, add, update_to_v23, add_picture) : sans cette exclusion, chaque
 # appel demanderait un `# type: ignore[no-untyped-call]`.

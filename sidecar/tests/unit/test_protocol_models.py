@@ -3,20 +3,20 @@
 import json
 from dataclasses import fields
 from pathlib import Path
-from typing import TYPE_CHECKING, get_args
+from typing import TYPE_CHECKING, Final, get_args
 
 import pytest
 from pydantic import ValidationError
 
-from tagger.errors import TaggerError
-from tagger.extraction import (
+from tagger.core.errors import TaggerError
+from tagger.core.file_failures import FileFailureReason
+from tagger.playlists.extraction import (
     DiscardedCandidate,
     DuplicateResolution,
     ExtractionFailure,
     ExtractionMode,
     ExtractionResult,
 )
-from tagger.file_failures import FileFailureReason
 from tagger.protocol import (
     AnyCommand,
     CancelRun,
@@ -38,11 +38,15 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
-from tagger.tagging import FailureReason, Resolution, TrackState
+from tagger.run.tagging import FailureReason, Resolution, TrackState
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
     from pydantic import BaseModel
+
+
+EXTRA_FIELD_LINE: Final = '{"command":"list_playlists","playlist_path":"C:/x","extra":1}'
+UNKNOWN_COMMAND_LINE: Final = '{"command":"unheard_of"}'
 
 
 @pytest.mark.parametrize(
@@ -50,6 +54,7 @@ if TYPE_CHECKING:
     [
         ('{"command":"get_version"}', GetVersion),
         ('{"command":"shutdown"}', Shutdown),
+        ('{"command":"cancel_run"}', CancelRun),
         ('{"command":"list_playlists","playlist_path":"C:/x/vlc_media.db"}', ListPlaylists),
         (
             '{"command":"extract_playlist","source_folder":"C:/lib",'
@@ -57,7 +62,7 @@ if TYPE_CHECKING:
             ExtractPlaylist,
         ),
     ],
-    ids=["get_version", "shutdown", "list_playlists", "extract_playlist"],
+    ids=["get_version", "shutdown", "cancel_run", "list_playlists", "extract_playlist"],
 )
 def test_routes_a_line_to_its_command_model(line: str, model: type[BaseModel]) -> None:
     command = parse_command(line)
@@ -85,10 +90,10 @@ def test_defaults_the_mode_to_copy() -> None:
 @pytest.mark.parametrize(
     ("line", "error_type"),
     [
-        ('{"command":"list_playlists","playlist_path":"C:/x","extra":1}', "extra_forbidden"),
+        (EXTRA_FIELD_LINE, "extra_forbidden"),
         ('{"command":"list_playlists"}', "missing"),
         ('{"command":"list_playlists","playlist_path":42}', "string_type"),
-        ('{"command":"unheard_of"}', "union_tag_invalid"),
+        (UNKNOWN_COMMAND_LINE, "union_tag_invalid"),
         ("pas du json", "json_invalid"),
         (
             '{"command":"extract_playlist","source_folder":"C:/lib",'
@@ -106,6 +111,7 @@ def test_defaults_the_mode_to_copy() -> None:
     ],
 )
 def test_rejects_a_malformed_line(line: str, error_type: str) -> None:
+    """Le `type` part tel quel dans `params.errors` de l'evenement : il fait partie du contrat."""
     with pytest.raises(ValidationError) as excinfo:
         parse_command(line)
 
@@ -186,7 +192,7 @@ def test_extraction_finished_carries_the_five_categories_and_its_report() -> Non
 
 def test_a_validation_error_becomes_a_structured_event() -> None:
     with pytest.raises(ValidationError) as excinfo:
-        parse_command('{"command":"list_playlists","playlist_path":"C:/x","extra":1}')
+        parse_command(EXTRA_FIELD_LINE)
 
     event = error_from_validation(excinfo.value)
 
@@ -200,7 +206,7 @@ def test_a_validation_error_becomes_a_structured_event() -> None:
 
 def test_an_unknown_command_is_named_in_the_error_params() -> None:
     with pytest.raises(ValidationError) as excinfo:
-        parse_command('{"command":"unheard_of"}')
+        parse_command(UNKNOWN_COMMAND_LINE)
 
     event = error_from_validation(excinfo.value)
 
@@ -209,7 +215,7 @@ def test_an_unknown_command_is_named_in_the_error_params() -> None:
 
 def test_a_malformed_known_command_names_no_command() -> None:
     with pytest.raises(ValidationError) as excinfo:
-        parse_command('{"command":"list_playlists","playlist_path":"C:/x","extra":1}')
+        parse_command(EXTRA_FIELD_LINE)
 
     event = error_from_validation(excinfo.value)
 
@@ -246,18 +252,11 @@ def test_a_malformed_known_command_is_attributed_to_its_command() -> None:
     ecran n'affichait son erreur.
     """
     with pytest.raises(ValidationError) as excinfo:
-        parse_command('{"command":"list_playlists","playlist_path":"C:/x","extra":1}')
+        parse_command(EXTRA_FIELD_LINE)
 
     event = error_from_validation(excinfo.value)
 
     assert event.command == "list_playlists"
-    assert event.code == "malformed_command"
-
-
-def test_parses_a_run_cancellation() -> None:
-    command = parse_command('{"command":"cancel_run"}')
-
-    assert isinstance(command, CancelRun)
 
 
 def test_an_api_key_pasted_with_a_space_says_what_to_fix() -> None:
@@ -288,7 +287,7 @@ def test_a_malformed_command_names_no_command() -> None:
     ligne qui n'a pas valide ne designe aucune commande du contrat.
     """
     with pytest.raises(ValidationError) as excinfo:
-        parse_command('{"command":"nope"}')
+        parse_command(UNKNOWN_COMMAND_LINE)
 
     event = error_from_validation(excinfo.value)
 

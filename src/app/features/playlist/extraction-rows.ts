@@ -1,4 +1,4 @@
-import type { ExtractionFinishedEvent } from "../../core/models/protocol"
+import type { ExtractionFinishedEvent } from "../../core/sidecar/protocol"
 import { extractionReasonKeys, type ReasonKeys } from "../../shared/utils/reason"
 
 export type ExtractionCategory =

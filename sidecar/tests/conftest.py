@@ -5,44 +5,27 @@ le client HTTP se mocke par le `MockTransport` natif d'httpx2, `respx` et
 `pytest-httpx` ne supportant pas ce fork (cf. VERSIONS.md § Conflits Potentiels).
 
 `unit/` teste un module isole, `integration/` fait dialoguer plusieurs modules,
-protocole NDJSON de bout en bout compris. Les donnees figees vivent dans
-`fixtures/`, les constructeurs partages dans `helpers/`, importable a plat grace
-au `pythonpath` de la configuration pytest.
+protocole NDJSON de bout en bout compris. Ce fichier ne garde que les fixtures
+servant aux deux, chaque dossier a son `conftest.py` pour les siennes. Les donnees
+figees vivent dans `fixtures/`, les constructeurs partages dans `helpers/`,
+importable a plat grace au `pythonpath` de la configuration pytest.
 """
 
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
-import httpx2
 import keyring
 import pytest
-from audio_samples import BLANK_WRITERS
-from extraction_samples import sample_context, sample_result
 from memory_keyring import MemoryKeyring
-from scraper_responses import DIM_ORBIT
-from tagging_api import ORIGINAL, FakeApi, FakeCdn, found, one_track, public_resolver
 from vlc_dump import build_dump
 
-from tagger import handlers
-from tagger.api_key import SERVICE, USERNAME
+from tagger.core.api_key import SERVICE, USERNAME
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
-
-    from tagger.extraction import ExtractionResult
-    from tagger.reports import ReportContext
+    from collections.abc import Iterator
 
 FIXTURES: Final = Path(__file__).parent / "fixtures"
-
-
-@pytest.fixture
-def requests() -> list[httpx2.Request]:
-    """Journal des requetes emises, rempli par le handler du `MockTransport`.
-
-    Une liste neuve par test : c'est la seule fenetre sur ce que le client a emis.
-    """
-    return []
 
 
 @pytest.fixture(autouse=True)
@@ -67,8 +50,8 @@ def _isolate_root_logger() -> Iterator[None]:
 def memory_keyring() -> Iterator[MemoryKeyring]:
     """Trousseau en memoire pose pour chaque test, backend precedent restaure apres.
 
-    Autouse : `get_version` lit desormais le trousseau, et un test qui l'oublierait
-    toucherait le Credential Manager de la machine qui fait tourner la suite.
+    Autouse : `get_version` lit le trousseau, et un test qui l'oublierait toucherait
+    le Credential Manager de la machine qui fait tourner la suite.
     """
     previous = keyring.get_keyring()
     backend = MemoryKeyring()
@@ -87,19 +70,6 @@ def vlc_dump(tmp_path: Path) -> Path:
     est binaire : le DDL seul, versionnable, vit dans `helpers/vlc_dump.py`.
     """
     return build_dump(tmp_path / "vlc_media.db")
-
-
-@pytest.fixture
-def blank_audio(tmp_path: Path) -> Callable[[str], Path]:
-    """Fabrique de fichiers audio vierges, `"mp3"`, `"wav"`, `"aiff"` ou `"flac"`.
-
-    Construits en octets par `helpers/audio_samples.py` : aucun binaire commite.
-    """
-
-    def make(audio_format: str) -> Path:
-        return BLANK_WRITERS[audio_format](tmp_path / f"track.{audio_format}")
-
-    return make
 
 
 @pytest.fixture
@@ -146,47 +116,12 @@ def music_library(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def extraction_result(tmp_path: Path) -> ExtractionResult:
-    """Resultat d'extraction couvrant les cinq categories."""
-    return sample_result(tmp_path / "library")
-
-
-@pytest.fixture
-def report_context(tmp_path: Path) -> ReportContext:
-    """Contexte de rapport pointant sur la meme arborescence."""
-    return sample_context(tmp_path / "library", tmp_path / "work")
+def _key(memory_keyring: MemoryKeyring) -> None:
+    """Cle API deja enregistree dans le trousseau en memoire."""
+    memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"
 
 
 @pytest.fixture
 def app_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Isole le dossier de donnees d'application sous `tmp_path`."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
-
-
-@pytest.fixture
-def api(monkeypatch: pytest.MonkeyPatch) -> FakeApi:
-    """API/CDN simules ; resolveur remplace aussi, sinon `ArtworkFetcher` ferait un vrai DNS."""
-    fake = FakeApi()
-    cdn = FakeCdn()
-    monkeypatch.setattr(
-        handlers,
-        "tagging_transports",
-        lambda: handlers.TaggingTransports(
-            httpx2.MockTransport(fake.gated_handler),
-            httpx2.MockTransport(cdn.handler),
-            public_resolver,
-        ),
-    )
-    return fake
-
-
-@pytest.fixture
-def folder(tmp_path: Path, app_data: None, api: FakeApi) -> Path:
-    """« Dim Orbit » que Beatport resout d'office : le run finit avec un morceau a ecrire."""
-    api.on("/beatport/search", DIM_ORBIT, found(ORIGINAL))
-    return one_track(tmp_path)
-
-
-@pytest.fixture
-def _key(memory_keyring: MemoryKeyring) -> None:
-    memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"

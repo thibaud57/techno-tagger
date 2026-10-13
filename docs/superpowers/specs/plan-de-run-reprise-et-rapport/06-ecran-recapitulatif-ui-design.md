@@ -11,6 +11,8 @@ date: "2026-10-12"
 
 # Écran récapitulatif d'un run
 
+> **Révisé le 2026-10-13** : le pied ne porte plus que « Retour à la liste » à gauche et la ligne de contexte à droite. « Restaurer le run » et « Nouveau run » en sortent (ils restent dans l'onglet Tagging), avec `clearRun()`, `prepareRun(null)` et l'icône `plus`. La règle en vigueur est l'arbitrage « Pied du récapitulatif » de `docs/DESIGN.md`. Les passages ci-dessous qui les décrivent (scope, état livré, en-tête, pied, Nouveau run, scénario 5, tests et cas limites associés) sont historiques.
+
 ## Scope
 
 Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Récapitulatif » de la page Tagging ouvre la route `tagging/recap`, qui montre la table figée du run, filtrable par voie (Tout, Validés, Arbitrés, Échecs, chacun avec son compteur) et par recherche, avec le détail avant / après, l'état vide, « Restaurer le run » et « Nouveau run ». Il ajoute aussi le lien vers la fiche source dans le détail déplié (ouvert par le plugin `opener`) et les trois icônes manquantes (`search`, `external-link`, `plus`). Il exclut « Envoyer ce rapport » (Feature 9), la réouverture d'un run passé avec sa route `tagging/recap/:runId` (sub-project 07) et toute relance de l'écriture, qui reste au bouton d'action de la liste.

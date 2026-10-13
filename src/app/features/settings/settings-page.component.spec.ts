@@ -1,75 +1,25 @@
-import { computed, signal } from "@angular/core"
+import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import {
-  TranslateService,
-  type TranslationObject,
-  provideTranslateService,
-} from "@ngx-translate/core"
+import { provideTranslateService } from "@ngx-translate/core"
 import { Router, provideRouter } from "@angular/router"
 import { ConfirmationService } from "primeng/api"
 
-import type {
-  PastRun,
-  RollbackFinishedEvent,
-  RollbackRun,
-  SidecarErrorEvent,
-} from "../../core/models/protocol"
-import { SidecarService } from "../../core/sidecar.service"
-import type { RollbackInFlight } from "../../core/write.store"
 import { PAST_RUN } from "../../../fixtures/past-runs"
-import { ROLLBACK_RUN, rollbackFinished } from "../../../fixtures/write"
+import { type SidecarStubOverrides, sidecarStub } from "../../../fixtures/sidecar-stub"
+import { translateWith } from "../../../fixtures/translate"
+import { ROLLBACK_RUN, commandError, rollbackFinished } from "../../../fixtures/write"
+import type { PastRun } from "../../core/sidecar/protocol"
+import { SidecarService } from "../../core/sidecar/sidecar.service"
+import type { RollbackInFlight } from "../../core/stores/write.store"
 
 import SettingsPageComponent, { STORED_KEY_MASK } from "./settings-page.component"
-
-/** Sous-ensemble reellement mocke : une divergence avec `SidecarService` casse ici, jamais en silence. */
-type SidecarServiceStub = Pick<
-  SidecarService,
-  | "apiKeyConfigured"
-  | "available"
-  | "lastError"
-  | "lastErrorCommand"
-  | "errorFor"
-  | "setApiKey"
-  | "rollbackTarget"
-  | "rollingBack"
-  | "rollbackFinished"
-  | "writing"
-  | "filesBusy"
-  | "tagging"
-  | "loadRollbackTarget"
-  | "rollback"
-  | "pastRuns"
-  | "listRuns"
->
 
 /**
  * Ce qui se teste ici est la disponibilite de l'enregistrement et la commande
  * emise : la cle ne doit jamais rester dans l'ecran une fois envoyee.
- * `filesBusy` suit `writing` et `rollingBack`, surcharges comprises.
  */
-const mountWith = (overrides: Partial<Omit<SidecarServiceStub, "filesBusy">> = {}) => {
-  const base = {
-    apiKeyConfigured: signal<boolean | null>(false),
-    available: signal(true),
-    lastError: signal(null),
-    lastErrorCommand: signal(null),
-    errorFor: SidecarService.prototype.errorFor,
-    setApiKey: vi.fn(() => Promise.resolve()),
-    rollbackTarget: signal<RollbackRun | null | undefined>(undefined),
-    rollingBack: signal<RollbackInFlight | null>(null),
-    rollbackFinished: signal<RollbackFinishedEvent | null>(null),
-    writing: signal(false),
-    tagging: signal(false),
-    loadRollbackTarget: vi.fn(() => Promise.resolve()),
-    pastRuns: signal<readonly PastRun[] | null>(null),
-    listRuns: vi.fn(() => Promise.resolve()),
-    rollback: vi.fn(() => Promise.resolve()),
-    ...overrides,
-  }
-  const service: SidecarServiceStub = {
-    ...base,
-    filesBusy: computed(() => base.writing() || base.rollingBack() !== null),
-  }
+const mountWith = (overrides: SidecarStubOverrides = {}) => {
+  const service = sidecarStub({ apiKeyConfigured: signal<boolean | null>(false), ...overrides })
 
   TestBed.configureTestingModule({
     imports: [SettingsPageComponent],
@@ -109,13 +59,7 @@ describe("SettingsPageComponent", () => {
 
   it("shows a key storage error under the row", () => {
     const { fixture } = mountWith({
-      lastError: signal<SidecarErrorEvent>({
-        event: "error",
-        code: "api_key_not_stored",
-        params: {},
-        message: "",
-        command: "set_api_key",
-      }),
+      lastError: signal(commandError("set_api_key", "api_key_not_stored")),
       lastErrorCommand: signal("set_api_key"),
     })
 
@@ -126,13 +70,7 @@ describe("SettingsPageComponent", () => {
 
   it("ignores an error raised by another screen", () => {
     const { fixture } = mountWith({
-      lastError: signal<SidecarErrorEvent>({
-        event: "error",
-        code: "malformed_command",
-        params: {},
-        message: "",
-        command: "list_playlists",
-      }),
+      lastError: signal(commandError("list_playlists", "malformed_command")),
       lastErrorCommand: signal("list_playlists"),
     })
 
@@ -181,15 +119,11 @@ describe("SettingsPageComponent", () => {
     expect(component["entry"]().apiKey).toBe("")
   })
 
-  const translateWith = (admin: TranslationObject): void => {
-    const translate = TestBed.inject(TranslateService)
-    translate.setTranslation("en", { settings: { admin } })
-    translate.use("en")
-  }
-
   it("asks for the last undoable run and names it", () => {
     const { fixture, service } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
-    translateWith({ rollback: { target: "{{date}}|{{folder}}|{{count}}" } })
+    translateWith({
+      settings: { admin: { rollback: { target: "{{date}}|{{folder}}|{{count}}" } } },
+    })
     fixture.detectChanges()
 
     const line = (fixture.nativeElement as HTMLElement).querySelector("[data-rollback-target]")
@@ -239,7 +173,7 @@ describe("SettingsPageComponent", () => {
     const { fixture } = mountWith({
       rollbackTarget: signal({ ...ROLLBACK_RUN, written_at: "not-a-date" }),
     })
-    translateWith({ rollback: { target: "{{date}}|{{folder}}" } })
+    translateWith({ settings: { admin: { rollback: { target: "{{date}}|{{folder}}" } } } })
 
     fixture.detectChanges()
 
@@ -278,7 +212,7 @@ describe("SettingsPageComponent", () => {
 
   it("undoes the last run after a confirmation that names it", () => {
     const { component, service } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
-    translateWith({ rollback: { message: "{{folder}} {{count}}" } })
+    translateWith({ settings: { admin: { rollback: { message: "{{folder}} {{count}}" } } } })
     const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
 
     component["restoreLast"]()
@@ -309,11 +243,15 @@ describe("SettingsPageComponent", () => {
         PAST_RUN,
       ])
       const { component } = mountWith({ pastRuns })
-      translateWith({ rollback: { target: "{{folder}}" } })
+      translateWith({ settings: { admin: { rollback: { target: "{{date}}|{{folder}}" } } } })
 
       const labels = component["pastRunOptions"]().map((option) => option.label)
 
-      expect(labels).toEqual(["D:/Sets/Septembre", "D:/Sets/Aout"])
+      expect(labels.map((label) => label.split("|")[1])).toEqual([
+        "D:/Sets/Septembre",
+        "D:/Sets/Aout",
+      ])
+      expect(labels[0]).toContain("2026")
     })
 
     it("chooses the latest run first", () => {
@@ -403,17 +341,12 @@ describe("SettingsPageComponent", () => {
   it("shows the files left as they were and the rollback error", () => {
     const { fixture } = mountWith({
       rollbackTarget: signal(null),
-      rollbackFinished: signal({
-        ...rollbackFinished(),
-        failed: [{ track_id: "a.mp3", file_name: "X - Y.mp3", reason: "name_taken" }],
-      }),
-      lastError: signal<SidecarErrorEvent>({
-        event: "error",
-        code: "tag_dump_unreadable",
-        params: {},
-        message: "",
-        command: "rollback",
-      }),
+      rollbackFinished: signal(
+        rollbackFinished(null, [
+          { track_id: "a.mp3", file_name: "X - Y.mp3", reason: "name_taken" },
+        ]),
+      ),
+      lastError: signal(commandError("rollback", "tag_dump_unreadable")),
       lastErrorCommand: signal("rollback"),
     })
 

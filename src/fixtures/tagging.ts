@@ -5,8 +5,8 @@ import type {
   TagsBefore,
   TrackFailureReason,
   TrackResolvedEvent,
-} from "../app/core/models/protocol"
-import type { TaggingTrack } from "../app/core/tagging-run.store"
+} from "../app/core/sidecar/protocol"
+import type { TaggingTrack } from "../app/core/stores/tagging-run.store"
 
 // Evenements d'un run de re-tagging partages par les specs.
 
@@ -67,10 +67,14 @@ export const PENDING_TRACK: TaggingTrack = {
   restorable: false,
 }
 
+// Les builders ci-dessous nomment le fichier d'apres l'identifiant : deux lignes de meme nom
+// ne se distingueraient plus a l'ecran.
+
 /** Ligne resolue d'office, sans detail de candidat : un test pose ses ecarts par spread. */
 export const resolvedTrack = (trackId: string): TaggingTrack => ({
   ...PENDING_TRACK,
   trackId,
+  fileName: trackId,
   state: "resolved",
   resolution: "auto",
 })
@@ -93,6 +97,7 @@ export const unresolvedTrack = (
 ): TaggingTrack => ({
   ...PENDING_TRACK,
   trackId,
+  fileName: trackId,
   state: "unresolved",
   resolution: "none",
   failureReason,
@@ -102,6 +107,7 @@ export const unresolvedTrack = (
 export const recoveredTrack = (trackId: string): TaggingTrack => ({
   ...PENDING_TRACK,
   trackId,
+  fileName: trackId,
   state: "resolved",
   resolution: "url",
   source: "bandcamp",

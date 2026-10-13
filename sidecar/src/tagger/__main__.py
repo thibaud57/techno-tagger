@@ -18,9 +18,11 @@ from keyring.backends.Windows import WinVaultKeyring
 from pydantic import ValidationError
 
 from tagger import RELEASE
-from tagger.arbitration import ArbitrationNotPendingError
-from tagger.build_info import SENTRY_DSN
-from tagger.errors import RunNotFoundError, TaggerError
+from tagger.core.build_info import SENTRY_DSN
+from tagger.core.errors import RunNotFoundError, TaggerError
+from tagger.core.logger import setup_logging
+from tagger.core.observability import init_sentry
+from tagger.core.paths import app_data_dir
 from tagger.handlers import (
     commit,
     handle_commit_run,
@@ -38,10 +40,6 @@ from tagger.handlers import (
     handle_start_tagging,
     url_progress,
 )
-from tagger.logger import setup_logging
-from tagger.observability import init_sentry
-from tagger.paths import app_data_dir
-from tagger.plan import discard_plan, find_plan, plan_dir, purge_plans
 from tagger.protocol import (
     CancelRun,
     CommitRun,
@@ -69,9 +67,11 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
-from tagger.resume import load_resumable
-from tagger.tag_dump import dump_dir, purge_dumps
-from tagger.url_recovery import UrlRecoveryNotOpenError
+from tagger.run.arbitration import ArbitrationNotPendingError
+from tagger.run.plan import discard_plan, find_plan, plan_dir, purge_plans
+from tagger.run.resume import load_resumable
+from tagger.run.url_recovery import UrlRecoveryNotOpenError
+from tagger.tags.tag_dump import dump_dir, purge_dumps
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

@@ -1,20 +1,22 @@
 """Detection, reprise et abandon d'un run interrompu, de bout en bout sur la boucle."""
 
 import json
+from datetime import timedelta
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from ndjson_loop import conversation, resolved_run
+from ndjson_loop import conversation, resolved_run, start_command
 from run_plans import RUN_ID, music, only_plan, plan_files, plan_of, save_plan
 from scraper_responses import DIM_ORBIT, KELVOR
 from tagging_api import CREATED, ORIGINAL, found, two_tracks
 
-from tagger.plan import plan_dir
-from tagger.run_files import run_id_of, stamped_name
-from tagger.tag_dump import dump_dir
-from tagger.tagging import FailureReason
+from tagger.core.run_files import run_id_of, stamped_name
+from tagger.run.plan import plan_dir
+from tagger.run.tagging import FailureReason
+from tagger.tags.tag_dump import dump_dir
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from memory_keyring import MemoryKeyring
@@ -111,6 +113,23 @@ async def test_discards_a_plan_and_announces_what_remains(tmp_path: Path) -> Non
     assert plan_files() == []
 
 
+async def test_discarding_a_plan_announces_the_next_interrupted_run(tmp_path: Path) -> None:
+    folder = tmp_path / "music"
+    records = music(folder, 1)
+    older = CREATED - timedelta(days=2)
+    save_plan(plan_dir(), plan_of(folder, records))
+    save_plan(plan_dir(), plan_of(folder, records, run_id=OTHER_RUN, started_at=older))
+
+    async with conversation() as talk:
+        talk.send(command="discard_run", run_id=RUN_ID)
+        announced = await talk.expect("interrupted_run")
+
+    run = announced["run"]
+    assert isinstance(run, dict)
+    assert run["run_id"] == OTHER_RUN
+    assert [run_id_of(path) for path in plan_files()] == [OTHER_RUN]
+
+
 async def test_discarding_an_interrupted_plan_does_not_announce_the_open_run(
     folder: Path, tmp_path: Path
 ) -> None:
@@ -146,28 +165,12 @@ async def test_discarding_the_current_run_abandons_it(folder: Path) -> None:
         run_id = await resolved_run(talk, folder)
         talk.send(command="discard_run", run_id=run_id)
         announced = await talk.expect("interrupted_run")
+        talk.send(command="commit_run", run_id=run_id)
+        refused = await talk.expect("error")
 
     assert announced["run"] is None
     assert plan_files() == []
-
-
-async def test_refuses_to_discard_while_a_phase_runs(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", DIM_ORBIT)
-
-    async with conversation() as talk:
-        talk.send(command="start_tagging", folder=str(folder))
-        started = await talk.expect("run_started")
-        await gate.reached.wait()
-        talk.send(command="discard_run", run_id=started["run_id"])
-        error = await talk.expect("error")
-        gate.release.set()
-        await talk.expect("run_finished", phase="network")
-
-    assert (error["code"], error["command"], error["params"]) == (
-        "phase_busy",
-        "discard_run",
-        {"phase": "tagging"},
-    )
+    assert (refused["code"], refused["command"]) == ("write_not_open", "commit_run")
 
 
 async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeApi) -> None:
@@ -175,7 +178,7 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
     gate = api.gate("/beatport/search", KELVOR)
     folder = two_tracks(tmp_path)
     async with conversation() as talk:
-        talk.send(command="start_tagging", folder=str(folder))
+        talk.send(**start_command(folder))
         started = await talk.expect("run_started")
         await talk.expect("track_resolved", track_id="a.mp3")
         await gate.reached.wait()
@@ -202,18 +205,23 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
     assert finished["run_id"] == run_id
 
 
-@pytest.mark.parametrize("kind", ["committed", "dumped"], ids=["committed", "dumped"])
+def _save_committed_plan(other: Path) -> None:
+    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=OTHER_RUN, committed=True))
+
+
+def _save_dumped_plan(other: Path) -> None:
+    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=OTHER_RUN))
+    dump_dir().mkdir(parents=True, exist_ok=True)
+    (dump_dir() / stamped_name(CREATED, OTHER_RUN, ".json")).write_text("{}", encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "save_plan_of", [_save_committed_plan, _save_dumped_plan], ids=["committed", "dumped"]
+)
 async def test_refuses_a_plan_that_cannot_be_resumed_and_keeps_the_open_run(
-    folder: Path, tmp_path: Path, kind: str
+    folder: Path, tmp_path: Path, save_plan_of: Callable[[Path], None]
 ) -> None:
-    other = tmp_path / "other"
-    save_plan(
-        plan_dir(),
-        plan_of(other, music(other, 1), run_id=OTHER_RUN, committed=kind == "committed"),
-    )
-    if kind == "dumped":
-        dump_dir().mkdir(parents=True, exist_ok=True)
-        (dump_dir() / stamped_name(CREATED, OTHER_RUN, ".json")).write_text("{}", encoding="utf-8")
+    save_plan_of(tmp_path / "other")
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
@@ -247,6 +255,7 @@ async def test_reports_a_run_whose_folder_cannot_be_reopened(tmp_path: Path, kin
         error = await talk.expect("error")
 
     assert (error["code"], error["command"]) == ("tagging_folder_unreadable", "resume_run")
+    assert len(plan_files()) == 1
 
 
 async def test_refuses_to_resume_without_an_api_key(

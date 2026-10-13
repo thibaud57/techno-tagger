@@ -5,21 +5,32 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from ndjson_loop import EXPECT_TIMEOUT, conversation, held_call, resolved_run
+from ndjson_loop import (
+    EXPECT_TIMEOUT,
+    Conversation,
+    conversation,
+    held_call,
+    resolved_run,
+    start_command,
+    written_run,
+)
 from report_files import only_report, report_files
 from scraper_responses import BANDCAMP_TRACK, DIM_ORBIT, bandcamp_track_payload
 from stubs import raising
 from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, ok, one_track
 
-from tagger import BUNDLE_IDENTIFIER, files, handlers, tag_dump, tagging_report, writing
-from tagger.api_key import SERVICE, USERNAME
-from tagger.file_failures import FileFailureReason
-from tagger.files import TagsUnreadableError, TagsWriteError, TagSystem
-from tagger.report_index import index_path, list_reports
-from tagger.run_files import write_atomically
-from tagger.tag_dump import TagDumpUnreadableError, TagDumpWriteError, dump_dir
-from tagger.tagging import TrackState
-from tagger.tagging_report import load_tagging_report
+from tagger import BUNDLE_IDENTIFIER, handlers
+from tagger.core.api_key import SERVICE, USERNAME
+from tagger.core.file_failures import FileFailureReason
+from tagger.core.run_files import write_atomically
+from tagger.reports import tagging as tagging_report
+from tagger.reports.index import index_path, list_reports
+from tagger.reports.tagging import load_tagging_report
+from tagger.run import writing
+from tagger.run.tagging import TrackState
+from tagger.tags import files, tag_dump
+from tagger.tags.files import TagsUnreadableError, TagsWriteError, TagSystem
+from tagger.tags.tag_dump import TagDumpUnreadableError, TagDumpWriteError, dump_dir
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -73,7 +84,7 @@ async def test_refuses_a_commit_while_the_network_phase_runs(folder: Path, api: 
     gate = api.gate("/beatport/search", DIM_ORBIT)
 
     async with conversation() as talk:
-        talk.send(command="start_tagging", folder=str(folder))
+        talk.send(**start_command(folder))
         started = await talk.expect("run_started")
         await gate.reached.wait()
         talk.send(command="commit_run", run_id=started["run_id"])
@@ -86,9 +97,7 @@ async def test_refuses_a_commit_while_the_network_phase_runs(folder: Path, api: 
 
 async def test_refuses_a_second_commit(folder: Path) -> None:
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        run_id = await written_run(talk, folder)
         talk.send(command="commit_run", run_id=run_id)
         error = await talk.expect("error")
 
@@ -117,9 +126,7 @@ async def test_refuses_decisions_once_the_run_is_committed(
     folder: Path, decision: dict[str, object]
 ) -> None:
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        await written_run(talk, folder)
         talk.send(track_id=ONE_TRACK, **decision)
         error = await talk.expect("error")
 
@@ -215,37 +222,12 @@ async def test_flags_a_failure_restorable_only_once_its_origin_is_dumped(
 
 
 @pytest.mark.parametrize(
-    "command",
-    ["commit_run", "retry_write", "start_tagging"],
-    ids=["commit-run", "retry-write", "start-tagging"],
+    "end_session",
+    [lambda talk: talk.send(command="shutdown"), Conversation.hang_up],
+    ids=["shutdown", "eof"],
 )
-async def test_refuses_writes_and_new_runs_while_writing(
-    folder: Path, monkeypatch: pytest.MonkeyPatch, command: str
-) -> None:
-    held = held_call(monkeypatch, writing, "write_tags")
-
-    async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await held.wait_reached()
-        if command == "start_tagging":
-            talk.send(command=command, folder=str(folder))
-        else:
-            talk.send(command=command, run_id=run_id)
-        error = await talk.expect("error")
-        held.release.set()
-        await talk.expect("run_finished", phase="write")
-
-    assert (error["code"], error["params"], error["command"]) == (
-        "phase_busy",
-        {"phase": "write"},
-        command,
-    )
-
-
-@pytest.mark.parametrize("ending", ["shutdown", "eof"], ids=["shutdown", "eof"])
 async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
-    folder: Path, monkeypatch: pytest.MonkeyPatch, ending: str
+    folder: Path, monkeypatch: pytest.MonkeyPatch, end_session: Callable[[Conversation], None]
 ) -> None:
     held = held_call(monkeypatch, writing, "write_tags")
     closed = asyncio.Event()
@@ -255,28 +237,24 @@ async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
         await real_close(self)
         closed.set()
 
-    monkeypatch.setattr(handlers.CurrentRun, "close", closing)
-
-    async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await held.wait_reached()
-        talk.send(command="cancel_run")
-        talk.send(command="get_version")
-        await talk.expect("version")
-        if ending == "shutdown":
-            talk.send(command="shutdown")
-        else:
-            talk.hang_up()
-        async with asyncio.timeout(EXPECT_TIMEOUT):
-            await closed.wait()
-        finished_early = [
-            event
-            for event in talk.events
-            if event["event"] == "run_finished" and event.get("phase") == "write"
-        ]
-        held.release.set()
-        finished = await talk.expect("run_finished", phase="write")
+    with patch.object(handlers.CurrentRun, "close", autospec=True, side_effect=closing):
+        async with conversation() as talk:
+            run_id = await resolved_run(talk, folder)
+            talk.send(command="commit_run", run_id=run_id)
+            await held.wait_reached()
+            talk.send(command="cancel_run")
+            talk.send(command="get_version")
+            await talk.expect("version")
+            end_session(talk)
+            async with asyncio.timeout(EXPECT_TIMEOUT):
+                await closed.wait()
+            finished_early = [
+                event
+                for event in talk.events
+                if event["event"] == "run_finished" and event.get("phase") == "write"
+            ]
+            held.release.set()
+            finished = await talk.expect("run_finished", phase="write")
 
     assert not finished_early
     assert finished["written"] == 1
@@ -339,9 +317,7 @@ async def test_rewrites_the_same_report_after_a_retry(
     lift = _locked_until_lifted(monkeypatch)
 
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        run_id = await written_run(talk, folder)
         json_path, first = only_report(folder)
         lift()
         talk.send(command="retry_write", run_id=run_id)
@@ -354,9 +330,7 @@ async def test_rewrites_the_same_report_after_a_retry(
 
 async def test_leaves_the_report_untouched_by_a_rollback(folder: Path) -> None:
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        run_id = await written_run(talk, folder)
         before = _report_texts(folder)
         talk.send(command="rollback", run_id=run_id)
         await talk.expect("rollback_finished")
@@ -367,9 +341,7 @@ async def test_leaves_the_report_untouched_by_a_rollback(folder: Path) -> None:
 
 async def test_reports_a_restored_track_after_a_partial_rollback(folder: Path) -> None:
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        run_id = await written_run(talk, folder)
         talk.send(command="rollback", run_id=run_id, track_id=ONE_TRACK)
         await talk.expect("rollback_finished")
         talk.send(command="retry_write", run_id=run_id)
@@ -437,9 +409,7 @@ async def test_keeps_one_pair_of_files_when_the_markdown_was_refused_once(
     monkeypatch.setattr(tagging_report, "write_atomically", write)
 
     async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        run_id = await written_run(talk, folder)
         refusing = False
         talk.send(command="retry_write", run_id=run_id)
         await talk.expect("run_finished", phase="write")

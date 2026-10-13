@@ -67,7 +67,7 @@ Pour l'onglet Playlist, `just demo` bâtit `demo-data/` (git-ignoré) : 30 morce
 
 Relire `stdout` (chaque ligne doit se parser seule en objet JSON, sans indentation), `stderr` à part, puis l'état du disque (`work`, rapports, bibliothèque intacte).
 
-Poser `LOCALAPPDATA="$V/appdata"` sur le lancement isole la racine des données (`tagger.paths.app_data_dir()`) : le sidecar écrit alors ses logs et plus tard son cache, sous `$V/appdata/fr.empiricmind.techno-tagger/`, jamais dans le profil réel. C'est aussi ce qui prouve que la racine est bien composée avec l'identifiant de bundle.
+Poser `LOCALAPPDATA="$V/appdata"` sur le lancement isole la racine des données (`tagger.core.paths.app_data_dir()`) : le sidecar écrit alors ses logs et plus tard son cache, sous `$V/appdata/fr.empiricmind.techno-tagger/`, jamais dans le profil réel. C'est aussi ce qui prouve que la racine est bien composée avec l'identifiant de bundle.
 
 ### Flux qui valent le coup
 
@@ -78,7 +78,7 @@ Poser `LOCALAPPDATA="$V/appdata"` sur le lancement isole la racine des données 
 
 ## Pilotage du cache disque
 
-Les classes de `tagger/cache.py` s'exercent hors protocole tant que la boucle de commandes ne les câble pas. Aucun script ne les pilote encore : au premier besoin, en écrire un dans `scripts/`, lancé par `PYTHONPATH=tests/helpers uv run --directory sidecar python`. Il vaut mieux qu'un test : vrai système de fichiers, vrai `httpx2.AsyncClient` contre un `http.server` local servant de faux CDN, ni `MockTransport` ni horloge injectée.
+Les classes de `tagger/resolution/cache.py` s'exercent hors protocole tant que la boucle de commandes ne les câble pas. Aucun script ne les pilote encore : au premier besoin, en écrire un dans `scripts/`, lancé par `PYTHONPATH=tests/helpers uv run --directory sidecar python`. Il vaut mieux qu'un test : vrai système de fichiers, vrai `httpx2.AsyncClient` contre un `http.server` local servant de faux CDN, ni `MockTransport` ni horloge injectée.
 
 L'âge d'une entrée se force en renommant l'epoch de son nom (`<hash>.<epoch>.<ext>`), là où le cache le lit : `DiskCache` rouvert sur le dossier purge alors ce qui a dépassé le TTL, sans qu'aucune horloge ait été truquée.
 
@@ -103,11 +103,11 @@ Parcours relevé le 2026-10-07, tous verts. Le parcours change au 2026-10-11 : p
 
 ### Échec de transfert à l'extraction
 
-Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Ilán Thorne - As We Stayed.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
+Les motifs d'échec de fichier sont partagés par l'extraction et l'écriture (`tagger/core/file_failures.py`). `just demo --root <scratch> --size-mb 20`, puis `demo.py --lock 25` en arrière-plan et `extract_playlist` de `test playlist` : 24 extraits, 2 déjà présents, 3 introuvables, 3 doublons et un échec `file_locked` sur « Ilán Thorne - As We Stayed.wav », dans `extraction_finished.failures` comme dans les rapports `.json` et `.md`. Relevé le 2026-10-07.
 
 ## Pilotage du dump des tags d'origine
 
-`read_original_tags`, `restore_tags` et le dump d'un run (`tagger/tag_dump.py`) s'exercent hors protocole par `scripts/restore_probe.py`, qui couvre cinq formats là où la fixture du protocole n'a que des MP3 (rollback par le protocole : § Pilotage du rollback). `LOCALAPPDATA` vers le scratchpad est obligatoire : sans lui, le dump s'écrit sous le vrai profil.
+`read_original_tags`, `restore_tags` et le dump d'un run (`tagger/tags/tag_dump.py`) s'exercent hors protocole par `scripts/restore_probe.py`, qui couvre cinq formats là où la fixture du protocole n'a que des MP3 (rollback par le protocole : § Pilotage du rollback). `LOCALAPPDATA` vers le scratchpad est obligatoire : sans lui, le dump s'écrit sous le vrai profil.
 
 La purge se pilote par le vrai sidecar : poser dans `<LOCALAPPDATA>/fr.empiricmind.techno-tagger/dumps/` des fichiers `{}` nommés `<YYYYMMDDTHHMMSSZ>-<run_id>.json` de part et d'autre des 30 jours, un `notes.json`, puis lancer `python -m tagger` avec un `get_version` sur `stdin`. Un dump verrouillé s'obtient par `held_open` d'`audio_samples` autour du lancement (`subprocess.run` dans un `PYTHONPATH=tests/helpers uv run --directory sidecar python -c`, la variable étant héritée par le sous-process).
 
@@ -135,7 +135,7 @@ Parcours relevé le 2026-10-08, neuf cas verts, rejoués verts le 2026-10-11 à 
 
 ## Pilotage de la phase d'écriture
 
-`RunWriter` (`tagger/writing.py`) s'exerce hors protocole par `scripts/write_phase_probe.py`, qui pose à la main des états qu'un run du faux serveur ne donne pas tous (MP3 et FLAC résolus côte à côte, un morceau verrouillé parmi d'autres). Le run part d'`open_run` sur le dossier, comme en production : seuls les états des morceaux sont posés à la main. `LOCALAPPDATA` vers le scratchpad est obligatoire, le dump s'écrivant sous `dump_dir()`. Le script configure `logging` vers `stderr` : les lignes `write phase` s'y relisent.
+`RunWriter` (`tagger/run/writing.py`) s'exerce hors protocole par `scripts/write_phase_probe.py`, qui pose à la main des états qu'un run du faux serveur ne donne pas tous (MP3 et FLAC résolus côte à côte, un morceau verrouillé parmi d'autres). Le run part d'`open_run` sur le dossier, comme en production : seuls les états des morceaux sont posés à la main. `LOCALAPPDATA` vers le scratchpad est obligatoire, le dump s'écrivant sous `dump_dir()`. Le script configure `logging` vers `stderr` : les lignes `write phase` s'y relisent.
 
 ### Flux qui valent le coup
 
@@ -157,7 +157,7 @@ Parcours relevé le 2026-10-09, tous verts. Le parcours change au 2026-10-11 : p
 - Run figé : `resolve_arbitration` et `switch_arbitration_source` sur le morceau en attente, `resolve_by_url` sur le non résolu, tous en `run_committed` avec `params.track_id`
 - `retry_write` sans échec : accepté, `run_finished` en `write` aux mêmes compteurs
 - Relance : deux morceaux tranchés, `{"lock": ...}` sur le premier 0,5 s avant `commit_run`, `write_error` / `file_locked` pour lui et `written` pour l'autre (`written` 1, `write_error` 1) ; verrou levé, `retry_write` le passe en `written` (`progress` à `1/1`, `written` 2, `write_error` 0)
-- `stderr` : chaque refus laisse un `command failed reason=<code>` avec sa trace, `write failed run=<id> track=1 reason=file_locked` en ERROR, ni chemin ni titre dans les lignes `tagger.writing`
+- `stderr` : chaque refus laisse un `command failed reason=<code>` avec sa trace, `write failed run=<id> track=1 reason=file_locked` en ERROR, ni chemin ni titre dans les lignes `tagger.run.writing`
 
 `shutdown` et l'EOF pendant l'écriture ne se provoquent pas par la vraie boucle : trois morceaux s'écrivent avant que la commande suivante soit lue. La preuve vit dans `test_neither_cancel_nor_the_end_of_the_session_cuts_a_write`, qui retient `write_tags` dans son thread.
 
@@ -182,7 +182,7 @@ Parcours relevé le 2026-10-09 sur le binaire 0.5.0, tous verts. Le parcours cha
 - Session neuve : `rollback_target` nomme le run, 2 morceaux et le dossier **du dump** (`folder` de la commande `start_tagging`, normalisé en `\`) et non plus l'ancêtre commun des fichiers : avec des fichiers tous sous `sub/`, il reste le dossier lancé et non `…\sub` ; `rollback` rend `rollback_finished` avec les deux restaurés **dans l'ordre inverse de l'écriture** et aucun échec ; noms d'origine revenus, tags relus identiques à l'origine, dossier `dumps/` vide, `get_rollback_target` à `run: null` ; un second `rollback` du même run en `rollback_unavailable` avec `params.run_id` et `track_id` nul
 - Run affiché, dans le même bloc que `commit_run` : un `rollback` arrivé pendant l'écriture rend `phase_busy` avec `params.phase` à `write`. Puis `rollback` d'un seul `track_id` suivi sans attente de `rollback`, `commit_run` et `start_tagging` : les trois en `phase_busy` avec `params.phase` à `rollback` (course gagnée sur deux morceaux), puis `track_resolved` en `rolled_back` sans source, `after`, scores ni pochette, `resolution` gardée, `restorable` faux, et `rollback_finished` qui ne nomme que lui
 - Ensuite : `get_rollback_target` vise le même run à 1 morceau ; `retry_write` ne réécrit pas le morceau restauré (`run_finished` en `write` à `written` 1) ; `rollback` d'un `run_id` sans dump en `rollback_unavailable`
-- `stderr` : `rollback started` et `finished` en INFO avec le seul `run`, refus en `command failed reason=phase_busy` ou `background phase failed reason=rollback_unavailable`, aucun nom de fichier ni titre dans les lignes `tagger.rollback`
+- `stderr` : `rollback started` et `finished` en INFO avec le seul `run`, refus en `command failed reason=phase_busy` ou `background phase failed reason=rollback_unavailable`, aucun nom de fichier ni titre dans les lignes `tagger.run.rollback`
 
 Un rollback pendant une extraction et `shutdown` pendant un rollback ne se provoquent pas par la vraie boucle sur la fixture : leur preuve vit dans `test_ndjson_phases.py`, qui retient l'appel dans son thread. Un nom d'origine pris se provoque en posant un fichier au nom d'origine avant `rollback` : `rollback_finished.failed` porte `name_taken` avec le nom écrit en `file_name`, aucun `track_resolved`, le dump garde l'entrée et `get_rollback_target` vise encore le run ; l'intrus retiré, un second `rollback` restaure. `stderr` : `rollback failed run=<id> reason=name_taken` en ERROR, sans nom de fichier (gardé aussi par `test_ndjson_rollback.py`).
 

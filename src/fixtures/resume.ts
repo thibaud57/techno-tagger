@@ -2,7 +2,7 @@ import type {
   InterruptedRun,
   InterruptedRunEvent,
   UnreadablePlan,
-} from "../app/core/models/protocol"
+} from "../app/core/sidecar/protocol"
 
 export const INTERRUPTED: InterruptedRun = {
   kind: "interrupted",

@@ -86,7 +86,7 @@ La route `tagging/recap/:runId` charge le même `RecapPageComponent`. Son entré
 
 - **Chargement** : avec un `runId`, un `effect` (side-effect d'envoi, `.claude/rules/angular/signals.md`) envoie `load_run` dès que le moteur est disponible, une fois par instance de la page et par `runId`. Deux ouvertures du même run envoient donc deux commandes et les pochettes sont retéléchargées à chaque ouverture. La table affiche ses lignes squelettes tant que le run n'est ni chargé ni refusé.
 - **Données** : les morceaux viennent de `loaded` quand il désigne le `runId` de la route, sinon du run affiché. Filtres, recherche, détail et lien source sont ceux du sub-project 06.
-- **En-tête** : le titre est suivi d'une ligne `text-sm text-muted-color`, « Run du {date} sur {dossier} », par la même clé `settings.admin.rollback.target` et la même date que les Réglages.
+- **Pied** : à droite du retour, une ligne `text-sm text-muted-color`, « Run du {date} sur {dossier} », par la même clé `settings.admin.rollback.target` et la même date que les Réglages.
 - **Lecture seule** : ni « Restaurer le run », ni « Restaurer ce morceau » (`restorableIds` vide), ni « Nouveau run ». Le message d'échec d'écriture et le bilan de restauration appartiennent au run vivant : ils n'apparaissent pas sur un run passé.
 - **Refus** : le message d'erreur traduit (`app-error-message`) et un `EmptyState` encadré remplacent la table, seulement quand le refus porté par le store vise le `runId` de la route : le refus d'un autre run ne s'affiche pas.
 
@@ -108,7 +108,7 @@ Aucun `changeDetection` déclaré (`.claude/rules/angular/change-detection.md`).
 ### Scénario 2 : ouvrir un run passé
 **GIVEN** le run du 2 août choisi
 **WHEN** l'utilisateur clique « Ouvrir le récapitulatif »
-**THEN** l'onglet Tagging affiche le récapitulatif de ce run, avec « Run du 2 août sur … » sous le titre, ses filtres, ses compteurs et le lien vers la fiche source de chaque morceau
+**THEN** l'onglet Tagging affiche le récapitulatif de ce run, avec « Run du 2 août sur … » au pied de la table, ses filtres, ses compteurs et le lien vers la fiche source de chaque morceau
 
 ### Scénario 3 : lecture seule
 **GIVEN** le récapitulatif d'un run passé dont le dump existe encore

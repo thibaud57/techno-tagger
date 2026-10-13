@@ -24,16 +24,16 @@ from pydantic import (
     model_validator,
 )
 
-from tagger.extraction import DuplicateCriterion, ExtractionMode
-from tagger.file_failures import FileFailureReason
-from tagger.files import TagField, TagSystem
-from tagger.matching import MatchingThresholds, check_thresholds
+from tagger.core.file_failures import FileFailureReason
 from tagger.playlists import PlaylistFormat
-from tagger.scraper_client import SearchSource, Source
-from tagger.tagging import FailureReason, Resolution, TrackFailureReason, TrackState
+from tagger.playlists.extraction import DuplicateCriterion, ExtractionMode
+from tagger.resolution.matching import MatchingThresholds, check_thresholds
+from tagger.resolution.scraper_client import SearchSource, Source
+from tagger.run.tagging import FailureReason, Resolution, TrackFailureReason, TrackState
+from tagger.tags.files import TagField, TagSystem
 
 if TYPE_CHECKING:
-    from tagger.errors import TaggerError
+    from tagger.core.errors import TaggerError
 
 
 class Command(BaseModel):

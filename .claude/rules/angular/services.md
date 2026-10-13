@@ -12,7 +12,7 @@ paths:
 - Injecter avec `inject()` en champ `private readonly`
 - Créer un store par phase pour l'état que le sidecar envoie, sans jamais l'injecter dans un composant : le service qui route les événements ré-expose ses signaux en lecture seule, le contrat NDJSON reste sa seule source
 - Injecter directement dans les composants un service d'état propre à l'interface (saisie en cours, modale ouverte, demande de sortie) : il ne tient rien du sidecar et n'a pas à passer par son routage
-- Garder dans `core/models/` les types miroir du contrat NDJSON, maintenus à la main faute de package partagé avec le sidecar
+- Garder dans `core/sidecar/` les types miroir du contrat NDJSON (`protocol.ts`), maintenus à la main faute de package partagé avec le sidecar
 - Réserver `providers` sur un composant aux cas où l'état doit être isolé et réinitialisé avec lui
 - Charger un service lourd à la demande par `injectAsync()` en initialiseur de champ : il rend une fonction `() => Promise<T>`, le chunk n'est téléchargé qu'à son premier appel, et le service doit être auto-provided
 

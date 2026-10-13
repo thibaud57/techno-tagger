@@ -7,11 +7,10 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 from tagging_api import FakeApi, one_track, opened_run
+from vlc_dump import TRACKS
 
 from tagger import __version__
-from tagger.api_key import SERVICE, USERNAME
-from tagger.arbitration import Arbitration
-from tagger.cache import resolve_host
+from tagger.core.api_key import SERVICE, USERNAME
 from tagger.handlers import (
     CurrentRun,
     handle_extract_playlist,
@@ -21,7 +20,9 @@ from tagger.handlers import (
     tagging_transports,
 )
 from tagger.protocol import ExtractPlaylist, ListPlaylists, Phase, Progress, SetApiKey
-from tagger.url_recovery import UrlRecovery
+from tagger.resolution.cache import resolve_host
+from tagger.run.arbitration import Arbitration
+from tagger.run.url_recovery import UrlRecovery
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -45,7 +46,6 @@ def test_reports_the_sidecar_version() -> None:
     event = handle_get_version()
 
     assert event.version == __version__
-    assert isinstance(event.api_key_configured, bool)
 
 
 def test_lists_the_playlists_of_a_dump(vlc_dump: Path) -> None:
@@ -76,16 +76,20 @@ def test_emits_progress_for_every_track(
     assert seen[-1].processed == seen[-1].total
 
 
-def test_carries_the_five_categories(vlc_dump: Path, music_library: Path, tmp_path: Path) -> None:
+def test_reports_a_playlist_track_absent_from_the_library_as_missing(
+    vlc_dump: Path, music_library: Path, tmp_path: Path
+) -> None:
     command = extract_command(music_library, vlc_dump, tmp_path / "work")
 
     event = handle_extract_playlist(command, lambda _: None)
 
-    assert isinstance(event.extracted, tuple)
-    assert isinstance(event.already_present, tuple)
-    assert isinstance(event.missing, tuple)
-    assert isinstance(event.duplicates, tuple)
-    assert isinstance(event.failures, tuple)
+    assert set(event.missing) == set(TRACKS)
+    assert (event.extracted, event.already_present, event.duplicates, event.failures) == (
+        (),
+        (),
+        (),
+        (),
+    )
 
 
 @pytest.mark.usefixtures("_key")

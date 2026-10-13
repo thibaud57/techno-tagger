@@ -15,10 +15,10 @@ import pytest
 from audio_samples import tag, write_blank_mp3
 from scraper_responses import DIM_ORBIT, make_client, page_payload, track_payload
 
-from tagger.cache import ArtworkFetcher, DiskCache
-from tagger.matching import DEFAULT_THRESHOLDS
-from tagger.sources import RunSources
-from tagger.tagging import open_run, resolve_run
+from tagger.resolution.cache import ArtworkFetcher, DiskCache
+from tagger.resolution.matching import DEFAULT_THRESHOLDS
+from tagger.resolution.sources import RunSources
+from tagger.run.tagging import open_run, resolve_run
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 
     from scraper_responses import Handler
 
-    from tagger.scraper_client import TechnoScraperClient
-    from tagger.tagging import LiveRun, RunEvent, TaggingRun
+    from tagger.resolution.scraper_client import TechnoScraperClient
+    from tagger.run.tagging import LiveRun, RunEvent, TaggingRun, TrackRecord
 
 type Reply = Callable[[], httpx2.Response]
 
@@ -44,6 +44,11 @@ ON_BANDCAMP: Final = track_payload(
     mix_name=None,
     url="https://liorvance.bandcamp.com/track/dim-orbit",
 )
+
+
+def image(content_type: str = "image/jpeg") -> httpx2.Response:
+    """Reponse du CDN : un JPEG, sauf `content_type` contraire."""
+    return httpx2.Response(200, content=JPEG, headers={"Content-Type": content_type})
 
 
 def public_resolver(_host: str) -> list[str]:
@@ -138,7 +143,7 @@ class FakeCdn:
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         if str(request.url) in self.refused:
             return httpx2.Response(404)
-        return httpx2.Response(200, content=JPEG, headers={"Content-Type": "image/jpeg"})
+        return image()
 
 
 def tagged_mp3(folder: Path, name: str, artist: str, title: str) -> Path:
@@ -187,6 +192,13 @@ def hold_on_beatport(api: FakeApi) -> None:
             track_payload(id="2", mix_name="Radio Edit"),
         ),
     )
+
+
+def must_record(live: LiveRun, track_id: str) -> TrackRecord:
+    """Record d'un morceau que le test sait present."""
+    record = live.record(track_id)
+    assert record is not None
+    return record
 
 
 async def cancelled(task: asyncio.Task[None]) -> None:

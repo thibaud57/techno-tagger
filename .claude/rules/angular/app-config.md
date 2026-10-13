@@ -10,7 +10,7 @@ paths:
 ## À faire
 - Garder `app.config.ts` minimal : router, PrimeNG, ngx-translate, Sentry et les `provideAppInitializer()` du bootstrap (langue, sidecar)
 - Ajouter `provideBrowserGlobalErrorListeners()` : sans zone.js, les rejets non gérés ne sont plus capturés
-- Configurer PrimeNG avec le preset du projet (`definePreset()` sur Aura, dans `core/theme.ts`), `darkModeSelector` et `cssLayer` de DESIGN.md. Un écart global va dans le preset, un écart d'instance dans un `[dt]`
+- Configurer PrimeNG avec le preset du projet (`definePreset()` sur Aura, dans `core/platform/theme.ts`), `darkModeSelector` et `cssLayer` de DESIGN.md. Un écart global va dans le preset, un écart d'instance dans un `[dt]`
 - Déclarer la configuration applicative par un `InjectionToken` avec factory, plutôt que par un objet importé
 - Régler `budgets`, `fileReplacements` et `outputHashing` par configuration dans `angular.json`
 - Poser dans le `define` d'`angular.json` un repli inerte pour chaque constante de build : sans lui, `ng build` ou `ng test` hors script npm lève un `ReferenceError` au bootstrap. Jamais de secret dans ce JSON

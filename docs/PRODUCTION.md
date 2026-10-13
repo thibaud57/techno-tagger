@@ -549,9 +549,9 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 Fichier local unique, une ligne par événement, au format **logfmt** : un préfixe lisible (horodatage, niveau, logger, message) suivi des champs structurés en `clé=valeur`.
 
 ```
-2026-08-27 21:14:03 INFO    tagger.matching  candidat retenu     run=a3f9c1 track=42 score=91 source=beatport
-2026-08-27 21:14:04 WARNING tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=file_locked
-2026-08-27 21:14:09 ERROR   tagger.scraper   arrêt du run        run=a3f9c1 status=403 consecutive=3
+2026-08-27 21:14:03 INFO    tagger.resolution.matching        candidat retenu     run=a3f9c1 track=42 score=91 source=beatport
+2026-08-27 21:14:04 WARNING tagger.tags.files                 fichier verrouillé  run=a3f9c1 track=43 reason=file_locked
+2026-08-27 21:14:09 ERROR   tagger.resolution.scraper_client  arrêt du run        run=a3f9c1 status=403 consecutive=3
 ```
 
 Le choix se lit depuis le lecteur final : ce fichier a un seul destinataire, l'auteur, quand un utilisateur clique sur « ouvrir le dossier de logs » et envoie le fichier par message. Rien ne l'agrège, rien ne le corrèle à Sentry, et **l'artefact machine du projet existe déjà**, c'est le rapport de run JSON relu par l'application. Du JSON par ligne coûterait donc la lisibilité sans acheter ce qui le justifie côté API, où les logs sont relus et filtrés dans une console Docker.

@@ -155,6 +155,6 @@ La règle des `code` + `params` porte donc sur le **flux NDJSON**, pas sur les f
 
 Le DSN Sentry est injecté au build depuis un secret GitHub Actions. Un DSN vide rend le SDK inerte, ce qui reste le moyen de désactiver la remontée en développement.
 
-**Mise à jour 2026-10-11** : le scrubbing des chemins du sidecar ne se limite plus au dossier de l'utilisateur. Tout chemin de lecteur (`D:\...`) ou UNC est masqué en `<path>`, en plus de `<user>` et de `<query>` (query string d'une URL). Le nom d'un fichier porte l'artiste et le titre : un chemin resté dans un message d'erreur ferait partir un titre de morceau, ce que « rien de personnel ne part » interdit. Le choix de scrubber ne change pas, seule sa portée s'élargit. Source : `sidecar/src/tagger/observability.py`.
+**Mise à jour 2026-10-11** : le scrubbing des chemins du sidecar ne se limite plus au dossier de l'utilisateur. Tout chemin de lecteur (`D:\...`) ou UNC est masqué en `<path>`, en plus de `<user>` et de `<query>` (query string d'une URL). Le nom d'un fichier porte l'artiste et le titre : un chemin resté dans un message d'erreur ferait partir un titre de morceau, ce que « rien de personnel ne part » interdit. Le choix de scrubber ne change pas, seule sa portée s'élargit. Source : `sidecar/src/tagger/core/observability.py`.
 
 Référence : [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/).

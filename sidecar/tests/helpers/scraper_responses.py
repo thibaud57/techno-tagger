@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Final
 
 import httpx2
 
-from tagger.scraper_client import Credit, Source, TechnoScraperClient, TrackCandidate
+from tagger.resolution.scraper_client import Credit, Source, TechnoScraperClient, TrackCandidate
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
 
-    from tagger.cache import ResponseCache
+    from tagger.resolution.cache import ResponseCache
 
 TEST_API_KEY: Final = "test-key"
 
@@ -23,6 +23,8 @@ DIM_ORBIT: Final = "Lior Vance Dim Orbit"
 KELVOR: Final = "Orla Quenby Kelvor"
 SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/kestrel/zelka-larkspur-mothlight-2"
 BANDCAMP_TRACK: Final = "https://orlaquenby.bandcamp.com/track/kelvor"
+# Pochette du gabarit Beatport : une seule source pour `track_payload` et les tests qui la lisent.
+ARTWORK_URL: Final = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
 
 # Union de deux signatures (et non un retour union sur une seule) : c'est la forme
 # qu'attend `httpx2.MockTransport`, covariance du retour oblige.
@@ -53,7 +55,7 @@ def track_payload(**overrides: object) -> dict[str, object]:
             "source_title": "Dim Orbit",
             "catalog_number": "KS287",
             "release_date": "2023-06-16",
-            "artwork_url": "https://geo-media.beatport.com/image_size/500x500/cover.jpg",
+            "artwork_url": ARTWORK_URL,
         },
         "label": {"id": "8", "name": "Kestrel", "kind": "label", "followers": 1000},
         "genre": "Techno (Peak Time / Driving)",
@@ -70,6 +72,9 @@ def track_payload(**overrides: object) -> dict[str, object]:
 def payload_candidate(**overrides: object) -> TrackCandidate:
     """Candidat tire du JSON complet de la gateway : tous les champs que l'ecriture projette."""
     return TrackCandidate.model_validate(track_payload(**overrides))
+
+
+BEATPORT_CANDIDATE: Final = payload_candidate()
 
 
 def track_candidate(
@@ -155,6 +160,11 @@ def recording(requests: list[httpx2.Request], response: httpx2.Response) -> Hand
         return response
 
     return handler
+
+
+def answering(requests: list[httpx2.Request], body: dict[str, object]) -> Handler:
+    """Handler qui note chaque requete puis rend toujours un 200 portant ce corps JSON."""
+    return recording(requests, httpx2.Response(200, json=body))
 
 
 def make_client(

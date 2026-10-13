@@ -9,7 +9,7 @@ from ndjson_loop import drive, start_tagging
 from scraper_responses import DIM_ORBIT, KELVOR, track_payload
 from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, failing, found, kelvor, three_tracks
 
-from tagger.files import TAG_FIELDS
+from tagger.tags.files import TAG_FIELDS
 
 if TYPE_CHECKING:
     from pathlib import Path

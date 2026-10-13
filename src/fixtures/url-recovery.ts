@@ -2,7 +2,7 @@ import type {
   ExtractionProgressEvent,
   SidecarErrorEvent,
   TrackResolvedEvent,
-} from "../app/core/models/protocol"
+} from "../app/core/sidecar/protocol"
 
 // Evenements de la phase de rattrapage par URL partages par les specs : chaque test pose
 // ses ecarts par spread.

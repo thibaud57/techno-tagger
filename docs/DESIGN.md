@@ -472,7 +472,7 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 
 **Utilitaire** : classes Tailwind dans le template, conditionnées par `[class.x]` ou `[ngClass]`. Le DOM interne d'un composant PrimeNG se règle par `[pt]`, ou dans le preset quand l'écart vaut partout.
 
-**Preset** : `TECHNO_TAGGER_PRESET` (`core/theme.ts`) dérive d'Aura par `definePreset()` et n'y change que ce que ce document décide : rayons de la carte (`lg`), du tag (`sm`) et du badge (`xs`), carte sans ombre, poids 400 et taille 0.875rem du libellé de champ, en-tête des modales (§ Overlays). Un nouvel écart s'y range selon sa portée : `primitive` pour une rampe ou un rayon, `semantic` pour un rôle, `components` pour un composant.
+**Preset** : `TECHNO_TAGGER_PRESET` (`core/platform/theme.ts`) dérive d'Aura par `definePreset()` et n'y change que ce que ce document décide : rayons de la carte (`lg`), du tag (`sm`) et du badge (`xs`), carte sans ombre, poids 400 et taille 0.875rem du libellé de champ, en-tête des modales (§ Overlays). Un nouvel écart s'y range selon sa portée : `primitive` pour une rampe ou un rayon, `semantic` pour un rôle, `components` pour un composant.
 
 **Cascade** : `cssLayer: { name: 'primeng', order: 'theme, base, primeng' }` dans `providePrimeNG()`. La couche `primeng` passe après `theme` et `base` et avant les utilitaires : les classes Tailwind gagnent sur les styles de composant, sans rien déclarer dans le CSS.
 

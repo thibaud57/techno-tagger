@@ -4,20 +4,20 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Final
 
-from scraper_responses import payload_candidate
+from scraper_responses import BEATPORT_CANDIDATE
 from tagging_records import RECORD, held, scored_candidate
 
-from tagger.file_failures import FileFailureReason
-from tagger.files import ShownTags, TagField, TagSystem, WrittenTags
-from tagger.matching import QueryOrigin, TrackQuery
-from tagger.scraper_client import Source
-from tagger.tagging import (
+from tagger.core.file_failures import FileFailureReason
+from tagger.resolution.matching import QueryOrigin, TrackQuery
+from tagger.resolution.scraper_client import Source
+from tagger.run.tagging import (
     FailureReason,
     Resolution,
     TaggingRun,
     TrackRecord,
     WriteOutcome,
 )
+from tagger.tags.files import ShownTags, TagField, TagSystem, WrittenTags
 
 FOLDER: Final = Path("music")
 QUERY: Final = TrackQuery("Lior Vance", "Dim Orbit", QueryOrigin.TAGS)
@@ -27,7 +27,6 @@ BEFORE: Final = ShownTags(
     fields=dict.fromkeys(TagField) | {TagField.ARTIST: "lior vance", TagField.TITLE: "dim orbit"},
     comment="ripped from vinyl",
 )
-CANDIDATE: Final = payload_candidate()
 WRITTEN_AS: Final = "Lior Vance - Dim Orbit (Extended Mix).mp3"
 
 
@@ -37,7 +36,7 @@ def _record(name: str) -> TrackRecord:
 
 def _resolved(name: str, resolution: Resolution, source: Source) -> TrackRecord:
     return _record(name).resolved(
-        resolution, source, CANDIDATE, scored_candidate(candidate=CANDIDATE), None
+        resolution, source, BEATPORT_CANDIDATE, scored_candidate(candidate=BEATPORT_CANDIDATE), None
     )
 
 
@@ -50,10 +49,7 @@ FAILED: Final = _resolved("b.mp3", Resolution.ARBITRATION, Source.BANDCAMP).writ
 )
 UNRESOLVED: Final = _record("c.mp3").unresolved(FailureReason.NO_RESULT)
 WAITING: Final = _record("d.mp3")
-HELD: Final = replace(
-    _record("e.mp3"),
-    arbitration=held(),
-)
+HELD: Final = replace(_record("e.mp3"), arbitration=held())
 # Ecrit puis restaure : `rolled_back` efface la source et le candidat, la resolution reste.
 ROLLED_BACK: Final = (
     _resolved("f.mp3", Resolution.AUTO, Source.BEATPORT)

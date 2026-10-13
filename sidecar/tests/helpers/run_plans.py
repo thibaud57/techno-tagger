@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Final
 
 from tagging_api import CREATED, tagged_mp3
 
-from tagger.files import IdentityTags
-from tagger.matching import DEFAULT_THRESHOLDS
-from tagger.plan import RunPlan, load_plan, plan_dir, plan_path
-from tagger.tagging import LiveRun, TrackRecord
+from tagger.resolution.matching import DEFAULT_THRESHOLDS
+from tagger.run.plan import RunPlan, load_plan, plan_dir, plan_path
+from tagger.run.tagging import LiveRun, TrackRecord
+from tagger.tags.files import IdentityTags
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
