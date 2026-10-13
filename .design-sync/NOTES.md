@@ -217,3 +217,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   par l'écriture ne sont pas récupérés. » (ADR-011). Fichiers distants relus et identiques à l'export
   avant le push : `ConfirmDialog.prompt.md`, `overlay.card.html`, `AppShell.jsx`, `SettingsScreen.jsx`
   et `readme.md` (réserve n° 18). `_ds_needs_recompile` posé.
+- **2026-10-13, clôture de la Feature 6** : `RollbackFailures` se place comme dans l'app, au-dessus
+  de la liste du run et sous le bouton de restauration des Réglages, dans sa fiche, `readme.md`
+  (réserve n° 19) et le README du kit. Fichiers distants relus et identiques à l'export avant le
+  push. `_ds_needs_recompile` posé ; le Reste ouvert attend toujours la recompilation.
