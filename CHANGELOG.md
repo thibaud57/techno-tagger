@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/thibaud57/techno-tagger/compare/v0.6.0...v0.7.0) (2026-10-13)
+
+
+### Features
+
+* plan de run, reprise d'un run interrompu et rapport de re-tagging ([#71](https://github.com/thibaud57/techno-tagger/issues/71)) ([05224a3](https://github.com/thibaud57/techno-tagger/commit/05224a396aadbb90250e9015afa39a9b6d1c35c0))
+
 ## [0.6.0](https://github.com/thibaud57/techno-tagger/compare/v0.5.0...v0.6.0) (2026-10-11)
 
 
