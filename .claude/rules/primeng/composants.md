@@ -19,7 +19,7 @@ paths:
 - Poser `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur toute `p-table` : colonnes figées sur l'en-tête et état vide centré sur toute la hauteur
 - Poser `size="small"` sur tout bouton, `link` excepté, boutons des modales de confirmation compris (`acceptButtonProps` et `rejectButtonProps` de `injectDangerConfirm`)
 - Lier tout `pTooltip` par `[tooltipOptions]` au jeu `TOOLTIP` (ou `WIDE_TOOLTIP` pour un texte long, `src/app/shared/utils/tooltip.ts`) : il pose le délai et la position sous l'élément (`TOOLTIP_POSITION`). PrimeNG n'a aucun défaut global : sans ce jeu le tooltip s'ouvre à droite et sans délai, et sur le côté la place manque dès que l'élément touche le bord de la fenêtre
-- Régler une fois dans le preset (`src/app/core/theme.ts`, `dialog.css`) la croix des modales, calée sur la première ligne du titre et sur le bord du contenu
+- Régler une fois dans le preset (`src/app/core/platform/theme.ts`, `dialog.css`) la croix des modales, calée sur la première ligne du titre et sur le bord du contenu
 
 ## À éviter
 - `::ng-deep` : il casse à la mise à jour, passer par `[dt]` ou `[pt]`

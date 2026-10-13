@@ -1,4 +1,4 @@
-import type { ExtractionFinishedEvent } from "../app/core/models/protocol"
+import type { ExtractionFinishedEvent } from "../app/core/sidecar/protocol"
 
 // Resultat d'extraction partage par les specs : vide, chaque test pose ses listes par spread.
 

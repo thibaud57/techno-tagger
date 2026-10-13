@@ -1,19 +1,15 @@
-"""Protocole NDJSON de l'arbitrage, de bout en bout sur la boucle."""
-
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from ndjson_loop import Conversation, conversation
-from scraper_responses import DIM_ORBIT, KELVOR
-from tagging_api import (
-    ON_BANDCAMP,
-    ONE_TRACK,
-    FakeApi,
-    found,
-    hold_on_beatport,
-    one_track,
-    two_tracks,
+from ndjson_loop import (
+    CHOOSE_ON_BEATPORT,
+    Conversation,
+    conversation,
+    resolved_run,
+    start_command,
 )
+from scraper_responses import BASIEL, YOUR_MIND
+from tagging_api import ONE_TRACK, FakeApi, hold_with_bandcamp_fallback, two_tracks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -30,56 +26,29 @@ REFUSE_BEATPORT: Final = {
     "source": "beatport",
     "candidate": None,
 }
-CHOOSE_ON_BEATPORT: Final = {
-    "command": "resolve_arbitration",
-    "track_id": ONE_TRACK,
-    "source": "beatport",
-    "candidate": 0,
-}
-
-
-@pytest.fixture
-def folder(tmp_path: Path, app_data: None) -> Path:
-    """Un morceau en zone grise."""
-    return one_track(tmp_path)
-
-
-@pytest.fixture
-def empty(tmp_path: Path) -> Path:
-    """Dossier sans morceau : le run qui le vise se termine aussitot."""
-    folder = tmp_path / "empty"
-    folder.mkdir()
-    return folder
 
 
 @pytest.fixture
 def api(api: FakeApi) -> FakeApi:
     """Extended et Radio Edit sur Beatport, la version attendue sur Bandcamp."""
-    hold_on_beatport(api)
-    api.on("/bandcamp/search", DIM_ORBIT, found(ON_BANDCAMP))
+    hold_with_bandcamp_fallback(api)
     return api
-
-
-def _start(folder: Path) -> dict[str, object]:
-    return {"command": "start_tagging", "folder": str(folder)}
 
 
 async def _refusal_in_flight(talk: Conversation, folder: Path, api: FakeApi) -> Gate:
     """Run termine, refus de Beatport envoye, appel Bandcamp retenu par la porte rendue."""
-    slow = api.gate("/bandcamp/search", DIM_ORBIT)
-    talk.send(**_start(folder))
-    await talk.expect("run_finished")
+    slow = api.gate("/bandcamp/search", YOUR_MIND)
+    await resolved_run(talk, folder)
     talk.send(**REFUSE_BEATPORT)
     await slow.reached.wait()
     return slow
 
 
 async def test_refuses_beatport_then_resolves_the_track_on_a_bandcamp_candidate(
-    folder: Path, api: FakeApi
+    unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**_start(folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**REFUSE_BEATPORT)
         switched = await talk.expect("arbitration_updated")
         talk.send(command="resolve_arbitration", track_id=ONE_TRACK, source="bandcamp", candidate=0)
@@ -94,11 +63,10 @@ async def test_refuses_beatport_then_resolves_the_track_on_a_bandcamp_candidate(
 
 
 async def test_shows_the_beatport_list_again_without_calling_the_api(
-    folder: Path, api: FakeApi
+    unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**_start(folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(**REFUSE_BEATPORT)
         await talk.expect("arbitration_updated")
         calls = len(api.requests)
@@ -115,10 +83,10 @@ async def test_answers_an_awaiting_track_after_the_run_is_cancelled(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
     folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", KELVOR)
+    slow = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
-        talk.send(**_start(folder))
+        talk.send(**start_command(folder))
         await talk.expect("arbitration_required", track_id="a.mp3")
         await slow.reached.wait()
         talk.send(command="cancel_run")
@@ -132,13 +100,13 @@ async def test_keeps_the_current_run_arbitrable_when_a_second_run_is_refused(
     tmp_path: Path, app_data: None, api: FakeApi
 ) -> None:
     folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", KELVOR)
+    slow = api.gate("/beatport/search", BASIEL)
 
     async with conversation() as talk:
-        talk.send(**_start(folder))
+        talk.send(**start_command(folder))
         await talk.expect("arbitration_required", track_id="a.mp3")
         await slow.reached.wait()
-        talk.send(**_start(folder))
+        talk.send(**start_command(folder))
         await talk.expect("error", code="phase_busy", params={"phase": "tagging"})
         talk.send(command="resolve_arbitration", track_id="a.mp3", source="beatport", candidate=0)
         resolved = await talk.expect("track_resolved", track_id="a.mp3")
@@ -148,12 +116,11 @@ async def test_keeps_the_current_run_arbitrable_when_a_second_run_is_refused(
 
 
 async def test_drops_the_arbitrations_of_a_run_replaced_by_a_new_one(
-    folder: Path, empty: Path, api: FakeApi
+    unresolved_folder: Path, empty_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**_start(folder))
-        await talk.expect("run_finished")
-        talk.send(**_start(empty))
+        await resolved_run(talk, unresolved_folder)
+        talk.send(**start_command(empty_folder))
         await talk.expect("run_finished")
         talk.send(**CHOOSE_ON_BEATPORT)
         error = await talk.expect("error")
@@ -166,11 +133,10 @@ async def test_drops_the_arbitrations_of_a_run_replaced_by_a_new_one(
 
 
 async def test_reports_a_rejected_gesture_with_its_command_and_its_track(
-    folder: Path, api: FakeApi
+    unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        talk.send(**_start(folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         talk.send(command="switch_arbitration_source", track_id=ONE_TRACK, source="beatport")
         error = await talk.expect("error")
 
@@ -182,10 +148,10 @@ async def test_reports_a_rejected_gesture_with_its_command_and_its_track(
 
 
 async def test_answers_another_command_while_a_refusal_waits_for_bandcamp(
-    folder: Path, api: FakeApi
+    unresolved_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        slow = await _refusal_in_flight(talk, folder, api)
+        slow = await _refusal_in_flight(talk, unresolved_folder, api)
         talk.send(command="get_version")
         await talk.expect("version")
         slow.release.set()
@@ -209,34 +175,33 @@ async def test_rejects_a_gesture_before_any_run() -> None:
     ids=["shutdown", "end-of-input"],
 )
 async def test_shuts_down_without_waiting_for_a_refusal_in_flight(
-    folder: Path, api: FakeApi, leave: Callable[[Conversation], None]
+    unresolved_folder: Path, api: FakeApi, leave: Callable[[Conversation], None]
 ) -> None:
     async with conversation() as talk:
-        await _refusal_in_flight(talk, folder, api)
+        await _refusal_in_flight(talk, unresolved_folder, api)
         leave(talk)
 
     assert all(event["event"] != "arbitration_updated" for event in talk.events)
 
 
 async def test_cancels_a_refusal_in_flight_when_a_new_run_starts(
-    folder: Path, empty: Path, api: FakeApi
+    unresolved_folder: Path, empty_folder: Path, api: FakeApi
 ) -> None:
     async with conversation() as talk:
-        await _refusal_in_flight(talk, folder, api)
-        talk.send(**_start(empty))
+        await _refusal_in_flight(talk, unresolved_folder, api)
+        talk.send(**start_command(empty_folder))
         await talk.expect("run_finished")
 
     assert all(event["event"] != "arbitration_updated" for event in talk.events)
 
 
 async def test_leaves_no_arbitrable_run_when_a_new_one_fails_to_open(
-    folder: Path, api: FakeApi, memory_keyring: MemoryKeyring
+    unresolved_folder: Path, api: FakeApi, memory_keyring: MemoryKeyring
 ) -> None:
     async with conversation() as talk:
-        talk.send(**_start(folder))
-        await talk.expect("run_finished")
+        await resolved_run(talk, unresolved_folder)
         memory_keyring.secrets.clear()
-        talk.send(**_start(folder))
+        talk.send(**start_command(unresolved_folder))
         await talk.expect("error", code="api_key_missing")
         talk.send(**CHOOSE_ON_BEATPORT)
         refused = await talk.expect("error", code="arbitration_not_pending")

@@ -20,11 +20,8 @@
       "title": "Quitter l'application ?",
       "blockedTitle": "Impossible de quitter maintenant",
       "extraction": "Une extraction est en cours : la copie sera coupée et un fichier peut se retrouver corrompu.",
-      "tagging": "Un run de tagging est en cours : les résultats de la recherche seront perdus.",
-      "arbitration": "Arbitrages en attente : {{count}}.\nIls seront perdus.",
       "write": "L'écriture des fichiers est en cours : attendez qu'elle se termine pour quitter.",
       "rollback": "Une restauration est en cours : attendez qu'elle se termine pour quitter.",
-      "unwritten": "Un run attend la confirmation de son écriture.\nRien n'a encore été écrit : en quittant, vous perdez les résultats de la recherche.",
       "stay": "Rester",
       "leave": "Quitter quand même"
     }
@@ -58,6 +55,9 @@
     "tag_dump_error": "La sauvegarde des tags d'origine a échoué.\nRelancez l'application, puis réessayez.",
     "tag_dump_write_failed": "Les tags d'origine n'ont pas pu être sauvegardés : aucun fichier n'a été modifié.\nLibérez de l'espace disque, puis relancez l'écriture.",
     "tag_dump_unreadable": "La sauvegarde des tags d'origine est illisible, ou vient d'une autre version de l'application.\nCes fichiers ne peuvent plus être restaurés : relancez un run pour les re-tagger.",
+    "tagging_report_unreadable": "Ce rapport de run est illisible, ou vient d'une version plus récente de l'application.\nMettez l'application à jour, puis rouvrez-le.",
+    "run_plan_unreadable": "Le run interrompu ne peut pas être repris : il a été enregistré par une autre version de l'application, ou son enregistrement est illisible.\nRepartez de zéro pour relancer le run.",
+    "run_not_found": "Ce run n'existe plus : son enregistrement ou son rapport a été supprimé.\nRelancez un run sur le dossier.",
     "scraper_error": "La recherche a échoué.\nRéessayez plus tard.",
     "api_key_rejected": "La clé API a été refusée.\nVérifiez-la dans les Réglages.",
     "source_unavailable": "{{source}} ne répond pas.\nRéessayez plus tard.",
@@ -172,6 +172,7 @@
     "rollbackFinishedWithFailures": "Restauration terminée\nFichiers non restaurés : {{count}}",
     "start": "Lancer le run",
     "cancel": "Interrompre",
+    "recap": "Récapitulatif",
     "phase": "Recherche en cours",
     "progress": "{{processed}} sur {{total}}",
     "commit": {
@@ -193,7 +194,7 @@
       "run": "Restaurer le run",
       "track": "Restaurer ce morceau",
       "header": "Restaurer les fichiers",
-      "message": "Fichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes et les commentaires retirés par l'écriture ne sont pas récupérés.",
+      "message": "Fichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes posées par l'écriture restent en place.\nLes commentaires retirés par l'écriture ne sont pas récupérés.",
       "accept": "Restaurer",
       "blocked": "Une écriture ou une restauration est en cours."
     },
@@ -295,6 +296,30 @@
       }
     }
   },
+  "recap": {
+    "title": "Récapitulatif du run",
+    "filter": {
+      "label": "Filtrer les morceaux",
+      "all": "Tout",
+      "validated": "Validés",
+      "arbitrated": "Arbitrés",
+      "failed": "Échecs"
+    },
+    "search": "Rechercher",
+    "empty": {
+      "heading": "Aucun morceau ne correspond",
+      "description": "Changez de filtre ou videz la recherche."
+    },
+    "none": {
+      "heading": "Aucun run à récapituler",
+      "description": "Lancez un run depuis l'onglet Tagging."
+    },
+    "past": {
+      "heading": "Impossible d'afficher ce run",
+      "description": "Rouvrez un run depuis l'onglet Réglages."
+    },
+    "back": "Retour à la liste"
+  },
   "rollback": {
     "failures": "Fichiers non restaurés : {{count}}",
     "failure": "{{file}} : {{reason}}",
@@ -361,6 +386,12 @@
     },
     "admin": {
       "title": "Administration",
+      "pastRuns": {
+        "label": "Runs passés",
+        "hint": "Rouvre le récapitulatif d'un run déjà écrit, en lecture seule.",
+        "none": "Aucun run à rouvrir",
+        "open": "Ouvrir le récapitulatif"
+      },
       "rollback": {
         "label": "Restauration",
         "hint": "Restaure le nom et les tags d'origine des fichiers du dernier run écrit.",
@@ -370,9 +401,22 @@
         "none": "Aucun run à restaurer : aucune sauvegarde de tags récente.",
         "loading": "Recherche du dernier run écrit…",
         "header": "Restaurer le dernier run",
-        "message": "Run du {{date}} sur {{folder}}\nFichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes et les commentaires retirés par l'écriture ne sont pas récupérés.",
+        "message": "Run du {{date}} sur {{folder}}\nFichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes posées par l'écriture restent en place.\nLes commentaires retirés par l'écriture ne sont pas récupérés.",
         "accept": "Restaurer"
       }
     }
+  },
+  "resume": {
+    "title": "Reprendre le run interrompu ?",
+    "summary": "Run du {{date}}, {{processed}} / {{total}} traités, sur :",
+    "safe": "Aucun fichier n'a été touché entre-temps : la reprise est sans risque.",
+    "folderMissing": "Ce dossier est introuvable ou ne contient plus de fichier audio.\nRebranchez le disque ou remettez les fichiers en place, puis relancez l'application.",
+    "unreadable": {
+      "version": "Ce run a été enregistré par une autre version de l'application (version {{found}}, attendue {{expected}}).\nIl ne peut pas être repris : repartez de zéro.",
+      "corrupted": "Le fichier de ce run est endommagé.\nIl ne peut pas être repris : repartez de zéro."
+    },
+    "resume": "Reprendre",
+    "discard": "Repartir de zéro",
+    "later": "Plus tard"
   }
 }

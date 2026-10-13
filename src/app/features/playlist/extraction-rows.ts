@@ -1,4 +1,4 @@
-import type { ExtractionFinishedEvent } from "../../core/models/protocol"
+import type { ExtractionFinishedEvent } from "../../core/sidecar/protocol"
 import { extractionReasonKeys, type ReasonKeys } from "../../shared/utils/reason"
 
 export type ExtractionCategory =
@@ -15,7 +15,7 @@ export interface ExtractionRow {
   readonly fileName: string
   readonly category: ExtractionCategory
   readonly detailKey: string | null
-  /** Pour un doublon : `kept`, `keptSize`, `discarded`, `discardedSizes`, tailles deja mises en forme. */
+  /** Parametres d'interpolation de `detailKey`, tailles deja mises en forme. */
   readonly detailParams: Record<string, string | number> | null
   /** Motif ou critere a part : une valeur d'enum du sidecar ne se traduit pas en parametre d'interpolation. */
   readonly reason: ReasonKeys | null
@@ -34,8 +34,6 @@ const plain = (fileName: string, category: ExtractionCategory): ExtractionRow =>
 export type FormatSize = (bytes: number) => string
 
 /**
- * Aplatit les categories du resultat en une liste unique.
- *
  * Ce qui demande un geste ouvre la liste, echecs puis introuvables puis doublons :
  * un rapport de 300 morceaux se lit par le haut, et ce qui est passe tout seul
  * n'attend rien de l'utilisateur. Aucun tri a l'interieur d'une categorie, deux

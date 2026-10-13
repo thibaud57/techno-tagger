@@ -4,7 +4,6 @@
 // `just dev-ui` servant http://localhost:4200. Captures dans .playwright-mcp/verify-write/.
 async (page) => {
   const DIR = ".playwright-mcp/verify-write/"
-  const VERSION = "0.5.0"
   const FOLDER = "C:\\Musique\\Extraction"
   const out = { checks: {}, failures: [], measures: {} }
   const check = (name, ok, detail) => {
@@ -152,14 +151,14 @@ async (page) => {
   const resolved = (x, state = "resolved") => ({ event: "track_resolved", track_id: x.track_id, state, resolution: "auto", failure_reason: null, source: "beatport", after: { artist: x.artist, title: `${x.title} (Original Mix)` }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null, tags_after: null })
   const writeError = (x) => ({ ...resolved(x, "write_error"), failure_reason: "file_locked" })
   const unresolved = (x) => ({ event: "track_resolved", track_id: x.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null })
-  const arbitration = (x) => ({ event: "arbitration_required", track_id: x.track_id, source: "beatport", beatport_unavailable: false, empty_reason: null, other_source: "bandcamp", candidates: [{ artist: x.artist, title: `${x.title} (Original Mix)`, label: "Kestrel", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
+  const arbitration = (x) => ({ event: "arbitration_required", track_id: x.track_id, source: "beatport", beatport_unavailable: false, empty_reason: null, other_source: "bandcamp", candidates: [{ artist: x.artist, title: `${x.title} (Original Mix)`, label: "Drumcode", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
   const finished = (runId, phase, counts) => ({ event: "run_finished", phase, run_id: runId, resolved: 0, unresolved: 0, written: 0, write_error: 0, awaiting_arbitration: 0, ...counts })
 
-  const R1 = t("01", "Lior Vance", "Dim Orbit")
-  const R2 = t("02", "Orla Quenby", "Kelvor")
-  const L = t("03", "Ilan Thorne", "Tidewater")
-  const U = t("04", "Ria Javel", "Over the Moor")
-  const A = t("05", "Valka", "Ark")
+  const R1 = t("01", "Adam Beyer", "Your Mind")
+  const R2 = t("02", "Amelie Lens", "Basiel")
+  const L = t("03", "Hector Oaks", "Sentiment")
+  const U = t("04", "Nur Jaber", "Into the Void")
+  const A = t("05", "Ignez", "Ark")
 
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto("http://localhost:4200/tagging")
@@ -185,6 +184,12 @@ async (page) => {
     window.__svc._available.set(true)
     await new Promise((r) => setTimeout(r, 800))
     window.__svc.send = async (command) => window.__sent.push(command)
+  })
+  // Version de l'interface lue sur la page (celle que compare `versionMismatch`) : figee ici,
+  // elle perimait a chaque release (0.5.0 restait apres la 0.6.0, ecran bloquant, 2026-10-12).
+  const VERSION = await page.evaluate(() => {
+    window.__svc.handleLine(JSON.stringify({ event: "version", version: "0.0.0-probe", api_key_configured: true }))
+    return window.__svc.versionMismatch().ui
   })
   await line({ event: "version", version: VERSION, api_key_configured: true })
   await page.waitForSelector("app-tagging-page")
@@ -222,12 +227,10 @@ async (page) => {
   await settle(200)
   check("choosing the run folder again offers commit", (await action())?.action === "commit", await action())
 
-  // 3. Fermeture d'un run cherche non confirme : nomme le travail perdu, sans bloquer.
-  await requestClose()
-  await settle(700)
-  const unwritten = await closeConfirmation()
-  check("unwritten run: close names it and still offers to leave", unwritten?.title?.startsWith("Quitter l'application") && unwritten.items.some((i) => i.startsWith("Un run attend la confirmation de son écriture.") && i.includes("Rien n'a encore été écrit")) && unwritten.buttons.some((b) => b.text === "Quitter quand même"), unwritten)
-  await stay()
+  // 3. Run cherche non confirme : la fermeture ne le retient plus, le plan de run le rend a la
+  // reprise (2026-10-12). La garde ne compte que l'extraction, l'ecriture et le rollback.
+  const heldBy = () => page.evaluate(() => window.__guard.pendingWork())
+  check("unwritten run: closing holds nothing", (await heldBy()).length === 0, await heldBy())
 
   // 4. Modale de confirmation : nombres, boutons, focus ; Annuler n'envoie rien.
   await clearSent()
@@ -262,12 +265,12 @@ async (page) => {
   check("write bar counts", barMid?.text.includes("1 sur 3") && !barMid.indeterminate, barMid)
   await shot("4-writing")
   await clearSent()
-  await page.locator("app-run-list tbody tr", { hasText: "Ria Javel" }).first().click()
-  await page.locator("app-run-list tbody tr", { hasText: "Valka" }).first().click()
+  await page.locator("app-run-list tbody tr", { hasText: "Nur Jaber" }).first().click()
+  await page.locator("app-run-list tbody tr", { hasText: "Ignez" }).first().click()
   await settle(500)
   check("frozen: rows open no dialog and send nothing", (await dialogsShown()) === 0 && (await sent()).length === 0, { dialogs: await dialogsShown(), sent: await sent() })
-  const frozenU = await rowState("Ria Javel")
-  const frozenA = await rowState("Valka")
+  const frozenU = await rowState("Nur Jaber")
+  const frozenA = await rowState("Ignez")
   check("frozen: no tabindex", frozenU?.tabindex === null && frozenA?.tabindex === null, [frozenU?.tabindex, frozenA?.tabindex])
   check("frozen: awaiting row reads Non traité without skeleton", frozenA?.label === "Non traité" && !frozenA.skeleton, frozenA)
   check("frozen: queue and recovery badges hidden", JSON.stringify(await badges()) === JSON.stringify({ arbitration: false, recovery: false }), await badges())
@@ -288,18 +291,18 @@ async (page) => {
   await line({ event: "progress", phase: "write", processed: 3, total: 3 })
   await line(finished("run-1", "write", { written: 2, write_error: 1, unresolved: 1, awaiting_arbitration: 1 }))
   await settle(800)
-  const w1 = await rowState("Lior Vance")
-  const fail = await rowState("Ilan Thorne")
+  const w1 = await rowState("Adam Beyer")
+  const fail = await rowState("Hector Oaks")
   check("written row keeps its lane label in green", w1?.label === "Auto" && w1.severity === "p-tag-success", w1)
   check("write_error row: danger, exclamation-triangle, Échec d'écriture, info icon", fail?.label === "Échec d'écriture" && fail.severity === "p-tag-danger" && fail.icon === "exclamation-triangle" && fail.info, fail)
   check("state column fits Échec d'écriture (fr)", fail?.tagWrapped === false && fail.spanFits === true, fail)
-  await page.locator("app-run-list tbody tr", { hasText: "Ilan Thorne" }).locator("td:last-child span.inline-flex").hover()
+  await page.locator("app-run-list tbody tr", { hasText: "Hector Oaks" }).locator("td:last-child span.inline-flex").hover()
   await settle(900)
   const reason = await page.evaluate(() => document.querySelector(".p-tooltip")?.textContent.trim() ?? null)
   check("write_error reason on hover", reason !== null && reason.includes("ouvert dans un autre programme"), reason)
   const reasonPlace = await page.evaluate(() => {
     const tip = document.querySelector(".p-tooltip")?.getBoundingClientRect()
-    const row = [...document.querySelectorAll("app-run-list tbody tr")].find((x) => x.textContent.includes("Ilan Thorne"))
+    const row = [...document.querySelectorAll("app-run-list tbody tr")].find((x) => x.textContent.includes("Hector Oaks"))
     const span = row?.querySelector("td:last-child span.inline-flex")?.getBoundingClientRect()
     return tip && span ? { tipTop: Math.round(tip.top), spanBottom: Math.round(span.bottom) } : null
   })
@@ -344,7 +347,7 @@ async (page) => {
   await line(finished("run-1", "write", { written: 3, write_error: 0, unresolved: 1, awaiting_arbitration: 1 }))
   await settle(600)
   check("retry success: failure message gone", (await failures()) === null, await failures())
-  check("retry success: row written", (await rowState("Ilan Thorne"))?.label === "Auto", await rowState("Ilan Thorne"))
+  check("retry success: row written", (await rowState("Hector Oaks"))?.label === "Auto", await rowState("Hector Oaks"))
   const afterRetry = await action()
   check("retry success: no failure left, the action button is back to Lancer le run", afterRetry?.action === "start" && afterRetry.text === "Lancer le run" && !afterRetry.disabled, afterRetry)
 
@@ -352,7 +355,7 @@ async (page) => {
   await line(writeError(L))
   await page.evaluate(() => ng.getComponent(document.querySelector("app-root")).translate.use("en"))
   await settle(700)
-  const failEn = await rowState("Ilan Thorne")
+  const failEn = await rowState("Hector Oaks")
   const actionEn = await action()
   check("state column fits Write failed (en)", failEn?.label === "Write failed" && failEn.tagWrapped === false && failEn.spanFits === true, failEn)
   check("action button reads Retry writing (en)", actionEn?.action === "retry" && actionEn.text === "Retry writing", actionEn)
@@ -379,7 +382,7 @@ async (page) => {
   const refused = await action()
   const refusedError = await page.evaluate(() => document.querySelector("app-tagging-page app-error-message")?.textContent.trim() ?? null)
   check("commit refused: error shown, commit offered again", refusedError?.includes("aucun fichier n'a été modifié") && refused?.action === "commit" && !refused.disabled && refused.icon === "check", { refused, refusedError })
-  check("commit refused: rows actionable and badges back", (await rowState("Valka"))?.tabindex === "0" && (await badges()).arbitration === true, { a: await rowState("Valka"), badges: await badges() })
+  check("commit refused: rows actionable and badges back", (await rowState("Ignez"))?.tabindex === "0" && (await badges()).arbitration === true, { a: await rowState("Ignez"), badges: await badges() })
   await shot("9-commit-refused")
 
   // 11. Run interrompu : il garde son ecriture.
@@ -397,8 +400,7 @@ async (page) => {
   const interrupted = await action()
   check("interrupted run offers to confirm", interrupted?.action === "commit" && !interrupted.disabled, interrupted)
 
-  // 11 bis. Run sans morceau resolu : le meme dossier se relance, la fermeture ne le retient pas.
-  const unwrittenPending = () => page.evaluate(() => window.__guard.pendingWork().some((w) => w.kind === "unwritten"))
+  // 11 bis. Run sans morceau resolu : le meme dossier se relance.
   await page.evaluate(() => window.__svc.startTagging(ng.getComponent(document.querySelector("app-tagging-page")).folder()))
   await line({ event: "run_started", run_id: "run-4", folder: FOLDER, tracks: [U, A] })
   await line(unresolved(U))
@@ -407,7 +409,7 @@ async (page) => {
   await settle(600)
   const empty = await action()
   check("run without a resolved track: its folder starts again", empty?.action === "start" && !empty.disabled, empty)
-  check("run without a resolved track: closing loses nothing", !(await unwrittenPending()), await page.evaluate(() => window.__guard.pendingWork()))
+  check("run without a resolved track: closing holds nothing", (await heldBy()).length === 0, await heldBy())
 
   // 11 ter. Moteur mort puis relance : le run affiche se fige, son dossier se relance.
   await page.evaluate(() => window.__svc.startTagging(ng.getComponent(document.querySelector("app-tagging-page")).folder()))
@@ -416,16 +418,16 @@ async (page) => {
   await line(unresolved(U))
   await line(finished("run-5", "network", { resolved: 1, unresolved: 1 }))
   await settle(600)
-  const beforeDeath = { action: await action(), unwritten: await unwrittenPending(), recoverable: (await rowState("Ria Javel"))?.tabindex }
+  const beforeDeath = { action: await action(), held: (await heldBy()).length > 0, recoverable: (await rowState("Nur Jaber"))?.tabindex }
   await page.evaluate(() => {
     window.__svc.endRun()
     window.__svc._available.set(true)
   })
   await settle(600)
-  const afterDeath = { action: await action(), unwritten: await unwrittenPending(), recoverable: (await rowState("Ria Javel"))?.tabindex, rows: await page.evaluate(() => document.querySelectorAll("app-run-list tbody tr").length) }
+  const afterDeath = { action: await action(), held: (await heldBy()).length > 0, recoverable: (await rowState("Nur Jaber"))?.tabindex, rows: await page.evaluate(() => document.querySelectorAll("app-run-list tbody tr").length) }
   out.measures.engineLost = { beforeDeath, afterDeath }
-  check("engine lost: run was confirmable and pending before", beforeDeath.action?.action === "commit" && beforeDeath.unwritten && beforeDeath.recoverable === "0", beforeDeath)
-  check("engine lost: same folder starts again, rows kept but frozen, closing loses nothing", afterDeath.action?.action === "start" && !afterDeath.action.disabled && !afterDeath.unwritten && afterDeath.recoverable === null && afterDeath.rows === 2, afterDeath)
+  check("engine lost: run was confirmable before, closing holding nothing", beforeDeath.action?.action === "commit" && !beforeDeath.held && beforeDeath.recoverable === "0", beforeDeath)
+  check("engine lost: same folder starts again, rows kept but frozen, closing holds nothing", afterDeath.action?.action === "start" && !afterDeath.action.disabled && !afterDeath.held && afterDeath.recoverable === null && afterDeath.rows === 2, afterDeath)
 
   // 12. Plancher 1024 x 700 : rangee d'actions sans debordement.
   await page.setViewportSize({ width: 1024, height: 700 })

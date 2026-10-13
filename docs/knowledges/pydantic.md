@@ -221,7 +221,7 @@ Les réponses de l'API sont validées à l'entrée puis mappées vers les modèl
 ### Exemple
 
 ```python
-# tagger/scraper_client.py
+# tagger/resolution/scraper_client.py
 class ApiTrack(BaseModel):
     model_config = ConfigDict(extra="ignore")      # un champ ajouté en amont ne casse rien
 
@@ -276,7 +276,7 @@ plugins = ["pydantic.mypy"]
 - Verrouiller les champs d'état (`state`, `resolution`, `failure_reason`) par `Literal` ou `StrEnum`, jamais par un `str` libre
 - Traduire toute `ValidationError` en événement `error` porteur d'un `code` stable, l'interface se chargeant du libellé
 - Router les migrations de schéma dans un `@model_validator(mode="before")`, à un seul endroit par modèle versionné
-- Tenir les types TypeScript de `core/models/` en miroir de `protocol.py` à chaque changement de champ, la génération de code ayant été écartée
+- Tenir `core/sidecar/protocol.ts` en miroir de `protocol.py` à chaque changement de champ, la génération de code ayant été écartée
 - Valider un `model_validate_json()` sur le binaire PyInstaller, pas seulement sur les sources
 
 ## ❌ Anti-Patterns

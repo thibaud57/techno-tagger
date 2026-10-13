@@ -1,7 +1,7 @@
 """Modeles Pydantic des commandes et des evenements du protocole NDJSON.
 
 Seule interface publique du sidecar : tout le reste est appele depuis la boucle
-de `__main__.py`. Les types TypeScript de `src/app/core/models/` sont maintenus
+de `__main__.py`. Les types TypeScript de `src/app/core/sidecar/protocol.ts` sont maintenus
 a la main en miroir de ce fichier.
 
 Les commandes entrantes sont fermees (`extra="forbid"`) et strictes : un champ
@@ -24,16 +24,16 @@ from pydantic import (
     model_validator,
 )
 
-from tagger.extraction import DuplicateCriterion, ExtractionMode
-from tagger.file_failures import FileFailureReason
-from tagger.files import TagField, TagSystem
-from tagger.matching import MatchingThresholds, check_thresholds
+from tagger.core.file_failures import FileFailureReason
 from tagger.playlists import PlaylistFormat
-from tagger.scraper_client import SearchSource, Source
-from tagger.tagging import FailureReason, Resolution, TrackFailureReason, TrackState
+from tagger.playlists.extraction import DuplicateCriterion, ExtractionMode
+from tagger.resolution.matching import MatchingThresholds, check_thresholds
+from tagger.resolution.scraper_client import SearchSource, Source
+from tagger.run.models import FailureReason, Resolution, TrackFailureReason, TrackState
+from tagger.tags.files import TagField, TagSystem
 
 if TYPE_CHECKING:
-    from tagger.errors import TaggerError
+    from tagger.core.errors import TaggerError
 
 
 class Command(BaseModel):
@@ -56,8 +56,8 @@ class GetVersion(Command):
 
 
 class Shutdown(Command):
-    """Emise a la fermeture de la fenetre. L'EOF sur `stdin` reste le filet si
-    l'application est tuee.
+    """La fermeture de la fenetre ne l'emet pas : Tauri arrete le sidecar, l'EOF sur
+    `stdin` faisant le meme travail.
     """
 
     command: Literal["shutdown"]
@@ -90,7 +90,7 @@ class ExtractPlaylist(Command):
 
 
 # ASCII imprimable sans espace : contrainte du decodage latin-1 des en-tetes cote
-# API (PRODUCTION.md § Regles). 2560 : plafond du Credential Manager.
+# API (PRODUCTION.md § Gestion des cles utilisateurs). 2560 : plafond du Credential Manager.
 _API_KEY_PATTERN: Final = r"^[\x21-\x7e]+$"
 _API_KEY_MAX_LENGTH: Final = 2560
 
@@ -166,7 +166,7 @@ class ResolveByUrl(Command):
 
 
 class CommitRun(Command):
-    """Confirmation globale : le point de non-retour, seul geste qui ecrit des fichiers."""
+    """Confirmation globale : le point de non-retour, avant lequel aucun tag n'est ecrit."""
 
     command: Literal["commit_run"]
     run_id: str
@@ -193,6 +193,39 @@ class Rollback(Command):
     track_id: str | None = None
 
 
+class GetInterruptedRun(Command):
+    """Au lancement : un run interrompu attend-il ? Meme patron que `get_rollback_target`."""
+
+    command: Literal["get_interrupted_run"]
+
+
+class DiscardRun(Command):
+    """Repartir de zero : le plan part, l'annonce suivante dit s'il en reste un autre."""
+
+    command: Literal["discard_run"]
+    run_id: str
+
+
+class ResumeRun(Command):
+    """Reprend le run interrompu annonce : decisions rendues, seuls les restants partent."""
+
+    command: Literal["resume_run"]
+    run_id: str
+
+
+class ListRuns(Command):
+    """Runs passes relisibles depuis leurs rapports."""
+
+    command: Literal["list_runs"]
+
+
+class LoadRun(Command):
+    """Rouvre le recapitulatif d'un run passe depuis son rapport, sans rien rejouer."""
+
+    command: Literal["load_run"]
+    run_id: str
+
+
 type AnyCommand = Annotated[
     GetVersion
     | Shutdown
@@ -207,7 +240,12 @@ type AnyCommand = Annotated[
     | CommitRun
     | RetryWrite
     | GetRollbackTarget
-    | Rollback,
+    | Rollback
+    | GetInterruptedRun
+    | DiscardRun
+    | ResumeRun
+    | ListRuns
+    | LoadRun,
     Field(discriminator="command"),
 ]
 
@@ -227,6 +265,11 @@ type ExecutableCommand = (
     | RetryWrite
     | GetRollbackTarget
     | Rollback
+    | GetInterruptedRun
+    | DiscardRun
+    | ResumeRun
+    | ListRuns
+    | LoadRun
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -245,6 +288,11 @@ type CommandName = Literal[
     "retry_write",
     "get_rollback_target",
     "rollback",
+    "get_interrupted_run",
+    "discard_run",
+    "resume_run",
+    "list_runs",
+    "load_run",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -293,8 +341,6 @@ class Version(Event):
 
 
 class PlaylistEntry(BaseModel):
-    """Une playlist du dump, telle que le selecteur l'affiche."""
-
     model_config = ConfigDict(frozen=True)
 
     playlist_id: int
@@ -447,6 +493,8 @@ class TrackResolved(Event):
     tags_after: tuple[TagValuePayload, ...] | None = None
     # Vrai quand le dump du run porte l'origine du morceau : un rollback peut le rendre.
     restorable: bool = False
+    # Lien vers la fiche source, donnee de navigation : jamais lu dans les lignes du detail.
+    source_url: str | None = None
 
 
 class CandidatePayload(BaseModel):
@@ -495,6 +543,8 @@ class RunFinished(Event):
     written: int
     write_error: int
     awaiting_arbitration: int
+    # Le JSON du rapport en phase `write`, comme `extraction_finished.report_path` ; nul sinon.
+    report_path: Path | None = None
 
 
 class RollbackRun(BaseModel):
@@ -531,6 +581,92 @@ class RollbackFinished(Event):
     track_id: str | None
     restored: tuple[str, ...]
     failed: tuple[RollbackFailurePayload, ...]
+
+
+class InterruptedRunPayload(BaseModel):
+    """Run a proposer a la reprise ; `folder_missing` ne laisse que l'option de repartir de zero."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["interrupted"] = "interrupted"
+    run_id: str
+    started_at: datetime
+    folder: Path
+    processed: int
+    total: int
+    folder_missing: bool
+
+
+class UnreadablePlanPayload(BaseModel):
+    """Plan d'une autre version ou illisible : les deux versions font le message (ADR-018).
+
+    `found` est nul quand le plan n'a pas de version lisible (JSON corrompu) : l'interface dit
+    alors « illisible » et non « version null ».
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["unreadable"] = "unreadable"
+    run_id: str
+    started_at: datetime
+    found: int | str | None
+    expected: int
+
+
+class InterruptedRunEvent(Event):
+    """`run` nul : rien a reprendre."""
+
+    event: Literal["interrupted_run"]
+    run: (
+        Annotated[InterruptedRunPayload | UnreadablePlanPayload, Field(discriminator="kind")] | None
+    )
+
+
+class PastRunPayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str
+    written_at: datetime
+    folder: Path
+    report_path: Path
+
+
+class RunsListed(Event):
+    event: Literal["runs_listed"]
+    runs: tuple[PastRunPayload, ...]
+
+
+class TrackLoaded(BaseModel):
+    """Morceau d'un run passe, relu dans son rapport : ce que le recapitulatif affiche.
+
+    Sans `restorable` : un run passe se lit sans geste, la restauration reste aux Reglages.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    track_id: str
+    file_name: str
+    artist: str
+    title: str
+    state: TrackState | None
+    resolution: Resolution | None
+    failure_reason: TrackFailureReason | None
+    source: Source | None
+    after: TrackNames | None
+    scores: TrackScores | None
+    # Meme forme que dans `run_started` : l'interface hydrate un run passe comme un run vivant.
+    tags_before: TagsBeforePayload | None
+    tags_after: tuple[TagValuePayload, ...] | None
+    source_url: str | None
+    artwork_path: Path | None
+
+
+class RunLoaded(Event):
+    event: Literal["run_loaded"]
+    run_id: str
+    folder: Path
+    generated_at: datetime
+    tracks: tuple[TrackLoaded, ...]
 
 
 class Error(Event):
@@ -583,8 +719,7 @@ def error_from_validation(exc: ValidationError) -> Error:
         loc = error["loc"]
         details.append({"loc": list(loc), "type": error["type"]})
         code = _TYPED_BY_HAND.get(loc[:2], code)
-        # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union
-        # imbriquee qu'un futur modele pourrait declarer.
+        # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union imbriquee.
         if error["type"] == UNKNOWN_COMMAND_ERROR and not loc:
             params["command"] = error.get("ctx", {}).get("tag")
         # Un champ refuse sur une commande connue : Pydantic ouvre `loc` par son
@@ -602,16 +737,26 @@ def error_from_validation(exc: ValidationError) -> Error:
 
 
 def error_from_business(
-    exc: TaggerError, command: CommandName, track_id: str | None = None
+    exc: TaggerError,
+    command: CommandName,
+    track_id: str | None = None,
+    *,
+    run_id: str | None = None,
 ) -> Error:
     """Convertit une erreur metier en evenement, en gardant son code et ses params.
 
     `track_id` : le morceau d'un geste, que les erreurs du client ne portent pas et sans
     lequel l'interface ne saurait sur quelle ligne afficher l'erreur.
+
+    `run_id` : le run vise par une commande qui peut courir en double (`load_run`) ; sans lui,
+    un refus sans `run_id` propre (`phase_busy`, rapport illisible) serait rattache au dernier
+    chargement demande plutot qu'au sien.
     """
     params = dict(exc.params)
     if track_id is not None:
         params["track_id"] = track_id
+    if run_id is not None:
+        params["run_id"] = run_id
     return Error(code=exc.code, params=params, message=str(exc), command=command)
 
 

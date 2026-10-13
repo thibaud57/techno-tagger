@@ -71,7 +71,7 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-Rien à pousser au 2026-10-11.
+- **`TaggingScreen`** : `SourceLabelInline` recompose `SourceLabel` en attendant que la recompilation l'ajoute au bundle ; le remplacer par `SourceLabel` une fois `_ds_manifest.json` à jour (constaté le 2026-10-13).
 
 ## Journal
 
@@ -211,3 +211,13 @@ Rien à pousser au 2026-10-11.
   sans erreur. Le gabarit `templates/app-shell`, resté à l'état d'avant le container unique (formulaire
   à 768px, « Re-tagging », six colonnes), suit l'app et est poussé : sa description dans le manifeste
   change à la recompilation suivante, à relire du distant.
+- **2026-10-13, réalignement de la Feature 6** : les écarts laissés par la reprise, le récapitulatif et les runs passés sont poussés. `AppShell` ouvre le récapitulatif par « Récapitulatif » à côté de « Restaurer le run », rend les trois états de l'invite de reprise sans focus, dossier sur sa ligne, et une confirmation de sortie réduite à l'extraction, l'écriture et la restauration. `Recap` perd « Envoyer ce rapport », « Restaurer le run » et « Nouveau run » au profit d'un pied commun aux deux runs, retour à gauche et contexte à droite. `TrackDetail` passe à une pochette de 168px, « Restaurer ce morceau » dessous, 7 lignes dans tous les cas, ligne Source par logo et nom. `SettingsScreen` gagne la rangée « Runs passés ». `SourceLabel` rejoint le catalogue, `Icon` compte `search` et `external-link`, `Button` le second usage de `link`, `--tt-artwork-size-large` passe à 168px. Second passage le même jour, après rendu local des écrans : `Button` `small` repasse aux jetons d'Aura 3 (0.75rem, l'ancien 0.875rem débordait de « Restaurer ce morceau »), son libellé se coupe par une ellipse, et la note sur les filtres quitte le `Recap`. Réserve n° 17 datée, `_ds_needs_recompile` posé.
+- **2026-10-13, pochette après restauration** : la confirmation de la restauration sépare ses deux
+  phrases, « Les pochettes posées par l'écriture restent en place. » puis « Les commentaires retirés
+  par l'écriture ne sont pas récupérés. » (ADR-011). Fichiers distants relus et identiques à l'export
+  avant le push : `ConfirmDialog.prompt.md`, `overlay.card.html`, `AppShell.jsx`, `SettingsScreen.jsx`
+  et `readme.md` (réserve n° 18). `_ds_needs_recompile` posé.
+- **2026-10-13, clôture de la Feature 6** : `RollbackFailures` se place comme dans l'app, au-dessus
+  de la liste du run et sous le bouton de restauration des Réglages, dans sa fiche, `readme.md`
+  (réserve n° 19) et le README du kit. Fichiers distants relus et identiques à l'export avant le
+  push. `_ds_needs_recompile` posé ; le Reste ouvert attend toujours la recompilation.

@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING
 
-from tagger.paths import extended_path
-from tagger.renaming import MAX_PATH_LENGTH
+from tagger.core.paths import extended_path
+from tagger.tags.renaming import MAX_PATH_LENGTH
 
 if TYPE_CHECKING:
     from pathlib import Path

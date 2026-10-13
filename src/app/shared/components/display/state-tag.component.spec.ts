@@ -1,0 +1,136 @@
+import { TestBed } from "@angular/core/testing"
+import { provideTranslateService } from "@ngx-translate/core"
+
+import { hostOf } from "../../../../fixtures/dom"
+import type { TrackResolution, TrackState } from "../../../core/sidecar/protocol"
+
+import { StateTagComponent } from "./state-tag.component"
+
+interface Case {
+  readonly state: TrackState | null
+  readonly resolution: TrackResolution | null
+  readonly awaiting: boolean
+  readonly interrupted?: boolean
+  readonly severity: string
+  readonly icon: string
+  readonly label: string
+}
+
+/** Les lignes de DESIGN.md § Couleurs Semantiques que le flux fait circuler. */
+const CASES: readonly Case[] = [
+  {
+    state: null,
+    resolution: null,
+    awaiting: true,
+    severity: "info",
+    icon: "info-circle",
+    label: "tagging.state.awaiting",
+  },
+  {
+    state: null,
+    resolution: null,
+    awaiting: false,
+    severity: "secondary",
+    icon: "clock",
+    label: "tagging.state.pending",
+  },
+  {
+    state: "resolved",
+    resolution: "auto",
+    awaiting: false,
+    severity: "success",
+    icon: "check",
+    label: "tagging.state.auto",
+  },
+  {
+    state: "resolved",
+    resolution: "arbitration",
+    awaiting: false,
+    severity: "success",
+    icon: "check",
+    label: "tagging.state.arbitrated",
+  },
+  {
+    state: "resolved",
+    resolution: "url",
+    awaiting: false,
+    severity: "success",
+    icon: "check",
+    label: "tagging.state.url",
+  },
+  {
+    state: "unresolved",
+    resolution: "none",
+    awaiting: false,
+    severity: "danger",
+    icon: "times",
+    label: "tagging.state.unresolved",
+  },
+  {
+    state: "written",
+    resolution: "arbitration",
+    awaiting: false,
+    severity: "success",
+    icon: "check",
+    label: "tagging.state.arbitrated",
+  },
+  {
+    state: "write_error",
+    resolution: "auto",
+    awaiting: false,
+    severity: "danger",
+    icon: "exclamation-triangle",
+    label: "tagging.state.writeError",
+  },
+  {
+    state: "rolled_back",
+    resolution: "auto",
+    awaiting: false,
+    severity: "secondary",
+    icon: "undo",
+    label: "tagging.state.rolledBack",
+  },
+  {
+    state: null,
+    resolution: null,
+    awaiting: false,
+    interrupted: true,
+    severity: "secondary",
+    icon: "minus-circle",
+    label: "tagging.state.notProcessed",
+  },
+]
+
+const mount = (shown: Partial<Case>) => {
+  const fixture = TestBed.createComponent(StateTagComponent)
+  fixture.componentRef.setInput("state", shown.state ?? null)
+  fixture.componentRef.setInput("resolution", shown.resolution ?? null)
+  fixture.componentRef.setInput("awaiting", shown.awaiting ?? false)
+  fixture.componentRef.setInput("interrupted", shown.interrupted ?? false)
+  fixture.detectChanges()
+
+  return hostOf(fixture)
+}
+
+describe("StateTagComponent", () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [StateTagComponent],
+      providers: [provideTranslateService()],
+    })
+  })
+
+  it.each(CASES)("renders the family, the icon and the label of $label", (shown) => {
+    const element = mount(shown)
+
+    expect(element.textContent).toContain(shown.label)
+    expect(element.querySelector(`[data-severity="${shown.severity}"]`)).not.toBeNull()
+    expect(element.querySelector(`[data-p-icon="${shown.icon}"]`)).not.toBeNull()
+  })
+
+  it("prefers the pending arbitration over the received state", () => {
+    const element = mount({ state: "unresolved", resolution: "none", awaiting: true })
+
+    expect(element.textContent).toContain("tagging.state.awaiting")
+  })
+})

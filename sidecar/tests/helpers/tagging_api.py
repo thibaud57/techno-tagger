@@ -13,12 +13,13 @@ from typing import TYPE_CHECKING, Final, NamedTuple
 import httpx2
 import pytest
 from audio_samples import tag, write_blank_mp3
-from scraper_responses import DIM_ORBIT, make_client, page_payload, track_payload
+from scraper_responses import YOUR_MIND, make_client, page_payload, track_payload
+from stubs import ignore
 
-from tagger.cache import ArtworkFetcher, DiskCache
-from tagger.matching import DEFAULT_THRESHOLDS
-from tagger.sources import RunSources
-from tagger.tagging import open_run, resolve_run
+from tagger.resolution.cache import ArtworkFetcher, DiskCache
+from tagger.resolution.matching import DEFAULT_THRESHOLDS
+from tagger.resolution.sources import RunSources
+from tagger.run.tagging import open_run, resolve_run
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
@@ -26,24 +27,29 @@ if TYPE_CHECKING:
 
     from scraper_responses import Handler
 
-    from tagger.scraper_client import TechnoScraperClient
-    from tagger.tagging import LiveRun, RunEvent, TaggingRun
+    from tagger.resolution.scraper_client import TechnoScraperClient
+    from tagger.run.models import LiveRun, RunEvent, TaggingRun, TrackRecord
 
 type Reply = Callable[[], httpx2.Response]
 
 JPEG: Final = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 
-ONE_TRACK: Final = "dim orbit.mp3"
+ONE_TRACK: Final = "your mind.mp3"
 CREATED: Final = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
-WRITTEN_NAME: Final = "Lior Vance - Dim Orbit (Original Mix).mp3"
+WRITTEN_NAME: Final = "Adam Beyer - Your Mind (Original Mix).mp3"
 ORIGINAL: Final = track_payload(mix_name="Original Mix")
 ORIGINAL_REFETCH: Final = f"/beatport/tracks/{ORIGINAL['id']}"
 ON_BANDCAMP: Final = track_payload(
     id="42",
     source="bandcamp",
     mix_name=None,
-    url="https://liorvance.bandcamp.com/track/dim-orbit",
+    url="https://adambeyer.bandcamp.com/track/your-mind",
 )
+
+
+def image(content_type: str = "image/jpeg") -> httpx2.Response:
+    """Reponse du CDN : un JPEG, sauf `content_type` contraire."""
+    return httpx2.Response(200, content=JPEG, headers={"Content-Type": content_type})
 
 
 def public_resolver(_host: str) -> list[str]:
@@ -59,9 +65,9 @@ def found(*items: dict[str, object]) -> Reply:
     return ok(page_payload(*items))
 
 
-def kelvor(**overrides: object) -> dict[str, object]:
-    """Reponse « Kelvor » d'Orla Quenby, l'autre morceau de `two_tracks`."""
-    return track_payload(artists=[{"name": "Orla Quenby"}], title="Kelvor", **overrides)
+def basiel(**overrides: object) -> dict[str, object]:
+    """Reponse « Basiel » d'Amelie Lens, l'autre morceau de `two_tracks`."""
+    return track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel", **overrides)
 
 
 def failing(status: int, api_code: str = "") -> Reply:
@@ -103,6 +109,14 @@ class FakeApi:
     def paths(self) -> list[str]:
         return [request.url.path for request in self.requests]
 
+    def searched(self) -> set[str | None]:
+        """Requetes `q` des recherches recues, Beatport et Bandcamp confondus."""
+        return {
+            request.url.params.get("q")
+            for request in self.requests
+            if request.url.path.endswith("/search")
+        }
+
     async def gated_handler(self, request: httpx2.Request) -> httpx2.Response:
         gate = self._gates.get(_route(request))
         if gate is not None:
@@ -130,7 +144,30 @@ class FakeCdn:
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         if str(request.url) in self.refused:
             return httpx2.Response(404)
-        return httpx2.Response(200, content=JPEG, headers={"Content-Type": "image/jpeg"})
+        return image()
+
+
+class InFlight:
+    """Repond `reply()` apres une attente et retient le pic de requetes simultanees."""
+
+    def __init__(self, reply: Reply) -> None:
+        self.current = 0
+        self.peak = 0
+        self._reply = reply
+
+    async def handler(self, _request: httpx2.Request) -> httpx2.Response:
+        self.current += 1
+        self.peak = max(self.peak, self.current)
+        await asyncio.sleep(0.01)
+        self.current -= 1
+        return self._reply()
+
+
+def write_cover(folder: Path) -> Path:
+    """Pochette telle que le cache la donne : un fichier JPEG."""
+    cover = folder / "cover.jpg"
+    cover.write_bytes(JPEG)
+    return cover
 
 
 def tagged_mp3(folder: Path, name: str, artist: str, title: str) -> Path:
@@ -142,43 +179,56 @@ def tagged_mp3(folder: Path, name: str, artist: str, title: str) -> Path:
 
 
 def one_track(tmp_path: Path) -> Path:
-    """Dossier du run : « Dim Orbit » seul, en `ONE_TRACK`."""
+    """Dossier du run : « Your Mind » seul, en `ONE_TRACK`."""
     folder = tmp_path / "music"
-    tagged_mp3(folder, ONE_TRACK, "Lior Vance", "Dim Orbit")
+    tagged_mp3(folder, ONE_TRACK, "Adam Beyer", "Your Mind")
     return folder
 
 
 def two_tracks(tmp_path: Path) -> Path:
-    """Dossier du run : « Dim Orbit » en `a.mp3`, « Kelvor » en `b.mp3`."""
+    """Dossier du run : « Your Mind » en `a.mp3`, « Basiel » en `b.mp3`."""
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Lior Vance", "Dim Orbit")
-    tagged_mp3(folder, "b.mp3", "Orla Quenby", "Kelvor")
+    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
+    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
     return folder
 
 
 def three_tracks(tmp_path: Path) -> Path:
-    """`two_tracks`, plus « The Weir » en `c.mp3`."""
+    """`two_tracks`, plus « The Void » en `c.mp3`."""
     folder = two_tracks(tmp_path)
-    tagged_mp3(folder, "c.mp3", "Dara Winter", "The Weir")
+    tagged_mp3(folder, "c.mp3", "Sara Landry", "The Void")
     return folder
 
 
 def beatport_down(api: FakeApi, status: int = 503, api_code: str = "source_unavailable") -> None:
-    """Beatport en panne, Bandcamp connait « Dim Orbit » : il part en zone grise, jamais seul."""
+    """Beatport en panne, Bandcamp connait « Your Mind » : il part en zone grise, jamais seul."""
     api.on("/beatport/search", "*", failing(status, api_code))
-    api.on("/bandcamp/search", DIM_ORBIT, found(ON_BANDCAMP))
+    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
 
 
 def hold_on_beatport(api: FakeApi) -> None:
-    """Extended et Radio Edit de « Dim Orbit » : deux versions qui ne valent pas l'original."""
+    """Extended et Radio Edit de « Your Mind » : deux versions qui ne valent pas l'original."""
     api.on(
         "/beatport/search",
-        DIM_ORBIT,
+        YOUR_MIND,
         found(
             track_payload(id="1", mix_name="Extended Mix"),
             track_payload(id="2", mix_name="Radio Edit"),
         ),
     )
+
+
+def hold_with_bandcamp_fallback(api: FakeApi) -> None:
+    """`hold_on_beatport`, et la version attendue sur Bandcamp une fois Beatport refuse."""
+    hold_on_beatport(api)
+    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+
+
+def must_record(live: LiveRun, track_id: str) -> TrackRecord:
+    """Record d'un morceau que le test sait present."""
+    record = live.record(track_id)
+    assert record is not None
+    return record
 
 
 async def cancelled(task: asyncio.Task[None]) -> None:
@@ -240,3 +290,22 @@ async def opened_run(
     async with _wired(folder, api.gated_handler, cdn) as (client, artworks):
         live = await open_run(folder, on_event=sink.append)
         yield OpenedRun(live, RunSources(live.run_id, client, artworks, DEFAULT_THRESHOLDS))
+
+
+@asynccontextmanager
+async def networked_run(
+    folder: Path, api: FakeApi, *, cdn: FakeCdn | None = None
+) -> AsyncGenerator[OpenedRun]:
+    """`opened_run` une fois sa phase reseau finie, ses evenements n'etant observes par personne."""
+    async with opened_run(folder, api, cdn=cdn) as opened:
+        await resolve_run(opened.live, opened.sources, on_event=ignore)
+        yield opened
+
+
+@asynccontextmanager
+async def run_sources(
+    folder: Path, api: FakeApi, run_id: str, *, cdn: FakeCdn | None = None
+) -> AsyncGenerator[RunSources]:
+    """Sources d'un run deja ouvert ailleurs (reprise) : rien n'est relu, rien n'est emis."""
+    async with _wired(folder, api.gated_handler, cdn) as (client, artworks):
+        yield RunSources(run_id, client, artworks, DEFAULT_THRESHOLDS)

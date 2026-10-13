@@ -2,7 +2,7 @@ import type {
   ExtractionProgressEvent,
   SidecarErrorEvent,
   TrackResolvedEvent,
-} from "../app/core/models/protocol"
+} from "../app/core/sidecar/protocol"
 
 // Evenements de la phase de rattrapage par URL partages par les specs : chaque test pose
 // ses ecarts par spread.
@@ -25,11 +25,12 @@ export const resolvedByUrl = (trackId: string): TrackResolvedEvent => ({
   resolution: "url",
   failure_reason: null,
   source: "bandcamp",
-  after: { artist: "Orla Quenby", title: "Kelvor" },
+  after: { artist: "Amelie Lens", title: "Basiel" },
   scores: null,
   artwork_path: null,
   tags_after: null,
   restorable: false,
+  source_url: null,
 })
 
 /** Erreur d'un geste de rattrapage, `track_id` joint par le sidecar. */

@@ -1,7 +1,7 @@
 ---
 paths:
   - "sidecar/src/tagger/__main__.py"
-  - "sidecar/src/tagger/scraper_client.py"
+  - "sidecar/src/tagger/resolution/scraper_client.py"
   - "sidecar/build.py"
 ---
 

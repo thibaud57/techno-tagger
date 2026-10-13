@@ -8,7 +8,7 @@ paths:
 ## À faire
 - Imports absolus depuis `tagger.` par défaut, relatifs (`from .cache import ...`) seulement à l'intérieur d'un sous-package
 - Garder `protocol.py` comme seule interface publique du sidecar, tout le reste étant appelé depuis la boucle de `__main__.py`
-- Déclarer la surface publique d'un package par `__all__` dans son `__init__.py`
+- Déclarer `__all__` dans un `__init__.py` seulement quand le package expose une façade (`playlists/`) ; un package qui ne fait que regrouper des modules importés par chemin (`core/`, `run/`, etc.) garde un `__init__.py` réduit à sa docstring
 - Lancer le sidecar par `python -m tagger`, jamais par chemin de fichier : le mode fichier casse les imports relatifs
 - Casser un cycle d'imports en extrayant le code partagé dans un troisième module
 - Importer sous `if TYPE_CHECKING:` ce qui ne sert qu'aux annotations

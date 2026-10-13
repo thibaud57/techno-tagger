@@ -7,7 +7,8 @@ rendu, jamais la construction de l'echantillon.
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final
 
-from tagger.extraction import (
+from tagger.core.file_failures import FileFailureReason
+from tagger.playlists.extraction import (
     DiscardedCandidate,
     DuplicateCriterion,
     DuplicateResolution,
@@ -15,8 +16,7 @@ from tagger.extraction import (
     ExtractionMode,
     ExtractionResult,
 )
-from tagger.file_failures import FileFailureReason
-from tagger.reports import ReportContext
+from tagger.reports.extraction import ReportContext
 
 if TYPE_CHECKING:
     from pathlib import Path

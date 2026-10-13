@@ -28,7 +28,7 @@
 
 ## Review Focus
 
-- **MP3 v2.3 à deux artistes**, que mutagen relit en une seule chaîne « lior vance/mara quill » : restauré à l'identique (Task 1, `test_restores_exactly_the_original_fields_after_a_write`, cas `mp3-v23`).
+- **MP3 v2.3 à deux artistes**, que mutagen relit en une seule chaîne « adam beyer/bart skils » : restauré à l'identique (Task 1, `test_restores_exactly_the_original_fields_after_a_write`, cas `mp3-v23`).
 - **Rollback d'un fichier que l'écriture n'a jamais atteint** (échec à l'ouverture, aucun tag) : la restauration le laisse sans champ de la table (Task 1, `test_restores_an_untagged_file_the_write_never_reached`).
 - **Relance de l'écriture après un échec** : l'entrée d'origine reste celle du dump, jamais l'état déjà écrit (Task 2, `test_never_replaces_an_entry_already_saved`).
 - **Disque plein au moment d'écrire le dump** : erreur levée, aucun fichier partiel dans le dossier (Task 2, `test_leaves_no_partial_file_when_the_dump_cannot_be_written`).
@@ -100,23 +100,23 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 BEATPORT = TrackCandidate.model_validate(track_payload())
-ORIGINAL_URL = "https://liorvance.bandcamp.com/track/dim-orbit"
+ORIGINAL_URL = "https://adambeyer.bandcamp.com/track/your-mind"
 
 
 def _tag(path: Path, id3_version: int = 3) -> None:
     """Tags d'un fichier tague ailleurs : deux artistes, titre, date complete, BPM, URL."""
     audio = mutagen.File(path)
     if isinstance(audio, FLAC):
-        audio["ARTIST"] = ["lior vance", "mara quill"]
-        audio["TITLE"] = ["dim orbit"]
+        audio["ARTIST"] = ["adam beyer", "bart skils"]
+        audio["TITLE"] = ["your mind"]
         audio["DATE"] = ["2019-06-16"]
         audio["BPM"] = ["130"]
         audio["URL"] = [ORIGINAL_URL]
         audio.save()
         return
     audio.add_tags()
-    audio.tags.add(TPE1(encoding=3, text=["lior vance", "mara quill"]))
-    audio.tags.add(TIT2(encoding=3, text=["dim orbit"]))
+    audio.tags.add(TPE1(encoding=3, text=["adam beyer", "bart skils"]))
+    audio.tags.add(TIT2(encoding=3, text=["your mind"]))
     audio.tags.add(TDRC(encoding=3, text=["2019-06-16"]))
     audio.tags.add(TBPM(encoding=3, text=["130"]))
     audio.tags.add(WOAS(url=ORIGINAL_URL))
@@ -154,8 +154,8 @@ def test_restores_exactly_the_original_fields_after_a_write(
                 4,
                 MappingProxyType(
                     {
-                        TagField.ARTIST: ("lior vance", "mara quill"),
-                        TagField.TITLE: ("dim orbit",),
+                        TagField.ARTIST: ("adam beyer", "bart skils"),
+                        TagField.TITLE: ("your mind",),
                         TagField.DATE: ("2019-06-16",),
                         TagField.BPM: ("130",),
                         TagField.URL: (ORIGINAL_URL,),
@@ -171,8 +171,8 @@ def test_restores_exactly_the_original_fields_after_a_write(
                 None,
                 MappingProxyType(
                     {
-                        TagField.ARTIST: ("lior vance", "mara quill"),
-                        TagField.TITLE: ("dim orbit",),
+                        TagField.ARTIST: ("adam beyer", "bart skils"),
+                        TagField.TITLE: ("your mind",),
                         TagField.DATE: ("2019-06-16",),
                         TagField.BPM: ("130",),
                         TagField.URL: (ORIGINAL_URL,),
@@ -541,9 +541,9 @@ CREATED = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
 ORIGIN = OriginalTags(
     TagSystem.ID3,
     3,
-    MappingProxyType({TagField.ARTIST: ("lior vance",), TagField.BPM: ("130",)}),
+    MappingProxyType({TagField.ARTIST: ("adam beyer",), TagField.BPM: ("130",)}),
 )
-WRITTEN = OriginalTags(TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Lior Vance",)}))
+WRITTEN = OriginalTags(TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Adam Beyer",)}))
 
 
 def _entry(name: str, original: OriginalTags = ORIGIN) -> DumpEntry:
@@ -561,12 +561,12 @@ def test_names_the_dump_after_its_time_and_run(tmp_path: Path) -> None:
 
 
 def test_reloads_the_entries_it_saved(tmp_path: Path) -> None:
-    saved = save_entries(tmp_path, _dump(), {"dim orbit.mp3": _entry("dim orbit.mp3")})
+    saved = save_entries(tmp_path, _dump(), {"your mind.mp3": _entry("your mind.mp3")})
 
     reloaded = load_dump(dump_path(tmp_path, saved))
 
     assert reloaded == saved
-    assert reloaded.entries["dim orbit.mp3"].original_tags() == ORIGIN
+    assert reloaded.entries["your mind.mp3"].original_tags() == ORIGIN
 
 
 def test_never_replaces_an_entry_already_saved(tmp_path: Path) -> None:
@@ -591,7 +591,7 @@ def test_merges_onto_the_dump_on_disk(tmp_path: Path) -> None:
 
 def test_records_where_a_track_was_renamed(tmp_path: Path) -> None:
     saved = save_entries(tmp_path, _dump(), {"a.mp3": _entry("a.mp3")})
-    renamed = Path("D:/Sets/Octobre/Lior Vance - Dim Orbit (Extended Mix).mp3")
+    renamed = Path("D:/Sets/Octobre/Adam Beyer - Your Mind (Extended Mix).mp3")
 
     updated = record_renamed_path(tmp_path, saved, "a.mp3", renamed)
 

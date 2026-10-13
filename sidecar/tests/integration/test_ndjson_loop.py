@@ -1,9 +1,3 @@
-"""Protocole NDJSON de bout en bout, par injection de commandes sur `stdin`.
-
-Aucune interface n'est lancee : le contrat se teste en ligne de commande, ce qui
-est sa raison d'etre (ADR-005).
-"""
-
 import asyncio
 import json
 import logging
@@ -14,11 +8,11 @@ from typing import TYPE_CHECKING, Final, NoReturn
 import keyring
 import pytest
 from memory_keyring import MemoryKeyring, RefusingKeyring
-from ndjson_loop import drive, drive_raw, extraction_command, start_tagging
+from ndjson_loop import EXPECT_TIMEOUT, drive, drive_raw, extraction_command, start_tagging
 
 from tagger import __main__ as main
 from tagger import handlers
-from tagger.reports import ReportWriteError
+from tagger.reports.extraction import ReportWriteError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,8 +20,6 @@ if TYPE_CHECKING:
     from tagger.handlers import CurrentRun
     from tagger.protocol import Event, ExtractPlaylist, StartTagging
 
-# Large : il borne un deadlock, il ne cadence rien.
-WAIT_TIMEOUT: Final = 10
 # Assez long pour que la boucle lise la commande suivante pendant que le run meurt.
 STOP_DELAY: Final = 0.2
 
@@ -39,6 +31,10 @@ def extract_command(
     return json.dumps(extraction_command(library, dump, destination, playlist_name)) + "\n"
 
 
+def _list_playlists(playlist_path: Path) -> str:
+    return json.dumps({"command": "list_playlists", "playlist_path": str(playlist_path)}) + "\n"
+
+
 def test_answers_a_version_request() -> None:
     events = drive('{"command":"get_version"}\n')
 
@@ -47,14 +43,14 @@ def test_answers_a_version_request() -> None:
 
 
 def test_lists_the_playlists_of_a_dump(vlc_dump: Path) -> None:
-    events = drive(json.dumps({"command": "list_playlists", "playlist_path": str(vlc_dump)}) + "\n")
+    events = drive(_list_playlists(vlc_dump))
 
     assert events[0]["event"] == "playlists_listed"
     assert events[0]["playlists"]
 
 
 def test_a_listed_dump_carries_its_format_and_its_identifiers(vlc_dump: Path) -> None:
-    events = drive(json.dumps({"command": "list_playlists", "playlist_path": str(vlc_dump)}) + "\n")
+    events = drive(_list_playlists(vlc_dump))
 
     playlists = events[0]["playlists"]
     assert events[0]["playlist_format"] == "vlc_dump"
@@ -100,7 +96,7 @@ def test_a_malformed_extraction_touches_no_file(
     le dossier destination reste a creer.
     """
     destination = tmp_path / "work"
-    command = json.loads(extract_command(music_library, vlc_dump, destination))
+    command = extraction_command(music_library, vlc_dump, destination)
 
     events = drive(json.dumps({**command, "extra": 1}) + "\n")
 
@@ -147,7 +143,7 @@ def extraction_waits_for_version(monkeypatch: pytest.MonkeyPatch) -> None:
     real_version = handlers.handle_get_version
 
     def blocked_extract(command: ExtractPlaylist, emit: Callable[[Event], None]) -> Event:
-        assert answered.wait(timeout=WAIT_TIMEOUT), "la boucle est restee bloquee par la copie"
+        assert answered.wait(timeout=EXPECT_TIMEOUT), "la boucle est restee bloquee par la copie"
         return real_extract(command, emit)
 
     def answering_version() -> Event:
@@ -206,7 +202,7 @@ def tagging_slow_to_stop(monkeypatch: pytest.MonkeyPatch) -> None:
         adopt: Callable[[CurrentRun], None],
     ) -> Event:
         try:
-            await asyncio.wait_for(asyncio.Event().wait(), timeout=WAIT_TIMEOUT)
+            await asyncio.wait_for(asyncio.Event().wait(), timeout=EXPECT_TIMEOUT)
         finally:
             await asyncio.sleep(STOP_DELAY)
         raise AssertionError("un run annule ne rend jamais son evenement de fin")
@@ -268,19 +264,14 @@ def test_a_failed_report_write_becomes_an_error_event_without_extraction_finishe
 
 
 def test_an_unreadable_file_becomes_an_error_event(unreadable_binary_file: Path) -> None:
-    events = drive(
-        json.dumps({"command": "list_playlists", "playlist_path": str(unreadable_binary_file)})
-        + "\n"
-    )
+    events = drive(_list_playlists(unreadable_binary_file))
 
     assert events[0]["event"] == "error"
     assert events[0]["code"] == "unsupported_playlist_format"
 
 
 def test_lists_an_m3u8_as_empty_but_announces_its_format(m3u8_playlist: Path) -> None:
-    events = drive(
-        json.dumps({"command": "list_playlists", "playlist_path": str(m3u8_playlist)}) + "\n"
-    )
+    events = drive(_list_playlists(m3u8_playlist))
 
     assert events[0]["event"] == "playlists_listed"
     assert events[0]["playlist_format"] == "m3u8"
@@ -299,9 +290,7 @@ def test_the_loop_ends_without_answering_anything_further(stdin: str) -> None:
 
 
 def test_every_line_parses_on_its_own(vlc_dump: Path) -> None:
-    command = json.dumps({"command": "list_playlists", "playlist_path": str(vlc_dump)})
-
-    output = drive_raw(command + "\n")
+    output = drive_raw(_list_playlists(vlc_dump))
 
     for line in output.splitlines():
         assert json.loads(line)

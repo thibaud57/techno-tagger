@@ -12,8 +12,7 @@ class MemoryKeyring(KeyringBackend):
     priority = 1
 
     def __init__(self) -> None:
-        # `KeyringBackend.__init__` n'annote pas son retour, ce qui declenche
-        # `no-untyped-call` en mode strict (cf. `audio_samples.py` pour le meme cas avec mutagen).
+        # `KeyringBackend.__init__` n'annote pas son retour : `no-untyped-call` en mode strict.
         super().__init__()  # type: ignore[no-untyped-call]
         self.secrets: dict[tuple[str, str], str] = {}
 

@@ -5,8 +5,8 @@ import type {
   TagsBefore,
   TrackFailureReason,
   TrackResolvedEvent,
-} from "../app/core/models/protocol"
-import type { TaggingTrack } from "../app/core/tagging-run.store"
+} from "../app/core/sidecar/protocol"
+import type { TaggingTrack } from "../app/core/stores/tagging-run.store"
 
 // Evenements d'un run de re-tagging partages par les specs.
 
@@ -18,15 +18,15 @@ export const RUN_STARTED: RunStartedEvent = {
     {
       track_id: "a.mp3",
       file_name: "a.mp3",
-      artist: "Lior Vance",
-      title: "Dim Orbit",
+      artist: "Adam Beyer",
+      title: "Your Mind",
       tags_before: null,
     },
     {
       track_id: "b.mp3",
       file_name: "b.mp3",
-      artist: "Orla Quenby",
-      title: "Kelvor",
+      artist: "Amelie Lens",
+      title: "Basiel",
       tags_before: null,
     },
   ],
@@ -39,19 +39,20 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
   resolution: "auto",
   failure_reason: null,
   source: "beatport",
-  after: { artist: "Lior Vance", title: "Dim Orbit (Original Mix)" },
+  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
   scores: { artist: 96, title: 92, average: 94 },
   artwork_path: "C:/AppData/cache/artworks/abc.jpg",
   tags_after: null,
   restorable: false,
+  source_url: null,
 }
 
 /** Ligne du run avant resolution, le premier morceau de `RUN_STARTED`. Un test pose son etat par spread. */
 export const PENDING_TRACK: TaggingTrack = {
   trackId: "a.mp3",
   fileName: "a.mp3",
-  artist: "Lior Vance",
-  title: "Dim Orbit",
+  artist: "Adam Beyer",
+  title: "Your Mind",
   state: null,
   resolution: null,
   failureReason: null,
@@ -61,16 +62,32 @@ export const PENDING_TRACK: TaggingTrack = {
   artworkPath: null,
   tagsBefore: null,
   tagsAfter: null,
+  sourceUrl: null,
   arbitration: null,
   restorable: false,
 }
+
+// Les builders ci-dessous nomment le fichier d'apres l'identifiant : deux lignes de meme nom
+// ne se distingueraient plus a l'ecran.
 
 /** Ligne resolue d'office, sans detail de candidat : un test pose ses ecarts par spread. */
 export const resolvedTrack = (trackId: string): TaggingTrack => ({
   ...PENDING_TRACK,
   trackId,
+  fileName: trackId,
   state: "resolved",
   resolution: "auto",
+})
+
+/** Ligne passee par l'ecriture : le dump garde l'origine d'une ligne ecrite ou en echec, pas restauree. */
+export const writtenTrack = (
+  trackId: string,
+  state: TaggingTrack["state"] = "written",
+  restorable = state !== "rolled_back",
+): TaggingTrack => ({
+  ...resolvedTrack(trackId),
+  state,
+  restorable,
 })
 
 /** Ligne non resolue, refusee par defaut : un test pose son motif ou ses ecarts. */
@@ -80,6 +97,7 @@ export const unresolvedTrack = (
 ): TaggingTrack => ({
   ...PENDING_TRACK,
   trackId,
+  fileName: trackId,
   state: "unresolved",
   resolution: "none",
   failureReason,
@@ -89,6 +107,7 @@ export const unresolvedTrack = (
 export const recoveredTrack = (trackId: string): TaggingTrack => ({
   ...PENDING_TRACK,
   trackId,
+  fileName: trackId,
   state: "resolved",
   resolution: "url",
   source: "bandcamp",
@@ -99,14 +118,14 @@ export const TAGS_BEFORE: TagsBefore = {
   system: "id3",
   comment: "Ripped by X",
   fields: [
-    { field: "artist", key: "TPE1", value: "lior vance" },
+    { field: "artist", key: "TPE1", value: "adam beyer" },
     { field: "bpm", key: "TBPM", value: "130" },
   ],
 }
 
 /** Tags apres ecriture, memes champs et memes cles que `TAGS_BEFORE`. */
 export const TAGS_AFTER: readonly TagValue[] = [
-  { field: "artist", key: "TPE1", value: "Lior Vance" },
+  { field: "artist", key: "TPE1", value: "Adam Beyer" },
   { field: "bpm", key: "TBPM", value: "130" },
 ]
 
@@ -118,9 +137,9 @@ export const arbitrationRequired = (trackId: string): ArbitrationRequiredEvent =
   beatport_unavailable: false,
   candidates: [
     {
-      artist: "Lior Vance",
-      title: "Dim Orbit (Radio Edit)",
-      label: "Kestrel",
+      artist: "Adam Beyer",
+      title: "Your Mind (Radio Edit)",
+      label: "Drumcode",
       year: 2023,
       scores: { artist: 96, title: 84, average: 90 },
     },

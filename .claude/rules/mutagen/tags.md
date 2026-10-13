@@ -1,6 +1,6 @@
 ---
 paths:
-  - "sidecar/src/tagger/files.py"
+  - "sidecar/src/tagger/tags/files.py"
 ---
 
 # mutagen — Écriture des tags

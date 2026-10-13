@@ -3,11 +3,17 @@ import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { open } from "@tauri-apps/plugin-dialog"
-import { load, type Store } from "@tauri-apps/plugin-store"
+import { load } from "@tauri-apps/plugin-store"
 
 import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
-import type { PlaylistFormat, SidecarErrorEvent } from "../../core/models/protocol"
-import { SidecarService } from "../../core/sidecar.service"
+import {
+  type SidecarStubOverrides,
+  commandFailed,
+  sidecarStub,
+} from "../../../fixtures/sidecar-stub"
+import { storeStub } from "../../../fixtures/tauri-store"
+import type { PlaylistFormat } from "../../core/sidecar/protocol"
+import { SidecarService } from "../../core/sidecar/sidecar.service"
 
 import PlaylistPageComponent from "./playlist-page.component"
 
@@ -24,54 +30,8 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(() => Promise.reject(new TypeError("store unavailable"))),
 }))
 
-/** Sous-ensemble reellement mocke : une divergence avec `SidecarService` casse ici, jamais en silence. */
-type SidecarServiceStub = Pick<
-  SidecarService,
-  | "ready"
-  | "extracting"
-  | "tagging"
-  | "available"
-  | "version"
-  | "versionMismatch"
-  | "playlistFormat"
-  | "playlists"
-  | "progress"
-  | "extraction"
-  | "extractionRequest"
-  | "listedPlaylistPath"
-  | "lastError"
-  | "lastErrorCommand"
-  | "errorFor"
-  | "listPlaylists"
-  | "extractPlaylist"
->
-
-/**
- * Ce qui se teste ici est la disponibilite de l'action et la commande emise :
- * le reste de l'ecran affiche ce qu'il recoit, et tester qu'un `@if` masque un
- * bloc reviendrait a tester Angular.
- */
-const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
-  const service: SidecarServiceStub = {
-    ready: signal(true),
-    extracting: signal(false),
-    tagging: signal(false),
-    available: signal(true),
-    version: signal("1.0.0"),
-    versionMismatch: signal(null),
-    playlistFormat: signal<PlaylistFormat | null>("vlc_dump"),
-    playlists: signal([{ playlist_id: 1, name: "set", track_count: 8 }]),
-    progress: signal(null),
-    extraction: signal(null),
-    extractionRequest: signal(null),
-    listedPlaylistPath: signal(null),
-    lastError: signal(null),
-    lastErrorCommand: signal(null),
-    errorFor: SidecarService.prototype.errorFor,
-    listPlaylists: vi.fn(),
-    extractPlaylist: vi.fn(),
-    ...overrides,
-  }
+const mountWith = (overrides: SidecarStubOverrides = {}) => {
+  const service = sidecarStub(overrides)
   const router = { navigate: vi.fn(() => Promise.resolve(true)) }
 
   TestBed.configureTestingModule({
@@ -88,7 +48,6 @@ const mountWith = (overrides: Partial<SidecarServiceStub> = {}) => {
   return { fixture, component: fixture.componentInstance, service, router }
 }
 
-/** Acces par crochets aux membres `protected` : piloter l'ecran sans elargir sa surface. */
 const choosePlaylist = (component: PlaylistPageComponent, name: string | null): void => {
   component["choice"].update((current) => ({ ...current, playlist: name }))
 }
@@ -201,14 +160,7 @@ describe("PlaylistPageComponent", () => {
     const { component } = mountWith({
       playlistFormat: signal(null),
       playlists: signal([]),
-      lastError: signal<SidecarErrorEvent>({
-        event: "error",
-        code: "vlc_schema_mismatch",
-        params: {},
-        message: "",
-        command: "list_playlists",
-      }),
-      lastErrorCommand: signal("list_playlists"),
+      ...commandFailed("list_playlists", "vlc_schema_mismatch"),
     })
     component["sourceFolder"].set("C:/lib")
     component["destinationFolder"].set("C:/work")
@@ -298,9 +250,7 @@ describe("PlaylistPageComponent", () => {
   })
 
   it("restores the mode stored at the previous run", async () => {
-    vi.mocked(load).mockResolvedValueOnce({
-      get: () => Promise.resolve("move"),
-    } as unknown as Store)
+    vi.mocked(load).mockResolvedValueOnce(storeStub("move"))
     const { fixture, component } = mountWith()
 
     await fixture.whenStable()
@@ -351,11 +301,7 @@ describe("PlaylistPageComponent", () => {
   })
 
   it("memorizes the destination as the last extraction target when starting an extraction", async () => {
-    const store = {
-      get: vi.fn(() => Promise.resolve(undefined)),
-      set: vi.fn(),
-      save: vi.fn(() => Promise.resolve()),
-    } as unknown as Store
+    const store = storeStub()
     // `mockResolvedValue` et non `Once` : le constructeur charge deja le store une
     // premiere fois pour restaurer le mode d'extraction.
     vi.mocked(load).mockResolvedValue(store)

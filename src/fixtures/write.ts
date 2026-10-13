@@ -1,12 +1,13 @@
 import type {
   BusyPhase,
   ExtractionProgressEvent,
+  RollbackFailure,
   RollbackFinishedEvent,
   RollbackRun,
   RunFinishedEvent,
   SidecarCommand,
   SidecarErrorEvent,
-} from "../app/core/models/protocol"
+} from "../app/core/sidecar/protocol"
 
 // Evenements partages par les specs : chaque test pose ses ecarts par spread.
 
@@ -19,6 +20,7 @@ export const WRITE_FINISHED: RunFinishedEvent = {
   written: 1,
   write_error: 0,
   awaiting_arbitration: 0,
+  report_path: "D:/Music/Promo Octobre/tagging-report-20261005T211403Z.json",
 }
 
 /** Fin de la phase reseau d'un run resolu : ce qui precede la confirmation. */
@@ -27,6 +29,7 @@ export const NETWORK_FINISHED: RunFinishedEvent = {
   phase: "network",
   resolved: 1,
   written: 0,
+  report_path: null,
 }
 
 export const writeProgress = (processed: number, total: number): ExtractionProgressEvent => ({
@@ -43,13 +46,22 @@ export const ROLLBACK_RUN: RollbackRun = {
   tracks: 1,
 }
 
-export const rollbackFinished = (trackId: string | null = null): RollbackFinishedEvent => ({
+export const rollbackFinished = (
+  trackId: string | null = null,
+  failed: RollbackFinishedEvent["failed"] = [],
+): RollbackFinishedEvent => ({
   event: "rollback_finished",
   run_id: "a3f9c1",
   track_id: trackId,
   restored: ["a.mp3"],
-  failed: [],
+  failed,
 })
+
+/** Restauration qui a laisse un fichier tel quel : `reason` dit pourquoi. */
+export const failedRollback = (
+  reason: RollbackFailure["reason"] = "file_locked",
+): RollbackFinishedEvent =>
+  rollbackFinished(null, [{ track_id: "b.mp3", file_name: "X - Y.mp3", reason }])
 
 export const commandError = (
   command: SidecarCommand["command"],

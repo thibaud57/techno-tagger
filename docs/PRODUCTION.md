@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-10-11"
+date: "2026-10-13"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
@@ -239,9 +239,9 @@ GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 | Réglage | Emplacement | Pourquoi |
 |---|---|---|
 | Clé API techno-scraper | Trousseau de l'OS via keyring (Credential Manager Windows) | Chiffré par l'OS, jamais exposé au JavaScript de la webview ([ADR-012](adrs/012-securite-cle-api-keyring.md)) |
-| Langue, seuils, mode copie / déplacement, signal sonore | Store Tauri (fichier local) | Réglages non sensibles. L'URL de l'API n'en fait plus partie : constante du sidecar depuis le 2026-09-19 |
+| Mode copie / déplacement, signal sonore, dernière destination | Store Tauri (fichier local) | Réglages non sensibles. L'URL de l'API n'en fait plus partie : constante du sidecar depuis le 2026-09-19 |
 
-Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
+Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `core/build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
 
 ### Règles
 - ✅ **Aucun secret exploitable dans le binaire distribué** : ni clé API, ni token d'accès. Un `strings` sur un exécutable PyInstaller suffirait à l'extraire, et le dépôt est public. Les DSN Sentry font exception assumée : ils sont compilés par nécessité, et n'autorisent que l'**envoi** d'événements, jamais la lecture. Leur fuite permettrait au pire de polluer le quota, d'où leur présence dans le tableau de rotation.
@@ -306,7 +306,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **Suffixe target-triple du sidecar** : `tagger-x86_64-pc-windows-msvc.exe`, sans quoi Tauri ne trouve pas le binaire externe, avec `"externalBin": ["binaries/tagger"]` (chemin relatif à `src-tauri/`, suffixe ajouté par Tauri)
 - [ ] **`target/release/` hors cache CI**, ou purgé de la copie du sidecar avant le build : couvert par le nettoyage de `Swatinem/rust-cache` (cf. § Remplacement du sidecar à la mise à jour), à revérifier si cette action change
 - [ ] **Contrôle de version UI ↔ sidecar au démarrage** : refuser de lancer un run si les deux versions diffèrent, filet contre le sidecar non remplacé
-- [ ] **Flush explicite après chaque ligne NDJSON** : `flush=True` à chaque événement émis, un binaire PyInstaller derrière un pipe ne respectant ni `-u` ni `PYTHONUNBUFFERED` : sans lui, l'interface paraît figée pendant tout le run (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
+- [ ] **Sortie NDJSON vidée à chaque ligne** : `line_buffering=True` posé sur `stdout` au démarrage, un binaire PyInstaller derrière un pipe ne respectant ni `-u` ni `PYTHONUNBUFFERED` : sans lui, l'interface paraît figée pendant tout le run (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
 - [ ] **Backend keyring forcé explicitement** : le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
   ⚠️ **Non vérifiable avant l'étape 5** : au bootstrap, aucun module n'importe `keyring`, il n'entre donc pas dans le graphe analysé et `hook-keyring.py` ne se déclenche jamais. Constaté sur le binaire du bootstrap, qui ne contient ni `keyring.backends` ni `WinVaultKeyring`, seulement les métadonnées posées par le `copy_metadata` explicite du `.spec`. Cocher cet item sur un binaire antérieur à l'étape 5 ne prouve rien
 - [x] **`target-branch: main` valide sur le flux `develop → main`** : release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). Confirmé au premier run (`v0.1.0`) : le squash-merge de la PR est un commit ordinaire de `main`, rien à régler
@@ -318,7 +318,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **Ruff interdit `asyncio.get_event_loop` et `sqlite3.version`** : via `banned-api`, les deux étant supprimés ou durcis en Python 3.14. Fait porter la garantie par la CI plutôt que par la vigilance
 - [ ] **Actions CI pinnées** : chaque action sur le SHA de son tag, jamais sur un tag flottant, pour que Dependabot propose chaque montée par une PR
 - [ ] **`dependabot.yml` commité, Dependency graph et Dependabot alerts actifs** : les deux réglages de sécurité du dépôt activés, condition de fonctionnement du graphe de dépendances que Dependabot consomme
-- [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le bouton « ouvrir le dossier de logs » et le lien vers la fiche source : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
+- [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le lien vers la fiche source et, à l'étape 8, par le bouton « ouvrir le dossier de logs » : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
 - [ ] **Préfixe `\\?\` sur les accès aux fichiers musicaux** (tags, renommage, rollback) : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
 - [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
@@ -466,7 +466,7 @@ Le dépôt est public : n'importe qui peut ouvrir une PR depuis un fork, et ce q
 | Réglage | Cible | Relevé le 2026-10-09 | Pourquoi |
 |---------|-------|----------------------|----------|
 | Permissions par défaut du `GITHUB_TOKEN` | `read` (restricted) | ✅ `read` | Chaque workflow redéclare ses scopes, un oubli retombe sur la lecture seule |
-| Autoriser Actions à approuver une PR | Désactivé | ✅ désactivé (corrigé le 2026-10-09) | Un workflow ne doit pas pouvoir valider la PR qu'il vient d'ouvrir |
+| Autoriser Actions à créer et approuver des PR | Activé, tant que release-please ouvre sa PR avec `GITHUB_TOKEN` | ✅ activé (rétabli le 2026-10-12, après une désactivation le 2026-10-09) | GitHub n'a qu'un interrupteur pour créer et approuver : désactivé, release-please n'ouvre plus la PR de release et la release s'arrête là, sans tag ni build |
 | Épinglage SHA obligatoire | Activé | ✅ activé (corrigé le 2026-10-09) | Transforme en règle de plateforme la convention SHA des workflows : une action en tag flottant est refusée au lieu de passer |
 | Approbation des workflows de fork | Tous les contributeurs externes | ✅ tous les contributeurs externes (corrigé le 2026-10-09) | Sinon, une seule contribution acceptée (une typo suffit) dispense de l'approbation toutes les suivantes |
 | Actor rules (workflow execution protections) | Aucune, ou `dependabot[bot]` inclus | ✅ aucune | Une actor rule qui oublie `dependabot[bot]` bloque ses PR sans erreur visible |
@@ -490,8 +490,8 @@ Minimal et gratuit, pour un dev solo et quelques utilisateurs : **Sentry (plan D
 |-------|-------|-------|
 | Sentry (`sentry-sdk` Python) | Crashs du sidecar, API injoignable, parsing cassé | Dashboard Sentry, région EU, fixée à la création de l'organisation et jamais modifiable ensuite |
 | Sentry (`@sentry/angular`) | Erreurs de la webview | Projet Sentry **distinct** de celui du sidecar |
-| Fichier de log local | Débogage à distance chez un utilisateur | Bouton « ouvrir le dossier de logs » dans les Settings |
-| Rapport de run (JSON + Markdown) | Qualité du matching, cas d'arbitrage, échecs | Dossier destination, envoi par geste explicite |
+| Fichier de log local | Débogage à distance chez un utilisateur | `appLocalDataDir()/logs`, fichier envoyé par l'utilisateur |
+| Rapport de run (JSON + Markdown) | Qualité du matching, cas d'arbitrage, échecs | Dossier du run, relu par l'application (Réglages > Runs passés) |
 
 **Deux projets Sentry**, un pour le sidecar Python, un pour la webview. Un projet unique accepterait techniquement les deux, mais JavaScript est bruyant : mélangé au Python, il noierait les crashs du sidecar, seuls à porter du métier. Le **quota se compte au niveau de l'organisation**, pas du projet : découper ne double pas les 5 000 events du plan gratuit, cela ne fait que les rendre triables. La version publiée doit exister comme release dans **les deux** projets.
 
@@ -534,7 +534,7 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 | Erreur de la webview | Exception Angular non gérée | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
 
-> **Le canal d'amélioration du matching n'est pas Sentry** mais le bouton « envoyer ce rapport » de l'écran final : geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, et qui ne consomme pas le quota d'erreurs.
+> **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8).
 
 > **Pas d'alerte sur un run raté.** Un run avec beaucoup de non-résolus est un cas fonctionnel, pas un incident technique : il se lit dans le rapport, pas dans Sentry. Y envoyer un event par échec brûlerait le quota gratuit et noierait les vrais crashs.
 
@@ -549,14 +549,14 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 Fichier local unique, une ligne par événement, au format **logfmt** : un préfixe lisible (horodatage, niveau, logger, message) suivi des champs structurés en `clé=valeur`.
 
 ```
-2026-08-27 21:14:03 INFO    tagger.matching  candidat retenu     run=a3f9c1 track=42 score=91 source=beatport
-2026-08-27 21:14:04 WARNING tagger.files     fichier verrouillé  run=a3f9c1 track=43 reason=file_locked
-2026-08-27 21:14:09 ERROR   tagger.scraper   arrêt du run        run=a3f9c1 status=403 consecutive=3
+2026-10-13 21:14:03 INFO    tagger.run.tagging candidate retained run=a3f9c1 track=42 source=beatport score=91 status=resolved
+2026-10-13 21:14:04 WARNING tagger.run.tagging tags unreadable, file name used run=a3f9c1 track=43 reason=file_locked
+2026-10-13 21:14:09 ERROR   tagger.run.writing write failed run=a3f9c1 track=44 reason=file_locked
 ```
 
-Le choix se lit depuis le lecteur final : ce fichier a un seul destinataire, l'auteur, quand un utilisateur clique sur « ouvrir le dossier de logs » et envoie le fichier par message. Rien ne l'agrège, rien ne le corrèle à Sentry, et **l'artefact machine du projet existe déjà**, c'est le rapport de run JSON relu par l'application. Du JSON par ligne coûterait donc la lisibilité sans acheter ce qui le justifie côté API, où les logs sont relus et filtrés dans une console Docker.
+Le choix se lit depuis le lecteur final : ce fichier a un seul destinataire, l'auteur, quand un utilisateur lui envoie le fichier par message. Rien ne l'agrège, rien ne le corrèle à Sentry, et **l'artefact machine du projet existe déjà**, c'est le rapport de run JSON relu par l'application. Du JSON par ligne coûterait donc la lisibilité sans acheter ce qui le justifie côté API, où les logs sont relus et filtrés dans une console Docker.
 
-logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 'status=403' tagger.log` fonctionne sans outil chez quelqu'un qui n'a pas `jq`.
+logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 'reason=file_locked' tagger.log` fonctionne sans outil chez quelqu'un qui n'a pas `jq`.
 
 `run` est présent sur **chaque** ligne. La rotation se déclenchant sur la taille et jamais sur le run, un fichier ne correspond à rien de fonctionnel et un run peut être à cheval sur deux fichiers : sans cette clé, un log tronqué à la rotation devient illisible.
 
@@ -569,15 +569,15 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 | `DEBUG` | Détail de développement (requêtes construites, payloads bruts, scores intermédiaires). Jamais actif dans un build distribué |
 | `INFO` | Démarrage / arrêt du sidecar, début et fin de run, décisions de matching, phase d'écriture |
 | `WARNING` | Retry réseau, fichier verrouillé, chemin tronqué, requête vide après nettoyage, cache évincé |
-| `ERROR` | Sidecar qui tombe, API injoignable après retries, `403` répétés, échec d'écriture, plan de run illisible |
+| `ERROR` | Sidecar qui tombe, API injoignable après retries, `403` répétés, échec d'écriture, plan de run ou rapport non écrit |
 
 ## Rétention
 
 | Env | Rétention | Gestion |
 |-----|-----------|---------|
-| Distribution (logs) | 20 Mo au maximum sur le disque | `RotatingFileHandler` sur `tagger.log` dans `appLocalDataDir()` : rotation à 5 Mo, 3 sauvegardes, aucune purge à écrire |
+| Distribution (logs) | 20 Mo au maximum sur le disque | `RotatingFileHandler` sur `tagger.log` dans `appLocalDataDir()/logs` : rotation à 5 Mo, 3 sauvegardes, aucune purge à écrire |
 | Distribution (erreurs) | 30 jours | Sentry, plan Developer gratuit |
-| Distribution (rapports de run) | Permanente | Dossier destination de l'utilisateur, c'est un livrable |
+| Distribution (rapports) | Permanente | Dossier du run (re-tagging) ou dossier destination (extraction), c'est un livrable |
 | Développement | Session | Console + fichier local |
 
 À quelques dizaines de kilooctets par run, ces 20 Mo couvrent plusieurs centaines de runs.
@@ -655,12 +655,13 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
 | Plan de run, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
 | Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | `appLocalDataDir()/dumps`, aucune sauvegarde |
+| Registre des rapports `reports.json` (machine utilisateur) | À chaque run écrit | Permanente | `appLocalDataDir()`, aucune sauvegarde : perdu, il laisse les rapports dans leurs dossiers mais les runs passés ne sont plus listés |
 
 > **Le mot de passe de l'archive ne va pas dans l'archive.** Il s'écrit sur papier, ou se mémorise. C'est le seul maillon qui n'a pas de copie numérique, par construction.
 
 > **Deux emplacements, pas un.** Drive seul tombe avec le compte Google, la clé USB seule tombe avec le tiroir. Le chiffrement AES-256 en amont est ce qui rend le dépôt sur Drive acceptable : sans lui, un compte Google compromis donnerait à quelqu'un la capacité de **signer une fausse mise à jour** que les installations existantes accepteraient et installeraient automatiquement.
 
-> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant ; le dump des tags d'origine vit 30 jours pour qu'un run raté reste annulable d'un lancement à l'autre ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)).
+> **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant ; le dump des tags d'origine vit 30 jours pour qu'un run raté reste annulable d'un lancement à l'autre ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)) ; les rapports sont des livrables posés dans les dossiers de l'utilisateur, le registre n'en est que l'index.
 
 ## Recovery
 

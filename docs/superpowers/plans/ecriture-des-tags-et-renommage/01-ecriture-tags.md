@@ -251,9 +251,9 @@ def _candidate(**overrides: object) -> TrackCandidate:
 
 BEATPORT = _candidate()
 REMIX = _candidate(
-    artists=[_credit("Lior Vance"), _credit("Mara Quill")],
-    remixers=[_credit("Kaelen Mirandor")],
-    mix_name="Kaelen Mirandor Remix",
+    artists=[_credit("Adam Beyer"), _credit("Bart Skils")],
+    remixers=[_credit("Layton Giordani")],
+    mix_name="Layton Giordani Remix",
 )
 BANDCAMP = _candidate(source="bandcamp", id="42", mix_name=None, genre=None, bpm=None, key=None)
 
@@ -262,19 +262,19 @@ def test_projects_every_field_a_beatport_candidate_carries() -> None:
     values = project_tags(BEATPORT)
 
     assert dict(values) == {
-        TagField.ARTIST: "Lior Vance",
-        TagField.TITLE: "Dim Orbit (Extended Mix)",
-        TagField.ALBUM: "Dim Orbit",
+        TagField.ARTIST: "Adam Beyer",
+        TagField.TITLE: "Your Mind (Extended Mix)",
+        TagField.ALBUM: "Your Mind",
         TagField.DATE: "2023",
         TagField.ORIGINAL_DATE: "2023",
         TagField.GENRE: "Techno (Peak Time / Driving)",
-        TagField.LABEL: "Kestrel",
-        TagField.CATALOG_NUMBER: "KS287",
+        TagField.LABEL: "Drumcode",
+        TagField.CATALOG_NUMBER: "DC287",
         TagField.BPM: "134",
         TagField.KEY: "4A",
         TagField.ISRC: "ZZ0AA2300001",
         TagField.TRACK_NUMBER: "1",
-        TagField.URL: "https://www.beatport.com/track/dim-orbit/99000101",
+        TagField.URL: "https://www.beatport.com/track/your-mind/99000101",
         TagField.SOURCE_ID: "99000101",
         TagField.SOURCE: "beatport",
     }
@@ -283,9 +283,9 @@ def test_projects_every_field_a_beatport_candidate_carries() -> None:
 def test_keeps_the_remixer_out_of_the_artist() -> None:
     values = project_tags(REMIX)
 
-    assert values[TagField.ARTIST] == "Lior Vance, Mara Quill"
-    assert values[TagField.TITLE] == "Dim Orbit (Kaelen Mirandor Remix)"
-    assert values[TagField.REMIXER] == "Kaelen Mirandor"
+    assert values[TagField.ARTIST] == "Adam Beyer, Bart Skils"
+    assert values[TagField.TITLE] == "Your Mind (Layton Giordani Remix)"
+    assert values[TagField.REMIXER] == "Layton Giordani"
 
 
 def test_omits_the_fields_the_source_leaves_null() -> None:
@@ -677,7 +677,7 @@ def test_replaces_existing_vorbis_values_whatever_their_case_or_count(
 
     write_tags(path, project_tags(BEATPORT), None)
 
-    assert FLAC(path)["ARTIST"] == ["Lior Vance"]
+    assert FLAC(path)["ARTIST"] == ["Adam Beyer"]
 
 
 @pytest.mark.parametrize(
@@ -703,26 +703,26 @@ def test_leaves_the_id3_frames_outside_the_table_alone(
     path = blank_audio("mp3")
     audio = mutagen.File(path)
     audio.add_tags()
-    audio.tags.add(TPE2(encoding=3, text=["Kestrel"]))
+    audio.tags.add(TPE2(encoding=3, text=["Drumcode"]))
     audio.tags.add(TXXX(encoding=3, desc="SERATO_PLAYCOUNT", text=["12"]))
     audio.save(v2_version=3)
 
     write_tags(path, project_tags(BEATPORT), None)
 
     tags = mutagen.File(path).tags
-    assert (str(tags["TPE2"]), str(tags["TXXX:SERATO_PLAYCOUNT"])) == ("Kestrel", "12")
+    assert (str(tags["TPE2"]), str(tags["TXXX:SERATO_PLAYCOUNT"])) == ("Drumcode", "12")
 
 
 def test_leaves_the_vorbis_keys_outside_the_table_alone(
     blank_audio: Callable[[str], Path],
 ) -> None:
     path = blank_audio("flac")
-    _preset(path, ALBUMARTIST="Kestrel", SERATO_PLAYCOUNT="12")
+    _preset(path, ALBUMARTIST="Drumcode", SERATO_PLAYCOUNT="12")
 
     write_tags(path, project_tags(BEATPORT), None)
 
     audio = FLAC(path)
-    assert (audio["ALBUMARTIST"], audio["SERATO_PLAYCOUNT"]) == (["Kestrel"], ["12"])
+    assert (audio["ALBUMARTIST"], audio["SERATO_PLAYCOUNT"]) == (["Drumcode"], ["12"])
 
 
 def test_removes_every_id3_comment(blank_audio: Callable[[str], Path]) -> None:
@@ -840,7 +840,7 @@ def test_treats_a_cover_the_cache_cannot_give_as_absent(
 
     assert _pictures(path) == [(FRONT_COVER, "image/png", b"front")]
     assert not written.artwork
-    assert _read_back(path)[TagField.TITLE] == "Dim Orbit (Extended Mix)"
+    assert _read_back(path)[TagField.TITLE] == "Your Mind (Extended Mix)"
 
 
 def test_raises_file_locked_and_leaves_a_locked_file_unchanged(

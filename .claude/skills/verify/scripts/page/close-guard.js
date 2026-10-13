@@ -2,8 +2,9 @@
 // de sortie, clique ses boutons. La fermeture elle-meme part de l'exterieur, par
 // `taskkill //IM techno-tagger.exe` sans `/F` (le message de fermeture de Windows, celui
 // de la croix), jamais par `close()` depuis la page qui ne passerait pas par l'OS.
-//   node cdp.mjs page/close-guard.js pending extraction
-//   node cdp.mjs page/close-guard.js pending run-arbitrations
+//   node cdp.mjs page/close-guard.js pending extraction       retient la fenetre
+//   node cdp.mjs page/close-guard.js pending run-arbitrations  ne la retient plus (plan de run, 2026-10-12)
+//   node cdp.mjs page/close-guard.js clear                     retire l'extraction posee
 //   node cdp.mjs page/close-guard.js state
 //   node cdp.mjs page/close-guard.js click <stay|leave|cross>
 //   node cdp.mjs page/close-guard.js lang <fr|en>    largeur a remesurer dans les deux langues
@@ -28,7 +29,7 @@
         JSON.stringify({
           event: "run_started",
           run_id: "verify",
-          tracks: tracks.map((id) => ({ track_id: id, file_name: id, artist: "Lior Vance", title: "Dim Orbit" })),
+          tracks: tracks.map((id) => ({ track_id: id, file_name: id, artist: "Adam Beyer", title: "Your Mind" })),
         }),
       )
       for (const id of tracks) {
@@ -40,9 +41,9 @@
             beatport_unavailable: false,
             candidates: [
               {
-                artist: "Lior Vance",
-                title: "Dim Orbit (Radio Edit)",
-                label: "Kestrel",
+                artist: "Adam Beyer",
+                title: "Your Mind (Radio Edit)",
+                label: "Drumcode",
                 year: 2023,
                 scores: { artist: 96, title: 84, average: 90 },
               },
@@ -61,6 +62,12 @@
       tagging: service.tagging(),
       arbitrationCount: service.arbitrationCount(),
     }
+  }
+
+  if (action === "clear") {
+    service._extracting.set(false)
+    await wait(300)
+    return { extracting: service.extracting() }
   }
 
   if (action === "state") {

@@ -1,5 +1,3 @@
-"""Tests des modeles du run et de la traduction des evenements du pipeline."""
-
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -7,11 +5,8 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 from scraper_responses import track_candidate
-from tagging_records import RECORD, scored_candidate
+from tagging_records import RECORD, RUN_ID, scored_candidate
 
-from tagger import tagging
-from tagger.files import TAG_FIELDS, TagField
-from tagger.handlers import to_protocol_event
 from tagger.protocol import (
     ArbitrationRequired,
     Progress,
@@ -21,11 +16,14 @@ from tagger.protocol import (
     TrackResolved,
     parse_command,
 )
-from tagger.scraper_client import Source, TrackCandidate
-from tagger.tagging import PendingArbitration, Resolution, TrackRecord, TrackState
+from tagger.resolution.scraper_client import Source, TrackCandidate
+from tagger.run import models
+from tagger.run.models import PendingArbitration, Resolution, TrackRecord, TrackState
+from tagger.tags.files import TAG_FIELDS, TagField
+from tagger.translation import to_protocol_event
 
 if TYPE_CHECKING:
-    from tagger.matching import ScoredCandidate
+    from tagger.resolution.matching import ScoredCandidate
 
 
 def test_accepts_a_start_tagging_command_without_thresholds() -> None:
@@ -78,12 +76,12 @@ def _record(
 
 
 def test_lists_every_track_of_a_started_run() -> None:
-    event = to_protocol_event(tagging.RunStarted("a3f9c1", Path("D:/Sets"), (_record(),)))
+    event = to_protocol_event(models.RunStarted(RUN_ID, Path("D:/Sets"), (_record(),)))
 
     assert isinstance(event, RunStarted)
     assert event.folder == Path("D:/Sets")
     assert event.tracks[0].track_id == "a.mp3"
-    assert event.tracks[0].artist == "Lior Vance"
+    assert event.tracks[0].artist == "Adam Beyer"
 
 
 def test_rounds_the_scores_of_a_resolved_track() -> None:
@@ -95,7 +93,7 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
         scored=scored_candidate(),
     )
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.scores is not None
@@ -105,8 +103,8 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
 @pytest.mark.parametrize(
     ("title", "mix_name", "expected"),
     [
-        ("Dim Orbit", "Original Mix", "Dim Orbit (Original Mix)"),
-        ("Dim Orbit", None, "Dim Orbit"),
+        ("Your Mind", "Original Mix", "Your Mind (Original Mix)"),
+        ("Your Mind", None, "Your Mind"),
     ],
     ids=["with-mix", "without-mix"],
 )
@@ -121,17 +119,17 @@ def test_renders_the_artist_and_the_title_a_source_will_write(
         scored=scored_candidate(),
     )
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.after is not None
-    assert event.after == TrackNames(artist="Lior Vance", title=expected)
+    assert event.after == TrackNames(artist="Adam Beyer", title=expected)
 
 
 def test_carries_no_tags_after_for_an_unresolved_track() -> None:
     record = _record(state=TrackState.UNRESOLVED, resolution=Resolution.NONE)
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.tags_after is None
@@ -150,8 +148,8 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
         tags_before=None,
     )
 
-    started = to_protocol_event(tagging.RunStarted("a3f9c1", Path("D:/Sets"), (record,)))
-    resolved = to_protocol_event(tagging.TrackResolved(record))
+    started = to_protocol_event(models.RunStarted(RUN_ID, Path("D:/Sets"), (record,)))
+    resolved = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(started, RunStarted)
     assert started.tracks[0].tags_before is None
@@ -160,8 +158,8 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
     rows = {row.field: row for row in resolved.tags_after}
     assert list(rows) == list(TAG_FIELDS)
     assert rows[TagField.ARTIST].key == "ARTIST"
-    assert rows[TagField.ARTIST].value == "Lior Vance"
-    assert rows[TagField.TITLE].value == "Dim Orbit (Original Mix)"
+    assert rows[TagField.ARTIST].value == "Adam Beyer"
+    assert rows[TagField.TITLE].value == "Your Mind (Original Mix)"
     assert rows[TagField.ALBUM].value is None
     assert rows[TagField.BPM].value is None
 
@@ -175,7 +173,7 @@ def test_reports_no_artist_score_for_a_query_without_artist() -> None:
         scored=scored_candidate(artist=None, title=100),
     )
 
-    event = to_protocol_event(tagging.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(event, TrackResolved)
     assert event.scores is not None
@@ -189,15 +187,15 @@ def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
         )
     )
 
-    event = to_protocol_event(tagging.ArbitrationRequired(record))
+    event = to_protocol_event(models.ArbitrationRequired(record))
 
     assert isinstance(event, ArbitrationRequired)
     assert event.beatport_unavailable is True
-    assert event.candidates[0].title == "Dim Orbit (Original Mix)"
+    assert event.candidates[0].title == "Your Mind (Original Mix)"
 
 
 def test_maps_the_pipeline_progress_to_the_tagging_phase() -> None:
-    event = to_protocol_event(tagging.RunProgress(2, 3))
+    event = to_protocol_event(models.RunProgress(processed=2, total=3))
 
     assert isinstance(event, Progress)
     assert event.phase == "tagging"

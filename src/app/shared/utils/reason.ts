@@ -6,7 +6,7 @@ import type {
   FileFailureReason,
   RollbackFailureReason,
   TrackFailureReason,
-} from "../../core/models/protocol"
+} from "../../core/sidecar/protocol"
 
 /** Ce que l'utilisateur relance pour que le geste qui repare serve : l'ecriture, la restauration, l'extraction. */
 export type FileReasonContext = "write" | "rollback" | "extraction"
@@ -44,7 +44,6 @@ const fileReasonKeys = (reason: FileFailureReason, context: FileReasonContext): 
     : null,
 })
 
-/** Panne d'un fichier de l'extraction. */
 export const extractionReasonKeys = (reason: FileFailureReason): ReasonKeys =>
   fileReasonKeys(reason, "extraction")
 
@@ -54,7 +53,6 @@ export const trackReasonKeys = (reason: TrackFailureReason): ReasonKeys =>
     ? fileReasonKeys(reason, "write")
     : { cause: `tagging.reason.${reason}`, remedy: null }
 
-/** Fichier qu'une restauration a laisse en l'etat. */
 export const rollbackReasonKeys = (reason: RollbackFailureReason): ReasonKeys =>
   isFileFailure(reason)
     ? fileReasonKeys(reason, "rollback")

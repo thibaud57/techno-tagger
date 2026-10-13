@@ -689,8 +689,8 @@ async def test_serves_a_repeated_search_from_the_cache_without_a_request(tmp_pat
     handler = _recording(requests, page_payload(track_payload()))
 
     async with make_client(handler, cache=_cache(tmp_path)) as client:
-        first = await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
-        second = await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
+        first = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        second = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
 
     assert second == first
     assert len(requests) == 1
@@ -718,8 +718,8 @@ async def test_never_caches_an_error_response(tmp_path: Path) -> None:
 
     async with make_client(unavailable_then_found, cache=_cache(tmp_path)) as client:
         with pytest.raises(SourceUnavailableError):
-            await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
-        candidates = await client.search(Source.BEATPORT, "Lior Vance Dim Orbit")
+            await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
+        candidates = await client.search(Source.BEATPORT, "Adam Beyer Your Mind")
 
     assert len(candidates) == 1
     assert len(requests) == 2
