@@ -433,7 +433,7 @@ async (page) => {
     out.measures.runModalFr = d
     check("4 run modal: header Restaurer les fichiers", d?.header === "Restaurer les fichiers", d?.header)
     check("4 run modal: exact count 4 on its own line (written + write_error rows)", /restaurer\s*:\s*4\n\nIls retrouvent/.test(d?.message ?? ""), d?.message)
-    check("4 run modal: artwork and comments sentence", /pochettes et les commentaires retirés par l'écriture ne sont pas récupérés/.test(d?.message ?? ""), d?.message)
+    check("4 run modal: artwork kept, comments not recovered, one sentence each", /pochettes posées par l'écriture restent en place\.\nLes commentaires retirés par l'écriture ne sont pas récupérés/.test(d?.message ?? ""), d?.message)
     check("4 run modal: message text-sm muted, one sentence per line", d?.messageStyle?.size === "14px" && d.messageStyle.muted && d.messageStyle.whiteSpace === "pre-line", d?.messageStyle)
     check("4 run modal: 30rem (480px) after the entry animation", d?.width === 480 && d.anim === "none", { width: d?.width, anim: d?.anim })
     check("4 run modal: Annuler secondary outlined, both small, no icon, accept Restaurer the only danger", JSON.stringify(d?.buttons.map((b) => b.text)) === JSON.stringify(["Annuler", "Restaurer"]) && d.buttons.every((b) => b.cls.includes("p-button-sm")) && d.buttons[0].cls.includes("p-button-secondary") && d.buttons[0].cls.includes("p-button-outlined") && JSON.stringify(d.dangers) === JSON.stringify(["Restaurer"]) && d.dangerInDialog === 1 && !d.icon && !d.buttonIcons, d)
@@ -985,7 +985,7 @@ async (page) => {
     out.measures.settingsModal = d
     check("11 modal header Restaurer le dernier run", d?.header === "Restaurer le dernier run", d?.header)
     const msg = (d?.message ?? "").replace(/[\u00a0\u202f]/g, " ")
-    check("11 modal message: run line, count on its own line, then the artwork / comments sentence", /^Run du \d{1,2} \S+ 2026.*sur D:\\Music\\Promo Octobre\nFichiers à restaurer : 87\n\nIls retrouvent/.test(msg) && /pochettes et les commentaires retirés par l'écriture ne sont pas récupérés/.test(msg), d?.message)
+    check("11 modal message: run line, count on its own line, then the artwork / comments sentence", /^Run du \d{1,2} \S+ 2026.*sur D:\\Music\\Promo Octobre\nFichiers à restaurer : 87\n\nIls retrouvent/.test(msg) && /pochettes posées par l'écriture restent en place\.\nLes commentaires retirés par l'écriture ne sont pas récupérés/.test(msg), d?.message)
     check("11 modal look: 480px, text-sm muted, one sentence per line, both buttons small, Annuler secondary outlined focused, Restaurer the only danger, no icon", d?.width === 480 && d.anim === "none" && d.messageStyle.size === "14px" && d.messageStyle.muted && d.messageStyle.whiteSpace === "pre-line" && d.buttons.every((x) => x.cls.includes("p-button-sm")) && d.buttons[0].text === "Annuler" && d.buttons[0].cls.includes("p-button-secondary") && d.buttons[0].cls.includes("p-button-outlined") && JSON.stringify(d.dangers) === JSON.stringify(["Restaurer"]) && d.dangerInDialog === 1 && d.focused === "Annuler" && !d.icon && !d.buttonIcons, d)
     await shot("19-settings-modal")
     await confirmButton("Annuler").click()

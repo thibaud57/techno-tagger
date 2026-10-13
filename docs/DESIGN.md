@@ -559,6 +559,7 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 - **Pied du récapitulatif** : « Retour à la liste » à gauche, ligne de contexte « Run du {date} sur {dossier} » à droite, à 8px sous la table comme le pied du rapport de Playlist, sans « Restaurer le run » ni « Nouveau run » (déjà dans l'onglet Tagging), là où le `Recap` de la maquette n'offre aucun retour et pose ces deux boutons en pied. Décidé le 2026-10-12, réordonné le 2026-10-13, réaligné le 2026-10-13
 - **« Restaurer ce morceau »** : sous la pochette du détail, à sa largeur (168px), là où `TrackDetail` le pose en bas à droite sur une ligne de plus. Décidé le 2026-10-13, réaligné le 2026-10-13
 - **Runs passés** : rangée des Réglages, sélecteur et bouton plutôt qu'une table (la page ne défile pas), récapitulatif rouvert en lecture seule. Absents de la maquette. Décidé le 2026-10-13, réaligné le 2026-10-13
+- **Pochettes après une restauration** : la confirmation dit sur sa propre ligne que la pochette posée par l'écriture reste en place, là où la maquette ne parlait que des pochettes et commentaires retirés (ADR-011). Décidé et réaligné le 2026-10-13
 
 ## Documentation Officielle
 

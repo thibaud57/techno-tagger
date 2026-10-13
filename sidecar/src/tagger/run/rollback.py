@@ -1,7 +1,8 @@
 """Rollback d'un run ou d'un morceau depuis son dump (ADR-010), hors protocole : rendu par rappel.
 
 Nom d'origine puis tags, chaque etape rejouable : un fichier verrouille echoue au renommage,
-avant que ses tags bougent. Pochettes et commentaires retires a l'ecriture ne reviennent pas.
+avant que ses tags bougent. La pochette posee par l'ecriture reste et les commentaires qu'elle a
+retires ne reviennent pas : le dump ne garde aucune image (ADR-011).
 """
 
 import asyncio

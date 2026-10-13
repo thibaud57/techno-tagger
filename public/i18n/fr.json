@@ -194,7 +194,7 @@
       "run": "Restaurer le run",
       "track": "Restaurer ce morceau",
       "header": "Restaurer les fichiers",
-      "message": "Fichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes et les commentaires retirés par l'écriture ne sont pas récupérés.",
+      "message": "Fichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes posées par l'écriture restent en place.\nLes commentaires retirés par l'écriture ne sont pas récupérés.",
       "accept": "Restaurer",
       "blocked": "Une écriture ou une restauration est en cours."
     },
@@ -401,7 +401,7 @@
         "none": "Aucun run à restaurer : aucune sauvegarde de tags récente.",
         "loading": "Recherche du dernier run écrit…",
         "header": "Restaurer le dernier run",
-        "message": "Run du {{date}} sur {{folder}}\nFichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes et les commentaires retirés par l'écriture ne sont pas récupérés.",
+        "message": "Run du {{date}} sur {{folder}}\nFichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes posées par l'écriture restent en place.\nLes commentaires retirés par l'écriture ne sont pas récupérés.",
         "accept": "Restaurer"
       }
     }

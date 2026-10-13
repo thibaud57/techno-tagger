@@ -194,7 +194,7 @@
       "run": "Restore the run",
       "track": "Restore this track",
       "header": "Restore files",
-      "message": "Files to restore: {{count}}\n\nThey get back their original name and tags.\nArtwork and comments removed by the write are not recovered.",
+      "message": "Files to restore: {{count}}\n\nThey get back their original name and tags.\nArtwork set by the write stays in place.\nComments removed by the write are not recovered.",
       "accept": "Restore",
       "blocked": "A write or a restore is in progress."
     },
@@ -401,7 +401,7 @@
         "none": "No run to restore: no recent tag backup.",
         "loading": "Looking for the last written run…",
         "header": "Restore the last run",
-        "message": "Run of {{date}} on {{folder}}\nFiles to restore: {{count}}\n\nThey get back their original name and tags.\nArtwork and comments removed by the write are not recovered.",
+        "message": "Run of {{date}} on {{folder}}\nFiles to restore: {{count}}\n\nThey get back their original name and tags.\nArtwork set by the write stays in place.\nComments removed by the write are not recovered.",
         "accept": "Restore"
       }
     }
