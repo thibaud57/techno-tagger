@@ -268,6 +268,8 @@ Deux points d'insertion dans la chaîne :
 
 Implique une section Settings dédiée : clé API du fournisseur (chacun met la sienne) et sélection du modèle. La liste des modèles proposés ne doit pas être codée en dur, sous peine de maintenance à chaque sortie. Mécanisme à définir au moment de l'implémentation.
 
+> **Reporté ici depuis la Feature 7** (décomposition du 2026-10-14) : la rangée « Mode agent IA » des Réglages, que la maquette posait en bascule désactivée « Indisponible au MVP » dans `ui_kits/techno-tagger/SettingsScreen.jsx`. Elle sort de la maquette du MVP et revient avec cette feature.
+
 Pas de n8n : l'orchestration reste dans le sidecar, PydanticAI côté Python.
 
 ### Feature 4 : macOS et Linux

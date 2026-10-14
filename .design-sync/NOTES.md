@@ -72,6 +72,7 @@ Un push, dans l'ordre :
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
 - **`TaggingScreen`** : `SourceLabelInline` recompose `SourceLabel` en attendant que la recompilation l'ajoute au bundle ; le remplacer par `SourceLabel` une fois `_ds_manifest.json` à jour (constaté le 2026-10-13).
+- **`SettingsScreen`, après le sub-project 04 de la Feature 7** : la maquette grise « Vider le cache » pendant une opération seulement ; l'application le grise aussi sur un run affiché non écrit (`run_not_written`), à reporter une fois l'écran livré.
 
 ## Journal
 
@@ -221,3 +222,16 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   de la liste du run et sous le bouton de restauration des Réglages, dans sa fiche, `readme.md`
   (réserve n° 19) et le README du kit. Fichiers distants relus et identiques à l'export avant le
   push. `_ds_needs_recompile` posé ; le Reste ouvert attend toujours la recompilation.
+- **2026-10-14, décomposition de la Feature 7 (Réglages)** : `SettingsScreen` passe en menu latéral
+  (API, Matching, Interface, Administration ; miroir de `p-menu` composé dans l'écran, une section
+  affichée à la fois, page sans défilement), perd « Mode agent IA », « Motif de renommage » et le
+  message sur le thème, gagne les bornes croisées et « Valeurs par défaut » en Matching, un select
+  de langue mesuré sur « Français » et l'aide du signal sonore sur sa ligne, des aides Cache et Logs
+  sans constante du moteur et « Ouvrir le dossier des logs ». `AppShell` termine le toast du vidage
+  par un point. Les fiches `Slider` et `InputNumber` cessent d'écrire 70 et 90, `ToggleSwitch` ne
+  cite plus « copie par défaut ». `readme.md` (§ Layout Réglages, réserve n° 20) et le README du
+  kit suivent ; `docs/DESIGN.md` porte la ligne « Réglages » en § Structure de Page et les seuils
+  lus du sidecar en § Post-MVP, sans arbitrage (correction directe de la maquette, demande du
+  propriétaire). Écrans contrôlés en local (serveur HTTP sur l'export, Playwright à 1280 × 800,
+  les quatre sections). Fichiers distants relus et identiques à l'export avant le push, sept
+  fichiers poussés, `SettingsScreen.jsx` en CRLF comme le distant. `_ds_needs_recompile` posé.

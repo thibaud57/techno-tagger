@@ -306,8 +306,8 @@ Les composants maison sont écrits une fois pour que ce qu'ils encapsulent ne so
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Envoi du rapport | `button pButton` `secondary` `size="small"` | PrimeNG | Feature 9. Geste explicite, seul endroit d'où des titres quittent la machine |
-| Actions d'administration | `button pButton` `secondary` outlined `size="small"` | PrimeNG | Vider le cache, ouvrir le dossier de logs |
-| Seuils de matching | `p-slider` lié à un `p-inputnumber` | PrimeNG | Plancher et seuil haut, valeurs de départ 70 et 90 |
+| Actions d'administration | `button pButton` `secondary` outlined `size="small"` | PrimeNG | Vider le cache, ouvrir le dossier des logs |
+| Seuils de matching | `p-slider` lié à un `p-inputnumber` | PrimeNG | Plancher et seuil haut, valeurs de départ lues du sidecar (`version.default_thresholds`), jamais recopiées |
 | Langue | `p-select` `size="small"` | PrimeNG | FR / EN, force la locale détectée au premier lancement |
 | Bascules des Réglages | `p-toggleswitch` | PrimeNG | Signal sonore. Le mode copie / déplacement reste sur Playlist |
 | Bascule du mode agent IA | `p-toggleswitch` dans les Réglages | PrimeNG | Arrive avec l'agent d'arbitrage, cf. [ARCHITECTURE.md § Évolutions Futures](ARCHITECTURE.md#-évolutions-futures-post-mvp) |
@@ -400,6 +400,7 @@ Aucune dépendance d'animation dédiée.
 | Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond | Plancher dicté par les sept colonnes de la liste du run. Réglages dans `tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives) |
 | Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page ne défile jamais, le scroll vit dans la table. Le shell masque son débordement et `overscroll-behavior: none` coupe le rebond de WebView2, qui fait trembler toute la fenêtre à la molette |
 | Container | Pleine largeur, `px-16 py-8` | Tous les écrans, porté par le shell : une page ne pose que son contenu |
+| Réglages | Menu des sections à gauche (`p-menu`, colonne à sa largeur), la seule section choisie à droite | Neuf rangées ne tiennent pas dans la hauteur du plancher : une section à la fois, la page ne défile pas. Choisi le 2026-10-14 sur cinq variantes à 1024 × 700, maquette réalignée le même jour |
 | Densité | Body dense (`text-sm`) dans les tables et les listes de candidats | § Scale Typographique |
 | Modale d'arbitrage | 720 × 560px, zone de liste 268px | Figée quelle que soit la fenêtre, étape lien comprise, et tenue sans défiler au plancher de 1024 × 700 |
 | Modale du lien | 720px, hauteur au contenu, erreur réservée `min-h-13.5`, contenu en `pb-4` | Largeur de l'arbitrage. `min-h-13.5` (54px) : une erreur sur deux lignes en FR, le pied ne bouge pas. `pb-4` : l'erreur garde 16px au champ et au pied |
