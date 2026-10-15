@@ -2,7 +2,7 @@
 feature: "Feature 7 : Settings"
 subproject: "protocole-ndjson-reglages"
 goal: "Exposer à l'interface, par le protocole NDJSON, le vidage et la taille du cache disque, les seuils de matching par défaut et le fichier de logs du sidecar"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: []
