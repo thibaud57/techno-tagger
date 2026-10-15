@@ -6,6 +6,13 @@
   "engines": {
     "node": "^24.15.0"
   },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.11.2",
+      "onFail": "download"
+    }
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\"",

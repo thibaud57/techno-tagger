@@ -15,6 +15,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Meme valeur que `minimum-version` du Justfile
+  JUST_VERSION: "1.58.0"
+
 jobs:
   # Markdown seul : les trois zones sont sautees et `ci` passe quand meme. Un filtre
   # `paths-ignore` natif laisserait `ci`, exige par la protection, sans resultat.
@@ -52,6 +56,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-uv
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: ${{ env.JUST_VERSION }}
       - name: Installer les dependances
         run: uv sync --locked --all-groups
         working-directory: sidecar
@@ -76,6 +82,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-pnpm
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: ${{ env.JUST_VERSION }}
       - run: pnpm install --frozen-lockfile
       # Script epingle au commit du tag v1.7.12 et binaire epingle par l'argument :
       # une URL sur `main` serait une reference mutable, comme un tag d'action
@@ -109,6 +117,8 @@ jobs:
         with:
           workspaces: src-tauri
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: ${{ env.JUST_VERSION }}
       - name: Installer les dependances du sidecar
         run: uv sync --locked --all-groups
         working-directory: sidecar

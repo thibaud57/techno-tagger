@@ -11,19 +11,19 @@ paths:
 - Tenir toute la configuration dans `pyproject.toml` : `[project]`, `[tool.uv]`, `[dependency-groups]`, `[tool.*]`
 - Déclarer les outils de développement dans `[dependency-groups]` (PEP 735), jamais dans `[project.optional-dependencies]` réservé aux extras publiés
 - Séparer les groupes `dev` et `build` : un job de test n'a pas besoin de PyInstaller
-- Poser `required-version` sous `[tool.uv]` sur la mineure d'uv (garde locale, à monter avec `uv_build` et l'action composite `setup-uv`)
+- Poser `required-version` sous `[tool.uv]` sur la mineure d'uv : seule source de la version, uv refuse de tourner hors plage sur le poste et `setup-uv` la lit en CI. À monter avec `uv_build`
 - Poser `package = true` pour installer le projet en editable, ce qui rend le sidecar importable sans manipuler `PYTHONPATH`
 - Passer par la CLI pour toute dépendance : `uv add`, `uv add --dev`, `uv add --group build`, `uv remove`
 - Committer `uv.lock` dans le même commit que le `pyproject.toml` modifié
-- En CI : épingler le patch exact d'uv dans la seule action composite `.github/actions/setup-uv` (la compatibilité du lock n'est garantie qu'au sein d'une mineure), installer par `uv sync --locked --all-groups`
-- Borner `uv_build` dans `[build-system]` sur la mineure d'uv, plancher au plus égal au patch épinglé en CI (plage dans `sidecar/pyproject.toml`) : `test_main.py` le garde
+- En CI : `setup-uv` sans `version` dans l'action composite `.github/actions/setup-uv` (`version-file: sidecar/pyproject.toml`, le pyproject n'est pas à la racine), installer par `uv sync --locked --all-groups`
+- Borner `uv_build` dans `[build-system]` sur la même mineure que `required-version` : `test_main.py` le garde
 - Lancer tous les outils par `uv run`, PyInstaller compris : c'est ce qui garantit le venv verrouillé
 - Fixer l'interpréteur par `uv python pin`, en gardant `.python-version` dans la plage de `requires-python`
 
 ## À éviter
 - Éditer `uv.lock` à la main : il se régénère, il ne se corrige pas
 - `uv sync` nu en CI : une re-résolution silencieuse rend le build non reproductible
-- Épingler uv sur une plage ou sur `latest` : un bump mineur peut rejeter le lock commité
+- Laisser uv sans `required-version` ou sur `latest` : un bump mineur peut rejeter le lock commité. Un `version` sur `setup-uv` dupliquerait le pyproject et divergerait à la montée suivante
 - Lancer un outil du projet hors de `uv run`, ou par `uvx` : il viendrait d'un autre environnement ou d'un environnement éphémère, dans les deux cas non verrouillé
 - Confondre `.python-version` (préférence locale) et `requires-python` (contrat du projet)
 - Créer un venv manuellement à côté de celui géré par uv, ou utiliser `pip`, `venv` ou `poetry` en parallèle

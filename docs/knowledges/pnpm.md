@@ -1,8 +1,8 @@
 ---
 title: "pnpm — Gestionnaire de paquets du frontend"
-version: "12.10.1"
-description: "Référence technique pour pnpm : store et isolation des dépendances, packageManager et Corepack, lockfile, scripts post-install bloqués et installation en CI."
-date: "2026-10-09"
+version: "12.11.2"
+description: "Référence technique pour pnpm : store et isolation des dépendances, devEngines, lockfile, scripts post-install bloqués et installation en CI."
+date: "2026-10-15"
 keywords: ["pnpm", "lockfile", "corepack", "packageManager", "hoisting", "ci"]
 scope: ["docs"]
 technologies: ["Node.js", "Angular", "Tauri", "GitHub Actions", "Dependabot"]
@@ -43,30 +43,33 @@ public-hoist-pattern:
 
 ---
 
-## `packageManager` et Corepack
+## `devEngines.packageManager`
 
 ### Description
 
-Le champ `packageManager` fixe la version exacte pour tout le monde, mais **ce projet ne le déclare pas** : avec `devEngines.packageManager`, c'est l'un des deux déclencheurs du lockfile multi-document, qui casse le graphe de dépendances GitHub. La version passe par l'input `version` de `pnpm/setup`, dans la seule action composite `.github/actions/setup-pnpm`.
+`devEngines.packageManager` de `package.json` fixe la version de pnpm pour tout le monde : avec `onFail: "download"`, un pnpm d'une autre version télécharge la bonne et la relance. C'est la seule déclaration de la version ; `pnpm/setup` la lit en CI sans input `version`. Le champ legacy `packageManager` (Corepack) n'est pas utilisé.
 
 ### Exemple
 
+```json
+{
+  "devEngines": {
+    "packageManager": { "name": "pnpm", "version": "12.11.2", "onFail": "download" }
+  }
+}
+```
+
 ```yaml
-# .github/actions/setup-pnpm/action.yml
-runs:
-  using: composite
-  steps:
-    - uses: pnpm/setup@<sha> # v3.0.0
-      with:
-        version: "12.10.1"
-        runtime: node@24
+# .github/actions/setup-pnpm/action.yml : la version de pnpm vient de package.json
+- uses: pnpm/setup@<sha> # v3.x
+  with:
+    runtime: node@24
 ```
 
 ### Points Importants
 
-- **Corepack lit ce champ**, télécharge la version correspondante et exécute le bon binaire : plus d'écart entre deux machines
-- Corepack est distribué avec Node de la 14.19 jusqu'à la 25 exclue : présent sur le Node 24 du projet, absent de la 26. Le projet ne s'en sert pas, la bascule ne coûte donc rien de ce côté
-- Ajouter le hash d'intégrité au champ renforce la validation
+- La version résolue s'écrit dans `pnpm-lock.yaml`, dans un premier document YAML (`packageManagerDependencies`) : le lockfile en compte deux, le graphe de dépendances GitHub ne lit que le premier (cf. VERSIONS.md § Dependabot)
+- Corepack est distribué avec Node de la 14.19 jusqu'à la 25 exclue : le projet ne s'en sert pas, la bascule vers Node 26 ne coûte rien de ce côté
 - `pnpm self-update <version>` dans un projet épinglé ne met à jour que ce champ, le binaire se téléchargeant ensuite tout seul
 
 ---
@@ -126,7 +129,7 @@ Une seule action installe pnpm et Node, appelée par l'action composite locale q
 
 ```yaml
 - uses: actions/checkout@<sha>
-- uses: ./.github/actions/setup-pnpm   # pnpm 12.10.1 et Node 24, versions écrites une seule fois
+- uses: ./.github/actions/setup-pnpm   # pnpm lu dans package.json, Node 24 écrit une seule fois
 
 - run: pnpm install --frozen-lockfile
 - run: pnpm run build
@@ -196,7 +199,7 @@ pnpm tauri dev                  # raccourci vers le binaire @tauri-apps/cli
 
 ## ✅ Recommandations
 
-- **Épingler la version en input `version` de `pnpm/setup`**, sans `packageManager` ni Corepack
+- **Épingler la version par `devEngines.packageManager`** (`onFail: download`), sans `packageManager` ni Corepack, et laisser `pnpm/setup` la lire (pas d'input `version`)
 - **Utiliser `pnpm install --frozen-lockfile` en CI**, explicitement
 - **Committer `pnpm-lock.yaml` et `allowBuilds`** dans le même commit que le changement de dépendance
 - **Résoudre un conflit de lockfile par un `pnpm install`**, jamais à la main
