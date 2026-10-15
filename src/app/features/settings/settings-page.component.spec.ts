@@ -13,7 +13,7 @@ import {
   commandFailed,
   sidecarStub,
 } from "../../../fixtures/sidecar-stub"
-import { storeStub } from "../../../fixtures/tauri-store"
+import { storeOf, storeStub } from "../../../fixtures/tauri-store"
 import { translateWith } from "../../../fixtures/translate"
 import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
 import type { PastRun } from "../../core/sidecar/protocol"
@@ -493,6 +493,155 @@ describe("SettingsPageComponent", () => {
       await vi.waitFor(() => {
         expect(component["soundChoice"]().enabled).toBe(false)
       })
+    })
+  })
+
+  describe("matching", () => {
+    // `clearMocks` garde les implementations : sans cela, le store d'un test fuit dans les suivants.
+    beforeEach(() => {
+      vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
+    })
+
+    /** Defauts fictifs du moteur, distincts des vrais : rien ici ne doit les recopier. */
+    const DEFAULTS = { floor: 65, ceiling: 85 }
+    const CUSTOM = { floor: 72, ceiling: 95 }
+
+    const mountMatching = (entries: Record<string, unknown> = {}) => {
+      const store = storeOf(entries)
+      vi.mocked(load).mockResolvedValue(store)
+
+      return { store, ...mountWith({ defaultThresholds: signal(DEFAULTS) }, "matching") }
+    }
+
+    it("shows the engine defaults without a setting", async () => {
+      const { component } = mountMatching()
+
+      await vi.waitFor(() => {
+        expect(component["storedThresholds"]()).toBeNull()
+      })
+      expect(component["thresholdsChoice"]()).toEqual(DEFAULTS)
+      expect(component["thresholdsCustomized"]()).toBe(false)
+    })
+
+    it("prefers the stored setting over the engine defaults", async () => {
+      const { component } = mountMatching({ thresholds: CUSTOM })
+
+      await vi.waitFor(() => {
+        expect(component["thresholdsChoice"]()).toEqual(CUSTOM)
+      })
+      expect(component["thresholdsCustomized"]()).toBe(true)
+    })
+
+    it("disables the thresholds until the engine answers", async () => {
+      const store = storeOf({})
+      vi.mocked(load).mockResolvedValue(store)
+      const { component } = mountWith({ defaultThresholds: signal(null) }, "matching")
+      await vi.waitFor(() => {
+        expect(component["storedThresholds"]()).toBeNull()
+      })
+
+      const disabled = component["thresholdsFields"].floor().disabled()
+
+      expect(disabled).toBe(true)
+    })
+
+    it("disables the thresholds until the setting is read", () => {
+      vi.mocked(load).mockReturnValue(new Promise(() => undefined))
+      const { component } = mountWith({ defaultThresholds: signal(DEFAULTS) }, "matching")
+
+      const disabled = component["thresholdsFields"].floor().disabled()
+
+      expect(disabled).toBe(true)
+    })
+
+    it("enables the thresholds once the setting is read", async () => {
+      const { component } = mountMatching()
+      await vi.waitFor(() => {
+        expect(component["storedThresholds"]()).toBeNull()
+      })
+
+      const disabled = component["thresholdsFields"].floor().disabled()
+
+      expect(disabled).toBe(false)
+    })
+
+    it("stores thresholds that differ from the defaults", async () => {
+      const { component, store } = mountMatching()
+      component["thresholdsChoice"].set({ floor: 65, ceiling: 95 })
+
+      component["storeThresholds"]()
+
+      await vi.waitFor(() => {
+        expect(store.set).toHaveBeenCalledWith("thresholds", { floor: 65, ceiling: 95 })
+      })
+    })
+
+    it.each([
+      { case: "the engine defaults without a setting", stored: {}, shown: DEFAULTS },
+      { case: "the stored setting", stored: { thresholds: CUSTOM }, shown: CUSTOM },
+    ])("ignores a cleared field and shows $case again", async ({ stored, shown }) => {
+      const { component, store } = mountMatching(stored)
+      await vi.waitFor(() => {
+        expect(component["storedThresholds"]()).not.toBeUndefined()
+        expect(component["thresholdsChoice"]()).toEqual(shown)
+      })
+      component["thresholdsChoice"].set({ floor: null as unknown as number, ceiling: 99 })
+
+      component["storeThresholds"]()
+
+      await new Promise((resolve) => setTimeout(resolve))
+      expect(store.set).not.toHaveBeenCalled()
+      expect(component["thresholdsChoice"]()).toEqual(shown)
+    })
+
+    it("writes nothing when the thresholds did not change", async () => {
+      const { component, store } = mountMatching({ thresholds: CUSTOM })
+      await vi.waitFor(() => {
+        expect(component["thresholdsCustomized"]()).toBe(true)
+      })
+
+      component["storeThresholds"]()
+
+      await new Promise((resolve) => setTimeout(resolve))
+      expect(store.set).not.toHaveBeenCalled()
+    })
+
+    it("stores no setting for thresholds equal to the defaults", async () => {
+      const { component, store } = mountMatching({ thresholds: CUSTOM })
+      await vi.waitFor(() => {
+        expect(component["thresholdsCustomized"]()).toBe(true)
+      })
+      component["thresholdsChoice"].set({ ...DEFAULTS })
+
+      component["storeThresholds"]()
+
+      await vi.waitFor(() => {
+        expect(store.set).toHaveBeenCalledWith("thresholds", null)
+      })
+      expect(component["thresholdsCustomized"]()).toBe(false)
+    })
+
+    it("resets the thresholds to the engine defaults", async () => {
+      const { component, store } = mountMatching({ thresholds: CUSTOM })
+      await vi.waitFor(() => {
+        expect(component["thresholdsCustomized"]()).toBe(true)
+      })
+
+      component["resetThresholds"]()
+
+      expect(component["thresholdsChoice"]()).toEqual(DEFAULTS)
+      await vi.waitFor(() => {
+        expect(store.set).toHaveBeenCalledWith("thresholds", null)
+      })
+    })
+
+    it("never lets the floor pass the high threshold", () => {
+      const { component } = mountMatching()
+
+      component["thresholdsChoice"].set({ floor: 60, ceiling: 80 })
+
+      expect(component["floorMax"]()).toBe(80)
+      expect(component["ceilingMin"]()).toBe(60)
     })
   })
 })

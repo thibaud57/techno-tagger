@@ -82,6 +82,12 @@ export interface ThresholdsPayload {
   readonly ceiling: number
 }
 
+/**
+ * Echelle des scores rapidfuzz, que la librairie fixe : ce n'est pas un reglage du projet.
+ * `check_thresholds` la borne aussi cote sidecar.
+ */
+export const SCORE_SCALE = { min: 0, max: 100 } as const
+
 export interface StartTaggingCommand {
   readonly command: "start_tagging"
   readonly folder: string

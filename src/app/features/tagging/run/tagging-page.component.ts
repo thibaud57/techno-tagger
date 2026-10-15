@@ -4,7 +4,7 @@ import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
-import { readLastDestination } from "../../../core/platform/preferences"
+import { readLastDestination, readThresholds } from "../../../core/platform/preferences"
 import { SidecarService, type RunAction } from "../../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
@@ -230,7 +230,9 @@ export default class TaggingPageComponent {
     if (this.blockedReason() !== null) {
       return
     }
-    await this.sidecar.startTagging(this.folder())
+    // Lu au clic : un reglage fait dans les Reglages vaut des le run suivant.
+    const thresholds = await readThresholds()
+    await this.sidecar.startTagging(this.folder(), thresholds ?? undefined)
   }
 
   protected openArbitration(trackId: string): void {

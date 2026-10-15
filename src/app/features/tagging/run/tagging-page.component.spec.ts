@@ -13,7 +13,7 @@ import {
   commandFailed,
   sidecarStub,
 } from "../../../../fixtures/sidecar-stub"
-import { storeStub } from "../../../../fixtures/tauri-store"
+import { storeOf, storeStub } from "../../../../fixtures/tauri-store"
 import { translateWith } from "../../../../fixtures/translate"
 import { readLastDestination } from "../../../core/platform/preferences"
 import type { RunFinishedEvent } from "../../../core/sidecar/protocol"
@@ -758,7 +758,27 @@ describe("TaggingPageComponent", () => {
 
     await component["start"]()
 
-    expect(service.startTagging).toHaveBeenCalledWith("D:/Sets/Aout")
+    expect(service.startTagging).toHaveBeenCalledWith("D:/Sets/Aout", undefined)
+  })
+
+  it("sends the thresholds set in the settings", async () => {
+    const { component, service } = await mountWith()
+    component["folder"].set("D:/Sets/Aout")
+    vi.mocked(load).mockResolvedValue(storeOf({ thresholds: { floor: 72, ceiling: 95 } }))
+
+    await component["start"]()
+
+    expect(service.startTagging).toHaveBeenCalledWith("D:/Sets/Aout", { floor: 72, ceiling: 95 })
+  })
+
+  it("sends no thresholds when the store is unavailable", async () => {
+    const { component, service } = await mountWith()
+    component["folder"].set("D:/Sets/Aout")
+    vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
+
+    await component["start"]()
+
+    expect(service.startTagging).toHaveBeenCalledWith("D:/Sets/Aout", undefined)
   })
 
   it.each([

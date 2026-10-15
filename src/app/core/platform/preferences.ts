@@ -1,6 +1,6 @@
 import { load } from "@tauri-apps/plugin-store"
 
-import type { ExtractionMode } from "../sidecar/protocol"
+import { SCORE_SCALE, type ExtractionMode, type ThresholdsPayload } from "../sidecar/protocol"
 import { LANGUAGES, type Language } from "../i18n/language"
 
 const STORE_FILE = "preferences.json"
@@ -39,6 +39,22 @@ const definePreference = <T>(
   },
 })
 
+/** Une valeur editee a la main hors de ces bornes ferait refuser `start_tagging`. */
+export const isThresholds = (stored: unknown): stored is ThresholdsPayload => {
+  if (typeof stored !== "object" || stored === null) {
+    return false
+  }
+  const { floor, ceiling } = stored as Record<string, unknown>
+
+  return (
+    typeof floor === "number" &&
+    typeof ceiling === "number" &&
+    SCORE_SCALE.min <= floor &&
+    floor <= ceiling &&
+    ceiling <= SCORE_SCALE.max
+  )
+}
+
 /**
  * La copie est le defaut : la bibliotheque source reste intacte pendant que le
  * re-tagging reecrit les fichiers de destination.
@@ -65,6 +81,7 @@ const lastDestination = definePreference<string | null>(
 const language = definePreference<Language | null>("language", null, (stored): stored is Language =>
   LANGUAGES.some((known) => known === stored),
 )
+const thresholds = definePreference<ThresholdsPayload | null>("thresholds", null, isThresholds)
 
 export const readExtractionMode = extractionMode.read
 export const writeExtractionMode = extractionMode.write
@@ -75,6 +92,10 @@ export const writeSoundSignal = soundSignal.write
 /** `null` tant que l'utilisateur n'a rien choisi : la locale systeme decide alors. */
 export const readLanguage = language.read
 export const writeLanguage = language.write
+
+/** `null` : suivre les defauts du sidecar, aucun seuil n'est envoye. */
+export const readThresholds = thresholds.read
+export const writeThresholds = thresholds.write
 
 /** Le dossier re-taggue est presque toujours la destination de la derniere extraction. */
 export const readLastDestination = lastDestination.read

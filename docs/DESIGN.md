@@ -232,6 +232,7 @@ Les composants maison sont écrits une fois pour que ce qu'ils encapsulent ne so
 | Runs passés | `p-select` `size="small"` en Signal Forms + bouton « Ouvrir le récapitulatif » `secondary` outlined, dans une `SettingsRowComponent` | PrimeNG | Sous « Restauration ». Options « Run du {date} sur {dossier} », le plus récent d'abord, sans largeur figée : le dossier est coupé et son tooltip le montre. Sélecteur et bouton désactivés sans run. Ouvre `/tagging/recap/:runId`, récapitulatif en lecture seule |
 | Langue | `p-select` `size="small"`, largeur figée mesurée sur « Français » | PrimeNG | Force la locale détectée au premier lancement ; enregistrée au changement, jamais à l'ouverture |
 | Bascules des Réglages | `p-toggleswitch`, à droite, aide sur sa ligne | PrimeNG | Signal sonore de fin. Le mode copie / déplacement reste sur Playlist |
+| Seuils de matching | `p-slider` lié à un `p-inputnumber`, bornes croisées ; « Rétablir les valeurs par défaut » en `secondary` outlined sous la section | PrimeNG | Plancher et seuil haut. Valeurs de départ lues du sidecar (`version.default_thresholds`), jamais recopiées |
 
 ### Tables et listes
 
@@ -310,7 +311,6 @@ Les composants maison sont écrits une fois pour que ce qu'ils encapsulent ne so
 |-----------|-----------|-----------|-------|
 | Envoi du rapport | `button pButton` `secondary` `size="small"` | PrimeNG | Feature 9. Geste explicite, seul endroit d'où des titres quittent la machine |
 | Actions d'administration | `button pButton` `secondary` outlined `size="small"` | PrimeNG | Vider le cache, ouvrir le dossier des logs |
-| Seuils de matching | `p-slider` lié à un `p-inputnumber` | PrimeNG | Plancher et seuil haut, valeurs de départ lues du sidecar (`version.default_thresholds`), jamais recopiées |
 | Bascule du mode agent IA | `p-toggleswitch` dans les Réglages | PrimeNG | Arrive avec l'agent d'arbitrage, cf. [ARCHITECTURE.md § Évolutions Futures](ARCHITECTURE.md#-évolutions-futures-post-mvp) |
 
 ## États des Composants
@@ -561,6 +561,8 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 - **« Restaurer ce morceau »** : sous la pochette du détail, à sa largeur (168px), là où `TrackDetail` le pose en bas à droite sur une ligne de plus. Décidé le 2026-10-13, réaligné le 2026-10-13
 - **Runs passés** : rangée des Réglages, sélecteur et bouton plutôt qu'une table (la page ne défile pas), récapitulatif rouvert en lecture seule. Absents de la maquette. Décidé le 2026-10-13, réaligné le 2026-10-13
 - **Pochettes après une restauration** : la confirmation dit sur sa propre ligne que la pochette posée par l'écriture reste en place, là où la maquette ne parlait que des pochettes et commentaires retirés (ADR-011). Décidé et réaligné le 2026-10-13
+- **Champ des seuils de matching** : `p-inputnumber` en `size="small"` et sans boutons de pas, comme les autres contrôles des Réglages, là où le miroir `InputNumber` pose la taille par défaut (72px) et deux boutons de pas. Décidé et réaligné le 2026-10-15
+- **Curseur des seuils de matching** : rendu natif du preset Aura, piste et poignée par ses tokens, là où le miroir `Slider` pose une piste `surface-800` et une poignée de 16px pleine `primary`. Décidé et réaligné le 2026-10-15
 
 ## Documentation Officielle
 

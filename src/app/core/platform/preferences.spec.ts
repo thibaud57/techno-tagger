@@ -7,6 +7,7 @@ import {
   readExtractionMode,
   readLanguage,
   readSoundSignal,
+  readThresholds,
 } from "./preferences"
 
 vi.mock("@tauri-apps/plugin-store", () => ({
@@ -58,6 +59,27 @@ describe("preferences", () => {
     vi.mocked(load).mockResolvedValue(storeStub("de"))
 
     const result = await readLanguage()
+
+    expect(result).toBeNull()
+  })
+
+  it("restores stored thresholds", async () => {
+    vi.mocked(load).mockResolvedValue(storeStub({ floor: 72, ceiling: 95 }))
+
+    const result = await readThresholds()
+
+    expect(result).toEqual({ floor: 72, ceiling: 95 })
+  })
+
+  it.each([
+    ["crossed", { floor: 95, ceiling: 72 }],
+    ["out of the score scale", { floor: 72, ceiling: 120 }],
+    ["not numbers", { floor: "72", ceiling: 95 }],
+    ["not an object", "72-95"],
+  ])("ignores stored thresholds that are %s", async (_case, stored) => {
+    vi.mocked(load).mockResolvedValue(storeStub(stored))
+
+    const result = await readThresholds()
 
     expect(result).toBeNull()
   })

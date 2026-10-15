@@ -74,6 +74,94 @@
           }
         </app-settings-row>
       }
+      @case ("matching") {
+        <app-settings-row>
+          <span rowLabel id="floor-label" class="text-sm">{{
+            "settings.matching.floor.label" | translate
+          }}</span>
+
+          <!-- Curseur pour le mouvement grossier, champ pour le nombre exact (fiche Slider). -->
+          <div rowControl class="flex items-center gap-4">
+            <p-slider
+              class="flex-1"
+              data-field="floor"
+              ariaLabelledBy="floor-label"
+              [formField]="thresholdsFields.floor"
+              [min]="scale.min"
+              [max]="floorMax()"
+              (onSlideEnd)="storeThresholds()"
+            />
+            <!-- w-16 : mesuree sur « 100 », le plus large des scores. -->
+            <p-inputnumber
+              class="w-16 shrink-0"
+              size="small"
+              ariaLabelledBy="floor-label"
+              [fluid]="true"
+              [formField]="thresholdsFields.floor"
+              [min]="scale.min"
+              [max]="floorMax()"
+              [pt]="numberPt"
+              (onBlur)="storeThresholds()"
+            />
+          </div>
+
+          <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+            "settings.matching.floor.hint" | translate
+          }}</span>
+        </app-settings-row>
+
+        <app-settings-row>
+          <span rowLabel id="ceiling-label" class="text-sm">{{
+            "settings.matching.ceiling.label" | translate
+          }}</span>
+
+          <div rowControl class="flex items-center gap-4">
+            <p-slider
+              class="flex-1"
+              data-field="ceiling"
+              ariaLabelledBy="ceiling-label"
+              [formField]="thresholdsFields.ceiling"
+              [min]="ceilingMin()"
+              [max]="scale.max"
+              (onSlideEnd)="storeThresholds()"
+            />
+            <p-inputnumber
+              class="w-16 shrink-0"
+              size="small"
+              ariaLabelledBy="ceiling-label"
+              [fluid]="true"
+              [formField]="thresholdsFields.ceiling"
+              [min]="ceilingMin()"
+              [max]="scale.max"
+              [pt]="numberPt"
+              (onBlur)="storeThresholds()"
+            />
+          </div>
+
+          <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+            "settings.matching.ceiling.hint" | translate
+          }}</span>
+        </app-settings-row>
+
+        <div class="flex justify-end">
+          @let resetBlocked =
+            thresholdsCustomized() ? undefined : ("settings.matching.reset.blocked" | translate);
+          <button
+            pButton
+            type="button"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            data-action="reset-thresholds"
+            [disabled]="resetBlocked !== undefined"
+            [pTooltip]="resetBlocked"
+            [tooltipOptions]="tooltip"
+            (click)="resetThresholds()"
+          >
+            {{ "settings.matching.reset.action" | translate }}
+          </button>
+        </div>
+      }
       @case ("interface") {
         <app-settings-row>
           <span rowLabel id="language-label" class="text-sm">{{

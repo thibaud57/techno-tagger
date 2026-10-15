@@ -385,6 +385,21 @@
         "missing": "No key"
       }
     },
+    "matching": {
+      "title": "Matching",
+      "floor": {
+        "label": "Floor",
+        "hint": "Applied separately to the artist score and the title score.\nBelow it, the candidate is discarded."
+      },
+      "ceiling": {
+        "label": "High threshold",
+        "hint": "Applied to the average of both.\nAbove it, automatic validation.\nIn between, uncertain match: to arbitrate."
+      },
+      "reset": {
+        "action": "Restore default values",
+        "blocked": "The thresholds are already the default ones."
+      }
+    },
     "interface": {
       "title": "Interface",
       "language": {

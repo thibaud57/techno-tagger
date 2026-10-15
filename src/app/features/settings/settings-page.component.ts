@@ -6,21 +6,27 @@ import type { MenuItem, PassThroughContext } from "primeng/api"
 import { ButtonDirective } from "primeng/button"
 import { IconField } from "primeng/iconfield"
 import { InputIcon } from "primeng/inputicon"
+import { InputNumber } from "primeng/inputnumber"
 import { InputPassword } from "primeng/inputpassword"
 import { Label } from "primeng/label"
 import { Menu } from "primeng/menu"
 import type { MenuPassThrough } from "primeng/types/menu"
 import { Select } from "primeng/select"
+import { Slider } from "primeng/slider"
 import { ToggleSwitch } from "primeng/toggleswitch"
 import { Tooltip } from "primeng/tooltip"
 
 import { LANGUAGES, type Language, languageFromTag } from "../../core/i18n/language"
 import {
   DEFAULT_SOUND_SIGNAL,
+  isThresholds,
   readSoundSignal,
+  readThresholds,
   writeLanguage,
   writeSoundSignal,
+  writeThresholds,
 } from "../../core/platform/preferences"
+import { SCORE_SCALE, type ThresholdsPayload } from "../../core/sidecar/protocol"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
@@ -62,11 +68,28 @@ interface SoundChoice {
   enabled: boolean
 }
 
+interface ThresholdsChoice {
+  floor: number
+  ceiling: number
+}
+
 /** Une cle enregistree se signale par des points en placeholder, sans etre relue (ADR-012). */
 export const STORED_KEY_MASK = "•".repeat(24)
 
+/** Chiffres alignes d'une rangee a l'autre (fiche InputNumber). */
+const NUMBER_PT = { pcInputText: { root: { class: "tabular-nums" } } }
+
+const choiceOf = (shown: ThresholdsPayload | null): ThresholdsChoice => ({
+  floor: Math.round(shown?.floor ?? SCORE_SCALE.min),
+  ceiling: Math.round(shown?.ceiling ?? SCORE_SCALE.max),
+})
+
+/** Compare dans l'espace arrondi de l'affichage : un defaut non entier ne doit pas se croire modifie. */
+const sameChoice = (a: ThresholdsChoice, b: ThresholdsChoice): boolean =>
+  a.floor === b.floor && a.ceiling === b.ceiling
+
 /** Ordre du menu, celui de la maquette ; une section sans rangee n'y entre pas. */
-const SECTIONS = ["api", "interface", "admin"] as const
+const SECTIONS = ["api", "matching", "interface", "admin"] as const
 
 export type SettingsSection = (typeof SECTIONS)[number]
 
@@ -83,10 +106,12 @@ type MenuItemPassThroughContext = PassThroughContext & { context?: { item?: Menu
     ButtonDirective,
     IconField,
     InputIcon,
+    InputNumber,
     InputPassword,
     Label,
     Menu,
     Select,
+    Slider,
     Tooltip,
     ToggleSwitch,
     ErrorMessageComponent,
@@ -140,6 +165,32 @@ export default class SettingsPageComponent {
   protected readonly soundChoice = signal<SoundChoice>({ enabled: DEFAULT_SOUND_SIGNAL })
   protected readonly soundFields = form(this.soundChoice)
   private soundChosen = false
+  /** `undefined` tant que le store n'est pas lu, `null` sans reglage. */
+  protected readonly storedThresholds = signal<ThresholdsPayload | null | undefined>(undefined)
+  /** Le reglage, sinon les defauts du moteur ; `null` tant qu'aucun des deux n'est connu. */
+  private readonly shownThresholds = computed(
+    () => this.storedThresholds() ?? this.sidecar.defaultThresholds(),
+  )
+  protected readonly thresholdsChoice = linkedSignal<ThresholdsChoice>(() =>
+    choiceOf(this.shownThresholds()),
+  )
+  protected readonly thresholdsFields = form(this.thresholdsChoice, (path) => {
+    // Sans valeur connue, des curseurs actifs enregistreraient 0 et 100 au premier geste. Tant que
+    // le store n'est pas lu, un geste enregistrerait sur des defauts le reglage que la lecture
+    // vient ecraser, ou la lecture tardive annulerait le geste en cours.
+    const unknown = (): boolean =>
+      this.shownThresholds() === null || this.storedThresholds() === undefined
+    disabled(path.floor, { when: unknown })
+    disabled(path.ceiling, { when: unknown })
+  })
+  /** Bornes croisees : `check_thresholds` refuserait un plancher au-dessus du seuil haut. */
+  protected readonly floorMax = computed(() => this.thresholdsChoice().ceiling)
+  protected readonly ceilingMin = computed(() => this.thresholdsChoice().floor)
+  protected readonly thresholdsCustomized = computed(() => {
+    const stored = this.storedThresholds()
+
+    return stored !== null && stored !== undefined
+  })
   /**
    * Le marqueur va sur le contenu de l'entree, pas sur son `li` : Aura peint le survol et le focus
    * sur le contenu, qui recouvrirait un fond pose sur le `li`. L'entree active l'emporte ainsi.
@@ -174,6 +225,8 @@ export default class SettingsPageComponent {
   protected readonly error = this.sidecar.errorFor("set_api_key")
 
   protected readonly tooltip = TOOLTIP
+  protected readonly scale = SCORE_SCALE
+  protected readonly numberPt = NUMBER_PT
   /** `undefined` tant que le moteur n'a pas repondu, `null` sans run annulable. */
   protected readonly target = this.sidecar.rollbackTarget
   protected readonly rollingBack = computed(() => this.sidecar.rollingBack() !== null)
@@ -256,6 +309,11 @@ export default class SettingsPageComponent {
         this.soundChoice.set({ enabled })
       }
     })
+
+    // Une lecture tardive n'ecrase pas un geste deja fait : elle ne pose que l'etat initial.
+    void readThresholds().then((stored) => {
+      this.storedThresholds.update((current) => (current === undefined ? stored : current))
+    })
   }
 
   protected toggleMask(): void {
@@ -308,6 +366,35 @@ export default class SettingsPageComponent {
   protected chooseSound(enabled: boolean): void {
     this.soundChosen = true
     void writeSoundSignal(enabled)
+  }
+
+  /**
+   * En fin de geste, jamais a chaque cran. Des valeurs egales aux defauts s'enregistrent `null` :
+   * le reglage suit alors les defauts du moteur, recalibrage futur compris (ADR-008).
+   */
+  protected storeThresholds(): void {
+    const choice = this.thresholdsChoice()
+    const shown = choiceOf(this.shownThresholds())
+    // Un champ vide arrive en `null` (InputNumber) : l'enregistrer ecrirait un reglage que la
+    // lecture rejette, et le run repartirait des defauts sous des reglages affiches comme perso.
+    if (!isThresholds(choice)) {
+      this.thresholdsChoice.set(shown)
+      return
+    }
+    // Un blur sans changement (Tab dans le champ) ne reecrit pas le store.
+    if (sameChoice(choice, shown)) {
+      return
+    }
+    const defaults = this.sidecar.defaultThresholds()
+    const atDefaults = defaults !== null && sameChoice(choice, choiceOf(defaults))
+    const stored = atDefaults ? null : choice
+    this.storedThresholds.set(stored)
+    void writeThresholds(stored)
+  }
+
+  protected resetThresholds(): void {
+    this.storedThresholds.set(null)
+    void writeThresholds(null)
   }
 
   /** Une cle saisie sans etre enregistree ne survit pas a sa section : elle y restait en clair. */
