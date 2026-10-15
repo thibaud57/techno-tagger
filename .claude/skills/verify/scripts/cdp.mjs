@@ -5,6 +5,7 @@
 //   node cdp.mjs --screenshot <sortie.png>   capture de la fenetre
 //   node cdp.mjs --click <x> <y>             vrai clic souris, coordonnees CSS de la page
 //   node cdp.mjs --move <x> <y>              survol seul, sans clic
+//   node cdp.mjs --viewport <w> <h> <...>    l'appel qui suit, a cette taille de fenetre
 // Le script recoit ses arguments dans `__args`, et le prealable `page/preamble.js` devant lui
 // (`wait`, `until`, `__sidecarService()`).
 //
@@ -18,7 +19,15 @@ const fail = (message) => {
   process.exit(1)
 }
 
-const [scriptPath, ...args] = process.argv.slice(2)
+// `--viewport <w> <h>` en tete : la mesure suivante se fait a cette taille. L'override de CDP
+// ne vit que le temps de la connexion, d'ou son application dans le meme appel.
+let viewport = null
+let argv = process.argv.slice(2)
+if (argv[0] === "--viewport") {
+  viewport = { width: Number(argv[1]), height: Number(argv[2]) }
+  argv = argv.slice(3)
+}
+const [scriptPath, ...args] = argv
 if (!scriptPath) {
   fail(
     "usage : node cdp.mjs <script-de-page.js> [argument ...] | --key <touche> | " +
@@ -121,6 +130,18 @@ const check = (response) => {
     fail(`CDP : ${JSON.stringify(response.error)}`)
   }
   return response.result
+}
+
+if (viewport) {
+  check(
+    await call("Emulation.setDeviceMetricsOverride", {
+      ...viewport,
+      deviceScaleFactor: 0,
+      mobile: false,
+    }),
+  )
+  // Laisse la page se remettre en page a la nouvelle taille avant la mesure
+  await new Promise((resolve) => setTimeout(resolve, 600))
 }
 
 if (scriptPath === "--key") {

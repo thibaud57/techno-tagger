@@ -5,6 +5,7 @@ import {
   DEFAULT_EXTRACTION_MODE,
   DEFAULT_SOUND_SIGNAL,
   readExtractionMode,
+  readLanguage,
   readSoundSignal,
 } from "./preferences"
 
@@ -43,5 +44,21 @@ describe("preferences", () => {
     const result = await readSoundSignal()
 
     expect(result).toBe(DEFAULT_SOUND_SIGNAL)
+  })
+
+  it("reads a stored language the application offers", async () => {
+    vi.mocked(load).mockResolvedValue(storeStub("en"))
+
+    const result = await readLanguage()
+
+    expect(result).toBe("en")
+  })
+
+  it("ignores a stored language the application does not offer", async () => {
+    vi.mocked(load).mockResolvedValue(storeStub("de"))
+
+    const result = await readLanguage()
+
+    expect(result).toBeNull()
   })
 })

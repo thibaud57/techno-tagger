@@ -1,6 +1,8 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import { provideTranslateService } from "@ngx-translate/core"
+import { By } from "@angular/platform-browser"
+import { TranslateService, provideTranslateService } from "@ngx-translate/core"
+import { load } from "@tauri-apps/plugin-store"
 import { Router, provideRouter } from "@angular/router"
 import { ConfirmationService } from "primeng/api"
 
@@ -11,15 +13,24 @@ import {
   commandFailed,
   sidecarStub,
 } from "../../../fixtures/sidecar-stub"
+import { storeStub } from "../../../fixtures/tauri-store"
 import { translateWith } from "../../../fixtures/translate"
 import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
 import type { PastRun } from "../../core/sidecar/protocol"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 import type { RollbackInFlight } from "../../core/stores/write.store"
 
-import SettingsPageComponent, { STORED_KEY_MASK } from "./settings-page.component"
+import SettingsPageComponent, {
+  STORED_KEY_MASK,
+  type SettingsSection,
+} from "./settings-page.component"
 
-const mountWith = (overrides: SidecarStubOverrides = {}) => {
+/** Store indisponible par defaut, comme hors Tauri, sauf quand un test fournit le sien. */
+vi.mock("@tauri-apps/plugin-store", () => ({
+  load: vi.fn(() => Promise.reject(new TypeError("store unavailable"))),
+}))
+
+const mountWith = (overrides: SidecarStubOverrides = {}, section: SettingsSection = "api") => {
   const service = sidecarStub({ apiKeyConfigured: signal<boolean | null>(false), ...overrides })
 
   TestBed.configureTestingModule({
@@ -33,9 +44,17 @@ const mountWith = (overrides: SidecarStubOverrides = {}) => {
   })
 
   const fixture = TestBed.createComponent(SettingsPageComponent)
+  fixture.componentInstance["section"].set(section)
   fixture.detectChanges()
 
   return { fixture, component: fixture.componentInstance, service }
+}
+
+/** Ouvre une section comme le menu : par la commande de son entree. */
+const openSection = (component: SettingsPageComponent, section: SettingsSection): void => {
+  component["menuItems"]()
+    .find((item) => item.id === `settings-section-${section}`)
+    ?.command?.({})
 }
 
 describe("SettingsPageComponent", () => {
@@ -113,7 +132,7 @@ describe("SettingsPageComponent", () => {
   })
 
   it("asks for the last undoable run and names it", () => {
-    const { fixture, service } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
+    const { fixture, service } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) }, "admin")
     translateWith({
       settings: { admin: { rollback: { target: "{{date}}|{{folder}}|{{count}}" } } },
     })
@@ -149,7 +168,7 @@ describe("SettingsPageComponent", () => {
       "settings.admin.rollback.none",
     ],
   ])("%s", (_case, overrides, reason) => {
-    const { fixture, component } = mountWith(overrides)
+    const { fixture, component } = mountWith(overrides, "admin")
 
     const line = hostOf(fixture).querySelector("[data-rollback-target]")
 
@@ -158,9 +177,10 @@ describe("SettingsPageComponent", () => {
   })
 
   it("renders the raw date of a run whose date cannot be parsed", () => {
-    const { fixture } = mountWith({
-      rollbackTarget: signal({ ...ROLLBACK_RUN, written_at: "not-a-date" }),
-    })
+    const { fixture } = mountWith(
+      { rollbackTarget: signal({ ...ROLLBACK_RUN, written_at: "not-a-date" }) },
+      "admin",
+    )
     translateWith({ settings: { admin: { rollback: { target: "{{date}}|{{folder}}" } } } })
 
     fixture.detectChanges()
@@ -191,7 +211,10 @@ describe("SettingsPageComponent", () => {
       },
     },
   ])("blocks the undo while $name is in progress", ({ overrides }) => {
-    const { fixture, component } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN), ...overrides })
+    const { fixture, component } = mountWith(
+      { rollbackTarget: signal(ROLLBACK_RUN), ...overrides },
+      "admin",
+    )
 
     const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-last"]')
 
@@ -211,6 +234,60 @@ describe("SettingsPageComponent", () => {
     expect(options?.message).toBe("D:/Music/Promo Octobre 1")
     expect(options?.acceptButtonProps).toMatchObject({ severity: "danger" })
     expect(service.rollback).toHaveBeenCalledWith("a3f9c1")
+  })
+
+  it("shows the API section first", () => {
+    const { fixture } = mountWith()
+
+    const host = hostOf(fixture)
+
+    expect(host.querySelector("input#api-key")).not.toBeNull()
+    expect(host.querySelector('[data-action="restore-last"]')).toBeNull()
+  })
+
+  it("shows only the section chosen in the menu", () => {
+    const { fixture, component } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
+
+    openSection(component, "admin")
+    fixture.detectChanges()
+
+    const host = hostOf(fixture)
+    expect(host.querySelector('[data-action="restore-last"]')).not.toBeNull()
+    expect(host.querySelector("input#api-key")).toBeNull()
+  })
+
+  it("marks the active menu entry on its content, which hover and focus would cover", () => {
+    const { fixture, component } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
+
+    openSection(component, "admin")
+    fixture.detectChanges()
+
+    const marked = Array.from(hostOf(fixture).querySelectorAll(".bg-emphasis"))
+    const current = Array.from(hostOf(fixture).querySelectorAll('[aria-current="page"]'))
+    expect(marked.map((content) => content.textContent.trim())).toEqual(["settings.admin.title"])
+    expect(current.map((link) => link.textContent.trim())).toEqual(["settings.admin.title"])
+  })
+
+  it("drops an unsaved key once its section is left", () => {
+    const { fixture, component } = mountWith()
+    component["entry"].set({ apiKey: "typed-but-not-saved" })
+
+    openSection(component, "admin")
+    openSection(component, "api")
+    fixture.detectChanges()
+
+    expect(component["entry"]().apiKey).toBe("")
+  })
+
+  it("shows a key storage error again once its section is reopened", () => {
+    const { fixture, component } = mountWith(commandFailed("set_api_key", "api_key_not_stored"))
+    openSection(component, "admin")
+    fixture.detectChanges()
+
+    openSection(component, "api")
+    fixture.detectChanges()
+
+    expect(hostOf(fixture).querySelector("app-error-message")).not.toBeNull()
   })
 
   describe("past runs", () => {
@@ -268,7 +345,10 @@ describe("SettingsPageComponent", () => {
     })
 
     it("opens the summary of the chosen run", () => {
-      const { fixture } = mountWith({ pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) })
+      const { fixture } = mountWith(
+        { pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) },
+        "admin",
+      )
       const navigate = vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
       fixture.detectChanges()
 
@@ -278,7 +358,10 @@ describe("SettingsPageComponent", () => {
     })
 
     it("names the selector after the row label", () => {
-      const { fixture } = mountWith({ pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) })
+      const { fixture } = mountWith(
+        { pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) },
+        "admin",
+      )
 
       const host = hostOf(fixture)
       const named = host.querySelector('[data-field="past-run"] [aria-labelledby]')
@@ -291,9 +374,10 @@ describe("SettingsPageComponent", () => {
       { case: "enables the row once a run is listed", runs: [PAST_RUN], disabled: false },
       { case: "disables the row without past runs", runs: [], disabled: true },
     ])("$case", ({ runs, disabled }) => {
-      const { fixture, component } = mountWith({
-        pastRuns: signal<readonly PastRun[] | null>(runs),
-      })
+      const { fixture, component } = mountWith(
+        { pastRuns: signal<readonly PastRun[] | null>(runs) },
+        "admin",
+      )
 
       const open = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="open-past-run"]')
 
@@ -303,15 +387,112 @@ describe("SettingsPageComponent", () => {
   })
 
   it("shows the files left as they were and the rollback error", () => {
-    const { fixture } = mountWith({
-      rollbackTarget: signal(null),
-      rollbackFinished: signal(failedRollback("name_taken")),
-      ...commandFailed("rollback", "tag_dump_unreadable"),
-    })
+    const { fixture } = mountWith(
+      {
+        rollbackTarget: signal(null),
+        rollbackFinished: signal(failedRollback("name_taken")),
+        ...commandFailed("rollback", "tag_dump_unreadable"),
+      },
+      "admin",
+    )
 
     const root = hostOf(fixture)
 
     expect(root.querySelector("[data-rollback-failures]")).not.toBeNull()
     expect(root.querySelector("app-error-message")).not.toBeNull()
+  })
+
+  describe("interface", () => {
+    // `clearMocks` garde les implementations : sans cela, le store d'un test fuit dans les suivants.
+    beforeEach(() => {
+      vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
+    })
+
+    it("switches the language and stores the choice when the select changes", async () => {
+      const store = storeStub()
+      vi.mocked(load).mockResolvedValue(store)
+      const { fixture } = mountWith({}, "interface")
+      const select = fixture.debugElement.query(By.css('[data-field="language"]'))
+
+      select.triggerEventHandler("onChange", { value: "en" })
+
+      expect(TestBed.inject(TranslateService).getCurrentLang()).toBe("en")
+      await vi.waitFor(() => {
+        expect(store.set).toHaveBeenCalledWith("language", "en")
+      })
+    })
+
+    it("switches the language even when the store is unavailable", () => {
+      const { component } = mountWith({}, "interface")
+
+      component["chooseLanguage"]("en")
+
+      expect(TestBed.inject(TranslateService).getCurrentLang()).toBe("en")
+    })
+
+    it("stores nothing when the page opens", async () => {
+      const store = storeStub(true)
+      vi.mocked(load).mockResolvedValue(store)
+
+      mountWith({}, "interface")
+
+      // Le montage a bien lu le store : l'absence d'ecriture n'est pas une lecture manquee.
+      await vi.waitFor(() => {
+        expect(store.get).toHaveBeenCalled()
+      })
+      expect(store.set).not.toHaveBeenCalled()
+    })
+
+    it("translates the menu again once the language changes", () => {
+      const { component } = mountWith()
+      const translate = TestBed.inject(TranslateService)
+      translate.setTranslation("fr", { settings: { admin: { title: "Administration" } } })
+      translate.setTranslation("en", { settings: { admin: { title: "Admin" } } })
+      translate.use("fr")
+
+      component["chooseLanguage"]("en")
+
+      const admin = component["menuItems"]().find((item) => item.id === "settings-section-admin")
+      expect(admin?.label).toBe("Admin")
+    })
+
+    it("stores a muted completion sound when the toggle changes", async () => {
+      const store = storeStub(true)
+      vi.mocked(load).mockResolvedValue(store)
+      const { fixture } = mountWith({}, "interface")
+      const toggle = fixture.debugElement.query(By.css('[data-field="sound"]'))
+
+      toggle.triggerEventHandler("onChange", { checked: false })
+
+      await vi.waitFor(() => {
+        expect(store.set).toHaveBeenCalledWith("sound_signal", false)
+      })
+    })
+
+    it("keeps a sound choice made before the stored one is read", async () => {
+      const store = storeStub(true)
+      vi.mocked(load).mockResolvedValue(store)
+      const { fixture, component } = mountWith({}, "interface")
+      const toggle = hostOf(fixture).querySelector<HTMLInputElement>('[data-field="sound"] input')
+
+      toggle?.click()
+
+      await vi.waitFor(() => {
+        expect(store.get).toHaveBeenCalled()
+        expect(store.set).toHaveBeenCalledWith("sound_signal", false)
+      })
+      expect(component["soundChoice"]().enabled).toBe(false)
+    })
+
+    it("shows the completion sound as stored", async () => {
+      vi.mocked(load).mockResolvedValue(storeStub(false))
+
+      const { component } = mountWith({}, "interface")
+
+      // La lecture est une promesse que `whenStable` ne suit pas.
+      await vi.waitFor(() => {
+        expect(component["soundChoice"]().enabled).toBe(false)
+      })
+    })
   })
 })

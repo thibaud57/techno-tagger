@@ -30,7 +30,7 @@ Base 16px, imposée par l'import `@primeuix/themes/aura` en version non-`compat`
 | Usage | Taille | Poids | Classe |
 |-------|--------|-------|--------|
 | H1 (titre d'écran) | 1.5rem (24px) | 600 | `text-2xl font-semibold` |
-| H2 (section) | 1.25rem (20px) | 600 | `text-xl font-semibold` : sections « API » et « Administration » des Réglages |
+| H2 (section) | 1.25rem (20px) | 600 | `text-xl font-semibold` : titres de section des Réglages (« API », « Administration »), affichés une à la fois |
 | H3 (titre de modale) | 1.125rem (18px) | 600 | `text-lg font-semibold` : gabarits `#header` des modales, titre de l'écran bloquant. Les confirmations `p-confirmdialog` gardent le titre d'Aura, de même taille et de même poids |
 | Body | 1rem (16px) | 400 | `text-base` : titre d'un bloc vide |
 | Body dense (tables, listes de candidats) | 0.875rem (14px) | 400 | `text-sm` |
@@ -194,6 +194,7 @@ Les composants maison sont écrits une fois pour que ce qu'ils encapsulent ne so
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | PrimeNG v22 n'a aucun mode router et a supprimé `p-tabMenu` : l'onglet actif se dérive de l'URL, la navigation part du changement de valeur |
+| Navigation des Réglages | `p-menu`, une entrée par section, l'active en `bg-emphasis` | PrimeNG | Une section affichée à la fois (§ Structure de Page) |
 | Badges de file et de rattrapage | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | À droite de la barre d'onglets, groupés en `gap-2`, masqués sur 0. « N à arbitrer » rouvre la modale d'arbitrage après la croix. « N à rattraper », masqué aussi pendant la recherche, ouvre Tagging et la modale du lien |
 
 ### Actions
@@ -229,6 +230,8 @@ Les composants maison sont écrits une fois pour que ce qu'ils encapsulent ne so
 | Clé API | `input pInputPassword` dans un `p-iconfield` + « Enregistrer » `size="small"` | PrimeNG | Jamais préremplie ni relue depuis le keyring vers la webview ([ADR-012](adrs/012-securite-cle-api-keyring.md)), remasquée après l'envoi. « Enregistrer » grisé sans saisie. Une clé enregistrée se signale par 24 points en placeholder, sans `p-tag`, et par un texte `sr-only` relié par `aria-describedby`. L'œil, bouton du template (`p-password` est déprécié en v22), n'apparaît que pendant une saisie : une clé qu'on ne relit pas n'a rien à révéler |
 | Rangée des Réglages | `SettingsRowComponent` (`features/settings/`) | composant maison (Tailwind) | Grille `grid-cols-[16rem_minmax(0,1fr)]` en `gap-x-4`, `py-3`, `border-b border-surface`, slots `[rowLabel]` et `[rowControl]`. La colonne de gauche ne porte que le libellé, la même pour toutes les rangées : leurs contrôles s'alignent. 16rem, la colonne de libellé du `Row` de la maquette. Le contenu par défaut passe sous le contrôle : une aide colle au contrôle (`pt-2`), un retour en garde 12px, comme le `py-3` sous lui (`gap-3` après une aide, `mt-1` quand il vient en premier). Vide, cette zone ne pèse rien. Une rangée à bouton seul pose son aide sur la ligne du bouton |
 | Runs passés | `p-select` `size="small"` en Signal Forms + bouton « Ouvrir le récapitulatif » `secondary` outlined, dans une `SettingsRowComponent` | PrimeNG | Sous « Restauration ». Options « Run du {date} sur {dossier} », le plus récent d'abord, sans largeur figée : le dossier est coupé et son tooltip le montre. Sélecteur et bouton désactivés sans run. Ouvre `/tagging/recap/:runId`, récapitulatif en lecture seule |
+| Langue | `p-select` `size="small"`, largeur figée mesurée sur « Français » | PrimeNG | Force la locale détectée au premier lancement ; enregistrée au changement, jamais à l'ouverture |
+| Bascules des Réglages | `p-toggleswitch`, à droite, aide sur sa ligne | PrimeNG | Signal sonore de fin. Le mode copie / déplacement reste sur Playlist |
 
 ### Tables et listes
 
@@ -308,8 +311,6 @@ Les composants maison sont écrits une fois pour que ce qu'ils encapsulent ne so
 | Envoi du rapport | `button pButton` `secondary` `size="small"` | PrimeNG | Feature 9. Geste explicite, seul endroit d'où des titres quittent la machine |
 | Actions d'administration | `button pButton` `secondary` outlined `size="small"` | PrimeNG | Vider le cache, ouvrir le dossier des logs |
 | Seuils de matching | `p-slider` lié à un `p-inputnumber` | PrimeNG | Plancher et seuil haut, valeurs de départ lues du sidecar (`version.default_thresholds`), jamais recopiées |
-| Langue | `p-select` `size="small"` | PrimeNG | FR / EN, force la locale détectée au premier lancement |
-| Bascules des Réglages | `p-toggleswitch` | PrimeNG | Signal sonore. Le mode copie / déplacement reste sur Playlist |
 | Bascule du mode agent IA | `p-toggleswitch` dans les Réglages | PrimeNG | Arrive avec l'agent d'arbitrage, cf. [ARCHITECTURE.md § Évolutions Futures](ARCHITECTURE.md#-évolutions-futures-post-mvp) |
 
 ## États des Composants

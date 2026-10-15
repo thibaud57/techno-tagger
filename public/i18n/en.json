@@ -385,6 +385,21 @@
         "missing": "No key"
       }
     },
+    "interface": {
+      "title": "Interface",
+      "language": {
+        "label": "Language",
+        "hint": "Applies immediately.\nOn first launch, the application follows the system language.",
+        "options": {
+          "fr": "Français",
+          "en": "English"
+        }
+      },
+      "sound": {
+        "label": "Completion sound",
+        "hint": "A beep when an extraction, a search, a write or a restore ends."
+      }
+    },
     "admin": {
       "title": "Administration",
       "pastRuns": {

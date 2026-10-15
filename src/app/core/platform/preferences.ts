@@ -1,6 +1,7 @@
 import { load } from "@tauri-apps/plugin-store"
 
 import type { ExtractionMode } from "../sidecar/protocol"
+import { LANGUAGES, type Language } from "../i18n/language"
 
 const STORE_FILE = "preferences.json"
 
@@ -61,13 +62,19 @@ const lastDestination = definePreference<string | null>(
   null,
   (stored): stored is string => typeof stored === "string",
 )
+const language = definePreference<Language | null>("language", null, (stored): stored is Language =>
+  LANGUAGES.some((known) => known === stored),
+)
 
 export const readExtractionMode = extractionMode.read
 export const writeExtractionMode = extractionMode.write
 
 export const readSoundSignal = soundSignal.read
-/** Sans appelant au 2026-10-13 : la bascule du son est un reglage de la Feature 7. */
 export const writeSoundSignal = soundSignal.write
+
+/** `null` tant que l'utilisateur n'a rien choisi : la locale systeme decide alors. */
+export const readLanguage = language.read
+export const writeLanguage = language.write
 
 /** Le dossier re-taggue est presque toujours la destination de la derniere extraction. */
 export const readLastDestination = lastDestination.read

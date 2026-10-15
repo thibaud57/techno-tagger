@@ -385,6 +385,21 @@
         "missing": "Aucune clé"
       }
     },
+    "interface": {
+      "title": "Interface",
+      "language": {
+        "label": "Langue",
+        "hint": "S'applique immédiatement.\nAu premier lancement, l'application suit la langue du système.",
+        "options": {
+          "fr": "Français",
+          "en": "English"
+        }
+      },
+      "sound": {
+        "label": "Signal sonore de fin",
+        "hint": "Un bip à la fin d'une extraction, d'une recherche, d'une écriture ou d'une restauration."
+      }
+    },
     "admin": {
       "title": "Administration",
       "pastRuns": {

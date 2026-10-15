@@ -382,7 +382,7 @@ Plugins Tauri v2 enregistrés dans `src-tauri/src/lib.rs`, permissions dans `src
 | `shell` | Lancement du sidecar via `Command.sidecar()`. Permission `shell:allow-spawn` et non `shell:allow-execute` : le sidecar est un process long démarré par `spawn()`, pas une exécution ponctuelle. La permission cible le chemin du sidecar avec `"sidecar": true`, aucune commande arbitraire n'est autorisée. `shell:allow-stdin-write` laisse passer les commandes NDJSON. |
 | `dialog` | Sélection des dossiers source, destination et du fichier de playlist |
 | `fs` | Restreint à `$APPLOCALDATA` (plans de run, cache, logs), en lecture et écriture récursives. La webview n'accède pas aux chemins de la bibliothèque musicale : le sidecar Python lit et écrit ces fichiers directement, hors du système de permissions Tauri |
-| `store` | Préférences : mode copie / déplacement, signal sonore, dernière destination ; langue et seuils à l'étape 8. L'URL de l'API n'y figure pas : c'est une constante du sidecar, seul à appeler techno-scraper (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)) |
+| `store` | Préférences : mode copie / déplacement, signal sonore, dernière destination ; langue (`language`, `null` tant que rien n'est choisi) ; seuils à l'étape 8. L'URL de l'API n'y figure pas : c'est une constante du sidecar, seul à appeler techno-scraper (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
 | `opener` | Lien vers la fiche source du détail d'un morceau ; bouton « ouvrir le dossier de logs » des Settings à l'étape 8. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)) |
@@ -411,13 +411,13 @@ Deux réglages ne passent pas par un plugin :
 | `core/observability/` | Masquage PII et options Sentry de la webview |
 | `features/playlist/` | Onglet 1 : dossiers, playlist, lignes d'extraction |
 | `features/tagging/` | Onglet 2, un dossier par vue : `run/` (page, liste, détail d'un morceau, restauration), `arbitration/`, `url-recovery/`, `recap/` |
-| `features/settings/` | Onglet 3 : clé API, runs passés, restauration. Langue, seuils, copie ou déplacement, signal sonore, cache et logs : étape 8, pas encore câblés |
+| `features/settings/` | Onglet 3 : menu des sections ; clé API, langue, signal sonore, runs passés, restauration. Seuils, cache et logs : étape 8, pas encore câblés |
 | `shared/components/` | `dialogs/` (en-tête, confirmations, reprise, échecs de rollback), `display/` (pochette, icône, étiquettes d'état et de source, texte tronqué, états vides), `feedback/` (messages), `inputs/` (sélecteur de chemin) |
 | `shared/utils/` | Fonctions et constantes d'affichage sans état |
 
 ### i18n
 
-**ngx-translate**, français et anglais, bascule à l'exécution sans rebuild (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)). Au premier lancement, la locale système décide : commence par `fr` donne du français, tout le reste donne de l'anglais. Le sélecteur des Settings force ensuite l'une ou l'autre.
+**ngx-translate**, français et anglais, bascule à l'exécution sans rebuild (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)). Au premier lancement, la locale système décide : commence par `fr` donne du français, tout le reste donne de l'anglais. Le sélecteur des Settings force ensuite l'une ou l'autre : le choix, enregistré dans le `store` au seul geste de l'utilisateur, prime sur la locale aux lancements suivants.
 
 ### Services Externes
 

@@ -1,4 +1,9 @@
-import { FALLBACK_LANGUAGE, languageFromTag, resolveInitialLanguage } from "./language"
+import {
+  FALLBACK_LANGUAGE,
+  languageFromTag,
+  resolveInitialLanguage,
+  resolveStartupLanguage,
+} from "./language"
 
 describe("languageFromTag", () => {
   it.each([
@@ -55,5 +60,25 @@ describe("resolveInitialLanguage", () => {
     )
 
     expect(language).toBe(FALLBACK_LANGUAGE)
+  })
+})
+
+describe("resolveStartupLanguage", () => {
+  it("prefers the language chosen in the settings over the system locale", async () => {
+    const language = await resolveStartupLanguage(
+      () => Promise.resolve("en"),
+      () => Promise.resolve("fr"),
+    )
+
+    expect(language).toBe("en")
+  })
+
+  it("lets the system locale decide until a language is chosen", async () => {
+    const language = await resolveStartupLanguage(
+      () => Promise.resolve(null),
+      () => Promise.resolve("fr"),
+    )
+
+    expect(language).toBe("fr")
   })
 })

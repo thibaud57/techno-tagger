@@ -2,14 +2,25 @@ import { Component, computed, effect, inject, linkedSignal, signal, untracked } 
 import { FormField, disabled, form } from "@angular/forms/signals"
 import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
+import type { MenuItem, PassThroughContext } from "primeng/api"
 import { ButtonDirective } from "primeng/button"
 import { IconField } from "primeng/iconfield"
 import { InputIcon } from "primeng/inputicon"
 import { InputPassword } from "primeng/inputpassword"
 import { Label } from "primeng/label"
+import { Menu } from "primeng/menu"
+import type { MenuPassThrough } from "primeng/types/menu"
 import { Select } from "primeng/select"
+import { ToggleSwitch } from "primeng/toggleswitch"
 import { Tooltip } from "primeng/tooltip"
 
+import { LANGUAGES, type Language, languageFromTag } from "../../core/i18n/language"
+import {
+  DEFAULT_SOUND_SIGNAL,
+  readSoundSignal,
+  writeLanguage,
+  writeSoundSignal,
+} from "../../core/platform/preferences"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
@@ -38,8 +49,31 @@ interface PastRunChoice {
   runId: string | null
 }
 
+interface LanguageOption {
+  readonly value: Language
+  readonly label: string
+}
+
+interface LanguageChoice {
+  language: Language
+}
+
+interface SoundChoice {
+  enabled: boolean
+}
+
 /** Une cle enregistree se signale par des points en placeholder, sans etre relue (ADR-012). */
 export const STORED_KEY_MASK = "•".repeat(24)
+
+/** Ordre du menu, celui de la maquette ; une section sans rangee n'y entre pas. */
+const SECTIONS = ["api", "interface", "admin"] as const
+
+export type SettingsSection = (typeof SECTIONS)[number]
+
+const menuItemId = (section: SettingsSection): string => `settings-section-${section}`
+
+/** PrimeNG passe `context` (item, index, focused, disabled) aux fonctions `pt` sans le typer. */
+type MenuItemPassThroughContext = PassThroughContext & { context?: { item?: MenuItem } }
 
 @Component({
   selector: "app-settings-page",
@@ -51,8 +85,10 @@ export const STORED_KEY_MASK = "•".repeat(24)
     InputIcon,
     InputPassword,
     Label,
+    Menu,
     Select,
     Tooltip,
+    ToggleSwitch,
     ErrorMessageComponent,
     IconComponent,
     RollbackFailuresComponent,
@@ -68,6 +104,58 @@ export default class SettingsPageComponent {
   private readonly translate = inject(TranslateService)
   private readonly confirmDanger = injectDangerConfirm()
   private readonly router = inject(Router)
+
+  /**
+   * Une section a la fois : les rangees de toutes les sections ne tiennent pas au plancher de
+   * 700px, et la page ne defile pas (DESIGN.md § Structure de Page). Locale : aucun lien ne vise
+   * une section.
+   */
+  protected readonly section = signal<SettingsSection>("api")
+  protected readonly menuItems = computed<MenuItem[]>(() => {
+    // `currentLang()` est lu ici : le menu se retraduit au changement de langue.
+    this.translate.currentLang()
+
+    return SECTIONS.map((section) => ({
+      id: menuItemId(section),
+      label: this.translate.instant(`settings.${section}.title`) as string,
+      command: () => {
+        this.openSection(section)
+      },
+    }))
+  })
+  /** Chaque langue se nomme dans sa propre langue, quelle que soit celle de l'interface. */
+  protected readonly languageOptions = computed<LanguageOption[]>(() => {
+    this.translate.currentLang()
+
+    return LANGUAGES.map((value) => ({
+      value,
+      label: this.translate.instant(`settings.interface.language.options.${value}`) as string,
+    }))
+  })
+  /** Suit la langue courante ; seul `chooseLanguage` en fait un choix enregistre. */
+  protected readonly languageChoice = linkedSignal<LanguageChoice>(() => ({
+    language: languageFromTag(this.translate.currentLang()),
+  }))
+  protected readonly languageFields = form(this.languageChoice)
+  protected readonly soundChoice = signal<SoundChoice>({ enabled: DEFAULT_SOUND_SIGNAL })
+  protected readonly soundFields = form(this.soundChoice)
+  private soundChosen = false
+  /**
+   * Le marqueur va sur le contenu de l'entree, pas sur son `li` : Aura peint le survol et le focus
+   * sur le contenu, qui recouvrirait un fond pose sur le `li`. L'entree active l'emporte ainsi.
+   * `aria-current` la nomme aussi : la couleur ne porte jamais seule l'information.
+   */
+  protected readonly menuPt = computed<MenuPassThrough>(() => {
+    const activeId = menuItemId(this.section())
+    const isActive = (options: PassThroughContext): boolean =>
+      (options as MenuItemPassThroughContext).context?.item?.id === activeId
+
+    // Valeurs vides explicites : `pBind` ne retire pas ce qu'une valeur absente laisse en place.
+    return {
+      itemContent: (options) => (isActive(options) ? "bg-emphasis" : ""),
+      itemLink: (options) => ({ "aria-current": isActive(options) ? "page" : null }),
+    }
+  })
 
   /** Jamais prerempli : la cle n'est pas relue depuis le trousseau. */
   protected readonly entry = signal<ApiKeyEntry>({ apiKey: "" })
@@ -160,6 +248,14 @@ export default class SettingsPageComponent {
         })
       }
     })
+
+    // Lu au montage, jamais ecrit : seule la bascule enregistre un choix. Une lecture qui arrive
+    // apres un clic ne l'ecrase pas.
+    void readSoundSignal().then((enabled) => {
+      if (!this.soundChosen) {
+        this.soundChoice.set({ enabled })
+      }
+    })
   }
 
   protected toggleMask(): void {
@@ -196,6 +292,29 @@ export default class SettingsPageComponent {
     const runId = this.pastChoice().runId
     if (runId !== null) {
       void this.router.navigateByUrl(`/tagging/recap/${runId}`)
+    }
+  }
+
+  /**
+   * Sur l'evenement du select, jamais par un `effect` : celui-ci enregistrerait au premier
+   * rendu la langue detectee, qui deviendrait un choix fige.
+   */
+  protected chooseLanguage(language: Language): void {
+    this.translate.use(language)
+    void writeLanguage(language)
+  }
+
+  /** `CompletionSignalService` relit la preference a chaque annonce : rien d'autre a prevenir. */
+  protected chooseSound(enabled: boolean): void {
+    this.soundChosen = true
+    void writeSoundSignal(enabled)
+  }
+
+  /** Une cle saisie sans etre enregistree ne survit pas a sa section : elle y restait en clair. */
+  private openSection(section: SettingsSection): void {
+    this.section.set(section)
+    if (section !== "api") {
+      this.entry.set({ apiKey: "" })
     }
   }
 }
