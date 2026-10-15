@@ -2,7 +2,7 @@
 feature: "Feature 7 : Settings"
 subproject: "langue-et-signal-sonore"
 goal: "Permettre de forcer la langue FR ou EN et de couper le signal sonore de fin depuis les Réglages, choix persistés, dans une page passée en menu latéral"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: []
