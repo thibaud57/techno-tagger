@@ -22,12 +22,14 @@ from tagger.core.build_info import SENTRY_DSN
 from tagger.core.errors import RunNotFoundError, TaggerError
 from tagger.core.logger import setup_logging
 from tagger.core.observability import init_sentry
-from tagger.core.paths import app_data_dir
+from tagger.core.paths import log_dir
 from tagger.core.tasks import cancel_all
 from tagger.handlers import (
     commit,
+    handle_clear_cache,
     handle_commit_run,
     handle_extract_playlist,
+    handle_get_cache_size,
     handle_get_interrupted_run,
     handle_get_rollback_target,
     handle_get_version,
@@ -43,12 +45,14 @@ from tagger.handlers import (
 )
 from tagger.protocol import (
     CancelRun,
+    ClearCache,
     CommitRun,
     DiscardRun,
     Error,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
+    GetCacheSize,
     GetInterruptedRun,
     GetRollbackTarget,
     GetVersion,
@@ -77,20 +81,11 @@ from tagger.tags.tag_dump import dump_dir, purge_dumps
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
-    from pathlib import Path
     from typing import TextIO
 
     from tagger.handlers import CurrentRun
 
 logger = logging.getLogger(__name__)
-
-
-def log_dir() -> Path:
-    # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
-    # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
-    # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
-    # argument non conforme est retire en silence.
-    return app_data_dir() / "logs"
 
 
 def _force_utf8_streams() -> None:
@@ -160,6 +155,16 @@ class RunCommittedError(TaggerError):
 
     def __init__(self, track_id: str) -> None:
         super().__init__("the run is committed", track_id=track_id)
+
+
+class RunNotWrittenError(TaggerError):
+    """Le run courant attend son ecriture : vider le cache lui ferait ecrire ses morceaux sans
+    leur pochette, en silence, `write_tags` gardant alors l'image d'origine."""
+
+    code: ClassVar[str] = "run_not_written"
+
+    def __init__(self) -> None:
+        super().__init__("the current run is not written")
 
 
 class _RunningPhase(NamedTuple):
@@ -311,6 +316,14 @@ class _Session:
         current = self._current
         active_run_id = None if current is None else current.live.run_id
         self.send(await asyncio.to_thread(handle_get_interrupted_run, active_run_id))
+
+    async def clear_cache(self) -> None:
+        """Attendu par la boucle, sans phase longue : un `start_tagging` envoye pendant le vidage
+        part apres lui, sans course."""
+        self._ensure_idle()
+        if self._current is not None and self._current.awaits_write:
+            raise RunNotWrittenError
+        self.send(await asyncio.to_thread(handle_clear_cache))
 
     async def discard_run(self, command: DiscardRun) -> None:
         """Repartir de zero : le plan part ; sur le run courant, le run est abandonne avec lui.
@@ -613,6 +626,10 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
             await session.announce_interrupted_run()
         case DiscardRun():
             await session.discard_run(command)
+        case GetCacheSize():
+            session.send(await asyncio.to_thread(handle_get_cache_size))
+        case ClearCache():
+            await session.clear_cache()
         case _:
             assert_never(command)
 

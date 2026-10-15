@@ -70,6 +70,7 @@
     "api_key_missing": "No API key saved.\nAdd one in the settings.",
     "keyring_unavailable": "Windows Credential Manager is unavailable.\nRestart the application.",
     "write_not_open": "This run cannot be written now.",
+    "run_not_written": "The run on screen is waiting for its tags to be written.\nFinish writing before clearing the cache.",
     "run_committed": "Writing this run is confirmed: its tracks can no longer be arbitrated or recovered.",
     "rollback_unavailable": "Nothing to restore: these files already have their original tags back, or their backup has expired.",
     "phase_busy": {

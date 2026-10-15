@@ -29,6 +29,7 @@ from tagger.protocol import (
     Phase,
     Progress,
     Shutdown,
+    ThresholdsPayload,
     TrackResolved,
     Version,
     emit,
@@ -124,7 +125,15 @@ def test_commands_are_frozen() -> None:
 
 
 def test_an_event_serialises_on_a_single_line() -> None:
-    line = emit(Version(event="version", version="1.2.3", api_key_configured=True))
+    line = emit(
+        Version(
+            event="version",
+            version="1.2.3",
+            api_key_configured=True,
+            default_thresholds=ThresholdsPayload(floor=65, ceiling=85),
+            log_file=Path("C:/data/trace.log"),
+        )
+    )
 
     assert "\n" not in line
     assert json.loads(line)["version"] == "1.2.3"

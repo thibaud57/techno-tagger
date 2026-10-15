@@ -4,6 +4,7 @@
 //   node cdp.mjs page/app-health.js state    service, sidecar, langue, onglet courant
 //   node cdp.mjs page/app-health.js tabs     clique chaque p-tab, releve l'URL et le h1
 //   node cdp.mjs page/app-health.js list <dump>    listPlaylists sur un dump de fixture
+//   node cdp.mjs page/app-health.js cache    get_cache_size puis clear_cache, signaux relus
 ;(async () => {
   const [action, target] = __args
   const service = __sidecarService()
@@ -34,6 +35,9 @@
       version: service.version(),
       versionMismatch: service.versionMismatch(),
       apiKeyConfigured: service.apiKeyConfigured(),
+      // Portes par `version` : seul le sidecar les connait, `absent` tant qu'il ne les a pas envoyes
+      defaultThresholds: service.defaultThresholds?.() ?? "absent",
+      logFile: service.logFile?.() ?? "absent",
       lang: document.documentElement.lang,
       tabs: [...document.querySelectorAll("p-tab")].map((tab) => tab.textContent.trim()),
       ...here(),
@@ -49,6 +53,21 @@
       visited.push({ tab: tab.textContent.trim(), ...here() })
     }
     return { visited }
+  }
+
+  if (action === "cache") {
+    // Mesure puis vidage par le vrai sidecar : `cacheSize` suit les deux, `cacheCleared` le second
+    await service.loadCacheSize()
+    await until(() => service.cacheSize() !== null, 10000)
+    const measured = service.cacheSize()
+    await service.clearCache()
+    await until(() => service.cacheCleared() !== null || service.lastError() !== null, 10000)
+    return {
+      measured,
+      cleared: service.cacheCleared(),
+      cacheSize: service.cacheSize(),
+      lastError: service.lastError()?.code ?? null,
+    }
   }
 
   if (action === "list") {

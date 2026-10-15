@@ -185,6 +185,18 @@ class GetRollbackTarget(Command):
     command: Literal["get_rollback_target"]
 
 
+class GetCacheSize(Command):
+    """Relue a l'ouverture des Reglages : un run fait grossir le cache entre deux visites."""
+
+    command: Literal["get_cache_size"]
+
+
+class ClearCache(Command):
+    """Refusee tant que le run courant attend son ecriture (`run_not_written`)."""
+
+    command: Literal["clear_cache"]
+
+
 class Rollback(Command):
     """Restaure un run entier depuis son dump, ou son seul morceau `track_id`."""
 
@@ -245,7 +257,9 @@ type AnyCommand = Annotated[
     | DiscardRun
     | ResumeRun
     | ListRuns
-    | LoadRun,
+    | LoadRun
+    | GetCacheSize
+    | ClearCache,
     Field(discriminator="command"),
 ]
 
@@ -270,6 +284,8 @@ type ExecutableCommand = (
     | ResumeRun
     | ListRuns
     | LoadRun
+    | GetCacheSize
+    | ClearCache
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -293,6 +309,8 @@ type CommandName = Literal[
     "resume_run",
     "list_runs",
     "load_run",
+    "get_cache_size",
+    "clear_cache",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -333,11 +351,16 @@ class Event(BaseModel):
 class Version(Event):
     """`api_key_configured` parce que seul le sidecar lit le trousseau : c'est ici
     que l'interface apprend qu'une cle existe, avant tout run (ADR-012).
+
+    `default_thresholds` et `log_file` pour la meme raison : seul le sidecar les connait,
+    les Reglages en partent sans les recopier.
     """
 
     event: Literal["version"]
     version: str
     api_key_configured: bool
+    default_thresholds: ThresholdsPayload
+    log_file: Path
 
 
 class PlaylistEntry(BaseModel):
@@ -563,6 +586,19 @@ class RollbackTarget(Event):
 
     event: Literal["rollback_target"]
     run: RollbackRun | None
+
+
+class CacheSize(Event):
+    event: Literal["cache_size"]
+    size_bytes: int
+
+
+class CacheCleared(Event):
+    """`size_bytes` : ce qui reste, un fichier verrouille survivant au vidage."""
+
+    event: Literal["cache_cleared"]
+    freed_bytes: int
+    size_bytes: int
 
 
 class RollbackFailurePayload(BaseModel):

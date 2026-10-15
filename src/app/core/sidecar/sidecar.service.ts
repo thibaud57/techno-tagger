@@ -4,6 +4,7 @@ import { ArbitrationStore } from "../stores/arbitration.store"
 import {
   ArbitrationSource,
   BusyPhase,
+  CacheClearedEvent,
   ExtractionFinishedEvent,
   ExtractionProgressEvent,
   ExtractionRequest,
@@ -41,6 +42,8 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   interrupted_run: true,
   runs_listed: true,
   run_loaded: true,
+  cache_size: true,
+  cache_cleared: true,
   error: true,
 }
 
@@ -89,6 +92,10 @@ export class SidecarService {
   private readonly _available = signal<boolean | null>(null)
   private readonly _version = signal<string | null>(null)
   private readonly _apiKeyConfigured = signal<boolean | null>(null)
+  private readonly _defaultThresholds = signal<ThresholdsPayload | null>(null)
+  private readonly _logFile = signal<string | null>(null)
+  private readonly _cacheSize = signal<number | null>(null)
+  private readonly _cacheCleared = signal<CacheClearedEvent | null>(null)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _listedPlaylistPath = signal<string | null>(null)
   private readonly _progress = signal<ExtractionProgressEvent | null>(null)
@@ -147,6 +154,13 @@ export class SidecarService {
   readonly version = this._version.asReadonly()
   /** `null` tant que la version n'est pas arrivee : l'etat de la cle n'est pas encore connu. */
   readonly apiKeyConfigured = this._apiKeyConfigured.asReadonly()
+  /** `null` tant que la version n'est pas arrivee, comme `apiKeyConfigured`. */
+  readonly defaultThresholds = this._defaultThresholds.asReadonly()
+  readonly logFile = this._logFile.asReadonly()
+  /** Octets du cache, `null` avant la premiere mesure. */
+  readonly cacheSize = this._cacheSize.asReadonly()
+  /** Dernier vidage : de quoi l'annoncer. */
+  readonly cacheCleared = this._cacheCleared.asReadonly()
   readonly versionMismatch = computed(() => {
     const sidecar = this._version()
 
@@ -500,6 +514,14 @@ export class SidecarService {
     await this.query({ command: "get_rollback_target" })
   }
 
+  async loadCacheSize(): Promise<void> {
+    await this.query({ command: "get_cache_size" })
+  }
+
+  async clearCache(): Promise<void> {
+    await this.send({ command: "clear_cache" })
+  }
+
   async listRuns(): Promise<void> {
     await this.query({ command: "list_runs" })
   }
@@ -684,6 +706,8 @@ export class SidecarService {
         const keySaved = this._apiKeyConfigured() === false && event.api_key_configured
         this._version.set(event.version)
         this._apiKeyConfigured.set(event.api_key_configured)
+        this._defaultThresholds.set(event.default_thresholds)
+        this._logFile.set(event.log_file)
         if (firstAnswer || keySaved) {
           void this.askInterruptedRun()
         }
@@ -733,6 +757,13 @@ export class SidecarService {
         break
       case "rollback_target":
         this.writePhase.targetFound(event.run)
+        break
+      case "cache_size":
+        this._cacheSize.set(event.size_bytes)
+        break
+      case "cache_cleared":
+        this._cacheSize.set(event.size_bytes)
+        this._cacheCleared.set(event)
         break
       case "rollback_finished":
         this.writePhase.rolledBack(event)

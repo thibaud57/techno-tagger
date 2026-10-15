@@ -70,6 +70,7 @@
     "api_key_missing": "Aucune clé API enregistrée.\nAjoutez-en une dans les Réglages.",
     "keyring_unavailable": "Le Gestionnaire d'identification de Windows est inaccessible.\nRelancez l'application.",
     "write_not_open": "Ce run ne peut pas être écrit maintenant.",
+    "run_not_written": "Le run affiché attend l'écriture de ses tags.\nTerminez-la avant de vider le cache.",
     "run_committed": "L'écriture de ce run est confirmée : ses morceaux ne peuvent plus être arbitrés ni rattrapés.",
     "rollback_unavailable": "Rien à restaurer : ces fichiers ont déjà retrouvé leurs tags d'origine, ou leur sauvegarde a expiré.",
     "phase_busy": {

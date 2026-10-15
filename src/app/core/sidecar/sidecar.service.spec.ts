@@ -21,7 +21,7 @@ import {
   writeProgress,
 } from "../../../fixtures/write"
 import { PastRunsStore } from "../stores/past-runs.store"
-import { BusyPhase, SidecarEvent } from "./protocol"
+import { BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { SidecarService } from "./sidecar.service"
 
@@ -77,6 +77,19 @@ const EXTRACTION = {
   mode: "copy",
 } as const
 
+const DEFAULT_THRESHOLDS = { floor: 65, ceiling: 85 } as const
+const LOG_FILE = "C:/data/trace.log"
+
+/** `version` complet : chaque test ne pose que le champ qu'il observe. */
+const versionEvent = (overrides: Partial<VersionEvent> = {}): VersionEvent => ({
+  event: "version",
+  version: APP_VERSION,
+  api_key_configured: false,
+  default_thresholds: DEFAULT_THRESHOLDS,
+  log_file: LOG_FILE,
+  ...overrides,
+})
+
 describe("SidecarService", () => {
   let transport: FakeTransport
   let service: SidecarService
@@ -125,7 +138,7 @@ describe("SidecarService", () => {
   it("feeds the version from the received event", async () => {
     await service.start()
 
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit(versionEvent())
 
     expect(service.version()).toBe(APP_VERSION)
   })
@@ -133,9 +146,40 @@ describe("SidecarService", () => {
   it("feeds the api key state from the version event", async () => {
     await service.start()
 
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: true })
+    transport.emit(versionEvent({ api_key_configured: true }))
 
     expect(service.apiKeyConfigured()).toBe(true)
+  })
+
+  it("feeds the default thresholds and the log file from the version event", async () => {
+    await service.start()
+
+    transport.emit(versionEvent())
+
+    expect(service.defaultThresholds()).toEqual(DEFAULT_THRESHOLDS)
+    expect(service.logFile()).toBe(LOG_FILE)
+  })
+
+  it("feeds the cache size from a measure", async () => {
+    await service.start()
+
+    transport.emit({ event: "cache_size", size_bytes: 4096 })
+
+    expect(service.cacheSize()).toBe(4096)
+  })
+
+  it("feeds the cache size and the last clearing from a clearing", async () => {
+    await service.start()
+    transport.emit({ event: "cache_size", size_bytes: 4096 })
+
+    transport.emit({ event: "cache_cleared", freed_bytes: 4000, size_bytes: 96 })
+
+    expect(service.cacheSize()).toBe(96)
+    expect(service.cacheCleared()).toEqual({
+      event: "cache_cleared",
+      freed_bytes: 4000,
+      size_bytes: 96,
+    })
   })
 
   it.each([
@@ -148,7 +192,7 @@ describe("SidecarService", () => {
   ] as const)("reports the mismatch for $label", async ({ version, expected }) => {
     await service.start()
 
-    transport.emit({ event: "version", version, api_key_configured: false })
+    transport.emit(versionEvent({ version }))
 
     expect(service.versionMismatch()).toEqual(expected)
   })
@@ -162,7 +206,7 @@ describe("SidecarService", () => {
   it("is ready once the matching version is received", async () => {
     await service.start()
 
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit(versionEvent())
 
     expect(service.ready()).toBe(true)
   })
@@ -170,7 +214,7 @@ describe("SidecarService", () => {
   it("is not ready when the versions mismatch", async () => {
     await service.start()
 
-    transport.emit({ event: "version", version: "0.0.1-old", api_key_configured: false })
+    transport.emit(versionEvent({ version: "0.0.1-old" }))
 
     expect(service.ready()).toBe(false)
   })
@@ -244,7 +288,7 @@ describe("SidecarService", () => {
 
   it("marks an extraction as running once its command is sent", async () => {
     await service.start()
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit(versionEvent())
 
     await service.extractPlaylist(EXTRACTION)
 
@@ -356,7 +400,7 @@ describe("SidecarService", () => {
     await service.start()
 
     transport.emitRaw("pas du json")
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit(versionEvent())
 
     expect(service.version()).toBe(APP_VERSION)
     expect(spy).toHaveBeenCalled()
@@ -377,9 +421,7 @@ describe("SidecarService", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     await service.start()
 
-    transport.handlers?.onStderr(
-      JSON.stringify({ event: "version", version: "9.9.9", api_key_configured: true }),
-    )
+    transport.handlers?.onStderr(JSON.stringify(versionEvent({ version: "9.9.9" })))
 
     expect(service.version()).toBeNull()
   })
@@ -404,6 +446,8 @@ describe("SidecarService", () => {
         thresholds: { floor: 75, ceiling: 95 },
       },
     ],
+    ["a cache size request", (target) => target.loadCacheSize(), { command: "get_cache_size" }],
+    ["a cache clearing", (target) => target.clearCache(), { command: "clear_cache" }],
   ])("sends %s as its command", async (_command, send, expected) => {
     await service.start()
 
@@ -850,7 +894,7 @@ describe("SidecarService", () => {
   })
 
   describe("interrupted run", () => {
-    const VERSION = { event: "version", version: APP_VERSION, api_key_configured: true } as const
+    const VERSION = versionEvent({ api_key_configured: true })
     const askedCount = (): number =>
       transport.sent.filter((line) => commandOf(line) === "get_interrupted_run").length
 

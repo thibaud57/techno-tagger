@@ -13,12 +13,15 @@ from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 from tagger import __version__
 from tagger.core.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.core.errors import RunNotFoundError
+from tagger.core.logger import LOG_FILE_NAME
 from tagger.core.observability import capture_unexpected
-from tagger.core.paths import app_data_dir
+from tagger.core.paths import log_dir
 from tagger.core.tasks import cancel_all
 from tagger.playlists import list_playlists, read_playlist
 from tagger.playlists.extraction import extract
 from tagger.protocol import (
+    CacheCleared,
+    CacheSize,
     DuplicatePayload,
     ExtractionFinished,
     ExtractPlaylist,
@@ -42,6 +45,7 @@ from tagger.protocol import (
     RunsListed,
     SetApiKey,
     StartTagging,
+    ThresholdsPayload,
     TrackLoaded,
     TrackNames,
     UnreadablePlanPayload,
@@ -59,6 +63,9 @@ from tagger.resolution.cache import (
     ArtworkUnavailableError,
     DiskCache,
     ResponseCache,
+    cache_dir,
+    cache_size,
+    clear_cache,
     resolve_host,
 )
 from tagger.resolution.matching import (
@@ -68,6 +75,7 @@ from tagger.resolution.matching import (
 from tagger.resolution.scraper_client import TechnoScraperClient
 from tagger.resolution.sources import RunSources
 from tagger.run.arbitration import Arbitration
+from tagger.run.models import TrackState
 from tagger.run.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
 from tagger.run.plan import PlanRecorder, RunPlan, plan_dir
 from tagger.run.resume import InterruptedRun, UnreadablePlan, detect_interrupted, reopen_run
@@ -110,6 +118,10 @@ def handle_get_version() -> Version:
         event="version",
         version=__version__,
         api_key_configured=read_api_key() is not None,
+        default_thresholds=ThresholdsPayload.model_validate(
+            DEFAULT_THRESHOLDS, from_attributes=True
+        ),
+        log_file=log_dir() / LOG_FILE_NAME,
     )
 
 
@@ -270,6 +282,14 @@ class CurrentRun:
         """Un geste d'arbitrage ou de rattrapage est en vol."""
         return any(not gesture.done() for gesture in self._gestures)
 
+    @property
+    def awaits_write(self) -> bool:
+        """Ses pochettes servent encore : ecriture a confirmer, ou echecs que `retry_write`
+        rejouera. `write_tags` les lit dans le cache au moment d'ecrire."""
+        if not self.committed:
+            return True
+        return any(record.state is TrackState.WRITE_ERROR for record in self.live.snapshot().tracks)
+
     def track(self, gesture: asyncio.Task[None]) -> None:
         """Reference forte sur un geste en vol, relachee a sa fin."""
         self._gestures.add(gesture)
@@ -329,7 +349,7 @@ async def _open_clients(stack: AsyncExitStack) -> tuple[TechnoScraperClient, Art
 
 
 def _cache_dir(name: str) -> Path:
-    return app_data_dir() / "cache" / name
+    return cache_dir() / name
 
 
 def _artwork_fetcher(disk: DiskCache, transports: TaggingTransports) -> ArtworkFetcher:
@@ -590,6 +610,19 @@ def handle_get_rollback_target() -> RollbackTarget:
     return RollbackTarget(
         event="rollback_target",
         run=None if target is None else RollbackRun.model_validate(target, from_attributes=True),
+    )
+
+
+def handle_get_cache_size() -> CacheSize:
+    return CacheSize(event="cache_size", size_bytes=cache_size(cache_dir()))
+
+
+def handle_clear_cache() -> CacheCleared:
+    """Le garde est dans la session, seule a connaitre le run courant."""
+    cleared = clear_cache(cache_dir())
+    logger.info("cache cleared")
+    return CacheCleared(
+        event="cache_cleared", freed_bytes=cleared.freed_bytes, size_bytes=cleared.size_bytes
     )
 
 

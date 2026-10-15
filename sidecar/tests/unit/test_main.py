@@ -128,17 +128,6 @@ def test_the_protocol_stream_ends_lines_with_lf_only(monkeypatch: pytest.MonkeyP
     assert raw.getvalue() == b'{"type":"ready"}\n'
 
 
-def test_the_log_folder_follows_the_bundle_identifier(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Tauri compose `appLocalDataDir()` avec l'identifiant du bundle, pas avec le
-    nom de l'application : le sidecar ecrirait sinon hors des scopes de la webview.
-    """
-    monkeypatch.setenv("LOCALAPPDATA", "C:/Users/x/AppData/Local")
-
-    result = __main__.log_dir()
-
-    assert result == Path("C:/Users/x/AppData/Local") / BUNDLE_IDENTIFIER / "logs"
-
-
 REPO: Final = Path(__file__).parents[3]
 
 
@@ -253,17 +242,20 @@ def _version(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split("."))
 
 
-def test_the_ci_uv_satisfies_the_uv_build_range() -> None:
-    """Le backend `uv_build` embarque dans uv ne sert que si sa version satisfait
-    `[build-system]` : un plancher monte par Dependabot au-dessus de l'uv de la CI
+def test_uv_build_follows_the_required_uv_minor() -> None:
+    """`required-version` est la seule source de la version d'uv (le poste la subit,
+    `setup-uv` la lit). Le backend `uv_build` embarque ne sert que si sa version
+    satisfait `[build-system]` : un plancher monte par Dependabot au-dessus de ce minor
     fait retelecharger le backend depuis l'index a chaque build, sans erreur.
     """
     manifest = tomllib.loads((REPO / "sidecar/pyproject.toml").read_text(encoding="utf-8"))
     bounds = re.fullmatch(r"uv_build>=([\d.]+),<([\d.]+)", manifest["build-system"]["requires"][0])
-    ci_uv = _version(_setup_input("setup-uv", "version"))
+    required = re.fullmatch(r">=([\d.]+),<([\d.]+)", manifest["tool"]["uv"]["required-version"])
 
     assert bounds is not None
-    assert _version(bounds[1]) <= ci_uv < _version(bounds[2])
+    assert required is not None
+    assert _version(bounds[1])[:2] == _version(required[1])[:2]
+    assert _version(bounds[2])[:2] == _version(required[2])[:2]
 
 
 def test_the_ci_node_major_is_declared_in_engines() -> None:

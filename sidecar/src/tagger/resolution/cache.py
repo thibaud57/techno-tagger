@@ -26,6 +26,7 @@ from uuid import uuid4
 import httpx2
 
 from tagger.core.errors import TaggerError
+from tagger.core.paths import app_data_dir
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping
@@ -78,6 +79,44 @@ class PendingWrite:
     temporary: Path
     path: Path
     key_hash: str
+
+
+class ClearedCache(NamedTuple):
+    """Octets supprimes, puis ceux qui restent : un fichier verrouille survit au vidage."""
+
+    freed_bytes: int
+    size_bytes: int
+
+
+def cache_dir() -> Path:
+    return app_data_dir() / "cache"
+
+
+def cache_size(root: Path) -> int:
+    """Taille des fichiers sous `root`, sous-dossiers compris ; zero sans dossier."""
+    return sum(_size_of(path) for path in _cached_files(root))
+
+
+def clear_cache(root: Path) -> ClearedCache:
+    """Supprime chaque fichier sous `root`. Les dossiers restent : `DiskCache.begin` les
+    recree de toute facon, et le scope de l'asset protocol vise un chemin, pas un dossier.
+
+    Un fichier qui resiste (antivirus sous Windows) reste en place et compte dans ce qui
+    reste : `_unlink` le journalise sans lever.
+    """
+    freed = remaining = 0
+    for path in _cached_files(root):
+        size = _size_of(path)
+        if _unlink(path):
+            freed += size
+        else:
+            remaining += size
+    return ClearedCache(freed_bytes=freed, size_bytes=remaining)
+
+
+def _cached_files(root: Path) -> list[Path]:
+    """Tout fichier, `.tmp` orphelin compris : le cache est jetable en entier (ADR-013)."""
+    return [path for path in root.rglob("*") if path.is_file()]
 
 
 class DiskCache:

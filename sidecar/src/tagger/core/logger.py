@@ -15,6 +15,9 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:
     from pathlib import Path
 
+# Lu aussi par `version` : l'interface revele ce fichier, le seul a joindre a un signalement.
+LOG_FILE_NAME: Final = "tagger.log"
+
 # Largeur 7 et non 5 : le plus long levelname est WARNING, et le padding ne tronque pas.
 FORMAT: Final = "%(asctime)s %(levelname)-7s %(name)-16s %(message)s"
 
@@ -40,7 +43,7 @@ def setup_logging(log_dir: Path, level: int = logging.INFO) -> None:
     formatter = logging.Formatter(FORMAT, datefmt="%Y-%m-%d %H:%M:%S")
 
     file_handler = RotatingFileHandler(
-        log_dir / "tagger.log",
+        log_dir / LOG_FILE_NAME,
         maxBytes=MAX_BYTES,
         backupCount=BACKUP_COUNT,
         encoding="utf-8",

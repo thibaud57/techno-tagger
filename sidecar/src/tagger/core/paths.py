@@ -21,6 +21,14 @@ def app_data_dir() -> Path:
     return root / BUNDLE_IDENTIFIER
 
 
+def log_dir() -> Path:
+    # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
+    # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
+    # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
+    # argument non conforme est retire en silence.
+    return app_data_dir() / "logs"
+
+
 def extended_path(path: Path) -> Path:
     """Chemin prefixe `\\\\?\\`, qui leve la limite de 260 caracteres de l'API Win32.
 

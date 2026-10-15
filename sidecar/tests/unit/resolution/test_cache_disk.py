@@ -6,7 +6,14 @@ from typing import TYPE_CHECKING, Final
 import pytest
 from stubs import raising
 
-from tagger.resolution.cache import DiskCache, ResponseCache, response_key
+from tagger.resolution.cache import (
+    ClearedCache,
+    DiskCache,
+    ResponseCache,
+    cache_size,
+    clear_cache,
+    response_key,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -45,6 +52,14 @@ def _fail_after_writing(file: BinaryIO) -> None:
 
 def _files(root: Path) -> list[Path]:
     return sorted(root.iterdir()) if root.exists() else []
+
+
+def _fill(root: Path) -> None:
+    """Une reponse et une pochette, de tailles distinctes : la somme prouve les deux dossiers."""
+    (root / "responses").mkdir(parents=True)
+    (root / "artworks").mkdir()
+    (root / "responses" / "a.json").write_bytes(TEN_BYTES)
+    (root / "artworks" / "b.jpg").write_bytes(TEN_BYTES * 2)
 
 
 def test_returns_a_written_entry_before_it_expires(tmp_path: Path, clock: FakeClock) -> None:
@@ -239,3 +254,47 @@ def test_publishes_an_entry_even_when_eviction_cannot_delete(
     _write(cache, "b")
 
     assert cache.get("b") is not None
+
+
+def test_measures_the_files_of_every_cache_folder(tmp_path: Path) -> None:
+    _fill(tmp_path)
+
+    size = cache_size(tmp_path)
+
+    assert size == 30
+
+
+def test_measures_an_absent_cache_as_empty(tmp_path: Path) -> None:
+    size = cache_size(tmp_path / "missing")
+
+    assert size == 0
+
+
+def test_clears_every_file_and_keeps_the_folders(tmp_path: Path) -> None:
+    _fill(tmp_path)
+
+    cleared = clear_cache(tmp_path)
+
+    assert cleared == ClearedCache(freed_bytes=30, size_bytes=0)
+    assert _files(tmp_path / "responses") == []
+    assert _files(tmp_path / "artworks") == []
+
+
+def test_clears_an_absent_cache_without_error(tmp_path: Path) -> None:
+    cleared = clear_cache(tmp_path / "missing")
+
+    assert cleared == ClearedCache(freed_bytes=0, size_bytes=0)
+
+
+def test_keeps_a_file_that_resists_deletion_and_counts_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sous Windows, un antivirus qui tient un fichier ouvert fait echouer `unlink`."""
+    _fill(tmp_path)
+    monkeypatch.setattr(
+        "pathlib.Path.unlink", raising(PermissionError(13, "locked by another process"))
+    )
+
+    cleared = clear_cache(tmp_path)
+
+    assert cleared == ClearedCache(freed_bytes=0, size_bytes=30)
