@@ -6,7 +6,7 @@
 
 **Architecture:** Deux tâches :
 - la préférence `thresholds` (un écart aux défauts du sidecar, `null` sinon), lue par l'onglet Tagging au lancement d'un run ;
-- la section Matching du menu des Réglages : deux rangées curseur + champ aux bornes croisées, valeurs de départ lues de `SidecarService.defaultThresholds`, enregistrement en fin de geste, bouton « Valeurs par défaut ».
+- la section Matching du menu des Réglages : deux rangées curseur + champ aux bornes croisées, valeurs de départ lues de `SidecarService.defaultThresholds`, enregistrement en fin de geste, bouton « Rétablir les valeurs par défaut ».
 
 Aucun changement côté sidecar : `start_tagging` accepte déjà des seuils optionnels.
 
@@ -35,7 +35,7 @@ Aucun changement côté sidecar : `start_tagging` accepte déjà des seuils opti
 - **Préférence éditée à la main** (croisée, hors échelle, pas des nombres) : ignorée, le run part sans seuils (Task 1, `ignores stored thresholds that are %s`).
 - **Store indisponible au lancement** : le run part sans seuils, sans lever (Task 1, `sends no thresholds when the store is unavailable`).
 - **Réglage ramené exactement sur les défauts** : enregistré `null`, il suit un recalibrage futur (Task 2, `stores no setting for thresholds equal to the defaults`).
-- **« Valeurs par défaut »** : efface le réglage et ramène les rangées aux défauts (Task 2, `resets the thresholds to the engine defaults`).
+- **« Rétablir les valeurs par défaut »** : efface le réglage et ramène les rangées aux défauts (Task 2, `resets the thresholds to the engine defaults`).
 
 ---
 
@@ -545,7 +545,7 @@ Dans `public/i18n/fr.json`, entre `"api": {…}` et `"interface": {` du bloc `se
         "hint": "Appliqué à la moyenne des deux.\nAu-dessus, validation automatique.\nEntre les deux, correspondance incertaine\u00a0: à arbitrer."
       },
       "reset": {
-        "action": "Valeurs par défaut",
+        "action": "Rétablir les valeurs par défaut",
         "blocked": "Les seuils sont déjà ceux par défaut."
       }
     },
@@ -565,7 +565,7 @@ Dans `public/i18n/en.json`, au même endroit :
         "hint": "Applied to the average of both.\nAbove it, automatic validation.\nIn between, uncertain match: to arbitrate."
       },
       "reset": {
-        "action": "Default values",
+        "action": "Restore default values",
         "blocked": "The thresholds are already the default ones."
       }
     },
@@ -579,16 +579,16 @@ Expected: PASS.
 - [ ] **Step 6: Contrôler la fenêtre**
 
 `just dev`, fenêtre à 1024 × 700, Réglages, section Matching :
-- les rangées affichent les défauts du moteur, « Valeurs par défaut » grisé avec sa raison au survol ;
+- les rangées affichent les défauts du moteur, « Rétablir les valeurs par défaut » grisé avec sa raison au survol ;
 - pousser le plancher vers le seuil haut : il s'arrête dessus ;
 - régler le seuil haut à 95, lancer un run depuis Tagging : le plan du run (`appLocalDataDir()/plans`) porte ce seuil ;
-- « Valeurs par défaut », relancer : le plan porte les défauts du moteur ;
+- « Rétablir les valeurs par défaut », relancer : le plan porte les défauts du moteur ;
 - la section tient sans défiler, le champ ne coupe pas « 100 ».
 
 - [ ] **Step 7: Mettre à jour les docs**
 
 - `docs/DESIGN.md` : retirer de « Post-MVP (non installés) » la ligne Seuils de matching (l.310) et la poser dans le Mapping, famille des champs :
-  `| Seuils de matching | \`p-slider\` lié à un \`p-inputnumber\`, bornes croisées ; « Valeurs par défaut » en \`secondary\` outlined sous la section | PrimeNG | Plancher et seuil haut. Valeurs de départ lues du sidecar (\`version.default_thresholds\`), jamais recopiées |`
+  `| Seuils de matching | \`p-slider\` lié à un \`p-inputnumber\`, bornes croisées ; « Rétablir les valeurs par défaut » en \`secondary\` outlined sous la section | PrimeNG | Plancher et seuil haut. Valeurs de départ lues du sidecar (\`version.default_thresholds\`), jamais recopiées |`
 - `docs/ARCHITECTURE.md` :
   - l.208 : « Réglables dans les Settings à l'étape 8 » devient « Réglables dans les Réglages, section Matching » ;
   - l.385 (`store`) : remplacer « seuils à l'étape 8 » par « seuils (`thresholds` : l'écart aux défauts du sidecar, `null` sinon) » ;

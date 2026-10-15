@@ -2,7 +2,7 @@
 feature: "Feature 7 : Settings"
 subproject: "seuils-de-matching-ui"
 goal: "Régler le plancher et le seuil haut du matching depuis les Réglages et les appliquer aux runs suivants"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["01-protocole-ndjson-reglages-design.md", "02-langue-et-signal-sonore-design.md"]
@@ -15,7 +15,7 @@ date: "2026-10-14"
 
 Ce sub-project ajoute la section Matching au menu des Réglages, entre API et Interface :
 - rangées Plancher et Seuil haut, chacune un curseur lié à un champ numérique ;
-- bouton « Valeurs par défaut », qui efface le réglage.
+- bouton « Rétablir les valeurs par défaut », qui efface le réglage.
 
 Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé dans `start_tagging` depuis l'onglet Tagging. Il exclut le recalibrage des défauts (ADR-008) et la reprise d'un run interrompu, qui garde les seuils de son plan.
 
@@ -24,7 +24,7 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
 À la fin de ce sub-project, on peut, dans la fenêtre Tauri :
 1. ouvrir Réglages, section Matching, et y lire les défauts du sidecar ;
 2. régler le seuil haut à 95, puis lancer un run depuis Tagging : `start_tagging` porte `thresholds` (visible dans le plan du run et son rapport) ;
-3. cliquer « Valeurs par défaut », relancer un run : `start_tagging` part sans `thresholds` et le sidecar applique les siens.
+3. cliquer « Rétablir les valeurs par défaut », relancer un run : `start_tagging` part sans `thresholds` et le sidecar applique les siens.
 
 ## Dependencies
 
@@ -33,7 +33,7 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
 
 ## Références de design
 
-- **Maquette** : `SettingsScreen`, section Matching, rangées « Plancher » et « Seuil haut ». Rangée « Mode agent IA » écartée (Post-MVP Feature 3). Bouton « Valeurs par défaut » absent de la maquette, ajouté au Reste ouvert de `.design-sync/NOTES.md`.
+- **Maquette** : `SettingsScreen`, section Matching, rangées « Plancher » et « Seuil haut ». Rangée « Mode agent IA » écartée (Post-MVP Feature 3). Bouton « Rétablir les valeurs par défaut » absent de la maquette, ajouté au Reste ouvert de `.design-sync/NOTES.md`.
 - **Design system** : fiches `components/forms/Slider`, `components/forms/InputNumber`, `components/forms/SettingsRow`, `components/forms/Button`. Les valeurs de départ 70 et 90 qu'écrivent les fiches Slider et InputNumber ne sont pas reprises (Reste ouvert).
 - Règle de lecture : `.claude/rules/design/claude-design.md`
 
@@ -69,7 +69,7 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
 - Valeurs affichées : le réglage enregistré, sinon `SidecarService.defaultThresholds()`. Tant que ni l'un ni l'autre n'est connu, les deux rangées sont grisées. Le réglage est lu au montage par `readThresholds()`.
 - Bornes croisées : le maximum du plancher est la valeur du seuil haut, le minimum du seuil haut celle du plancher, sur le curseur comme sur le champ. Les valeurs sont entières (pas de 1).
 - Enregistrement en fin de geste : `onSlideEnd` du curseur (relâché, ou perte du focus après les flèches) et `onBlur` du champ, jamais à chaque cran. Des valeurs égales aux défauts du sidecar s'enregistrent `null` : le réglage suit alors les défauts, recalibrage futur compris.
-- Bouton « Valeurs par défaut » (`button pButton` `secondary` outlined `size="small"`), aligné à droite sous les rangées : il écrit `null`, les rangées reviennent aux défauts. Grisé quand aucun réglage n'est enregistré, la raison en tooltip (`TOOLTIP`), seule exception admise au rôle du tooltip (DESIGN.md § Règles).
+- Bouton « Rétablir les valeurs par défaut » (`button pButton` `secondary` outlined `size="small"`), aligné à droite sous les rangées : il écrit `null`, les rangées reviennent aux défauts. Grisé quand aucun réglage n'est enregistré, la raison en tooltip (`TOOLTIP`), seule exception admise au rôle du tooltip (DESIGN.md § Règles).
 
 ### Lancement d'un run
 
@@ -86,13 +86,13 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
 **GIVEN** aucun réglage enregistré et `version.default_thresholds` reçu
 **WHEN** l'utilisateur ouvre la section Matching
 **THEN** les deux rangées affichent les défauts du sidecar
-**AND** « Valeurs par défaut » est grisé, sa raison en tooltip
+**AND** « Rétablir les valeurs par défaut » est grisé, sa raison en tooltip
 
 ### Scénario 2 : réglage enregistré
 **GIVEN** un seuil haut réglé à 95
 **WHEN** l'utilisateur lâche le curseur
 **THEN** la préférence `thresholds` porte le plancher affiché et un seuil haut à 95
-**AND** « Valeurs par défaut » devient actif
+**AND** « Rétablir les valeurs par défaut » devient actif
 
 ### Scénario 3 : le run part avec le réglage
 **GIVEN** la préférence `thresholds` enregistrée
@@ -101,7 +101,7 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
 
 ### Scénario 4 : retour aux défauts
 **GIVEN** un réglage enregistré
-**WHEN** l'utilisateur clique « Valeurs par défaut »
+**WHEN** l'utilisateur clique « Rétablir les valeurs par défaut »
 **THEN** la préférence `thresholds` vaut `null` et les rangées affichent les défauts du sidecar
 **AND** le run suivant part sans `thresholds`
 
@@ -127,7 +127,7 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
   - sans défauts ni réglage, les rangées sont grisées
   - enregistrer d'autres valeurs que les défauts les écrit
   - enregistrer les défauts écrit `null`
-  - « Valeurs par défaut » écrit `null` et ramène les rangées aux défauts
+  - « Rétablir les valeurs par défaut » écrit `null` et ramène les rangées aux défauts
   - le maximum du plancher suit le seuil haut, le minimum du seuil haut suit le plancher
 - `src/app/features/tagging/run/tagging-page.component.spec.ts` :
   - lancer un run envoie le réglage enregistré
@@ -146,7 +146,7 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
 
 **Options envisagées :**
 - **A. Deux rangées, comme la maquette** : lisible, mais aucun retour aux défauts sinon à les retaper.
-- **B. Deux rangées et « Valeurs par défaut »** : un geste pour suivre de nouveau les défauts du sidecar.
+- **B. Deux rangées et « Rétablir les valeurs par défaut »** : un geste pour suivre de nouveau les défauts du sidecar.
 - **C. Une rangée, curseur double** : compact, mais la plage entre les poignées se lit comme l'intervalle d'un même score, alors que le plancher porte sur les scores séparés et le seuil haut sur leur moyenne.
 - **D. Défaut rappelé et retour par rangée** : précis, mais deux retours et deux rappels pour un geste rare.
 
