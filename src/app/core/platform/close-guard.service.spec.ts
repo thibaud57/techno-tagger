@@ -1,7 +1,9 @@
 import { TestBed } from "@angular/core/testing"
+import { vi } from "vitest"
 
-import { type SidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
-import { SidecarService } from "../sidecar/sidecar.service"
+import { silenceConsoleError } from "../../../fixtures/console"
+import { type SidecarStub, provideSidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
+import { RUN_ID } from "../../../fixtures/tagging"
 import { APP_WINDOW, type AppWindow, type CloseRequest } from "./app-window"
 import { CloseGuard } from "./close-guard.service"
 
@@ -48,16 +50,41 @@ const setup = async ({ inTauri = true } = {}) => {
   appWindow.inTauri = inTauri
   const sidecar = sidecarStub()
   TestBed.configureTestingModule({
-    providers: [
-      { provide: APP_WINDOW, useValue: appWindow },
-      { provide: SidecarService, useValue: sidecar },
-    ],
+    providers: [{ provide: APP_WINDOW, useValue: appWindow }, provideSidecarStub(sidecar)],
   })
   const guard = TestBed.inject(CloseGuard)
   await guard.install()
 
   return { appWindow, sidecar, guard }
 }
+
+/** Les travaux que la garde retient : seule une ecriture ou une restauration interdit de partir. */
+const PENDING = [
+  {
+    case: "an extraction runs",
+    start: (sidecar: SidecarStub) => {
+      sidecar.extracting.set(true)
+    },
+    kind: "extraction",
+    blocked: false,
+  },
+  {
+    case: "files are being written",
+    start: (sidecar: SidecarStub) => {
+      sidecar.writing.set(true)
+    },
+    kind: "write",
+    blocked: true,
+  },
+  {
+    case: "a rollback runs",
+    start: (sidecar: SidecarStub) => {
+      sidecar.rollingBack.set({ runId: RUN_ID, trackId: null })
+    },
+    kind: "rollback",
+    blocked: true,
+  },
+] as const
 
 describe("CloseGuard", () => {
   afterEach(() => {
@@ -73,15 +100,39 @@ describe("CloseGuard", () => {
     expect(guard.request()).toBeNull()
   })
 
-  it("holds the window and asks for confirmation during an extraction", async () => {
+  it.each(PENDING)("holds the window while $case", async ({ start, kind, blocked }) => {
     const { appWindow, sidecar, guard } = await setup()
-    sidecar.extracting.set(true)
+    start(sidecar)
 
     const held = appWindow.close()
 
     expect(held).toBe(true)
-    expect(guard.request()).toEqual([{ kind: "extraction" }])
+    expect(guard.request()).toEqual([{ kind }])
+    expect(guard.blocked()).toBe(blocked)
   })
+
+  it("closes the window for good when the user leaves during an extraction", async () => {
+    const { appWindow, sidecar, guard } = await setup()
+    sidecar.extracting.set(true)
+    appWindow.close()
+
+    await guard.leave()
+
+    expect(appWindow.destroyed).toBe(1)
+  })
+
+  it.each(PENDING.filter((work) => work.blocked))(
+    "keeps the window open when the user leaves while $case",
+    async ({ start }) => {
+      const { appWindow, sidecar, guard } = await setup()
+      start(sidecar)
+      appWindow.close()
+
+      await guard.leave()
+
+      expect(appWindow.destroyed).toBe(0)
+    },
+  )
 
   it("lets the window close during a run, with arbitrations pending or a run left unwritten", async () => {
     const { appWindow, sidecar, guard } = await setup()
@@ -98,7 +149,7 @@ describe("CloseGuard", () => {
   it("lists the pending work in a fixed order", async () => {
     const { sidecar, guard } = await setup()
 
-    sidecar.rollingBack.set({ runId: "a3f9c1", trackId: null })
+    sidecar.rollingBack.set({ runId: RUN_ID, trackId: null })
     sidecar.writing.set(true)
     sidecar.extracting.set(true)
 
@@ -107,16 +158,6 @@ describe("CloseGuard", () => {
       { kind: "write" },
       { kind: "rollback" },
     ])
-  })
-
-  it("closes the window for good when the user leaves", async () => {
-    const { appWindow, sidecar, guard } = await setup()
-    sidecar.extracting.set(true)
-    appWindow.close()
-
-    await guard.leave()
-
-    expect(appWindow.destroyed).toBe(1)
   })
 
   it("keeps the window open when the user stays", async () => {
@@ -171,7 +212,7 @@ describe("CloseGuard", () => {
 
   it("reopens the application when the window refuses to close", async () => {
     const { appWindow, sidecar, guard } = await setup()
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    silenceConsoleError()
     appWindow.refuseDestroy = true
     sidecar.extracting.set(true)
     appWindow.close()
@@ -179,45 +220,6 @@ describe("CloseGuard", () => {
     await guard.leave()
 
     expect(guard.request()).toBeNull()
-  })
-
-  it.each([
-    [
-      "files are being written",
-      "write",
-      (sidecar: SidecarStub) => {
-        sidecar.writing.set(true)
-      },
-    ],
-    [
-      "a rollback runs",
-      "rollback",
-      (sidecar: SidecarStub) => {
-        sidecar.rollingBack.set({ runId: "a3f9c1", trackId: null })
-      },
-    ],
-  ] as const)("refuses to close while %s", async (_case, kind, start) => {
-    const { appWindow, sidecar, guard } = await setup()
-    start(sidecar)
-
-    const held = appWindow.close()
-    await guard.leave()
-
-    expect(held).toBe(true)
-    expect(guard.request()).toEqual([{ kind }])
-    expect(guard.blocked()).toBe(true)
-    expect(appWindow.destroyed).toBe(0)
-  })
-
-  it("lets the user leave during an extraction", async () => {
-    const { appWindow, sidecar, guard } = await setup()
-    sidecar.extracting.set(true)
-    appWindow.close()
-
-    await guard.leave()
-
-    expect(guard.blocked()).toBe(false)
-    expect(appWindow.destroyed).toBe(1)
   })
 
   it("lets the user leave once the write ends while the dialog is open", async () => {

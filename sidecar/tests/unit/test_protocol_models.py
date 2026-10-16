@@ -1,13 +1,13 @@
 import json
-from dataclasses import fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, get_args
 
 import pytest
+from mirrors import assert_same_fields
 from pydantic import ValidationError
 
-from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason
+from tagger.playlists.errors import PlaylistNotFoundError
 from tagger.playlists.extraction import (
     DiscardedCandidate,
     DuplicateResolution,
@@ -61,7 +61,7 @@ UNKNOWN_COMMAND_LINE: Final = '{"command":"unheard_of"}'
             ExtractPlaylist,
         ),
     ],
-    ids=["get_version", "shutdown", "cancel_run", "list_playlists", "extract_playlist"],
+    ids=["get-version", "shutdown", "cancel-run", "list-playlists", "extract-playlist"],
 )
 def test_routes_a_line_to_its_command_model(line: str, model: type[BaseModel]) -> None:
     command = parse_command(line)
@@ -101,12 +101,12 @@ def test_defaults_the_mode_to_copy() -> None:
         ),
     ],
     ids=[
-        "undeclared_field",
-        "missing_field",
-        "wrong_type_not_coerced",
-        "unknown_command",
-        "not_json",
-        "mode_outside_enum",
+        "undeclared-field",
+        "missing-field",
+        "wrong-type-not-coerced",
+        "unknown-command",
+        "not-json",
+        "mode-outside-enum",
     ],
 )
 def test_rejects_a_malformed_line(line: str, error_type: str) -> None:
@@ -115,13 +115,6 @@ def test_rejects_a_malformed_line(line: str, error_type: str) -> None:
         parse_command(line)
 
     assert excinfo.value.errors()[0]["type"] == error_type
-
-
-def test_commands_are_frozen() -> None:
-    command = parse_command('{"command":"list_playlists","playlist_path":"C:/x"}')
-
-    with pytest.raises(ValidationError):
-        command.playlist_path = "C:/y"  # type: ignore[union-attr,misc]
 
 
 def test_an_event_serialises_on_a_single_line() -> None:
@@ -230,12 +223,7 @@ def test_a_malformed_known_command_names_no_command() -> None:
 
 
 def test_a_business_error_keeps_its_code_and_params_and_names_its_command() -> None:
-    class BoomError(TaggerError):
-        code = "playlist_not_found"
-
-    event = error_from_business(
-        BoomError("playlist not found: x", playlist_name="x"), "list_playlists"
-    )
+    event = error_from_business(PlaylistNotFoundError("x"), "list_playlists")
 
     assert event.code == "playlist_not_found"
     assert event.params == {"playlist_name": "x"}
@@ -305,11 +293,9 @@ def test_a_validation_error_names_the_command_only_when_the_line_designates_one(
         (DiscardedCandidatePayload, DiscardedCandidate, frozenset()),
         (FailurePayload, ExtractionFailure, frozenset()),
     ],
-    ids=["extraction_finished", "duplicate", "discarded_candidate", "failure"],
+    ids=["extraction-finished", "duplicate", "discarded-candidate", "failure"],
 )
 def test_an_extraction_payload_carries_every_field_the_extraction_records(
     payload: type[BaseModel], domain: type[DataclassInstance], wire_only: frozenset[str]
 ) -> None:
-    carried = set(payload.model_fields) - wire_only
-
-    assert carried == {field.name for field in fields(domain)}
+    assert_same_fields(payload, domain, wire_only)

@@ -2,6 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { firstValueFrom } from "rxjs"
 
+import { translateWith } from "../../../fixtures/translate"
 import { ReasonTextPipe, extractionReasonKeys, rollbackReasonKeys, trackReasonKeys } from "./reason"
 
 describe("reason keys", () => {
@@ -41,8 +42,7 @@ describe("reason keys", () => {
 describe("ReasonTextPipe", () => {
   const pipe = () => {
     TestBed.configureTestingModule({ providers: [provideTranslateService()] })
-    const translate = TestBed.inject(TranslateService)
-    translate.setTranslation("en", {
+    translateWith({
       reason: {
         file_locked: "locked",
         write_failed: "not written",
@@ -50,7 +50,6 @@ describe("ReasonTextPipe", () => {
         retry: { rollback: "restore again" },
       },
     })
-    translate.use("en")
 
     return TestBed.runInInjectionContext(() => new ReasonTextPipe())
   }

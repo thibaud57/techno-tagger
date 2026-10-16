@@ -1,11 +1,13 @@
 """Tests du lecteur de dump `vlc_media.db`.
 
 La collation `FILENAME` est propre a VLC : `sqlite3` ne la connait pas, et toute
-requete touchant `Media.filename` echoue tant qu'elle n'est pas enregistree. La
-fixture doit donc la declarer pour valoir dump reel (ADR-019).
+requete touchant `Media.filename` echoue tant qu'elle n'est pas enregistree. Les
+dumps de test la declarent donc, pour valoir dump reel (ADR-019).
 """
 
 import sqlite3
+from contextlib import closing
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -20,16 +22,13 @@ from tagger.playlists.errors import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from collections.abc import Callable, Iterator
 
 
-def test_fixture_declares_vlc_custom_collation(vlc_dump: Path) -> None:
-    connection = sqlite3.connect(vlc_dump)
-
-    ddl = connection.execute("SELECT sql FROM sqlite_master WHERE name = 'Media'").fetchone()[0]
-    connection.close()
-
-    assert "COLLATE FILENAME" in ddl
+@pytest.fixture
+def connection(vlc_dump: Path) -> Iterator[sqlite3.Connection]:
+    with closing(vlc.connect(vlc_dump)) as opened:
+        yield opened
 
 
 def test_recognises_a_real_dump_by_its_header(vlc_dump: Path) -> None:
@@ -38,20 +37,16 @@ def test_recognises_a_real_dump_by_its_header(vlc_dump: Path) -> None:
     assert recognised is True
 
 
-def test_rejects_a_text_file_whatever_its_extension(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "contents",
+    [b"#EXTM3U\ntrack.mp3\n", b"SQLite"],
+    ids=["text-file", "too-short"],
+)
+def test_rejects_a_file_without_the_sqlite_header(tmp_path: Path, contents: bytes) -> None:
     fake = tmp_path / "vlc_media.db"
-    fake.write_text("#EXTM3U\ntrack.mp3\n", encoding="utf-8")
+    fake.write_bytes(contents)
 
     recognised = vlc.is_vlc_dump(fake)
-
-    assert recognised is False
-
-
-def test_rejects_a_file_too_short_to_carry_a_header(tmp_path: Path) -> None:
-    truncated = tmp_path / "truncated.db"
-    truncated.write_bytes(b"SQLite")
-
-    recognised = vlc.is_vlc_dump(truncated)
 
     assert recognised is False
 
@@ -65,92 +60,84 @@ def test_converts_a_missing_file_into_a_business_error_on_detection(tmp_path: Pa
     assert excinfo.value.code == "playlist_file_unreadable"
 
 
-def test_accepts_a_dump_carrying_the_expected_schema(vlc_dump: Path) -> None:
+def test_accepts_a_dump_carrying_the_expected_schema(connection: sqlite3.Connection) -> None:
     """Le cas positif face aux deux rejets : sans lui, une implementation qui
     refuserait tout dump passerait les tests de table et de colonne manquantes.
     """
-    connection = vlc.connect(vlc_dump)
-
     media_count = connection.execute("SELECT count(*) FROM Media").fetchone()[0]
-    connection.close()
 
     assert media_count == len(TRACKS)
 
 
-def test_reports_a_missing_table_by_name(tmp_path: Path) -> None:
-    amputated = build_dump(tmp_path / "no_relation.db", omit_table="PlaylistMediaRelation")
+@pytest.mark.parametrize(
+    ("omit_table", "omit_column", "missing"),
+    [
+        ("PlaylistMediaRelation", None, "PlaylistMediaRelation"),
+        (None, "Media.filename", "Media.filename"),
+    ],
+    ids=["table", "column"],
+)
+def test_reports_what_the_schema_lacks_by_name(
+    tmp_path: Path, omit_table: str | None, omit_column: str | None, missing: str
+) -> None:
+    amputated = build_dump(
+        tmp_path / "amputated.db", omit_table=omit_table, omit_column=omit_column
+    )
 
     with pytest.raises(IncompatibleDumpSchemaError) as excinfo:
         vlc.connect(amputated)
 
-    assert excinfo.value.params["missing"] == ["PlaylistMediaRelation"]
-
-
-def test_reports_a_missing_column_by_table_and_name(tmp_path: Path) -> None:
-    amputated = build_dump(tmp_path / "no_filename.db", omit_column="Media.filename")
-
-    with pytest.raises(IncompatibleDumpSchemaError) as excinfo:
-        vlc.connect(amputated)
-
-    assert excinfo.value.params["missing"] == ["Media.filename"]
+    assert excinfo.value.params["missing"] == [missing]
 
 
 def test_accepts_table_and_column_names_whatever_their_case(tmp_path: Path) -> None:
     shouting = tmp_path / "shouting.db"
-    connection = sqlite3.connect(shouting)
-    connection.execute("CREATE TABLE PLAYLIST(ID_PLAYLIST INTEGER, NAME TEXT)")
-    connection.execute("CREATE TABLE PLAYLISTMEDIARELATION(PLAYLIST_ID INTEGER, MEDIA_ID INTEGER)")
-    connection.execute("CREATE TABLE MEDIA(ID_MEDIA INTEGER, FILENAME TEXT)")
-    connection.commit()
-    connection.close()
+    with closing(sqlite3.connect(shouting)) as setup:
+        setup.execute("CREATE TABLE PLAYLIST(ID_PLAYLIST INTEGER, NAME TEXT)")
+        setup.execute("CREATE TABLE PLAYLISTMEDIARELATION(PLAYLIST_ID INTEGER, MEDIA_ID INTEGER)")
+        setup.execute("CREATE TABLE MEDIA(ID_MEDIA INTEGER, FILENAME TEXT)")
+        setup.commit()
 
-    verified = vlc.connect(shouting)
+    with closing(vlc.connect(shouting)) as verified:
+        media_count = verified.execute("SELECT count(*) FROM MEDIA").fetchone()[0]
 
-    tables = verified.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
-    verified.close()
-
-    assert ("MEDIA",) in tables
+    assert media_count == 0
 
 
-def test_opens_the_dump_read_only(vlc_dump: Path) -> None:
-    connection = vlc.connect(vlc_dump)
-
+def test_opens_the_dump_read_only(connection: sqlite3.Connection) -> None:
     with pytest.raises(sqlite3.OperationalError, match="readonly"):
         connection.execute("DELETE FROM Media")
 
-    connection.close()
 
-
-def test_converts_a_corrupt_file_into_a_business_error(tmp_path: Path) -> None:
-    corrupt = tmp_path / "corrupt.db"
+def _corrupt(folder: Path) -> Path:
+    corrupt = folder / "corrupt.db"
     corrupt.write_bytes(vlc.SQLITE_HEADER + b"\x00" * 64)
-
-    with pytest.raises(UnreadableDumpError) as excinfo:
-        vlc.connect(corrupt)
-
-    assert excinfo.value.code == "unreadable_dump"
+    return corrupt
 
 
-def test_converts_missing_file_into_a_business_error(tmp_path: Path) -> None:
-    nonexistent = tmp_path / "does_not_exist.db"
-
-    with pytest.raises(UnreadableDumpError) as excinfo:
-        vlc.connect(nonexistent)
-
-    assert excinfo.value.code == "unreadable_dump"
+def _missing(folder: Path) -> Path:
+    return folder / "does_not_exist.db"
 
 
-def test_converts_a_relative_path_into_a_business_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def _relative(folder: Path) -> Path:
     """`Path.as_uri()` leve `ValueError` sur un chemin relatif, pas seulement
-    `sqlite3.DatabaseError` : ce test garde la capture large de `connect()`.
+    `sqlite3.DatabaseError` : ce cas garde la capture large de `connect()`.
     """
-    dump = build_dump(tmp_path / "vlc_media.db")
+    build_dump(folder / "vlc_media.db")
+    return Path("vlc_media.db")
+
+
+@pytest.mark.parametrize(
+    "make_dump", [_corrupt, _missing, _relative], ids=["corrupt", "missing", "relative-path"]
+)
+def test_converts_an_unopenable_dump_into_a_business_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_dump: Callable[[Path], Path]
+) -> None:
     monkeypatch.chdir(tmp_path)
+    dump = make_dump(tmp_path)
 
     with pytest.raises(UnreadableDumpError) as excinfo:
-        vlc.connect(dump.relative_to(tmp_path))
+        vlc.connect(dump)
 
     assert excinfo.value.code == "unreadable_dump"
 

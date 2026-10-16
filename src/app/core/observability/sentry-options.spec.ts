@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/angular"
+import { vi } from "vitest"
 
 import { sentryOptions } from "./sentry-options"
 
@@ -16,6 +17,9 @@ describe("sentryOptions", () => {
 
   beforeEach(() => {
     sent = []
+    // Avant `Sentry.init` : une integration Console encore active envelopperait ce faux et le
+    // test verrait alors son breadcrumb au lieu de passer a vide.
+    vi.spyOn(console, "warn").mockImplementation(() => undefined)
     Sentry.init({
       ...sentryOptions("https://key@o0.ingest.sentry.io/0", "techno-tagger@test", "test"),
       transport: () => ({
@@ -32,6 +36,7 @@ describe("sentryOptions", () => {
 
   afterEach(async () => {
     await Sentry.close()
+    vi.restoreAllMocks()
   })
 
   it("asks Sentry never to infer the user's IP address", async () => {
@@ -47,6 +52,7 @@ describe("sentryOptions", () => {
     Sentry.captureException(new Error("boom"))
     await Sentry.flush()
 
+    expect(sent).toHaveLength(1)
     expect(sent[0]?.breadcrumbs ?? []).not.toContainEqual(
       expect.objectContaining({ category: "console" }),
     )

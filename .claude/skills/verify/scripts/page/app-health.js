@@ -5,6 +5,7 @@
 //   node cdp.mjs page/app-health.js tabs     clique chaque p-tab, releve l'URL et le h1
 //   node cdp.mjs page/app-health.js list <dump>    listPlaylists sur un dump de fixture
 //   node cdp.mjs page/app-health.js cache    get_cache_size puis clear_cache, signaux relus
+//   node cdp.mjs page/app-health.js asset <chemin>   charge ce fichier par l'asset protocol (scope compris)
 ;(async () => {
   const [action, target] = __args
   const service = __sidecarService()
@@ -53,6 +54,13 @@
       visited.push({ tab: tab.textContent.trim(), ...here() })
     }
     return { visited }
+  }
+
+  if (action === "asset") {
+    const image = new Image()
+    image.src = window.__TAURI_INTERNALS__.convertFileSrc(target, "asset")
+    await until(() => image.complete, 5000)
+    return { src: image.src, loaded: image.naturalWidth > 0 }
   }
 
   if (action === "cache") {

@@ -1,31 +1,33 @@
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import (
     CHOOSE_ON_BEATPORT,
-    Conversation,
+    REFUSE_BEATPORT,
+    arbitrate,
     conversation,
     resolved_run,
+    rows,
     start_command,
 )
-from scraper_responses import BASIEL, YOUR_MIND
-from tagging_api import ONE_TRACK, FakeApi, hold_with_bandcamp_fallback, two_tracks
+from scraper_responses import YOUR_MIND
+from tagging_api import (
+    BANDCAMP_SEARCH,
+    FIRST_TRACK,
+    ONE_TRACK,
+    FakeApi,
+    hold_with_bandcamp_fallback,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
     from pathlib import Path
 
     from memory_keyring import MemoryKeyring
+    from ndjson_loop import Conversation
     from tagging_api import Gate
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
-
-REFUSE_BEATPORT: Final = {
-    "command": "resolve_arbitration",
-    "track_id": ONE_TRACK,
-    "source": "beatport",
-    "candidate": None,
-}
 
 
 @pytest.fixture
@@ -37,21 +39,21 @@ def api(api: FakeApi) -> FakeApi:
 
 async def _refusal_in_flight(talk: Conversation, folder: Path, api: FakeApi) -> Gate:
     """Run termine, refus de Beatport envoye, appel Bandcamp retenu par la porte rendue."""
-    slow = api.gate("/bandcamp/search", YOUR_MIND)
+    slow = api.gate(BANDCAMP_SEARCH, YOUR_MIND)
     await resolved_run(talk, folder)
     talk.send(**REFUSE_BEATPORT)
-    await slow.reached.wait()
+    await slow.wait_reached()
     return slow
 
 
 async def test_refuses_beatport_then_resolves_the_track_on_a_bandcamp_candidate(
-    unresolved_folder: Path, api: FakeApi
+    unresolved_folder: Path,
 ) -> None:
     async with conversation() as talk:
         await resolved_run(talk, unresolved_folder)
         talk.send(**REFUSE_BEATPORT)
         switched = await talk.expect("arbitration_updated")
-        talk.send(command="resolve_arbitration", track_id=ONE_TRACK, source="bandcamp", candidate=0)
+        talk.send(**arbitrate("bandcamp", 0))
         resolved = await talk.expect("track_resolved", track_id=ONE_TRACK)
 
     assert (switched["source"], switched["other_source"]) == ("bandcamp", "beatport")
@@ -74,66 +76,84 @@ async def test_shows_the_beatport_list_again_without_calling_the_api(
         back = await talk.expect("arbitration_updated")
 
     assert (back["source"], back["other_source"]) == ("beatport", "bandcamp")
-    assert isinstance(back["candidates"], list)
-    assert len(back["candidates"]) == 2
+    assert len(rows(back, "candidates")) == 2
     assert len(api.requests) == calls
 
 
 async def test_answers_an_awaiting_track_after_the_run_is_cancelled(
-    tmp_path: Path, app_data: None, api: FakeApi
+    two_tracks_folder: Path, basiel_gate: Gate
 ) -> None:
-    folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", BASIEL)
-
     async with conversation() as talk:
-        talk.send(**start_command(folder))
-        await talk.expect("arbitration_required", track_id="a.mp3")
-        await slow.reached.wait()
+        talk.send(**start_command(two_tracks_folder))
+        await talk.expect("arbitration_required", track_id=FIRST_TRACK)
+        await basiel_gate.wait_reached()
         talk.send(command="cancel_run")
-        talk.send(command="resolve_arbitration", track_id="a.mp3", source="beatport", candidate=0)
-        resolved = await talk.expect("track_resolved", track_id="a.mp3")
+        talk.send(**arbitrate("beatport", 0, FIRST_TRACK))
+        resolved = await talk.expect("track_resolved", track_id=FIRST_TRACK)
 
     assert resolved["resolution"] == "arbitration"
 
 
 async def test_keeps_the_current_run_arbitrable_when_a_second_run_is_refused(
-    tmp_path: Path, app_data: None, api: FakeApi
+    two_tracks_folder: Path, basiel_gate: Gate
 ) -> None:
-    folder = two_tracks(tmp_path)
-    slow = api.gate("/beatport/search", BASIEL)
-
     async with conversation() as talk:
-        talk.send(**start_command(folder))
-        await talk.expect("arbitration_required", track_id="a.mp3")
-        await slow.reached.wait()
-        talk.send(**start_command(folder))
+        talk.send(**start_command(two_tracks_folder))
+        await talk.expect("arbitration_required", track_id=FIRST_TRACK)
+        await basiel_gate.wait_reached()
+        talk.send(**start_command(two_tracks_folder))
         await talk.expect("error", code="phase_busy", params={"phase": "tagging"})
-        talk.send(command="resolve_arbitration", track_id="a.mp3", source="beatport", candidate=0)
-        resolved = await talk.expect("track_resolved", track_id="a.mp3")
-        slow.release.set()
+        talk.send(**arbitrate("beatport", 0, FIRST_TRACK))
+        resolved = await talk.expect("track_resolved", track_id=FIRST_TRACK)
+        basiel_gate.release.set()
 
     assert resolved["resolution"] == "arbitration"
 
 
-async def test_drops_the_arbitrations_of_a_run_replaced_by_a_new_one(
-    unresolved_folder: Path, empty_folder: Path, api: FakeApi
+async def _no_run(
+    _talk: Conversation, _folder: Path, _empty: Path, _keyring: MemoryKeyring
+) -> None:
+    pass
+
+
+async def _replaced_by_an_empty_run(
+    talk: Conversation, folder: Path, empty: Path, _keyring: MemoryKeyring
+) -> None:
+    await resolved_run(talk, folder)
+    talk.send(**start_command(empty))
+    await talk.expect("run_finished")
+
+
+async def _failed_to_open(
+    talk: Conversation, folder: Path, _empty: Path, keyring: MemoryKeyring
+) -> None:
+    await resolved_run(talk, folder)
+    keyring.secrets.clear()
+    talk.send(**start_command(folder))
+    await talk.expect("error", code="api_key_missing")
+
+
+@pytest.mark.parametrize(
+    "arrange",
+    [_no_run, _replaced_by_an_empty_run, _failed_to_open],
+    ids=["before-any-run", "run-replaced", "new-run-failed-to-open"],
+)
+async def test_leaves_no_arbitrable_run(
+    unresolved_folder: Path,
+    empty_folder: Path,
+    memory_keyring: MemoryKeyring,
+    arrange: Callable[[Conversation, Path, Path, MemoryKeyring], Awaitable[None]],
 ) -> None:
     async with conversation() as talk:
-        await resolved_run(talk, unresolved_folder)
-        talk.send(**start_command(empty_folder))
-        await talk.expect("run_finished")
+        await arrange(talk, unresolved_folder, empty_folder, memory_keyring)
         talk.send(**CHOOSE_ON_BEATPORT)
-        error = await talk.expect("error")
+        error = await talk.expect("error", code="arbitration_not_pending")
 
-    assert (error["code"], error["command"], error["params"]) == (
-        "arbitration_not_pending",
-        "resolve_arbitration",
-        {"track_id": ONE_TRACK},
-    )
+    assert (error["command"], error["params"]) == ("resolve_arbitration", {"track_id": ONE_TRACK})
 
 
 async def test_reports_a_rejected_gesture_with_its_command_and_its_track(
-    unresolved_folder: Path, api: FakeApi
+    unresolved_folder: Path,
 ) -> None:
     async with conversation() as talk:
         await resolved_run(talk, unresolved_folder)
@@ -161,49 +181,32 @@ async def test_answers_another_command_while_a_refusal_waits_for_bandcamp(
     assert names.index("version") < names.index("arbitration_updated")
 
 
-async def test_rejects_a_gesture_before_any_run() -> None:
-    async with conversation() as talk:
-        talk.send(**CHOOSE_ON_BEATPORT)
-        error = await talk.expect("error")
+async def _shut_down(talk: Conversation, _empty: Path) -> None:
+    talk.shut_down()
 
-    assert (error["code"], error["command"]) == ("arbitration_not_pending", "resolve_arbitration")
+
+async def _hang_up(talk: Conversation, _empty: Path) -> None:
+    talk.hang_up()
+
+
+async def _start_another_run(talk: Conversation, empty: Path) -> None:
+    talk.send(**start_command(empty))
+    await talk.expect("run_finished")
 
 
 @pytest.mark.parametrize(
     "leave",
-    [lambda talk: talk.send(command="shutdown"), Conversation.hang_up],
-    ids=["shutdown", "end-of-input"],
+    [_shut_down, _hang_up, _start_another_run],
+    ids=["shutdown", "end-of-input", "new-run"],
 )
-async def test_shuts_down_without_waiting_for_a_refusal_in_flight(
-    unresolved_folder: Path, api: FakeApi, leave: Callable[[Conversation], None]
+async def test_drops_a_refusal_in_flight_when_the_session_or_the_run_ends(
+    unresolved_folder: Path,
+    empty_folder: Path,
+    api: FakeApi,
+    leave: Callable[[Conversation, Path], Awaitable[None]],
 ) -> None:
     async with conversation() as talk:
         await _refusal_in_flight(talk, unresolved_folder, api)
-        leave(talk)
+        await leave(talk, empty_folder)
 
     assert all(event["event"] != "arbitration_updated" for event in talk.events)
-
-
-async def test_cancels_a_refusal_in_flight_when_a_new_run_starts(
-    unresolved_folder: Path, empty_folder: Path, api: FakeApi
-) -> None:
-    async with conversation() as talk:
-        await _refusal_in_flight(talk, unresolved_folder, api)
-        talk.send(**start_command(empty_folder))
-        await talk.expect("run_finished")
-
-    assert all(event["event"] != "arbitration_updated" for event in talk.events)
-
-
-async def test_leaves_no_arbitrable_run_when_a_new_one_fails_to_open(
-    unresolved_folder: Path, api: FakeApi, memory_keyring: MemoryKeyring
-) -> None:
-    async with conversation() as talk:
-        await resolved_run(talk, unresolved_folder)
-        memory_keyring.secrets.clear()
-        talk.send(**start_command(unresolved_folder))
-        await talk.expect("error", code="api_key_missing")
-        talk.send(**CHOOSE_ON_BEATPORT)
-        refused = await talk.expect("error", code="arbitration_not_pending")
-
-    assert refused["command"] == "resolve_arbitration"

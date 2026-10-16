@@ -2,7 +2,7 @@
 // a 1024 x 700 (plancher) : rangees grisees avant `version`, defauts apres, mise en page mesuree,
 // gestes a la souris et au clavier reels de Playwright, bornes croisees, champ vide. Le store Tauri
 // est indisponible sous `ng serve` : un reglage s'applique a la page sans etre retenu, ce que la
-// sonde relit par le bouton « Valeurs par defaut ». La persistance et `start_tagging` se prouvent
+// sonde relit par le bouton « Retablir les valeurs par defaut ». La persistance et `start_tagging` se prouvent
 // dans la fenetre (`page/settings-matching.js`). Lance par `run_page.mjs`, `just dev-ui` servant :4200 ;
 // `SHOTS_DIR` designe le dossier des captures (scratchpad).
 async (page) => {

@@ -1,27 +1,30 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
-import { openUrl } from "@tauri-apps/plugin-opener"
+import { vi } from "vitest"
 
-import { hostOf } from "../../../../fixtures/dom"
-import { PENDING_TRACK, TAGS_AFTER, TAGS_BEFORE, resolvedTrack } from "../../../../fixtures/tagging"
+import { silenceConsoleError } from "../../../../fixtures/console"
+import { action, hostOf } from "../../../../fixtures/dom"
+import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
+import {
+  PENDING_TRACK,
+  RESOLVED_TRACK,
+  SOURCE_URL,
+  TAGS_AFTER,
+  TAGS_BEFORE,
+} from "../../../../fixtures/tagging"
+import { NativeService } from "../../../core/platform/native.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import type { RunRow } from "./run-list.component"
 import { TrackDetailComponent } from "./track-detail.component"
 
-vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }))
-
 const BEFORE_WITHOUT_COMMENT = { ...TAGS_BEFORE, comment: null }
 
 const RESOLVED: TaggingTrack = {
-  ...resolvedTrack(PENDING_TRACK.trackId),
-  source: "beatport",
-  artworkPath: "C:/AppData/cache/artworks/abc.jpg",
+  ...RESOLVED_TRACK,
   tagsBefore: BEFORE_WITHOUT_COMMENT,
   tagsAfter: TAGS_AFTER,
 }
-
-const SOURCE_URL = "https://www.beatport.com/track/your-mind/99000101"
 
 const WITH_SOURCE: TaggingTrack = {
   ...RESOLVED,
@@ -48,6 +51,8 @@ const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
   ...shown,
 })
 
+let native: NativeStub
+
 const mountFixture = (
   track: TaggingTrack,
   inputs: Record<string, unknown> = {},
@@ -55,7 +60,7 @@ const mountFixture = (
 ) => {
   TestBed.configureTestingModule({
     imports: [TrackDetailComponent],
-    providers: [provideTranslateService()],
+    providers: [provideTranslateService(), { provide: NativeService, useValue: native }],
   })
   const fixture = TestBed.createComponent(TrackDetailComponent)
   fixture.componentRef.setInput("track", asRow(track, shown))
@@ -76,7 +81,14 @@ const rowsOf = (root: HTMLElement): string[][] =>
     [...row.querySelectorAll("[data-cell]")].map((cell) => cell.textContent.trim()),
   )
 
+const columnOf = (root: HTMLElement, index: number): (string | undefined)[] =>
+  rowsOf(root).map((row) => row[index])
+
 describe("TrackDetailComponent", () => {
+  beforeEach(() => {
+    native = nativeStub()
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -84,9 +96,7 @@ describe("TrackDetailComponent", () => {
   it("renders the rows it receives in order, with their key, before and after", () => {
     const root = mount(RESOLVED)
 
-    const rows = rowsOf(root)
-
-    expect(rows).toEqual([
+    expect(rowsOf(root)).toEqual([
       ["tagging.detail.field.artist", "TPE1", "adam beyer", "Adam Beyer"],
       ["tagging.detail.field.bpm", "TBPM", "130", "130"],
     ])
@@ -100,9 +110,7 @@ describe("TrackDetailComponent", () => {
       tagsAfter: [...TAGS_AFTER, sourceId],
     })
 
-    const labels = rowsOf(root).map((row) => row[0])
-
-    expect(labels).toEqual(["tagging.detail.field.artist", "tagging.detail.field.bpm"])
+    expect(columnOf(root, 0)).toEqual(["tagging.detail.field.artist", "tagging.detail.field.bpm"])
   })
 
   it("shows the source row by its brand name, not the contract value", () => {
@@ -116,9 +124,7 @@ describe("TrackDetailComponent", () => {
       tagsAfter: [...TAGS_AFTER, source],
     })
 
-    const row = rowsOf(root).at(-1)
-
-    expect(row?.[3]).toBe("Bandcamp")
+    expect(columnOf(root, 3).at(-1)).toBe("Bandcamp")
   })
 
   it("marks a missing value with an em dash", () => {
@@ -131,41 +137,31 @@ describe("TrackDetailComponent", () => {
       tagsAfter: [{ field: "label", key: "TPUB", value: "Drumcode" }],
     })
 
-    const rows = rowsOf(root)
-
-    expect(rows).toEqual([["tagging.detail.field.label", "TPUB", "—", "Drumcode"]])
+    expect(rowsOf(root)).toEqual([["tagging.detail.field.label", "TPUB", "—", "Drumcode"]])
   })
 
   it("adds a comment row when the file carries one", () => {
     const root = mount({ ...RESOLVED, tagsBefore: TAGS_BEFORE })
 
-    const commented = rowsOf(root).at(-1)
-
-    expect(commented).toEqual(["tagging.detail.field.comment", "", "Ripped by X", "—"])
+    expect(rowsOf(root).at(-1)).toEqual(["tagging.detail.field.comment", "", "Ripped by X", "—"])
   })
 
   it("adds no comment row when the file carries none", () => {
     const root = mount(RESOLVED)
 
-    const rows = rowsOf(root)
-
-    expect(rows).toHaveLength(2)
+    expect(rowsOf(root)).toHaveLength(2)
   })
 
   it("shows em dashes after an unresolved track", () => {
     const root = mount({ ...RESOLVED, state: "unresolved", resolution: "none", tagsAfter: null })
 
-    const afters = rowsOf(root).map((row) => row[3])
-
-    expect(afters).toEqual(["—", "—"])
+    expect(columnOf(root, 3)).toEqual(["—", "—"])
   })
 
   it("builds the rows from the tags after when the tags before are unreadable", () => {
     const root = mount({ ...RESOLVED, tagsBefore: null })
 
-    const rows = rowsOf(root)
-
-    expect(rows.map((row) => [row[0], row[2], row[3]])).toEqual([
+    expect(rowsOf(root).map((row) => [row[0], row[2], row[3]])).toEqual([
       ["tagging.detail.field.artist", "—", "Adam Beyer"],
       ["tagging.detail.field.bpm", "—", "130"],
     ])
@@ -174,37 +170,34 @@ describe("TrackDetailComponent", () => {
   it("says the tags could not be read when there is neither before nor after", () => {
     const root = mount({ ...RESOLVED, state: "unresolved", tagsBefore: null, tagsAfter: null })
 
-    const message = root.querySelector("[data-unreadable]")?.textContent.trim()
-
-    expect(message).toBe("tagging.detail.unreadable")
+    expect(root.querySelector("[data-unreadable]")?.textContent.trim()).toBe(
+      "tagging.detail.unreadable",
+    )
     expect(root.querySelector("[data-detail-row]")).toBeNull()
   })
 
   it("shows the artwork it receives", () => {
     const root = mount(RESOLVED, {}, { artworkUrl: "asset://localhost/abc.jpg" })
 
-    const image = root.querySelector("img")
-
-    expect(image?.getAttribute("src")).toBe("asset://localhost/abc.jpg")
+    expect(root.querySelector("img")?.getAttribute("src")).toBe("asset://localhost/abc.jpg")
   })
 
   it("shows a skeleton artwork while the track awaits its turn", () => {
     const root = mount({ ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }, {}, { artworkPending: true })
 
-    const skeleton = root.querySelector("p-skeleton")
-
-    expect(skeleton).not.toBeNull()
+    expect(root.querySelector("p-skeleton")).not.toBeNull()
   })
 
-  it.each([
-    { case: "a restorable track", inputs: { restorable: true }, offered: true },
-    { case: "a track that is not restorable", inputs: {}, offered: false },
-  ])("tells whether the restore is offered on $case", ({ inputs, offered }) => {
-    const root = mount(RESOLVED, inputs)
+  it("offers the restore on a restorable track", () => {
+    const root = mount(RESOLVED, { restorable: true })
 
-    const button = root.querySelector('[data-action="restore-track"]')
+    expect(action("restore-track", root)).not.toBeNull()
+  })
 
-    expect(button !== null).toBe(offered)
+  it("offers no restore on a track that is not restorable", () => {
+    const root = mount(RESOLVED)
+
+    expect(action("restore-track", root)).toBeNull()
   })
 
   it("asks to restore its track on click", () => {
@@ -212,7 +205,7 @@ describe("TrackDetailComponent", () => {
     const asked = vi.fn()
     fixture.componentInstance.restore.subscribe(asked)
 
-    hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-track"]')?.click()
+    action("restore-track", hostOf(fixture))?.click()
 
     expect(asked).toHaveBeenCalledWith(RESOLVED.trackId)
   })
@@ -220,25 +213,23 @@ describe("TrackDetailComponent", () => {
   it("disables the restore while files are busy", () => {
     const root = mount(RESOLVED, { restorable: true, blocked: true })
 
-    const button = root.querySelector<HTMLButtonElement>('[data-action="restore-track"]')
-
-    expect(button?.disabled).toBe(true)
+    expect(action("restore-track", root)?.disabled).toBe(true)
   })
 
   it("opens the source page from the url line", () => {
     const root = mount(WITH_SOURCE)
 
-    root.querySelector<HTMLButtonElement>('[data-action="open-source"]')?.click()
+    action("open-source", root)?.click()
 
-    expect(openUrl).toHaveBeenCalledWith(SOURCE_URL)
+    expect(native.openUrl).toHaveBeenCalledWith(SOURCE_URL)
   })
 
   it("logs the failure when the source page cannot be opened", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
-    vi.mocked(openUrl).mockRejectedValueOnce(new Error("no default browser"))
+    const error = silenceConsoleError()
+    native.openUrl.mockRejectedValueOnce(new Error("no default browser"))
     const root = mount(WITH_SOURCE)
 
-    root.querySelector<HTMLButtonElement>('[data-action="open-source"]')?.click()
+    action("open-source", root)?.click()
 
     await vi.waitFor(() => {
       expect(error).toHaveBeenCalled()
@@ -248,17 +239,13 @@ describe("TrackDetailComponent", () => {
   it("puts the link on the url line only", () => {
     const root = mount(WITH_SOURCE)
 
-    const links = root.querySelectorAll('[data-action="open-source"]')
-
-    expect(links).toHaveLength(1)
+    expect(root.querySelectorAll('[data-action="open-source"]')).toHaveLength(1)
   })
 
   it("keeps the url line as text without a source page", () => {
     const root = mount({ ...WITH_SOURCE, sourceUrl: null })
 
-    const link = root.querySelector('[data-action="open-source"]')
-
-    expect(link).toBeNull()
-    expect(rowsOf(root).at(-1)?.[3]).toBe(SOURCE_URL)
+    expect(action("open-source", root)).toBeNull()
+    expect(columnOf(root, 3).at(-1)).toBe(SOURCE_URL)
   })
 })

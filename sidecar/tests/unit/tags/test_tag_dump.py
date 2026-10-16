@@ -6,10 +6,10 @@ from types import MappingProxyType
 from typing import Final
 
 import pytest
+from fs_listing import names
 from pydantic import ValidationError
 from stubs import raising, unlink_except
-from tagging_api import CREATED
-from tagging_records import RUN_ID
+from tagging_records import CREATED, RUN_ID, UNREADABLE_CONTENTS
 
 from tagger.tags.files import OriginalTags, TagField, TagSystem
 from tagger.tags.tag_dump import (
@@ -281,8 +281,10 @@ def test_refuses_a_dump_of_an_unknown_version(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "content",
-    ["{not json", '{"schema_version": 1, "run_id": 42}'],
-    ids=["broken-json", "invalid-fields"],
+    [
+        *UNREADABLE_CONTENTS,
+        pytest.param('{"schema_version": 1, "run_id": 42}', id="invalid-fields"),
+    ],
 )
 def test_refuses_an_unreadable_dump(tmp_path: Path, content: str) -> None:
     path = tmp_path / "20261006T211403Z-a3f9c1.json"
@@ -300,7 +302,7 @@ def test_leaves_no_partial_file_when_the_dump_cannot_be_written(
     with pytest.raises(TagDumpWriteError, match="tag dump not written"):
         _saved(tmp_path, "a.mp3")
 
-    assert list(tmp_path.iterdir()) == []
+    assert names(tmp_path) == []
 
 
 @pytest.mark.parametrize(
@@ -334,7 +336,7 @@ def test_purges_the_files_of_runs_older_than_thirty_days(
 
     purge_dumps(tmp_path, CREATED)
 
-    assert sorted(path.name for path in tmp_path.iterdir()) == kept
+    assert names(tmp_path) == kept
 
 
 def test_purge_ignores_a_missing_folder(tmp_path: Path) -> None:
@@ -444,4 +446,4 @@ def test_deleting_a_dump_left_empty_deletes_its_journal(tmp_path: Path) -> None:
 
     remove_entries(tmp_path, load_dump(dump_path(tmp_path, saved)), {"a.mp3"})
 
-    assert list(tmp_path.iterdir()) == []
+    assert names(tmp_path) == []

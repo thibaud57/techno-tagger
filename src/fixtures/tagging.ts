@@ -1,5 +1,6 @@
 import type {
   ArbitrationRequiredEvent,
+  ArbitrationUpdatedEvent,
   RunStartedEvent,
   TagValue,
   TagsBefore,
@@ -10,9 +11,15 @@ import type { TaggingTrack } from "../app/core/stores/tagging-run.store"
 
 // Evenements d'un run de re-tagging partages par les specs.
 
+/** Identifiant du run que reprennent toutes les fixtures : une seule valeur a changer. */
+export const RUN_ID = "a3f9c1"
+
+/** Fiche source d'un morceau Beatport, que `TRACK_LOADED` et les specs de ligne reprennent. */
+export const SOURCE_URL = "https://www.beatport.com/track/your-mind/99000101"
+
 export const RUN_STARTED: RunStartedEvent = {
   event: "run_started",
-  run_id: "a3f9c1",
+  run_id: RUN_ID,
   folder: "C:/Sets",
   tracks: [
     {
@@ -46,6 +53,12 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
   restorable: false,
   source_url: null,
 }
+
+/** Resolution du morceau `trackId` : un test pose ses ecarts (etat, source...) par `overrides`. */
+export const trackResolved = (
+  trackId: string,
+  overrides: Partial<TrackResolvedEvent> = {},
+): TrackResolvedEvent => ({ ...TRACK_RESOLVED, track_id: trackId, ...overrides })
 
 /** Ligne du run avant resolution, le premier morceau de `RUN_STARTED`. Un test pose son etat par spread. */
 export const PENDING_TRACK: TaggingTrack = {
@@ -113,6 +126,15 @@ export const recoveredTrack = (trackId: string): TaggingTrack => ({
   source: "bandcamp",
 })
 
+/** Ligne resolue par Beatport, avec ses scores et sa pochette : le cas nominal d'une ligne affichee. */
+export const RESOLVED_TRACK: TaggingTrack = {
+  ...resolvedTrack(PENDING_TRACK.trackId),
+  source: "beatport",
+  after: { artist: "Adam Beyer", title: "Your Mind (Original Mix)" },
+  scores: { artist: 96, title: 92, average: 94 },
+  artworkPath: "C:/AppData/cache/artworks/abc.jpg",
+}
+
 /** Tags lus avant l'ecriture : deux champs et un commentaire que l'ecriture supprime. */
 export const TAGS_BEFORE: TagsBefore = {
   system: "id3",
@@ -146,4 +168,22 @@ export const arbitrationRequired = (trackId: string): ArbitrationRequiredEvent =
   ],
   empty_reason: null,
   other_source: null,
+})
+
+/** Bascule sur Bandcamp, sans candidat : Beatport a ete tente avant. */
+export const arbitrationUpdated = (trackId: string): ArbitrationUpdatedEvent => ({
+  ...arbitrationRequired(trackId),
+  event: "arbitration_updated",
+  source: "bandcamp",
+  candidates: [],
+  empty_reason: "no_result",
+  other_source: "beatport",
+})
+
+/** Ligne en attente d'arbitrage : la demande du sidecar est portee par la ligne. */
+export const awaitingTrack = (trackId: string): TaggingTrack => ({
+  ...PENDING_TRACK,
+  trackId,
+  fileName: trackId,
+  arbitration: arbitrationRequired(trackId),
 })

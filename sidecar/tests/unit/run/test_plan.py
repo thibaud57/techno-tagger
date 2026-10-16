@@ -6,12 +6,20 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+from fs_listing import files
 from ndjson_loop import held_call
 from run_plans import music, plan_of, save_plan
 from scraper_responses import track_candidate
-from stubs import raising, unlink_except
-from tagging_api import CREATED
-from tagging_records import QUERY, RECORD, RUN_ID, scored_candidate
+from stubs import locked_file, raising, spying, unlink_except
+from tagging_records import (
+    CREATED,
+    MUSIC,
+    QUERY,
+    RECORD,
+    RUN_ID,
+    UNREADABLE_CONTENTS,
+    scored_candidate,
+)
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.run_files import write_atomically
@@ -70,7 +78,6 @@ UNRESOLVED: Final = replace(
 UNAVAILABLE: Final = replace(
     RECORD, track_id="f.mp3", path=Path("music/f.mp3"), query=QUERY
 ).unresolved(FailureReason.SOURCE_UNAVAILABLE)
-MUSIC: Final = Path("music")
 
 
 def test_records_an_automatic_validation_with_its_candidate_and_scores() -> None:
@@ -161,8 +168,10 @@ def test_refuses_a_plan_of_an_unknown_version(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "content",
-    ["{not json", "[]", json.dumps({"schema_version": 1, "run_id": "a3f9c1"})],
-    ids=["corrupt", "not-an-object", "invalid-model"],
+    [
+        *UNREADABLE_CONTENTS,
+        pytest.param(json.dumps({"schema_version": 1, "run_id": RUN_ID}), id="invalid-model"),
+    ],
 )
 def test_refuses_an_unreadable_plan_without_naming_a_version(tmp_path: Path, content: str) -> None:
     path = tmp_path / "20261006T211403Z-a3f9c1.json"
@@ -200,10 +209,6 @@ def _on_disk(folder: Path) -> RunPlan:
     return load_plan(path)
 
 
-def _files(folder: Path) -> list[Path]:
-    return list(folder.iterdir())
-
-
 @pytest.mark.asyncio
 async def test_leaves_the_last_state_of_each_track_on_disk(tmp_path: Path) -> None:
     live = _live(replace(RECORD, query=QUERY), WAITING)
@@ -225,25 +230,20 @@ async def test_leaves_the_last_state_of_each_track_on_disk(tmp_path: Path) -> No
 
 @pytest.mark.asyncio
 async def test_merges_a_burst_of_decisions_into_few_writes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    music_folder: Path, plans: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     writes: list[Path] = []
-
-    def counting(path: Path, text: str) -> None:
-        writes.append(path)
-        write_atomically(path, text)
-
-    monkeypatch.setattr(plan_module, "write_atomically", counting)
-    records = music(tmp_path / "music", 20)
+    monkeypatch.setattr(plan_module, "write_atomically", spying(write_atomically, writes))
+    records = music(music_folder, 20)
     live = _live(*records)
-    recorder = _recorder(tmp_path / "plans", live)
+    recorder = _recorder(plans, live)
     for record in records:
         live.update(record.unresolved(FailureReason.NO_RESULT))
 
     await recorder.flush()
 
     assert len(writes) <= 2
-    assert _on_disk(tmp_path / "plans").processed_count() == 20
+    assert _on_disk(plans).processed_count() == 20
 
 
 @pytest.mark.asyncio
@@ -273,7 +273,7 @@ async def test_logs_a_plan_it_cannot_write_without_raising_or_leaking_the_path(
 
     await recorder.flush()
 
-    assert _files(tmp_path) == []
+    assert files(tmp_path) == []
     assert "run plan not written run=a3f9c1 reason=write_failed errno=28" in caplog.messages
     assert "private" not in caplog.text
 
@@ -348,7 +348,7 @@ async def test_discarding_deletes_the_plan(tmp_path: Path) -> None:
 
     await recorder.discard()
 
-    assert _files(tmp_path) == []
+    assert files(tmp_path) == []
 
 
 @pytest.mark.asyncio
@@ -360,7 +360,7 @@ async def test_records_nothing_once_discarded(tmp_path: Path) -> None:
 
     await recorder.flush()
 
-    assert _files(tmp_path) == []
+    assert files(tmp_path) == []
 
 
 @pytest.mark.asyncio
@@ -403,7 +403,7 @@ def test_logs_a_plan_file_it_cannot_discard(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = save_plan(tmp_path, plan_of(MUSIC, [WAITING]))
-    monkeypatch.setattr(Path, "unlink", raising(PermissionError(13, "Permission denied")))
+    monkeypatch.setattr(Path, "unlink", locked_file())
 
     discard_plan(path)
 
@@ -436,10 +436,10 @@ def test_purges_the_plans_that_will_never_be_resumed(tmp_path: Path) -> None:
     assert not orphan.exists()
 
 
-def test_purge_ignores_a_missing_folder(tmp_path: Path) -> None:
-    purge_plans(tmp_path / "plans", CREATED)
+def test_purge_ignores_a_missing_folder(plans: Path) -> None:
+    purge_plans(plans, CREATED)
 
-    assert not (tmp_path / "plans").exists()
+    assert not plans.exists()
 
 
 def test_purge_carries_on_after_a_plan_it_cannot_delete(

@@ -5,12 +5,16 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 import pytest
+from cdn_doubles import FakeCdn
 from log_capture import messages_of
 from scraper_responses import (
     ARTWORK_URL,
     BANDCAMP_TRACK,
     YOUR_MIND,
     bandcamp_track_payload,
+    failing,
+    found,
+    ok,
     track_candidate,
     track_payload,
 )
@@ -18,18 +22,14 @@ from tagging_api import (
     ONE_TRACK,
     ORIGINAL,
     FakeApi,
-    FakeCdn,
     cancelled,
-    failing,
-    found,
     must_record,
     networked_run,
-    ok,
     one_track,
     three_tracks,
     two_tracks,
 )
-from tagging_records import held, scored_candidate
+from tagging_records import awaiting, scored_candidate
 
 from tagger.resolution.scraper_client import (
     ApiContractError,
@@ -52,7 +52,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
     from pathlib import Path
 
-    from tagging_api import OpenedRun, Reply
+    from scraper_responses import Reply
+    from tagging_api import OpenedRun
 
     from tagger.run.models import TrackRecord
     from tagger.run.url_recovery import UrlRecoveryEvent
@@ -83,17 +84,6 @@ async def _recovering(
 
 def _bandcamp_found(api: FakeApi) -> None:
     api.on("/bandcamp/tracks", BANDCAMP_TRACK, ok(bandcamp_track_payload()))
-
-
-def _awaiting(record: TrackRecord) -> TrackRecord:
-    """Morceau mis en zone grise : ni etat, ni motif, une liste a trancher."""
-    return replace(
-        record,
-        state=None,
-        resolution=None,
-        failure_reason=None,
-        arbitration=held(),
-    )
 
 
 async def test_resolves_an_unresolved_track_by_url_with_the_fetched_candidate_and_its_artwork(
@@ -175,11 +165,11 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
 
     async with _recovering(three_tracks(tmp_path), api) as (opened, recovery):
         late = must_record(opened.live, "c.mp3")
-        opened.live.update(_awaiting(late))
+        opened.live.update(awaiting(late))
         await recovery.resolve("a.mp3", BANDCAMP_TRACK)
         before = recovery.progress()
 
-        opened.live.update(_awaiting(late).unresolved(FailureReason.USER_REFUSED))
+        opened.live.update(awaiting(late).unresolved(FailureReason.USER_REFUSED))
 
         after = recovery.progress()
     assert (before, after) == (UrlProgress(processed=1, total=2), UrlProgress(processed=1, total=3))
@@ -211,7 +201,7 @@ def _not_processed(record: TrackRecord) -> TrackRecord:
     [
         _resolved_by(Resolution.AUTO),
         _resolved_by(Resolution.ARBITRATION),
-        _awaiting,
+        awaiting,
         _not_processed,
     ],
     ids=["auto", "arbitration", "awaiting-arbitration", "not-processed"],
@@ -247,7 +237,7 @@ async def test_refuses_a_second_gesture_in_flight_on_the_same_track(tmp_path: Pa
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         first = asyncio.create_task(recovery.resolve(ONE_TRACK, BANDCAMP_TRACK), name="first")
-        await fetch.reached.wait()
+        await fetch.wait_reached()
         calls = len(api.requests)
 
         with pytest.raises(UrlRecoveryBusyError) as refusal:
@@ -269,7 +259,7 @@ async def test_releases_the_track_when_the_gesture_is_cancelled(tmp_path: Path) 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         before = opened.live.record(ONE_TRACK)
         gesture = asyncio.create_task(recovery.resolve(ONE_TRACK, BANDCAMP_TRACK), name="gesture")
-        await fetch.reached.wait()
+        await fetch.wait_reached()
 
         await cancelled(gesture)
 

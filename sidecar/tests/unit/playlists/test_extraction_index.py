@@ -13,34 +13,23 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_indexes_files_across_subfolders(music_library: Path) -> None:
+@pytest.mark.parametrize(
+    ("key", "indexed"),
+    [("alpha.mp3", True), ("delta.mp3", True), ("albums", False), ("absent.mp3", False)],
+    ids=["file-in-subfolder", "lowercased-key", "directory-ignored", "unknown-name"],
+)
+def test_indexes_the_files_of_the_source_under_lowercased_names(
+    music_library: Path, key: str, indexed: bool
+) -> None:
     index = build_source_index(music_library)
 
-    assert "alpha.mp3" in index
+    assert (key in index) is indexed
 
 
 def test_groups_homonyms_under_one_key(music_library: Path) -> None:
     index = build_source_index(music_library)
 
     assert len(index["beta.mp3"]) == 2
-
-
-def test_keys_are_lowercased_for_windows(music_library: Path) -> None:
-    index = build_source_index(music_library)
-
-    assert "delta.mp3" in index
-
-
-def test_ignores_directories(music_library: Path) -> None:
-    index = build_source_index(music_library)
-
-    assert "albums" not in index
-
-
-def test_leaves_no_entry_for_a_name_the_source_does_not_hold(music_library: Path) -> None:
-    index = build_source_index(music_library)
-
-    assert "absent.mp3" not in index
 
 
 def test_skips_an_excluded_subfolder(music_library: Path) -> None:

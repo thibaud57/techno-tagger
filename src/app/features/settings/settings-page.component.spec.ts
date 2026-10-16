@@ -1,24 +1,30 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import { By } from "@angular/platform-browser"
+import { provideRouter } from "@angular/router"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
-import { revealItemInDir } from "@tauri-apps/plugin-opener"
-import { load } from "@tauri-apps/plugin-store"
-import { Router, provideRouter } from "@angular/router"
 import { ConfirmationService, MessageService } from "primeng/api"
+import { vi } from "vitest"
 
-import { hostOf } from "../../../fixtures/dom"
-import { PAST_RUN } from "../../../fixtures/past-runs"
+import { spyConfirmation } from "../../../fixtures/confirm"
+import { action, errorMessageOf, hostOf, iconOf } from "../../../fixtures/dom"
+import { type NativeStub, nativeStub } from "../../../fixtures/native-stub"
+import { OTHER_PAST_RUN, PAST_RUN } from "../../../fixtures/past-runs"
+import { type PreferencesStub, preferencesStub } from "../../../fixtures/preferences-stub"
+import { stubNavigation } from "../../../fixtures/router"
+import { CUSTOM_THRESHOLDS, DEFAULT_THRESHOLDS, LOG_FILE } from "../../../fixtures/settings"
 import {
   type SidecarStubOverrides,
   commandFailed,
+  provideSidecarStub,
   sidecarStub,
 } from "../../../fixtures/sidecar-stub"
-import { storeOf, storeStub } from "../../../fixtures/tauri-store"
+import { RUN_ID } from "../../../fixtures/tagging"
+import { spyToast } from "../../../fixtures/toast"
 import { translateWith } from "../../../fixtures/translate"
 import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
+import { NativeService } from "../../core/platform/native.service"
+import { PreferencesService } from "../../core/platform/preferences.service"
 import type { CacheClearedEvent, PastRun } from "../../core/sidecar/protocol"
-import { SidecarService } from "../../core/sidecar/sidecar.service"
 import type { RollbackInFlight } from "../../core/stores/write.store"
 
 import SettingsPageComponent, {
@@ -26,16 +32,16 @@ import SettingsPageComponent, {
   type SettingsSection,
 } from "./settings-page.component"
 
-/** Store indisponible par defaut, comme hors Tauri, sauf quand un test fournit le sien. */
-vi.mock("@tauri-apps/plugin-store", () => ({
-  load: vi.fn(() => Promise.reject(new TypeError("store unavailable"))),
-}))
+interface Natives {
+  native?: NativeStub
+  preferences?: PreferencesStub
+}
 
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  revealItemInDir: vi.fn(() => Promise.resolve()),
-}))
-
-const mountWith = (overrides: SidecarStubOverrides = {}, section: SettingsSection = "api") => {
+const mountWith = (
+  overrides: SidecarStubOverrides = {},
+  section: SettingsSection = "api",
+  { native = nativeStub(), preferences = preferencesStub() }: Natives = {},
+) => {
   const service = sidecarStub({ apiKeyConfigured: signal<boolean | null>(false), ...overrides })
 
   TestBed.configureTestingModule({
@@ -45,7 +51,9 @@ const mountWith = (overrides: SidecarStubOverrides = {}, section: SettingsSectio
       provideRouter([]),
       ConfirmationService,
       MessageService,
-      { provide: SidecarService, useValue: service },
+      provideSidecarStub(service),
+      { provide: NativeService, useValue: native },
+      { provide: PreferencesService, useValue: preferences },
     ],
   })
 
@@ -53,7 +61,7 @@ const mountWith = (overrides: SidecarStubOverrides = {}, section: SettingsSectio
   fixture.componentInstance["section"].set(section)
   fixture.detectChanges()
 
-  return { fixture, component: fixture.componentInstance, service }
+  return { fixture, component: fixture.componentInstance, service, native, preferences }
 }
 
 /** Ouvre une section comme le menu : par la commande de son entree. */
@@ -64,37 +72,37 @@ const openSection = (component: SettingsPageComponent, section: SettingsSection)
 }
 
 describe("SettingsPageComponent", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it.each([
-    { configured: true, placeholder: STORED_KEY_MASK },
-    { configured: false, placeholder: "settings.api.key.placeholder" },
-  ])("signals a stored key in the placeholder ($configured)", ({ configured, placeholder }) => {
+    { case: "a stored key", configured: true, placeholder: STORED_KEY_MASK },
+    { case: "no stored key", configured: false, placeholder: "settings.api.key.placeholder" },
+  ])("signals $case in the placeholder", ({ configured, placeholder }) => {
     const { fixture } = mountWith({ apiKeyConfigured: signal(configured) })
 
-    const input = hostOf(fixture).querySelector("input#api-key")
-
-    expect(input?.getAttribute("placeholder")).toBe(placeholder)
+    expect(hostOf(fixture).querySelector("input#api-key")?.getAttribute("placeholder")).toBe(
+      placeholder,
+    )
   })
 
   it("offers no visibility toggle while nothing is typed", () => {
     const { fixture } = mountWith({ apiKeyConfigured: signal(true) })
 
-    expect(hostOf(fixture).querySelector('svg[data-p-icon="eye"]')).toBeNull()
+    expect(iconOf(hostOf(fixture), "eye")).toBeNull()
   })
 
   it("shows a key storage error under the row", () => {
     const { fixture } = mountWith(commandFailed("set_api_key", "api_key_not_stored"))
 
-    const errorMessage = hostOf(fixture).querySelector("app-error-message")
-
-    expect(errorMessage).not.toBeNull()
+    expect(errorMessageOf(hostOf(fixture))).not.toBeNull()
   })
 
   it("ignores an error raised by another screen", () => {
     const { fixture } = mountWith(commandFailed("list_playlists", "malformed_command"))
 
-    const errorMessage = hostOf(fixture).querySelector("app-error-message")
-
-    expect(errorMessage).toBeNull()
+    expect(errorMessageOf(hostOf(fixture))).toBeNull()
   })
 
   it("switches the visibility icon when the key is unmasked", () => {
@@ -104,9 +112,8 @@ describe("SettingsPageComponent", () => {
     component["toggleMask"]()
     fixture.detectChanges()
 
-    const host = hostOf(fixture)
-    expect(host.querySelector('svg[data-p-icon="eye-slash"]')).not.toBeNull()
-    expect(host.querySelector('svg[data-p-icon="eye"]')).toBeNull()
+    expect(iconOf(hostOf(fixture), "eye-slash")).not.toBeNull()
+    expect(iconOf(hostOf(fixture), "eye")).toBeNull()
   })
 
   it("masks the field again once the key is sent", async () => {
@@ -122,9 +129,7 @@ describe("SettingsPageComponent", () => {
   it("disables saving while the field is empty", () => {
     const { component } = mountWith()
 
-    const enabled = component["canSave"]()
-
-    expect(enabled).toBe(false)
+    expect(component["canSave"]()).toBe(false)
   })
 
   it("sends the key then clears the field", async () => {
@@ -137,31 +142,43 @@ describe("SettingsPageComponent", () => {
     expect(component["entry"]().apiKey).toBe("")
   })
 
-  it("asks for the last undoable run and names it", () => {
-    const { fixture, service } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) }, "admin")
+  it("asks for the last undoable run", () => {
+    const { service } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) }, "admin")
+
+    expect(service.loadRollbackTarget).toHaveBeenCalled()
+  })
+
+  it("names the last undoable run", () => {
+    const { fixture } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) }, "admin")
     translateWith({
       settings: { admin: { rollback: { target: "{{date}}|{{folder}}|{{count}}" } } },
     })
+
     fixture.detectChanges()
 
     const line = hostOf(fixture).querySelector("[data-rollback-target]")
-
-    expect(service.loadRollbackTarget).toHaveBeenCalled()
     expect(line?.textContent).toContain("|D:/Music/Promo Octobre|1")
     expect(line?.textContent).toContain("2026")
   })
 
   it.each(["loadRollbackTarget", "listRuns", "loadCacheSize"] as const)(
-    "calls %s once the engine answers, not at construction",
+    "does not call %s at construction",
+    (method) => {
+      const { service } = mountWith({ available: signal<boolean | null>(null) })
+
+      expect(service[method]).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(["loadRollbackTarget", "listRuns", "loadCacheSize"] as const)(
+    "calls %s once the engine answers",
     (method) => {
       const available = signal<boolean | null>(null)
       const { fixture, service } = mountWith({ available })
-      const before = service[method].mock.calls.length
 
       available.set(true)
       fixture.detectChanges()
 
-      expect(before).toBe(0)
       expect(service[method]).toHaveBeenCalledTimes(1)
     },
   )
@@ -176,9 +193,7 @@ describe("SettingsPageComponent", () => {
   ])("%s", (_case, overrides, reason) => {
     const { fixture, component } = mountWith(overrides, "admin")
 
-    const line = hostOf(fixture).querySelector("[data-rollback-target]")
-
-    expect(line).toBeNull()
+    expect(hostOf(fixture).querySelector("[data-rollback-target]")).toBeNull()
     expect(component["restoreBlockedReason"]()).toBe(reason)
   })
 
@@ -191,8 +206,9 @@ describe("SettingsPageComponent", () => {
 
     fixture.detectChanges()
 
-    const line = hostOf(fixture).querySelector("[data-rollback-target]")
-    expect(line?.textContent).toContain("not-a-date|D:/Music/Promo Octobre")
+    expect(hostOf(fixture).querySelector("[data-rollback-target]")?.textContent).toContain(
+      "not-a-date|D:/Music/Promo Octobre",
+    )
   })
 
   it.each([
@@ -213,7 +229,7 @@ describe("SettingsPageComponent", () => {
     {
       name: "a restore",
       overrides: {
-        rollingBack: signal<RollbackInFlight | null>({ runId: "a3f9c1", trackId: null }),
+        rollingBack: signal<RollbackInFlight | null>({ runId: RUN_ID, trackId: null }),
       },
     },
   ])("blocks the undo while $name is in progress", ({ overrides }) => {
@@ -222,50 +238,58 @@ describe("SettingsPageComponent", () => {
       "admin",
     )
 
-    const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="restore-last"]')
-
     expect(component["restoreBlockedReason"]()).toBe("tagging.rollback.blocked")
-    expect(button?.disabled).toBe(true)
+    expect(action("restore-last", hostOf(fixture))?.disabled).toBe(true)
   })
 
-  it("undoes the last run after a confirmation that names it", () => {
-    const { component, service } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
-    translateWith({ settings: { admin: { rollback: { message: "{{folder}} {{count}}" } } } })
-    const confirm = vi.spyOn(TestBed.inject(ConfirmationService), "confirm")
+  describe("undo of the last run", () => {
+    const mountUndo = () => {
+      const mounted = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
+      translateWith({ settings: { admin: { rollback: { message: "{{folder}} {{count}}" } } } })
 
-    component["restoreLast"]()
-    const options = confirm.mock.calls[0]?.[0]
-    options?.accept?.()
+      return { ...mounted, confirmation: spyConfirmation() }
+    }
 
-    expect(options?.message).toBe("D:/Music/Promo Octobre 1")
-    expect(options?.acceptButtonProps).toMatchObject({ severity: "danger" })
-    expect(service.rollback).toHaveBeenCalledWith("a3f9c1")
+    it("asks a danger confirmation that names the run", () => {
+      const { component, confirmation } = mountUndo()
+
+      component["restoreLast"]()
+
+      expect(confirmation.options()?.message).toBe("D:/Music/Promo Octobre 1")
+      expect(confirmation.options()?.acceptButtonProps).toMatchObject({ severity: "danger" })
+    })
+
+    it("undoes the run once confirmed", () => {
+      const { component, service, confirmation } = mountUndo()
+      component["restoreLast"]()
+
+      confirmation.accept()
+
+      expect(service.rollback).toHaveBeenCalledWith(RUN_ID)
+    })
   })
 
   it("shows the API section first", () => {
     const { fixture } = mountWith()
 
-    const host = hostOf(fixture)
-
-    expect(host.querySelector("input#api-key")).not.toBeNull()
-    expect(host.querySelector('[data-action="restore-last"]')).toBeNull()
+    expect(hostOf(fixture).querySelector("input#api-key")).not.toBeNull()
+    expect(action("restore-last", hostOf(fixture))).toBeNull()
   })
 
   it("shows only the section chosen in the menu", () => {
     const { fixture, component } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
-
     openSection(component, "admin")
+
     fixture.detectChanges()
 
-    const host = hostOf(fixture)
-    expect(host.querySelector('[data-action="restore-last"]')).not.toBeNull()
-    expect(host.querySelector("input#api-key")).toBeNull()
+    expect(action("restore-last", hostOf(fixture))).not.toBeNull()
+    expect(hostOf(fixture).querySelector("input#api-key")).toBeNull()
   })
 
   it("marks the active menu entry on its content, which hover and focus would cover", () => {
     const { fixture, component } = mountWith({ rollbackTarget: signal(ROLLBACK_RUN) })
-
     openSection(component, "admin")
+
     fixture.detectChanges()
 
     const marked = Array.from(hostOf(fixture).querySelectorAll(".bg-highlight"))
@@ -277,9 +301,9 @@ describe("SettingsPageComponent", () => {
   it("drops an unsaved key once its section is left", () => {
     const { fixture, component } = mountWith()
     component["entry"].set({ apiKey: "typed-but-not-saved" })
-
     openSection(component, "admin")
     openSection(component, "api")
+
     fixture.detectChanges()
 
     expect(component["entry"]().apiKey).toBe("")
@@ -289,17 +313,19 @@ describe("SettingsPageComponent", () => {
     const { fixture, component } = mountWith(commandFailed("set_api_key", "api_key_not_stored"))
     openSection(component, "admin")
     fixture.detectChanges()
-
     openSection(component, "api")
+
     fixture.detectChanges()
 
-    expect(hostOf(fixture).querySelector("app-error-message")).not.toBeNull()
+    expect(errorMessageOf(hostOf(fixture))).not.toBeNull()
   })
 
   describe("past runs", () => {
+    const THIRD_RUN: PastRun = { ...PAST_RUN, run_id: "c7d8e9" }
+
     it("lists the past runs as the engine ordered them, the latest first", () => {
       const pastRuns = signal<readonly PastRun[] | null>([
-        { ...PAST_RUN, run_id: "b4c5d6", folder: "D:/Sets/Septembre" },
+        { ...OTHER_PAST_RUN, folder: "D:/Sets/Septembre" },
         PAST_RUN,
       ])
       const { component } = mountWith({ pastRuns })
@@ -315,35 +341,27 @@ describe("SettingsPageComponent", () => {
     })
 
     it("chooses the latest run first", () => {
-      const pastRuns = signal<readonly PastRun[] | null>([
-        { ...PAST_RUN, run_id: "b4c5d6" },
-        PAST_RUN,
-      ])
+      const pastRuns = signal<readonly PastRun[] | null>([OTHER_PAST_RUN, PAST_RUN])
       const { component } = mountWith({ pastRuns })
 
-      const chosen = component["pastChoice"]().runId
-
-      expect(chosen).toBe("b4c5d6")
+      expect(component["pastChoice"]().runId).toBe(OTHER_PAST_RUN.run_id)
     })
 
     it.each([
-      [
-        "keeps the chosen run when the list is refreshed",
-        [{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN, { ...PAST_RUN, run_id: "b4c5d6" }],
-        "b4c5d6",
-      ],
-      [
-        "falls back on the latest run when the chosen one is gone",
-        [{ ...PAST_RUN, run_id: "c7d8e9" }, PAST_RUN],
-        "c7d8e9",
-      ],
-    ])("%s", (_case, refreshed, expected) => {
-      const pastRuns = signal<readonly PastRun[] | null>([
-        PAST_RUN,
-        { ...PAST_RUN, run_id: "b4c5d6" },
-      ])
+      {
+        case: "keeps the chosen run when the list is refreshed",
+        refreshed: [THIRD_RUN, PAST_RUN, OTHER_PAST_RUN],
+        expected: OTHER_PAST_RUN.run_id,
+      },
+      {
+        case: "falls back on the latest run when the chosen one is gone",
+        refreshed: [THIRD_RUN, PAST_RUN],
+        expected: THIRD_RUN.run_id,
+      },
+    ])("$case", ({ refreshed, expected }) => {
+      const pastRuns = signal<readonly PastRun[] | null>([PAST_RUN, OTHER_PAST_RUN])
       const { component } = mountWith({ pastRuns })
-      component["pastChoice"].set({ runId: "b4c5d6" })
+      component["pastChoice"].set({ runId: OTHER_PAST_RUN.run_id })
 
       pastRuns.set(refreshed)
 
@@ -355,25 +373,12 @@ describe("SettingsPageComponent", () => {
         { pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) },
         "admin",
       )
-      const navigate = vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
+      const navigate = stubNavigation("navigateByUrl")
       fixture.detectChanges()
 
-      hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="open-past-run"]')?.click()
+      action("open-past-run", hostOf(fixture))?.click()
 
-      expect(navigate).toHaveBeenCalledWith("/tagging/recap/a3f9c1")
-    })
-
-    it("names the selector after the row label", () => {
-      const { fixture } = mountWith(
-        { pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]) },
-        "admin",
-      )
-
-      const host = hostOf(fixture)
-      const named = host.querySelector('[data-field="past-run"] [aria-labelledby]')
-
-      expect(named?.getAttribute("aria-labelledby")).toBe("past-run-label")
-      expect(host.querySelector("#past-run-label")).not.toBeNull()
+      expect(navigate).toHaveBeenCalledWith(`/tagging/recap/${PAST_RUN.run_id}`)
     })
 
     it.each([
@@ -385,9 +390,7 @@ describe("SettingsPageComponent", () => {
         "admin",
       )
 
-      const open = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="open-past-run"]')
-
-      expect(open?.disabled).toBe(disabled)
+      expect(action("open-past-run", hostOf(fixture))?.disabled).toBe(disabled)
       expect(component["pastFields"].runId().disabled()).toBe(disabled)
     })
   })
@@ -402,59 +405,32 @@ describe("SettingsPageComponent", () => {
       "admin",
     )
 
-    const root = hostOf(fixture)
-
-    expect(root.querySelector("[data-rollback-failures]")).not.toBeNull()
-    expect(root.querySelector("app-error-message")).not.toBeNull()
+    expect(hostOf(fixture).querySelector("[data-rollback-failures]")).not.toBeNull()
+    expect(errorMessageOf(hostOf(fixture))).not.toBeNull()
   })
 
   describe("interface", () => {
-    // `clearMocks` garde les implementations : sans cela, le store d'un test fuit dans les suivants.
-    beforeEach(() => {
-      vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
-    })
-
-    it("switches the language and stores the choice when the select changes", async () => {
-      const store = storeStub()
-      vi.mocked(load).mockResolvedValue(store)
-      const { fixture } = mountWith({}, "interface")
-      const select = fixture.debugElement.query(By.css('[data-field="language"]'))
-
-      select.triggerEventHandler("onChange", { value: "en" })
-
-      expect(TestBed.inject(TranslateService).getCurrentLang()).toBe("en")
-      await vi.waitFor(() => {
-        expect(store.set).toHaveBeenCalledWith("language", "en")
-      })
-    })
-
-    it("switches the language even when the store is unavailable", () => {
-      const { component } = mountWith({}, "interface")
+    it("switches the language and stores the choice", () => {
+      const { component, preferences } = mountWith({}, "interface")
 
       component["chooseLanguage"]("en")
 
       expect(TestBed.inject(TranslateService).getCurrentLang()).toBe("en")
+      expect(preferences.writeLanguage).toHaveBeenCalledWith("en")
     })
 
-    it("stores nothing when the page opens", async () => {
-      const store = storeStub(true)
-      vi.mocked(load).mockResolvedValue(store)
+    it("stores nothing when the page opens", () => {
+      const { preferences } = mountWith({}, "interface")
 
-      mountWith({}, "interface")
-
-      // Le montage a bien lu le store : l'absence d'ecriture n'est pas une lecture manquee.
-      await vi.waitFor(() => {
-        expect(store.get).toHaveBeenCalled()
-      })
-      expect(store.set).not.toHaveBeenCalled()
+      expect(preferences.readSoundSignal).toHaveBeenCalled()
+      expect(preferences.writeSoundSignal).not.toHaveBeenCalled()
+      expect(preferences.writeLanguage).not.toHaveBeenCalled()
     })
 
     it("translates the menu again once the language changes", () => {
       const { component } = mountWith()
-      const translate = TestBed.inject(TranslateService)
-      translate.setTranslation("fr", { settings: { admin: { title: "Administration" } } })
-      translate.setTranslation("en", { settings: { admin: { title: "Admin" } } })
-      translate.use("fr")
+      translateWith({ settings: { admin: { title: "Admin" } } }, "en")
+      translateWith({ settings: { admin: { title: "Administration" } } }, "fr")
 
       component["chooseLanguage"]("en")
 
@@ -462,38 +438,32 @@ describe("SettingsPageComponent", () => {
       expect(admin?.label).toBe("Admin")
     })
 
-    it("stores a muted completion sound when the toggle changes", async () => {
-      const store = storeStub(true)
-      vi.mocked(load).mockResolvedValue(store)
-      const { fixture } = mountWith({}, "interface")
-      const toggle = fixture.debugElement.query(By.css('[data-field="sound"]'))
+    it("stores a muted completion sound", () => {
+      const { component, preferences } = mountWith({}, "interface")
 
-      toggle.triggerEventHandler("onChange", { checked: false })
+      component["chooseSound"](false)
 
-      await vi.waitFor(() => {
-        expect(store.set).toHaveBeenCalledWith("sound_signal", false)
-      })
+      expect(preferences.writeSoundSignal).toHaveBeenCalledWith(false)
     })
 
     it("keeps a sound choice made before the stored one is read", async () => {
-      const store = storeStub(true)
-      vi.mocked(load).mockResolvedValue(store)
-      const { fixture, component } = mountWith({}, "interface")
+      const { fixture, component, preferences } = mountWith({}, "interface", {
+        preferences: preferencesStub({ soundSignal: true }),
+      })
       const toggle = hostOf(fixture).querySelector<HTMLInputElement>('[data-field="sound"] input')
 
       toggle?.click()
 
       await vi.waitFor(() => {
-        expect(store.get).toHaveBeenCalled()
-        expect(store.set).toHaveBeenCalledWith("sound_signal", false)
+        expect(preferences.writeSoundSignal).toHaveBeenCalledWith(false)
       })
       expect(component["soundChoice"]().enabled).toBe(false)
     })
 
     it("shows the completion sound as stored", async () => {
-      vi.mocked(load).mockResolvedValue(storeStub(false))
-
-      const { component } = mountWith({}, "interface")
+      const { component } = mountWith({}, "interface", {
+        preferences: preferencesStub({ soundSignal: false }),
+      })
 
       // La lecture est une promesse que `whenStable` ne suit pas.
       await vi.waitFor(() => {
@@ -503,21 +473,10 @@ describe("SettingsPageComponent", () => {
   })
 
   describe("matching", () => {
-    // `clearMocks` garde les implementations : sans cela, le store d'un test fuit dans les suivants.
-    beforeEach(() => {
-      vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
-    })
-
-    /** Defauts fictifs du moteur, distincts des vrais : rien ici ne doit les recopier. */
-    const DEFAULTS = { floor: 65, ceiling: 85 }
-    const CUSTOM = { floor: 72, ceiling: 95 }
-
-    const mountMatching = (entries: Record<string, unknown> = {}) => {
-      const store = storeOf(entries)
-      vi.mocked(load).mockResolvedValue(store)
-
-      return { store, ...mountWith({ defaultThresholds: signal(DEFAULTS) }, "matching") }
-    }
+    const mountMatching = (stored: Parameters<typeof preferencesStub>[0] = {}) =>
+      mountWith({ defaultThresholds: signal(DEFAULT_THRESHOLDS) }, "matching", {
+        preferences: preferencesStub(stored),
+      })
 
     it("shows the engine defaults without a setting", async () => {
       const { component } = mountMatching()
@@ -525,68 +484,75 @@ describe("SettingsPageComponent", () => {
       await vi.waitFor(() => {
         expect(component["storedThresholds"]()).toBeNull()
       })
-      expect(component["thresholdsChoice"]()).toEqual(DEFAULTS)
+      expect(component["thresholdsChoice"]()).toEqual(DEFAULT_THRESHOLDS)
       expect(component["thresholdsCustomized"]()).toBe(false)
     })
 
     it("prefers the stored setting over the engine defaults", async () => {
-      const { component } = mountMatching({ thresholds: CUSTOM })
+      const { component } = mountMatching({ thresholds: CUSTOM_THRESHOLDS })
 
       await vi.waitFor(() => {
-        expect(component["thresholdsChoice"]()).toEqual(CUSTOM)
+        expect(component["thresholdsChoice"]()).toEqual(CUSTOM_THRESHOLDS)
       })
       expect(component["thresholdsCustomized"]()).toBe(true)
     })
 
     it("disables the thresholds until the engine answers", async () => {
-      const store = storeOf({})
-      vi.mocked(load).mockResolvedValue(store)
       const { component } = mountWith({ defaultThresholds: signal(null) }, "matching")
       await vi.waitFor(() => {
         expect(component["storedThresholds"]()).toBeNull()
       })
 
-      const disabled = component["thresholdsFields"].floor().disabled()
-
-      expect(disabled).toBe(true)
+      expect(component["thresholdsFields"].floor().disabled()).toBe(true)
     })
 
     it("disables the thresholds until the setting is read", () => {
-      vi.mocked(load).mockReturnValue(new Promise(() => undefined))
-      const { component } = mountWith({ defaultThresholds: signal(DEFAULTS) }, "matching")
+      const preferences = preferencesStub()
+      preferences.readThresholds.mockReturnValue(new Promise(() => undefined))
 
-      const disabled = component["thresholdsFields"].floor().disabled()
+      const { component } = mountWith(
+        { defaultThresholds: signal(DEFAULT_THRESHOLDS) },
+        "matching",
+        {
+          preferences,
+        },
+      )
 
-      expect(disabled).toBe(true)
+      expect(component["thresholdsFields"].floor().disabled()).toBe(true)
     })
 
     it("enables the thresholds once the setting is read", async () => {
       const { component } = mountMatching()
+
       await vi.waitFor(() => {
         expect(component["storedThresholds"]()).toBeNull()
       })
 
-      const disabled = component["thresholdsFields"].floor().disabled()
-
-      expect(disabled).toBe(false)
+      expect(component["thresholdsFields"].floor().disabled()).toBe(false)
     })
 
-    it("stores thresholds that differ from the defaults", async () => {
-      const { component, store } = mountMatching()
+    it("stores thresholds that differ from the defaults", () => {
+      const { component, preferences } = mountMatching()
       component["thresholdsChoice"].set({ floor: 65, ceiling: 95 })
 
       component["storeThresholds"]()
 
-      await vi.waitFor(() => {
-        expect(store.set).toHaveBeenCalledWith("thresholds", { floor: 65, ceiling: 95 })
-      })
+      expect(preferences.writeThresholds).toHaveBeenCalledWith({ floor: 65, ceiling: 95 })
     })
 
     it.each([
-      { case: "the engine defaults without a setting", stored: {}, shown: DEFAULTS },
-      { case: "the stored setting", stored: { thresholds: CUSTOM }, shown: CUSTOM },
+      {
+        case: "the engine defaults without a setting",
+        stored: {},
+        shown: DEFAULT_THRESHOLDS,
+      },
+      {
+        case: "the stored setting",
+        stored: { thresholds: CUSTOM_THRESHOLDS },
+        shown: CUSTOM_THRESHOLDS,
+      },
     ])("ignores a cleared field and shows $case again", async ({ stored, shown }) => {
-      const { component, store } = mountMatching(stored)
+      const { component, preferences } = mountMatching(stored)
       await vi.waitFor(() => {
         expect(component["storedThresholds"]()).not.toBeUndefined()
         expect(component["thresholdsChoice"]()).toEqual(shown)
@@ -595,50 +561,44 @@ describe("SettingsPageComponent", () => {
 
       component["storeThresholds"]()
 
-      await new Promise((resolve) => setTimeout(resolve))
-      expect(store.set).not.toHaveBeenCalled()
+      expect(preferences.writeThresholds).not.toHaveBeenCalled()
       expect(component["thresholdsChoice"]()).toEqual(shown)
     })
 
     it("writes nothing when the thresholds did not change", async () => {
-      const { component, store } = mountMatching({ thresholds: CUSTOM })
+      const { component, preferences } = mountMatching({ thresholds: CUSTOM_THRESHOLDS })
       await vi.waitFor(() => {
         expect(component["thresholdsCustomized"]()).toBe(true)
       })
 
       component["storeThresholds"]()
 
-      await new Promise((resolve) => setTimeout(resolve))
-      expect(store.set).not.toHaveBeenCalled()
+      expect(preferences.writeThresholds).not.toHaveBeenCalled()
     })
 
     it("stores no setting for thresholds equal to the defaults", async () => {
-      const { component, store } = mountMatching({ thresholds: CUSTOM })
+      const { component, preferences } = mountMatching({ thresholds: CUSTOM_THRESHOLDS })
       await vi.waitFor(() => {
         expect(component["thresholdsCustomized"]()).toBe(true)
       })
-      component["thresholdsChoice"].set({ ...DEFAULTS })
+      component["thresholdsChoice"].set({ ...DEFAULT_THRESHOLDS })
 
       component["storeThresholds"]()
 
-      await vi.waitFor(() => {
-        expect(store.set).toHaveBeenCalledWith("thresholds", null)
-      })
+      expect(preferences.writeThresholds).toHaveBeenCalledWith(null)
       expect(component["thresholdsCustomized"]()).toBe(false)
     })
 
     it("resets the thresholds to the engine defaults", async () => {
-      const { component, store } = mountMatching({ thresholds: CUSTOM })
+      const { component, preferences } = mountMatching({ thresholds: CUSTOM_THRESHOLDS })
       await vi.waitFor(() => {
         expect(component["thresholdsCustomized"]()).toBe(true)
       })
 
       component["resetThresholds"]()
 
-      expect(component["thresholdsChoice"]()).toEqual(DEFAULTS)
-      await vi.waitFor(() => {
-        expect(store.set).toHaveBeenCalledWith("thresholds", null)
-      })
+      expect(component["thresholdsChoice"]()).toEqual(DEFAULT_THRESHOLDS)
+      expect(preferences.writeThresholds).toHaveBeenCalledWith(null)
     })
 
     it("never lets the floor pass the high threshold", () => {
@@ -680,10 +640,6 @@ describe("SettingsPageComponent", () => {
   })
 
   describe("cache", () => {
-    afterEach(() => {
-      vi.restoreAllMocks()
-    })
-
     const CLEARED: CacheClearedEvent = {
       event: "cache_cleared",
       freed_bytes: 418_000_000,
@@ -705,61 +661,49 @@ describe("SettingsPageComponent", () => {
     it("shows the cache size in the interface language", () => {
       const { fixture } = mountWith({ cacheSize: signal<number | null>(418_000_000) }, "admin")
 
-      const size = hostOf(fixture).querySelector("[data-cache-size]")
-
-      expect(size?.textContent.trim()).toBe("418 MB")
+      expect(hostOf(fixture).querySelector("[data-cache-size]")?.textContent.trim()).toBe("418 MB")
     })
 
     it("sends the clearing", () => {
       const { fixture, service } = mountWith({}, "admin")
 
-      hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="clear-cache"]')?.click()
+      action("clear-cache", hostOf(fixture))?.click()
 
       expect(service.clearCache).toHaveBeenCalled()
     })
 
-    it("announces the freed bytes of a new clearing", () => {
+    it.each([
+      {
+        case: "the freed bytes of a new clearing",
+        cleared: CLEARED,
+        detail: "418 MB freed",
+      },
+      {
+        case: "what is left after a partial clearing",
+        cleared: { ...CLEARED, size_bytes: 12_000_000 },
+        detail: "418 MB freed\n12 MB left",
+      },
+    ])("announces $case", ({ cleared, detail }) => {
       const cacheCleared = signal<CacheClearedEvent | null>(null)
-      const add = vi.spyOn(MessageService.prototype, "add")
       const { fixture } = mountWith({ cacheCleared }, "admin")
+      const toast = spyToast()
       withClearedTranslations()
 
-      cacheCleared.set(CLEARED)
+      cacheCleared.set(cleared)
       fixture.detectChanges()
 
-      expect(add).toHaveBeenCalledWith(
-        expect.objectContaining({
-          severity: "success",
-          summary: "Cleared",
-          detail: "418 MB freed",
-        }),
-      )
-    })
-
-    it("announces what is left after a partial clearing", () => {
-      const cacheCleared = signal<CacheClearedEvent | null>(null)
-      const add = vi.spyOn(MessageService.prototype, "add")
-      const { fixture } = mountWith({ cacheCleared }, "admin")
-      withClearedTranslations()
-
-      cacheCleared.set({ ...CLEARED, size_bytes: 12_000_000 })
-      fixture.detectChanges()
-
-      expect(add).toHaveBeenCalledWith(
-        expect.objectContaining({ detail: "418 MB freed\n12 MB left" }),
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ severity: "success", summary: "Cleared", detail }),
       )
     })
 
     it("announces nothing for a clearing already known when the page opens", () => {
-      const add = vi.spyOn(MessageService.prototype, "add")
+      // Sur le prototype et avant le montage : l'annonce se jouerait au premier rendu.
+      const toast = vi.spyOn(MessageService.prototype, "add")
 
-      const { fixture } = mountWith(
-        { cacheCleared: signal<CacheClearedEvent | null>(CLEARED) },
-        "admin",
-      )
-      fixture.detectChanges()
+      mountWith({ cacheCleared: signal<CacheClearedEvent | null>(CLEARED) }, "admin")
 
-      expect(add).not.toHaveBeenCalled()
+      expect(toast).not.toHaveBeenCalled()
     })
 
     it.each([
@@ -769,48 +713,38 @@ describe("SettingsPageComponent", () => {
         "settings.admin.starting",
       ],
       ["a long phase", { tagging: signal(true) }, "settings.admin.cache.blocked.busy"],
-      [
-        "a run awaiting its write",
-        { runAwaitsWrite: signal(true) },
-        "settings.admin.cache.blocked.unwritten",
-      ],
+      ["a run awaiting its write", { runAwaitsWrite: signal(true) }, "errors.run_not_written"],
       ["no run awaiting its write", {}, null],
     ])("blocks the clearing according to %s", (_case, overrides, reason) => {
       const { fixture, component } = mountWith(overrides, "admin")
 
-      const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="clear-cache"]')
-
       expect(component["cacheBlockedReason"]()).toBe(reason)
-      expect(button?.disabled).toBe(reason !== null)
+      expect(action("clear-cache", hostOf(fixture))?.disabled).toBe(reason !== null)
     })
 
     it("shows a clearing in flight on its button", () => {
       const { fixture } = mountWith({ cacheClearing: signal(true) }, "admin")
 
-      const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="clear-cache"]')
+      const button = action("clear-cache", hostOf(fixture))
 
       expect(button?.disabled).toBe(true)
-      expect(button?.querySelector('[data-p-icon="spinner"]')).not.toBeNull()
+      expect(button?.querySelector('[data-icon="spinner"]')).not.toBeNull()
     })
 
     it("shows a refused clearing under the cache row", () => {
       const { fixture } = mountWith(commandFailed("clear_cache", "run_not_written"), "admin")
 
-      const error = hostOf(fixture).querySelector("[data-cache-error]")
-
-      expect(error).not.toBeNull()
+      expect(hostOf(fixture).querySelector("[data-cache-error]")).not.toBeNull()
     })
   })
 
   describe("logs", () => {
-    const LOG_FILE = "C:/data/trace.log"
-
     it("reveals the log file named by the engine", async () => {
-      const { component } = mountWith({ logFile: signal<string | null>(LOG_FILE) }, "admin")
+      const { component, native } = mountWith({ logFile: signal<string | null>(LOG_FILE) }, "admin")
 
       await component["revealLogs"]()
 
-      expect(revealItemInDir).toHaveBeenCalledWith(LOG_FILE)
+      expect(native.revealItemInDir).toHaveBeenCalledWith(LOG_FILE)
     })
 
     it.each([
@@ -819,16 +753,15 @@ describe("SettingsPageComponent", () => {
     ])("blocks the logs button while the log file %s", (_case, file, reason) => {
       const { fixture, component } = mountWith({ logFile: signal<string | null>(file) }, "admin")
 
-      const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="reveal-logs"]')
-
       expect(component["logsBlockedReason"]()).toBe(reason)
-      expect(button?.disabled).toBe(reason !== null)
+      expect(action("reveal-logs", hostOf(fixture))?.disabled).toBe(reason !== null)
     })
 
     it("forgets a failed reveal once a relaunched engine names its log file", async () => {
-      vi.mocked(revealItemInDir).mockRejectedValueOnce(new Error("path not found"))
+      const native = nativeStub()
+      native.revealItemInDir.mockRejectedValueOnce(new Error("path not found"))
       const logFile = signal<string | null>(LOG_FILE)
-      const { fixture, component } = mountWith({ logFile }, "admin")
+      const { fixture, component } = mountWith({ logFile }, "admin", { native })
       await component["revealLogs"]()
 
       logFile.set("C:/data/relaunched.log")
@@ -838,10 +771,12 @@ describe("SettingsPageComponent", () => {
     })
 
     it("tells to restart when the log file cannot be revealed", async () => {
-      vi.mocked(revealItemInDir).mockRejectedValueOnce(new Error("path not found"))
+      const native = nativeStub()
+      native.revealItemInDir.mockRejectedValueOnce(new Error("path not found"))
       const { fixture, component } = mountWith(
         { logFile: signal<string | null>(LOG_FILE) },
         "admin",
+        { native },
       )
 
       await component["revealLogs"]()

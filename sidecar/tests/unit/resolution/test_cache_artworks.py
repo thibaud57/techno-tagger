@@ -3,9 +3,10 @@ from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
+from cdn_doubles import JPEG, InFlight, image, public_resolver
+from fs_listing import files
 from scraper_responses import ARTWORK_URL, recording
-from stubs import raising
-from tagging_api import JPEG, InFlight, image, public_resolver
+from stubs import locked_file
 
 from tagger.resolution.cache import (
     ARTWORK_CONCURRENCY,
@@ -21,10 +22,6 @@ if TYPE_CHECKING:
     from scraper_responses import Handler
 
 pytestmark = pytest.mark.asyncio
-
-
-def _entries(root: Path) -> list[Path]:
-    return list(root.iterdir())
 
 
 def _fetcher(
@@ -66,10 +63,18 @@ async def test_downloads_an_artwork_once_and_serves_it_from_the_cache(
 
 @pytest.mark.parametrize(
     ("content_type", "suffix"),
-    [("image/jpeg", ".jpg"), ("image/png", ".png"), ("image/webp", ".webp")],
-    ids=["jpeg", "png", "webp"],
+    [
+        ("image/jpeg", ".jpg"),
+        ("image/png", ".png"),
+        ("image/webp", ".webp"),
+        # Un type de media est insensible a la casse (RFC 9110).
+        ("image/JPEG", ".jpg"),
+        ("IMAGE/jpeg", ".jpg"),
+        ("Image/Jpeg; charset=binary", ".jpg"),
+    ],
+    ids=["jpeg", "png", "webp", "upper-subtype", "upper-type", "mixed-with-parameter"],
 )
-async def test_names_the_file_after_the_content_type(
+async def test_names_the_file_after_the_content_type_whatever_its_case(
     tmp_path: Path, content_type: str, suffix: str
 ) -> None:
     async with _fetcher(tmp_path, lambda _request: image(content_type)) as fetcher:
@@ -108,7 +113,7 @@ async def test_raises_artwork_unavailable_and_publishes_nothing(
             await fetcher.fetch(ARTWORK_URL)
 
     assert error.value.reason == reason
-    assert await asyncio.to_thread(_entries, tmp_path) == []
+    assert await asyncio.to_thread(files, tmp_path) == []
 
 
 async def test_never_keeps_more_downloads_in_flight_than_the_pool_allows(tmp_path: Path) -> None:
@@ -144,19 +149,6 @@ async def test_downloads_once_when_two_tracks_share_an_artwork(
 
     assert first == second
     assert len(requests) == 1
-
-
-@pytest.mark.parametrize(
-    "content_type",
-    ["image/JPEG", "IMAGE/jpeg", "Image/Jpeg; charset=binary"],
-    ids=["upper-subtype", "upper-type", "mixed-with-parameter"],
-)
-async def test_accepts_a_content_type_whatever_its_case(tmp_path: Path, content_type: str) -> None:
-    """Un type de media est insensible a la casse (RFC 9110)."""
-    async with _fetcher(tmp_path, lambda _request: image(content_type)) as fetcher:
-        artwork = await fetcher.fetch(ARTWORK_URL)
-
-    assert artwork.suffix == ".jpg"
 
 
 @pytest.mark.parametrize(
@@ -219,7 +211,7 @@ async def test_refuses_a_response_from_an_address_the_guard_would_have_blocked(
             await fetcher.fetch(ARTWORK_URL)
 
     assert error.value.reason == "blocked_url"
-    assert _entries(tmp_path) == []
+    assert files(tmp_path) == []
 
 
 async def test_accepts_a_response_from_the_public_address_it_resolved(tmp_path: Path) -> None:
@@ -250,9 +242,8 @@ async def test_raises_artwork_unavailable_when_the_cache_cannot_be_written(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, refused: list[str]
 ) -> None:
     """Le nettoyage qui echoue lui aussi ne doit pas masquer le motif `cache_write`."""
-    locked = raising(PermissionError(13, "locked by another process"))
     for target in refused:
-        monkeypatch.setattr(target, locked)
+        monkeypatch.setattr(target, locked_file())
 
     async with _fetcher(tmp_path, lambda _request: image()) as fetcher:
         with pytest.raises(ArtworkUnavailableError) as error:

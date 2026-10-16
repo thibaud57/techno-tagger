@@ -1,10 +1,11 @@
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
-import mutagen
 import pytest
+from audio_samples import preset_tags
 from mutagen.id3 import COMM, ID3, TBPM, TIT2, TPE1, WOAS
+from scraper_responses import YOUR_MIND_BANDCAMP_URL
 
 from tagger.tags.files import (
     TAG_FIELDS,
@@ -21,8 +22,6 @@ from tagger.tags.files import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-URL: Final = "https://adambeyer.bandcamp.com/track/your-mind"
-
 
 def _shown(system: TagSystem = TagSystem.ID3, **values: str) -> ShownTags:
     fields: dict[TagField, str | None] = dict.fromkeys(TAG_FIELDS)
@@ -38,7 +37,7 @@ def test_reads_every_field_of_the_table_in_order_with_its_comment(
     tags.add(TPE1(encoding=3, text=["Adam Beyer", "Bart Skils"]))
     tags.add(TIT2(encoding=3, text=["Your Mind"]))
     tags.add(TBPM(encoding=3, text=["130"]))
-    tags.add(WOAS(url=URL))
+    tags.add(WOAS(url=YOUR_MIND_BANDCAMP_URL))
     tags.add(COMM(encoding=3, lang="eng", desc="", text=["Ripped by X"]))
     tags.save(path)
 
@@ -47,7 +46,10 @@ def test_reads_every_field_of_the_table_in_order_with_its_comment(
     assert shown.system is TagSystem.ID3
     assert list(shown.fields) == list(TAG_FIELDS)
     assert shown.fields[TagField.ARTIST] == "Adam Beyer, Bart Skils"
-    assert (shown.fields[TagField.BPM], shown.fields[TagField.URL]) == ("130", URL)
+    assert (shown.fields[TagField.BPM], shown.fields[TagField.URL]) == (
+        "130",
+        YOUR_MIND_BANDCAMP_URL,
+    )
     assert shown.fields[TagField.ALBUM] is None
     assert shown.comment == "Ripped by X"
     assert (shown.identity.artist, shown.identity.title) == ("Adam Beyer, Bart Skils", "Your Mind")
@@ -77,10 +79,7 @@ def test_lists_the_fields_in_the_order_the_detail_shows_them() -> None:
 
 def test_reads_the_vorbis_comments_of_a_flac(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
-    audio = mutagen.File(path)
-    audio["ARTIST"] = ["Adam Beyer"]
-    audio["COMMENT"] = ["Ripped by X"]
-    audio.save()
+    preset_tags(path, ARTIST="Adam Beyer", COMMENT="Ripped by X")
 
     shown = read_shown_tags(path)
 
@@ -105,10 +104,7 @@ def test_shows_every_id3_comment_frame(blank_audio: Callable[[str], Path]) -> No
 
 def test_shows_every_vorbis_comment_key(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
-    audio = mutagen.File(path)
-    audio["COMMENT"] = ["Ripped by X"]
-    audio["DESCRIPTION"] = ["Bought on Y"]
-    audio.save()
+    preset_tags(path, COMMENT="Ripped by X", DESCRIPTION="Bought on Y")
 
     shown = read_shown_tags(path)
 

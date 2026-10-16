@@ -1,17 +1,20 @@
 """Une seule phase longue a la fois : extraction, recherche, ecriture et rollback s'excluent."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from ndjson_loop import (
     conversation,
-    extraction_command,
     held_call,
+    recover_by_url,
     resolved_run,
+    searching,
     start_command,
     written_run,
 )
 from scraper_responses import YOUR_MIND
+from tagging_api import BEATPORT_SEARCH, ONE_TRACK
+from tagging_records import RUN_ID
 
 from tagger import __main__ as main
 from tagger.run import rollback, writing
@@ -26,68 +29,67 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
 
 @pytest.fixture
-def extraction(vlc_dump: Path, music_library: Path, tmp_path: Path) -> dict[str, object]:
-    return extraction_command(music_library, vlc_dump, tmp_path / "work")
-
-
-@pytest.fixture
 def command_of(
     folder: Path, extraction: dict[str, object]
 ) -> Callable[[str, str], dict[str, object]]:
     """Commande a injecter pour un nom donne ; `run_id` sert a toutes celles qui visent un run."""
 
     def build(name: str, run_id: str) -> dict[str, object]:
-        fixed = {"extract_playlist": extraction, "start_tagging": start_command(folder)}
+        fixed: dict[str, dict[str, object]] = {
+            "extract_playlist": extraction,
+            "start_tagging": start_command(folder),
+            "load_run": {"command": "load_run", "run_id": RUN_ID},
+            "clear_cache": {"command": "clear_cache"},
+            "resolve_by_url": recover_by_url(),
+        }
         return fixed.get(name, {"command": name, "run_id": run_id})
 
     return build
 
 
+BUSY_SEARCHING: Final = {"phase": "tagging"}
+
+
 @pytest.mark.parametrize(
-    "command",
-    ["extract_playlist", "discard_run", "rollback"],
-    ids=["extract-playlist", "discard-run", "rollback"],
+    ("command", "code", "params"),
+    [
+        ("extract_playlist", "phase_busy", BUSY_SEARCHING),
+        ("discard_run", "phase_busy", BUSY_SEARCHING),
+        ("rollback", "phase_busy", BUSY_SEARCHING),
+        ("clear_cache", "phase_busy", BUSY_SEARCHING),
+        # Le refus d'une charge nomme le run vise, en plus de la phase.
+        ("load_run", "phase_busy", {**BUSY_SEARCHING, "run_id": RUN_ID}),
+        ("commit_run", "write_not_open", {}),
+        ("resolve_by_url", "url_recovery_not_open", {"track_id": ONE_TRACK}),
+    ],
+    ids=[
+        "extract-playlist",
+        "discard-run",
+        "rollback",
+        "clear-cache",
+        "load-run",
+        "commit-run",
+        "resolve-by-url",
+    ],
 )
 async def test_refuses_a_command_while_a_run_searches(
-    folder: Path, api: FakeApi, command_of: Callable[[str, str], dict[str, object]], command: str
+    folder: Path,
+    api: FakeApi,
+    command_of: Callable[[str, str], dict[str, object]],
+    command: str,
+    code: str,
+    params: dict[str, object],
 ) -> None:
-    gate = api.gate("/beatport/search", YOUR_MIND)
+    gate = api.gate(BEATPORT_SEARCH, YOUR_MIND)
 
     async with conversation() as talk:
-        talk.send(**start_command(folder))
-        started = await talk.expect("run_started")
-        await gate.reached.wait()
-        talk.send(**command_of(command, str(started["run_id"])))
+        run_id = await searching(talk, folder, gate)
+        talk.send(**command_of(command, run_id))
         error = await talk.expect("error")
         gate.release.set()
         await talk.expect("run_finished", phase="network")
 
-    assert (error["code"], error["params"], error["command"]) == (
-        "phase_busy",
-        {"phase": "tagging"},
-        command,
-    )
-
-
-async def test_names_the_run_of_a_load_refused_while_a_run_searches(
-    folder: Path, api: FakeApi
-) -> None:
-    gate = api.gate("/beatport/search", YOUR_MIND)
-
-    async with conversation() as talk:
-        talk.send(**start_command(folder))
-        await talk.expect("run_started")
-        await gate.reached.wait()
-        talk.send(command="load_run", run_id="a3f9c1")
-        error = await talk.expect("error")
-        gate.release.set()
-        await talk.expect("run_finished", phase="network")
-
-    assert (error["code"], error["params"], error["command"]) == (
-        "phase_busy",
-        {"phase": "tagging", "run_id": "a3f9c1"},
-        "load_run",
-    )
+    assert (error["code"], error["params"], error["command"]) == (code, params, command)
 
 
 @pytest.mark.parametrize(

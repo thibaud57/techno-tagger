@@ -1,5 +1,7 @@
 import { vi } from "vitest"
 
+import { type Hosted, hostOf } from "./dom"
+
 /**
  * Sans ces mesures, JSDOM n'en calculant aucune, `[virtualScroll]` ne monte pas une seule ligne.
  * Par `vi.spyOn` et non `Object.defineProperty` : `vi.restoreAllMocks()` le retire, sinon un stub
@@ -21,3 +23,15 @@ export const settleScroller = async (fixture: { detectChanges: () => void }): Pr
   await vi.advanceTimersByTimeAsync(1)
   fixture.detectChanges()
 }
+
+/** Une entree par bouton d'ouverture du detail : le scroll virtuel ne monte que les lignes visibles. */
+export const togglesOf = (fixture: Hosted): HTMLElement[] => [
+  ...hostOf(fixture).querySelectorAll<HTMLElement>("[data-row-toggle]"),
+]
+
+export const toggleOf = (fixture: Hosted, index = 0): HTMLElement | null =>
+  togglesOf(fixture)[index] ?? null
+
+export const detailsOf = (fixture: Hosted): HTMLElement[] => [
+  ...hostOf(fixture).querySelectorAll<HTMLElement>("app-track-detail"),
+]

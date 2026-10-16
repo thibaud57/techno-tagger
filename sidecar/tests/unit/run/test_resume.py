@@ -5,12 +5,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from audio_samples import tag
+from audio_samples import tag, tagged_mp3
+from cdn_doubles import FakeCdn
 from run_plans import music, plan_of, save_plan
 from scraper_responses import ARTWORK_URL, BEATPORT_CANDIDATE
 from stubs import ignore
-from tagging_api import CREATED, FakeApi, FakeCdn, must_record, run_sources, tagged_mp3
-from tagging_records import RECORD, RUN_ID, scored_candidate
+from tagging_api import FakeApi, must_record, run_sources
+from tagging_records import CREATED, RECORD, RUN_ID, UNREADABLE_CONTENTS, scored_candidate
 
 from tagger.core.run_files import stamped_name
 from tagger.resolution.matching import TrackQuery, build_query
@@ -40,23 +41,12 @@ from tagger.tags.files import IdentityTags, TaggingFolderUnreadableError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from tagger.resolution.scraper_client import TrackCandidate
+    import httpx2
+
     from tagger.run.models import RunEvent
 
 OLDER: Final = CREATED - timedelta(days=2)
 OLDER_RUN: Final = "9e8f7a"
-
-
-@pytest.fixture
-def plans(tmp_path: Path) -> Path:
-    return tmp_path / "plans"
-
-
-@pytest.fixture
-def dumps(tmp_path: Path) -> Path:
-    folder = tmp_path / "dumps"
-    folder.mkdir()
-    return folder
 
 
 @pytest.fixture
@@ -161,12 +151,13 @@ def test_skips_a_committed_plan_and_foreign_files(
     assert detected.run_id == OLDER_RUN
 
 
+@pytest.mark.parametrize("content", UNREADABLE_CONTENTS)
 def test_reports_the_newest_plan_first_even_when_unreadable(
-    plans: Path, dumps: Path, folder_with_audio: Path
+    plans: Path, dumps: Path, folder_with_audio: Path, content: str
 ) -> None:
     save_plan(plans, plan_of(folder_with_audio, _decided(1, 1), run_id=OLDER_RUN, started_at=OLDER))
     newest = plans / stamped_name(CREATED, RUN_ID, ".json")
-    newest.write_text("{not json", encoding="utf-8")
+    newest.write_text(content, encoding="utf-8")
 
     detected = detect_interrupted(plans, dumps)
 
@@ -311,25 +302,30 @@ async def test_replays_the_events_of_a_live_run(music_folder: Path) -> None:
     assert events[-1] == RunProgress(processed=2, total=3)
 
 
+class _NotingCdn(FakeCdn):
+    """Note combien d'evenements le run avait emis a chaque telechargement de pochette."""
+
+    def __init__(self, events: list[RunEvent]) -> None:
+        super().__init__()
+        self._events = events
+        self.announced: list[int] = []
+
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
+        self.announced.append(len(self._events))
+        return super().handler(request)
+
+
 @pytest.mark.asyncio
-async def test_announces_the_run_before_downloading_the_artworks(
-    music_folder: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_announces_the_run_before_downloading_the_artworks(music_folder: Path) -> None:
     (auto,) = music(music_folder, 1)
     plan = plan_of(music_folder, [_auto(auto)])
     events: list[RunEvent] = []
-    announced_at_download: list[int] = []
+    cdn = _NotingCdn(events)
 
-    async with run_sources(music_folder, FakeApi(), RUN_ID) as sources:
-
-        async def spy(_position: int, _candidate: TrackCandidate) -> None:
-            announced_at_download.append(len(events))
-
-        monkeypatch.setattr(sources, "artwork", spy)
-
+    async with run_sources(music_folder, FakeApi(), RUN_ID, cdn=cdn) as sources:
         await reopen_run(plan, sources, on_event=events.append)
 
-    assert announced_at_download == [1]
+    assert cdn.announced == [1]
     assert isinstance(events[0], RunStarted)
 
 

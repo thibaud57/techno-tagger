@@ -8,6 +8,7 @@
 //   node cdp.mjs page/demo-run.js run <dossier>        run seul, sans extraction dans la session
 //   node cdp.mjs page/demo-run.js state
 //   node cdp.mjs page/demo-run.js commit-dialog      ouvre la confirmation de l'ecriture, sans l'accepter
+//   node cdp.mjs page/demo-run.js commit-buttons     centres des boutons de la confirmation ouverte, pour --click
 //   node cdp.mjs page/demo-run.js column [onglet]    enfants de la colonne et marge sous le dernier visible
 //   node cdp.mjs page/demo-run.js fields              champs et cles du detail du premier resolu, du vrai sidecar
 //   node cdp.mjs page/demo-run.js tag-widths <cle>     ex. playlist.report.category
@@ -132,6 +133,17 @@
     await until(() => document.querySelector(".p-confirmdialog") !== null, 5000)
     await wait(400)
     return document.querySelector(".p-confirmdialog .p-dialog-content")?.innerText ?? null
+  }
+
+  if (action === "commit-buttons") {
+    return [...document.querySelectorAll(".p-confirmdialog .p-dialog-footer button")].map((b) => {
+      const r = b.getBoundingClientRect()
+      return {
+        text: (b.textContent || "").trim(),
+        x: Math.round(r.left + r.width / 2),
+        y: Math.round(r.top + r.height / 2),
+      }
+    })
   }
 
   if (action === "tag-widths") {

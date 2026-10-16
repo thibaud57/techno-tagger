@@ -4,8 +4,8 @@ isole par la fixture `app_data`.
 
 from typing import TYPE_CHECKING
 
-from tagging_api import CREATED, tagged_mp3
-from tagging_records import RUN_ID
+from audio_samples import tagged_mp3
+from tagging_records import CREATED, RUN_ID
 
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
 from tagger.run.models import LiveRun, TrackRecord

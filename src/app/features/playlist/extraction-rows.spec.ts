@@ -1,9 +1,20 @@
 import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
+import type { DuplicateResolution, ExtractionFailure } from "../../core/sidecar/protocol"
 
 import { toExtractionRows, type FormatSize } from "./extraction-rows"
 
 /** Mise en forme reconnaissable : ce qui se teste ici est ou la taille atterrit, pas son unite. */
 const formatSize: FormatSize = (bytes) => `${bytes} o`
+
+const DUPLICATE: DuplicateResolution = {
+  file_name: "beta.mp3",
+  kept_path: "C:/lib/singles/beta.mp3",
+  kept_size: 12_000,
+  criterion: "largest_file",
+  discarded: [{ path: "C:/lib/albums/beta.mp3", size: 5_000 }],
+}
+
+const FAILURE: ExtractionFailure = { file_name: "locked.mp3", reason: "file_locked" }
 
 describe("toExtractionRows", () => {
   it("renders no row for an empty result", () => {
@@ -40,16 +51,8 @@ describe("toExtractionRows", () => {
         extracted: ["a.mp3"],
         already_present: ["c.mp3"],
         missing: ["d.mp3"],
-        duplicates: [
-          {
-            file_name: "beta.mp3",
-            kept_path: "C:/lib/beta.mp3",
-            kept_size: 12_000,
-            criterion: "largest_file",
-            discarded: [{ path: "C:/lib/albums/beta.mp3", size: 5_000 }],
-          },
-        ],
-        failures: [{ file_name: "locked.mp3", reason: "file_locked" }],
+        duplicates: [DUPLICATE],
+        failures: [FAILURE],
       },
       formatSize,
     )
@@ -64,24 +67,10 @@ describe("toExtractionRows", () => {
   })
 
   it("describes a duplicate by its discarded candidate and criterion", () => {
-    const rows = toExtractionRows(
-      {
-        ...EMPTY_EXTRACTION,
-        duplicates: [
-          {
-            file_name: "beta.mp3",
-            kept_path: "C:/lib/singles/beta.mp3",
-            kept_size: 12_000,
-            criterion: "largest_file",
-            discarded: [{ path: "C:/lib/albums/beta.mp3", size: 5_000 }],
-          },
-        ],
-      },
-      formatSize,
-    )
+    const rows = toExtractionRows({ ...EMPTY_EXTRACTION, duplicates: [DUPLICATE] }, formatSize)
 
-    const row = rows[0]
-    expect(row).toBeDefined()
+    expect(rows).toHaveLength(1)
+    const [row] = rows
     expect(row?.category).toBe("duplicate")
     expect(row?.detailKey).toBe("playlist.report.detail.duplicate")
     expect(row?.detailParams).toEqual({
@@ -94,16 +83,10 @@ describe("toExtractionRows", () => {
   })
 
   it("names a failure reason by a key, never by its raw value", () => {
-    const rows = toExtractionRows(
-      {
-        ...EMPTY_EXTRACTION,
-        failures: [{ file_name: "locked.mp3", reason: "file_locked" }],
-      },
-      formatSize,
-    )
+    const rows = toExtractionRows({ ...EMPTY_EXTRACTION, failures: [FAILURE] }, formatSize)
 
-    const row = rows[0]
-    expect(row).toBeDefined()
+    expect(rows).toHaveLength(1)
+    const [row] = rows
     expect(row?.category).toBe("failure")
     expect(row?.reason).toEqual({
       cause: "reason.file_locked",
@@ -117,9 +100,7 @@ describe("toExtractionRows", () => {
         ...EMPTY_EXTRACTION,
         duplicates: [
           {
-            file_name: "track.mp3",
-            kept_path: "C:/lib/kept.mp3",
-            kept_size: 8_000,
+            ...DUPLICATE,
             criterion: "path_order",
             discarded: [
               { path: "C:/albums/old/track.mp3", size: 3_000 },
@@ -131,8 +112,8 @@ describe("toExtractionRows", () => {
       formatSize,
     )
 
-    const row = rows[0]
-    expect(row).toBeDefined()
+    expect(rows).toHaveLength(1)
+    const [row] = rows
     expect(row?.detailParams?.["discarded"]).toBe("C:/albums/old/track.mp3, C:/backup/track.mp3")
     expect(row?.detailParams?.["discardedSizes"]).toBe("3000 o, 5500 o")
   })

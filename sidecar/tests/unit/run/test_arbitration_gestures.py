@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from scraper_responses import BASIEL, YOUR_MIND, track_payload
+from audio_samples import tagged_mp3
+from scraper_responses import BASIEL, YOUR_MIND, failing, found, ok, track_payload
 from tagging_api import (
     ONE_TRACK,
     ORIGINAL,
@@ -11,15 +12,11 @@ from tagging_api import (
     basiel,
     beatport_down,
     cancelled,
-    failing,
-    found,
     hold_on_beatport,
     hold_with_bandcamp_fallback,
     must_record,
     networked_run,
-    ok,
     one_track,
-    tagged_mp3,
     two_tracks,
 )
 
@@ -38,7 +35,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
     from pathlib import Path
 
-    from tagging_api import OpenedRun, Reply
+    from scraper_responses import Reply
+    from tagging_api import OpenedRun
 
     from tagger.run.arbitration import ArbitrationEvent
     from tagger.run.models import PendingArbitration
@@ -51,9 +49,8 @@ COPIES: Final = ("a.mp3", "b.mp3", "c.mp3")
 STRANGER: Final = basiel(id="43", source="bandcamp", mix_name=None)
 
 
-def _copies(tmp_path: Path) -> Path:
+def _copies(folder: Path) -> Path:
     """Trois fichiers du meme morceau : trois arbitrages qui partagent la garde des 403."""
-    folder = tmp_path / "music"
     for name in COPIES:
         tagged_mp3(folder, name, "Adam Beyer", "Your Mind")
     return folder
@@ -167,7 +164,7 @@ async def test_rejects_a_second_gesture_while_the_first_one_is_in_flight(
 
     async with _arbitrating(one_track(tmp_path), api) as (_opened, arbitration):
         first = asyncio.create_task(arbitration.choose(ONE_TRACK, Source.BEATPORT, 1), name="first")
-        await refetch.reached.wait()
+        await refetch.wait_reached()
         calls = len(api.requests)
 
         with pytest.raises(ArbitrationBusyError, match="in flight"):
@@ -191,7 +188,7 @@ async def test_leaves_a_track_awaiting_and_unchanged_when_its_gesture_is_cancell
         gesture = asyncio.create_task(
             arbitration.choose(ONE_TRACK, Source.BEATPORT, 1), name="gesture"
         )
-        await refetch.reached.wait()
+        await refetch.wait_reached()
 
         await cancelled(gesture)
 
@@ -361,14 +358,14 @@ async def test_rejects_going_back_to_beatport_when_it_was_unavailable(tmp_path: 
 
 
 async def test_leaves_the_bandcamp_list_empty_as_source_unavailable_when_the_key_is_rejected(
-    tmp_path: Path,
+    music_folder: Path,
 ) -> None:
     """Trois refus en 403 : le troisieme declenche la garde du run, absorbee ici."""
     api = FakeApi()
     hold_on_beatport(api)
     api.on("/bandcamp/search", "*", failing(403))
 
-    async with _arbitrating(_copies(tmp_path), api) as (opened, arbitration):
+    async with _arbitrating(_copies(music_folder), api) as (opened, arbitration):
         for name in COPIES:
             await arbitration.refuse(name, Source.BEATPORT)
 
@@ -382,7 +379,7 @@ async def test_leaves_the_bandcamp_list_empty_as_source_unavailable_when_the_key
 
 
 async def test_keeps_the_search_candidate_when_the_key_is_rejected_on_choice(
-    tmp_path: Path,
+    music_folder: Path,
 ) -> None:
     """Deux refus en 403, puis un choix dont le refetch recoit le troisieme."""
     api = FakeApi()
@@ -391,7 +388,7 @@ async def test_keeps_the_search_candidate_when_the_key_is_rejected_on_choice(
     api.on("/beatport/tracks/2", "*", failing(403))
     events: list[ArbitrationEvent] = []
 
-    async with _arbitrating(_copies(tmp_path), api, events) as (opened, arbitration):
+    async with _arbitrating(_copies(music_folder), api, events) as (opened, arbitration):
         await arbitration.refuse("a.mp3", Source.BEATPORT)
         await arbitration.refuse("b.mp3", Source.BEATPORT)
 
@@ -422,7 +419,7 @@ async def test_refuses_one_track_while_another_refusal_waits_for_bandcamp(
 
     async with _arbitrating(two_tracks(tmp_path), api) as (opened, arbitration):
         first = asyncio.create_task(arbitration.refuse("a.mp3", Source.BEATPORT), name="first")
-        await slow.reached.wait()
+        await slow.wait_reached()
 
         await arbitration.refuse("b.mp3", Source.BEATPORT)
 
@@ -495,7 +492,7 @@ async def test_calls_bandcamp_again_after_a_cancelled_refusal(tmp_path: Path) ->
         refusal = asyncio.create_task(
             arbitration.refuse(ONE_TRACK, Source.BEATPORT), name="refusal"
         )
-        await slow.reached.wait()
+        await slow.wait_reached()
         await cancelled(refusal)
         assert _shown(opened).source is Source.BEATPORT
         slow.release.set()

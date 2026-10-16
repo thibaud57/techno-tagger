@@ -2,7 +2,8 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
 import { closeGuardStub } from "../../../../fixtures/close-guard"
-import { action, page } from "../../../../fixtures/dialog"
+import { page } from "../../../../fixtures/dialog"
+import { action } from "../../../../fixtures/dom"
 import { CloseGuard } from "../../../core/platform/close-guard.service"
 
 import { CloseConfirmationComponent } from "./close-confirmation.component"
@@ -16,36 +17,42 @@ const mount = (blocked = false) => {
   const fixture = TestBed.createComponent(CloseConfirmationComponent)
   fixture.detectChanges()
 
-  return { fixture, guard }
+  return { fixture, component: fixture.componentInstance, guard }
 }
 
 describe("CloseConfirmationComponent", () => {
   it("names every pending work", () => {
     mount()
 
-    const text = page().textContent
-
-    const positions = ["extraction", "write"].map((kind) => text.indexOf(`app.close.${kind}`))
+    const positions = ["extraction", "write"].map((kind) =>
+      page().textContent.indexOf(`app.close.${kind}`),
+    )
     expect(positions.every((position) => position >= 0)).toBe(true)
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)
   })
 
-  it("leaves the application only on the leave button", () => {
+  it("stays, without leaving, on the stay button", () => {
     const { guard } = mount()
+
     action("stay")?.click()
-    const afterStay = guard.leave.mock.calls.length
+
+    expect(guard.stay).toHaveBeenCalledOnce()
+    expect(guard.leave).not.toHaveBeenCalled()
+  })
+
+  it("leaves the application on the leave button", () => {
+    const { guard } = mount()
 
     action("leave")?.click()
 
-    expect(afterStay).toBe(0)
-    expect(guard.stay).toHaveBeenCalledOnce()
     expect(guard.leave).toHaveBeenCalledOnce()
+    expect(guard.stay).not.toHaveBeenCalled()
   })
 
-  it("stays when the cross is used", () => {
-    const { guard } = mount()
+  it("stays when the dialog is dismissed", () => {
+    const { component, guard } = mount()
 
-    page().querySelector<HTMLButtonElement>('[aria-label="app.close.stay"]')?.click()
+    component["onVisibleChange"](false)
 
     expect(guard.stay).toHaveBeenCalledOnce()
     expect(guard.leave).not.toHaveBeenCalled()
@@ -54,9 +61,7 @@ describe("CloseConfirmationComponent", () => {
   it("offers only to stay while files are being written", () => {
     mount(true)
 
-    const text = page().textContent
-
-    expect(text).toContain("app.close.blockedTitle")
+    expect(page().textContent).toContain("app.close.blockedTitle")
     expect(action("leave")).toBeNull()
     expect(action("stay")).not.toBeNull()
   })

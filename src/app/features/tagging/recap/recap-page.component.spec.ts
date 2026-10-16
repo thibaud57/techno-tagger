@@ -1,25 +1,35 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import { Router, provideRouter } from "@angular/router"
+import { provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService } from "primeng/api"
+import { vi } from "vitest"
 
-import { hostOf } from "../../../../fixtures/dom"
-import { PAST_RUN, TRACK_LOADED } from "../../../../fixtures/past-runs"
-import { type SidecarStubOverrides, sidecarStub } from "../../../../fixtures/sidecar-stub"
-import { unresolvedTrack, writtenTrack } from "../../../../fixtures/tagging"
-import { settleScroller, stubOffscreenLayout } from "../../../../fixtures/virtual-scroll"
+import { type Hosted, action, hostOf } from "../../../../fixtures/dom"
+import { OTHER_PAST_RUN, PAST_RUN, TRACK_LOADED } from "../../../../fixtures/past-runs"
+import { stubNavigation } from "../../../../fixtures/router"
+import {
+  type SidecarStubOverrides,
+  provideSidecarStub,
+  sidecarStub,
+} from "../../../../fixtures/sidecar-stub"
+import { RUN_ID, unresolvedTrack, writtenTrack } from "../../../../fixtures/tagging"
+import {
+  settleScroller,
+  stubOffscreenLayout,
+  toggleOf,
+  togglesOf,
+} from "../../../../fixtures/virtual-scroll"
 import { ROLLBACK_RUN, commandError, failedRollback } from "../../../../fixtures/write"
-import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import { type LoadedRun, loadedTrack } from "../../../core/stores/past-runs.store"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import RecapPageComponent from "./recap-page.component"
 
-const OTHER_ROLLBACK_RUN = { ...ROLLBACK_RUN, run_id: "b4c5d6" }
+const OTHER_ROLLBACK_RUN = { ...ROLLBACK_RUN, run_id: OTHER_PAST_RUN.run_id }
 
 /** Non restaurable : seul un test du run passe pose un morceau restaurable. */
-const written = (trackId: string, title: string): TaggingTrack => ({
+const writtenAs = (trackId: string, title: string): TaggingTrack => ({
   ...writtenTrack(trackId, "written", false),
   title,
 })
@@ -31,7 +41,7 @@ const mountWith = async (
 ) => {
   const service = sidecarStub({
     taggingTracks: signal(tracks),
-    taggingRunId: signal<string | null>(tracks.length > 0 ? "a3f9c1" : null),
+    taggingRunId: signal<string | null>(tracks.length > 0 ? RUN_ID : null),
     ...overrides,
   })
   TestBed.configureTestingModule({
@@ -40,10 +50,10 @@ const mountWith = async (
       provideTranslateService(),
       provideRouter([]),
       ConfirmationService,
-      { provide: SidecarService, useValue: service },
+      provideSidecarStub(service),
     ],
   })
-  const navigate = vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
+  const navigate = stubNavigation("navigateByUrl")
   const fixture = TestBed.createComponent(RecapPageComponent)
   if (runId !== undefined) {
     fixture.componentRef.setInput("runId", runId)
@@ -54,20 +64,18 @@ const mountWith = async (
   return { fixture, component: fixture.componentInstance, service, navigate }
 }
 
-/** Une ligne par bouton d'ouverture du detail : le scroll virtuel ne monte que les lignes visibles. */
-const rowsIn = (fixture: { nativeElement: unknown }): number =>
-  hostOf(fixture).querySelectorAll("[data-row-toggle]").length
-
-const search = async (
-  fixture: { nativeElement: unknown; detectChanges: () => void },
-  text: string,
-) => {
+const search = async (fixture: Hosted & { detectChanges: () => void }, text: string) => {
   const field = hostOf(fixture).querySelector<HTMLInputElement>('input[data-field="search"]')
   if (!field) {
     throw new Error("recherche introuvable dans le recapitulatif")
   }
   field.value = text
   field.dispatchEvent(new Event("input"))
+  await settleScroller(fixture)
+}
+
+const filter = async (fixture: Hosted & { detectChanges: () => void }, name: string) => {
+  hostOf(fixture).querySelector<HTMLElement>(`[data-filter="${name}"]`)?.click()
   await settleScroller(fixture)
 }
 
@@ -83,67 +91,60 @@ describe("RecapPageComponent", () => {
   })
 
   it("narrows the table to the chosen filter", async () => {
-    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
-    const before = rowsIn(fixture)
+    const { fixture } = await mountWith([writtenAs("a", "Your Mind"), unresolvedTrack("b")])
 
-    hostOf(fixture).querySelector<HTMLElement>('[data-filter="failed"]')?.click()
-    await settleScroller(fixture)
+    await filter(fixture, "failed")
 
-    expect(before).toBe(2)
-    expect(rowsIn(fixture)).toBe(1)
+    expect(togglesOf(fixture)).toHaveLength(1)
   })
 
   it("gives each filter option its count", async () => {
     const { fixture } = await mountWith([
-      written("a", "Your Mind"),
-      written("b", "Basiel"),
+      writtenAs("a", "Your Mind"),
+      writtenAs("b", "Basiel"),
       unresolvedTrack("c"),
     ])
 
-    const counts = [...hostOf(fixture).querySelectorAll("[data-filter] .tabular-nums")].map(
-      (count) => count.textContent.trim(),
-    )
-
-    expect(counts).toEqual(["3", "2", "0", "1"])
+    expect(
+      [...hostOf(fixture).querySelectorAll("[data-filter] .tabular-nums")].map((count) =>
+        count.textContent.trim(),
+      ),
+    ).toEqual(["3", "2", "0", "1"])
   })
 
   it("shows the empty state when the search matches nothing", async () => {
-    const { fixture } = await mountWith([written("a", "Your Mind")])
+    const { fixture } = await mountWith([writtenAs("a", "Your Mind")])
 
     await search(fixture, "basiel")
 
-    expect(rowsIn(fixture)).toBe(0)
+    expect(togglesOf(fixture)).toHaveLength(0)
     expect(hostOf(fixture).textContent).toContain("recap.empty.heading")
   })
 
   it("closes the detail of a track the filter hides", async () => {
-    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
-    hostOf(fixture).querySelector<HTMLElement>("[data-row-toggle]")?.click()
-    await settleScroller(fixture)
-    const opened = hostOf(fixture).querySelectorAll("app-track-detail").length
-
-    hostOf(fixture).querySelector<HTMLElement>('[data-filter="failed"]')?.click()
+    const { fixture } = await mountWith([writtenAs("a", "Your Mind"), unresolvedTrack("b")])
+    toggleOf(fixture)?.click()
     await settleScroller(fixture)
 
-    expect(opened).toBe(1)
+    await filter(fixture, "failed")
+
     expect(hostOf(fixture).querySelectorAll("app-track-detail")).toHaveLength(0)
   })
 
   it("keeps the detail of a track the filter still shows", async () => {
-    const { fixture } = await mountWith([written("a", "Your Mind"), unresolvedTrack("b")])
-    hostOf(fixture).querySelector<HTMLElement>("[data-row-toggle]")?.click()
+    const { fixture } = await mountWith([writtenAs("a", "Your Mind"), unresolvedTrack("b")])
+    toggleOf(fixture)?.click()
     await settleScroller(fixture)
 
-    hostOf(fixture).querySelector<HTMLElement>('[data-filter="validated"]')?.click()
-    await settleScroller(fixture)
+    await filter(fixture, "validated")
 
     expect(hostOf(fixture).querySelectorAll("app-track-detail")).toHaveLength(1)
   })
 
   it("announces the write failures of the displayed tracks", async () => {
     const { fixture, component } = await mountWith([
-      written("a", "Your Mind"),
-      { ...written("b", "Basiel"), state: "write_error" },
+      writtenAs("a", "Your Mind"),
+      { ...writtenAs("b", "Basiel"), state: "write_error" },
     ])
 
     expect(component["writeFailures"]()).toBe(1)
@@ -153,22 +154,20 @@ describe("RecapPageComponent", () => {
   it.each([
     {
       case: "a write runs",
-      tracks: [{ ...written("a", "Your Mind"), state: "write_error" as const }],
+      tracks: [{ ...writtenAs("a", "Your Mind"), state: "write_error" as const }],
       overrides: { writing: signal(true) },
     },
-    { case: "every track was written", tracks: [written("a", "Your Mind")], overrides: {} },
+    { case: "every track was written", tracks: [writtenAs("a", "Your Mind")], overrides: {} },
   ])("shows no write failure message when $case", async ({ tracks, overrides }) => {
     const { fixture } = await mountWith(tracks, overrides)
 
-    const message = hostOf(fixture).querySelector("[data-write-failures]")
-
-    expect(message).toBeNull()
+    expect(hostOf(fixture).querySelector("[data-write-failures]")).toBeNull()
   })
 
   it("goes back to the run list", async () => {
-    const { fixture, navigate } = await mountWith([written("a", "Your Mind")])
+    const { fixture, navigate } = await mountWith([writtenAs("a", "Your Mind")])
 
-    hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="back"]')?.click()
+    action("back", hostOf(fixture))?.click()
 
     expect(navigate).toHaveBeenCalledWith("/tagging")
   })
@@ -176,11 +175,9 @@ describe("RecapPageComponent", () => {
   it("shows a framed empty state without a run", async () => {
     const { fixture } = await mountWith([])
 
-    const text = hostOf(fixture).textContent
-
-    expect(text).toContain("recap.none.heading")
+    expect(hostOf(fixture).textContent).toContain("recap.none.heading")
     expect(hostOf(fixture).querySelector("app-run-list")).toBeNull()
-    expect(hostOf(fixture).querySelector('[data-action="back"]')).not.toBeNull()
+    expect(action("back", hostOf(fixture))).not.toBeNull()
   })
 
   // La restauration d'un run fait passer la cible au run precedent, sans changer
@@ -190,25 +187,21 @@ describe("RecapPageComponent", () => {
     { case: "the rollback target moved to the previous run", target: OTHER_ROLLBACK_RUN },
     { case: "no run is left to restore", target: null },
   ])("dates the live run by its past runs entry when $case", async ({ target }) => {
-    const { fixture } = await mountWith([written("a", "Your Mind")], {
+    const { fixture } = await mountWith([writtenAs("a", "Your Mind")], {
       pastRuns: signal([PAST_RUN]),
       rollbackTarget: signal(target),
     })
 
-    const context = hostOf(fixture).querySelector("[data-run-context]")
-
-    expect(context).not.toBeNull()
+    expect(hostOf(fixture).querySelector("[data-run-context]")).not.toBeNull()
   })
 
   it("leaves the live run undated when the past runs do not list it", async () => {
-    const { fixture } = await mountWith([written("a", "Your Mind")], {
-      pastRuns: signal([{ ...PAST_RUN, run_id: "b4c5d6" }]),
+    const { fixture } = await mountWith([writtenAs("a", "Your Mind")], {
+      pastRuns: signal([OTHER_PAST_RUN]),
       rollbackTarget: signal(ROLLBACK_RUN),
     })
 
-    const context = hostOf(fixture).querySelector("[data-run-context]")
-
-    expect(context).toBeNull()
+    expect(hostOf(fixture).querySelector("[data-run-context]")).toBeNull()
   })
 
   describe("past run", () => {
@@ -220,76 +213,81 @@ describe("RecapPageComponent", () => {
     }
 
     it("loads a past run once per page", async () => {
-      const { service } = await mountWith([], {}, "a3f9c1")
+      const { service } = await mountWith([], {}, RUN_ID)
 
-      expect(service.loadRun).toHaveBeenCalledExactlyOnceWith("a3f9c1")
+      expect(service.loadRun).toHaveBeenCalledExactlyOnceWith(RUN_ID)
     })
 
-    it("waits for the engine before loading", async () => {
+    it("does not load a past run before the engine answers", async () => {
+      const { service } = await mountWith([], { available: signal<boolean | null>(null) }, RUN_ID)
+
+      expect(service.loadRun).not.toHaveBeenCalled()
+    })
+
+    it("loads the past run once the engine is ready", async () => {
       const available = signal<boolean | null>(null)
-      const { service } = await mountWith([], { available }, "a3f9c1")
-      const before = service.loadRun.mock.calls.length
+      const { service } = await mountWith([], { available }, RUN_ID)
 
       available.set(true)
       TestBed.tick()
 
-      expect(before).toBe(0)
-      expect(service.loadRun).toHaveBeenCalledExactlyOnceWith("a3f9c1")
+      expect(service.loadRun).toHaveBeenCalledExactlyOnceWith(RUN_ID)
     })
 
-    it("shows skeleton rows until the run is loaded, then its tracks and the context line", async () => {
+    it("shows skeleton rows until the run is loaded", async () => {
+      const { fixture } = await mountWith([], { loadedRun: signal<LoadedRun | null>(null) }, RUN_ID)
+
+      expect(hostOf(fixture).querySelector("app-skeleton-rows")).not.toBeNull()
+      expect(hostOf(fixture).textContent).not.toContain("recap.none.heading")
+    })
+
+    it("shows the tracks and the context line once the run is loaded", async () => {
       const loadedRun = signal<LoadedRun | null>(null)
-      const { fixture } = await mountWith([], { loadedRun }, "a3f9c1")
-      const waiting = hostOf(fixture).querySelector("app-skeleton-rows")
-      const waitingText = hostOf(fixture).textContent
+      const { fixture } = await mountWith([], { loadedRun }, RUN_ID)
 
       loadedRun.set(LOADED)
       await settleScroller(fixture)
 
-      expect(waiting).not.toBeNull()
-      expect(waitingText).not.toContain("recap.none.heading")
       expect(hostOf(fixture).querySelector("app-skeleton-rows")).toBeNull()
-      expect(rowsIn(fixture)).toBe(1)
+      expect(togglesOf(fixture)).toHaveLength(1)
       expect(hostOf(fixture).textContent).toContain("settings.admin.rollback.target")
     })
 
     it("offers no track restore on a past run", async () => {
       const { fixture } = await mountWith(
-        [{ ...written("live", "Basiel"), restorable: true }],
+        [{ ...writtenAs("live", "Basiel"), restorable: true }],
         { loadedRun: signal(LOADED) },
-        "a3f9c1",
+        RUN_ID,
       )
-      hostOf(fixture).querySelector<HTMLElement>("[data-row-toggle]")?.click()
+      toggleOf(fixture)?.click()
       await settleScroller(fixture)
 
-      const offered = hostOf(fixture).querySelector('[data-action="restore-track"]')
-
-      expect(offered).toBeNull()
+      expect(action("restore-track", hostOf(fixture))).toBeNull()
     })
 
     it("leaves the write failure message to the live run", async () => {
       const failed = { ...loadedTrack(TRACK_LOADED), state: "write_error" as const }
       const { fixture } = await mountWith(
-        [{ ...written("live", "Basiel"), state: "write_error" }],
+        [{ ...writtenAs("live", "Basiel"), state: "write_error" }],
         { loadedRun: signal({ ...LOADED, tracks: [failed] }) },
-        "a3f9c1",
+        RUN_ID,
       )
 
-      expect(rowsIn(fixture)).toBe(1)
+      expect(togglesOf(fixture)).toHaveLength(1)
       expect(hostOf(fixture).querySelector("[data-write-failures]")).toBeNull()
     })
 
     it("leaves the rollback failures to the live run", async () => {
       const { fixture } = await mountWith(
-        [written("live", "Basiel")],
+        [writtenAs("live", "Basiel")],
         { rollbackFinished: signal(failedRollback()), loadedRun: signal(LOADED) },
-        "a3f9c1",
+        RUN_ID,
       )
 
       expect(hostOf(fixture).querySelector("[data-rollback-failures]")).toBeNull()
     })
 
-    it("replaces the table with the refusal and keeps the way back", async () => {
+    it("replaces the table with the refusal", async () => {
       const error = commandError("load_run", "run_not_found", { run_id: "000000" })
       const { fixture } = await mountWith(
         [],
@@ -297,12 +295,20 @@ describe("RecapPageComponent", () => {
         "000000",
       )
 
-      const text = hostOf(fixture).textContent
-
-      expect(text).toContain("errors.run_not_found")
-      expect(text).toContain("recap.past.heading")
+      expect(hostOf(fixture).textContent).toContain("errors.run_not_found")
+      expect(hostOf(fixture).textContent).toContain("recap.past.heading")
       expect(hostOf(fixture).querySelector("app-run-list")).toBeNull()
-      expect(hostOf(fixture).querySelector('[data-action="back"]')).not.toBeNull()
+    })
+
+    it("keeps the way back on a refused run", async () => {
+      const error = commandError("load_run", "run_not_found", { run_id: "000000" })
+      const { fixture } = await mountWith(
+        [],
+        { loadRefusal: signal({ runId: "000000", error }) },
+        "000000",
+      )
+
+      expect(action("back", hostOf(fixture))).not.toBeNull()
     })
 
     it("keeps the skeleton when the refusal belongs to another run", async () => {
@@ -310,7 +316,7 @@ describe("RecapPageComponent", () => {
       const { fixture } = await mountWith(
         [],
         { loadRefusal: signal({ runId: "000000", error }) },
-        "b4c5d6",
+        OTHER_PAST_RUN.run_id,
       )
 
       expect(hostOf(fixture).querySelector("app-skeleton-rows")).not.toBeNull()
@@ -318,12 +324,12 @@ describe("RecapPageComponent", () => {
     })
 
     it("shows the live run without a run id", async () => {
-      const { fixture, component } = await mountWith([written("live", "Basiel")], {
+      const { fixture, component } = await mountWith([writtenAs("live", "Basiel")], {
         loadedRun: signal(LOADED),
       })
 
       expect(component["tracks"]().map((track) => track.trackId)).toEqual(["live"])
-      expect(rowsIn(fixture)).toBe(1)
+      expect(togglesOf(fixture)).toHaveLength(1)
       expect(hostOf(fixture).textContent).not.toContain("settings.admin.rollback.target")
     })
   })

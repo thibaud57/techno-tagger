@@ -53,13 +53,9 @@ def build_dump(
 ) -> Path:
     """Ecrit un dump de test a `path` et rend ce chemin.
 
-    `tracks` permet a la fixture de demonstration de poser ses propres morceaux sans
-    dupliquer le schema ; les tests gardent le jeu par defaut, dont les noms portent
-    l'ordre NOCASE et l'encodage.
-
-    `omit_table` retire une table, `omit_column` retire une colonne designee sous la
-    forme `Table.colonne` : de quoi couvrir la verification de schema sans maintenir
-    un second jeu de fichiers. Un dump ampute n'est jamais rempli.
+    `tracks` laisse la demo poser ses morceaux sans dupliquer le schema ; le jeu par defaut
+    porte l'ordre NOCASE et l'encodage. `omit_table` retire une table, `omit_column` une
+    colonne (`Table.colonne`) : un dump ampute n'est jamais rempli.
     """
     connection = sqlite3.connect(path)
     # SQLite refuse un `CREATE TABLE` declarant une collation inconnue : la

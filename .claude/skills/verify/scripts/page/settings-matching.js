@@ -7,7 +7,7 @@
 //   node cdp.mjs page/settings-matching.js state             valeurs affichees, etat des controles, modele du composant, defauts du moteur
 //   node cdp.mjs page/settings-matching.js x <champ> <n>     centre de la poignee de `floor` ou `ceiling` et abscisse de la valeur n sur sa piste
 //   node cdp.mjs page/settings-matching.js field <champ>     centre du champ numerique
-//   node cdp.mjs page/settings-matching.js reset             centre de « Valeurs par defaut », et son etat
+//   node cdp.mjs page/settings-matching.js reset             centre de « Retablir les valeurs par defaut », et son etat
 //   node cdp.mjs page/settings-matching.js tooltip           tooltip ouvert (texte, position sous le bouton)
 //   node cdp.mjs page/settings-matching.js store             `thresholds` du `preferences.json` reel (`absent` sans reglage)
 //   node cdp.mjs page/settings-matching.js layout            mesures de mise en page (WebView2), a prendre avec --viewport 1024 700

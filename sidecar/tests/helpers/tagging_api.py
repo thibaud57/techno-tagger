@@ -7,13 +7,21 @@ l'objet de recherche, ce qui est le comportement documente.
 
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final, NamedTuple
 
 import httpx2
 import pytest
-from audio_samples import tag, write_blank_mp3
-from scraper_responses import YOUR_MIND, make_client, page_payload, track_payload
+from audio_samples import tagged_mp3
+from cdn_doubles import FakeCdn, public_resolver
+from scraper_responses import (
+    YOUR_MIND,
+    YOUR_MIND_BANDCAMP_URL,
+    failing,
+    found,
+    make_client,
+    page_payload,
+    track_payload,
+)
 from stubs import ignore
 
 from tagger.resolution.cache import ArtworkFetcher, DiskCache
@@ -22,56 +30,34 @@ from tagger.resolution.sources import RunSources
 from tagger.run.tagging import open_run, resolve_run
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable
+    from collections.abc import AsyncGenerator
     from pathlib import Path
 
-    from scraper_responses import Handler
+    from scraper_responses import Handler, Reply
 
     from tagger.resolution.scraper_client import TechnoScraperClient
     from tagger.run.models import LiveRun, RunEvent, TaggingRun, TrackRecord
 
-type Reply = Callable[[], httpx2.Response]
-
-JPEG: Final = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+BEATPORT_SEARCH: Final = "/beatport/search"
+BANDCAMP_SEARCH: Final = "/bandcamp/search"
+BANDCAMP_TRACKS: Final = "/bandcamp/tracks"
+# Borne d'une porte : une requete qui n'arrive jamais echoue au lieu de geler la suite.
+GATE_TIMEOUT: Final = 10
 
 ONE_TRACK: Final = "your mind.mp3"
-CREATED: Final = datetime(2026, 10, 6, 21, 14, 3, tzinfo=UTC)
+FIRST_TRACK: Final = "a.mp3"
+SECOND_TRACK: Final = "b.mp3"
 WRITTEN_NAME: Final = "Adam Beyer - Your Mind (Original Mix).mp3"
 ORIGINAL: Final = track_payload(mix_name="Original Mix")
 ORIGINAL_REFETCH: Final = f"/beatport/tracks/{ORIGINAL['id']}"
 ON_BANDCAMP: Final = track_payload(
-    id="42",
-    source="bandcamp",
-    mix_name=None,
-    url="https://adambeyer.bandcamp.com/track/your-mind",
+    id="42", source="bandcamp", mix_name=None, url=YOUR_MIND_BANDCAMP_URL
 )
-
-
-def image(content_type: str = "image/jpeg") -> httpx2.Response:
-    """Reponse du CDN : un JPEG, sauf `content_type` contraire."""
-    return httpx2.Response(200, content=JPEG, headers={"Content-Type": content_type})
-
-
-def public_resolver(_host: str) -> list[str]:
-    """Resolveur injecte : aucun test n'interroge le DNS."""
-    return ["93.184.216.34"]
-
-
-def ok(body: dict[str, object]) -> Reply:
-    return lambda: httpx2.Response(200, json=body)
-
-
-def found(*items: dict[str, object]) -> Reply:
-    return ok(page_payload(*items))
 
 
 def basiel(**overrides: object) -> dict[str, object]:
     """Reponse « Basiel » d'Amelie Lens, l'autre morceau de `two_tracks`."""
     return track_payload(artists=[{"name": "Amelie Lens"}], title="Basiel", **overrides)
-
-
-def failing(status: int, api_code: str = "") -> Reply:
-    return lambda: httpx2.Response(status, json={"code": api_code} if api_code else {})
 
 
 class Gate:
@@ -81,6 +67,10 @@ class Gate:
         self.reached = asyncio.Event()
         self.release = asyncio.Event()
 
+    async def wait_reached(self) -> None:
+        async with asyncio.timeout(GATE_TIMEOUT):
+            await self.reached.wait()
+
 
 def _route(request: httpx2.Request) -> tuple[str, str]:
     """Chemin et cle : la requete `q`, l'URL d'un refetch Bandcamp, sinon vide."""
@@ -89,7 +79,7 @@ def _route(request: httpx2.Request) -> tuple[str, str]:
 
 
 class FakeApi:
-    """Reponses par route et par requete, et journal des requetes recues."""
+    """Reponses par route et par requete, avec le journal des requetes recues."""
 
     def __init__(self) -> None:
         self.requests: list[httpx2.Request] = []
@@ -135,49 +125,6 @@ class FakeApi:
         return httpx2.Response(404, json={"code": "not_found"})
 
 
-class FakeCdn:
-    """Rend une image JPEG pour toute URL, sauf celles declarees refusees."""
-
-    def __init__(self) -> None:
-        self.refused: set[str] = set()
-
-    def handler(self, request: httpx2.Request) -> httpx2.Response:
-        if str(request.url) in self.refused:
-            return httpx2.Response(404)
-        return image()
-
-
-class InFlight:
-    """Repond `reply()` apres une attente et retient le pic de requetes simultanees."""
-
-    def __init__(self, reply: Reply) -> None:
-        self.current = 0
-        self.peak = 0
-        self._reply = reply
-
-    async def handler(self, _request: httpx2.Request) -> httpx2.Response:
-        self.current += 1
-        self.peak = max(self.peak, self.current)
-        await asyncio.sleep(0.01)
-        self.current -= 1
-        return self._reply()
-
-
-def write_cover(folder: Path) -> Path:
-    """Pochette telle que le cache la donne : un fichier JPEG."""
-    cover = folder / "cover.jpg"
-    cover.write_bytes(JPEG)
-    return cover
-
-
-def tagged_mp3(folder: Path, name: str, artist: str, title: str) -> Path:
-    """Fichier MP3 vierge tague, dans le dossier du run."""
-    folder.mkdir(parents=True, exist_ok=True)
-    path = write_blank_mp3(folder / name)
-    tag(path, artist=[artist], title=[title])
-    return path
-
-
 def one_track(tmp_path: Path) -> Path:
     """Dossier du run : « Your Mind » seul, en `ONE_TRACK`."""
     folder = tmp_path / "music"
@@ -186,10 +133,10 @@ def one_track(tmp_path: Path) -> Path:
 
 
 def two_tracks(tmp_path: Path) -> Path:
-    """Dossier du run : « Your Mind » en `a.mp3`, « Basiel » en `b.mp3`."""
+    """Dossier du run : « Your Mind » en `FIRST_TRACK`, « Basiel » en `SECOND_TRACK`."""
     folder = tmp_path / "music"
-    tagged_mp3(folder, "a.mp3", "Adam Beyer", "Your Mind")
-    tagged_mp3(folder, "b.mp3", "Amelie Lens", "Basiel")
+    tagged_mp3(folder, FIRST_TRACK, "Adam Beyer", "Your Mind")
+    tagged_mp3(folder, SECOND_TRACK, "Amelie Lens", "Basiel")
     return folder
 
 
@@ -200,16 +147,23 @@ def three_tracks(tmp_path: Path) -> Path:
     return folder
 
 
+def knows_your_mind(api: FakeApi, *, refetch: bool = False) -> None:
+    """Beatport valide « Your Mind » d'office ; `refetch` repond aussi la relecture de sa fiche."""
+    api.on(BEATPORT_SEARCH, YOUR_MIND, found(ORIGINAL))
+    if refetch:
+        api.on(ORIGINAL_REFETCH, "*", found(ORIGINAL))
+
+
 def beatport_down(api: FakeApi, status: int = 503, api_code: str = "source_unavailable") -> None:
     """Beatport en panne, Bandcamp connait « Your Mind » : il part en zone grise, jamais seul."""
-    api.on("/beatport/search", "*", failing(status, api_code))
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    api.on(BEATPORT_SEARCH, "*", failing(status, api_code))
+    api.on(BANDCAMP_SEARCH, YOUR_MIND, found(ON_BANDCAMP))
 
 
 def hold_on_beatport(api: FakeApi) -> None:
     """Extended et Radio Edit de « Your Mind » : deux versions qui ne valent pas l'original."""
     api.on(
-        "/beatport/search",
+        BEATPORT_SEARCH,
         YOUR_MIND,
         found(
             track_payload(id="1", mix_name="Extended Mix"),
@@ -219,9 +173,9 @@ def hold_on_beatport(api: FakeApi) -> None:
 
 
 def hold_with_bandcamp_fallback(api: FakeApi) -> None:
-    """`hold_on_beatport`, et la version attendue sur Bandcamp une fois Beatport refuse."""
+    """`hold_on_beatport`, puis la version attendue sur Bandcamp une fois Beatport refuse."""
     hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    api.on(BANDCAMP_SEARCH, YOUR_MIND, found(ON_BANDCAMP))
 
 
 def must_record(live: LiveRun, track_id: str) -> TrackRecord:

@@ -3,6 +3,7 @@ from typing import Final
 
 import pytest
 from audio_samples import held_open
+from fs_listing import names
 from path_limits import folder_leaving
 from rename_samples import ORIGINAL_NAME, rename_now
 
@@ -152,7 +153,7 @@ def test_plans_the_target_without_touching_the_disk(tmp_path: Path) -> None:
 
     assert plan is not None
     assert (plan.target, plan.truncated) == (tmp_path / TARGET, False)
-    assert [entry.name for entry in tmp_path.iterdir()] == [path.name]
+    assert names(tmp_path) == [path.name]
 
 
 def test_renames_the_file_in_its_folder_when_the_plan_is_applied(tmp_path: Path) -> None:
@@ -161,20 +162,16 @@ def test_renames_the_file_in_its_folder_when_the_plan_is_applied(tmp_path: Path)
     renamed = rename_now(path, ARTIST, TITLE)
 
     assert renamed == RenamedTrack(tmp_path / TARGET, truncated=False)
-    assert [entry.name for entry in tmp_path.iterdir()] == [TARGET]
+    assert names(tmp_path) == [TARGET]
 
 
-def test_leaves_a_correctly_named_file_alone(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_leaves_a_correctly_named_file_alone(tmp_path: Path) -> None:
     path = _file(tmp_path, TARGET)
-    renames: list[Path] = []
-    monkeypatch.setattr(Path, "rename", lambda source, _target: renames.append(source))
 
     plan = plan_rename(path, ARTIST, TITLE)
 
     assert plan is None
-    assert renames == []
+    assert names(tmp_path) == [TARGET]
 
 
 def test_fixes_the_case_without_a_copy_marker(tmp_path: Path) -> None:
@@ -183,7 +180,7 @@ def test_fixes_the_case_without_a_copy_marker(tmp_path: Path) -> None:
     renamed = rename_now(path, ARTIST, TITLE)
 
     assert renamed.path == tmp_path / TARGET
-    assert [entry.name for entry in tmp_path.iterdir()] == [TARGET]
+    assert names(tmp_path) == [TARGET]
 
 
 def test_adds_a_copy_marker_on_collision(tmp_path: Path) -> None:
@@ -287,7 +284,7 @@ def test_raises_file_locked_and_keeps_the_name_of_a_held_file(tmp_path: Path) ->
         plan.apply()
 
     assert error.value.params == {"file": "track.mp3", "reason": FileFailureReason.FILE_LOCKED}
-    assert [entry.name for entry in tmp_path.iterdir()] == ["track.mp3"]
+    assert names(tmp_path) == ["track.mp3"]
 
 
 @pytest.mark.parametrize("present", [(), (TARGET,)], ids=["free-target", "taken-target"])
@@ -317,7 +314,7 @@ def test_gives_the_file_back_its_original_name(tmp_path: Path) -> None:
 
     restore_name(current, tmp_path / ORIGINAL_NAME)
 
-    assert [entry.name for entry in tmp_path.iterdir()] == [ORIGINAL_NAME]
+    assert names(tmp_path) == [ORIGINAL_NAME]
 
 
 def test_gives_back_a_name_that_differs_only_by_case(tmp_path: Path) -> None:
@@ -325,7 +322,7 @@ def test_gives_back_a_name_that_differs_only_by_case(tmp_path: Path) -> None:
 
     restore_name(current, tmp_path / "adam beyer - your mind.mp3")
 
-    assert [entry.name for entry in tmp_path.iterdir()] == ["adam beyer - your mind.mp3"]
+    assert names(tmp_path) == ["adam beyer - your mind.mp3"]
 
 
 def test_refuses_an_original_name_taken_by_another_file(tmp_path: Path) -> None:

@@ -48,12 +48,12 @@ from tagger.playlists.errors import (
     ],
     ids=[
         "base",
-        "unsupported_format",
-        "schema_mismatch",
-        "playlist_not_found",
-        "unreadable_file",
-        "unreadable_dump",
-        "name_required",
+        "unsupported-format",
+        "schema-mismatch",
+        "playlist-not-found",
+        "unreadable-file",
+        "unreadable-dump",
+        "name-required",
     ],
 )
 def test_carries_the_code_and_params_the_interface_translates(
@@ -72,7 +72,7 @@ def test_carries_the_code_and_params_the_interface_translates(
         (UnreadablePlaylistFileError(Path("gone.m3u8")), "gone.m3u8"),
         (UnreadableDumpError(Path("vlc_media.db")), "vlc_media.db"),
     ],
-    ids=["unsupported_format", "schema_mismatch", "playlist_not_found", "unreadable_file", "dump"],
+    ids=["unsupported-format", "schema-mismatch", "playlist-not-found", "unreadable-file", "dump"],
 )
 def test_the_log_message_names_what_failed(error: PlaylistError, named: str) -> None:
     assert named in str(error)

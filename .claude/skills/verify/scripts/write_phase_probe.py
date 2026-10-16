@@ -25,8 +25,8 @@ from pathlib import Path
 
 from _probe import emit
 from audio_samples import held_open, tag, write_blank_flac, write_blank_mp3
+from cdn_doubles import JPEG
 from scraper_responses import payload_candidate
-from tagging_api import JPEG
 
 from tagger.resolution.scraper_client import Source
 from tagger.run import writing

@@ -1,8 +1,9 @@
-import { type Signal, type WritableSignal, computed, signal } from "@angular/core"
+import { type Provider, type Signal, type WritableSignal, computed, signal } from "@angular/core"
 import { type Mock, vi } from "vitest"
 
 import type { SidecarCommand, SidecarErrorEvent } from "../app/core/sidecar/protocol"
 import { type SidecarPhase, SidecarService } from "../app/core/sidecar/sidecar.service"
+import { PLAYLISTS } from "./extraction"
 import { commandError } from "./write"
 
 // Faux `SidecarService` partage par les specs de composants et de services : chaque test pose
@@ -48,6 +49,16 @@ export const commandFailed = (
   lastErrorCommand: signal<SidecarCommand["command"] | null>(command),
 })
 
+/** Un run est affiche : les stores d'interface lisent son identifiant pour oublier le run precedent. */
+export const activeRun = (runId = "run-1"): SidecarStubOverrides => ({
+  taggingRunId: signal<string | null>(runId),
+})
+
+export const provideSidecarStub = (service: SidecarStub): Provider => ({
+  provide: SidecarService,
+  useValue: service,
+})
+
 const defaults = (): StubbedState => ({
   ready: signal(true),
   available: signal(true),
@@ -60,7 +71,7 @@ const defaults = (): StubbedState => ({
   cacheClearing: signal(false),
   versionMismatch: signal(null),
   playlistFormat: signal("vlc_dump"),
-  playlists: signal([{ playlist_id: 1, name: "set", track_count: 8 }]),
+  playlists: signal(PLAYLISTS),
   listedPlaylistPath: signal(null),
   progress: signal(null),
   extraction: signal(null),

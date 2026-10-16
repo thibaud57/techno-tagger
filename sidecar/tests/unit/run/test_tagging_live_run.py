@@ -57,7 +57,7 @@ async def test_keeps_the_tracks_already_processed_when_the_run_is_cancelled(
 
     async with opened_run(two_tracks(tmp_path), api) as opened:
         phase = await _until_held(opened)
-        await slow.reached.wait()
+        await slow.wait_reached()
 
         await cancelled(phase)
 
@@ -94,7 +94,7 @@ async def test_answers_an_awaiting_track_after_the_run_is_cancelled(tmp_path: Pa
 
     async with opened_run(two_tracks(tmp_path), api) as opened:
         phase = await _until_held(opened)
-        await slow.reached.wait()
+        await slow.wait_reached()
         await cancelled(phase)
         arbitration = Arbitration(opened.live, opened.sources, ignore)
 
