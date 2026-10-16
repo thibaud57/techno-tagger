@@ -9,7 +9,7 @@ paths:
 ## À faire
 - Déclarer tout service avec `@Service()` (Angular 22), et `@Service({ autoProvided: false })` pour un service fourni explicitement par un `providers`
 - Exposer l'état en lecture seule (`asReadonly()`, `computed()`) et le muter uniquement par des méthodes du service
-- Injecter avec `inject()` en champ `private readonly`
+- Injecter avec `inject()` en champ `private readonly`, plugins Tauri compris : passer par `PreferencesService` ou `NativeService` (`core/platform/`), jamais par un appel direct au plugin
 - Créer un store par phase pour l'état que le sidecar envoie, sans jamais l'injecter dans un composant : le service qui route les événements ré-expose ses signaux en lecture seule, le contrat NDJSON reste sa seule source
 - Injecter directement dans les composants un service d'état propre à l'interface (saisie en cours, modale ouverte, demande de sortie) : il ne tient rien du sidecar et n'a pas à passer par son routage
 - Garder dans `core/sidecar/` les types miroir du contrat NDJSON (`protocol.ts`), maintenus à la main faute de package partagé avec le sidecar

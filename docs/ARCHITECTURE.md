@@ -97,7 +97,7 @@ techno-tagger/
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
-│   ├── fixtures/                         # événements du contrat partagés par les specs, hors build
+│   ├── fixtures/                         # événements du contrat et stubs de services partagés par les specs, hors build
 │   ├── index.html
 │   ├── main.ts                           # bootstrapApplication, init Sentry
 │   ├── build-constants.d.ts              # constantes substituées par --define
@@ -406,7 +406,7 @@ Deux réglages ne passent pas par un plugin :
 |---|---|
 | `core/sidecar/` | `sidecar.service.ts` (flux NDJSON), `sidecar-transport.ts` (frontière Tauri, remplacée en test), `protocol.ts` (types miroir du contrat, maintenus à la main) |
 | `core/stores/` | Un store signal par domaine du contrat : `tagging-run`, `arbitration`, `url-recovery`, `write`, `resume`, `past-runs`. Le service sidecar les alimente, les écrans les lisent |
-| `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, préférences persistées, onglets |
+| `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, onglets ; seuls accès aux plugins Tauri : `PreferencesService` (préférences du `store`) et `NativeService` (dialogues, ouverture, révélation, URL d'asset) |
 | `core/i18n/` | Choix de langue et spec de cohérence des deux JSON de `public/i18n/` |
 | `core/observability/` | Masquage PII et options Sentry de la webview |
 | `features/playlist/` | Onglet 1 : dossiers, playlist, lignes d'extraction |
@@ -999,7 +999,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 
 - **CI** : GitHub Actions, une version fixe de Python et de Node par job (pas de matrice), aucun service container nécessaire (pas de base de données)
 - **Local** : fixtures de fichiers audio des quatre formats, base `vlc_media.db` de test, playlists M3U8 d'exemple
-- **Fixtures de l'UI** : événements du contrat partagés par plusieurs specs, dans `src/fixtures/`, pendant de `sidecar/tests/helpers/`
+- **Fixtures de l'UI** : événements du contrat et stubs de `SidecarService`, `PreferencesService` et `NativeService` partagés par plusieurs specs, dans `src/fixtures/`, pendant de `sidecar/tests/helpers/`
 - **Services externes** : techno-scraper et Sentry **toujours mockés**. Aucun test ne consomme le quota de l'API ni ne pollue le projet Sentry.
 
 ### Coverage
