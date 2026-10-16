@@ -1,9 +1,9 @@
 ---
 title: "pnpm — Gestionnaire de paquets du frontend"
-version: "12.11.2"
-description: "Référence technique pour pnpm : store et isolation des dépendances, devEngines, lockfile, scripts post-install bloqués et installation en CI."
-date: "2026-10-15"
-keywords: ["pnpm", "lockfile", "corepack", "packageManager", "hoisting", "ci"]
+version: "12.14.0"
+description: "Référence technique pour pnpm : store et isolation des dépendances, devEngines, installation et shims sur le poste Windows, lockfile, scripts post-install bloqués et installation en CI."
+date: "2026-10-16"
+keywords: ["pnpm", "lockfile", "corepack", "packageManager", "hoisting", "ci", "windows", "shim", "self-update"]
 scope: ["docs"]
 technologies: ["Node.js", "Angular", "Tauri", "GitHub Actions", "Dependabot"]
 ---
@@ -70,7 +70,37 @@ public-hoist-pattern:
 
 - La version résolue s'écrit dans `pnpm-lock.yaml`, dans un premier document YAML (`packageManagerDependencies`) : le lockfile en compte deux, le graphe de dépendances GitHub ne lit que le premier (cf. VERSIONS.md § Dependabot)
 - Corepack est distribué avec Node de la 14.19 jusqu'à la 25 exclue : le projet ne s'en sert pas, la bascule vers Node 26 ne coûte rien de ce côté
-- `pnpm self-update <version>` dans un projet épinglé ne met à jour que ce champ, le binaire se téléchargeant ensuite tout seul
+- `pnpm self-update <version>` dans le projet ne met à jour que ce champ et le premier document du lockfile ; hors projet, il met à jour l'installation globale
+- La version épinglée tourne dans le projet, la globale partout ailleurs
+
+---
+
+## Installation sur le poste Windows
+
+### Description
+
+Sur le poste, pnpm vit dans `PNPM_HOME` (`%LOCALAPPDATA%\pnpm`) : le binaire natif sous `global/v11/<hash>/`, et dans `bin/` deux shims par commande, un script `sh` pour Git Bash et un `.cmd` pour `cmd.exe` et PowerShell. Tauri lance `beforeDevCommand` et `beforeBuildCommand` par `cmd.exe` : `just dev` et `just build` dépendent du `pnpm.cmd`.
+
+### Exemple
+
+```bash
+# Ce que cmd.exe résout, puis ce que Git Bash résout
+cmd //c "where pnpm"
+which -a pnpm
+
+# Réparer ou mettre à jour l'installation globale : depuis Git Bash, hors de tout projet épinglé
+cd ~ && pnpm self-update
+cmd //c "pnpm --version"
+```
+
+### Points Importants
+
+- **Un `where pnpm` sans `.cmd` signale un shim manquant** : `cmd.exe` n'exécute pas le script `sh`, d'où `'pnpm' n'est pas reconnu` sous `just dev` alors que Git Bash marche. Relevé le 2026-10-15, cause non établie
+- **`pnpm self-update` hors du projet réinstalle la version globale et réécrit les shims** (shim régénéré ainsi le 2026-10-16)
+- **Le lancer depuis Git Bash** : sous `cmd.exe`, il réécrit le `pnpm.cmd` qu'il exécute ([pnpm#16573](https://github.com/pnpm/pnpm/issues/16573))
+- Les shims de `pnpm shim add` sont des `.exe` depuis 12.3, ceux de pnpm restent `sh` + `.cmd` (relevé sur 12.14.0)
+- Installation neuve : `npx get-pnpm`, recommandé par la doc sous Windows (`install.ps1` est parfois bloqué par Defender)
+- `pnpm setup` sert à la première installation (crée `PNPM_HOME`, l'ajoute au `PATH`), pas à la réparation
 
 ---
 
@@ -193,6 +223,27 @@ pnpm tauri dev                  # raccourci vers le binaire @tauri-apps/cli
 - **Les options se placent avant `exec`** : `pnpm -r exec jest` et non `pnpm exec jest -r`, sinon le flag part à la commande
 - `pnpm dlx` respecte les politiques de sécurité du projet depuis la v11
 
+## Installation et mise à jour de pnpm
+
+### Description
+
+Mettre pnpm à jour sur le poste, monter l'épinglage du projet, diagnostiquer les shims.
+
+### Syntaxe
+
+```bash
+pnpm self-update              # hors projet : installation globale et shims de PNPM_HOME/bin
+pnpm self-update <version>    # dans le projet : devEngines.packageManager et lockfile seulement
+pnpm bin -g                   # dossier des shims globaux
+pnpm with current install     # une commande avec le pnpm global, en ignorant l'épinglage
+```
+
+### Points Importants
+
+- **Deux gestes distincts selon le dossier courant** : la même commande met à jour la machine hors projet, l'épinglage dans le projet
+- Une version plus jeune que `minimumReleaseAge` demande confirmation en interactif et échoue en non-interactif
+- Après toute mise à jour sur le poste, `cmd //c "pnpm --version"` vérifie le chemin qu'emprunte Tauri
+
 ---
 
 # Bonnes Pratiques
@@ -205,6 +256,7 @@ pnpm tauri dev                  # raccourci vers le binaire @tauri-apps/cli
 - **Résoudre un conflit de lockfile par un `pnpm install`**, jamais à la main
 - **Vérifier `pnpm ignored-builds`** quand une dépendance native se comporte mal
 - **Cibler `public-hoist-pattern` sur le paquet qui l'exige** plutôt que d'activer `shamefully-hoist`
+- **Mettre pnpm à jour sur le poste par `pnpm self-update` hors du projet, depuis Git Bash**, puis vérifier `cmd //c "pnpm --version"`
 
 ## ❌ Anti-Patterns
 
@@ -214,6 +266,8 @@ pnpm tauri dev                  # raccourci vers le binaire @tauri-apps/cli
 - **Approuver tous les builds sans regarder** ce que les scripts font
 - **Utiliser `actions/setup-node` en plus de `pnpm/setup`** : la seconde installe déjà le runtime
 - **Placer les options après `exec`** : elles partent à la commande exécutée, sans erreur visible
+- **Écrire un `pnpm.cmd` à la main, ou ajouter un dossier de shims au `PATH`**, pour contourner un shim manquant : `pnpm self-update` hors projet le régénère
+- **Lancer `pnpm self-update` depuis `cmd.exe`** : il réécrit le shim qui l'exécute
 
 ---
 
@@ -225,6 +279,8 @@ pnpm tauri dev                  # raccourci vers le binaire @tauri-apps/cli
 - [pnpm install](https://pnpm.io/cli/install) · [pnpm add](https://pnpm.io/cli/add) · [pnpm exec](https://pnpm.io/cli/exec) · [pnpm dlx](https://pnpm.io/cli/dlx)
 - [Réglages node-modules et hoisting](https://pnpm.io/settings/node-modules)
 - [pnpm approve-builds](https://pnpm.io/cli/approve-builds)
+- [pnpm self-update](https://pnpm.io/cli/self-update) · [pnpm setup](https://pnpm.io/cli/setup) · [pnpm with](https://pnpm.io/cli/with) · [pnpm shim](https://pnpm.io/cli/shim)
+- [Package managers épinglés](https://pnpm.io/package-managers) · [Paquets globaux](https://pnpm.io/global-packages)
 - [pnpm/setup](https://github.com/pnpm/setup)
 
 ## Ressources Complémentaires

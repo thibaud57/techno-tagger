@@ -15,10 +15,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # Meme valeur que `minimum-version` du Justfile
-  JUST_VERSION: "1.58.0"
-
 jobs:
   # Markdown seul : les trois zones sont sautees et `ci` passe quand meme. Un filtre
   # `paths-ignore` natif laisserait `ci`, exige par la protection, sans resultat.
@@ -55,9 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-uv
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: ${{ env.JUST_VERSION }}
+      - uses: ./.github/actions/setup-just
       - name: Installer les dependances
         run: uv sync --locked --all-groups
         working-directory: sidecar
@@ -81,9 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-pnpm
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: ${{ env.JUST_VERSION }}
+      - uses: ./.github/actions/setup-just
       - run: pnpm install --frozen-lockfile
       # Script epingle au commit du tag v1.7.12 et binaire epingle par l'argument :
       # une URL sur `main` serait une reference mutable, comme un tag d'action
@@ -95,7 +87,7 @@ jobs:
       - run: just lint-workflows
       - run: just typecheck-ui
       # tsc --noEmit ne verifie pas les templates : seul le compilateur Angular
-      # le fait, et ni typecheck-ui ni test-ui ne le declenchent sur toute l'app.
+      # le fait, or ni typecheck-ui ni test-ui ne le declenchent sur toute l'app.
       - run: just build-ui
       - run: just test-ui
       # Non bloquant, meme raison que pour le sidecar
@@ -116,9 +108,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src-tauri
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: ${{ env.JUST_VERSION }}
+      - uses: ./.github/actions/setup-just
       - name: Installer les dependances du sidecar
         run: uv sync --locked --all-groups
         working-directory: sidecar
@@ -128,7 +118,7 @@ jobs:
       - run: just lint-tauri
 
   # Check unique exige par la protection de branche : les noms des trois jobs
-  # ci-dessus peuvent changer sans toucher aux reglages du depot, et un job
+  # ci-dessus peuvent changer sans toucher aux reglages du depot ; un job
   # ajoute plus tard est couvert des qu'il entre dans `needs`.
   ci:
     needs: [changes, sidecar, ui, tauri]

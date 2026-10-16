@@ -14,7 +14,7 @@ L'interface et le métier communiquent par un protocole NDJSON sur les flux stan
 
 ## Démarrage
 
-Prérequis : [pnpm](https://pnpm.io/), [uv](https://docs.astral.sh/uv/), [cargo](https://www.rust-lang.org/tools/install), [just](https://github.com/casey/just) avec bash (Git Bash sous Windows, le `Justfile` et les scripts pnpm passant par `bash`) et [actionlint](https://github.com/rhysd/actionlint) (`winget install rhysd.actionlint`, requis par `just lint`). Versions exactes dans `engines` de `package.json`, `rust-toolchain.toml` et `sidecar/.python-version`.
+Prérequis : [pnpm](https://pnpm.io/), [uv](https://docs.astral.sh/uv/), [cargo](https://www.rust-lang.org/tools/install), [just](https://github.com/casey/just) avec bash (Git Bash sous Windows, le `Justfile` et les scripts pnpm passant par `bash`) et [actionlint](https://github.com/rhysd/actionlint) (`winget install rhysd.actionlint`, requis par `just lint`). Versions exactes dans `engines` et `devEngines` de `package.json` (Node, pnpm), `required-version` de `sidecar/pyproject.toml` (uv), `rust-toolchain.toml` et `sidecar/.python-version`.
 
 ```bash
 cp .env.example .env    # secrets de build, commentés dans le fichier (DSN vides = SDK Sentry inerte)

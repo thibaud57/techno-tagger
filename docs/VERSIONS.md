@@ -1,7 +1,7 @@
 ---
 title: "VERSIONS - Matrice de compatibilité (Fullstack)"
 description: "Versions des dépendances du sidecar Python, de la webview Angular et de la coquille Tauri, compatibilité croisée, configuration et migration."
-date: "2026-10-15"
+date: "2026-10-16"
 keywords: ["versions", "dependencies", "compatibility", "setup", "migration", "fullstack", "tauri", "angular", "python"]
 scope: ["docs", "config", "setup"]
 technologies: ["Python", "Angular", "Tauri", "Rust"]
@@ -9,7 +9,7 @@ technologies: ["Python", "Angular", "Tauri", "Rust"]
 
 > **Trois écosystèmes, trois gestionnaires de paquets.** `sidecar/` en uv, `src/` en pnpm, `src-tauri/` en cargo. Aucun workspace transverse (cf. [ARCHITECTURE.md § Package Manager](ARCHITECTURE.md#package-manager)). La section « Partagé / Infrastructure » couvre la coquille Tauri et la chaîne CI/CD, qui traversent les trois zones.
 
-> **Versions relevées le 2026-10-09** (uv, Ruff, Angular, Prettier et actions CI : 2026-10-12 ; pnpm : 2026-10-15), dans les **lockfiles** (`uv.lock`, `pnpm-lock.yaml`, `Cargo.lock`), c'est-à-dire ce qui est réellement résolu, pas les plages déclarées dans les manifestes. Le périmètre est ce que le dépôt déclare : les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) en sont donc hors, elles seront documentées le jour où elles entrent réellement dans un fichier de dépendances.
+> **Versions relevées le 2026-10-09** (uv, Ruff, Angular, Prettier et actions CI : 2026-10-12 ; pnpm : 2026-10-16), dans les **lockfiles** (`uv.lock`, `pnpm-lock.yaml`, `Cargo.lock`), c'est-à-dire ce qui est réellement résolu, pas les plages déclarées dans les manifestes. Le périmètre est ce que le dépôt déclare : les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) en sont donc hors, elles seront documentées le jour où elles entrent réellement dans un fichier de dépendances.
 
 > **Politique de version du projet : la dernière stable, toujours.** Une version antérieure ne se retient que sur une incompatibilité dure, documentée dans [Conflits Potentiels](#conflits-potentiels), et qu'aucune ligne de configuration ne contourne. Une rupture qui se règle par une règle de lint, un réglage ou une tournure de code à éviter n'est pas une raison de rester en arrière : elle se mécanise et on avance. Trois entrées seulement s'écartent de la dernière version publiée au relevé, et chacune s'en explique dans sa fiche : **TypeScript**, bloqué en 6.0.x par une incompatibilité qu'aucun réglage ne lève ; **Node**, tenu en 24.x LTS jusqu'au passage LTS de la 26, annoncé au 2026-10-28, parce que c'est un outil de build et non une dépendance du produit ; et **@tauri-apps/api**, tenu en 2.12.1, parce que son patch suivant, publié le 2026-10-09, tombait encore sous le `minimumReleaseAge` de 24 heures au relevé.
 
@@ -48,7 +48,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | Angular | `22.2.2` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé. `@angular/cli` et `@angular/build` suivent leur propre cadence de patch, en `22.2.2` au relevé |
 | TypeScript | `6.0.3` | ✅ | Contrainte dure d'Angular 22 : `>=6.0.0 <6.1.0`. **TS 7 (tsgo) casse `compiler-cli` et `typescript-eslint`**. `noUncheckedIndexedAccess` activé le 2026-09-06 : zéro erreur sur la base existante |
 | Node.js | `24.x` (Active LTS) | ✅ | Bascule prévue sur 26.x quand elle passe LTS le 2026-10-28, une ligne dans `.github/actions/setup-pnpm`. Installée par `pnpm/setup`, pas par `actions/setup-node` |
-| pnpm | `12.11.2` | ✅ | Réécriture Rust, sous le dist-tag `latest` depuis début septembre 2026. Épinglé par `devEngines.packageManager` (`onFail: download`), que `pnpm/setup` lit en CI. Lockfile à deux documents depuis le 2026-10-15, cf. § Dependabot |
+| pnpm | `12.14.0` | ✅ | Réécriture Rust, sous le dist-tag `latest` depuis début septembre 2026. Épinglé par `devEngines.packageManager` (`onFail: download`), que `pnpm/setup` lit en CI. Lockfile à deux documents depuis le 2026-10-15, cf. § Dependabot |
 | PrimeNG | `22.1.2` | ❌ | Licence PrimeUI avec clé obligatoire même en Community. Le dépôt public ne porte plus que la lignée MIT 21.x, le code 22.x vit dans un dépôt privé. Voir [Conflits Potentiels](#conflits-potentiels) |
 | @primeuix/themes | `3.0.1` | ⚠️ | **Pas une dépendance transitive de PrimeNG**, à déclarer explicitement. Base rem passée de 14px à 16px |
 | PrimeIcons | `@primeicons/angular 8.0.2` | ❌ | Dépendance directe de PrimeNG 22, **à déclarer quand même** : pnpm isole, une transitive n'est pas importable depuis `src/`. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 est sous licence PrimeUI |
@@ -457,7 +457,7 @@ La bascule d'octobre coûte une ligne (`runtime: node@24` devient `runtime: node
 Le corollaire n'est pas optionnel : sur la ligne 26, **Corepack n'existe plus**, donc `corepack enable` échouera. Ce n'est pas un problème puisque le projet ne l'utilise pas, mais c'est la raison pour laquelle la chaîne d'installation doit être posée correctement **dès maintenant**. La version de Node est posée par `pnpm/setup` via son input `runtime: node@24`, qui remplace `actions/setup-node` : ne jamais s'en remettre au Node préinstallé sur l'image du runner, qui change au fil de ses mises à jour.
 
 ### 4. pnpm
-**Version actuelle** : `12.11.2` (2026-10-09, dist-tag `latest` relevé le 2026-10-15) / `11.28.5` (dernière 11.x, maintenue jusqu'au 2027-04-30 selon le `SECURITY.md` de pnpm)
+**Version actuelle** : `12.14.0` (2026-10-15, dist-tag `latest` relevé le 2026-10-16) / `11.28.6` (dernière 11.x, publiée le 2026-10-15, maintenue jusqu'au 2027-04-30 selon le `SECURITY.md` de pnpm)
 **Stabilité** : ✅
 
 `latest` a basculé de la ligne 11 à la ligne 12 entre le 2026-09-04 et le 2026-09-06 (pnpm.io PR #918 : « `npm view pnpm dist-tags` now reports `latest: 12.3.4` »). Le relevé précédent de ce document, daté du 2026-10-02, la croyait encore sous `next-12` : c'était déjà faux.
@@ -465,7 +465,7 @@ Le corollaire n'est pas optionnel : sur la ligne 26, **Corepack n'existe plus**,
 **Breaking Changes Majeurs** :
 - **11.0.0** (2026-04-28) : Node `>=22.13` requis, distribution ESM pure. `onlyBuiltDependencies` et ses variantes remplacées par un unique `allowBuilds`. `.npmrc` restreint à l'auth et au registry, le reste migre vers `pnpm-workspace.yaml`. Variables `npm_config_*` renommées `pnpm_config_*`. `minimumReleaseAge` passe à 1440 minutes et `blockExoticSubdeps` à `true`
 - **12.0.0** (2026-08-26) : réécriture en Rust, binaire natif qui ne demande plus Node une fois installé, **format de lockfile inchangé** (`lockfileVersion: '9.0'`, champ optionnel `revision` par paquet). `--frozen-lockfile false` et `--resolution-only` supprimés (`--no-frozen-lockfile`, `pnpm peers check`). Une clé inconnue de `pnpm-workspace.yaml` est signalée avec suggestion de typo, en warning tant que le projet n'épingle pas pnpm. Première résolution complète : les variantes de peers des paquets cycliques sont réécrites une fois
-- Aucune de ces ruptures ne touche les réglages du projet (`allowBuilds`, `minimumReleaseAge`, `scriptShell`, `packages: []`) : la montée 11.24.0 → 12.10.1 du 2026-10-09 n'a changé que le contenu résolu du lockfile, resté mono-document. La montée 12.10.1 → 12.11.2 du 2026-10-15 n'a rien changé de plus : les notes de release 12.11.0 à 12.11.2 (2026-10-09) ne signalent aucune rupture, la 12.11.0 ajoutant un réglage `permissions` qui primerait sur `allowBuilds` s'il était présent (absent ici)
+- Aucune de ces ruptures ne touche les réglages du projet (`allowBuilds`, `minimumReleaseAge`, `scriptShell`, `packages: []`) : les montées 11.24.0 → 12.14.0 (2026-10-09 au 2026-10-16) n'ont changé que le contenu résolu du lockfile. À surveiller : la 12.11.0 ajoute un réglage `permissions`, qui primerait sur `allowBuilds` s'il était posé
 
 **Ce que la migration 10 → 11 coûte réellement sur ce projet** : moins de dix lignes. `allowBuilds: { esbuild: true }` remplace `onlyBuiltDependencies: [esbuild]` (esbuild étant tiré par `@angular/build`), et les réglages non-auth du `.npmrc` déménagent dans un `pnpm-workspace.yaml`, à créer même sans monorepo. Le renommage `npm_config_*` n'a d'effet que si la CI pilote pnpm par variables d'environnement, ce qui n'est pas le cas ici.
 
@@ -474,7 +474,7 @@ Le corollaire n'est pas optionnel : sur la ligne 26, **Corepack n'existe plus**,
 | Déclencheur | Présent ici ? |
 |---|---|
 | `configDependencies` dans `pnpm-workspace.yaml` | Non |
-| `devEngines.packageManager` dans `package.json` | **Oui depuis le 2026-10-15** : pnpm épinglé en 12.11.2 avec `onFail: download` |
+| `devEngines.packageManager` dans `package.json` | **Oui depuis le 2026-10-15** : pnpm épinglé en version exacte avec `onFail: download` |
 | Champ legacy `packageManager` | Non |
 
 Le second document (`packageManagerDependencies`) porte la résolution de pnpm lui-même. `lockfileVersion` reste `'9.0'` dans les deux. Son coût, assumé, est décrit en [§ Dependabot](#6-dependabot).
@@ -483,9 +483,9 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 - **Angular CLI tourne sur pnpm 12 en interne** : la branche 22.2.x du dépôt `angular/angular-cli` est passée à pnpm 12.6.0 (PR #34160, mergée le 2026-09-24)
 - Aucun `node-linker=hoisted` n'est nécessaire, le résolveur strict par défaut convient
 - **Dependabot supporte pnpm 12** côté PR depuis le 2026-09-15 (dependabot-core PR #16169 et #16170). Le graphe de dépendances GitHub ne lit toujours que le premier document du lockfile, voir la fiche [Dependabot](#6-dependabot)
-- CI : `pnpm/setup@v3.1.1`, qui **exige pnpm 11 ou plus récent** et télécharge le binaire natif. `pnpm/action-setup` reste l'action des versions ≤ 10, et son README pointe lui-même vers son successeur
+- CI : `pnpm/setup@v3.1.1`, qui **exige pnpm 11 ou plus récent** et télécharge le binaire natif (`pnpm/action-setup` : cf. matrice)
 
-**Recommandation** : ✅ **12.11.2**, ce que pointe `latest`. `package.json` est la seule source de la version : `devEngines.packageManager` avec `onFail: download` fait télécharger la bonne version sur chaque poste, et `pnpm/setup` la lit en CI (sans `version`, l'action composite ne porte plus que celle de Node). Même schéma que pour uv (`required-version`) et que les autres projets pnpm du poste, aligné le 2026-10-15.
+**Recommandation** : ✅ **12.14.0**, ce que pointe `latest`. `package.json` est la seule source de la version : `devEngines.packageManager` avec `onFail: download` fait télécharger la bonne version sur chaque poste, et `pnpm/setup` la lit en CI (sans `version`, l'action composite ne porte plus que celle de Node). Même schéma que pour uv (`required-version`) et que les autres projets pnpm du poste, aligné le 2026-10-15.
 
 > ⚠️ **Piège de CI à désamorcer avant le premier build.** `minimumReleaseAge` à 24 h combiné à `pnpm install --frozen-lockfile` fait échouer la CI quand un bot vient de regénérer un lockfile pointant une dépendance transitive publiée dans les dernières 24 heures. Le cas est documenté sur Angular avec `caniuse-lite`, via la chaîne browserslist, et se solde par `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. `--frozen-lockfile` ne fait que vérifier, sans repli possible. Dependabot ne régénère pas le lockfile lui-même, il appelle la CLI pnpm, qui applique son propre `minimumReleaseAge` : rien à aligner côté bot. Seule parade restante côté pnpm : `minimumReleaseAgeExclude` pour les paquets qui se republient trop souvent.
 
@@ -819,7 +819,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | `Swatinem/rust-cache` | `v2.9.2` (2026-08-06) | Supporte le layout de build Cargo V2 |
 | `tauri-apps/tauri-action` | `v1.0.0` (2026-06-29) | v1 abandonne Tauri v1, supprime `includeRelease`/`includeDebug`, renomme `assetNamePattern` en `releaseAssetNamePattern` |
 | `googleapis/release-please-action` | `v5.0.0` (2026-04-22) | v5 : passage au runtime Node 24 |
-| `extractions/setup-just` | `v4.0.0` | Installe `just` sur le runner : les deux workflows appellent les recettes du `Justfile` plutôt que de dupliquer les commandes |
+| `extractions/setup-just` | `v4.0.0` | Installe `just` sur le runner : les deux workflows appellent les recettes du `Justfile` plutôt que de dupliquer les commandes. Appelée par la seule action composite `.github/actions/setup-just`, qui lit la version dans `minimum-version` du `Justfile` |
 | `getsentry/action-release` | `v3.7.1` (2026-10-05) | Job `sentry-release` : une release par projet Sentry (`techno-tagger-ui`, `techno-tagger-sidecar`), `set_commits: auto` d'où le `fetch-depth: 0`. Action composite, la 3.7.1 ne corrige que des dépendances transitives (`js-yaml`, `undici`) |
 | `rhysd/actionlint` | `1.7.12` (2026-03-30) | Script et binaire épinglés dans le job `ui`. Le support du label `ubuntu-26.04` n'est pas confirmé dans ses notes |
 
@@ -916,12 +916,12 @@ Trois contournements, dans l'ordre de préférence :
 | Tailwind 4.3.3 | prettier-plugin-tailwindcss 0.8.1 | ✅ | Option `tailwindStylesheet` obligatoire |
 | Tailwind 4.3.3 | SCSS / LESS | ❌ | Non supporté par conception, d'où le CSS pur |
 | Tailwind 4.3.3 | WebView2 | ✅ | Plancher navigateur de la v4 très en deçà du Chromium de WebView2 |
-| pnpm 12.11.2 | Angular CLI 22 | ✅ | La branche 22.2.x d'`angular/angular-cli` tourne elle-même sur pnpm 12.6.0 depuis le 2026-09-24 |
-| pnpm 12.11.2 (lockfile à deux documents) | Dependabot | ⚠️ | PR de mise à jour OK ; alertes de sécurité npm non fiables tant que dependabot-core#15904 est ouverte, `just audit-ui` en relais |
+| pnpm 12.14.0 | Angular CLI 22 | ✅ | La branche 22.2.x d'`angular/angular-cli` tourne elle-même sur pnpm 12.6.0 depuis le 2026-09-24 |
+| pnpm 12.14.0 (lockfile à deux documents) | Dependabot | ⚠️ | PR de mise à jour OK ; alertes de sécurité npm non fiables tant que dependabot-core#15904 est ouverte, `just audit-ui` en relais |
 | Dependabot | uv, cargo, github-actions | ✅ | Écosystèmes `uv`, `cargo` et `github-actions` couverts par le même `dependabot.yml` que `npm` |
-| pnpm 12.11.2 | `pnpm/setup` v3.1.1 | ✅ | L'action exige pnpm 11+, télécharge le binaire natif et lit `devEngines.packageManager` sans `version` |
-| pnpm 12.11.2 | `pnpm/action-setup` v6 | ❌ | Action réservée à pnpm 10 et antérieur |
-| pnpm 12.11.2 | `--frozen-lockfile` en CI | ⚠️ | `minimumReleaseAge` à 24 h fait échouer l'install sur une transitive trop fraîche |
+| pnpm 12.14.0 | `pnpm/setup` v3.1.1 | ✅ | L'action exige pnpm 11+, télécharge le binaire natif et lit `devEngines.packageManager` sans `version` |
+| pnpm 12.14.0 | `pnpm/action-setup` v6 | ⚠️ | Support de pnpm 12 annoncé en v6.1.0, mais `pnpm.cmd` non reconnu sous PowerShell Windows (action-setup#291, ouverte) : le projet reste sur `pnpm/setup` |
+| pnpm 12.14.0 | `--frozen-lockfile` en CI | ⚠️ | `minimumReleaseAge` à 24 h fait échouer l'install sur une transitive trop fraîche |
 | Node 24.x | `pnpm/setup` v3.1.1 | ✅ | `runtime: node@24`, sans Corepack ni `actions/setup-node` |
 | Node 25.x et au-delà | Corepack | ❌ | Retiré des binaires officiels, d'où la bascule d'octobre à préparer |
 | Python 3.14.8 | PyInstaller 6.22.3 | ✅ | Plage `>=3.8,<3.16`, support de 3.14 depuis 6.15.0 (2025-08-03) |
@@ -1014,7 +1014,7 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 `engines.node` sur `^24.15.0 || ^26.0.0` : un `>=` laisserait passer Node 25.x, hors de la plage supportée par Angular 22. Un `pnpm-workspace.yaml` est à créer même sans monorepo, pour accueillir `allowBuilds: { esbuild: true }` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11.
 
-`devEngines.packageManager` épingle pnpm (`12.11.2`, `onFail: download`) : seule source de la version, lue par `pnpm/setup` en CI. Pas de champ `packageManager` (legacy, Corepack). Le lockfile à deux documents qui en résulte est assumé, cf. [§ Dependabot](#6-dependabot).
+`devEngines.packageManager` épingle pnpm (`12.14.0`, `onFail: download`) : seule source de la version, lue par `pnpm/setup` en CI. Pas de champ `packageManager` (legacy, Corepack). Le lockfile à deux documents qui en résulte est assumé, cf. [§ Dependabot](#6-dependabot).
 
 **Dépendances** : les paquets runtime `@angular/*` en `22.2.2` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.2.2`), `primeng` en `22.1.2`, `@primeuix/themes` en `3.0.1` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `11.6.0`, `@tauri-apps/api` en `2.12.1`, plus les sept paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`).
 
@@ -1079,7 +1079,8 @@ uv run pytest
 # 3. Webview Angular
 #    Ne pas passer par corepack : il disparaît sur Node 25+
 cd ..
-npm install -g pnpm@12    # devEngines télécharge ensuite la 12.11.2 exacte
+npx get-pnpm              # installeur recommandé sous Windows ; devEngines télécharge ensuite la version épinglée
+cmd //c "pnpm --version"  # Tauri passe par cmd.exe : pnpm.cmd doit s'y résoudre
 pnpm install
 pnpm exec ng build
 
