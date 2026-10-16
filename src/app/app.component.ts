@@ -41,7 +41,8 @@ import { FADE_IN } from "./shared/utils/motion"
   templateUrl: "./app.component.html",
   // `overflow-hidden` tient la regle « la page ne defile jamais » : sans lui, un pixel de
   // trop fait defiler le document et la barre d'onglets quitte l'ecran.
-  host: { class: "flex h-screen flex-col overflow-hidden" },
+  // `bg-surface-950` : sans fond pose, la page prendrait le gris par defaut de WebView2, hors palette.
+  host: { class: "flex h-screen flex-col overflow-hidden bg-surface-950" },
 })
 export class AppComponent {
   private readonly translate = inject(TranslateService)
@@ -54,7 +55,7 @@ export class AppComponent {
   protected readonly tabs = TABS
   protected readonly fadeIn = FADE_IN
 
-  /** Derive de l'URL et non l'inverse : `p-tabs` n'a aucun mode router, et le deep-link reste vrai. */
+  /** Derive de l'URL (le deep-link reste vrai) et non l'inverse : `p-tabs` n'a aucun mode router. */
   protected readonly activeTab = toSignal(
     this.router.events.pipe(
       filter((event) => event instanceof NavigationEnd),

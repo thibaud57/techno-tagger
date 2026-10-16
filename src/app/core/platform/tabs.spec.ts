@@ -1,21 +1,15 @@
 import { DEFAULT_TAB, tabFromUrl } from "./tabs"
 
 describe("tabFromUrl", () => {
-  it("reads the tab from the first segment", () => {
-    expect(tabFromUrl("/settings")).toBe("settings")
-    expect(tabFromUrl("/tagging/")).toBe("tagging")
+  it.each([
+    ["/settings", "settings"],
+    ["/tagging/", "tagging"],
+    ["/settings?run=3#report", "settings"],
+  ])("reads the tab of %s", (url, tab) => {
+    expect(tabFromUrl(url)).toBe(tab)
   })
 
-  it("ignores the query and the fragment", () => {
-    expect(tabFromUrl("/settings?run=3#report")).toBe("settings")
-  })
-
-  it("falls back to the first tab before the first navigation", () => {
-    expect(tabFromUrl("/")).toBe(DEFAULT_TAB)
-    expect(tabFromUrl("")).toBe(DEFAULT_TAB)
-  })
-
-  it("falls back to the first tab on a segment that is not a tab", () => {
-    expect(tabFromUrl("/unknown")).toBe(DEFAULT_TAB)
+  it.each(["/", "", "/unknown"])("falls back to the first tab for %j", (url) => {
+    expect(tabFromUrl(url)).toBe(DEFAULT_TAB)
   })
 })

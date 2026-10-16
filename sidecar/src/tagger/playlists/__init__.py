@@ -1,8 +1,7 @@
 """Parsing des playlists : dump SQLite VLC et M3U8.
 
-Surface publique du package. Le decoupage interne entre le lecteur de dump et le
-parser texte ne fuit pas vers les appelants : ceux-ci passent un chemin, le format
-est reconnu a l'en-tete du fichier (cf. `.claude/rules/python/imports-modules.md`).
+Facade du package : les appelants passent un chemin, le format est reconnu a l'en-tete
+du fichier, le decoupage interne entre lecteur de dump et parser texte ne fuit pas.
 """
 
 from typing import TYPE_CHECKING, assert_never
@@ -45,17 +44,14 @@ def detect_format(path: Path) -> PlaylistFormat:
 
 
 def list_playlists(path: Path) -> PlaylistListing:
-    """Liste les playlists d'un fichier de playlist, avec le format reconnu.
+    """Playlists d'un fichier de playlist, avec le format reconnu.
 
-    Un M3U8 n'en contient qu'une et rend donc une liste vide, sans lever : cette
-    commande sert aussi a faire reconnaitre le format par l'interface, qui n'a pas
-    le droit de le deduire elle-meme. Lever ici transformerait un canal d'erreur en
-    canal d'information, et un fichier illisible cesserait d'etre distinguable d'un
-    M3U8 valide. Le decodage est donc tente quand meme, son resultat ignore : seul un
-    fichier reellement decodable rend `()`, un fichier binaire illisible (ex: JPEG)
-    leve `UnsupportedPlaylistFormatError` comme `read_playlist` le ferait.
-
-    Le format est rendu avec les playlists : l'appelant n'a pas a relire l'en-tete.
+    Un M3U8 n'en contient qu'une et rend `()` sans lever : cette commande sert aussi a
+    faire reconnaitre le format par l'interface, qui n'a pas le droit de le deduire.
+    Lever ici transformerait un canal d'erreur en canal d'information : un fichier
+    illisible cesserait d'etre distinguable d'un M3U8 valide. Le decodage est donc
+    tente quand meme, son resultat ignore : un binaire illisible (ex: JPEG) leve
+    `UnsupportedPlaylistFormatError` comme `read_playlist`.
     """
     match detect_format(path):
         case PlaylistFormat.VLC_DUMP:
@@ -68,15 +64,13 @@ def list_playlists(path: Path) -> PlaylistListing:
 
 
 def read_playlist(path: Path, playlist_name: str | None = None) -> tuple[str, ...]:
-    """Rend les noms de fichiers de la playlist, quel que soit le format d'entree.
+    """Noms de fichiers de la playlist, quel que soit le format d'entree.
 
-    `playlist_name` est requis pour un dump, qui porte toute la mediatheque, et
-    ignore pour un M3U8, qui ne contient qu'une playlist.
+    `playlist_name` est requis pour un dump (il porte toute la mediatheque) et ignore
+    pour un M3U8 (une seule playlist).
 
-    Les deux formats different aussi par la deduplication : un dump rend des noms
-    dedupliques et tries (source de verite geree par la base), un M3U8 les rend dans
-    l'ordre du fichier, doublons compris (ordre de lecture DJ, potentiellement
-    intentionnel, jamais reordonne ni deduplique).
+    Un dump rend des noms dedupliques et tries (la base fait foi), un M3U8 l'ordre du
+    fichier, doublons compris : l'ordre de lecture DJ peut etre voulu.
     """
     match detect_format(path):
         case PlaylistFormat.VLC_DUMP:

@@ -3,11 +3,18 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from ndjson_loop import conversation, resolved_run, start_command
+from ndjson_loop import (
+    UNKNOWN_RUN,
+    committed,
+    conversation,
+    resolved_run,
+    start_command,
+    sub,
+)
 from run_plans import music, only_plan, plan_files, plan_of, save_plan
-from scraper_responses import BASIEL, YOUR_MIND
-from tagging_api import CREATED, ORIGINAL, found, two_tracks
-from tagging_records import RUN_ID
+from scraper_responses import BASIEL
+from tagging_api import FIRST_TRACK, knows_your_mind
+from tagging_records import CREATED, RUN_ID
 
 from tagger.core.run_files import run_id_of, stamped_name
 from tagger.run.models import FailureReason
@@ -19,9 +26,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from memory_keyring import MemoryKeyring
-    from tagging_api import FakeApi
+    from tagging_api import FakeApi, Gate
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key", "app_data")]
+    from tagger.run.models import TrackRecord
+
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
 OTHER_RUN: Final = "9e8f7a"
 
@@ -44,8 +53,7 @@ async def test_announces_an_interrupted_run(tmp_path: Path) -> None:
         talk.send(command="get_interrupted_run")
         announced = await talk.expect("interrupted_run")
 
-    run = announced["run"]
-    assert isinstance(run, dict)
+    run = sub(announced, "run")
     assert (run["kind"], run["run_id"], run["processed"], run["total"]) == (
         "interrupted",
         RUN_ID,
@@ -55,37 +63,25 @@ async def test_announces_an_interrupted_run(tmp_path: Path) -> None:
     assert run["folder_missing"] is False
 
 
-async def test_announces_a_plan_of_another_version() -> None:
+@pytest.mark.parametrize(
+    ("contents", "found"),
+    [(json.dumps({"schema_version": 2}), 2), ("{not json", None)],
+    ids=["other-version", "corrupt"],
+)
+async def test_announces_an_unreadable_plan(contents: str, found: int | None) -> None:
     plans = plan_dir()
     plans.mkdir(parents=True)
-    (plans / stamped_name(CREATED, RUN_ID, ".json")).write_text(
-        json.dumps({"schema_version": 2}), encoding="utf-8"
-    )
+    (plans / stamped_name(CREATED, RUN_ID, ".json")).write_text(contents, encoding="utf-8")
 
     async with conversation() as talk:
         talk.send(command="get_interrupted_run")
         announced = await talk.expect("interrupted_run")
 
-    run = announced["run"]
-    assert isinstance(run, dict)
-    assert (run["kind"], run["found"], run["expected"]) == ("unreadable", 2, 1)
-
-
-async def test_announces_a_corrupt_plan_without_a_version() -> None:
-    plans = plan_dir()
-    plans.mkdir(parents=True)
-    (plans / stamped_name(CREATED, RUN_ID, ".json")).write_text("{not json", encoding="utf-8")
-
-    async with conversation() as talk:
-        talk.send(command="get_interrupted_run")
-        announced = await talk.expect("interrupted_run")
-
-    run = announced["run"]
-    assert isinstance(run, dict)
+    run = sub(announced, "run")
     assert (run["kind"], run["run_id"], run["found"], run["expected"]) == (
         "unreadable",
         RUN_ID,
-        None,
+        found,
         1,
     )
 
@@ -133,8 +129,7 @@ async def test_discarding_a_plan_announces_the_next_interrupted_run(tmp_path: Pa
         talk.send(command="discard_run", run_id=RUN_ID)
         announced = await talk.expect("interrupted_run")
 
-    run = announced["run"]
-    assert isinstance(run, dict)
+    run = sub(announced, "run")
     assert run["run_id"] == OTHER_RUN
     assert [run_id_of(path) for path in plan_files()] == [OTHER_RUN]
 
@@ -159,13 +154,13 @@ async def test_discarding_an_interrupted_plan_does_not_announce_the_open_run(
 )
 async def test_reports_an_unknown_run(command: str) -> None:
     async with conversation() as talk:
-        talk.send(command=command, run_id="000000")
+        talk.send(command=command, run_id=UNKNOWN_RUN)
         error = await talk.expect("error")
 
     assert (error["code"], error["command"], error["params"]) == (
         "run_not_found",
         command,
-        {"run_id": "000000"},
+        {"run_id": UNKNOWN_RUN},
     )
 
 
@@ -182,18 +177,18 @@ async def test_discarding_the_current_run_abandons_it(folder: Path) -> None:
     assert (refused["code"], refused["command"]) == ("write_not_open", "commit_run")
 
 
-async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeApi) -> None:
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    gate = api.gate("/beatport/search", BASIEL)
-    folder = two_tracks(tmp_path)
+async def test_resumes_a_run_cut_short_by_a_shutdown(
+    two_tracks_folder: Path, api: FakeApi, basiel_gate: Gate
+) -> None:
+    knows_your_mind(api)
 
     async with conversation() as talk:
-        talk.send(**start_command(folder))
+        talk.send(**start_command(two_tracks_folder))
         started = await talk.expect("run_started")
-        await talk.expect("track_resolved", track_id="a.mp3")
-        await gate.reached.wait()
-        talk.send(command="shutdown")
-    gate.release.set()
+        await talk.expect("track_resolved", track_id=FIRST_TRACK)
+        await basiel_gate.wait_reached()
+        talk.shut_down()
+    basiel_gate.release.set()
     api.requests.clear()
     run_id = started["run_id"]
     plan_before = plan_files()
@@ -203,11 +198,10 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(tmp_path: Path, api: FakeAp
         announced = await talk.expect("interrupted_run")
         talk.send(command="resume_run", run_id=run_id)
         await talk.expect("run_started", run_id=run_id)
-        replayed = await talk.expect("track_resolved", track_id="a.mp3")
+        replayed = await talk.expect("track_resolved", track_id=FIRST_TRACK)
         finished = await talk.expect("run_finished", phase="network")
 
-    run = announced["run"]
-    assert isinstance(run, dict)
+    run = sub(announced, "run")
     assert (run["processed"], run["total"]) == (1, 2)
     assert replayed["resolution"] == "auto"
     assert plan_files() == plan_before
@@ -237,8 +231,7 @@ async def test_refuses_a_plan_that_cannot_be_resumed_and_keeps_the_open_run(
         run_id = await resolved_run(talk, folder)
         talk.send(command="resume_run", run_id=OTHER_RUN)
         refused = await talk.expect("error")
-        talk.send(command="commit_run", run_id=run_id)
-        finished = await talk.expect("run_finished", phase="write")
+        finished = await committed(talk, run_id)
 
     assert (refused["code"], refused["command"], refused["params"]) == (
         "run_not_found",
@@ -278,24 +271,33 @@ async def test_a_resume_refused_at_opening_keeps_the_open_run_and_its_plan(
         spoil(memory_keyring, other)
         talk.send(command="resume_run", run_id=OTHER_RUN)
         refused = await talk.expect("error")
-        talk.send(command="commit_run", run_id=run_id)
-        finished = await talk.expect("run_finished", phase="write")
+        finished = await committed(talk, run_id)
 
     assert (refused["code"], refused["command"]) == (code, "resume_run")
     assert finished["written"] == 1
     assert {run_id_of(path) for path in plan_files()} == {run_id, OTHER_RUN}
 
 
-@pytest.mark.parametrize("kind", ["removed", "emptied"], ids=["removed", "emptied"])
-@pytest.mark.usefixtures("api")
-async def test_reports_a_run_whose_folder_cannot_be_reopened(tmp_path: Path, kind: str) -> None:
+def _empty_the_folder_of(_folder: Path, records: list[TrackRecord]) -> None:
+    for record in records:
+        record.path.unlink()
+
+
+def _remove_the_folder_of(folder: Path, records: list[TrackRecord]) -> None:
+    _empty_the_folder_of(folder, records)
+    folder.rmdir()
+
+
+@pytest.mark.parametrize(
+    "unplug", [_remove_the_folder_of, _empty_the_folder_of], ids=["removed", "emptied"]
+)
+async def test_reports_a_run_whose_folder_cannot_be_reopened(
+    tmp_path: Path, unplug: Callable[[Path, list[TrackRecord]], None]
+) -> None:
     folder = tmp_path / "unplugged"
     records = music(folder, 1)
     save_plan(plan_dir(), plan_of(folder, records))
-    for record in records:
-        record.path.unlink()
-    if kind == "removed":
-        folder.rmdir()
+    unplug(folder, records)
 
     async with conversation() as talk:
         talk.send(command="resume_run", run_id=RUN_ID)

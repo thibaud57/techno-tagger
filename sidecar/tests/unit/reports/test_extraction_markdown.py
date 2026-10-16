@@ -1,6 +1,7 @@
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
+import pytest
 from extraction_samples import CYRILLIC_TRACK
 
 from tagger.reports.extraction import ReportContext, render_markdown
@@ -18,19 +19,26 @@ def test_headings_are_in_english(
     assert "## Summary" in rendered
 
 
+CATEGORY_HEADINGS: Final = [
+    "## Extracted",
+    "## Already present",
+    "## Missing",
+    "## Duplicates resolved",
+    "## Failures",
+]
+
+
+@pytest.mark.parametrize(
+    "heading",
+    CATEGORY_HEADINGS,
+    ids=["extracted", "already-present", "missing", "duplicates", "failures"],
+)
 def test_shows_every_category_that_has_content(
-    extraction_result: ExtractionResult, report_context: ReportContext
+    extraction_result: ExtractionResult, report_context: ReportContext, heading: str
 ) -> None:
     rendered = render_markdown(extraction_result, report_context)
 
-    for heading in (
-        "## Extracted",
-        "## Already present",
-        "## Missing",
-        "## Duplicates resolved",
-        "## Failures",
-    ):
-        assert heading in rendered
+    assert heading in rendered
 
 
 def test_a_resolved_duplicate_is_readable(
@@ -81,8 +89,4 @@ def test_an_empty_result_still_writes_a_report_with_no_detail_sections(
     rendered = render_markdown(empty_extraction_result, report_context)
 
     assert "## Summary" in rendered
-    assert "## Extracted" not in rendered
-    assert "## Already present" not in rendered
-    assert "## Missing" not in rendered
-    assert "## Duplicates resolved" not in rendered
-    assert "## Failures" not in rendered
+    assert not [heading for heading in CATEGORY_HEADINGS if heading in rendered]

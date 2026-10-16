@@ -23,6 +23,7 @@ YOUR_MIND: Final = "Adam Beyer Your Mind"
 BASIEL: Final = "Amelie Lens Basiel"
 SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2"
 BANDCAMP_TRACK: Final = "https://amelielens.bandcamp.com/track/basiel"
+YOUR_MIND_BANDCAMP_URL: Final = "https://adambeyer.bandcamp.com/track/your-mind"
 # Pochette du gabarit Beatport : une seule source pour `track_payload` et les tests qui la lisent.
 ARTWORK_URL: Final = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
 
@@ -32,6 +33,9 @@ type Handler = (
     Callable[[httpx2.Request], httpx2.Response]
     | Callable[[httpx2.Request], Coroutine[None, None, httpx2.Response]]
 )
+
+
+type Reply = Callable[[], httpx2.Response]
 
 
 async def no_sleep(_delay: float) -> None:
@@ -174,6 +178,16 @@ def answering(requests: list[httpx2.Request], body: dict[str, object]) -> Handle
     return recording(requests, httpx2.Response(200, json=body))
 
 
+def unreachable(requests: list[httpx2.Request], error: type[httpx2.TransportError]) -> Handler:
+    """Handler qui note chaque requete puis leve `error` comme un echec de transport."""
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        raise error("transport failure", request=request)
+
+    return handler
+
+
 def make_client(
     handler: Handler,
     *,
@@ -184,3 +198,15 @@ def make_client(
     return TechnoScraperClient(
         TEST_API_KEY, transport=httpx2.MockTransport(handler), sleep=sleep, cache=cache
     )
+
+
+def ok(body: dict[str, object]) -> Reply:
+    return lambda: httpx2.Response(200, json=body)
+
+
+def found(*items: dict[str, object]) -> Reply:
+    return ok(page_payload(*items))
+
+
+def failing(status: int, api_code: str = "") -> Reply:
+    return lambda: httpx2.Response(status, json={"code": api_code} if api_code else {})

@@ -66,7 +66,7 @@ const RESOLVED: Record<TrackResolution, StateStyle> = {
       {{ style().label | translate }}
     </p-tag>
   `,
-  // En bloc, l'hote prendrait la hauteur de la ligne de texte et decentrerait l'icone voisine.
+  // En bloc, le host prendrait la hauteur de la ligne de texte et decentrerait l'icone voisine.
   host: { class: "inline-flex" },
 })
 export class StateTagComponent {

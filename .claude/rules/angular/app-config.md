@@ -30,7 +30,7 @@ paths:
 - Angular 22.1 : dans un git worktree, un chemin de cache relatif se résout depuis la racine du dépôt principal, donc `.angular/cache` est partagé entre worktrees
 - Angular 22 exige Node `^22.22.3 || ^24.15.0 || >=26.0.0` et TypeScript `>=6.0.0 <6.1.0` : TypeScript 7 casse `@angular/compiler-cli` et `typescript-eslint`
 - Les suffixes de fichiers générés, supprimés en Angular 20, sont restaurés par le bloc `schematics` d'`angular.json` : `ng g c user` produit `user.component.ts` et `UserComponent`
-- `devEngines.packageManager`, écrit par `pnpm init`, déclenche un lockfile multi-document qui casse le graphe de dépendances GitHub : le retirer de `package.json`
+- `devEngines.packageManager` est la seule source de la version de pnpm (cf. `pnpm/workspace.md`) : ne pas ajouter `packageManager` en plus, ni Corepack
 
 ## Exemples
 ```typescript

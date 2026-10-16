@@ -4,9 +4,11 @@ import type {
   UnreadablePlan,
 } from "../app/core/sidecar/protocol"
 
+import { RUN_ID } from "./tagging"
+
 export const INTERRUPTED: InterruptedRun = {
   kind: "interrupted",
-  run_id: "a3f9c1",
+  run_id: RUN_ID,
   started_at: "2026-08-02T18:40:00Z",
   folder: "D:/Sets/Aout",
   processed: 62,

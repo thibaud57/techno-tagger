@@ -1,19 +1,22 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
+import { vi } from "vitest"
 
-import { action, linkField, page, pasteLink } from "../../../../fixtures/dialog"
+import { linkField, page, pasteLink } from "../../../../fixtures/dialog"
+import { action, errorMessageOf } from "../../../../fixtures/dom"
 import {
   type SidecarStub,
   type SidecarStubOverrides,
+  activeRun,
   commandFailed,
+  provideSidecarStub,
   sidecarStub,
 } from "../../../../fixtures/sidecar-stub"
 import { PENDING_TRACK, arbitrationRequired, unresolvedTrack } from "../../../../fixtures/tagging"
 import { TRACK_URL } from "../../../../fixtures/url-recovery"
 import { commandError } from "../../../../fixtures/write"
 import type { ArbitrationState } from "../../../core/sidecar/protocol"
-import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import { RecoveryUiStore } from "../url-recovery/recovery-ui.store"
@@ -57,18 +60,18 @@ const AFTER_REFUSAL: ArbitrationState = {
 
 const mountWith = (overrides: SidecarStubOverrides = {}) => {
   const service = sidecarStub({
+    // `taggingRunId` est lu par `RecoveryUiStore`, reel ici : l'etape lien en depend.
+    ...activeRun(),
     currentArbitration: signal<ArbitrationState | null>(ON_BEATPORT),
     arbitrationCount: signal(2),
     hasNextArbitration: signal(true),
     taggingTracks: signal([PENDING_TRACK]),
-    // Lus par `RecoveryUiStore`, reel ici : l'etape lien en depend.
-    taggingRunId: signal<string | null>("run-1"),
     arbitrations: signal([ON_BEATPORT]),
     ...overrides,
   })
   TestBed.configureTestingModule({
     imports: [ArbitrationDialogComponent],
-    providers: [provideTranslateService(), { provide: SidecarService, useValue: service }],
+    providers: [provideTranslateService(), provideSidecarStub(service)],
   })
   const fixture = TestBed.createComponent(ArbitrationDialogComponent)
   fixture.componentRef.setInput("visible", true)
@@ -77,74 +80,92 @@ const mountWith = (overrides: SidecarStubOverrides = {}) => {
   return { fixture, component: fixture.componentInstance, service }
 }
 
+const titleOf = (): Element | null => page().querySelector("[data-title]")
+
+const listbox = (): HTMLElement | null => page().querySelector<HTMLElement>('[role="listbox"]')
+
+/**
+ * Sur le `[role="listbox"]` interne de PrimeNG : seul ce chemin prouve que `onKeydown` ne stoppe
+ * pas la propagation.
+ */
+const pressOnList = (key: string): void => {
+  listbox()?.dispatchEvent(new KeyboardEvent("keydown", { key, code: key, bubbles: true }))
+}
+
 describe("ArbitrationDialogComponent", () => {
-  it("shows the candidates of the current arbitration with their score and their label and year", () => {
+  it("shows the candidates of the current arbitration with their score, label and year", () => {
     mountWith()
 
-    const text = page().textContent
-
-    expect(text).toContain("Adam Beyer - Your Mind (Extended Mix)")
-    expect(text).toContain("Drumcode · 2023")
-    expect(text).toContain("arbitration.score")
-    expect(text).toContain("arbitration.scoreTitleOnly")
+    expect(page().textContent).toContain("Adam Beyer - Your Mind (Extended Mix)")
+    expect(page().textContent).toContain("Drumcode · 2023")
+    expect(page().textContent).toContain("arbitration.score")
+    expect(page().textContent).toContain("arbitration.scoreTitleOnly")
   })
 
   it("keeps an empty label line under a candidate that has none", () => {
     mountWith()
 
-    const releases = [...page().querySelectorAll("[data-release]")].map((line) =>
-      line.textContent.trim(),
-    )
-
-    expect(releases).toEqual(["Drumcode · 2023", ""])
+    expect(
+      [...page().querySelectorAll("[data-release]")].map((line) => line.textContent.trim()),
+    ).toEqual(["Drumcode · 2023", ""])
   })
 
   it("falls back on the track id without a run row", () => {
     mountWith({ taggingTracks: signal<readonly TaggingTrack[]>([]) })
 
-    const title = page().querySelector("[data-title]")?.textContent.trim()
-
-    expect(title).toBe("a.mp3")
+    expect(titleOf()?.textContent.trim()).toBe("a.mp3")
   })
 
   it("shows the file name below the title when tags are present", () => {
     mountWith()
 
-    const subtitle = page().querySelector("[data-title]")?.nextElementSibling?.textContent.trim()
-
-    expect(subtitle).toBe("a.mp3")
+    expect(titleOf()?.nextElementSibling?.textContent.trim()).toBe("a.mp3")
   })
 
-  it("titles an untagged track like the run list, file name below", () => {
+  it("titles an untagged track like the run list", () => {
     const { fixture, service } = mountWith()
     service.taggingTracks.set([{ ...PENDING_TRACK, artist: "", title: "" }])
+
     fixture.detectChanges()
 
-    const title = page().querySelector("[data-title]")
+    expect(titleOf()?.textContent.trim()).toBe("a")
+  })
 
-    expect(title?.textContent.trim()).toBe("a")
-    expect(title?.nextElementSibling?.textContent.trim()).toBe("a.mp3")
+  it("puts the file name below the title of an untagged track", () => {
+    const { fixture, service } = mountWith()
+    service.taggingTracks.set([{ ...PENDING_TRACK, artist: "", title: "" }])
+
+    fixture.detectChanges()
+
+    expect(titleOf()?.nextElementSibling?.textContent.trim()).toBe("a.mp3")
   })
 
   it("titles a half-tagged track with the tag it has", () => {
     const { fixture, service } = mountWith()
     service.taggingTracks.set([{ ...PENDING_TRACK, title: "" }])
+
     fixture.detectChanges()
 
-    const title = page().querySelector("[data-title]")
-
-    expect(title?.textContent.trim()).toBe("Adam Beyer")
+    expect(titleOf()?.textContent.trim()).toBe("Adam Beyer")
   })
 
-  it("replaces the Beatport list by the Bandcamp list and offers to go back", () => {
+  it("replaces the Beatport list by the Bandcamp list", () => {
+    const { fixture, service } = mountWith()
+    service.currentArbitration.set(AFTER_REFUSAL)
+
+    fixture.detectChanges()
+
+    expect(page().textContent).toContain("arbitration.switched")
+    expect(page().textContent).not.toContain("Your Mind (Extended Mix)")
+  })
+
+  it("goes back to the Beatport list on the back action", () => {
     const { fixture, service } = mountWith()
     service.currentArbitration.set(AFTER_REFUSAL)
     fixture.detectChanges()
 
     action("back")?.click()
 
-    expect(page().textContent).toContain("arbitration.switched")
-    expect(page().textContent).not.toContain("Your Mind (Extended Mix)")
     expect(service.showArbitrationSource).toHaveBeenCalledWith("a.mp3", "beatport")
   })
 
@@ -157,39 +178,52 @@ describe("ArbitrationDialogComponent", () => {
       }),
     })
 
-    const text = page().textContent
-
-    expect(text).toContain("arbitration.beatportUnavailable")
+    expect(page().textContent).toContain("arbitration.beatportUnavailable")
     expect(action("back")).toBeNull()
   })
 
-  it("offers a single pass action on an empty Bandcamp list with its reason", () => {
-    const { service } = mountWith({
-      currentArbitration: signal<ArbitrationState | null>({
-        ...AFTER_REFUSAL,
-        candidates: [],
-        empty_reason: "no_result",
-      }),
+  describe("on an empty Bandcamp list", () => {
+    const mountEmpty = () =>
+      mountWith({
+        currentArbitration: signal<ArbitrationState | null>({
+          ...AFTER_REFUSAL,
+          candidates: [],
+          empty_reason: "no_result",
+        }),
+      })
+
+    it("offers a single pass action with its reason", () => {
+      mountEmpty()
+
+      expect(page().textContent).toContain("arbitration.empty.no_result")
+      expect(action("refuse")?.textContent).toContain("arbitration.pass")
+      expect(action("validate")?.disabled).toBe(true)
     })
 
-    action("refuse")?.click()
+    it("refuses the list with its source on pass", () => {
+      const { service } = mountEmpty()
 
-    expect(page().textContent).toContain("arbitration.empty.no_result")
-    expect(action("refuse")?.textContent).toContain("arbitration.pass")
-    expect(action("validate")?.disabled).toBe(true)
-    expect(service.refuseCandidates).toHaveBeenCalledWith("a.mp3", "bandcamp")
+      action("refuse")?.click()
+
+      expect(service.refuseCandidates).toHaveBeenCalledWith("a.mp3", "bandcamp")
+    })
   })
 
-  it("validates only a selected candidate, with its source and its index", () => {
-    const { fixture, component, service } = mountWith()
+  it("validates nothing without a selected candidate", () => {
+    const { service } = mountWith()
+
     action("validate")?.click()
-    const before = vi.mocked(service.chooseCandidate).mock.calls.length
+
+    expect(service.chooseCandidate).not.toHaveBeenCalled()
+  })
+
+  it("validates the selected candidate with its source and its index", () => {
+    const { fixture, component, service } = mountWith()
     component["choice"].set({ candidate: 1 })
     fixture.detectChanges()
 
     action("validate")?.click()
 
-    expect(before).toBe(0)
     expect(service.chooseCandidate).toHaveBeenCalledWith("a.mp3", "beatport", 1)
   })
 
@@ -207,9 +241,11 @@ describe("ArbitrationDialogComponent", () => {
       arbitrationBusy: signal(true),
     })
 
-    const actions = ["refuse", "validate", "back"].map((name) => action(name)?.disabled)
-
-    expect(actions).toEqual([true, true, true])
+    expect(["refuse", "validate", "back"].map((name) => action(name)?.disabled)).toEqual([
+      true,
+      true,
+      true,
+    ])
   })
 
   it("keeps browsing the queue while a gesture awaits its answer", () => {
@@ -235,38 +271,43 @@ describe("ArbitrationDialogComponent", () => {
     service.arbitrationBusy.set(true)
     fixture.detectChanges()
 
-    expect(action("validate")?.querySelector('[data-p-icon="spinner"]')).not.toBeNull()
-    expect(action("refuse")?.querySelector('[data-p-icon="spinner"]')).toBeNull()
+    expect(action("validate")?.querySelector('[data-icon="spinner"]')).not.toBeNull()
+    expect(action("refuse")?.querySelector('[data-icon="spinner"]')).toBeNull()
   })
 
-  it("changes arbitration with the left and right arrows and validates with Enter", () => {
+  it("goes to the next arbitration with the right arrow", () => {
+    const { service } = mountWith()
+
+    pressOnList("ArrowRight")
+
+    expect(service.nextArbitration).toHaveBeenCalledOnce()
+  })
+
+  it("goes to the previous arbitration with the left arrow", () => {
+    const { service } = mountWith()
+
+    pressOnList("ArrowLeft")
+
+    expect(service.previousArbitration).toHaveBeenCalledOnce()
+  })
+
+  it("validates the selected candidate with Enter", () => {
     const { fixture, component, service } = mountWith()
     component["choice"].set({ candidate: 0 })
     fixture.detectChanges()
-    // Sur le `[role="listbox"]` interne de PrimeNG : seul ce chemin prouve que `onKeydown` ne stoppe pas la propagation.
-    const list = page().querySelector<HTMLElement>('[role="listbox"]')
 
-    for (const key of ["ArrowRight", "ArrowLeft", "Enter"]) {
-      list?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))
-    }
+    pressOnList("Enter")
 
-    expect(service.nextArbitration).toHaveBeenCalledOnce()
-    expect(service.previousArbitration).toHaveBeenCalledOnce()
     expect(service.chooseCandidate).toHaveBeenCalledWith("a.mp3", "beatport", 0)
   })
 
   it("validates with Enter the candidate reached with the down arrow", () => {
     const { fixture, service } = mountWith()
     TestBed.tick()
-    const list = page().querySelector<HTMLElement>('[role="listbox"]')
-    list?.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowDown", code: "ArrowDown", bubbles: true }),
-    )
+    pressOnList("ArrowDown")
     fixture.detectChanges()
 
-    list?.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }),
-    )
+    pressOnList("Enter")
 
     expect(service.chooseCandidate).toHaveBeenCalledWith("a.mp3", "beatport", 0)
   })
@@ -299,26 +340,23 @@ describe("ArbitrationDialogComponent", () => {
     const { fixture, component, service } = mountWith()
     component["choice"].set({ candidate: 1 })
     fixture.detectChanges()
-
     service.currentArbitration.set(AFTER_REFUSAL)
+
     fixture.detectChanges()
 
     expect(component["choice"]().candidate).toBeNull()
   })
 
-  it("shows only the error of the current track", () => {
-    const { fixture, service } = mountWith(
-      commandFailed("resolve_arbitration", "arbitration_busy", { track_id: "b.mp3" }),
-    )
-    const elsewhere = page().querySelector("app-error-message")
+  it("shows the error of the current track", () => {
+    mountWith(commandFailed("resolve_arbitration", "arbitration_busy", { track_id: "a.mp3" }))
 
-    service.lastError.set(
-      commandError("resolve_arbitration", "arbitration_busy", { track_id: "a.mp3" }),
-    )
-    fixture.detectChanges()
+    expect(errorMessageOf(page())).not.toBeNull()
+  })
 
-    expect(elsewhere).toBeNull()
-    expect(page().querySelector("app-error-message")).not.toBeNull()
+  it("shows no error of another track", () => {
+    mountWith(commandFailed("resolve_arbitration", "arbitration_busy", { track_id: "b.mp3" }))
+
+    expect(errorMessageOf(page())).toBeNull()
   })
 
   it("dismisses by the cross without any gesture", () => {
@@ -372,9 +410,9 @@ describe("ArbitrationDialogComponent", () => {
   it("gives the focus to the pass action when the list is empty", () => {
     const { fixture, service } = mountWith()
     TestBed.tick()
-
     service.currentArbitration.set({ ...AFTER_REFUSAL, candidates: [], empty_reason: "no_result" })
     fixture.detectChanges()
+
     TestBed.tick()
 
     expect(document.activeElement).toBe(action("refuse"))
@@ -396,7 +434,7 @@ describe("ArbitrationDialogComponent", () => {
       fixture.detectChanges()
     }
 
-    it("shows the link field and the skip action without a counter once the track left the queue unresolved", () => {
+    it("shows the link field and the skip action once the track left the queue unresolved", () => {
       const { fixture, service } = mountWith()
 
       refuseAndLeaveQueue(fixture, service)
@@ -405,6 +443,13 @@ describe("ArbitrationDialogComponent", () => {
       expect(action("skip")).not.toBeNull()
       expect(action("resolve-url")).not.toBeNull()
       expect(action("refuse")).toBeNull()
+    })
+
+    it("shows no queue counter on the link step", () => {
+      const { fixture, service } = mountWith()
+
+      refuseAndLeaveQueue(fixture, service)
+
       expect(page().querySelector("p-badge")).toBeNull()
     })
 
@@ -419,7 +464,7 @@ describe("ArbitrationDialogComponent", () => {
       expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", TRACK_URL)
     })
 
-    it("leaves the step on skip and keeps the track to recover", () => {
+    it("leaves the link step on skip", () => {
       const { fixture, service } = mountWith()
       refuseAndLeaveQueue(fixture, service)
 
@@ -430,11 +475,12 @@ describe("ArbitrationDialogComponent", () => {
       expect(linkField()).toBeNull()
     })
 
-    it("offers no link step while the refused track stays in the queue for the Bandcamp list", () => {
+    it("offers no link step while the refused track awaits its Bandcamp list", () => {
       const { fixture, service } = mountWith()
       action("refuse")?.click()
       service.currentArbitration.set(AFTER_REFUSAL)
       service.arbitrations.set([AFTER_REFUSAL])
+
       fixture.detectChanges()
 
       expect(linkField()).toBeNull()

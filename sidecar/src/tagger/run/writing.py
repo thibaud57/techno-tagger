@@ -113,7 +113,7 @@ class RunWriter:
         un dump impossible arrete la phase sans changer aucun morceau.
         """
         # Relu sur le disque : un rollback du run affiche a pu y consommer l'entree d'un echec
-        # que la memoire garde, et la relance reecrirait ses tags sans origine sauvegardee.
+        # que la memoire garde ; la relance reecrirait ses tags sans origine sauvegardee.
         self._dump = await asyncio.to_thread(dump_on_disk, self._dump_folder, self._dump)
         unread = [record for record in targets if record.track_id not in self._dump.entries]
         reads = await asyncio.gather(
@@ -192,7 +192,7 @@ class RunWriter:
 
         Une coupure entre les deux laisse un chemin que le rollback retrouve par l'ancien
         nom. Une note qui echoue refuse le renommage : un fichier renomme sans note ne se
-        retrouverait plus au rollback, et ses tags d'origine seraient oublies avec lui.
+        retrouverait plus au rollback (ses tags d'origine seraient oublies).
         """
         try:
             self._dump = record_renamed_path(self._dump_folder, self._dump, record.track_id, target)
@@ -209,7 +209,7 @@ class RunWriter:
     ) -> TrackRecord:
         """Morceau en `write_error` ; une note de renommage restee derriere est effacee.
 
-        Le nom note n'est pas occupe : un morceau suivant peut le prendre, et le rollback
+        Le nom note n'est pas occupe : un morceau suivant peut le prendre ; le rollback
         rendrait alors le fichier de l'autre.
         """
         if noted:

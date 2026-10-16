@@ -2,8 +2,9 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from fs_listing import names
 from stubs import raising
-from tagging_api import CREATED
+from tagging_records import CREATED
 
 from tagger.core.run_files import (
     created_at_of,
@@ -73,4 +74,4 @@ def test_leaves_no_partial_file_when_the_replacement_fails(
     with pytest.raises(OSError, match="No space left"):
         write_atomically(target, "{}")
 
-    assert not any(tmp_path.iterdir())
+    assert names(tmp_path) == []

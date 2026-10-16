@@ -2,19 +2,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 from audio_samples import write_blank_mp3, write_not_audio
-from scraper_responses import ARTWORK_URL, YOUR_MIND, track_payload
+from cdn_doubles import FakeCdn
+from scraper_responses import ARTWORK_URL, YOUR_MIND, failing, found, ok, track_payload
 from tagging_api import (
     ON_BANDCAMP,
     ORIGINAL,
     ORIGINAL_REFETCH,
     FakeApi,
-    FakeCdn,
     basiel,
     beatport_down,
-    failing,
-    found,
     hold_on_beatport,
-    ok,
     one_track,
     run,
 )
@@ -28,9 +25,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.asyncio
 
 
-async def test_validates_automatically_on_beatport_without_calling_bandcamp(
-    tmp_path: Path,
-) -> None:
+async def test_validates_automatically_on_beatport_without_calling_bandcamp(tmp_path: Path) -> None:
     api = FakeApi()
     api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
     api.on(
@@ -85,7 +80,7 @@ async def test_puts_a_grey_zone_track_on_hold_without_resolving_it(tmp_path: Pat
 @pytest.mark.parametrize(
     ("status", "api_code"),
     [(503, "source_unavailable"), (404, "not_found")],
-    ids=["unavailable", "off_contract"],
+    ids=["unavailable", "off-contract"],
 )
 async def test_sends_bandcamp_candidates_to_arbitration_when_beatport_is_unavailable(
     tmp_path: Path, status: int, api_code: str
@@ -128,14 +123,12 @@ async def test_marks_a_track_whose_candidates_are_below_the_floor_as_below_thres
 
 
 async def test_marks_a_file_name_reduced_to_noise_as_empty_query_without_any_request(
-    tmp_path: Path,
+    music_folder: Path,
 ) -> None:
-    folder = tmp_path / "music"
-    folder.mkdir()
-    write_blank_mp3(folder / "01 - [FREE DL].mp3")
+    write_blank_mp3(music_folder / "01 - [FREE DL].mp3")
     api = FakeApi()
 
-    result = await run(folder, api)
+    result = await run(music_folder, api)
 
     assert result.tracks[0].failure_reason is FailureReason.EMPTY_QUERY
     assert api.requests == []
@@ -147,7 +140,7 @@ async def test_marks_a_file_name_reduced_to_noise_as_empty_query_without_any_req
         ((503, "source_unavailable"), (504, "request_timeout")),
         ((404, "not_found"), (404, "not_found")),
     ],
-    ids=["unavailable", "off_contract"],
+    ids=["unavailable", "off-contract"],
 )
 async def test_marks_a_track_as_source_unavailable_when_both_sources_fail(
     tmp_path: Path, beatport: tuple[int, str], bandcamp: tuple[int, str]
@@ -187,14 +180,12 @@ async def test_resolves_a_track_without_artwork_when_the_cdn_refuses_it(tmp_path
     assert record.artwork is None
 
 
-async def test_falls_back_on_the_file_name_when_the_tags_are_unreadable(tmp_path: Path) -> None:
-    folder = tmp_path / "music"
-    folder.mkdir()
-    write_not_audio(folder / "Adam Beyer - Your Mind.mp3")
+async def test_falls_back_on_the_file_name_when_the_tags_are_unreadable(music_folder: Path) -> None:
+    write_not_audio(music_folder / "Adam Beyer - Your Mind.mp3")
     api = FakeApi()
     api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
 
-    result = await run(folder, api)
+    result = await run(music_folder, api)
 
     record = result.tracks[0]
     assert record.state is TrackState.RESOLVED

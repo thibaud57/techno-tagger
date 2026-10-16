@@ -1,4 +1,4 @@
-import { resolvedTrack } from "../../../../fixtures/tagging"
+import { resolvedTrack, unresolvedTrack } from "../../../../fixtures/tagging"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import { inFilter, matchesSearch, recapCounts, type RecapFilter } from "./recap-filter"
@@ -16,7 +16,7 @@ const FAILED_WRITE = track({
   state: "write_error",
   resolution: "arbitration",
 })
-const UNRESOLVED = track({ trackId: "unresolved", state: "unresolved", resolution: "none" })
+const UNRESOLVED = unresolvedTrack("unresolved")
 const RESTORED = track({ trackId: "restored", state: "rolled_back", resolution: "auto" })
 const RUN = [AUTO, ARBITRATED, BY_URL, FAILED_WRITE, UNRESOLVED, RESTORED]
 
@@ -48,19 +48,24 @@ describe("recap filters", () => {
     expect(counts).toEqual(expected)
   })
 
-  it("searches the original artist, title and file name, ignoring case", () => {
+  it.each([
+    ["the artist", "adam"],
+    ["the title, ignoring case", "MIND"],
+    ["the file name", "a.mp3"],
+    ["the spaces around the search", "  mind "],
+  ])("matches the search on %s", (_field, query) => {
     const tagged = track({ artist: "Adam Beyer", title: "Your Mind", fileName: "a.mp3" })
 
-    const matches = ["adam", "MIND", "a.mp3", "basiel"].map((query) => matchesSearch(tagged, query))
-
-    expect(matches).toEqual([true, true, true, false])
-  })
-
-  it("ignores the spaces around the search", () => {
-    const tagged = track({ title: "Your Mind" })
-
-    const matched = matchesSearch(tagged, "  mind ")
+    const matched = matchesSearch(tagged, query)
 
     expect(matched).toBe(true)
+  })
+
+  it("does not match a search the original tags do not carry", () => {
+    const tagged = track({ artist: "Adam Beyer", title: "Your Mind", fileName: "a.mp3" })
+
+    const matched = matchesSearch(tagged, "basiel")
+
+    expect(matched).toBe(false)
   })
 })

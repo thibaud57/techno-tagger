@@ -168,7 +168,7 @@ test-sidecar:
 [group('quality')]
 test-ui:
     # `--watch=false` explicite : le builder met watch a true des que le terminal
-    # est un TTY, et `just test` (parallel) resterait bloque.
+    # est un TTY : `just test` (parallel) resterait bloque.
     pnpm exec ng test --watch=false
 
 # Tous les tests
@@ -208,8 +208,8 @@ setup: install build-sidecar
 [group('setup')]
 check:
     @node --version > /dev/null 2>&1 || echo "⚠️ Node requis (voir engines de package.json)"
-    @pnpm --version > /dev/null 2>&1 || echo "⚠️ pnpm requis (version dans .github/actions/setup-pnpm)"
-    @uv --version > /dev/null 2>&1 || echo "⚠️ uv requis (version dans .github/actions/setup-uv)"
+    @pnpm --version > /dev/null 2>&1 || echo "⚠️ pnpm requis (version dans devEngines de package.json)"
+    @uv --version > /dev/null 2>&1 || echo "⚠️ uv requis (version dans required-version de sidecar/pyproject.toml)"
     @rustc --version > /dev/null 2>&1 || echo "⚠️ Rust requis (version dans rust-toolchain.toml)"
     @command -v actionlint > /dev/null 2>&1 || echo "⚠️ actionlint requis pour just lint-workflows (winget install rhysd.actionlint)"
     @test -d node_modules || echo "⚠️ Dependances webview absentes, lancer just install-ui"

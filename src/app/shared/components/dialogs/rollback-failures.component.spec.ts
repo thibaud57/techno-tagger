@@ -38,32 +38,29 @@ const mount = (failures: readonly RollbackFailure[]) => {
   return hostOf(fixture)
 }
 
+const failuresOf = (root: HTMLElement): string =>
+  root.querySelector("[data-rollback-failures]")?.textContent ?? ""
+
 describe("RollbackFailuresComponent", () => {
   it("names each file left as it was with the reason to act on", () => {
     const root = mount([TAKEN])
 
-    const text = root.querySelector("[data-rollback-failures]")?.textContent ?? ""
-
-    expect(text).toContain("not restored 1")
-    expect(text).toContain("Adam Beyer - Your Mind.mp3 = taken")
+    expect(failuresOf(root)).toContain("not restored 1")
+    expect(failuresOf(root)).toContain("Adam Beyer - Your Mind.mp3 = taken")
   })
 
   it("composes a shared file reason with the gesture to restore again", () => {
     const root = mount([{ ...TAKEN, reason: "file_locked" }])
 
-    const text = root.querySelector("[data-rollback-failures]")?.textContent ?? ""
-
-    expect(text).toContain("= locked\nClose it, then restore again.")
-    expect(text).not.toContain("retry the write")
+    expect(failuresOf(root)).toContain("= locked\nClose it, then restore again.")
+    expect(failuresOf(root)).not.toContain("retry the write")
   })
 
   it("gives a shared reason without a gesture its cause alone", () => {
     const root = mount([{ ...TAKEN, reason: "write_failed" }])
 
-    const text = root.querySelector("[data-rollback-failures]")?.textContent ?? ""
-
-    expect(text).toContain("= not written")
-    expect(text).not.toContain("then")
+    expect(failuresOf(root)).toContain("= not written")
+    expect(failuresOf(root)).not.toContain("then")
   })
 
   it("renders nothing without failure", () => {

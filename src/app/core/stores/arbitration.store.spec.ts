@@ -1,17 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 
-import { arbitrationRequired } from "../../../fixtures/tagging"
-import type { ArbitrationUpdatedEvent } from "../sidecar/protocol"
+import { arbitrationRequired, arbitrationUpdated } from "../../../fixtures/tagging"
 import { ArbitrationStore } from "./arbitration.store"
-
-const onBandcamp = (trackId: string): ArbitrationUpdatedEvent => ({
-  ...arbitrationRequired(trackId),
-  event: "arbitration_updated",
-  source: "bandcamp",
-  candidates: [],
-  empty_reason: "no_result",
-  other_source: "beatport",
-})
 
 describe("ArbitrationStore", () => {
   let store: ArbitrationStore
@@ -50,7 +40,7 @@ describe("ArbitrationStore", () => {
     queue("a.mp3", "b.mp3")
     store.next()
 
-    store.updated(onBandcamp("b.mp3"))
+    store.updated(arbitrationUpdated("b.mp3"))
 
     expect(queued()).toEqual(["a.mp3", "b.mp3"])
     expect(store.current()?.source).toBe("bandcamp")
@@ -113,15 +103,21 @@ describe("ArbitrationStore", () => {
     expect([store.position(), store.count()]).toEqual([0, 0])
   })
 
-  it("navigates between arbitrations within bounds", () => {
+  it("stays on the first arbitration when asked for the one before it", () => {
     queue("a.mp3", "b.mp3")
 
     store.previous()
-    const first = store.current()?.track_id
+
+    expect(store.current()?.track_id).toBe("a.mp3")
+    expect([store.hasPrevious(), store.hasNext()]).toEqual([false, true])
+  })
+
+  it("stays on the last arbitration when asked for the one after it", () => {
+    queue("a.mp3", "b.mp3")
+
     store.next()
     store.next()
 
-    expect(first).toBe("a.mp3")
     expect(store.current()?.track_id).toBe("b.mp3")
     expect([store.hasPrevious(), store.hasNext()]).toEqual([true, false])
   })
@@ -154,11 +150,19 @@ describe("ArbitrationStore", () => {
     expect(store.openings()).toBe(2)
   })
 
+  it("marks a track busy once a gesture is sent", () => {
+    queue("a.mp3")
+
+    store.sent("a.mp3")
+
+    expect(store.currentBusy()).toBe(true)
+  })
+
   it.each<[string, (store: ArbitrationStore) => void]>([
     [
       "update",
       (target) => {
-        target.updated(onBandcamp("a.mp3"))
+        target.updated(arbitrationUpdated("a.mp3"))
       },
     ],
     [
@@ -173,27 +177,30 @@ describe("ArbitrationStore", () => {
         target.rejected("a.mp3", "arbitration_busy")
       },
     ],
-  ])("marks a track busy until its %s", (_answer, answer) => {
+  ])("releases a busy track on its %s", (_answer, answer) => {
     queue("a.mp3")
     store.sent("a.mp3")
-    const waiting = store.currentBusy()
 
     answer(store)
 
-    expect(waiting).toBe(true)
     expect(store.isBusy("a.mp3")).toBe(false)
   })
 
   it("reports a gesture in flight on any track, not only the displayed one", () => {
     queue("a.mp3", "b.mp3")
+
     store.sent("b.mp3")
-    const aggregated = store.anyBusy()
-    const displayed = store.currentBusy()
+
+    expect(store.anyBusy()).toBe(true)
+    expect(store.currentBusy()).toBe(false)
+  })
+
+  it("reports no gesture in flight once the answer is in", () => {
+    queue("a.mp3", "b.mp3")
+    store.sent("b.mp3")
 
     store.resolved("b.mp3")
 
-    expect(aggregated).toBe(true)
-    expect(displayed).toBe(false)
     expect(store.anyBusy()).toBe(false)
   })
 
@@ -216,7 +223,7 @@ describe("ArbitrationStore", () => {
   it("ignores an update for a track outside the queue", () => {
     queue("a.mp3")
 
-    store.updated(onBandcamp("ghost.mp3"))
+    store.updated(arbitrationUpdated("ghost.mp3"))
 
     expect(queued()).toEqual(["a.mp3"])
   })

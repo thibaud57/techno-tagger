@@ -1,24 +1,27 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { hostOf } from "../../../../fixtures/dom"
+import { hostOf, iconOf } from "../../../../fixtures/dom"
 import type { TrackResolution, TrackState } from "../../../core/sidecar/protocol"
 
+import type { IconName } from "./icon.component"
 import { StateTagComponent } from "./state-tag.component"
 
 interface Case {
+  readonly name: string
   readonly state: TrackState | null
   readonly resolution: TrackResolution | null
   readonly awaiting: boolean
   readonly interrupted?: boolean
   readonly severity: string
-  readonly icon: string
+  readonly icon: IconName
   readonly label: string
 }
 
 /** Les lignes de DESIGN.md § Couleurs Semantiques que le flux fait circuler. */
 const CASES: readonly Case[] = [
   {
+    name: "a pending arbitration",
     state: null,
     resolution: null,
     awaiting: true,
@@ -27,6 +30,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.awaiting",
   },
   {
+    name: "a track not searched yet",
     state: null,
     resolution: null,
     awaiting: false,
@@ -35,6 +39,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.pending",
   },
   {
+    name: "an automatic resolution",
     state: "resolved",
     resolution: "auto",
     awaiting: false,
@@ -43,6 +48,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.auto",
   },
   {
+    name: "an arbitrated resolution",
     state: "resolved",
     resolution: "arbitration",
     awaiting: false,
@@ -51,6 +57,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.arbitrated",
   },
   {
+    name: "a resolution by url",
     state: "resolved",
     resolution: "url",
     awaiting: false,
@@ -59,6 +66,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.url",
   },
   {
+    name: "an unresolved track",
     state: "unresolved",
     resolution: "none",
     awaiting: false,
@@ -67,6 +75,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.unresolved",
   },
   {
+    name: "a track written after an arbitration",
     state: "written",
     resolution: "arbitration",
     awaiting: false,
@@ -75,6 +84,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.arbitrated",
   },
   {
+    name: "a failed write",
     state: "write_error",
     resolution: "auto",
     awaiting: false,
@@ -83,6 +93,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.writeError",
   },
   {
+    name: "a rolled back track",
     state: "rolled_back",
     resolution: "auto",
     awaiting: false,
@@ -91,6 +102,7 @@ const CASES: readonly Case[] = [
     label: "tagging.state.rolledBack",
   },
   {
+    name: "a track the interrupted run did not process",
     state: null,
     resolution: null,
     awaiting: false,
@@ -120,12 +132,12 @@ describe("StateTagComponent", () => {
     })
   })
 
-  it.each(CASES)("renders the family, the icon and the label of $label", (shown) => {
+  it.each(CASES)("renders the family, the icon and the label of $name", (shown) => {
     const element = mount(shown)
 
     expect(element.textContent).toContain(shown.label)
     expect(element.querySelector(`[data-severity="${shown.severity}"]`)).not.toBeNull()
-    expect(element.querySelector(`[data-p-icon="${shown.icon}"]`)).not.toBeNull()
+    expect(iconOf(element, shown.icon)).not.toBeNull()
   })
 
   it("prefers the pending arbitration over the received state", () => {

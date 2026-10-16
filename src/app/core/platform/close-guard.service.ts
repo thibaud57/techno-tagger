@@ -58,7 +58,7 @@ export class CloseGuard {
     this._request.set(null)
   }
 
-  /** `destroy` ferme sans repasser par l'ecouteur. Refuse, l'application reste utilisable. */
+  /** `destroy` ferme sans repasser par le listener. Refuse, l'application reste utilisable. */
   async leave(): Promise<void> {
     if (this.blocked()) {
       return

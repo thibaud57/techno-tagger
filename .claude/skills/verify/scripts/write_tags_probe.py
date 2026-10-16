@@ -19,10 +19,10 @@ from pathlib import Path
 import mutagen
 from _probe import emit, read_disk
 from audio_samples import write_blank_aiff, write_blank_flac, write_blank_mp3, write_blank_wav
+from cdn_doubles import JPEG
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, COMM, PRIV, TDRC, TXXX, PictureType
 from scraper_responses import track_payload
-from tagging_api import JPEG
 
 from tagger.resolution.scraper_client import TrackCandidate
 from tagger.tags.files import project_tags, write_tags

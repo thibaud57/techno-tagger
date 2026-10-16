@@ -71,7 +71,8 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- **`TaggingScreen`** : `SourceLabelInline` recompose `SourceLabel` en attendant que la recompilation l'ajoute au bundle ; le remplacer par `SourceLabel` une fois `_ds_manifest.json` à jour (constaté le 2026-10-13).
+- **`SourceLabel` n'est pas dans le bundle compilé** : `TaggingScreen` en recompose un `SourceLabelInline` en attendant que la recompilation l'ajoute ; le remplacer par `SourceLabel` une fois `_ds_manifest.json` à jour (constaté le 2026-10-13). Même raison pour `templates/app-shell/AppShell.dc.html`, qui garde `SourceLogo` avec `with-label`, et pour `components/icons/icons.card.html`, dont la ligne `SourceLabel` ne se rend qu'après la recompilation.
+- **Cadratins de prose** dans des `.d.ts` et des `.prompt.md` que l'alignement du 2026-10-16 n'a pas rouverts (le « — » des cellules sans valeur reste) : à retirer au prochain passage sur ces fichiers.
 
 ## Journal
 
@@ -221,3 +222,18 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
   de la liste du run et sous le bouton de restauration des Réglages, dans sa fiche, `readme.md`
   (réserve n° 19) et le README du kit. Fichiers distants relus et identiques à l'export avant le
   push. `_ds_needs_recompile` posé ; le Reste ouvert attend toujours la recompilation.
+- **2026-10-14, décomposition de la Feature 7 (Réglages)** : `SettingsScreen` passe en menu latéral
+  (API, Matching, Interface, Administration ; miroir de `p-menu` composé dans l'écran, une section
+  affichée à la fois, page sans défilement), perd « Mode agent IA », « Motif de renommage » et le
+  message sur le thème, gagne les bornes croisées et « Valeurs par défaut » en Matching, un select
+  de langue mesuré sur « Français » et l'aide du signal sonore sur sa ligne, des aides Cache et Logs
+  sans constante du moteur et « Ouvrir le dossier des logs ». `AppShell` termine le toast du vidage
+  par un point. Les fiches `Slider` et `InputNumber` cessent d'écrire 70 et 90, `ToggleSwitch` ne
+  cite plus « copie par défaut ». `readme.md` (§ Layout Réglages, réserve n° 20) et le README du
+  kit suivent ; `docs/DESIGN.md` porte la ligne « Réglages » en § Structure de Page et les seuils
+  lus du sidecar en § Post-MVP, sans arbitrage (correction directe de la maquette, demande du
+  propriétaire). Écrans contrôlés en local (serveur HTTP sur l'export, Playwright à 1280 × 800,
+  les quatre sections). Fichiers distants relus et identiques à l'export avant le push, sept
+  fichiers poussés, `SettingsScreen.jsx` en CRLF comme le distant. `_ds_needs_recompile` posé.
+- **2026-10-15, seuils de matching (sub-project 03 de la Feature 7)** : le contrôle de fidélité de `/verify` a relevé trois écarts entre l'écran livré et les miroirs, tranchés par le propriétaire en faveur de DESIGN.md (boutons `small` partout, rendu natif d'Aura) puis réalignés dans le même passage. `InputNumber` gagne `size` (`small` : jetons `--p-form-field-sm-*`, `4rem`) et perd ses boutons de pas par défaut ; `Slider` reprend piste, plage et poignée d'Aura ; `SettingsScreen` pose `size="small"` sur les deux champs, la carte des formulaires suit. `readme.md` § Réserves n° 21 et les deux arbitrages de `docs/DESIGN.md` (réalignés le 2026-10-15) suivent. Fichiers distants relus et identiques à l'export avant le push, neuf fichiers poussés, `SettingsScreen.jsx` et `readme.md` en CRLF comme le distant. `_ds_needs_recompile` posé. Le bouton des seuils passe aussi à l'infinitif, « Rétablir les valeurs par défaut », comme tous les libellés d'action de l'application (rule ngx-translate) : maquette, README du kit, fiche `Slider` et `readme.md` poussés dans un second passage. Écrans non rendus en local après les pushs : l'effet des deux changements est borné aux deux champs des seuils, contrôlé sur l'application.
+- **2026-10-16, administration des Réglages (sub-project 04 de la Feature 7) et réécriture de `docs/DESIGN.md`** : l'export local réaligné composant par composant sur DESIGN.md, le code et Aura 3.0.1 (`@primeuix/themes` installé), après six audits parallèles (157 écarts). 131 fichiers poussés : `readme.md` (réserve n° 22), `SKILL.md`, `_adherence.oxlintrc.json` (`warn` dans la regex de `badgeSeverity`), `thumbnail.html`, les fiches et composants de `forms`, `feedback`, `data`, `overlay`, `navigation` et `icons`, les 21 cartes de `guidelines`, les tokens, le gabarit `app-shell` et les huit fichiers du kit. Maquette : menu des Réglages au rendu de `p-menu`, Cache et Logs grisés selon le moteur, colonne des libellés à 10rem et rangées jointives, curseurs des seuils sur 0-100, écran bloquant à l'anatomie de nos modales, champ de lien en `small`. Distant non rouvert depuis le push du 2026-10-15 (`_ds_needs_recompile` encore présent) et relu fichier par fichier pendant l'alignement, identique à l'export d'avant aux fins de ligne près ; `tokens/base.css` repassé en LF comme le distant. Bundle esbuild et cinq écrans compilés, rendus dans Chromium sans exception. Six arbitrages de DESIGN.md datés « réaligné le 2026-10-16 » ; quatre phrases de DESIGN.md corrigées (opacité des contrôles désactivés, anneau des boutons `secondary` et `danger`, sélection d'une liste contre segment du `p-selectbutton`, plein des validations). `_ds_needs_recompile` posé.

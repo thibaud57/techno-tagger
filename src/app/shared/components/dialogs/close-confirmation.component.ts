@@ -67,7 +67,7 @@ export class CloseConfirmationComponent {
   private readonly stayButton = viewChild("stay", { read: ElementRef })
 
   constructor() {
-    // Focus pose par code : `autofocus` est interdit par `templateAccessibility`, et le
+    // Focus pose par code : `autofocus` est interdit par `templateAccessibility` et le
     // `focusOnShow` du dialog le donnerait au premier bouton, « Quitter quand meme ».
     afterRenderEffect({
       write: () => {

@@ -1,8 +1,8 @@
 """Initialisation de Sentry, durcie.
 
-Sentry est actif d'office, sans ecran de consentement : sur un outil personnel,
-une case a cocher ne protege rien. Ce qui protege, c'est ce que le SDK a le droit
-d'envoyer, et les reglages ci-dessous sont a tester comme du code metier.
+Sentry est actif d'office, sans ecran de consentement : sur un outil personnel, une
+case a cocher ne protege rien, seul compte ce que le SDK a le droit d'envoyer. Les
+reglages ci-dessous se testent comme du code metier.
 """
 
 import logging
@@ -25,18 +25,18 @@ PATH_MASK: Final = "<path>"
 
 # httpx2 ecrit l'URL entiere, donc l'artiste et le titre, dans le message de
 # `HTTPStatusError`, que le SDK recopie via la chaine `__cause__` : sans masquage le
-# morceau partait vers Sentry, ce que l'ADR-014 interdit. Le diagnostic tient au
-# `request_id`. `?` exclu du groupe `url`, sinon gourmand : il avalait les `?`
-# intermediaires et laissait passer tout ce qui precedait le dernier.
+# morceau part vers Sentry, ce que l'ADR-014 interdit. Le diagnostic tient au
+# `request_id`. `?` est exclu du groupe `url`, sinon gourmand : il avale les `?`
+# intermediaires et laisse passer tout ce qui precede le dernier.
 _URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>?]*)\?[^\s'\"<>]*", re.IGNORECASE)
 
 # Chemin de lecteur (`D:\...`, `D:/...`) ou UNC (`\\serveur\partage\...`) : le nom du
-# fichier porte l'artiste et le titre, donc un morceau. Les espaces font partie du
-# chemin (« Nova Pulse - Your Mind.mp3 ») : le chemin s'arrete aux guillemets, `<>`, a
-# la fin de ligne, avant un champ logfmt de la liste fermee des cles de log (voir
-# `gestion-erreurs.md`) et avant `: ` (Windows interdit `:` dans un nom de fichier).
-# Pas de `, ` ni de cle generique `[a-z_]+=` : un nom de fichier peut en contenir
-# (« Artist A, Artist B », « vol=2 ») et la fin du nom partirait alors vers Sentry.
+# fichier porte l'artiste et le titre, donc un morceau. Les espaces font partie du chemin
+# (« Nova Pulse - Your Mind.mp3 »), qui s'arrete donc aux guillemets, `<>`, a la fin de
+# ligne, avant un champ logfmt de la liste fermee des cles de log (voir
+# `gestion-erreurs.md`) ou avant `: ` (Windows interdit `:` dans un nom de fichier).
+# Ni `, ` ni cle generique `[a-z_]+=` comme borne : un nom de fichier peut en contenir
+# (« Artist A, Artist B », « vol=2 ») et sa fin partirait alors vers Sentry.
 # Une phrase qui suit sans separateur est avalee, sens de panne accepte. La lettre de
 # lecteur ne doit pas suivre un caractere de mot, sinon `http://` serait pris pour `p:/`.
 _WINDOWS_PATH: Final = re.compile(
@@ -55,7 +55,7 @@ _HOME_FORMS: Final = {_HOME, _HOME.replace("\\", "/")}
 def _mask(text: str) -> str:
     text = _URL_QUERY.sub(rf"\g<url>?{QUERY_MASK}", text)
     # Chemins d'abord : masquer le dossier personnel en premier retirerait la lettre de
-    # lecteur, et la fin du chemin, nom du morceau compris, echapperait au masque.
+    # lecteur, donc la fin du chemin (nom du morceau compris) echapperait au masque.
     text = _WINDOWS_PATH.sub(PATH_MASK, text)
     return _mask_account(text)
 
@@ -88,8 +88,8 @@ _ENVELOPE_KEYS: Final = frozenset(
 )
 
 
-# Chemins de code d'une frame : ils ne portent aucun morceau, seulement le compte de l'OS, et
-# le masque `<path>` y effacerait la trace de la pile qui sert a deboguer.
+# Chemins de code d'une frame : ils ne portent aucun morceau, seulement le compte de l'OS.
+# Le masque `<path>` y effacerait la trace de la pile qui sert a deboguer.
 _CODE_PATH_KEYS: Final = frozenset({"abs_path", "filename", "module", "package"})
 
 
@@ -98,8 +98,8 @@ def _mask_deep(value: object) -> object:
         case str():
             return _mask(value)
         case dict():
-            # La cle aussi : un chemin sert de cle dans un `extra` ou un contexte, et
-            # le serializer du SDK la preserve telle quelle (`str_k = str(k)`).
+            # La cle aussi : un chemin sert de cle dans un `extra` ou un contexte que le
+            # serializer du SDK preserve tel quel (`str_k = str(k)`).
             return {
                 _mask(str(key)): (
                     _mask_account(item)
@@ -140,8 +140,8 @@ def init_sentry(dsn: str, release: str) -> None:
     try:
         # Importe ici et pas au sommet : le SDK tire plusieurs centaines de modules,
         # payes a chaque lancement alors que le chemin nominal en developpement sort
-        # ci-dessus. Dans le `try` car c'est precisement l'import qui peut manquer
-        # du binaire fige, et un sidecar muet au demarrage n'a aucun diagnostic.
+        # ci-dessus. Dans le `try` car c'est l'import qui peut manquer du binaire fige :
+        # un sidecar muet au demarrage n'a aucun diagnostic.
         import sentry_sdk  # noqa: PLC0415
         from sentry_sdk.integrations.logging import LoggingIntegration  # noqa: PLC0415
 
@@ -155,13 +155,13 @@ def init_sentry(dsn: str, release: str) -> None:
             # Sans valeur fixe, c'est le nom de machine de l'utilisateur qui part.
             server_name=APP_NAME,
             before_send=_scrub,
-            # Les trois canaux de la LoggingIntegration fermes : chacun embarquerait
-            # chemins et titres dans un event. Defauts ouverts, INFO pour les
-            # breadcrumbs et ERROR pour les events issus d'un `logger.error`. Le
-            # troisieme est inerte sans `enable_logs`, mais l'activer le rouvrirait.
+            # Les trois canaux de la LoggingIntegration fermes, chacun embarquerait chemins
+            # et titres dans un event : breadcrumbs (INFO par defaut), events issus d'un
+            # `logger.error` (ERROR par defaut) et logs SDK. Ce dernier est inerte sans
+            # `enable_logs`, mais l'activer le rouvrirait.
             integrations=[LoggingIntegration(level=None, event_level=None, sentry_logs_level=None)],
             # Sonde des integrations framework toutes absentes d'ici : du temps au
-            # demarrage, et autant de modules embarques par le hook au build.
+            # demarrage et autant de modules embarques par le hook au build.
             auto_enabling_integrations=False,
         )
     except Exception:

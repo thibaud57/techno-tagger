@@ -1,25 +1,21 @@
-from dataclasses import replace
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
 import pytest
-from scraper_responses import BASIEL, YOUR_MIND, invalid_track_payload
+from audio_samples import tagged_mp3
+from scraper_responses import BASIEL, YOUR_MIND, failing, found, invalid_track_payload
 from stubs import ignore
 from tagging_api import (
     ORIGINAL,
     FakeApi,
     basiel,
-    failing,
-    found,
     must_record,
     one_track,
     opened_run,
     run,
-    tagged_mp3,
     three_tracks,
     two_tracks,
 )
-from tagging_records import held
+from tagging_records import awaiting
 
 from tagger.resolution.sources import ApiKeyRejectedRunError
 from tagger.run.models import (
@@ -35,6 +31,7 @@ from tagger.tags.files import TaggingFolderUnreadableError
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from unittest.mock import MagicMock
 
     from tagger.run.models import LiveRun, RunEvent
 
@@ -96,19 +93,20 @@ async def test_stops_the_run_after_three_consecutive_rejections_of_the_key(
     assert all(event.record.state is not TrackState.RESOLVED for event in resolved)
 
 
-async def test_reports_an_api_contract_error_to_sentry(tmp_path: Path) -> None:
+async def test_reports_an_api_contract_error_to_sentry(
+    tmp_path: Path, captured_exceptions: MagicMock
+) -> None:
     api = FakeApi()
     api.on("/beatport/search", "*", found(invalid_track_payload()))
 
-    with patch("sentry_sdk.capture_exception", autospec=True) as capture:
-        await run(one_track(tmp_path), api)
+    await run(one_track(tmp_path), api)
 
-    capture.assert_called_once()
+    captured_exceptions.assert_called_once()
 
 
 def _hold(live: LiveRun, track_id: str) -> None:
     record = must_record(live, track_id)
-    live.update(replace(record, arbitration=held()))
+    live.update(awaiting(record))
 
 
 def _refuse(live: LiveRun, track_id: str, reason: FailureReason) -> None:

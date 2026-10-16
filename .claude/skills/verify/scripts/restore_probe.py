@@ -22,10 +22,10 @@ from pathlib import Path
 import mutagen
 from _probe import emit, read_disk
 from audio_samples import write_blank_aiff, write_blank_flac, write_blank_mp3, write_blank_wav
+from cdn_doubles import JPEG
 from mutagen.flac import FLAC
 from mutagen.id3 import COMM, TBPM, TDRC, TIT2, TPE1, TXXX, WOAS
 from scraper_responses import payload_candidate
-from tagging_api import JPEG
 
 from tagger.tags.files import project_tags, read_original_tags, restore_tags, write_tags
 from tagger.tags.tag_dump import (

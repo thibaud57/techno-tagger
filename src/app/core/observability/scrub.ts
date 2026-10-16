@@ -17,7 +17,7 @@ export const MASK = "<user>"
 // Les bornes sont les caracteres qu'un nom de dossier Windows ne peut pas porter :
 // tout le reste est legal dans un nom de compte, l'espace comme l'apostrophe.
 // Windows nomme le dossier de profil d'apres le nom complet d'un compte Microsoft :
-// `Jean Dupont` et `O'Brien` ne laisseraient fuir que leur seconde moitie.
+// `Jane Doe` et `O'Brien` ne laisseraient fuir que leur seconde moitie.
 const HOME = /((?:[A-Za-z]:)?[\\/](?:Users|home)[\\/])[^\\/:*?"<>|\n\r]+/gi
 
 const mask = (text: string): string => text.replace(HOME, `$1${MASK}`)

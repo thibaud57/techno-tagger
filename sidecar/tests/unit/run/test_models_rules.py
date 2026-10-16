@@ -3,10 +3,8 @@
 from pathlib import Path
 
 import pytest
-from tagging_records import RECORD, RUN_ID
-from tagging_report_samples import HELD
+from tagging_records import RECORD, RUN_ID, awaiting
 
-from tagger.resolution.sources import ApiKeyRejectedRunError, _RejectionGuard
 from tagger.run.models import FailureReason, LiveRun, TrackRecord
 
 
@@ -14,7 +12,7 @@ from tagger.run.models import FailureReason, LiveRun, TrackRecord
     ("record", "decided"),
     [
         (RECORD, False),
-        (HELD, True),
+        (awaiting(RECORD), True),
         (RECORD.unresolved(FailureReason.NO_RESULT), True),
         (RECORD.unresolved(FailureReason.USER_REFUSED), True),
         (RECORD.unresolved(FailureReason.SOURCE_UNAVAILABLE), False),
@@ -38,16 +36,3 @@ def test_tells_the_observer_of_each_update() -> None:
     live.update(updated)
 
     assert seen == [updated]
-
-
-def test_resets_the_rejection_count_on_any_other_answer() -> None:
-    guard = _RejectionGuard()
-    guard.rejected()
-    guard.rejected()
-    guard.answered()
-
-    guard.rejected()
-    guard.rejected()
-
-    with pytest.raises(ApiKeyRejectedRunError, match="repeated api key rejections"):
-        guard.rejected()

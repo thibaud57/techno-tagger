@@ -13,12 +13,14 @@ import struct
 import wave
 from contextlib import contextmanager
 from ctypes import wintypes
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, NoReturn
 
 import mutagen
+import pytest
 from mutagen import MutagenError
 from mutagen.flac import FLAC
-from mutagen.id3 import TIT2, TPE1
+from mutagen.id3 import TIT2, TPE1, Frames
+from stubs import raising
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -148,6 +150,17 @@ BLANK_WRITERS: Final[dict[str, Callable[[Path], Path]]] = {
 }
 
 
+# Les quatre formats, un id par systeme de tags et conteneur ; mp3 et flac suffisent
+# quand seul le systeme de tags (ID3 ou Vorbis) change le comportement.
+ALL_FORMATS: Final = [
+    pytest.param("mp3", id="id3-mp3"),
+    pytest.param("wav", id="id3-wav"),
+    pytest.param("aiff", id="id3-aiff"),
+    pytest.param("flac", id="vorbis-flac"),
+]
+ID3_VORBIS_FORMATS: Final = [ALL_FORMATS[0], ALL_FORMATS[3]]
+
+
 def tag(path: Path, *, artist: list[str], title: list[str]) -> None:
     """Pose artiste et titre avec mutagen, dans le systeme de tags du format."""
     audio = mutagen.File(path)
@@ -160,6 +173,22 @@ def tag(path: Path, *, artist: list[str], title: list[str]) -> None:
         audio.tags.add(TPE1(encoding=3, text=artist))
         audio.tags.add(TIT2(encoding=3, text=title))
     audio.save()
+
+
+def preset_tags(path: Path, **frames_or_keys: str) -> None:
+    """Pose des tags d'origine dans l'arrange : frames texte ID3 ou cles Vorbis."""
+    audio = mutagen.File(path)
+    if isinstance(audio, FLAC):
+        for key, value in frames_or_keys.items():
+            audio[key] = [value]
+        audio.save()
+        return
+    if audio.tags is None:
+        audio.add_tags()
+    for frame_id, value in frames_or_keys.items():
+        audio.tags.add(Frames[frame_id](encoding=3, text=[value]))
+    audio.tags.update_to_v23()
+    audio.save(v2_version=3)
 
 
 def id3_as_written(path: Path) -> ID3:
@@ -209,8 +238,27 @@ def held_open(path: Path) -> Iterator[None]:
         kernel32.CloseHandle(handle)
 
 
-def locked_by_another_process(_path: Path) -> None:
-    """Remplace `mutagen.File` : le verrou d'un lecteur, que Windows rend en erreur 32."""
-    raise MutagenError("file in use") from OSError(
-        32, "The process cannot access the file", None, 32
-    )
+def mutagen_refusing(os_error: OSError) -> Callable[..., NoReturn]:
+    """Remplacant d'une fonction de mutagen qui echoue sur `os_error`, enveloppee comme lui."""
+    refusal = MutagenError("file in use")
+    refusal.__cause__ = os_error
+    return raising(refusal)
+
+
+# Le verrou d'un lecteur audio, que Windows rend en erreur 32.
+locked_by_another_process: Final = mutagen_refusing(
+    OSError(32, "The process cannot access the file", None, 32)
+)
+
+
+def tagged_audio(folder: Path, name: str, artist: str, title: str) -> Path:
+    """Fichier vierge au format de l'extension de `name`, tague, dans le dossier du run."""
+    folder.mkdir(parents=True, exist_ok=True)
+    path = BLANK_WRITERS[name.rsplit(".", 1)[1]](folder / name)
+    tag(path, artist=[artist], title=[title])
+    return path
+
+
+def tagged_mp3(folder: Path, name: str, artist: str, title: str) -> Path:
+    """Cas courant de `tagged_audio` : un MP3."""
+    return tagged_audio(folder, name, artist, title)

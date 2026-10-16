@@ -1,8 +1,8 @@
 """Construit une bibliotheque de demonstration pour piloter l'application a la main.
 
-Ce n'est pas une fixture de test : les tests ecrivent des fichiers d'un kilo-octet dans
-`tmp_path`, ici on ecrit des dizaines de megaoctets dans `demo-data/`, ignore par git, pour
-voir l'ecran tel qu'il sera en vrai. L'arborescence produit les cinq categories du rapport
+Distincte d'une fixture de test : les tests ecrivent des fichiers d'un kilo-octet dans
+`tmp_path`, ici des dizaines de megaoctets dans `demo-data/` (ignore par git), pour voir
+l'ecran tel qu'il sera en vrai. L'arborescence produit les cinq categories du rapport
 en un seul run.
 
     uv run python demo.py            # construit et affiche les chemins a choisir
@@ -29,8 +29,8 @@ sys.path.insert(0, str(Path(__file__).parent / "tests" / "helpers"))
 from audio_samples import BLANK_WRITERS, tag
 from vlc_dump import build_dump
 
-# Noms inventes mais realistes, et qui couvrent ce qui casse en vrai : accents, cyrillique,
-# apostrophes, parentheses, casse melangee, et les quatre extensions acceptees. Aucun
+# Noms inventes mais realistes, qui couvrent ce qui casse en vrai : accents, cyrillique,
+# apostrophes, parentheses, casse melangee, les quatre extensions acceptees. Aucun
 # deux-points : Windows en fait un flux alternatif NTFS, le fichier n'existe pas.
 TRACKS: Final[tuple[str, ...]] = (
     "Kobosil - Bang.mp3",
@@ -65,8 +65,8 @@ TRACKS: Final[tuple[str, ...]] = (
     "Kas.st - The Wall.mp3",
 )
 
-# Positions dans TRACKS, et non des noms : un renommage ne peut pas laisser un cas oriente
-# vers un morceau disparu. Chaque cas alimente une categorie du rapport.
+# Positions dans TRACKS plutot que des noms : un renommage ne peut pas laisser un cas
+# oriente vers un morceau disparu. Chaque cas alimente une categorie du rapport.
 MISSING: Final = (7, 13, 22)  # absents de la bibliotheque
 DUPLICATED: Final = (0, 16, 17)  # homonyme plus petit dans un sous-dossier
 ALREADY_PRESENT: Final = (4, 18)  # deja poses en destination

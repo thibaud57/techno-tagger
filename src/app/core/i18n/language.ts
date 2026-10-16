@@ -26,8 +26,17 @@ export const resolveInitialLanguage = async (
       return languageFromTag(systemLocale)
     }
   } catch {
-    // Repli attendu hors Tauri, pas une panne.
+    // Fallback attendu hors Tauri, pas une panne.
   }
 
   return languageFromTag(readBrowserLanguage())
 }
+
+/**
+ * Le choix pose dans les Reglages, sinon la locale : il prime aux lancements suivants.
+ * `readStored` est fourni par l'appelant : `preferences.service.ts` importe deja ce module.
+ */
+export const resolveStartupLanguage = async (
+  readStored: () => Promise<Language | null>,
+  resolveSystem: () => Promise<Language> = resolveInitialLanguage,
+): Promise<Language> => (await readStored()) ?? (await resolveSystem())

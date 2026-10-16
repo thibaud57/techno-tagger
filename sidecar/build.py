@@ -40,8 +40,8 @@ def write_build_info() -> None:
 
 
 def target_triple() -> str:
-    """Suffixe attendu par Tauri. Un binaire mal suffixe est introuvable au
-    lancement, et l'erreur n'oriente pas vers cette cause.
+    """Suffixe attendu par Tauri. Un binaire mal suffixe est introuvable au lancement,
+    sans que l'erreur oriente vers cette cause.
     """
     # S607 assume : rustc vient du PATH, un chemin absolu casserait selon rustup.
     return subprocess.run(
@@ -66,7 +66,7 @@ def main() -> int:
             check=True,
         )
     finally:
-        # Sinon le DSN de production reste dans l'arbre source, et le prochain
+        # Sinon le DSN de production reste dans l'arbre source et le prochain
         # `just dev-sidecar` initialise Sentry pour de bon. Le bytecode compile
         # pendant le build porte les memes constantes : le supprimer aussi.
         BUILD_INFO.unlink(missing_ok=True)

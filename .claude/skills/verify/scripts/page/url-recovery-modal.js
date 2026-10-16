@@ -30,6 +30,12 @@ async (page) => {
         sharedHeader: d.querySelector("app-dialog-header h3[data-title]") !== null,
         errorWhiteSpace: error ? getComputedStyle(error.querySelector(".whitespace-pre-line") ?? error).whiteSpace : null,
         counter: d.querySelector("p-badge")?.textContent.trim() ?? null,
+        // Champ en pSize small depuis le 2026-10-16 : 28px comme les autres champs small de l application (releve le 2026-10-16 : 28 et non 32)
+        fieldH: field ? Math.round(field.getBoundingClientRect().height) : null,
+        overflow: (() => {
+          const content = d.querySelector(".p-dialog-content")
+          return content ? content.scrollHeight > content.clientHeight + 1 || content.scrollWidth > content.clientWidth + 1 : null
+        })(),
         field: field ? { disabled: field.disabled, value: field.value } : null,
         help: d.querySelector("[data-help]")?.textContent.trim() ?? null,
         error: error?.textContent.trim() ?? null,
@@ -144,6 +150,7 @@ async (page) => {
   check("badge opens Tagging", page.url().endsWith("/tagging"), page.url())
   check("link dialog on the first unresolved, 720 wide", opened?.title === "Klangkuenstler - Untergang" && opened.w === 720 && opened.h < 400 && opened.counter === "1/4", opened)
   check("field focused", opened?.focus === "url", opened?.focus)
+  check("link field 28px high (pSize small, as the other small fields), nothing overflows", opened?.fieldH === 28 && opened.overflow === false, { fieldH: opened?.fieldH, overflow: opened?.overflow })
   check("header through app-dialog-header", opened?.sharedHeader === true, opened?.sharedHeader)
   await shot("2-modale-depuis-badge")
 
@@ -175,7 +182,8 @@ async (page) => {
     const footer = d.querySelector(".p-dialog-footer").getBoundingClientRect()
     return { above: Math.round(error.top - field.bottom), below: Math.round(footer.top - error.bottom) }
   })
-  check("error gap equal above and below", gaps.above === gaps.below, gaps)
+  check("error gap equal above and below, 16px", gaps.above === gaps.below && gaps.above === 16, gaps)
+  check("link dialog keeps its size with the error (720 wide, field 28px, no overflow)", refused?.w === 720 && refused.fieldH === 28 && refused.overflow === false, refused)
   await shot("3-erreur-sous-le-champ")
   await page.locator('app-url-recovery-dialog [data-action="skip"]').click()
   await settle()
@@ -219,6 +227,7 @@ async (page) => {
   const step = await dialog()
   check("link step in the arbitration frame", step?.title === "Ignez - Ark" && step.w === before.w && step.h === before.h && step.counter === null && step.actions.includes("skip") && !step.actions.includes("refuse"), { before, step })
   check("link step field focused", step?.focus === "url", step?.focus)
+  check("link step: arbitration frame 720 x 560, field 28px, nothing overflows", step?.w === 720 && step.h === 560 && step.fieldH === 28 && step.overflow === false, step)
   await shot("4-etape-lien")
   await page.keyboard.type("https://ignez.bandcamp.com/track/ion")
   await page.keyboard.press("Enter")

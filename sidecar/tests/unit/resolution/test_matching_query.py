@@ -1,7 +1,7 @@
 from typing import Final
 
 import pytest
-from tagging_records import QUERY
+from tagging_records import QUERY, tags_query
 
 from tagger.resolution.matching import QueryOrigin, TrackQuery, build_query
 
@@ -214,7 +214,7 @@ def test_never_splits_a_name_without_spaced_separator(artist: str) -> None:
 def test_falls_back_on_the_raw_tag_when_cleaning_empties_it() -> None:
     query = build_query("Adam Beyer", "[FREE DL]", "track.mp3")
 
-    assert query == TrackQuery(artist="Adam Beyer", title="[FREE DL]", origin=QueryOrigin.TAGS)
+    assert query == tags_query("Adam Beyer", "[FREE DL]")
 
 
 def test_falls_back_on_the_file_name_when_a_tag_has_no_letter() -> None:

@@ -142,8 +142,7 @@ class RunSources:
             return candidate
 
     async def artwork(self, position: int, candidate: TrackCandidate) -> Path | None:
-        """Pochette du candidat, cache d'abord ; une indisponibilite ne fait jamais echouer le
-        morceau."""
+        """Pochette du candidat, cache d'abord ; son absence ne fait pas echouer le morceau."""
         url = candidate.release.artwork_url if candidate.release else None
         if url is None:
             return None

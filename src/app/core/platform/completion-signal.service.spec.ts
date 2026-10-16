@@ -1,26 +1,22 @@
 import { TestBed } from "@angular/core/testing"
-import { TranslateService, provideTranslateService } from "@ngx-translate/core"
-import { load } from "@tauri-apps/plugin-store"
+import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
+import { vi } from "vitest"
 
 import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
-import { type SidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
-import { storeStub } from "../../../fixtures/tauri-store"
+import { type PreferencesStub, preferencesStub } from "../../../fixtures/preferences-stub"
+import { type SidecarStub, provideSidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
+import { spyToast } from "../../../fixtures/toast"
+import { translateWith } from "../../../fixtures/translate"
 import {
   NETWORK_FINISHED,
   WRITE_FINISHED,
   failedRollback,
   rollbackFinished,
+  writeFinishedWithFailures,
 } from "../../../fixtures/write"
-import { SidecarService } from "../sidecar/sidecar.service"
 import { CompletionSignalService } from "./completion-signal.service"
-
-// `readSoundSignal` passe par `load()` de ce paquet npm : on pilote celui-ci plutot que de
-// mocker un import relatif du code de l'app, que le builder unit-test d'Angular interdit
-// ("Cannot redefine property" pour vi.spyOn, garde explicite pour vi.mock).
-vi.mock("@tauri-apps/plugin-store", () => ({
-  load: vi.fn(),
-}))
+import { PreferencesService } from "./preferences.service"
 
 /**
  * Web Audio n'existe pas sous Vitest : le contexte est mocke pour verifier qu'un
@@ -63,69 +59,125 @@ class FakeAudioContext {
 
 describe("CompletionSignalService", () => {
   let service: CompletionSignalService
-  let messages: MessageService
   let sidecar: SidecarStub
+  let preferences: PreferencesStub
+  let toast: ReturnType<typeof spyToast>
 
-  /** Les effets du constructeur passent une premiere fois, `announce` espionne. */
-  const watchPhaseEnds = () => {
-    const announce = vi.spyOn(service, "announce").mockResolvedValue()
-    TestBed.tick()
-
-    return announce
-  }
+  const beeped = (): boolean =>
+    FakeAudioContext.oscillators.some((oscillator) => oscillator.started)
 
   beforeEach(() => {
     FakeAudioContext.oscillators.length = 0
     vi.stubGlobal("AudioContext", FakeAudioContext)
     sidecar = sidecarStub()
+    preferences = preferencesStub()
     TestBed.configureTestingModule({
       providers: [
         provideTranslateService(),
         MessageService,
-        { provide: SidecarService, useValue: sidecar },
+        provideSidecarStub(sidecar),
+        { provide: PreferencesService, useValue: preferences },
       ],
     })
     service = TestBed.inject(CompletionSignalService)
-    messages = TestBed.inject(MessageService)
+    toast = spyToast()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
-  it("plays a sound and shows a toast when a phase ends", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub(true))
-    const add = vi.spyOn(messages, "add")
+  it.each([
+    { case: "plays a sound and shows a toast", sound: true, audio: true, beeps: true },
+    {
+      case: "stays silent but still shows the toast when the sound preference is off",
+      sound: false,
+      audio: true,
+      beeps: false,
+    },
+    {
+      case: "shows the toast even when the audio context is unavailable",
+      sound: true,
+      audio: false,
+      beeps: false,
+    },
+  ])("$case", async ({ sound, audio, beeps }) => {
+    preferences.readSoundSignal.mockResolvedValue(sound)
+    if (!audio) {
+      vi.stubGlobal("AudioContext", undefined)
+    }
 
     await service.announce("tagging.finished")
 
-    expect(FakeAudioContext.oscillators.some((oscillator) => oscillator.started)).toBe(true)
-    expect(add).toHaveBeenCalled()
+    expect(beeped()).toBe(beeps)
+    expect(toast).toHaveBeenCalledOnce()
   })
 
-  it("stays silent when the sound preference is off but still shows the toast", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub(false))
-    const add = vi.spyOn(messages, "add")
-
-    await service.announce("tagging.finished")
-
-    expect(FakeAudioContext.oscillators).toEqual([])
-    expect(add).toHaveBeenCalled()
-  })
-
-  it("announces each phase end once, without any screen mounted", () => {
-    const announce = watchPhaseEnds()
-
-    sidecar.extraction.set(EMPTY_EXTRACTION)
+  // Les effets du constructeur passent une premiere fois sur des signaux vides : seule une fin
+  // posee ensuite doit s'annoncer, une fois, quel que soit l'ecran monte.
+  it.each([
+    {
+      case: "an extraction",
+      finish: () => {
+        sidecar.extraction.set(EMPTY_EXTRACTION)
+      },
+      expected: { severity: "success", summary: "playlist.extractionFinished" },
+    },
+    {
+      case: "a tagging search",
+      finish: () => {
+        sidecar.taggingFinished.set(NETWORK_FINISHED)
+      },
+      expected: { severity: "success", summary: "tagging.finished" },
+    },
+    {
+      case: "a write",
+      finish: () => {
+        sidecar.writeFinished.set(WRITE_FINISHED)
+      },
+      expected: { severity: "success", summary: "tagging.writeFinished" },
+    },
+    {
+      case: "a write that left failures",
+      finish: () => {
+        sidecar.writeFinished.set(writeFinishedWithFailures(2))
+      },
+      expected: { severity: "warn", summary: "2 failed" },
+    },
+    {
+      case: "a rollback",
+      finish: () => {
+        sidecar.rollbackFinished.set(rollbackFinished())
+      },
+      expected: { severity: "success", summary: "tagging.rollbackFinished" },
+    },
+    {
+      case: "a rollback that left a file as it was",
+      finish: () => {
+        sidecar.rollbackFinished.set(failedRollback())
+      },
+      expected: { severity: "warn", summary: "1 failed" },
+    },
+  ])("announces the end of $case once", async ({ finish, expected }) => {
+    translateWith({
+      tagging: {
+        writeFinishedWithFailures: "{{count}} failed",
+        rollbackFinishedWithFailures: "{{count}} failed",
+      },
+    })
     TestBed.tick()
-    sidecar.taggingFinished.set(NETWORK_FINISHED)
+
+    finish()
     TestBed.tick()
 
-    expect(announce.mock.calls).toEqual([["playlist.extractionFinished"], ["tagging.finished"]])
+    await vi.waitFor(() => {
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining(expected))
+    })
+    expect(toast).toHaveBeenCalledOnce()
   })
 
-  it("announces the next run once its end replaces the reset one", () => {
-    const announce = watchPhaseEnds()
+  it("announces the next run once its end replaces the reset one", async () => {
+    TestBed.tick()
 
     sidecar.taggingFinished.set({ ...NETWORK_FINISHED, resolved: 1 })
     TestBed.tick()
@@ -134,55 +186,8 @@ describe("CompletionSignalService", () => {
     sidecar.taggingFinished.set({ ...NETWORK_FINISHED, resolved: 2 })
     TestBed.tick()
 
-    expect(announce).toHaveBeenCalledTimes(2)
-  })
-
-  it("announces a write end, with its failures when there are some", () => {
-    const announce = watchPhaseEnds()
-
-    sidecar.writeFinished.set({ ...WRITE_FINISHED })
-    TestBed.tick()
-    sidecar.writeFinished.set({ ...WRITE_FINISHED, written: 0, write_error: 2 })
-    TestBed.tick()
-
-    expect(announce.mock.calls).toEqual([
-      ["tagging.writeFinished"],
-      ["tagging.writeFinishedWithFailures", { count: 2 }, "warn"],
-    ])
-  })
-
-  it("announces a rollback end, with its failures when there are some", () => {
-    const announce = watchPhaseEnds()
-
-    sidecar.rollbackFinished.set(rollbackFinished())
-    TestBed.tick()
-    sidecar.rollbackFinished.set(failedRollback())
-    TestBed.tick()
-
-    expect(announce.mock.calls).toEqual([
-      ["tagging.rollbackFinished"],
-      ["tagging.rollbackFinishedWithFailures", { count: 1 }, "warn"],
-    ])
-  })
-
-  it("shows a warning toast when told so", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub(false))
-    const add = vi.spyOn(messages, "add")
-    const instant = vi.spyOn(TestBed.inject(TranslateService), "instant")
-
-    await service.announce("tagging.writeFinishedWithFailures", { count: 2 }, "warn")
-
-    expect(add).toHaveBeenCalledWith(expect.objectContaining({ severity: "warn" }))
-    expect(instant).toHaveBeenCalledWith("tagging.writeFinishedWithFailures", { count: 2 })
-  })
-
-  it("shows the toast even when the audio context is unavailable", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub(true))
-    vi.stubGlobal("AudioContext", undefined)
-    const add = vi.spyOn(messages, "add")
-
-    await service.announce("tagging.finished")
-
-    expect(add).toHaveBeenCalled()
+    await vi.waitFor(() => {
+      expect(toast).toHaveBeenCalledTimes(2)
+    })
   })
 })

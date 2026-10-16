@@ -1,11 +1,11 @@
 import { AsyncPipe } from "@angular/common"
-import { Component, computed, input, linkedSignal, output } from "@angular/core"
+import { Component, computed, inject, input, linkedSignal, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
-import { convertFileSrc } from "@tauri-apps/api/core"
 import { ButtonDirective } from "primeng/button"
 import { TableModule } from "primeng/table"
 import { Tooltip } from "primeng/tooltip"
 
+import { NativeService } from "../../../core/platform/native.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 import { ArtworkComponent } from "../../../shared/components/display/artwork.component"
 import { EmptyStateComponent } from "../../../shared/components/display/empty-state.component"
@@ -77,6 +77,8 @@ type RenderRow =
   host: { class: "block h-full min-h-0" },
 })
 export class RunListComponent {
+  private readonly native = inject(NativeService)
+
   protected readonly ROW_HEIGHT = ROW_HEIGHT
   protected readonly SCROLLER_OPTIONS = SCROLLER_OPTIONS
   protected readonly WIDE_TOOLTIP = WIDE_TOOLTIP
@@ -143,7 +145,7 @@ export class RunListComponent {
         mainLine: trackMainLine(track.artist, track.title, track.fileName),
         afterLine:
           track.after === null ? null : joinIdentity(track.after.artist, track.after.title),
-        artworkUrl: track.artworkPath === null ? null : convertFileSrc(track.artworkPath),
+        artworkUrl: track.artworkPath === null ? null : this.native.assetUrl(track.artworkPath),
         artworkPending,
         reason: track.failureReason === null ? null : trackReasonKeys(track.failureReason),
         arbitrable,

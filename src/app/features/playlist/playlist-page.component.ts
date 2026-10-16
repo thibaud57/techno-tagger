@@ -22,12 +22,11 @@ import { Tooltip } from "primeng/tooltip"
 
 import { languageFromTag } from "../../core/i18n/language"
 import type { ExtractionMode } from "../../core/sidecar/protocol"
+import { NativeService } from "../../core/platform/native.service"
 import {
   DEFAULT_EXTRACTION_MODE,
-  readExtractionMode,
-  writeExtractionMode,
-  writeLastDestination,
-} from "../../core/platform/preferences"
+  PreferencesService,
+} from "../../core/platform/preferences.service"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 import { EmptyStateComponent } from "../../shared/components/display/empty-state.component"
 import { IconComponent, type IconName } from "../../shared/components/display/icon.component"
@@ -37,7 +36,6 @@ import { SourceLogoComponent } from "../../shared/components/display/source-logo
 import { TruncatedTextComponent } from "../../shared/components/display/truncated-text.component"
 import { ErrorMessageComponent } from "../../shared/components/feedback/error-message.component"
 import { PathPickerComponent } from "../../shared/components/inputs/path-picker.component"
-import { pickPath } from "../../shared/utils/dialog"
 import { formatFileSize } from "../../shared/utils/file-size"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { progressPercentage } from "../../shared/utils/progress"
@@ -53,7 +51,7 @@ interface PlaylistChoice {
 }
 
 /**
- * Familles de DESIGN.md § Couleurs Semantiques, la couleur n'etant jamais seule a informer.
+ * Familles de DESIGN.md § Couleurs Semantiques, la couleur n'informant jamais seule.
  * Un doublon departage est une issue positive, pas une decision attendue : vert, le libelle
  * portant la voie. Les deux rouges ne partagent pas l'icone, leurs corrections etant opposees
  * (retrouver le fichier, relancer le transfert).
@@ -97,6 +95,8 @@ export default class PlaylistPageComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly translate = inject(TranslateService)
   private readonly router = inject(Router)
+  private readonly native = inject(NativeService)
+  private readonly preferences = inject(PreferencesService)
 
   /** Un onglet rouvert reprend les choix du dernier run, que le service garde avec son rapport. */
   private readonly restoredRun = this.sidecar.extractionRequest()
@@ -106,10 +106,7 @@ export default class PlaylistPageComponent {
   /** Le fichier du dernier listage, pas celui du run : c'est lui que decrivent les playlists recues. */
   protected readonly playlistPath = signal(this.sidecar.listedPlaylistPath())
 
-  /**
-   * Les deux choix de l'ecran en un seul signal : `form()` en derive les champs que
-   * `[formField]` lie aux composants PrimeNG (`ControlValueAccessor`).
-   */
+  /** Un seul signal : `form()` en derive les champs que `[formField]` lie aux composants PrimeNG. */
   protected readonly choice = signal<PlaylistChoice>({
     playlist:
       this.restoredRun?.playlist_path === this.playlistPath()
@@ -135,9 +132,8 @@ export default class PlaylistPageComponent {
   )
 
   /**
-   * Un fichier est choisi et le sidecar n'a pas encore repondu. Le service efface la
-   * reponse precedente a chaque listage : un format nul signifie donc « en attente »,
-   * sauf si une erreur est venue a sa place.
+   * Le service efface la reponse precedente a chaque listage : un format nul signifie
+   * donc « en attente », sauf si une erreur est venue a sa place.
    */
   protected readonly awaitsPlaylists = computed(
     () =>
@@ -181,7 +177,7 @@ export default class PlaylistPageComponent {
 
   /**
    * `ready` couvre aussi l'extraction en cours. Le format doit etre annonce : tant qu'il est
-   * nul, le dump peut encore se reveler exiger une playlist, et une erreur de listage le
+   * nul, le dump peut encore se reveler exiger une playlist ; une erreur de listage le
    * laisse nul aussi. Le sidecar refuse une extraction pendant la recherche d'un run : le
    * bouton ne l'offre pas.
    */
@@ -253,7 +249,7 @@ export default class PlaylistPageComponent {
   ]
 
   constructor() {
-    void readExtractionMode().then((stored) => {
+    void this.preferences.readExtractionMode().then((stored) => {
       this.choice.update((current) => ({ ...current, mode: stored }))
     })
   }
@@ -263,7 +259,7 @@ export default class PlaylistPageComponent {
   }
 
   protected async chooseFolder(target: WritableSignal<string | null>): Promise<void> {
-    const chosen = await pickPath({ directory: true })
+    const chosen = await this.native.pickPath({ directory: true })
     if (chosen !== null) {
       target.set(chosen)
     }
@@ -271,7 +267,7 @@ export default class PlaylistPageComponent {
 
   /** Le choix du fichier declenche le listage : seul le sidecar annonce le format. */
   protected async choosePlaylistFile(): Promise<void> {
-    const chosen = await pickPath({ directory: false })
+    const chosen = await this.native.pickPath({ directory: false })
     if (chosen === null) {
       return
     }
@@ -283,7 +279,7 @@ export default class PlaylistPageComponent {
 
   /** Appele sur l'evenement du toggle : le champ a deja ecrit dans `choice`. */
   protected async persistMode(): Promise<void> {
-    await writeExtractionMode(this.choice().mode)
+    await this.preferences.writeExtractionMode(this.choice().mode)
   }
 
   protected async extract(): Promise<void> {
@@ -298,7 +294,7 @@ export default class PlaylistPageComponent {
       return
     }
 
-    void writeLastDestination(destination)
+    void this.preferences.writeLastDestination(destination)
     await this.sidecar.extractPlaylist({
       source_folder: source,
       destination_folder: destination,

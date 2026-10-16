@@ -1,11 +1,20 @@
-import json
 from typing import TYPE_CHECKING
 
 import pytest
 from mutagen.id3 import COMM, ID3, TBPM
-from ndjson_loop import drive, start_tagging
-from scraper_responses import BASIEL, YOUR_MIND, track_payload
-from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, basiel, failing, found, three_tracks
+from ndjson_loop import drive, line, rows, start_tagging, sub
+from scraper_responses import BASIEL, YOUR_MIND, failing, found, track_payload
+from tagging_api import (
+    BEATPORT_SEARCH,
+    FIRST_TRACK,
+    ORIGINAL,
+    ORIGINAL_REFETCH,
+    SECOND_TRACK,
+    FakeApi,
+    basiel,
+    knows_your_mind,
+    three_tracks,
+)
 
 from tagger.tags.files import TAG_FIELDS
 
@@ -14,16 +23,15 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def run_folder(tmp_path: Path, app_data: None) -> Path:
-    """Trois morceaux, et un dossier de donnees d'application isole."""
+def run_folder(tmp_path: Path) -> Path:
+    """Les trois morceaux de `three_tracks`."""
     return three_tracks(tmp_path)
 
 
 @pytest.fixture
 def api_knowing_your_mind(api: FakeApi) -> FakeApi:
     """API qui valide « Adam Beyer - Your Mind », recherche et refetch compris."""
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    api.on(ORIGINAL_REFETCH, "*", found(ORIGINAL))
+    knows_your_mind(api, refetch=True)
     return api
 
 
@@ -31,14 +39,16 @@ def api_knowing_your_mind(api: FakeApi) -> FakeApi:
 def test_emits_the_whole_sequence_of_a_tagging_run(
     run_folder: Path, api_knowing_your_mind: FakeApi
 ) -> None:
-    api_knowing_your_mind.on("/beatport/search", BASIEL, found(basiel(mix_name="Club Mix")))
+    api_knowing_your_mind.on(BEATPORT_SEARCH, BASIEL, found(basiel(mix_name="Club Mix")))
 
     events = drive(start_tagging(run_folder))
 
-    tracks = events[0]["tracks"]
     assert events[0]["event"] == "run_started"
-    assert isinstance(tracks, list)
-    assert [track["track_id"] for track in tracks] == ["a.mp3", "b.mp3", "c.mp3"]
+    assert [track["track_id"] for track in rows(events[0], "tracks")] == [
+        FIRST_TRACK,
+        SECOND_TRACK,
+        "c.mp3",
+    ]
     assert {event["event"] for event in events[1:-2]} <= {
         "track_resolved",
         "arbitration_required",
@@ -67,7 +77,7 @@ def test_describes_a_resolved_track_with_its_source_its_scores_and_its_artwork(
     resolved = next(
         event
         for event in events
-        if event["event"] == "track_resolved" and event["track_id"] == "a.mp3"
+        if event["event"] == "track_resolved" and event["track_id"] == FIRST_TRACK
     )
     assert resolved["state"] == "resolved"
     assert resolved["resolution"] == "auto"
@@ -85,24 +95,20 @@ def test_gives_the_source_page_of_a_resolved_track_only(
     events = drive(start_tagging(run_folder))
 
     resolved = {event["track_id"]: event for event in events if event["event"] == "track_resolved"}
-    assert resolved["a.mp3"]["source_url"] == ORIGINAL["url"]
-    assert resolved["b.mp3"]["source_url"] is None
+    assert resolved[FIRST_TRACK]["source_url"] == ORIGINAL["url"]
+    assert resolved[SECOND_TRACK]["source_url"] is None
 
 
 @pytest.mark.usefixtures("_key")
-def test_answers_a_version_request_while_a_run_is_in_progress(
-    run_folder: Path, api: FakeApi
-) -> None:
-    events = drive(start_tagging(run_folder) + '{"command":"get_version"}\n')
+def test_answers_a_version_request_while_a_run_is_in_progress(run_folder: Path) -> None:
+    events = drive(start_tagging(run_folder) + line("get_version"))
 
     names = [event["event"] for event in events]
     assert names.index("version") < names.index("run_finished")
 
 
 @pytest.mark.usefixtures("_key")
-def test_refuses_a_second_tagging_run_while_one_is_in_progress(
-    run_folder: Path, api: FakeApi
-) -> None:
+def test_refuses_a_second_tagging_run_while_one_is_in_progress(run_folder: Path) -> None:
     events = drive(start_tagging(run_folder) * 2)
 
     errors = [event for event in events if event["event"] == "error"]
@@ -124,7 +130,7 @@ def test_reports_a_missing_api_key_without_calling_the_api(run_folder: Path, api
 def test_reports_a_rejected_api_key_and_never_finishes_the_run(
     run_folder: Path, api: FakeApi
 ) -> None:
-    api.on("/beatport/search", "*", failing(403))
+    api.on(BEATPORT_SEARCH, "*", failing(403))
 
     events = drive(start_tagging(run_folder))
 
@@ -133,44 +139,42 @@ def test_reports_a_rejected_api_key_and_never_finishes_the_run(
     assert all(event["event"] != "run_finished" for event in events)
 
 
-@pytest.mark.usefixtures("_key")
-def test_refuses_thresholds_out_of_bounds(run_folder: Path, api: FakeApi) -> None:
-    command = start_tagging(run_folder, thresholds={"floor": 95, "ceiling": 90})
-
-    events = drive(command)
-
-    assert [event["event"] for event in events] == ["error"]
-    assert events[0]["code"] == "malformed_command"
-    assert "95" not in json.dumps(events[0]["params"])
-
-
-@pytest.mark.usefixtures("_key")
-def test_carries_the_tags_before_and_after_field_by_field(run_folder: Path, api: FakeApi) -> None:
+@pytest.fixture
+def ripped_run_folder(run_folder: Path, api: FakeApi) -> Path:
+    """`FIRST_TRACK` porte deja un BPM et un commentaire, que Beatport ne connait pas pour lui."""
     without_bpm = track_payload(mix_name="Original Mix", bpm=None)
-    api.on("/beatport/search", YOUR_MIND, found(without_bpm))
+    api.on(BEATPORT_SEARCH, YOUR_MIND, found(without_bpm))
     api.on(ORIGINAL_REFETCH, "*", found(without_bpm))
-    tags = ID3(run_folder / "a.mp3")
+    tags = ID3(run_folder / FIRST_TRACK)
     tags.add(TBPM(encoding=3, text=["130"]))
     tags.add(COMM(encoding=3, lang="eng", desc="", text=["Ripped by X"]))
     tags.save()
+    return run_folder
 
-    events = drive(start_tagging(run_folder))
 
-    assert events[0]["folder"] == str(run_folder)
-    tracks = events[0]["tracks"]
-    assert isinstance(tracks, list)
-    before = tracks[0]["tags_before"]
+@pytest.mark.usefixtures("_key")
+def test_carries_the_tags_before_field_by_field(ripped_run_folder: Path) -> None:
+    events = drive(start_tagging(ripped_run_folder))
+
+    assert events[0]["folder"] == str(ripped_run_folder)
+    before = sub(rows(events[0], "tracks")[0], "tags_before")
     assert (before["system"], before["comment"]) == ("id3", "Ripped by X")
-    assert [row["field"] for row in before["fields"]] == [field.value for field in TAG_FIELDS]
-    assert before["fields"][0] == {"field": "artist", "key": "TPE1", "value": "Adam Beyer"}
-    assert {"field": "bpm", "key": "TBPM", "value": "130"} in before["fields"]
+    fields = rows(before, "fields")
+    assert [row["field"] for row in fields] == [field.value for field in TAG_FIELDS]
+    assert fields[0] == {"field": "artist", "key": "TPE1", "value": "Adam Beyer"}
+    assert {"field": "bpm", "key": "TBPM", "value": "130"} in fields
+
+
+@pytest.mark.usefixtures("_key")
+def test_carries_the_tags_after_field_by_field(ripped_run_folder: Path) -> None:
+    events = drive(start_tagging(ripped_run_folder))
+
     resolved = next(
         event
         for event in events
-        if event["event"] == "track_resolved" and event["track_id"] == "a.mp3"
+        if event["event"] == "track_resolved" and event["track_id"] == FIRST_TRACK
     )
-    after = resolved["tags_after"]
-    assert isinstance(after, list)
+    after = rows(resolved, "tags_after")
     assert {"field": "title", "key": "TIT2", "value": "Your Mind (Original Mix)"} in after
     assert {"field": "bpm", "key": "TBPM", "value": "130"} in after
     assert {"field": "date", "key": "TYER", "value": "2023"} in after

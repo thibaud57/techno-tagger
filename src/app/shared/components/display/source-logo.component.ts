@@ -18,7 +18,7 @@ const PATHS: Record<SourceName, string> = {
  * Les logos de source absents de PrimeIcons, en currentColor.
  *
  * SVG inline et non `<img src>` : `currentColor` ne s'applique pas a une image
- * externe, et les fichiers de `src/assets/icons/` ne sont pas emis par le build,
+ * externe et les fichiers de `src/assets/icons/` ne sont pas emis par le build,
  * qui ne declare que `public/`. Decoratif : le libelle traduit voisin nomme deja l'action.
  */
 @Component({

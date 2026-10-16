@@ -3,10 +3,12 @@ from typing import TYPE_CHECKING
 import httpx2
 import pytest
 from scraper_responses import (
+    BANDCAMP_TRACK,
     BASIEL,
     TEST_API_KEY,
     YOUR_MIND,
     answering,
+    bandcamp_track_payload,
     invalid_track_payload,
     make_client,
     page_payload,
@@ -106,14 +108,11 @@ async def test_fetches_a_beatport_track_by_id(requests: list[httpx2.Request]) ->
 
 
 async def test_fetches_a_bandcamp_track_by_url(requests: list[httpx2.Request]) -> None:
-    url = "https://amelielens.bandcamp.com/track/basiel"
-    body = track_payload(source="bandcamp", url=url, mix_name=None)
-
-    async with make_client(answering(requests, body)) as client:
-        candidate = await client.fetch_bandcamp_track(url)
+    async with make_client(answering(requests, bandcamp_track_payload())) as client:
+        candidate = await client.fetch_bandcamp_track(BANDCAMP_TRACK)
 
     assert requests[0].url.path == "/bandcamp/tracks"
-    assert dict(requests[0].url.params) == {"url": url}
+    assert dict(requests[0].url.params) == {"url": BANDCAMP_TRACK}
     assert candidate.source is Source.BANDCAMP
 
 

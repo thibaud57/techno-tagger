@@ -1,9 +1,10 @@
 @if (blocked(); as reason) {
-  <!-- Ecran bloquant et non modale. Carte neutre plutot qu'un pave d'alerte : le rouge ne doit
-       pas baigner la phrase qui dit quoi faire. -->
+  <!-- Ecran bloquant et non modal, a l'anatomie de nos modales : 30rem, texte a gauche, action
+       en pied a droite. Carte neutre plutot qu'un pave d'alerte : le rouge ne doit pas baigner la
+       phrase qui dit quoi faire. -->
   <div class="flex flex-1 items-center justify-center p-8">
-    <p-card class="max-w-lg border border-surface" [animate.enter]="fadeIn">
-      <div class="flex flex-col items-center gap-6 text-center">
+    <p-card class="w-120 max-w-full border border-surface" [animate.enter]="fadeIn">
+      <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
           <p class="text-lg font-semibold">{{ "app.blocked." + reason + ".title" | translate }}</p>
           <p class="text-sm whitespace-pre-line text-muted-color">
@@ -11,16 +12,18 @@
           </p>
         </div>
         @if (reason === "missing") {
-          <button
-            pButton
-            type="button"
-            size="small"
-            [outlined]="true"
-            severity="secondary"
-            (click)="retry()"
-          >
-            {{ "app.blocked.retry" | translate }}
-          </button>
+          <div class="flex justify-end">
+            <button
+              pButton
+              type="button"
+              size="small"
+              [outlined]="true"
+              severity="secondary"
+              (click)="retry()"
+            >
+              {{ "app.blocked.retry" | translate }}
+            </button>
+          </div>
         }
       </div>
     </p-card>

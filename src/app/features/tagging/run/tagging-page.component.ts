@@ -4,7 +4,8 @@ import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
-import { readLastDestination } from "../../../core/platform/preferences"
+import { NativeService } from "../../../core/platform/native.service"
+import { PreferencesService } from "../../../core/platform/preferences.service"
 import { SidecarService, type RunAction } from "../../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
@@ -17,7 +18,6 @@ import { PhaseProgressComponent } from "../../../shared/components/display/phase
 import { ErrorMessageComponent } from "../../../shared/components/feedback/error-message.component"
 import { MessageComponent } from "../../../shared/components/feedback/message.component"
 import { PathPickerComponent } from "../../../shared/components/inputs/path-picker.component"
-import { pickPath } from "../../../shared/utils/dialog"
 import { FADE_IN, PAGE_HOST } from "../../../shared/utils/motion"
 import { progressPercentage } from "../../../shared/utils/progress"
 import { TOOLTIP } from "../../../shared/utils/tooltip"
@@ -64,6 +64,8 @@ export default class TaggingPageComponent {
   private readonly recoveryUi = inject(RecoveryUiStore)
   private readonly translate = inject(TranslateService)
   private readonly router = inject(Router)
+  private readonly native = inject(NativeService)
+  private readonly preferences = inject(PreferencesService)
   private readonly confirmDanger = injectDangerConfirm()
   protected readonly runRestore = injectRunRestore()
 
@@ -216,7 +218,7 @@ export default class TaggingPageComponent {
   }
 
   protected async choose(): Promise<void> {
-    const chosen = await pickPath({ directory: true })
+    const chosen = await this.native.pickPath({ directory: true })
     if (chosen !== null) {
       this.folder.set(chosen)
     }
@@ -230,7 +232,9 @@ export default class TaggingPageComponent {
     if (this.blockedReason() !== null) {
       return
     }
-    await this.sidecar.startTagging(this.folder())
+    // Lu au clic : un reglage fait dans les Reglages vaut des le run suivant.
+    const thresholds = await this.preferences.readThresholds()
+    await this.sidecar.startTagging(this.folder(), thresholds ?? undefined)
   }
 
   protected openArbitration(trackId: string): void {
@@ -293,7 +297,7 @@ export default class TaggingPageComponent {
     if (this.sidecar.requestedFolder() !== null) {
       return
     }
-    const destination = await readLastDestination()
+    const destination = await this.preferences.readLastDestination()
     if (destination !== null && this.folder() === "") {
       this.folder.set(destination)
     }

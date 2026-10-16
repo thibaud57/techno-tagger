@@ -1,7 +1,7 @@
 """Pipeline de resolution d'un run de re-tagging (use-case 2).
 
-Orchestre `tags.files`, `resolution.matching` et `resolution.sources` sans rien reimplementer,
-et ignore le protocole NDJSON : les evenements sortent par un rappel, que le handler
+Orchestre `tags.files`, `resolution.matching` et `resolution.sources` sans rien reimplementer.
+Il ignore le protocole NDJSON : les evenements sortent par un rappel, que le handler
 traduit. Aucun fichier musical n'est ecrit ici (ADR-010). L'etat du run vit dans `run.models`.
 """
 

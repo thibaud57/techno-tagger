@@ -8,7 +8,7 @@ paths:
 
 ## À faire
 - Construire une clé de cache avec `runner.os` et `hashFiles` sur le lockfile de la zone concernée, plus des `restore-keys` en repli
-- Laisser les actions de setup gérer leur propre cache (`pnpm/setup`, `astral-sh/setup-uv`, `Swatinem/rust-cache`) plutôt que câbler un `actions/cache` par-dessus
+- Laisser les actions de setup gérer leur propre cache (`pnpm/setup` avec `cache: true`, désactivé par défaut ; `astral-sh/setup-uv` ; `Swatinem/rust-cache`) plutôt que câbler un `actions/cache` par-dessus
 - Publier une valeur entre jobs par `echo "clé=valeur" >> $GITHUB_OUTPUT` sur un step porteur d'un `id:`, remontée dans `outputs:` du job et lue en `needs.<job>.outputs.<clé>`
 - Écrire dans `$GITHUB_STEP_SUMMARY` ce qu'on veut relire après coup sans dérouler les logs : récapitulatif de tests, coverage du sidecar
 - Annoter avec `::error file=…,line=…::` ce qui doit remonter dans la PR plutôt que se perdre dans la sortie du step

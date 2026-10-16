@@ -1,8 +1,7 @@
 """Cle X-API-Key de techno-scraper, rangee dans le trousseau de l'OS (ADR-012).
 
-Seul module du sidecar a toucher le trousseau. La cle n'apparait dans aucun log,
-aucun parametre d'erreur ni aucun evenement : l'interface n'apprend que son
-existence, par l'evenement `version`.
+Seul module du sidecar a toucher le trousseau. La cle n'apparait dans aucun log, parametre
+d'erreur ni evenement : l'interface n'apprend que son existence (evenement `version`).
 """
 
 import logging

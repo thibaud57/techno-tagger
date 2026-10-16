@@ -1,17 +1,16 @@
-import { signal } from "@angular/core"
 import { DeferBlockBehavior, TestBed } from "@angular/core/testing"
-import { Router, provideRouter } from "@angular/router"
+import { provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
+import { vi } from "vitest"
 
 import { closeGuardStub } from "../fixtures/close-guard"
-import { hostOf } from "../fixtures/dom"
-import { sidecarStub } from "../fixtures/sidecar-stub"
+import { type Hosted, hostOf } from "../fixtures/dom"
+import { stubNavigation } from "../fixtures/router"
+import { activeRun, provideSidecarStub, sidecarStub } from "../fixtures/sidecar-stub"
 import { recoveredTrack, unresolvedTrack } from "../fixtures/tagging"
 import { AppComponent } from "./app.component"
 import { CloseGuard } from "./core/platform/close-guard.service"
-
-import { SidecarService } from "./core/sidecar/sidecar.service"
 import { RecoveryUiStore } from "./features/tagging/url-recovery/recovery-ui.store"
 
 /** jsdom n'implemente pas `ResizeObserver` qu'observe `p-tablist` (jsdom/jsdom#3368). */
@@ -26,12 +25,10 @@ class ResizeObserverStub {
     return
   }
 }
-;(globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver ??=
-  ResizeObserverStub as unknown as typeof ResizeObserver
 
 const mount = () => {
   // `RecoveryUiStore`, reel ici, lit le run : le badge et la modale du lien en dependent.
-  const service = sidecarStub({ taggingRunId: signal<string | null>("run-1") })
+  const service = sidecarStub(activeRun())
   const closeGuard = closeGuardStub()
   TestBed.configureTestingModule({
     imports: [AppComponent],
@@ -42,7 +39,7 @@ const mount = () => {
       provideTranslateService(),
       // `p-toast` du shell l'injecte ; l'application le fournit a la racine (app.config.ts).
       MessageService,
-      { provide: SidecarService, useValue: service },
+      provideSidecarStub(service),
       { provide: CloseGuard, useValue: closeGuard },
     ],
   })
@@ -52,40 +49,76 @@ const mount = () => {
   return { fixture, component: fixture.componentInstance, service, closeGuard }
 }
 
-const badge = (fixture: { nativeElement: unknown }): HTMLButtonElement | null =>
+const badge = (fixture: Hosted): HTMLButtonElement | null =>
   hostOf(fixture).querySelector<HTMLButtonElement>("[data-arbitration-badge]")
 
-const recoveryBadge = (fixture: { nativeElement: unknown }): HTMLButtonElement | null =>
+const recoveryBadge = (fixture: Hosted): HTMLButtonElement | null =>
   hostOf(fixture).querySelector<HTMLButtonElement>("[data-recovery-badge]")
 
+/** Un morceau a rattraper derriere un morceau deja rattrape : le badge vise le second. */
+const mountWithRecoverableTracks = () => {
+  const mounted = mount()
+  mounted.service.recoverableTracks.set([recoveredTrack("a.mp3"), unresolvedTrack("b.mp3")])
+  mounted.fixture.detectChanges()
+
+  return { ...mounted, navigate: stubNavigation("navigate") }
+}
+
 describe("AppComponent", () => {
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("keeps the arbitration dialog closed on an empty queue", () => {
+    const { component } = mount()
+
+    expect(component["arbitrationVisible"]()).toBe(false)
+  })
+
   it("opens the arbitration dialog as soon as the queue fills", () => {
     const { component, service } = mount()
-    const before = component["arbitrationVisible"]()
 
     service.arbitrationCount.set(1)
 
-    expect(before).toBe(false)
     expect(component["arbitrationVisible"]()).toBe(true)
   })
 
-  it("keeps it closed after the cross until the queue badge is clicked", () => {
-    const { fixture, component, service } = mount()
+  it("keeps the arbitration dialog closed when the queue grows after the cross", () => {
+    const { component, service } = mount()
     service.arbitrationCount.set(1)
     component["dismissArbitration"]()
+
     service.arbitrationCount.set(2)
+
+    expect(component["arbitrationVisible"]()).toBe(false)
+  })
+
+  it("shows the queue badge once the cross has closed the dialog", () => {
+    const { fixture, component, service } = mount()
+    service.arbitrationCount.set(2)
+    component["dismissArbitration"]()
+
     fixture.detectChanges()
-    const suspended = component["arbitrationVisible"]()
-    const label = badge(fixture)?.textContent
+
+    expect(badge(fixture)?.textContent).toContain("arbitration.badge")
+  })
+
+  it("reopens the arbitration dialog on a click on the queue badge", () => {
+    const { fixture, component, service } = mount()
+    service.arbitrationCount.set(2)
+    component["dismissArbitration"]()
+    fixture.detectChanges()
 
     badge(fixture)?.click()
 
-    expect(suspended).toBe(false)
-    expect(label).toContain("arbitration.badge")
     expect(component["arbitrationVisible"]()).toBe(true)
   })
 
-  it("opens it again once the queue has emptied and filled again", () => {
+  it("reopens the arbitration dialog once the queue has emptied and filled again", () => {
     const { fixture, component, service } = mount()
     service.arbitrationCount.set(1)
     component["dismissArbitration"]()
@@ -99,7 +132,7 @@ describe("AppComponent", () => {
     expect(component["arbitrationVisible"]()).toBe(true)
   })
 
-  it("opens it again when a run row asks for its arbitration after the cross", () => {
+  it("reopens the arbitration dialog when a run row asks for it after the cross", () => {
     const { fixture, component, service } = mount()
     service.arbitrationCount.set(2)
     component["dismissArbitration"]()
@@ -113,9 +146,7 @@ describe("AppComponent", () => {
   it("hides the queue badge on an empty queue", () => {
     const { fixture } = mount()
 
-    const found = badge(fixture)
-
-    expect(found).toBeNull()
+    expect(badge(fixture)).toBeNull()
   })
 
   it.each([
@@ -141,34 +172,35 @@ describe("AppComponent", () => {
 
     fixture.detectChanges()
 
-    const label = recoveryBadge(fixture)?.textContent
-    expect(label).toContain("tagging.recovery.badge")
+    expect(recoveryBadge(fixture)?.textContent).toContain("tagging.recovery.badge")
     expect(TestBed.inject(RecoveryUiStore).unresolvedCount()).toBe(2)
   })
 
-  it("opens the link dialog on the first unresolved track and goes to the tagging page on a badge click", () => {
-    const { fixture, service } = mount()
-    service.recoverableTracks.set([recoveredTrack("a.mp3"), unresolvedTrack("b.mp3")])
-    fixture.detectChanges()
-    const navigate = vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
+  it("opens the link dialog on the first unresolved track on a recovery badge click", () => {
+    const { fixture } = mountWithRecoverableTracks()
 
     recoveryBadge(fixture)?.click()
 
     expect(TestBed.inject(RecoveryUiStore).target()).toBe("b.mp3")
+  })
+
+  it("goes to the tagging page on a recovery badge click", () => {
+    const { fixture, navigate } = mountWithRecoverableTracks()
+
+    recoveryBadge(fixture)?.click()
+
     expect(navigate).toHaveBeenCalledWith(["tagging"])
   })
 
   it("keeps the arbitration dialog open on the link step of an emptied queue", () => {
     const { fixture, component, service } = mount()
-    const recovery = TestBed.inject(RecoveryUiStore)
     service.taggingTracks.set([unresolvedTrack("a.mp3")])
     service.recoverableTracks.set([unresolvedTrack("a.mp3")])
-    recovery.refused("a.mp3")
+    TestBed.inject(RecoveryUiStore).refused("a.mp3")
+
     fixture.detectChanges()
 
-    const visible = component["arbitrationVisible"]()
-
-    expect(visible).toBe(true)
+    expect(component["arbitrationVisible"]()).toBe(true)
   })
 
   it("installs the close guard at startup", () => {

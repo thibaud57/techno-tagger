@@ -70,6 +70,7 @@
     "api_key_missing": "No API key saved.\nAdd one in the settings.",
     "keyring_unavailable": "Windows Credential Manager is unavailable.\nRestart the application.",
     "write_not_open": "This run cannot be written now.",
+    "run_not_written": "The run on screen is waiting for its tags to be written.\nFinish writing before clearing the cache.",
     "run_committed": "Writing this run is confirmed: its tracks can no longer be arbitrated or recovered.",
     "rollback_unavailable": "Nothing to restore: these files already have their original tags back, or their backup has expired.",
     "phase_busy": {
@@ -384,8 +385,58 @@
         "missing": "No key"
       }
     },
+    "matching": {
+      "title": "Matching",
+      "floor": {
+        "label": "Floor",
+        "hint": "Applied separately to the artist score and the title score.\nBelow it, the candidate is discarded."
+      },
+      "ceiling": {
+        "label": "High threshold",
+        "hint": "Applied to the average of both.\nAbove it, automatic validation.\nIn between, uncertain match: to arbitrate."
+      },
+      "reset": {
+        "action": "Restore default values",
+        "blocked": "The thresholds are already the default ones."
+      }
+    },
+    "interface": {
+      "title": "Interface",
+      "language": {
+        "label": "Language",
+        "hint": "Applies immediately.\nOn first launch, the application follows the system language.",
+        "options": {
+          "fr": "Français",
+          "en": "English"
+        }
+      },
+      "sound": {
+        "label": "Completion sound",
+        "hint": "A beep when an extraction, a search, a write or a restore ends."
+      }
+    },
     "admin": {
       "title": "Administration",
+      "starting": "The application engine is starting.\nWait a moment.",
+      "cache": {
+        "label": "Cache",
+        "hint": "API responses and artwork already downloaded.\nClearing it touches no music file: the next runs download them again.",
+        "action": "Clear the cache",
+        "blocked": {
+          "busy": "An operation is in progress.\nWait for it to finish."
+        },
+        "cleared": {
+          "summary": "Cache cleared",
+          "freed": "{{size}} freed.",
+          "left": "{{size}} left, used by another program."
+        }
+      },
+      "logs": {
+        "label": "Logs",
+        "hint": "To report a problem, attach the selected file to your message.",
+        "action": "Open the logs folder",
+        "unavailable": "The log file cannot be found.\nRestart the application to create it again."
+      },
       "pastRuns": {
         "label": "Past runs",
         "hint": "Reopens the summary of a run already written, read-only.",

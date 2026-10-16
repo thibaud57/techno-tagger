@@ -14,8 +14,9 @@ import { providePrimeNG } from "primeng/config"
 import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
-import { FALLBACK_LANGUAGE, LANGUAGES, resolveInitialLanguage } from "./core/i18n/language"
+import { FALLBACK_LANGUAGE, LANGUAGES, resolveStartupLanguage } from "./core/i18n/language"
 import { CompletionSignalService } from "./core/platform/completion-signal.service"
+import { PreferencesService } from "./core/platform/preferences.service"
 import { TECHNO_TAGGER_PRESET } from "./core/platform/theme"
 import { SidecarService } from "./core/sidecar/sidecar.service"
 
@@ -53,14 +54,17 @@ export const appConfig: ApplicationConfig = {
         failOnError: APP_ENVIRONMENT !== "production",
       }),
     }),
-    // Avant le premier rendu : `locale()` est asynchrone, et une bascule de langue apres
+    // Avant le premier rendu : `locale()` est asynchrone, donc une bascule de langue apres
     // affichage se verrait.
     provideAppInitializer(async () => {
       const translate = inject(TranslateService)
+      const preferences = inject(PreferencesService)
       translate.addLangs([...LANGUAGES])
-      await firstValueFrom(translate.use(await resolveInitialLanguage()))
+      await firstValueFrom(
+        translate.use(await resolveStartupLanguage(() => preferences.readLanguage())),
+      )
     }),
-    // Sans attendre : l'ecran lit `available` et `ready` au fil de l'eau, et `start()` ne
+    // Sans attendre : l'ecran lit `available` et `ready` au fil de l'eau. `start()` ne
     // leve jamais.
     provideAppInitializer(() => {
       void inject(SidecarService).start()

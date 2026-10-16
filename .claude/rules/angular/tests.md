@@ -17,7 +17,7 @@ paths:
 - Écouter un `output()` par `subscribe(vi.fn())` : `firstValueFrom()` exige `outputToObservable()` et ne prouve pas qu'il n'a rien émis
 - Assertions DOM : `not.toBeNull()` ou `toBeTruthy()`
 - Appeler `fixture.detectChanges()` dans le `it()` quand des blocs `@if` conditionnent l'élément cherché
-- Mocker le protocole NDJSON au niveau du service qui l'expose, pas les plugins Tauri sous-jacents
+- Mocker le protocole NDJSON au niveau du service qui l'expose, et les plugins Tauri par les stubs de `PreferencesService` et `NativeService` (`src/fixtures/`) : un `vi.mock` de `@tauri-apps/*` ne vit que dans la spec de l'adaptateur
 - Chercher dans `src/fixtures/` le stub, le jeu d'événements ou le helper DOM avant d'en écrire un. Dès qu'une deuxième spec en a besoin, il y rejoint les autres ; à usage unique, il reste dans sa spec
 
 ## À éviter
@@ -29,7 +29,7 @@ paths:
 
 ## Gotchas
 - Vitest 5 : `clearMocks` vaut `true` par défaut (`vi.clearAllMocks()` avant chaque test), et une assertion async non attendue (`resolves`, `rejects`) fait échouer le test au lieu d'un warning
-- Vitest 5 : `vi.mock`, `vi.unmock` et `vi.hoisted` hors du top level lèvent une erreur, et `toThrow('texte')` matche une sous-chaîne, donc `toThrow('')` passe sur toute erreur
+- Vitest 5 : `vi.mock`, `vi.unmock` et `vi.hoisted` hors du top level lèvent une erreur, comme un `vi.mock` de chemin relatif sous `@angular/build:unit-test`, et `toThrow('texte')` matche une sous-chaîne, donc `toThrow('')` passe sur toute erreur
 - Angular 22.2 : l'option `splitting` du builder `unit-test` est dépréciée, inutile avec Vitest 5. Ne pas la poser
 - `vi.resetAllMocks()` réinitialise appels et retours mais ne restaure pas l'implémentation d'origine, contrairement à `vi.restoreAllMocks()` qui n'agit que sur les spies
 - `describe`, `it`, `expect` et `beforeEach` sont des globals ; seul `vi` s'importe

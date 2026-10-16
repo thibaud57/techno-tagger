@@ -132,7 +132,7 @@ class ThresholdsPayload(BaseModel):
 
 
 class StartTagging(Command):
-    """Dossier a re-tagger, et seuils de matching quand les Settings en imposent."""
+    """Dossier a re-tagger, avec les seuils de matching quand les Settings en imposent."""
 
     command: Literal["start_tagging"]
     folder: Path
@@ -183,6 +183,18 @@ class GetRollbackTarget(Command):
     """Dernier run annulable, pour que la confirmation des Reglages le nomme."""
 
     command: Literal["get_rollback_target"]
+
+
+class GetCacheSize(Command):
+    """Relue a l'ouverture des Reglages : un run fait grossir le cache entre deux visites."""
+
+    command: Literal["get_cache_size"]
+
+
+class ClearCache(Command):
+    """Refusee tant que le run courant attend son ecriture (`run_not_written`)."""
+
+    command: Literal["clear_cache"]
 
 
 class Rollback(Command):
@@ -245,7 +257,9 @@ type AnyCommand = Annotated[
     | DiscardRun
     | ResumeRun
     | ListRuns
-    | LoadRun,
+    | LoadRun
+    | GetCacheSize
+    | ClearCache,
     Field(discriminator="command"),
 ]
 
@@ -270,6 +284,8 @@ type ExecutableCommand = (
     | ResumeRun
     | ListRuns
     | LoadRun
+    | GetCacheSize
+    | ClearCache
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -293,6 +309,8 @@ type CommandName = Literal[
     "resume_run",
     "list_runs",
     "load_run",
+    "get_cache_size",
+    "clear_cache",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -323,8 +341,8 @@ class Phase(StrEnum):
 class Event(BaseModel):
     """Base des evenements emis sur `stdout`.
 
-    Ni `strict` ni `forbid` : ces modeles sont construits par le sidecar lui-meme,
-    pas recus d'un tiers. Ce qui compte ici est la sortie, pas la validation.
+    Ni `strict` ni `forbid` : ces modeles sont construits par le sidecar lui-meme, pas
+    recus d'un tiers.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -333,11 +351,16 @@ class Event(BaseModel):
 class Version(Event):
     """`api_key_configured` parce que seul le sidecar lit le trousseau : c'est ici
     que l'interface apprend qu'une cle existe, avant tout run (ADR-012).
+
+    `default_thresholds` et `log_file` pour la meme raison : seul le sidecar les connait,
+    les Reglages en partent sans les recopier.
     """
 
     event: Literal["version"]
     version: str
     api_key_configured: bool
+    default_thresholds: ThresholdsPayload
+    log_file: Path
 
 
 class PlaylistEntry(BaseModel):
@@ -351,9 +374,9 @@ class PlaylistEntry(BaseModel):
 class PlaylistsListed(Event):
     """Porte le format reconnu autant que les playlists.
 
-    L'interface doit savoir s'il faut proposer un selecteur, et reconnaitre un
-    format cote TypeScript serait une regle metier au mauvais endroit. Un M3U8
-    rend donc une liste vide et son format, jamais une erreur.
+    L'interface doit savoir s'il faut proposer un selecteur, mais reconnaitre un format
+    cote TypeScript serait une regle metier au mauvais endroit. Un M3U8 rend donc une
+    liste vide et son format, jamais une erreur.
     """
 
     event: Literal["playlists_listed"]
@@ -393,9 +416,8 @@ class FailurePayload(BaseModel):
 
 
 class ExtractionFinished(Event):
-    """Categories plus fines que celles d'ARCHITECTURE.md : un transfert peut
-    echouer sans que le morceau soit introuvable, et un fichier deja present n'a
-    pas ete extrait.
+    """Categories plus fines que celles d'ARCHITECTURE.md : un transfert peut echouer
+    sans que le morceau soit introuvable, un fichier deja present n'a pas ete extrait.
     """
 
     event: Literal["extraction_finished"]
@@ -565,6 +587,19 @@ class RollbackTarget(Event):
     run: RollbackRun | None
 
 
+class CacheSize(Event):
+    event: Literal["cache_size"]
+    size_bytes: int
+
+
+class CacheCleared(Event):
+    """`size_bytes` : ce qui reste, un fichier verrouille survivant au vidage."""
+
+    event: Literal["cache_cleared"]
+    freed_bytes: int
+    size_bytes: int
+
+
 class RollbackFailurePayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -704,12 +739,11 @@ UNKNOWN_COMMAND_ERROR: Final = "union_tag_invalid"
 def error_from_validation(exc: ValidationError) -> Error:
     """Convertit un refus de validation en evenement structure.
 
-    Seuls `loc` et `type` sont retenus : ils suffisent a situer le champ fautif
-    dans les logs, et le message de Pydantic n'a pas vocation a etre lu par
-    l'utilisateur. Une commande inconnue est en plus nommee sous `command` :
-    Pydantic ne la porte que dans `ctx`, que `loc` et `type` laissent de cote.
-    `ctx` n'est pas recopie en entier, il peut porter des objets que le JSON ne
-    serialise pas (l'exception d'un validateur).
+    Seuls `loc` et `type` sont retenus : ils suffisent a situer le champ fautif dans les
+    logs, le message de Pydantic n'ayant pas vocation a etre lu par l'utilisateur. Une
+    commande inconnue est en plus nommee sous `command` : Pydantic ne la porte que dans
+    `ctx`, que `loc` et `type` laissent de cote. `ctx` n'est pas recopie en entier, il
+    peut porter des objets que le JSON ne serialise pas (l'exception d'un validateur).
     """
     details: list[dict[str, object]] = []
     params: dict[str, object] = {"errors": details}

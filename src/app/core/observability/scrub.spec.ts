@@ -8,28 +8,30 @@ describe("scrub", () => {
   const scrubbed = (event: object): Record<string, unknown> =>
     scrub(event as never, {}) as unknown as Record<string, unknown>
 
-  it("masks the username in all three path forms, at any depth", () => {
-    const event = {
-      message: "cannot read C:\\Users\\jane\\Music\\set.flac",
-      extra: {
-        posix: "/home/jane/Music/set.flac",
-        macos: "/Users/jane/Music/set.flac",
-        tracks: 42,
-      },
-    }
+  it.each([
+    ["Windows", "C:\\Users\\jane\\Music\\set.flac", `C:\\Users\\${MASK}\\Music\\set.flac`],
+    ["Windows with slashes", "C:/Users/jane/Music/set.flac", `C:/Users/${MASK}/Music/set.flac`],
+    ["Linux", "/home/jane/Music/set.flac", `/home/${MASK}/Music/set.flac`],
+    ["macOS", "/Users/jane/Music/set.flac", `/Users/${MASK}/Music/set.flac`],
+  ])("masks the username in a %s path, at any depth", (_form, path, expected) => {
+    const event = { message: `cannot read ${path}`, extra: { nested: { path } } }
 
     const result = scrubbed(event)
 
-    expect(result["message"]).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`)
-    expect(result["extra"]).toEqual({
-      posix: `/home/${MASK}/Music/set.flac`,
-      macos: `/Users/${MASK}/Music/set.flac`,
-      tracks: 42,
-    })
+    expect(result["message"]).toBe(`cannot read ${expected}`)
+    expect(result["extra"]).toEqual({ nested: { path: expected } })
+  })
+
+  it("leaves a value that is not a string alone", () => {
+    const event = { extra: { tracks: 42, retried: false } }
+
+    const result = scrubbed(event)
+
+    expect(result["extra"]).toEqual({ tracks: 42, retried: false })
   })
 
   it.each([
-    ["a space", "Jean Dupont"],
+    ["a space", "Jane Doe"],
     ["an apostrophe", "O'Brien"],
   ])("masks an account name containing %s", (_case, account) => {
     const event = { message: `cannot read C:\\Users\\${account}\\Music\\set.flac` }

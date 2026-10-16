@@ -5,16 +5,20 @@ from typing import TYPE_CHECKING, Final
 import mutagen
 import pytest
 from audio_samples import (
+    ALL_FORMATS,
+    ID3_VORBIS_FORMATS,
     append_id3v1,
     held_open,
     id3_as_written,
     locked_by_another_process,
+    mutagen_refusing,
+    preset_tags,
     write_not_audio,
     write_tagged_wavpack,
 )
-from mutagen import MutagenError
+from cdn_doubles import JPEG, write_cover
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import APIC, COMM, TDRC, TPE2, TXXX, Frames, PictureType
+from mutagen.id3 import APIC, COMM, TDRC, TPE2, TXXX, PictureType
 from mutagen.mp3 import MP3
 from scraper_responses import (
     BEATPORT_CANDIDATE,
@@ -22,7 +26,6 @@ from scraper_responses import (
     payload_candidate,
     soundcloud_track_payload,
 )
-from tagging_api import JPEG, write_cover
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.resolution.scraper_client import TrackCandidate
@@ -69,22 +72,6 @@ def _read_back(path: Path) -> dict[TagField, str]:
         for field, keys in TAG_FIELDS.items()
         if keys.id3 in audio.tags
     }
-
-
-def _preset(path: Path, **frames_or_keys: str) -> None:
-    """Pose des tags d'origine dans l'arrange : frames texte ID3 ou cles Vorbis."""
-    audio = mutagen.File(path)
-    if isinstance(audio, FLAC):
-        for key, value in frames_or_keys.items():
-            audio[key] = [value]
-        audio.save()
-        return
-    if audio.tags is None:
-        audio.add_tags()
-    for frame_id, value in frames_or_keys.items():
-        audio.tags.add(Frames[frame_id](encoding=3, text=[value]))
-    audio.tags.update_to_v23()
-    audio.save(v2_version=3)
 
 
 def _add_pictures(path: Path, *pictures: tuple[int, bytes]) -> None:
@@ -183,7 +170,7 @@ def test_percent_encodes_the_non_ascii_characters_of_the_url(url: str, encoded: 
     assert values[TagField.URL] == encoded
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
+@pytest.mark.parametrize("audio_format", ID3_VORBIS_FORMATS)
 def test_writes_the_encoded_url_whatever_the_characters_of_the_source(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
@@ -217,48 +204,46 @@ def test_pins_the_field_table_of_the_adr() -> None:
     } == TAG_FIELDS
 
 
-def test_omits_the_fields_the_source_leaves_null() -> None:
-    values = project_tags(BANDCAMP)
+@pytest.mark.parametrize(
+    ("candidate", "omitted"),
+    [
+        (BANDCAMP, {TagField.GENRE, TagField.BPM, TagField.KEY, TagField.REMIXER}),
+        (payload_candidate(genre="   ", key=""), {TagField.GENRE, TagField.KEY}),
+        (payload_candidate(bpm=0, track_number=0), {TagField.BPM, TagField.TRACK_NUMBER}),
+        (
+            payload_candidate(release=None),
+            {TagField.ALBUM, TagField.DATE, TagField.CATALOG_NUMBER},
+        ),
+    ],
+    ids=["null-source", "blank-values", "zero-bpm-track", "no-release"],
+)
+def test_omits_the_fields_the_source_leaves_empty(
+    candidate: TrackCandidate, omitted: set[TagField]
+) -> None:
+    values = project_tags(candidate)
 
-    assert {TagField.GENRE, TagField.BPM, TagField.KEY, TagField.REMIXER}.isdisjoint(values)
-    assert values[TagField.SOURCE] == "bandcamp"
+    assert omitted.isdisjoint(values)
 
 
-def test_omits_blank_values() -> None:
-    values = project_tags(payload_candidate(genre="   ", key=""))
+@pytest.mark.parametrize(
+    ("candidate", "source"),
+    [(BANDCAMP, "bandcamp"), (SOUNDCLOUD, "soundcloud")],
+    ids=["bandcamp", "soundcloud"],
+)
+def test_names_the_source_the_candidate_came_from(candidate: TrackCandidate, source: str) -> None:
+    values = project_tags(candidate)
 
-    assert {TagField.GENRE, TagField.KEY}.isdisjoint(values)
-
-
-def test_omits_a_zero_bpm_or_track_number() -> None:
-    values = project_tags(payload_candidate(bpm=0, track_number=0))
-
-    assert {TagField.BPM, TagField.TRACK_NUMBER}.isdisjoint(values)
+    assert values[TagField.SOURCE] == source
 
 
 def test_projects_what_a_soundcloud_candidate_carries() -> None:
     values = project_tags(SOUNDCLOUD)
 
     assert (values[TagField.ARTIST], values[TagField.TITLE]) == ("KASIA & Faithless", "Tarantula")
-    assert values[TagField.SOURCE] == "soundcloud"
     assert {TagField.GENRE, TagField.BPM, TagField.KEY, TagField.ISRC}.isdisjoint(values)
 
 
-def test_omits_the_release_fields_without_a_release() -> None:
-    values = project_tags(payload_candidate(release=None))
-
-    assert {
-        TagField.ALBUM,
-        TagField.DATE,
-        TagField.CATALOG_NUMBER,
-    }.isdisjoint(values)
-
-
-@pytest.mark.parametrize(
-    "audio_format",
-    ["mp3", "wav", "aiff", "flac"],
-    ids=["id3-mp3", "id3-wav", "id3-aiff", "vorbis-flac"],
-)
+@pytest.mark.parametrize("audio_format", ALL_FORMATS)
 @pytest.mark.parametrize(
     "candidate",
     [REMIX, BANDCAMP, SOUNDCLOUD],
@@ -276,9 +261,7 @@ def test_writes_the_same_values_on_every_format(
     assert written.fields == tuple(values)
 
 
-@pytest.mark.parametrize(
-    "audio_format", ["mp3", "wav", "aiff"], ids=["id3-mp3", "id3-wav", "id3-aiff"]
-)
+@pytest.mark.parametrize("audio_format", ALL_FORMATS[:3])
 @pytest.mark.parametrize("version", [3, 4], ids=["from-v23", "from-v24"])
 def test_saves_id3_v23_with_the_year_alone(
     blank_audio: Callable[[str], Path], audio_format: str, version: int
@@ -309,7 +292,7 @@ def test_keeps_the_file_date_when_the_source_has_none(
     assert str(on_disk["TDAT"]) == "1606"
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
+@pytest.mark.parametrize("audio_format", ID3_VORBIS_FORMATS)
 def test_keeps_accented_text_intact(blank_audio: Callable[[str], Path], audio_format: str) -> None:
     path = blank_audio(audio_format)
     values = project_tags(payload_candidate(title="Für Éline", mix_name="Señor Remix"))
@@ -334,14 +317,16 @@ def test_replaces_existing_vorbis_values_whatever_their_case_or_count(
 
 @pytest.mark.parametrize(
     ("audio_format", "preset"),
-    [("mp3", {"TBPM": "130", "TKEY": "8A"}), ("flac", {"BPM": "130", "KEY": "8A"})],
-    ids=["id3", "vorbis"],
+    [
+        pytest.param("mp3", {"TBPM": "130", "TKEY": "8A"}, id="id3-mp3"),
+        pytest.param("flac", {"BPM": "130", "KEY": "8A"}, id="vorbis-flac"),
+    ],
 )
 def test_keeps_the_tags_the_source_leaves_null(
     blank_audio: Callable[[str], Path], audio_format: str, preset: dict[str, str]
 ) -> None:
     path = blank_audio(audio_format)
-    _preset(path, **preset)
+    preset_tags(path, **preset)
 
     write_tags(path, project_tags(BANDCAMP), None)
 
@@ -369,7 +354,7 @@ def test_leaves_the_vorbis_keys_outside_the_table_alone(
     blank_audio: Callable[[str], Path],
 ) -> None:
     path = blank_audio("flac")
-    _preset(path, ALBUMARTIST="Drumcode", SERATO_PLAYCOUNT="12")
+    preset_tags(path, ALBUMARTIST="Drumcode", SERATO_PLAYCOUNT="12")
 
     write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
 
@@ -392,7 +377,7 @@ def test_removes_every_id3_comment(blank_audio: Callable[[str], Path]) -> None:
 
 def test_removes_every_vorbis_comment(blank_audio: Callable[[str], Path]) -> None:
     path = blank_audio("flac")
-    _preset(path, COMMENT="ripped by X", DESCRIPTION="320kbps")
+    preset_tags(path, COMMENT="ripped by X", DESCRIPTION="320kbps")
 
     write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
 
@@ -410,7 +395,7 @@ def test_clears_the_comment_of_an_id3v1_tag(blank_audio: Callable[[str], Path]) 
     assert b"ripped by X" not in path.read_bytes()
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
+@pytest.mark.parametrize("audio_format", ID3_VORBIS_FORMATS)
 def test_replaces_every_picture_with_the_given_cover(
     blank_audio: Callable[[str], Path], tmp_path: Path, audio_format: str
 ) -> None:
@@ -424,7 +409,7 @@ def test_replaces_every_picture_with_the_given_cover(
     assert written.artwork
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
+@pytest.mark.parametrize("audio_format", ID3_VORBIS_FORMATS)
 def test_writing_twice_still_leaves_a_single_cover(
     blank_audio: Callable[[str], Path], tmp_path: Path, audio_format: str
 ) -> None:
@@ -449,29 +434,34 @@ def test_tags_the_cover_with_the_mime_of_its_extension(
     assert _pictures(path) == [(PictureType.COVER_FRONT, "image/png", b"\x89PNG")]
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
-def test_keeps_only_the_front_cover_without_artwork(
-    blank_audio: Callable[[str], Path], audio_format: str
+@pytest.mark.parametrize("audio_format", ID3_VORBIS_FORMATS)
+@pytest.mark.parametrize(
+    ("pictures", "kept"),
+    [
+        (
+            [(PictureType.COVER_BACK, b"back"), (PictureType.COVER_FRONT, b"front")],
+            (PictureType.COVER_FRONT, b"front"),
+        ),
+        (
+            [(PictureType.COVER_BACK, b"back"), (PictureType.LEAFLET_PAGE, b"leaflet")],
+            (PictureType.COVER_BACK, b"back"),
+        ),
+    ],
+    ids=["front-cover", "first-picture-without-front-cover"],
+)
+def test_keeps_a_single_picture_without_artwork(
+    blank_audio: Callable[[str], Path],
+    audio_format: str,
+    pictures: list[tuple[int, bytes]],
+    kept: tuple[int, bytes],
 ) -> None:
     path = blank_audio(audio_format)
-    _add_pictures(path, (PictureType.COVER_BACK, b"back"), (PictureType.COVER_FRONT, b"front"))
+    _add_pictures(path, *pictures)
 
     written = write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
 
-    assert _pictures(path) == [(PictureType.COVER_FRONT, "image/png", b"front")]
+    assert _pictures(path) == [(kept[0], "image/png", kept[1])]
     assert not written.artwork
-
-
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
-def test_keeps_the_first_picture_when_none_is_a_front_cover(
-    blank_audio: Callable[[str], Path], audio_format: str
-) -> None:
-    path = blank_audio(audio_format)
-    _add_pictures(path, (PictureType.COVER_BACK, b"back"), (PictureType.LEAFLET_PAGE, b"leaflet"))
-
-    write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
-
-    assert _pictures(path) == [(PictureType.COVER_BACK, "image/png", b"back")]
 
 
 @pytest.mark.parametrize(
@@ -544,10 +534,9 @@ def test_names_a_full_disk_met_while_saving(
 ) -> None:
     path = blank_audio("mp3")
 
-    def full_disk(_self: MP3, *_args: object, **_kwargs: object) -> None:
-        raise MutagenError("no space") from OSError(errno.ENOSPC, "No space left on device")
-
-    monkeypatch.setattr(MP3, "save", full_disk)
+    monkeypatch.setattr(
+        MP3, "save", mutagen_refusing(OSError(errno.ENOSPC, "No space left on device"))
+    )
 
     with pytest.raises(TagsWriteError) as error:
         write_tags(path, project_tags(BEATPORT_CANDIDATE), None)

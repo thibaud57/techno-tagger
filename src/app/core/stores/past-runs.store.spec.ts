@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { PAST_RUN, TRACK_LOADED, runLoaded } from "../../../fixtures/past-runs"
+import { OTHER_PAST_RUN, PAST_RUN, TRACK_LOADED, runLoaded } from "../../../fixtures/past-runs"
 import { commandError, phaseBusy } from "../../../fixtures/write"
 
 import { PastRunsStore, loadedTrack } from "./past-runs.store"
@@ -46,10 +46,10 @@ describe("PastRunsStore", () => {
     store.loadStarted(PAST_RUN.run_id)
     store.loadedRun(runLoaded(TRACK_LOADED))
 
-    store.loadStarted("b4c5d6")
+    store.loadStarted(OTHER_PAST_RUN.run_id)
 
     expect(store.loaded()).toBeNull()
-    expect(store.loading()).toBe("b4c5d6")
+    expect(store.loading()).toBe(OTHER_PAST_RUN.run_id)
   })
 
   it("keeps the loaded run when the same one is requested again", () => {
@@ -77,13 +77,13 @@ describe("PastRunsStore", () => {
   })
 
   it("keeps waiting for the run being loaded when another one is refused", () => {
-    store.loadStarted("a3f9c1")
-    store.loadStarted("b4c5d6")
+    store.loadStarted(PAST_RUN.run_id)
+    store.loadStarted(OTHER_PAST_RUN.run_id)
 
-    store.loadFailed(commandError("load_run", "run_not_found", { run_id: "a3f9c1" }))
+    store.loadFailed(commandError("load_run", "run_not_found", { run_id: PAST_RUN.run_id }))
 
-    expect(store.loading()).toBe("b4c5d6")
-    expect(store.refusal()?.runId).toBe("a3f9c1")
+    expect(store.loading()).toBe(OTHER_PAST_RUN.run_id)
+    expect(store.refusal()?.runId).toBe(PAST_RUN.run_id)
   })
 
   it("ignores a refusal nobody waits for", () => {
@@ -102,23 +102,23 @@ describe("PastRunsStore", () => {
   })
 
   it("keeps the run being loaded when another run answers first", () => {
-    store.loadStarted("a3f9c1")
-    store.loadStarted("b4c5d6")
+    store.loadStarted(PAST_RUN.run_id)
+    store.loadStarted(OTHER_PAST_RUN.run_id)
 
     store.loadedRun(runLoaded(TRACK_LOADED))
 
     expect(store.loaded()).toBeNull()
-    expect(store.loading()).toBe("b4c5d6")
+    expect(store.loading()).toBe(OTHER_PAST_RUN.run_id)
   })
 
   it("keeps the run being loaded when another run answers last", () => {
-    store.loadStarted("a3f9c1")
-    store.loadStarted("b4c5d6")
-    store.loadedRun({ ...runLoaded(TRACK_LOADED), run_id: "b4c5d6" })
+    store.loadStarted(PAST_RUN.run_id)
+    store.loadStarted(OTHER_PAST_RUN.run_id)
+    store.loadedRun({ ...runLoaded(TRACK_LOADED), run_id: OTHER_PAST_RUN.run_id })
 
     store.loadedRun(runLoaded(TRACK_LOADED))
 
-    expect(store.loaded()?.runId).toBe("b4c5d6")
+    expect(store.loaded()?.runId).toBe(OTHER_PAST_RUN.run_id)
   })
 
   it("ends the loading without a refusal when the wait is abandoned", () => {
