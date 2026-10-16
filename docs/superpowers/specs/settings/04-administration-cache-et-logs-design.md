@@ -2,7 +2,7 @@
 feature: "Feature 7 : Settings"
 subproject: "administration-cache-et-logs"
 goal: "Vider le cache disque et ouvrir le dossier des logs depuis les Réglages"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["01-protocole-ndjson-reglages-design.md", "02-langue-et-signal-sonore-design.md"]
@@ -43,8 +43,9 @@ Il exclut l'envoi d'un rapport (Feature 9) et toute permission Tauri nouvelle.
 - **À créer** : `src/app/shared/utils/bytes.spec.ts`
 - **À modifier** : `src/app/shared/components/display/icon.component.ts` (icône `trash`)
 - **À modifier** : `src/app/core/platform/completion-signal.service.ts` (`TOAST_LIFE`, durée partagée des toasts)
-- **À modifier** : `src/app/core/sidecar/sidecar.service.ts` (`runLost`, exposé depuis le store du run)
-- **À modifier** : `src/fixtures/sidecar-stub.ts` (`runLost`)
+- **À modifier** : `src/app/core/sidecar/sidecar.service.ts` (`runAwaitsWrite`, dérivé des stores du run et de l'écriture)
+- **À modifier** : `src/fixtures/sidecar-stub.ts` (`runAwaitsWrite`)
+- **À modifier** : `src/app/features/settings/settings-row.component.ts` (colonne des libellés remesurée, écart d'un `app-message` en tête des retours)
 - **À modifier** : `src/app/features/settings/settings-page.component.ts` (taille, vidage, toast, raison de blocage, révélation des logs)
 - **À modifier** : `src/app/features/settings/settings-page.component.html` (rangées Cache et Logs)
 - **À modifier** : `src/app/features/settings/settings-page.component.spec.ts`
@@ -62,16 +63,17 @@ Il exclut l'envoi d'un rapport (Feature 9) et toute permission Tauri nouvelle.
 - Bouton « Vider le cache » : `button pButton` `secondary` outlined `size="small"`, icône `trash` (DESIGN.md § Mapping, actions d'administration), puis la taille, comme la maquette. Aide sur la ligne du bouton (arbitrage « Rangée de Réglages »), sans constante du sidecar ni jargon : ce que contient le cache, et qu'aucun fichier de musique n'est touché.
 - Pas de confirmation : le cache est jetable (ADR-013), DESIGN.md réserve la confirmation aux gestes sur les fichiers.
 - Raison de blocage, en tooltip sur le bouton grisé comme pour la restauration :
+  - le moteur démarre (`available() !== true`), raison partagée avec le bouton des logs ;
   - une phase longue tourne (`phase() !== "idle"`) ;
-  - le run affiché attend son écriture : non confirmé (`committed`), ou confirmé avec des échecs d'écriture (`writeFailureCount`). Un run perdu par la mort du moteur n'attend plus rien, échecs restés à l'écran compris : `SidecarService` expose `runLost` depuis le store du run, `runFrozen` ne distinguant pas un run écrit d'un run perdu.
-  L'interface grise sur ce qu'elle sait déjà, le sidecar reste l'arbitre : un refus `phase_busy` ou `run_not_written` s'affiche par `errorFor("clear_cache", "get_cache_size")` sous la rangée. Sans moteur, le bouton est grisé sans raison, comme « Enregistrer ».
+  - le run affiché attend son écriture : non confirmé (`committed`), ou confirmé avec des échecs d'écriture (`writeFailureCount`). Un run perdu par la mort du moteur n'attend plus rien, échecs restés à l'écran compris. La règle vit dans `SidecarService.runAwaitsWrite`, à côté de `runConfirmable` : `runFrozen` ne distingue pas un run écrit d'un run perdu.
+  L'interface grise sur ce qu'elle sait déjà, le sidecar reste l'arbitre : un refus `phase_busy` ou `run_not_written` s'affiche par `errorFor("clear_cache", "get_cache_size")` sous la rangée.
 - Toast `success` (`MessageService`, 4 s, sans signal sonore : ce n'est pas la fin d'une phase longue) : « Cache vidé », puis les octets libérés, puis, s'il en reste, ce qui reste, utilisé par un autre programme. Il part sur un nouveau `cacheCleared`, jamais sur celui déjà présent au montage de la page (un retour sur l'onglet ne le rejoue pas).
 
 ### Rangée Logs
 
 - Bouton « Ouvrir le dossier des logs » : `secondary` outlined `size="small"`, icône `external-link`, aide sur sa ligne (joindre le fichier sélectionné à un signalement), sans recopier la rotation ni la taille.
 - Il appelle `revealItemInDir(logFile)` du plugin `opener`. `opener:allow-reveal-item-in-dir` est déjà accordé et sans scope (`tauri-plugin-opener` 2.7.0, `reveal_item_in_dir`) : la capability ne change pas (`.claude/rules/tauri/capabilities.md`). Le fichier sélectionné est celui à joindre, là où révéler le dossier ouvrirait son parent.
-- Grisé tant que `logFile()` est inconnu. Un échec de la révélation affiche un `app-message` d'erreur sous la rangée, avec le geste qui répare (relancer l'application recrée le fichier).
+- Grisé tant que `logFile()` est inconnu, la raison en tooltip (le moteur démarre). Un échec de la révélation affiche un `app-message` d'erreur sous la rangée, avec le geste qui répare (relancer l'application recrée le fichier) ; un nouveau `logFile` (moteur relancé) l'efface.
 
 ### Rules applicables
 
@@ -135,7 +137,7 @@ Il exclut l'envoi d'un rapport (Feature 9) et toute permission Tauri nouvelle.
 
 ## Edge cases
 
-- **Moteur relancé** : `runLost` vaut vrai pour un run perdu, le vidage n'est pas grisé, même si des échecs d'écriture restent à l'écran : le sidecar redémarré n'a plus de run.
+- **Moteur relancé** : `runAwaitsWrite` vaut faux pour un run perdu, le vidage n'est pas grisé, même si des échecs d'écriture restent à l'écran : le sidecar redémarré n'a plus de run.
 - **Taille d'un run en cours** : la taille affichée date de l'ouverture des Réglages ; elle se relit à la visite suivante ou après un vidage.
 - **Onglet quitté avant la réponse** : le vidage se fait, le toast ne part pas ; la taille se relit au retour.
 - **`load_run` en vol** : le sidecar accepte le vidage (sub-project 01), le récapitulatif rouvert retélécharge ses pochettes.
