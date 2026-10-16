@@ -1,153 +1,151 @@
-<div class="flex h-full min-h-0 flex-col gap-6">
-  <h1 class="text-2xl font-semibold">{{ "tagging.title" | translate }}</h1>
+<h1 class="text-2xl font-semibold">{{ "tagging.title" | translate }}</h1>
 
-  <!-- Les actions du run au bout de la ligne du dossier qu'elles traitent. -->
-  <div class="grid grid-cols-[max-content_1fr_max-content] items-center gap-4">
-    <app-path-picker
-      [label]="null"
-      [buttonLabel]="'tagging.folder.action' | translate"
-      [path]="folder()"
-      pathAlign="start"
-      (pick)="choose()"
-    >
-      <app-icon icon name="folder" [size]="16" />
-    </app-path-picker>
-    <!-- Un seul bouton d'action, dont le role suit la phase : jamais deux actions du run
+<!-- Les actions du run au bout de la ligne du dossier qu'elles traitent. -->
+<div class="grid grid-cols-[max-content_1fr_max-content] items-center gap-4">
+  <app-path-picker
+    [label]="null"
+    [buttonLabel]="'tagging.folder.action' | translate"
+    [path]="folder()"
+    pathAlign="start"
+    (pick)="choose()"
+  >
+    <app-icon icon name="folder" [size]="16" />
+  </app-path-picker>
+  <!-- Un seul bouton d'action, dont le role suit la phase : jamais deux actions du run
          cote a cote (arbitrage du 2026-10-06, DESIGN.md § Arbitrages). -->
-    @let shown = actionButton();
-    @let blocked = shown.blocked ? (shown.blocked | translate) : undefined;
-    <button
-      pButton
-      type="button"
-      size="small"
-      [severity]="shown.secondary ? 'secondary' : undefined"
-      [outlined]="shown.secondary"
-      [attr.data-action]="shown.action"
-      [disabled]="blocked !== undefined"
-      [pTooltip]="blocked"
-      [tooltipOptions]="tooltip"
-      (click)="shown.run()"
-    >
-      <app-icon [name]="shown.icon" [size]="16" />{{ shown.label | translate }}
-    </button>
-  </div>
+  @let shown = actionButton();
+  @let blocked = shown.blocked ? (shown.blocked | translate) : undefined;
+  <button
+    pButton
+    type="button"
+    size="small"
+    [severity]="shown.secondary ? 'secondary' : undefined"
+    [outlined]="shown.secondary"
+    [attr.data-action]="shown.action"
+    [disabled]="blocked !== undefined"
+    [pTooltip]="blocked"
+    [tooltipOptions]="tooltip"
+    (click)="shown.run()"
+  >
+    <app-icon [name]="shown.icon" [size]="16" />{{ shown.label | translate }}
+  </button>
+</div>
 
-  @if (error(); as shown) {
-    <app-error-message [error]="shown" />
-  }
+@if (error(); as shown) {
+  <app-error-message [error]="shown" />
+}
 
-  @if (writeFailures() > 0 && !writing()) {
-    <!-- Le texte seul : la relance est le bouton d'action du run, au bout de la ligne du dossier. -->
-    <app-message severity="error" data-write-failures>
-      {{ "tagging.write.failed" | translate: { count: writeFailures() } }}
-    </app-message>
-  }
+@if (writeFailures() > 0 && !writing()) {
+  <!-- Le texte seul : la relance est le bouton d'action du run, au bout de la ligne du dossier. -->
+  <app-message severity="error" data-write-failures>
+    {{ "tagging.write.failed" | translate: { count: writeFailures() } }}
+  </app-message>
+}
 
-  <app-rollback-failures [failures]="runRestore.runRollbackFailures()" />
+<app-rollback-failures [failures]="runRestore.runRollbackFailures()" />
 
-  @if (running()) {
-    @let current = progress();
-    <app-phase-progress
-      [label]="'tagging.phase' | translate"
-      [counter]="current ? ('tagging.progress' | translate: current) : undefined"
-      [value]="percentage()"
-    />
-  } @else if (committed()) {
-    @let written = writeProgress();
-    <!-- Sans ecriture en cours ni palier recu (relance refusee), une barre indeterminee
+@if (running()) {
+  @let current = progress();
+  <app-phase-progress
+    [label]="'tagging.phase' | translate"
+    [counter]="current ? ('tagging.progress' | translate: current) : undefined"
+    [value]="percentage()"
+  />
+} @else if (committed()) {
+  @let written = writeProgress();
+  <!-- Sans ecriture en cours ni palier recu (relance refusee), une barre indeterminee
          laisserait croire que l'ecriture tourne encore. -->
-    @if (showsWriteBar() || recapAvailable() || runRestore.canRestoreRun()) {
-      <div class="flex items-end gap-4">
-        @if (showsWriteBar()) {
-          <app-phase-progress
-            class="min-w-0 flex-1"
-            [label]="'tagging.write.phase' | translate"
-            [counter]="written ? ('tagging.progress' | translate: written) : undefined"
-            [value]="writePercentage()"
-          />
-        }
-        <!-- Hors de la barre : elle reste masquee quand l'ecriture n'a laisse aucun palier.
+  @if (showsWriteBar() || recapAvailable() || runRestore.canRestoreRun()) {
+    <div class="flex items-end gap-4">
+      @if (showsWriteBar()) {
+        <app-phase-progress
+          class="min-w-0 flex-1"
+          [label]="'tagging.write.phase' | translate"
+          [counter]="written ? ('tagging.progress' | translate: written) : undefined"
+          [value]="writePercentage()"
+        />
+      }
+      <!-- Hors de la barre : elle reste masquee quand l'ecriture n'a laisse aucun palier.
              Jamais a cote du bouton d'action du run. -->
-        <div class="ml-auto flex shrink-0 gap-2">
-          @if (recapAvailable()) {
-            <button
-              pButton
-              type="button"
-              size="small"
-              [outlined]="true"
-              severity="secondary"
-              data-action="recap"
-              (click)="openRecap()"
-            >
-              {{ "tagging.recap" | translate }}
-            </button>
-          }
-          @if (runRestore.canRestoreRun()) {
-            @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
-            <button
-              pButton
-              type="button"
-              size="small"
-              [outlined]="true"
-              data-action="restore-run"
-              [disabled]="filesBusy()"
-              [pTooltip]="restoreBusy"
-              [tooltipOptions]="tooltip"
-              (click)="runRestore.restoreRun()"
-            >
-              <app-icon [name]="runRestore.restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
-              {{ "tagging.rollback.run" | translate }}
-            </button>
-          }
-        </div>
+      <div class="ml-auto flex shrink-0 gap-2">
+        @if (recapAvailable()) {
+          <button
+            pButton
+            type="button"
+            size="small"
+            [outlined]="true"
+            severity="secondary"
+            data-action="recap"
+            (click)="openRecap()"
+          >
+            {{ "tagging.recap" | translate }}
+          </button>
+        }
+        @if (runRestore.canRestoreRun()) {
+          @let restoreBusy = filesBusy() ? ("tagging.rollback.blocked" | translate) : undefined;
+          <button
+            pButton
+            type="button"
+            size="small"
+            [outlined]="true"
+            data-action="restore-run"
+            [disabled]="filesBusy()"
+            [pTooltip]="restoreBusy"
+            [tooltipOptions]="tooltip"
+            (click)="runRestore.restoreRun()"
+          >
+            <app-icon [name]="runRestore.restoringRun() ? 'spinner' : 'refresh'" [size]="16" />
+            {{ "tagging.rollback.run" | translate }}
+          </button>
+        }
       </div>
-    }
-  } @else if (recovery(); as phase) {
-    <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run.
+    </div>
+  }
+} @else if (recovery(); as phase) {
+  <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run.
          La modale du lien s'ouvre par la ligne du morceau ; sans morceau a rattraper, l'etat
          vide prend la place de la barre. -->
-    @if (phase.total > 0) {
-      <app-phase-progress
-        [label]="'tagging.recovery.phase' | translate"
-        [counter]="'tagging.recovery.progress' | translate: phase"
-        [value]="recoveryPercentage()"
-      />
-    } @else {
-      <p class="flex items-center gap-2 text-sm text-muted-color" data-recovery-empty>
-        <app-icon name="check-circle" [size]="16" />
-        <span class="text-color">{{ "tagging.recovery.empty.heading" | translate }}</span>
-        <span>{{ "tagging.recovery.empty.description" | translate }}</span>
-      </p>
-    }
-  }
-
-  @if (showsRun()) {
-    <div class="min-h-0 flex-1">
-      <app-run-list
-        [tracks]="tracks()"
-        [loading]="listing()"
-        [interrupted]="interrupted()"
-        [recoverable]="recoverableIds()"
-        [frozen]="runFrozen()"
-        [restorableIds]="runRestore.restorableIds()"
-        [restoringTrackId]="runRestore.restoringTrackId()"
-        [restoreBlocked]="filesBusy()"
-        (arbitrate)="openArbitration($event)"
-        (recover)="openRecovery($event)"
-        (restore)="runRestore.restoreTrack($event)"
-      />
-    </div>
-  } @else {
-    <app-empty-state
-      framed
-      icon="folder"
-      [heading]="'tagging.empty.heading' | translate"
-      [description]="idleDescription() | translate"
+  @if (phase.total > 0) {
+    <app-phase-progress
+      [label]="'tagging.recovery.phase' | translate"
+      [counter]="'tagging.recovery.progress' | translate: phase"
+      [value]="recoveryPercentage()"
     />
+  } @else {
+    <p class="flex items-center gap-2 text-sm text-muted-color" data-recovery-empty>
+      <app-icon name="check-circle" [size]="16" />
+      <span class="text-color">{{ "tagging.recovery.empty.heading" | translate }}</span>
+      <span>{{ "tagging.recovery.empty.description" | translate }}</span>
+    </p>
   }
+}
 
-  <app-danger-confirm />
+@if (showsRun()) {
+  <div class="min-h-0 flex-1">
+    <app-run-list
+      [tracks]="tracks()"
+      [loading]="listing()"
+      [interrupted]="interrupted()"
+      [recoverable]="recoverableIds()"
+      [frozen]="runFrozen()"
+      [restorableIds]="runRestore.restorableIds()"
+      [restoringTrackId]="runRestore.restoringTrackId()"
+      [restoreBlocked]="filesBusy()"
+      (arbitrate)="openArbitration($event)"
+      (recover)="openRecovery($event)"
+      (restore)="runRestore.restoreTrack($event)"
+    />
+  </div>
+} @else {
+  <app-empty-state
+    framed
+    icon="folder"
+    [heading]="'tagging.empty.heading' | translate"
+    [description]="idleDescription() | translate"
+  />
+}
 
-  <!-- `contents` : l'hote vide ne doit ni prendre de place ni ajouter un gap-6 a la colonne. -->
-  <app-url-recovery-dialog class="contents" />
-</div>
+<app-danger-confirm />
+
+<!-- `contents` : le host vide ne doit ni prendre de place ni ajouter un gap-6 a la colonne. -->
+<app-url-recovery-dialog class="contents" />

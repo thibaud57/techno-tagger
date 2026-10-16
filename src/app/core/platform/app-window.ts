@@ -13,7 +13,7 @@ export interface AppWindow {
 class TauriAppWindow implements AppWindow {
   async onCloseRequested(handler: (request: CloseRequest) => void): Promise<void> {
     try {
-      // Un ecouteur pose prend la fermeture a son compte : sans `preventDefault`, l'API
+      // Un listener pose prend la fermeture a son compte : sans `preventDefault`, l'API
       // appelle `destroy()` apres lui, d'ou `core:window:allow-destroy` dans la capability.
       await getCurrentWindow().onCloseRequested(handler)
     } catch {

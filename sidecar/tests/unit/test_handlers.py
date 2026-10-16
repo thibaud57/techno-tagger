@@ -1,14 +1,16 @@
 """Commandes executees directement, sans passer par la boucle NDJSON."""
 
 import asyncio
+import json
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
 import pytest
+from ndjson_loop import extraction_command
 from pydantic import ValidationError
 from stubs import ignore
 from tagging_api import FakeApi, one_track, opened_run
-from vlc_dump import TRACKS
+from vlc_dump import PLAYLIST_MAIN, PLAYLIST_OTHER, TRACKS
 
 from tagger import __version__
 from tagger.core.api_key import SERVICE, USERNAME
@@ -33,12 +35,8 @@ if TYPE_CHECKING:
 
 def extract_command(library: Path, dump: Path, destination: Path) -> ExtractPlaylist:
     """Commande `extract_playlist` sur la playlist de test du dump."""
-    return ExtractPlaylist(
-        command="extract_playlist",
-        source_folder=library,
-        destination_folder=destination,
-        playlist_path=dump,
-        playlist_name="test playlist",
+    return ExtractPlaylist.model_validate_json(
+        json.dumps(extraction_command(library, dump, destination))
     )
 
 
@@ -52,8 +50,10 @@ def test_reports_the_sidecar_version() -> None:
 def test_lists_the_playlists_of_a_dump(vlc_dump: Path) -> None:
     event = handle_list_playlists(ListPlaylists(command="list_playlists", playlist_path=vlc_dump))
 
-    assert [entry.name for entry in event.playlists]
-    assert all(entry.track_count >= 0 for entry in event.playlists)
+    assert {entry.name: entry.track_count for entry in event.playlists} == {
+        PLAYLIST_MAIN: len(TRACKS),
+        PLAYLIST_OTHER: 1,
+    }
 
 
 def test_extracts_and_writes_a_report(vlc_dump: Path, music_library: Path, tmp_path: Path) -> None:
@@ -100,10 +100,8 @@ def test_reports_whether_an_api_key_is_configured() -> None:
     assert event.api_key_configured is True
 
 
-def test_reports_no_api_key_on_an_empty_keyring(memory_keyring: MemoryKeyring) -> None:
+def test_reports_no_api_key_on_an_empty_keyring() -> None:
     """Premier lancement : c'est ce `False` qui fait bloquer le lancement d'un run."""
-    assert memory_keyring.secrets == {}
-
     event = handle_get_version()
 
     assert event.api_key_configured is False
@@ -180,6 +178,7 @@ async def test_closes_the_client_even_when_closing_is_cancelled(tmp_path: Path) 
         await cancelled_seen.wait()
     close_task.cancel()
     released.set()
+
     with pytest.raises(asyncio.CancelledError):
         async with asyncio.timeout(5):
             await close_task

@@ -2,13 +2,13 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { action, linkField, page, pasteLink } from "../../../../fixtures/dialog"
-import { sidecarStub } from "../../../../fixtures/sidecar-stub"
+import { linkField, page, pasteLink } from "../../../../fixtures/dialog"
+import { action, errorMessageOf, iconOf } from "../../../../fixtures/dom"
+import { activeRun, provideSidecarStub, sidecarStub } from "../../../../fixtures/sidecar-stub"
 import { PENDING_TRACK, recoveredTrack, unresolvedTrack } from "../../../../fixtures/tagging"
 import { translateWith } from "../../../../fixtures/translate"
 import { TRACK_URL, urlRecoveryError } from "../../../../fixtures/url-recovery"
 import type { SidecarErrorEvent } from "../../../core/sidecar/protocol"
-import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
@@ -31,8 +31,8 @@ interface Overrides {
 
 const mount = ({ tracks = TWO_LINES, tagging = false, busy = [], errors }: Overrides = {}) => {
   const service = sidecarStub({
+    ...activeRun(),
     tagging: signal(tagging),
-    taggingRunId: signal<string | null>("run-1"),
     taggingTracks: signal(tracks),
     recoverableTracks: signal(tracks),
     urlRecoveryBusy: signal<ReadonlySet<string>>(new Set(busy)),
@@ -40,7 +40,7 @@ const mount = ({ tracks = TWO_LINES, tagging = false, busy = [], errors }: Overr
   })
   TestBed.configureTestingModule({
     imports: [UrlRecoveryDialogComponent],
-    providers: [provideTranslateService(), { provide: SidecarService, useValue: service }],
+    providers: [provideTranslateService(), provideSidecarStub(service)],
   })
   const recovery = TestBed.inject(RecoveryUiStore)
   const fixture = TestBed.createComponent(UrlRecoveryDialogComponent)
@@ -58,10 +58,8 @@ describe("UrlRecoveryDialogComponent", () => {
   it("shows the identity of the targeted track with its reason", () => {
     mount()
 
-    const text = page().textContent
-
-    expect(text).toContain("Adam Beyer - Your Mind")
-    expect(text).toContain("tagging.reason.no_result")
+    expect(page().textContent).toContain("Adam Beyer - Your Mind")
+    expect(page().textContent).toContain("tagging.reason.no_result")
   })
 
   it("names the source of a track already resolved by url", () => {
@@ -93,18 +91,27 @@ describe("UrlRecoveryDialogComponent", () => {
     expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", TRACK_URL)
   })
 
-  it.each<[string, string, readonly string[], number]>([
-    ["a pasted field", TRACK_URL, [], 1],
-    ["an empty field", "", [], 0],
-    ["a waiting track", TRACK_URL, ["a.mp3"], 0],
-  ])("sends the pasted url on enter and ignores enter on %s", (_case, url, busy, calls) => {
+  it("sends the pasted url on enter", () => {
+    const { fixture, service } = mount()
+    pasteLink(TRACK_URL)
+    fixture.detectChanges()
+
+    pressEnter()
+
+    expect(service.resolveByUrl).toHaveBeenCalledWith("a.mp3", TRACK_URL)
+  })
+
+  it.each<{ case: string; url: string; busy: readonly string[] }>([
+    { case: "an empty field", url: "", busy: [] },
+    { case: "a waiting track", url: TRACK_URL, busy: ["a.mp3"] },
+  ])("ignores enter on $case", ({ url, busy }) => {
     const { fixture, service } = mount({ busy })
     pasteLink(url)
     fixture.detectChanges()
 
     pressEnter()
 
-    expect(service.resolveByUrl).toHaveBeenCalledTimes(calls)
+    expect(service.resolveByUrl).not.toHaveBeenCalled()
   })
 
   it("names the track in the field label", () => {
@@ -121,55 +128,59 @@ describe("UrlRecoveryDialogComponent", () => {
     pasteLink(TRACK_URL)
     fixture.detectChanges()
     action("resolve-url")?.click()
-    const recovered: TaggingTrack = {
-      ...FIRST,
-      state: "resolved",
-      resolution: "url",
-      failureReason: null,
-      source: "bandcamp",
-    }
 
-    service.taggingTracks.set([recovered, SECOND])
-    service.recoverableTracks.set([recovered, SECOND])
+    service.taggingTracks.set([recoveredTrack("a.mp3"), SECOND])
+    service.recoverableTracks.set([recoveredTrack("a.mp3"), SECOND])
     fixture.detectChanges()
 
     expect(linkField()?.value).toBe(TRACK_URL)
   })
 
-  it("shows a spinner and disables the button while the track waits", () => {
+  it("disables the resolve button while the track waits", () => {
     const { fixture } = mount({ busy: ["a.mp3"] })
     pasteLink(TRACK_URL)
+
     fixture.detectChanges()
 
-    const button = action("resolve-url")
-
-    expect(button?.disabled).toBe(true)
-    expect(button?.querySelector('[data-p-icon="spinner"]')).not.toBeNull()
+    expect(action("resolve-url")?.disabled).toBe(true)
   })
 
-  it("shows an error for the displayed track only", () => {
-    const { fixture, service } = mount({
-      errors: new Map([["b.mp3", urlRecoveryError("b.mp3", "unsupported_url")]]),
-    })
-    const elsewhere = page().querySelector("app-error-message")
+  it("shows a spinner in the resolve button while the track waits", () => {
+    const { fixture } = mount({ busy: ["a.mp3"] })
 
-    service.urlRecoveryErrors.set(new Map([["a.mp3", urlRecoveryError("a.mp3")]]))
     fixture.detectChanges()
 
-    expect(elsewhere).toBeNull()
-    expect(page().querySelector("app-error-message")).not.toBeNull()
+    expect(iconOf(page(), "spinner")).not.toBeNull()
   })
 
-  it("goes to the next track on skip and closes on the last one", () => {
+  it("shows the error of the displayed track", () => {
+    mount({ errors: new Map([["a.mp3", urlRecoveryError("a.mp3")]]) })
+
+    expect(errorMessageOf(page())).not.toBeNull()
+  })
+
+  it("shows no error of another track", () => {
+    mount({ errors: new Map([["b.mp3", urlRecoveryError("b.mp3", "unsupported_url")]]) })
+
+    expect(errorMessageOf(page())).toBeNull()
+  })
+
+  it("goes to the next track on skip", () => {
+    const { fixture } = mount()
+
+    action("skip")?.click()
+    fixture.detectChanges()
+
+    expect(page().textContent).toContain("Amelie Lens - Basiel")
+  })
+
+  it("closes on skip of the last track", () => {
     const { fixture, recovery } = mount()
-
-    action("skip")?.click()
-    fixture.detectChanges()
-    const second = page().textContent
     action("skip")?.click()
     fixture.detectChanges()
 
-    expect(second).toContain("Amelie Lens - Basiel")
+    action("skip")?.click()
+
     expect(recovery.target()).toBeNull()
   })
 

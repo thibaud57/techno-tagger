@@ -41,8 +41,10 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
 export class PathPickerComponent {
   protected readonly id = UniqueComponentId("path-picker-")
 
-  /** `null` quand le bouton se suffit : la cellule disparait de la grille de l'appelant. Requis
-   * pour qu'un oubli ne decale pas les colonnes en silence. */
+  /**
+   * `null` quand le bouton se suffit : la cellule disparait de la grille de l'appelant. Requis
+   * pour qu'un oubli ne decale pas les colonnes en silence.
+   */
   readonly label = input.required<string | null>()
   readonly buttonLabel = input.required<string>()
   readonly path = input<string | null>(null)

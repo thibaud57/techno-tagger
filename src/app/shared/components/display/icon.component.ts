@@ -22,10 +22,11 @@ import { Spinner } from "@primeicons/angular/spinner"
 import { Stop } from "@primeicons/angular/stop"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
+import { Trash } from "@primeicons/angular/trash"
 import { Undo } from "@primeicons/angular/undo"
 
 /**
- * Les icones reellement utilisees, et non `string` : un nom ouvert imposerait un
+ * Les icones reellement utilisees (et non `string`) : un nom ouvert imposerait un
  * registre de toutes les icones du paquet, qui annulerait le tree-shaking. Une nouvelle
  * icone = un nom ici, un import (et son entree `imports`), un `@case`. Le tableau existe pour
  * que le test parcoure la liste : Angular ne verifie pas l'exhaustivite d'un `@switch`.
@@ -55,15 +56,20 @@ export const ICON_NAMES = [
   "undo",
   "search",
   "external-link",
+  "trash",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
 /** Les tailles de DESIGN.md : `CoreIcon` accepterait n'importe quel nombre. */
 export type IconSize = 16 | 20 | 24
 
-/** SVG inline : la taille se pose en width/height, jamais en font-size. */
+/**
+ * SVG inline : la taille se pose en width/height, jamais en font-size. `data-icon` est l'accroche
+ * des specs, plus stable que le `data-p-icon` interne de PrimeNG.
+ */
 @Component({
   selector: "app-icon",
+  host: { "[attr.data-icon]": "name()" },
   imports: [
     ArrowRight,
     Check,
@@ -89,6 +95,7 @@ export type IconSize = 16 | 20 | 24
     Undo,
     ExternalLink,
     Search,
+    Trash,
   ],
   template: `
     @switch (name()) {
@@ -163,6 +170,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("external-link") {
         <svg data-p-icon="external-link" [size]="size()" />
+      }
+      @case ("trash") {
+        <svg data-p-icon="trash" [size]="size()" />
       }
     }
   `,

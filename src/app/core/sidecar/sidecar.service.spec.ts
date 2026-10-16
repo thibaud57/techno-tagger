@@ -2,28 +2,39 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
+import { silenceConsoleError } from "../../../fixtures/console"
+import {
+  EMPTY_EXTRACTION,
+  EXTRACTION_REQUEST,
+  PLAYLISTS,
+  playlistsListed,
+} from "../../../fixtures/extraction"
 import { PAST_RUN, TRACK_LOADED, runLoaded, runsListed } from "../../../fixtures/past-runs"
 import { FOLDER_MISSING, INTERRUPTED, interruptedRun } from "../../../fixtures/resume"
-import { RUN_STARTED, TRACK_RESOLVED, arbitrationRequired } from "../../../fixtures/tagging"
+import { DEFAULT_THRESHOLDS, LOG_FILE } from "../../../fixtures/settings"
 import {
-  TRACK_URL,
-  resolvedByUrl,
-  urlProgress,
-  urlRecoveryError,
-} from "../../../fixtures/url-recovery"
+  RUN_ID,
+  RUN_STARTED,
+  TRACK_RESOLVED,
+  arbitrationRequired,
+  arbitrationUpdated,
+  trackResolved,
+} from "../../../fixtures/tagging"
+import { TRACK_URL, resolvedByUrl, urlRecoveryError } from "../../../fixtures/url-recovery"
 import {
   NETWORK_FINISHED,
   ROLLBACK_RUN,
   WRITE_FINISHED,
   commandError,
   phaseBusy,
+  progressEvent,
   rollbackFinished,
-  writeProgress,
+  writeFinishedWithFailures,
 } from "../../../fixtures/write"
 import { PastRunsStore } from "../stores/past-runs.store"
-import { BusyPhase, SidecarEvent } from "./protocol"
+import { BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
-import { SidecarService } from "./sidecar.service"
+import { type RunAction, type SidecarPhase, SidecarService } from "./sidecar.service"
 
 /** Mock a la frontiere du transport : un vrai sidecar testerait Tauri et PyInstaller. */
 class FakeTransport implements SidecarTransport {
@@ -69,13 +80,15 @@ type LaunchCommand =
 const parseLine = (line: string): unknown => JSON.parse(line)
 const commandOf = (line: string): string => (parseLine(line) as { command: string }).command
 
-const EXTRACTION = {
-  source_folder: "C:/lib",
-  destination_folder: "C:/work",
-  playlist_path: "C:/x.m3u8",
-  playlist_name: null,
-  mode: "copy",
-} as const
+/** `version` complet : chaque test ne pose que le champ qu'il observe. */
+const versionEvent = (overrides: Partial<VersionEvent> = {}): VersionEvent => ({
+  event: "version",
+  version: APP_VERSION,
+  api_key_configured: false,
+  default_thresholds: DEFAULT_THRESHOLDS,
+  log_file: LOG_FILE,
+  ...overrides,
+})
 
 describe("SidecarService", () => {
   let transport: FakeTransport
@@ -93,12 +106,54 @@ describe("SidecarService", () => {
     vi.restoreAllMocks()
   })
 
+  const sentOf = (command: string): unknown[] =>
+    transport.sent.filter((line) => commandOf(line) === command).map(parseLine)
+  const countOf = (command: string): number => sentOf(command).length
+
+  /** Un run affiche, en recherche : le point de depart de la plupart des gestes qui suivent. */
+  const searchingRun = async (): Promise<void> => {
+    await service.start()
+    await service.startTagging("C:/Sets")
+    transport.emit(RUN_STARTED)
+  }
+
+  /** Recherche finie avec un morceau resolu : le seul run que le moteur accepte de confirmer. */
+  const resolvedRun = async (): Promise<void> => {
+    await searchingRun()
+    transport.emit(TRACK_RESOLVED)
+    transport.emit(NETWORK_FINISHED)
+  }
+
+  /** Run confirme dont l'ecriture a laisse un morceau en erreur. */
+  const failedWriteRun = async (): Promise<void> => {
+    await resolvedRun()
+    await service.commitRun()
+    transport.emit(trackResolved("a.mp3", { state: "write_error" }))
+    transport.emit(writeFinishedWithFailures())
+  }
+
+  /** Run confirme et entierement ecrit. */
+  const writtenRun = async (): Promise<void> => {
+    await resolvedRun()
+    await service.commitRun()
+    transport.emit(WRITE_FINISHED)
+  }
+
+  /** File d'arbitrage ouverte sur ces morceaux, sans lancement de run. */
+  const queueArbitrations = async (...trackIds: string[]): Promise<void> => {
+    await service.start()
+    transport.emit(RUN_STARTED)
+    for (const trackId of trackIds) {
+      transport.emit(arbitrationRequired(trackId))
+    }
+  }
+
   it("keeps the choices of the extraction it launched", async () => {
     await service.start()
 
-    await service.extractPlaylist(EXTRACTION)
+    await service.extractPlaylist(EXTRACTION_REQUEST)
 
-    expect(service.extractionRequest()).toEqual(EXTRACTION)
+    expect(service.extractionRequest()).toEqual(EXTRACTION_REQUEST)
   })
 
   it("remembers the file whose playlists it lists", async () => {
@@ -125,7 +180,7 @@ describe("SidecarService", () => {
   it("feeds the version from the received event", async () => {
     await service.start()
 
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit(versionEvent())
 
     expect(service.version()).toBe(APP_VERSION)
   })
@@ -133,44 +188,115 @@ describe("SidecarService", () => {
   it("feeds the api key state from the version event", async () => {
     await service.start()
 
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: true })
+    transport.emit(versionEvent({ api_key_configured: true }))
 
     expect(service.apiKeyConfigured()).toBe(true)
   })
 
+  it("feeds the default thresholds and the log file from the version event", async () => {
+    await service.start()
+
+    transport.emit(versionEvent())
+
+    expect(service.defaultThresholds()).toEqual(DEFAULT_THRESHOLDS)
+    expect(service.logFile()).toBe(LOG_FILE)
+  })
+
+  it("forgets the log file at a restart", async () => {
+    await service.start()
+    transport.emit(versionEvent())
+
+    await service.restart()
+
+    expect(service.logFile()).toBeNull()
+  })
+
+  it("learns the log file again from the new engine", async () => {
+    await service.start()
+    transport.emit(versionEvent())
+    await service.restart()
+
+    transport.emit(versionEvent())
+
+    expect(service.logFile()).toBe(LOG_FILE)
+  })
+
+  it("feeds the cache size from a measure", async () => {
+    await service.start()
+
+    transport.emit({ event: "cache_size", size_bytes: 4096 })
+
+    expect(service.cacheSize()).toBe(4096)
+  })
+
+  it("marks the cache as clearing once the clearing is sent", async () => {
+    await service.start()
+
+    await service.clearCache()
+
+    expect(service.cacheClearing()).toBe(true)
+  })
+
+  it("stops clearing the cache when the engine answers", async () => {
+    await service.start()
+    await service.clearCache()
+
+    transport.emit({ event: "cache_cleared", freed_bytes: 4000, size_bytes: 0 })
+
+    expect(service.cacheClearing()).toBe(false)
+  })
+
+  it("stops clearing the cache when the engine refuses it", async () => {
+    await service.start()
+    await service.clearCache()
+
+    transport.emit(commandError("clear_cache", "run_not_written"))
+
+    expect(service.cacheClearing()).toBe(false)
+  })
+
+  it("sends a single clearing while one is in flight", async () => {
+    await service.start()
+    await service.clearCache()
+
+    await service.clearCache()
+
+    expect(countOf("clear_cache")).toBe(1)
+  })
+
+  it("feeds the cache size and the last clearing from a clearing", async () => {
+    await service.start()
+    transport.emit({ event: "cache_size", size_bytes: 4096 })
+
+    transport.emit({ event: "cache_cleared", freed_bytes: 4000, size_bytes: 96 })
+
+    expect(service.cacheSize()).toBe(96)
+    expect(service.cacheCleared()).toEqual({
+      event: "cache_cleared",
+      freed_bytes: 4000,
+      size_bytes: 96,
+    })
+  })
+
   it.each([
-    { label: "matching versions", version: APP_VERSION, expected: null },
+    { label: "matching versions", version: APP_VERSION, mismatch: null, ready: true },
     {
       label: "mismatched versions",
       version: "0.0.1-old",
-      expected: { ui: APP_VERSION, sidecar: "0.0.1-old" },
+      mismatch: { ui: APP_VERSION, sidecar: "0.0.1-old" },
+      ready: false,
     },
-  ] as const)("reports the mismatch for $label", async ({ version, expected }) => {
+  ] as const)("reports the mismatch and the readiness for $label", async (row) => {
     await service.start()
 
-    transport.emit({ event: "version", version, api_key_configured: false })
+    transport.emit(versionEvent({ version: row.version }))
 
-    expect(service.versionMismatch()).toEqual(expected)
+    expect(service.versionMismatch()).toEqual(row.mismatch)
+    expect(service.ready()).toBe(row.ready)
   })
 
   it("is not ready before the version is received", async () => {
     await service.start()
-
-    expect(service.ready()).toBe(false)
-  })
-
-  it("is ready once the matching version is received", async () => {
-    await service.start()
-
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
-
-    expect(service.ready()).toBe(true)
-  })
-
-  it("is not ready when the versions mismatch", async () => {
-    await service.start()
-
-    transport.emit({ event: "version", version: "0.0.1-old", api_key_configured: false })
 
     expect(service.ready()).toBe(false)
   })
@@ -218,11 +344,11 @@ describe("SidecarService", () => {
   })
 
   it("reports unavailability when the write fails", async () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const spy = silenceConsoleError()
     await service.start()
     transport.writable = false
 
-    await service.extractPlaylist(EXTRACTION)
+    await service.extractPlaylist(EXTRACTION_REQUEST)
 
     expect(service.available()).toBe(false)
     expect(service.extracting()).toBe(false)
@@ -232,8 +358,8 @@ describe("SidecarService", () => {
 
   it("ends the run when the sidecar terminates", async () => {
     await service.start()
-    await service.extractPlaylist(EXTRACTION)
-    transport.emit({ event: "progress", phase: "extraction", processed: 2, total: 5 })
+    await service.extractPlaylist(EXTRACTION_REQUEST)
+    transport.emit(progressEvent("extraction", 2, 5))
 
     transport.handlers?.onTerminated()
 
@@ -244,9 +370,9 @@ describe("SidecarService", () => {
 
   it("marks an extraction as running once its command is sent", async () => {
     await service.start()
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit(versionEvent())
 
-    await service.extractPlaylist(EXTRACTION)
+    await service.extractPlaylist(EXTRACTION_REQUEST)
 
     expect(service.extracting()).toBe(true)
     expect(service.ready()).toBe(false)
@@ -263,11 +389,7 @@ describe("SidecarService", () => {
 
   it("forgets the previous listing when another file is listed", async () => {
     await service.start()
-    transport.emit({
-      event: "playlists_listed",
-      playlist_format: "vlc_dump",
-      playlists: [{ playlist_id: 1, name: "set", track_count: 8 }],
-    })
+    transport.emit(playlistsListed())
 
     await service.listPlaylists("C:/x.m3u8")
 
@@ -278,54 +400,45 @@ describe("SidecarService", () => {
   it("feeds the received playlists", async () => {
     await service.start()
 
-    transport.emit({
-      event: "playlists_listed",
-      playlist_format: "vlc_dump",
-      playlists: [{ playlist_id: 1, name: "set", track_count: 8 }],
-    })
+    transport.emit(playlistsListed())
 
-    expect(service.playlists()).toEqual([{ playlist_id: 1, name: "set", track_count: 8 }])
+    expect(service.playlists()).toEqual(PLAYLISTS)
     expect(service.playlistFormat()).toBe("vlc_dump")
   })
 
   it("feeds the received progress", async () => {
     await service.start()
 
-    transport.emit({ event: "progress", phase: "extraction", processed: 2, total: 5 })
+    transport.emit(progressEvent("extraction", 2, 5))
 
-    expect(service.progress()).toEqual({
-      event: "progress",
-      phase: "extraction",
-      processed: 2,
-      total: 5,
-    })
+    expect(service.progress()).toEqual(progressEvent("extraction", 2, 5))
   })
 
-  it("feeds the result and keeps the last progress", async () => {
+  it("feeds the extraction result and ends the extraction", async () => {
     await service.start()
-    await service.extractPlaylist(EXTRACTION)
-    transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
+    await service.extractPlaylist(EXTRACTION_REQUEST)
 
-    transport.emit({
-      event: "extraction_finished",
-      extracted: ["a.mp3"],
-      already_present: [],
-      missing: [],
-      duplicates: [],
-      failures: [],
-      report_path: "C:/work/report.json",
-    })
+    transport.emit({ ...EMPTY_EXTRACTION, extracted: ["a.mp3"] })
 
-    expect(service.extraction()?.report_path).toBe("C:/work/report.json")
-    expect(service.progress()?.processed).toBe(5)
+    expect(service.extraction()?.extracted).toEqual(["a.mp3"])
     expect(service.extracting()).toBe(false)
+  })
+
+  it("keeps the last progress once the result is in", async () => {
+    await service.start()
+    await service.extractPlaylist(EXTRACTION_REQUEST)
+    transport.emit(progressEvent("extraction", 5, 5))
+
+    transport.emit(EMPTY_EXTRACTION)
+
+    expect(service.progress()?.processed).toBe(5)
   })
 
   it("clears the previous progress when a new extraction starts", async () => {
     await service.start()
-    transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
+    transport.emit(progressEvent("extraction", 5, 5))
 
-    await service.extractPlaylist(EXTRACTION)
+    await service.extractPlaylist(EXTRACTION_REQUEST)
 
     expect(service.progress()).toBeNull()
   })
@@ -334,7 +447,7 @@ describe("SidecarService", () => {
     await service.start()
 
     transport.emit(commandError("list_playlists", "playlist_not_found"))
-    transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
+    transport.emit(progressEvent("extraction", 5, 5))
 
     expect(service.lastError()?.code).toBe("playlist_not_found")
     expect(service.progress()?.processed).toBe(5)
@@ -342,8 +455,8 @@ describe("SidecarService", () => {
 
   it("ends the run on an error", async () => {
     await service.start()
-    await service.extractPlaylist(EXTRACTION)
-    transport.emit({ event: "progress", phase: "extraction", processed: 5, total: 5 })
+    await service.extractPlaylist(EXTRACTION_REQUEST)
+    transport.emit(progressEvent("extraction", 5, 5))
 
     transport.emit(commandError("extract_playlist", "report_write_failed"))
 
@@ -352,18 +465,18 @@ describe("SidecarService", () => {
   })
 
   it("ignores a line that is not JSON", async () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const spy = silenceConsoleError()
     await service.start()
 
     transport.emitRaw("pas du json")
-    transport.emit({ event: "version", version: APP_VERSION, api_key_configured: false })
+    transport.emit(versionEvent())
 
     expect(service.version()).toBe(APP_VERSION)
     expect(spy).toHaveBeenCalled()
   })
 
   it("ignores an event of unknown type", async () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const spy = silenceConsoleError()
     await service.start()
 
     transport.emitRaw(JSON.stringify({ event: "unheard_of" }))
@@ -374,12 +487,10 @@ describe("SidecarService", () => {
   })
 
   it("never reads a stderr line as an event", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    silenceConsoleError()
     await service.start()
 
-    transport.handlers?.onStderr(
-      JSON.stringify({ event: "version", version: "9.9.9", api_key_configured: true }),
-    )
+    transport.handlers?.onStderr(JSON.stringify(versionEvent({ version: "9.9.9" })))
 
     expect(service.version()).toBeNull()
   })
@@ -404,6 +515,8 @@ describe("SidecarService", () => {
         thresholds: { floor: 75, ceiling: 95 },
       },
     ],
+    ["a cache size request", (target) => target.loadCacheSize(), { command: "get_cache_size" }],
+    ["a cache clearing", (target) => target.clearCache(), { command: "clear_cache" }],
   ])("sends %s as its command", async (_command, send, expected) => {
     await service.start()
 
@@ -436,7 +549,7 @@ describe("SidecarService", () => {
     await service.startTagging("C:/Sets")
 
     transport.emit(RUN_STARTED)
-    transport.emit({ event: "progress", phase: "tagging", processed: 1, total: 1 })
+    transport.emit(progressEvent("tagging", 1, 1))
     transport.emit(TRACK_RESOLVED)
     transport.emit(NETWORK_FINISHED)
 
@@ -451,16 +564,14 @@ describe("SidecarService", () => {
     await service.start()
     await service.startTagging("C:/Sets")
 
-    transport.emit({ event: "progress", phase: "extraction", processed: 3, total: 10 })
+    transport.emit(progressEvent("extraction", 3, 10))
 
     expect(service.progress()?.processed).toBe(3)
     expect(service.taggingProgress()).toBeNull()
   })
 
   it("leaves the tagging run alone when a write phase finishes", async () => {
-    await service.start()
-    await service.startTagging("C:/Sets")
-    transport.emit(RUN_STARTED)
+    await searchingRun()
 
     transport.emit({ ...NETWORK_FINISHED, phase: "write" })
 
@@ -469,9 +580,7 @@ describe("SidecarService", () => {
   })
 
   it("stops the tagging run on an error", async () => {
-    await service.start()
-    await service.startTagging("C:/Sets")
-    transport.emit(RUN_STARTED)
+    await searchingRun()
     transport.emit(TRACK_RESOLVED)
 
     transport.emit(commandError("start_tagging", "api_key_rejected"))
@@ -481,23 +590,37 @@ describe("SidecarService", () => {
     expect(service.taggingTracks()[0]?.state).toBe("resolved")
   })
 
-  it("leaves a running tagging run alone when another command fails", async () => {
-    await service.start()
-    await service.startTagging("C:/Sets")
-    transport.emit(RUN_STARTED)
+  it.each([
+    {
+      // `start_tagging` tourne en tache de fond : la boucle du sidecar a lu et refuse une
+      // commande emise depuis un autre onglet pendant que le run continue.
+      case: "another command fails",
+      error: commandError("set_api_key", "api_key_not_stored"),
+    },
+    {
+      // Les deux phases longues tournent en parallele : l'echec de l'une ne dit rien de
+      // l'autre et l'ecran du tagging ne doit pas perdre son run.
+      case: "an extraction fails",
+      error: commandError("extract_playlist", "report_write_failed"),
+    },
+    {
+      // Releve par /verify le 2026-09-24 : le refus porte `start_tagging`, comme l'echec
+      // qui clot un run, mais ce code-la dit justement que le premier tourne toujours.
+      case: "a second launch is refused",
+      error: phaseBusy("start_tagging", "tagging"),
+    },
+  ])("keeps the run going when $case", async ({ error }) => {
+    await searchingRun()
 
-    // `start_tagging` tourne en tache de fond : la boucle du sidecar a lu et refuse une
-    // commande emise depuis un autre onglet pendant que le run continue.
-    transport.emit(commandError("set_api_key", "api_key_not_stored"))
+    transport.emit(error)
 
     expect(service.tagging()).toBe(true)
-    expect(service.lastError()?.code).toBe("api_key_not_stored")
+    expect(service.taggingTracks().length).toBeGreaterThan(0)
+    expect(service.lastError()).toEqual(error)
   })
 
   it("refuses to open a second run over a running one", async () => {
-    await service.start()
-    await service.startTagging("C:/Sets")
-    transport.emit(RUN_STARTED)
+    await searchingRun()
     const sent = transport.sent.length
 
     await service.startTagging("C:/Autre")
@@ -511,10 +634,10 @@ describe("SidecarService", () => {
 
   it("refuses to open a second extraction over a running one", async () => {
     await service.start()
-    await service.extractPlaylist(EXTRACTION)
+    await service.extractPlaylist(EXTRACTION_REQUEST)
     const sent = transport.sent.length
 
-    await service.extractPlaylist(EXTRACTION)
+    await service.extractPlaylist(EXTRACTION_REQUEST)
 
     expect(transport.sent.length).toBe(sent)
     expect(service.extracting()).toBe(true)
@@ -522,8 +645,8 @@ describe("SidecarService", () => {
 
   it("keeps the extraction going when a second one is refused", async () => {
     await service.start()
-    await service.extractPlaylist(EXTRACTION)
-    transport.emit({ event: "progress", phase: "extraction", processed: 1, total: 5 })
+    await service.extractPlaylist(EXTRACTION_REQUEST)
+    transport.emit(progressEvent("extraction", 1, 5))
 
     transport.emit(phaseBusy("extract_playlist", "extraction"))
 
@@ -531,37 +654,10 @@ describe("SidecarService", () => {
     expect(service.progress()).not.toBeNull()
   })
 
-  it("keeps a tagging run going when an extraction fails", async () => {
-    await service.start()
-    await service.startTagging("C:/Sets")
-    transport.emit(RUN_STARTED)
-
-    // Les deux phases longues tournent en parallele : l'echec de l'une ne dit rien
-    // de l'autre, et l'ecran du tagging ne doit pas perdre son run.
-    transport.emit(commandError("extract_playlist", "report_write_failed"))
-
-    expect(service.tagging()).toBe(true)
-    expect(service.taggingTracks().length).toBeGreaterThan(0)
-  })
-
-  it("keeps the run going when a second launch is refused", async () => {
-    await service.start()
-    await service.startTagging("C:/Sets")
-    transport.emit(RUN_STARTED)
-
-    // Releve par /verify le 2026-09-24 : le refus porte `start_tagging`, comme l'echec
-    // qui clot un run, mais ce code-la dit justement que le premier tourne toujours.
-    transport.emit(phaseBusy("start_tagging", "tagging"))
-
-    expect(service.tagging()).toBe(true)
-    expect(service.lastError()?.code).toBe("phase_busy")
-    expect(service.lastError()?.params).toEqual({ phase: "tagging" })
-  })
-
   it("writes a command as a single newline-terminated line", async () => {
     await service.start()
 
-    await service.extractPlaylist(EXTRACTION)
+    await service.extractPlaylist(EXTRACTION_REQUEST)
 
     const line = transport.sent.at(-1) ?? ""
     expect(line.endsWith("\n")).toBe(true)
@@ -585,9 +681,7 @@ describe("SidecarService", () => {
       { command: "switch_arbitration_source", track_id: "a.mp3", source: "beatport" },
     ],
   ])("sends a %s with its command", async (_gesture, gesture, expected) => {
-    await service.start()
-    transport.emit(RUN_STARTED)
-    transport.emit(arbitrationRequired("a.mp3"))
+    await queueArbitrations("a.mp3")
 
     await gesture(service)
 
@@ -595,9 +689,7 @@ describe("SidecarService", () => {
   })
 
   it("ignores a second gesture on a track awaiting an answer", async () => {
-    await service.start()
-    transport.emit(RUN_STARTED)
-    transport.emit(arbitrationRequired("a.mp3"))
+    await queueArbitrations("a.mp3")
     await service.refuseCandidates("a.mp3", "beatport")
     const before = transport.sent.length
 
@@ -608,17 +700,9 @@ describe("SidecarService", () => {
   })
 
   it("routes the arbitration events to the queue", async () => {
-    await service.start()
-    transport.emit(RUN_STARTED)
-    transport.emit(arbitrationRequired("a.mp3"))
-    transport.emit(arbitrationRequired("b.mp3"))
+    await queueArbitrations("a.mp3", "b.mp3")
 
-    transport.emit({
-      ...arbitrationRequired("b.mp3"),
-      event: "arbitration_updated",
-      source: "bandcamp",
-      other_source: "beatport",
-    })
+    transport.emit(arbitrationUpdated("b.mp3"))
     transport.emit(TRACK_RESOLVED)
 
     expect(service.arbitrations().map((entry) => entry.track_id)).toEqual(["b.mp3"])
@@ -627,9 +711,7 @@ describe("SidecarService", () => {
   })
 
   it("releases a gesture the sidecar refuses", async () => {
-    await service.start()
-    transport.emit(RUN_STARTED)
-    transport.emit(arbitrationRequired("a.mp3"))
+    await queueArbitrations("a.mp3")
     await service.chooseCandidate("a.mp3", "beatport", 0)
     const refusal = commandError("resolve_arbitration", "arbitration_busy", { track_id: "a.mp3" })
 
@@ -640,9 +722,7 @@ describe("SidecarService", () => {
   })
 
   it("keeps a gesture waiting when the error names no track", async () => {
-    await service.start()
-    transport.emit(RUN_STARTED)
-    transport.emit(arbitrationRequired("a.mp3"))
+    await queueArbitrations("a.mp3")
     await service.chooseCandidate("a.mp3", "beatport", 0)
 
     transport.emit(commandError("resolve_arbitration", "arbitration_busy"))
@@ -651,9 +731,7 @@ describe("SidecarService", () => {
   })
 
   it("leaves the queue alone on the error of another command", async () => {
-    await service.start()
-    transport.emit(RUN_STARTED)
-    transport.emit(arbitrationRequired("a.mp3"))
+    await queueArbitrations("a.mp3")
 
     transport.emit(commandError("start_tagging", "arbitration_not_pending", { track_id: "a.mp3" }))
 
@@ -671,9 +749,7 @@ describe("SidecarService", () => {
       },
     ],
   ])("clears the queue when %s", async (_when, end) => {
-    await service.start()
-    transport.emit(RUN_STARTED)
-    transport.emit(arbitrationRequired("a.mp3"))
+    await queueArbitrations("a.mp3")
 
     await end(service, transport)
 
@@ -695,7 +771,7 @@ describe("SidecarService", () => {
     const openPhase = async (): Promise<void> => {
       await service.start()
       transport.emit(RUN_STARTED)
-      transport.emit(urlProgress(0, 2))
+      transport.emit(progressEvent("url_recovery", 0, 2))
     }
 
     it("sends a url recovery command with its track and its url", async () => {
@@ -731,15 +807,23 @@ describe("SidecarService", () => {
       expect(service.urlRecoveryBusy().has("a.mp3")).toBe(false)
     })
 
+    it("keeps the url recovery phase closed on the tagging progress", async () => {
+      await service.start()
+      transport.emit(RUN_STARTED)
+
+      transport.emit(progressEvent("tagging", 1, 2))
+
+      expect(service.urlRecoveryProgress()).toBeNull()
+      expect(service.taggingProgress()).toEqual({ processed: 1, total: 2 })
+    })
+
     it("routes the url recovery progress to its phase only", async () => {
       await service.start()
       transport.emit(RUN_STARTED)
-      transport.emit({ event: "progress", phase: "tagging", processed: 1, total: 2 })
-      const closed = service.urlRecoveryProgress()
+      transport.emit(progressEvent("tagging", 1, 2))
 
-      transport.emit(urlProgress(0, 2))
+      transport.emit(progressEvent("url_recovery", 0, 2))
 
-      expect(closed).toBeNull()
       expect(service.urlRecoveryProgress()).toEqual({ processed: 0, total: 2 })
       expect(service.taggingProgress()).toEqual({ processed: 1, total: 2 })
     })
@@ -802,17 +886,17 @@ describe("SidecarService", () => {
         ],
       })
       transport.emit(TRACK_RESOLVED)
-      transport.emit({
-        ...TRACK_RESOLVED,
-        track_id: "b.mp3",
-        state: "unresolved",
-        resolution: "none",
-        failure_reason: "no_result",
-        source: null,
-        after: null,
-        scores: null,
-        artwork_path: null,
-      })
+      transport.emit(
+        trackResolved("b.mp3", {
+          state: "unresolved",
+          resolution: "none",
+          failure_reason: "no_result",
+          source: null,
+          after: null,
+          scores: null,
+          artwork_path: null,
+        }),
+      )
       transport.emit(resolvedByUrl("c.mp3"))
       transport.emit(arbitrationRequired("d.mp3"))
 
@@ -850,9 +934,8 @@ describe("SidecarService", () => {
   })
 
   describe("interrupted run", () => {
-    const VERSION = { event: "version", version: APP_VERSION, api_key_configured: true } as const
-    const askedCount = (): number =>
-      transport.sent.filter((line) => commandOf(line) === "get_interrupted_run").length
+    const VERSION = versionEvent({ api_key_configured: true })
+    const askedCount = (): number => countOf("get_interrupted_run")
 
     it("asks for an interrupted run once the engine version matches", async () => {
       await service.start()
@@ -899,16 +982,13 @@ describe("SidecarService", () => {
       expect(askedCount()).toBe(2)
     })
 
-    it("drops the announced run at a restart until the engine announces again", async () => {
+    it("drops the announced run at a restart", async () => {
       await service.start()
       transport.emit(interruptedRun(INTERRUPTED))
 
       await service.restart()
-      const stale = service.interruptedRun()
-      transport.emit(interruptedRun(INTERRUPTED))
 
-      expect(stale).toBeNull()
-      expect(service.interruptedRun()).toEqual(INTERRUPTED)
+      expect(service.interruptedRun()).toBeNull()
     })
 
     it("feeds the announced run", async () => {
@@ -919,15 +999,27 @@ describe("SidecarService", () => {
       expect(service.interruptedRun()).toEqual(INTERRUPTED)
     })
 
-    it("sends resume_run only once", async () => {
+    it("announces the run again after a restart", async () => {
+      await service.start()
+      transport.emit(interruptedRun(INTERRUPTED))
+      await service.restart()
+
+      transport.emit(interruptedRun(INTERRUPTED))
+
+      expect(service.interruptedRun()).toEqual(INTERRUPTED)
+    })
+
+    it.each<[string, (target: SidecarService) => Promise<void>]>([
+      ["resume_run", (target) => target.resume(INTERRUPTED).then(() => undefined)],
+      ["discard_run", (target) => target.discard(INTERRUPTED.run_id)],
+    ])("sends %s only once and closes the prompt", async (command, gesture) => {
       await service.start()
       transport.emit(interruptedRun(INTERRUPTED))
 
-      await service.resume(INTERRUPTED)
-      await service.resume(INTERRUPTED)
+      await gesture(service)
+      await gesture(service)
 
-      const resumed = transport.sent.filter((line) => commandOf(line) === "resume_run")
-      expect(resumed.map(parseLine)).toEqual([{ command: "resume_run", run_id: "a3f9c1" }])
+      expect(sentOf(command)).toEqual([{ command, run_id: INTERRUPTED.run_id }])
       expect(service.interruptedRun()).toBeNull()
     })
 
@@ -954,31 +1046,27 @@ describe("SidecarService", () => {
       expect(service.arbitrationCount()).toBe(1)
     })
 
-    it("closes the prompt at the gesture then prompts the next run", async () => {
+    it("closes the prompt at the gesture", async () => {
       await service.start()
       transport.emit(interruptedRun(INTERRUPTED))
 
       await service.discard(INTERRUPTED.run_id)
-      const closed = service.interruptedRun()
-      transport.emit(interruptedRun({ ...INTERRUPTED, run_id: "1b2c3d" }))
 
       expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
         command: "discard_run",
-        run_id: "a3f9c1",
+        run_id: RUN_ID,
       })
-      expect(closed).toBeNull()
-      expect(service.interruptedRun()?.run_id).toBe("1b2c3d")
+      expect(service.interruptedRun()).toBeNull()
     })
 
-    it("sends discard_run only once", async () => {
+    it("prompts the next run once the previous one is discarded", async () => {
       await service.start()
       transport.emit(interruptedRun(INTERRUPTED))
-
-      await service.discard(INTERRUPTED.run_id)
       await service.discard(INTERRUPTED.run_id)
 
-      const discarded = transport.sent.filter((line) => commandOf(line) === "discard_run")
-      expect(discarded).toHaveLength(1)
+      transport.emit(interruptedRun({ ...INTERRUPTED, run_id: "1b2c3d" }))
+
+      expect(service.interruptedRun()?.run_id).toBe("1b2c3d")
     })
 
     it.each([
@@ -1038,18 +1126,24 @@ describe("SidecarService", () => {
       expect(service.pastRuns()).toEqual([PAST_RUN])
     })
 
-    it("loads a past run", async () => {
+    it("asks for a past run and marks it loading", async () => {
       await service.start()
 
       await service.loadRun(PAST_RUN.run_id)
-      const loading = TestBed.inject(PastRunsStore).loading()
-      transport.emit(runLoaded(TRACK_LOADED))
 
       expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
         command: "load_run",
         run_id: PAST_RUN.run_id,
       })
-      expect(loading).toBe(PAST_RUN.run_id)
+      expect(TestBed.inject(PastRunsStore).loading()).toBe(PAST_RUN.run_id)
+    })
+
+    it("loads a past run from its events", async () => {
+      await service.start()
+      await service.loadRun(PAST_RUN.run_id)
+
+      transport.emit(runLoaded(TRACK_LOADED))
+
       expect(service.loadedRun()?.runId).toBe(PAST_RUN.run_id)
       expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
     })
@@ -1060,8 +1154,7 @@ describe("SidecarService", () => {
       await service.loadRun(PAST_RUN.run_id)
       await service.loadRun(PAST_RUN.run_id)
 
-      const loads = transport.sent.filter((line) => commandOf(line) === "load_run")
-      expect(loads).toHaveLength(1)
+      expect(countOf("load_run")).toBe(1)
     })
 
     it.each([
@@ -1116,9 +1209,7 @@ describe("SidecarService", () => {
     })
 
     it("sends nothing and keeps the displayed run when asked without an engine", async () => {
-      await service.start()
-      await service.startTagging("C:/Sets")
-      transport.emit(RUN_STARTED)
+      await searchingRun()
       transport.handlers?.onTerminated()
       const sent = transport.sent.length
 
@@ -1133,37 +1224,36 @@ describe("SidecarService", () => {
   })
 
   describe("write phase", () => {
-    const searchingRun = async (): Promise<void> => {
-      await service.start()
-      await service.startTagging("C:/Sets")
-      transport.emit(RUN_STARTED)
-    }
-    /** Recherche finie avec un morceau resolu : le seul run que le moteur accepte de confirmer. */
-    const resolvedRun = async (): Promise<void> => {
-      await searchingRun()
-      transport.emit(TRACK_RESOLVED)
-      transport.emit(NETWORK_FINISHED)
-    }
-    const sentOf = (command: string): unknown[] =>
-      transport.sent.filter((line) => commandOf(line) === command).map(parseLine)
-    const countOf = (command: string): number => sentOf(command).length
-
-    it("replays a whole write and asks for the rollback target again", async () => {
+    it("sends the confirmation of the run and marks the write as running", async () => {
       await resolvedRun()
 
       await service.commitRun()
-      const writing = service.writing()
-      transport.emit(writeProgress(1, 1))
-      transport.emit({ ...TRACK_RESOLVED, state: "written" })
+
+      expect(sentOf("commit_run")).toEqual([{ command: "commit_run", run_id: RUN_ID }])
+      expect(service.writing()).toBe(true)
+    })
+
+    it("replays a whole write", async () => {
+      await resolvedRun()
+      await service.commitRun()
+
+      transport.emit(progressEvent("write", 1, 1))
+      transport.emit(trackResolved("a.mp3", { state: "written" }))
       transport.emit(WRITE_FINISHED)
 
-      expect(sentOf("commit_run")).toEqual([{ command: "commit_run", run_id: "a3f9c1" }])
-      expect(writing).toBe(true)
       expect(service.writing()).toBe(false)
       expect(service.committed()).toBe(true)
       expect(service.writeProgress()).toEqual({ processed: 1, total: 1 })
       expect(service.writeFinished()?.written).toBe(1)
       expect(service.taggingTracks()[0]?.state).toBe("written")
+    })
+
+    it("asks for the rollback target again once the write is over", async () => {
+      await resolvedRun()
+      await service.commitRun()
+
+      transport.emit(WRITE_FINISHED)
+
       expect(countOf("get_rollback_target")).toBe(1)
     })
 
@@ -1178,25 +1268,27 @@ describe("SidecarService", () => {
       expect(service.errorFor("commit_run")()?.code).toBe("tag_dump_write_failed")
     })
 
-    it("retries the failed writes of the confirmed run", async () => {
-      await resolvedRun()
-      await service.commitRun()
-      transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+    it("sends the retry of the confirmed run and marks the write as running", async () => {
+      await failedWriteRun()
 
       await service.retryWrite()
-      const writing = service.writing()
+
+      expect(sentOf("retry_write")).toEqual([{ command: "retry_write", run_id: RUN_ID }])
+      expect(service.writing()).toBe(true)
+    })
+
+    it("ends the retry when the write finishes, the run staying confirmed", async () => {
+      await failedWriteRun()
+      await service.retryWrite()
+
       transport.emit(WRITE_FINISHED)
 
-      expect(sentOf("retry_write")).toEqual([{ command: "retry_write", run_id: "a3f9c1" }])
-      expect(writing).toBe(true)
       expect(service.writing()).toBe(false)
       expect(service.committed()).toBe(true)
     })
 
     it("keeps writing when a retry is refused because a write is already running", async () => {
-      await resolvedRun()
-      await service.commitRun()
-      transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+      await failedWriteRun()
       await service.retryWrite()
 
       transport.emit(phaseBusy("retry_write", "write"))
@@ -1206,9 +1298,7 @@ describe("SidecarService", () => {
     })
 
     it("stops writing but keeps the confirmation when a retry is refused", async () => {
-      await resolvedRun()
-      await service.commitRun()
-      transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+      await failedWriteRun()
       await service.retryWrite()
 
       transport.emit(commandError("retry_write", "write_not_open"))
@@ -1229,7 +1319,7 @@ describe("SidecarService", () => {
     it("keeps the run confirmed when a second commit follows a finished write", async () => {
       await resolvedRun()
       await service.commitRun()
-      transport.emit(writeProgress(1, 1))
+      transport.emit(progressEvent("write", 1, 1))
       transport.emit(WRITE_FINISHED)
 
       await service.commitRun()
@@ -1251,17 +1341,30 @@ describe("SidecarService", () => {
       expect(service.taggingTracks()).toHaveLength(2)
     })
 
-    it("ignores a launch while files are being written", async () => {
-      await resolvedRun()
-      // `running` est faux : seule la garde de l'ecriture protege le lancement.
-      transport.emit(NETWORK_FINISHED)
-      await service.commitRun()
+    it.each([
+      {
+        case: "files are being written",
+        // `running` est faux : seule la garde de l'ecriture protege le lancement.
+        busy: async () => {
+          await resolvedRun()
+          await service.commitRun()
+        },
+      },
+      {
+        case: "a rollback runs",
+        busy: async () => {
+          await resolvedRun()
+          await service.rollback(RUN_ID)
+        },
+      },
+    ])("ignores a launch while $case", async ({ busy }) => {
+      await busy()
 
       await service.startTagging("C:/Other")
 
       expect(countOf("start_tagging")).toBe(1)
       expect(service.taggingTracks()).toHaveLength(2)
-      expect(service.writing()).toBe(true)
+      expect(service.filesBusy()).toBe(true)
     })
 
     it("lets the run be confirmed again when the engine is gone before the commit", async () => {
@@ -1284,53 +1387,56 @@ describe("SidecarService", () => {
       expect(service.writing()).toBe(false)
     })
 
-    it("lets a searched run with a resolved track be confirmed", async () => {
-      await searchingRun()
-      transport.emit(TRACK_RESOLVED)
+    it.each([
+      {
+        case: "lets a searched run with a resolved track be confirmed",
+        setup: resolvedRun,
+        confirmable: true,
+      },
+      {
+        case: "does not let a run be confirmed while its search runs",
+        setup: async () => {
+          await searchingRun()
+          transport.emit(TRACK_RESOLVED)
+        },
+        confirmable: false,
+      },
+      {
+        case: "does not let a run without a resolved track be confirmed",
+        setup: async () => {
+          await searchingRun()
+          transport.emit(trackResolved("a.mp3", { state: "unresolved" }))
+          transport.emit(NETWORK_FINISHED)
+        },
+        confirmable: false,
+      },
+      {
+        case: "keeps an interrupted run with a resolved track confirmable",
+        setup: async () => {
+          await searchingRun()
+          transport.emit(TRACK_RESOLVED)
+          await service.cancelTagging()
+        },
+        confirmable: true,
+      },
+      {
+        case: "stops letting a run be confirmed once it is committed",
+        setup: async () => {
+          await resolvedRun()
+          await service.commitRun()
+        },
+        confirmable: false,
+      },
+    ])("$case", async ({ setup, confirmable }) => {
+      await setup()
 
-      transport.emit(NETWORK_FINISHED)
+      const result = service.runConfirmable()
 
-      expect(service.runConfirmable()).toBe(true)
-    })
-
-    it("does not let a run be confirmed while its search runs", async () => {
-      await searchingRun()
-
-      transport.emit(TRACK_RESOLVED)
-
-      expect(service.runConfirmable()).toBe(false)
-    })
-
-    it("does not let a run without a resolved track be confirmed", async () => {
-      await searchingRun()
-
-      transport.emit({ ...TRACK_RESOLVED, state: "unresolved" })
-      transport.emit(NETWORK_FINISHED)
-
-      expect(service.runConfirmable()).toBe(false)
-    })
-
-    it("keeps an interrupted run with a resolved track confirmable", async () => {
-      await searchingRun()
-      transport.emit(TRACK_RESOLVED)
-
-      await service.cancelTagging()
-
-      expect(service.runConfirmable()).toBe(true)
-    })
-
-    it("stops letting a run be confirmed once it is committed", async () => {
-      await resolvedRun()
-      transport.emit(NETWORK_FINISHED)
-
-      await service.commitRun()
-
-      expect(service.runConfirmable()).toBe(false)
+      expect(result).toBe(confirmable)
     })
 
     it("freezes the shown run when its engine dies, rows kept", async () => {
       await resolvedRun()
-      transport.emit(NETWORK_FINISHED)
 
       transport.handlers?.onTerminated()
 
@@ -1339,11 +1445,41 @@ describe("SidecarService", () => {
       expect(service.taggingTracks()).not.toHaveLength(0)
     })
 
+    describe("runAwaitsWrite", () => {
+      it("holds a searched run that is not written", async () => {
+        await resolvedRun()
+
+        expect(service.runAwaitsWrite()).toBe(true)
+      })
+
+      it("holds a written run while failed writes are left", async () => {
+        await failedWriteRun()
+
+        expect(service.runAwaitsWrite()).toBe(true)
+      })
+
+      it("releases a run written without failure", async () => {
+        await resolvedRun()
+        await service.commitRun()
+
+        transport.emit(trackResolved("a.mp3", { state: "written" }))
+        transport.emit(WRITE_FINISHED)
+
+        expect(service.runAwaitsWrite()).toBe(false)
+      })
+
+      it("releases a run lost with its engine, failed writes kept on screen", async () => {
+        await failedWriteRun()
+
+        transport.handlers?.onTerminated()
+
+        expect(service.runAwaitsWrite()).toBe(false)
+        expect(service.writeFailureCount()).toBe(1)
+      })
+    })
+
     it("forgets the write but keeps the target when a new run starts", async () => {
-      await resolvedRun()
-      transport.emit(NETWORK_FINISHED)
-      await service.commitRun()
-      transport.emit(WRITE_FINISHED)
+      await writtenRun()
       transport.emit({ event: "rollback_target", run: ROLLBACK_RUN })
 
       await service.startTagging("C:/Sets")
@@ -1358,113 +1494,144 @@ describe("SidecarService", () => {
       transport.emit(arbitrationRequired("b.mp3"))
       transport.emit(TRACK_RESOLVED)
       transport.emit(NETWORK_FINISHED)
-      const before = service.arbitrationCount()
 
       await service.commitRun()
 
-      expect(before).toBe(1)
       expect(service.arbitrationCount()).toBe(0)
     })
 
     it("lists no recoverable track once the run is confirmed", async () => {
       await searchingRun()
       transport.emit(TRACK_RESOLVED)
-      transport.emit({ ...TRACK_RESOLVED, track_id: "b.mp3", state: "unresolved" })
+      transport.emit(trackResolved("b.mp3", { state: "unresolved" }))
       transport.emit(NETWORK_FINISHED)
-      const before = service.recoverableTracks().map((track) => track.trackId)
 
       await service.commitRun()
 
-      expect(before).toEqual(["b.mp3"])
       expect(service.recoverableTracks()).toEqual([])
     })
 
     it("counts only the tracks whose write failed", async () => {
       await resolvedRun()
-      transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
-      transport.emit({ ...TRACK_RESOLVED, track_id: "b.mp3", state: "rolled_back" })
+      transport.emit(trackResolved("a.mp3", { state: "write_error" }))
+      transport.emit(trackResolved("b.mp3", { state: "rolled_back" }))
 
       expect(service.writeFailureCount()).toBe(1)
     })
 
     describe("phase", () => {
-      it("is idle before any command", async () => {
-        await service.start()
+      it.each<{
+        case: string
+        setup: () => Promise<void>
+        phase: SidecarPhase
+        filesBusy: boolean
+      }>([
+        { case: "before any command", setup: () => service.start(), phase: "idle", filesBusy: false },
+        {
+          case: "from the extraction command",
+          setup: async () => {
+            await service.start()
+            await service.extractPlaylist(EXTRACTION_REQUEST)
+          },
+          phase: "extracting",
+          filesBusy: false,
+        },
+        {
+          case: "while the run searches",
+          setup: searchingRun,
+          phase: "searching",
+          filesBusy: false,
+        },
+        {
+          case: "from the confirmation",
+          setup: async () => {
+            await resolvedRun()
+            await service.commitRun()
+          },
+          phase: "writing",
+          filesBusy: true,
+        },
+        {
+          case: "during a rollback, ahead of an extraction",
+          setup: async () => {
+            await service.start()
+            await service.extractPlaylist(EXTRACTION_REQUEST)
+            await service.rollback(RUN_ID)
+          },
+          phase: "rollingBack",
+          filesBusy: true,
+        },
+        { case: "once the write is over", setup: writtenRun, phase: "idle", filesBusy: false },
+      ])("is $phase $case", async ({ setup, phase, filesBusy }) => {
+        await setup()
 
-        expect(service.phase()).toBe("idle")
-        expect(service.filesBusy()).toBe(false)
-      })
-
-      it("is extracting from the extraction command", async () => {
-        await service.start()
-
-        await service.extractPlaylist(EXTRACTION)
-
-        expect(service.phase()).toBe("extracting")
-        expect(service.filesBusy()).toBe(false)
-      })
-
-      it("is searching while the run searches", async () => {
-        await searchingRun()
-
-        expect(service.phase()).toBe("searching")
-        expect(service.filesBusy()).toBe(false)
-      })
-
-      it("is writing from the confirmation, and keeps the files busy", async () => {
-        await resolvedRun()
-
-        await service.commitRun()
-
-        expect(service.phase()).toBe("writing")
-        expect(service.filesBusy()).toBe(true)
-      })
-
-      it("is rollingBack during a rollback, ahead of an extraction", async () => {
-        await service.start()
-        await service.extractPlaylist(EXTRACTION)
-
-        await service.rollback("a3f9c1")
-
-        expect(service.phase()).toBe("rollingBack")
-        expect(service.filesBusy()).toBe(true)
-      })
-
-      it("returns to idle once the write is over", async () => {
-        await resolvedRun()
-        await service.commitRun()
-
-        transport.emit(WRITE_FINISHED)
-
-        expect(service.phase()).toBe("idle")
+        expect([service.phase(), service.filesBusy()]).toEqual([phase, filesBusy])
       })
     })
 
     describe("run action", () => {
       const actionFor = (folder: string) => service.runAction(signal(folder))
 
-      it("proposes to start before any run", async () => {
-        await service.start()
+      it.each<{ case: string; setup: () => Promise<void>; folder?: string; expected: RunAction }>([
+        { case: "before any run", setup: () => service.start(), expected: "start" },
+        { case: "while the run searches", setup: searchingRun, expected: "cancel" },
+        { case: "a searched run of the same folder", setup: resolvedRun, expected: "commit" },
+        {
+          case: "another folder over a confirmable run",
+          setup: resolvedRun,
+          folder: "C:/Other",
+          expected: "start",
+        },
+        {
+          case: "the same folder again when the run cannot be confirmed",
+          setup: async () => {
+            await searchingRun()
+            transport.emit(trackResolved("a.mp3", { state: "unresolved" }))
+            transport.emit(NETWORK_FINISHED)
+          },
+          expected: "start",
+        },
+        {
+          case: "the first write, which keeps the confirmation",
+          setup: async () => {
+            await resolvedRun()
+            await service.commitRun()
+          },
+          expected: "commit",
+        },
+        { case: "a write that left failures", setup: failedWriteRun, expected: "retry" },
+        {
+          case: "a retry that runs",
+          setup: async () => {
+            await failedWriteRun()
+            await service.retryWrite()
+          },
+          expected: "retry",
+        },
+        {
+          case: "a write that left no failure",
+          setup: async () => {
+            await resolvedRun()
+            await service.commitRun()
+            transport.emit(trackResolved("a.mp3", { state: "written" }))
+            transport.emit(WRITE_FINISHED)
+          },
+          expected: "start",
+        },
+        {
+          case: "a written run lost with its engine",
+          setup: async () => {
+            await failedWriteRun()
+            transport.handlers?.onTerminated()
+          },
+          expected: "start",
+        },
+      ])("proposes to $expected for $case", async ({ setup, folder = "C:/Sets", expected }) => {
+        await setup()
 
-        expect(actionFor("C:/Sets")()).toBe("start")
-      })
+        const proposed = actionFor(folder)()
 
-      it("proposes to interrupt while the run searches", async () => {
-        await searchingRun()
-
-        expect(actionFor("C:/Sets")()).toBe("cancel")
-      })
-
-      it("proposes to confirm a searched run of the same folder", async () => {
-        await resolvedRun()
-
-        expect(actionFor("C:/Sets")()).toBe("commit")
-      })
-
-      it("proposes to start another folder over a confirmable run", async () => {
-        await resolvedRun()
-
-        expect(actionFor("C:/Other")()).toBe("start")
+        expect(proposed).toBe(expected)
       })
 
       it("compares the folder to the one requested, not to the one the sidecar normalized", async () => {
@@ -1477,85 +1644,45 @@ describe("SidecarService", () => {
         expect(service.taggingFolder()).toBe("C:\\Musique\\Extraction")
         expect(actionFor("C:/Musique/Extraction/")()).toBe("commit")
       })
-
-      it("proposes to start the same folder again when the run cannot be confirmed", async () => {
-        await searchingRun()
-        transport.emit({ ...TRACK_RESOLVED, state: "unresolved" })
-        transport.emit(NETWORK_FINISHED)
-
-        expect(actionFor("C:/Sets")()).toBe("start")
-      })
-
-      it("keeps the confirmation while the first write runs", async () => {
-        await resolvedRun()
-
-        await service.commitRun()
-
-        expect(actionFor("C:/Sets")()).toBe("commit")
-      })
-
-      it("proposes the retry once a write left failures, and while it runs", async () => {
-        await resolvedRun()
-        await service.commitRun()
-        transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
-        transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
-        const action = actionFor("C:/Sets")
-        const settled = action()
-
-        await service.retryWrite()
-
-        expect(settled).toBe("retry")
-        expect(action()).toBe("retry")
-      })
-
-      it("proposes to start again once a write left no failure", async () => {
-        await resolvedRun()
-        await service.commitRun()
-        transport.emit({ ...TRACK_RESOLVED, state: "written" })
-        transport.emit(WRITE_FINISHED)
-
-        expect(actionFor("C:/Sets")()).toBe("start")
-      })
-
-      it("proposes to start again when the written run was lost with its engine", async () => {
-        await resolvedRun()
-        await service.commitRun()
-        transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
-        transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
-
-        transport.handlers?.onTerminated()
-
-        expect(actionFor("C:/Sets")()).toBe("start")
-      })
     })
 
-    it("replays a track rollback and asks for the target again", async () => {
-      await resolvedRun()
-      await service.commitRun()
-      transport.emit(WRITE_FINISHED)
+    it("sends the rollback of a track and marks it in flight", async () => {
+      await writtenRun()
 
-      await service.rollback("a3f9c1", "a.mp3")
-      const inFlight = service.rollingBack()
-      transport.emit({ ...TRACK_RESOLVED, state: "rolled_back" })
+      await service.rollback(RUN_ID, "a.mp3")
+
+      expect(sentOf("rollback")).toEqual([{ command: "rollback", run_id: RUN_ID, track_id: "a.mp3" }])
+      expect(service.rollingBack()).toEqual({ runId: RUN_ID, trackId: "a.mp3" })
+    })
+
+    it("replays a track rollback", async () => {
+      await writtenRun()
+      await service.rollback(RUN_ID, "a.mp3")
+
+      transport.emit(trackResolved("a.mp3", { state: "rolled_back" }))
       transport.emit(rollbackFinished("a.mp3"))
 
-      expect(sentOf("rollback")).toEqual([
-        { command: "rollback", run_id: "a3f9c1", track_id: "a.mp3" },
-      ])
-      expect(inFlight).toEqual({ runId: "a3f9c1", trackId: "a.mp3" })
       expect(service.rollingBack()).toBeNull()
       expect(service.rollbackFinished()?.restored).toEqual(["a.mp3"])
       expect(service.taggingTracks()[0]?.state).toBe("rolled_back")
+    })
+
+    it("asks for the rollback target again once a rollback is over", async () => {
+      await writtenRun()
+      await service.rollback(RUN_ID, "a.mp3")
+
+      transport.emit(rollbackFinished("a.mp3"))
+
       expect(countOf("get_rollback_target")).toBe(2)
     })
 
     it("rolls back the shown rows from a summary sent by a new engine", async () => {
       await resolvedRun()
       await service.commitRun()
-      transport.emit({ ...TRACK_RESOLVED, state: "written", restorable: true })
+      transport.emit(trackResolved("a.mp3", { state: "written", restorable: true }))
       transport.emit(WRITE_FINISHED)
       transport.handlers?.onTerminated()
-      await service.rollback("a3f9c1")
+      await service.rollback(RUN_ID)
 
       transport.emit(rollbackFinished())
 
@@ -1563,26 +1690,30 @@ describe("SidecarService", () => {
       expect(service.taggingTracks()[0]?.restorable).toBe(false)
     })
 
-    it.each([true, false])(
-      "carries the restorable flag of a written row (%s)",
-      async (restorable) => {
-        await resolvedRun()
-        await service.commitRun()
+    it.each([
+      { outcome: "restorable", restorable: true },
+      { outcome: "not restorable", restorable: false },
+    ])("keeps a failed write $outcome when the event says so", async ({ restorable }) => {
+      await resolvedRun()
+      await service.commitRun()
 
-        transport.emit({ ...TRACK_RESOLVED, state: "write_error", restorable })
+      transport.emit(trackResolved("a.mp3", { state: "write_error", restorable }))
 
-        expect(service.taggingTracks()[0]?.restorable).toBe(restorable)
-      },
-    )
+      expect(service.taggingTracks()[0]?.restorable).toBe(restorable)
+    })
+
+    it("does not know the rollback target before asking for it", async () => {
+      await service.start()
+
+      expect(service.rollbackTarget()).toBeUndefined()
+    })
 
     it("exposes the rollback target once asked", async () => {
       await service.start()
-      const unknown = service.rollbackTarget()
 
       await service.loadRollbackTarget()
       transport.emit({ event: "rollback_target", run: ROLLBACK_RUN })
 
-      expect(unknown).toBeUndefined()
       expect(commandOf(transport.sent.at(-1) ?? "")).toBe("get_rollback_target")
       expect(service.rollbackTarget()).toEqual(ROLLBACK_RUN)
     })
@@ -1597,7 +1728,7 @@ describe("SidecarService", () => {
       expect(service.errorFor("rollback")()?.code).toBe("rollback_unavailable")
     })
 
-    /** Etat optimiste que chaque lancement pose a l'envoi, et celui qui reste une fois le refus recu. */
+    /** Etat optimiste que chaque lancement pose a l'envoi et celui qui reste une fois le refus recu. */
     const LAUNCHES: readonly {
       readonly command: LaunchCommand
       readonly own: BusyPhase
@@ -1611,7 +1742,7 @@ describe("SidecarService", () => {
         own: "extraction",
         launch: async () => {
           await service.start()
-          await service.extractPlaylist(EXTRACTION)
+          await service.extractPlaylist(EXTRACTION_REQUEST)
         },
         observe: () => ({ extracting: service.extracting() }),
         sent: { extracting: true },
@@ -1657,9 +1788,7 @@ describe("SidecarService", () => {
         command: "retry_write",
         own: "write",
         launch: async () => {
-          await resolvedRun()
-          await service.commitRun()
-          transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+          await failedWriteRun()
           await service.retryWrite()
         },
         observe: () => ({ writing: service.writing(), committed: service.committed() }),
@@ -1671,10 +1800,10 @@ describe("SidecarService", () => {
         own: "rollback",
         launch: async () => {
           await service.start()
-          await service.rollback("a3f9c1")
+          await service.rollback(RUN_ID)
         },
         observe: () => ({ rollingBack: service.rollingBack() }),
-        sent: { rollingBack: { runId: "a3f9c1", trackId: null } },
+        sent: { rollingBack: { runId: RUN_ID, trackId: null } },
         refused: { rollingBack: null },
       },
     ]
@@ -1706,19 +1835,9 @@ describe("SidecarService", () => {
       },
     )
 
-    it("ignores a launch while a rollback runs", async () => {
-      await resolvedRun()
-      await service.rollback("a3f9c1")
-
-      await service.startTagging("C:/Other")
-
-      expect(countOf("start_tagging")).toBe(1)
-      expect(service.taggingTracks()).toHaveLength(2)
-    })
-
     it("releases the rollback when the engine dies", async () => {
       await service.start()
-      await service.rollback("a3f9c1")
+      await service.rollback(RUN_ID)
 
       transport.handlers?.onTerminated()
 

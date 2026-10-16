@@ -12,26 +12,53 @@ import threading
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Final, override
 
+import pytest
+from scraper_responses import BANDCAMP_TRACK
 from tagging_api import ONE_TRACK
+from vlc_dump import PLAYLIST_MAIN
 
 from tagger.__main__ import run_loop
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import AsyncIterator, Callable, Mapping
     from pathlib import Path
 
-    import pytest
+    from tagging_api import Gate
 
 # Borne de chaque attente : un evenement qui n'arrive pas echoue au lieu de geler la suite.
 EXPECT_TIMEOUT: Final = 10
 
 
-CHOOSE_ON_BEATPORT: Final = {
-    "command": "resolve_arbitration",
-    "track_id": ONE_TRACK,
-    "source": "beatport",
-    "candidate": 0,
-}
+# Run qu'aucun plan ni dump ne connait.
+UNKNOWN_RUN: Final = "000000"
+
+
+def line_of(message: Mapping[str, object]) -> str:
+    """Ligne NDJSON prete a injecter."""
+    return json.dumps(message) + "\n"
+
+
+def line(command: str, **fields: object) -> str:
+    return line_of({"command": command, **fields})
+
+
+def arbitrate(source: str, candidate: int | None, track_id: str = ONE_TRACK) -> dict[str, object]:
+    """Champs d'un `resolve_arbitration` ; `candidate` None refuse la liste de `source`."""
+    return {
+        "command": "resolve_arbitration",
+        "track_id": track_id,
+        "source": source,
+        "candidate": candidate,
+    }
+
+
+CHOOSE_ON_BEATPORT: Final = arbitrate("beatport", 0)
+REFUSE_BEATPORT: Final = arbitrate("beatport", None)
+
+
+def recover_by_url(url: str = BANDCAMP_TRACK, track_id: str = ONE_TRACK) -> dict[str, object]:
+    """Champs d'un `resolve_by_url`."""
+    return {"command": "resolve_by_url", "track_id": track_id, "url": url}
 
 
 def start_command(folder: Path) -> dict[str, object]:
@@ -41,11 +68,26 @@ def start_command(folder: Path) -> dict[str, object]:
 
 def start_tagging(folder: Path, **payload: object) -> str:
     """Ligne `start_tagging` prete a injecter."""
-    return json.dumps({**start_command(folder), **payload}) + "\n"
+    return line("start_tagging", folder=str(folder), **payload)
+
+
+def sub(event: dict[str, object], key: str) -> dict[str, object]:
+    """Objet imbrique d'un evenement ; le narrowing qu'exige mypy strict (le JSON rend `object`)."""
+    value = event[key]
+    assert isinstance(value, dict)
+    return value
+
+
+def rows(event: dict[str, object], key: str) -> list[dict[str, object]]:
+    """Liste d'objets d'un evenement, avec le meme narrowing que `sub`."""
+    value = event[key]
+    assert isinstance(value, list)
+    assert all(isinstance(row, dict) for row in value)
+    return value
 
 
 def extraction_command(
-    library: Path, dump: Path, destination: Path, playlist_name: str = "test playlist"
+    library: Path, dump: Path, destination: Path, playlist_name: str = PLAYLIST_MAIN
 ) -> dict[str, object]:
     """Champs d'un `extract_playlist`, a envoyer tels quels ou en ligne."""
     return {
@@ -124,7 +166,10 @@ class Conversation:
         self.stdout = _Outbox(self._received)
 
     def send(self, **fields: object) -> None:
-        self._lines.put(json.dumps(fields) + "\n")
+        self._lines.put(line_of(fields))
+
+    def shut_down(self) -> None:
+        self.send(command="shutdown")
 
     def hang_up(self) -> None:
         """EOF sur stdin."""
@@ -162,22 +207,60 @@ async def conversation() -> AsyncIterator[Conversation]:
             await loop
 
 
+def _run_id_of(event: dict[str, object]) -> str:
+    run_id = event["run_id"]
+    assert isinstance(run_id, str)
+    return run_id
+
+
 async def resolved_run(talk: Conversation, folder: Path) -> str:
     """Lance un run sur `folder` et rend son `run_id`, phase reseau finie."""
     talk.send(**start_command(folder))
     started = await talk.expect("run_started")
     await talk.expect("run_finished", phase="network")
-    run_id = started["run_id"]
-    assert isinstance(run_id, str)
-    return run_id
+    return _run_id_of(started)
+
+
+async def searching(talk: Conversation, folder: Path, gate: Gate) -> str:
+    """Lance un run sur `folder` et rend son `run_id`, la requete retenue par `gate` arrivee."""
+    talk.send(**start_command(folder))
+    started = await talk.expect("run_started")
+    await gate.wait_reached()
+    return _run_id_of(started)
+
+
+async def committed(talk: Conversation, run_id: str) -> dict[str, object]:
+    """Confirme le run et rend la fin de sa phase d'ecriture."""
+    talk.send(command="commit_run", run_id=run_id)
+    return await talk.expect("run_finished", phase="write")
+
+
+async def retried(talk: Conversation, run_id: str) -> dict[str, object]:
+    """Rejoue les echecs d'ecriture et rend la fin de la phase."""
+    talk.send(command="retry_write", run_id=run_id)
+    return await talk.expect("run_finished", phase="write")
+
+
+async def rolled_back(
+    talk: Conversation, run_id: str, track_id: str | None = None
+) -> dict[str, object]:
+    """Restaure le run (ou son seul `track_id`) et rend la fin du rollback."""
+    extra = {} if track_id is None else {"track_id": track_id}
+    talk.send(command="rollback", run_id=run_id, **extra)
+    return await talk.expect("rollback_finished")
 
 
 async def written_run(talk: Conversation, folder: Path) -> str:
     """Comme `resolved_run`, puis confirme le run et attend la fin de l'ecriture."""
     run_id = await resolved_run(talk, folder)
-    talk.send(command="commit_run", run_id=run_id)
-    await talk.expect("run_finished", phase="write")
+    await committed(talk, run_id)
     return run_id
+
+
+async def written_in_a_previous_session(folder: Path) -> str:
+    """Run ecrit puis session fermee : la suivante n'en connait que ce que le disque garde."""
+    async with conversation() as talk:
+        return await written_run(talk, folder)
 
 
 class HeldCall:
@@ -205,3 +288,9 @@ def held_call(monkeypatch: pytest.MonkeyPatch, module: object, name: str) -> Hel
 
     monkeypatch.setattr(module, name, wrapper)
     return held
+
+
+# Fin de session sans attendre : le parametre du test s'appelle `leave`.
+LEAVING: Final = pytest.mark.parametrize(
+    "leave", [Conversation.shut_down, Conversation.hang_up], ids=["shutdown", "end-of-input"]
+)

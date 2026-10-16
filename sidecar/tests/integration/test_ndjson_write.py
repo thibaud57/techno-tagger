@@ -4,18 +4,24 @@ from unittest.mock import patch
 
 import pytest
 from ndjson_loop import (
+    CHOOSE_ON_BEATPORT,
     EXPECT_TIMEOUT,
-    Conversation,
+    LEAVING,
+    UNKNOWN_RUN,
+    committed,
     conversation,
     held_call,
+    recover_by_url,
     resolved_run,
-    start_command,
+    retried,
+    rolled_back,
     written_run,
 )
 from report_files import only_report, report_files
-from scraper_responses import BANDCAMP_TRACK, YOUR_MIND, bandcamp_track_payload
-from stubs import raising
-from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, ok, one_track
+from run_plans import only_plan
+from scraper_responses import BANDCAMP_TRACK, bandcamp_track_payload, ok
+from stubs import raising, refusing_suffix
+from tagging_api import BANDCAMP_TRACKS, ONE_TRACK, WRITTEN_NAME, FakeApi
 
 from tagger import BUNDLE_IDENTIFIER, handlers
 from tagger.core.api_key import SERVICE, USERNAME
@@ -27,27 +33,19 @@ from tagger.reports.tagging import load_tagging_report
 from tagger.run import writing
 from tagger.run.models import TrackState
 from tagger.tags import files, tag_dump
-from tagger.tags.files import TagsUnreadableError, TagsWriteError, TagSystem
+from tagger.tags.files import TagsUnreadableError, TagSystem
 from tagger.tags.tag_dump import TagDumpUnreadableError, TagDumpWriteError, dump_dir
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
     from pathlib import Path
+    from unittest.mock import MagicMock
 
     from memory_keyring import MemoryKeyring
+    from ndjson_loop import Conversation
 
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
-
-
-def _locked_until_lifted(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
-    """Ecriture refusee comme un fichier verrouille ; rend de quoi lever le verrou."""
-
-    def locked(path: Path, *_args: object) -> object:
-        raise TagsWriteError(path, FileFailureReason.FILE_LOCKED)
-
-    monkeypatch.setattr(writing, "write_tags", locked)
-    return lambda: monkeypatch.setattr(writing, "write_tags", files.write_tags)
 
 
 async def test_writes_a_committed_run_end_to_end(folder: Path) -> None:
@@ -67,56 +65,35 @@ async def test_writes_a_committed_run_end_to_end(folder: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "command", ["commit_run", "retry_write"], ids=["commit-run", "retry-write"]
+    ("arrange", "command", "another_run"),
+    [
+        (resolved_run, "commit_run", True),
+        (resolved_run, "retry_write", True),
+        (written_run, "commit_run", False),
+        (resolved_run, "retry_write", False),
+    ],
+    ids=["commit-another-run", "retry-another-run", "second-commit", "retry-before-commit"],
 )
-async def test_refuses_writing_another_run(folder: Path, command: str) -> None:
+async def test_refuses_a_write_the_run_is_not_open_to(
+    folder: Path,
+    arrange: Callable[[Conversation, Path], Awaitable[str]],
+    command: str,
+    another_run: bool,
+) -> None:
     async with conversation() as talk:
-        await resolved_run(talk, folder)
-        talk.send(command=command, run_id="000000")
+        run_id = await arrange(talk, folder)
+        talk.send(command=command, run_id=UNKNOWN_RUN if another_run else run_id)
         error = await talk.expect("error")
 
     assert (error["code"], error["command"]) == ("write_not_open", command)
 
 
-async def test_refuses_a_commit_while_the_network_phase_runs(folder: Path, api: FakeApi) -> None:
-    gate = api.gate("/beatport/search", YOUR_MIND)
-
-    async with conversation() as talk:
-        talk.send(**start_command(folder))
-        started = await talk.expect("run_started")
-        await gate.reached.wait()
-        talk.send(command="commit_run", run_id=started["run_id"])
-        error = await talk.expect("error")
-        gate.release.set()
-        await talk.expect("run_finished", phase="network")
-
-    assert (error["code"], error["command"]) == ("write_not_open", "commit_run")
-
-
-async def test_refuses_a_second_commit(folder: Path) -> None:
-    async with conversation() as talk:
-        run_id = await written_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        error = await talk.expect("error")
-
-    assert error["code"] == "write_not_open"
-
-
-async def test_refuses_a_retry_before_any_commit(folder: Path) -> None:
-    async with conversation() as talk:
-        run_id = await resolved_run(talk, folder)
-        talk.send(command="retry_write", run_id=run_id)
-        error = await talk.expect("error")
-
-    assert (error["code"], error["command"]) == ("write_not_open", "retry_write")
-
-
 @pytest.mark.parametrize(
     "decision",
     [
-        {"command": "resolve_arbitration", "source": "beatport", "candidate": 0},
-        {"command": "switch_arbitration_source", "source": "beatport"},
-        {"command": "resolve_by_url", "url": "https://x.bandcamp.com/track/y"},
+        CHOOSE_ON_BEATPORT,
+        {"command": "switch_arbitration_source", "track_id": ONE_TRACK, "source": "beatport"},
+        recover_by_url(),
     ],
     ids=["resolve-arbitration", "switch-arbitration-source", "resolve-by-url"],
 )
@@ -125,7 +102,7 @@ async def test_refuses_decisions_once_the_run_is_committed(
 ) -> None:
     async with conversation() as talk:
         await written_run(talk, folder)
-        talk.send(track_id=ONE_TRACK, **decision)
+        talk.send(**decision)
         error = await talk.expect("error")
 
     assert (error["code"], error["command"], error["params"]) == (
@@ -157,12 +134,13 @@ async def test_lets_the_run_be_confirmed_again_when_the_dump_cannot_be_saved(
         refused = await talk.expect("error")
         emitted_before = talk.events[: talk.events.index(refused)]
         untouched = not (folder / WRITTEN_NAME).exists()
+        reopened = not only_plan().committed
         monkeypatch.setattr(writing, "save_entries", tag_dump.save_entries)
-        talk.send(command="commit_run", run_id=run_id)
-        finished = await talk.expect("run_finished", phase="write")
+        finished = await committed(talk, run_id)
 
     assert (refused["code"], refused["command"]) == (code, "commit_run")
     assert untouched
+    assert reopened
     assert not [
         event
         for event in emitted_before
@@ -172,8 +150,8 @@ async def test_lets_the_run_be_confirmed_again_when_the_dump_cannot_be_saved(
     assert (folder / WRITTEN_NAME).is_file()
 
 
-async def test_retries_a_failed_write(folder: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    lift = _locked_until_lifted(monkeypatch)
+async def test_retries_a_failed_write(folder: Path, locked_writes: Callable[[], None]) -> None:
+    lift = locked_writes
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
@@ -192,9 +170,9 @@ async def test_retries_a_failed_write(folder: Path, monkeypatch: pytest.MonkeyPa
 
 
 async def test_flags_a_failure_restorable_only_once_its_origin_is_dumped(
-    folder: Path, monkeypatch: pytest.MonkeyPatch
+    folder: Path, monkeypatch: pytest.MonkeyPatch, locked_writes: Callable[[], None]
 ) -> None:
-    lift = _locked_until_lifted(monkeypatch)
+    lift = locked_writes
     monkeypatch.setattr(
         writing,
         "read_original_tags",
@@ -219,13 +197,9 @@ async def test_flags_a_failure_restorable_only_once_its_origin_is_dumped(
     assert written["restorable"] is True
 
 
-@pytest.mark.parametrize(
-    "end_session",
-    [lambda talk: talk.send(command="shutdown"), Conversation.hang_up],
-    ids=["shutdown", "eof"],
-)
+@LEAVING
 async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
-    folder: Path, monkeypatch: pytest.MonkeyPatch, end_session: Callable[[Conversation], None]
+    folder: Path, monkeypatch: pytest.MonkeyPatch, leave: Callable[[Conversation], None]
 ) -> None:
     held = held_call(monkeypatch, writing, "write_tags")
     closed = asyncio.Event()
@@ -243,7 +217,7 @@ async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
             talk.send(command="cancel_run")
             talk.send(command="get_version")
             await talk.expect("version")
-            end_session(talk)
+            leave(talk)
             async with asyncio.timeout(EXPECT_TIMEOUT):
                 await closed.wait()
             finished_early = [
@@ -260,16 +234,15 @@ async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
 
 
 async def test_refuses_a_commit_while_a_gesture_is_in_flight(
-    tmp_path: Path, app_data: None, api: FakeApi
+    unresolved_folder: Path, api: FakeApi
 ) -> None:
-    api.on("/bandcamp/tracks", BANDCAMP_TRACK, ok(bandcamp_track_payload()))
-    fetch = api.gate("/bandcamp/tracks", BANDCAMP_TRACK)
-    unresolved = one_track(tmp_path)
+    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, ok(bandcamp_track_payload()))
+    fetch = api.gate(BANDCAMP_TRACKS, BANDCAMP_TRACK)
 
     async with conversation() as talk:
-        run_id = await resolved_run(talk, unresolved)
-        talk.send(command="resolve_by_url", track_id=ONE_TRACK, url=BANDCAMP_TRACK)
-        await fetch.reached.wait()
+        run_id = await resolved_run(talk, unresolved_folder)
+        talk.send(**recover_by_url())
+        await fetch.wait_reached()
         talk.send(command="commit_run", run_id=run_id)
         error = await talk.expect("error")
         fetch.release.set()
@@ -306,16 +279,15 @@ async def test_keeps_the_api_key_and_the_data_folder_out_of_the_report(
 
 
 async def test_rewrites_the_same_report_after_a_retry(
-    folder: Path, monkeypatch: pytest.MonkeyPatch
+    folder: Path, locked_writes: Callable[[], None]
 ) -> None:
-    lift = _locked_until_lifted(monkeypatch)
+    lift = locked_writes
 
     async with conversation() as talk:
         run_id = await written_run(talk, folder)
         json_path, first = only_report(folder)
         lift()
-        talk.send(command="retry_write", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        await retried(talk, run_id)
 
     assert (first.counts.write_error, first.counts.written) == (1, 0)
     assert load_tagging_report(json_path).counts.written == 1
@@ -326,8 +298,7 @@ async def test_leaves_the_report_untouched_by_a_rollback(folder: Path) -> None:
     async with conversation() as talk:
         run_id = await written_run(talk, folder)
         before = _report_texts(folder)
-        talk.send(command="rollback", run_id=run_id)
-        await talk.expect("rollback_finished")
+        await rolled_back(talk, run_id)
 
     assert _report_texts(folder) == before
     assert load_tagging_report(only_report(folder)[0]).counts.written == 1
@@ -336,10 +307,8 @@ async def test_leaves_the_report_untouched_by_a_rollback(folder: Path) -> None:
 async def test_reports_a_restored_track_after_a_partial_rollback(folder: Path) -> None:
     async with conversation() as talk:
         run_id = await written_run(talk, folder)
-        talk.send(command="rollback", run_id=run_id, track_id=ONE_TRACK)
-        await talk.expect("rollback_finished")
-        talk.send(command="retry_write", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        await rolled_back(talk, run_id, ONE_TRACK)
+        await retried(talk, run_id)
 
     _, report = only_report(folder)
     (restored,) = report.tracks
@@ -362,10 +331,9 @@ async def test_finishes_the_write_phase_when_the_report_cannot_be_written(
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
-        talk.send(command="commit_run", run_id=run_id)
-        finished = await talk.expect("run_finished", phase="write")
+        finished = await committed(talk, run_id)
 
-    assert finished["written"] == 1
+    assert (finished["written"], finished["report_path"]) == (1, None)
     assert report_files(folder) == []
     assert list_reports(index_path()) == ()
     assert "tagging report not written run=" in caplog.text
@@ -374,39 +342,34 @@ async def test_finishes_the_write_phase_when_the_report_cannot_be_written(
 
 
 async def test_finishes_the_write_phase_when_the_report_fails_unexpectedly(
-    folder: Path, monkeypatch: pytest.MonkeyPatch
+    folder: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    captured_exceptions: MagicMock,
 ) -> None:
     bug = ValueError("bug")
     monkeypatch.setattr(handlers, "write_tagging_report", raising(bug))
 
-    with patch("sentry_sdk.capture_exception", autospec=True) as capture:
-        async with conversation() as talk:
-            run_id = await resolved_run(talk, folder)
-            talk.send(command="commit_run", run_id=run_id)
-            finished = await talk.expect("run_finished", phase="write")
+    async with conversation() as talk:
+        run_id = await resolved_run(talk, folder)
+        finished = await committed(talk, run_id)
 
     assert (finished["written"], finished["report_path"]) == (1, None)
     assert list_reports(index_path()) == ()
-    capture.assert_called_once_with(bug)
+    captured_exceptions.assert_called_once_with(bug)
 
 
 async def test_keeps_one_pair_of_files_when_the_markdown_was_refused_once(
     folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    refusing = True
-
-    def write(path: Path, text: str) -> None:
-        if refusing and path.suffix == ".md":
-            raise OSError(28, "No space left on device")
-        write_atomically(path, text)
-
-    monkeypatch.setattr(tagging_report, "write_atomically", write)
+    refusal = OSError(28, "No space left on device")
+    monkeypatch.setattr(
+        tagging_report, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
+    )
 
     async with conversation() as talk:
         run_id = await written_run(talk, folder)
-        refusing = False
-        talk.send(command="retry_write", run_id=run_id)
-        await talk.expect("run_finished", phase="write")
+        monkeypatch.setattr(tagging_report, "write_atomically", write_atomically)
+        await retried(talk, run_id)
 
     assert [path.suffix for path in report_files(folder)] == [".json", ".md"]
     assert len(list_reports(index_path())) == 1

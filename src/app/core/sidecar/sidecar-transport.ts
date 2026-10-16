@@ -39,7 +39,7 @@ class TauriSidecarTransport implements SidecarTransport {
       command.stderr.on("data", handlers.onStderr)
 
       // Seul `close` est une sortie du process : il porte le code de sortie. `error`
-      // signale un incident du flux, le process peut tourner toujours, et le prendre
+      // signale un incident du flux, le process peut tourner toujours : le prendre
       // pour une mort affiche l'ecran bloquant sur un moteur bien vivant.
       command.on("close", () => {
         this.child = null

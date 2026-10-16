@@ -22,12 +22,12 @@ from tagger.run.models import FailureReason
         (OSError(99, "unheard of"), FileFailureReason.WRITE_FAILED),
     ],
     ids=[
-        "sharing_violation",
-        "access_denied",
-        "vanished_file",
-        "overlong_path",
-        "full_disk",
-        "unknown_error",
+        "sharing-violation",
+        "access-denied",
+        "vanished-file",
+        "overlong-path",
+        "full-disk",
+        "unknown-error",
     ],
 )
 def test_maps_a_system_error_to_the_project_vocabulary(

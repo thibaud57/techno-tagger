@@ -203,7 +203,7 @@ async (page) => {
     })
   const columnGaps = () =>
     page.evaluate(() => {
-      const root = document.querySelector("app-tagging-page > div")
+      const root = document.querySelector("app-tagging-page")
       // L'hote de la liste des echecs est en `contents` : ses enfants sont ceux de la colonne.
       const flat = (el) => [...el.children].flatMap((e) => (e.tagName === "APP-ROLLBACK-FAILURES" ? flat(e) : [e]))
       const kids = flat(root).map((e) => ({
@@ -709,6 +709,11 @@ async (page) => {
   })
 
   // ---- 9. Reglages.
+  // Depuis settings/02 : une section a la fois, choisie dans le menu (0 API, 1 Matching, 2 Interface, 3 Administration)
+  const openSection = async (index) => {
+    await page.locator("app-settings-page p-menu .p-menu-item-content").nth(index).click()
+    await settle(400)
+  }
   const gotoSettings = async () => {
     await page.locator("p-tab", { hasText: /Réglages|Settings/ }).click()
     await page.waitForSelector("app-settings-page")
@@ -716,7 +721,7 @@ async (page) => {
   }
   const rowBox = () =>
     page.evaluate(() => {
-      // Rangees en `app-settings-row` : grille 16rem, libelle a gauche, controle au bout de la ligne,
+      // Rangees en `app-settings-row` : grille 10rem, libelle a gauche, controle au bout de la ligne,
       // retours dessous dans la seconde colonne. L'aide est dessous (cle API) ou dans le controle,
       // sur la ligne du bouton (Restauration).
       const rows = [...document.querySelectorAll("app-settings-page app-settings-row")]
@@ -753,7 +758,7 @@ async (page) => {
       }
       const h2s = [...document.querySelectorAll("app-settings-page h2")].map((h) => ({ text: h.textContent.trim(), size: getComputedStyle(h).fontSize, weight: getComputedStyle(h).fontWeight, top: Math.round(h.getBoundingClientRect().top) }))
       const sections = [...document.querySelectorAll("app-settings-page section")]
-      return { api: info(rows[0]), rollback: info(rows[1]), h2s, order: sections.map((s) => s.querySelector("h2").textContent.trim()), rowCount: rows.length }
+      return { rows: rows.map(info), h2s, order: sections.map((s) => s.querySelector("h2").textContent.trim()), rowCount: rows.length }
     })
   const targetEl = () =>
     page.evaluate(() => {
@@ -778,14 +783,14 @@ async (page) => {
   const settingsBtn = () => btn('app-settings-page [data-action="restore-last"]')
   const settingsError = () =>
     page.evaluate(() => {
-      const e = document.querySelector("app-settings-page section:nth-of-type(2) app-error-message")
+      const e = document.querySelector('app-settings-page app-settings-row:has([data-action="restore-last"]) app-error-message')
       return e ? e.textContent.replace(/\s+/g, " ").trim() : null
     })
   // Ecart d'une erreur de la rangee Restauration a ce qui la precede (cible ou bouton) et au filet du
   // bas : attendus egaux au py-3 de la rangee (DESIGN.md § Feedback et chargement).
   const settingsErrorGaps = () =>
     page.evaluate(() => {
-      const row = document.querySelector("app-settings-page section:nth-of-type(2) app-settings-row")
+      const row = document.querySelector('app-settings-page app-settings-row:has([data-action="restore-last"])')
       const host = row?.querySelector(":scope > div.col-start-2 > app-error-message")
       if (!host) return null
       const r = (host.querySelector(".p-message") ?? host).getBoundingClientRect()
@@ -800,14 +805,18 @@ async (page) => {
     await clearSent()
     await gotoSettings()
     check("9 opening Settings asks for the target exactly once", (await sentNames()).filter((c) => c === "get_rollback_target").length === 1, await sentNames())
-    const geo = await rowBox()
+    // API (section affichee a l'ouverture) puis Administration : la rangee Restauration est la troisieme
+    const apiGeo = await rowBox()
+    await openSection(3)
+    const admGeo = await rowBox()
+    const geo = { api: apiGeo.rows[0], rollback: admGeo.rows[2], h2s: [...apiGeo.h2s, ...admGeo.h2s], order: [...apiGeo.order, ...admGeo.order], rowCount: apiGeo.rowCount + admGeo.rowCount }
     out.measures.settingsRows = geo
     check("8 section order: API then Administration", JSON.stringify(geo.order) === JSON.stringify(["API", "Administration"]), geo.order)
     const adm = geo.h2s.find((h) => h.text === "Administration")
     check("8 h2 Administration text-xl semibold", adm?.size === "20px" && adm.weight === "600", adm)
     const a = geo.api
     const r = geo.rollback
-    check("8 two app-settings-row: same grid (16rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 256 && a.colW === 256 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(r.controlRightGap) <= 1 && Math.abs(a.controlRightGap) <= 1, { api: a, rollback: r })
+    check("8 two app-settings-row: same grid (10rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 160 && a.colW === 160 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(r.controlRightGap) <= 1 && Math.abs(a.controlRightGap) <= 1, { api: a, rollback: r })
     check("8 API hint below the control, Restauration hint on the button line with the button at the end of the row", a?.hintBelowControl && r?.hintOnButtonLine && !r.hintBelowControl && Math.abs(r.buttonRightGap) <= 1, { api: a, rollback: r })
     // Deux phrases sur une ligne : exception a la rule ngx-translate, decidee le 2026-10-11 (DESIGN.md § Arbitrages).
     check("8 API row: label Clé API (14px), hint on one line under the field", a?.labelText === "Clé API" && a.labelSize === "14px" && a.hintBelowControl && !a.hintText.includes("\n") && a.hintText.startsWith("Enregistrée de façon sécurisée sur cet ordinateur. Elle ne s'affiche plus ensuite"), a)
@@ -831,6 +840,7 @@ async (page) => {
           saveSmall: save?.classList.contains("p-button-sm") ?? null,
         }
       })
+    await openSection(0)
     const keyStored = await keyState()
     out.measures.keyStored = keyStored
     check("8 key saved: placeholder of 24 dots, empty value, no state tag, no eye, Enregistrer small and disabled", keyStored.placeholder === "•".repeat(24) && keyStored.value === "" && !keyStored.tag && !keyStored.eye && keyStored.saveDisabled === true && keyStored.saveSmall === true, keyStored)
@@ -848,6 +858,7 @@ async (page) => {
     check("8 no key saved: the usual placeholder, still no state tag and no eye", keyMissing.placeholder === "Saisir la clé reçue" && !keyMissing.tag && !keyMissing.eye, keyMissing)
     await line({ event: "version", version: VERSION, api_key_configured: true })
     await settle(300)
+    await openSection(3)
     await shot("13-settings-undefined")
     await scanKeys("settings fr")
   })
@@ -866,7 +877,7 @@ async (page) => {
     await settle(500)
     const el1 = await targetEl()
     const emptyBelow = await page.evaluate(() => {
-      const b = document.querySelector("app-settings-page section:nth-of-type(2) app-settings-row > div.col-start-2")
+      const b = document.querySelector('app-settings-page app-settings-row:has([data-action="restore-last"]) > div.col-start-2')
       return {
         display: b ? getComputedStyle(b).display : null,
         children: b ? [...b.children].map((c) => `${c.tagName.toLowerCase()}: ${c.textContent.trim().slice(0, 80)}`) : null,
@@ -896,7 +907,7 @@ async (page) => {
     check("9 en: target line re-formatted (Oct 6, 2026 style), count and labels switch", /^Run of [A-Z][a-z]{2} \d{1,2}, 2026.* on D:\\Music\\Promo Octobre$/.test((en?.text ?? "").replace(/[\u00a0\u202f]/g, " ")) && en.count === "Tracks to restore: 87" && (await settingsBtn())?.text === "Restore the last run", en)
     check("9 date differs between FR and EN", el2?.text !== en?.text, { fr: el2?.text, en: en?.text })
     const geoEn = await rowBox()
-    check("8 en: Administration, Restore, hint", geoEn.rollback?.labelText === "Restore" && geoEn.rollback.hintText === "Restores the original name and tags of the files from the last written run." && geoEn.h2s.some((h) => h.text === "Administration"), geoEn.rollback)
+    check("8 en: Administration, Restore, hint", geoEn.rows[2]?.labelText === "Restore" && geoEn.rows[2].hintText === "Restores the original name and tags of the files from the last written run." && geoEn.h2s.some((h) => h.text === "Administration"), geoEn.rows[2])
     await scanKeys("settings en")
     await shot("16-settings-target-en")
     await useLang("fr")
@@ -918,7 +929,7 @@ async (page) => {
     const alive = await page.evaluate(() => ({ settings: !!document.querySelector("app-settings-page"), apiKey: !!document.querySelector("app-settings-page #api-key"), h2: [...document.querySelectorAll("app-settings-page h2")].map((h) => h.textContent.trim()) }))
     out.measures.invalidDate = { bad, alive, newConsole: consoleLog.slice(errorsBefore) }
     check("9 invalid written_at: raw string shown in the target line, count kept, button enabled", /^Run du pas une date sur D:\\Music\\Promo Octobre$/.test((bad?.text ?? "").replace(/[\u00a0\u202f]/g, " ")) && bad.count?.replace(/[\u00a0\u202f]/g, " ") === "Morceaux à restaurer : 87" && (await settingsBtn())?.disabled === false, { bad, btn: await settingsBtn() })
-    check("9 invalid written_at: Settings page still rendered (API key section, both h2) and no console error", alive.settings && alive.apiKey && alive.h2.length === 2 && consoleLog.slice(errorsBefore).length === 0, out.measures.invalidDate)
+    check("9 invalid written_at: Settings page still rendered (Administration section only) and no console error", alive.settings && !alive.apiKey && alive.h2.join() === "Administration" && consoleLog.slice(errorsBefore).length === 0, out.measures.invalidDate)
     await shot("17b-settings-invalid-date")
     await line({ event: "rollback_target", run: TARGET })
     await settle(300)
@@ -1071,6 +1082,9 @@ async (page) => {
       // Etat « lancement pas encore repondu » : le shell n'affiche pas l'ecran bloquant (il ne le fait que sur `false`).
       svc._available.set(null)
       await wait(600)
+      // Une section a la fois : la rangee Restauration est dans Administration (quatrieme entree du menu)
+      document.querySelectorAll("app-settings-page p-menu .p-menu-item-content")[3].click()
+      await wait(400)
       log.whileNull = snap()
       log.sentWhileNull = [...sent]
       svc._available.set(true)

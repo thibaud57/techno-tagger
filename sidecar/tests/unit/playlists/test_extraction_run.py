@@ -1,10 +1,10 @@
 from pathlib import Path
 
 import pytest
-from stubs import raising
+from fs_listing import names
+from stubs import failing_first, raising
 
 from tagger.core.file_failures import FileFailureReason
-from tagger.playlists import extraction
 from tagger.playlists.extraction import (
     DestinationFolderUnwritableError,
     ExtractionFailure,
@@ -65,7 +65,7 @@ def test_finds_a_track_whatever_the_case_used(music_library: Path, tmp_path: Pat
     result = extract(["delta.MP3"], music_library, destination)
 
     assert result.extracted == ("delta.MP3",)
-    assert len(list(destination.iterdir())) == 1
+    assert len(names(destination)) == 1
 
 
 @pytest.mark.parametrize("mode", list(ExtractionMode), ids=str)
@@ -158,14 +158,7 @@ def test_records_a_failed_copy_and_carries_on(
 def test_a_failed_copy_does_not_stop_the_following_tracks(
     music_library: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    calls: list[Path] = []
-
-    def refuse_first(self: Path, target: Path) -> None:
-        calls.append(self)
-        if len(calls) == 1:
-            raise OSError(28, "No space left on device")
-
-    monkeypatch.setattr(Path, "copy", refuse_first)
+    monkeypatch.setattr(Path, "copy", failing_first(Path.copy, OSError(28, "No space left")))
 
     result = extract(["alpha.mp3", "delta.mp3"], music_library, tmp_path / "work")
 
@@ -174,15 +167,17 @@ def test_a_failed_copy_does_not_stop_the_following_tracks(
 
 
 def test_records_a_homonym_vanished_since_indexing_and_carries_on(
-    music_library: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    music_library: Path, tmp_path: Path
 ) -> None:
-    stale_index = {
-        "beta.mp3": (music_library / "singles" / "beta.mp3", music_library / "gone" / "beta.mp3"),
-        "alpha.mp3": (music_library / "albums" / "alpha.mp3",),
-    }
-    monkeypatch.setattr(extraction, "build_source_index", lambda source, excluded: stale_index)
+    """L'index est un instantane : le fichier disparait apres le premier morceau."""
+    vanished = music_library / "singles" / "beta.mp3"
 
-    result = extract(["beta.mp3", "alpha.mp3"], music_library, tmp_path / "work")
+    result = extract(
+        ["alpha.mp3", "beta.mp3"],
+        music_library,
+        tmp_path / "work",
+        on_progress=lambda _processed, _total: vanished.unlink(missing_ok=True),
+    )
 
     assert result.failures == (ExtractionFailure("beta.mp3", FileFailureReason.FILE_MISSING),)
     assert result.extracted == ("alpha.mp3",)

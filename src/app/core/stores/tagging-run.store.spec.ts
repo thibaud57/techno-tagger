@@ -1,12 +1,15 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
+import { silenceConsoleError } from "../../../fixtures/console"
 import {
+  RUN_ID,
   RUN_STARTED,
+  SOURCE_URL,
   TAGS_AFTER,
   TAGS_BEFORE,
-  TRACK_RESOLVED,
   arbitrationRequired,
+  trackResolved,
 } from "../../../fixtures/tagging"
 import { NETWORK_FINISHED, rollbackFinished } from "../../../fixtures/write"
 import { ArbitrationRequiredEvent, RunFinishedEvent } from "../sidecar/protocol"
@@ -23,6 +26,12 @@ const FINISHED: RunFinishedEvent = { ...NETWORK_FINISHED, awaiting_arbitration: 
 describe("TaggingRunStore", () => {
   let store: TaggingRunStore
 
+  /** Un run lance, ses deux morceaux listes et pas encore resolus. */
+  const startRun = (): void => {
+    store.reset()
+    store.started(RUN_STARTED)
+  }
+
   beforeEach(() => {
     store = TestBed.inject(TaggingRunStore)
   })
@@ -32,20 +41,17 @@ describe("TaggingRunStore", () => {
   })
 
   it("lists every track of a started run in order", () => {
-    store.reset()
-
-    store.started(RUN_STARTED)
+    startRun()
 
     expect(store.tracks().map((track) => track.trackId)).toEqual(["a.mp3", "b.mp3"])
     expect(store.tracks()[0]?.state).toBeNull()
-    expect(store.runId()).toBe("a3f9c1")
+    expect(store.runId()).toBe(RUN_ID)
   })
 
   it("updates a track with its state, source, names, scores and artwork", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+    startRun()
 
-    store.resolved(TRACK_RESOLVED)
+    store.resolved(trackResolved("a.mp3"))
 
     const track = store.tracks()[0]
     expect(track?.state).toBe("resolved")
@@ -56,54 +62,62 @@ describe("TaggingRunStore", () => {
   })
 
   it("keeps the source page of a resolved track", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+    startRun()
 
-    store.resolved({
-      ...TRACK_RESOLVED,
-      source_url: "https://www.beatport.com/track/your-mind/99000101",
-    })
+    store.resolved(trackResolved("a.mp3", { source_url: SOURCE_URL }))
 
-    expect(store.tracks()[0]?.sourceUrl).toBe("https://www.beatport.com/track/your-mind/99000101")
+    expect(store.tracks()[0]?.sourceUrl).toBe(SOURCE_URL)
   })
 
-  it("exposes the tags before from the start and the tags after once resolved", () => {
-    store.reset()
-    store.started({
-      ...RUN_STARTED,
-      tracks: [
-        {
-          track_id: "a.mp3",
-          file_name: "a.mp3",
-          artist: "Adam Beyer",
-          title: "Your Mind",
-          tags_before: TAGS_BEFORE,
-        },
-      ],
+  describe("tags", () => {
+    const startWithTagsBefore = (): void => {
+      store.reset()
+      store.started({
+        ...RUN_STARTED,
+        tracks: [
+          {
+            track_id: "a.mp3",
+            file_name: "a.mp3",
+            artist: "Adam Beyer",
+            title: "Your Mind",
+            tags_before: TAGS_BEFORE,
+          },
+        ],
+      })
+    }
+
+    it("exposes the tags before from the start of the run", () => {
+      startWithTagsBefore()
+
+      expect(store.tracks()[0]?.tagsBefore).toEqual(TAGS_BEFORE)
+      expect(store.tracks()[0]?.tagsAfter).toBeNull()
     })
-    const started = store.tracks()[0]
 
-    store.resolved({ ...TRACK_RESOLVED, tags_after: TAGS_AFTER })
+    it("exposes the tags after once the track is resolved", () => {
+      startWithTagsBefore()
 
-    expect(started?.tagsBefore).toEqual(TAGS_BEFORE)
-    expect(started?.tagsAfter).toBeNull()
-    expect(store.tracks()[0]?.tagsAfter).toEqual(TAGS_AFTER)
+      store.resolved(trackResolved("a.mp3", { tags_after: TAGS_AFTER }))
+
+      expect(store.tracks()[0]?.tagsAfter).toEqual(TAGS_AFTER)
+    })
   })
 
-  it("keeps the folder of the run from its start and forgets it on reset", () => {
-    store.reset()
-    store.started(RUN_STARTED)
-    const started = store.folder()
+  it("keeps the folder of the run from its start", () => {
+    startRun()
+
+    expect(store.folder()).toBe("C:/Sets")
+  })
+
+  it("forgets the folder on reset", () => {
+    startRun()
 
     store.reset()
 
-    expect(started).toBe("C:/Sets")
     expect(store.folder()).toBeNull()
   })
 
   it("marks a track as awaiting arbitration", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+    startRun()
 
     store.awaiting(AWAITING)
 
@@ -113,8 +127,7 @@ describe("TaggingRunStore", () => {
   })
 
   it("exposes the counters of a finished network phase", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+    startRun()
 
     store.completed(FINISHED)
 
@@ -123,8 +136,7 @@ describe("TaggingRunStore", () => {
   })
 
   it("clears the previous run when a new one starts", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+    startRun()
     store.completed(FINISHED)
 
     store.reset()
@@ -136,8 +148,7 @@ describe("TaggingRunStore", () => {
   })
 
   it("keeps the progress of the run", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+    startRun()
 
     store.advanced(1, 2)
 
@@ -145,8 +156,7 @@ describe("TaggingRunStore", () => {
   })
 
   it("stops the run on failure", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+    startRun()
 
     store.failed()
 
@@ -196,15 +206,20 @@ describe("TaggingRunStore", () => {
     expect(store.interrupted()).toBe(expected)
   })
 
-  it("loses a started run with its engine until a new run starts", () => {
-    store.reset()
-    store.started(RUN_STARTED)
+  it("loses a started run with its engine", () => {
+    startRun()
 
     store.engineLost()
-    const lost = store.lost()
+
+    expect(store.lost()).toBe(true)
+  })
+
+  it("is no longer lost once a new run starts", () => {
+    startRun()
+    store.engineLost()
+
     store.reset()
 
-    expect(lost).toBe(true)
     expect(store.lost()).toBe(false)
   })
 
@@ -215,9 +230,8 @@ describe("TaggingRunStore", () => {
   })
 
   it("rolls back a written row from the summary alone, as a rolled back resolution would", () => {
-    store.reset()
-    store.started(RUN_STARTED)
-    store.resolved({ ...TRACK_RESOLVED, state: "written", tags_after: TAGS_AFTER })
+    startRun()
+    store.resolved(trackResolved("a.mp3", { state: "written", tags_after: TAGS_AFTER }))
 
     store.restored(rollbackFinished())
 
@@ -234,10 +248,9 @@ describe("TaggingRunStore", () => {
   })
 
   it("rolls back only the restored rows", () => {
-    store.reset()
-    store.started(RUN_STARTED)
-    store.resolved({ ...TRACK_RESOLVED, state: "written" })
-    store.resolved({ ...TRACK_RESOLVED, track_id: "b.mp3", state: "write_error" })
+    startRun()
+    store.resolved(trackResolved("a.mp3", { state: "written" }))
+    store.resolved(trackResolved("b.mp3", { state: "write_error" }))
 
     store.restored({ ...rollbackFinished(), restored: ["b.mp3"] })
 
@@ -245,9 +258,8 @@ describe("TaggingRunStore", () => {
   })
 
   it("leaves a row already rolled back untouched", () => {
-    store.reset()
-    store.started(RUN_STARTED)
-    store.resolved({ ...TRACK_RESOLVED, state: "rolled_back", source: null, after: null })
+    startRun()
+    store.resolved(trackResolved("a.mp3", { state: "rolled_back", source: null, after: null }))
     const rolledBack = store.tracks()[0]
 
     store.restored(rollbackFinished())
@@ -256,9 +268,8 @@ describe("TaggingRunStore", () => {
   })
 
   it("ignores the summary of another run", () => {
-    store.reset()
-    store.started(RUN_STARTED)
-    store.resolved({ ...TRACK_RESOLVED, state: "written" })
+    startRun()
+    store.resolved(trackResolved("a.mp3", { state: "written" }))
 
     store.restored({ ...rollbackFinished(), run_id: "ffffff" })
 
@@ -266,11 +277,10 @@ describe("TaggingRunStore", () => {
   })
 
   it("ignores a track the run does not know", () => {
-    store.reset()
-    store.started(RUN_STARTED)
-    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    startRun()
+    const spy = silenceConsoleError()
 
-    store.resolved({ ...TRACK_RESOLVED, track_id: "ghost.mp3" })
+    store.resolved(trackResolved("ghost.mp3"))
 
     expect(store.tracks().every((track) => track.state === null)).toBe(true)
     expect(spy).toHaveBeenCalled()

@@ -4,18 +4,12 @@ import { extractionReasonKeys, type ReasonKeys } from "../../shared/utils/reason
 export type ExtractionCategory =
   "extracted" | "already_present" | "missing" | "duplicate" | "failure"
 
-/**
- * Une ligne de la table du rapport.
- *
- * `detailKey` et `detailParams` plutot qu'une phrase : le sidecar n'emet jamais
- * de texte destine a l'utilisateur, et cette fonction ne doit pas en fabriquer.
- * Le composant traduit.
- */
+/** `detailKey` et `detailParams` plutot qu'une phrase : le sidecar n'emet aucun texte utilisateur, le composant traduit. */
 export interface ExtractionRow {
   readonly fileName: string
   readonly category: ExtractionCategory
   readonly detailKey: string | null
-  /** Parametres d'interpolation de `detailKey`, tailles deja mises en forme. */
+  /** Tailles deja formatees. */
   readonly detailParams: Record<string, string | number> | null
   /** Motif ou critere a part : une valeur d'enum du sidecar ne se traduit pas en parametre d'interpolation. */
   readonly reason: ReasonKeys | null
@@ -34,12 +28,9 @@ const plain = (fileName: string, category: ExtractionCategory): ExtractionRow =>
 export type FormatSize = (bytes: number) => string
 
 /**
- * Ce qui demande un geste ouvre la liste, echecs puis introuvables puis doublons :
- * un rapport de 300 morceaux se lit par le haut, et ce qui est passe tout seul
- * n'attend rien de l'utilisateur. Aucun tri a l'interieur d'une categorie, deux
- * appels sur le meme resultat rendent donc la meme liste. La mise en forme des
- * tailles arrive en parametre, parce qu'elle depend d'une langue que cette
- * fonction ignore.
+ * Ce qui demande un geste ouvre la liste (echecs, introuvables, doublons) : un rapport de
+ * 300 morceaux se lit par le haut. Aucun tri dans une categorie, l'ordre du sidecar est
+ * conserve. `formatSize` vient de l'appelant, seul a connaitre la langue.
  */
 export const toExtractionRows = (
   result: ExtractionFinishedEvent,

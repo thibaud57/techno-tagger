@@ -19,7 +19,7 @@ paths:
 - `pytest.raises(MonErreur, match=...)`, et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
 - Mettre les fixtures partagées dans `conftest.py`, avec teardown après `yield`, et réserver `autouse=True` au setup transverse
 - Capturer les logs par `caplog` et les flux standard par `capsys` (`capfd` pour un sous-process) plutôt que de rediriger `sys.stdout` à la main
-- Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin. `conftest.py` ne garde que les fixtures
+- Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin, et un double unitaire (HTTP, audio, enregistrements) n'importe jamais le harnais de run (`tagging_api`). `conftest.py` ne garde que les fixtures
 
 ## À éviter
 - Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer

@@ -5,7 +5,7 @@ import { FADE_IN } from "../../utils/motion"
 
 import { IconComponent } from "./icon.component"
 
-/** Pochette en trois états, jamais deux : image, squelette, cadre neutre (DESIGN.md § Mapping Composants). */
+/** Pochette en trois etats, jamais deux : image, squelette, cadre neutre (DESIGN.md § Mapping Composants). */
 @Component({
   selector: "app-artwork",
   imports: [Skeleton, IconComponent],
@@ -45,7 +45,7 @@ export class ArtworkComponent {
   readonly url = input.required<string | null>()
   /** Le morceau attend son tour : sa pochette peut encore arriver. */
   readonly pending = input.required<boolean>()
-  /** Pochette du détail (168px, la largeur de « Restaurer ce morceau » sous elle) plutôt que vignette de la liste (32px). */
+  /** Pochette du detail (168px, la largeur de « Restaurer ce morceau » sous elle) plutot que vignette de la liste (32px). */
   readonly large = input(false)
 
   protected readonly px = computed(() => (this.large() ? 168 : 32))

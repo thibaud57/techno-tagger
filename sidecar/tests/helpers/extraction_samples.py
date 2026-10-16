@@ -7,6 +7,8 @@ rendu, jamais la construction de l'echantillon.
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final
 
+from vlc_dump import PLAYLIST_MAIN, TRACKS
+
 from tagger.core.file_failures import FileFailureReason
 from tagger.playlists.extraction import (
     DiscardedCandidate,
@@ -25,7 +27,7 @@ if TYPE_CHECKING:
 GENERATED_AT: Final = datetime(2026, 9, 8, 22, 15, 0, tzinfo=UTC)
 EXPECTED_STAMP: Final = "20260908T221500Z"
 
-CYRILLIC_TRACK: Final = "Artist Two - Дорога.mp3"
+CYRILLIC_TRACK: Final = TRACKS[3]
 
 
 def sample_result(library: Path) -> ExtractionResult:
@@ -53,7 +55,7 @@ def sample_context(library: Path, destination: Path) -> ReportContext:
         source_folder=library,
         destination_folder=destination,
         playlist_path=library / "vlc_media.db",
-        playlist_name="test playlist",
+        playlist_name=PLAYLIST_MAIN,
         mode=ExtractionMode.COPY,
         generated_at=GENERATED_AT,
     )

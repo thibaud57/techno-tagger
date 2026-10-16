@@ -1,12 +1,11 @@
 import json
-from dataclasses import replace
 from datetime import date
 from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
 from scraper_responses import track_candidate
-from tagging_records import RECORD, scored_candidate
+from tagging_records import RECORD, awaiting, scored_candidate
 
 from tagger.protocol import (
     ArbitrationRequired,
@@ -16,15 +15,11 @@ from tagger.protocol import (
 )
 from tagger.resolution.scraper_client import Credit, ReleaseInfo, Source
 from tagger.run import arbitration, models
-from tagger.run.models import FailureReason, PendingArbitration, SourceList, TrackRecord
+from tagger.run.models import FailureReason, PendingArbitration, SourceList
 from tagger.translation import to_protocol_event
 
 if TYPE_CHECKING:
     from tagger.resolution.scraper_client import TrackCandidate
-
-
-def _awaiting(pending: PendingArbitration) -> TrackRecord:
-    return replace(RECORD, arbitration=pending)
 
 
 def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> None:
@@ -36,7 +31,7 @@ def test_translates_an_update_with_the_other_source_and_the_empty_reason() -> No
         other=SourceList(Source.BEATPORT, (scored_candidate(),)),
     )
 
-    event = to_protocol_event(arbitration.ArbitrationUpdated(_awaiting(pending)))
+    event = to_protocol_event(arbitration.ArbitrationUpdated(awaiting(RECORD, pending)))
 
     assert isinstance(event, ArbitrationUpdated)
     assert (event.source, event.candidates, event.empty_reason, event.other_source) == (
@@ -70,7 +65,7 @@ def test_translates_the_label_and_the_release_year(
         Source.BEATPORT, (scored_candidate(candidate=candidate),), beatport_unavailable=False
     )
 
-    event = to_protocol_event(models.ArbitrationRequired(_awaiting(pending)))
+    event = to_protocol_event(models.ArbitrationRequired(awaiting(RECORD, pending)))
 
     assert isinstance(event, ArbitrationRequired)
     assert (event.candidates[0].label, event.candidates[0].year) == expected

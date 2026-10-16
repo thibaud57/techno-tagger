@@ -4,7 +4,12 @@
 //   node cdp.mjs --key <touche>              vraie touche clavier (Escape, Enter, ArrowDown...)
 //   node cdp.mjs --screenshot <sortie.png>   capture de la fenetre
 //   node cdp.mjs --click <x> <y>             vrai clic souris, coordonnees CSS de la page
-//   node cdp.mjs --move <x> <y>              survol seul, sans clic
+//   node cdp.mjs --move <x> <y>              survol seul, sans clic (suit une souris pressee : glisser)
+//   node cdp.mjs --press <x> <y>             bouton enfonce, sans relachement (debut d'un glisser)
+//   node cdp.mjs --release <x> <y>           bouton relache (fin d'un glisser)
+//   node cdp.mjs --drag <x1> <y1> <x2> <y2> glisser complet en une connexion (huit pas), a prendre pour sortir de la piste
+//   node cdp.mjs --type <texte>              texte insere dans l'element qui a le focus (Input.insertText)
+//   node cdp.mjs --viewport <w> <h> <...>    l'appel qui suit, a cette taille de fenetre
 // Le script recoit ses arguments dans `__args`, et le prealable `page/preamble.js` devant lui
 // (`wait`, `until`, `__sidecarService()`).
 //
@@ -18,11 +23,19 @@ const fail = (message) => {
   process.exit(1)
 }
 
-const [scriptPath, ...args] = process.argv.slice(2)
+// `--viewport <w> <h>` en tete : la mesure suivante se fait a cette taille. L'override de CDP
+// ne vit que le temps de la connexion, d'ou son application dans le meme appel.
+let viewport = null
+let argv = process.argv.slice(2)
+if (argv[0] === "--viewport") {
+  viewport = { width: Number(argv[1]), height: Number(argv[2]) }
+  argv = argv.slice(3)
+}
+const [scriptPath, ...args] = argv
 if (!scriptPath) {
   fail(
     "usage : node cdp.mjs <script-de-page.js> [argument ...] | --key <touche> | " +
-      "--screenshot <sortie.png> | --click <x> <y> | --move <x> <y>",
+      "--screenshot <sortie.png> | --click <x> <y> | --move <x> <y> | --press <x> <y> | --release <x> <y> | --type <texte>",
   )
 }
 
@@ -32,6 +45,10 @@ const KEYS = {
   Escape: { code: "Escape", windowsVirtualKeyCode: 27 },
   Enter: { code: "Enter", windowsVirtualKeyCode: 13 },
   Tab: { code: "Tab", windowsVirtualKeyCode: 9 },
+  Backspace: { code: "Backspace", windowsVirtualKeyCode: 8 },
+  Delete: { code: "Delete", windowsVirtualKeyCode: 46 },
+  Home: { code: "Home", windowsVirtualKeyCode: 36 },
+  End: { code: "End", windowsVirtualKeyCode: 35 },
   ArrowDown: { code: "ArrowDown", windowsVirtualKeyCode: 40 },
   ArrowUp: { code: "ArrowUp", windowsVirtualKeyCode: 38 },
   ArrowLeft: { code: "ArrowLeft", windowsVirtualKeyCode: 37 },
@@ -123,6 +140,18 @@ const check = (response) => {
   return response.result
 }
 
+if (viewport) {
+  check(
+    await call("Emulation.setDeviceMetricsOverride", {
+      ...viewport,
+      deviceScaleFactor: 0,
+      mobile: false,
+    }),
+  )
+  // Laisse la page se remettre en page a la nouvelle taille avant la mesure
+  await new Promise((resolve) => setTimeout(resolve, 600))
+}
+
 if (scriptPath === "--key") {
   const [key] = args
   const known = KEYS[key]
@@ -148,6 +177,55 @@ if (scriptPath === "--click" || scriptPath === "--move") {
   }
   socket.close()
   console.log(JSON.stringify({ success: true, [scriptPath.slice(2)]: [x, y] }))
+  process.exit(0)
+}
+
+// Un glisser tient en trois appels (`--press`, `--move`, `--release`) : l'etat du curseur vit dans la
+// page, ce qui laisse lire l'etat entre deux gestes.
+if (scriptPath === "--press" || scriptPath === "--release") {
+  const [x, y] = args.map(Number)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) fail(`usage : node cdp.mjs ${scriptPath} <x> <y>`)
+  const pressed = scriptPath === "--press"
+  check(await call("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, buttons: pressed ? 0 : 1 }))
+  check(
+    await call("Input.dispatchMouseEvent", {
+      type: pressed ? "mousePressed" : "mouseReleased",
+      x,
+      y,
+      button: "left",
+      buttons: pressed ? 1 : 0,
+      clickCount: 1,
+    }),
+  )
+  socket.close()
+  console.log(JSON.stringify({ success: true, [scriptPath.slice(2)]: [x, y] }))
+  process.exit(0)
+}
+
+// Un glisser qui finit hors de l'element se joue en une seule connexion : separe en trois appels,
+// le relachement hors de la piste n'arrive pas au curseur, qui reste « tenu » (relevé le 2026-10-15)
+if (scriptPath === "--drag") {
+  const [x1, y1, x2, y2] = args.map(Number)
+  if (![x1, y1, x2, y2].every(Number.isFinite)) fail("usage : node cdp.mjs --drag <x1> <y1> <x2> <y2>")
+  check(await call("Input.dispatchMouseEvent", { type: "mouseMoved", x: x1, y: y1 }))
+  check(await call("Input.dispatchMouseEvent", { type: "mousePressed", x: x1, y: y1, button: "left", buttons: 1, clickCount: 1 }))
+  for (let step = 1; step <= 8; step += 1) {
+    const x = Math.round(x1 + ((x2 - x1) * step) / 8)
+    const y = Math.round(y1 + ((y2 - y1) * step) / 8)
+    check(await call("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 }))
+  }
+  check(await call("Input.dispatchMouseEvent", { type: "mouseReleased", x: x2, y: y2, button: "left", buttons: 0, clickCount: 1 }))
+  socket.close()
+  console.log(JSON.stringify({ success: true, drag: [x1, y1, x2, y2] }))
+  process.exit(0)
+}
+
+if (scriptPath === "--type") {
+  const [text] = args
+  if (text === undefined) fail("texte manquant : node cdp.mjs --type <texte>")
+  check(await call("Input.insertText", { text }))
+  socket.close()
+  console.log(JSON.stringify({ success: true, typed: text }))
   process.exit(0)
 }
 

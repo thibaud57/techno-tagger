@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 # Mots qui rendent un groupe intouchable au nettoyage. Deux familles distinctes : une
 # version se compare a celle du candidat, une collaboration fait partie du titre.
-# Bornes, suffixes et liste : spec 03 § Garde de version et de collaboration.
+# Bornes, suffixes et liste : § Garde de version et de collaboration du meme spec.
 # Jumeau cote techno-scraper (`shared/normalize/`, ADR-012 de techno-scraper), qui nettoie
 # la sortie des sources la ou ce module nettoie la requete : une correction sur une brique
 # commune se reporte de l'autre cote, les politiques restent distinctes.
@@ -117,10 +117,10 @@ class MatchingThresholds:
 
 
 def check_thresholds(floor: float, ceiling: float) -> None:
-    """Bornes des seuils, verifiees ici et nulle part ailleurs.
+    """Bornes des seuils, verifiees ici seulement.
 
-    La commande `start_tagging` appelle la meme fonction sur sa charge, de facon a
-    refuser des seuils incoherents a la validation plutot qu'en plein run.
+    Les modeles de charge et de plan l'appellent pour refuser des seuils incoherents
+    a la validation plutot qu'en plein run.
     """
     if not 0 <= floor <= ceiling <= _MAX_SCORE:
         raise ValueError(f"inconsistent thresholds: floor={floor} ceiling={ceiling}")
@@ -186,9 +186,7 @@ class Classification:
 
 
 def build_query(artist: str, title: str, file_name: str) -> TrackQuery | None:
-    """Requete du morceau, ou `None` quand rien n'est exploitable (`empty_query`, cf.
-    ARCHITECTURE.md § Requete vide apres nettoyage).
-    """
+    """Requete du morceau, ou `None` quand rien n'est exploitable (`empty_query`)."""
     return _from_tags(artist, title) or _from_file_name(file_name)
 
 
@@ -286,10 +284,8 @@ def classify(
 
 
 def _prepare(query: TrackQuery) -> _AskedFor:
-    """Ce que la requete demande, derive une fois par morceau et non par candidat.
-
-    Titre nu, version et invite se separent ici, sur le tag local que techno-scraper ne voit
-    jamais : le candidat arrive deja sous cette forme.
+    """Titre nu, version et invite se separent ici, sur le tag local que techno-scraper ne
+    voit jamais : le candidat arrive deja sous cette forme.
     """
     bare, version = _split_version(_clean(query.title))
     title = _SPACES.sub(" ", _FEATURING.sub(" ", bare)).strip(_EDGE_NOISE + "([")
@@ -327,7 +323,7 @@ def _split_version(title: str) -> _Parts:
 
 
 def _score(asked: _AskedFor, candidate: TrackCandidate, offered: _Parts) -> ScoredCandidate:
-    """Score un candidat : titre et version separement, jamais concatenes."""
+    """Titre et version se comparent separement, jamais concatenes."""
     title_score = fuzz.ratio(asked.title, offered.title, processor=utils.default_process)
     mismatch = not _versions_agree(asked.version, offered.version)
     renumbered = asked.numbers != _numbers(offered.title)
@@ -349,9 +345,7 @@ def _numbers(title: str) -> tuple[int, ...]:
 
 
 def _versions_agree(asked: str, offered: str) -> bool:
-    """Deux morceaux portent-ils la meme version ?
-
-    « Original Mix » vaut absence de version, un tag l'omettant presque toujours : une
+    """« Original Mix » vaut absence de version, un tag l'omettant presque toujours : une
     requete muette s'accorde donc avec un original, jamais avec un Extended.
     """
     left, right = _normalise_version(asked), _normalise_version(offered)

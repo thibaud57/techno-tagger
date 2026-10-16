@@ -1,21 +1,26 @@
 import asyncio
-import json
-import logging
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, NoReturn
+from typing import TYPE_CHECKING, Final
 
-import keyring
 import pytest
-from memory_keyring import MemoryKeyring, RefusingKeyring
-from ndjson_loop import EXPECT_TIMEOUT, drive, drive_raw, extraction_command, start_tagging
+from ndjson_loop import (
+    EXPECT_TIMEOUT,
+    LEAVING,
+    conversation,
+    drive,
+    line,
+    line_of,
+    start_tagging,
+)
 
 from tagger import __main__ as main
 from tagger import handlers
-from tagger.reports.extraction import ReportWriteError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from ndjson_loop import Conversation
 
     from tagger.handlers import CurrentRun
     from tagger.protocol import Event, ExtractPlaylist, StartTagging
@@ -24,112 +29,44 @@ if TYPE_CHECKING:
 STOP_DELAY: Final = 0.2
 
 
-def extract_command(
-    library: Path, dump: Path, destination: Path, playlist_name: str = "test playlist"
-) -> str:
-    """Ligne `extract_playlist` prete a injecter."""
-    return json.dumps(extraction_command(library, dump, destination, playlist_name)) + "\n"
-
-
-def _list_playlists(playlist_path: Path) -> str:
-    return json.dumps({"command": "list_playlists", "playlist_path": str(playlist_path)}) + "\n"
-
-
 def test_answers_a_version_request() -> None:
-    events = drive('{"command":"get_version"}\n')
+    events = drive(line("get_version"))
 
     assert events[0]["event"] == "version"
     assert "api_key_configured" in events[0]
 
 
-def test_lists_the_playlists_of_a_dump(vlc_dump: Path) -> None:
-    events = drive(_list_playlists(vlc_dump))
-
-    assert events[0]["event"] == "playlists_listed"
-    assert events[0]["playlists"]
-
-
-def test_a_listed_dump_carries_its_format_and_its_identifiers(vlc_dump: Path) -> None:
-    events = drive(_list_playlists(vlc_dump))
-
-    playlists = events[0]["playlists"]
-    assert events[0]["playlist_format"] == "vlc_dump"
-    assert isinstance(playlists, list)
-    assert {entry["playlist_id"] for entry in playlists} == {1, 2}
-
-
-def test_runs_a_full_extraction(vlc_dump: Path, music_library: Path, tmp_path: Path) -> None:
-    events = drive(extract_command(music_library, vlc_dump, tmp_path / "work"))
-
-    assert [event["event"] for event in events][-1] == "extraction_finished"
-    assert any(event["event"] == "progress" for event in events)
-
-
-def test_the_announced_report_exists(vlc_dump: Path, music_library: Path, tmp_path: Path) -> None:
-    events = drive(extract_command(music_library, vlc_dump, tmp_path / "work"))
-
-    finished = events[-1]
-    assert Path(str(finished["report_path"])).is_file()
-
-
 @pytest.mark.parametrize(
     "rejected",
     [
-        '{"command":"list_playlists","playlist_path":"C:/x","extra":1}',
-        "pas du json",
-        '{"command":"unheard_of"}',
+        line("list_playlists", playlist_path="C:/x", extra=1),
+        "pas du json\n",
+        line("unheard_of"),
     ],
-    ids=["undeclared_field", "not_json", "unknown_command"],
+    ids=["undeclared-field", "not-json", "unknown-command"],
 )
 def test_a_rejected_line_does_not_stop_the_loop(rejected: str) -> None:
-    events = drive(rejected + '\n{"command":"get_version"}\n')
+    events = drive(rejected + line("get_version"))
 
     assert events[0]["event"] == "error"
     assert events[0]["code"] == "malformed_command"
     assert events[1]["event"] == "version"
 
 
-def test_a_malformed_extraction_touches_no_file(
-    vlc_dump: Path, music_library: Path, tmp_path: Path
-) -> None:
+def test_a_malformed_extraction_touches_no_file(extraction: dict[str, object]) -> None:
     """La validation precede l'execution : le handler n'est jamais atteint, donc meme
     le dossier destination reste a creer.
     """
-    destination = tmp_path / "work"
-    command = extraction_command(music_library, vlc_dump, destination)
-
-    events = drive(json.dumps({**command, "extra": 1}) + "\n")
+    events = drive(line_of({**extraction, "extra": 1}))
 
     assert events[0]["code"] == "malformed_command"
-    assert not destination.exists()
-
-
-def test_an_unknown_command_is_named_in_its_error() -> None:
-    events = drive('{"command":"unheard_of"}\n')
-
-    params = events[0]["params"]
-    assert isinstance(params, dict)
-    assert params["command"] == "unheard_of"
+    assert not Path(str(extraction["destination_folder"])).exists()
 
 
 def test_an_empty_line_produces_nothing() -> None:
-    events = drive('\n{"command":"get_version"}\n')
+    events = drive("\n" + line("get_version"))
 
     assert len(events) == 1
-
-
-def test_a_business_error_becomes_an_error_event(
-    vlc_dump: Path, music_library: Path, tmp_path: Path
-) -> None:
-    unknown_playlist = extract_command(
-        music_library, vlc_dump, tmp_path / "work", "aucune playlist de ce nom"
-    )
-
-    events = drive(unknown_playlist)
-
-    assert [(event["code"], event["command"]) for event in events] == [
-        ("playlist_not_found", "extract_playlist")
-    ]
 
 
 @pytest.fixture
@@ -157,16 +94,14 @@ def extraction_waits_for_version(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("extraction_waits_for_version")
 def test_answers_a_version_request_while_an_extraction_is_in_progress(
-    vlc_dump: Path, music_library: Path, tmp_path: Path
+    extraction: dict[str, object],
 ) -> None:
     """La copie ne gele pas la lecture de stdin : une commande courte passe devant.
 
     Sans cela, fermer la fenetre pendant l'extraction d'une grosse bibliotheque
     laissait le `shutdown` dans le pipe jusqu'a la fin des transferts.
     """
-    extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
-
-    events = drive(extraction + '{"command":"get_version"}\n')
+    events = drive(line_of(extraction) + line("get_version"))
 
     names = [event["event"] for event in events]
     assert names.index("version") < names.index("extraction_finished")
@@ -174,14 +109,12 @@ def test_answers_a_version_request_while_an_extraction_is_in_progress(
 
 @pytest.mark.usefixtures("extraction_waits_for_version")
 def test_refuses_a_second_extraction_while_one_is_in_progress(
-    vlc_dump: Path, music_library: Path, tmp_path: Path
+    extraction: dict[str, object],
 ) -> None:
     """Regression : sans extraction retenue, la premiere finissait parfois avant la
     lecture de la seconde et rien n'etait refuse.
     """
-    extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
-
-    events = drive(extraction * 2 + '{"command":"get_version"}\n')
+    events = drive(line_of(extraction) * 2 + line("get_version"))
 
     refusals = [event for event in events if event["event"] == "error"]
     assert [(event["code"], event["params"]) for event in refusals] == [
@@ -213,9 +146,7 @@ def tagging_slow_to_stop(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("tagging_slow_to_stop")
 def test_a_cancelled_run_leaves_the_loop_alive(tmp_path: Path) -> None:
     """`CancelledError` termine la tache sans remonter au TaskGroup, qui l'ignore."""
-    events = drive(
-        start_tagging(tmp_path) + '{"command":"cancel_run"}\n{"command":"get_version"}\n'
-    )
+    events = drive(start_tagging(tmp_path) + line("cancel_run") + line("get_version"))
 
     assert [event["event"] for event in events] == ["version"]
 
@@ -225,105 +156,31 @@ def test_a_run_started_right_after_a_cancellation_is_not_refused(tmp_path: Path)
     """Regression : le run annule mourait encore quand la relance arrivait, qui repartait
     en `phase_busy` du run, code que l'interface lit comme un run qui continue.
     """
-    commands = start_tagging(tmp_path) + '{"command":"cancel_run"}\n' + start_tagging(tmp_path)
+    commands = start_tagging(tmp_path) + line("cancel_run") + start_tagging(tmp_path)
 
-    events = drive(commands + '{"command":"shutdown"}\n')
+    events = drive(commands + line("shutdown"))
 
     assert [event for event in events if event["event"] == "error"] == []
 
 
-def test_waits_for_an_extraction_before_leaving_on_shutdown(
-    vlc_dump: Path, music_library: Path, tmp_path: Path
-) -> None:
+def test_waits_for_an_extraction_before_leaving_on_shutdown(extraction: dict[str, object]) -> None:
     """`shutdown` annule un run de re-tagging mais attend une extraction.
 
     Le run ne tient que du reseau et de la memoire ; une copie coupee en vol
     laisserait un fichier a moitie ecrit dans la destination de l'utilisateur.
     """
-    extraction = extract_command(music_library, vlc_dump, tmp_path / "work")
-
-    events = drive(extraction + '{"command":"shutdown"}\n')
+    events = drive(line_of(extraction) + line("shutdown"))
 
     assert [event["event"] for event in events].count("extraction_finished") == 1
 
 
-def test_a_failed_report_write_becomes_an_error_event_without_extraction_finished(
-    vlc_dump: Path, music_library: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@LEAVING
+@pytest.mark.asyncio
+async def test_the_loop_ends_without_answering_anything_further(
+    leave: Callable[[Conversation], None],
 ) -> None:
-    def refuse(*_args: object, **_kwargs: object) -> NoReturn:
-        raise ReportWriteError(tmp_path / "work" / "extraction-report.json")
+    async with conversation() as talk:
+        leave(talk)
+        talk.send(command="get_version")
 
-    monkeypatch.setattr(handlers, "write_extraction_report", refuse)
-
-    events = drive(extract_command(music_library, vlc_dump, tmp_path / "work"))
-
-    assert any(event["event"] == "progress" for event in events)
-    assert events[-1]["event"] == "error"
-    assert events[-1]["code"] == "report_write_failed"
-    assert not any(event["event"] == "extraction_finished" for event in events)
-
-
-def test_an_unreadable_file_becomes_an_error_event(unreadable_binary_file: Path) -> None:
-    events = drive(_list_playlists(unreadable_binary_file))
-
-    assert events[0]["event"] == "error"
-    assert events[0]["code"] == "unsupported_playlist_format"
-
-
-def test_lists_an_m3u8_as_empty_but_announces_its_format(m3u8_playlist: Path) -> None:
-    events = drive(_list_playlists(m3u8_playlist))
-
-    assert events[0]["event"] == "playlists_listed"
-    assert events[0]["playlist_format"] == "m3u8"
-    assert events[0]["playlists"] == []
-
-
-@pytest.mark.parametrize(
-    "stdin",
-    ['{"command":"shutdown"}\n{"command":"get_version"}\n', ""],
-    ids=["shutdown", "end_of_stream"],
-)
-def test_the_loop_ends_without_answering_anything_further(stdin: str) -> None:
-    events = drive(stdin)
-
-    assert events == []
-
-
-def test_every_line_parses_on_its_own(vlc_dump: Path) -> None:
-    output = drive_raw(_list_playlists(vlc_dump))
-
-    for line in output.splitlines():
-        assert json.loads(line)
-
-
-SECRET: Final = "sk-live-9f8e7d6c5b4a"
-
-
-def _set_api_key(api_key: str) -> str:
-    return json.dumps({"command": "set_api_key", "api_key": api_key}) + "\n"
-
-
-def test_never_echoes_the_api_key_on_stdout_nor_in_the_logs(
-    memory_keyring: MemoryKeyring, caplog: pytest.LogCaptureFixture
-) -> None:
-    caplog.set_level(logging.DEBUG)
-    commands = _set_api_key(SECRET) + _set_api_key(f"{SECRET} with-space")
-
-    output = drive_raw(commands)
-
-    assert SECRET not in output
-    assert SECRET not in caplog.text
-    assert [json.loads(line)["event"] for line in output.splitlines()] == ["version", "error"]
-
-
-def test_never_echoes_the_api_key_when_the_keyring_refuses_it(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    keyring.set_keyring(RefusingKeyring())
-    caplog.set_level(logging.DEBUG)
-
-    output = drive_raw(_set_api_key(SECRET))
-
-    assert SECRET not in output
-    assert SECRET not in caplog.text
-    assert json.loads(output)["code"] == "api_key_not_stored"
+    assert talk.events == []

@@ -1,10 +1,11 @@
 import { TestBed } from "@angular/core/testing"
 
-import { hostOf } from "../../../../fixtures/dom"
+import { hostOf, iconOf } from "../../../../fixtures/dom"
+import type { IconName } from "../display/icon.component"
 import { MessageComponent, type MessageSeverity } from "./message.component"
 
 describe("MessageComponent", () => {
-  it.each<[MessageSeverity, "small" | undefined, string, number]>([
+  it.each<[MessageSeverity, "small" | undefined, IconName, number]>([
     ["info", undefined, "info-circle", 20],
     ["success", undefined, "check-circle", 20],
     ["warn", "small", "exclamation-triangle", 16],
@@ -17,7 +18,7 @@ describe("MessageComponent", () => {
 
     fixture.detectChanges()
 
-    expect(hostOf(fixture).querySelector(`[data-p-icon="${icon}"]`)).not.toBeNull()
+    expect(iconOf(hostOf(fixture), icon)).not.toBeNull()
     expect(fixture.componentInstance["iconSize"]()).toBe(iconSize)
   })
 })

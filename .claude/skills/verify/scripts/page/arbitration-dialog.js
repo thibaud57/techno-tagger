@@ -99,6 +99,8 @@
         cell: rect(cell),
         cellPadding: style?.padding,
         cover: rect(cover),
+        src: cover instanceof HTMLImageElement ? cover.src : null,
+        loaded: cover instanceof HTMLImageElement ? cover.complete && cover.naturalWidth > 0 : null,
       }
     })
   }

@@ -1,6 +1,7 @@
 import type {
   BusyPhase,
   ExtractionProgressEvent,
+  Phase,
   RollbackFailure,
   RollbackFinishedEvent,
   RollbackRun,
@@ -9,12 +10,14 @@ import type {
   SidecarErrorEvent,
 } from "../app/core/sidecar/protocol"
 
+import { RUN_ID } from "./tagging"
+
 // Evenements partages par les specs : chaque test pose ses ecarts par spread.
 
 export const WRITE_FINISHED: RunFinishedEvent = {
   event: "run_finished",
   phase: "write",
-  run_id: "a3f9c1",
+  run_id: RUN_ID,
   resolved: 0,
   unresolved: 0,
   written: 1,
@@ -22,6 +25,13 @@ export const WRITE_FINISHED: RunFinishedEvent = {
   awaiting_arbitration: 0,
   report_path: "D:/Music/Promo Octobre/tagging-report-20261005T211403Z.json",
 }
+
+/** Ecriture qui laisse `failures` morceaux en erreur : rien n'est ecrit, le motif est sur chaque ligne. */
+export const writeFinishedWithFailures = (failures = 1): RunFinishedEvent => ({
+  ...WRITE_FINISHED,
+  written: 0,
+  write_error: failures,
+})
 
 /** Fin de la phase reseau d'un run resolu : ce qui precede la confirmation. */
 export const NETWORK_FINISHED: RunFinishedEvent = {
@@ -32,15 +42,14 @@ export const NETWORK_FINISHED: RunFinishedEvent = {
   report_path: null,
 }
 
-export const writeProgress = (processed: number, total: number): ExtractionProgressEvent => ({
-  event: "progress",
-  phase: "write",
-  processed,
-  total,
-})
+export const progressEvent = (
+  phase: Phase,
+  processed: number,
+  total: number,
+): ExtractionProgressEvent => ({ event: "progress", phase, processed, total })
 
 export const ROLLBACK_RUN: RollbackRun = {
-  run_id: "a3f9c1",
+  run_id: RUN_ID,
   written_at: "2026-10-05T21:14:03Z",
   folder: "D:/Music/Promo Octobre",
   tracks: 1,
@@ -51,7 +60,7 @@ export const rollbackFinished = (
   failed: RollbackFinishedEvent["failed"] = [],
 ): RollbackFinishedEvent => ({
   event: "rollback_finished",
-  run_id: "a3f9c1",
+  run_id: RUN_ID,
   track_id: trackId,
   restored: ["a.mp3"],
   failed,

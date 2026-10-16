@@ -14,6 +14,7 @@ importable a plat grace au `pythonpath` de la configuration pytest.
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
+from unittest.mock import patch
 
 import keyring
 import pytest
@@ -24,6 +25,7 @@ from tagger.core.api_key import SERVICE, USERNAME
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from unittest.mock import MagicMock
 
 FIXTURES: Final = Path(__file__).parent / "fixtures"
 
@@ -60,6 +62,13 @@ def memory_keyring() -> Iterator[MemoryKeyring]:
     yield backend
 
     keyring.set_keyring(previous)
+
+
+@pytest.fixture
+def captured_exceptions() -> Iterator[MagicMock]:
+    """Remplace `sentry_sdk.capture_exception` : aucun test n'envoie d'evenement a Sentry."""
+    with patch("sentry_sdk.capture_exception", autospec=True) as capture:
+        yield capture
 
 
 @pytest.fixture

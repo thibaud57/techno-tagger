@@ -1,10 +1,12 @@
 import json
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
+from fs_listing import names
 from scraper_responses import BEATPORT_CANDIDATE, payload_candidate
-from tagging_api import CREATED
+from stubs import refusing_suffix
+from tagging_records import CREATED, UNREADABLE_CONTENTS
 from tagging_report_samples import RUN, WRITTEN, WRITTEN_AS
 
 from tagger.core.file_failures import FileFailureReason
@@ -28,16 +30,32 @@ from tagger.tags.files import TagField, TagSystem, WrittenTags
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from tagger.reports.tagging import TaggingReport
+    from tagger.run.models import TaggingRun, TrackRecord
 
-def test_records_what_was_written_for_each_track() -> None:
-    report = build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED)
 
+@pytest.fixture
+def report() -> TaggingReport:
+    return build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED)
+
+
+def _markdown(run: TaggingRun) -> str:
+    return render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
+
+
+def test_records_the_files_of_a_written_track(report: TaggingReport) -> None:
     written = report.tracks[0]
+
     assert (written.file_before, written.file_after, written.truncated) == (
         "a.mp3",
         WRITTEN_AS,
         True,
     )
+
+
+def test_records_the_decision_behind_a_written_track(report: TaggingReport) -> None:
+    written = report.tracks[0]
+
     assert written.query is not None
     assert written.query.text == "Adam Beyer Your Mind"
     assert (written.source, written.state, written.resolution) == (
@@ -48,6 +66,11 @@ def test_records_what_was_written_for_each_track() -> None:
     assert written.scores is not None
     assert (written.scores.artist, written.scores.title) == (96.4, 91.6)
     assert written.url == BEATPORT_CANDIDATE.url
+
+
+def test_records_the_tags_of_a_written_track(report: TaggingReport) -> None:
+    written = report.tracks[0]
+
     assert (written.artist, written.title) == ("Adam Beyer", "Your Mind (Extended Mix)")
     assert written.fields_written == (TagField.ARTIST, TagField.TITLE)
     assert written.artwork_written
@@ -56,9 +79,9 @@ def test_records_what_was_written_for_each_track() -> None:
     assert written.tags_after is not None
 
 
-def test_keeps_the_reason_of_a_failed_write_and_leaves_the_file_name() -> None:
-    report = build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED)
-
+def test_keeps_the_reason_of_a_failed_write_and_leaves_the_file_name(
+    report: TaggingReport,
+) -> None:
     failed = report.tracks[1]
     assert (failed.state, failed.failure_reason, failed.file_after) == (
         TrackState.WRITE_ERROR,
@@ -67,9 +90,7 @@ def test_keeps_the_reason_of_a_failed_write_and_leaves_the_file_name() -> None:
     )
 
 
-def test_reports_a_restored_track_without_its_decision() -> None:
-    report = build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED)
-
+def test_reports_a_restored_track_without_its_decision(report: TaggingReport) -> None:
     restored = report.tracks[5]
     assert (restored.state, restored.file_before, restored.file_after) == (
         TrackState.ROLLED_BACK,
@@ -101,16 +122,13 @@ def test_leaves_the_system_empty_when_the_origin_was_unreadable() -> None:
     assert {row.key for row in track.tags_after} >= {"TPE1", "TIT2"}
 
 
-def test_counts_each_outcome_on_its_state() -> None:
-    report = build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED)
-
+def test_counts_each_outcome_on_its_state(report: TaggingReport) -> None:
     assert report.counts == TaggingReportCounts(
         written=1, write_error=1, unresolved=1, rolled_back=1, not_processed=2
     )
 
 
-def test_reloads_the_report_it_wrote(tmp_path: Path) -> None:
-    report = build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED)
+def test_reloads_the_report_it_wrote(tmp_path: Path, report: TaggingReport) -> None:
     path = tmp_path / "tagging-report.json"
     path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
 
@@ -134,8 +152,7 @@ def test_refuses_a_report_of_a_future_version(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "content",
-    ["{not json", "[]", json.dumps({"schema_version": 1, "kind": "tagging"})],
-    ids=["corrupt", "not-an-object", "invalid-model"],
+    [*UNREADABLE_CONTENTS, pytest.param(json.dumps({"schema_version": 1}), id="invalid-model")],
 )
 def test_refuses_an_unreadable_report(tmp_path: Path, content: str) -> None:
     path = tmp_path / "tagging-report.json"
@@ -152,7 +169,7 @@ def _section(markdown: str, title: str) -> str:
 
 
 def test_renders_each_track_in_the_section_of_its_outcome() -> None:
-    markdown = render_tagging_markdown(build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED))
+    markdown = _markdown(RUN)
 
     assert WRITTEN_AS in _section(markdown, "Written")
     assert "b.mp3" in _section(markdown, "Write errors")
@@ -164,67 +181,59 @@ def test_renders_each_track_in_the_section_of_its_outcome() -> None:
 
 
 def test_leaves_out_an_empty_section() -> None:
-    run = replace(RUN, tracks=(WRITTEN,))
-
-    markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
+    markdown = _markdown(replace(RUN, tracks=(WRITTEN,)))
 
     assert "## Unresolved" not in markdown
     assert "## Write errors" not in markdown
     assert "## Rolled back" not in markdown
 
 
-def test_flags_the_route_the_cover_and_the_truncation_of_a_written_track() -> None:
-    markdown = render_tagging_markdown(build_tagging_report(RUN, DEFAULT_THRESHOLDS, CREATED))
+def test_flags_the_route_and_the_truncation_of_a_written_track() -> None:
+    markdown = _markdown(RUN)
 
     written = _section(markdown, "Written")
     assert "| auto |" in written
-    assert "| written |" in written
     assert "| yes |" in written
 
 
-def test_flags_a_cover_the_source_offered_but_that_was_not_written() -> None:
-    without_cover = replace(
-        WRITTEN,
-        written=WriteOutcome(WrittenTags((TagField.ARTIST,), artwork=False), truncated=False),
-    )
-    run = replace(RUN, tracks=(without_cover,))
-
-    markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
-
-    written = _section(markdown, "Written")
-    assert "| missing |" in written
-    assert "| yes |" not in written
+_COVERS: Final = {"written", "missing", "none"}
+_WITHOUT_COVER: Final = WriteOutcome(
+    WrittenTags((TagField.ARTIST,), artwork=False), truncated=False
+)
 
 
-def test_flags_a_written_track_whose_source_offered_no_cover() -> None:
-    without_cover = replace(
-        WRITTEN,
-        candidate=payload_candidate(release=None),
-        written=WriteOutcome(WrittenTags((TagField.ARTIST,), artwork=False), truncated=False),
-    )
-    run = replace(RUN, tracks=(without_cover,))
-
-    markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
+@pytest.mark.parametrize(
+    ("track", "cover"),
+    [
+        (WRITTEN, "written"),
+        (replace(WRITTEN, written=_WITHOUT_COVER), "missing"),
+        (
+            replace(WRITTEN, written=_WITHOUT_COVER, candidate=payload_candidate(release=None)),
+            "none",
+        ),
+    ],
+    ids=["written-with-cover", "cover-not-written", "no-cover-offered"],
+)
+def test_flags_the_cover_of_a_written_track(track: TrackRecord, cover: str) -> None:
+    markdown = _markdown(replace(RUN, tracks=(track,)))
 
     written = _section(markdown, "Written")
-    assert "| none |" in written
-    assert "| missing |" not in written
+    assert f"| {cover} |" in written
+    assert not [other for other in _COVERS - {cover} if f"| {other} |" in written]
 
 
 def test_escapes_a_value_that_would_break_a_table() -> None:
     piped = replace(WRITTEN, track_id="a | b\nc.mp3")
-    run = replace(RUN, tracks=(piped,))
 
-    markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
+    markdown = _markdown(replace(RUN, tracks=(piped,)))
 
     assert "a \\| b c.mp3" in markdown
 
 
 def test_warns_about_wav_files_once_one_is_written() -> None:
     wav = replace(WRITTEN, path=RUN.folder / "Adam Beyer - Your Mind.wav")
-    run = replace(RUN, tracks=(wav,))
 
-    markdown = render_tagging_markdown(build_tagging_report(run, DEFAULT_THRESHOLDS, CREATED))
+    markdown = _markdown(replace(RUN, tracks=(wav,)))
 
     assert "## WAV files" in markdown
 
@@ -247,7 +256,7 @@ def test_rewrites_the_same_pair_of_files(tmp_path: Path) -> None:
 
     write_tagging_report(run, DEFAULT_THRESHOLDS, CREATED, paths)
 
-    assert sorted(path.name for path in tmp_path.iterdir()) == [
+    assert names(tmp_path) == [
         "tagging-report-20261006T211403Z.json",
         "tagging-report-20261006T211403Z.md",
     ]
@@ -265,12 +274,10 @@ def test_names_the_next_free_pair_when_one_already_exists(tmp_path: Path) -> Non
 def test_logs_a_json_left_without_its_markdown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    def refuse_markdown(path: Path, text: str) -> None:
-        if path.suffix == ".md":
-            raise OSError(28, "No space left on device")
-        write_atomically(path, text)
-
-    monkeypatch.setattr(tagging_report, "write_atomically", refuse_markdown)
+    refusal = OSError(28, "No space left on device")
+    monkeypatch.setattr(
+        tagging_report, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
+    )
     run = replace(RUN, folder=tmp_path)
     paths = report_paths(tmp_path, CREATED)
 

@@ -5,16 +5,18 @@ import mutagen
 import pytest
 from audio_samples import (
     BLANK_WRITERS,
+    ID3_VORBIS_FORMATS,
     id3_as_written,
     locked_by_another_process,
     write_not_audio,
     write_tagged_wavpack,
 )
+from cdn_doubles import JPEG, write_cover
 from mutagen.flac import FLAC
 from mutagen.id3 import TBPM, TDRC, TIT2, TPE1, TXXX, WOAS
 from path_limits import folder_beyond_the_limit
-from scraper_responses import BEATPORT_CANDIDATE
-from tagging_api import JPEG, write_cover
+from scraper_responses import BEATPORT_CANDIDATE, YOUR_MIND_BANDCAMP_URL
+from stubs import spying
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.paths import extended_path
@@ -35,14 +37,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-ORIGINAL_URL: Final = "https://adambeyer.bandcamp.com/track/your-mind"
 TAGGED_FIELDS: Final = MappingProxyType(
     {
         TagField.ARTIST: ("adam beyer", "bart skils"),
         TagField.TITLE: ("your mind",),
         TagField.DATE: ("2019-06-16",),
         TagField.BPM: ("130",),
-        TagField.URL: (ORIGINAL_URL,),
+        TagField.URL: (YOUR_MIND_BANDCAMP_URL,),
     }
 )
 
@@ -55,7 +56,7 @@ def _tag(path: Path, id3_version: int = 3) -> None:
         audio["TITLE"] = ["your mind"]
         audio["DATE"] = ["2019-06-16"]
         audio["BPM"] = ["130"]
-        audio["URL"] = [ORIGINAL_URL]
+        audio["URL"] = [YOUR_MIND_BANDCAMP_URL]
         audio.save()
         return
     audio.add_tags()
@@ -63,7 +64,7 @@ def _tag(path: Path, id3_version: int = 3) -> None:
     audio.tags.add(TIT2(encoding=3, text=["your mind"]))
     audio.tags.add(TDRC(encoding=3, text=["2019-06-16"]))
     audio.tags.add(TBPM(encoding=3, text=["130"]))
-    audio.tags.add(WOAS(url=ORIGINAL_URL))
+    audio.tags.add(WOAS(url=YOUR_MIND_BANDCAMP_URL))
     if id3_version == 3:
         audio.tags.update_to_v23()
     audio.save(v2_version=id3_version)
@@ -142,7 +143,7 @@ def test_saves_the_file_back_in_its_original_id3_version(
     assert expected_dates <= on_disk.keys()
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
+@pytest.mark.parametrize("audio_format", ID3_VORBIS_FORMATS)
 def test_restores_an_untagged_file_without_any_field_of_the_table(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
@@ -251,15 +252,9 @@ def test_opens_the_audio_file_through_the_extended_path(
     `LongPathsEnabled` : l'ouverture doit passer par `extended_path`.
     """
     path = blank_audio("mp3")
-    opened: list[str] = []
-    real_file = mutagen.File
-
-    def recording_file(target: Path) -> object:
-        opened.append(str(target))
-        return real_file(target)
-
-    monkeypatch.setattr(mutagen, "File", recording_file)
+    opened: list[Path] = []
+    monkeypatch.setattr(mutagen, "File", spying(mutagen.File, opened))
 
     operation(path)
 
-    assert opened == [str(extended_path(path))]
+    assert opened == [extended_path(path)]

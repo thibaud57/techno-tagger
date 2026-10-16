@@ -1,9 +1,9 @@
 """Parsing des playlists M3U8.
 
-Textuel et stable, ce format couvre Rekordbox, Traktor, foobar et VLC desktop avec
-un seul parser, et ne contient qu'une playlist, donc aucune selection a proposer.
-Il porte les chemins absolus de la machine d'origine, dont seul le nom de fichier
-est retenu : la resolution se fait par nom, jamais par chemin (ADR-020).
+Format textuel et stable : un seul parser couvre Rekordbox, Traktor, foobar et VLC
+desktop. Une seule playlist par fichier, donc aucune selection a proposer. Les chemins
+absolus de la machine d'origine ne gardent que le nom de fichier : la resolution se
+fait par nom, jamais par chemin (ADR-020).
 """
 
 from typing import TYPE_CHECKING, Final
@@ -22,16 +22,15 @@ DIRECTIVE_PREFIX: Final = "#"
 
 
 def read_playlist(path: Path) -> tuple[str, ...]:
-    """Rend les noms de fichiers du M3U8, dans l'ordre du fichier.
+    """Noms de fichiers du M3U8, dans l'ordre du fichier.
 
     Lu en `utf-8-sig` : Rekordbox et VLC desktop posent un BOM, qui colle sinon
     `\\ufeff` au premier nom et le rend introuvable sur disque.
 
-    Un fichier illisible en texte n'est ni un dump ni une playlist : la facade y
-    aiguille tout ce qui n'a pas d'en-tete SQLite, l'erreur de decodage doit donc
-    ressortir en erreur metier plutot qu'en `UnicodeDecodeError`. Un fichier disparu
-    ou verrouille entre la detection de format et cette lecture leve de meme en
-    erreur metier plutot qu'en `OSError` brute (symetrique a `vlc.is_vlc_dump`).
+    La facade aiguille ici tout ce qui n'a pas d'en-tete SQLite : un fichier illisible
+    en texte (ni dump ni playlist) ressort en erreur metier, pas en `UnicodeDecodeError`.
+    Un fichier disparu ou verrouille entre la detection de format et cette lecture aussi,
+    pas en `OSError` brute (symetrique a `vlc.is_vlc_dump`).
     """
     try:
         content = path.read_text(encoding="utf-8-sig")
@@ -48,7 +47,6 @@ def read_playlist(path: Path) -> tuple[str, ...]:
 
 
 def _file_name(entry: str) -> str:
-    """Reduit une entree a son nom de fichier, quel que soit le separateur employe."""
     for separator in SEPARATORS:
         entry = entry.rpartition(separator)[2]
 

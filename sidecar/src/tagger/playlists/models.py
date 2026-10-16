@@ -1,8 +1,7 @@
 """Modeles internes du parsing de playlists.
 
 Dataclasses et non modeles pydantic : rien ne traverse ici de frontiere externe, la
-validation des charges NDJSON appartenant a `protocol.py` (cf.
-`.claude/rules/python/modeles-donnees.md`).
+validation des charges NDJSON appartenant a `protocol.py`.
 """
 
 from dataclasses import dataclass

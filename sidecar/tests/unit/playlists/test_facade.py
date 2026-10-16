@@ -32,7 +32,7 @@ def test_routes_a_dump_to_the_sqlite_reader(vlc_dump: Path) -> None:
 def test_routes_a_playlist_file_to_the_text_parser(m3u8_playlist: Path) -> None:
     names = playlists.read_playlist(m3u8_playlist)
 
-    assert "artist three - Zulu.flac" in names
+    assert names == TRACKS
 
 
 def test_requires_a_playlist_name_for_a_dump(vlc_dump: Path) -> None:

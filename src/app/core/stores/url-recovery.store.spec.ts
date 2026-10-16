@@ -10,13 +10,20 @@ describe("UrlRecoveryStore", () => {
     store = TestBed.inject(UrlRecoveryStore)
   })
 
-  it("opens on the first progress", () => {
-    const closed = store.progress()
+  it("is closed before the first progress", () => {
+    expect(store.progress()).toBeNull()
+  })
 
+  it("opens on the first progress", () => {
     store.advanced(0, 2)
 
-    expect(closed).toBeNull()
     expect(store.progress()).toEqual({ processed: 0, total: 2 })
+  })
+
+  it("marks a track busy once a gesture is sent", () => {
+    store.sent("a.mp3")
+
+    expect(store.isBusy("a.mp3")).toBe(true)
   })
 
   it.each<[string, (target: UrlRecoveryStore) => void]>([
@@ -32,26 +39,29 @@ describe("UrlRecoveryStore", () => {
         target.rejected("a.mp3", urlRecoveryError("a.mp3"))
       },
     ],
-  ])("marks a track busy until its %s", (_answer, answer) => {
+  ])("releases only the answered track on its %s", (_answer, answer) => {
     store.sent("a.mp3")
     store.sent("b.mp3")
-    const waiting = store.isBusy("a.mp3")
 
     answer(store)
 
-    expect(waiting).toBe(true)
     expect(store.isBusy("a.mp3")).toBe(false)
     expect(store.isBusy("b.mp3")).toBe(true)
   })
 
-  it("keeps the error of a track until its next gesture", () => {
+  it("keeps the error of a track", () => {
     const error = urlRecoveryError("a.mp3")
+
     store.rejected("a.mp3", error)
-    const kept = store.errors().get("a.mp3")
+
+    expect(store.errors().get("a.mp3")).toEqual(error)
+  })
+
+  it("forgets the error of a track at its next gesture", () => {
+    store.rejected("a.mp3", urlRecoveryError("a.mp3"))
 
     store.sent("a.mp3")
 
-    expect(kept).toEqual(error)
     expect(store.errors().has("a.mp3")).toBe(false)
   })
 

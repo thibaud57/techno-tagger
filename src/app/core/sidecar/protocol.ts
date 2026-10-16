@@ -1,6 +1,6 @@
 /**
  * Miroir manuel de `sidecar/src/tagger/protocol.py`. Pas de generation de code :
- * trop peu de types, et stables, pour la rentabiliser.
+ * trop peu de types, par ailleurs stables, pour la rentabiliser.
  */
 
 export type ExtractionMode = "copy" | "move"
@@ -82,6 +82,12 @@ export interface ThresholdsPayload {
   readonly ceiling: number
 }
 
+/**
+ * Echelle des scores rapidfuzz, que la librairie fixe : ce n'est pas un reglage du projet.
+ * `check_thresholds` la borne aussi cote sidecar.
+ */
+export const SCORE_SCALE = { min: 0, max: 100 } as const
+
 export interface StartTaggingCommand {
   readonly command: "start_tagging"
   readonly folder: string
@@ -126,6 +132,16 @@ export interface RetryWriteCommand {
 /** Decrit le dernier run annulable, pour la confirmation des Reglages. */
 export interface GetRollbackTargetCommand {
   readonly command: "get_rollback_target"
+}
+
+/** Taille du cache, relue a l'ouverture des Reglages. */
+export interface GetCacheSizeCommand {
+  readonly command: "get_cache_size"
+}
+
+/** Refusee en `run_not_written` tant que le run courant attend son ecriture. */
+export interface ClearCacheCommand {
+  readonly command: "clear_cache"
 }
 
 /** Restaure un run entier depuis son dump, ou son seul morceau `track_id`. */
@@ -182,12 +198,18 @@ export type SidecarCommand =
   | ResumeRunCommand
   | ListRunsCommand
   | LoadRunCommand
+  | GetCacheSizeCommand
+  | ClearCacheCommand
 
 export interface VersionEvent {
   readonly event: "version"
   readonly version: string
-  /** Seul le sidecar lit le trousseau : l'interface l'apprend ici. */
+  /** Seul le sidecar lit le keyring : l'interface l'apprend ici. */
   readonly api_key_configured: boolean
+  /** Seuils que le sidecar applique sans `thresholds` : valeurs de depart des Reglages. */
+  readonly default_thresholds: ThresholdsPayload
+  /** Fichier de logs courant, que les Reglages revelent dans l'Explorateur. */
+  readonly log_file: string
 }
 
 export type PlaylistFormat = "vlc_dump" | "m3u8"
@@ -381,6 +403,18 @@ export interface RollbackTargetEvent {
   readonly run: RollbackRun | null
 }
 
+export interface CacheSizeEvent {
+  readonly event: "cache_size"
+  readonly size_bytes: number
+}
+
+/** `size_bytes` : ce qui reste, un fichier verrouille survivant au vidage. */
+export interface CacheClearedEvent {
+  readonly event: "cache_cleared"
+  readonly freed_bytes: number
+  readonly size_bytes: number
+}
+
 export interface RollbackFailure {
   readonly track_id: string
   readonly file_name: string
@@ -493,4 +527,6 @@ export type SidecarEvent =
   | InterruptedRunEvent
   | RunsListedEvent
   | RunLoadedEvent
+  | CacheSizeEvent
+  | CacheClearedEvent
   | SidecarErrorEvent

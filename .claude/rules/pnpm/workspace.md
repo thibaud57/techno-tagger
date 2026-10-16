@@ -10,7 +10,7 @@ paths:
 
 ## À faire
 - Créer un `pnpm-workspace.yaml` même sans monorepo : il accueille `allowBuilds` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11
-- Déclarer la version de pnpm, et celle de Node, en inputs de `pnpm/setup` dans la seule action composite `.github/actions/setup-pnpm`, et **ni** `packageManager` **ni** `devEngines.packageManager` dans `package.json`
+- Déclarer la version de pnpm par `devEngines.packageManager` (`name: "pnpm"`, version exacte, `onFail: "download"`) dans `package.json`, seule source : `pnpm/setup` la lit sans input `version`. L'action composite `.github/actions/setup-pnpm` ne porte que la version de Node (`runtime`)
 - Passer par la CLI pour toute modification de dépendance (`pnpm add`, `pnpm add -D`, `pnpm remove`), et `-E` pour figer une version exacte
 - Committer `pnpm-lock.yaml` et `allowBuilds` dans le même commit que le changement de dépendance
 - Résoudre un conflit de lockfile en relançant `pnpm install` puis en relisant le diff
@@ -28,7 +28,7 @@ paths:
 
 ## Gotchas
 - Les scripts tournent sous `bash` (`scriptShell`) : utiliser `$npm_package_name` et `$npm_package_version` plutôt qu'une valeur recopiée
-- `packageManager` et `devEngines.packageManager` déclenchent le lockfile multi-document, qui casse le graphe de dépendances GitHub et les alertes Dependabot : à l'inverse de la doc pnpm, ils restent absents
+- `devEngines.packageManager` ajoute un premier document (`packageManagerDependencies`) à `pnpm-lock.yaml` : le graphe de dépendances GitHub ne lit que lui, les alertes de sécurité npm ne sont pas fiables tant que dependabot-core#15904 est ouverte (veille par `just audit-ui`, cf. VERSIONS.md § Dependabot). Ne jamais ajouter le champ legacy `packageManager` en plus
 - Corepack est retiré des binaires Node depuis la 25.x
 - Depuis la v10, les scripts de cycle de vie des dépendances ne tournent plus à l'installation : un paquet non approuvé se voit en module manquant **à l'exécution**
 - `pnpm/setup` v3 exige pnpm 11 ou plus et détecte seul un `.node-version`, un `.nvmrc` ou un `.tool-versions` : l'input `runtime` explicite prime sur ces fichiers

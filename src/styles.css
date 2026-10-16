@@ -30,12 +30,14 @@ body {
   cursor: default;
 }
 
-input,
+/* Une case ou une bascule (`p-toggleswitch`) pose son `input` invisible sur le controle : elle
+   garde la main de PrimeNG. */
+input:not([type="checkbox"], [type="radio"]),
 textarea {
   cursor: text;
 }
 
-/* DESIGN.md § Overlays : jamais entre le curseur et ce qu'il decrit, et une largeur
+/* DESIGN.md § Overlays : jamais entre le curseur et ce qu'il decrit ; une largeur
    `wide` pour ce qu'il montre en entier (cf. WIDE_TOOLTIP). Hors couche, ces regles
    passent devant celles de PrimeNG, rangees dans la couche `primeng`. */
 :root {
@@ -53,10 +55,16 @@ textarea {
 /* Le plugin pose une propriete `animation` sur les utilitaires, pas une variable
    interposee : la coupure surcharge donc la propriete elle-meme. Seul !important
    tolere du projet, il neutralise une preference systeme par-dessus des classes
-   generees. Le selecteur attrape aussi les `p-animate-*` de PrimeNG. */
+   generees. Le selecteur attrape aussi les `p-animate-*` de PrimeNG, et les classes
+   `*-enter-active` / `*-leave-active` de ses entrees et sorties (modales, messages,
+   toasts) : `@primeuix/motion` termine aussitot un mouvement de duree nulle. Les
+   boucles de chargement restent, elles disent qu'un travail tourne. */
 @media (prefers-reduced-motion: reduce) {
   .animate-fadein,
-  [class*="animate-"] {
+  [class*="animate-"],
+  [class*="-enter-active"],
+  [class*="-leave-active"] {
     animation: none !important;
+    transition: none !important;
   }
 }

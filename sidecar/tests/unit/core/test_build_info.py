@@ -2,6 +2,8 @@
 ce qui garantit qu'un lancement depuis les sources ne remonte rien a Sentry.
 """
 
+from importlib.metadata import version
+
 from tagger.core.build_info import ENVIRONMENT, SENTRY_DSN, VERSION
 
 
@@ -13,5 +15,5 @@ def test_outside_packaging_the_environment_is_not_production() -> None:
     assert ENVIRONMENT == "development"
 
 
-def test_the_version_stays_readable_outside_packaging() -> None:
-    assert VERSION
+def test_outside_packaging_the_version_is_the_installed_one() -> None:
+    assert version("tagger") == VERSION

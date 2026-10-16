@@ -24,7 +24,7 @@ import { IconComponent, type IconName } from "./icon.component"
 })
 export class EmptyStateComponent {
   readonly icon = input.required<IconName>()
-  // `title` collisionnerait avec l'attribut HTML natif : infobulle parasite.
+  // `title` collisionnerait avec l'attribut HTML natif : tooltip parasite.
   readonly heading = input.required<string>()
   readonly description = input<string>()
   readonly framed = input(false, { transform: booleanAttribute })

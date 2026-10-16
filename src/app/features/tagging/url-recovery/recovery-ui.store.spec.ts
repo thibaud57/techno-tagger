@@ -1,21 +1,25 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 
-import { type SidecarStub, sidecarStub } from "../../../../fixtures/sidecar-stub"
+import {
+  type SidecarStub,
+  activeRun,
+  provideSidecarStub,
+  sidecarStub,
+} from "../../../../fixtures/sidecar-stub"
 import { arbitrationRequired, recoveredTrack, unresolvedTrack } from "../../../../fixtures/tagging"
 import { TRACK_URL } from "../../../../fixtures/url-recovery"
-import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
 
 const mount = (tracks: readonly TaggingTrack[] = [unresolvedTrack("a.mp3")]) => {
   const service = sidecarStub({
-    taggingRunId: signal<string | null>("run-1"),
+    ...activeRun(),
     taggingTracks: signal(tracks),
     recoverableTracks: signal(tracks),
   })
-  TestBed.configureTestingModule({ providers: [{ provide: SidecarService, useValue: service }] })
+  TestBed.configureTestingModule({ providers: [provideSidecarStub(service)] })
 
   return { store: TestBed.inject(RecoveryUiStore), service }
 }
@@ -97,9 +101,7 @@ describe("RecoveryUiStore", () => {
     })
 
     it("targets a track passed on an empty Bandcamp list, unresolved with its list reason", () => {
-      const { store, service } = mount([
-        { ...unresolvedTrack("a.mp3"), failureReason: "no_result" },
-      ])
+      const { store, service } = mount([unresolvedTrack("a.mp3", "no_result")])
       service.arbitrations.set([arbitrationRequired("a.mp3")])
       store.refused("a.mp3")
 

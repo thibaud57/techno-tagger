@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 from extraction_samples import CYRILLIC_TRACK, EXPECTED_STAMP, GENERATED_AT
-from stubs import raising
+from mirrors import assert_same_fields
+from stubs import raising, refusing_suffix
 
 from tagger.playlists.extraction import (
     DiscardedCandidate,
@@ -241,7 +242,7 @@ def test_written_json_is_the_rendered_json(
 @pytest.mark.parametrize(
     "error",
     [PermissionError(13, "Permission denied"), OSError(28, "No space left on device")],
-    ids=["permission_denied", "disk_full"],
+    ids=["permission-denied", "disk-full"],
 )
 def test_a_refused_write_becomes_a_business_error_naming_the_report(
     extraction_result: ExtractionResult,
@@ -266,14 +267,9 @@ def test_a_refused_markdown_write_names_the_markdown_file_not_the_json(
     report_context: ReportContext,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    original_write_text = Path.write_text
-
-    def refuse_markdown_only(self: Path, data: str, encoding: str | None = None) -> int:
-        if self.suffix == ".md":
-            raise OSError(28, "No space left on device")
-        return original_write_text(self, data, encoding=encoding)
-
-    monkeypatch.setattr(Path, "write_text", refuse_markdown_only)
+    monkeypatch.setattr(
+        Path, "write_text", refusing_suffix(Path.write_text, ".md", OSError(28, "No space left"))
+    )
 
     with pytest.raises(ReportWriteError) as raised:
         write_extraction_report(extraction_result, report_context)
@@ -295,11 +291,9 @@ def test_the_report_carries_every_category_of_the_extraction() -> None:
         (DiscardedEntry, DiscardedCandidate),
         (FailureEntry, ExtractionFailure),
     ],
-    ids=["duplicate", "discarded_candidate", "failure"],
+    ids=["duplicate", "discarded-candidate", "failure"],
 )
 def test_a_report_entry_carries_every_field_the_extraction_records(
     entry: type[BaseModel], domain: type[DataclassInstance]
 ) -> None:
-    carried = set(entry.model_fields)
-
-    assert carried == {field.name for field in fields(domain)}
+    assert_same_fields(entry, domain)

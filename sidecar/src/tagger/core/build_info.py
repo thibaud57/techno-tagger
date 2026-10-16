@@ -1,12 +1,12 @@
-"""Constantes figees au packaging, et leurs valeurs de repli en developpement.
+"""Constantes figees au packaging avec leurs valeurs de repli en developpement.
 
 PyInstaller n'a pas d'equivalent au `--define` d'esbuild : `build.py` grave donc un
 module `_build_info` a la racine de `tagger/`, gitignore parce qu'il porte le DSN. Ce
 fichier-ci est la facade versionnee, seule importee par le reste du sidecar.
 
-La version en fait partie : dans le binaire fige, `importlib.metadata` ne trouve
-aucun `tagger.dist-info`, la spec ne collectant que celui de keyring. La lire ici
-leverait `PackageNotFoundError` au demarrage, et seulement chez l'utilisateur.
+La version en fait partie : dans le binaire fige, `importlib.metadata` ne trouve aucun
+`tagger.dist-info` (la spec ne collecte que celui de keyring). La lire ici leverait
+`PackageNotFoundError` au demarrage, chez l'utilisateur seulement.
 """
 
 try:

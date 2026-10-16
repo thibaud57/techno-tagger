@@ -9,7 +9,7 @@ const settled = (track: TaggingTrack): boolean =>
   track.state === "resolved" || track.state === "written"
 
 /**
- * Regle de DESIGN.md § Conventions de Code : « Echecs » lit `state`, « Valides » et « Arbitres »
+ * Regle d'ARCHITECTURE.md § API : « Echecs » lit `state`, « Valides » et « Arbitres »
  * lisent `state` puis `resolution`. Un `rolled_back` n'appartient a aucun filtre.
  */
 export const inFilter = (track: TaggingTrack, filter: RecapFilter): boolean => {

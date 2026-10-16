@@ -1,4 +1,9 @@
-import { FALLBACK_LANGUAGE, languageFromTag, resolveInitialLanguage } from "./language"
+import {
+  FALLBACK_LANGUAGE,
+  languageFromTag,
+  resolveInitialLanguage,
+  resolveStartupLanguage,
+} from "./language"
 
 describe("languageFromTag", () => {
   it.each([
@@ -21,39 +26,56 @@ describe("languageFromTag", () => {
 })
 
 describe("resolveInitialLanguage", () => {
-  it("prefers the system locale when it answers", async () => {
-    const language = await resolveInitialLanguage(
-      () => Promise.resolve("fr-FR"),
-      () => "de-DE",
-    )
+  it.each([
+    {
+      case: "prefers the system locale when it answers",
+      system: () => Promise.resolve("fr-FR"),
+      browser: "de-DE",
+      expected: "fr",
+    },
+    {
+      case: "falls back to the browser when the system locale is null",
+      system: () => Promise.resolve(null),
+      browser: "fr-BE",
+      expected: "fr",
+    },
+    {
+      case: "falls back to the browser when the Tauri call rejects",
+      system: () => Promise.reject(new TypeError("__TAURI_INTERNALS__ is undefined")),
+      browser: "fr-FR",
+      expected: "fr",
+    },
+    {
+      case: "falls back to English when no source answers",
+      system: () => Promise.reject(new TypeError("hors Tauri")),
+      browser: "",
+      expected: FALLBACK_LANGUAGE,
+    },
+  ])("$case", async ({ system, browser, expected }) => {
+    const language = await resolveInitialLanguage(system, () => browser)
 
-    expect(language).toBe("fr")
+    expect(language).toBe(expected)
   })
+})
 
-  it("falls back to the browser when the system locale is null", async () => {
-    const language = await resolveInitialLanguage(
-      () => Promise.resolve(null),
-      () => "fr-BE",
+describe("resolveStartupLanguage", () => {
+  it.each([
+    {
+      case: "prefers the language chosen in the settings over the system locale",
+      stored: "en",
+      expected: "en",
+    },
+    {
+      case: "lets the system locale decide until a language is chosen",
+      stored: null,
+      expected: "fr",
+    },
+  ] as const)("$case", async ({ stored, expected }) => {
+    const language = await resolveStartupLanguage(
+      () => Promise.resolve(stored),
+      () => Promise.resolve("fr"),
     )
 
-    expect(language).toBe("fr")
-  })
-
-  it("falls back to the browser when the Tauri call rejects", async () => {
-    const language = await resolveInitialLanguage(
-      () => Promise.reject(new TypeError("__TAURI_INTERNALS__ is undefined")),
-      () => "fr-FR",
-    )
-
-    expect(language).toBe("fr")
-  })
-
-  it("falls back to English when no source answers", async () => {
-    const language = await resolveInitialLanguage(
-      () => Promise.reject(new TypeError("hors Tauri")),
-      () => "",
-    )
-
-    expect(language).toBe(FALLBACK_LANGUAGE)
+    expect(language).toBe(expected)
   })
 })

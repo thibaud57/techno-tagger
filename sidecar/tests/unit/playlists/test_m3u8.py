@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 import pytest
+from vlc_dump import TRACKS
 
 from tagger.playlists import m3u8
 from tagger.playlists.errors import UnreadablePlaylistFileError, UnsupportedPlaylistFormatError
@@ -8,49 +9,14 @@ from tagger.playlists.errors import UnreadablePlaylistFileError, UnsupportedPlay
 if TYPE_CHECKING:
     from pathlib import Path
 
-EXPECTED: Final = (
-    "artist one - Alpha Track.mp3",
-    "Artist One - beta track.mp3",
-    "Artist Two - Ambiance Éthérée.mp3",
-    "Artist Two - Дорога.mp3",
-    "artist three - Zulu.flac",
-)
-
 
 def test_extracts_every_entry_in_file_order(m3u8_playlist: Path) -> None:
+    """Le fichier melange directives, BOM, chemins Windows et POSIX : l'egalite avec
+    les noms propres couvre chacun de ces nettoyages.
+    """
     names = m3u8.read_playlist(m3u8_playlist)
 
-    assert names == EXPECTED
-
-
-def test_drops_directives_and_comments(m3u8_playlist: Path) -> None:
-    names = m3u8.read_playlist(m3u8_playlist)
-
-    assert not any(name.startswith("#") for name in names)
-
-
-def test_reduces_windows_paths_to_their_file_name(m3u8_playlist: Path) -> None:
-    names = m3u8.read_playlist(m3u8_playlist)
-
-    assert not any("\\" in name for name in names)
-
-
-def test_reduces_posix_paths_to_their_file_name(m3u8_playlist: Path) -> None:
-    names = m3u8.read_playlist(m3u8_playlist)
-
-    assert not any("/" in name for name in names)
-
-
-def test_absorbs_the_byte_order_mark(m3u8_playlist: Path) -> None:
-    names = m3u8.read_playlist(m3u8_playlist)
-
-    assert not names[0].startswith("\ufeff")
-
-
-def test_keeps_non_ascii_names_intact(m3u8_playlist: Path) -> None:
-    names = m3u8.read_playlist(m3u8_playlist)
-
-    assert "Artist Two - Дорога.mp3" in names
+    assert names == TRACKS
 
 
 def test_returns_nothing_for_a_file_holding_only_directives(tmp_path: Path) -> None:

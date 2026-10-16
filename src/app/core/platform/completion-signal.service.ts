@@ -3,7 +3,10 @@ import { TranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 
 import { SidecarService } from "../sidecar/sidecar.service"
-import { readSoundSignal } from "./preferences"
+import { PreferencesService } from "./preferences.service"
+
+/** Duree commune des toasts de l'application (DESIGN.md § Feedback et chargement). */
+export const TOAST_LIFE = 4000
 
 /** Deux notes courtes : une fin de phase s'entend sans couvrir ce qui se passe a l'ecran. */
 const NOTES = [880, 1174.66] as const
@@ -24,12 +27,13 @@ const ROLLBACK_END: EndMessages = {
   withFailures: "tagging.rollbackFinishedWithFailures",
 }
 
-/** Fin d'une phase longue : un bip synthetise (aucun fichier audio, ni binaire a relire ni licence a suivre), puis un toast. */
+/** Fin de phase longue : bip synthetise (aucun fichier audio, donc ni binaire ni licence a suivre), puis toast. */
 @Service()
 export class CompletionSignalService {
   private readonly messages = inject(MessageService)
   private readonly translate = inject(TranslateService)
   private readonly sidecar = inject(SidecarService)
+  private readonly preferences = inject(PreferencesService)
 
   /**
    * Branche sur un ecran, l'`effect()` mourrait avec lui. Un signal ne notifiant que sur une
@@ -66,13 +70,13 @@ export class CompletionSignalService {
     params: Record<string, unknown> = {},
     severity: "success" | "warn" = "success",
   ): Promise<void> {
-    if (await readSoundSignal()) {
+    if (await this.preferences.readSoundSignal()) {
       this.beep()
     }
     this.messages.add({
       severity,
       summary: this.translate.instant(messageKey, params) as string,
-      life: 4000,
+      life: TOAST_LIFE,
     })
   }
 

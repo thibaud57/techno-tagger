@@ -3,12 +3,12 @@ import pytest
 from scraper_responses import (
     BASIEL,
     YOUR_MIND,
-    Handler,
     invalid_track_payload,
     make_client,
     page_payload,
     recording,
     track_payload,
+    unreachable,
 )
 
 from tagger.resolution.scraper_client import (
@@ -21,14 +21,6 @@ from tagger.resolution.scraper_client import (
 )
 
 pytestmark = pytest.mark.asyncio
-
-
-def _raising(requests: list[httpx2.Request], error: type[httpx2.TransportError]) -> Handler:
-    def handler(request: httpx2.Request) -> httpx2.Response:
-        requests.append(request)
-        raise error("transport failure", request=request)
-
-    return handler
 
 
 @pytest.mark.parametrize(
@@ -132,7 +124,7 @@ async def test_reports_each_failure_that_got_no_response(
     attempts: int,
 ) -> None:
     """Seule l'erreur reseau se retente, et le motif dit laquelle des trois a eu lieu."""
-    async with make_client(_raising(requests, failure)) as client:
+    async with make_client(unreachable(requests, failure)) as client:
         with pytest.raises(SourceUnavailableError) as error:
             await client.search(Source.BEATPORT, YOUR_MIND)
 
@@ -164,7 +156,7 @@ async def test_waits_one_then_two_seconds_between_attempts(
     async def recording_sleep(delay: float) -> None:
         waited.append(delay)
 
-    client = make_client(_raising(requests, httpx2.ConnectError), sleep=recording_sleep)
+    client = make_client(unreachable(requests, httpx2.ConnectError), sleep=recording_sleep)
 
     async with client:
         with pytest.raises(SourceUnavailableError):

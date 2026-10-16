@@ -4,7 +4,7 @@ Un fichier par run, hors plan de run : un run rate se decouvre au lancement suiv
 Seuls les champs de la table y vont, ni images ni commentaires.
 
 Les renommages ne reecrivent pas le dump : chacun s'ajoute a un journal voisin, force sur le
-disque avant que le fichier ne bouge, et `load_dump` le fusionne. Le dump complet n'est reecrit
+disque avant que le fichier ne bouge ; `load_dump` le fusionne. Le dump complet n'est reecrit
 qu'une fois par phase.
 """
 
@@ -39,12 +39,12 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION: Final = 1
 _SUFFIX: Final = ".json"
 _JOURNAL_SUFFIX: Final = ".renames.ndjson"
-# Les trois sortes de fichiers qu'un run laisse, et que la retention emporte ensemble.
+# Les trois sortes de fichiers qu'un run laisse : la retention les emporte ensemble.
 _RETAINED_SUFFIXES: Final = (_SUFFIX, PENDING_SUFFIX, ".ndjson")
 
 
 class DumpEntry(BaseModel):
-    """Etat d'origine d'un morceau, et ou le retrouver apres son renommage."""
+    """Etat d'origine d'un morceau, avec son emplacement apres renommage."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -234,7 +234,7 @@ def _replay(dump: TagDump, journal: str) -> TagDump:
     """Applique les notes dans l'ordre : la derniere d'un morceau gagne.
 
     Une ligne illisible est ecartee : la derniere, tronquee par une coupure de courant, n'a
-    jamais precede un renommage, et une note d'un morceau absent du dump ne dit plus rien.
+    jamais precede un renommage. Une note d'un morceau absent du dump ne dit plus rien.
     """
     entries = dict(dump.entries)
     for line in journal.splitlines():

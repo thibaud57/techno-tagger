@@ -4,6 +4,7 @@ import { ArbitrationStore } from "../stores/arbitration.store"
 import {
   ArbitrationSource,
   BusyPhase,
+  CacheClearedEvent,
   ExtractionFinishedEvent,
   ExtractionProgressEvent,
   ExtractionRequest,
@@ -41,6 +42,8 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   interrupted_run: true,
   runs_listed: true,
   run_loaded: true,
+  cache_size: true,
+  cache_cleared: true,
   error: true,
 }
 
@@ -89,6 +92,11 @@ export class SidecarService {
   private readonly _available = signal<boolean | null>(null)
   private readonly _version = signal<string | null>(null)
   private readonly _apiKeyConfigured = signal<boolean | null>(null)
+  private readonly _defaultThresholds = signal<ThresholdsPayload | null>(null)
+  private readonly _logFile = signal<string | null>(null)
+  private readonly _cacheSize = signal<number | null>(null)
+  private readonly _cacheCleared = signal<CacheClearedEvent | null>(null)
+  private readonly _cacheClearing = signal(false)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _listedPlaylistPath = signal<string | null>(null)
   private readonly _progress = signal<ExtractionProgressEvent | null>(null)
@@ -110,7 +118,7 @@ export class SidecarService {
     },
   } as const
   /**
-   * Commandes qui ouvrent une phase longue : la phase qu'elles lancent, et ce que leur envoi a pose
+   * Commandes qui ouvrent une phase longue : la phase qu'elles lancent et ce que leur envoi a pose
    * d'optimiste et que leur echec defait. Un `phase_busy` sur cette meme phase dit que la vraie
    * tourne : rien a defaire. Sur une autre, l'etat pose par la commande refusee ne repose sur rien.
    */
@@ -147,6 +155,15 @@ export class SidecarService {
   readonly version = this._version.asReadonly()
   /** `null` tant que la version n'est pas arrivee : l'etat de la cle n'est pas encore connu. */
   readonly apiKeyConfigured = this._apiKeyConfigured.asReadonly()
+  /** `null` tant que la version n'est pas arrivee, comme `apiKeyConfigured`. */
+  readonly defaultThresholds = this._defaultThresholds.asReadonly()
+  readonly logFile = this._logFile.asReadonly()
+  /** Octets du cache, `null` avant la premiere mesure. */
+  readonly cacheSize = this._cacheSize.asReadonly()
+  /** Dernier vidage : de quoi l'annoncer. */
+  readonly cacheCleared = this._cacheCleared.asReadonly()
+  /** `clear_cache` envoye sans reponse encore : vrai jusqu'a `cache_cleared` ou son refus. */
+  readonly cacheClearing = this._cacheClearing.asReadonly()
   readonly versionMismatch = computed(() => {
     const sidecar = this._version()
 
@@ -216,6 +233,17 @@ export class SidecarService {
   readonly loadRefusal = this.pastRunsStore.refusal
   /** Plus aucune decision n'entre dans le run affiche : le sidecar la refuserait ou l'ignorerait. */
   readonly runFrozen = computed(() => this.writePhase.committed() || this.taggingRun.lost())
+  /**
+   * Run affiche que le moteur tient sans l'avoir ecrit en entier : il refuserait `clear_cache` en
+   * `run_not_written`. Un run perdu avec le moteur n'attend plus rien, echecs restes a l'ecran
+   * compris : `runFrozen` ne le distingue pas d'un run ecrit.
+   */
+  readonly runAwaitsWrite = computed(
+    () =>
+      this.taggingRun.runId() !== null &&
+      !this.taggingRun.lost() &&
+      (!this.writePhase.committed() || this.taggingRun.writeFailureCount() > 0),
+  )
   /** Un run fige n'arbitrera plus : ses attentes ne sont pas un travail en suspens, le compte est nul. */
   readonly arbitrationCount = computed(() => (this.runFrozen() ? 0 : this.arbitration.count()))
   /**
@@ -344,6 +372,7 @@ export class SidecarService {
     this._available.set(null)
     this._version.set(null)
     this._apiKeyConfigured.set(null)
+    this._logFile.set(null)
     // L'annonce du moteur precedent est caduque : sans cela, elle clignoterait avant la nouvelle reponse.
     this.resumeStore.announced(null)
     await this.start()
@@ -500,6 +529,18 @@ export class SidecarService {
     await this.query({ command: "get_rollback_target" })
   }
 
+  async loadCacheSize(): Promise<void> {
+    await this.query({ command: "get_cache_size" })
+  }
+
+  async clearCache(): Promise<void> {
+    if (this._cacheClearing()) {
+      return
+    }
+    this._cacheClearing.set(true)
+    await this.send({ command: "clear_cache" })
+  }
+
   async listRuns(): Promise<void> {
     await this.query({ command: "list_runs" })
   }
@@ -646,6 +687,7 @@ export class SidecarService {
     this.writePhase.failed()
     this.arbitration.clear()
     this.urlRecovery.clear()
+    this._cacheClearing.set(false)
     // Le run charge reste affiche : seul l'attente tombe, sinon `loadRun` du meme id ne repart plus.
     this.pastRunsStore.loadAbandoned()
   }
@@ -656,8 +698,8 @@ export class SidecarService {
   }
 
   /**
-   * Traite une ligne de `stdout`, deja decoupee par Tauri. Une ligne illisible ou inconnue
-   * est tracee sans interrompre la session : c'est le symptome d'un contrat desynchronise.
+   * Une ligne illisible ou inconnue est tracee sans interrompre la session : symptome d'un
+   * contrat desynchronise.
    */
   private handleLine(line: string): void {
     let event: SidecarEvent
@@ -684,6 +726,8 @@ export class SidecarService {
         const keySaved = this._apiKeyConfigured() === false && event.api_key_configured
         this._version.set(event.version)
         this._apiKeyConfigured.set(event.api_key_configured)
+        this._defaultThresholds.set(event.default_thresholds)
+        this._logFile.set(event.log_file)
         if (firstAnswer || keySaved) {
           void this.askInterruptedRun()
         }
@@ -734,6 +778,14 @@ export class SidecarService {
       case "rollback_target":
         this.writePhase.targetFound(event.run)
         break
+      case "cache_size":
+        this._cacheSize.set(event.size_bytes)
+        break
+      case "cache_cleared":
+        this._cacheSize.set(event.size_bytes)
+        this._cacheCleared.set(event)
+        this._cacheClearing.set(false)
+        break
       case "rollback_finished":
         this.writePhase.rolledBack(event)
         this.taggingRun.restored(event)
@@ -750,6 +802,9 @@ export class SidecarService {
         // Avant `setLastError` : la relance de l'annonce passe par `send`, qui efface l'erreur courante.
         this.routeResumeError(event)
         this.setLastError(event)
+        if (event.command === "clear_cache") {
+          this._cacheClearing.set(false)
+        }
         // Chaque phase longue ne tombe que sur l'echec de la commande qui l'a ouverte :
         // elles tournent en parallele, l'une ne dit rien de l'autre.
         this.routeLaunchError(event)

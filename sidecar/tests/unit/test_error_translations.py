@@ -1,12 +1,11 @@
 """Chaque code d'erreur du sidecar a sa phrase dans les deux fichiers de langue."""
 
 import importlib
-import json
 import pkgutil
-from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 import pytest
+from repo_files import read_json
 
 import tagger
 from tagger.__main__ import Phase as BusyPhase
@@ -19,25 +18,14 @@ from tagger.run.models import FailureReason
 if TYPE_CHECKING:
     from enum import StrEnum
 
-REPO: Final = Path(__file__).parents[3]
 LANGUAGES: Final = ["en", "fr"]
 SHARED_REASONS: Final = {reason.value for reason in FileFailureReason}
 RETRY_CONTEXTS: Final = {"write", "rollback", "extraction"}
 
 
-def _translations(language: str) -> dict[str, object]:
-    content = (REPO / "public" / "i18n" / f"{language}.json").read_text(encoding="utf-8")
-    translations: dict[str, object] = json.loads(content)
-
-    return translations
-
-
 def _section(language: str, path: tuple[str, ...]) -> dict[str, object]:
-    section = _translations(language)
-    for key in path:
-        nested = section[key]
-        assert isinstance(nested, dict)
-        section = nested
+    section = read_json(f"public/i18n/{language}.json", *path)
+    assert isinstance(section, dict)
 
     return section
 

@@ -24,7 +24,7 @@ export const TECHNO_TAGGER_PRESET = definePreset(Aura, {
       // La croix se cale sur la premiere ligne du titre (1.75rem, `text-lg`) et sur le bord
       // du contenu, meme sous un en-tete de deux lignes. Le bouton centre une icone de 14px :
       // les marges negatives deplacent l'icone sur ces reperes, pas la zone de clic.
-      // Fermee, la balise hote reste un enfant vide de la colonne de la page : un gap de trop.
+      // Fermee, la balise host reste un enfant vide de la colonne de la page : un gap de trop.
       css: () => `
         p-dialog,
         p-confirmdialog {

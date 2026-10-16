@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from stubs import raising
-from tagging_api import CREATED
+from tagging_records import CREATED, UNREADABLE_CONTENTS
 
 from tagger.reports import index as report_index
 from tagger.reports.index import IndexEntry, list_reports, record_report
@@ -66,8 +66,10 @@ def test_lists_nothing_without_an_index(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "content",
-    ["{not json", json.dumps({"schema_version": 2, "entries": []})],
-    ids=["corrupt", "unknown-version"],
+    [
+        *UNREADABLE_CONTENTS,
+        pytest.param(json.dumps({"schema_version": 2, "entries": []}), id="unknown-version"),
+    ],
 )
 def test_starts_over_from_an_unreadable_index(
     tmp_path: Path, content: str, caplog: pytest.LogCaptureFixture

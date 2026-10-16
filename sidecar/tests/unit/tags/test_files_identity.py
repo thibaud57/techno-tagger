@@ -3,8 +3,14 @@ from typing import TYPE_CHECKING
 
 import mutagen
 import pytest
-from audio_samples import tag, write_not_audio, write_tagged_wavpack
-from mutagen import MutagenError
+from audio_samples import (
+    ALL_FORMATS,
+    ID3_VORBIS_FORMATS,
+    mutagen_refusing,
+    tag,
+    write_not_audio,
+    write_tagged_wavpack,
+)
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.tags.files import IdentityTags, TagsUnreadableError, read_shown_tags
@@ -14,11 +20,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.mark.parametrize(
-    "audio_format",
-    ["mp3", "wav", "aiff", "flac"],
-    ids=["id3-mp3", "id3-wav", "id3-aiff", "vorbis-flac"],
-)
+@pytest.mark.parametrize("audio_format", ALL_FORMATS)
 def test_reads_artist_and_title_from_the_tags(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
@@ -30,7 +32,7 @@ def test_reads_artist_and_title_from_the_tags(
     assert identity == IdentityTags(artist="Adam Beyer", title="Your Mind")
 
 
-@pytest.mark.parametrize("audio_format", ["mp3", "flac"], ids=["id3", "vorbis"])
+@pytest.mark.parametrize("audio_format", ID3_VORBIS_FORMATS)
 def test_joins_multiple_artist_values_with_a_comma(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
@@ -51,9 +53,7 @@ def test_strips_blanks_and_drops_empty_values(blank_audio: Callable[[str], Path]
     assert identity == IdentityTags(artist="Adam Beyer", title="Your Mind")
 
 
-@pytest.mark.parametrize(
-    "audio_format", ["mp3", "wav", "aiff", "flac"], ids=["mp3", "wav", "aiff", "flac"]
-)
+@pytest.mark.parametrize("audio_format", ALL_FORMATS)
 def test_returns_an_empty_identity_for_a_file_without_tags(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:
@@ -106,10 +106,7 @@ def test_tells_a_locked_file_from_a_read_only_one_when_the_read_is_refused(
     if read_only:
         path.chmod(stat.S_IREAD)
 
-    def refused(_path: Path) -> None:
-        raise MutagenError("file in use") from PermissionError(13, "Permission denied")
-
-    monkeypatch.setattr(mutagen, "File", refused)
+    monkeypatch.setattr(mutagen, "File", mutagen_refusing(PermissionError(13, "Permission denied")))
 
     with pytest.raises(TagsUnreadableError, match="unreadable tags") as error:
         read_shown_tags(path)
@@ -117,9 +114,7 @@ def test_tells_a_locked_file_from_a_read_only_one_when_the_read_is_refused(
     assert error.value.reason is reason
 
 
-@pytest.mark.parametrize(
-    "audio_format", ["mp3", "wav", "aiff", "flac"], ids=["mp3", "wav", "aiff", "flac"]
-)
+@pytest.mark.parametrize("audio_format", ALL_FORMATS)
 def test_leaves_the_file_bytes_unchanged_after_reading(
     blank_audio: Callable[[str], Path], audio_format: str
 ) -> None:

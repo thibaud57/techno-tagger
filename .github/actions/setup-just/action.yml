@@ -1,0 +1,16 @@
+name: Installer just
+description: Version lue dans minimum-version du Justfile
+runs:
+  using: composite
+  steps:
+    # `[^"]*` et non `.*"$` : un checkout Windows termine les lignes en CRLF
+    - name: Lire la version de just dans le Justfile
+      id: version
+      shell: bash
+      run: |
+        version=$(sed -n 's/^set minimum-version := "\([^"]*\)".*/\1/p' Justfile)
+        test -n "$version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+    - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      with:
+        just-version: ${{ steps.version.outputs.version }}

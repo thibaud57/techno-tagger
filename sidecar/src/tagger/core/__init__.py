@@ -1,1 +1,1 @@
-"""Socle transverse : erreurs, chemins, logs, observabilite, fichiers d'un run."""
+"""Socle transverse du sidecar, importe par les autres paquets de `tagger`."""

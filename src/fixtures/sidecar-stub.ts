@@ -1,8 +1,9 @@
-import { type Signal, type WritableSignal, computed, signal } from "@angular/core"
+import { type Provider, type Signal, type WritableSignal, computed, signal } from "@angular/core"
 import { type Mock, vi } from "vitest"
 
 import type { SidecarCommand, SidecarErrorEvent } from "../app/core/sidecar/protocol"
 import { type SidecarPhase, SidecarService } from "../app/core/sidecar/sidecar.service"
+import { PLAYLISTS } from "./extraction"
 import { commandError } from "./write"
 
 // Faux `SidecarService` partage par les specs de composants et de services : chaque test pose
@@ -48,14 +49,29 @@ export const commandFailed = (
   lastErrorCommand: signal<SidecarCommand["command"] | null>(command),
 })
 
+/** Un run est affiche : les stores d'interface lisent son identifiant pour oublier le run precedent. */
+export const activeRun = (runId = "run-1"): SidecarStubOverrides => ({
+  taggingRunId: signal<string | null>(runId),
+})
+
+export const provideSidecarStub = (service: SidecarStub): Provider => ({
+  provide: SidecarService,
+  useValue: service,
+})
+
 const defaults = (): StubbedState => ({
   ready: signal(true),
   available: signal(true),
   apiKeyConfigured: signal(true),
   version: signal("1.0.0"),
+  defaultThresholds: signal(null),
+  logFile: signal(null),
+  cacheSize: signal(null),
+  cacheCleared: signal(null),
+  cacheClearing: signal(false),
   versionMismatch: signal(null),
   playlistFormat: signal("vlc_dump"),
-  playlists: signal([{ playlist_id: 1, name: "set", track_count: 8 }]),
+  playlists: signal(PLAYLISTS),
   listedPlaylistPath: signal(null),
   progress: signal(null),
   extraction: signal(null),
@@ -74,6 +90,7 @@ const defaults = (): StubbedState => ({
   requestedFolder: signal(null),
   interruptedRun: signal(null),
   runFrozen: signal(false),
+  runAwaitsWrite: signal(false),
   runConfirmable: signal(false),
   runRetryable: signal(false),
   arbitrations: signal([]),
@@ -120,6 +137,8 @@ const defaults = (): StubbedState => ({
   retryWrite: vi.fn<SidecarService["retryWrite"]>(() => Promise.resolve()),
   rollback: vi.fn<SidecarService["rollback"]>(() => Promise.resolve()),
   loadRollbackTarget: vi.fn<SidecarService["loadRollbackTarget"]>(() => Promise.resolve()),
+  loadCacheSize: vi.fn<SidecarService["loadCacheSize"]>(() => Promise.resolve()),
+  clearCache: vi.fn<SidecarService["clearCache"]>(() => Promise.resolve()),
   listRuns: vi.fn<SidecarService["listRuns"]>(() => Promise.resolve()),
   loadRun: vi.fn<SidecarService["loadRun"]>(() => Promise.resolve()),
 })

@@ -22,12 +22,14 @@ from tagger.core.build_info import SENTRY_DSN
 from tagger.core.errors import RunNotFoundError, TaggerError
 from tagger.core.logger import setup_logging
 from tagger.core.observability import init_sentry
-from tagger.core.paths import app_data_dir
+from tagger.core.paths import log_dir
 from tagger.core.tasks import cancel_all
 from tagger.handlers import (
     commit,
+    handle_clear_cache,
     handle_commit_run,
     handle_extract_playlist,
+    handle_get_cache_size,
     handle_get_interrupted_run,
     handle_get_rollback_target,
     handle_get_version,
@@ -43,12 +45,14 @@ from tagger.handlers import (
 )
 from tagger.protocol import (
     CancelRun,
+    ClearCache,
     CommitRun,
     DiscardRun,
     Error,
     Event,
     ExecutableCommand,
     ExtractPlaylist,
+    GetCacheSize,
     GetInterruptedRun,
     GetRollbackTarget,
     GetVersion,
@@ -77,7 +81,6 @@ from tagger.tags.tag_dump import dump_dir, purge_dumps
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
-    from pathlib import Path
     from typing import TextIO
 
     from tagger.handlers import CurrentRun
@@ -85,26 +88,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def log_dir() -> Path:
-    # Recalcule et non recu de Tauri : le logger est arme avant la premiere lecture
-    # de stdin, donc avant qu'aucune commande NDJSON ait pu porter le chemin. Un
-    # argument de spawn demanderait d'ouvrir `args` dans le scope shell, ou un
-    # argument non conforme est retire en silence.
-    return app_data_dir() / "logs"
-
-
 def _force_utf8_streams() -> None:
-    """Sous Windows, stdin et stdout tombent en cp1252 des qu'ils sont des pipes,
-    c'est-a-dire exactement comme Tauri lance le sidecar. Un titre cyrillique,
-    japonais ou un emoji leverait alors UnicodeDecodeError ou UnicodeEncodeError
-    en plein run. PEP 686 rend l'UTF-8 implicite en 3.15, pas en 3.14.
+    """Sous Windows, stdin et stdout tombent en cp1252 des qu'ils sont des pipes, comme
+    quand Tauri lance le sidecar. Un titre cyrillique, japonais ou un emoji leverait
+    alors UnicodeDecodeError ou UnicodeEncodeError en plein run. PEP 686 rend l'UTF-8
+    implicite en 3.15, pas en 3.14.
 
-    `newline` est fixe dans la foulee : laisse a None, le wrapper traduit chaque
-    `\\n` en `\\r\\n` sous Windows, et le lecteur de lignes de Tauri coupe sur le
-    `\\r` seul des qu'un chunk de 8 Ko tombe avant le `\\n`.
+    `newline` est fixe dans la foulee : laisse a None, le wrapper traduit chaque `\\n`
+    en `\\r\\n` sous Windows. Le lecteur de lignes de Tauri coupe alors sur le `\\r`
+    seul des qu'un chunk de 8 Ko tombe avant le `\\n`.
 
-    `line_buffering` sur la sortie : sans lui, un binaire PyInstaller lance par un
-    pipe garde tout jusqu'a la fin du run, et `PYTHONUNBUFFERED` n'y peut rien
+    `line_buffering` sur la sortie : sans lui, un binaire PyInstaller lance par un pipe
+    garde tout jusqu'a la fin du run, sans que `PYTHONUNBUFFERED` y change rien
     (cf. ADR-005).
     """
     for stream in (sys.stdin, sys.stdout):
@@ -160,6 +155,16 @@ class RunCommittedError(TaggerError):
 
     def __init__(self, track_id: str) -> None:
         super().__init__("the run is committed", track_id=track_id)
+
+
+class RunNotWrittenError(TaggerError):
+    """Le run courant attend son ecriture : vider le cache lui ferait ecrire ses morceaux sans
+    leur pochette, en silence, `write_tags` gardant alors l'image d'origine."""
+
+    code: ClassVar[str] = "run_not_written"
+
+    def __init__(self) -> None:
+        super().__init__("the current run is not written")
 
 
 class _RunningPhase(NamedTuple):
@@ -312,6 +317,14 @@ class _Session:
         active_run_id = None if current is None else current.live.run_id
         self.send(await asyncio.to_thread(handle_get_interrupted_run, active_run_id))
 
+    async def clear_cache(self) -> None:
+        """Attendu par la boucle, sans phase longue : un `start_tagging` envoye pendant le vidage
+        part apres lui, sans course."""
+        self._ensure_idle()
+        if self._current is not None and self._current.awaits_write:
+            raise RunNotWrittenError
+        self.send(await asyncio.to_thread(handle_clear_cache))
+
     async def discard_run(self, command: DiscardRun) -> None:
         """Repartir de zero : le plan part ; sur le run courant, le run est abandonne avec lui.
 
@@ -332,8 +345,8 @@ class _Session:
     async def close(self, *, cancel: bool) -> None:
         """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
 
-        Extraction, ecriture et rollback ne sont jamais annules, le `TaskGroup` de la boucle
-        les attend (cf. `cancel_run`).
+        Les autres phases ne sont jamais annulees (cf. `cancel_run`) : le `TaskGroup` de la
+        boucle les attend.
         """
         await self._settle_run(cancel=cancel)
         # Rien a proteger dans un chargement : l'attendre retarderait seulement la sortie.
@@ -486,8 +499,8 @@ class _Session:
 def main() -> None:
     _force_utf8_streams()
 
-    # Avant tout traitement : un crash du parsing doit deja pouvoir remonter, et
-    # `logger.exception` doit avoir un handler autre que celui de dernier recours.
+    # Avant tout traitement : un crash du parsing doit deja pouvoir remonter, avec un
+    # handler pour `logger.exception` autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
     _purge_old_dumps()
@@ -613,6 +626,10 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
             await session.announce_interrupted_run()
         case DiscardRun():
             await session.discard_run(command)
+        case GetCacheSize():
+            session.send(await asyncio.to_thread(handle_get_cache_size))
+        case ClearCache():
+            await session.clear_cache()
         case _:
             assert_never(command)
 
