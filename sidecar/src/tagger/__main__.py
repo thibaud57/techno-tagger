@@ -89,17 +89,17 @@ logger = logging.getLogger(__name__)
 
 
 def _force_utf8_streams() -> None:
-    """Sous Windows, stdin et stdout tombent en cp1252 des qu'ils sont des pipes,
-    c'est-a-dire exactement comme Tauri lance le sidecar. Un titre cyrillique,
-    japonais ou un emoji leverait alors UnicodeDecodeError ou UnicodeEncodeError
-    en plein run. PEP 686 rend l'UTF-8 implicite en 3.15, pas en 3.14.
+    """Sous Windows, stdin et stdout tombent en cp1252 des qu'ils sont des pipes, comme
+    quand Tauri lance le sidecar. Un titre cyrillique, japonais ou un emoji leverait
+    alors UnicodeDecodeError ou UnicodeEncodeError en plein run. PEP 686 rend l'UTF-8
+    implicite en 3.15, pas en 3.14.
 
-    `newline` est fixe dans la foulee : laisse a None, le wrapper traduit chaque
-    `\\n` en `\\r\\n` sous Windows, et le lecteur de lignes de Tauri coupe sur le
-    `\\r` seul des qu'un chunk de 8 Ko tombe avant le `\\n`.
+    `newline` est fixe dans la foulee : laisse a None, le wrapper traduit chaque `\\n`
+    en `\\r\\n` sous Windows. Le lecteur de lignes de Tauri coupe alors sur le `\\r`
+    seul des qu'un chunk de 8 Ko tombe avant le `\\n`.
 
-    `line_buffering` sur la sortie : sans lui, un binaire PyInstaller lance par un
-    pipe garde tout jusqu'a la fin du run, et `PYTHONUNBUFFERED` n'y peut rien
+    `line_buffering` sur la sortie : sans lui, un binaire PyInstaller lance par un pipe
+    garde tout jusqu'a la fin du run, sans que `PYTHONUNBUFFERED` y change rien
     (cf. ADR-005).
     """
     for stream in (sys.stdin, sys.stdout):
@@ -345,8 +345,8 @@ class _Session:
     async def close(self, *, cancel: bool) -> None:
         """`shutdown` annule la phase reseau, l'EOF l'attend ; le run courant se ferme ensuite.
 
-        Extraction, ecriture et rollback ne sont jamais annules, le `TaskGroup` de la boucle
-        les attend (cf. `cancel_run`).
+        Les autres phases ne sont jamais annulees (cf. `cancel_run`) : le `TaskGroup` de la
+        boucle les attend.
         """
         await self._settle_run(cancel=cancel)
         # Rien a proteger dans un chargement : l'attendre retarderait seulement la sortie.
@@ -499,8 +499,8 @@ class _Session:
 def main() -> None:
     _force_utf8_streams()
 
-    # Avant tout traitement : un crash du parsing doit deja pouvoir remonter, et
-    # `logger.exception` doit avoir un handler autre que celui de dernier recours.
+    # Avant tout traitement : un crash du parsing doit deja pouvoir remonter, avec un
+    # handler pour `logger.exception` autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
     _purge_old_dumps()

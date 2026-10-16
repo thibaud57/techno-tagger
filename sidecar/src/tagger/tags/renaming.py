@@ -41,7 +41,7 @@ _LOOSE_END: Final = f"{_TRAILING}-"
 
 
 class TrackFileName(NamedTuple):
-    """Nom calcule, et s'il a fallu couper le titre pour qu'il tienne."""
+    """Nom calcule, avec l'indication d'une coupe du titre pour qu'il tienne."""
 
     name: str
     truncated: bool
@@ -79,7 +79,7 @@ def track_file_name(
 ) -> TrackFileName | None:
     """Nom `Artiste - Titre.ext` tenant en `room` caracteres, extension et marqueur compris.
 
-    `None` sans artiste ou titre, et quand l'extension et le marqueur de `copy` (au-dela de 1,
+    `None` sans artiste ou titre ou quand l'extension et le marqueur de `copy` (au-dela de 1,
     ` (2)`, ` (3)`... avant l'extension) ne laissent aucune place au nom : un nom hors limite ne se
     fabrique pas. La coupe entame le titre, l'artiste en dernier recours.
     """
@@ -117,7 +117,7 @@ class RenamePlan:
     truncated: bool
 
     def apply(self) -> RenamedTrack:
-        """Renomme le fichier ; echoue (verrou, droits, fichier disparu) sans le deplacer."""
+        """Verrou, droits ou fichier disparu : `RenameError`, le fichier ne bouge pas."""
         try:
             self.source.rename(self.source.with_name(self.target.name))
         except OSError as error:

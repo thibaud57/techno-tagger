@@ -96,8 +96,8 @@
       @if (awaitsPlaylists()) {
         <p-skeleton class="w-full" [height]="selectSkeletonHeight" />
       } @else {
-        <!-- `contain` : sans lui, un nom de playlist long elargit la colonne des controles, et
-             avec elle tous les boutons, au lieu d'etre coupe a leur largeur. -->
+        <!-- `contain` : sans lui, un nom de playlist long elargit la colonne des controles
+             donc tous les boutons, au lieu d'etre coupe a leur largeur. -->
         <p-select
           class="w-full contain-inline-size"
           size="small"
@@ -185,7 +185,7 @@
       <ng-template #header>
         <tr>
           <th>{{ "playlist.report.file" | translate }}</th>
-          <!-- Largeur mesuree : cf. DESIGN.md § Layout, colonnes du rapport. -->
+          <!-- Largeur mesuree sur « Doublon departage », le plus long libelle, icone info comprise (DESIGN.md § Layout). -->
           <th class="w-49.25 whitespace-nowrap">{{ "playlist.report.status" | translate }}</th>
         </tr>
       </ng-template>

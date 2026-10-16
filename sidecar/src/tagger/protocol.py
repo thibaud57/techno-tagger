@@ -132,7 +132,7 @@ class ThresholdsPayload(BaseModel):
 
 
 class StartTagging(Command):
-    """Dossier a re-tagger, et seuils de matching quand les Settings en imposent."""
+    """Dossier a re-tagger, avec les seuils de matching quand les Settings en imposent."""
 
     command: Literal["start_tagging"]
     folder: Path
@@ -341,8 +341,8 @@ class Phase(StrEnum):
 class Event(BaseModel):
     """Base des evenements emis sur `stdout`.
 
-    Ni `strict` ni `forbid` : ces modeles sont construits par le sidecar lui-meme,
-    pas recus d'un tiers. Ce qui compte ici est la sortie, pas la validation.
+    Ni `strict` ni `forbid` : ces modeles sont construits par le sidecar lui-meme, pas
+    recus d'un tiers.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -374,9 +374,9 @@ class PlaylistEntry(BaseModel):
 class PlaylistsListed(Event):
     """Porte le format reconnu autant que les playlists.
 
-    L'interface doit savoir s'il faut proposer un selecteur, et reconnaitre un
-    format cote TypeScript serait une regle metier au mauvais endroit. Un M3U8
-    rend donc une liste vide et son format, jamais une erreur.
+    L'interface doit savoir s'il faut proposer un selecteur, mais reconnaitre un format
+    cote TypeScript serait une regle metier au mauvais endroit. Un M3U8 rend donc une
+    liste vide et son format, jamais une erreur.
     """
 
     event: Literal["playlists_listed"]
@@ -416,9 +416,8 @@ class FailurePayload(BaseModel):
 
 
 class ExtractionFinished(Event):
-    """Categories plus fines que celles d'ARCHITECTURE.md : un transfert peut
-    echouer sans que le morceau soit introuvable, et un fichier deja present n'a
-    pas ete extrait.
+    """Categories plus fines que celles d'ARCHITECTURE.md : un transfert peut echouer
+    sans que le morceau soit introuvable, un fichier deja present n'a pas ete extrait.
     """
 
     event: Literal["extraction_finished"]
@@ -740,12 +739,11 @@ UNKNOWN_COMMAND_ERROR: Final = "union_tag_invalid"
 def error_from_validation(exc: ValidationError) -> Error:
     """Convertit un refus de validation en evenement structure.
 
-    Seuls `loc` et `type` sont retenus : ils suffisent a situer le champ fautif
-    dans les logs, et le message de Pydantic n'a pas vocation a etre lu par
-    l'utilisateur. Une commande inconnue est en plus nommee sous `command` :
-    Pydantic ne la porte que dans `ctx`, que `loc` et `type` laissent de cote.
-    `ctx` n'est pas recopie en entier, il peut porter des objets que le JSON ne
-    serialise pas (l'exception d'un validateur).
+    Seuls `loc` et `type` sont retenus : ils suffisent a situer le champ fautif dans les
+    logs, le message de Pydantic n'ayant pas vocation a etre lu par l'utilisateur. Une
+    commande inconnue est en plus nommee sous `command` : Pydantic ne la porte que dans
+    `ctx`, que `loc` et `type` laissent de cote. `ctx` n'est pas recopie en entier, il
+    peut porter des objets que le JSON ne serialise pas (l'exception d'un validateur).
     """
     details: list[dict[str, object]] = []
     params: dict[str, object] = {"errors": details}

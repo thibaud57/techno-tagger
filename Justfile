@@ -168,7 +168,7 @@ test-sidecar:
 [group('quality')]
 test-ui:
     # `--watch=false` explicite : le builder met watch a true des que le terminal
-    # est un TTY, et `just test` (parallel) resterait bloque.
+    # est un TTY : `just test` (parallel) resterait bloque.
     pnpm exec ng test --watch=false
 
 # Tous les tests

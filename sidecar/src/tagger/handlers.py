@@ -201,8 +201,8 @@ def handle_extract_playlist(
             generated_at=datetime.now(UTC),
         ),
     )
-    # Sans compteurs : aucune cle du jeu logfmt fixe ne les porte, et le rapport ecrit
-    # juste avant les detaille deja.
+    # Sans compteurs : aucune cle du jeu logfmt fixe ne les porte, le rapport ecrit juste
+    # avant les detaille deja.
     logger.info("extraction finished")
 
     return ExtractionFinished(
@@ -226,8 +226,8 @@ def handle_extract_playlist(
 
 
 class TaggingTransports(NamedTuple):
-    """Transports du client et du CDN, et resolveur d'hote des pochettes : `None` et le
-    resolveur reel en production.
+    """Transports du client et du CDN avec le resolveur d'hote des pochettes : `None` et
+    le resolveur reel en production.
     """
 
     api: httpx2.AsyncBaseTransport | None
@@ -286,9 +286,9 @@ class CurrentRun:
     def awaits_write(self) -> bool:
         """Ses pochettes servent encore : ecriture a confirmer, ou echecs que `retry_write`
         rejouera. `write_tags` les lit dans le cache au moment d'ecrire."""
-        if not self.committed:
-            return True
-        return any(record.state is TrackState.WRITE_ERROR for record in self.live.snapshot().tracks)
+        return not self.committed or any(
+            record.state is TrackState.WRITE_ERROR for record in self.live.snapshot().tracks
+        )
 
     def track(self, gesture: asyncio.Task[None]) -> None:
         """Reference forte sur un geste en vol, relachee a sa fin."""

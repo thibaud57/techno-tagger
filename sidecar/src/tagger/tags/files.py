@@ -32,14 +32,12 @@ if TYPE_CHECKING:
 
 AUDIO_EXTENSIONS: Final = frozenset({".mp3", ".wav", ".aif", ".aiff", ".flac"})
 
-# Contenu que mutagen ne rattache a aucun des quatre formats : pas de cause systeme, donc le
-# motif generique, le seul qui ne pretende rien sur le fichier.
+# Contenu hors des quatre formats : pas de cause systeme, donc le motif generique, le seul qui
+# ne pretende rien sur le fichier.
 _UNREADABLE: Final = FileFailureReason.WRITE_FAILED
 
 
 class TagKeys(NamedTuple):
-    """Cles d'un meme champ dans les deux systemes de tags."""
-
     id3: str
     vorbis: str
 
@@ -186,10 +184,7 @@ class TaggingFolderUnreadableError(FilesError):
 
 
 class TagsUnreadableError(FilesError):
-    """Les tags d'un fichier n'ont pas pu etre lus.
-
-    Levee et jamais loguee ici : le pipeline connait le run et le morceau.
-    """
+    """Tags illisibles ; levee sans log, le pipeline connait le run et le morceau."""
 
     code: ClassVar[str] = "tags_unreadable"
 
@@ -199,7 +194,7 @@ class TagsUnreadableError(FilesError):
 
 
 class TagsWriteError(FilesError):
-    """Tags non ecrits ; levee sans log, l'appelant connait le run et le morceau."""
+    """Tags non ecrits ; levee sans log, le pipeline connait le run et le morceau."""
 
     code: ClassVar[str] = "tags_write_failed"
 
@@ -212,9 +207,9 @@ def list_audio_files(folder: Path) -> tuple[Path, ...]:
     """Fichiers audio du dossier, sous-dossiers compris, dans un ordre stable.
 
     Le tri porte sur les segments du chemin relatif, casse ignoree : trier la chaine
-    entiere ferait dependre l'ordre du separateur, l'antislash passant apres les
-    chiffres quand la barre oblique passe avant. Meme parcours que le dossier source
-    de l'extraction, ou un sous-dossier illisible est saute par `rglob` sans erreur.
+    entiere ferait dependre l'ordre du separateur (l'antislash passe apres les chiffres,
+    la barre oblique avant). Meme parcours que le dossier source de l'extraction : `rglob`
+    y saute sans erreur un sous-dossier illisible.
     """
     if not folder.is_dir():
         raise TaggingFolderUnreadableError(folder)
@@ -276,7 +271,7 @@ def _shown_value(values: Iterable[object]) -> str | None:
 
 
 def read_original_tags(path: Path) -> OriginalTags:
-    """Champs de la table avec toutes leurs valeurs, sans jamais ecrire le fichier.
+    """Champs de la table avec toutes leurs valeurs.
 
     Ni jointes ni nettoyees : la restauration doit rendre le fichier tel qu'il etait.
     """
@@ -294,7 +289,6 @@ def read_original_tags(path: Path) -> OriginalTags:
 
 
 def _raw_fields(tags: ID3 | VCFLACDict) -> dict[TagField, tuple[str, ...]]:
-    """Valeurs brutes des champs de la table presents, une liste par champ."""
     match tags:
         case ID3():
             return {

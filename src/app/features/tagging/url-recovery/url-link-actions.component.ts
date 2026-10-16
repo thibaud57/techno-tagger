@@ -17,7 +17,7 @@ import { RecoveryUiStore } from "./recovery-ui.store"
 
 /**
  * « Passer » et « Resoudre » du champ de lien, au pied de la modale du lien comme de l'etape
- * lien de l'arbitrage. « Passer » appartient a la modale hote, qui sait ou aller ensuite.
+ * lien de l'arbitrage. « Passer » appartient a la modale parente, qui sait ou aller ensuite.
  */
 @Component({
   selector: "app-url-link-actions",

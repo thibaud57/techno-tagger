@@ -67,7 +67,7 @@ export default class RecapPageComponent {
 
   protected readonly runRestore = injectRunRestore()
 
-  /** Filtre et recherche en un seul signal : `form()` en derive les champs que `[formField]` lie. */
+  /** Un seul signal : `form()` en derive les champs que `[formField]` lie. */
   protected readonly criteria = signal<RecapCriteria>({ filter: "all", query: "" })
   protected readonly fields = form(this.criteria)
 
@@ -95,7 +95,7 @@ export default class RecapPageComponent {
     this.past() ? (this.loaded()?.tracks ?? []) : this.sidecar.taggingTracks(),
   )
   /**
-   * Le run affiche se date par son entree des runs passes, relue apres chaque ecriture, et non
+   * Le run affiche se date par son entree des runs passes, relue apres chaque ecriture, pas
    * par la cible de restauration : celle-ci passe au run precedent des que le run affiche est
    * restaure.
    */

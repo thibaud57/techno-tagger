@@ -1,6 +1,6 @@
 import type { TooltipOptions } from "primeng/api"
 
-/** DESIGN.md § Composants Animés : un survol de passage n'allume rien. */
+/** DESIGN.md § Composants Animes : un survol de passage n'allume rien. */
 const TOOLTIP_DELAY = 400
 
 /**

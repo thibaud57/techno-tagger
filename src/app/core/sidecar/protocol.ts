@@ -1,6 +1,6 @@
 /**
  * Miroir manuel de `sidecar/src/tagger/protocol.py`. Pas de generation de code :
- * trop peu de types, et stables, pour la rentabiliser.
+ * trop peu de types, par ailleurs stables, pour la rentabiliser.
  */
 
 export type ExtractionMode = "copy" | "move"
@@ -204,7 +204,7 @@ export type SidecarCommand =
 export interface VersionEvent {
   readonly event: "version"
   readonly version: string
-  /** Seul le sidecar lit le trousseau : l'interface l'apprend ici. */
+  /** Seul le sidecar lit le keyring : l'interface l'apprend ici. */
   readonly api_key_configured: boolean
   /** Seuils que le sidecar applique sans `thresholds` : valeurs de depart des Reglages. */
   readonly default_thresholds: ThresholdsPayload

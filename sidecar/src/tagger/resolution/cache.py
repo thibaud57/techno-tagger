@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Injectable : les tests ne resolvent aucun nom, et l'appel bloque sinon la boucle.
+# Injectable : un test ne doit resoudre aucun nom reel (appel bloquant).
 type HostResolver = Callable[[str], list[str]]
 
 CACHE_TTL: Final = timedelta(days=30)
@@ -50,8 +50,8 @@ _ARTWORK_TIMEOUT: Final = httpx2.Timeout(connect=10.0, read=30.0, write=10.0, po
 
 ARTWORK_EXTENSIONS: Final = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
-# Une pochette vit sur un CDN public : quelques sauts suffisent, et la borne evite
-# qu'une boucle de redirections ne tienne une place du pool jusqu'au timeout.
+# Une pochette vit sur un CDN public : quelques sauts suffisent. La borne evite qu'une
+# boucle de redirections ne tienne une place du pool jusqu'au timeout.
 _ARTWORK_MAX_REDIRECTS: Final = 5
 
 _HASH_LENGTH: Final = 64
@@ -94,19 +94,18 @@ def cache_dir() -> Path:
 
 def cache_size(root: Path) -> int:
     """Taille des fichiers sous `root`, sous-dossiers compris ; zero sans dossier."""
-    return sum(_size_of(path) for path in _cached_files(root))
+    return sum(size for _path, size in _cached_files(root))
 
 
 def clear_cache(root: Path) -> ClearedCache:
     """Supprime chaque fichier sous `root`. Les dossiers restent : `DiskCache.begin` les
-    recree de toute facon, et le scope de l'asset protocol vise un chemin, pas un dossier.
+    recree de toute facon ; le scope de l'asset protocol vise un chemin, pas un dossier.
 
-    Un fichier qui resiste (antivirus sous Windows) reste en place et compte dans ce qui
-    reste : `_unlink` le journalise sans lever.
+    Un fichier qui resiste (antivirus Windows) compte dans `size_bytes` : `_unlink` le
+    journalise sans lever.
     """
     freed = remaining = 0
-    for path in _cached_files(root):
-        size = _size_of(path)
+    for path, size in _cached_files(root):
         if _unlink(path):
             freed += size
         else:
@@ -114,9 +113,21 @@ def clear_cache(root: Path) -> ClearedCache:
     return ClearedCache(freed_bytes=freed, size_bytes=remaining)
 
 
-def _cached_files(root: Path) -> list[Path]:
-    """Tout fichier, `.tmp` orphelin compris : le cache est jetable en entier (ADR-013)."""
-    return [path for path in root.rglob("*") if path.is_file()]
+def _cached_files(root: Path) -> list[tuple[Path, int]]:
+    """Chaque fichier et sa taille, `.tmp` orphelin compris : le cache est jetable en entier.
+
+    `scandir` pour la meme raison que `DiskCache._scan`.
+    """
+    try:
+        with os.scandir(root) as entries:
+            listed = list(entries)
+    except OSError:
+        return []
+    files = [(root / entry.name, _size_of(entry)) for entry in listed if entry.is_file()]
+    for entry in listed:
+        if entry.is_dir(follow_symlinks=False):
+            files += _cached_files(root / entry.name)
+    return files
 
 
 class DiskCache:
@@ -172,11 +183,10 @@ class DiskCache:
         return entry.path
 
     def discard(self, path: Path) -> None:
-        """Supprime une entree, sans erreur si elle a deja disparu ni si elle resiste.
+        """Supprime une entree sans lever, qu'elle ait disparu ou qu'elle resiste.
 
-        Sous Windows, un antivirus qui tient un fichier ouvert fait lever
-        `PermissionError` a `unlink`. L'entree reste alors en place et sera reprise a
-        l'eviction suivante : elle ne doit pas faire echouer l'appel en cours.
+        Sous Windows, un antivirus qui tient le fichier ouvert fait lever `PermissionError`
+        a `unlink` : l'entree reste, reprise a l'eviction suivante.
         """
         with self._lock:
             size = _size_of(path)
@@ -211,8 +221,8 @@ class DiskCache:
         """Abandonne l'ecriture : le `.tmp` est supprime, rien n'est publie.
 
         Ne leve jamais : appele depuis un `except`, une erreur de nettoyage y
-        remplacerait l'echec en cours, et un `.tmp` verrouille ferait echouer le morceau
-        pour un simple residu de cache.
+        remplacerait l'echec en cours. Un `.tmp` verrouille ferait aussi echouer le
+        morceau pour un simple residu de cache.
         """
         with contextlib.suppress(OSError):
             pending.file.close()
@@ -288,8 +298,8 @@ class DiskCache:
 
     def _scan(self) -> list[os.DirEntry[str]]:
         """`scandir` et non `iterdir` : l'enumeration porte deja type, taille et mtime,
-        qu'un `Path.stat()` par fichier redemanderait au systeme. Le parcours de
-        `_evict` se paie sous verrou a chaque ecriture, une fois le plafond atteint.
+        sans `Path.stat()` par fichier. Le parcours de `_evict` se paie sous verrou a
+        chaque ecriture, une fois le plafond atteint.
         """
         try:
             with os.scandir(self._root) as entries:
@@ -304,7 +314,7 @@ def response_key(path: str, params: Mapping[str, str]) -> str:
 
 
 class CachedResponse(NamedTuple):
-    """Corps relu, et l'entree d'ou il sort : l'appelant la jette sans la rechercher."""
+    """Corps relu, avec l'entree d'ou il sort : l'appelant la jette sans la rechercher."""
 
     payload: object
     entry: Path
@@ -414,7 +424,7 @@ class ArtworkFetcher:
             self._in_flight[url] = running
             running.add_done_callback(lambda _task: self._in_flight.pop(url, None))
         # `shield` : un appelant annule n'emporte pas le telechargement que les autres
-        # attendent. La task se termine, et le prochain appel lira le cache.
+        # attendent. La task se termine ; le prochain appel lira le cache.
         return await asyncio.shield(running)
 
     async def _fetch_once(self, url: str) -> Path:
@@ -444,8 +454,7 @@ class ArtworkFetcher:
             response.raise_for_status()
         except httpx2.HTTPStatusError as exc:
             raise ArtworkUnavailableError(f"status_{response.status_code}") from exc
-        # Un type de media est insensible a la casse (RFC 9110) : un `image/JPEG`
-        # designe bien un JPEG.
+        # Type de media insensible a la casse (RFC 9110) : `image/JPEG` est un JPEG.
         content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
         extension = ARTWORK_EXTENSIONS.get(content_type)
         if extension is None:
@@ -546,8 +555,7 @@ def _parse(path: Path) -> _Entry | None:
 def _size_of(statable: Path | os.DirEntry[str]) -> int:
     """Zero sur un fichier illisible : sous-compter fait recompter, jamais echouer.
 
-    Un `DirEntry` rend ici la taille deja portee par l'enumeration, sans redemander
-    un `stat` au systeme ; un `Path` le redemande, faute de mieux.
+    Un `DirEntry` evite le `stat` (taille deja lue par l'enumeration), un `Path` le refait.
     """
     try:
         return statable.stat().st_size

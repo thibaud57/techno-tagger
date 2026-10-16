@@ -29,8 +29,7 @@ tauri-plugin-opener = "2.7.0"
 tauri-plugin-updater = "2.13.2"
 tauri-plugin-prevent-default = "6.0.1"
 
-# Profil recommande par Tauri pour la taille du bundle. Ne pese que sur le build
-# de release en CI, `tauri dev` reste en profil dev.
+# Profil Tauri pour la taille du bundle : sans effet sur `tauri dev`, qui reste en profil dev.
 [profile.release]
 codegen-units = 1
 lto = true

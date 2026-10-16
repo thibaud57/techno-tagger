@@ -89,8 +89,10 @@ export class TaggingRunStore {
   /** Vrai de l'envoi de `start_tagging` jusqu'a `run_finished` ou une erreur. */
   readonly running = this._running.asReadonly()
   readonly finished = this._finished.asReadonly()
-  /** Arrete par une erreur ou la mort du process : ses morceaux non tranches ne le seront plus.
-   * Pose par `failed()` plutot que deduit de `running`, que d'autres arrets eteignent aussi. */
+  /**
+   * Arrete par une erreur ou la mort du process : ses morceaux non tranches ne le seront plus.
+   * Pose par `failed()` plutot que deduit de `running`, que d'autres arrets eteignent aussi.
+   */
   readonly interrupted = this._interrupted.asReadonly()
   /** Un nouveau moteur ne connait pas ce run : rien n'en sera ecrit. Ecrit, il reste restaurable par son dump. */
   readonly lost = this._lost.asReadonly()

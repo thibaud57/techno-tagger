@@ -48,7 +48,7 @@ class DiscardedCandidate:
 
 @dataclass(frozen=True, slots=True)
 class DuplicateResolution:
-    """Trace d'un choix automatique entre homonymes : automatique, mais verifiable."""
+    """Trace d'un choix automatique entre homonymes, de quoi le verifier."""
 
     file_name: str
     kept_path: Path
@@ -153,7 +153,7 @@ def build_source_index(
 ) -> dict[str, tuple[Path, ...]]:
     """Indexe le dossier source en une passe : nom de fichier vers ses chemins.
 
-    Une recherche par nom relirait l'arborescence a chaque morceau, et devrait de
+    Une recherche par nom relirait l'arborescence a chaque morceau et devrait de
     toute facon la parcourir entierement pour reperer les homonymes.
 
     Les cles sont en minuscules : la cible est Windows, dont le systeme de fichiers
@@ -220,7 +220,7 @@ def extract(
     re-tagging reecrit les fichiers de destination.
 
     Seuls un dossier source illisible et un dossier destination impossible a creer
-    levent, et avant tout transfert.
+    levent, avant tout transfert.
     """
     index, extracts_in_place = _prepare_run(file_names, source, destination)
 
@@ -234,7 +234,7 @@ def extract(
     resolved_names: set[str] = set()
     # Noms deja transferes par ce run. En mode deplacement, l'original a quitte la
     # source : redepartager ses homonymes ferait echouer le `stat()` du candidat
-    # deplace, et le morceau sortirait a la fois extrait et en echec.
+    # deplace : le morceau sortirait a la fois extrait et en echec.
     transferred: set[str] = set()
 
     total = len(file_names)
@@ -248,7 +248,7 @@ def extract(
             already_present.append(file_name)
         else:
             # L'index est un instantane : un homonyme disparu depuis fait echouer le
-            # `stat()` du departage comme le transfert, et se consigne de la meme facon.
+            # `stat()` du departage comme le transfert et se consigne de la meme facon.
             try:
                 kept_path, resolution = pick_file(file_name, candidates)
                 if resolution is not None and key not in resolved_names:

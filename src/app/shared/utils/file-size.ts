@@ -5,7 +5,7 @@ const BYTES_PER_MEGABYTE = 1000 * BYTES_PER_KILOBYTE
  * Taille de fichier lisible, dans l'unite de la locale.
  *
  * Les Ko comptent autant que les Mo : un fichier tronque par une copie interrompue
- * pese quelques Ko, et c'est precisement ce qu'un departage de doublon doit montrer.
+ * pese quelques Ko : c'est precisement ce qu'un departage de doublon doit montrer.
  * L'unite vient d'`Intl`, jamais d'un libelle ecrit a la main.
  */
 export const formatFileSize = (bytes: number, language: string): string => {

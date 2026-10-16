@@ -118,7 +118,7 @@ export class SidecarService {
     },
   } as const
   /**
-   * Commandes qui ouvrent une phase longue : la phase qu'elles lancent, et ce que leur envoi a pose
+   * Commandes qui ouvrent une phase longue : la phase qu'elles lancent et ce que leur envoi a pose
    * d'optimiste et que leur echec defait. Un `phase_busy` sur cette meme phase dit que la vraie
    * tourne : rien a defaire. Sur une autre, l'etat pose par la commande refusee ne repose sur rien.
    */
@@ -372,6 +372,7 @@ export class SidecarService {
     this._available.set(null)
     this._version.set(null)
     this._apiKeyConfigured.set(null)
+    this._logFile.set(null)
     // L'annonce du moteur precedent est caduque : sans cela, elle clignoterait avant la nouvelle reponse.
     this.resumeStore.announced(null)
     await this.start()
@@ -697,8 +698,8 @@ export class SidecarService {
   }
 
   /**
-   * Traite une ligne de `stdout`, deja decoupee par Tauri. Une ligne illisible ou inconnue
-   * est tracee sans interrompre la session : c'est le symptome d'un contrat desynchronise.
+   * Une ligne illisible ou inconnue est tracee sans interrompre la session : symptome d'un
+   * contrat desynchronise.
    */
   private handleLine(line: string): void {
     let event: SidecarEvent

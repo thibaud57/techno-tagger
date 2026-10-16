@@ -1,3 +1,4 @@
+import { Service } from "@angular/core"
 import { load } from "@tauri-apps/plugin-store"
 
 import { SCORE_SCALE, type ExtractionMode, type ThresholdsPayload } from "../sidecar/protocol"
@@ -6,7 +7,7 @@ import { LANGUAGES, type Language } from "../i18n/language"
 const STORE_FILE = "preferences.json"
 
 /**
- * Ne leve jamais : hors Tauri `load` rejette, et une preference non enregistree n'est
+ * Ne leve jamais : hors Tauri `load` rejette. Une preference non enregistree n'est
  * pas une panne. Les deux retombent sur le defaut, l'interface restant utilisable
  * sous `ng serve` seul.
  *
@@ -83,20 +84,49 @@ const language = definePreference<Language | null>("language", null, (stored): s
 )
 const thresholds = definePreference<ThresholdsPayload | null>("thresholds", null, isThresholds)
 
-export const readExtractionMode = extractionMode.read
-export const writeExtractionMode = extractionMode.write
+/** Seul point d'entree du store Tauri de la webview : les specs le remplacent par `preferencesStub`. */
+@Service()
+export class PreferencesService {
+  readExtractionMode(): Promise<ExtractionMode> {
+    return extractionMode.read()
+  }
 
-export const readSoundSignal = soundSignal.read
-export const writeSoundSignal = soundSignal.write
+  writeExtractionMode(value: ExtractionMode): Promise<void> {
+    return extractionMode.write(value)
+  }
 
-/** `null` tant que l'utilisateur n'a rien choisi : la locale systeme decide alors. */
-export const readLanguage = language.read
-export const writeLanguage = language.write
+  readSoundSignal(): Promise<boolean> {
+    return soundSignal.read()
+  }
 
-/** `null` : suivre les defauts du sidecar, aucun seuil n'est envoye. */
-export const readThresholds = thresholds.read
-export const writeThresholds = thresholds.write
+  writeSoundSignal(value: boolean): Promise<void> {
+    return soundSignal.write(value)
+  }
 
-/** Le dossier re-taggue est presque toujours la destination de la derniere extraction. */
-export const readLastDestination = lastDestination.read
-export const writeLastDestination = lastDestination.write
+  /** `null` tant que l'utilisateur n'a rien choisi : la locale systeme decide alors. */
+  readLanguage(): Promise<Language | null> {
+    return language.read()
+  }
+
+  writeLanguage(value: Language | null): Promise<void> {
+    return language.write(value)
+  }
+
+  /** `null` : suivre les defauts du sidecar, aucun seuil n'est envoye. */
+  readThresholds(): Promise<ThresholdsPayload | null> {
+    return thresholds.read()
+  }
+
+  writeThresholds(value: ThresholdsPayload | null): Promise<void> {
+    return thresholds.write(value)
+  }
+
+  /** Le dossier re-taggue est presque toujours la destination de la derniere extraction. */
+  readLastDestination(): Promise<string | null> {
+    return lastDestination.read()
+  }
+
+  writeLastDestination(value: string | null): Promise<void> {
+    return lastDestination.write(value)
+  }
+}

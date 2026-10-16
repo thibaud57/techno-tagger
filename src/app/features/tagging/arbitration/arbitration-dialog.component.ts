@@ -46,7 +46,7 @@ const LISTBOX_PT: ListBoxPassThrough = {
   emptyMessage: { class: "flex h-full items-center justify-center text-sm text-muted-color" },
 }
 
-/** Option de la liste. `index` est la position dans la liste recue : c'est ce que le geste envoie. */
+/** `index` : position dans la liste recue, c'est ce que le geste envoie. */
 interface CandidateOption {
   readonly index: number
   readonly names: string
@@ -63,7 +63,7 @@ const toOption = (candidate: CandidatePayload, index: number): CandidateOption =
   scores: candidate.scores,
 })
 
-/** Modale d'arbitrage : sa visibilite appartient au shell, qui la suspend a la croix. */
+/** Sa visibilite appartient au shell, qui la suspend a la croix. */
 @Component({
   selector: "app-arbitration-dialog",
   imports: [

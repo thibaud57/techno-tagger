@@ -2,8 +2,8 @@
 
 Format non documente, connu par observation seule : trois tables et six colonnes
 sont attestees, tout le reste est non releve (cf.
-`docs/knowledges/vlc-media-db.md`). Le schema est verifie avant tout traitement,
-et un ecart nomme precisement ce qui manque (ADR-019).
+`docs/knowledges/vlc-media-db.md`). Le schema est verifie avant tout traitement :
+un ecart nomme precisement ce qui manque (ADR-019).
 """
 
 import contextlib
@@ -37,7 +37,7 @@ def is_vlc_dump(path: Path) -> bool:
 
 
 # Les seules tables et colonnes dont l'existence est attestee. Comparees en
-# minuscules : la colonne se declare `filename`, et une comparaison litterale
+# minuscules : la colonne se declare `filename`, une comparaison litterale
 # rejetterait un schema valide.
 EXPECTED_SCHEMA: Final[dict[str, tuple[str, ...]]] = {
     "Playlist": ("id_playlist", "name"),
@@ -51,12 +51,11 @@ def connect(dump_path: Path) -> sqlite3.Connection:
     schema verifie.
 
     L'ordre compte. La collation precede la verification parce que celle-ci lit
-    deja `Media`, et la verification precede toute requete metier pour qu'un
+    deja `Media`. La verification precede toute requete metier pour qu'un
     schema inconnu echoue avant d'avoir extrait quoi que ce soit.
 
-    `Path.as_uri()` leve `ValueError` sur un chemin relatif (pas seulement
-    `sqlite3.DatabaseError`) : capturee ici pour que l'appelant ne voie jamais que
-    des erreurs metier, jamais une exception technique brute.
+    `Path.as_uri()` leve `ValueError` sur un chemin relatif : capturee avec
+    `sqlite3.DatabaseError` pour que l'appelant ne voie que des erreurs metier.
     """
     connection: sqlite3.Connection | None = None
     ready = False
@@ -90,10 +89,7 @@ def _collate_filename(left: str, right: str) -> int:
 
 
 def _verify_schema(connection: sqlite3.Connection) -> None:
-    """Leve `IncompatibleDumpSchemaError` en nommant tout ce qui manque.
-
-    Un schema partiellement compatible est traite comme incompatible.
-    """
+    """Leve `IncompatibleDumpSchemaError` en nommant tout ce qui manque."""
     present_tables = {
         str(row[0]).lower()
         for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -113,12 +109,10 @@ def _verify_schema(connection: sqlite3.Connection) -> None:
         raise IncompatibleDumpSchemaError(missing)
 
 
-# `count(DISTINCT ...)` et non `count(...)` : un morceau peut figurer deux fois dans
-# une playlist, et le `DISTINCT` de l'extraction les fusionnerait. Les compteurs
-# denormalises de `Playlist` sont ignores, releves a zero sur un dump reel.
-# `p.name` n'est pas declare `NOT NULL` :
-# sans le filtre, une playlist sans nom serait rendue avec `name="None"`, un
-# `str(None)` plutot qu'une absence de nom.
+# `count(DISTINCT ...)` : un morceau peut figurer deux fois dans une playlist, mais le
+# `DISTINCT` de l'extraction les fusionne. Les compteurs denormalises de `Playlist` sont
+# ignores, releves a zero sur un dump reel. `p.name` n'est pas declare `NOT NULL` : sans le
+# filtre, une playlist sans nom serait rendue avec `name="None"` (`str(None)`).
 LIST_PLAYLISTS_QUERY: Final = """
     SELECT p.id_playlist, p.name, count(DISTINCT pm.media_id)
     FROM Playlist p
@@ -143,9 +137,8 @@ def list_playlists(dump_path: Path) -> tuple[PlaylistSummary, ...]:
 # Requete d'origine de la CLI, nom de playlist parametre et non plus code en dur.
 # Le `CAST(... AS TEXT) COLLATE NOCASE` impose l'ordre independamment de la
 # collation de colonne, ce qui rend le rapport lisible.
-# `m.filename` n'est pas declare `NOT NULL` (cf. docs/knowledges/vlc-media-db.md
-# § DDL) : sans le filtre, un media sans nom de fichier serait stringifie en
-# "None" par `str(row[0])` plutot que d'etre exclu.
+# `m.filename` n'est pas declare `NOT NULL` : sans le filtre, un media sans nom de fichier
+# serait stringifie en "None" par `str(row[0])` plutot que d'etre exclu.
 READ_PLAYLIST_QUERY: Final = """
     SELECT DISTINCT m.filename
     FROM Playlist p

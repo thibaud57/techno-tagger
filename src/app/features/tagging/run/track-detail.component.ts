@@ -1,9 +1,9 @@
-import { Component, computed, input, output } from "@angular/core"
+import { Component, computed, inject, input, output } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
-import { openUrl } from "@tauri-apps/plugin-opener"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
+import { NativeService } from "../../../core/platform/native.service"
 import type { TagField, TagValue, TrackSource } from "../../../core/sidecar/protocol"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 import { ArtworkComponent } from "../../../shared/components/display/artwork.component"
@@ -72,6 +72,8 @@ export const detailSpan = (track: TaggingTrack): number =>
   host: { class: "block" },
 })
 export class TrackDetailComponent {
+  private readonly native = inject(NativeService)
+
   protected readonly tooltip = TOOLTIP
 
   readonly track = input.required<RunRow>()
@@ -121,7 +123,7 @@ export class TrackDetailComponent {
 
   /** Le navigateur par défaut : la webview n'ouvre aucune page externe. */
   protected openSource(url: string): void {
-    openUrl(url).catch((error: unknown) => {
+    this.native.openUrl(url).catch((error: unknown) => {
       console.error("[track-detail] fiche source non ouverte", error)
     })
   }

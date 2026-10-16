@@ -3,7 +3,8 @@ seul ce fichier dit ou les retrouver pour rouvrir un run passe.
 
 Jamais purge : il suit des livrables permanents. Absent, corrompu ou d'une autre version, il se
 lit vide et repart de zero, les rapports restant dans leurs dossiers. Un fichier que le systeme
-refuse de lire n'est en revanche jamais reecrit : son contenu n'est pas en cause.
+refuse de lire n'est en revanche jamais reecrit : son contenu n'est pas en cause, l'ecraser par
+une seule entree perdrait un historique intact.
 """
 
 import logging
@@ -41,11 +42,7 @@ def index_path() -> Path:
 
 
 def record_report(index: Path, entry: IndexEntry) -> None:
-    """Inscrit le rapport d'un run ; une reecriture du meme run remplace son entree.
-
-    Un registre qui n'a pas pu etre lu n'est pas reecrit : l'ecraser par une seule entree
-    perdrait un historique intact.
-    """
+    """Inscrit le rapport d'un run ; une reecriture du meme run remplace son entree."""
     known = _read(index)
     if known is None:
         return

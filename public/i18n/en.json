@@ -423,8 +423,7 @@
         "hint": "API responses and artwork already downloaded.\nClearing it touches no music file: the next runs download them again.",
         "action": "Clear the cache",
         "blocked": {
-          "busy": "An operation is in progress.\nWait for it to finish.",
-          "unwritten": "The run on screen is waiting for its tags to be written.\nFinish writing before clearing the cache."
+          "busy": "An operation is in progress.\nWait for it to finish."
         },
         "cleared": {
           "summary": "Cache cleared",

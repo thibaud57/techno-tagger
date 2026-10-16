@@ -350,9 +350,9 @@ class TechnoScraperClient:
         """Point de passage unique de toute requete, cache et validation compris.
 
         Le cache est lu avant le semaphore : un hit ne prend aucune place du pool.
-        Invariant : une reponse n'entre au cache qu'apres validation reussie, et une
-        entree que le modele rejette est jetee puis rejouee en requete reelle, ce qui
-        lui evite de rejouer la meme erreur jusqu'a l'expiration du cache.
+        Invariant : une reponse n'entre au cache qu'apres validation reussie ; une
+        entree que le modele rejette est jetee puis refaite en requete reelle, sans quoi
+        elle rejouerait la meme erreur jusqu'a son expiration.
         """
         if self._cache is not None:
             cached = await asyncio.to_thread(self._cache.get, path, params)

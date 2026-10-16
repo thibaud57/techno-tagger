@@ -2,7 +2,6 @@ import { Component, computed, effect, inject, linkedSignal, signal, untracked } 
 import { type FieldTree, FormField, disabled, form } from "@angular/forms/signals"
 import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
-import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { type MenuItem, MessageService, type PassThroughContext } from "primeng/api"
 import { ButtonDirective } from "primeng/button"
 import { IconField } from "primeng/iconfield"
@@ -19,15 +18,12 @@ import { Tooltip } from "primeng/tooltip"
 
 import { LANGUAGES, type Language, languageFromTag } from "../../core/i18n/language"
 import { TOAST_LIFE } from "../../core/platform/completion-signal.service"
+import { NativeService } from "../../core/platform/native.service"
 import {
   DEFAULT_SOUND_SIGNAL,
+  PreferencesService,
   isThresholds,
-  readSoundSignal,
-  readThresholds,
-  writeLanguage,
-  writeSoundSignal,
-  writeThresholds,
-} from "../../core/platform/preferences"
+} from "../../core/platform/preferences.service"
 import {
   type CacheClearedEvent,
   SCORE_SCALE,
@@ -150,10 +146,12 @@ export default class SettingsPageComponent {
   private readonly confirmDanger = injectDangerConfirm()
   private readonly router = inject(Router)
   private readonly messages = inject(MessageService)
+  private readonly native = inject(NativeService)
+  private readonly preferences = inject(PreferencesService)
 
   /**
    * Une section a la fois : les rangees de toutes les sections ne tiennent pas au plancher de
-   * 700px, et la page ne defile pas (DESIGN.md § Structure de Page). Locale : aucun lien ne vise
+   * 700px, la page ne defilant pas (DESIGN.md § Structure de Page). Locale : aucun lien ne vise
    * une section.
    */
   protected readonly section = signal<SettingsSection>("api")
@@ -206,9 +204,9 @@ export default class SettingsPageComponent {
     },
   )
   protected readonly thresholdsFields = form(this.thresholdsChoice, (path) => {
-    // Sans valeur connue, des curseurs actifs enregistreraient 0 et 100 au premier geste. Tant que
-    // le store n'est pas lu, un geste enregistrerait sur des defauts le reglage que la lecture
-    // vient ecraser, ou la lecture tardive annulerait le geste en cours.
+    // Sans valeur connue, un geste enregistrerait 0 et 100. Store pas encore lu : le geste
+    // enregistrerait sur des defauts le reglage que la lecture vient ecraser, ou la lecture
+    // tardive annulerait le geste en cours.
     const unknown = (): boolean =>
       this.shownThresholds() === null || this.storedThresholds() === undefined
     disabled(path.floor, { when: unknown })
@@ -256,7 +254,7 @@ export default class SettingsPageComponent {
       return "settings.admin.cache.blocked.busy"
     }
 
-    return this.sidecar.runAwaitsWrite() ? "settings.admin.cache.blocked.unwritten" : null
+    return this.sidecar.runAwaitsWrite() ? "errors.run_not_written" : null
   })
   protected readonly cacheClearing = this.sidecar.cacheClearing
   protected readonly cacheError = this.sidecar.errorFor("clear_cache", "get_cache_size")
@@ -266,7 +264,7 @@ export default class SettingsPageComponent {
   protected readonly logsBlockedReason = computed(() =>
     this.logFile() === null ? "settings.admin.starting" : null,
   )
-  /** Un moteur relance recree le fichier : son nouveau chemin efface l'echec du precedent. */
+  /** Un moteur relance recree le fichier : sa nouvelle annonce efface l'echec du precedent. */
   protected readonly logsUnavailable = linkedSignal({
     source: this.logFile,
     computation: () => false,
@@ -355,7 +353,7 @@ export default class SettingsPageComponent {
 
   constructor() {
     // Le dernier run annulable a pu etre ecrit dans une autre session : seul le moteur le sait.
-    // La page se monte avant sa reponse au lancement, et `loadRollbackTarget` n'envoie rien sans
+    // La page se monte avant sa reponse au lancement ; `loadRollbackTarget` n'envoie rien sans
     // moteur : la demande suit sa disponibilite, pas la construction.
     effect(() => {
       if (this.sidecar.available() === true) {
@@ -380,14 +378,14 @@ export default class SettingsPageComponent {
 
     // Lu au montage, jamais ecrit : seule la bascule enregistre un choix. Une lecture qui arrive
     // apres un clic ne l'ecrase pas.
-    void readSoundSignal().then((enabled) => {
+    void this.preferences.readSoundSignal().then((enabled) => {
       if (!this.soundChosen) {
         this.soundChoice.set({ enabled })
       }
     })
 
     // Une lecture tardive n'ecrase pas un geste deja fait : elle ne pose que l'etat initial.
-    void readThresholds().then((stored) => {
+    void this.preferences.readThresholds().then((stored) => {
       this.storedThresholds.update((current) => (current === undefined ? stored : current))
     })
   }
@@ -447,7 +445,7 @@ export default class SettingsPageComponent {
       return
     }
     try {
-      await revealItemInDir(file)
+      await this.native.revealItemInDir(file)
       this.logsUnavailable.set(false)
     } catch {
       // Fichier efface a la main : le relancement du moteur le recree.
@@ -461,13 +459,13 @@ export default class SettingsPageComponent {
    */
   protected chooseLanguage(language: Language): void {
     this.translate.use(language)
-    void writeLanguage(language)
+    void this.preferences.writeLanguage(language)
   }
 
   /** `CompletionSignalService` relit la preference a chaque annonce : rien d'autre a prevenir. */
   protected chooseSound(enabled: boolean): void {
     this.soundChosen = true
-    void writeSoundSignal(enabled)
+    void this.preferences.writeSoundSignal(enabled)
   }
 
   /**
@@ -478,7 +476,7 @@ export default class SettingsPageComponent {
     const choice = this.thresholdsChoice()
     const shown = choiceOf(this.shownThresholds())
     // Un champ vide arrive en `null` (InputNumber) : l'enregistrer ecrirait un reglage que la
-    // lecture rejette, et le run repartirait des defauts sous des reglages affiches comme perso.
+    // lecture rejette, le run repartant des defauts sous des reglages affiches comme perso.
     if (!isThresholds(choice)) {
       this.thresholdsChoice.set(shown)
       return
@@ -491,12 +489,12 @@ export default class SettingsPageComponent {
     const atDefaults = defaults !== null && sameChoice(choice, choiceOf(defaults))
     const stored = atDefaults ? null : choice
     this.storedThresholds.set(stored)
-    void writeThresholds(stored)
+    void this.preferences.writeThresholds(stored)
   }
 
   /**
    * En butee, le modele borne ne change plus d'un cran a l'autre : le `controlValue` du champ, que
-   * Signal Forms ne recalcule que sur un changement du modele, garderait la valeur du geste, et
+   * Signal Forms ne recalcule que sur un changement du modele, garderait la valeur du geste :
    * curseur comme champ continueraient de monter. `p-slider` a deja ecrit le champ a l'emission.
    */
   protected holdAtBound(field: FieldTree<number>): void {
@@ -508,7 +506,7 @@ export default class SettingsPageComponent {
 
   protected resetThresholds(): void {
     this.storedThresholds.set(null)
-    void writeThresholds(null)
+    void this.preferences.writeThresholds(null)
   }
 
   /** Sans signal sonore : ce n'est pas la fin d'une phase longue. */

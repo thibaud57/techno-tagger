@@ -33,7 +33,7 @@ def extended_path(path: Path) -> Path:
     """Chemin prefixe `\\\\?\\`, qui leve la limite de 260 caracteres de l'API Win32.
 
     Le prefixe exige un chemin absolu et normalise. Seul le dossier est resolu : resoudre le
-    nom rendrait la casse deja sur le disque, et un renommage de casse seule n'aurait plus d'effet.
+    nom rendrait la casse deja sur le disque, donc un renommage de casse seule resterait sans effet.
     """
     text = str(path.parent.resolve() / path.name)
     if text.startswith(_EXTENDED_PREFIX):
