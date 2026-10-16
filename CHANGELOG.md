@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/thibaud57/techno-tagger/compare/v0.7.0...v0.8.0) (2026-10-16)
+
+
+### Features
+
+* réglages en sections : langue, signal sonore, seuils de matching, cache et logs ([#74](https://github.com/thibaud57/techno-tagger/issues/74)) ([137ad8d](https://github.com/thibaud57/techno-tagger/commit/137ad8d588caedf51ed50be7a9747c5570b6f535))
+
 ## [0.7.0](https://github.com/thibaud57/techno-tagger/compare/v0.6.0...v0.7.0) (2026-10-13)
 
 
