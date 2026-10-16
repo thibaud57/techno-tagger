@@ -285,6 +285,8 @@ async (page) => {
   await page.evaluate(() => window.__svc._available.set(null))
   await navigate("/settings")
   await page.waitForSelector("app-settings-page")
+  // Une section a la fois depuis settings/02 : la rangee des runs passes est dans Administration (quatrieme entree)
+  await page.locator("app-settings-page p-menu .p-menu-item-content").nth(3).click()
   await clearSent()
   await settle()
   const whileNull = (await sentOf("list_runs")).length
@@ -825,7 +827,13 @@ async (page) => {
   await page.locator('app-recap-page [data-action="back"]').click()
   await page.waitForSelector("app-tagging-page")
   check("back to the list from the live recap leads to /tagging", (await url()) === "/tagging", await url())
-  const taggingBar = await page.evaluate(() => ({ restoreRun: document.querySelectorAll('app-tagging-page [data-action="restore-run"]').length, newRun: document.querySelectorAll('[data-action="new-run"]').length }))
+  await settle()
+  const taggingBar = await page.evaluate(() => ({
+    restoreRun: document.querySelectorAll('app-tagging-page [data-action="restore-run"]').length,
+    newRun: document.querySelectorAll('[data-action="new-run"]').length,
+    actions: [...document.querySelectorAll("app-tagging-page [data-action]")].map((b) => b.getAttribute("data-action")),
+    svc: { writing: window.__svc.writing(), finished: window.__svc.writeFinished() !== null, rows: window.__svc.taggingTracks().map((r) => r.state + ":" + r.restorable) },
+  }))
   check("Restaurer le run stays in the Tagging bar after the recap, no Nouveau run", taggingBar.restoreRun === 1 && taggingBar.newRun === 0, taggingBar)
   await navigate(`/tagging/recap/${R2.run_id}`)
   await page.waitForSelector("app-recap-page")
@@ -837,6 +845,8 @@ async (page) => {
   // Nouvelle ecriture, Reglages ouverts : la liste est redemandee (deja prouve), et le choix survit.
   await navigate("/settings")
   await page.waitForSelector("app-settings-page")
+  // Une section a la fois depuis settings/02 : la rangee des runs passes est dans Administration (quatrieme entree)
+  await page.locator("app-settings-page p-menu .p-menu-item-content").nth(3).click()
   await listed(R5, R2)
   await settle()
   const settingsAgain = await selectState()

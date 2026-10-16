@@ -82,6 +82,15 @@ async (page) => {
       await page.locator("app-settings-page p-menu .p-menu-item-content").nth(1).click()
       await page.waitForTimeout(300)
       out.beforeVersion = await read()
+      // Curseurs grises : la fleche, pas la main (DESIGN.md § Etats des Composants, Curseur)
+      out.beforeVersion.cursors = await page.evaluate(() =>
+        ["floor", "ceiling"].map((field) => {
+          const track = document.querySelector(`p-slider[data-field="${field}"] .p-slider-track`).getBoundingClientRect()
+          const hit = document.elementFromPoint(track.left + track.width * 0.3, track.top + track.height / 2)
+          return getComputedStyle(hit).cursor
+        }),
+      )
+      check(out.beforeVersion.cursors.every((c) => c === "default" || c === "auto"), `${language} avant version : curseur de piste grisee ${out.beforeVersion.cursors}`)
       check(
         out.beforeVersion.rows.every((row) => row.sliderDisabled && row.inputDisabled),
         `${language} avant version : rangees non grisees ${JSON.stringify(out.beforeVersion.rows)}`,
@@ -286,7 +295,7 @@ async (page) => {
     })
     const layout = out.layout
     for (const row of layout.rows) {
-      check(row.rowColumns.startsWith("256px"), `${language} ${row.label} : colonne de gauche ${row.rowColumns}`)
+      check(row.rowColumns.startsWith("160px"), `${language} ${row.label} : colonne de gauche ${row.rowColumns}`)
       check(row.controlGap === "16px", `${language} ${row.label} : ecart curseur / champ ${row.controlGap}`)
       check(row.sliderToInput === 16, `${language} ${row.label} : curseur a ${row.sliderToInput}px du champ`)
       check(row.inputHostWidth === 64, `${language} ${row.label} : champ a ${row.inputHostWidth}px`)
@@ -311,6 +320,31 @@ async (page) => {
     check(!layout.scroll.page && !layout.scroll.main && !layout.scroll.section, `${language} defilement ${JSON.stringify(layout.scroll)}`)
     await page.screenshot({ path: `${shots}/matching-${language}-1-defaults.png` })
 
+    // Echelle commune (seconde passe du 2026-10-15) : les deux pistes vont de 0 a 100, une meme valeur tombe au meme x
+    out.scale = await page.evaluate(() => {
+      const of = (field) => {
+        const root = document.querySelector(`p-slider[data-field="${field}"]`)
+        const input = root.querySelector(".p-slider-handle input")
+        const track = root.querySelector(".p-slider-track").getBoundingClientRect()
+        const handle = root.querySelector(".p-slider-handle").getBoundingClientRect()
+        const center = handle.left + handle.width / 2
+        return {
+          min: Number(input.getAttribute("aria-valuemin")),
+          max: Number(input.getAttribute("aria-valuemax")),
+          value: Number(input.getAttribute("aria-valuenow")),
+          trackLeft: Math.round(track.left * 10) / 10,
+          trackWidth: Math.round(track.width * 10) / 10,
+          handleCenter: Math.round(center * 10) / 10,
+          fraction: Math.round(((center - track.left) / track.width) * 1000) / 1000,
+        }
+      }
+      return { floor: of("floor"), ceiling: of("ceiling") }
+    })
+    check(out.scale.floor.min === 0 && out.scale.floor.max === 100 && out.scale.ceiling.min === 0 && out.scale.ceiling.max === 100, `${language} echelles : ${JSON.stringify(out.scale)}`)
+    check(out.scale.floor.trackLeft === out.scale.ceiling.trackLeft && out.scale.floor.trackWidth === out.scale.ceiling.trackWidth, `${language} pistes differentes : ${JSON.stringify(out.scale)}`)
+    check(Math.abs(out.scale.floor.fraction - 0.7) <= 0.03 && Math.abs(out.scale.ceiling.fraction - 0.9) <= 0.03, `${language} poignees a 70 / 90 % : ${out.scale.floor.fraction} / ${out.scale.ceiling.fraction}`)
+    check(out.scale.ceiling.handleCenter > out.scale.floor.handleCenter, `${language} le seuil haut n'est pas a droite du plancher : ${out.scale.ceiling.handleCenter} / ${out.scale.floor.handleCenter}`)
+
     // Tooltip du bouton grise : sous l'element, apres le delai
     const resetBox = await page.locator('[data-action="reset-thresholds"]').boundingBox()
     await page.mouse.move(resetBox.x + resetBox.width / 2, resetBox.y + resetBox.height / 2)
@@ -330,13 +364,43 @@ async (page) => {
     await page.screenshot({ path: `${shots}/matching-${language}-2-tooltip.png` })
     await page.mouse.move(5, 5)
 
-    // Gestes. Curseur du seuil haut : glisse la poignee a la souris vers 95 (plage plancher..100)
+    // Modele (ecritures directes, sans souris) : le croisement est refuse par le signal lui-meme, que l'ecriture
+    // vienne de `set`, d'`update` ou du champ de formulaire du curseur
+    out.model = await page.evaluate(() => {
+      const component = ng.getComponent(document.querySelector("app-settings-page"))
+      const snap = () => JSON.stringify(component.thresholdsChoice())
+      const log = {}
+      component.thresholdsChoice.set({ floor: 98, ceiling: 90 })
+      log.setFloorPast = snap()
+      component.thresholdsChoice.set({ floor: 70, ceiling: 90 })
+      component.thresholdsChoice.set({ floor: 70, ceiling: 30 })
+      log.setCeilingBelow = snap()
+      component.thresholdsChoice.set({ floor: 70, ceiling: 90 })
+      component.thresholdsChoice.update((v) => ({ ...v, floor: 98 }))
+      log.updateFloorPast = snap()
+      component.thresholdsChoice.set({ floor: 70, ceiling: 90 })
+      component.thresholdsFields.floor().value.set(98)
+      log.fieldFloorPast = snap()
+      component.thresholdsChoice.set({ floor: 70, ceiling: 90 })
+      component.thresholdsFields.ceiling().value.set(30)
+      log.fieldCeilingBelow = snap()
+      component.thresholdsChoice.set({ floor: 70, ceiling: 90 })
+      log.restored = snap()
+      return log
+    })
+    check(out.model.setFloorPast === '{"floor":90,"ceiling":90}', `${language} modele set plancher 98 : ${out.model.setFloorPast}`)
+    check(out.model.setCeilingBelow === '{"floor":70,"ceiling":70}', `${language} modele set seuil haut 30 : ${out.model.setCeilingBelow}`)
+    check(out.model.updateFloorPast === '{"floor":90,"ceiling":90}', `${language} modele update plancher 98 : ${out.model.updateFloorPast}`)
+    check(out.model.fieldFloorPast === '{"floor":90,"ceiling":90}', `${language} champ de formulaire du plancher 98 : ${out.model.fieldFloorPast}`)
+    check(out.model.fieldCeilingBelow === '{"floor":70,"ceiling":70}', `${language} champ de formulaire du seuil haut 30 : ${out.model.fieldCeilingBelow}`)
+
+    // Gestes. Curseur du seuil haut : glisse la poignee a la souris vers 95 (piste 0..100)
     const handle = page.locator('p-slider[data-field="ceiling"] .p-slider-handle')
     const track = page.locator('p-slider[data-field="ceiling"] .p-slider-track')
     const h = await handle.boundingBox()
     const t = await track.boundingBox()
-    // 90 sur la plage 70..100
-    const xAt = (value) => t.x + ((value - 70) / 30) * t.width
+    // Piste 0..100 pour les deux curseurs
+    const xAt = (value) => t.x + (value / 100) * t.width
     await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2)
     await page.mouse.down()
     await page.mouse.move(xAt(95), h.y + h.height / 2, { steps: 8 })
@@ -361,23 +425,50 @@ async (page) => {
     check(out.ceiling95.resetDisabled === false, `${language} reglage pose : « Valeurs par defaut » reste grise`)
     await page.screenshot({ path: `${shots}/matching-${language}-3-ceiling95.png` })
 
-    // Bornes croisees, curseur : plancher pousse a la souris au-dela du seuil haut
+    // Bornes croisees, curseur : plancher pousse a la souris au-dela du seuil haut (d'abord dans la piste, a 98 %)
     const floorHandle = page.locator('p-slider[data-field="floor"] .p-slider-handle')
     const floorTrack = page.locator('p-slider[data-field="floor"] .p-slider-track')
     const fh = await floorHandle.boundingBox()
     const ft = await floorTrack.boundingBox()
     await page.mouse.move(fh.x + fh.width / 2, fh.y + fh.height / 2)
     await page.mouse.down()
-    await page.mouse.move(ft.x + ft.width + 60, fh.y + fh.height / 2, { steps: 10 })
+    await page.mouse.move(ft.x + (98 / 100) * ft.width, fh.y + fh.height / 2, { steps: 10 })
     await page.mouse.up()
+    out.floorPushedInside = await read()
+    check(
+      out.floorPushedInside.rows[0].slider === 95 && out.floorPushedInside.rows[0].input === "95" && out.floorPushedInside.rows[1].slider === 95,
+      `${language} plancher glisse a 98 dans la piste : ${JSON.stringify(out.floorPushedInside.rows)}`,
+    )
+    // puis relache loin au-dela de la piste
+    {
+      const again = await floorHandle.boundingBox()
+      await page.mouse.move(again.x + again.width / 2, again.y + again.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(ft.x + ft.width + 60, again.y + again.height / 2, { steps: 10 })
+      await page.mouse.up()
+    }
     out.floorPushed = await read()
     check(
       out.floorPushed.rows[0].slider === 95 && out.floorPushed.rows[0].input === "95",
       `${language} plancher pousse au-dela : ${JSON.stringify(out.floorPushed.rows[0])}`,
     )
-    check(out.floorPushed.rows[0].sliderMax === 95, `${language} max du plancher ${out.floorPushed.rows[0].sliderMax}`)
-    check(out.floorPushed.rows[1].sliderMin === 95, `${language} min du seuil haut ${out.floorPushed.rows[1].sliderMin}`)
+    check(out.floorPushed.rows[0].sliderMax === 100 && out.floorPushed.rows[1].sliderMin === 0, `${language} echelles apres poussee : ${out.floorPushed.rows[0].sliderMax} / ${out.floorPushed.rows[1].sliderMin}`)
     await page.screenshot({ path: `${shots}/matching-${language}-4-floor-pushed.png` })
+
+    // Seuil haut glisse sous le plancher (a 30 dans la piste) : il bute sur le plancher
+    {
+      const ch = await handle.boundingBox()
+      await page.mouse.move(ch.x + ch.width / 2, ch.y + ch.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(xAt(30), ch.y + ch.height / 2, { steps: 10 })
+      await page.mouse.up()
+      out.ceilingPushedBelow = await read()
+      check(
+        out.ceilingPushedBelow.rows[1].slider === 95 && out.ceilingPushedBelow.rows[1].input === "95" && out.ceilingPushedBelow.rows[0].slider === 95,
+        `${language} seuil haut glisse a 30 : ${JSON.stringify(out.ceilingPushedBelow.rows)}`,
+      )
+      await page.screenshot({ path: `${shots}/matching-${language}-4b-ceiling-pushed-below.png` })
+    }
 
     // Bornes croisees, champ : 99 dans le plancher, 10 dans le seuil haut
     const floorInput = page.locator('p-inputnumber input').nth(0)
@@ -446,7 +537,7 @@ async (page) => {
     for (let i = 0; i < 5; i += 1) await page.keyboard.press("ArrowRight")
     out.floorArrows = await read()
     check(out.floorArrows.rows[0].slider === 75, `${language} plancher 5 crans : ${out.floorArrows.rows[0].slider}`)
-    check(out.floorArrows.rows[1].sliderMin === 75, `${language} min du seuil haut apres plancher 75 : ${out.floorArrows.rows[1].sliderMin}`)
+    check(out.floorArrows.rows[1].sliderMin === 0, `${language} min du seuil haut apres plancher 75 : ${out.floorArrows.rows[1].sliderMin} (piste commune 0..100)`)
     await page.keyboard.press("Tab")
     await page.waitForTimeout(200)
     out.floorBlurred = await read()

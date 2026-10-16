@@ -5,143 +5,155 @@
 <div class="grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-6">
   <p-menu class="self-start" [model]="menuItems()" [pt]="menuPt()" />
 
+  <!-- Rangees jointives dans un groupe : le filet seul les separe, a egale distance des deux
+       contenus (py-3). Un gap entre elles le decalerait vers le haut. -->
   <section class="flex min-w-0 flex-col gap-4">
     <h2 class="text-xl font-semibold">{{ "settings." + section() + ".title" | translate }}</h2>
 
     @switch (section()) {
       @case ("api") {
-        <app-settings-row>
-          <label rowLabel pLabel for="api-key">{{ "settings.api.key.label" | translate }}</label>
+        <div class="flex flex-col">
+          <app-settings-row>
+            <label rowLabel pLabel for="api-key">{{ "settings.api.key.label" | translate }}</label>
 
-          <div rowControl class="flex items-center gap-2">
-            <!-- p-password est deprecie en PrimeNG 22 : `pInputPassword` ne fournit que le model
+            <div rowControl class="flex items-center gap-2">
+              <!-- p-password est deprecie en PrimeNG 22 : `pInputPassword` ne fournit que le model
                `mask`, l'oeil de bascule se compose ici (decision du 2026-09-21). -->
-            <!-- L'etat de la cle en texte pour un lecteur d'ecran : les points du placeholder ne se
+              <!-- L'etat de la cle en texte pour un lecteur d'ecran : les points du placeholder ne se
                lisent pas. Rien tant que l'etat vaut `null` : la version n'est pas encore arrivee. -->
-            @let configured = apiKeyConfigured();
-            @if (configured !== null) {
-              <span id="api-key-state" class="sr-only">{{
-                (configured ? "settings.api.key.configured" : "settings.api.key.missing")
-                  | translate
-              }}</span>
-            }
-            <p-iconfield class="min-w-0 flex-1">
-              <input
-                pInputPassword
-                id="api-key"
-                pSize="small"
-                aria-describedby="api-key-state"
-                [formField]="fields.apiKey"
-                [fluid]="true"
-                [mask]="masked()"
-                [placeholder]="storedKeyMask() ?? ('settings.api.key.placeholder' | translate)"
-              />
-              <!-- L'oeil ne revele que la saisie : la cle enregistree n'est jamais relue. -->
-              @if (typing()) {
-                <p-inputicon>
-                  <!-- Une cle collee ne se relit nulle part ailleurs : sans bascule, une faute de copie
-                     ne se voit qu'au premier run, sur les 403 de l'API. -->
-                  <button
-                    type="button"
-                    class="cursor-pointer text-muted-color"
-                    [attr.aria-label]="
-                      (masked() ? 'settings.api.key.show' : 'settings.api.key.hide') | translate
-                    "
-                    (click)="toggleMask()"
-                  >
-                    <app-icon [name]="masked() ? 'eye' : 'eye-slash'" [size]="16" />
-                  </button>
-                </p-inputicon>
+              @let configured = apiKeyConfigured();
+              @if (configured !== null) {
+                <span id="api-key-state" class="sr-only">{{
+                  (configured ? "settings.api.key.configured" : "settings.api.key.missing")
+                    | translate
+                }}</span>
               }
-            </p-iconfield>
-            <button
-              pButton
-              type="button"
-              size="small"
-              class="shrink-0"
-              [disabled]="!canSave()"
-              (click)="save()"
-            >
-              {{ "settings.api.key.save" | translate }}
-            </button>
-          </div>
+              <p-iconfield class="min-w-0 flex-1">
+                <input
+                  pInputPassword
+                  id="api-key"
+                  pSize="small"
+                  aria-describedby="api-key-state"
+                  [formField]="fields.apiKey"
+                  [fluid]="true"
+                  [mask]="masked()"
+                  [placeholder]="storedKeyMask() ?? ('settings.api.key.placeholder' | translate)"
+                />
+                <!-- L'oeil ne revele que la saisie : la cle enregistree n'est jamais relue. -->
+                @if (typing()) {
+                  <p-inputicon>
+                    <!-- Une cle collee ne se relit nulle part ailleurs : sans bascule, une faute de copie
+                     ne se voit qu'au premier run, sur les 403 de l'API. -->
+                    <button
+                      type="button"
+                      class="cursor-pointer text-muted-color"
+                      [attr.aria-label]="
+                        (masked() ? 'settings.api.key.show' : 'settings.api.key.hide') | translate
+                      "
+                      (click)="toggleMask()"
+                    >
+                      <app-icon [name]="masked() ? 'eye' : 'eye-slash'" [size]="16" />
+                    </button>
+                  </p-inputicon>
+                }
+              </p-iconfield>
+              <button
+                pButton
+                type="button"
+                size="small"
+                class="shrink-0"
+                [disabled]="!canSave()"
+                (click)="save()"
+              >
+                {{ "settings.api.key.save" | translate }}
+              </button>
+            </div>
 
-          <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-            "settings.api.key.hint" | translate
-          }}</span>
-          @if (error(); as shown) {
-            <app-error-message [error]="shown" />
-          }
-        </app-settings-row>
+            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+              "settings.api.key.hint" | translate
+            }}</span>
+            @if (error(); as shown) {
+              <app-error-message [error]="shown" />
+            }
+          </app-settings-row>
+        </div>
       }
       @case ("matching") {
-        <app-settings-row>
-          <span rowLabel id="floor-label" class="text-sm">{{
-            "settings.matching.floor.label" | translate
-          }}</span>
+        <div class="flex flex-col">
+          <app-settings-row>
+            <span rowLabel id="floor-label" class="text-sm">{{
+              "settings.matching.floor.label" | translate
+            }}</span>
 
-          <!-- Curseur pour le mouvement grossier, champ pour le nombre exact (fiche Slider). -->
-          <div rowControl class="flex items-center gap-4">
-            <p-slider
-              class="flex-1"
-              data-field="floor"
-              ariaLabelledBy="floor-label"
-              [formField]="thresholdsFields.floor"
-              [min]="scale.min"
-              [max]="floorMax()"
-              (onSlideEnd)="storeThresholds()"
-            />
-            <!-- w-16 : mesuree sur « 100 », le plus large des scores. -->
-            <p-inputnumber
-              class="w-16 shrink-0"
-              size="small"
-              ariaLabelledBy="floor-label"
-              [fluid]="true"
-              [formField]="thresholdsFields.floor"
-              [min]="scale.min"
-              [max]="floorMax()"
-              [pt]="numberPt"
-              (onBlur)="storeThresholds()"
-            />
-          </div>
+            <!-- Curseur pour le mouvement grossier, champ pour le nombre exact (fiche Slider). Les
+                 deux curseurs gardent l'echelle entiere : le modele fait buter l'un sur l'autre. -->
+            <div rowControl class="flex items-center gap-4">
+              <!-- Main sur la piste : un clic y regle la valeur. -->
+              <p-slider
+                class="flex-1"
+                data-field="floor"
+                ariaLabelledBy="floor-label"
+                [class.cursor-pointer]="!thresholdsFields.floor().disabled()"
+                [formField]="thresholdsFields.floor"
+                [min]="scale.min"
+                [max]="scale.max"
+                (onChange)="holdAtBound(thresholdsFields.floor)"
+                (onSlideEnd)="storeThresholds()"
+              />
+              <!-- w-16 : mesuree sur « 100 », le plus large des scores. -->
+              <p-inputnumber
+                class="w-16 shrink-0"
+                size="small"
+                ariaLabelledBy="floor-label"
+                [fluid]="true"
+                [formField]="thresholdsFields.floor"
+                [min]="scale.min"
+                [max]="floorMax()"
+                [pt]="numberPt"
+                (onBlur)="storeThresholds()"
+              />
+            </div>
 
-          <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-            "settings.matching.floor.hint" | translate
-          }}</span>
-        </app-settings-row>
+            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+              "settings.matching.floor.hint" | translate
+            }}</span>
+          </app-settings-row>
 
-        <app-settings-row>
-          <span rowLabel id="ceiling-label" class="text-sm">{{
-            "settings.matching.ceiling.label" | translate
-          }}</span>
+          <app-settings-row>
+            <span rowLabel id="ceiling-label" class="text-sm">{{
+              "settings.matching.ceiling.label" | translate
+            }}</span>
 
-          <div rowControl class="flex items-center gap-4">
-            <p-slider
-              class="flex-1"
-              data-field="ceiling"
-              ariaLabelledBy="ceiling-label"
-              [formField]="thresholdsFields.ceiling"
-              [min]="ceilingMin()"
-              [max]="scale.max"
-              (onSlideEnd)="storeThresholds()"
-            />
-            <p-inputnumber
-              class="w-16 shrink-0"
-              size="small"
-              ariaLabelledBy="ceiling-label"
-              [fluid]="true"
-              [formField]="thresholdsFields.ceiling"
-              [min]="ceilingMin()"
-              [max]="scale.max"
-              [pt]="numberPt"
-              (onBlur)="storeThresholds()"
-            />
-          </div>
+            <div rowControl class="flex items-center gap-4">
+              <p-slider
+                class="flex-1"
+                data-field="ceiling"
+                ariaLabelledBy="ceiling-label"
+                [class.cursor-pointer]="!thresholdsFields.ceiling().disabled()"
+                [formField]="thresholdsFields.ceiling"
+                [min]="scale.min"
+                [max]="scale.max"
+                (onChange)="holdAtBound(thresholdsFields.ceiling)"
+                (onSlideEnd)="storeThresholds()"
+              />
+              <p-inputnumber
+                class="w-16 shrink-0"
+                size="small"
+                ariaLabelledBy="ceiling-label"
+                [fluid]="true"
+                [formField]="thresholdsFields.ceiling"
+                [min]="ceilingMin()"
+                [max]="scale.max"
+                [pt]="numberPt"
+                (onBlur)="storeThresholds()"
+              />
+            </div>
 
-          <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-            "settings.matching.ceiling.hint" | translate
-          }}</span>
-        </app-settings-row>
+            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+              "settings.matching.ceiling.hint" | translate
+            }}</span>
+          </app-settings-row>
+        </div>
 
         <div class="flex justify-end">
           @let resetBlocked =
@@ -163,142 +175,220 @@
         </div>
       }
       @case ("interface") {
-        <app-settings-row>
-          <span rowLabel id="language-label" class="text-sm">{{
-            "settings.interface.language.label" | translate
-          }}</span>
-
-          <div rowControl class="flex items-center">
-            <!-- Largeur figee : sinon le select change de taille d'une langue a l'autre. Mesuree
-                 sur « Francais », le plus long des deux noms, identiques en FR et en EN. -->
-            <p-select
-              class="w-36"
-              size="small"
-              data-field="language"
-              ariaLabelledBy="language-label"
-              [formField]="languageFields.language"
-              [options]="languageOptions()"
-              optionLabel="label"
-              optionValue="value"
-              (onChange)="chooseLanguage($event.value)"
-            />
-          </div>
-
-          <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-            "settings.interface.language.hint" | translate
-          }}</span>
-        </app-settings-row>
-
-        <app-settings-row>
-          <span rowLabel id="sound-label" class="text-sm">{{
-            "settings.interface.sound.label" | translate
-          }}</span>
-
-          <!-- Sans champ, l'aide prend la place du controle, sur la ligne de la bascule. -->
-          <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-              "settings.interface.sound.hint" | translate
+        <div class="flex flex-col">
+          <app-settings-row>
+            <span rowLabel id="language-label" class="text-sm">{{
+              "settings.interface.language.label" | translate
             }}</span>
-            <p-toggleswitch
-              class="shrink-0"
-              data-field="sound"
-              ariaLabelledBy="sound-label"
-              [formField]="soundFields.enabled"
-              (onChange)="chooseSound($event.checked)"
-            />
-          </div>
-        </app-settings-row>
+
+            <div rowControl class="flex items-center">
+              <!-- Largeur figee : sinon le select change de taille d'une langue a l'autre. Mesuree
+                 sur « Francais », le plus long des deux noms, identiques en FR et en EN. -->
+              <p-select
+                class="w-36"
+                size="small"
+                data-field="language"
+                ariaLabelledBy="language-label"
+                [formField]="languageFields.language"
+                [options]="languageOptions()"
+                optionLabel="label"
+                optionValue="value"
+                (onChange)="chooseLanguage($event.value)"
+              />
+            </div>
+
+            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+              "settings.interface.language.hint" | translate
+            }}</span>
+          </app-settings-row>
+
+          <app-settings-row>
+            <span rowLabel id="sound-label" class="text-sm">{{
+              "settings.interface.sound.label" | translate
+            }}</span>
+
+            <!-- Sans champ, l'aide prend la place du controle, sur la ligne de la bascule. -->
+            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
+              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+                "settings.interface.sound.hint" | translate
+              }}</span>
+              <p-toggleswitch
+                class="shrink-0"
+                data-field="sound"
+                ariaLabelledBy="sound-label"
+                [formField]="soundFields.enabled"
+                (onChange)="chooseSound($event.checked)"
+              />
+            </div>
+          </app-settings-row>
+        </div>
       }
       @case ("admin") {
-        <app-settings-row>
-          <span rowLabel class="text-sm">{{ "settings.admin.rollback.label" | translate }}</span>
+        <div class="flex flex-col">
+          <app-settings-row>
+            <span rowLabel class="text-sm">{{ "settings.admin.cache.label" | translate }}</span>
 
-          <!-- Sans champ, l'aide prend la place du controle, sur la ligne du bouton. -->
-          <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-              "settings.admin.rollback.hint" | translate
-            }}</span>
-            @let blocked =
-              restoreBlockedReason() ? (restoreBlockedReason() | translate) : undefined;
-            <button
-              pButton
-              type="button"
-              size="small"
-              [outlined]="true"
-              class="shrink-0"
-              data-action="restore-last"
-              [disabled]="blocked !== undefined"
-              [pTooltip]="blocked"
-              [tooltipOptions]="tooltip"
-              (click)="restoreLast()"
-            >
-              <app-icon [name]="rollingBack() ? 'spinner' : 'refresh'" [size]="16" />
-              {{ "settings.admin.rollback.action" | translate }}
-            </button>
-          </div>
-
-          <!-- Le run vise sur une ligne tronquee (le dossier peut etre long), son compte dessous. Rien
-             sans run : le tooltip du bouton grise en dit deja la raison. -->
-          @if (targetLine(); as line) {
-            <div class="flex min-w-0 flex-col text-xs text-muted-color">
-              <app-truncated-text
-                data-rollback-target
-                [text]="'settings.admin.rollback.target' | translate: line"
-              />
-              <span>{{ "settings.admin.rollback.targetCount" | translate: line }}</span>
+            <!-- Sans champ, l'aide prend la place du controle, sur la ligne du bouton. -->
+            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
+              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+                "settings.admin.cache.hint" | translate
+              }}</span>
+              <div class="flex shrink-0 items-center gap-2">
+                @let cacheBlocked =
+                  cacheBlockedReason() ? (cacheBlockedReason() | translate) : undefined;
+                <button
+                  pButton
+                  type="button"
+                  size="small"
+                  severity="secondary"
+                  [outlined]="true"
+                  data-action="clear-cache"
+                  [disabled]="cacheBlocked !== undefined || cacheClearing()"
+                  [pTooltip]="cacheBlocked"
+                  [tooltipOptions]="tooltip"
+                  (click)="clearCache()"
+                >
+                  <app-icon [name]="cacheClearing() ? 'spinner' : 'trash'" [size]="16" />
+                  {{ "settings.admin.cache.action" | translate }}
+                </button>
+                @if (cacheSize(); as size) {
+                  <span data-cache-size class="text-sm text-muted-color tabular-nums">{{
+                    size
+                  }}</span>
+                }
+              </div>
             </div>
-          }
-          @if (rollbackError(); as shown) {
-            <app-error-message [error]="shown" />
-          }
-          @if (rollbackFailures().length > 0) {
-            <app-rollback-failures [failures]="rollbackFailures()" />
-          }
-        </app-settings-row>
 
-        <app-settings-row>
-          <span rowLabel id="past-run-label" class="text-sm">{{
-            "settings.admin.pastRuns.label" | translate
-          }}</span>
+            @if (cacheError(); as shown) {
+              <app-error-message data-cache-error [error]="shown" />
+            }
+          </app-settings-row>
 
-          <div rowControl class="flex min-w-0 items-center gap-4">
-            <!-- Aucune largeur figee : le select prend le reste de la ligne et coupe le dossier.
+          <app-settings-row>
+            <span rowLabel class="text-sm">{{ "settings.admin.logs.label" | translate }}</span>
+
+            <!-- Sans champ, l'aide prend la place du controle, sur la ligne du bouton. -->
+            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
+              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+                "settings.admin.logs.hint" | translate
+              }}</span>
+              @let logsBlocked =
+                logsBlockedReason() ? (logsBlockedReason() | translate) : undefined;
+              <button
+                pButton
+                type="button"
+                size="small"
+                severity="secondary"
+                [outlined]="true"
+                class="shrink-0"
+                data-action="reveal-logs"
+                [disabled]="logsBlocked !== undefined"
+                [pTooltip]="logsBlocked"
+                [tooltipOptions]="tooltip"
+                (click)="revealLogs()"
+              >
+                <app-icon name="external-link" [size]="16" />
+                {{ "settings.admin.logs.action" | translate }}
+              </button>
+            </div>
+
+            @if (logsUnavailable()) {
+              <app-message data-logs-error severity="error">{{
+                "settings.admin.logs.unavailable" | translate
+              }}</app-message>
+            }
+          </app-settings-row>
+
+          <app-settings-row>
+            <span rowLabel class="text-sm">{{ "settings.admin.rollback.label" | translate }}</span>
+
+            <!-- Sans champ, l'aide prend la place du controle, sur la ligne du bouton. -->
+            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
+              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+                "settings.admin.rollback.hint" | translate
+              }}</span>
+              @let blocked =
+                restoreBlockedReason() ? (restoreBlockedReason() | translate) : undefined;
+              <button
+                pButton
+                type="button"
+                size="small"
+                [outlined]="true"
+                class="shrink-0"
+                data-action="restore-last"
+                [disabled]="blocked !== undefined"
+                [pTooltip]="blocked"
+                [tooltipOptions]="tooltip"
+                (click)="restoreLast()"
+              >
+                <app-icon [name]="rollingBack() ? 'spinner' : 'refresh'" [size]="16" />
+                {{ "settings.admin.rollback.action" | translate }}
+              </button>
+            </div>
+
+            <!-- Le run vise sur une ligne tronquee (le dossier peut etre long), son compte dessous. Rien
+             sans run : le tooltip du bouton grise en dit deja la raison. -->
+            @if (targetLine(); as line) {
+              <div class="flex min-w-0 flex-col text-xs text-muted-color">
+                <app-truncated-text
+                  data-rollback-target
+                  [text]="'settings.admin.rollback.target' | translate: line"
+                />
+                <span>{{ "settings.admin.rollback.targetCount" | translate: line }}</span>
+              </div>
+            }
+            @if (rollbackError(); as shown) {
+              <app-error-message [error]="shown" />
+            }
+            @if (rollbackFailures().length > 0) {
+              <app-rollback-failures [failures]="rollbackFailures()" />
+            }
+          </app-settings-row>
+
+          <app-settings-row>
+            <span rowLabel id="past-run-label" class="text-sm">{{
+              "settings.admin.pastRuns.label" | translate
+            }}</span>
+
+            <div rowControl class="flex min-w-0 items-center gap-4">
+              <!-- Aucune largeur figee : le select prend le reste de la ligne et coupe le dossier.
                `contain` : sans lui, un dossier long elargirait la colonne des controles. -->
-            <p-select
-              class="min-w-0 flex-1 contain-inline-size"
-              size="small"
-              data-field="past-run"
-              ariaLabelledBy="past-run-label"
-              [formField]="pastFields.runId"
-              [options]="pastRunOptions()"
-              optionLabel="label"
-              optionValue="value"
-              [placeholder]="'settings.admin.pastRuns.none' | translate"
-            >
-              <!-- Ferme, le select coupe le texte : le tooltip le rend lisible. -->
-              <ng-template #selectedItem let-run>
-                <app-truncated-text [text]="run.label" />
-              </ng-template>
-            </p-select>
-            <button
-              pButton
-              type="button"
-              size="small"
-              [outlined]="true"
-              severity="secondary"
-              class="shrink-0"
-              data-action="open-past-run"
-              [disabled]="pastFields.runId().disabled()"
-              (click)="openPastRun()"
-            >
-              {{ "settings.admin.pastRuns.open" | translate }}
-            </button>
-          </div>
+              <p-select
+                class="min-w-0 flex-1 contain-inline-size"
+                size="small"
+                data-field="past-run"
+                ariaLabelledBy="past-run-label"
+                [formField]="pastFields.runId"
+                [options]="pastRunOptions()"
+                optionLabel="label"
+                optionValue="value"
+                [placeholder]="'settings.admin.pastRuns.none' | translate"
+              >
+                <!-- Ferme, le select coupe le texte : le tooltip le rend lisible. -->
+                <ng-template #selectedItem let-run>
+                  <app-truncated-text [text]="run.label" />
+                </ng-template>
+              </p-select>
+              <button
+                pButton
+                type="button"
+                size="small"
+                [outlined]="true"
+                severity="secondary"
+                class="shrink-0"
+                data-action="open-past-run"
+                [disabled]="pastFields.runId().disabled()"
+                (click)="openPastRun()"
+              >
+                {{ "settings.admin.pastRuns.open" | translate }}
+              </button>
+            </div>
 
-          <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-            "settings.admin.pastRuns.hint" | translate
-          }}</span>
-        </app-settings-row>
+            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+              "settings.admin.pastRuns.hint" | translate
+            }}</span>
+          </app-settings-row>
+        </div>
       }
     }
   </section>

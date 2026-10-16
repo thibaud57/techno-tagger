@@ -22,6 +22,7 @@ import { Spinner } from "@primeicons/angular/spinner"
 import { Stop } from "@primeicons/angular/stop"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
+import { Trash } from "@primeicons/angular/trash"
 import { Undo } from "@primeicons/angular/undo"
 
 /**
@@ -55,6 +56,7 @@ export const ICON_NAMES = [
   "undo",
   "search",
   "external-link",
+  "trash",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -89,6 +91,7 @@ export type IconSize = 16 | 20 | 24
     Undo,
     ExternalLink,
     Search,
+    Trash,
   ],
   template: `
     @switch (name()) {
@@ -163,6 +166,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("external-link") {
         <svg data-p-icon="external-link" [size]="size()" />
+      }
+      @case ("trash") {
+        <svg data-p-icon="trash" [size]="size()" />
       }
     }
   `,

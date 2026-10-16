@@ -96,6 +96,7 @@ export class SidecarService {
   private readonly _logFile = signal<string | null>(null)
   private readonly _cacheSize = signal<number | null>(null)
   private readonly _cacheCleared = signal<CacheClearedEvent | null>(null)
+  private readonly _cacheClearing = signal(false)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _listedPlaylistPath = signal<string | null>(null)
   private readonly _progress = signal<ExtractionProgressEvent | null>(null)
@@ -161,6 +162,8 @@ export class SidecarService {
   readonly cacheSize = this._cacheSize.asReadonly()
   /** Dernier vidage : de quoi l'annoncer. */
   readonly cacheCleared = this._cacheCleared.asReadonly()
+  /** `clear_cache` envoye sans reponse encore : vrai jusqu'a `cache_cleared` ou son refus. */
+  readonly cacheClearing = this._cacheClearing.asReadonly()
   readonly versionMismatch = computed(() => {
     const sidecar = this._version()
 
@@ -230,6 +233,17 @@ export class SidecarService {
   readonly loadRefusal = this.pastRunsStore.refusal
   /** Plus aucune decision n'entre dans le run affiche : le sidecar la refuserait ou l'ignorerait. */
   readonly runFrozen = computed(() => this.writePhase.committed() || this.taggingRun.lost())
+  /**
+   * Run affiche que le moteur tient sans l'avoir ecrit en entier : il refuserait `clear_cache` en
+   * `run_not_written`. Un run perdu avec le moteur n'attend plus rien, echecs restes a l'ecran
+   * compris : `runFrozen` ne le distingue pas d'un run ecrit.
+   */
+  readonly runAwaitsWrite = computed(
+    () =>
+      this.taggingRun.runId() !== null &&
+      !this.taggingRun.lost() &&
+      (!this.writePhase.committed() || this.taggingRun.writeFailureCount() > 0),
+  )
   /** Un run fige n'arbitrera plus : ses attentes ne sont pas un travail en suspens, le compte est nul. */
   readonly arbitrationCount = computed(() => (this.runFrozen() ? 0 : this.arbitration.count()))
   /**
@@ -519,6 +533,10 @@ export class SidecarService {
   }
 
   async clearCache(): Promise<void> {
+    if (this._cacheClearing()) {
+      return
+    }
+    this._cacheClearing.set(true)
     await this.send({ command: "clear_cache" })
   }
 
@@ -668,6 +686,7 @@ export class SidecarService {
     this.writePhase.failed()
     this.arbitration.clear()
     this.urlRecovery.clear()
+    this._cacheClearing.set(false)
     // Le run charge reste affiche : seul l'attente tombe, sinon `loadRun` du meme id ne repart plus.
     this.pastRunsStore.loadAbandoned()
   }
@@ -764,6 +783,7 @@ export class SidecarService {
       case "cache_cleared":
         this._cacheSize.set(event.size_bytes)
         this._cacheCleared.set(event)
+        this._cacheClearing.set(false)
         break
       case "rollback_finished":
         this.writePhase.rolledBack(event)
@@ -781,6 +801,9 @@ export class SidecarService {
         // Avant `setLastError` : la relance de l'annonce passe par `send`, qui efface l'erreur courante.
         this.routeResumeError(event)
         this.setLastError(event)
+        if (event.command === "clear_cache") {
+          this._cacheClearing.set(false)
+        }
         // Chaque phase longue ne tombe que sur l'echec de la commande qui l'a ouverte :
         // elles tournent en parallele, l'une ne dit rien de l'autre.
         this.routeLaunchError(event)

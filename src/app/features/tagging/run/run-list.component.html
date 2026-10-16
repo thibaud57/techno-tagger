@@ -59,6 +59,7 @@
               data-row-toggle
               [attr.aria-expanded]="open"
               [attr.aria-label]="'tagging.list.showDetail' | translate"
+              [title]="'tagging.list.showDetail' | translate"
               (click)="toggleDetail(track); $event.stopPropagation()"
               (keydown.enter)="$event.stopPropagation()"
               (keydown.space)="$event.stopPropagation()"

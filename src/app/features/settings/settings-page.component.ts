@@ -1,8 +1,9 @@
 import { Component, computed, effect, inject, linkedSignal, signal, untracked } from "@angular/core"
-import { FormField, disabled, form } from "@angular/forms/signals"
+import { type FieldTree, FormField, disabled, form } from "@angular/forms/signals"
 import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
-import type { MenuItem, PassThroughContext } from "primeng/api"
+import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { type MenuItem, MessageService, type PassThroughContext } from "primeng/api"
 import { ButtonDirective } from "primeng/button"
 import { IconField } from "primeng/iconfield"
 import { InputIcon } from "primeng/inputicon"
@@ -17,6 +18,7 @@ import { ToggleSwitch } from "primeng/toggleswitch"
 import { Tooltip } from "primeng/tooltip"
 
 import { LANGUAGES, type Language, languageFromTag } from "../../core/i18n/language"
+import { TOAST_LIFE } from "../../core/platform/completion-signal.service"
 import {
   DEFAULT_SOUND_SIGNAL,
   isThresholds,
@@ -26,7 +28,11 @@ import {
   writeSoundSignal,
   writeThresholds,
 } from "../../core/platform/preferences"
-import { SCORE_SCALE, type ThresholdsPayload } from "../../core/sidecar/protocol"
+import {
+  type CacheClearedEvent,
+  SCORE_SCALE,
+  type ThresholdsPayload,
+} from "../../core/sidecar/protocol"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
@@ -36,6 +42,8 @@ import { RollbackFailuresComponent } from "../../shared/components/dialogs/rollb
 import { IconComponent } from "../../shared/components/display/icon.component"
 import { TruncatedTextComponent } from "../../shared/components/display/truncated-text.component"
 import { ErrorMessageComponent } from "../../shared/components/feedback/error-message.component"
+import { MessageComponent } from "../../shared/components/feedback/message.component"
+import { formatBytes } from "../../shared/utils/bytes"
 import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
 import { runLine } from "../../shared/utils/run-date"
 import { TOOLTIP } from "../../shared/utils/tooltip"
@@ -84,6 +92,17 @@ const choiceOf = (shown: ThresholdsPayload | null): ThresholdsChoice => ({
   ceiling: Math.round(shown?.ceiling ?? SCORE_SCALE.max),
 })
 
+/** Un champ vide (`null`) ne se compare a rien : il passe tel quel, `storeThresholds` le rejette. */
+const uncrossed = (next: ThresholdsChoice, current: ThresholdsChoice): ThresholdsChoice => {
+  if (!(next.floor > next.ceiling)) {
+    return next
+  }
+
+  return next.floor === current.floor
+    ? { ...next, ceiling: next.floor }
+    : { ...next, floor: next.ceiling }
+}
+
 /** Compare dans l'espace arrondi de l'affichage : un defaut non entier ne doit pas se croire modifie. */
 const sameChoice = (a: ThresholdsChoice, b: ThresholdsChoice): boolean =>
   a.floor === b.floor && a.ceiling === b.ceiling
@@ -115,6 +134,7 @@ type MenuItemPassThroughContext = PassThroughContext & { context?: { item?: Menu
     Tooltip,
     ToggleSwitch,
     ErrorMessageComponent,
+    MessageComponent,
     IconComponent,
     RollbackFailuresComponent,
     TruncatedTextComponent,
@@ -129,6 +149,7 @@ export default class SettingsPageComponent {
   private readonly translate = inject(TranslateService)
   private readonly confirmDanger = injectDangerConfirm()
   private readonly router = inject(Router)
+  private readonly messages = inject(MessageService)
 
   /**
    * Une section a la fois : les rangees de toutes les sections ne tiennent pas au plancher de
@@ -157,9 +178,10 @@ export default class SettingsPageComponent {
       label: this.translate.instant(`settings.interface.language.options.${value}`) as string,
     }))
   })
+  private readonly language = computed(() => languageFromTag(this.translate.currentLang()))
   /** Suit la langue courante ; seul `chooseLanguage` en fait un choix enregistre. */
   protected readonly languageChoice = linkedSignal<LanguageChoice>(() => ({
-    language: languageFromTag(this.translate.currentLang()),
+    language: this.language(),
   }))
   protected readonly languageFields = form(this.languageChoice)
   protected readonly soundChoice = signal<SoundChoice>({ enabled: DEFAULT_SOUND_SIGNAL })
@@ -171,8 +193,17 @@ export default class SettingsPageComponent {
   private readonly shownThresholds = computed(
     () => this.storedThresholds() ?? this.sidecar.defaultThresholds(),
   )
-  protected readonly thresholdsChoice = linkedSignal<ThresholdsChoice>(() =>
-    choiceOf(this.shownThresholds()),
+  /**
+   * Les deux curseurs partagent l'echelle 0-100 : une meme valeur au meme endroit. Le seuil qui
+   * bouge bute donc sur l'autre ici, `check_thresholds` refusant un plancher au-dessus du seuil haut.
+   */
+  protected readonly thresholdsChoice = linkedSignal<ThresholdsChoice>(
+    () => choiceOf(this.shownThresholds()),
+    {
+      set: (next, rawSet) => {
+        rawSet(uncrossed(next, untracked(this.thresholdsChoice)))
+      },
+    },
   )
   protected readonly thresholdsFields = form(this.thresholdsChoice, (path) => {
     // Sans valeur connue, des curseurs actifs enregistreraient 0 et 100 au premier geste. Tant que
@@ -183,7 +214,7 @@ export default class SettingsPageComponent {
     disabled(path.floor, { when: unknown })
     disabled(path.ceiling, { when: unknown })
   })
-  /** Bornes croisees : `check_thresholds` refuserait un plancher au-dessus du seuil haut. */
+  /** Bornes croisees des champs, que `p-inputnumber` applique a la sortie du champ. */
   protected readonly floorMax = computed(() => this.thresholdsChoice().ceiling)
   protected readonly ceilingMin = computed(() => this.thresholdsChoice().floor)
   protected readonly thresholdsCustomized = computed(() => {
@@ -203,9 +234,42 @@ export default class SettingsPageComponent {
 
     // Valeurs vides explicites : `pBind` ne retire pas ce qu'une valeur absente laisse en place.
     return {
-      itemContent: (options) => (isActive(options) ? "bg-emphasis" : ""),
+      itemContent: (options) => (isActive(options) ? "bg-highlight" : ""),
       itemLink: (options) => ({ "aria-current": isActive(options) ? "page" : null }),
     }
+  })
+
+  protected readonly cacheSize = computed(() => {
+    const bytes = this.sidecar.cacheSize()
+
+    return bytes === null ? null : formatBytes(bytes, this.language())
+  })
+  /**
+   * Sur ce que l'interface sait deja, comme `restoreBlockedReason` : le sidecar reste l'arbitre,
+   * un refus `phase_busy` ou `run_not_written` s'affiche sous la rangee.
+   */
+  protected readonly cacheBlockedReason = computed(() => {
+    if (this.sidecar.available() !== true) {
+      return "settings.admin.starting"
+    }
+    if (this.sidecar.phase() !== "idle") {
+      return "settings.admin.cache.blocked.busy"
+    }
+
+    return this.sidecar.runAwaitsWrite() ? "settings.admin.cache.blocked.unwritten" : null
+  })
+  protected readonly cacheClearing = this.sidecar.cacheClearing
+  protected readonly cacheError = this.sidecar.errorFor("clear_cache", "get_cache_size")
+  /** Dernier vidage deja connu au montage : un retour sur l'onglet ne rejoue pas son toast. */
+  private announcedClear = untracked(this.sidecar.cacheCleared)
+  protected readonly logFile = this.sidecar.logFile
+  protected readonly logsBlockedReason = computed(() =>
+    this.logFile() === null ? "settings.admin.starting" : null,
+  )
+  /** Un moteur relance recree le fichier : son nouveau chemin efface l'echec du precedent. */
+  protected readonly logsUnavailable = linkedSignal({
+    source: this.logFile,
+    computation: () => false,
   })
 
   /** Jamais prerempli : la cle n'est pas relue depuis le trousseau. */
@@ -298,8 +362,20 @@ export default class SettingsPageComponent {
         untracked(() => {
           void this.sidecar.loadRollbackTarget()
           void this.sidecar.listRuns()
+          void this.sidecar.loadCacheSize()
         })
       }
+    })
+
+    effect(() => {
+      const cleared = this.sidecar.cacheCleared()
+      if (cleared === null || cleared === this.announcedClear) {
+        return
+      }
+      this.announcedClear = cleared
+      untracked(() => {
+        this.announceClear(cleared)
+      })
     })
 
     // Lu au montage, jamais ecrit : seule la bascule enregistre un choix. Une lecture qui arrive
@@ -353,6 +429,32 @@ export default class SettingsPageComponent {
     }
   }
 
+  /** Sans confirmation : le cache est jetable (ADR-013), rien a restaurer. */
+  protected clearCache(): void {
+    if (this.cacheBlockedReason() !== null) {
+      return
+    }
+    void this.sidecar.clearCache()
+  }
+
+  /**
+   * Revele le fichier courant plutot que le dossier : l'Explorateur s'ouvre dans `logs`, le
+   * fichier a joindre selectionne. `opener:allow-reveal-item-in-dir` n'a pas de scope.
+   */
+  protected async revealLogs(): Promise<void> {
+    const file = this.logFile()
+    if (file === null) {
+      return
+    }
+    try {
+      await revealItemInDir(file)
+      this.logsUnavailable.set(false)
+    } catch {
+      // Fichier efface a la main : le relancement du moteur le recree.
+      this.logsUnavailable.set(true)
+    }
+  }
+
   /**
    * Sur l'evenement du select, jamais par un `effect` : celui-ci enregistrerait au premier
    * rendu la langue detectee, qui deviendrait un choix fige.
@@ -392,9 +494,44 @@ export default class SettingsPageComponent {
     void writeThresholds(stored)
   }
 
+  /**
+   * En butee, le modele borne ne change plus d'un cran a l'autre : le `controlValue` du champ, que
+   * Signal Forms ne recalcule que sur un changement du modele, garderait la valeur du geste, et
+   * curseur comme champ continueraient de monter. `p-slider` a deja ecrit le champ a l'emission.
+   */
+  protected holdAtBound(field: FieldTree<number>): void {
+    const state = field()
+    if (state.controlValue() !== state.value()) {
+      state.controlValue.set(state.value())
+    }
+  }
+
   protected resetThresholds(): void {
     this.storedThresholds.set(null)
     void writeThresholds(null)
+  }
+
+  /** Sans signal sonore : ce n'est pas la fin d'une phase longue. */
+  private announceClear(cleared: CacheClearedEvent): void {
+    const language = this.language()
+    const lines = [
+      this.translate.instant("settings.admin.cache.cleared.freed", {
+        size: formatBytes(cleared.freed_bytes, language),
+      }) as string,
+    ]
+    if (cleared.size_bytes > 0) {
+      lines.push(
+        this.translate.instant("settings.admin.cache.cleared.left", {
+          size: formatBytes(cleared.size_bytes, language),
+        }) as string,
+      )
+    }
+    this.messages.add({
+      severity: "success",
+      summary: this.translate.instant("settings.admin.cache.cleared.summary") as string,
+      detail: lines.join("\n"),
+      life: TOAST_LIFE,
+    })
   }
 
   /** Une cle saisie sans etre enregistree ne survit pas a sa section : elle y restait en clair. */

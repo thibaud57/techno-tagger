@@ -5,6 +5,9 @@ import { MessageService } from "primeng/api"
 import { SidecarService } from "../sidecar/sidecar.service"
 import { readSoundSignal } from "./preferences"
 
+/** Duree commune des toasts de l'application (DESIGN.md § Feedback et chargement). */
+export const TOAST_LIFE = 4000
+
 /** Deux notes courtes : une fin de phase s'entend sans couvrir ce qui se passe a l'ecran. */
 const NOTES = [880, 1174.66] as const
 const NOTE_SECONDS = 0.12
@@ -72,7 +75,7 @@ export class CompletionSignalService {
     this.messages.add({
       severity,
       summary: this.translate.instant(messageKey, params) as string,
-      life: 4000,
+      life: TOAST_LIFE,
     })
   }
 

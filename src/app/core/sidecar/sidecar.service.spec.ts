@@ -168,6 +168,35 @@ describe("SidecarService", () => {
     expect(service.cacheSize()).toBe(4096)
   })
 
+  it("marks the cache as clearing until the engine answers", async () => {
+    await service.start()
+    await service.clearCache()
+    const clearing = service.cacheClearing()
+
+    transport.emit({ event: "cache_cleared", freed_bytes: 4000, size_bytes: 0 })
+
+    expect(clearing).toBe(true)
+    expect(service.cacheClearing()).toBe(false)
+  })
+
+  it("stops clearing the cache when the engine refuses it", async () => {
+    await service.start()
+    await service.clearCache()
+
+    transport.emit(commandError("clear_cache", "run_not_written"))
+
+    expect(service.cacheClearing()).toBe(false)
+  })
+
+  it("sends a single clearing while one is in flight", async () => {
+    await service.start()
+    await service.clearCache()
+
+    await service.clearCache()
+
+    expect(transport.sent.filter((line) => line.includes("clear_cache"))).toHaveLength(1)
+  })
+
   it("feeds the cache size and the last clearing from a clearing", async () => {
     await service.start()
     transport.emit({ event: "cache_size", size_bytes: 4096 })
@@ -1381,6 +1410,48 @@ describe("SidecarService", () => {
       expect(service.runFrozen()).toBe(true)
       expect(service.runConfirmable()).toBe(false)
       expect(service.taggingTracks()).not.toHaveLength(0)
+    })
+
+    describe("runAwaitsWrite", () => {
+      it("holds a searched run that is not written", async () => {
+        await resolvedRun()
+
+        transport.emit(NETWORK_FINISHED)
+
+        expect(service.runAwaitsWrite()).toBe(true)
+      })
+
+      it("holds a written run while failed writes are left", async () => {
+        await resolvedRun()
+        await service.commitRun()
+
+        transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
+        transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+
+        expect(service.runAwaitsWrite()).toBe(true)
+      })
+
+      it("releases a run written without failure", async () => {
+        await resolvedRun()
+        await service.commitRun()
+
+        transport.emit({ ...TRACK_RESOLVED, state: "written" })
+        transport.emit(WRITE_FINISHED)
+
+        expect(service.runAwaitsWrite()).toBe(false)
+      })
+
+      it("releases a run lost with its engine, failed writes kept on screen", async () => {
+        await resolvedRun()
+        await service.commitRun()
+        transport.emit({ ...TRACK_RESOLVED, state: "write_error" })
+        transport.emit({ ...WRITE_FINISHED, written: 0, write_error: 1 })
+
+        transport.handlers?.onTerminated()
+
+        expect(service.runAwaitsWrite()).toBe(false)
+        expect(service.writeFailureCount()).toBe(1)
+      })
     })
 
     it("forgets the write but keeps the target when a new run starts", async () => {

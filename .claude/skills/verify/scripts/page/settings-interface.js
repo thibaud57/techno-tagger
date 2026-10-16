@@ -9,6 +9,7 @@
 //   node cdp.mjs page/settings-interface.js toggle         centre de la bascule du son
 //   node cdp.mjs page/settings-interface.js store          `language` et `sound_signal` du store
 //   node cdp.mjs page/settings-interface.js beep           annonce une fin, compte bips et toasts
+//   node cdp.mjs page/settings-interface.js cursors        curseur vu par la souris au centre de chaque controle de la section affichee (piste et poignee des curseurs, champs, bascule, select, boutons), et son centre pour `--move`
 ;(async () => {
   const [action, ...rest] = __args
 
@@ -62,6 +63,8 @@
             label: label?.textContent?.trim(),
             // Coupe si le texte deborde de sa boite
             cut: label ? label.scrollWidth > label.clientWidth : null,
+            // bg-highlight depuis le 2026-10-16 (teinte emerald a 16 %), bg-emphasis avant
+            highlight: content.classList.contains("bg-highlight"),
             emphasis: content.classList.contains("bg-emphasis"),
             background: getComputedStyle(content).backgroundColor,
             focus: item.classList.contains("p-focus"),
@@ -119,6 +122,33 @@
       return exists ? value : "absent"
     }
     return { language: await read("language"), sound_signal: await read("sound_signal") }
+  }
+
+  // Ce que la souris trouve au point vise, et son curseur : `elementFromPoint`, pas le style de l'hote du composant
+  if (action === "cursors") {
+    const section = page().querySelector("section")
+    const at = (label, x, y) => {
+      const hit = document.elementFromPoint(x, y)
+      return { label, x: Math.round(x), y: Math.round(y), tag: hit?.tagName.toLowerCase() ?? null, cls: String(hit?.className ?? "").slice(0, 32), cursor: hit ? getComputedStyle(hit).cursor : null }
+    }
+    const centerOf = (element) => {
+      const r = element.getBoundingClientRect()
+      return [r.left + r.width / 2, r.top + r.height / 2]
+    }
+    const found = []
+    for (const slider of section.querySelectorAll("p-slider")) {
+      const field = slider.getAttribute("data-field")
+      const track = slider.querySelector(".p-slider-track").getBoundingClientRect()
+      const disabled = slider.classList.contains("p-disabled")
+      found.push({ disabled, ...at(`${field} piste a 30 %`, track.left + track.width * 0.3, track.top + track.height / 2) })
+      found.push({ disabled, ...at(`${field} poignee`, ...centerOf(slider.querySelector(".p-slider-handle"))) })
+    }
+    for (const input of section.querySelectorAll("p-inputnumber input")) found.push({ disabled: input.disabled, ...at("champ numerique", ...centerOf(input)) })
+    for (const toggle of section.querySelectorAll("p-toggleswitch")) found.push({ disabled: false, ...at("bascule", ...centerOf(toggle)) })
+    for (const select of section.querySelectorAll("p-select")) found.push({ disabled: select.classList.contains("p-disabled"), ...at("select", ...centerOf(select)) })
+    for (const input of section.querySelectorAll("input.p-inputtext:not(.p-inputnumber-input)")) found.push({ disabled: input.disabled, ...at("champ texte", ...centerOf(input)) })
+    for (const button of section.querySelectorAll("button[data-action], button[pbutton]")) found.push({ disabled: button.disabled, ...at(`bouton ${button.textContent.trim().slice(0, 24)}`, ...centerOf(button)) })
+    return { h2: section.querySelector("h2").textContent.trim(), found }
   }
 
   if (action === "beep") {

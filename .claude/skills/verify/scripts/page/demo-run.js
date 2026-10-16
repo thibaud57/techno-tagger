@@ -102,7 +102,8 @@
     await openTab(new RegExp(target ?? "tagging", "i"))
     const main = document.querySelector("main").getBoundingClientRect()
     const host = document.querySelector("main > :not(router-outlet)")
-    const column = host.firstElementChild?.matches("div") ? host.firstElementChild : host
+    // Depuis le 2026-10-16 les enfants de la page sont ceux de l'hote : plus de conteneur interne
+    const column = host
     const items = [...column.children].map((el) => {
       const r = el.getBoundingClientRect()
       return { tag: el.tagName.toLowerCase(), display: getComputedStyle(el).display, top: Math.round(r.top), height: Math.round(r.height) }

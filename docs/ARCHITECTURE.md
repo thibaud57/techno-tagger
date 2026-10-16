@@ -92,7 +92,7 @@ techno-tagger/
 │   │   ├── features/
 │   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
 │   │   │   ├── tagging/                  # onglet 2, un dossier par vue : run/, arbitration/, url-recovery/, recap/
-│   │   │   └── settings/                 # clé API, runs passés, restauration (le reste : étape 8)
+│   │   │   └── settings/                 # sections API, Matching, Interface, Administration
 │   │   ├── app.component.ts
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
@@ -384,7 +384,7 @@ Plugins Tauri v2 enregistrés dans `src-tauri/src/lib.rs`, permissions dans `src
 | `fs` | Restreint à `$APPLOCALDATA` (plans de run, cache, logs), en lecture et écriture récursives. La webview n'accède pas aux chemins de la bibliothèque musicale : le sidecar Python lit et écrit ces fichiers directement, hors du système de permissions Tauri |
 | `store` | Préférences : mode copie / déplacement, signal sonore, dernière destination ; langue (`language`, `null` tant que rien n'est choisi) ; seuils (`thresholds` : l'écart aux défauts du sidecar, `null` sinon). L'URL de l'API n'y figure pas : c'est une constante du sidecar, seul à appeler techno-scraper (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
-| `opener` | Lien vers la fiche source du détail d'un morceau ; bouton « ouvrir le dossier de logs » des Settings à l'étape 8. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
+| `opener` | Lien vers la fiche source du détail d'un morceau ; bouton « Ouvrir le dossier des logs » des Réglages : `revealItemInDir` sur le fichier de logs courant (`version.log_file`), sans permission de plus. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)) |
 | `updater` | Étape 9, pas encore câblé (ni plugin enregistré ni permission) : vérification du manifeste au démarrage, téléchargement et installation signés |
 | `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe le rechargement (`F5`, `Ctrl+R`) et le menu contextuel en release : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié |
@@ -411,7 +411,7 @@ Deux réglages ne passent pas par un plugin :
 | `core/observability/` | Masquage PII et options Sentry de la webview |
 | `features/playlist/` | Onglet 1 : dossiers, playlist, lignes d'extraction |
 | `features/tagging/` | Onglet 2, un dossier par vue : `run/` (page, liste, détail d'un morceau, restauration), `arbitration/`, `url-recovery/`, `recap/` |
-| `features/settings/` | Onglet 3 : menu des sections ; clé API, seuils de matching, langue, signal sonore, runs passés, restauration. Cache et logs : étape 8, pas encore câblés |
+| `features/settings/` | Onglet 3 : menu des sections ; clé API, seuils de matching, langue, signal sonore, runs passés, restauration, cache (taille et vidage), logs |
 | `shared/components/` | `dialogs/` (en-tête, confirmations, reprise, échecs de rollback), `display/` (pochette, icône, étiquettes d'état et de source, texte tronqué, états vides), `feedback/` (messages), `inputs/` (sélecteur de chemin) |
 | `shared/utils/` | Fonctions et constantes d'affichage sans état |
 
@@ -949,7 +949,7 @@ Une bibliothèque profonde plus un renommage en `{artist} - {title}` franchissen
 
 La rotation se déclenche sur la **taille, jamais sur le run** : à 5 Mo, `tagger.log` devient `tagger.log.1`, les précédents se décalent et le quatrième est supprimé. Un fichier ne correspond donc à rien de fonctionnel, un run pouvant être à cheval sur deux. À quelques dizaines de kilooctets de logs par run, ces 20 Mo couvrent plusieurs centaines de runs.
 
-Un bouton « ouvrir le dossier de logs » dans les Settings permettra de récupérer une trace chez un ami DJ sans accès à sa machine (étape 8, pas encore câblé).
+Un bouton « Ouvrir le dossier des logs » dans les Réglages permet de récupérer une trace chez un ami DJ sans accès à sa machine : il révèle `tagger.log`, sélectionné dans l'Explorateur.
 
 `stderr` reste relayé à la console de développement par Tauri, mais n'est jamais la seule sortie : une application empaquetée chez un tiers n'a pas de console.
 

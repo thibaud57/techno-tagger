@@ -417,6 +417,27 @@
     },
     "admin": {
       "title": "Administration",
+      "starting": "The application engine is starting.\nWait a moment.",
+      "cache": {
+        "label": "Cache",
+        "hint": "API responses and artwork already downloaded.\nClearing it touches no music file: the next runs download them again.",
+        "action": "Clear the cache",
+        "blocked": {
+          "busy": "An operation is in progress.\nWait for it to finish.",
+          "unwritten": "The run on screen is waiting for its tags to be written.\nFinish writing before clearing the cache."
+        },
+        "cleared": {
+          "summary": "Cache cleared",
+          "freed": "{{size}} freed.",
+          "left": "{{size}} left, used by another program."
+        }
+      },
+      "logs": {
+        "label": "Logs",
+        "hint": "To report a problem, attach the selected file to your message.",
+        "action": "Open the logs folder",
+        "unavailable": "The log file cannot be found.\nRestart the application to create it again."
+      },
       "pastRuns": {
         "label": "Past runs",
         "hint": "Reopens the summary of a run already written, read-only.",

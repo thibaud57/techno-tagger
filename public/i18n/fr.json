@@ -417,6 +417,27 @@
     },
     "admin": {
       "title": "Administration",
+      "starting": "Le moteur de l'application démarre.\nPatientez un instant.",
+      "cache": {
+        "label": "Cache",
+        "hint": "Réponses de l'API et pochettes déjà téléchargées.\nLe vider ne touche à aucun fichier de musique : les prochains runs les retéléchargent.",
+        "action": "Vider le cache",
+        "blocked": {
+          "busy": "Une opération est en cours.\nAttendez sa fin.",
+          "unwritten": "Le run affiché attend l'écriture de ses tags.\nTerminez-la avant de vider le cache."
+        },
+        "cleared": {
+          "summary": "Cache vidé",
+          "freed": "{{size}} libérés.",
+          "left": "{{size}} restent, utilisés par un autre programme."
+        }
+      },
+      "logs": {
+        "label": "Logs",
+        "hint": "Pour signaler un problème, joignez le fichier sélectionné à votre message.",
+        "action": "Ouvrir le dossier des logs",
+        "unavailable": "Le fichier de logs est introuvable.\nRelancez l'application pour le recréer."
+      },
       "pastRuns": {
         "label": "Runs passés",
         "hint": "Rouvre le récapitulatif d'un run déjà écrit, en lecture seule.",

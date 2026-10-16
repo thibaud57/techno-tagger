@@ -527,7 +527,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 **Recommandation** : ⚠️ Le projet démarrant de zéro, prendre directement `aura` (16px) et **jamais** `-compat` : [ARCHITECTURE.md](ARCHITECTURE.md#styling--ui) et [DESIGN.md](DESIGN.md) sont déjà écrits sur cette base. La variante compat n'existe que pour ne pas casser un layout hérité, ce qui n'est pas le cas ici.
 
 ### 7. PrimeIcons
-**Version actuelle** : `@primeicons/angular 8.0.2` (2026-09-23, tiré par PrimeNG) / `primeicons 8.0.0` (CSS, sous licence) / `primeicons 7.0.0` (dernière MIT, 2024-03-29)
+**Version actuelle** : `@primeicons/angular 8.0.2` (2026-09-23, tiré par PrimeNG) / `primeicons 8.0.2` (2026-09-23, CSS, sous licence) / `primeicons 7.0.0` (dernière MIT, 2024-03-29)
 **Stabilité** : ❌
 
 **Breaking Changes Majeurs** :

@@ -2,9 +2,10 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { By } from "@angular/platform-browser"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
+import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { load } from "@tauri-apps/plugin-store"
 import { Router, provideRouter } from "@angular/router"
-import { ConfirmationService } from "primeng/api"
+import { ConfirmationService, MessageService } from "primeng/api"
 
 import { hostOf } from "../../../fixtures/dom"
 import { PAST_RUN } from "../../../fixtures/past-runs"
@@ -16,7 +17,7 @@ import {
 import { storeOf, storeStub } from "../../../fixtures/tauri-store"
 import { translateWith } from "../../../fixtures/translate"
 import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
-import type { PastRun } from "../../core/sidecar/protocol"
+import type { CacheClearedEvent, PastRun } from "../../core/sidecar/protocol"
 import { SidecarService } from "../../core/sidecar/sidecar.service"
 import type { RollbackInFlight } from "../../core/stores/write.store"
 
@@ -30,6 +31,10 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn(() => Promise.reject(new TypeError("store unavailable"))),
 }))
 
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  revealItemInDir: vi.fn(() => Promise.resolve()),
+}))
+
 const mountWith = (overrides: SidecarStubOverrides = {}, section: SettingsSection = "api") => {
   const service = sidecarStub({ apiKeyConfigured: signal<boolean | null>(false), ...overrides })
 
@@ -39,6 +44,7 @@ const mountWith = (overrides: SidecarStubOverrides = {}, section: SettingsSectio
       provideTranslateService(),
       provideRouter([]),
       ConfirmationService,
+      MessageService,
       { provide: SidecarService, useValue: service },
     ],
   })
@@ -145,7 +151,7 @@ describe("SettingsPageComponent", () => {
     expect(line?.textContent).toContain("2026")
   })
 
-  it.each(["loadRollbackTarget", "listRuns"] as const)(
+  it.each(["loadRollbackTarget", "listRuns", "loadCacheSize"] as const)(
     "calls %s once the engine answers, not at construction",
     (method) => {
       const available = signal<boolean | null>(null)
@@ -262,7 +268,7 @@ describe("SettingsPageComponent", () => {
     openSection(component, "admin")
     fixture.detectChanges()
 
-    const marked = Array.from(hostOf(fixture).querySelectorAll(".bg-emphasis"))
+    const marked = Array.from(hostOf(fixture).querySelectorAll(".bg-highlight"))
     const current = Array.from(hostOf(fixture).querySelectorAll('[aria-current="page"]'))
     expect(marked.map((content) => content.textContent.trim())).toEqual(["settings.admin.title"])
     expect(current.map((link) => link.textContent.trim())).toEqual(["settings.admin.title"])
@@ -642,6 +648,206 @@ describe("SettingsPageComponent", () => {
 
       expect(component["floorMax"]()).toBe(80)
       expect(component["ceilingMin"]()).toBe(60)
+    })
+
+    it.each([
+      { case: "the floor", moved: { floor: 95, ceiling: 80 }, kept: { floor: 80, ceiling: 80 } },
+      {
+        case: "the high threshold",
+        moved: { floor: 60, ceiling: 40 },
+        kept: { floor: 60, ceiling: 60 },
+      },
+    ])("stops $case against the other threshold", ({ moved, kept }) => {
+      const { component } = mountMatching()
+      component["thresholdsChoice"].set({ floor: 60, ceiling: 80 })
+
+      component["thresholdsChoice"].set(moved)
+
+      expect(component["thresholdsChoice"]()).toEqual(kept)
+    })
+
+    it("brings the controls of a threshold dragged past the other one back to the bound", () => {
+      const { component } = mountMatching()
+      component["thresholdsChoice"].set({ floor: 60, ceiling: 80 })
+      const floor = component["thresholdsFields"].floor
+      floor().controlValue.set(95)
+
+      component["holdAtBound"](floor)
+
+      expect(floor().controlValue()).toBe(80)
+      expect(component["thresholdsChoice"]()).toEqual({ floor: 80, ceiling: 80 })
+    })
+  })
+
+  describe("cache", () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    const CLEARED: CacheClearedEvent = {
+      event: "cache_cleared",
+      freed_bytes: 418_000_000,
+      size_bytes: 0,
+    }
+
+    const withClearedTranslations = (): void => {
+      translateWith({
+        settings: {
+          admin: {
+            cache: {
+              cleared: { summary: "Cleared", freed: "{{size}} freed", left: "{{size}} left" },
+            },
+          },
+        },
+      })
+    }
+
+    it("shows the cache size in the interface language", () => {
+      const { fixture } = mountWith({ cacheSize: signal<number | null>(418_000_000) }, "admin")
+
+      const size = hostOf(fixture).querySelector("[data-cache-size]")
+
+      expect(size?.textContent.trim()).toBe("418 MB")
+    })
+
+    it("sends the clearing", () => {
+      const { fixture, service } = mountWith({}, "admin")
+
+      hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="clear-cache"]')?.click()
+
+      expect(service.clearCache).toHaveBeenCalled()
+    })
+
+    it("announces the freed bytes of a new clearing", () => {
+      const cacheCleared = signal<CacheClearedEvent | null>(null)
+      const add = vi.spyOn(MessageService.prototype, "add")
+      const { fixture } = mountWith({ cacheCleared }, "admin")
+      withClearedTranslations()
+
+      cacheCleared.set(CLEARED)
+      fixture.detectChanges()
+
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: "success",
+          summary: "Cleared",
+          detail: "418 MB freed",
+        }),
+      )
+    })
+
+    it("announces what is left after a partial clearing", () => {
+      const cacheCleared = signal<CacheClearedEvent | null>(null)
+      const add = vi.spyOn(MessageService.prototype, "add")
+      const { fixture } = mountWith({ cacheCleared }, "admin")
+      withClearedTranslations()
+
+      cacheCleared.set({ ...CLEARED, size_bytes: 12_000_000 })
+      fixture.detectChanges()
+
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ detail: "418 MB freed\n12 MB left" }),
+      )
+    })
+
+    it("announces nothing for a clearing already known when the page opens", () => {
+      const add = vi.spyOn(MessageService.prototype, "add")
+
+      const { fixture } = mountWith(
+        { cacheCleared: signal<CacheClearedEvent | null>(CLEARED) },
+        "admin",
+      )
+      fixture.detectChanges()
+
+      expect(add).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      [
+        "an engine still starting",
+        { available: signal<boolean | null>(null) },
+        "settings.admin.starting",
+      ],
+      ["a long phase", { tagging: signal(true) }, "settings.admin.cache.blocked.busy"],
+      [
+        "a run awaiting its write",
+        { runAwaitsWrite: signal(true) },
+        "settings.admin.cache.blocked.unwritten",
+      ],
+      ["no run awaiting its write", {}, null],
+    ])("blocks the clearing according to %s", (_case, overrides, reason) => {
+      const { fixture, component } = mountWith(overrides, "admin")
+
+      const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="clear-cache"]')
+
+      expect(component["cacheBlockedReason"]()).toBe(reason)
+      expect(button?.disabled).toBe(reason !== null)
+    })
+
+    it("shows a clearing in flight on its button", () => {
+      const { fixture } = mountWith({ cacheClearing: signal(true) }, "admin")
+
+      const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="clear-cache"]')
+
+      expect(button?.disabled).toBe(true)
+      expect(button?.querySelector('[data-p-icon="spinner"]')).not.toBeNull()
+    })
+
+    it("shows a refused clearing under the cache row", () => {
+      const { fixture } = mountWith(commandFailed("clear_cache", "run_not_written"), "admin")
+
+      const error = hostOf(fixture).querySelector("[data-cache-error]")
+
+      expect(error).not.toBeNull()
+    })
+  })
+
+  describe("logs", () => {
+    const LOG_FILE = "C:/data/trace.log"
+
+    it("reveals the log file named by the engine", async () => {
+      const { component } = mountWith({ logFile: signal<string | null>(LOG_FILE) }, "admin")
+
+      await component["revealLogs"]()
+
+      expect(revealItemInDir).toHaveBeenCalledWith(LOG_FILE)
+    })
+
+    it.each([
+      ["is not named yet", null, "settings.admin.starting"],
+      ["is named", LOG_FILE, null],
+    ])("blocks the logs button while the log file %s", (_case, file, reason) => {
+      const { fixture, component } = mountWith({ logFile: signal<string | null>(file) }, "admin")
+
+      const button = hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="reveal-logs"]')
+
+      expect(component["logsBlockedReason"]()).toBe(reason)
+      expect(button?.disabled).toBe(reason !== null)
+    })
+
+    it("forgets a failed reveal once a relaunched engine names its log file", async () => {
+      vi.mocked(revealItemInDir).mockRejectedValueOnce(new Error("path not found"))
+      const logFile = signal<string | null>(LOG_FILE)
+      const { fixture, component } = mountWith({ logFile }, "admin")
+      await component["revealLogs"]()
+
+      logFile.set("C:/data/relaunched.log")
+      fixture.detectChanges()
+
+      expect(hostOf(fixture).querySelector("[data-logs-error]")).toBeNull()
+    })
+
+    it("tells to restart when the log file cannot be revealed", async () => {
+      vi.mocked(revealItemInDir).mockRejectedValueOnce(new Error("path not found"))
+      const { fixture, component } = mountWith(
+        { logFile: signal<string | null>(LOG_FILE) },
+        "admin",
+      )
+
+      await component["revealLogs"]()
+      fixture.detectChanges()
+
+      expect(hostOf(fixture).querySelector("[data-logs-error]")).not.toBeNull()
     })
   })
 })
