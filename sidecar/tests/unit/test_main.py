@@ -56,46 +56,19 @@ def startup() -> Iterator[_Startup]:
 
 
 def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None:
-    with (
-        patch.object(
-            __main__,
-            "_purge_old_dumps",
-            autospec=True,
-            side_effect=_noting(startup.calls, "_purge_old_dumps"),
-        ),
-        patch.object(
-            __main__,
-            "_purge_old_plans",
-            autospec=True,
-            side_effect=_noting(startup.calls, "_purge_old_plans"),
-        ),
-        patch.object(
-            __main__,
-            "_purge_old_feedback",
-            autospec=True,
-            side_effect=_noting(startup.calls, "_purge_old_feedback"),
-        ),
+    with patch.object(
+        __main__, "_purge_old", autospec=True, side_effect=_noting(startup.calls, "_purge_old")
     ):
         __main__.main()
 
-    assert startup.calls == [
-        "setup_logging",
-        "init_sentry",
-        "_purge_old_dumps",
-        "_purge_old_plans",
-        "_purge_old_feedback",
-        "run_loop",
-    ]
+    assert startup.calls == ["setup_logging", "init_sentry", "_purge_old", "run_loop"]
 
 
-# Fonction de purge du module de domaine, et garde de `__main__` qui l'appelle.
-_PURGES: Final = {
-    "purge_dumps": "_purge_old_dumps",
-    "purge_plans": "_purge_old_plans",
-    "purge_feedback_exports": "_purge_old_feedback",
-}
+# Les purges du module de domaine que `__main__` appelle au demarrage.
+PURGES: Final = ("purge_dumps", "purge_plans", "purge_feedback_exports")
 
 
+@pytest.mark.usefixtures("app_data")
 @pytest.mark.parametrize(
     ("failing", "message"),
     [
@@ -105,20 +78,23 @@ _PURGES: Final = {
     ],
     ids=["dumps", "plans", "feedback"],
 )
-def test_a_failed_purge_never_stops_the_startup(
+def test_a_failed_purge_stops_neither_the_startup_nor_the_next_purges(
     startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str, message: str
 ) -> None:
     with ExitStack() as patches:
         patches.enter_context(
             patch.object(__main__, failing, autospec=True, side_effect=OSError(5, "denied"))
         )
-        for purge, guard in _PURGES.items():
-            if purge != failing:
-                patches.enter_context(patch.object(__main__, guard, autospec=True))
+        spies = [
+            patches.enter_context(patch.object(__main__, name, autospec=True))
+            for name in PURGES
+            if name != failing
+        ]
         __main__.main()
 
     startup.run_loop.assert_called_once()
     assert message in caplog.messages
+    assert all(spy.call_count == 1 for spy in spies)
 
 
 @pytest.mark.usefixtures("app_data")
@@ -126,7 +102,7 @@ def test_the_startup_purge_removes_the_plans_older_than_thirty_days(tmp_path: Pa
     started_at = datetime.now(UTC) - timedelta(days=31)
     expired = save_plan(plan_dir(), plan_of(tmp_path, [RECORD], started_at=started_at))
 
-    __main__._purge_old_plans()
+    __main__._purge_old()
 
     assert not expired.exists()
 
@@ -139,7 +115,7 @@ def test_the_startup_purge_removes_the_feedback_exports_older_than_thirty_days()
     expired.parent.mkdir(parents=True)
     expired.write_text("{}", encoding="utf-8")
 
-    __main__._purge_old_feedback()
+    __main__._purge_old()
 
     assert not expired.exists()
 
