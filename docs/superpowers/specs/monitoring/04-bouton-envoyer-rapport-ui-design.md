@@ -2,7 +2,7 @@
 feature: "Feature 9 : Monitoring"
 subproject: "bouton-envoyer-rapport-ui"
 goal: "Poser dans le pied du récapitulatif le bouton « Envoyer ce rapport », qui ouvre dans le navigateur l'issue de retour pré-remplie du run affiché et révèle dans l'Explorateur l'export à y glisser."
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["03-protocole-ndjson-retour-design.md"]
