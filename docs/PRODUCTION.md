@@ -321,7 +321,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le lien vers la fiche source et par le bouton « Ouvrir le dossier des logs » des Réglages, qui s'appuie sur `opener:allow-reveal-item-in-dir`, déjà accordé, sans nouvelle permission : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
 - [ ] **Préfixe `\\?\` sur les accès aux fichiers musicaux** (tags, renommage, rollback) : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
-- [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- [ ] **Durcissement Sentry en place et testé** : `data_collection` fermé catégorie par catégorie (variables de frame comprises), `server_name` fixe, messages d'exception masqués hors liste fermée, scrubbing des chemins. Ces réglages sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
 > Items techniques et de bootstrap, à valider empiriquement. Pas d'ADR : aucune décision architecturale structurelle, celles-ci vivent dans `adrs/`.
@@ -586,7 +586,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 
 ### Règles
 - ✅ **Jeu de clés logfmt fixe** : `run`, `track`, `source`, `score`, `status`, `reason`, `request_id`. C'est le seul coût du format : une clé inventée au fil des commits (`track_id` à côté de `track`) rend un `grep` faux sans que rien ne casse ni ne se voie. `request_id` reprend l'en-tête `X-Request-ID` de techno-scraper, seul lien entre une ligne du sidecar et la ligne correspondante côté API (ajoutée le 2026-09-19).
-- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS, ainsi que l'artiste et le titre par le nom du fichier (tout chemin de lecteur ou UNC part en `<path>` depuis le 2026-10-11, [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
+- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS, ainsi que l'artiste et le titre par le nom du fichier (tout chemin de lecteur ou UNC part en `<path>` depuis le 2026-10-11 ; hors d'une liste fermée de types sans donnée, le message d'une exception part en `<message>` depuis le 2026-10-15, [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
 - ✅ **Une ligne par décision de matching** : score, source, état retenu. C'est la trace qui permet de comprendre après coup pourquoi un morceau est parti en arbitrage.
 - ✅ **Distinguer les motifs d'échec** : « aucune source n'a répondu » et « on n'avait rien à demander après nettoyage » sont deux lignes différentes, elles n'appellent pas la même correction.
 - ✅ **Erreur loguée une seule fois**, au point où elle est traitée, jamais aussi au point de levée : sinon un incident produit deux lignes et deux events Sentry.
@@ -596,7 +596,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 - ❌ **Logger les réponses brutes complètes** de techno-scraper en dehors de `DEBUG` : volume inutile dans un fichier plafonné à 5 Mo.
 - ❌ **Écrire les logs ailleurs que dans `appLocalDataDir()`** : ni à côté des fichiers musicaux (ce n'est pas un livrable), ni dans le dossier d'installation (droits insuffisants).
 - ❌ **Compter sur `stderr`** pour diagnostiquer chez un utilisateur : il n'y a pas de console dans une application empaquetée.
-- ❌ **Envoyer un titre de morceau à Sentry**, par un message d'erreur formaté ou une variable locale. C'est exactement ce que `include_local_variables=False` empêche, et ce qu'un message construit à la main pourrait réintroduire.
+- ❌ **Envoyer un titre de morceau à Sentry**, par un message d'erreur formaté ou une variable locale. C'est ce que `data_collection` fermé (variables de frame) et la liste fermée des messages empêchent et ce qu'un type ajouté à cette liste sans examen de son message réintroduirait.
 
 ---
 
@@ -725,7 +725,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 - [tauri-action](https://github.com/tauri-apps/tauri-action) : `tagName`, `releaseDraft`, `uploadUpdaterJson`
 - [release-please : customizing](https://github.com/googleapis/release-please/blob/main/docs/customizing.md) : `extra-files`, updaters TOML et JSON génériques
 - [GitHub Actions : déclencheurs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) : un tag créé par `GITHUB_TOKEN` ne déclenche aucun workflow
-- [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `include_local_variables`, `server_name`, `send_default_pii`
+- [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `data_collection`, `server_name`, `before_send`
 - [PyInstaller](https://pyinstaller.org) : modes `--onefile` et `--onedir`
 - [Dependabot : options de configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) : `package-ecosystem`, `directory`, `groups`
 - [pnpm : intégration continue](https://pnpm.io/continuous-integration) : `pnpm/setup`, et pourquoi Corepack n'est plus recommandé

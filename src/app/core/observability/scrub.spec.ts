@@ -1,65 +1,109 @@
-import { MASK, scrub } from "./scrub"
+import { MASK, PATH_MASK, QUERY_MASK, scrub } from "./scrub"
 
 /**
  * Le masquage est la seule barriere cote webview : `Breadcrumbs` et `Replay` sont
- * retirees, mais un message d'erreur formate autour d'un morceau porte son chemin.
+ * retirees, mais un message d'erreur formate autour d'un morceau porte son chemin, donc
+ * le nom du fichier, l'artiste et le titre.
  */
 describe("scrub", () => {
   const scrubbed = (event: object): Record<string, unknown> =>
     scrub(event as never, {}) as unknown as Record<string, unknown>
 
   it.each([
-    ["Windows", "C:\\Users\\jane\\Music\\set.flac", `C:\\Users\\${MASK}\\Music\\set.flac`],
-    ["Windows with slashes", "C:/Users/jane/Music/set.flac", `C:/Users/${MASK}/Music/set.flac`],
-    ["Linux", "/home/jane/Music/set.flac", `/home/${MASK}/Music/set.flac`],
-    ["macOS", "/Users/jane/Music/set.flac", `/Users/${MASK}/Music/set.flac`],
-  ])("masks the username in a %s path, at any depth", (_form, path, expected) => {
-    const event = { message: `cannot read ${path}`, extra: { nested: { path } } }
+    ["a drive path with backslashes", String.raw`D:\Musique\Nova Pulse - Your Mind.mp3`],
+    ["a drive path with slashes", "D:/Musique/Nova Pulse - Your Mind.mp3"],
+    ["a UNC path", String.raw`\\nas\partage\Nova Pulse - Your Mind.mp3`],
+    ["a path under a home with a space", String.raw`C:\Users\Jean Dupont\Music\set.flac`],
+    ["a path under a home with an apostrophe", String.raw`C:\Users\O'Brien\Music\set.flac`],
+    ["a bare name with an apostrophe", String.raw`D:\Music\Nova Pulse - Don't Stop.mp3`],
+  ])("masks %s whole", (_case, path) => {
+    const event = { message: `cannot read ${path}: denied` }
 
     const result = scrubbed(event)
 
-    expect(result["message"]).toBe(`cannot read ${expected}`)
-    expect(result["extra"]).toEqual({ nested: { path: expected } })
+    expect(result["message"]).toBe(`cannot read ${PATH_MASK}: denied`)
   })
 
-  it("leaves a value that is not a string alone", () => {
-    const event = { extra: { tracks: 42, retried: false } }
+  it("masks a double-quoted path that contains an apostrophe", () => {
+    const event = { message: String.raw`cannot read "D:\Music\Nova Pulse - Don't Stop.mp3"` }
 
     const result = scrubbed(event)
 
-    expect(result["extra"]).toEqual({ tracks: 42, retried: false })
+    expect(result["message"]).toBe(`cannot read "${PATH_MASK}"`)
   })
 
   it.each([
-    ["a space", "Jane Doe"],
-    ["an apostrophe", "O'Brien"],
-  ])("masks an account name containing %s", (_case, account) => {
-    const event = { message: `cannot read C:\\Users\\${account}\\Music\\set.flac` }
+    ["before a letter", String.raw`D:\Music\Nova Pulse - Don't Stop.mp3`],
+    ["before a space", String.raw`D:\Music\Nova Pulse - Guns N' Roses.mp3`],
+  ])("masks a single-quoted path whose name has an apostrophe %s", (_case, path) => {
+    const event = { message: `cannot read '${path}' failed` }
 
     const result = scrubbed(event)
 
-    expect(result["message"]).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`)
+    expect(result["message"]).toBe(`cannot read '${PATH_MASK}' failed`)
   })
 
-  it("masks a mapping key as well as its value", () => {
-    const event = { extra: { "C:\\Users\\jane\\Music": "locked" } }
+  it("swallows the text between two apostrophes that follows a single-quoted path", () => {
+    const event = {
+      message: String.raw`'D:\Music\Nova Pulse - Your Mind.mp3' from user's folder`,
+    }
 
     const result = scrubbed(event)
 
-    expect(result["extra"]).toEqual({ [`C:\\Users\\${MASK}\\Music`]: "locked" })
+    expect(result["message"]).toBe(`'${PATH_MASK}'s folder`)
   })
 
-  it("masks every path in an array", () => {
+  it("masks the query string of a URL but keeps its scheme, host and path", () => {
+    const event = {
+      message: "GET https://api.example/beatport/search?q=Beyer+Mind&next=http://cdn?w=1 failed",
+    }
+
+    const result = scrubbed(event)
+
+    expect(result["message"]).toBe(`GET https://api.example/beatport/search?${QUERY_MASK} failed`)
+  })
+
+  it("does not take a URL scheme for a drive letter", () => {
+    const event = { message: "see https://api.example/beatport/tracks/42" }
+
+    const result = scrubbed(event)
+
+    expect(result["message"]).toBe("see https://api.example/beatport/tracks/42")
+  })
+
+  it("masks the username of the POSIX home folders", () => {
     const event = {
       extra: {
-        paths: ["C:\\Users\\jane\\Music\\a.flac", "C:\\Users\\jane\\Music\\b.flac"],
+        posix: "/home/jane/Music/set.flac",
+        macos: "/Users/jane/Music/set.flac",
+        tracks: 42,
       },
     }
 
     const result = scrubbed(event)
 
     expect(result["extra"]).toEqual({
-      paths: [`C:\\Users\\${MASK}\\Music\\a.flac`, `C:\\Users\\${MASK}\\Music\\b.flac`],
+      posix: `/home/${MASK}/Music/set.flac`,
+      macos: `/Users/${MASK}/Music/set.flac`,
+      tracks: 42,
     })
+  })
+
+  it("masks a mapping key as well as its value", () => {
+    const event = { extra: { [String.raw`D:\Musique\Nova Pulse - Your Mind.mp3`]: "locked" } }
+
+    const result = scrubbed(event)
+
+    expect(result["extra"]).toEqual({ [PATH_MASK]: "locked" })
+  })
+
+  it("masks every path in an array", () => {
+    const event = {
+      extra: { paths: [String.raw`D:\Musique\a.flac`, String.raw`D:\Musique\b.flac`] },
+    }
+
+    const result = scrubbed(event)
+
+    expect(result["extra"]).toEqual({ paths: [PATH_MASK, PATH_MASK] })
   })
 })
