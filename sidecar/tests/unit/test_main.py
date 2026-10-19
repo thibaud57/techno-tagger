@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Final, NamedTuple
 from unittest.mock import Mock, patch
 
 import pytest
-from repo_files import REPO, read_json
+from repo_files import REPO, read_json, read_toml
 from run_plans import plan_of, save_plan
 from tagging_records import RECORD
 
@@ -110,23 +110,20 @@ def test_the_startup_sends_the_self_test_only_when_asked(
     assert send_selftest.called is sent
 
 
-# Les purges du module de domaine que `__main__` appelle au demarrage.
-PURGES: Final = ("purge_dumps", "purge_plans", "purge_feedback_exports")
+# Purge appelee par `__main__` au demarrage : message d'echec attendu.
+PURGES: Final = {
+    "purge_dumps": "tag dump purge failed",
+    "purge_plans": "run plan purge failed",
+    "purge_feedback_exports": "feedback export purge failed",
+}
 
 
 @pytest.mark.usefixtures("app_data")
-@pytest.mark.parametrize(
-    ("failing", "message"),
-    [
-        ("purge_dumps", "tag dump purge failed"),
-        ("purge_plans", "run plan purge failed"),
-        ("purge_feedback_exports", "feedback export purge failed"),
-    ],
-    ids=["dumps", "plans", "feedback"],
-)
+@pytest.mark.parametrize("failing", PURGES, ids=["dumps", "plans", "feedback"])
 def test_a_failed_purge_stops_neither_the_startup_nor_the_next_purges(
-    startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str, message: str
+    startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str
 ) -> None:
+    message = PURGES[failing]
     with ExitStack() as patches:
         patches.enter_context(
             patch.object(__main__, failing, autospec=True, side_effect=OSError(5, "denied"))
@@ -206,13 +203,12 @@ def test_the_application_identity_is_the_same_everywhere() -> None:
     """
     build = ("projects", f"{APP_NAME}-ui", "architect", "build", "options")
     workflow = (REPO / ".github/workflows/release-please.yml").read_text(encoding="utf-8")
-    cargo = tomllib.loads((REPO / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
 
     assert read_json("src-tauri/tauri.conf.json", "identifier") == BUNDLE_IDENTIFIER
     assert read_json("src-tauri/tauri.conf.json", "productName") == APP_NAME
     # `tauri dev` lance target/debug/<package.name>.exe, le bundle <productName>.exe :
     # `just stop-app` ne tue les deux que s'ils portent le meme nom.
-    assert cargo["package"]["name"] == APP_NAME
+    assert read_toml("src-tauri/Cargo.toml", "package", "name") == APP_NAME
     assert f"{APP_NAME}@{__version__}" == RELEASE
     assert read_json("angular.json", *build, "define", "APP_NAME") == f"'{APP_NAME}'"
     assert f"{APP_NAME}@" in str(read_json("package.json", "scripts", "sourcemaps"))
@@ -221,8 +217,7 @@ def test_the_application_identity_is_the_same_everywhere() -> None:
 
 def _sidecar_name() -> str:
     """`project.name` est la source dont build.py derive deja le nom du binaire."""
-    manifest = tomllib.loads((REPO / "sidecar/pyproject.toml").read_text(encoding="utf-8"))
-    name = manifest["project"]["name"]
+    name = read_toml("sidecar/pyproject.toml", "project", "name")
     assert isinstance(name, str)
     return name
 
@@ -280,10 +275,8 @@ def test_the_four_manifests_carry_the_same_version() -> None:
     """release-please les propage, rien ne verifie le resultat : desaccordes, sidecar
     et webview remontent deux releases pour une meme livraison.
     """
-    cargo = tomllib.loads((REPO / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
-
     assert read_json("package.json", "version") == __version__
-    assert cargo["package"]["version"] == __version__
+    assert read_toml("src-tauri/Cargo.toml", "package", "version") == __version__
     assert read_json(".release-please-manifest.json", ".") == __version__
 
 
@@ -328,6 +321,4 @@ def test_the_ci_node_major_is_declared_in_engines() -> None:
 
 def test_the_repository_url_is_the_one_cargo_publishes() -> None:
     """Recopiee a la main : l'issue de retour de matching s'ouvrirait sur un autre depot."""
-    cargo = tomllib.loads((REPO / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
-
-    assert cargo["package"]["repository"] == REPOSITORY_URL
+    assert read_toml("src-tauri/Cargo.toml", "package", "repository") == REPOSITORY_URL

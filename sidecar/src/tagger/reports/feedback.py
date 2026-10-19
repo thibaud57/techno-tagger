@@ -1,9 +1,8 @@
 """Issue de retour de matching (ADR-014) : URL de l'Issue Form du depot, pre-remplie d'un
 resume du run borne a ce que Windows sait ouvrir, et export JSON nettoye a y joindre.
 
-L'application ne pousse rien : l'utilisateur ouvre l'issue, relit, joint ou non l'export,
-valide. Le depot est public : seul ce que les listes fermees du resume et de l'export laissent
-passer en sort.
+L'application ne pousse rien : l'utilisateur relit, joint ou non l'export, valide. Le depot est
+public : seul ce que les listes fermees du resume et de l'export laissent passer en sort.
 """
 
 from pathlib import PurePosixPath
@@ -36,8 +35,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 # Formulaire `.github/ISSUE_TEMPLATE/matching-report.yml` et `id` de ses champs, gardes par un
-# test qui relit le formulaire. Le label vit dans le formulaire seul : un `labels` dans l'URL
-# exige le droit de poser un label, sans lequel GitHub rend une 404.
+# test qui relit le formulaire. Pas de `labels` dans l'URL : sans le droit de poser un label,
+# GitHub rend une 404.
 ISSUE_TEMPLATE: Final = "matching-report.yml"
 VERSION_FIELD: Final = "version"
 SUMMARY_FIELD: Final = "summary"
@@ -128,7 +127,7 @@ def export_path(folder: Path, report: TaggingReport) -> Path:
     """Meme nom pour le meme run : un nouveau clic reecrit l'export au lieu d'en ajouter un.
 
     Le nom porte la date du run : l'export d'un run de plus de 30 jours est purge au demarrage
-    suivant, accepte le 2026-10-16 (il ne sert qu'au glisser-deposer qui suit le clic).
+    suivant (accepte le 2026-10-16, il ne sert qu'au glisser-deposer qui suit le clic).
     """
     return folder / stamped_name(report.generated_at, report.run_id, _SUFFIX)
 
@@ -145,7 +144,6 @@ def write_feedback_export(folder: Path, report: TaggingReport, release: str) -> 
 
 
 def purge_feedback_exports(folder: Path, now: datetime) -> None:
-    """Supprime les exports passes la retention : ils ne servent qu'a etre joints a une issue."""
     purge_stamped(folder, _RETAINED_SUFFIXES, now, "feedback export not purged")
 
 
@@ -176,9 +174,9 @@ def feedback_issue_url(report: TaggingReport, release: str, export_name: str) ->
 def _summary(report: TaggingReport, budget: int) -> str:
     """Resume Markdown dont la forme encodee tient dans `budget` caracteres.
 
-    La longueur encodee d'une concatenation est la somme des longueurs encodees : chaque ligne
-    s'encode une fois, et le remplissage s'arrete a la premiere qui ne tient plus, sans jamais
-    caser une ligne plus courte apres elle.
+    La longueur encodee d'une concatenation est la somme de celles de ses lignes : chacune
+    s'encode une fois, et le remplissage s'arrete a la premiere qui ne tient plus, sans caser une
+    ligne plus courte apres elle.
     """
     counts = _counts_line(report)
     rows = [_row(track) for track in sorted(_listed(report), key=_rank)]
@@ -228,9 +226,9 @@ def _listed(report: TaggingReport) -> list[TaggingReportTrack]:
 
 
 def _rank(track: TaggingReportTrack) -> tuple[int, float]:
-    """Ce qui apprend le plus sur le matching d'abord : l'ecart entre un nom de
-    fichier, sa requete et le candidat. Un morceau valide haut la main n'apprend presque rien.
-    Le tri est stable : a rang egal, l'ordre du rapport.
+    """Ce qui apprend le plus sur le matching d'abord (l'ecart entre nom de fichier, requete et
+    candidat) ; un morceau valide haut la main n'apprend presque rien. Tri stable : a rang egal,
+    l'ordre du rapport.
     """
     if track.state is TrackState.UNRESOLVED:
         return (0, 0.0)

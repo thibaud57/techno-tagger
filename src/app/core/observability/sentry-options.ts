@@ -8,9 +8,8 @@ import { scrub } from "./scrub"
 const PRIVATE_INTEGRATIONS = new Set(["Breadcrumbs", "Console", "Replay", "CultureContext"])
 
 // Sentry 11 collecte toute categorie absente de `dataCollection`, IP de l'utilisateur
-// comprise (`userInfo`). Chacune est donc exigee ici, `frameContextLines` exceptee (des
-// lignes de ce depot, public) : une categorie ajoutee par une montee du SDK casse la
-// compilation au lieu de partir a son defaut.
+// comprise (`userInfo`). Chacune est donc exigee ici, `frameContextLines` exceptee (lignes de
+// ce depot, public) : une categorie ajoutee par une montee du SDK casse la compilation.
 type ClosedDataCollection = Required<
   Omit<NonNullable<BrowserOptions["dataCollection"]>, "frameContextLines">
 >

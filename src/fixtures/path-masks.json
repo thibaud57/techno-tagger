@@ -1,0 +1,72 @@
+[
+  {
+    "case": "drive-backslash",
+    "message": "cannot read D:\\Musique\\Nova Pulse - Your Mind.mp3: denied",
+    "expected": "cannot read <path>: denied"
+  },
+  {
+    "case": "drive-slash",
+    "message": "cannot read D:/Musique/Nova Pulse - Your Mind.mp3: denied",
+    "expected": "cannot read <path>: denied"
+  },
+  {
+    "case": "unc",
+    "message": "cannot read \\\\nas\\partage\\Nova Pulse - Your Mind.mp3: denied",
+    "expected": "cannot read <path>: denied"
+  },
+  {
+    "case": "single-quoted-drive",
+    "message": "cannot open 'D:\\Musique\\Nova Pulse - Your Mind.mp3'",
+    "expected": "cannot open '<path>'"
+  },
+  {
+    "case": "single-quoted-unc",
+    "message": "cannot open '\\\\nas\\partage\\Nova Pulse - Your Mind.mp3'",
+    "expected": "cannot open '<path>'"
+  },
+  {
+    "case": "home-with-a-space",
+    "message": "cannot read C:\\Users\\Jane Doe\\Music\\set.flac: denied",
+    "expected": "cannot read <path>: denied"
+  },
+  {
+    "case": "home-with-an-apostrophe",
+    "message": "cannot read C:\\Users\\O'Doe\\Music\\set.flac: denied",
+    "expected": "cannot read <path>: denied"
+  },
+  {
+    "case": "apostrophe-in-bare-name",
+    "message": "cannot open D:\\Music\\Nova Pulse - Don't Stop.mp3: permission denied",
+    "expected": "cannot open <path>: permission denied"
+  },
+  {
+    "case": "apostrophe-in-double-quoted-name",
+    "message": "cannot open \"D:\\Music\\Nova Pulse - Don't Stop.mp3\": permission denied",
+    "expected": "cannot open \"<path>\": permission denied"
+  },
+  {
+    "case": "apostrophe-in-single-quoted-name",
+    "message": "cannot open 'D:\\Music\\Nova Pulse - Don't Stop.mp3' failed",
+    "expected": "cannot open '<path>' failed"
+  },
+  {
+    "case": "word-final-apostrophe-in-single-quoted-name",
+    "message": "cannot open 'D:\\Music\\Nova Pulse - Rock N' Roll.mp3' failed",
+    "expected": "cannot open '<path>' failed"
+  },
+  {
+    "case": "text-between-apostrophes-after-a-quoted-path",
+    "message": "'D:\\Music\\Nova Pulse - Your Mind.mp3' from user's folder",
+    "expected": "'<path>'s folder"
+  },
+  {
+    "case": "query-with-a-second-question-mark",
+    "message": "GET https://api.example/beatport/search?q=Nova+Mind&next=http://cdn?w=1 failed",
+    "expected": "GET https://api.example/beatport/search?<query> failed"
+  },
+  {
+    "case": "url-scheme-is-not-a-drive",
+    "message": "see https://api.example/beatport/tracks/42",
+    "expected": "see https://api.example/beatport/tracks/42"
+  }
+]

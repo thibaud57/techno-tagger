@@ -1,6 +1,7 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import * as Sentry from "@sentry/angular"
+import { vi } from "vitest"
 
 import { sidecarStub } from "../../../fixtures/sidecar-stub"
 import { SidecarService } from "../sidecar/sidecar.service"

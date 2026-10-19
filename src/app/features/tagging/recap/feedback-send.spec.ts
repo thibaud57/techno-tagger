@@ -1,24 +1,20 @@
 import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { vi } from "vitest"
 
 import { silenceConsoleError } from "../../../../fixtures/console"
+import { FEEDBACK_READY } from "../../../../fixtures/feedback"
 import { nativeStub } from "../../../../fixtures/native-stub"
 import { sidecarStub } from "../../../../fixtures/sidecar-stub"
+import { RUN_ID } from "../../../../fixtures/tagging"
 import { NativeService } from "../../../core/platform/native.service"
 import type { FeedbackReadyEvent } from "../../../core/sidecar/protocol"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
 
 import { type FeedbackTarget, injectFeedbackSend } from "./feedback-send"
 
-const READY: FeedbackReadyEvent = {
-  event: "feedback_ready",
-  run_id: "a3f9c1",
-  url: "https://github.example/issues/new?template=matching-report.yml",
-  export_path: String.raw`C:\data\feedback\20261006T211403Z-a3f9c1.json`,
-}
-
 const setUp = (
-  target: FeedbackTarget | null = { runId: "a3f9c1", hasReport: true },
+  target: FeedbackTarget | null = { runId: RUN_ID, hasReport: true },
   held: FeedbackReadyEvent | null = null,
 ) => {
   const available = signal<boolean | null>(true)
@@ -47,7 +43,7 @@ describe("injectFeedbackSend", () => {
 
     send.send()
 
-    expect(service.prepareFeedback).toHaveBeenCalledWith("a3f9c1")
+    expect(service.prepareFeedback).toHaveBeenCalledWith(RUN_ID)
   })
 
   it("opens the issue then reveals the export once the asked run is ready", async () => {
@@ -63,14 +59,14 @@ describe("injectFeedbackSend", () => {
     })
     send.send()
 
-    ready.set(READY)
+    ready.set(FEEDBACK_READY)
     TestBed.tick()
 
     await vi.waitFor(() => {
       expect(calls).toEqual(["open", "reveal"])
     })
-    expect(native.openUrl).toHaveBeenCalledWith(READY.url)
-    expect(native.revealItemInDir).toHaveBeenCalledWith(READY.export_path)
+    expect(native.openUrl).toHaveBeenCalledWith(FEEDBACK_READY.url)
+    expect(native.revealItemInDir).toHaveBeenCalledWith(FEEDBACK_READY.export_path)
   })
 
   it("still reveals the export when the browser does not open", async () => {
@@ -79,11 +75,11 @@ describe("injectFeedbackSend", () => {
     native.openUrl.mockRejectedValueOnce(new Error("no default browser"))
     send.send()
 
-    ready.set(READY)
+    ready.set(FEEDBACK_READY)
     TestBed.tick()
 
     await vi.waitFor(() => {
-      expect(native.revealItemInDir).toHaveBeenCalledWith(READY.export_path)
+      expect(native.revealItemInDir).toHaveBeenCalledWith(FEEDBACK_READY.export_path)
     })
     expect(logged).toHaveBeenCalledTimes(1)
   })
@@ -94,27 +90,27 @@ describe("injectFeedbackSend", () => {
     native.revealItemInDir.mockRejectedValueOnce(new Error("explorer refused"))
     send.send()
 
-    ready.set(READY)
+    ready.set(FEEDBACK_READY)
     TestBed.tick()
 
     await vi.waitFor(() => {
       expect(logged).toHaveBeenCalledTimes(1)
     })
-    expect(native.openUrl).toHaveBeenCalledWith(READY.url)
+    expect(native.openUrl).toHaveBeenCalledWith(FEEDBACK_READY.url)
   })
 
   it("opens nothing for the issue of another run", () => {
     const { send, native, ready } = setUp()
     send.send()
 
-    ready.set({ ...READY, run_id: "b4c5d6" })
+    ready.set({ ...FEEDBACK_READY, run_id: "b4c5d6" })
     TestBed.tick()
 
     expect(native.openUrl).not.toHaveBeenCalled()
   })
 
   it("opens nothing for an issue already held when the page is created", () => {
-    const { native } = setUp(undefined, READY)
+    const { native } = setUp(undefined, FEEDBACK_READY)
 
     TestBed.tick()
 
@@ -123,7 +119,7 @@ describe("injectFeedbackSend", () => {
 
   it("asks once while the issue of the run is being prepared", () => {
     const { send, service, pending } = setUp()
-    pending.set("a3f9c1")
+    pending.set(RUN_ID)
 
     send.send()
 
@@ -133,7 +129,7 @@ describe("injectFeedbackSend", () => {
 
   it("greys the button with the engine reason once the engine is lost during the wait", () => {
     const { send, available, pending } = setUp()
-    pending.set("a3f9c1")
+    pending.set(RUN_ID)
 
     pending.set(null)
     available.set(false)
@@ -146,23 +142,23 @@ describe("injectFeedbackSend", () => {
     [
       "an engine that is starting",
       null,
-      { runId: "a3f9c1", hasReport: true },
+      { runId: RUN_ID, hasReport: true },
       "settings.admin.starting",
     ],
     [
       "an engine that is starting and a run without report",
       null,
-      { runId: "a3f9c1", hasReport: false },
+      { runId: RUN_ID, hasReport: false },
       "settings.admin.starting",
     ],
     [
       "a run without report",
       true,
-      { runId: "a3f9c1", hasReport: false },
+      { runId: RUN_ID, hasReport: false },
       "recap.feedback.unavailable",
     ],
     ["no run on screen", true, null, "recap.feedback.unavailable"],
-    ["a run with its report", true, { runId: "a3f9c1", hasReport: true }, null],
+    ["a run with its report", true, { runId: RUN_ID, hasReport: true }, null],
   ])("gives the reason of %s", (_case, engine, target, reason) => {
     const { send, available, service } = setUp(target)
     available.set(engine)

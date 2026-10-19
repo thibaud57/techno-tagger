@@ -140,8 +140,5 @@ def app_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def requests() -> list[httpx2.Request]:
-    """Journal des requetes emises, rempli par le handler du `MockTransport`.
-
-    Une liste neuve par test : c'est la seule fenetre sur ce que le client a emis.
-    """
+    """Requetes emises par le client, une liste neuve par test (remplie par le `MockTransport`)."""
     return []

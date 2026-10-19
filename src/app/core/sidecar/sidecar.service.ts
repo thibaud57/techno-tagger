@@ -680,9 +680,12 @@ export class SidecarService {
     void this.askInterruptedRun()
   }
 
-  /** Un refus sans `run_id` (ligne malformee) ne designe aucun run : il leve l'attente, faute de mieux. */
-  private settleFeedback(refused: unknown): void {
-    if (refused === undefined || refused === this._feedbackPending()) {
+  /**
+   * Seule la reponse du run attendu leve l'attente : une autre ne dit rien du run demande
+   * ensuite. Un refus sans `run_id` (ligne malformee) ne designe aucun run : il la leve, faute de mieux.
+   */
+  private settleFeedback(runId: unknown): void {
+    if (runId === undefined || runId === this._feedbackPending()) {
       this._feedbackPending.set(null)
     }
   }
@@ -828,10 +831,7 @@ export class SidecarService {
         this.pastRunsStore.loadedRun(event)
         break
       case "feedback_ready":
-        // Seule la reponse du run attendu leve l'attente : une autre ne dit rien du run demande ensuite.
-        if (this._feedbackPending() === event.run_id) {
-          this._feedbackPending.set(null)
-        }
+        this.settleFeedback(event.run_id)
         this._feedbackReady.set(event)
         break
       case "error":

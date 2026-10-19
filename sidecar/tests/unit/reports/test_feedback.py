@@ -169,7 +169,6 @@ def _rows(url: str) -> list[str]:
 
 
 def _files_listed(url: str) -> list[str]:
-    """Premiere cellule de chaque ligne, sans les backticks de son code span."""
     return [row.split(" | ")[0].removeprefix("| ").strip("`") for row in _rows(url)]
 
 

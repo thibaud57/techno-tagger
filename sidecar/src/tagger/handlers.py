@@ -531,10 +531,9 @@ def handle_list_runs() -> RunsListed:
 
 
 def _report_of(run_id: str) -> TaggingReport:
-    """Rapport d'un run de l'index, migre s'il est d'un schema anterieur.
+    """Rapport d'un run de l'index, migre si besoin.
 
-    Leve `RunNotFoundError` pour un run absent de l'index, `TaggingReportUnreadableError` pour un
-    rapport illisible ou disparu.
+    Leve `RunNotFoundError` (run absent) ou `TaggingReportUnreadableError` (rapport illisible).
     """
     entry = next((known for known in list_reports(index_path()) if known.run_id == run_id), None)
     if entry is None:

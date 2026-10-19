@@ -25,19 +25,18 @@ QUERY_MASK: Final = "<query>"
 PATH_MASK: Final = "<path>"
 MESSAGE_MASK: Final = "<message>"
 
-# Lancee avec elle, l'application installee envoie un evenement de test par cote (PRODUCTION.md
-# § Observabilite). Le DSN, grave au build, dit ou envoyer, elle dit d'envoyer maintenant.
+# Posee a `1`, l'application installee envoie un evenement de test par cote (PRODUCTION.md
+# § Observabilite) : le DSN grave au build dit ou, elle dit quand.
 SELFTEST_ENV: Final = "TECHNO_TAGGER_SENTRY_SELFTEST"
-# Faux morceau du self-test, que le masquage doit effacer. Declare ici et non pres de la frame
-# qui leve : le SDK joint cinq lignes de source par frame, un litteral voisin partirait avec.
+# Faux morceau du self-test, que le masquage doit effacer. Declare hors de la frame qui leve :
+# le SDK joint cinq lignes de source par frame, un litteral voisin partirait avec.
 _SELFTEST_PATH: Final = r"D:\Musique\Nova Pulse - Your Mind.mp3"
 
-# Types dont le message ne porte aucune donnee de l'utilisateur, par nom qualifie : `core/`
-# n'importe aucun package metier. Tout autre message part en `MESSAGE_MASK`, ceux du sidecar
-# compris : ils portent `path.name` ou un `track_id`, chemin relatif du fichier qu'aucun motif
-# de chemin absolu ne reconnait. Un type n'entre ici que si son message est construit sans
-# chemin, sans nom de fichier et sans valeur recue de l'API (cf. ADR-014, mise a jour du
-# 2026-10-15).
+# Types dont le message ne porte aucune donnee utilisateur, par nom qualifie (`core/` n'importe
+# aucun package metier). Tout autre message part en `MESSAGE_MASK`, ceux du sidecar compris : ils
+# portent `path.name` ou un `track_id`, chemin relatif qu'aucun motif de chemin absolu ne
+# reconnait. Un type n'entre ici que si son message est construit sans chemin, nom de fichier ni
+# valeur recue de l'API (ADR-014, mise a jour du 2026-10-15).
 _SAFE_MESSAGE_TYPES: Final = frozenset({"tagger.resolution.scraper_client.ApiContractError"})
 
 # httpx2 ecrit l'URL entiere, donc l'artiste et le titre, dans le message de
@@ -50,23 +49,24 @@ _URL_QUERY: Final = re.compile(r"(?P<url>[a-z][\w+.-]*://[^\s'\"<>?]*)\?[^\s'\"<
 # Debut d'un chemin : lettre de lecteur (`D:\`, `D:/`) ou partage UNC (`\\serveur\`).
 _PATH_START: Final = r"(?:[A-Za-z]:[\\/]|\\\\[^\s\\/'\"<>]+[\\/])"
 
-# Le nom du fichier porte l'artiste et le titre, donc un morceau. Un chemin ouvert par un
-# guillemet court jusqu'au guillemet suivant : `repr()` entoure de `"` un chemin qui contient
-# une apostrophe (« Don't Stop.mp3 »), de `'` les autres. Un chemin ouvert par `'` court jusqu'a
-# la derniere apostrophe de la ligne (glouton, avec lookahead) : une apostrophe du nom, qu'elle
-# precede une lettre ou une espace (« Guns N' Roses »), ne le ferme donc pas. Sans apostrophe
-# fermante, il court jusqu'a la fin de ligne. Le texte entre deux apostrophes apres le chemin
-# (`'D:\x.mp3' from user's folder`) est avale avec lui, sur-masquage accepte. Un chemin nu garde
-# ses espaces et ses apostrophes et s'arrete a `"`, `<>`, a la fin de ligne, avant un champ
-# logfmt de la liste fermee des cles de log (voir `gestion-erreurs.md`) et avant `: `
-# (Windows interdit `:` dans un nom de fichier). Pas de `, ` ni de cle generique `[a-z_]+=` :
-# un nom de fichier peut en contenir (« Artist A, Artist B », « vol=2 ») et la fin du nom
-# partirait alors vers Sentry. Une phrase qui suit sans separateur est avalee, sens de panne
-# accepte. Un chemin nu ne suit ni un caractere de mot, sinon `http://` serait pris pour `p:/`,
-# ni un guillemet, que les deux premieres branches traitent. Residu accepte : un chemin ouvert
-# par `'` sans guillemet fermant, au nom qui contient une apostrophe (`open 'D:\x\Don't Stop.mp3
-# failed`), laisse la fin du nom apres la derniere apostrophe (`t Stop.mp3 failed`). `repr()`
-# entoure ce nom de `"` et tout message hors de la liste fermee part en `<message>` de toute facon.
+# Le nom du fichier porte l'artiste et le titre, donc un morceau. Trois branches, selon le
+# caractere qui precede le chemin :
+# - `"` : jusqu'au `"` suivant (`repr()` entoure de `"` un chemin qui contient une apostrophe,
+#   de `'` les autres) ;
+# - `'` : jusqu'a la derniere apostrophe de la ligne (glouton, lookahead), pour qu'une
+#   apostrophe du nom ne le ferme pas (« Don't Stop.mp3 », « Guns N' Roses »), sans apostrophe
+#   fermante jusqu'a la fin de ligne. Le texte entre deux apostrophes apres le chemin
+#   (`'D:\x.mp3' from user's folder`) est avale avec lui, sur-masquage accepte ;
+# - chemin nu : garde espaces et apostrophes, s'arrete a `"`, `<>`, a la fin de ligne, avant un
+#   champ logfmt de la liste fermee des cles de log (voir `gestion-erreurs.md`) et avant `: `
+#   (Windows interdit `:` dans un nom de fichier). Pas de `, ` ni de cle generique `[a-z_]+=` :
+#   un nom peut en contenir (« Artist A, Artist B », « vol=2 ») et sa fin partirait vers
+#   Sentry. Une phrase qui suit sans separateur est avalee, sens de panne accepte. Il ne suit
+#   ni un caractere de mot, sinon `http://` serait pris pour `p:/`, ni un guillemet.
+# Residu accepte : un chemin ouvert par `'` sans guillemet fermant, au nom qui contient une
+# apostrophe (`open 'D:\x\Don't Stop.mp3 failed`), laisse la fin du nom apres la derniere
+# apostrophe (`t Stop.mp3 failed`). `repr()` entoure ce nom de `"`, et tout message hors de la
+# liste fermee part en `<message>` de toute facon.
 _WINDOWS_PATH: Final = re.compile(
     rf"(?<=\"){_PATH_START}[^\"\r\n]*"
     rf"|(?<='){_PATH_START}(?:[^\r\n]*(?=')|[^'\r\n]*)"
@@ -150,8 +150,8 @@ def _mask_deep(value: object) -> object:
 def _keeps_message(entry: object) -> bool:
     """Vrai pour un type de `_SAFE_MESSAGE_TYPES`, juge sur `module` et `type` du SDK.
 
-    A appeler avant `_mask_deep` : il remplace le nom de compte de l'OS jusque dans `module`,
-    et un compte qui en est une sous-chaine (`client`) ferait perdre le message d'un type sur.
+    A appeler avant `_mask_deep` : il remplace le nom de compte de l'OS jusque dans `module`, et
+    un compte qui en est une sous-chaine (`client`) ferait perdre le message d'un type sur.
     """
     match entry:
         case {"module": str() as module, "type": str() as name}:
@@ -194,9 +194,9 @@ def _scrub(event: Event, _hint: Hint) -> Event | None:
     contextes, et le message de toute exception hors de la liste fermee. Le parcours est
     recursif et sans liste de champs, pour qu'un nouveau champ soit couvert d'office.
 
-    La liste se juge sur les champs de l'evenement, pas sur l'exception du `hint` : la regle
-    couvre de la meme facon `capture_unexpected`, le crash attrape par l'excepthook du SDK et
-    chaque membre d'un `ExceptionGroup`. Type, module et pile restent, seule `value` part.
+    La liste se juge sur les champs de l'evenement, pas sur l'exception du `hint` : elle couvre
+    ainsi `capture_unexpected`, l'excepthook du SDK et chaque membre d'un `ExceptionGroup`.
+    Type, module et pile restent, seule `value` part.
     """
     masked = {key: _scrub_field(key, value) for key, value in event.items()}
     # Mypy ne reconstruit pas un TypedDict a cles dynamiques (`Event(**masked)` est refuse) :
@@ -230,7 +230,7 @@ def init_sentry(dsn: str, release: str) -> None:
             # donnee sensible dans `set_extra`, `set_context` ni `set_tag`. Les variables d'une
             # frame porteraient chemins, titres, voire la cle API. `frame_context_lines` garde
             # son defaut : des lignes de ce depot, public. Une categorie ajoutee par une montee
-            # du SDK fait echouer `test_sentry_payload.py` au lieu de partir ouverte.
+            # du SDK fait echouer `test_sentry_payload.py`.
             data_collection={
                 "user_info": False,
                 "cookies": {"mode": "off"},
@@ -283,8 +283,8 @@ def selftest_requested() -> bool:
 
 
 def send_selftest() -> None:
-    """Remonte un evenement porteur de fausses donnees sensibles : son message doit arriver en
-    `<message>`, sa frame sans variable. DSN vide : rien ne part, comme toute remontee."""
+    """Remonte un evenement porteur de fausses donnees : message en `<message>`, frame sans
+    variable attendus. DSN vide : rien ne part, comme toute remontee."""
     try:
         _raise_selftest(_SELFTEST_PATH)
     except SentrySelfTestError as error:

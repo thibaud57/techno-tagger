@@ -1,11 +1,10 @@
 """Ce que le SDK envoie reellement : la seule preuve que rien de personnel ne part (ADR-014).
 
-Le vrai `sentry_sdk.init`, appele par `init_sentry`, avec un transport qui retient l'enveloppe
-au lieu de l'envoyer : aucun reseau, aucun quota. Les valeurs sensibles viennent des
-constantes ci-dessous ou des helpers : le SDK joint cinq lignes de source par frame, un titre
-ecrit pres d'une frame qui leve ferait echouer le test sur sa propre source. Pour la meme
-raison, une valeur attendue ne s'asserte jamais par sa presence dans le texte de l'enveloppe :
-on lit le champ de l'evenement.
+Le vrai `sentry_sdk.init` (via `init_sentry`), avec un transport qui retient l'enveloppe : aucun
+reseau, aucun quota. Les valeurs sensibles viennent des constantes ci-dessous ou des helpers, et
+une valeur attendue ne s'asserte jamais par sa presence dans le texte de l'enveloppe : le SDK
+joint cinq lignes de source par frame, un titre ecrit pres d'une frame qui leve ferait echouer
+le test sur sa propre source.
 """
 
 import functools
@@ -55,8 +54,6 @@ NOT_COLLECTING: Final = frozenset({"provided_by_user", "frame_context_lines"})
 
 
 class _RetainingTransport(Transport):
-    """Retient chaque enveloppe au lieu de l'envoyer."""
-
     def __init__(self) -> None:
         super().__init__()
         self.envelopes: list[Envelope] = []
@@ -79,9 +76,10 @@ def sent(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[Envelope]]:
     assert not sentry_sdk.get_client().is_active()
 
 
-def _rendered(envelopes: list[Envelope]) -> str:
+def _leaked(envelopes: list[Envelope]) -> list[str]:
     sentry_sdk.flush()
-    return b"".join(envelope.serialize() for envelope in envelopes).decode("utf-8")
+    rendered = b"".join(envelope.serialize() for envelope in envelopes).decode("utf-8")
+    return [fragment for fragment in FRAGMENTS if fragment in rendered]
 
 
 def _event(envelopes: list[Envelope]) -> Event:
@@ -92,7 +90,6 @@ def _event(envelopes: list[Envelope]) -> Event:
 
 
 def _entries(envelopes: list[Envelope]) -> dict[str, dict[str, object]]:
-    """Entrees de `exception.values`, par nom de type."""
     return {entry["type"]: entry for entry in _event(envelopes)["exception"]["values"]}
 
 
@@ -164,8 +161,7 @@ async def test_a_contract_break_sends_no_fragment_of_the_response(
 
     capture_unexpected(error)
 
-    rendered = _rendered(sent)
-    assert not [fragment for fragment in FRAGMENTS if fragment in rendered]
+    assert not _leaked(sent)
     assert MESSAGE_MASK in [entry["value"] for entry in _event(sent)["exception"]["values"]]
 
 
@@ -213,9 +209,8 @@ def test_an_error_carrying_a_file_name_sends_its_shape_but_no_fragment(
 
     capture_unexpected(error.value)
 
-    rendered = _rendered(sent)
     entry = _entries(sent)[error_type.__name__]
-    assert not [fragment for fragment in FRAGMENTS if fragment in rendered]
+    assert not _leaked(sent)
     assert (entry["module"], entry["value"]) == (module, MESSAGE_MASK)
     assert entry["stacktrace"]
 
@@ -226,9 +221,8 @@ def test_an_exception_group_sends_no_fragment_of_its_members(sent: list[Envelope
 
     capture_unexpected(error.value)
 
-    rendered = _rendered(sent)
     values = [entry["value"] for entry in _event(sent)["exception"]["values"]]
-    assert not [fragment for fragment in FRAGMENTS if fragment in rendered]
+    assert not _leaked(sent)
     assert values == [MESSAGE_MASK, MESSAGE_MASK]
 
 
@@ -247,23 +241,22 @@ def test_the_envelope_carries_no_frame_variable_and_a_fixed_server_name(
 
 
 def test_the_self_test_event_carries_no_fragment_of_its_fake_track(sent: list[Envelope]) -> None:
-    """Le self-test prouve le masquage sur le vrai pipeline : son faux morceau ne doit pas partir,
-    ni par le message, ni par une variable, ni par les lignes de source jointes a la frame."""
+    """Son faux morceau ne part ni par le message, ni par une variable, ni par les lignes de
+    source jointes a la frame."""
     send_selftest()
 
-    rendered = _rendered(sent)
     entry = _entries(sent)[SentrySelfTestError.__name__]
     assert len(sent) == 1
     assert entry["value"] == MESSAGE_MASK
-    assert not [fragment for fragment in FRAGMENTS if fragment in rendered]
+    assert not _leaked(sent)
     assert not [frame for frame in _frames(_event(sent)) if "vars" in frame]
 
 
 @pytest.mark.usefixtures("sent")
 def test_the_resolved_data_collection_closes_every_category_but_source_context() -> None:
     """Sous `data_collection`, une categorie omise est collectee : une montee du SDK qui en
-    ajoute une (`mcp` est annoncee dans getsentry/sentry-python#7750, ouverte au 2026-10-15)
-    casse ce test au lieu de partir ouverte. La fermer dans `init_sentry`.
+    ajoute une (`mcp` annoncee dans getsentry/sentry-python#7750, ouverte au 2026-10-15) casse
+    ce test. La fermer dans `init_sentry`.
     """
     resolved = dict(sentry_sdk.get_client().options["data_collection"])
 

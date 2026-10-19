@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 import httpx2
 import pytest
+from pydantic import TypeAdapter
+from repo_files import read_json
 
 from tagger import APP_NAME, RELEASE
 from tagger.core import observability as obs
@@ -14,7 +16,6 @@ from tagger.core.observability import (
     MASK,
     MESSAGE_MASK,
     PATH_MASK,
-    QUERY_MASK,
     _scrub,
     init_sentry,
 )
@@ -23,6 +24,9 @@ from tagger.resolution.scraper_client import API_BASE_URL, ApiContractError
 DSN: Final = "https://key@o1.ingest.de.sentry.io/1"
 SEARCH_URL: Final = f"{API_BASE_URL}/beatport/search"
 CONTRACT_ERROR_MODULE: Final = ApiContractError.__module__
+PATH_MASK_CASES: Final = TypeAdapter(list[dict[str, str]]).validate_python(
+    read_json("src/fixtures/path-masks.json")
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -187,24 +191,6 @@ def test_scrubbing_leaves_no_search_query_from_a_chained_http_error() -> None:
     }
 
 
-def test_scrubbing_strips_a_query_that_carries_a_second_question_mark() -> None:
-    """Le motif d'URL ne s'arrete pas au dernier `?` de la chaine mais au premier.
-
-    Une valeur de parametre peut en porter un (une URL de redirection, un `Location`
-    recopie dans un message) : masquer depuis le dernier laisserait passer la
-    recherche elle-meme, donc l'artiste et le titre, qui ne doivent jamais partir.
-    """
-    message = "HTTPStatusError for https://api/beatport/search?q=Beyer+Mind&next=http://cdn?w=1"
-    event = {"message": message}
-
-    scrubbed = _scrubbed(event)
-
-    rendered = str(scrubbed)
-    assert "Beyer" not in rendered
-    assert "Mind" not in rendered
-    assert QUERY_MASK in rendered
-
-
 def test_scrubbing_leaves_envelope_fields_intact(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -218,23 +204,19 @@ def test_scrubbing_leaves_envelope_fields_intact(
 
 
 @pytest.mark.parametrize(
-    "path",
-    [
-        r"D:\Musique\Nova Pulse - Your Mind.mp3",
-        "D:/Musique/Nova Pulse - Your Mind.mp3",
-        r"\\nas\partage\Nova Pulse - Your Mind.mp3",
-    ],
-    ids=["drive-backslash", "drive-slash", "unc"],
+    ("message", "expected"),
+    [(case["message"], case["expected"]) for case in PATH_MASK_CASES],
+    ids=[case["case"] for case in PATH_MASK_CASES],
 )
-def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None:
-    """Le nom du fichier porte l'artiste et le titre : un chemin hors du dossier
-    personnel (disque de musique, partage reseau) ne doit rien laisser sortir.
+def test_scrubbing_masks_paths_and_queries_like_the_webview(message: str, expected: str) -> None:
+    """Corpus partage avec `scrub.spec.ts` : le motif est recopie des deux cotes, seul ce
+    corpus commun fait echouer la derive de l'un sans l'autre.
     """
-    event = {"message": f"cannot open '{path}'"}
+    event = {"message": message}
 
     scrubbed = _scrubbed(event)
 
-    assert scrubbed == {"message": f"cannot open '{PATH_MASK}'"}
+    assert scrubbed == {"message": expected}
 
 
 @pytest.mark.parametrize(
@@ -243,10 +225,6 @@ def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None
         (
             r"write failed D:\Music\Nova Pulse - Your Mind.mp3 run=abc reason=file_locked",
             f"write failed {PATH_MASK} run=abc reason=file_locked",
-        ),
-        (
-            r"cannot open D:\Music\Nova Pulse - Your Mind.mp3: permission denied",
-            f"cannot open {PATH_MASK}: permission denied",
         ),
         (
             r"copy \\nas\share\Nova Pulse - Your Mind.mp3 status=error",
@@ -261,42 +239,16 @@ def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None
             f"skip {PATH_MASK} reason=locked",
         ),
         (
-            r"cannot open D:\Music\Nova Pulse - Don't Stop.mp3: permission denied",
-            f"cannot open {PATH_MASK}: permission denied",
-        ),
-        (
-            r"""cannot open "D:\Music\Nova Pulse - Don't Stop.mp3": permission denied""",
-            f'cannot open "{PATH_MASK}": permission denied',
-        ),
-        (
             str(OSError(2, "No such file or directory", r"D:\Music\Nova Pulse - Don't Stop.mp3")),
             f'[Errno 2] No such file or directory: "{PATH_MASK}"',
-        ),
-        (
-            r"cannot open 'D:\Music\Nova Pulse - Don't Stop.mp3' failed",
-            f"cannot open '{PATH_MASK}' failed",
-        ),
-        (
-            r"cannot open 'D:\Music\Nova Pulse - Guns N' Roses.mp3' failed",
-            f"cannot open '{PATH_MASK}' failed",
-        ),
-        (
-            r"'D:\Music\Nova Pulse - Your Mind.mp3' from user's folder",
-            f"'{PATH_MASK}'s folder",
         ),
     ],
     ids=[
         "logfmt-fields",
-        "colon-sentence",
         "unc-field",
         "comma-in-name",
         "key-lookalike-in-name",
-        "apostrophe-in-bare-name",
-        "apostrophe-in-double-quoted-name",
         "oserror-repr-with-apostrophe",
-        "apostrophe-in-single-quoted-name",
-        "word-final-apostrophe-in-single-quoted-name",
-        "text-between-apostrophes-after-a-quoted-path",
     ],
 )
 def test_scrubbing_stops_a_path_before_the_log_fields_without_leaking_the_name(
@@ -310,18 +262,9 @@ def test_scrubbing_stops_a_path_before_the_log_fields_without_leaking_the_name(
     scrubbed = _scrubbed(event)
 
     assert scrubbed == {"message": expected}
-    assert not {"Nova", "Pulse", "Your", "Mind", "Don't", "Stop.mp3", "Guns", "Roses.mp3"} & set(
+    assert not {"Nova", "Pulse", "Your", "Mind", "Don't", "Stop.mp3"} & set(
         str(scrubbed).replace(",", " ").replace('"', " ").split()
     )
-
-
-def test_scrubbing_does_not_take_a_url_scheme_for_a_drive() -> None:
-    message = "HTTPStatusError for https://api.example/beatport/tracks/42"
-    event = {"message": message}
-
-    scrubbed = _scrubbed(event)
-
-    assert scrubbed == event
 
 
 @pytest.mark.parametrize(

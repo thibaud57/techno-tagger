@@ -9,6 +9,7 @@ import {
   PLAYLISTS,
   playlistsListed,
 } from "../../../fixtures/extraction"
+import { FEEDBACK_READY } from "../../../fixtures/feedback"
 import { PAST_RUN, TRACK_LOADED, runLoaded, runsListed } from "../../../fixtures/past-runs"
 import { FOLDER_MISSING, INTERRUPTED, interruptedRun } from "../../../fixtures/resume"
 import { DEFAULT_THRESHOLDS, LOG_FILE } from "../../../fixtures/settings"
@@ -32,7 +33,7 @@ import {
   writeFinishedWithFailures,
 } from "../../../fixtures/write"
 import { PastRunsStore } from "../stores/past-runs.store"
-import { BusyPhase, FeedbackReadyEvent, SidecarEvent, VersionEvent } from "./protocol"
+import { BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { type RunAction, type SidecarPhase, SidecarService } from "./sidecar.service"
 
@@ -528,8 +529,8 @@ describe("SidecarService", () => {
     ["a cache clearing", (target) => target.clearCache(), { command: "clear_cache" }],
     [
       "a feedback preparation",
-      (target) => target.prepareFeedback("a3f9c1"),
-      { command: "prepare_feedback", run_id: "a3f9c1" },
+      (target) => target.prepareFeedback(RUN_ID),
+      { command: "prepare_feedback", run_id: RUN_ID },
     ],
   ])("sends %s as its command", async (_command, send, expected) => {
     await service.start()
@@ -1238,28 +1239,20 @@ describe("SidecarService", () => {
   })
 
   describe("feedback", () => {
-    const RUN = "a3f9c1"
-    const READY: FeedbackReadyEvent = {
-      event: "feedback_ready",
-      run_id: RUN,
-      url: "https://github.example/issues/new?template=matching-report.yml",
-      export_path: String.raw`C:\data\feedback\20261006T211403Z-a3f9c1.json`,
-    }
-
     it("marks the run as pending until its feedback is ready", async () => {
       await service.start()
 
-      await service.prepareFeedback(RUN)
+      await service.prepareFeedback(RUN_ID)
       const pending = service.feedbackPending()
-      transport.emit(READY)
+      transport.emit(FEEDBACK_READY)
 
-      expect(pending).toBe(RUN)
+      expect(pending).toBe(RUN_ID)
       expect(service.feedbackPending()).toBeNull()
-      expect(service.feedbackReady()).toEqual(READY)
+      expect(service.feedbackReady()).toEqual(FEEDBACK_READY)
     })
 
     it("sends nothing and leaves the displayed run alone when the engine is not up", async () => {
-      await service.prepareFeedback(RUN)
+      await service.prepareFeedback(RUN_ID)
 
       expect(transport.sent).toEqual([])
       expect(service.lastError()).toBeNull()
@@ -1269,8 +1262,8 @@ describe("SidecarService", () => {
     it("asks once while the feedback of a run is being prepared", async () => {
       await service.start()
 
-      await service.prepareFeedback(RUN)
-      await service.prepareFeedback(RUN)
+      await service.prepareFeedback(RUN_ID)
+      await service.prepareFeedback(RUN_ID)
 
       const sent = transport.sent.filter((line) => commandOf(line) === "prepare_feedback")
       expect(sent).toHaveLength(1)
@@ -1278,9 +1271,9 @@ describe("SidecarService", () => {
 
     it("ends the wait when the preparation is refused", async () => {
       await service.start()
-      await service.prepareFeedback(RUN)
+      await service.prepareFeedback(RUN_ID)
 
-      transport.emit(commandError("prepare_feedback", "run_not_found", { run_id: RUN }))
+      transport.emit(commandError("prepare_feedback", "run_not_found", { run_id: RUN_ID }))
 
       expect(service.feedbackPending()).toBeNull()
       expect(service.errorFor("prepare_feedback")()?.code).toBe("run_not_found")
@@ -1290,33 +1283,33 @@ describe("SidecarService", () => {
       await service.start()
       await service.prepareFeedback("b4d2e0")
 
-      transport.emit(READY)
+      transport.emit(FEEDBACK_READY)
 
       expect(service.feedbackPending()).toBe("b4d2e0")
-      expect(service.feedbackReady()).toEqual(READY)
+      expect(service.feedbackReady()).toEqual(FEEDBACK_READY)
     })
 
     it("keeps waiting for the asked run when another run is refused", async () => {
       await service.start()
       await service.prepareFeedback("b4d2e0")
 
-      transport.emit(commandError("prepare_feedback", "run_not_found", { run_id: RUN }))
+      transport.emit(commandError("prepare_feedback", "run_not_found", { run_id: RUN_ID }))
 
       expect(service.feedbackPending()).toBe("b4d2e0")
     })
 
     it("keeps waiting when another command fails", async () => {
       await service.start()
-      await service.prepareFeedback(RUN)
+      await service.prepareFeedback(RUN_ID)
 
       transport.emit(commandError("clear_cache", "run_not_written"))
 
-      expect(service.feedbackPending()).toBe(RUN)
+      expect(service.feedbackPending()).toBe(RUN_ID)
     })
 
     it("ends the wait when the engine stops during it", async () => {
       await service.start()
-      await service.prepareFeedback(RUN)
+      await service.prepareFeedback(RUN_ID)
 
       transport.handlers?.onTerminated()
 

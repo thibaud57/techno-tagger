@@ -367,25 +367,17 @@ describe("RecapPageComponent", () => {
       expect(service.prepareFeedback).toHaveBeenCalledWith(PAST_RUN.run_id)
     })
 
-    it("greys the button out with its reason when the run has no report", async () => {
-      const { fixture } = await mountWith([writtenAs("a", "Your Mind")], {
-        pastRuns: signal([]),
-      })
-
+    it.each<[string, SidecarStubOverrides, boolean, string]>([
+      ["a run without report", { pastRuns: signal([]) }, true, "recap.feedback.unavailable"],
+      ["a run with its report", { pastRuns: signal([PAST_RUN]) }, false, "recap.feedback.hint"],
+    ])("sets the button of %s and its tooltip", async (_case, overrides, disabled, tip) => {
+      const { fixture } = await mountWith([writtenAs("a", "Your Mind")], overrides)
       const button = sendButton(fixture)
 
-      expect(button?.disabled).toBe(true)
-    })
-
-    it.each<[string, SidecarStubOverrides, string]>([
-      ["a run without report", { pastRuns: signal([]) }, "recap.feedback.unavailable"],
-      ["a run with its report", { pastRuns: signal([PAST_RUN]) }, "recap.feedback.hint"],
-    ])("shows the tooltip of %s on hover", async (_case, overrides, tip) => {
-      const { fixture } = await mountWith([writtenAs("a", "Your Mind")], overrides)
-
-      sendButton(fixture)?.dispatchEvent(new MouseEvent("mouseenter"))
+      button?.dispatchEvent(new MouseEvent("mouseenter"))
       vi.advanceTimersByTime(TOOLTIP.showDelay ?? 0)
 
+      expect(button?.disabled).toBe(disabled)
       expect(document.body.querySelector(".p-tooltip")?.textContent).toBe(tip)
     })
 

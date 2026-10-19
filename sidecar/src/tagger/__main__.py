@@ -519,8 +519,8 @@ def main() -> None:
 
 
 def _purge_old() -> None:
-    # Une purge ratee ne doit jamais empecher le sidecar de demarrer, ni les suivantes de
-    # passer : un dump, un plan ou un export reste au pire quelques jours de plus.
+    # Une purge ratee n'empeche ni le demarrage ni les suivantes : le fichier reste au pire
+    # quelques jours de plus.
     now = datetime.now(UTC)
     for label, purge, folder in (
         ("tag dump", purge_dumps, dump_dir),
