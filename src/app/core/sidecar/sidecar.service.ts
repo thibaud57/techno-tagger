@@ -96,6 +96,7 @@ export class SidecarService {
   private readonly _apiKeyConfigured = signal<boolean | null>(null)
   private readonly _defaultThresholds = signal<ThresholdsPayload | null>(null)
   private readonly _logFile = signal<string | null>(null)
+  private readonly _sentrySelftest = signal(false)
   private readonly _cacheSize = signal<number | null>(null)
   private readonly _cacheCleared = signal<CacheClearedEvent | null>(null)
   private readonly _feedbackReady = signal<FeedbackReadyEvent | null>(null)
@@ -162,6 +163,8 @@ export class SidecarService {
   /** `null` tant que la version n'est pas arrivee, comme `apiKeyConfigured`. */
   readonly defaultThresholds = this._defaultThresholds.asReadonly()
   readonly logFile = this._logFile.asReadonly()
+  /** Le moteur demande l'evenement de test de la webview (PRODUCTION.md § Observabilite). */
+  readonly sentrySelftest = this._sentrySelftest.asReadonly()
   /** Octets du cache, `null` avant la premiere mesure. */
   readonly cacheSize = this._cacheSize.asReadonly()
   /** Dernier vidage : de quoi l'annoncer. */
@@ -753,6 +756,7 @@ export class SidecarService {
         this._apiKeyConfigured.set(event.api_key_configured)
         this._defaultThresholds.set(event.default_thresholds)
         this._logFile.set(event.log_file)
+        this._sentrySelftest.set(event.sentry_selftest)
         if (firstAnswer || keySaved) {
           void this.askInterruptedRun()
         }

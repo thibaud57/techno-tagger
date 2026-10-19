@@ -14,7 +14,7 @@ from tagger import RELEASE, __version__
 from tagger.core.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.core.errors import RunNotFoundError
 from tagger.core.logger import LOG_FILE_NAME
-from tagger.core.observability import capture_unexpected
+from tagger.core.observability import capture_unexpected, selftest_requested
 from tagger.core.paths import log_dir
 from tagger.core.tasks import cancel_all
 from tagger.playlists import list_playlists, read_playlist
@@ -121,6 +121,7 @@ def handle_get_version() -> Version:
         event="version",
         version=__version__,
         api_key_configured=read_api_key() is not None,
+        sentry_selftest=selftest_requested(),
         default_thresholds=ThresholdsPayload.model_validate(
             DEFAULT_THRESHOLDS, from_attributes=True
         ),

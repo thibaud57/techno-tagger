@@ -187,7 +187,7 @@ pyinstaller-hooks-contrib
 
 - **Le hook `hook-sentry_sdk.py` de `pyinstaller-hooks-contrib` est indispensable** : il introspecte les intégrations activées par défaut et les ajoute aux imports cachés
 - Sans lui, les intégrations sont désactivées silencieusement ou lèvent une `ImportError` au démarrage selon la version
-- **Vérifier la remontée depuis le binaire empaqueté**, pas seulement en développement : provoquer une exception de test et confirmer son arrivée dans Sentry
+- **Vérifier la remontée depuis l'application installée** par `TECHNO_TAGGER_SENTRY_SELFTEST=1` (PRODUCTION.md § Observabilité) avant de considérer l'observabilité en place
 - La suite de tests du hook est épinglée sur une version antérieure du SDK : le mécanisme est stable, la combinaison exacte n'est pas garantie sans essai
 
 ---
@@ -255,7 +255,7 @@ find dist/techno-tagger-ui/browser -name '*.map' -delete
 - **Tester le durcissement Python sur l'enveloppe réellement construite** : variables de frame absentes, `server_name` fixe, `data_collection` résolu entièrement fermé
 - **Retirer `Breadcrumbs` et `Replay` côté Angular**, plutôt que d'essayer de les filtrer après coup
 - **Poser la même `release` des deux côtés**, alimentée par la version que release-please synchronise
-- **Provoquer une erreur de test depuis le binaire empaqueté** avant de considérer l'observabilité en place
+- **Vérifier la remontée depuis l'application installée** par `TECHNO_TAGGER_SENTRY_SELFTEST=1` (PRODUCTION.md § Observabilité) avant de considérer l'observabilité en place
 - **Garder `before_send` centré sur les chemins**, et l'étendre chaque fois qu'un nouveau champ transporte une donnée locale
 - **Réserver Sentry aux erreurs techniques** : le quota de 5 000 par mois est un budget, pas un plafond théorique
 

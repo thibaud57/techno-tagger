@@ -25,6 +25,13 @@ QUERY_MASK: Final = "<query>"
 PATH_MASK: Final = "<path>"
 MESSAGE_MASK: Final = "<message>"
 
+# Lancee avec elle, l'application installee envoie un evenement de test par cote (PRODUCTION.md
+# § Observabilite). Le DSN, grave au build, dit ou envoyer, elle dit d'envoyer maintenant.
+SELFTEST_ENV: Final = "TECHNO_TAGGER_SENTRY_SELFTEST"
+# Faux morceau du self-test, que le masquage doit effacer. Declare ici et non pres de la frame
+# qui leve : le SDK joint cinq lignes de source par frame, un litteral voisin partirait avec.
+_SELFTEST_PATH: Final = r"D:\Musique\Nova Pulse - Your Mind.mp3"
+
 # Types dont le message ne porte aucune donnee de l'utilisateur, par nom qualifie : `core/`
 # n'importe aucun package metier. Tout autre message part en `MESSAGE_MASK`, ceux du sidecar
 # compris : ils portent `path.name` ou un `track_id`, chemin relatif du fichier qu'aucun motif
@@ -264,3 +271,26 @@ def capture_unexpected(error: BaseException) -> None:
     import sentry_sdk  # noqa: PLC0415
 
     sentry_sdk.capture_exception(error)
+
+
+class SentrySelfTestError(Exception):
+    """Evenement de test : pas une `TaggerError`, il n'atteint jamais l'interface."""
+
+
+def selftest_requested() -> bool:
+    """Seule la valeur `1` declenche : une autre, absente comprise, n'envoie rien."""
+    return os.getenv(SELFTEST_ENV, "") == "1"
+
+
+def send_selftest() -> None:
+    """Remonte un evenement porteur de fausses donnees sensibles : son message doit arriver en
+    `<message>`, sa frame sans variable. DSN vide : rien ne part, comme toute remontee."""
+    try:
+        _raise_selftest(_SELFTEST_PATH)
+    except SentrySelfTestError as error:
+        capture_unexpected(error)
+
+
+def _raise_selftest(path: str) -> None:
+    # `path` est la variable locale sensible de la frame : elle ne doit pas partir.
+    raise SentrySelfTestError(f"sentry self test, must be masked: {path}")

@@ -17,6 +17,7 @@ from run_plans import plan_of, save_plan
 from tagging_records import RECORD
 
 from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, REPOSITORY_URL, __main__, __version__
+from tagger.core.observability import SELFTEST_ENV
 from tagger.core.run_files import stamped_name
 from tagger.reports.feedback import feedback_dir
 from tagger.run.plan import plan_dir
@@ -55,13 +56,58 @@ def startup() -> Iterator[_Startup]:
         yield _Startup(mocks["run_loop"], calls)
 
 
-def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None:
-    with patch.object(
-        __main__, "_purge_old", autospec=True, side_effect=_noting(startup.calls, "_purge_old")
+@pytest.fixture(autouse=True)
+def _no_self_test(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Une variable posee dans le shell du developpeur ferait executer le vrai `send_selftest`
+    par tous les tests qui appellent `main()`."""
+    monkeypatch.delenv(SELFTEST_ENV, raising=False)
+
+
+def test_logging_and_sentry_are_armed_before_the_loop(
+    startup: _Startup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(SELFTEST_ENV, "1")
+
+    with (
+        patch.object(
+            __main__,
+            "send_selftest",
+            autospec=True,
+            side_effect=_noting(startup.calls, "send_selftest"),
+        ),
+        patch.object(
+            __main__, "_purge_old", autospec=True, side_effect=_noting(startup.calls, "_purge_old")
+        ),
     ):
         __main__.main()
 
-    assert startup.calls == ["setup_logging", "init_sentry", "_purge_old", "run_loop"]
+    assert startup.calls == [
+        "setup_logging",
+        "init_sentry",
+        "send_selftest",
+        "_purge_old",
+        "run_loop",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("value", "sent"),
+    [("1", True), ("true", False), (None, False)],
+    ids=["asked", "other-value", "absent"],
+)
+def test_the_startup_sends_the_self_test_only_when_asked(
+    startup: _Startup, monkeypatch: pytest.MonkeyPatch, value: str | None, sent: bool
+) -> None:
+    if value is not None:
+        monkeypatch.setenv(SELFTEST_ENV, value)
+
+    with (
+        patch.object(__main__, "send_selftest", autospec=True) as send_selftest,
+        patch.object(__main__, "_purge_old", autospec=True),
+    ):
+        __main__.main()
+
+    assert send_selftest.called is sent
 
 
 # Les purges du module de domaine que `__main__` appelle au demarrage.

@@ -26,7 +26,13 @@ from sentry_sdk.transport import Transport
 
 from tagger import APP_NAME, RELEASE
 from tagger.core.file_failures import FileFailureReason
-from tagger.core.observability import MESSAGE_MASK, capture_unexpected, init_sentry
+from tagger.core.observability import (
+    MESSAGE_MASK,
+    SentrySelfTestError,
+    capture_unexpected,
+    init_sentry,
+    send_selftest,
+)
 from tagger.resolution.scraper_client import ApiContractError, Source
 from tagger.tags.files import TagsWriteError
 
@@ -238,6 +244,19 @@ def test_the_envelope_carries_no_frame_variable_and_a_fixed_server_name(
     assert _frames(event)
     assert not [frame for frame in _frames(event) if "vars" in frame]
     assert event["server_name"] == APP_NAME
+
+
+def test_the_self_test_event_carries_no_fragment_of_its_fake_track(sent: list[Envelope]) -> None:
+    """Le self-test prouve le masquage sur le vrai pipeline : son faux morceau ne doit pas partir,
+    ni par le message, ni par une variable, ni par les lignes de source jointes a la frame."""
+    send_selftest()
+
+    rendered = _rendered(sent)
+    entry = _entries(sent)[SentrySelfTestError.__name__]
+    assert len(sent) == 1
+    assert entry["value"] == MESSAGE_MASK
+    assert not [fragment for fragment in FRAGMENTS if fragment in rendered]
+    assert not [frame for frame in _frames(_event(sent)) if "vars" in frame]
 
 
 @pytest.mark.usefixtures("sent")

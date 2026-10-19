@@ -21,7 +21,7 @@ from tagger import RELEASE
 from tagger.core.build_info import SENTRY_DSN
 from tagger.core.errors import RunNotFoundError, TaggerError
 from tagger.core.logger import setup_logging
-from tagger.core.observability import init_sentry
+from tagger.core.observability import init_sentry, selftest_requested, send_selftest
 from tagger.core.paths import log_dir
 from tagger.core.tasks import cancel_all
 from tagger.handlers import (
@@ -507,6 +507,8 @@ def main() -> None:
     # handler pour `logger.exception` autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
+    if selftest_requested():
+        send_selftest()
     _purge_old()
     # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
     # points rend une liste vide et keyring basculerait sur son backend `fail`.

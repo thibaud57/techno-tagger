@@ -18,7 +18,7 @@ paths:
 - Renseigner `environment` pour que les runs de développement ne consomment pas le quota des utilisateurs
 - Couvrir l'appel à `init()` d'un `try/except` : une remontée d'erreurs cassée ne doit jamais empêcher l'application de démarrer
 - Déclarer `pyinstaller-hooks-contrib` en dépendance de build et vérifier la présence de `hook-sentry_sdk.py`
-- Provoquer une exception de test **depuis le binaire empaqueté** et confirmer son arrivée dans Sentry avant de considérer l'observabilité en place
+- Provoquer l'événement de test depuis l'application installée par `TECHNO_TAGGER_SENTRY_SELFTEST=1` (PRODUCTION.md § Observabilité) et confirmer son arrivée dans Sentry avant de considérer l'observabilité en place
 - Tester sur l'enveloppe réellement construite (`test_sentry_payload.py`) : variables de frame, `server_name`, `data_collection` résolu
 
 ## À éviter

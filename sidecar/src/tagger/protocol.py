@@ -364,11 +364,15 @@ class Version(Event):
 
     `default_thresholds` et `log_file` pour la meme raison : seul le sidecar les connait,
     les Reglages en partent sans les recopier.
+
+    `sentry_selftest` : seul le sidecar lit son environnement, l'interface y apprend qu'elle
+    doit envoyer son evenement de test.
     """
 
     event: Literal["version"]
     version: str
     api_key_configured: bool
+    sentry_selftest: bool
     default_thresholds: ThresholdsPayload
     log_file: Path
 

@@ -22,6 +22,7 @@ from tagging_api import BEATPORT_SEARCH
 
 from tagger import handlers
 from tagger.core.logger import LOG_FILE_NAME
+from tagger.core.observability import SELFTEST_ENV
 from tagger.core.paths import log_dir
 from tagger.resolution.cache import cache_dir
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
@@ -46,6 +47,22 @@ def test_gives_the_default_thresholds_and_the_log_file() -> None:
         "ceiling": DEFAULT_THRESHOLDS.ceiling,
     }
     assert events[0]["log_file"] == str(log_dir() / LOG_FILE_NAME)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"), [("1", True), (None, False)], ids=["asked", "absent"]
+)
+def test_tells_the_interface_whether_to_send_its_self_test(
+    monkeypatch: pytest.MonkeyPatch, value: str | None, expected: bool
+) -> None:
+    if value is None:
+        monkeypatch.delenv(SELFTEST_ENV, raising=False)
+    else:
+        monkeypatch.setenv(SELFTEST_ENV, value)
+
+    events = drive(line("get_version"))
+
+    assert events[0]["sentry_selftest"] is expected
 
 
 def test_measures_then_clears_the_cache_and_keeps_the_plans() -> None:

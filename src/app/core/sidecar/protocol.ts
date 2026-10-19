@@ -217,6 +217,8 @@ export interface VersionEvent {
   readonly default_thresholds: ThresholdsPayload
   /** Fichier de logs courant, que les Reglages revelent dans l'Explorateur. */
   readonly log_file: string
+  /** Lance avec `TECHNO_TAGGER_SENTRY_SELFTEST=1` : l'interface envoie son evenement de test. */
+  readonly sentry_selftest: boolean
 }
 
 export type PlaylistFormat = "vlc_dump" | "m3u8"

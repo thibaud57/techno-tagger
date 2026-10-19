@@ -87,6 +87,7 @@ const versionEvent = (overrides: Partial<VersionEvent> = {}): VersionEvent => ({
   api_key_configured: false,
   default_thresholds: DEFAULT_THRESHOLDS,
   log_file: LOG_FILE,
+  sentry_selftest: false,
   ...overrides,
 })
 
@@ -200,6 +201,14 @@ describe("SidecarService", () => {
 
     expect(service.defaultThresholds()).toEqual(DEFAULT_THRESHOLDS)
     expect(service.logFile()).toBe(LOG_FILE)
+  })
+
+  it("tells whether the engine asks for the self-test", async () => {
+    await service.start()
+
+    transport.emit(versionEvent({ sentry_selftest: true }))
+
+    expect(service.sentrySelftest()).toBe(true)
   })
 
   it("forgets the log file at a restart", async () => {

@@ -234,7 +234,7 @@ SENTRY_AUTH_TOKEN=<Organization Auth Token, scope org:ci non modifiable, upload 
 GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 ```
 
-**Au runtime (machine utilisateur)** : **aucune variable d'environnement**. C'est la différence de fond avec une application 12-factor : il n'y a ni conteneur ni panneau d'administration où poser une valeur. La configuration vit à deux endroits, tous deux locaux :
+**Au runtime (machine utilisateur)** : **aucune variable de configuration**, hormis `TECHNO_TAGGER_SENTRY_SELFTEST` réservée au diagnostic. C'est la différence de fond avec une application 12-factor : il n'y a ni conteneur ni panneau d'administration où poser une valeur. La configuration vit à deux endroits, tous deux locaux :
 
 | Réglage | Emplacement | Pourquoi |
 |---|---|---|
@@ -242,6 +242,11 @@ GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 | Mode copie / déplacement, signal sonore, langue, dernière destination, seuils de matching | Store Tauri (fichier local) | Réglages non sensibles. L'URL de l'API n'en fait plus partie : constante du sidecar depuis le 2026-09-19 |
 
 Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `core/build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
+
+```bash
+# Runtime, diagnostic uniquement (cf. § Observabilité > Vérifier la remontée depuis l'application installée)
+TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécution ; 1 envoie un événement de test par côté (sidecar et webview), toute autre valeur rien>
+```
 
 ### Règles
 - ✅ **Aucun secret exploitable dans le binaire distribué** : ni clé API, ni token d'accès. Un `strings` sur un exécutable PyInstaller suffirait à l'extraire, et le dépôt est public. Les DSN Sentry font exception assumée : ils sont compilés par nécessité, et n'autorisent que l'**envoi** d'événements, jamais la lecture. Leur fuite permettrait au pire de polluer le quota, d'où leur présence dans le tableau de rotation.
@@ -369,6 +374,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 - [ ] **Payload Sentry inspecté en vrai** : ouvrir un event réel dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau
 - [ ] **Clé API révoquée testée** : avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
 - [ ] **Release Sentry créée au tag** : la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy
+- [ ] **Issue de retour vérifiée en réel** : depuis l'application installée, « Envoyer ce rapport » sur un run réel ouvre l'Issue Form `matching-report.yml` pré-rempli sans troncature et l'Explorateur sur l'export ; envoyée depuis un compte non collaborateur, export glissé, l'issue porte le label `matching-report`
 
 > **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus (ils exigent une Release publiée) mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Restent à couvrir en post-MEP : la réception de l'**email**, la présence d'un **titre de morceau** dans un payload (aucun n'existe au bootstrap), et le comportement depuis une application **installée**.
 
@@ -504,6 +510,17 @@ Les deux projets vivent dans l'organisation `tg-ws`, sous les slugs `techno-tagg
 > `project:releases` existe toujours, mais c'est un scope de **Personal Token** : il n'est pas proposé à la création d'un token d'organisation.
 
 > **Ce que le monitoring ne voit pas, et ne verra jamais** : combien d'utilisateurs tournent, sur quelle version, et si la mise à jour est passée. Aucun événement métier n'est envoyé, aucun ping de version n'existe. C'est délibéré ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)) et cela conditionne toute la gestion d'incident : le parc est invisible, la seule information disponible est un crash spontané ou un ami qui écrit.
+
+### Vérifier la remontée depuis l'application installée
+
+Le mode développement ne prouve rien sur la remontée (DSN vide, SDK inerte). `TECHNO_TAGGER_SENTRY_SELFTEST=1` envoie un événement de test par côté depuis l'application installée.
+
+1. Fermer l'application : le plugin `single-instance` réveillerait la fenêtre ouverte, qui n'a pas la variable.
+2. Dans Sentry (organisation `tg-ws`), résoudre les issues de self-test d'un rejeu précédent : `SentrySelfTestError` dans `techno-tagger-sidecar`, `Error` « sentry self test » dans `techno-tagger-ui`. Un rejeu retombe dans le même groupe : sans nouvelle issue, aucun email ne part.
+3. Dans PowerShell : `$env:TECHNO_TAGGER_SENTRY_SELFTEST = "1"`, puis `& "$env:LOCALAPPDATA\techno-tagger\techno-tagger.exe"` (dossier par défaut d'une installation NSIS en `currentUser`, à confirmer par la cible du raccourci du menu Démarrer), puis `Remove-Item Env:TECHNO_TAGGER_SENTRY_SELFTEST` : sinon la variable reste posée dans la session et chaque lancement suivant enverrait ses événements.
+4. Dans Sentry, Issues de chaque projet : une issue `SentrySelfTestError` dans `techno-tagger-sidecar`, une issue `Error` dans `techno-tagger-ui`, chacune avec son email à l'adresse d'alerte du propriétaire.
+5. Ouvrir l'événement, puis la vue JSON (lien en tête de l'événement) et y rechercher `Nova`, `Mind`, le nom de compte Windows (`$env:USERNAME`), le nom de la machine (`$env:COMPUTERNAME`) et `vars` : aucune occurrence.
+6. Payload attendu : `release` identique des deux côtés, `environment: production` des deux côtés, `server_name` égal au nom de l'application sur l'événement du sidecar seulement (le SDK navigateur n'en pose pas), aucune variable de frame, aucun nom de compte ni chemin, aucun fragment du faux morceau ; message du sidecar en `<message>`, chemin de la webview en `<path>`.
 
 ## Métriques Clés
 
@@ -736,4 +753,4 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 - ADRs opérationnels : [012 clé API et keyring](adrs/012-securite-cle-api-keyring.md), [013 cache jetable](adrs/013-cache-disque-jetable.md), [014 observabilité et vie privée](adrs/014-observabilite-sentry-et-rgpd.md), [015 cibles de distribution](adrs/015-cibles-distribution-windows.md), [016 multi-clés](adrs/016-multi-cles-techno-scraper.md), [018 versionnement des artefacts](adrs/018-versionnement-plan-de-run.md), [021 visibilité du dépôt](adrs/021-visibilite-du-depot.md)
 - [techno-scraper : PRODUCTION.md](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/PRODUCTION.md) : chaîne release-please et pièges de squash-merge, dont ce projet hérite
 - [PythonGUIs : antivirus et PyInstaller](https://www.pythonguis.com/faq/problems-with-antivirus-software-and-pyinstaller/) : pourquoi `--onefile` déclenche les heuristiques
-- [The Twelve-Factor App](https://12factor.net/) : référence dont ce projet s'écarte volontairement, faute de serveur et de variables d'environnement au runtime
+- [The Twelve-Factor App](https://12factor.net/) : référence dont ce projet s'écarte volontairement, faute de serveur et de variables de configuration au runtime (hormis `TECHNO_TAGGER_SENTRY_SELFTEST`, réservée au diagnostic)

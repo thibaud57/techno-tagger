@@ -66,6 +66,7 @@ const defaults = (): StubbedState => ({
   version: signal("1.0.0"),
   defaultThresholds: signal(null),
   logFile: signal(null),
+  sentrySelftest: signal(false),
   cacheSize: signal(null),
   cacheCleared: signal(null),
   cacheClearing: signal(false),
