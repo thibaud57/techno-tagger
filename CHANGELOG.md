@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/thibaud57/techno-tagger/compare/v0.8.0...v0.9.0) (2026-10-19)
+
+
+### Features
+
+* issue de retour de matching depuis le récapitulatif, payloads Sentry sans donnée personnelle et self-test Sentry ([#77](https://github.com/thibaud57/techno-tagger/issues/77)) ([42300c2](https://github.com/thibaud57/techno-tagger/commit/42300c214692a04d3060be7d5ad3e6f2391cc741))
+
 ## [0.8.0](https://github.com/thibaud57/techno-tagger/compare/v0.7.0...v0.8.0) (2026-10-16)
 
 
