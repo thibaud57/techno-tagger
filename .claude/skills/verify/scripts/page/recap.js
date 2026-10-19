@@ -312,7 +312,11 @@ async (page) => {
     return {
       gaps,
       writeFailure: host.querySelector("[data-write-failures]")?.textContent.replace(/[ \t\r\n]+/g, " ").trim(),
-      sendReport: /Envoyer ce rapport|Send this report/.test(host.textContent),
+      sendReport: (() => {
+        const send = host.querySelectorAll('[data-action="send-report"]')
+        const back = host.querySelector('[data-action="back"]')
+        return { count: send.length, inBackFooter: !!back && send[0]?.parentElement === back.parentElement, afterBack: !!back && !!send[0] && back.getBoundingClientRect().right <= send[0].getBoundingClientRect().left, label: send[0]?.textContent.trim() }
+      })(),
       pageScroll: document.scrollingElement.scrollHeight > document.scrollingElement.clientHeight || document.querySelector("main").scrollHeight > document.querySelector("main").clientHeight + 1,
     }
   })
@@ -325,7 +329,8 @@ async (page) => {
   check("live run: back at the bottom left, text secondary small, chevron-left", foot.backCount === 1 && foot.back && /p-button-text/.test(foot.back.cls) && /p-button-secondary/.test(foot.back.cls) && /p-button-sm/.test(foot.back.cls) && foot.back.icon === "chevron-left" && foot.back.leftDelta <= 1 && /Retour à la liste/.test(foot.back.text), foot.back)
   check("live run: context at the bottom right, 14px muted, from the past runs, kept when the rollback target moves to another run", foot.ctx && /^Run du .+ sur C:\\Sets$/.test(foot.ctx.text) && foot.ctx.size === "14px" && foot.ctx.muted && foot.ctx.rightDelta <= 1 && foot.ctx.afterBack, foot.ctx)
   check("live run: no Restaurer le run, no Nouveau run on the recap", foot.restoreRun === 0 && foot.newRun === 0, { restoreRun: foot.restoreRun, newRun: foot.newRun })
-  check("no send-report button (Feature 9)", layout.sendReport === false, null)
+  // Le bouton existe depuis monitoring/04 : sa preuve detaillee est `page/feedback-send.js`.
+  check("send-report button in the footer, right after the back", layout.sendReport.count === 1 && layout.sendReport.inBackFooter && layout.sendReport.afterBack && /Envoyer ce rapport/.test(layout.sendReport.label), layout.sendReport)
   check("no page scroll at 1280 x 800", layout.pageScroll === false, null)
   await shot("05-recap-1280")
 

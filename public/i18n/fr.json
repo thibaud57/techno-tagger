@@ -320,7 +320,12 @@
       "heading": "Impossible d'afficher ce run",
       "description": "Rouvrez un run depuis l'onglet Réglages."
     },
-    "back": "Retour à la liste"
+    "back": "Retour à la liste",
+    "feedback": {
+      "send": "Envoyer ce rapport",
+      "hint": "Ouvre dans votre navigateur un ticket GitHub public pré-rempli avec les noms de fichiers et les résultats du run, à relire avant de l'envoyer.\nL'Explorateur s'ouvre aussi sur le fichier complet du run, à glisser dans le ticket si vous le souhaitez.",
+      "unavailable": "Ce run n'a pas de rapport à envoyer."
+    }
   },
   "rollback": {
     "failures": "Fichiers non restaurés : {{count}}",

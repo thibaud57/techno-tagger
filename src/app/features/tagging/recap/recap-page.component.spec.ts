@@ -10,6 +10,7 @@ import { OTHER_PAST_RUN, PAST_RUN, TRACK_LOADED } from "../../../../fixtures/pas
 import { stubNavigation } from "../../../../fixtures/router"
 import {
   type SidecarStubOverrides,
+  commandFailed,
   provideSidecarStub,
   sidecarStub,
 } from "../../../../fixtures/sidecar-stub"
@@ -23,6 +24,7 @@ import {
 import { ROLLBACK_RUN, commandError, failedRollback } from "../../../../fixtures/write"
 import { type LoadedRun, loadedTrack } from "../../../core/stores/past-runs.store"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
+import { TOOLTIP } from "../../../shared/utils/tooltip"
 
 import RecapPageComponent from "./recap-page.component"
 
@@ -331,6 +333,75 @@ describe("RecapPageComponent", () => {
       expect(component["tracks"]().map((track) => track.trackId)).toEqual(["live"])
       expect(togglesOf(fixture)).toHaveLength(1)
       expect(hostOf(fixture).textContent).not.toContain("settings.admin.rollback.target")
+    })
+  })
+
+  describe("send this report", () => {
+    const sendButton = (fixture: Hosted) => action("send-report", hostOf(fixture))
+
+    it("asks for the issue of the current run", async () => {
+      const { fixture, service } = await mountWith([writtenAs("a", "Your Mind")], {
+        pastRuns: signal([PAST_RUN]),
+      })
+
+      sendButton(fixture)?.click()
+
+      expect(service.prepareFeedback).toHaveBeenCalledWith(RUN_ID)
+    })
+
+    it("asks for the issue of a past run", async () => {
+      const loaded = {
+        runId: PAST_RUN.run_id,
+        folder: PAST_RUN.folder,
+        writtenAt: PAST_RUN.written_at,
+        tracks: [loadedTrack(TRACK_LOADED)],
+      }
+      const { fixture, service } = await mountWith(
+        [],
+        { loadedRun: signal(loaded) },
+        PAST_RUN.run_id,
+      )
+
+      sendButton(fixture)?.click()
+
+      expect(service.prepareFeedback).toHaveBeenCalledWith(PAST_RUN.run_id)
+    })
+
+    it("greys the button out with its reason when the run has no report", async () => {
+      const { fixture } = await mountWith([writtenAs("a", "Your Mind")], {
+        pastRuns: signal([]),
+      })
+
+      const button = sendButton(fixture)
+
+      expect(button?.disabled).toBe(true)
+    })
+
+    it.each<[string, SidecarStubOverrides, string]>([
+      ["a run without report", { pastRuns: signal([]) }, "recap.feedback.unavailable"],
+      ["a run with its report", { pastRuns: signal([PAST_RUN]) }, "recap.feedback.hint"],
+    ])("shows the tooltip of %s on hover", async (_case, overrides, tip) => {
+      const { fixture } = await mountWith([writtenAs("a", "Your Mind")], overrides)
+
+      sendButton(fixture)?.dispatchEvent(new MouseEvent("mouseenter"))
+      vi.advanceTimersByTime(TOOLTIP.showDelay ?? 0)
+
+      expect(document.body.querySelector(".p-tooltip")?.textContent).toBe(tip)
+    })
+
+    it.each([
+      ["of the run on screen", { run_id: RUN_ID }, true],
+      ["without any run, a malformed command", {}, true],
+      ["of another run", { run_id: OTHER_PAST_RUN.run_id }, false],
+    ])("shows a refusal %s only when it is its own", async (_case, params, shown) => {
+      const { fixture } = await mountWith([writtenAs("a", "Your Mind")], {
+        pastRuns: signal([PAST_RUN]),
+        ...commandFailed("prepare_feedback", "feedback_export_write_failed", params),
+      })
+
+      const message = hostOf(fixture).querySelector("[data-feedback-error]")
+
+      expect(message !== null).toBe(shown)
     })
   })
 })

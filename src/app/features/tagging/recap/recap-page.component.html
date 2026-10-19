@@ -39,6 +39,10 @@
   <app-error-message [error]="shown" />
 }
 
+@if (feedbackError(); as shown) {
+  <app-error-message data-feedback-error [error]="shown" />
+}
+
 @if (!past() && tracks().length > 0) {
   @if (!writing() && writeFailures() > 0) {
     <!-- Le texte seul : la relance est le bouton d'action du run, dans l'onglet Tagging. -->
@@ -51,7 +55,8 @@
 }
 
 <!-- Pied comme sous le rapport de Playlist : la restauration du run reste dans l'onglet
-     Tagging, d'ou le recapitulatif s'ouvre. -->
+     Tagging, d'ou le recapitulatif s'ouvre. « Envoyer ce rapport » est le seul geste qui fait
+     sortir des titres (ADR-014). -->
 <div class="flex min-h-0 flex-1 flex-col gap-2">
   @if (refusal() !== null) {
     <app-empty-state
@@ -95,6 +100,23 @@
     >
       <app-icon name="chevron-left" [size]="16" />
       {{ "recap.back" | translate }}
+    </button>
+    @let blocked = feedback.blockedReason();
+    <button
+      pButton
+      type="button"
+      size="small"
+      severity="secondary"
+      [outlined]="true"
+      class="shrink-0 whitespace-nowrap"
+      data-action="send-report"
+      [disabled]="blocked !== null"
+      [pTooltip]="blocked ?? 'recap.feedback.hint' | translate"
+      [tooltipOptions]="wideTooltip"
+      (click)="feedback.send()"
+    >
+      <app-icon [name]="feedback.pending() ? 'spinner' : 'external-link'" [size]="16" />
+      {{ "recap.feedback.send" | translate }}
     </button>
     @if (context(); as line) {
       <app-truncated-text

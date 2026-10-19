@@ -320,7 +320,12 @@
       "heading": "This run cannot be shown",
       "description": "Reopen a run from the Settings tab."
     },
-    "back": "Back to the list"
+    "back": "Back to the list",
+    "feedback": {
+      "send": "Send this report",
+      "hint": "Opens a public GitHub issue in your browser, prefilled with the file names and the results of the run, to review before sending it.\nFile Explorer also opens on the full run file, to drag into the issue if you wish.",
+      "unavailable": "This run has no report to send."
+    }
   },
   "rollback": {
     "failures": "Files not restored: {{count}}",
