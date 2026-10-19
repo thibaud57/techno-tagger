@@ -7,6 +7,7 @@ import { IconField } from "primeng/iconfield"
 import { InputIcon } from "primeng/inputicon"
 import { InputText } from "primeng/inputtext"
 import { SelectButton } from "primeng/selectbutton"
+import { Tooltip } from "primeng/tooltip"
 
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import { DangerConfirmComponent } from "../../../shared/components/dialogs/danger-confirm.component"
@@ -18,6 +19,7 @@ import { ErrorMessageComponent } from "../../../shared/components/feedback/error
 import { MessageComponent } from "../../../shared/components/feedback/message.component"
 import { FADE_IN, PAGE_HOST } from "../../../shared/utils/motion"
 import { runLine } from "../../../shared/utils/run-date"
+import { WIDE_TOOLTIP } from "../../../shared/utils/tooltip"
 
 import {
   inFilter,
@@ -26,6 +28,7 @@ import {
   recapCounts,
   type RecapFilter,
 } from "./recap-filter"
+import { type FeedbackTarget, injectFeedbackSend } from "./feedback-send"
 import { RunListComponent } from "../run/run-list.component"
 import { injectRunRestore } from "../run/run-restore"
 
@@ -48,6 +51,7 @@ interface RecapCriteria {
     InputIcon,
     InputText,
     SelectButton,
+    Tooltip,
     DangerConfirmComponent,
     EmptyStateComponent,
     ErrorMessageComponent,
@@ -66,6 +70,7 @@ export default class RecapPageComponent {
   private readonly translate = inject(TranslateService)
 
   protected readonly runRestore = injectRunRestore()
+  protected readonly wideTooltip = WIDE_TOOLTIP
 
   /** Un seul signal : `form()` en derive les champs que `[formField]` lie. */
   protected readonly criteria = signal<RecapCriteria>({ filter: "all", query: "" })
@@ -112,6 +117,26 @@ export default class RecapPageComponent {
     const run = this.written()
 
     return run === null ? null : runLine(run.writtenAt, run.folder, this.translate.currentLang())
+  })
+  /** Run affiche et son rapport : un run present dans le registre des runs passes en a un. */
+  private readonly feedbackTarget = computed<FeedbackTarget | null>(() => {
+    const runId = this.past() ? this.runId() : this.sidecar.taggingRunId()
+
+    return runId === undefined || runId === null
+      ? null
+      : { runId, hasReport: this.written() !== null }
+  })
+  protected readonly feedback = injectFeedbackSend(this.feedbackTarget)
+  private readonly feedbackErrors = this.sidecar.errorFor("prepare_feedback")
+  /** Le refus d'un autre run ne s'affiche pas ici ; un refus sans run (commande malformee) s'affiche. */
+  protected readonly feedbackError = computed(() => {
+    const error = this.feedbackErrors()
+    const refusedRun = error?.params["run_id"]
+
+    return error !== null &&
+      (refusedRun === undefined || refusedRun === this.feedbackTarget()?.runId)
+      ? error
+      : null
   })
   /** Lecture seule : les fichiers d'un run passe ont pu etre retagues depuis. */
   protected readonly restorableIds = computed<ReadonlySet<string>>(() =>

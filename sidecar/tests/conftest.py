@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from unittest.mock import MagicMock
 
+    import httpx2
+
 FIXTURES: Final = Path(__file__).parent / "fixtures"
 
 
@@ -134,3 +136,9 @@ def _key(memory_keyring: MemoryKeyring) -> None:
 def app_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Isole le dossier de donnees d'application sous `tmp_path`."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
+
+
+@pytest.fixture
+def requests() -> list[httpx2.Request]:
+    """Requetes emises par le client, une liste neuve par test (remplie par le `MockTransport`)."""
+    return []

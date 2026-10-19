@@ -22,9 +22,9 @@ paths:
 - Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin, et un double unitaire (HTTP, audio, enregistrements) n'importe jamais le harnais de run (`tagging_api`). `conftest.py` ne garde que les fixtures
 
 ## À éviter
-- Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer
+- Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer, sauf le garde-fou de `data_collection`, conçu pour casser à la montée du SDK qui ajoute une catégorie de collecte (ADR-014)
 - `respx` et `pytest-httpx` : ni l'un ni l'autre ne supporte httpx2, les PR de support sont ouvertes et non mergées
-- Un appel réseau ou Sentry réel : les deux sont toujours mockés, aucun test ne consomme le quota
+- Un appel réseau ou Sentry réel : les deux sont toujours mockés, aucun test ne consomme le quota, sauf `test_sentry_payload.py`, qui initialise le vrai SDK par `init_sentry` avec un transport factice retenant l'enveloppe : aucun réseau, aucun quota
 - Mocker sans `autospec` : un changement de signature passe alors inaperçu
 - Élargir le `scope` d'une fixture qui porte de l'état mutable
 

@@ -1,0 +1,33 @@
+name: Matching report
+description: Sent from the run summary of Techno Tagger, to improve how tracks are matched.
+title: "Matching report"
+labels: ["matching-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public. Review everything below before submitting, and remove any line or file you do not want to share.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Filled in by the app.
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: The tracks of the run that say the most about matching, filled in by the app.
+    validations:
+      required: true
+  - type: textarea
+    id: export
+    attributes:
+      label: Full run export
+      description: The app opened the folder holding the export of the run. It lists the tags of your tracks, links included, so open it first. Drag the file into this field, or leave it out.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything the summary does not say, such as the right match for a track.

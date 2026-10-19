@@ -2,7 +2,7 @@
 feature: "Feature 9 : Monitoring"
 subproject: "issue-de-retour-sidecar"
 goal: "Construire, depuis le rapport de re-tagging d'un run, l'URL d'une issue GitHub pré-remplie par l'Issue Form du dépôt et un export JSON nettoyé à y joindre, sans chemin absolu ni donnée hors liste fermée."
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "full"
 depends_on: []

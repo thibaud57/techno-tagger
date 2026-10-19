@@ -16,4 +16,7 @@ RELEASE: Final = f"{APP_NAME}@{__version__}"
 # pas APP_NAME. Sinon les deux cotes ecrivent dans deux dossiers voisins, hors des scopes fs.
 BUNDLE_IDENTIFIER: Final = "fr.empiricmind.techno-tagger"
 
-__all__ = ["APP_NAME", "BUNDLE_IDENTIFIER", "RELEASE", "__version__"]
+# Copie de `repository` dans src-tauri/Cargo.toml, que le sidecar ne lit pas.
+REPOSITORY_URL: Final = "https://github.com/thibaud57/techno-tagger"
+
+__all__ = ["APP_NAME", "BUNDLE_IDENTIFIER", "RELEASE", "REPOSITORY_URL", "__version__"]

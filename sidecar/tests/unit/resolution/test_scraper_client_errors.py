@@ -78,6 +78,35 @@ async def test_raises_api_contract_error_on_a_response_that_does_not_validate(
             await client.search(Source.BEATPORT, YOUR_MIND)
 
 
+async def test_names_each_failing_field_without_any_received_value(
+    requests: list[httpx2.Request],
+) -> None:
+    """Ce message part vers Sentry : emplacement et type de chaque erreur, jamais la valeur."""
+    items = (invalid_track_payload(), invalid_track_payload(), track_payload(bpm="fast"))
+    response = httpx2.Response(200, json=page_payload(*items))
+
+    async with make_client(recording(requests, response)) as client:
+        with pytest.raises(ApiContractError) as error:
+            await client.search(Source.BEATPORT, YOUR_MIND)
+
+    assert str(error.value) == (
+        "api contract broken: TrackPage: items.*.title missing; items.*.bpm int_parsing"
+    )
+
+
+async def test_names_only_the_type_of_an_error_at_the_root_of_the_response(
+    requests: list[httpx2.Request],
+) -> None:
+    """Une reponse qui n'est pas un objet n'a pas d'emplacement a nommer."""
+    response = httpx2.Response(200, json=[])
+
+    async with make_client(recording(requests, response)) as client:
+        with pytest.raises(ApiContractError) as error:
+            await client.search(Source.BEATPORT, YOUR_MIND)
+
+    assert str(error.value) == "api contract broken: TrackPage: model_type"
+
+
 async def test_carries_the_status_the_api_code_and_the_request_id(
     requests: list[httpx2.Request],
 ) -> None:

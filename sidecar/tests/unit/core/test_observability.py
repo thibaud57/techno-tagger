@@ -7,19 +7,35 @@ from unittest.mock import patch
 
 import httpx2
 import pytest
+from pydantic import TypeAdapter
+from repo_files import read_json
 
 from tagger import APP_NAME, RELEASE
 from tagger.core import observability as obs
-from tagger.core.observability import MASK, PATH_MASK, QUERY_MASK, _scrub, init_sentry
+from tagger.core.observability import (
+    MASK,
+    MESSAGE_MASK,
+    PATH_MASK,
+    _scrub,
+    init_sentry,
+)
 from tagger.resolution.scraper_client import API_BASE_URL, ApiContractError
 
 DSN: Final = "https://key@o1.ingest.de.sentry.io/1"
 SEARCH_URL: Final = f"{API_BASE_URL}/beatport/search"
+CONTRACT_ERROR_MODULE: Final = ApiContractError.__module__
+PATH_MASK_CASES: Final = TypeAdapter(list[dict[str, str]]).validate_python(
+    read_json("src/fixtures/path-masks.json")
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from sentry_sdk.types import Event, Hint
+
+
+def _contract_entry(value: str) -> dict[str, object]:
+    return {"type": ApiContractError.__name__, "module": CONTRACT_ERROR_MODULE, "value": value}
 
 
 def _scrubbed(event: Mapping[str, object]) -> Event | None:
@@ -49,7 +65,9 @@ def test_a_set_dsn_applies_the_hardening_settings() -> None:
         init_sentry(DSN, RELEASE)
 
     kwargs = init.call_args.kwargs
-    assert kwargs["include_local_variables"] is False
+    assert "include_local_variables" not in kwargs
+    assert kwargs["data_collection"]["stack_frame_variables"] is False
+    assert kwargs["data_collection"]["user_info"] is False
     assert kwargs["server_name"] == APP_NAME
     assert kwargs["before_send"] is _scrub
     # On verifie l'appel a LoggingIntegration, pas les attributs prives de l'objet
@@ -80,7 +98,7 @@ def test_scrubbing_masks_the_username_at_any_depth() -> None:
         "exception": {
             "values": [
                 {
-                    "value": "cannot open C:/Users/jane/Music/set.flac",
+                    **_contract_entry("cannot open C:/Users/jane/Music/set.flac"),
                     "stacktrace": {"frames": [{"abs_path": r"C:\Users\jane\app\run.py"}]},
                 }
             ]
@@ -95,7 +113,7 @@ def test_scrubbing_masks_the_username_at_any_depth() -> None:
         "exception": {
             "values": [
                 {
-                    "value": f"cannot open {PATH_MASK}",
+                    **_contract_entry(f"cannot open {PATH_MASK}"),
                     "stacktrace": {"frames": [{"abs_path": rf"{MASK}\app\run.py"}]},
                 }
             ]
@@ -146,49 +164,31 @@ def _chained_contract_error(query: str) -> ApiContractError:
     pytest.fail("raise_for_status n'a pas leve sur un 422")
 
 
-def test_scrubbing_strips_the_search_query_a_chained_error_carries() -> None:
-    """Un titre de morceau ne part jamais vers Sentry : le SDK recopie le
-    message de chaque exception de la chaine `__cause__`, et celui d'httpx2 porte
-    l'URL de la recherche, donc l'artiste et le titre lus dans le fichier.
+def test_scrubbing_leaves_no_search_query_from_a_chained_http_error() -> None:
+    """Le message d'httpx2 porte l'URL de la recherche, donc l'artiste et le titre : hors de
+    la liste fermee, il part en `<message>`. Le detail d'`ApiContractError` reste lisible.
     """
     error = _chained_contract_error("Adam Beyer Your Mind")
     assert error.__cause__ is not None
     event = {
         "exception": {
             "values": [
-                {"type": "HTTPStatusError", "value": str(error.__cause__)},
-                {"type": "ApiContractError", "value": str(error)},
+                {"type": "HTTPStatusError", "module": "httpx2", "value": str(error.__cause__)},
+                _contract_entry(str(error)),
             ]
         }
     }
 
     scrubbed = _scrubbed(event)
 
-    rendered = str(scrubbed)
-    # Par fragment d'un seul mot : l'URL encode les espaces, « Adam Beyer » n'y
-    # apparaitrait de toute facon pas tel quel et l'assertion passerait a vide.
-    assert "Beyer" not in rendered
-    assert "Mind" not in rendered
-    assert QUERY_MASK in rendered
-    assert SEARCH_URL.removeprefix("https://") in rendered
-
-
-def test_scrubbing_strips_a_query_that_carries_a_second_question_mark() -> None:
-    """Le motif d'URL ne s'arrete pas au dernier `?` de la chaine mais au premier.
-
-    Une valeur de parametre peut en porter un (une URL de redirection, un `Location`
-    recopie dans un message) : masquer depuis le dernier laisserait passer la
-    recherche elle-meme, donc l'artiste et le titre, qui ne doivent jamais partir.
-    """
-    message = "HTTPStatusError for https://api/beatport/search?q=Beyer+Mind&next=http://cdn?w=1"
-    event = {"exception": {"values": [{"type": "HTTPStatusError", "value": message}]}}
-
-    scrubbed = _scrubbed(event)
-
-    rendered = str(scrubbed)
-    assert "Beyer" not in rendered
-    assert "Mind" not in rendered
-    assert QUERY_MASK in rendered
+    assert scrubbed == {
+        "exception": {
+            "values": [
+                {"type": "HTTPStatusError", "module": "httpx2", "value": MESSAGE_MASK},
+                _contract_entry("api contract broken: status 422"),
+            ]
+        }
+    }
 
 
 def test_scrubbing_leaves_envelope_fields_intact(
@@ -204,25 +204,19 @@ def test_scrubbing_leaves_envelope_fields_intact(
 
 
 @pytest.mark.parametrize(
-    "path",
-    [
-        r"D:\Musique\Nova Pulse - Your Mind.mp3",
-        "D:/Musique/Nova Pulse - Your Mind.mp3",
-        r"\\nas\partage\Nova Pulse - Your Mind.mp3",
-    ],
-    ids=["drive-backslash", "drive-slash", "unc"],
+    ("message", "expected"),
+    [(case["message"], case["expected"]) for case in PATH_MASK_CASES],
+    ids=[case["case"] for case in PATH_MASK_CASES],
 )
-def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None:
-    """Le nom du fichier porte l'artiste et le titre : un chemin hors du dossier
-    personnel (disque de musique, partage reseau) ne doit rien laisser sortir.
+def test_scrubbing_masks_paths_and_queries_like_the_webview(message: str, expected: str) -> None:
+    """Corpus partage avec `scrub.spec.ts` : le motif est recopie des deux cotes, seul ce
+    corpus commun fait echouer la derive de l'un sans l'autre.
     """
-    event = {"exception": {"values": [{"type": "OSError", "value": f"cannot open '{path}'"}]}}
+    event = {"message": message}
 
     scrubbed = _scrubbed(event)
 
-    assert scrubbed == {
-        "exception": {"values": [{"type": "OSError", "value": f"cannot open '{PATH_MASK}'"}]}
-    }
+    assert scrubbed == {"message": expected}
 
 
 @pytest.mark.parametrize(
@@ -231,10 +225,6 @@ def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None
         (
             r"write failed D:\Music\Nova Pulse - Your Mind.mp3 run=abc reason=file_locked",
             f"write failed {PATH_MASK} run=abc reason=file_locked",
-        ),
-        (
-            r"cannot open D:\Music\Nova Pulse - Your Mind.mp3: permission denied",
-            f"cannot open {PATH_MASK}: permission denied",
         ),
         (
             r"copy \\nas\share\Nova Pulse - Your Mind.mp3 status=error",
@@ -248,8 +238,18 @@ def test_scrubbing_masks_a_drive_or_unc_path_outside_the_home(path: str) -> None
             r"skip D:\Music\Nova Pulse vol=2 - Your Mind.mp3 reason=locked",
             f"skip {PATH_MASK} reason=locked",
         ),
+        (
+            str(OSError(2, "No such file or directory", r"D:\Music\Nova Pulse - Don't Stop.mp3")),
+            f'[Errno 2] No such file or directory: "{PATH_MASK}"',
+        ),
     ],
-    ids=["logfmt-fields", "colon-sentence", "unc-field", "comma-in-name", "key-lookalike-in-name"],
+    ids=[
+        "logfmt-fields",
+        "unc-field",
+        "comma-in-name",
+        "key-lookalike-in-name",
+        "oserror-repr-with-apostrophe",
+    ],
 )
 def test_scrubbing_stops_a_path_before_the_log_fields_without_leaking_the_name(
     message: str, expected: str
@@ -262,13 +262,67 @@ def test_scrubbing_stops_a_path_before_the_log_fields_without_leaking_the_name(
     scrubbed = _scrubbed(event)
 
     assert scrubbed == {"message": expected}
-    assert not {"Nova", "Pulse", "Your", "Mind"} & set(str(scrubbed).replace(",", " ").split())
+    assert not {"Nova", "Pulse", "Your", "Mind", "Don't", "Stop.mp3"} & set(
+        str(scrubbed).replace(",", " ").replace('"', " ").split()
+    )
 
 
-def test_scrubbing_does_not_take_a_url_scheme_for_a_drive() -> None:
-    message = "HTTPStatusError for https://api.example/beatport/tracks/42"
-    event = {"exception": {"values": [{"type": "HTTPStatusError", "value": message}]}}
+@pytest.mark.parametrize(
+    ("type_name", "module", "value"),
+    [
+        ("TagsWriteError", "tagger.tags.files", "tags not written: Nova Pulse - Your Mind.mp3"),
+        ("KeyError", None, "'Albums/Nova Pulse - Your Mind.mp3'"),
+        ("ValidationError", "pydantic_core._pydantic_core", "input_value='Your Mind'"),
+    ],
+    ids=["own-error-with-file-name", "key-error-on-track-id", "pydantic-input-value"],
+)
+def test_scrubbing_masks_the_message_of_an_exception_outside_the_closed_list(
+    type_name: str, module: str | None, value: str
+) -> None:
+    """Le texte libre ne permet pas de reconnaitre un titre : seul un type declare sans
+    donnee garde son message. Type, module et pile partent toujours. Le SDK pose `module` a
+    `None` pour un builtin.
+    """
+    entry: dict[str, object] = {
+        "type": type_name,
+        "module": module,
+        "value": value,
+        "stacktrace": {"frames": []},
+    }
+    event = {"exception": {"values": [entry]}}
 
     scrubbed = _scrubbed(event)
 
-    assert scrubbed == event
+    assert scrubbed == {"exception": {"values": [{**entry, "value": MESSAGE_MASK}]}}
+
+
+@pytest.mark.usefixtures("jane_home")
+def test_scrubbing_keeps_the_message_of_a_closed_list_type_with_paths_masked() -> None:
+    event = {"exception": {"values": [_contract_entry(r"TrackPage under C:\Users\jane\x.json")]}}
+
+    scrubbed = _scrubbed(event)
+
+    assert scrubbed == {"exception": {"values": [_contract_entry(f"TrackPage under {PATH_MASK}")]}}
+
+
+def test_scrubbing_masks_a_closed_list_name_raised_from_another_module() -> None:
+    entry = {"type": ApiContractError.__name__, "module": "vendor.client", "value": "Your Mind"}
+    event = {"exception": {"values": [entry]}}
+
+    scrubbed = _scrubbed(event)
+
+    assert scrubbed == {"exception": {"values": [{**entry, "value": MESSAGE_MASK}]}}
+
+
+def test_scrubbing_keeps_a_closed_list_message_when_the_account_name_is_part_of_its_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le masquage du compte de l'OS reecrit `module` : la liste se juge avant lui."""
+    monkeypatch.setattr(obs, "_USERNAME", "client")
+    entry = _contract_entry("api contract broken: TrackPage: items.*.bpm int_parsing")
+    event = {"exception": {"values": [entry]}}
+
+    scrubbed = _scrubbed(event)
+
+    module = CONTRACT_ERROR_MODULE.removesuffix("client") + MASK
+    assert scrubbed == {"exception": {"values": [{**entry, "module": module}]}}

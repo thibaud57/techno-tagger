@@ -452,7 +452,7 @@ async (page) => {
   check("open: skeleton rows until run_loaded, never the empty state", skeleton.skeleton && !/Aucun run à récapituler|No run to summarize/.test(skeleton.text) && skeleton.emptyStates === 0 && skeleton.rows === 0, skeleton)
   check("open: no back button in the header, no write gesture while loading", skeletonBlock.backInHead === false && skeleton.actions === 0, { skeleton, skeletonBlock })
   check("skeleton: header direct under the page, no context row, column of 8px (gap-2) with the table then the footer row", skeletonBlock.h1InHead && skeletonBlock.headIsDirectChild && skeletonBlock.noContextRow && skeletonBlock.col && skeletonBlock.colGap === 8 && skeletonBlock.tableIsList && skeletonBlock.footer && skeletonBlock.footerNextToTable, skeletonBlock)
-  check("skeleton: back button alone in the footer row at the bottom left, 8px under the table, no context", skeletonBlock.backInFooter && skeletonBlock.backCount === 1 && Math.abs(skeletonBlock.backLeftDelta) <= 1 && skeletonBlock.gap === 8 && skeletonBlock.ctx === false && /flex/.test(skeletonBlock.footerClass ?? "") && /items-center/.test(skeletonBlock.footerClass ?? ""), skeletonBlock)
+  check("skeleton: back button first in the footer row (send-report disabled next to it) at the bottom left, 8px under the table, no context", skeletonBlock.backInFooter && skeletonBlock.backCount === 1 && Math.abs(skeletonBlock.backLeftDelta) <= 1 && skeletonBlock.gap === 8 && skeletonBlock.ctx === false && /flex/.test(skeletonBlock.footerClass ?? "") && /items-center/.test(skeletonBlock.footerClass ?? ""), skeletonBlock)
   await shot("02-past-skeleton")
 
   await loaded(R2)
@@ -536,11 +536,12 @@ async (page) => {
   const layout = await page.evaluate(() => {
     const host = document.querySelector("app-recap-page")
     const kids = [...host.children].flatMap((k) => (getComputedStyle(k).display === "contents" ? [...k.children] : [k])).filter((k) => k.getBoundingClientRect().height > 0)
-    return { gaps: kids.slice(1).map((k, i) => Math.round(k.getBoundingClientRect().top - kids[i].getBoundingClientRect().bottom)), sendReport: /Envoyer ce rapport|Send this report/.test(host.textContent) }
+    return { gaps: kids.slice(1).map((k, i) => Math.round(k.getBoundingClientRect().top - kids[i].getBoundingClientRect().bottom)), sendReport: host.querySelectorAll('[data-action="send-report"]').length }
   })
   const scroll = await pageScroll()
   out.measures.layout = layout
-  check("sections 24px apart, no send-report button, no page scroll at 1280 x 800", layout.gaps.every((g) => g === 24) && layout.sendReport === false && !scroll.v && !scroll.h, { layout, scroll })
+  // Le bouton « Envoyer ce rapport » est dans le pied du run passe depuis monitoring/04 (preuve : `page/feedback-send.js`).
+  check("sections 24px apart, one send-report button, no page scroll at 1280 x 800", layout.gaps.every((g) => g === 24) && layout.sendReport === 1 && !scroll.v && !scroll.h, { layout, scroll })
   await toggleOf("Your Mind").click()
   await toggleOf("Sentiment").click()
   await settle()
@@ -768,7 +769,7 @@ async (page) => {
     return { ...(await block()), ...extra, ctxAfterTarget }
   }
   const liveNoTarget = await liveFoot(false)
-  check("live run before the past runs list it: header holds the title only, back alone in the footer 8px under the table, no context, no restore-run or new-run", liveNoTarget.h1InHead && liveNoTarget.headIsDirectChild && !liveNoTarget.backInHead && liveNoTarget.backInFooter && liveNoTarget.backCount === 1 && JSON.stringify(liveNoTarget.footerButtons) === JSON.stringify([1]) && Math.abs(liveNoTarget.backLeftDelta) <= 1 && liveNoTarget.gap === 8 && liveNoTarget.colGap === 8 && liveNoTarget.footerNextToTable && liveNoTarget.ctx === false && liveNoTarget.noContextRow && liveNoTarget.restoreRun === 0 && liveNoTarget.newRun === 0, liveNoTarget)
+  check("live run before the past runs list it: header holds the title only, back then the disabled send-report button in the footer 8px under the table, no context, no restore-run or new-run", liveNoTarget.h1InHead && liveNoTarget.headIsDirectChild && !liveNoTarget.backInHead && liveNoTarget.backInFooter && liveNoTarget.backCount === 1 && JSON.stringify(liveNoTarget.footerButtons) === JSON.stringify([2]) && Math.abs(liveNoTarget.backLeftDelta) <= 1 && liveNoTarget.gap === 8 && liveNoTarget.colGap === 8 && liveNoTarget.footerNextToTable && liveNoTarget.ctx === false && liveNoTarget.noContextRow && liveNoTarget.restoreRun === 0 && liveNoTarget.newRun === 0, liveNoTarget)
   // La date du run vivant vient des runs passes, relus apres l'ecriture ; une cible de restauration
   // passee a un autre run ne l'efface pas.
   const LIVE_RUN = run(LIVE, LIVE_WRITTEN_AT, "C:\\Sets")
