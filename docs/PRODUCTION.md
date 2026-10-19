@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-10-13"
+date: "2026-10-19"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
@@ -672,6 +672,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
 | Plan de run, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
 | Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | `appLocalDataDir()/dumps`, aucune sauvegarde |
+| Export de feedback (machine utilisateur) | À chaque envoi de rapport | 30 jours, purgé au démarrage | `appLocalDataDir()/feedback`, aucune sauvegarde |
 | Registre des rapports `reports.json` (machine utilisateur) | À chaque run écrit | Permanente | `appLocalDataDir()`, aucune sauvegarde : perdu, il laisse les rapports dans leurs dossiers mais les runs passés ne sont plus listés |
 
 > **Le mot de passe de l'archive ne va pas dans l'archive.** Il s'écrit sur papier, ou se mémorise. C'est le seul maillon qui n'a pas de copie numérique, par construction.

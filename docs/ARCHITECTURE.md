@@ -1,7 +1,7 @@
 ---
 title: "ARCHITECTURE — Vue d'ensemble"
 description: "Architecture de techno-tagger : application desktop Tauri + Angular à sidecar Python, consommatrice de l'API techno-scraper, pour le re-tagging et l'organisation de bibliothèques musicales DJ."
-date: "2026-10-13"
+date: "2026-10-19"
 keywords: ["architecture", "adr", "desktop", "tauri", "sidecar", "dj", "metadata"]
 scope: ["docs", "architecture"]
 technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "Python", "pydantic", "mutagen", "rapidfuzz", "httpx2", "PyInstaller"]
@@ -120,7 +120,7 @@ techno-tagger/
 │   │   ├── resolution/                   # scoring rapidfuzz, client techno-scraper, cache, sources
 │   │   ├── tags/                         # mutagen, dump des tags d'origine, renommage
 │   │   ├── run/                          # run vivant : état (models), pipeline, arbitrage, rattrapage URL, écriture, rollback, plan, reprise
-│   │   └── reports/                      # rapports d'extraction et de re-tagging, registre des runs passés, issue de retour de matching
+│   │   └── reports/                      # rapports d'extraction et de re-tagging, registre des runs passés, issue de retour de matching et son export nettoyé
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
 │   │   ├── unit/                         # un module isole, un sous-dossier par package de src/tagger/
 │   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
@@ -168,7 +168,7 @@ graph TB
             side["Sidecar Python<br/>process long"]
         end
         fs[("Bibliothèque musicale<br/>MP3 / WAV / AIFF / FLAC")]
-        data[("appLocalDataDir<br/>plans de run, registre des rapports, cache, dumps des tags, logs")]
+        data[("appLocalDataDir<br/>plans de run, registre des rapports, cache, dumps des tags, exports de feedback, logs")]
         kr[("Credential Manager Windows")]
     end
 
@@ -452,7 +452,7 @@ Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre
 | | `observability.py` | Init Sentry durci, scrubbing PII |
 | | `build_info.py` | Façade des constantes gravées au packaging |
 | | `api_key.py` | Clé API dans le trousseau, via keyring |
-| | `run_files.py` | Nom horodaté, écriture atomique, lecture versionnée et rétention des fichiers d'un run, partagés par dumps, plans et rapports |
+| | `run_files.py` | Nom horodaté, écriture atomique, lecture versionnée et rétention des fichiers d'un run, partagés par dumps, plans, rapports et exports de feedback |
 | | `tasks.py` | Annulation groupée de tâches asyncio, partagée par la session et les runs |
 | `playlists/` | `vlc.py`, `m3u8.py`, `models.py`, `errors.py` | Parsing VLC SQLite et M3U8, façade dans `__init__.py` |
 | | `extraction.py` | Copie ou déplacement des morceaux d'une playlist |
@@ -666,7 +666,7 @@ La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en 
 
 ## 🗄️ Données
 
-**Aucune base de données.** Trois familles de fichiers, aux durées de vie et aux emplacements distincts :
+**Aucune base de données.** Des fichiers aux durées de vie et aux emplacements distincts :
 
 | Artefact | Emplacement | Durée de vie | Rôle |
 |---|---|---|---|
@@ -677,6 +677,7 @@ La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en 
 | Registre des rapports | `appLocalDataDir()/reports.json` | Permanente, une entrée par run écrit, rapports disparus écartés à la lecture | Liste des runs passés |
 | Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé**. Un morceau en sort une fois restauré, ou quand son fichier est introuvable sous ses deux noms tant que son dossier d'origine existe : si le dossier a disparu (disque externe débranché, lettre de lecteur changée), l'entrée reste, pour ne pas perdre les tags d'origine. Le dump porte le dossier du run (`folder`), que le rollback annonce tel quel plutôt que de le déduire des chemins. Depuis le 2026-10-11, une note de renommage s'écrit au journal voisin (ligne suivante) et une note qui ne s'y écrit pas refuse le renommage : le morceau passe en `write_error` (tags écrits, relance possible), car un fichier renommé sans note serait introuvable au rollback. Une note restée derrière un renommage raté est effacée par une note nulle, son nom n'étant pas occupé : sans cela, le rollback rendrait le fichier d'un autre morceau. Un dump vidé est supprimé : le dernier run annulable devient le précédent | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
 | Journal des renommages du dump | `appLocalDataDir()/dumps`, voisin de son dump, `<dump>.renames.ndjson` | Le temps d'une phase d'écriture : supprimé quand le dump est réécrit en fin de phase ou vidé, purgé avec la rétention du dump sinon, **y compris orphelin** | Une ligne par renommage, ajoutée puis forcée sur le disque (`flush` et `fsync`) avant que le fichier ne bouge, fusionnée au dump à chaque chargement. Évite la réécriture complète du dump à chaque morceau, quadratique, sans perdre la garantie « note avant déplacement ». Une dernière ligne tronquée par une coupure est ignorée : elle n'a jamais précédé un renommage |
+| Export de feedback | `appLocalDataDir()/feedback`, un JSON par envoi nommé `<horodatage>-<run_id>.json` | 30 jours, purgé au démarrage, temporaire d'une écriture coupée compris | Run nettoyé (ni dossier ni `run_id` dans le contenu), joint à l'issue de retour par l'utilisateur. Jamais relu par l'application |
 | Logs du sidecar | `appLocalDataDir()/logs` | Rotation à 5 Mo, 3 sauvegardes | Débogage à distance chez un utilisateur |
 
 Plan et dump vivent dans `appLocalDataDir()`, jamais dans le dossier de musique (cf. [ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)). Les deux rapports sont **en anglais**, indépendamment de la langue de l'interface : le JSON l'est déjà par construction, le Markdown n'en est que le rendu (cf. [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).

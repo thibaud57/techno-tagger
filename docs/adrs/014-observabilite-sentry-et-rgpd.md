@@ -125,7 +125,7 @@ S'y ajoute le **scrubbing des chemins de fichiers** dans les frames, qui contien
 ## Positives
 
 - Un plantage chez un ami remonte automatiquement, avec sa stack trace, sans rien lui demander et sans qu'il puisse l'oublier
-- La protection repose sur trois réglages vérifiables (la liste fermée des messages d'exception en fait partie) plutôt que sur une déclaration d'intention
+- La protection repose sur trois réglages et la liste fermée des messages d'exception, tous vérifiables, plutôt que sur une déclaration d'intention
 - Le quota gratuit reste disponible pour ce qui compte
 - Aucun écran, aucune traduction, aucune branche d'initialisation à maintenir
 - Le rapport JSON sert trois usages avec un seul artefact : relecture par l'application, lisibilité humaine via le Markdown, et feedback
