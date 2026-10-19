@@ -2,7 +2,7 @@
 feature: "Feature 9 : Monitoring"
 subproject: "payloads-sans-titre"
 goal: "Garantir qu'aucun titre de morceau, nom de fichier ni clé API n'atteint un payload Sentry, côté sidecar comme côté webview, prouvé par un test sur l'enveloppe réellement construite."
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: []
