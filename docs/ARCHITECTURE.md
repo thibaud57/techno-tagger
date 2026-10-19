@@ -1085,7 +1085,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 | 5 | Onglet playlist, câblage i18n | La plus simple, valide la chaîne complète UI vers sidecar. L'i18n se câble au premier écran, l'ajouter après oblige à reprendre chaque libellé. La clé API, prévue ici, a été livrée en tête de l'étape 6 (sub-project `cle-api` de la Feature 2), avant le pipeline qui ne peut pas tourner sans elle. |
 | 6 | Onglet scraping, pipeline et liste | Le cœur |
 | 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, bouton de rollback, plan de run et reprise, rapport, récapitulatif et runs passés | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
-| 8 | Reste des Settings, monitoring | Transversaux, une fois le flux principal stable |
+| 8 | Reste des Settings, monitoring | Transversaux, une fois le flux principal stable. Monitoring livré avec la Release v0.9.0 (2026-10-19). |
 | 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers |
 
 ---
