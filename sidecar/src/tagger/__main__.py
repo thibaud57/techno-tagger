@@ -73,6 +73,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
+from tagger.reports.feedback import feedback_dir, purge_feedback_exports
 from tagger.run.arbitration import ArbitrationNotPendingError
 from tagger.run.plan import discard_plan, plan_dir, purge_plans, require_plan
 from tagger.run.resume import load_resumable
@@ -505,6 +506,7 @@ def main() -> None:
     init_sentry(SENTRY_DSN, RELEASE)
     _purge_old_dumps()
     _purge_old_plans()
+    _purge_old_feedback()
     # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
     # points rend une liste vide et keyring basculerait sur son backend `fail`.
     # `KeyringBackend.__init__` n'annote pas son retour (cf. memory_keyring.py).
@@ -528,6 +530,14 @@ def _purge_old_plans() -> None:
         purge_plans(plan_dir(), datetime.now(UTC))
     except OSError:
         logger.exception("run plan purge failed")
+
+
+def _purge_old_feedback() -> None:
+    # Meme garde que les dumps : un export qui reste quelques jours de plus ne gene personne.
+    try:
+        purge_feedback_exports(feedback_dir(), datetime.now(UTC))
+    except OSError:
+        logger.exception("feedback export purge failed")
 
 
 async def run_loop(stdin: TextIO, stdout: TextIO) -> None:

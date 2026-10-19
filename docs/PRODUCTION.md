@@ -534,7 +534,7 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 | Erreur de la webview | Exception Angular non gérée | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
 
-> **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8).
+> **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8). Les retours arrivent en issues du dépôt sous le label `matching-report`, posé par l'Issue Form `matching-report.yml`. Le label doit exister dans le dépôt, sinon le formulaire ne le pose pas, sans erreur.
 
 > **Pas d'alerte sur un run raté.** Un run avec beaucoup de non-résolus est un cas fonctionnel, pas un incident technique : il se lit dans le rapport, pas dans Sentry. Y envoyer un event par échec brûlerait le quota gratuit et noierait les vrais crashs.
 

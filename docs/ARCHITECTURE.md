@@ -120,7 +120,7 @@ techno-tagger/
 │   │   ├── resolution/                   # scoring rapidfuzz, client techno-scraper, cache, sources
 │   │   ├── tags/                         # mutagen, dump des tags d'origine, renommage
 │   │   ├── run/                          # run vivant : état (models), pipeline, arbitrage, rattrapage URL, écriture, rollback, plan, reprise
-│   │   └── reports/                      # rapports d'extraction et de re-tagging, registre des runs passés
+│   │   └── reports/                      # rapports d'extraction et de re-tagging, registre des runs passés, issue de retour de matching
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
 │   │   ├── unit/                         # un module isole, un sous-dossier par package de src/tagger/
 │   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
@@ -474,6 +474,7 @@ Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre
 | `reports/` | `extraction.py` | Rapport d'extraction, JSON et Markdown |
 | | `tagging.py` | Rapport de re-tagging d'un run, JSON et Markdown, relecture migrable |
 | | `index.py` | Registre des rapports écrits, pour rouvrir un run passé |
+| | `feedback.py` | Issue de retour de matching : URL de l'Issue Form, URL bornée à 2048 caractères, export nettoyé du run |
 
 Les tests unitaires suivent le même découpage : `tests/unit/<package>/`, les tests de la racine (`__main__`, `protocol`, `handlers`, `translation`) restant dans `tests/unit/`.
 
@@ -967,7 +968,7 @@ Le seul geste explicite est le bouton « envoyer ce rapport » de l'écran final
 
 Notifications Sentry par courriel sur nouvelle issue, sans règle plus fine. Un projet à quelques utilisateurs n'a pas de volume justifiant une astreinte.
 
-Le canal d'amélioration du matching n'est pas Sentry mais ce bouton, qui ne consomme pas le quota. **L'application ne pousse rien elle-même** : le plugin `opener` ouvre le navigateur, l'utilisateur relit, ampute ou abandonne l'issue avant de valider. La règle « HTTPS vers techno-scraper, Sentry et GitHub uniquement » reste donc vraie.
+Le canal d'amélioration du matching n'est pas Sentry mais ce bouton, qui ne consomme pas le quota. **L'application ne pousse rien elle-même** : le plugin `opener` ouvre le navigateur, l'utilisateur relit, ampute ou abandonne l'issue avant de valider. La règle « HTTPS vers techno-scraper, Sentry et GitHub uniquement » reste donc vraie. Le bouton ouvre l'Issue Form `matching-report.yml`, qui pose le label `matching-report`, pré-remplie d'un résumé qui tient dans une URL de 2048 caractères ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). L'export nettoyé du run, écrit dans `appLocalDataDir()/feedback/`, se glisse dans l'issue ; il est purgé au démarrage 30 jours après la date du run, portée par le nom de l'export.
 
 ## 🧪 Tests
 

@@ -8,7 +8,7 @@ import sys
 import tomllib
 from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Final, NamedTuple
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,7 +16,9 @@ from repo_files import REPO, read_json
 from run_plans import plan_of, save_plan
 from tagging_records import RECORD
 
-from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, __main__, __version__
+from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, REPOSITORY_URL, __main__, __version__
+from tagger.core.run_files import stamped_name
+from tagger.reports.feedback import feedback_dir
 from tagger.run.plan import plan_dir
 
 if TYPE_CHECKING:
@@ -67,6 +69,12 @@ def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None
             autospec=True,
             side_effect=_noting(startup.calls, "_purge_old_plans"),
         ),
+        patch.object(
+            __main__,
+            "_purge_old_feedback",
+            autospec=True,
+            side_effect=_noting(startup.calls, "_purge_old_feedback"),
+        ),
     ):
         __main__.main()
 
@@ -75,25 +83,38 @@ def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None
         "init_sentry",
         "_purge_old_dumps",
         "_purge_old_plans",
+        "_purge_old_feedback",
         "run_loop",
     ]
 
 
+# Fonction de purge du module de domaine, et garde de `__main__` qui l'appelle.
+_PURGES: Final = {
+    "purge_dumps": "_purge_old_dumps",
+    "purge_plans": "_purge_old_plans",
+    "purge_feedback_exports": "_purge_old_feedback",
+}
+
+
 @pytest.mark.parametrize(
-    ("failing", "skipped", "message"),
+    ("failing", "message"),
     [
-        ("purge_dumps", "_purge_old_plans", "tag dump purge failed"),
-        ("purge_plans", "_purge_old_dumps", "run plan purge failed"),
+        ("purge_dumps", "tag dump purge failed"),
+        ("purge_plans", "run plan purge failed"),
+        ("purge_feedback_exports", "feedback export purge failed"),
     ],
-    ids=["dumps", "plans"],
+    ids=["dumps", "plans", "feedback"],
 )
 def test_a_failed_purge_never_stops_the_startup(
-    startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str, skipped: str, message: str
+    startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str, message: str
 ) -> None:
-    with (
-        patch.object(__main__, failing, autospec=True, side_effect=OSError(5, "denied")),
-        patch.object(__main__, skipped, autospec=True),
-    ):
+    with ExitStack() as patches:
+        patches.enter_context(
+            patch.object(__main__, failing, autospec=True, side_effect=OSError(5, "denied"))
+        )
+        for purge, guard in _PURGES.items():
+            if purge != failing:
+                patches.enter_context(patch.object(__main__, guard, autospec=True))
         __main__.main()
 
     startup.run_loop.assert_called_once()
@@ -106,6 +127,19 @@ def test_the_startup_purge_removes_the_plans_older_than_thirty_days(tmp_path: Pa
     expired = save_plan(plan_dir(), plan_of(tmp_path, [RECORD], started_at=started_at))
 
     __main__._purge_old_plans()
+
+    assert not expired.exists()
+
+
+@pytest.mark.usefixtures("app_data")
+def test_the_startup_purge_removes_the_feedback_exports_older_than_thirty_days() -> None:
+    expired = feedback_dir() / stamped_name(
+        datetime.now(UTC) - timedelta(days=31), "a1b2c3", ".json"
+    )
+    expired.parent.mkdir(parents=True)
+    expired.write_text("{}", encoding="utf-8")
+
+    __main__._purge_old_feedback()
 
     assert not expired.exists()
 
@@ -268,3 +302,10 @@ def test_the_ci_node_major_is_declared_in_engines() -> None:
     major = _setup_input("setup-pnpm", "runtime").removeprefix("node@")
 
     assert f"^{major}." in str(read_json("package.json", "engines", "node"))
+
+
+def test_the_repository_url_is_the_one_cargo_publishes() -> None:
+    """Recopiee a la main : l'issue de retour de matching s'ouvrirait sur un autre depot."""
+    cargo = tomllib.loads((REPO / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
+
+    assert cargo["package"]["repository"] == REPOSITORY_URL
