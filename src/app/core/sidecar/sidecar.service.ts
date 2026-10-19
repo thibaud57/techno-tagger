@@ -8,6 +8,7 @@ import {
   ExtractionFinishedEvent,
   ExtractionProgressEvent,
   ExtractionRequest,
+  FeedbackReadyEvent,
   InterruptedRun,
   PlaylistsListedEvent,
   PHASE_BUSY,
@@ -44,6 +45,7 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   run_loaded: true,
   cache_size: true,
   cache_cleared: true,
+  feedback_ready: true,
   error: true,
 }
 
@@ -94,8 +96,11 @@ export class SidecarService {
   private readonly _apiKeyConfigured = signal<boolean | null>(null)
   private readonly _defaultThresholds = signal<ThresholdsPayload | null>(null)
   private readonly _logFile = signal<string | null>(null)
+  private readonly _sentrySelftest = signal(false)
   private readonly _cacheSize = signal<number | null>(null)
   private readonly _cacheCleared = signal<CacheClearedEvent | null>(null)
+  private readonly _feedbackReady = signal<FeedbackReadyEvent | null>(null)
+  private readonly _feedbackPending = signal<string | null>(null)
   private readonly _cacheClearing = signal(false)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _listedPlaylistPath = signal<string | null>(null)
@@ -158,12 +163,18 @@ export class SidecarService {
   /** `null` tant que la version n'est pas arrivee, comme `apiKeyConfigured`. */
   readonly defaultThresholds = this._defaultThresholds.asReadonly()
   readonly logFile = this._logFile.asReadonly()
+  /** Le moteur demande l'evenement de test de la webview (PRODUCTION.md § Observabilite). */
+  readonly sentrySelftest = this._sentrySelftest.asReadonly()
   /** Octets du cache, `null` avant la premiere mesure. */
   readonly cacheSize = this._cacheSize.asReadonly()
   /** Dernier vidage : de quoi l'annoncer. */
   readonly cacheCleared = this._cacheCleared.asReadonly()
   /** `clear_cache` envoye sans reponse encore : vrai jusqu'a `cache_cleared` ou son refus. */
   readonly cacheClearing = this._cacheClearing.asReadonly()
+  /** Derniere issue de retour preparee : de quoi l'ouvrir et reveler son export. */
+  readonly feedbackReady = this._feedbackReady.asReadonly()
+  /** Run dont l'issue de retour se prepare, `null` hors attente. */
+  readonly feedbackPending = this._feedbackPending.asReadonly()
   readonly versionMismatch = computed(() => {
     const sidecar = this._version()
 
@@ -554,6 +565,15 @@ export class SidecarService {
     await this.send({ command: "load_run", run_id: runId })
   }
 
+  /** Comme `loadRun`, sans moteur rien ne part. Le second clic reecrirait le meme export : ignore. */
+  async prepareFeedback(runId: string): Promise<void> {
+    if (this._available() !== true || this._feedbackPending() === runId) {
+      return
+    }
+    this._feedbackPending.set(runId)
+    await this.send({ command: "prepare_feedback", run_id: runId })
+  }
+
   /**
    * La cle part une fois vers le sidecar et n'est gardee dans aucun signal : seul
    * son etat revient, par l'evenement `version`.
@@ -660,6 +680,16 @@ export class SidecarService {
     void this.askInterruptedRun()
   }
 
+  /**
+   * Seule la reponse du run attendu leve l'attente : une autre ne dit rien du run demande
+   * ensuite. Un refus sans `run_id` (ligne malformee) ne designe aucun run : il la leve, faute de mieux.
+   */
+  private settleFeedback(runId: unknown): void {
+    if (runId === undefined || runId === this._feedbackPending()) {
+      this._feedbackPending.set(null)
+    }
+  }
+
   private routeLoadRunError(event: SidecarErrorEvent): void {
     if (event.command === "load_run") {
       this.pastRunsStore.loadFailed(event)
@@ -688,6 +718,7 @@ export class SidecarService {
     this.arbitration.clear()
     this.urlRecovery.clear()
     this._cacheClearing.set(false)
+    this._feedbackPending.set(null)
     // Le run charge reste affiche : seul l'attente tombe, sinon `loadRun` du meme id ne repart plus.
     this.pastRunsStore.loadAbandoned()
   }
@@ -728,6 +759,7 @@ export class SidecarService {
         this._apiKeyConfigured.set(event.api_key_configured)
         this._defaultThresholds.set(event.default_thresholds)
         this._logFile.set(event.log_file)
+        this._sentrySelftest.set(event.sentry_selftest)
         if (firstAnswer || keySaved) {
           void this.askInterruptedRun()
         }
@@ -798,6 +830,10 @@ export class SidecarService {
       case "run_loaded":
         this.pastRunsStore.loadedRun(event)
         break
+      case "feedback_ready":
+        this.settleFeedback(event.run_id)
+        this._feedbackReady.set(event)
+        break
       case "error":
         // Avant `setLastError` : la relance de l'annonce passe par `send`, qui efface l'erreur courante.
         this.routeResumeError(event)
@@ -810,6 +846,9 @@ export class SidecarService {
         this.routeLaunchError(event)
         // `load_run` n'ouvre aucune phase, mais une phase occupee le refuse aussi : le chargement tombe.
         this.routeLoadRunError(event)
+        if (event.command === "prepare_feedback") {
+          this.settleFeedback(event.params["run_id"])
+        }
         // Un refus pour phase occupee ne concerne que les lancements : aucun geste n'en recoit.
         if (event.code === PHASE_BUSY) {
           break

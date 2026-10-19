@@ -2,7 +2,7 @@
 feature: "Feature 9 : Monitoring"
 subproject: "protocole-ndjson-retour"
 goal: "Exposer à l'interface, par le protocole NDJSON, l'URL de l'issue de retour d'un run et le chemin de son export nettoyé, préparés à la demande par le sidecar."
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "full"
 depends_on: ["02-issue-de-retour-sidecar-design.md"]

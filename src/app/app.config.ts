@@ -15,6 +15,7 @@ import { firstValueFrom } from "rxjs"
 
 import { routes } from "./app.routes"
 import { FALLBACK_LANGUAGE, LANGUAGES, resolveStartupLanguage } from "./core/i18n/language"
+import { SentrySelftestService } from "./core/observability/sentry-selftest.service"
 import { CompletionSignalService } from "./core/platform/completion-signal.service"
 import { PreferencesService } from "./core/platform/preferences.service"
 import { TECHNO_TAGGER_PRESET } from "./core/platform/theme"
@@ -69,9 +70,11 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       void inject(SidecarService).start()
     }),
-    // Construit des le demarrage : une phase s'annonce quel que soit l'onglet.
+    // Construits des le demarrage : une phase s'annonce quel que soit l'onglet et le self-test
+    // Sentry part sans attendre qu'un ecran l'injecte.
     provideAppInitializer(() => {
       inject(CompletionSignalService)
+      inject(SentrySelftestService)
     }),
   ],
 }

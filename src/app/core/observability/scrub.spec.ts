@@ -1,65 +1,58 @@
-import { MASK, scrub } from "./scrub"
+import PATH_MASK_CASES from "../../../fixtures/path-masks.json"
+import { MASK, PATH_MASK, scrub } from "./scrub"
 
 /**
  * Le masquage est la seule barriere cote webview : `Breadcrumbs` et `Replay` sont
- * retirees, mais un message d'erreur formate autour d'un morceau porte son chemin.
+ * retirees, mais un message d'erreur formate autour d'un morceau porte son chemin, donc
+ * le nom du fichier, l'artiste et le titre.
  */
 describe("scrub", () => {
   const scrubbed = (event: object): Record<string, unknown> =>
     scrub(event as never, {}) as unknown as Record<string, unknown>
 
-  it.each([
-    ["Windows", "C:\\Users\\jane\\Music\\set.flac", `C:\\Users\\${MASK}\\Music\\set.flac`],
-    ["Windows with slashes", "C:/Users/jane/Music/set.flac", `C:/Users/${MASK}/Music/set.flac`],
-    ["Linux", "/home/jane/Music/set.flac", `/home/${MASK}/Music/set.flac`],
-    ["macOS", "/Users/jane/Music/set.flac", `/Users/${MASK}/Music/set.flac`],
-  ])("masks the username in a %s path, at any depth", (_form, path, expected) => {
-    const event = { message: `cannot read ${path}`, extra: { nested: { path } } }
+  // Corpus partage avec `test_observability.py` : le motif est recopie des deux cotes, seul ce
+  // corpus commun fait echouer la derive de l'un sans l'autre.
+  it.each(PATH_MASK_CASES)("masks like the sidecar: $case", ({ message, expected }) => {
+    const event = { message }
 
     const result = scrubbed(event)
 
-    expect(result["message"]).toBe(`cannot read ${expected}`)
-    expect(result["extra"]).toEqual({ nested: { path: expected } })
+    expect(result["message"]).toBe(expected)
   })
 
-  it("leaves a value that is not a string alone", () => {
-    const event = { extra: { tracks: 42, retried: false } }
-
-    const result = scrubbed(event)
-
-    expect(result["extra"]).toEqual({ tracks: 42, retried: false })
-  })
-
-  it.each([
-    ["a space", "Jane Doe"],
-    ["an apostrophe", "O'Brien"],
-  ])("masks an account name containing %s", (_case, account) => {
-    const event = { message: `cannot read C:\\Users\\${account}\\Music\\set.flac` }
-
-    const result = scrubbed(event)
-
-    expect(result["message"]).toBe(`cannot read C:\\Users\\${MASK}\\Music\\set.flac`)
-  })
-
-  it("masks a mapping key as well as its value", () => {
-    const event = { extra: { "C:\\Users\\jane\\Music": "locked" } }
-
-    const result = scrubbed(event)
-
-    expect(result["extra"]).toEqual({ [`C:\\Users\\${MASK}\\Music`]: "locked" })
-  })
-
-  it("masks every path in an array", () => {
+  it("masks the username of the POSIX home folders", () => {
     const event = {
       extra: {
-        paths: ["C:\\Users\\jane\\Music\\a.flac", "C:\\Users\\jane\\Music\\b.flac"],
+        posix: "/home/jane/Music/set.flac",
+        macos: "/Users/jane/Music/set.flac",
+        tracks: 42,
       },
     }
 
     const result = scrubbed(event)
 
     expect(result["extra"]).toEqual({
-      paths: [`C:\\Users\\${MASK}\\Music\\a.flac`, `C:\\Users\\${MASK}\\Music\\b.flac`],
+      posix: `/home/${MASK}/Music/set.flac`,
+      macos: `/Users/${MASK}/Music/set.flac`,
+      tracks: 42,
     })
+  })
+
+  it("masks a mapping key as well as its value", () => {
+    const event = { extra: { [String.raw`D:\Musique\Nova Pulse - Your Mind.mp3`]: "locked" } }
+
+    const result = scrubbed(event)
+
+    expect(result["extra"]).toEqual({ [PATH_MASK]: "locked" })
+  })
+
+  it("masks every path in an array", () => {
+    const event = {
+      extra: { paths: [String.raw`D:\Musique\a.flac`, String.raw`D:\Musique\b.flac`] },
+    }
+
+    const result = scrubbed(event)
+
+    expect(result["extra"]).toEqual({ paths: [PATH_MASK, PATH_MASK] })
   })
 })

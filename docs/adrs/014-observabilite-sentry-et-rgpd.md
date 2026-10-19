@@ -101,7 +101,7 @@ Le consentement est écarté parce qu'il **déplace la protection au mauvais end
 
 | Réglage | Valeur | Pourquoi |
 |---|---|---|
-| `include_local_variables` | `False` | **Vaut `True` par défaut.** Le SDK joint alors un instantané des variables locales de chaque frame : chemins complets, artiste et titre en cours, et potentiellement la clé API si elle passe par une variable locale de `resolution/scraper_client.py`. |
+| `include_local_variables` (remplacé le 2026-10-15, voir la mise à jour du 2026-10-15) | `False` | **Vaut `True` par défaut.** Le SDK joint alors un instantané des variables locales de chaque frame : chemins complets, artiste et titre en cours, et potentiellement la clé API si elle passe par une variable locale de `resolution/scraper_client.py`. |
 | `server_name` | valeur fixe | Auto-détecté par défaut, donc le nom de la machine part avec chaque événement. |
 | `send_default_pii` | défaut conservé | Déjà à `False`, ne pas l'activer. |
 
@@ -125,7 +125,7 @@ S'y ajoute le **scrubbing des chemins de fichiers** dans les frames, qui contien
 ## Positives
 
 - Un plantage chez un ami remonte automatiquement, avec sa stack trace, sans rien lui demander et sans qu'il puisse l'oublier
-- La protection repose sur trois réglages vérifiables plutôt que sur une déclaration d'intention
+- La protection repose sur trois réglages et la liste fermée des messages d'exception, tous vérifiables, plutôt que sur une déclaration d'intention
 - Le quota gratuit reste disponible pour ce qui compte
 - Aucun écran, aucune traduction, aucune branche d'initialisation à maintenir
 - Le rapport JSON sert trois usages avec un seul artefact : relecture par l'application, lisibilité humaine via le Markdown, et feedback
@@ -133,7 +133,7 @@ S'y ajoute le **scrubbing des chemins de fichiers** dans les frames, qui contien
 ## Négatives
 
 - **L'utilisateur ignore que ses plantages remontent.** Assumé sur un outil personnel entre amis, à revoir si la distribution s'élargissait
-- Les trois réglages de durcissement sont la seule protection : un oubli ou une régression expose immédiatement des données personnelles, d'où leur couverture par un test
+- Les trois réglages de durcissement et la liste fermée des messages d'exception sont la seule protection : un oubli ou une régression expose immédiatement des données personnelles, d'où leur couverture par un test
 - Les données de matching ne remontent qu'au gré des envois manuels, donc rarement et sans représentativité
 - Deux canaux à maintenir, avec deux formats de charge utile
 
@@ -156,5 +156,9 @@ La règle des `code` + `params` porte donc sur le **flux NDJSON**, pas sur les f
 Le DSN Sentry est injecté au build depuis un secret GitHub Actions. Un DSN vide rend le SDK inerte, ce qui reste le moyen de désactiver la remontée en développement.
 
 **Mise à jour 2026-10-11** : le scrubbing des chemins du sidecar ne se limite plus au dossier de l'utilisateur. Tout chemin de lecteur (`D:\...`) ou UNC est masqué en `<path>`, en plus de `<user>` et de `<query>` (query string d'une URL). Le nom d'un fichier porte l'artiste et le titre : un chemin resté dans un message d'erreur ferait partir un titre de morceau, ce que « rien de personnel ne part » interdit. Le choix de scrubber ne change pas, seule sa portée s'élargit. Source : `sidecar/src/tagger/core/observability.py`.
+
+**Mise à jour 2026-10-15** : le durcissement du sidecar passe à `data_collection`, l'option que sentry-sdk documente depuis la 2.70.0 en remplacement de `send_default_pii` : chaque catégorie y est fermée, variables de frame comprises (`stack_frame_variables`), car dès qu'elle est posée le SDK ne lit plus `include_local_variables` et collecte toute catégorie omise (constaté le 2026-10-16 dans `client.py` de sentry-sdk 2.71.0). Le réglage `include_local_variables` du tableau « Durcissement, non négociable » est donc remplacé par `stack_frame_variables: False` et ce tableau garde la valeur d'origine à titre historique. Posée, l'option désactive aussi l'`EventScrubber` par défaut du SDK (constaté le 2026-10-16 dans `client.py` de sentry-sdk 2.71.0) : aucune donnée sensible ne passe par `set_extra`, `set_context` ni `set_tag`, que `before_send` ne saurait reconnaître. Un test lit la configuration résolue et casse sur une catégorie ajoutée par une montée du SDK. S'y ajoute une liste fermée des messages d'exception : tout message part en `<message>`, sauf ceux des types déclarés sans donnée (`ApiContractError`, dont le détail ne porte que les emplacements et types des erreurs de validation). Les messages du sidecar portent le nom du fichier ou le `track_id` et la `ValidationError` de pydantic la valeur reçue : aucun motif ne reconnaît un titre dans du texte libre. Le motif de chemin, des deux côtés, couvre un nom qui contient une apostrophe dans les formes que produit `repr()`. Un seul cas laisse un résidu, accepté : un chemin ouvert par `'` sans guillemet fermant, au nom à apostrophe (`open 'D:\Music\Nova Pulse - Don't Stop.mp3 failed`), laisse partir la fin du nom après la dernière apostrophe (`t Stop.mp3 failed`). `repr()` entoure un tel nom de `"` et tout message d'exception hors de la liste fermée part en `<message>` de toute façon. Côté webview, `dataCollection` ferme aussi les catégories `graphQL`, `genAI`, `databaseQueryData` et `queues`. Le test de sécurité de la note complémentaire porte sur l'enveloppe réellement construite par le SDK (`sidecar/tests/unit/core/test_sentry_payload.py`). Source : `sidecar/src/tagger/core/observability.py`, `src/app/core/observability/scrub.ts`, `src/app/core/observability/sentry-options.ts`.
+
+**Mise à jour 2026-10-16** : la forme de l'envoi se précise. Le bouton ouvre l'Issue Form `matching-report.yml`, qui pose le label `matching-report` : un paramètre `labels` dans l'URL rendrait une 404 à qui n'a pas le droit de poser un label, donc à tout utilisateur non collaborateur. L'URL, ouverte par `ShellExecuteExW`, tient en 2048 caractères : elle pré-remplit un résumé des morceaux qui en disent le plus sur le matching (non résolus, rattrapés par lien, arbitrés d'abord). Le run entier passe par un export JSON écrit dans `appLocalDataDir()/feedback/`, construit par liste fermée de champs (ni dossier du run, ni sous-dossier, ni commentaire d'origine), que l'utilisateur glisse dans l'issue ou non. L'application ne pousse toujours rien elle-même. Source : `sidecar/src/tagger/reports/feedback.py`.
 
 Référence : [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/).

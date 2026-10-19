@@ -279,6 +279,8 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 
 **Breaking Changes Majeurs** :
 - **2.68.0** : `enable_logs` et `enable_metrics` deviennent des no-op, suppression à la prochaine majeure
+- **2.70.0** : `data_collection` promue en option de premier niveau, successeur annoncé de `send_default_pii`. Dès qu'elle est posée, `include_local_variables` et `include_source_context` ne sont plus lus et une catégorie omise est collectée (lu dans `data_collection.py` et `utils.py` de 2.71.0 le 2026-10-15). Une catégorie `mcp` est en préparation (getsentry/sentry-python#7750, ouverte au 2026-10-15)
+- **2.70.0** : `data_collection` posée, le SDK n'installe plus son `EventScrubber` par défaut (`client.py`, `_get_options`, lu en 2.71.0 le 2026-10-16) : le denylist (`api_key`, `secret`, `token`, `password`...) ne s'applique plus aux champs libres. Aucune donnée sensible dans `set_extra`, `set_context` ni `set_tag` et pas de rappel manuel de `EventScrubber` dans `_scrub`
 - **2.71.0** : les notes annoncent « Keep event if processor raises », mais `before_send` se comporte comme en 2.70.0 : s'il lève, l'événement est jeté (lu dans `_Client._prepare_event` des deux versions le 2026-10-02). Le `_scrub` du sidecar reste un filet fermé
 - **Ce qui invalide les exemples en 1.x** : `with_locals` s'appelle désormais `include_local_variables`, et l'API Hub a cédé la place aux scopes. Pas de ligne 3.x à ce jour
 
@@ -287,11 +289,11 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - `AsyncioIntegration` **n'est pas** dans les intégrations par défaut, elle s'ajoute à la main
 - Livre un `py.typed`
 
-**Les trois réglages de durcissement d'[ARCHITECTURE.md § Monitoring](ARCHITECTURE.md#monitoring) sont confirmés dans le code source du SDK** :
+**Les réglages de durcissement d'[ARCHITECTURE.md § Monitoring](ARCHITECTURE.md#monitoring), vérifiés dans le code source du SDK** :
 
 | Réglage | Défaut réel | Vérification |
 |---|---|---|
-| `include_local_variables` | `True` | `ClientConstructor.__init__` : `include_local_variables: Optional[bool] = True` |
+| `data_collection` | `None` ; posée, toute catégorie omise vaut collecte, `stack_frame_variables` compris | `_resolve_explicit` : `d.get("stack_frame_variables", True)` |
 | `server_name` | `None`, **mais** repli automatique sur le hostname | `client.py` : `if rv["server_name"] is None and hasattr(socket, "gethostname"): rv["server_name"] = socket.gethostname()` |
 | `send_default_pii` | `None`, traité comme `False` | Ne pas activer |
 
@@ -299,7 +301,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - **Intégrations par défaut hors web** : `Argv`, `Atexit`, `Dedupe`, `Excepthook`, `Logging`, `Modules`, `Stdlib`, `Threading`. `ArgvIntegration` capture `sys.argv` et mérite d'être désactivée ici
 - **Plan Developer gratuit** : 5 000 erreurs par mois, rétention 30 jours, un seul utilisateur. Doc officielle : « Events and attachments that exceed your quota will not be accepted »
 
-**Recommandation** : ✅ Ajouter au périmètre de test : `include_local_variables=False` et `server_name` fixe se vérifient sur un événement construit, pas seulement par relecture de la config.
+**Recommandation** : ✅ Tester sur l'enveloppe réellement construite : variables de frame absentes, `server_name` fixe, `data_collection` résolu entièrement fermé (`sidecar/tests/unit/core/test_sentry_payload.py`).
 
 ### 9. PyInstaller
 **Version actuelle** : `6.22.3` (2026-09-12)

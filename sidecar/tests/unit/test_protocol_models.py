@@ -123,6 +123,7 @@ def test_an_event_serialises_on_a_single_line() -> None:
             event="version",
             version="1.2.3",
             api_key_configured=True,
+            sentry_selftest=False,
             default_thresholds=ThresholdsPayload(floor=65, ceiling=85),
             log_file=Path("C:/data/trace.log"),
         )

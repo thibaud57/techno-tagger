@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-10-13"
+date: "2026-10-19"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
@@ -234,7 +234,7 @@ SENTRY_AUTH_TOKEN=<Organization Auth Token, scope org:ci non modifiable, upload 
 GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 ```
 
-**Au runtime (machine utilisateur)** : **aucune variable d'environnement**. C'est la différence de fond avec une application 12-factor : il n'y a ni conteneur ni panneau d'administration où poser une valeur. La configuration vit à deux endroits, tous deux locaux :
+**Au runtime (machine utilisateur)** : **aucune variable de configuration**, hormis `TECHNO_TAGGER_SENTRY_SELFTEST` réservée au diagnostic. C'est la différence de fond avec une application 12-factor : il n'y a ni conteneur ni panneau d'administration où poser une valeur. La configuration vit à deux endroits, tous deux locaux :
 
 | Réglage | Emplacement | Pourquoi |
 |---|---|---|
@@ -242,6 +242,11 @@ GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 | Mode copie / déplacement, signal sonore, langue, dernière destination, seuils de matching | Store Tauri (fichier local) | Réglages non sensibles. L'URL de l'API n'en fait plus partie : constante du sidecar depuis le 2026-09-19 |
 
 Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `core/build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
+
+```bash
+# Runtime, diagnostic uniquement (cf. § Observabilité > Vérifier la remontée depuis l'application installée)
+TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécution ; 1 envoie un événement de test par côté (sidecar et webview), toute autre valeur rien>
+```
 
 ### Règles
 - ✅ **Aucun secret exploitable dans le binaire distribué** : ni clé API, ni token d'accès. Un `strings` sur un exécutable PyInstaller suffirait à l'extraire, et le dépôt est public. Les DSN Sentry font exception assumée : ils sont compilés par nécessité, et n'autorisent que l'**envoi** d'événements, jamais la lecture. Leur fuite permettrait au pire de polluer le quota, d'où leur présence dans le tableau de rotation.
@@ -321,7 +326,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le lien vers la fiche source et par le bouton « Ouvrir le dossier des logs » des Réglages, qui s'appuie sur `opener:allow-reveal-item-in-dir`, déjà accordé, sans nouvelle permission : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
 - [ ] **Préfixe `\\?\` sur les accès aux fichiers musicaux** (tags, renommage, rollback) : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
-- [ ] **Durcissement Sentry en place et testé** : `include_local_variables=False`, `server_name` fixe, `send_default_pii` au défaut, scrubbing des chemins. Trois réglages qui sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- [ ] **Durcissement Sentry en place et testé** : `data_collection` fermé catégorie par catégorie (variables de frame comprises), `server_name` fixe, messages d'exception masqués hors liste fermée, scrubbing des chemins. Ces réglages sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
 > Items techniques et de bootstrap, à valider empiriquement. Pas d'ADR : aucune décision architecturale structurelle, celles-ci vivent dans `adrs/`.
@@ -369,6 +374,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 - [ ] **Payload Sentry inspecté en vrai** : ouvrir un event réel dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau
 - [ ] **Clé API révoquée testée** : avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
 - [ ] **Release Sentry créée au tag** : la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy
+- [ ] **Issue de retour vérifiée en réel** : depuis l'application installée, « Envoyer ce rapport » sur un run réel ouvre l'Issue Form `matching-report.yml` pré-rempli sans troncature et l'Explorateur sur l'export ; envoyée depuis un compte non collaborateur, export glissé, l'issue porte le label `matching-report`
 
 > **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus (ils exigent une Release publiée) mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Restent à couvrir en post-MEP : la réception de l'**email**, la présence d'un **titre de morceau** dans un payload (aucun n'existe au bootstrap), et le comportement depuis une application **installée**.
 
@@ -505,6 +511,17 @@ Les deux projets vivent dans l'organisation `tg-ws`, sous les slugs `techno-tagg
 
 > **Ce que le monitoring ne voit pas, et ne verra jamais** : combien d'utilisateurs tournent, sur quelle version, et si la mise à jour est passée. Aucun événement métier n'est envoyé, aucun ping de version n'existe. C'est délibéré ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)) et cela conditionne toute la gestion d'incident : le parc est invisible, la seule information disponible est un crash spontané ou un ami qui écrit.
 
+### Vérifier la remontée depuis l'application installée
+
+Le mode développement ne prouve rien sur la remontée (DSN vide, SDK inerte). `TECHNO_TAGGER_SENTRY_SELFTEST=1` envoie un événement de test par côté depuis l'application installée.
+
+1. Fermer l'application : le plugin `single-instance` réveillerait la fenêtre ouverte, qui n'a pas la variable.
+2. Dans Sentry (organisation `tg-ws`), résoudre les issues de self-test d'un rejeu précédent : `SentrySelfTestError` dans `techno-tagger-sidecar`, `Error` « sentry self test » dans `techno-tagger-ui`. Un rejeu retombe dans le même groupe : sans nouvelle issue, aucun email ne part.
+3. Dans PowerShell : `$env:TECHNO_TAGGER_SENTRY_SELFTEST = "1"`, puis `& "$env:LOCALAPPDATA\techno-tagger\techno-tagger.exe"` (dossier par défaut d'une installation NSIS en `currentUser`, à confirmer par la cible du raccourci du menu Démarrer), puis `Remove-Item Env:TECHNO_TAGGER_SENTRY_SELFTEST` : sinon la variable reste posée dans la session et chaque lancement suivant enverrait ses événements.
+4. Dans Sentry, Issues de chaque projet : une issue `SentrySelfTestError` dans `techno-tagger-sidecar`, une issue `Error` dans `techno-tagger-ui`, chacune avec son email à l'adresse d'alerte du propriétaire.
+5. Ouvrir l'événement, puis la vue JSON (lien en tête de l'événement) et y rechercher `Nova`, `Mind`, le nom de compte Windows (`$env:USERNAME`), le nom de la machine (`$env:COMPUTERNAME`) et `vars` : aucune occurrence.
+6. Payload attendu : `release` identique des deux côtés, `environment: production` des deux côtés, `server_name` égal au nom de l'application sur l'événement du sidecar seulement (le SDK navigateur n'en pose pas), aucune variable de frame, aucun nom de compte ni chemin, aucun fragment du faux morceau ; message du sidecar en `<message>`, chemin de la webview en `<path>`.
+
 ## Métriques Clés
 
 Pas de métrique serveur à surveiller. Les signaux utiles se lisent dans Sentry et dans les rapports de run.
@@ -534,7 +551,7 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 | Erreur de la webview | Exception Angular non gérée | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
 
-> **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8).
+> **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8). Les retours arrivent en issues du dépôt sous le label `matching-report`, posé par l'Issue Form `matching-report.yml`. Le label doit exister dans le dépôt, sinon le formulaire ne le pose pas, sans erreur.
 
 > **Pas d'alerte sur un run raté.** Un run avec beaucoup de non-résolus est un cas fonctionnel, pas un incident technique : il se lit dans le rapport, pas dans Sentry. Y envoyer un event par échec brûlerait le quota gratuit et noierait les vrais crashs.
 
@@ -586,7 +603,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 
 ### Règles
 - ✅ **Jeu de clés logfmt fixe** : `run`, `track`, `source`, `score`, `status`, `reason`, `request_id`. C'est le seul coût du format : une clé inventée au fil des commits (`track_id` à côté de `track`) rend un `grep` faux sans que rien ne casse ni ne se voie. `request_id` reprend l'en-tête `X-Request-ID` de techno-scraper, seul lien entre une ligne du sidecar et la ligne correspondante côté API (ajoutée le 2026-09-19).
-- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS, ainsi que l'artiste et le titre par le nom du fichier (tout chemin de lecteur ou UNC part en `<path>` depuis le 2026-10-11, [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
+- ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS, ainsi que l'artiste et le titre par le nom du fichier (tout chemin de lecteur ou UNC part en `<path>` depuis le 2026-10-11 ; hors d'une liste fermée de types sans donnée, le message d'une exception part en `<message>` depuis le 2026-10-15, [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
 - ✅ **Une ligne par décision de matching** : score, source, état retenu. C'est la trace qui permet de comprendre après coup pourquoi un morceau est parti en arbitrage.
 - ✅ **Distinguer les motifs d'échec** : « aucune source n'a répondu » et « on n'avait rien à demander après nettoyage » sont deux lignes différentes, elles n'appellent pas la même correction.
 - ✅ **Erreur loguée une seule fois**, au point où elle est traitée, jamais aussi au point de levée : sinon un incident produit deux lignes et deux events Sentry.
@@ -596,7 +613,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 - ❌ **Logger les réponses brutes complètes** de techno-scraper en dehors de `DEBUG` : volume inutile dans un fichier plafonné à 5 Mo.
 - ❌ **Écrire les logs ailleurs que dans `appLocalDataDir()`** : ni à côté des fichiers musicaux (ce n'est pas un livrable), ni dans le dossier d'installation (droits insuffisants).
 - ❌ **Compter sur `stderr`** pour diagnostiquer chez un utilisateur : il n'y a pas de console dans une application empaquetée.
-- ❌ **Envoyer un titre de morceau à Sentry**, par un message d'erreur formaté ou une variable locale. C'est exactement ce que `include_local_variables=False` empêche, et ce qu'un message construit à la main pourrait réintroduire.
+- ❌ **Envoyer un titre de morceau à Sentry**, par un message d'erreur formaté ou une variable locale. C'est ce que `data_collection` fermé (variables de frame) et la liste fermée des messages empêchent et ce qu'un type ajouté à cette liste sans examen de son message réintroduirait.
 
 ---
 
@@ -655,6 +672,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
 | Plan de run, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
 | Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | `appLocalDataDir()/dumps`, aucune sauvegarde |
+| Export de feedback (machine utilisateur) | À chaque envoi de rapport | 30 jours, purgé au démarrage | `appLocalDataDir()/feedback`, aucune sauvegarde |
 | Registre des rapports `reports.json` (machine utilisateur) | À chaque run écrit | Permanente | `appLocalDataDir()`, aucune sauvegarde : perdu, il laisse les rapports dans leurs dossiers mais les runs passés ne sont plus listés |
 
 > **Le mot de passe de l'archive ne va pas dans l'archive.** Il s'écrit sur papier, ou se mémorise. C'est le seul maillon qui n'a pas de copie numérique, par construction.
@@ -725,7 +743,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 - [tauri-action](https://github.com/tauri-apps/tauri-action) : `tagName`, `releaseDraft`, `uploadUpdaterJson`
 - [release-please : customizing](https://github.com/googleapis/release-please/blob/main/docs/customizing.md) : `extra-files`, updaters TOML et JSON génériques
 - [GitHub Actions : déclencheurs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) : un tag créé par `GITHUB_TOKEN` ne déclenche aucun workflow
-- [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `include_local_variables`, `server_name`, `send_default_pii`
+- [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `data_collection`, `server_name`, `before_send`
 - [PyInstaller](https://pyinstaller.org) : modes `--onefile` et `--onedir`
 - [Dependabot : options de configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) : `package-ecosystem`, `directory`, `groups`
 - [pnpm : intégration continue](https://pnpm.io/continuous-integration) : `pnpm/setup`, et pourquoi Corepack n'est plus recommandé
@@ -736,4 +754,4 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 - ADRs opérationnels : [012 clé API et keyring](adrs/012-securite-cle-api-keyring.md), [013 cache jetable](adrs/013-cache-disque-jetable.md), [014 observabilité et vie privée](adrs/014-observabilite-sentry-et-rgpd.md), [015 cibles de distribution](adrs/015-cibles-distribution-windows.md), [016 multi-clés](adrs/016-multi-cles-techno-scraper.md), [018 versionnement des artefacts](adrs/018-versionnement-plan-de-run.md), [021 visibilité du dépôt](adrs/021-visibilite-du-depot.md)
 - [techno-scraper : PRODUCTION.md](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/PRODUCTION.md) : chaîne release-please et pièges de squash-merge, dont ce projet hérite
 - [PythonGUIs : antivirus et PyInstaller](https://www.pythonguis.com/faq/problems-with-antivirus-software-and-pyinstaller/) : pourquoi `--onefile` déclenche les heuristiques
-- [The Twelve-Factor App](https://12factor.net/) : référence dont ce projet s'écarte volontairement, faute de serveur et de variables d'environnement au runtime
+- [The Twelve-Factor App](https://12factor.net/) : référence dont ce projet s'écarte volontairement, faute de serveur et de variables de configuration au runtime (hormis `TECHNO_TAGGER_SENTRY_SELFTEST`, réservée au diagnostic)

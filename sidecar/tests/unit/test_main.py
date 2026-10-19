@@ -8,15 +8,18 @@ import sys
 import tomllib
 from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Final, NamedTuple
 from unittest.mock import Mock, patch
 
 import pytest
-from repo_files import REPO, read_json
+from repo_files import REPO, read_json, read_toml
 from run_plans import plan_of, save_plan
 from tagging_records import RECORD
 
-from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, __main__, __version__
+from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, REPOSITORY_URL, __main__, __version__
+from tagger.core.observability import SELFTEST_ENV
+from tagger.core.run_files import stamped_name
+from tagger.reports.feedback import feedback_dir
 from tagger.run.plan import plan_dir
 
 if TYPE_CHECKING:
@@ -53,19 +56,27 @@ def startup() -> Iterator[_Startup]:
         yield _Startup(mocks["run_loop"], calls)
 
 
-def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None:
+@pytest.fixture(autouse=True)
+def _no_self_test(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Une variable posee dans le shell du developpeur ferait executer le vrai `send_selftest`
+    par tous les tests qui appellent `main()`."""
+    monkeypatch.delenv(SELFTEST_ENV, raising=False)
+
+
+def test_logging_and_sentry_are_armed_before_the_loop(
+    startup: _Startup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(SELFTEST_ENV, "1")
+
     with (
         patch.object(
             __main__,
-            "_purge_old_dumps",
+            "send_selftest",
             autospec=True,
-            side_effect=_noting(startup.calls, "_purge_old_dumps"),
+            side_effect=_noting(startup.calls, "send_selftest"),
         ),
         patch.object(
-            __main__,
-            "_purge_old_plans",
-            autospec=True,
-            side_effect=_noting(startup.calls, "_purge_old_plans"),
+            __main__, "_purge_old", autospec=True, side_effect=_noting(startup.calls, "_purge_old")
         ),
     ):
         __main__.main()
@@ -73,31 +84,60 @@ def test_logging_and_sentry_are_armed_before_the_loop(startup: _Startup) -> None
     assert startup.calls == [
         "setup_logging",
         "init_sentry",
-        "_purge_old_dumps",
-        "_purge_old_plans",
+        "send_selftest",
+        "_purge_old",
         "run_loop",
     ]
 
 
 @pytest.mark.parametrize(
-    ("failing", "skipped", "message"),
-    [
-        ("purge_dumps", "_purge_old_plans", "tag dump purge failed"),
-        ("purge_plans", "_purge_old_dumps", "run plan purge failed"),
-    ],
-    ids=["dumps", "plans"],
+    ("value", "sent"),
+    [("1", True), ("true", False), (None, False)],
+    ids=["asked", "other-value", "absent"],
 )
-def test_a_failed_purge_never_stops_the_startup(
-    startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str, skipped: str, message: str
+def test_the_startup_sends_the_self_test_only_when_asked(
+    startup: _Startup, monkeypatch: pytest.MonkeyPatch, value: str | None, sent: bool
 ) -> None:
+    if value is not None:
+        monkeypatch.setenv(SELFTEST_ENV, value)
+
     with (
-        patch.object(__main__, failing, autospec=True, side_effect=OSError(5, "denied")),
-        patch.object(__main__, skipped, autospec=True),
+        patch.object(__main__, "send_selftest", autospec=True) as send_selftest,
+        patch.object(__main__, "_purge_old", autospec=True),
     ):
+        __main__.main()
+
+    assert send_selftest.called is sent
+
+
+# Purge appelee par `__main__` au demarrage : message d'echec attendu.
+PURGES: Final = {
+    "purge_dumps": "tag dump purge failed",
+    "purge_plans": "run plan purge failed",
+    "purge_feedback_exports": "feedback export purge failed",
+}
+
+
+@pytest.mark.usefixtures("app_data")
+@pytest.mark.parametrize("failing", PURGES, ids=["dumps", "plans", "feedback"])
+def test_a_failed_purge_stops_neither_the_startup_nor_the_next_purges(
+    startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str
+) -> None:
+    message = PURGES[failing]
+    with ExitStack() as patches:
+        patches.enter_context(
+            patch.object(__main__, failing, autospec=True, side_effect=OSError(5, "denied"))
+        )
+        spies = [
+            patches.enter_context(patch.object(__main__, name, autospec=True))
+            for name in PURGES
+            if name != failing
+        ]
         __main__.main()
 
     startup.run_loop.assert_called_once()
     assert message in caplog.messages
+    assert all(spy.call_count == 1 for spy in spies)
 
 
 @pytest.mark.usefixtures("app_data")
@@ -105,7 +145,20 @@ def test_the_startup_purge_removes_the_plans_older_than_thirty_days(tmp_path: Pa
     started_at = datetime.now(UTC) - timedelta(days=31)
     expired = save_plan(plan_dir(), plan_of(tmp_path, [RECORD], started_at=started_at))
 
-    __main__._purge_old_plans()
+    __main__._purge_old()
+
+    assert not expired.exists()
+
+
+@pytest.mark.usefixtures("app_data")
+def test_the_startup_purge_removes_the_feedback_exports_older_than_thirty_days() -> None:
+    expired = feedback_dir() / stamped_name(
+        datetime.now(UTC) - timedelta(days=31), "a1b2c3", ".json"
+    )
+    expired.parent.mkdir(parents=True)
+    expired.write_text("{}", encoding="utf-8")
+
+    __main__._purge_old()
 
     assert not expired.exists()
 
@@ -150,13 +203,12 @@ def test_the_application_identity_is_the_same_everywhere() -> None:
     """
     build = ("projects", f"{APP_NAME}-ui", "architect", "build", "options")
     workflow = (REPO / ".github/workflows/release-please.yml").read_text(encoding="utf-8")
-    cargo = tomllib.loads((REPO / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
 
     assert read_json("src-tauri/tauri.conf.json", "identifier") == BUNDLE_IDENTIFIER
     assert read_json("src-tauri/tauri.conf.json", "productName") == APP_NAME
     # `tauri dev` lance target/debug/<package.name>.exe, le bundle <productName>.exe :
     # `just stop-app` ne tue les deux que s'ils portent le meme nom.
-    assert cargo["package"]["name"] == APP_NAME
+    assert read_toml("src-tauri/Cargo.toml", "package", "name") == APP_NAME
     assert f"{APP_NAME}@{__version__}" == RELEASE
     assert read_json("angular.json", *build, "define", "APP_NAME") == f"'{APP_NAME}'"
     assert f"{APP_NAME}@" in str(read_json("package.json", "scripts", "sourcemaps"))
@@ -165,8 +217,7 @@ def test_the_application_identity_is_the_same_everywhere() -> None:
 
 def _sidecar_name() -> str:
     """`project.name` est la source dont build.py derive deja le nom du binaire."""
-    manifest = tomllib.loads((REPO / "sidecar/pyproject.toml").read_text(encoding="utf-8"))
-    name = manifest["project"]["name"]
+    name = read_toml("sidecar/pyproject.toml", "project", "name")
     assert isinstance(name, str)
     return name
 
@@ -224,10 +275,8 @@ def test_the_four_manifests_carry_the_same_version() -> None:
     """release-please les propage, rien ne verifie le resultat : desaccordes, sidecar
     et webview remontent deux releases pour une meme livraison.
     """
-    cargo = tomllib.loads((REPO / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
-
     assert read_json("package.json", "version") == __version__
-    assert cargo["package"]["version"] == __version__
+    assert read_toml("src-tauri/Cargo.toml", "package", "version") == __version__
     assert read_json(".release-please-manifest.json", ".") == __version__
 
 
@@ -268,3 +317,8 @@ def test_the_ci_node_major_is_declared_in_engines() -> None:
     major = _setup_input("setup-pnpm", "runtime").removeprefix("node@")
 
     assert f"^{major}." in str(read_json("package.json", "engines", "node"))
+
+
+def test_the_repository_url_is_the_one_cargo_publishes() -> None:
+    """Recopiee a la main : l'issue de retour de matching s'ouvrirait sur un autre depot."""
+    assert read_toml("src-tauri/Cargo.toml", "package", "repository") == REPOSITORY_URL

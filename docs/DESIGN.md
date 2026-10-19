@@ -1,7 +1,7 @@
 ---
 title: "DESIGN — techno-tagger"
 description: "Design system : typographie, couleurs, librairies UI, mapping composants et conventions de style de l'interface Angular + PrimeNG."
-date: "2026-10-16"
+date: "2026-10-19"
 keywords: ["design", "ui", "design-system", "typography", "colors", "animations", "layout", "dark-mode", "icons", "desktop", "components", "spacing", "primeng", "tailwind"]
 scope: ["docs", "frontend"]
 technologies: ["Angular", "PrimeNG", "Tailwind CSS", "tailwindcss-primeui", "PrimeIcons", "Simple Icons", "Inter", "Tauri"]
@@ -35,7 +35,7 @@ Base 16px, imposée par l'import `@primeuix/themes/aura` en version non-`compat`
 | Body | 1rem (16px) | 400 | `text-base` : titre d'un bloc vide |
 | Body dense (tables, listes de candidats) | 0.875rem (14px) | 400 | `text-sm` |
 | Label (libellé de champ) | 0.875rem (14px) | 400 | `label pLabel`, taille et poids posés par le preset ; `text-sm` sur un `span` quand le contrôle est un groupe sans `<label>` (mode de Playlist, rangées des Réglages) |
-| Caption (scores, compteurs, aides) | 0.75rem (12px) | 400 | `text-xs` |
+| Caption (scores, compteurs, aides) | 0.75rem (12px) | 400 | `text-xs` : aussi la grille du détail déplié |
 
 Les écrans de données tournent en body dense : chaque cran de taille en moins est une ligne de plus visible sans défiler. Les chiffres qui se comparent d'une ligne à l'autre (scores, compteurs, progression) prennent `tabular-nums`. Hors composants PrimeNG, le seul poids 600 hors des titres est l'indice de rattrapage (§ Tables et listes).
 
@@ -213,6 +213,7 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 | Restauration | `button pButton` `primary` outlined `size="small"`, icône `refresh`, `spinner` pendant l'opération | PrimeNG | « Restaurer ce morceau » sous la pochette du détail, « Restaurer le run » à droite de la barre d'écriture, « Restaurer le dernier run » dans les Réglages, sa cible dessous en `text-xs text-muted-color`. Ouvre la confirmation d'un geste sur les fichiers |
 | Ouverture du récapitulatif | `button pButton` `secondary` outlined `size="small"` | PrimeNG | « Récapitulatif », à droite de la barre d'écriture une fois l'écriture terminée |
 | Actions d'administration | `button pButton` `secondary` outlined `size="small"`, icône à gauche (`trash`, `external-link`) | PrimeNG | Rangées Cache et Logs des Réglages, aide sur la ligne du bouton. « Vider le cache » sans confirmation (cache jetable), `spinner` jusqu'à la réponse, taille à sa droite en `text-sm text-muted-color tabular-nums`. Grisés, raison en tooltip |
+| Envoi du rapport | `button pButton` `secondary` outlined `size="small"`, icône `external-link` 16px puis `spinner` pendant l'attente | PrimeNG | « Envoyer ce rapport », pied du récapitulatif. Seul geste par lequel des titres quittent la machine ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Grisé, raison en tooltip ; actif, le tooltip `WIDE_TOOLTIP` avertit du geste (§ Règles) |
 
 **Phases du bouton d'action du run** :
 
@@ -251,7 +252,7 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 | Pochette | `ArtworkComponent` : `<img>` par `convertFileSrc()` + `p-skeleton` | composant maison (PrimeNG, Tauri) | 32px dans la liste, 168px dans le détail (largeur de « Restaurer ce morceau » en FR), rayon `sm`. Trois états : image, squelette tant que le morceau attend, cadre `bg-surface-800` bordé à l'icône `image` une fois tranché sans pochette |
 | Score | moyenne, puis `A 96 · T 92` en `text-xs` dessous | Tailwind | Aligné à droite, `tabular-nums` (§ Séparateurs) |
 | Indice de rattrapage | `font-semibold text-muted-color` + icône `arrow-right` | Tailwind | « Coller un lien → » dans la colonne Après d'un non résolu |
-| Récapitulatif filtrable | `RecapPageComponent` : `RunListComponent` figée + `p-selectbutton` + `p-iconfield` (`p-inputicon` `search`, `pInputText` `pSize="small"`) | composant maison (PrimeNG) | Filtres avec leur compte, recherche texte. En-tête : titre puis filtres. Pied : « Retour à la liste » `text` `secondary` (`chevron-left`), ligne de contexte `text-sm text-muted-color` tronquée. Un run passé s'y rouvre en lecture seule |
+| Récapitulatif filtrable | `RecapPageComponent` : `RunListComponent` figée + `p-selectbutton` + `p-iconfield` (`p-inputicon` `search`, `pInputText` `pSize="small"`) | composant maison (PrimeNG) | Filtres avec leur compte, recherche texte. En-tête : titre puis filtres. Pied : « Retour à la liste » `text` `secondary` (`chevron-left`), « Envoyer ce rapport » (§ Actions), ligne de contexte `text-sm text-muted-color` tronquée. Un run passé s'y rouvre en lecture seule |
 
 ### Badges
 
@@ -268,7 +269,7 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 | Écran bloquant | `p-card` centrée dans la page, à l'anatomie de nos modales : titre `text-lg` 600, texte `text-sm text-muted-color` à gauche, action `secondary` outlined `size="small"` en pied à droite | PrimeNG | Sidecar absent ou en quarantaine (« Réessayer »), divergence de version (sans action). Pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui dit quoi faire |
 | Notifications | `p-toast` en bas à droite, `success` et 4s par défaut | PrimeNG | Fin d'une phase longue (extraction, run, écriture, restauration) et vidage du cache ; `warn` avec le nombre d'échecs. Recouvre le pied de Playlist pendant ses 4s, un clic le ferme |
 | Message inline | `MessageComponent` | composant maison (`p-message`) | Seule voie vers `p-message`. Icône selon la sévérité (`info-circle`, `check-circle`, `exclamation-triangle`, `times-circle`), 20px, 16px en `small`. `whitespace-pre-line`. `[animated]="false"` dans une cellule réservée |
-| Erreur contextuelle | `ErrorMessageComponent` | composant maison (`MessageComponent`) | Erreur du sidecar traduite (`code`, `params`), dans l'écran concerné, jamais en toast. Même écart au-dessus et en dessous que son conteneur : `gap-6` sous l'en-tête d'un écran, `gap-4` sous le champ de lien, 12px dans une rangée des Réglages (`gap-3` après une aide, `mt-1` en premier) |
+| Erreur contextuelle | `ErrorMessageComponent` | composant maison (`MessageComponent`) | Erreur du sidecar traduite (`code`, `params`), dans l'écran concerné, jamais en toast (récapitulatif compris : l'erreur de `prepare_feedback` du run affiché, sous son en-tête). Même écart au-dessus et en dessous que son conteneur : `gap-6` sous l'en-tête d'un écran, `gap-4` sous le champ de lien, 12px dans une rangée des Réglages (`gap-3` après une aide, `mt-1` en premier) |
 | Échec de l'écriture | `MessageComponent` `error` | composant maison | Au-dessus de la liste du run, texte seul : la relance passe par le bouton d'action |
 | Fichiers non restaurés | `RollbackFailuresComponent` (`MessageComponent` `error`) | composant maison | Rangée Restauration des Réglages, sous son bouton ; Tagging et récapitulatif, au-dessus de la liste. Une phrase par fichier, propre à la restauration |
 | Logs introuvables | `MessageComponent` `error`, taille par défaut | composant maison | Sous la rangée Logs quand l'Explorateur ne peut pas révéler le fichier. Erreur locale, sans `code` du sidecar : pas d'`ErrorMessageComponent` |
@@ -292,7 +293,7 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 | Modale du lien | `UrlRecoveryDialogComponent` : `p-dialog` modal, sans animation | PrimeNG | Dimensions au § Layout. En-tête de morceau, logo de la source sur un rattrapé |
 | Confirmation d'un geste sur les fichiers | `DangerConfirmComponent` + `injectDangerConfirm` (`p-confirmdialog`) | composant maison (PrimeNG) | Écriture, relance, restauration. Message en `text-sm text-muted-color` `whitespace-pre-line`, interpolé plutôt qu'en `innerHTML` (un chemin y figure). Acceptation `danger` pour la seule restauration, `primary` sinon ; « Annuler » `secondary` outlined avec le focus |
 | Confirmation de sortie | `CloseConfirmationComponent` : `p-dialog` modal | composant maison (PrimeNG) | Fermeture pendant une extraction, une écriture ou une restauration : « Rester » `primary` avec le focus, « Quitter quand même » `secondary` outlined ; « Rester » seul pendant l'écriture ou la restauration. Ni `p-confirmdialog` ni `danger` : la sortie ne touche aucun fichier musical |
-| Tooltip | `pTooltip` lié à `TOOLTIP` ou `WIDE_TOOLTIP` (`shared/utils/tooltip.ts`) | PrimeNG | Sous l'élément, retourné au-dessus quand la place manque. 12.5rem, 26rem en `WIDE_TOOLTIP` (texte tronqué, détail du rapport, motif d'échec). `pointer-events: none`. Délai au § Composants Animés, usage au § Conventions de Code > Règles |
+| Tooltip | `pTooltip` lié à `TOOLTIP` ou `WIDE_TOOLTIP` (`shared/utils/tooltip.ts`) | PrimeNG | Sous l'élément, retourné au-dessus quand la place manque. 12.5rem, 26rem en `WIDE_TOOLTIP` (texte tronqué, détail du rapport, motif d'échec, avertissement d'envoi du rapport). `pointer-events: none`. Délai au § Composants Animés, usage au § Conventions de Code > Règles |
 | Reprise d'un run interrompu | `ResumeDialogComponent` : `p-dialog` modal non fermable, `w-120` | composant maison (PrimeNG) | Au démarrage (§ Arbitrages). « Repartir de zéro » texte `secondary`, « Reprendre » `primary` |
 
 ### Contenu et texte
@@ -315,7 +316,6 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Envoi du rapport | `button pButton` `secondary` `size="small"` | PrimeNG | Feature 9. Seul geste par lequel des titres quittent la machine |
 | Bascule du mode agent IA | `p-toggleswitch` dans les Réglages | PrimeNG | Avec l'agent d'arbitrage, cf. [ARCHITECTURE.md § Évolutions Futures](ARCHITECTURE.md#-évolutions-futures-post-mvp) |
 
 ## États des Composants
@@ -413,10 +413,11 @@ Aucune dépendance d'animation dédiée.
 | Confirmation de sortie | 32rem (`w-128`) | Mesurée sur le titre et les deux boutons en français |
 | Écran bloquant | 30rem (`w-120`), centré dans la page en `p-8` | Largeur de nos modales |
 | Tables | `p-table` à sa taille par défaut, `scrollHeight="flex"`, `[virtualScroll]` | `virtualScrollItemSize` égal à la hauteur exacte d'une ligne (`h-14` liste du run, `h-10.25` rapport), à remesurer si leur style change. Un contenu plus haut s'étale sur plusieurs lignes, jamais dans une ligne qui grandit |
+| Détail déplié | 7 lignes de la liste (`h-14`), 4 pour des tags illisibles | 7 : 15 lignes de champs au plus en `text-xs` (mesuré le 2026-10-10) et « Restaurer ce morceau » sous la pochette de 168px. 4 : la phrase des tags illisibles à côté d'elle. Au-delà, le détail défile ; à remesurer si la grille change |
 | Rythme interne d'un groupe | `gap-2` | Éléments d'un même groupe |
 | Espacement entre groupes | `gap-4` | Groupes d'un même écran |
 | Espacement entre sections | `gap-6` | Blocs d'un écran |
-| Écarts hors échelle | `gap-3` et `py-3` (12px), `gap-0.5` (2px) | `gap-3` : modale d'arbitrage et son `Listbox` (maquette), en-tête de modale de morceau, retour après une aide dans une rangée des Réglages. `py-3` : rangée des Réglages. `gap-0.5` : nom de fichier collé au titre |
+| Écarts hors échelle | `gap-3` et `py-3` (12px), `gap-0.5` et `py-0.5` (2px) | `gap-3` : modale d'arbitrage et son `Listbox` (maquette), en-tête de modale de morceau, retour après une aide dans une rangée des Réglages. `py-3` : rangée des Réglages. `gap-0.5` : nom de fichier collé au titre. `py-0.5` : lignes du détail, pour que tous ses champs tiennent dans les lignes que la liste lui réserve |
 | Grid principal | Flexbox et CSS Grid natifs | Aucune librairie de grid |
 
 **Colonnes de la liste d'un run** :
@@ -478,7 +479,7 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 - ✅ **Trois niveaux de personnalisation, dans cet ordre** : `definePreset()` pour ce qui vaut partout, `[dt]` pour les tokens d'une instance, `[pt]` pour les éléments internes. La doc PrimeNG recommande `[dt]` contre `::ng-deep` (Theming, Scoped Tokens)
 - ✅ **Une largeur se mesure sur le contenu le plus long, dans les deux langues** (cf. [ADR-004](adrs/004-i18n-ngx-translate.md)) : un bouton ou un libellé n'a aucune largeur en dur ; une colonne de table se fige sur son plus long contenu, sinon elle bouge au défilement
 - ✅ **Boutons en `size="small"` partout**, confirmations comprises. Seuls les boutons `link` y échappent
-- ✅ **Un tooltip révèle, il ne porte pas** : il montre ce qui est déjà à l'écran mais coupé, jamais un libellé, une aide ou une erreur. Trois exceptions : la raison d'une action désactivée (portée par le bouton grisé), le détail d'une ligne du rapport et le motif d'un morceau en échec, ces deux derniers annoncés par une icône `info-circle` en `text-muted-color` hors de tout tag
+- ✅ **Un tooltip révèle, il ne porte pas** : il montre ce qui est déjà à l'écran mais coupé, jamais un libellé, une aide ou une erreur. Quatre exceptions : la raison d'une action désactivée (portée par le bouton grisé), l'avertissement d'un geste qui sort de la machine (« Envoyer ce rapport » : ticket GitHub public, noms de fichiers, cf. [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md) ; l'issue s'ouvre pré-remplie pour relecture avant envoi, acté le 2026-10-19), le détail d'une ligne du rapport et le motif d'un morceau en échec, ces deux derniers annoncés par une icône `info-circle` en `text-muted-color` hors de tout tag
 - ✅ **Tout `pTooltip` se lie à `[tooltipOptions]`** (`TOOLTIP` ou `WIDE_TOOLTIP`) : PrimeNG n'a aucun défaut global, sans ce jeu il s'ouvre à droite et sans délai. Jamais de `[showDelay]` ni de `[tooltipPosition]` sur l'instance
 - ✅ **Aucun libellé en dur dans un template** : tout passe par ngx-translate, erreurs du sidecar comprises (`code` + `params`)
 - ✅ **Une phrase par ligne** : chaque phrase d'un message sur sa ligne par un `\n` de traduction, une ligne vide entre les blocs d'une modale longue, rendu en `whitespace-pre-line`. Exceptions, pour qu'une cellule réservée reste immobile : le bandeau de source de l'arbitrage (une phrase), le motif d'un non résolu dans la modale du lien (deux lignes de `text-xs`) ; l'aide de la clé API tient sur une ligne
@@ -511,9 +512,9 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 Écarts au design system ou à la maquette tranchés par le propriétaire. Ils priment sur eux pour tous les écrans. Une ligne sans « réaligné » attend la mise à jour de sa source (`.design-sync/NOTES.md` § Reste ouvert).
 
 - **Icônes** : SVG inline par `IconComponent` et `SourceLogoComponent`, là où le design system rend les glyphes par la police PrimeIcons. Écart définitif : React n'importe pas un composant Angular
-- **Container** : un seul container pleine largeur, là où le design system centrait les formulaires. Réaligné le 2026-09-24
-- **Densité des tables** : `p-table` à sa taille par défaut, là où le design system les donnait en `small`. Réaligné le 2026-09-24
-- **Séparateur artiste / titre** : tiret simple, là où la maquette employait le cadratin, réservé à la cellule sans valeur. Réaligné le 2026-09-24
+- **Container** : un seul container pleine largeur, là où le design system centrait les formulaires. Réaligné le 2026-09-25
+- **Densité des tables** : `p-table` à sa taille par défaut, là où le design system les donnait en `small`. Réaligné le 2026-09-25
+- **Séparateur artiste / titre** : tiret simple, là où la maquette employait le cadratin, réservé à la cellule sans valeur. Réaligné le 2026-09-25
 - **Candidat d'arbitrage** : « Artiste - Titre » et « 94 (A 96 · T 92) » sur une ligne, là où la maquette ne montrait que le titre et « A · T ». Décidé le 2026-09-26, réaligné le 2026-09-29
 - **Croix de la modale d'arbitrage** : l'arbitrage reste en file, la modale revient par le badge ou la ligne, là où la maquette le retirait. Décidé le 2026-09-26, réaligné le 2026-09-29
 - **Vocabulaire « zone grise »** : jamais affiché, l'interface dit « correspondances incertaines », là où `SettingsScreen` l'employait. Décidé le 2026-09-27, réaligné le 2026-10-05
@@ -531,13 +532,14 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 - **Boutons du `p-confirmdialog`** : « Annuler » en `secondary` outlined, sans icône devant le message, là où la fiche `ConfirmDialog` posait « Annuler » en texte et une icône `exclamation-triangle`. Décidé le 2026-10-10, réaligné le 2026-10-11
 - **Détail d'un morceau** : déplié sur un nombre entier de lignes de la hauteur des autres ([knowledges/primeng.md](knowledges/primeng.md#détail-déplié-sous-une-ligne-virtualisée)), ouvert par un `pButton` texte `small` `secondary` à icône seule, là où le `DataTable` faisait grandir la ligne sous un bouton nu de 1.25rem. Décidé le 2026-10-10, réaligné le 2026-10-11
 - **Taille des contrôles** : `size="small"` sur tous les boutons (réaligné le 2026-10-11) et tous les champs, champ de lien compris (décidé et réaligné le 2026-10-16), là où la maquette laissait la taille par défaut à « Lancer le run », « Interrompre », « Réessayer » et au champ de lien
-- **Position des tooltips** : sous l'élément partout, là où le `Tooltip` du design system s'ouvrait au-dessus. Décidé et réaligné le 2026-10-11
+- **Position des tooltips** : sous l'élément, là où le `Tooltip` du design system s'ouvrait au-dessus. PrimeNG le retourne au-dessus faute de place, comme dans le pied du récapitulatif collé au bas de la fenêtre : comportement accepté le 2026-10-19, `tooltip.ts` reste à `bottom`. Décidé et réaligné le 2026-10-11
+- **Exceptions du tooltip** : quatre, dont l'avertissement d'« Envoyer ce rapport », là où le `Tooltip` du design system en compte trois. Décidé et réaligné le 2026-10-19
 - **État de la clé API** : 24 points en placeholder, sans tag, là où `SettingsScreen` posait un `Tag`. Décidé et réaligné le 2026-10-11
 - **Vocabulaire de la restauration** : un seul verbe, « Restaurer », là où la maquette disait « Annuler le dernier run » sous « Rollback ». Décidé et réaligné le 2026-10-11
 - **Une phrase par ligne** : chaque phrase d'un message sur sa ligne, là où la maquette écrivait en prose continue. Décidé et réaligné le 2026-10-11
 - **Invite de reprise** : quatre états (run reprenable, dossier introuvable ou vidé avec « Plus tard », plan illisible, plan corrompu), aucun bouton focalisé (Entrée ne supprime jamais le plan), dossier sur sa ligne tronqué à gauche, là où `AppShell` n'avait qu'un état, focalisait le premier bouton et écrivait le dossier dans la phrase. Décidé le 2026-10-12, réaligné le 2026-10-13
 - **Confirmation de sortie** : seules l'extraction, l'écriture et la restauration retiennent la fenêtre, là où `CloseConfirmation` nommait aussi le run et les arbitrages. Décidé le 2026-10-12, réaligné le 2026-10-13
-- **Récapitulatif** : ouvert par un bouton « Récapitulatif » à la fin de l'écriture ; pied « Retour à la liste » à gauche et ligne de contexte à droite, sans « Restaurer le run », « Nouveau run » ni « Envoyer ce rapport » (Feature 9). Là où la maquette simulait un lien dans la barre d'onglets et posait ces boutons en pied. Décidé le 2026-10-12, réaligné le 2026-10-13
+- **Récapitulatif** : ouvert par un bouton « Récapitulatif » à la fin de l'écriture ; pied « Retour à la liste » à gauche, « Envoyer ce rapport » à sa droite et ligne de contexte à droite, sans « Restaurer le run » ni « Nouveau run ». Là où la maquette simulait un lien dans la barre d'onglets et posait ces boutons en pied. Décidé le 2026-10-12, réaligné le 2026-10-13, « Envoyer ce rapport » livré et réaligné le 2026-10-19
 - **Lien vers la fiche source** : bouton `link` dans la ligne URL du détail, là où la fiche `Button` réservait cette variante à « Revenir à Beatport ». Décidé le 2026-10-12, réaligné le 2026-10-13
 - **« Restaurer ce morceau »** : sous la pochette du détail, à sa largeur (168px), là où `TrackDetail` le posait en bas à droite. Décidé et réaligné le 2026-10-13
 - **Runs passés** : rangée des Réglages (sélecteur et bouton), récapitulatif rouvert en lecture seule, là où la maquette n'offrait aucune entrée vers un run passé. Décidé et réaligné le 2026-10-13

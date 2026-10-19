@@ -204,7 +204,7 @@ def render_tagging_markdown(report: TaggingReport) -> str:
                     track.file_after,
                     track.source,
                     track.resolution,
-                    _score(track),
+                    format_score(track),
                     len(track.fields_written),
                     _cover(track),
                     "yes" if track.truncated else "",
@@ -301,7 +301,7 @@ def _by_state(
     return grouped
 
 
-def _score(track: TaggingReportTrack) -> str:
+def format_score(track: TaggingReportTrack) -> str:
     """« 94 (A 96 · T 92) » comme a l'ecran ; vide pour une URL collee, jamais scoree."""
     scores = track.scores
     if scores is None:

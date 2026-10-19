@@ -2,7 +2,7 @@
 title: "Sentry — Remontée d'erreurs durcie (Python + Angular)"
 version: "sentry-sdk 2.71.0 / @sentry/angular 11.6.0"
 description: "Référence technique pour les deux SDK Sentry du projet : durcissement RGPD, réglages non négociables, scrubbing, corrélation de release et empaquetage PyInstaller."
-date: "2026-10-09"
+date: "2026-10-18"
 keywords: ["sentry", "rgpd", "scrubbing", "observabilite", "angular", "python", "pyinstaller"]
 scope: ["docs"]
 technologies: ["Python", "Angular", "Tauri", "PyInstaller"]
@@ -20,11 +20,11 @@ Plan Developer gratuit, région EU, plafonné à 5 000 erreurs par mois, **les s
 
 # Concepts Clés
 
-## Les trois réglages non négociables (Python)
+## Durcissement du SDK Python
 
 ### Description
 
-Trois options décident de ce qui quitte la machine de l'utilisateur. Elles se testent au même titre que le reste du code.
+Trois réglages décident de ce qui quitte la machine de l'utilisateur : `data_collection` fermé catégorie par catégorie, `server_name` fixe et un `before_send` qui masque. Ils se testent au même titre que le reste du code.
 
 ### Exemple
 
@@ -33,21 +33,34 @@ sentry_sdk.init(
     dsn=SENTRY_DSN,                    # o<id>.ingest.de.sentry.io → région EU
     release=RELEASE,                   # f"{APP_NAME}@{__version__}", identique côté Angular
     environment="production",
-    include_local_variables=False,     # défaut True : à forcer
+    data_collection={                  # posée : toute catégorie omise est collectée
+        "user_info": False,
+        "cookies": {"mode": "off"},
+        "http_headers": {"request": {"mode": "off"}},
+        "http_bodies": [],
+        "url_query_params": {"mode": "off"},
+        "graphql": {"document": False, "variables": False},
+        "gen_ai": {"inputs": False, "outputs": False},
+        "database_query_data": False,
+        "queues": False,
+        "stack_frame_variables": False,  # variables de frame : chemins, titres, clé API
+    },
     server_name="techno-tagger",       # défaut : nom de machine de l'utilisateur
-    # send_default_pii laissé au défaut (False), ne pas l'activer
     before_send=scrub_event,
 )
 ```
 
 ### Points Importants
 
-- **`include_local_variables` vaut `True` par défaut** : le SDK joint alors un instantané des variables locales de chaque frame, qui contiennent les chemins complets, l'artiste et le titre en cours de traitement, et potentiellement la clé API si elle transite par une variable locale de `scraper_client.py`
+- **`data_collection` remplace `send_default_pii` depuis la 2.70.0 et ferme chaque catégorie une à une** : `user_info`, `cookies`, `http_headers`, `http_bodies`, `url_query_params`, `graphql`, `gen_ai`, `database_query_data`, `queues` et `stack_frame_variables`. Une catégorie omise est collectée. `stack_frame_variables` joint un instantané des variables locales de chaque frame, qui contiennent les chemins complets, l'artiste et le titre en cours de traitement voire la clé API si elle transite par une variable locale de `scraper_client.py`
+- **`include_local_variables` est ignoré dès que `data_collection` est posé** (2.70.0 et suivantes, vérifié le 2026-10-15) : le passer à `False` à côté ne ferme rien puisque sa valeur d'origine (`True`) ne compte plus. Seul `stack_frame_variables` décide
+- **L'`EventScrubber` par défaut du SDK n'est pas installé sous `data_collection`** (`client.py` de 2.71.0, lu le 2026-10-16) : son denylist (`api_key`, `secret`, `token`, `password`...) ne s'applique plus aux champs libres. Aucune donnée sensible dans `set_extra`, `set_context` ni `set_tag` puisque `before_send` n'a aucun moyen de la reconnaître
+- **Une montée du SDK qui ajoute une catégorie la laisse ouverte** : un test lit la configuration résolue et casse dans ce cas (`sidecar/tests/unit/core/test_sentry_payload.py`)
 - **`server_name` est auto-détecté** : sans valeur fixe, le nom de la machine part avec chaque événement
-- **`send_default_pii` a pour défaut `None`** (vérifié dans `sentry_sdk.consts.DEFAULT_OPTIONS`) : il s'agit de ne pas l'activer, pas de le régler. Le SDK JavaScript, lui, n'a plus cette option depuis la v11 (cf. § SDK Angular)
+- **`send_default_pii` a pour défaut `None`** (vérifié dans `sentry_sdk.consts.DEFAULT_OPTIONS`) : il ne s'active pas ; posé à côté de `data_collection`, le SDK l'ignore en émettant un `DeprecationWarning`. Le SDK JavaScript, lui, n'a plus cette option depuis la v11 (cf. § SDK Angular)
 - **`LoggingIntegration` est active par défaut avec `level=logging.INFO`** : tout log INFO devient un breadcrumb attaché au prochain événement, chemin complet ou titre de morceau compris. `level=None` la neutralise ; `auto_enabling_integrations=False` empêche toute autre intégration implicite de se réactiver dans son dos
 - Le DSN de la région EU passe par `ingest.de.sentry.io` : la résidence des données se choisit à la création de l'organisation et ne se change pas ensuite
-- Ces trois réglages **ne dispensent pas du scrubbing** : ils ferment les canaux les plus larges, pas tous
+- Ces réglages **ne dispensent pas du scrubbing** : ils ferment les canaux les plus larges, pas tous
 
 ---
 
@@ -76,6 +89,8 @@ def scrub_event(event: dict, hint: dict) -> dict | None:
 - **L'URL complète et la query string des requêtes sont toujours envoyées**, indépendamment de `send_default_pii` : sans objet ici, le sidecar n'exposant aucun serveur HTTP, mais à revérifier si cela changeait
 - **`ArgvIntegration` est active par défaut et attache `sys.argv`** : à désactiver si des chemins devaient un jour être passés en argument au sidecar
 - `ModulesIntegration` envoie la liste des paquets installés à chaque event : fuite d'infrastructure, pas de donnée personnelle
+- **Le message d'une exception part en `<message>` hors d'une liste fermée de types** (`_SAFE_MESSAGE_TYPES`) : les messages du sidecar portent le nom du fichier ou le `track_id` et la `ValidationError` de pydantic la valeur reçue, qu'aucun motif ne reconnaît dans du texte libre. Un type n'entre dans la liste que si son message est construit sans chemin, nom de fichier, `track_id` ni valeur reçue de l'API
+- **Le motif de chemin est sensible aux guillemets** : `repr()` entoure de `"` un chemin qui contient une apostrophe (`Don't Stop.mp3`) et de `'` les autres, donc un chemin ouvert par un guillemet court jusqu'au guillemet fermant : un nom à apostrophe est masqué en entier dans ces deux formes. Résidu accepté (constaté sur le motif au 2026-10-18) : un chemin ouvert par `'` sans guillemet fermant, au nom à apostrophe (`open 'D:\Music\Nova Pulse - Don't Stop.mp3 failed`), laisse la fin du nom après la dernière apostrophe (`t Stop.mp3 failed`). `repr()` n'écrit jamais ce cas et tout message d'exception hors de la liste fermée part en `<message>` de toute façon
 
 ---
 
@@ -102,6 +117,10 @@ export const sentryOptions = (dsn: string, release: string, environment: string)
     httpHeaders: false,
     httpBodies: [],
     urlQueryParams: false,
+    graphQL: { document: false, variables: false },
+    genAI: { inputs: false, outputs: false },
+    databaseQueryData: false,
+    queues: false,
     stackFrameVariables: false,
   },
   beforeSend: scrub,
@@ -125,7 +144,7 @@ providers: [
 - **`Breadcrumbs` capture les interactions et `Console` le contenu de la console**, donc des noms de morceaux affichés à l'écran ; **`Replay` capture le DOM** ; **`CultureContext` envoie la locale, le calendrier et le fuseau horaire** de l'utilisateur. Les quatre sont à retirer, pas à régler. `Console` est une intégration à part depuis la v11 : un filtre écrit pour la v10 la laisse passer
 - **Sentry 11 remplace `sendDefaultPii` par `dataCollection`, et l'option absente collecte tout** : IP inférée (`userInfo`), cookies, en-têtes, corps HTTP, paramètres d'URL. Chaque catégorie se ferme explicitement. Mesuré le 2026-10-02 sur l'événement envoyé : avec la config v10, `sdk.settings.infer_ip` vaut `auto` et une ligne de console part en breadcrumb ; avec `dataCollection` fermé et `Console` retirée, `never` et aucun breadcrumb de console
 - La `peerDependency` couvre `@angular/core >= 14.x <= 22.x`, inchangée en 11.6.0
-- **Une montée mineure peut ajouter une catégorie à `dataCollection`**, ouverte par défaut comme les autres : comparer le type `DataCollection` de `@sentry/core` avant et après chaque montée, les notes de version ne suffisant pas à le garantir
+- **Une montée mineure peut ajouter une catégorie à `dataCollection`**, ouverte par défaut comme les autres : `sentry-options.ts` type l'objet `satisfies ClosedDataCollection` (toutes les catégories requises, `frameContextLines` exceptée), donc la catégorie ajoutée casse `tsc` (constaté le 2026-10-19 en retirant `queues`). La fermer à cet endroit
 - 11.5 : `Sentry.init()` avertit si un client est déjà actif, et `close()` délie le client qu'il ferme (`getClient()` rend alors `undefined`)
 - Les source maps se génèrent en mode `hidden`, s'uploadent vers Sentry et **ne sont pas livrées dans le bundle** distribué
 
@@ -168,7 +187,7 @@ pyinstaller-hooks-contrib
 
 - **Le hook `hook-sentry_sdk.py` de `pyinstaller-hooks-contrib` est indispensable** : il introspecte les intégrations activées par défaut et les ajoute aux imports cachés
 - Sans lui, les intégrations sont désactivées silencieusement ou lèvent une `ImportError` au démarrage selon la version
-- **Vérifier la remontée depuis le binaire empaqueté**, pas seulement en développement : provoquer une exception de test et confirmer son arrivée dans Sentry
+- **Vérifier la remontée depuis l'application installée** par `TECHNO_TAGGER_SENTRY_SELFTEST=1` (PRODUCTION.md § Observabilité) avant de considérer l'observabilité en place
 - La suite de tests du hook est épinglée sur une version antérieure du SDK : le mécanisme est stable, la combinaison exacte n'est pas garantie sans essai
 
 ---
@@ -195,7 +214,7 @@ async function sendReport(trackTitle: string, matchId: string): Promise<void> {
 - **Le bouton ouvre une issue pré-remplie dans le navigateur** via le plugin `opener`, que l'utilisateur relit, ampute ou abandonne avant de valider. L'application ne pousse rien elle-même
 - Ce canal ne consomme pas le quota Sentry et reste le canal d'amélioration du matching
 - La règle « HTTPS vers techno-scraper, Sentry et GitHub uniquement » reste donc vraie
-- **La clé API ne doit apparaître dans aucun event** : c'est ce que `include_local_variables=False` garantit en premier lieu
+- **La clé API ne doit apparaître dans aucun event** : c'est ce que `stack_frame_variables: False` garantit en premier lieu
 - Les logs locaux (`tagger.log`, rotation à 5 Mo, 3 sauvegardes) restent sur la machine et se récupèrent par le bouton « ouvrir le dossier de logs »
 
 ---
@@ -233,16 +252,16 @@ find dist/techno-tagger-ui/browser -name '*.map' -delete
 
 ## ✅ Recommandations
 
-- **Tester les trois réglages Python comme du code métier** : un test qui construit un event et vérifie l'absence de variables locales et de nom de machine
+- **Tester le durcissement Python sur l'enveloppe réellement construite** : variables de frame absentes, `server_name` fixe, `data_collection` résolu entièrement fermé
 - **Retirer `Breadcrumbs` et `Replay` côté Angular**, plutôt que d'essayer de les filtrer après coup
 - **Poser la même `release` des deux côtés**, alimentée par la version que release-please synchronise
-- **Provoquer une erreur de test depuis le binaire empaqueté** avant de considérer l'observabilité en place
+- **Vérifier la remontée depuis l'application installée** par `TECHNO_TAGGER_SENTRY_SELFTEST=1` (PRODUCTION.md § Observabilité) avant de considérer l'observabilité en place
 - **Garder `before_send` centré sur les chemins**, et l'étendre chaque fois qu'un nouveau champ transporte une donnée locale
 - **Réserver Sentry aux erreurs techniques** : le quota de 5 000 par mois est un budget, pas un plafond théorique
 
 ## ❌ Anti-Patterns
 
-- **Laisser `include_local_variables` à son défaut** : c'est la fuite la plus large, et elle est silencieuse
+- **Poser `data_collection` sans fermer `stack_frame_variables`** : l'option rouvre alors les variables de frame, en silence
 - **Laisser `server_name` auto-détecté** : le nom de la machine de l'utilisateur part avec chaque event
 - **Activer `send_default_pii`** pour « avoir plus de contexte »
 - **Envoyer des événements métier** (morceau résolu, run terminé) : le quota se remplit et le vrai crash est jeté

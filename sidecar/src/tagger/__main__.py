@@ -21,7 +21,7 @@ from tagger import RELEASE
 from tagger.core.build_info import SENTRY_DSN
 from tagger.core.errors import RunNotFoundError, TaggerError
 from tagger.core.logger import setup_logging
-from tagger.core.observability import init_sentry
+from tagger.core.observability import init_sentry, selftest_requested, send_selftest
 from tagger.core.paths import log_dir
 from tagger.core.tasks import cancel_all
 from tagger.handlers import (
@@ -36,6 +36,7 @@ from tagger.handlers import (
     handle_list_playlists,
     handle_list_runs,
     handle_load_run,
+    handle_prepare_feedback,
     handle_resume_run,
     handle_retry_write,
     handle_rollback,
@@ -59,6 +60,7 @@ from tagger.protocol import (
     ListPlaylists,
     ListRuns,
     LoadRun,
+    PrepareFeedback,
     ResolveArbitration,
     ResolveByUrl,
     ResumeRun,
@@ -73,6 +75,7 @@ from tagger.protocol import (
     error_from_validation,
     parse_command,
 )
+from tagger.reports.feedback import feedback_dir, purge_feedback_exports
 from tagger.run.arbitration import ArbitrationNotPendingError
 from tagger.run.plan import discard_plan, plan_dir, purge_plans, require_plan
 from tagger.run.resume import load_resumable
@@ -173,8 +176,9 @@ class _RunningPhase(NamedTuple):
 
 
 def _error_of(error: TaggerError, command: ExecutableCommand, track_id: str | None = None) -> Error:
-    """Seul chemin d'emission d'une erreur de commande : tout refus de `load_run` nomme son run."""
-    run_id = command.run_id if isinstance(command, LoadRun) else None
+    """Seul chemin d'emission d'une erreur de commande : tout refus de `load_run` ou de
+    `prepare_feedback` nomme son run."""
+    run_id = command.run_id if isinstance(command, LoadRun | PrepareFeedback) else None
     return error_from_business(error, command.command, track_id, run_id=run_id)
 
 
@@ -503,8 +507,9 @@ def main() -> None:
     # handler pour `logger.exception` autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
-    _purge_old_dumps()
-    _purge_old_plans()
+    if selftest_requested():
+        send_selftest()
+    _purge_old()
     # Avant tout acces au secret : dans le binaire fige, la decouverte par entry
     # points rend une liste vide et keyring basculerait sur son backend `fail`.
     # `KeyringBackend.__init__` n'annote pas son retour (cf. memory_keyring.py).
@@ -513,21 +518,19 @@ def main() -> None:
     asyncio.run(run_loop(sys.stdin, sys.stdout))
 
 
-def _purge_old_dumps() -> None:
-    # Une purge ratee ne doit jamais empecher le sidecar de demarrer : le dump reste
-    # au pire quelques jours de plus.
-    try:
-        purge_dumps(dump_dir(), datetime.now(UTC))
-    except OSError:
-        logger.exception("tag dump purge failed")
-
-
-def _purge_old_plans() -> None:
-    # Meme garde que les dumps : un plan qui reste quelques jours de plus ne gene personne.
-    try:
-        purge_plans(plan_dir(), datetime.now(UTC))
-    except OSError:
-        logger.exception("run plan purge failed")
+def _purge_old() -> None:
+    # Une purge ratee n'empeche ni le demarrage ni les suivantes : le fichier reste au pire
+    # quelques jours de plus.
+    now = datetime.now(UTC)
+    for label, purge, folder in (
+        ("tag dump", purge_dumps, dump_dir),
+        ("run plan", purge_plans, plan_dir),
+        ("feedback export", purge_feedback_exports, feedback_dir),
+    ):
+        try:
+            purge(folder(), now)
+        except OSError:
+            logger.exception("%s purge failed", label)
 
 
 async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
@@ -630,6 +633,9 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
             session.send(await asyncio.to_thread(handle_get_cache_size))
         case ClearCache():
             await session.clear_cache()
+        case PrepareFeedback():
+            # Aucune garde de phase : ni la musique ni le cache ne sont touches.
+            session.send(await asyncio.to_thread(handle_prepare_feedback, command))
         case _:
             assert_never(command)
 

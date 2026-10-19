@@ -397,9 +397,32 @@ def _validate[M: BaseModel](model: type[M], response: _ApiResponse) -> M:
     try:
         return model.model_validate(response.payload)
     except ValidationError as exc:
-        # Le souligne d'un modele interne n'apprend rien a qui lit le log.
-        shape = model.__name__.removeprefix("_")
-        raise ApiContractError(shape, request_id=response.request_id) from exc
+        # `from exc` garde la cause dans le log local, qui a droit aux valeurs. Sentry, lui,
+        # ne recoit que le detail : le message de la `ValidationError` y part en `<message>`.
+        detail = _contract_detail(model, exc)
+        raise ApiContractError(detail, request_id=response.request_id) from exc
+
+
+def _contract_detail(model: type[BaseModel], error: ValidationError) -> str:
+    """Modele, puis emplacement et type de chaque erreur, sans aucune valeur recue.
+
+    Ce detail part vers Sentry (`ApiContractError` est dans la liste fermee de
+    `core/observability`) : `input` y mettrait la reponse, donc artistes et titres. Indices
+    remplaces par `*` et doublons retires, une derive sur cent items tient en une ligne. Un
+    champ `dict` valide cle par cle mettrait une cle de la reponse dans `loc` : il ne
+    s'ajoute a un modele qu'en sortant ses cles d'ici.
+    """
+    # Le souligne d'un modele interne n'apprend rien a qui lit le log.
+    shape = model.__name__.removeprefix("_")
+    errors = error.errors(include_input=False, include_url=False, include_context=False)
+    # `lstrip` : une erreur a la racine a un emplacement vide, sans lui le type serait precede
+    # d'une espace de trop.
+    fields = dict.fromkeys(f"{_field(item['loc'])} {item['type']}".lstrip() for item in errors)
+    return f"{shape}: {'; '.join(fields)}"
+
+
+def _field(loc: tuple[int | str, ...]) -> str:
+    return ".".join("*" if isinstance(part, int) else part for part in loc)
 
 
 def _api_code(response: httpx2.Response) -> str:

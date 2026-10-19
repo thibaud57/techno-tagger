@@ -1,11 +1,21 @@
 import * as Sentry from "@sentry/angular"
 import { vi } from "vitest"
 
+import { PATH_MASK } from "./scrub"
 import { sentryOptions } from "./sentry-options"
 
 interface SentEvent {
   sdk?: { settings?: { infer_ip?: string } }
   breadcrumbs?: { category?: string }[]
+  exception?: { values?: { value?: string }[] }
+}
+
+// Fermee : un booleen a faux, une liste vide ou un objet dont toutes les valeurs le sont.
+const isClosed = (value: unknown): boolean => {
+  if (typeof value === "boolean") return !value
+  if (Array.isArray(value)) return value.length === 0
+  if (value && typeof value === "object") return Object.values(value).every(isClosed)
+  return false
 }
 
 /**
@@ -56,5 +66,30 @@ describe("sentryOptions", () => {
     expect(sent[0]?.breadcrumbs ?? []).not.toContainEqual(
       expect.objectContaining({ category: "console" }),
     )
+  })
+
+  it("sends the drive path of an error message masked", async () => {
+    Sentry.captureException(
+      new Error(String.raw`cannot read D:\Musique\Nova Pulse - Your Mind.mp3`),
+    )
+    await Sentry.flush()
+
+    expect(sent[0]?.exception?.values?.[0]?.value).toBe(`cannot read ${PATH_MASK}`)
+  })
+
+  // La presence de chaque categorie est exigee a la compilation (`ClosedDataCollection`) : ce
+  // test prouve qu'aucune n'est ouverte.
+  it("closes every data collection category", () => {
+    const { dataCollection = {} } = sentryOptions(
+      "https://key@o0.ingest.sentry.io/0",
+      "techno-tagger@test",
+      "test",
+    )
+
+    const opened = Object.entries(dataCollection)
+      .filter(([, value]) => !isClosed(value))
+      .map(([name]) => name)
+
+    expect(opened).toEqual([])
   })
 })

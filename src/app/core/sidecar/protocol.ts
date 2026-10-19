@@ -178,6 +178,12 @@ export interface LoadRunCommand {
   readonly run_id: string
 }
 
+/** Prepare l'issue de retour d'un run, courant ou passe : export ecrit, URL construite. */
+export interface PrepareFeedbackCommand {
+  readonly command: "prepare_feedback"
+  readonly run_id: string
+}
+
 export type SidecarCommand =
   | GetVersionCommand
   | ShutdownCommand
@@ -200,6 +206,7 @@ export type SidecarCommand =
   | LoadRunCommand
   | GetCacheSizeCommand
   | ClearCacheCommand
+  | PrepareFeedbackCommand
 
 export interface VersionEvent {
   readonly event: "version"
@@ -210,6 +217,8 @@ export interface VersionEvent {
   readonly default_thresholds: ThresholdsPayload
   /** Fichier de logs courant, que les Reglages revelent dans l'Explorateur. */
   readonly log_file: string
+  /** Lance avec `TECHNO_TAGGER_SENTRY_SELFTEST=1` : l'interface envoie son evenement de test. */
+  readonly sentry_selftest: boolean
 }
 
 export type PlaylistFormat = "vlc_dump" | "m3u8"
@@ -492,6 +501,14 @@ export interface RunLoadedEvent {
   readonly tracks: readonly TrackLoaded[]
 }
 
+/** `url` ouvre l'Issue Form pre-rempli, `export_path` designe l'export a reveler dans l'Explorateur. */
+export interface FeedbackReadyEvent {
+  readonly event: "feedback_ready"
+  readonly run_id: string
+  readonly url: string
+  readonly export_path: string
+}
+
 /** Une phase longue tourne deja : `params.phase` la nomme, `command` dit laquelle est refusee. */
 export const PHASE_BUSY = "phase_busy"
 
@@ -529,4 +546,5 @@ export type SidecarEvent =
   | RunLoadedEvent
   | CacheSizeEvent
   | CacheClearedEvent
+  | FeedbackReadyEvent
   | SidecarErrorEvent

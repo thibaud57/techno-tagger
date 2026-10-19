@@ -238,6 +238,13 @@ class LoadRun(Command):
     run_id: str
 
 
+class PrepareFeedback(Command):
+    """Prepare l'issue de retour d'un run, courant ou passe : export ecrit, URL construite."""
+
+    command: Literal["prepare_feedback"]
+    run_id: str
+
+
 type AnyCommand = Annotated[
     GetVersion
     | Shutdown
@@ -259,7 +266,8 @@ type AnyCommand = Annotated[
     | ListRuns
     | LoadRun
     | GetCacheSize
-    | ClearCache,
+    | ClearCache
+    | PrepareFeedback,
     Field(discriminator="command"),
 ]
 
@@ -286,6 +294,7 @@ type ExecutableCommand = (
     | LoadRun
     | GetCacheSize
     | ClearCache
+    | PrepareFeedback
 )
 
 # Recopie de `command` : un `Literal` ne se compose pas d'une union ; un test dedie la garde.
@@ -311,6 +320,7 @@ type CommandName = Literal[
     "load_run",
     "get_cache_size",
     "clear_cache",
+    "prepare_feedback",
 ]
 
 _COMMAND_ADAPTER: Final = TypeAdapter[AnyCommand](AnyCommand)
@@ -354,11 +364,15 @@ class Version(Event):
 
     `default_thresholds` et `log_file` pour la meme raison : seul le sidecar les connait,
     les Reglages en partent sans les recopier.
+
+    `sentry_selftest` : seul le sidecar lit son environnement, l'interface y apprend qu'elle
+    doit envoyer son evenement de test.
     """
 
     event: Literal["version"]
     version: str
     api_key_configured: bool
+    sentry_selftest: bool
     default_thresholds: ThresholdsPayload
     log_file: Path
 
@@ -704,6 +718,16 @@ class RunLoaded(Event):
     tracks: tuple[TrackLoaded, ...]
 
 
+class FeedbackReady(Event):
+    """`url` ouvre l'Issue Form pre-rempli, `export_path` designe l'export a y glisser : il ne
+    va qu'a la webview, qui le revele dans l'Explorateur."""
+
+    event: Literal["feedback_ready"]
+    run_id: str
+    url: str
+    export_path: Path
+
+
 class Error(Event):
     """Reserve a ce qui ne se rattache a aucun morceau. Le `message` est technique,
     destine aux logs ; l'interface traduit le `code`.
@@ -782,9 +806,9 @@ def error_from_business(
     `track_id` : le morceau d'un geste, que les erreurs du client ne portent pas et sans
     lequel l'interface ne saurait sur quelle ligne afficher l'erreur.
 
-    `run_id` : le run vise par une commande qui peut courir en double (`load_run`) ; sans lui,
-    un refus sans `run_id` propre (`phase_busy`, rapport illisible) serait rattache au dernier
-    chargement demande plutot qu'au sien.
+    `run_id` : le run vise par une commande qui peut courir en double (`load_run`,
+    `prepare_feedback`) ; sans lui, un refus sans `run_id` propre (`phase_busy`, rapport illisible)
+    serait rattache au dernier chargement demande plutot qu'au sien.
     """
     params = dict(exc.params)
     if track_id is not None:

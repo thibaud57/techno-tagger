@@ -71,6 +71,7 @@
     "keyring_unavailable": "Windows Credential Manager is unavailable.\nRestart the application.",
     "write_not_open": "This run cannot be written now.",
     "run_not_written": "The run on screen is waiting for its tags to be written.\nFinish writing before clearing the cache.",
+    "feedback_export_write_failed": "The full run file could not be written to the application folder.\nCheck the free disk space, then send the report again.",
     "run_committed": "Writing this run is confirmed: its tracks can no longer be arbitrated or recovered.",
     "rollback_unavailable": "Nothing to restore: these files already have their original tags back, or their backup has expired.",
     "phase_busy": {
@@ -319,7 +320,12 @@
       "heading": "This run cannot be shown",
       "description": "Reopen a run from the Settings tab."
     },
-    "back": "Back to the list"
+    "back": "Back to the list",
+    "feedback": {
+      "send": "Send this report",
+      "hint": "Opens a public GitHub issue in your browser, prefilled with the file names and the results of the run, to review before sending it.\nFile Explorer also opens on the full run file, to drag into the issue if you wish.",
+      "unavailable": "This run has no report to send."
+    }
   },
   "rollback": {
     "failures": "Files not restored: {{count}}",
