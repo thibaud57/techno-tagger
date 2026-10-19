@@ -8,6 +8,7 @@ import {
   ExtractionFinishedEvent,
   ExtractionProgressEvent,
   ExtractionRequest,
+  FeedbackReadyEvent,
   InterruptedRun,
   PlaylistsListedEvent,
   PHASE_BUSY,
@@ -44,6 +45,7 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
   run_loaded: true,
   cache_size: true,
   cache_cleared: true,
+  feedback_ready: true,
   error: true,
 }
 
@@ -96,6 +98,8 @@ export class SidecarService {
   private readonly _logFile = signal<string | null>(null)
   private readonly _cacheSize = signal<number | null>(null)
   private readonly _cacheCleared = signal<CacheClearedEvent | null>(null)
+  private readonly _feedbackReady = signal<FeedbackReadyEvent | null>(null)
+  private readonly _feedbackPending = signal<string | null>(null)
   private readonly _cacheClearing = signal(false)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _listedPlaylistPath = signal<string | null>(null)
@@ -164,6 +168,10 @@ export class SidecarService {
   readonly cacheCleared = this._cacheCleared.asReadonly()
   /** `clear_cache` envoye sans reponse encore : vrai jusqu'a `cache_cleared` ou son refus. */
   readonly cacheClearing = this._cacheClearing.asReadonly()
+  /** Derniere issue de retour preparee : de quoi l'ouvrir et reveler son export. */
+  readonly feedbackReady = this._feedbackReady.asReadonly()
+  /** Run dont l'issue de retour se prepare, `null` hors attente. */
+  readonly feedbackPending = this._feedbackPending.asReadonly()
   readonly versionMismatch = computed(() => {
     const sidecar = this._version()
 
@@ -554,6 +562,15 @@ export class SidecarService {
     await this.send({ command: "load_run", run_id: runId })
   }
 
+  /** Comme `loadRun`, sans moteur rien ne part. Le second clic reecrirait le meme export : ignore. */
+  async prepareFeedback(runId: string): Promise<void> {
+    if (this._available() !== true || this._feedbackPending() === runId) {
+      return
+    }
+    this._feedbackPending.set(runId)
+    await this.send({ command: "prepare_feedback", run_id: runId })
+  }
+
   /**
    * La cle part une fois vers le sidecar et n'est gardee dans aucun signal : seul
    * son etat revient, par l'evenement `version`.
@@ -660,6 +677,13 @@ export class SidecarService {
     void this.askInterruptedRun()
   }
 
+  /** Un refus sans `run_id` (ligne malformee) ne designe aucun run : il leve l'attente, faute de mieux. */
+  private settleFeedback(refused: unknown): void {
+    if (refused === undefined || refused === this._feedbackPending()) {
+      this._feedbackPending.set(null)
+    }
+  }
+
   private routeLoadRunError(event: SidecarErrorEvent): void {
     if (event.command === "load_run") {
       this.pastRunsStore.loadFailed(event)
@@ -688,6 +712,7 @@ export class SidecarService {
     this.arbitration.clear()
     this.urlRecovery.clear()
     this._cacheClearing.set(false)
+    this._feedbackPending.set(null)
     // Le run charge reste affiche : seul l'attente tombe, sinon `loadRun` du meme id ne repart plus.
     this.pastRunsStore.loadAbandoned()
   }
@@ -798,6 +823,13 @@ export class SidecarService {
       case "run_loaded":
         this.pastRunsStore.loadedRun(event)
         break
+      case "feedback_ready":
+        // Seule la reponse du run attendu leve l'attente : une autre ne dit rien du run demande ensuite.
+        if (this._feedbackPending() === event.run_id) {
+          this._feedbackPending.set(null)
+        }
+        this._feedbackReady.set(event)
+        break
       case "error":
         // Avant `setLastError` : la relance de l'annonce passe par `send`, qui efface l'erreur courante.
         this.routeResumeError(event)
@@ -810,6 +842,9 @@ export class SidecarService {
         this.routeLaunchError(event)
         // `load_run` n'ouvre aucune phase, mais une phase occupee le refuse aussi : le chargement tombe.
         this.routeLoadRunError(event)
+        if (event.command === "prepare_feedback") {
+          this.settleFeedback(event.params["run_id"])
+        }
         // Un refus pour phase occupee ne concerne que les lancements : aucun geste n'en recoit.
         if (event.code === PHASE_BUSY) {
           break

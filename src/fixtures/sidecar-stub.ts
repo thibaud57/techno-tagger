@@ -69,6 +69,8 @@ const defaults = (): StubbedState => ({
   cacheSize: signal(null),
   cacheCleared: signal(null),
   cacheClearing: signal(false),
+  feedbackReady: signal(null),
+  feedbackPending: signal(null),
   versionMismatch: signal(null),
   playlistFormat: signal("vlc_dump"),
   playlists: signal(PLAYLISTS),
@@ -141,6 +143,7 @@ const defaults = (): StubbedState => ({
   clearCache: vi.fn<SidecarService["clearCache"]>(() => Promise.resolve()),
   listRuns: vi.fn<SidecarService["listRuns"]>(() => Promise.resolve()),
   loadRun: vi.fn<SidecarService["loadRun"]>(() => Promise.resolve()),
+  prepareFeedback: vi.fn<SidecarService["prepareFeedback"]>(() => Promise.resolve()),
 })
 
 /**

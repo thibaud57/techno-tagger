@@ -36,6 +36,7 @@ from tagger.handlers import (
     handle_list_playlists,
     handle_list_runs,
     handle_load_run,
+    handle_prepare_feedback,
     handle_resume_run,
     handle_retry_write,
     handle_rollback,
@@ -59,6 +60,7 @@ from tagger.protocol import (
     ListPlaylists,
     ListRuns,
     LoadRun,
+    PrepareFeedback,
     ResolveArbitration,
     ResolveByUrl,
     ResumeRun,
@@ -174,8 +176,9 @@ class _RunningPhase(NamedTuple):
 
 
 def _error_of(error: TaggerError, command: ExecutableCommand, track_id: str | None = None) -> Error:
-    """Seul chemin d'emission d'une erreur de commande : tout refus de `load_run` nomme son run."""
-    run_id = command.run_id if isinstance(command, LoadRun) else None
+    """Seul chemin d'emission d'une erreur de commande : tout refus de `load_run` ou de
+    `prepare_feedback` nomme son run."""
+    run_id = command.run_id if isinstance(command, LoadRun | PrepareFeedback) else None
     return error_from_business(error, command.command, track_id, run_id=run_id)
 
 
@@ -628,6 +631,9 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
             session.send(await asyncio.to_thread(handle_get_cache_size))
         case ClearCache():
             await session.clear_cache()
+        case PrepareFeedback():
+            # Aucune garde de phase : ni la musique ni le cache ne sont touches.
+            session.send(await asyncio.to_thread(handle_prepare_feedback, command))
         case _:
             assert_never(command)
 

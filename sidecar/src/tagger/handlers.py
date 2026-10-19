@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, NamedTuple, assert_never, override
 
-from tagger import __version__
+from tagger import RELEASE, __version__
 from tagger.core.api_key import ApiKeyMissingError, read_api_key, store_api_key
 from tagger.core.errors import RunNotFoundError
 from tagger.core.logger import LOG_FILE_NAME
@@ -26,6 +26,7 @@ from tagger.protocol import (
     ExtractionFinished,
     ExtractPlaylist,
     FailurePayload,
+    FeedbackReady,
     InterruptedRunEvent,
     InterruptedRunPayload,
     ListPlaylists,
@@ -34,6 +35,7 @@ from tagger.protocol import (
     Phase,
     PlaylistEntry,
     PlaylistsListed,
+    PrepareFeedback,
     Progress,
     Rollback,
     RollbackFailurePayload,
@@ -52,6 +54,7 @@ from tagger.protocol import (
     Version,
 )
 from tagger.reports.extraction import ReportContext, ReportWriteError, write_extraction_report
+from tagger.reports.feedback import feedback_dir, feedback_issue_url, write_feedback_export
 from tagger.reports.index import IndexEntry, index_path, list_reports, record_report
 from tagger.reports.tagging import (
     load_tagging_report,
@@ -526,14 +529,22 @@ def handle_list_runs() -> RunsListed:
     )
 
 
+def _report_of(run_id: str) -> TaggingReport:
+    """Rapport d'un run de l'index, migre s'il est d'un schema anterieur.
+
+    Leve `RunNotFoundError` pour un run absent de l'index, `TaggingReportUnreadableError` pour un
+    rapport illisible ou disparu.
+    """
+    entry = next((known for known in list_reports(index_path()) if known.run_id == run_id), None)
+    if entry is None:
+        raise RunNotFoundError(run_id)
+    return load_tagging_report(entry.report_path)
+
+
 async def handle_load_run(command: LoadRun) -> RunLoaded:
     """Recapitulatif d'un run passe, relu dans son rapport (migration ADR-018 B), sans rien
     rejouer ; les pochettes passent par le cache puis le CDN, jamais par l'API."""
-    entries = await asyncio.to_thread(list_reports, index_path())
-    entry = next((known for known in entries if known.run_id == command.run_id), None)
-    if entry is None:
-        raise RunNotFoundError(command.run_id)
-    report = await asyncio.to_thread(load_tagging_report, entry.report_path)
+    report = await asyncio.to_thread(_report_of, command.run_id)
     artworks = await _artworks(report)
     return RunLoaded(
         event="run_loaded",
@@ -541,6 +552,18 @@ async def handle_load_run(command: LoadRun) -> RunLoaded:
         folder=report.folder,
         generated_at=report.generated_at,
         tracks=tuple(_loaded(track, artworks) for track in report.tracks),
+    )
+
+
+def handle_prepare_feedback(command: PrepareFeedback) -> FeedbackReady:
+    """L'export s'ecrit avant l'URL : celle-ci nomme le fichier a glisser dans l'issue."""
+    report = _report_of(command.run_id)
+    export = write_feedback_export(feedback_dir(), report, RELEASE)
+    return FeedbackReady(
+        event="feedback_ready",
+        run_id=report.run_id,
+        url=feedback_issue_url(report, RELEASE, export.name),
+        export_path=export,
     )
 
 

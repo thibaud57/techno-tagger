@@ -32,7 +32,7 @@ import {
   writeFinishedWithFailures,
 } from "../../../fixtures/write"
 import { PastRunsStore } from "../stores/past-runs.store"
-import { BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
+import { BusyPhase, FeedbackReadyEvent, SidecarEvent, VersionEvent } from "./protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { type RunAction, type SidecarPhase, SidecarService } from "./sidecar.service"
 
@@ -517,6 +517,11 @@ describe("SidecarService", () => {
     ],
     ["a cache size request", (target) => target.loadCacheSize(), { command: "get_cache_size" }],
     ["a cache clearing", (target) => target.clearCache(), { command: "clear_cache" }],
+    [
+      "a feedback preparation",
+      (target) => target.prepareFeedback("a3f9c1"),
+      { command: "prepare_feedback", run_id: "a3f9c1" },
+    ],
   ])("sends %s as its command", async (_command, send, expected) => {
     await service.start()
 
@@ -1220,6 +1225,93 @@ describe("SidecarService", () => {
       expect(TestBed.inject(PastRunsStore).loading()).toBeNull()
       expect(service.errorFor("list_runs", "load_run")()).toBeNull()
       expect(service.taggingTracks()).toHaveLength(2)
+    })
+  })
+
+  describe("feedback", () => {
+    const RUN = "a3f9c1"
+    const READY: FeedbackReadyEvent = {
+      event: "feedback_ready",
+      run_id: RUN,
+      url: "https://github.example/issues/new?template=matching-report.yml",
+      export_path: String.raw`C:\data\feedback\20261006T211403Z-a3f9c1.json`,
+    }
+
+    it("marks the run as pending until its feedback is ready", async () => {
+      await service.start()
+
+      await service.prepareFeedback(RUN)
+      const pending = service.feedbackPending()
+      transport.emit(READY)
+
+      expect(pending).toBe(RUN)
+      expect(service.feedbackPending()).toBeNull()
+      expect(service.feedbackReady()).toEqual(READY)
+    })
+
+    it("sends nothing and leaves the displayed run alone when the engine is not up", async () => {
+      await service.prepareFeedback(RUN)
+
+      expect(transport.sent).toEqual([])
+      expect(service.lastError()).toBeNull()
+      expect(service.feedbackPending()).toBeNull()
+    })
+
+    it("asks once while the feedback of a run is being prepared", async () => {
+      await service.start()
+
+      await service.prepareFeedback(RUN)
+      await service.prepareFeedback(RUN)
+
+      const sent = transport.sent.filter((line) => commandOf(line) === "prepare_feedback")
+      expect(sent).toHaveLength(1)
+    })
+
+    it("ends the wait when the preparation is refused", async () => {
+      await service.start()
+      await service.prepareFeedback(RUN)
+
+      transport.emit(commandError("prepare_feedback", "run_not_found", { run_id: RUN }))
+
+      expect(service.feedbackPending()).toBeNull()
+      expect(service.errorFor("prepare_feedback")()?.code).toBe("run_not_found")
+    })
+
+    it("keeps waiting for the asked run when another run answers", async () => {
+      await service.start()
+      await service.prepareFeedback("b4d2e0")
+
+      transport.emit(READY)
+
+      expect(service.feedbackPending()).toBe("b4d2e0")
+      expect(service.feedbackReady()).toEqual(READY)
+    })
+
+    it("keeps waiting for the asked run when another run is refused", async () => {
+      await service.start()
+      await service.prepareFeedback("b4d2e0")
+
+      transport.emit(commandError("prepare_feedback", "run_not_found", { run_id: RUN }))
+
+      expect(service.feedbackPending()).toBe("b4d2e0")
+    })
+
+    it("keeps waiting when another command fails", async () => {
+      await service.start()
+      await service.prepareFeedback(RUN)
+
+      transport.emit(commandError("clear_cache", "run_not_written"))
+
+      expect(service.feedbackPending()).toBe(RUN)
+    })
+
+    it("ends the wait when the engine stops during it", async () => {
+      await service.start()
+      await service.prepareFeedback(RUN)
+
+      transport.handlers?.onTerminated()
+
+      expect(service.feedbackPending()).toBeNull()
     })
   })
 
