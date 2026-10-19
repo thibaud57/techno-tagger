@@ -415,17 +415,17 @@ Expected : tout vert. La Feature 9 suit ensuite sa chaîne d'intégration (`/fin
 
 Manuelle. Chaque étape cochée note sa date ; une étape qui échoue ouvre un `hotfix/*` (PRODUCTION.md § Rollback) et la recette reprend sur le PATCH.
 
-- [ ] **Step 1 : releases et source maps**
+- [ ] **Step 1 : releases et source maps** (2026-10-19 : purge non prouvée)
 
 Dans Sentry (organisation `tg-ws`), page Releases de `techno-tagger-sidecar` puis de `techno-tagger-ui` : la version publiée existe, onglet Commits renseigné.
 
 Source maps : ouvrir le log du job de build de la Release. Il énumère les `.map` envoyés par `sentry-cli` et n'en montre plus après la purge. Le script npm `sourcemaps` supprime sans rien afficher : si le log ne montre pas la purge, la case reste ouverte et un `chore(ci)` ajoute un `find dist -name '*.map'` après la purge. Aucun contrôle sur l'installeur ni sur le dossier installé : `tauri-codegen` embarque `frontendDist` dans le binaire (PRODUCTION.md l.316), un `.map` oublié n'y serait pas un fichier et la recherche rendrait toujours vide. La seconde preuve est la pile lisible en TypeScript, relevée au step 3.
 
-- [ ] **Step 2 : label**
+- [x] **Step 2 : label** (2026-10-19)
 
 `gh label list --search matching-report`. S'il manque, demander la confirmation du propriétaire puis `gh label create matching-report --description "Matching report sent from the app" --color 0e8a16`.
 
-- [ ] **Step 3 : self-test**
+- [x] **Step 3 : self-test** (2026-10-19)
 
 Suivre la procédure de PRODUCTION.md § Observabilité (« Vérifier la remontée depuis l'application installée ») sur l'application installée depuis la Release : résoudre d'abord les issues de self-test précédentes, lancer avec la variable, la retirer de la session. Dans Sentry (organisation `tg-ws`) :
 1. Issues de `techno-tagger-sidecar` : issue `SentrySelfTestError`. Issues de `techno-tagger-ui` : issue `Error` « sentry self test ». Un email pour chacune, dans la boîte de l'adresse d'alerte du propriétaire.
@@ -433,7 +433,7 @@ Suivre la procédure de PRODUCTION.md § Observabilité (« Vérifier la remont�
 3. Pile de l'événement webview lisible en TypeScript (source maps résolues par Debug ID).
 4. Première recette seulement : ouvrir la règle d'alerte de chaque projet et vérifier qu'elle couvre une exception capturée par `capture_unexpected`, PRODUCTION.md § Alertes parlant d'« exception non gérée ». Si elle ne la couvre pas, corriger la règle ou PRODUCTION.md et laisser « Chaîne d'alerte Sentry » ouverte jusqu'au rejeu suivant.
 
-- [ ] **Step 4 : issue de retour**
+- [ ] **Step 4 : issue de retour** (2026-10-19 : label non vérifié depuis un non-collaborateur)
 
 Sur un run réel écrit depuis l'application installée, dans un dossier de travail dédié qui contient quelques morceaux de catalogue public, jamais la bibliothèque personnelle : l'issue reste publique le temps de la recette et porte les noms de fichiers du run.
 1. « Envoyer ce rapport » : le navigateur s'ouvre sur l'Issue Form, version, résumé et consigne pré-remplis, résumé entier ou terminé par la ligne « more » ; l'Explorateur s'ouvre sur l'export.
@@ -443,7 +443,7 @@ Sur un run réel écrit depuis l'application installée, dans un dossier de trav
 
 Compte non collaborateur indisponible : cette case reste ouverte, le reste se coche.
 
-- [ ] **Step 5 : cases de PRODUCTION.md**
+- [x] **Step 5 : cases de PRODUCTION.md** (2026-10-19, trois cases restent ouvertes)
 
 Cocher avec la date de la recette, chacune sur sa preuve directe :
 - Checklist Pré-MEP : « Durcissement Sentry en place et testé »
@@ -453,7 +453,7 @@ Cocher avec la date de la recette, chacune sur sa preuve directe :
 
 Mettre à jour la note « Déjà vérifié sur build local au bootstrap » : ce qu'elle laissait à couvrir (email, titre dans un payload, application installée) est couvert à cette date.
 
-- [ ] **Step 6 : ARCHITECTURE.md, ordre de développement**
+- [x] **Step 6 : ARCHITECTURE.md, ordre de développement** (2026-10-19)
 
 Étape 8 : noter le monitoring livré, avec la version de la Release.
 

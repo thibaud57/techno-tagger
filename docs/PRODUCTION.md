@@ -241,7 +241,7 @@ GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 | Clé API techno-scraper | Trousseau de l'OS via keyring (Credential Manager Windows) | Chiffré par l'OS, jamais exposé au JavaScript de la webview ([ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 | Mode copie / déplacement, signal sonore, langue, dernière destination, seuils de matching | Store Tauri (fichier local) | Réglages non sensibles. L'URL de l'API n'en fait plus partie : constante du sidecar depuis le 2026-09-19 |
 
-Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `core/build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
+Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `core/build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire (cf. § Observabilité > Vérifier la remontée depuis l'application installée).
 
 ```bash
 # Runtime, diagnostic uniquement (cf. § Observabilité > Vérifier la remontée depuis l'application installée)
@@ -317,8 +317,8 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [x] **`target-branch: main` valide sur le flux `develop → main`** : release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). Confirmé au premier run (`v0.1.0`) : le squash-merge de la PR est un commit ordinaire de `main`, rien à régler
 - [ ] **`extra-files` a bumpé les deux manifestes TOML** : après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
 - [ ] **WebView2 présent sur le runner `windows-2025`** : sa présence sur l'image n'est pas confirmée (cf. [VERSIONS.md](VERSIONS.md) § GitHub Actions). Son absence casse `tauri build`, ou pire produit un installeur dont l'application ne s'ouvre pas
-- [ ] **Releases Sentry créées dans les deux projets** : job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison
-- [ ] **Source maps de la webview uploadées puis purgées** : `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers
+- [x] **Releases Sentry créées dans les deux projets** : job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison. Confirmé le 2026-10-19 (`v0.9.0`), 2 commits rattachés
+- [ ] **Source maps de la webview uploadées puis purgées** : `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers. Upload confirmé le 2026-10-19 (`v0.9.0`), purge à confirmer au prochain build (décompte des `.map` restants dans le log)
 - [ ] **`pnpm-workspace.yaml` créé** : même sans monorepo : depuis pnpm 11, `.npmrc` n'accepte plus que l'auth et le registry, et `allowBuilds: { esbuild: true }` doit y vivre
 - [ ] **Ruff interdit `asyncio.get_event_loop` et `sqlite3.version`** : via `banned-api`, les deux étant supprimés ou durcis en Python 3.14. Fait porter la garantie par la CI plutôt que par la vigilance
 - [ ] **Actions CI pinnées** : chaque action sur le SHA de son tag, jamais sur un tag flottant, pour que Dependabot propose chaque montée par une PR
@@ -326,7 +326,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le lien vers la fiche source et par le bouton « Ouvrir le dossier des logs » des Réglages, qui s'appuie sur `opener:allow-reveal-item-in-dir`, déjà accordé, sans nouvelle permission : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
 - [ ] **Préfixe `\\?\` sur les accès aux fichiers musicaux** (tags, renommage, rollback) : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
-- [ ] **Durcissement Sentry en place et testé** : `data_collection` fermé catégorie par catégorie (variables de frame comprises), `server_name` fixe, messages d'exception masqués hors liste fermée, scrubbing des chemins. Ces réglages sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- [x] **Durcissement Sentry en place et testé** : `data_collection` fermé catégorie par catégorie (variables de frame comprises), `server_name` fixe, messages d'exception masqués hors liste fermée, scrubbing des chemins. Ces réglages sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Confirmé le 2026-10-19 sur l'application installée (`v0.9.0`)
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
 > Items techniques et de bootstrap, à valider empiriquement. Pas d'ADR : aucune décision architecturale structurelle, celles-ci vivent dans `adrs/`.
@@ -370,13 +370,13 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 - [ ] **Chaîne de mise à jour vérifiée en réel** : machine en version N-1, l'updater détecte, télécharge, **vérifie la signature**, installe et relance
 - [ ] **Installation depuis zéro sur une machine tierce** : celle d'un des utilisateurs réels, pas une VM : SmartScreen, antivirus et trousseau s'y comportent différemment
 - [ ] **Faux positif antivirus mesuré** : soumission de l'installeur et du sidecar à VirusTotal pour connaître l'ampleur réelle, et signalement aux éditeurs concernés si le blocage est bloquant
-- [ ] **Chaîne d'alerte Sentry** : provoquer une erreur de test côté sidecar et côté webview, vérifier la réception de l'issue **et** de l'email
-- [ ] **Payload Sentry inspecté en vrai** : ouvrir un event réel dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau
+- [x] **Chaîne d'alerte Sentry** : self-test côté sidecar et côté webview (§ Observabilité > Vérifier la remontée depuis l'application installée), vérifier la réception de l'issue **et** de l'email. Confirmé le 2026-10-19 (`v0.9.0`), exception capturée comprise
+- [x] **Payload Sentry inspecté en vrai** : ouvrir l'event du self-test dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau. Confirmé le 2026-10-19 (`v0.9.0`)
 - [ ] **Clé API révoquée testée** : avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
-- [ ] **Release Sentry créée au tag** : la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy
-- [ ] **Issue de retour vérifiée en réel** : depuis l'application installée, « Envoyer ce rapport » sur un run réel ouvre l'Issue Form `matching-report.yml` pré-rempli sans troncature et l'Explorateur sur l'export ; envoyée depuis un compte non collaborateur, export glissé, l'issue porte le label `matching-report`
+- [x] **Release Sentry créée au tag** : la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy. Confirmé le 2026-10-19 (`v0.9.0`)
+- [ ] **Issue de retour vérifiée en réel** : depuis l'application installée, « Envoyer ce rapport » sur un run réel ouvre l'Issue Form `matching-report.yml` pré-rempli sans troncature et l'Explorateur sur l'export ; envoyée depuis un compte non collaborateur, export glissé, l'issue porte le label `matching-report`. Vérifié le 2026-10-19 (`v0.9.0`) sauf le label depuis un non-collaborateur
 
-> **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus (ils exigent une Release publiée) mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Restent à couvrir en post-MEP : la réception de l'**email**, la présence d'un **titre de morceau** dans un payload (aucun n'existe au bootstrap), et le comportement depuis une application **installée**.
+> **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus (ils exigent une Release publiée) mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Ce qui restait à couvrir (l'**email**, un **titre de morceau** dans un payload, une application **installée**) l'est depuis le 2026-10-19, par le self-test de la `v0.9.0`.
 
 ---
 
@@ -545,10 +545,10 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 
 | Alerte | Condition | Canal |
 |--------|-----------|-------|
-| Crash du sidecar | Exception non gérée remontée | Email (Sentry) |
+| Crash du sidecar | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | API injoignable | `SourceUnavailableError` / erreur réseau épuisée côté sidecar | Email (Sentry) |
 | Parsing cassé | Réponse de techno-scraper non conforme au schéma attendu | Email (Sentry) |
-| Erreur de la webview | Exception Angular non gérée | Email (Sentry) |
+| Erreur de la webview | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
 
 > **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8). Les retours arrivent en issues du dépôt sous le label `matching-report`, posé par l'Issue Form `matching-report.yml`. Le label doit exister dans le dépôt, sinon le formulaire ne le pose pas, sans erreur.
