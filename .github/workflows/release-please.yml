@@ -156,6 +156,26 @@ jobs:
           releaseName: ${{ needs.release-please.outputs.tag_name }}
           releaseDraft: false
 
+      # tauri-action v1 ecrit l'URL d'API de l'asset (tauri-action#1315), limitee a 60 appels
+      # par heure et par IP sans token. Le lien sous le tag n'a pas ce quota.
+      - name: Publier latest.json avec les liens de telechargement
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          gh release download $env:TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
+          $path = Join-Path $env:RUNNER_TEMP 'latest.json'
+          $links = @{}
+          foreach ($asset in (gh release view $env:TAG --json assets | ConvertFrom-Json).assets) { $links[$asset.apiUrl] = $asset.url }
+          # Texte remplace tel quel : ConvertTo-Json reformaterait pub_date. Une URL sans lien
+          # connu devient vide, et la garde qui suit echoue dessus.
+          $raw = [regex]::Replace((Get-Content $path -Raw), 'https://api\.github\.com/repos/[^/"]+/[^/"]+/releases/assets/\d+', { param($m) $links[$m.Value] })
+          [IO.File]::WriteAllText($path, $raw)
+          gh release upload $env:TAG $path --clobber
+
       # tauri-action reste vert sans artefact d'updater (constate sur la v0.1.0), et
       # Tauri valide tout latest.json avant d'en lire la version : sans ce controle,
       # une Release que l'updater ne verrait pas passerait inapercue.
