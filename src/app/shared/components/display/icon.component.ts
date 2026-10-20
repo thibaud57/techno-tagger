@@ -6,6 +6,7 @@ import { ChevronRight } from "@primeicons/angular/chevron-right"
 import { Check } from "@primeicons/angular/check"
 import { CheckCircle } from "@primeicons/angular/check-circle"
 import { Clock } from "@primeicons/angular/clock"
+import { Download } from "@primeicons/angular/download"
 import { ExclamationTriangle } from "@primeicons/angular/exclamation-triangle"
 import { ExternalLink } from "@primeicons/angular/external-link"
 import { Eye } from "@primeicons/angular/eye"
@@ -57,6 +58,7 @@ export const ICON_NAMES = [
   "search",
   "external-link",
   "trash",
+  "download",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -96,6 +98,7 @@ export type IconSize = 16 | 20 | 24
     ExternalLink,
     Search,
     Trash,
+    Download,
   ],
   template: `
     @switch (name()) {
@@ -173,6 +176,9 @@ export type IconSize = 16 | 20 | 24
       }
       @case ("trash") {
         <svg data-p-icon="trash" [size]="size()" />
+      }
+      @case ("download") {
+        <svg data-p-icon="download" [size]="size()" />
       }
     }
   `,

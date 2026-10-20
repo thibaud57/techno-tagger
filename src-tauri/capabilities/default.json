@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions de la fenetre principale : lancement du sidecar, selection de chemins, preferences, locale, ouverture de dossiers et fermeture de la fenetre apres confirmation.",
+  "description": "Permissions de la fenetre principale : lancement du sidecar, selection de chemins, preferences, locale, ouverture de dossiers, verification et installation des mises a jour et fermeture de la fenetre apres confirmation.",
   "windows": ["main"],
   "platforms": ["windows"],
   "permissions": [
@@ -19,6 +19,7 @@
     "os:allow-locale",
     "opener:allow-reveal-item-in-dir",
     "opener:allow-open-url",
-    "opener:allow-default-urls"
+    "opener:allow-default-urls",
+    "updater:default"
   ]
 }

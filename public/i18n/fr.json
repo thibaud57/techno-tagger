@@ -460,6 +460,13 @@
         "header": "Restaurer le dernier run",
         "message": "Run du {{date}} sur {{folder}}\nFichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes posées par l'écriture restent en place.\nLes commentaires retirés par l'écriture ne sont pas récupérés.",
         "accept": "Restaurer"
+      },
+      "version": {
+        "label": "Version",
+        "installed": "Version {{version}} installée.",
+        "action": "Rechercher une mise à jour",
+        "upToDate": "Vous utilisez la dernière version.",
+        "failed": "Vérification impossible.\nVérifiez votre connexion, puis réessayez."
       }
     }
   },
@@ -475,5 +482,20 @@
     "resume": "Reprendre",
     "discard": "Repartir de zéro",
     "later": "Plus tard"
+  },
+  "update": {
+    "title": "Mise à jour disponible",
+    "available": "La version {{version}} est disponible, vous utilisez la {{current}}.\nL'application se ferme le temps de l'installation.",
+    "notes": "Voir les nouveautés",
+    "later": "Plus tard",
+    "install": "Installer",
+    "retry": "Réessayer",
+    "busy": "Disponible à la fin du travail en cours",
+    "downloading": "Téléchargement",
+    "counter": "{{received}} sur {{total}}",
+    "closing": "L'application se fermera à la fin du téléchargement.",
+    "failed": "La mise à jour a échoué.\nVérifiez votre connexion, puis réessayez.",
+    "badge": "Mise à jour {{version}}",
+    "reopen": "Voir la mise à jour"
   }
 }

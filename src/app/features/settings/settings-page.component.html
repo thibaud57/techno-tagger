@@ -386,6 +386,46 @@
               "settings.admin.pastRuns.hint" | translate
             }}</span>
           </app-settings-row>
+
+          <app-settings-row data-version-row>
+            <span rowLabel class="text-sm">{{ "settings.admin.version.label" | translate }}</span>
+
+            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
+              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+                "settings.admin.version.installed" | translate: { version: appVersion }
+              }}</span>
+              <button
+                pButton
+                type="button"
+                size="small"
+                severity="secondary"
+                [outlined]="true"
+                class="shrink-0"
+                data-action="check-update"
+                [disabled]="updateCheck() === 'checking'"
+                (click)="checkUpdate()"
+              >
+                <app-icon
+                  [name]="updateCheck() === 'checking' ? 'spinner' : 'refresh'"
+                  [size]="16"
+                />
+                {{ "settings.admin.version.action" | translate }}
+              </button>
+            </div>
+
+            @switch (updateCheck()) {
+              @case ("upToDate") {
+                <app-message data-version-up-to-date severity="success" size="small">{{
+                  "settings.admin.version.upToDate" | translate
+                }}</app-message>
+              }
+              @case ("failed") {
+                <app-message data-version-error severity="error" size="small">{{
+                  "settings.admin.version.failed" | translate
+                }}</app-message>
+              }
+            }
+          </app-settings-row>
         </div>
       }
     }

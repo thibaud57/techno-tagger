@@ -4275,6 +4275,7 @@ dependencies = [
 name = "techno-tagger"
 version = "0.9.0"
 dependencies = [
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

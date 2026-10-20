@@ -19,6 +19,7 @@ import { SentrySelftestService } from "./core/observability/sentry-selftest.serv
 import { CompletionSignalService } from "./core/platform/completion-signal.service"
 import { PreferencesService } from "./core/platform/preferences.service"
 import { TECHNO_TAGGER_PRESET } from "./core/platform/theme"
+import { UpdateService } from "./core/platform/update.service"
 import { SidecarService } from "./core/sidecar/sidecar.service"
 
 export const appConfig: ApplicationConfig = {
@@ -75,6 +76,10 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       inject(CompletionSignalService)
       inject(SentrySelftestService)
+    }),
+    // Une seule verification, sans attendre : `check()` ne leve jamais.
+    provideAppInitializer(() => {
+      void inject(UpdateService).check()
     }),
   ],
 }

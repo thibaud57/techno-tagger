@@ -1,7 +1,8 @@
 import { effect, inject, Service } from "@angular/core"
-import * as Sentry from "@sentry/angular"
 
 import { SidecarService } from "../sidecar/sidecar.service"
+
+import { CAPTURE_EXCEPTION } from "./capture-exception"
 
 /** Faux morceau du self-test : `scrub` doit l'effacer en `<path>` de l'evenement envoye. */
 export const SELFTEST_PATH = String.raw`D:\Musique\Nova Pulse - Your Mind.mp3`
@@ -14,6 +15,7 @@ export const SELFTEST_PATH = String.raw`D:\Musique\Nova Pulse - Your Mind.mp3`
 @Service()
 export class SentrySelftestService {
   private readonly sidecar = inject(SidecarService)
+  private readonly captureException = inject(CAPTURE_EXCEPTION)
   private sent = false
 
   constructor() {
@@ -22,7 +24,7 @@ export class SentrySelftestService {
         return
       }
       this.sent = true
-      Sentry.captureException(new Error(`sentry self test, must be masked: ${SELFTEST_PATH}`))
+      this.captureException(new Error(`sentry self test, must be masked: ${SELFTEST_PATH}`))
     })
   }
 }

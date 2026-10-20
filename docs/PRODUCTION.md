@@ -56,7 +56,7 @@ hotfix/*  → main → tag vX.Y.Z → build + GitHub Release → updater        
 | Tag + **build + publication** | — | Distribution | Merge de la PR release-please (bump PATCH) → tag → build chaîné |
 | Resync develop | `develop` | Local | Back-merge `main` → `develop` après tag |
 
-> ⚠️ **Un hotfix n'atteint l'utilisateur qu'au prochain lancement de son application.** L'updater vérifie au démarrage : quelqu'un qui laisse l'app ouverte, ou qui ne la rouvre pas de la semaine, reste sur la version cassée. Il n'existe aucun canal pour forcer une mise à jour, ni pour savoir qui l'a prise. C'est la différence structurelle avec une API, où un déploiement corrige tout le monde d'un coup.
+> ⚠️ **Un hotfix n'atteint l'utilisateur qu'au prochain lancement de son application.** L'updater vérifie au démarrage, ou quand l'utilisateur lance la recherche depuis Réglages > Administration : quelqu'un qui laisse l'app ouverte sans y penser, ou qui ne la rouvre pas de la semaine, reste sur la version cassée. Il n'existe aucun canal pour forcer une mise à jour, ni pour savoir qui l'a prise. C'est la différence structurelle avec une API, où un déploiement corrige tout le monde d'un coup.
 
 ## Convention Commits
 
@@ -112,13 +112,13 @@ Conséquences par lock, très inégales :
 
 **Manuel :**
 - [ ] `just audit` lu : chaque vulnérabilité remontée est corrigée, ou constatée sans correctif disponible (cf. § Dépendances)
-- [ ] **Sauvegarde de la clé privée updater revérifiée** : archive chiffrée accessible et déchiffrable. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
+- [ ] **Sauvegarde de la clé privée updater revérifiée** : l'entrée de la clé et celle de son mot de passe sont présentes dans le gestionnaire de mots de passe et correspondent à la clé en service. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
 - [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
 - [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles sur la version de release` présent en tête de la PR de release. Garantit que le lock committé au tag porte la version publiée, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run »
 - [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `tauri build` + signature)
 - [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent. **Confirmé au premier run (v0.1.0)** : les source maps sont bien montées sur `techno-tagger@0.1.0`. Symptôme si cela régressait : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
-- [ ] Release GitHub porte bien **l'installeur ET `latest.json`** (sans le second, aucun client ne verra la mise à jour). **Ce point ne se délègue à rien** : sans artefact d'updater à traiter, `tauri-action` reste vert et n'émet aucun avertissement, `uploadUpdaterJson` fut-il à `true`. Constaté sur la v0.1.0, publiée avec le seul installeur
+- [ ] Étape **« Verifier les artefacts de l'updater »** du job de build **verte** : elle échoue si `latest.json` ou le `.sig` manquent, si le manifeste annonce une autre version que le tag, ou si son entrée `windows-x86_64` est incomplète. `tauri-action` seul reste vert sans artefact d'updater, `uploadUpdaterJson` fût-il à `true` (constaté sur la v0.1.0, publiée avec le seul installeur)
 - [ ] **Smoke test d'installation** sur une machine ou une VM propre : l'installeur passe, l'application démarre, le sidecar répond, et `F5`, `Ctrl+R` comme le clic droit restent sans effet (un rechargement relancerait un second sidecar)
 - [ ] **Smoke test de mise à jour** : depuis une installation en version N-1, l'updater propose, télécharge, installe et relance, **et le sidecar a bien changé de version** (cf. § Remplacement du sidecar à la mise à jour)
 - [ ] Un run réel de bout en bout : playlist → arbitrage → écriture → rapport
@@ -143,7 +143,7 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 | Windows x86_64 | GitHub Releases (dépôt public) | Aucun canal séparé au MVP : machine ou VM propre en local | Release publiée + `latest.json` |
 | macOS / Linux | — | — | Post-MVP ([ADR-015](adrs/015-cibles-distribution-windows.md)) |
 
-**Endpoint updater, cible de l'étape 9, non câblé** (`createUpdaterArtifacts: false`, plugin non enregistré) : `https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json`. Aucun token n'est nécessaire côté client, c'est exactement la raison du dépôt public : des utilisateurs sans compte GitHub téléchargent et se mettent à jour sans rien manipuler.
+**Endpoint updater** (`plugins.updater.endpoints`) : `https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json`. Aucun token n'est nécessaire côté client, c'est exactement la raison du dépôt public : des utilisateurs sans compte GitHub téléchargent et se mettent à jour sans rien manipuler.
 
 > ⚠️ **L'updater ignore les releases en brouillon.** Une Release laissée en draft n'apparaît pas derrière `/releases/latest/`, et l'application ne trouve alors aucune mise à jour, **sans erreur visible**.
 >
@@ -159,11 +159,11 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 
 | Élément | Signé | Mécanisme | Conséquence |
 |---|---|---|---|
-| Bundle de mise à jour (`.sig`) | Cible, étape 9 : oui, obligatoire | minisign, `TAURI_SIGNING_PRIVATE_KEY` (+ password) injectés au build | Sans signature valide, l'updater **refuse** la mise à jour |
+| Bundle de mise à jour (`.sig`) | ✅ Oui, obligatoire | minisign, `TAURI_SIGNING_PRIVATE_KEY` (+ password) injectés au build de la CI. Le build local passe `--no-sign` | Sans signature valide, l'updater **refuse** la mise à jour |
 | Installeur Windows | ❌ Non | — | SmartScreen avertit au premier lancement, contournable en deux clics dans la fenêtre |
 | Sidecar `tagger-*.exe` | ❌ Non | — | Faux positifs Defender possibles, que le mode PyInstaller retenu peut atténuer (cf. § Performance) |
 
-Signer l'installeur ne changerait pas grand-chose : depuis mars 2024, les certificats EV n'ont plus de contournement SmartScreen instantané, la réputation se construisant par volume de téléchargements qu'une application distribuée à quelques amis n'atteindra jamais. L'option la moins chère accessible à un individu, Azure Trusted Signing (~120 $/an), est écartée au vu du budget nul ; son bénéfice réel serait la réduction des faux positifs antivirus, que le mode `--onedir` retenu atténue sans rien dépenser ([ADR-015](adrs/015-cibles-distribution-windows.md)).
+Signer l'installeur ne changerait pas grand-chose : depuis mars 2024, les certificats EV n'ont plus de contournement SmartScreen instantané, la réputation se construisant par volume de téléchargements qu'une application distribuée à quelques amis n'atteindra jamais. Azure Artifact Signing (~9,99 $/mois) n'est ouvert aux individus qu'aux USA et au Canada ; les autres options, Microsoft Store en MSIX, certificat Certum Open Source ou OV, bootloader PyInstaller recompilé, attendent la mesure des faux positifs de la première recette, le mode `--onedir` retenu les atténuant déjà sans rien dépenser (mise à jour du 2026-10-15 d'[ADR-015](adrs/015-cibles-distribution-windows.md)).
 
 > 🔴 **La clé privée de signature est l'actif le plus critique du projet.** Sa perte n'est pas récupérable : « if you lose this key you will NOT be able to publish new updates to the users that have the app already installed » ([Tauri : Updater](https://v2.tauri.app/plugin/updater/)). La rotation elle-même exige l'ancienne clé, la release qui introduit la nouvelle `pubkey` devant être **signée avec l'ancienne** pour que les installations existantes l'acceptent. Sauvegarde obligatoire hors GitHub, cf. § Backup & Recovery.
 
@@ -211,7 +211,7 @@ Deux états de l'application, pas des branches ni des serveurs. **Aucun héberge
 | Env | Accès | Branch | Sidecar | Auto-publication |
 |-----|-------|--------|---------|------------------|
 | Développement | `tauri dev` en local | `develop`, `feature/*` | Binaire de `just build-sidecar`, exigé dès la compilation | Non |
-| Distribution | Installeur GitHub Releases | `main` (tags uniquement) | Binaire PyInstaller empaqueté, signature de l'updater à l'étape 9 | Oui, au tag (cf. § Pipelines) |
+| Distribution | Installeur GitHub Releases | `main` (tags uniquement) | Binaire PyInstaller empaqueté, signature de l'updater en CI | Oui, au tag (cf. § Pipelines) |
 
 Pas de staging : sans serveur ni base, il n'y a rien à déployer entre les deux. Le rôle du staging est tenu par la **VM propre** du smoke test d'installation.
 
@@ -241,7 +241,7 @@ GITHUB_TOKEN=<fourni par Actions, publication de la Release>
 | Clé API techno-scraper | Trousseau de l'OS via keyring (Credential Manager Windows) | Chiffré par l'OS, jamais exposé au JavaScript de la webview ([ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 | Mode copie / déplacement, signal sonore, langue, dernière destination, seuils de matching | Store Tauri (fichier local) | Réglages non sensibles. L'URL de l'API n'en fait plus partie : constante du sidecar depuis le 2026-09-19 |
 
-Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `core/build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire.
+Lancé depuis les sources, le sidecar ne lit **aucun** DSN : `core/build_info.py` le fixe vide hors packaging, SDK inerte ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Le DSN n'entre que dans le binaire, gravé par `build.py` depuis `SENTRY_DSN_SIDECAR` : `.env` local (jamais commité) sur `just build-sidecar`, secrets Actions en CI. Tester Sentry demande un binaire (cf. § Observabilité > Vérifier la remontée depuis l'application installée).
 
 ```bash
 # Runtime, diagnostic uniquement (cf. § Observabilité > Vérifier la remontée depuis l'application installée)
@@ -258,7 +258,7 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 ### Anti-Patterns
 - ❌ **Committer une clé, même de test, même une minute** : le dépôt est public, l'historique git est indélébile, la rotation devient obligatoire et immédiate.
 - ❌ **Compiler une clé API partagée dans le binaire** : extractible, et sa révocation obligerait à rediffuser l'application à tout le monde ([ADR-012](adrs/012-securite-cle-api-keyring.md)).
-- ❌ **Faire transiter la clé de signature updater hors de ses deux emplacements prévus** (secrets GitHub Actions et sauvegarde chiffrée hors ligne, cf. § Backup & Recovery) : ni dans le dépôt, ni dans un artefact de CI, ni dans un log de build.
+- ❌ **Faire transiter la clé de signature updater hors de ses deux emplacements prévus** (secrets GitHub Actions et gestionnaire de mots de passe, cf. § Backup & Recovery) : ni dans le dépôt, ni dans un artefact de CI, ni dans un log de build.
 - ❌ **Renvoyer la clé API à la webview** pour l'afficher dans les Settings : afficher un état (« une clé est enregistrée ») suffit, la valeur ne remonte jamais.
 
 ---
@@ -306,7 +306,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 ### Bootstrap technique
 
 - [ ] **PyInstaller en `--onedir`** : exécutable dans `externalBin`, dépendances (`_internal/`) dans `bundle.resources`, répertoire de travail du sidecar fixé explicitement. Mode retenu sur mesure, 335 ms contre 2282 ms au démarrage (cf. § Performance et [ADR-015](adrs/015-cibles-distribution-windows.md))
-- [ ] **Paire de clés updater générée** : `tauri signer generate -w ~/.tauri/techno-tagger.key`, clé publique dans `tauri.conf.json` (contenu littéral, **pas un chemin**), clé privée + mot de passe dans les secrets GitHub **et** sauvegardés hors GitHub (cf. § Backup & Recovery)
+- [x] **Paire de clés updater générée** : `tauri signer generate -w ~/.tauri/techno-tagger.key`, clé publique dans `tauri.conf.json` (contenu littéral, **pas un chemin**), clé privée + mot de passe dans les secrets GitHub **et** dans le gestionnaire de mots de passe (cf. § Backup & Recovery) (2026-10-20)
 - [ ] **`tauri.conf.json` pointe `"version": "../package.json"`** : supprime un fichier de version à synchroniser
 - [ ] **Suffixe target-triple du sidecar** : `tagger-x86_64-pc-windows-msvc.exe`, sans quoi Tauri ne trouve pas le binaire externe, avec `"externalBin": ["binaries/tagger"]` (chemin relatif à `src-tauri/`, suffixe ajouté par Tauri)
 - [ ] **`target/release/` hors cache CI**, ou purgé de la copie du sidecar avant le build : couvert par le nettoyage de `Swatinem/rust-cache` (cf. § Remplacement du sidecar à la mise à jour), à revérifier si cette action change
@@ -317,8 +317,8 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [x] **`target-branch: main` valide sur le flux `develop → main`** : release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). Confirmé au premier run (`v0.1.0`) : le squash-merge de la PR est un commit ordinaire de `main`, rien à régler
 - [ ] **`extra-files` a bumpé les deux manifestes TOML** : après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
 - [ ] **WebView2 présent sur le runner `windows-2025`** : sa présence sur l'image n'est pas confirmée (cf. [VERSIONS.md](VERSIONS.md) § GitHub Actions). Son absence casse `tauri build`, ou pire produit un installeur dont l'application ne s'ouvre pas
-- [ ] **Releases Sentry créées dans les deux projets** : job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison
-- [ ] **Source maps de la webview uploadées puis purgées** : `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers
+- [x] **Releases Sentry créées dans les deux projets** : job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison. Confirmé le 2026-10-19 (`v0.9.0`), 2 commits rattachés
+- [ ] **Source maps de la webview uploadées puis purgées** : `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers. Upload confirmé le 2026-10-19 (`v0.9.0`), purge à confirmer au prochain build (décompte des `.map` restants dans le log)
 - [ ] **`pnpm-workspace.yaml` créé** : même sans monorepo : depuis pnpm 11, `.npmrc` n'accepte plus que l'auth et le registry, et `allowBuilds: { esbuild: true }` doit y vivre
 - [ ] **Ruff interdit `asyncio.get_event_loop` et `sqlite3.version`** : via `banned-api`, les deux étant supprimés ou durcis en Python 3.14. Fait porter la garantie par la CI plutôt que par la vigilance
 - [ ] **Actions CI pinnées** : chaque action sur le SHA de son tag, jamais sur un tag flottant, pour que Dependabot propose chaque montée par une PR
@@ -326,7 +326,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **Permissions minimales dans `capabilities/default.json`** : `shell` restreint au seul sidecar, plus `dialog`, `fs`, `store`, `os`, `opener`, `updater`. Aucune permission large « au cas où ». `opener` est requis par le lien vers la fiche source et par le bouton « Ouvrir le dossier des logs » des Réglages, qui s'appuie sur `opener:allow-reveal-item-in-dir`, déjà accordé, sans nouvelle permission : en Tauri v2, l'ouverture d'un chemin ou d'une URL ne relève plus de `shell`
 - [ ] **Instance unique activée** : plugin `single-instance` : deux fenêtres signifieraient deux sidecars écrivant le même plan de run
 - [ ] **Préfixe `\\?\` sur les accès aux fichiers musicaux** (tags, renommage, rollback) : la limite de 260 caractères est franchie par une bibliothèque profonde plus un renommage ; `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer
-- [ ] **Durcissement Sentry en place et testé** : `data_collection` fermé catégorie par catégorie (variables de frame comprises), `server_name` fixe, messages d'exception masqués hors liste fermée, scrubbing des chemins. Ces réglages sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- [x] **Durcissement Sentry en place et testé** : `data_collection` fermé catégorie par catégorie (variables de frame comprises), `server_name` fixe, messages d'exception masqués hors liste fermée, scrubbing des chemins. Ces réglages sont **la seule protection** ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). Confirmé le 2026-10-19 sur l'application installée (`v0.9.0`)
 - [ ] **Icônes et branding** : jeu d'icônes Tauri généré, nom de produit et éditeur cohérents dans l'installeur
 
 > Items techniques et de bootstrap, à valider empiriquement. Pas d'ADR : aucune décision architecturale structurelle, celles-ci vivent dans `adrs/`.
@@ -370,13 +370,13 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 - [ ] **Chaîne de mise à jour vérifiée en réel** : machine en version N-1, l'updater détecte, télécharge, **vérifie la signature**, installe et relance
 - [ ] **Installation depuis zéro sur une machine tierce** : celle d'un des utilisateurs réels, pas une VM : SmartScreen, antivirus et trousseau s'y comportent différemment
 - [ ] **Faux positif antivirus mesuré** : soumission de l'installeur et du sidecar à VirusTotal pour connaître l'ampleur réelle, et signalement aux éditeurs concernés si le blocage est bloquant
-- [ ] **Chaîne d'alerte Sentry** : provoquer une erreur de test côté sidecar et côté webview, vérifier la réception de l'issue **et** de l'email
-- [ ] **Payload Sentry inspecté en vrai** : ouvrir un event réel dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau
+- [x] **Chaîne d'alerte Sentry** : self-test côté sidecar et côté webview (§ Observabilité > Vérifier la remontée depuis l'application installée), vérifier la réception de l'issue **et** de l'email. Confirmé le 2026-10-19 (`v0.9.0`), exception capturée comprise
+- [x] **Payload Sentry inspecté en vrai** : ouvrir l'event du self-test dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau. Confirmé le 2026-10-19 (`v0.9.0`)
 - [ ] **Clé API révoquée testée** : avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
-- [ ] **Release Sentry créée au tag** : la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy
-- [ ] **Issue de retour vérifiée en réel** : depuis l'application installée, « Envoyer ce rapport » sur un run réel ouvre l'Issue Form `matching-report.yml` pré-rempli sans troncature et l'Explorateur sur l'export ; envoyée depuis un compte non collaborateur, export glissé, l'issue porte le label `matching-report`
+- [x] **Release Sentry créée au tag** : la version publiée existe côté Sentry avant tout incident, sans quoi elle naîtra du premier crash, sans commits ni deploy. Confirmé le 2026-10-19 (`v0.9.0`)
+- [ ] **Issue de retour vérifiée en réel** : depuis l'application installée, « Envoyer ce rapport » sur un run réel ouvre l'Issue Form `matching-report.yml` pré-rempli sans troncature et l'Explorateur sur l'export ; envoyée depuis un compte non collaborateur, export glissé, l'issue porte le label `matching-report`. Vérifié le 2026-10-19 (`v0.9.0`) sauf le label depuis un non-collaborateur
 
-> **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus (ils exigent une Release publiée) mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Restent à couvrir en post-MEP : la réception de l'**email**, la présence d'un **titre de morceau** dans un payload (aucun n'existe au bootstrap), et le comportement depuis une application **installée**.
+> **Déjà vérifié sur build local au bootstrap**, ce qui ne coche aucun item ci-dessus (ils exigent une Release publiée) mais évite de tout reprendre à l'aveugle. Sur un event réel des deux projets : arrivée de l'issue, `release` identique de part et d'autre (`techno-tagger@0.0.0`, parsée en semver), `environment: production`, `server_name` fixe et non le nom de machine, aucune breadcrumb, aucune variable locale dans les frames, et chemin utilisateur masqué en `<user>` par les deux scrubbers. Ce qui restait à couvrir (l'**email**, un **titre de morceau** dans un payload, une application **installée**) l'est depuis le 2026-10-19, par le self-test de la `v0.9.0`.
 
 ---
 
@@ -419,12 +419,12 @@ Surface d'attaque volontairement minimale : **aucun port en écoute, aucun compt
 
 | Secret | Stockage | Accès | Conséquence en cas de perte |
 |--------|----------|-------|------------------------------|
-| `TAURI_SIGNING_PRIVATE_KEY` (+ password) | Secrets GitHub Actions **et** sauvegarde chiffrée hors GitHub | Injecté au build, jamais logué | 🔴 **Plus aucune mise à jour possible sur les installations existantes** |
+| `TAURI_SIGNING_PRIVATE_KEY` (+ password) | Secrets GitHub Actions **et** gestionnaire de mots de passe | Injecté au build, jamais logué | 🔴 **Plus aucune mise à jour possible sur les installations existantes** |
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Secrets GitHub Actions | Compilés au build, init des deux SDK (deux projets Sentry, cf. § Observabilité) | Régénérables depuis Sentry |
 | `PRIMENG_LICENSE_KEY` | Secrets GitHub Actions | `providePrimeNG({ license })`, gravée dans le bundle par `--define` | Bandeau de licence chez les utilisateurs, renouvellement gratuit (échéance au § Rotation) |
 | `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Upload des source maps de la webview par `pnpm build` et création de la release Sentry au tag, **Organization Auth Token**, scope `org:ci` imposé et non modifiable, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
 | Clé API techno-scraper (utilisateur) | Trousseau de l'OS via keyring, machine de l'utilisateur | Header `X-API-Key` posé par le sidecar | L'utilisateur en ressaisit une, révocation individuelle côté API |
-| Variables `API_KEYS__USER_N` (une par clé) | Variables d'environnement côté techno-scraper (Dokploy), nom de la personne en commentaire + sauvegarde chiffrée | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
+| Variables `API_KEYS__USER_N` (une par clé) | Variables d'environnement côté techno-scraper (Dokploy), nom de la personne en commentaire + gestionnaire de mots de passe | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
 
 La clé publique de l'updater est compilée dans `tauri.conf.json` et publiée avec le dépôt, c'est son rôle. La clé privée ne quitte jamais les secrets GitHub et la sauvegarde.
 
@@ -437,7 +437,7 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 | **Générer** | `python -c "import secrets; print(secrets.token_urlsafe(32))"` : ASCII imprimable sans espace, contrainte imposée par le décodage latin-1 des en-têtes HTTP côté API |
 | **Enregistrer** | Ajouter une variable `API_KEYS__USER_N=<clé>` côté techno-scraper, le nom de la personne en commentaire au-dessus, redéployer l'API. **Identifiant non nominatif** : il part dans les logs et en tag Sentry (`key_id`), un prénom y serait la seule donnée nominative de la chaîne |
 | **Transmettre** | Canal privé direct (messagerie), jamais par email en clair, jamais dans une issue ou un commit |
-| **Suivre** | Tenir la table `USER_N` → personne → clé dans la sauvegarde chiffrée, seul endroit hors Dokploy où la correspondance existe. Sans elle, un `user_3` qui sature l'API reste anonyme |
+| **Suivre** | Tenir la table `USER_N` → personne → clé dans le gestionnaire de mots de passe, seul endroit hors Dokploy où la correspondance existe. Sans elle, un `user_3` qui sature l'API reste anonyme |
 | **Révoquer** | Supprimer la variable `API_KEYS__USER_N` de la personne, redéployer. L'utilisateur concerné reçoit alors des `403` et le run s'arrête après trois consécutifs, avec un message nommant la clé |
 
 > Volume attendu : **une dizaine d'utilisateurs**, cinq runs simultanés au plus. Aucune automatisation ne se justifie à cette échelle, mais **la liste doit exister** : sans elle, une clé qui fuite ne peut être ni attribuée ni révoquée sans couper tout le monde.
@@ -545,10 +545,10 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 
 | Alerte | Condition | Canal |
 |--------|-----------|-------|
-| Crash du sidecar | Exception non gérée remontée | Email (Sentry) |
+| Crash du sidecar | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | API injoignable | `SourceUnavailableError` / erreur réseau épuisée côté sidecar | Email (Sentry) |
 | Parsing cassé | Réponse de techno-scraper non conforme au schéma attendu | Email (Sentry) |
-| Erreur de la webview | Exception Angular non gérée | Email (Sentry) |
+| Erreur de la webview | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
 
 > **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8). Les retours arrivent en issues du dépôt sous le label `matching-report`, posé par l'Issue Form `matching-report.yml`. Le label doit exister dans le dépôt, sinon le formulaire ne le pose pas, sans erreur.
@@ -665,9 +665,9 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 
 | Ressource | Fréquence | Rétention | Localisation |
 |-----------|-----------|-----------|--------------|
-| **Clé privée updater + son mot de passe** | À la génération, revérifié avant chaque release | Permanente | Archive **7-Zip chiffrée AES-256** déposée sur Google Drive **et** sur une clé USB |
-| **Variables `API_KEYS__USER_N` (`USER_N` → personne → clé)** | À chaque ajout ou révocation d'utilisateur | Permanente | Même archive chiffrée |
-| Secrets GitHub Actions (DSN, licence PrimeNG) | Sur changement | Permanente | Même archive, régénérables par ailleurs |
+| **Clé privée updater + son mot de passe** | À la génération, revérifié avant chaque release | Permanente | Gestionnaire de mots de passe (une entrée pour la clé, une pour son mot de passe) |
+| **Variables `API_KEYS__USER_N` (`USER_N` → personne → clé)** | À chaque ajout ou révocation d'utilisateur | Permanente | Gestionnaire de mots de passe |
+| Secrets GitHub Actions (DSN, licence PrimeNG) | Sur changement | Permanente | Gestionnaire de mots de passe, régénérables par ailleurs |
 | Code, historique, CHANGELOG | Continu | Permanente | GitHub (dépôt public) |
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
 | Plan de run, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
@@ -675,9 +675,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Export de feedback (machine utilisateur) | À chaque envoi de rapport | 30 jours, purgé au démarrage | `appLocalDataDir()/feedback`, aucune sauvegarde |
 | Registre des rapports `reports.json` (machine utilisateur) | À chaque run écrit | Permanente | `appLocalDataDir()`, aucune sauvegarde : perdu, il laisse les rapports dans leurs dossiers mais les runs passés ne sont plus listés |
 
-> **Le mot de passe de l'archive ne va pas dans l'archive.** Il s'écrit sur papier, ou se mémorise. C'est le seul maillon qui n'a pas de copie numérique, par construction.
-
-> **Deux emplacements, pas un.** Drive seul tombe avec le compte Google, la clé USB seule tombe avec le tiroir. Le chiffrement AES-256 en amont est ce qui rend le dépôt sur Drive acceptable : sans lui, un compte Google compromis donnerait à quelqu'un la capacité de **signer une fausse mise à jour** que les installations existantes accepteraient et installeraient automatiquement.
+> **Les secrets GitHub ne se relisent pas** : au 2026-10-20, la seule copie de la clé hors de GitHub est dans le gestionnaire de mots de passe. En perdre l'accès laisse la clé dans le seul secret GitHub, illisible, donc sans rotation ni récupération possible si ce secret disparaît. Une fuite de cette copie donnerait la capacité de **signer une fausse mise à jour** que les installations existantes accepteraient et installeraient automatiquement.
 
 > **Rien à sauvegarder côté utilisateur, délibérément** : le cache est jetable par définition ([ADR-013](adrs/013-cache-disque-jetable.md)), le plan de run est un état de session reconstructible en relançant ; le dump des tags d'origine vit 30 jours pour qu'un run raté reste annulable d'un lancement à l'autre ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)) ; les rapports sont des livrables posés dans les dossiers de l'utilisateur, le registre n'en est que l'index.
 
@@ -685,7 +683,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 
 | Scénario | RTO | RPO | Procédure |
 |----------|-----|-----|-----------|
-| Poste de développement perdu | ~2 h | 0 | Cloner le dépôt, restaurer l'archive chiffrée, réinstaller les toolchains (pnpm, uv, Rust), reconstituer les secrets GitHub |
+| Poste de développement perdu | ~2 h | 0 | Cloner le dépôt, récupérer les entrées du gestionnaire de mots de passe, réinstaller les toolchains (pnpm, uv, Rust), reconstituer les secrets GitHub |
 | **Clé de signature perdue** | ♾️ **irrécupérable** | — | Aucune procédure de retour. Générer une nouvelle paire, publier un installeur avec la nouvelle `pubkey`, et **le faire installer à la main par chaque utilisateur** : les installations existantes n'accepteront plus jamais aucune mise à jour automatique |
 | Clé de signature compromise (fuite, pas perte) | ~1 release | — | Séquence de transition de la § Rotation : version signée avec l'ancienne clé portant la nouvelle `pubkey`, attendre que tout le monde l'ait prise, puis basculer |
 | Release cassée en ligne | ~30 min | — | Dépublier, roll-forward `PATCH` (cf. § Rollback) |

@@ -2,7 +2,7 @@
 feature: "Feature 8 : Distribution et mise à jour"
 subproject: "chaine-de-signature"
 goal: "Signer les bundles avec une paire de clés Tauri pour que chaque Release publie l'installeur, sa signature et le manifeste latest.json que l'updater lira"
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: []
@@ -13,7 +13,7 @@ date: "2026-10-15"
 
 ## Scope
 
-Couvre la paire de clés minisign (générée par l'utilisateur, versée aux secrets GitHub, sauvegardée chiffrée), la configuration `plugins.updater` et `createUpdaterArtifacts` de `tauri.conf.json`, l'enregistrement du plugin et sa permission, le build local sans clé par `--no-sign`, un contrôle du job `build` qui fait échouer la release si `latest.json` ou la signature manquent ou sont incohérents, trois gardes de cohérence dans `test_main.py` et le réalignement des docs, rule et fiche qui décrivaient l'updater comme non câblé. Exclut tout code TypeScript (vérification, modale et rangée des Réglages : sub-projects 02 et 03) et la recette sur de vraies Releases (sub-project 04).
+Couvre la paire de clés minisign (générée par l'utilisateur, versée aux secrets GitHub, sauvegardée dans un gestionnaire de mots de passe), la configuration `plugins.updater` et `createUpdaterArtifacts` de `tauri.conf.json`, l'enregistrement du plugin et sa permission, le build local sans clé par `--no-sign`, un contrôle du job `build` qui fait échouer la release si `latest.json` ou la signature manquent ou sont incohérents, trois gardes de cohérence dans `test_main.py` et le réalignement des docs, rule et fiche qui décrivaient l'updater comme non câblé. Exclut tout code TypeScript (vérification, modale et rangée des Réglages : sub-projects 02 et 03) et la recette sur de vraies Releases (sub-project 04).
 
 ### État livré
 
@@ -43,7 +43,7 @@ Aucune : ce sub-project est autoporté.
   1. `pnpm exec tauri signer generate -w ~/.tauri/techno-tagger.key`, jamais avec `--force` (`.claude/rules/tauri/config-bundle.md`)
   2. preuve locale unique d'un build signé (scénario 3)
   3. `gh secret set TAURI_SIGNING_PRIVATE_KEY` depuis le fichier de clé, puis `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD` en saisie interactive
-  4. archive chiffrée selon PRODUCTION.md § Backup & Recovery
+  4. sauvegarde dans le gestionnaire de mots de passe selon PRODUCTION.md § Backup & Recovery
   5. retrait du fichier de clé local, la clé ne vivant ensuite que dans ses deux emplacements prévus (PRODUCTION.md, anti-pattern l.256)
 - **Configuration de l'updater** dans `tauri.conf.json` :
   - `pubkey` en contenu littéral du `.pub`
@@ -132,7 +132,7 @@ Aucune : ce sub-project est autoporté.
 **Rationale :**
 - `--no-sign` existe pour ce cas depuis la CLI 2.9 : un build local sans certificat ni clé. Le code de la CLI le confirme, `sign_updaters` retourne avant de lire les clés.
 - Un secret absent en CI fait échouer le build au lieu de publier une Release sans `latest.json`. Un `--no-sign` oublié en local échoue aussi bruyamment : aucune divergence muette, donc aucun test à écrire.
-- La clé privée ne quitte jamais les secrets GitHub et l'archive chiffrée, hors la preuve locale unique du rituel.
+- La clé privée ne quitte jamais les secrets GitHub et le gestionnaire de mots de passe, hors la preuve locale unique du rituel.
 
 ### Décision : contrôle des artefacts publiés
 

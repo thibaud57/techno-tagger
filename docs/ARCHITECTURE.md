@@ -133,7 +133,7 @@ techno-tagger/
 │   ├── binaries/
 │   │   ├── tagger-x86_64-pc-windows-msvc.exe   # suffixe target-triple OBLIGATOIRE
 │   │   └── _internal/                          # deps PyInstaller --onedir -> bundle.resources
-│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, fs, store, os, opener (updater s'ajoute à l'étape 9, pas encore câblé)
+│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, fs, store, os, opener, updater
 │   ├── icons/
 │   ├── src/
 │   │   ├── main.rs                       # entrée desktop, généré, jamais modifié
@@ -386,7 +386,7 @@ Plugins Tauri v2 enregistrés dans `src-tauri/src/lib.rs`, permissions dans `src
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
 | `opener` | Lien vers la fiche source du détail d'un morceau ; bouton « Ouvrir le dossier des logs » des Réglages : `revealItemInDir` sur le fichier de logs courant (`version.log_file`) ; bouton « Envoyer ce rapport » du récapitulatif : `openUrl` sur l'issue de retour et `revealItemInDir` sur son export, sans permission de plus. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)) |
-| `updater` | Étape 9, pas encore câblé (ni plugin enregistré ni permission) : vérification du manifeste au démarrage, téléchargement et installation signés |
+| `updater` | Vérification du manifeste de la Release au démarrage, téléchargement et installation signés (`updater:default`). Clé publique dans `tauri.conf.json`, artefacts signés en CI seule, le build local passant `--no-sign` (cf. [PRODUCTION.md § Code Signing](PRODUCTION.md#code-signing)) |
 | `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe le rechargement (`F5`, `Ctrl+R`) et le menu contextuel en release : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié |
 
 Le **signal sonore marque la fin d'une phase longue** : la fin d'une extraction et la fin de la phase réseau d'un run, quand l'écran d'arbitrage prend la main, puis la fin d'une écriture et celle d'un rollback. Il part quel que soit l'onglet affiché, l'utilisateur qui regarde ailleurs étant celui qu'il doit prévenir. Jamais par arbitrage : un son par arbitrage serait une vingtaine de bips sur un run de 100 morceaux et la préférence serait coupée dès le premier usage. Le pipeline continuant de tourner pendant qu'une modale attend, rien n'oblige à arbitrer au fil de l'eau : tout se traite à la fin et c'est ce moment-là qu'il faut signaler.
@@ -406,13 +406,13 @@ Deux réglages ne passent pas par un plugin :
 |---|---|
 | `core/sidecar/` | `sidecar.service.ts` (flux NDJSON), `sidecar-transport.ts` (frontière Tauri, remplacée en test), `protocol.ts` (types miroir du contrat, maintenus à la main) |
 | `core/stores/` | Un store signal par domaine du contrat : `tagging-run`, `arbitration`, `url-recovery`, `write`, `resume`, `past-runs`. Le service sidecar les alimente, les écrans les lisent |
-| `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, onglets ; seuls accès aux plugins Tauri : `PreferencesService` (préférences du `store`) et `NativeService` (dialogues, ouverture, révélation, URL d'asset) |
+| `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, onglets, mise à jour de l'application ; seuls accès aux plugins Tauri : `PreferencesService` (préférences du `store`), `NativeService` (dialogues, ouverture, révélation, URL d'asset) et `APP_UPDATER` (vérification et installation d'une mise à jour) |
 | `core/i18n/` | Choix de langue et spec de cohérence des deux JSON de `public/i18n/` |
 | `core/observability/` | Masquage PII et options Sentry de la webview |
 | `features/playlist/` | Onglet 1 : dossiers, playlist, lignes d'extraction |
 | `features/tagging/` | Onglet 2, un dossier par vue : `run/` (page, liste, détail d'un morceau, restauration), `arbitration/`, `url-recovery/`, `recap/` |
 | `features/settings/` | Onglet 3 : menu des sections ; clé API, seuils de matching, langue, signal sonore, runs passés, restauration, cache (taille et vidage), logs |
-| `shared/components/` | `dialogs/` (en-tête, confirmations, reprise, échecs de rollback), `display/` (pochette, icône, étiquettes d'état et de source, texte tronqué, états vides), `feedback/` (messages), `inputs/` (sélecteur de chemin) |
+| `shared/components/` | `dialogs/` (en-tête, confirmations, reprise, mise à jour, échecs de rollback), `display/` (pochette, icône, étiquettes d'état et de source, texte tronqué, états vides), `feedback/` (messages), `inputs/` (sélecteur de chemin) |
 | `shared/utils/` | Fonctions et constantes d'affichage sans état |
 
 ### i18n
@@ -833,8 +833,8 @@ graph LR
     tag --> sr["Releases Sentry<br/>techno-tagger-ui et techno-tagger-sidecar"]
     tag --> pyi["PyInstaller<br/>tagger-x86_64-pc-windows-msvc.exe"]
     pyi --> tb["tauri build<br/>installeur Windows"]
-    tb --> sig["Signature du bundle (étape 9)<br/>TAURI_SIGNING_PRIVATE_KEY"]
-    sig --> rel["GitHub Release<br/>installeur + latest.json (étape 9)"]
+    tb --> sig["Signature du bundle<br/>TAURI_SIGNING_PRIVATE_KEY"]
+    sig --> rel["GitHub Release<br/>installeur + latest.json"]
     rel --> upd["Updater : vérification au démarrage (étape 9)"]
     upd --> user["Machine de l'utilisateur"]
 
@@ -1085,7 +1085,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 | 5 | Onglet playlist, câblage i18n | La plus simple, valide la chaîne complète UI vers sidecar. L'i18n se câble au premier écran, l'ajouter après oblige à reprendre chaque libellé. La clé API, prévue ici, a été livrée en tête de l'étape 6 (sub-project `cle-api` de la Feature 2), avant le pipeline qui ne peut pas tourner sans elle. |
 | 6 | Onglet scraping, pipeline et liste | Le cœur |
 | 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, bouton de rollback, plan de run et reprise, rapport, récapitulatif et runs passés | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
-| 8 | Reste des Settings, monitoring | Transversaux, une fois le flux principal stable |
+| 8 | Reste des Settings, monitoring | Transversaux, une fois le flux principal stable. Monitoring livré avec la Release v0.9.0 (2026-10-19). |
 | 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers |
 
 ---

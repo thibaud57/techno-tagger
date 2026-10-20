@@ -7,7 +7,7 @@
 **Architecture:** Quatre tâches :
 - la paire de clés minisign, générée par l'utilisateur ;
 - la configuration de l'updater (`pubkey`, endpoint, `requireSignedVersion`, `createUpdaterArtifacts: true`), le plugin enregistré, sa permission, `just build` en `--no-sign`, trois gardes dans `test_main.py` et le réalignement des docs, de la rule et de la fiche ;
-- les secrets GitHub, l'archive chiffrée et le retrait de la clé locale, joués par l'utilisateur ;
+- les secrets GitHub, la sauvegarde dans le gestionnaire de mots de passe et le retrait de la clé locale, joués par l'utilisateur ;
 - une étape `pwsh` du job `build` qui fait échouer la release sur un `latest.json` absent ou incohérent.
 
 Aucun code TypeScript : la vérification au démarrage relève du sub-project 02.
@@ -18,7 +18,7 @@ Aucun code TypeScript : la vérification au démarrage relève du sub-project 02
 
 ## Global Constraints
 
-- **La clé privée ne vit que dans les secrets GitHub et l'archive chiffrée** (PRODUCTION.md, anti-pattern l.256), jamais dans un `.env`, un commit ou un log. Seule exception : la preuve locale unique de la Task 2, clé exportée dans le shell puis retirée à la Task 3.
+- **La clé privée ne vit que dans les secrets GitHub et le gestionnaire de mots de passe** (PRODUCTION.md, anti-pattern l.256), jamais dans un `.env`, un commit ou un log. Seule exception : la preuve locale unique de la Task 2, clé exportée dans le shell puis retirée à la Task 3.
 - **Jamais `tauri signer generate --force`** : une clé écrasée rend non-updatables toutes les installations distribuées.
 - **Gestes interactifs** (génération de la paire, `gh secret set` du mot de passe) : c'est l'utilisateur qui les lance (règle CLI-first). L'agent lui donne la commande et attend sa confirmation.
 - **Toute commande Tauri exige le binaire du sidecar** dans `src-tauri/binaries/`, `cargo check` compris : `just build-sidecar` d'abord.
@@ -309,17 +309,15 @@ Dis-moi quand c'est fait.
 Run: `gh secret list`
 Expected: `TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` listés, à côté des quatre existants.
 
-- [ ] **Step 3: Demander l'archive chiffrée**
+- [ ] **Step 3: Demander la sauvegarde dans le gestionnaire de mots de passe**
 
 Message à l'utilisateur, puis attendre sa confirmation :
 
 ```
 Sauvegarde selon PRODUCTION.md § Backup & Recovery :
-- ajoute ~/.tauri/techno-tagger.key, ~/.tauri/techno-tagger.key.pub et le mot de passe de la clé
-  (dans un fichier texte) à l'archive 7-Zip chiffrée AES-256 qui tient déjà les autres secrets ;
-- déposée sur Google Drive ET sur une clé USB ;
-- le mot de passe de l'archive ne va pas dans l'archive (papier ou mémoire) ;
-- ouvre l'archive une fois depuis chaque emplacement pour vérifier qu'elle se déchiffre.
+- enregistre dans ton gestionnaire de mots de passe le contenu de ~/.tauri/techno-tagger.key
+  (et de ~/.tauri/techno-tagger.key.pub) ainsi que le mot de passe de la clé ;
+- rouvre l'entrée une fois pour vérifier que le contenu de la clé et le mot de passe y sont.
 Dis-moi quand c'est fait.
 ```
 
@@ -328,9 +326,9 @@ Dis-moi quand c'est fait.
 Message à l'utilisateur, puis attendre sa confirmation (geste destructif, jamais joué par l'agent) :
 
 ```
-Une fois l'archive vérifiée depuis ses deux emplacements, retire la clé du poste :
+Une fois l'entrée vérifiée dans le gestionnaire de mots de passe, retire la clé du poste :
   rm ~/.tauri/techno-tagger.key ~/.tauri/techno-tagger.key.pub
-La clé ne vit plus que dans les secrets GitHub et l'archive (PRODUCTION.md l.256).
+La clé ne vit plus que dans les secrets GitHub et le gestionnaire de mots de passe (PRODUCTION.md l.256).
 ```
 
 - [ ] **Step 5: Cocher la case du Bootstrap technique**
@@ -341,7 +339,7 @@ Dans `docs/PRODUCTION.md` § Bootstrap technique, passer `- [ ] **Paire de clés
 
 ```bash
 git add docs/PRODUCTION.md
-git commit -m "docs(tauri): paire de cles updater generee et sauvegardee"
+git commit -m "docs(tauri): paire de cles updater generee, sauvegarde dans un gestionnaire de mots de passe"
 ```
 
 ---

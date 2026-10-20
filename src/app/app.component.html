@@ -63,6 +63,20 @@
             </p-tag>
           </button>
         }
+        @if (updateBadgeVisible()) {
+          <button
+            type="button"
+            class="cursor-pointer"
+            data-update-badge
+            [attr.aria-label]="'update.reopen' | translate"
+            (click)="reopenUpdate()"
+          >
+            <p-tag severity="info">
+              <app-icon name="download" [size]="16" />
+              {{ "update.badge" | translate: { version: update()?.version } }}
+            </p-tag>
+          </button>
+        }
       </div>
     </p-tablist>
   </p-tabs>
@@ -84,6 +98,11 @@
        bloquee : un moteur absent ou en conflit de version n'a rien a proposer. -->
   @defer (when interruptedRun() !== null; prefetch on idle(5s)) {
     <app-resume-dialog />
+  }
+
+  <!-- Differee : la plupart des lancements n'ont aucune mise a jour. -->
+  @defer (when updateDialogVisible(); prefetch on idle(5s)) {
+    <app-update-dialog />
   }
 }
 

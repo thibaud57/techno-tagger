@@ -2,7 +2,7 @@
 feature: "Feature 9 : Monitoring"
 subproject: "recette-monitoring"
 goal: "Vérifier sur l'application installée depuis une Release publiée que Sentry reçoit des deux côtés des événements sans rien de personnel et que l'issue de retour arrive labellisée, grâce à un self-test déclenché au lancement."
-status: "draft"
+status: "implemented"
 complexity: "M"
 tdd_scope: "partial"
 depends_on: ["01-payloads-sans-titre-design.md", "02-issue-de-retour-sidecar-design.md", "03-protocole-ndjson-retour-design.md", "04-bouton-envoyer-rapport-ui-design.md"]

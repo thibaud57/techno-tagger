@@ -210,7 +210,7 @@ Relevé attendu : points 1, 4 et 5 du Step 2, plus toute alerte antivirus.
 - [ ] **Step 4: Si un point échoue**
 
 - **Application non relancée au point 4** : `fix:` qui ajoute le plugin `process` et un `relaunch()` après l'installation (sub-project 02, décision « relance après installation », option B), puis Task 4 rejouée sur la Release suivante.
-- **Signature refusée** (modale en échec, événement Sentry reçu) : incident critique selon PRODUCTION.md § Incident Response. Comparer la `pubkey` de `tauri.conf.json` à la clé publique de l'archive chiffrée, ne jamais régénérer la paire.
+- **Signature refusée** (modale en échec, événement Sentry reçu) : incident critique selon PRODUCTION.md § Incident Response. Comparer la `pubkey` de `tauri.conf.json` à la clé publique sauvegardée dans le gestionnaire de mots de passe, ne jamais régénérer la paire.
 - **Écran « La mise à jour est incomplète »** : sidecar non remplacé, PRODUCTION.md § Remplacement du sidecar.
 
 - [ ] **Step 5: Mesures (geste du propriétaire pour VirusTotal)**

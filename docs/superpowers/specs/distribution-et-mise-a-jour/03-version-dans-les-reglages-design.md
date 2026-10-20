@@ -2,7 +2,7 @@
 feature: "Feature 8 : Distribution et mise à jour"
 subproject: "version-dans-les-reglages"
 goal: "Afficher dans les Réglages la version installée de l'application et permettre de lancer à la main la recherche d'une mise à jour"
-status: "draft"
+status: "implemented"
 complexity: "S"
 tdd_scope: "partial"
 depends_on: ["02-invite-de-mise-a-jour-design.md"]
