@@ -170,15 +170,10 @@ jobs:
           $path = Join-Path $env:RUNNER_TEMP 'latest.json'
           $links = @{}
           foreach ($asset in (gh release view $env:TAG --json assets | ConvertFrom-Json).assets) { $links[$asset.apiUrl] = $asset.url }
-          $apiUrl = 'https://api\.github\.com/repos/[^/"]+/[^/"]+/releases/assets/\d+'
-          # Texte remplace tel quel : ConvertTo-Json reformaterait pub_date.
-          $raw = Get-Content $path -Raw
-          $found = [regex]::Matches($raw, $apiUrl)
-          if ($found.Count -eq 0) { Write-Output "latest.json sans URL d'API"; exit 0 }
-          foreach ($match in $found) {
-            if (-not $links.ContainsKey($match.Value)) { throw "Asset inconnu de la Release $env:TAG : $($match.Value)" }
-          }
-          [IO.File]::WriteAllText($path, [regex]::Replace($raw, $apiUrl, { param($m) $links[$m.Value] }))
+          # Texte remplace tel quel : ConvertTo-Json reformaterait pub_date. Une URL sans lien
+          # connu devient vide, et la garde qui suit echoue dessus.
+          $raw = [regex]::Replace((Get-Content $path -Raw), 'https://api\.github\.com/repos/[^/"]+/[^/"]+/releases/assets/\d+', { param($m) $links[$m.Value] })
+          [IO.File]::WriteAllText($path, $raw)
           gh release upload $env:TAG $path --clobber
 
       # tauri-action reste vert sans artefact d'updater (constate sur la v0.1.0), et
