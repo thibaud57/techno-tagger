@@ -14,7 +14,7 @@ export interface AvailableUpdate {
   /** `null` quand l'url du manifeste ne designe pas une Release GitHub. */
   readonly releasePage: string | null
   downloadAndInstall(onProgress: (progress: DownloadProgress) => void): Promise<void>
-  /** Libere la ressource que le plugin garde cote Rust jusqu'a la sortie. */
+  /** Sans quoi le plugin garde la ressource cote Rust jusqu'a la sortie. */
   close(): Promise<void>
 }
 
@@ -22,8 +22,7 @@ export interface AppUpdater {
   check(): Promise<AvailableUpdate | null>
 }
 
-// Sans borne, une verification pendue tient « Reessayer » en telechargement, sans croix ni
-// bouton.
+// Sans borne, une verification pendue bloquerait « Reessayer » sur une modale non fermable.
 const CHECK_TIMEOUT_MS = 30_000
 
 const RELEASE_DOWNLOAD =
@@ -32,10 +31,7 @@ const RELEASE_DOWNLOAD =
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
-/**
- * `.../releases/download/<tag>/<installeur>` donne `.../releases/tag/<tag>` : l'adresse du
- * depot n'est recopiee nulle part en TypeScript.
- */
+/** `.../releases/download/<tag>/<installeur>` donne `.../releases/tag/<tag>` : aucune adresse du depot en TypeScript. */
 export const releasePageOf = (manifest: Record<string, unknown>): string | null => {
   const platforms = manifest["platforms"]
   const windows = isRecord(platforms) ? platforms["windows-x86_64"] : undefined
@@ -58,8 +54,7 @@ export const progressAfter = (
     case "Finished":
       return progress
     default: {
-      // Levee dans le callback du canal, une erreur figerait la barre sans arreter le
-      // telechargement : un evenement ajoute par le plugin est seulement journalise.
+      // Levee dans le callback du canal, une erreur figerait la barre sans arreter le telechargement.
       const exhaustive: never = event
       console.error("[updater] evenement de telechargement non traite", exhaustive)
       return progress
@@ -68,8 +63,7 @@ export const progressAfter = (
 }
 
 class TauriAppUpdater implements AppUpdater {
-  // Hors Tauri, `check` leve faute de `window.__TAURI_INTERNALS__` : l'appelant le traite
-  // comme une verification en echec.
+  // Leve hors Tauri : l'appelant le traite comme une verification en echec.
   async check(): Promise<AvailableUpdate | null> {
     const update = await check({ timeout: CHECK_TIMEOUT_MS })
     if (update === null) {
@@ -82,7 +76,7 @@ class TauriAppUpdater implements AppUpdater {
       releasePage: releasePageOf(update.rawJson),
       downloadAndInstall: async (onProgress) => {
         let progress: DownloadProgress = { received: 0, total: null }
-        // Sous Windows, l'application sort a l'installation : rien n'est attendu apres.
+        // Sous Windows, l'application sort a l'installation : rien ne s'execute apres.
         await update.downloadAndInstall((event) => {
           progress = progressAfter(progress, event)
           onProgress(progress)

@@ -100,8 +100,7 @@
     <app-resume-dialog />
   }
 
-  <!-- Differee : la plupart des lancements n'ont aucune mise a jour. Dans la branche non
-       bloquee : un moteur absent ou en conflit de version n'a rien a proposer. -->
+  <!-- Differee : la plupart des lancements n'ont aucune mise a jour. -->
   @defer (when updateDialogVisible(); prefetch on idle(5s)) {
     <app-update-dialog />
   }

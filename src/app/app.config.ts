@@ -77,8 +77,7 @@ export const appConfig: ApplicationConfig = {
       inject(CompletionSignalService)
       inject(SentrySelftestService)
     }),
-    // Une seule verification, sans attendre : `check()` ne leve jamais et l'installation
-    // fermant l'application, elle ne se propose jamais en cours de session.
+    // Une seule verification, sans attendre : `check()` ne leve jamais.
     provideAppInitializer(() => {
       void inject(UpdateService).check()
     }),

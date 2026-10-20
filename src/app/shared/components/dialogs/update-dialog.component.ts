@@ -15,11 +15,7 @@ import { IconComponent } from "../display/icon.component"
 import { PhaseProgressComponent } from "../display/phase-progress.component"
 import { MessageComponent } from "../feedback/message.component"
 
-/**
- * Gabarit de l'invite de reprise, mais fermable : la croix et « Plus tard » renvoient au badge
- * (DESIGN.md § Arbitrages). Non fermable pendant le telechargement, l'installation suivant
- * sans autre geste.
- */
+/** Gabarit de l'invite de reprise, mais fermable vers le badge (DESIGN.md § Arbitrages). */
 @Component({
   selector: "app-update-dialog",
   imports: [
@@ -33,7 +29,7 @@ import { MessageComponent } from "../feedback/message.component"
   ],
   template: `
     @if (update(); as offered) {
-      <!-- Largeur de l'invite de reprise, mesuree sur la Dialog d'AppShell. -->
+      <!-- Largeur mesuree sur la Dialog d'AppShell. -->
       <p-dialog
         [visible]="visible()"
         (visibleChange)="onVisibleChange($event)"
@@ -146,7 +142,7 @@ export class UpdateDialogComponent {
     return state.kind === "downloading" ? state.progress : null
   })
 
-  /** Absent tant que le total n'est pas connu : la barre tourne alors en continu. */
+  /** Sans total connu, la barre reste indeterminee. */
   protected readonly percent = computed(() => {
     const progress = this.progress()
 

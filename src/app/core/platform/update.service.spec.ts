@@ -14,30 +14,28 @@ import {
   hangingUpdate,
   updaterStub,
 } from "../../../fixtures/updater"
+import { CAPTURE_EXCEPTION } from "../observability/capture-exception"
 import type { DetectedRun } from "../stores/resume.store"
 
+import { UpdateService } from "./update.service"
 import { APP_UPDATER } from "./updater"
 
-// Un vi.mock de tete de @sentry/angular n'est pas applique de facon fiable sous le builder
-// unit-test (vu sur sentry-selftest.service.spec.ts lance seul) : doMock puis import dynamique.
-vi.doMock("@sentry/angular", () => ({ captureException: vi.fn() }))
-const { UpdateService } = await import("./update.service")
-const Sentry = await import("@sentry/angular")
+const captureException = vi.fn()
 
 const mount = (updater: ReturnType<typeof updaterStub>, overrides: SidecarStubOverrides = {}) => {
   const sidecar = sidecarStub(overrides)
   TestBed.configureTestingModule({
-    providers: [{ provide: APP_UPDATER, useValue: updater }, provideSidecarStub(sidecar)],
+    providers: [
+      { provide: APP_UPDATER, useValue: updater },
+      { provide: CAPTURE_EXCEPTION, useValue: captureException },
+      provideSidecarStub(sidecar),
+    ],
   })
 
   return { service: TestBed.inject(UpdateService), sidecar, updater }
 }
 
 describe("UpdateService", () => {
-  beforeEach(() => {
-    vi.mocked(Sentry.captureException).mockClear()
-  })
-
   it("offers nothing when no update is published", async () => {
     const { service } = mount(updaterStub(null))
 
@@ -54,7 +52,7 @@ describe("UpdateService", () => {
     await service.check()
 
     expect(service.update()).toBeNull()
-    expect(Sentry.captureException).not.toHaveBeenCalled()
+    expect(captureException).not.toHaveBeenCalled()
   })
 
   it("opens the dialog on the update found at startup", async () => {
@@ -88,8 +86,7 @@ describe("UpdateService", () => {
   it("keeps the badge once the resume prompt shows up before any gesture", async () => {
     const { service, sidecar } = mount(updaterStub(availableUpdate()))
     await service.check()
-    // Lu a chaque changement, comme le gabarit du shell a chaque detection : c'est ce qui
-    // donne a `previous` chaque etat traverse.
+    // Lu a chaque changement, comme le shell a chaque detection.
     const beforeResume = service.dialogVisible()
     sidecar.interruptedRun.set(INTERRUPTED)
     const whileResumeShows = service.dialogVisible()
@@ -158,7 +155,7 @@ describe("UpdateService", () => {
     await service.install()
 
     expect(service.state().kind).toBe("failed")
-    expect(Sentry.captureException).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
+    expect(captureException).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
       tags: { area: "updater" },
     })
   })

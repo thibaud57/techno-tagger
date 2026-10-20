@@ -1,6 +1,5 @@
 import { Service, computed, inject, linkedSignal, signal } from "@angular/core"
-import * as Sentry from "@sentry/angular"
-
+import { CAPTURE_EXCEPTION } from "../observability/capture-exception"
 import { SidecarService } from "../sidecar/sidecar.service"
 
 import { APP_UPDATER, type AvailableUpdate, type DownloadProgress } from "./updater"
@@ -17,14 +16,12 @@ export type UpdateState =
 
 const NOTHING_RECEIVED: DownloadProgress = { received: 0, total: null }
 
-/**
- * Mise a jour proposee au demarrage seulement : l'installation ferme l'application, elle ne
- * se propose jamais en cours de session (ADR-001, rule tauri/config-bundle).
- */
+/** Verifiee au demarrage seulement : l'installation ferme l'application (ADR-001). */
 @Service()
 export class UpdateService {
   private readonly updater = inject(APP_UPDATER)
   private readonly sidecar = inject(SidecarService)
+  private readonly captureException = inject(CAPTURE_EXCEPTION)
 
   private readonly _state = signal<UpdateState>({ kind: "none" })
   readonly state = this._state.asReadonly()
@@ -35,21 +32,18 @@ export class UpdateService {
     return state.kind === "none" ? null : state.update
   })
 
-  /** L'installation ferme l'application : jamais pendant un travail du moteur. */
   readonly installable = computed(() => this.sidecar.phase() === "idle")
 
   /**
-   * La modale ne s'ouvre d'elle-meme que sur un ecran libre : une invite de reprise affichee
-   * ou un travail en cours renvoient la mise a jour au badge et l'y laissent, seul le badge
-   * la rouvrant. Le shell lit ce signal a chaque detection, ce qui donne a `previous` chaque
-   * etat traverse.
+   * Verrou : un ecran occupe (invite de reprise, travail) renvoie la mise a jour au badge pour
+   * de bon, seul `reopen` la ramene. `previous` ne voit que les etats lus : le shell le lit a
+   * chaque detection.
    */
   private readonly dismissed = linkedSignal<boolean, boolean>({
     source: () => this.sidecar.interruptedRun() !== null || !this.installable(),
     computation: (occupied, previous) => occupied || (previous?.value ?? false),
   })
 
-  /** Le telechargement n'est pas fermable : rien ne masque sa progression. */
   private readonly downloading = computed(() => this._state().kind === "downloading")
 
   readonly dialogVisible = computed(
@@ -66,8 +60,7 @@ export class UpdateService {
         this._state.set({ kind: "available", update })
       }
     } catch {
-      // Hors ligne, manifeste en 404 pendant un build, ou hors Tauri : rien a proposer,
-      // et rien a signaler, ces cas sont frequents.
+      // Hors ligne, manifeste en 404 ou hors Tauri : frequent, rien a signaler.
     }
   }
 
@@ -86,14 +79,14 @@ export class UpdateService {
     }
   }
 
-  /** Une mise a jour en echec n'est pas reutilisee : la verification repart de zero. */
+  /** Repart d'une nouvelle verification : la Release a pu changer depuis l'echec. */
   async retry(): Promise<void> {
     const state = this._state()
     if (state.kind !== "failed" || !this.installable()) {
       return
     }
 
-    // Passe en telechargement des le clic : un second clic ne relance rien.
+    // Des le clic, pour qu'un second clic ne relance rien.
     this._state.set({ kind: "downloading", update: state.update, progress: NOTHING_RECEIVED })
     let update: AvailableUpdate | null
     try {
@@ -103,7 +96,6 @@ export class UpdateService {
       return
     }
 
-    // La mise a jour en echec ne servira plus : sa ressource cote Rust est rendue.
     state.update.close().catch((error: unknown) => {
       console.error("[update] ressource de la mise a jour non liberee", error)
     })
@@ -121,10 +113,9 @@ export class UpdateService {
         this._state.set({ kind: "downloading", update, progress })
       })
     } catch (error) {
-      // Seul signal d'une chaine de signature cassee chez un utilisateur (PRODUCTION.md
-      // § Incident Response) ; le SDK durci retire les chemins (ADR-014). Le plugin rejette
-      // une chaine, sans pile : le tag isole ces echecs des autres issues.
-      Sentry.captureException(error, { tags: { area: "updater" } })
+      // Seul signal d'une signature cassee chez un utilisateur (PRODUCTION.md § Incident
+      // Response). Le plugin rejette une chaine sans pile : le tag isole ces issues.
+      this.captureException(error, { tags: { area: "updater" } })
       this._state.set({ kind: "failed", update })
     }
   }
