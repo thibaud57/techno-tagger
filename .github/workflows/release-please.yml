@@ -138,8 +138,8 @@ jobs:
 
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
-          # TODO: paire de cles updater a l'etape 9. Sans elle, pas de latest.json
-          # dans la Release, donc aucun client ne voit la mise a jour.
+          # Absents, le build echoue ("public key found, but no private key") au
+          # lieu de publier une Release sans latest.json.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -155,3 +155,34 @@ jobs:
           tagName: ${{ needs.release-please.outputs.tag_name }}
           releaseName: ${{ needs.release-please.outputs.tag_name }}
           releaseDraft: false
+
+      # tauri-action reste vert sans artefact d'updater (constate sur la v0.1.0), et
+      # Tauri valide tout latest.json avant d'en lire la version : sans ce controle,
+      # une Release que l'updater ne verrait pas passerait inapercue.
+      - name: Verifier les artefacts de l'updater
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $assets = @(gh release view $env:TAG --json assets --jq '.assets[].name')
+          if ($assets -notcontains 'latest.json') { throw "latest.json absent de la Release $env:TAG" }
+          gh release download $env:TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
+          $manifest = Get-Content (Join-Path $env:RUNNER_TEMP 'latest.json') -Raw | ConvertFrom-Json
+          if ($manifest.version -ne $env:VERSION) { throw "latest.json annonce $($manifest.version), attendu $env:VERSION" }
+          # L'updater cherche windows-x86_64-nsis avant windows-x86_64 : toute entree
+          # windows presente doit etre saine, pas seulement la generique.
+          $entries = @($manifest.platforms.PSObject.Properties | Where-Object { $_.Name -like 'windows-x86_64*' })
+          if ($entries.Name -notcontains 'windows-x86_64') { throw "Entree windows-x86_64 absente de latest.json" }
+          $expected = "/releases/download/$([regex]::Escape($env:TAG))/[^/]+-setup\.exe$"
+          foreach ($entry in $entries) {
+            if (-not $entry.Value.signature) { throw "Signature $($entry.Name) vide dans latest.json" }
+            if ($entry.Value.url -notmatch $expected) { throw "url $($entry.Name) hors du tag $env:TAG : $($entry.Value.url)" }
+            # Le manifeste peut annoncer un installeur dont le .sig n'a pas ete publie.
+            $setup = ($entry.Value.url -split '/')[-1]
+            if ($assets -notcontains "$setup.sig") { throw "$setup.sig absent de la Release $env:TAG (entree $($entry.Name))" }
+          }
+          Write-Output "latest.json $($manifest.version) et sa signature publies sur $env:TAG"

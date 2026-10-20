@@ -774,6 +774,16 @@ La commande se pilote par `drive.py` sur la fixture par défaut de `build_fixtur
 
 Parcours relevé le 2026-10-19 sur le sub-project monitoring/03 (faux serveur, état gelé non committé), tous verts. La webview n'avait alors aucun écran pour la commande : `SidecarService.prepareFeedback` et ses signaux se prouvaient par `sidecar.service.spec.ts` et le typage. Le bouton qui l'envoie date du 2026-10-19 : § Pilotage du bouton « Envoyer ce rapport ». Rejoué le même jour sur le binaire reconstruit (`just build-sidecar`) : `drive.py` puis, sous le même `LOCALAPPDATA`, le binaire figé alimenté par un pipe (`prepare_feedback` sur le run écrit, sur `000000`, `get_version`) rendent les mêmes réponses, `feedback_ready` (URL de 964 caractères, formulaire cible, aucun `labels`, export présent sous `feedback/` et nommé dans l'URL) et `run_not_found` à `params` `{"run_id": "000000"}`. Rejoué le 2026-10-19 à la clôture de l'epic monitoring (session 1, `{"wait": 1.5}` avant `commit_run`) : `written` 2, `feedback_ready` du run `5eb24a` (URL de 964 caractères, formulaire cible, aucun `labels`, export sous `feedback/` et nommé dans l'URL), `000000` en `run_not_found`, `get_version` à `sentry_selftest` faux ; le binaire figé du jour (`src-tauri/binaries/`, 22:20, après le dernier commit de `sidecar/src` à 21:50) alimenté par un pipe sous le même `LOCALAPPDATA` rend les mêmes réponses, `get_version` à `api_key_configured` vrai (lecture seule) et `sentry_selftest` faux, sortie 0. Les sessions suivantes de la recette (dossier `feedback/` remplacé, rapport corrompu, phase réseau) n'ont pas été rejouées.
 
+## Pilotage du plugin updater
+
+Le plugin lit `plugins.updater` de `tauri.conf.json` à son initialisation : une config invalide fait paniquer la fenêtre dès `just dev`. Lancer la fenêtre sous un `LOCALAPPDATA` du scratchpad avec le port de débogage, puis `page/app-health.js state` et `tabs`, et chercher `panicked` ou `tauri_plugin_updater` dans le log de `just dev`. Aucun appel `plugin:updater|check` : il part sur le réseau vers la vraie Release.
+
+- Démarrage : `available` vrai, `version` à celle de l'interface, `versionMismatch` nul, `/playlist` affiché, trois onglets parcourus, un seul `techno-tagger.exe` et un seul `tagger.exe`, aucune panique dans le log
+- Build local sans clé : `just build` passe `--no-sign`, vert avec `Updater signing is skipped due to --no-sign flag`, installeur sans `.sig` ; `pnpm exec tauri build` nu échoue sur « A public key has been found, but no private key »
+- Build signé : seulement par l'utilisateur, clé et mot de passe exportés dans son shell ; le `.sig` décodé (`base64 -d`) porte `version:<X.Y.Z>` dans son `trusted comment`, ce que `requireSignedVersion` exige. `tauri signer sign` sans `--app-version` produit un `.sig` sans version, que l'updater refuserait
+
+Parcours relevé le 2026-10-20 sur le sub-project distribution-et-mise-a-jour/01 (état gelé non committé), tous verts. La vérification au démarrage, le téléchargement et l'installation (sub-projects 02 à 04) ne sont pas prouvés ici.
+
 ## Pilotage du trousseau
 
 `set_api_key` écrit dans le **vrai** Credential Manager de Windows (cible `techno-tagger`, utilisateur `x-api-key`) : aucun trousseau en mémoire hors pytest et `LOCALAPPDATA` n'isole rien ici.

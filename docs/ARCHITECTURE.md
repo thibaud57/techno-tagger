@@ -133,7 +133,7 @@ techno-tagger/
 │   ├── binaries/
 │   │   ├── tagger-x86_64-pc-windows-msvc.exe   # suffixe target-triple OBLIGATOIRE
 │   │   └── _internal/                          # deps PyInstaller --onedir -> bundle.resources
-│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, fs, store, os, opener (updater s'ajoute à l'étape 9, pas encore câblé)
+│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, fs, store, os, opener, updater
 │   ├── icons/
 │   ├── src/
 │   │   ├── main.rs                       # entrée desktop, généré, jamais modifié
@@ -386,7 +386,7 @@ Plugins Tauri v2 enregistrés dans `src-tauri/src/lib.rs`, permissions dans `src
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
 | `opener` | Lien vers la fiche source du détail d'un morceau ; bouton « Ouvrir le dossier des logs » des Réglages : `revealItemInDir` sur le fichier de logs courant (`version.log_file`) ; bouton « Envoyer ce rapport » du récapitulatif : `openUrl` sur l'issue de retour et `revealItemInDir` sur son export, sans permission de plus. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)) |
-| `updater` | Étape 9, pas encore câblé (ni plugin enregistré ni permission) : vérification du manifeste au démarrage, téléchargement et installation signés |
+| `updater` | Vérification du manifeste de la Release au démarrage, téléchargement et installation signés (`updater:default`). Clé publique dans `tauri.conf.json`, artefacts signés en CI seule, le build local passant `--no-sign` (cf. [PRODUCTION.md § Code Signing](PRODUCTION.md#code-signing)) |
 | `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe le rechargement (`F5`, `Ctrl+R`) et le menu contextuel en release : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié |
 
 Le **signal sonore marque la fin d'une phase longue** : la fin d'une extraction et la fin de la phase réseau d'un run, quand l'écran d'arbitrage prend la main, puis la fin d'une écriture et celle d'un rollback. Il part quel que soit l'onglet affiché, l'utilisateur qui regarde ailleurs étant celui qu'il doit prévenir. Jamais par arbitrage : un son par arbitrage serait une vingtaine de bips sur un run de 100 morceaux et la préférence serait coupée dès le premier usage. Le pipeline continuant de tourner pendant qu'une modale attend, rien n'oblige à arbitrer au fil de l'eau : tout se traite à la fin et c'est ce moment-là qu'il faut signaler.
@@ -833,8 +833,8 @@ graph LR
     tag --> sr["Releases Sentry<br/>techno-tagger-ui et techno-tagger-sidecar"]
     tag --> pyi["PyInstaller<br/>tagger-x86_64-pc-windows-msvc.exe"]
     pyi --> tb["tauri build<br/>installeur Windows"]
-    tb --> sig["Signature du bundle (étape 9)<br/>TAURI_SIGNING_PRIVATE_KEY"]
-    sig --> rel["GitHub Release<br/>installeur + latest.json (étape 9)"]
+    tb --> sig["Signature du bundle<br/>TAURI_SIGNING_PRIVATE_KEY"]
+    sig --> rel["GitHub Release<br/>installeur + latest.json"]
     rel --> upd["Updater : vérification au démarrage (étape 9)"]
     upd --> user["Machine de l'utilisateur"]
 

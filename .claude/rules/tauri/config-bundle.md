@@ -33,7 +33,7 @@ paths:
 - La taille de fenêtre n'est pas mémorisée entre deux lancements (plugin `window-state` non retenu)
 - Le manifeste de l'updater n'exige que `version`, `platforms.<target>.url` et `.signature`
 - `requireSignedVersion` rejette toute release signée avant le CLI 2.12, faute de version inscrite dans sa signature : sans conséquence ici tant qu'aucune release n'a publié d'artefact updater
-- `bundle.createUpdaterArtifacts` reste à `false` tant que `plugins.updater.pubkey` et `TAURI_SIGNING_PRIVATE_KEY` ne sont pas posés : sans la paire de clés, le build de release échoue
+- `bundle.createUpdaterArtifacts: true` avec une `pubkey` fait échouer tout `tauri build` sans `TAURI_SIGNING_PRIVATE_KEY` (« A public key has been found, but no private key ») : `just build` passe `--no-sign`, seule la CI signe
 - Tauri ne pose aucun nonce ni hash CSP sur les styles d'un build Angular : désactiver le critical CSS (`optimization.styles.inlineCritical: false`), dont l'`onload=` serait bloqué
 
 ## Exemples
