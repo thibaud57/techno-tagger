@@ -794,8 +794,6 @@ describe("SettingsPageComponent", () => {
   describe("version row", () => {
     const row = (fixture: { nativeElement: unknown }) =>
       hostOf(fixture).querySelector<HTMLElement>("[data-version-row]")
-    const checkButton = (fixture: { nativeElement: unknown }) =>
-      hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="check-update"]')
     const settled = async (
       fixture: { detectChanges(): void },
       component: SettingsPageComponent,
@@ -809,31 +807,22 @@ describe("SettingsPageComponent", () => {
     it("shows the installed version", () => {
       const { fixture } = mountWith({}, "admin")
       translateWith({ settings: { admin: { version: { installed: "Installed {{version}}" } } } })
+
       fixture.detectChanges()
 
-      const text = row(fixture)?.textContent
-
-      expect(text).toContain(`Installed ${APP_VERSION}`)
+      expect(row(fixture)?.textContent).toContain(`Installed ${APP_VERSION}`)
     })
 
-    it("shows the latest-version message after a check finding nothing", async () => {
-      const { fixture, component } = mountWith({}, "admin", { updater: updaterStub(null) })
+    it.each([
+      ["finds nothing", null, "[data-version-up-to-date]"],
+      ["fails", new Error("offline"), "[data-version-error]"],
+    ])("shows the matching feedback after a check that %s", async (_, result, feedback) => {
+      const { fixture, component } = mountWith({}, "admin", { updater: updaterStub(result) })
 
-      checkButton(fixture)?.click()
+      action("check-update", hostOf(fixture))?.click()
       await settled(fixture, component)
 
-      expect(row(fixture)?.querySelector("[data-version-up-to-date]")).not.toBeNull()
-    })
-
-    it("shows the failure after a failed check", async () => {
-      const { fixture, component } = mountWith({}, "admin", {
-        updater: updaterStub(new Error("offline")),
-      })
-
-      checkButton(fixture)?.click()
-      await settled(fixture, component)
-
-      expect(row(fixture)?.querySelector("[data-version-error]")).not.toBeNull()
+      expect(row(fixture)?.querySelector(feedback)).not.toBeNull()
     })
 
     it("shows no feedback when an update is found", async () => {
@@ -842,7 +831,7 @@ describe("SettingsPageComponent", () => {
       })
       const updates = TestBed.inject(UpdateService)
 
-      checkButton(fixture)?.click()
+      action("check-update", hostOf(fixture))?.click()
       await settled(fixture, component)
 
       expect(updates.dialogVisible()).toBe(true)
@@ -854,18 +843,18 @@ describe("SettingsPageComponent", () => {
       updater.check.mockReturnValueOnce(new Promise(() => undefined))
       const { fixture } = mountWith({}, "admin", { updater })
 
-      checkButton(fixture)?.click()
-      checkButton(fixture)?.click()
+      action("check-update", hostOf(fixture))?.click()
+      action("check-update", hostOf(fixture))?.click()
       fixture.detectChanges()
 
-      expect(checkButton(fixture)?.disabled).toBe(true)
+      expect(action("check-update", hostOf(fixture))?.disabled).toBe(true)
       expect(iconOf(hostOf(fixture), "spinner")).not.toBeNull()
       expect(updater.check).toHaveBeenCalledOnce()
     })
 
     it("forgets the feedback when the section changes", async () => {
       const { fixture, component } = mountWith({}, "admin", { updater: updaterStub(null) })
-      checkButton(fixture)?.click()
+      action("check-update", hostOf(fixture))?.click()
       await settled(fixture, component)
 
       openSection(component, "api")
@@ -875,15 +864,35 @@ describe("SettingsPageComponent", () => {
       expect(row(fixture)?.querySelector("app-message")).toBeNull()
     })
 
+    it("drops the outcome of a check still running when the section changes", async () => {
+      let finish: (update: null) => void = () => undefined
+      const updater = updaterStub()
+      updater.check.mockReturnValueOnce(
+        new Promise<null>((resolve) => {
+          finish = resolve
+        }),
+      )
+      const { fixture, component } = mountWith({}, "admin", { updater })
+      const checking = component["checkUpdate"]()
+      openSection(component, "api")
+      openSection(component, "admin")
+
+      finish(null)
+      await checking
+      fixture.detectChanges()
+
+      expect(row(fixture)?.querySelector("app-message")).toBeNull()
+    })
+
     it("clears the previous feedback as soon as a new check starts", async () => {
       const updater = updaterStub(null)
       const { fixture, component } = mountWith({}, "admin", { updater })
-      checkButton(fixture)?.click()
+      action("check-update", hostOf(fixture))?.click()
       await settled(fixture, component)
       const shownBefore = row(fixture)?.querySelector("app-message")
       updater.check.mockReturnValueOnce(new Promise(() => undefined))
 
-      checkButton(fixture)?.click()
+      action("check-update", hostOf(fixture))?.click()
       fixture.detectChanges()
 
       expect(shownBefore).not.toBeNull()

@@ -31,7 +31,6 @@ describe("progressAfter", () => {
       { received: 0, total: null },
       { event: "Started", data: { contentLength: 10 } },
     )
-
     const progressed = progressAfter(started, { event: "Progress", data: { chunkLength: 4 } })
 
     const progress = progressAfter(progressed, { event: "Progress", data: { chunkLength: 3 } })

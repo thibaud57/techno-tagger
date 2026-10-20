@@ -61,27 +61,21 @@ describe("UpdateDialogComponent", () => {
   it("shows both versions with later and install", async () => {
     const { fixture } = await mount()
     translateWith({ update: { available: "{{version}} over {{current}}" } })
+
     fixture.detectChanges()
 
-    const text = page().textContent
-
-    expect(text).toContain("2.0.0 over 1.0.0")
+    expect(page().textContent).toContain("2.0.0 over 1.0.0")
     expect(action("later")).not.toBeNull()
     expect(action("install")).not.toBeNull()
   })
 
-  it("sends the update to the badge on later", async () => {
+  it.each([
+    ["later", () => action("later")],
+    ["the cross", cross],
+  ])("sends the update to the badge on %s", async (_, dismiss) => {
     const { service } = await mount()
 
-    action("later")?.click()
-
-    expect(service.badgeVisible()).toBe(true)
-  })
-
-  it("sends the update to the badge on the cross", async () => {
-    const { service } = await mount()
-
-    cross()?.click()
+    dismiss()?.click()
 
     expect(service.badgeVisible()).toBe(true)
   })
@@ -90,21 +84,19 @@ describe("UpdateDialogComponent", () => {
     // Trouvee pendant un travail, la mise a jour part au badge : la modale est rouverte par lui.
     const { fixture, service } = await mount(availableUpdate(), { writing: signal(true) })
     service.reopen()
+
     fixture.detectChanges()
 
-    const install = action("install")
-
-    expect(install?.disabled).toBe(true)
+    expect(action("install")?.disabled).toBe(true)
   })
 
   it("replaces the body with the progress while downloading", async () => {
     const { fixture } = await mount(neverEnding())
+
     action("install")?.click()
     fixture.detectChanges()
 
-    const progress = page().querySelector("app-phase-progress")
-
-    expect(progress).not.toBeNull()
+    expect(page().querySelector("app-phase-progress")).not.toBeNull()
     expect(action("install")).toBeNull()
     expect(action("later")).toBeNull()
     expect(cross()).toBeNull()
@@ -112,15 +104,14 @@ describe("UpdateDialogComponent", () => {
 
   it("shows the failure with a retry", async () => {
     const { fixture, service } = await mount(failingUpdate())
+
     action("install")?.click()
     await vi.waitFor(() => {
       expect(service.state().kind).toBe("failed")
     })
     fixture.detectChanges()
 
-    const text = page().textContent
-
-    expect(text).toContain("update.failed")
+    expect(page().textContent).toContain("update.failed")
     expect(action("install")?.textContent).toContain("update.retry")
     expect(action("later")).not.toBeNull()
   })
@@ -128,11 +119,11 @@ describe("UpdateDialogComponent", () => {
   it("shows an indeterminate bar and no counter while the total is unknown", async () => {
     const { fixture } = await mount(neverEnding(null))
     translateWith({ update: { counter: "{{received}} of {{total}}" } })
+
     action("install")?.click()
     fixture.detectChanges()
 
     const bar = page().querySelector("app-phase-progress p-progressbar")
-
     expect(bar?.classList.contains("p-progressbar-indeterminate")).toBe(true)
     expect(page().querySelector("app-phase-progress .tabular-nums")).toBeNull()
   })
@@ -140,12 +131,12 @@ describe("UpdateDialogComponent", () => {
   it("shows the counter and a determinate bar once the total is known", async () => {
     const { fixture } = await mount(neverEnding())
     translateWith({ update: { counter: "{{received}} of {{total}}" } })
+
     action("install")?.click()
     fixture.detectChanges()
 
     const bar = page().querySelector("app-phase-progress p-progressbar")
     const counter = page().querySelector("app-phase-progress .tabular-nums")
-
     expect(bar?.classList.contains("p-progressbar-determinate")).toBe(true)
     expect(bar?.getAttribute("aria-valuenow")).toBe("40")
     expect(counter?.textContent).toBe("4 MB of 10 MB")
@@ -162,8 +153,6 @@ describe("UpdateDialogComponent", () => {
   it("hides the notes link without a release page", async () => {
     await mount(availableUpdate({ releasePage: null }))
 
-    const notes = action("notes")
-
-    expect(notes).toBeNull()
+    expect(action("notes")).toBeNull()
   })
 })

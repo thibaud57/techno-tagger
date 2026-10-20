@@ -451,7 +451,10 @@ export default class SettingsPageComponent {
     }
     this.updateCheck.set("checking")
     const outcome = await this.updates.checkNow()
-    this.updateCheck.set(outcome === "found" ? null : outcome)
+    // Un changement de section l'a remis a zero entre-temps : le retour serait perime.
+    if (this.updateCheck() === "checking") {
+      this.updateCheck.set(outcome === "found" ? null : outcome)
+    }
   }
 
   /**

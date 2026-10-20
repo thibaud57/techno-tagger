@@ -1,14 +1,7 @@
-// Invite de mise a jour sous `ng serve`, FR puis EN a 1024 x 700, un contexte de navigateur par
-// langue, sidecar simule sur l'instance du service. Hors Tauri, la verification du demarrage
-// echoue en silence : ni modale ni badge. Puis le champ `updater` de `UpdateService` est remplace
-// par un faux (aucun reseau, aucun plugin) et la sonde parcourt : modale disponible, lien des
-// nouveautes (`plugin:opener|open_url` releve par un `__TAURI_INTERNALS__` pose apres le
-// demarrage), « Plus tard » et croix vers le badge, badge qui rouvre, mise a jour trouvee
-// pendant une recherche (badge, « Installer » grise et son tooltip), telechargement a total
-// connu puis inconnu (ni croix, ni bouton, Echap sans effet), echec (message, « Plus tard » et
-// « Reessayer »). Fondu de chaque corps et absence de marge basse ajoutee au padding d'Aura
-// releves a chaque etat. Lance par `run_page.mjs`, `just dev-ui` servant :4200 ; `SHOTS_DIR`
-// designe le dossier des captures (scratchpad).
+// Invite de mise a jour sous `ng serve`, FR puis EN a 1024 x 700 : controles decrits dans la ligne
+// de `SKILL.md`. Le champ `updater` d'`UpdateService` est remplace par un faux, rien ne part sur le
+// reseau ni vers le plugin. Lance par `run_page.mjs`, `just dev-ui` servant :4200 ; `SHOTS_DIR`
+// designe le dossier des captures.
 async (page) => {
   const failures = []
   const measures = {}

@@ -141,7 +141,7 @@ describe("UpdateService", () => {
   it("keeps the badge once the resume prompt shows up before any gesture", async () => {
     const { service, sidecar } = mount(updaterStub(availableUpdate()))
     await service.check()
-    // Lu a chaque changement, comme le shell a chaque detection.
+    // Lu a chaque changement : le verrou ne voit que les etats lus.
     const beforeResume = service.dialogVisible()
     sidecar.interruptedRun.set(INTERRUPTED)
     const whileResumeShows = service.dialogVisible()

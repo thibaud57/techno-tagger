@@ -225,9 +225,7 @@ describe("AppComponent", () => {
   it("shows no update badge without an update", () => {
     const { fixture } = mount()
 
-    const badge = updateBadge(fixture)
-
-    expect(badge).toBeNull()
+    expect(updateBadge(fixture)).toBeNull()
   })
 
   it("installs the close guard at startup", () => {

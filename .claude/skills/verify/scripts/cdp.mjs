@@ -11,7 +11,7 @@
 //   node cdp.mjs --type <texte>              texte insere dans l'element qui a le focus (Input.insertText)
 //   node cdp.mjs --viewport <w> <h> <...>    l'appel qui suit, a cette taille de fenetre
 // Le script recoit ses arguments dans `__args`, et le prealable `page/preamble.js` devant lui
-// (`wait`, `until`, `__sidecarService()`).
+// (`wait`, `until`, `__service(nom)`, `__sidecarService()`).
 //
 // `fetch` et `WebSocket` natifs plutot que curl, que les hooks bloquent.
 import { readFileSync, writeFileSync } from "node:fs"

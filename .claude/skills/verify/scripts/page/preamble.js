@@ -15,7 +15,8 @@ const until = async (check, timeout = 30000) => {
   return false
 }
 
-const __sidecarService = () => {
+/** Service racine dont le nom de classe finit par `name`. */
+const __service = (name) => {
   const root = ng.getInjector(document.querySelector("app-root"))
   for (const injector of ng["ɵgetInjectorResolutionPath"](root)) {
     let providers
@@ -28,12 +29,14 @@ const __sidecarService = () => {
     for (const record of Object.values(providers)) {
       // `_SidecarService` en build de dev : le nom se compare par sa fin.
       const provided = Object.values(record).find(
-        (value) => typeof value === "function" && /SidecarService$/.test(value.name),
+        (value) => typeof value === "function" && value.name.endsWith(name),
       )
       if (provided) {
         return injector.get(provided)
       }
     }
   }
-  throw new Error("SidecarService introuvable : la page est-elle un build de dev ?")
+  throw new Error(`${name} introuvable : la page est-elle un build de dev ?`)
 }
+
+const __sidecarService = () => __service("SidecarService")

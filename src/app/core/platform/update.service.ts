@@ -2,7 +2,12 @@ import { Service, computed, inject, linkedSignal, signal } from "@angular/core"
 import { CAPTURE_EXCEPTION } from "../observability/capture-exception"
 import { SidecarService } from "../sidecar/sidecar.service"
 
-import { APP_UPDATER, type AvailableUpdate, type DownloadProgress } from "./updater"
+import {
+  APP_UPDATER,
+  type AvailableUpdate,
+  type DownloadProgress,
+  NOTHING_RECEIVED,
+} from "./updater"
 
 export type UpdateState =
   | { readonly kind: "none" }
@@ -17,9 +22,7 @@ export type UpdateState =
 /** Issue d'une recherche lancee depuis les Reglages, pour le retour de leur rangee. */
 export type ManualCheck = "found" | "upToDate" | "failed"
 
-const NOTHING_RECEIVED: DownloadProgress = { received: 0, total: null }
-
-/** Verifiee au demarrage seulement : l'installation ferme l'application (ADR-001). */
+/** Jamais installee pendant un travail : l'installation ferme l'application (ADR-001). */
 @Service()
 export class UpdateService {
   private readonly updater = inject(APP_UPDATER)
@@ -39,15 +42,14 @@ export class UpdateService {
 
   /**
    * Verrou : un ecran occupe (invite de reprise, travail) renvoie la mise a jour au badge pour
-   * de bon, seul `reopen` la ramene. `previous` ne voit que les etats lus : le shell le lit a
-   * chaque detection.
+   * de bon, seul `reopen` la ramene. `previous` ne voit que les etats lus.
    */
   private readonly dismissed = linkedSignal<boolean, boolean>({
     source: () => this.sidecar.interruptedRun() !== null || !this.installable(),
     computation: (occupied, previous) => occupied || (previous?.value ?? false),
   })
 
-  private readonly downloading = computed(() => this._state().kind === "downloading")
+  readonly downloading = computed(() => this._state().kind === "downloading")
 
   readonly dialogVisible = computed(
     () => this.update() !== null && (this.downloading() || !this.dismissed()),
@@ -92,12 +94,16 @@ export class UpdateService {
   /** Deux verifications peuvent se croiser : la seconde ne remplace pas un etat deja pris. */
   private adopt(update: AvailableUpdate): void {
     if (this.update() !== null) {
-      update.close().catch((error: unknown) => {
-        console.error("[update] ressource de la mise a jour non liberee", error)
-      })
+      this.release(update)
       return
     }
     this._state.set({ kind: "available", update })
+  }
+
+  private release(update: AvailableUpdate): void {
+    update.close().catch((error: unknown) => {
+      console.error("[update] ressource de la mise a jour non liberee", error)
+    })
   }
 
   dismiss(): void {
@@ -124,17 +130,13 @@ export class UpdateService {
 
     // Des le clic, pour qu'un second clic ne relance rien.
     this._state.set({ kind: "downloading", update: state.update, progress: NOTHING_RECEIVED })
-    let update: AvailableUpdate | null
-    try {
-      update = await this.updater.check()
-    } catch {
+    const update = await this.lookup()
+    if (update === "failed") {
       this._state.set(state)
       return
     }
 
-    state.update.close().catch((error: unknown) => {
-      console.error("[update] ressource de la mise a jour non liberee", error)
-    })
+    this.release(state.update)
     if (update === null) {
       this._state.set({ kind: "none" })
       return

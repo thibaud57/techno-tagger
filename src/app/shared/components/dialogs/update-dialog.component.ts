@@ -111,7 +111,7 @@ import { MessageComponent } from "../feedback/message.component"
               [disabled]="!installable()"
               [pTooltip]="installable() ? undefined : ('update.busy' | translate)"
               [tooltipOptions]="tooltip"
-              (click)="failed() ? retry() : install()"
+              (click)="confirm()"
             >
               {{ (failed() ? "update.retry" : "update.install") | translate }}
             </button>
@@ -130,10 +130,10 @@ export class UpdateDialogComponent {
   protected readonly update = this.service.update
   protected readonly visible = this.service.dialogVisible
   protected readonly installable = this.service.installable
+  protected readonly downloading = this.service.downloading
   protected readonly tooltip = TOOLTIP
   protected readonly fadeIn = FADE_IN
 
-  protected readonly downloading = computed(() => this.state().kind === "downloading")
   protected readonly failed = computed(() => this.state().kind === "failed")
 
   private readonly progress = computed(() => {
@@ -174,12 +174,8 @@ export class UpdateDialogComponent {
     this.service.dismiss()
   }
 
-  protected install(): void {
-    void this.service.install()
-  }
-
-  protected retry(): void {
-    void this.service.retry()
+  protected confirm(): void {
+    void (this.failed() ? this.service.retry() : this.service.install())
   }
 
   protected openNotes(releasePage: string): void {

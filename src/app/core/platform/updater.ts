@@ -22,6 +22,8 @@ export interface AppUpdater {
   check(): Promise<AvailableUpdate | null>
 }
 
+export const NOTHING_RECEIVED: DownloadProgress = { received: 0, total: null }
+
 // Sans borne, une verification pendue bloquerait « Reessayer » sur une modale non fermable.
 const CHECK_TIMEOUT_MS = 30_000
 
@@ -75,7 +77,7 @@ class TauriAppUpdater implements AppUpdater {
       currentVersion: update.currentVersion,
       releasePage: releasePageOf(update.rawJson),
       downloadAndInstall: async (onProgress) => {
-        let progress: DownloadProgress = { received: 0, total: null }
+        let progress = NOTHING_RECEIVED
         // Sous Windows, l'application sort a l'installation : rien ne s'execute apres.
         await update.downloadAndInstall((event) => {
           progress = progressAfter(progress, event)
