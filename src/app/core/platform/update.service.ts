@@ -103,6 +103,10 @@ export class UpdateService {
       return
     }
 
+    // La mise a jour en echec ne servira plus : sa ressource cote Rust est rendue.
+    state.update.close().catch((error: unknown) => {
+      console.error("[update] ressource de la mise a jour non liberee", error)
+    })
     if (update === null) {
       this._state.set({ kind: "none" })
       return
@@ -118,8 +122,9 @@ export class UpdateService {
       })
     } catch (error) {
       // Seul signal d'une chaine de signature cassee chez un utilisateur (PRODUCTION.md
-      // § Incident Response) ; le SDK durci retire les chemins (ADR-014).
-      Sentry.captureException(error)
+      // § Incident Response) ; le SDK durci retire les chemins (ADR-014). Le plugin rejette
+      // une chaine, sans pile : le tag isole ces echecs des autres issues.
+      Sentry.captureException(error, { tags: { area: "updater" } })
       this._state.set({ kind: "failed", update })
     }
   }

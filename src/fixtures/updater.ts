@@ -8,6 +8,7 @@ export const availableUpdate = (overrides: Partial<AvailableUpdate> = {}): Avail
   currentVersion: "1.0.0",
   releasePage: "https://example.com/releases/tag/v2.0.0",
   downloadAndInstall: vi.fn<AvailableUpdate["downloadAndInstall"]>(() => Promise.resolve()),
+  close: vi.fn<AvailableUpdate["close"]>(() => Promise.resolve()),
   ...overrides,
 })
 

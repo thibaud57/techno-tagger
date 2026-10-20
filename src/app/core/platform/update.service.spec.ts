@@ -158,12 +158,15 @@ describe("UpdateService", () => {
     await service.install()
 
     expect(service.state().kind).toBe("failed")
-    expect(Sentry.captureException).toHaveBeenCalledOnce()
+    expect(Sentry.captureException).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
+      tags: { area: "updater" },
+    })
   })
 
-  it("checks again and restarts the download on retry", async () => {
+  it("checks again, releases the failed update and restarts the download on retry", async () => {
+    const failed = failingUpdate()
     const retried = availableUpdate()
-    const updater = updaterStub(failingUpdate())
+    const updater = updaterStub(failed)
     const { service } = mount(updater)
     await service.check()
     await service.install()
@@ -175,7 +178,22 @@ describe("UpdateService", () => {
 
     expect(during).toBe("downloading")
     expect(updater.check).toHaveBeenCalledTimes(2)
+    expect(failed.close).toHaveBeenCalledOnce()
     expect(retried.downloadAndInstall).toHaveBeenCalledOnce()
+  })
+
+  it("keeps the failed update when the retry check fails", async () => {
+    const failed = failingUpdate()
+    const updater = updaterStub(failed)
+    const { service } = mount(updater)
+    await service.check()
+    await service.install()
+    updater.check.mockRejectedValueOnce(new Error("offline"))
+
+    await service.retry()
+
+    expect(service.state()).toEqual({ kind: "failed", update: failed })
+    expect(failed.close).not.toHaveBeenCalled()
   })
 
   it("withdraws the offer when the retry finds nothing", async () => {

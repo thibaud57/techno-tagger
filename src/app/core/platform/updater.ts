@@ -14,6 +14,8 @@ export interface AvailableUpdate {
   /** `null` quand l'url du manifeste ne designe pas une Release GitHub. */
   readonly releasePage: string | null
   downloadAndInstall(onProgress: (progress: DownloadProgress) => void): Promise<void>
+  /** Libere la ressource que le plugin garde cote Rust jusqu'a la sortie. */
+  close(): Promise<void>
 }
 
 export interface AppUpdater {
@@ -86,6 +88,7 @@ class TauriAppUpdater implements AppUpdater {
           onProgress(progress)
         })
       },
+      close: () => update.close(),
     }
   }
 }
