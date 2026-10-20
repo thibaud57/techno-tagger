@@ -173,7 +173,9 @@ jobs:
           $apiUrl = 'https://api\.github\.com/repos/[^/"]+/[^/"]+/releases/assets/\d+'
           # Texte remplace tel quel : ConvertTo-Json reformaterait pub_date.
           $raw = Get-Content $path -Raw
-          foreach ($match in [regex]::Matches($raw, $apiUrl)) {
+          $found = [regex]::Matches($raw, $apiUrl)
+          if ($found.Count -eq 0) { Write-Output "latest.json sans URL d'API"; exit 0 }
+          foreach ($match in $found) {
             if (-not $links.ContainsKey($match.Value)) { throw "Asset inconnu de la Release $env:TAG : $($match.Value)" }
           }
           [IO.File]::WriteAllText($path, [regex]::Replace($raw, $apiUrl, { param($m) $links[$m.Value] }))
