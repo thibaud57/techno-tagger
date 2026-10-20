@@ -475,5 +475,20 @@
     "resume": "Resume",
     "discard": "Start over",
     "later": "Later"
+  },
+  "update": {
+    "title": "Update available",
+    "available": "Version {{version}} is available, you are using {{current}}.\nThe application closes during the installation.",
+    "notes": "See what's new",
+    "later": "Later",
+    "install": "Install",
+    "retry": "Retry",
+    "busy": "Available once the current work is done",
+    "downloading": "Downloading",
+    "counter": "{{received}} of {{total}}",
+    "closing": "The application will close once the download is done.",
+    "failed": "The update failed.\nCheck your connection, then try again.",
+    "badge": "Update {{version}}",
+    "reopen": "See the update"
   }
 }

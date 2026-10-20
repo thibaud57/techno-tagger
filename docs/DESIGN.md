@@ -199,7 +199,7 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 |-----------|-----------|-----------|-------|
 | Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | Aucun mode router en v22 (`p-tabMenu` supprimé) : l'onglet actif se dérive de l'URL |
 | Navigation des Réglages | `p-menu`, une entrée par section, l'active en `bg-highlight` | PrimeNG | Rendu natif (§ Arbitrages), une section affichée à la fois (§ Structure de Page), l'active nommée aussi par `aria-current="page"` |
-| Badges de file et de rattrapage | bouton portant un `p-tag` `info`, icône `info-circle` | PrimeNG | À droite de la barre d'onglets, en `gap-2`, masqués sur 0 ; « N à rattraper » masqué aussi pendant la recherche |
+| Badges de file, de rattrapage et de mise à jour | bouton portant un `p-tag` `info`, icône `info-circle` (`download` pour la mise à jour) | PrimeNG | À droite de la barre d'onglets, groupés en `gap-2`, masqués sur 0. « N à arbitrer » rouvre la modale d'arbitrage après la croix. « N à rattraper », masqué aussi pendant la recherche, ouvre Tagging et la modale du lien. « Mise à jour X.Y.Z », après la croix ou « Plus tard » de sa modale, la rouvre jusqu'au lancement suivant |
 
 ### Actions
 
@@ -295,6 +295,7 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 | Confirmation de sortie | `CloseConfirmationComponent` : `p-dialog` modal | composant maison (PrimeNG) | Fermeture pendant une extraction, une écriture ou une restauration : « Rester » `primary` avec le focus, « Quitter quand même » `secondary` outlined ; « Rester » seul pendant l'écriture ou la restauration. Ni `p-confirmdialog` ni `danger` : la sortie ne touche aucun fichier musical |
 | Tooltip | `pTooltip` lié à `TOOLTIP` ou `WIDE_TOOLTIP` (`shared/utils/tooltip.ts`) | PrimeNG | Sous l'élément, retourné au-dessus quand la place manque. 12.5rem, 26rem en `WIDE_TOOLTIP` (texte tronqué, détail du rapport, motif d'échec, avertissement d'envoi du rapport). `pointer-events: none`. Délai au § Composants Animés, usage au § Conventions de Code > Règles |
 | Reprise d'un run interrompu | `ResumeDialogComponent` : `p-dialog` modal non fermable, `w-120` | composant maison (PrimeNG) | Au démarrage (§ Arbitrages). « Repartir de zéro » texte `secondary`, « Reprendre » `primary` |
+| Invite de mise à jour | `UpdateDialogComponent` : `p-dialog` modal `w-120`, fermable sauf pendant le téléchargement | composant maison (PrimeNG) | Au démarrage seulement, différée comme les autres modales. L'invite de reprise passe d'abord : affichée, elle renvoie la mise à jour au badge. Versions proposée et installée, « Voir les nouveautés » en bouton `link` vers la Release. « Plus tard » en texte `secondary`, « Installer » `primary`, désactivé pendant un travail du moteur (tooltip). Téléchargement par `PhaseProgressComponent`, indéterminé sans total ; échec par `MessageComponent` error et « Réessayer » |
 
 ### Contenu et texte
 
@@ -363,7 +364,7 @@ Les composants maison vivent dans `shared/components/`, sauf ceux d'un seul écr
 
 | Librairie | Rôle | Périmètre |
 |-----------|------|-----------|
-| Angular (`animate.enter`) | Entrée d'un élément | Hôtes de page, écran bloquant, formulaire et résumé de Playlist, erreur contextuelle, invite de reprise, pochette |
+| Angular (`animate.enter`) | Entrée d'un élément | Hôtes de page, écran bloquant, formulaire et résumé de Playlist, erreur contextuelle, invite de reprise, invite de mise à jour, pochette |
 | `tailwindcss-primeui` | Utilitaires d'animation | `animate-fadein`, `animate-duration-*`, `animate-ease-out`, combinés dans `FADE_IN` (`shared/utils/motion.ts`) |
 | PrimeNG | Transitions de ses composants, en CSS | Modales, toasts, onglets, squelettes, `p-message`. Une modale se coupe par `motionOptions` et `maskMotionOptions` |
 
@@ -385,7 +386,7 @@ Aucune dépendance d'animation dédiée.
 |-----------|-----------------|-----------|---------|
 | Modales d'arbitrage et du lien | **Aucune** (`NO_MOTION`) | PrimeNG | Ouverture : la décision est sur le chemin critique du run |
 | Contenu d'un onglet | Fondu, opacité seule | `FADE_IN` + `animate.enter` sur l'hôte de page | Changement d'onglet, ouverture du récapitulatif. La barre `p-tabs` reste hors du conteneur animé |
-| Écran bloquant, erreur contextuelle, invite de reprise | Fondu | `FADE_IN` + `animate.enter` | Montage |
+| Écran bloquant, erreur contextuelle, invite de reprise, invite de mise à jour | Fondu | `FADE_IN` + `animate.enter` | Montage |
 | Formulaire et résumé de Playlist | Fondu de celui qui entre | `FADE_IN` + `animate.enter` | Repli au lancement, « Modifier » |
 | Message inline dans une cellule réservée | **Aucune** (`[animated]="false"`) | PrimeNG | Bandeaux de source de l'arbitrage, « Rattrapé sur » du lien |
 | Vignette de pochette | Fondu | `FADE_IN` | Image chargée |
@@ -551,6 +552,7 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 - **Actions d'administration** : « Vider le cache » grisé aussi tant que le moteur démarre et sur un run affiché non écrit, « Ouvrir le dossier des logs » tant que le moteur démarre, raison en tooltip, là où la maquette ne grise que « Vider le cache » pendant une opération. Décidé le 2026-10-15, réaligné le 2026-10-16
 - **Menu des Réglages** : rendu natif de `p-menu`, entrée active en `bg-highlight` comme l'option choisie d'une liste, là où `SectionMenu` le recompose en 1rem avec l'active en `bg-emphasis`, la couleur du survol. Décidé et réaligné le 2026-10-16
 - **Écran bloquant** : anatomie de nos modales, 30rem et action en pied à droite, là où `BlockingCard` pose 34rem et l'action à gauche sous le texte. Décidé et réaligné le 2026-10-16
+- **Invite de mise à jour** : modale au démarrage sur le gabarit de l'invite de reprise, mais fermable, avec « Voir les nouveautés » en bouton `link` vers la Release ; après la croix ou « Plus tard », badge « Mise à jour X.Y.Z » (`download`) dans le groupe des badges ; corps sans marge basse ajoutée au padding d'Aura, en fondu à chaque changement d'état, comme l'invite de reprise ; modale et badge absents de la maquette. Décidé le 2026-10-15, complété le 2026-10-20
 
 ## Documentation Officielle
 

@@ -9,8 +9,11 @@ import { type Hosted, hostOf } from "../fixtures/dom"
 import { stubNavigation } from "../fixtures/router"
 import { activeRun, provideSidecarStub, sidecarStub } from "../fixtures/sidecar-stub"
 import { recoveredTrack, unresolvedTrack } from "../fixtures/tagging"
+import { availableUpdate, updaterStub } from "../fixtures/updater"
 import { AppComponent } from "./app.component"
 import { CloseGuard } from "./core/platform/close-guard.service"
+import { UpdateService } from "./core/platform/update.service"
+import { APP_UPDATER, type AvailableUpdate } from "./core/platform/updater"
 import { RecoveryUiStore } from "./features/tagging/url-recovery/recovery-ui.store"
 
 /** jsdom n'implemente pas `ResizeObserver` qu'observe `p-tablist` (jsdom/jsdom#3368). */
@@ -26,7 +29,7 @@ class ResizeObserverStub {
   }
 }
 
-const mount = () => {
+const mount = (update: AvailableUpdate | null = null) => {
   // `RecoveryUiStore`, reel ici, lit le run : le badge et la modale du lien en dependent.
   const service = sidecarStub(activeRun())
   const closeGuard = closeGuardStub()
@@ -41,6 +44,7 @@ const mount = () => {
       MessageService,
       provideSidecarStub(service),
       { provide: CloseGuard, useValue: closeGuard },
+      { provide: APP_UPDATER, useValue: updaterStub(update) },
     ],
   })
   const fixture = TestBed.createComponent(AppComponent)
@@ -54,6 +58,9 @@ const badge = (fixture: Hosted): HTMLButtonElement | null =>
 
 const recoveryBadge = (fixture: Hosted): HTMLButtonElement | null =>
   hostOf(fixture).querySelector<HTMLButtonElement>("[data-recovery-badge]")
+
+const updateBadge = (fixture: Hosted): HTMLButtonElement | null =>
+  hostOf(fixture).querySelector<HTMLButtonElement>("[data-update-badge]")
 
 /** Un morceau a rattraper derriere un morceau deja rattrape : le badge vise le second. */
 const mountWithRecoverableTracks = () => {
@@ -201,6 +208,26 @@ describe("AppComponent", () => {
     fixture.detectChanges()
 
     expect(component["arbitrationVisible"]()).toBe(true)
+  })
+
+  it("shows the update badge after later and reopens the dialog on click", async () => {
+    const { fixture, component } = mount(availableUpdate())
+    const updates = TestBed.inject(UpdateService)
+    await updates.check()
+    updates.dismiss()
+    fixture.detectChanges()
+
+    updateBadge(fixture)?.click()
+
+    expect(component["updateDialogVisible"]()).toBe(true)
+  })
+
+  it("shows no update badge without an update", () => {
+    const { fixture } = mount()
+
+    const badge = updateBadge(fixture)
+
+    expect(badge).toBeNull()
   })
 
   it("installs the close guard at startup", () => {
