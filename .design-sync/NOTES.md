@@ -72,6 +72,7 @@ Un push, dans l'ordre :
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
 - **`AppShell`** : invite de mise à jour (modale, téléchargement, échec) et badge « Mise à jour X.Y.Z » (`download`) livrés par le code, absents de la maquette (cf. DESIGN.md § Arbitrages, constaté le 2026-10-20).
+- **`SettingsScreen`** : rangée Version d'Administration (version installée, « Rechercher une mise à jour », retours à jour et échec) livrée par le code, absente de la maquette (cf. DESIGN.md § Arbitrages, constaté le 2026-10-20).
 
 ## Journal
 

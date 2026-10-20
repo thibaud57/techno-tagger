@@ -460,6 +460,13 @@
         "header": "Restaurer le dernier run",
         "message": "Run du {{date}} sur {{folder}}\nFichiers à restaurer : {{count}}\n\nIls retrouvent leur nom et leurs tags d'origine.\nLes pochettes posées par l'écriture restent en place.\nLes commentaires retirés par l'écriture ne sont pas récupérés.",
         "accept": "Restaurer"
+      },
+      "version": {
+        "label": "Version",
+        "installed": "Version {{version}} installée.",
+        "action": "Rechercher une mise à jour",
+        "upToDate": "Vous utilisez la dernière version.",
+        "failed": "Vérification impossible.\nVérifiez votre connexion, puis réessayez."
       }
     }
   },

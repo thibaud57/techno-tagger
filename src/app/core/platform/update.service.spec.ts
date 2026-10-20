@@ -55,6 +55,61 @@ describe("UpdateService", () => {
     expect(captureException).not.toHaveBeenCalled()
   })
 
+  it("reports the latest version when the manual check finds nothing", async () => {
+    const { service } = mount(updaterStub(null))
+
+    const outcome = await service.checkNow()
+
+    expect(outcome).toBe("upToDate")
+    expect(service.dialogVisible()).toBe(false)
+  })
+
+  it("opens the dialog on an update found by the manual check", async () => {
+    const { service } = mount(updaterStub(availableUpdate()))
+
+    const outcome = await service.checkNow()
+
+    expect(outcome).toBe("found")
+    expect(service.dialogVisible()).toBe(true)
+  })
+
+  it("reports a failed manual check without Sentry", async () => {
+    const { service } = mount(updaterStub(new Error("offline")))
+
+    const outcome = await service.checkNow()
+
+    expect(outcome).toBe("failed")
+    expect(captureException).not.toHaveBeenCalled()
+  })
+
+  it("reopens a known update without checking again", async () => {
+    const { service, updater } = mount(updaterStub(failingUpdate()))
+    await service.check()
+    await service.install()
+    service.dismiss()
+
+    const outcome = await service.checkNow()
+
+    expect(outcome).toBe("found")
+    expect(service.dialogVisible()).toBe(true)
+    expect(service.state().kind).toBe("failed")
+    expect(updater.check).toHaveBeenCalledOnce()
+  })
+
+  it("keeps the known update when a second check finds another one", async () => {
+    const first = availableUpdate({ version: "2.0.0" })
+    const second = availableUpdate({ version: "2.1.0" })
+    const updater = updaterStub(first)
+    const { service } = mount(updater)
+    await service.check()
+    updater.check.mockResolvedValueOnce(second)
+
+    await service.check()
+
+    expect(service.update()?.version).toBe("2.0.0")
+    expect(second.close).toHaveBeenCalledOnce()
+  })
+
   it("opens the dialog on the update found at startup", async () => {
     const { service } = mount(updaterStub(availableUpdate()))
 

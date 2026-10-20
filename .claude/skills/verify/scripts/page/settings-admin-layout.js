@@ -22,7 +22,12 @@ async (page) => {
   const EXPECTED = {
     fr: {
       tag: "fr-FR",
-      labels: ["Cache", "Logs", "Restauration", "Runs passés"],
+      labels: ["Cache", "Logs", "Restauration", "Runs passés", "Version"],
+      version: {
+        action: "Rechercher une mise à jour",
+        hint: /^Version \S+ installée\.$/,
+        failed: "Vérification impossible.\nVérifiez votre connexion, puis réessayez.",
+      },
       cache: {
         action: "Vider le cache",
         hint: "Réponses de l'API et pochettes déjà téléchargées.\nLe vider ne touche à aucun fichier de musique : les prochains runs les retéléchargent.",
@@ -44,7 +49,12 @@ async (page) => {
     },
     en: {
       tag: "en-US",
-      labels: ["Cache", "Logs", "Restore", "Past runs"],
+      labels: ["Cache", "Logs", "Restore", "Past runs", "Version"],
+      version: {
+        action: "Check for updates",
+        hint: /^Version \S+ installed\.$/,
+        failed: "Check failed.\nCheck your connection, then try again.",
+      },
       cache: {
         action: "Clear the cache",
         hint: "API responses and artwork already downloaded.\nClearing it touches no music file: the next runs download them again.",
@@ -415,11 +425,12 @@ async (page) => {
         rowTops: rows.map((r) => n(r.getBoundingClientRect().top)),
         cache: describe(rows[0]),
         logs: describe(rows[1]),
+        version: describe(rows[4]),
         scroll: {
           page: document.scrollingElement.scrollHeight > innerHeight,
           main: main.scrollHeight > main.clientHeight,
           section: section.scrollHeight > section.clientHeight,
-          bottomRoom: Math.round(main.getBoundingClientRect().bottom - rows[3].getBoundingClientRect().bottom),
+          bottomRoom: Math.round(main.getBoundingClientRect().bottom - rows[rows.length - 1].getBoundingClientRect().bottom),
         },
       }
     })
@@ -445,6 +456,21 @@ async (page) => {
     check(Math.abs(lay.cache.size?.rightEdgeToControl ?? 99) < 0.6, `${language} taille du cache pas au bout de la ligne : ${lay.cache.size?.rightEdgeToControl}`)
     check(lay.cache.size?.buttonToSize === 8, `${language} ecart bouton Cache -> taille : ${lay.cache.size?.buttonToSize}`)
     check(Math.abs(lay.logs.buttonRightToControl) < 0.6, `${language} bouton Logs pas au bout de la ligne : ${lay.logs.buttonRightToControl}`)
+    const ver = lay.version
+    check(ver.columns.startsWith("160px ") && ver.labelAlone && ver.controlLeftFromLabel === 176, `${language} version colonnes : ${ver.columns} ${ver.controlLeftFromLabel}`)
+    check(ver.hintFont === "12px" && ver.hintMuted && Math.abs(ver.hintCenterToButtonCenter) < 1.5 && ver.hintToButton >= 15.5, `${language} version aide : ${JSON.stringify(ver)}`)
+    check(want.version.hint.test(flat(ver.hintText)), `${language} version texte : ${JSON.stringify(ver.hintText)}`)
+    check(Math.abs(ver.buttonRightToControl) < 0.6, `${language} bouton Version pas au bout de la ligne : ${ver.buttonRightToControl}`)
+    await p.click('[data-action="check-update"]')
+    await p.waitForSelector("[data-version-error]")
+    const versionFeedback = await p.evaluate(() => {
+      const e = document.querySelector("[data-version-error]")
+      const b = document.querySelector('[data-action="check-update"]')
+      return { text: e.textContent, disabled: b.disabled, label: b.textContent, scroll: document.querySelector("main").scrollHeight > document.querySelector("main").clientHeight }
+    })
+    out.version = versionFeedback
+    check(flat(versionFeedback.text) === flat(want.version.failed), `${language} version echec : ${JSON.stringify(versionFeedback.text)}`)
+    check(!versionFeedback.disabled && flat(versionFeedback.label) === want.version.action && !versionFeedback.scroll, `${language} version bouton/defilement : ${JSON.stringify(versionFeedback)}`)
     const cacheButton = await button('[data-action="clear-cache"]')
     const logsButton = await button('[data-action="reveal-logs"]')
     out.buttons = { cache: cacheButton, logs: logsButton }

@@ -21,9 +21,12 @@ import {
 import { RUN_ID } from "../../../fixtures/tagging"
 import { spyToast } from "../../../fixtures/toast"
 import { translateWith } from "../../../fixtures/translate"
+import { availableUpdate, updaterStub } from "../../../fixtures/updater"
 import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
 import { NativeService } from "../../core/platform/native.service"
 import { PreferencesService } from "../../core/platform/preferences.service"
+import { UpdateService } from "../../core/platform/update.service"
+import { APP_UPDATER } from "../../core/platform/updater"
 import type { CacheClearedEvent, PastRun } from "../../core/sidecar/protocol"
 import type { RollbackInFlight } from "../../core/stores/write.store"
 
@@ -35,12 +38,13 @@ import SettingsPageComponent, {
 interface Natives {
   native?: NativeStub
   preferences?: PreferencesStub
+  updater?: ReturnType<typeof updaterStub>
 }
 
 const mountWith = (
   overrides: SidecarStubOverrides = {},
   section: SettingsSection = "api",
-  { native = nativeStub(), preferences = preferencesStub() }: Natives = {},
+  { native = nativeStub(), preferences = preferencesStub(), updater = updaterStub() }: Natives = {},
 ) => {
   const service = sidecarStub({ apiKeyConfigured: signal<boolean | null>(false), ...overrides })
 
@@ -54,6 +58,7 @@ const mountWith = (
       provideSidecarStub(service),
       { provide: NativeService, useValue: native },
       { provide: PreferencesService, useValue: preferences },
+      { provide: APP_UPDATER, useValue: updater },
     ],
   })
 
@@ -783,6 +788,106 @@ describe("SettingsPageComponent", () => {
       fixture.detectChanges()
 
       expect(hostOf(fixture).querySelector("[data-logs-error]")).not.toBeNull()
+    })
+  })
+
+  describe("version row", () => {
+    const row = (fixture: { nativeElement: unknown }) =>
+      hostOf(fixture).querySelector<HTMLElement>("[data-version-row]")
+    const checkButton = (fixture: { nativeElement: unknown }) =>
+      hostOf(fixture).querySelector<HTMLButtonElement>('[data-action="check-update"]')
+    const settled = async (
+      fixture: { detectChanges(): void },
+      component: SettingsPageComponent,
+    ) => {
+      await vi.waitFor(() => {
+        expect(component["updateCheck"]()).not.toBe("checking")
+      })
+      fixture.detectChanges()
+    }
+
+    it("shows the installed version", () => {
+      const { fixture } = mountWith({}, "admin")
+      translateWith({ settings: { admin: { version: { installed: "Installed {{version}}" } } } })
+      fixture.detectChanges()
+
+      const text = row(fixture)?.textContent
+
+      expect(text).toContain(`Installed ${APP_VERSION}`)
+    })
+
+    it("shows the latest-version message after a check finding nothing", async () => {
+      const { fixture, component } = mountWith({}, "admin", { updater: updaterStub(null) })
+
+      checkButton(fixture)?.click()
+      await settled(fixture, component)
+
+      expect(row(fixture)?.querySelector("[data-version-up-to-date]")).not.toBeNull()
+    })
+
+    it("shows the failure after a failed check", async () => {
+      const { fixture, component } = mountWith({}, "admin", {
+        updater: updaterStub(new Error("offline")),
+      })
+
+      checkButton(fixture)?.click()
+      await settled(fixture, component)
+
+      expect(row(fixture)?.querySelector("[data-version-error]")).not.toBeNull()
+    })
+
+    it("shows no feedback when an update is found", async () => {
+      const { fixture, component } = mountWith({}, "admin", {
+        updater: updaterStub(availableUpdate()),
+      })
+      const updates = TestBed.inject(UpdateService)
+
+      checkButton(fixture)?.click()
+      await settled(fixture, component)
+
+      expect(updates.dialogVisible()).toBe(true)
+      expect(row(fixture)?.querySelector("app-message")).toBeNull()
+    })
+
+    it("disables the button and shows the spinner while checking", () => {
+      const updater = updaterStub()
+      updater.check.mockReturnValueOnce(new Promise(() => undefined))
+      const { fixture } = mountWith({}, "admin", { updater })
+
+      checkButton(fixture)?.click()
+      checkButton(fixture)?.click()
+      fixture.detectChanges()
+
+      expect(checkButton(fixture)?.disabled).toBe(true)
+      expect(iconOf(hostOf(fixture), "spinner")).not.toBeNull()
+      expect(updater.check).toHaveBeenCalledOnce()
+    })
+
+    it("forgets the feedback when the section changes", async () => {
+      const { fixture, component } = mountWith({}, "admin", { updater: updaterStub(null) })
+      checkButton(fixture)?.click()
+      await settled(fixture, component)
+
+      openSection(component, "api")
+      openSection(component, "admin")
+      fixture.detectChanges()
+
+      expect(row(fixture)?.querySelector("app-message")).toBeNull()
+    })
+
+    it("clears the previous feedback as soon as a new check starts", async () => {
+      const updater = updaterStub(null)
+      const { fixture, component } = mountWith({}, "admin", { updater })
+      checkButton(fixture)?.click()
+      await settled(fixture, component)
+      const shownBefore = row(fixture)?.querySelector("app-message")
+      updater.check.mockReturnValueOnce(new Promise(() => undefined))
+
+      checkButton(fixture)?.click()
+      fixture.detectChanges()
+
+      expect(shownBefore).not.toBeNull()
+      expect(row(fixture)?.querySelector("app-message")).toBeNull()
     })
   })
 })

@@ -19,6 +19,7 @@ import { Tooltip } from "primeng/tooltip"
 import { LANGUAGES, type Language, languageFromTag } from "../../core/i18n/language"
 import { TOAST_LIFE } from "../../core/platform/completion-signal.service"
 import { NativeService } from "../../core/platform/native.service"
+import { type ManualCheck, UpdateService } from "../../core/platform/update.service"
 import {
   DEFAULT_SOUND_SIGNAL,
   PreferencesService,
@@ -148,6 +149,7 @@ export default class SettingsPageComponent {
   private readonly messages = inject(MessageService)
   private readonly native = inject(NativeService)
   private readonly preferences = inject(PreferencesService)
+  private readonly updates = inject(UpdateService)
 
   /**
    * Une section a la fois : les rangees de toutes les sections ne tiennent pas au plancher de
@@ -269,6 +271,13 @@ export default class SettingsPageComponent {
     source: this.logFile,
     computation: () => false,
   })
+
+  /** « Trouvee » n'a pas de retour : la modale s'ouvre. Perdu en changeant de section. */
+  protected readonly updateCheck = linkedSignal<
+    SettingsSection,
+    "checking" | Exclude<ManualCheck, "found"> | null
+  >({ source: this.section, computation: () => null })
+  protected readonly appVersion = APP_VERSION
 
   /** Jamais prerempli : la cle n'est pas relue depuis le trousseau. */
   protected readonly entry = signal<ApiKeyEntry>({ apiKey: "" })
@@ -433,6 +442,16 @@ export default class SettingsPageComponent {
       return
     }
     void this.sidecar.clearCache()
+  }
+
+  protected async checkUpdate(): Promise<void> {
+    // Le bouton n'est grise qu'au rendu suivant : la garde tient le double clic.
+    if (this.updateCheck() === "checking") {
+      return
+    }
+    this.updateCheck.set("checking")
+    const outcome = await this.updates.checkNow()
+    this.updateCheck.set(outcome === "found" ? null : outcome)
   }
 
   /**

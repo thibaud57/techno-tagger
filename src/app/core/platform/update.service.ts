@@ -14,6 +14,9 @@ export type UpdateState =
     }
   | { readonly kind: "failed"; readonly update: AvailableUpdate }
 
+/** Issue d'une recherche lancee depuis les Reglages, pour le retour de leur rangee. */
+export type ManualCheck = "found" | "upToDate" | "failed"
+
 const NOTHING_RECEIVED: DownloadProgress = { received: 0, total: null }
 
 /** Verifiee au demarrage seulement : l'installation ferme l'application (ADR-001). */
@@ -54,14 +57,47 @@ export class UpdateService {
   )
 
   async check(): Promise<void> {
-    try {
-      const update = await this.updater.check()
-      if (update !== null) {
-        this._state.set({ kind: "available", update })
-      }
-    } catch {
-      // Hors ligne, manifeste en 404 ou hors Tauri : frequent, rien a signaler.
+    const update = await this.lookup()
+    if (update !== null && update !== "failed") {
+      this.adopt(update)
     }
+  }
+
+  /** Une mise a jour deja connue rouvre la modale sans nouvelle verification. */
+  async checkNow(): Promise<ManualCheck> {
+    if (this.update() === null) {
+      const update = await this.lookup()
+      if (update === "failed") {
+        return "failed"
+      }
+      if (update === null) {
+        return "upToDate"
+      }
+      this.adopt(update)
+    }
+    this.reopen()
+
+    return "found"
+  }
+
+  /** Hors ligne, manifeste en 404 ou hors Tauri : frequent, rien a signaler a Sentry. */
+  private async lookup(): Promise<AvailableUpdate | null | "failed"> {
+    try {
+      return await this.updater.check()
+    } catch {
+      return "failed"
+    }
+  }
+
+  /** Deux verifications peuvent se croiser : la seconde ne remplace pas un etat deja pris. */
+  private adopt(update: AvailableUpdate): void {
+    if (this.update() !== null) {
+      update.close().catch((error: unknown) => {
+        console.error("[update] ressource de la mise a jour non liberee", error)
+      })
+      return
+    }
+    this._state.set({ kind: "available", update })
   }
 
   dismiss(): void {

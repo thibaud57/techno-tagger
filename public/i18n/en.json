@@ -460,6 +460,13 @@
         "header": "Restore the last run",
         "message": "Run of {{date}} on {{folder}}\nFiles to restore: {{count}}\n\nThey get back their original name and tags.\nArtwork set by the write stays in place.\nComments removed by the write are not recovered.",
         "accept": "Restore"
+      },
+      "version": {
+        "label": "Version",
+        "installed": "Version {{version}} installed.",
+        "action": "Check for updates",
+        "upToDate": "You are using the latest version.",
+        "failed": "Check failed.\nCheck your connection, then try again."
       }
     }
   },
