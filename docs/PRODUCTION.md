@@ -56,7 +56,7 @@ hotfix/*  → main → tag vX.Y.Z → build + GitHub Release → updater        
 | Tag + **build + publication** | — | Distribution | Merge de la PR release-please (bump PATCH) → tag → build chaîné |
 | Resync develop | `develop` | Local | Back-merge `main` → `develop` après tag |
 
-> ⚠️ **Un hotfix n'atteint l'utilisateur qu'au prochain lancement de son application.** L'updater vérifie au démarrage : quelqu'un qui laisse l'app ouverte, ou qui ne la rouvre pas de la semaine, reste sur la version cassée. Il n'existe aucun canal pour forcer une mise à jour, ni pour savoir qui l'a prise. C'est la différence structurelle avec une API, où un déploiement corrige tout le monde d'un coup.
+> ⚠️ **Un hotfix n'atteint l'utilisateur qu'au prochain lancement de son application.** L'updater vérifie au démarrage, ou quand l'utilisateur lance la recherche depuis Réglages > Administration : quelqu'un qui laisse l'app ouverte sans y penser, ou qui ne la rouvre pas de la semaine, reste sur la version cassée. Il n'existe aucun canal pour forcer une mise à jour, ni pour savoir qui l'a prise. C'est la différence structurelle avec une API, où un déploiement corrige tout le monde d'un coup.
 
 ## Convention Commits
 

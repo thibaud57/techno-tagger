@@ -14,7 +14,7 @@ paths:
 - Prévoir un fallback visuel quand une pochette a disparu entre l'événement et l'affichage : le cache est jetable (cf. [ADR-013](../../../docs/adrs/013-cache-disque-jetable.md))
 - Renseigner `plugins.updater.pubkey` avec le **contenu** de la clé publique, pas un chemin
 - Poser `plugins.updater.requireSignedVersion: true` dès le câblage de l'updater : la réponse de l'endpoint n'est pas signée, et sans ce flag elle peut associer un numéro gonflé à une ancienne release authentique pour forcer un downgrade
-- Vérifier les mises à jour au démarrage uniquement, jamais pendant un run : sous Windows l'application se ferme avant l'installation, ce qui interromprait le run
+- Vérifier les mises à jour au démarrage ou à la demande depuis les Réglages, mais n'installer que moteur au repos, jamais pendant un run : sous Windows l'application se ferme avant l'installation, ce qui interromprait le run
 - Garder `installMode: "passive"`, le défaut (barre de progression sans assistant)
 - Cibler `nsis` en `bundle.targets` : le bootstrapper WebView2 couvre une installation Windows incomplète, et NSIS reçoit la signature comme le MSI (cf. [ADR-015](../../../docs/adrs/015-cibles-distribution-windows.md))
 - Contraindre la fenêtre par son plancher seulement, dicté par le jeu de colonnes de la liste d'un run (cf. [DESIGN.md § Layout](../../../docs/DESIGN.md#-layout--espacement))
