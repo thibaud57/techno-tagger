@@ -12,12 +12,14 @@ import { filter, map } from "rxjs"
 import { languageFromTag } from "./core/i18n/language"
 import { CloseGuard } from "./core/platform/close-guard.service"
 import { TABS, isTabName, tabFromUrl, type TabValue } from "./core/platform/tabs"
+import { UpdateService } from "./core/platform/update.service"
 import { SIDECAR_FILE } from "./core/sidecar/sidecar-transport"
 import { SidecarService } from "./core/sidecar/sidecar.service"
 import { ArbitrationDialogComponent } from "./features/tagging/arbitration/arbitration-dialog.component"
 import { RecoveryUiStore } from "./features/tagging/url-recovery/recovery-ui.store"
 import { CloseConfirmationComponent } from "./shared/components/dialogs/close-confirmation.component"
 import { ResumeDialogComponent } from "./shared/components/dialogs/resume-dialog.component"
+import { UpdateDialogComponent } from "./shared/components/dialogs/update-dialog.component"
 import { IconComponent } from "./shared/components/display/icon.component"
 import { FADE_IN } from "./shared/utils/motion"
 
@@ -36,6 +38,7 @@ import { FADE_IN } from "./shared/utils/motion"
     ArbitrationDialogComponent,
     CloseConfirmationComponent,
     ResumeDialogComponent,
+    UpdateDialogComponent,
     IconComponent,
   ],
   templateUrl: "./app.component.html",
@@ -51,6 +54,7 @@ export class AppComponent {
   private readonly sidecar = inject(SidecarService)
   private readonly closeGuard = inject(CloseGuard)
   private readonly recovery = inject(RecoveryUiStore)
+  private readonly updates = inject(UpdateService)
 
   protected readonly tabs = TABS
   protected readonly fadeIn = FADE_IN
@@ -97,6 +101,9 @@ export class AppComponent {
     this.recovery.available() ? this.recovery.unresolvedCount() : 0,
   )
   protected readonly closeRequested = computed(() => this.closeGuard.request() !== null)
+  protected readonly update = this.updates.update
+  protected readonly updateBadgeVisible = this.updates.badgeVisible
+  protected readonly updateDialogVisible = this.updates.dialogVisible
 
   constructor() {
     void this.closeGuard.install()
@@ -130,5 +137,9 @@ export class AppComponent {
 
   protected reopenArbitration(): void {
     this.arbitrationDismissed.set(false)
+  }
+
+  protected reopenUpdate(): void {
+    this.updates.reopen()
   }
 }

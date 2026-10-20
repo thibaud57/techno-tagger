@@ -64,8 +64,10 @@ build-ui:
 # Produire l'installeur Windows
 [group('quality')]
 build: build-sidecar
-    # Ordre impose : sans le binaire du sidecar, tauri build echoue sur externalBin
-    pnpm exec tauri build
+    # Ordre impose : sans le binaire du sidecar, tauri build echoue sur externalBin.
+    # --no-sign : la cle privee de l'updater ne vit que dans les secrets GitHub, la
+    # release signe en CI ; sans le flag, le build exigerait la cle ici.
+    pnpm exec tauri build --no-sign
 
 # Lint de la webview
 [group('quality')]

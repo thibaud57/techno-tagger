@@ -30,7 +30,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "externalBin": ["binaries/tagger"],
     "resources": { "binaries/_internal": "_internal" },
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
@@ -38,6 +38,16 @@
       "nsis": {
         "installerHooks": "./installer-hooks.nsh"
       }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRBMTFGRjEwRUFCN0E5MUQKUldRZHFiZnFFUDhSU3AyakQ4cmNaY0U3S1BGZkFWZkRNaEZ1MzJ0K0MrV3FiRnBvNWp0cysvTkoK",
+      "endpoints": [
+        "https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true,
+      "windows": { "installMode": "passive" }
     }
   }
 }

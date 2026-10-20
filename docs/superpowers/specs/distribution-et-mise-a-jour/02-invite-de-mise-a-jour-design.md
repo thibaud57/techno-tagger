@@ -2,7 +2,7 @@
 feature: "Feature 8 : Distribution et mise à jour"
 subproject: "invite-de-mise-a-jour"
 goal: "Vérifier au lancement de l'application si une version plus récente est publiée, la proposer dans une modale, puis la télécharger et l'installer sur accord de l'utilisateur"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["01-chaine-de-signature-design.md"]

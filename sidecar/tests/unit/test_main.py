@@ -2,6 +2,7 @@
 sont donc armes avant que la boucle de commandes ne lise quoi que ce soit.
 """
 
+import base64
 import io
 import re
 import sys
@@ -252,6 +253,47 @@ def test_the_sidecar_process_is_killed_under_its_real_name() -> None:
     # `//IM` : le Justfile tourne sous Git Bash, ou MSYS convertirait `/IM` en chemin
     assert f"taskkill //IM {process}" in justfile
     assert f"taskkill //IM {APP_NAME}.exe" in justfile
+
+
+def _updater() -> dict[str, object]:
+    updater = read_json("src-tauri/tauri.conf.json", "plugins", "updater")
+    assert isinstance(updater, dict)
+    return updater
+
+
+def test_the_updater_public_key_is_inlined_not_a_path() -> None:
+    """Tauri attend le contenu du `.pub`, pas son chemin : un chemin passe le build
+    et `tauri dev`, puis l'updater refuse toute mise a jour chez l'utilisateur.
+    `validate=True` refuse aussi un saut de ligne colle avec la cle.
+    """
+    pubkey = _updater()["pubkey"]
+    assert isinstance(pubkey, str)
+
+    decoded = base64.b64decode(pubkey, validate=True)
+
+    assert decoded.startswith(b"untrusted comment: minisign public key")
+
+
+def test_the_updater_only_accepts_newer_signed_versions() -> None:
+    """La reponse de l'endpoint n'est pas signee : sans `requireSignedVersion`, elle
+    peut associer un numero gonfle a une ancienne release authentique, et
+    `allowDowngrades` retirerait la seule garde contre sa reinstallation. Les deux
+    regressions sont muettes.
+    """
+    updater = _updater()
+
+    assert updater.get("requireSignedVersion") is True
+    assert "allowDowngrades" not in updater
+
+
+def test_the_updater_endpoint_targets_the_latest_release_of_this_repository() -> None:
+    """L'URL du depot est recopiee dans l'endpoint : une faute y est muette, la
+    verification echouant en silence chez l'utilisateur. `REPOSITORY_URL` est
+    lui-meme garde egal a `package.repository` de Cargo.toml.
+    """
+    endpoints = _updater()["endpoints"]
+
+    assert endpoints == [f"{REPOSITORY_URL}/releases/latest/download/latest.json"]
 
 
 def test_the_angular_project_name_is_the_same_in_the_three_manifests() -> None:

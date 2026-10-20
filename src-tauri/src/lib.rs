@@ -23,8 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
-        // TODO: updater a l'etape 9, son init lit plugins.updater.pubkey, qui
-        // n'existe pas tant que la paire de cles n'est pas generee.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

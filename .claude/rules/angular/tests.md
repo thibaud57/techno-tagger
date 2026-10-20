@@ -30,6 +30,7 @@ paths:
 ## Gotchas
 - Vitest 5 : `clearMocks` vaut `true` par défaut (`vi.clearAllMocks()` avant chaque test), et une assertion async non attendue (`resolves`, `rejects`) fait échouer le test au lieu d'un warning
 - Vitest 5 : `vi.mock`, `vi.unmock` et `vi.hoisted` hors du top level lèvent une erreur, comme un `vi.mock` de chemin relatif sous `@angular/build:unit-test`, et `toThrow('texte')` matche une sous-chaîne, donc `toThrow('')` passe sur toute erreur
+- `@angular/build:unit-test` ne supporte pas `vi.mock` : celui d'un paquet n'est pas appliqué de façon fiable (spec rouge lancée seule, verte dans la suite, relevé le 2026-10-20) et l'équipe Angular renvoie à TestBed (angular-cli#32641, ouverte au 2026-10-20). Passer le paquet derrière un jeton (`CAPTURE_EXCEPTION`, `APP_UPDATER`) et le remplacer par un provider
 - Angular 22.2 : l'option `splitting` du builder `unit-test` est dépréciée, inutile avec Vitest 5. Ne pas la poser
 - `vi.resetAllMocks()` réinitialise appels et retours mais ne restaure pas l'implémentation d'origine, contrairement à `vi.restoreAllMocks()` qui n'agit que sur les spies
 - `describe`, `it`, `expect` et `beforeEach` sont des globals ; seul `vi` s'importe

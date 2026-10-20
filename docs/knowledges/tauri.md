@@ -210,7 +210,7 @@ L'updater vérifie un manifeste au démarrage, télécharge et installe une mise
 
 ```json
 {
-  "bundle": { "createUpdaterArtifacts": false },  // true seulement une fois pubkey + TAURI_SIGNING_PRIVATE_KEY posés
+  "bundle": { "createUpdaterArtifacts": true },
   "plugins": {
     "updater": {
       "pubkey": "<clé publique en clair>",
@@ -230,8 +230,9 @@ tauri signer generate -w ~/.tauri/techno-tagger.key
 ### Points Importants
 
 - **La clé privée ne va jamais dans le dépôt** : variable d'environnement au moment du build en CI
+- **Build local en `--no-sign`** (CLI 2.9+) : avec `createUpdaterArtifacts: true` et une `pubkey`, `tauri build` exige la clé privée. `just build` saute la signature de l'updater, la CI signe avec les secrets
 - Le manifeste requiert `version`, `platforms.<target>.url` et `platforms.<target>.signature` ; `notes` et `pub_date` sont optionnels
-- **Sous Windows, l'application se ferme automatiquement avant l'installation** : un run en cours serait interrompu, d'où la vérification au démarrage et non en plein run
+- **Sous Windows, l'application se ferme automatiquement avant l'installation** : un run en cours serait interrompu, d'où l'installation réservée au moteur au repos
 - `installMode: "passive"`, le défaut, évite l'assistant d'installation à chaque mise à jour
 - **`requireSignedVersion: true`** (plugin 2.12) : la réponse de l'endpoint n'est pas signée, ce flag rejette celle dont la version diffère de celle inscrite dans la signature, et ferme ainsi le downgrade vers une ancienne release authentique. `check()` n'accepte plus `allowDowngrades` depuis le webview, le réglage vit dans `plugins.updater`
 
@@ -278,8 +279,8 @@ Le cycle courant. `beforeDevCommand` et `beforeBuildCommand` déclenchent le bui
 
 ```bash
 pnpm tauri dev                  # build front + app en hot-reload Rust
-pnpm tauri build                # build front + release + installeurs
-pnpm tauri build --debug        # même chose, symboles conservés
+pnpm tauri build --no-sign      # build front + release + installeurs, sans signer l'updater (cf. just build)
+pnpm tauri build --debug --no-sign  # même chose, symboles conservés
 pnpm tauri bundle               # installeurs seuls, sans recompiler
 pnpm tauri info                 # versions crates/plugins, diagnostic de mismatch
 ```
@@ -321,7 +322,7 @@ tauri permission add <identifiant>      # ajout dans une capability
 - **Restreindre chaque permission au strict nécessaire** : `shell:allow-spawn` ciblé sur le sidecar, `fs` limité aux chemins choisis, `assetProtocol` limité au cache
 - **Traiter `stdout` comme le canal de protocole et `stderr` comme le canal de logs**, sans jamais mélanger les deux
 - **Nommer le sidecar avec son target triple dans le script de build**, pas à la main
-- **Vérifier les mises à jour au démarrage uniquement**, jamais pendant un run : l'installation ferme l'application
+- **Vérifier les mises à jour au démarrage ou à la demande depuis les Réglages, n'installer que moteur au repos**, jamais pendant un run : l'installation ferme l'application
 - **Garder la CSP explicite** et y ajouter `asset:` en même temps que l'activation de l'asset protocol, les deux réglages n'ayant de sens qu'ensemble
 
 ## ❌ Anti-Patterns

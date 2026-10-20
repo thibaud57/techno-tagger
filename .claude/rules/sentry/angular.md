@@ -20,6 +20,7 @@ paths:
 - Poser la même `release` que le sidecar, préfixe compris (`techno-tagger@X.Y.Z`), et `environment`, tous deux venus du `define` esbuild
 - Générer les source maps en `hidden`, les uploader puis **les supprimer de `dist/`** dans les scripts npm de `pnpm build` : `tauri-codegen` embarque tout `frontendDist` sans filtre
 - Réserver Sentry aux erreurs techniques : 5 000 événements par mois
+- Envoyer une erreur par le jeton `CAPTURE_EXCEPTION` (`core/observability/`), jamais par `Sentry.captureException` importé : les specs le remplacent par TestBed
 
 ## À éviter
 - Livrer les source maps dans le bundle distribué

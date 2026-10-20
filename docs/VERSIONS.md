@@ -766,7 +766,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 
 **Breaking Changes Majeurs** :
 - **`updater` 2.12** : `plugins.updater.requireSignedVersion` (défaut `false`, posé à `true` par `tauri add updater`) rejette une réponse d'endpoint dont la version diffère de celle inscrite dans la signature, et `check()` n'accepte plus `allowDowngrades` depuis le webview. Les releases signées avant le CLI 2.12 ne portent aucune version et sont rejetées : sans conséquence ici, aucune release n'a encore publié d'artefact updater
-- **`updater` 2.11.0** : sous Windows, `install` lève une erreur si l'installeur ne démarre pas, et `plugins.updater` gagne `restartAfterInstall`, opt-in. Sans effet tant que l'updater n'est pas branché
+- **`updater` 2.11.0** : sous Windows, `install` lève une erreur si l'installeur ne démarre pas. `downloadAndInstall` gagne l'option `restartAfterInstall`, vraie par défaut : l'installeur relance l'application, sans plugin `process` (vérifié dans le crate 2.13.2, `updater.rs`, le 2026-10-15)
 - **`updater` 2.5.0** : `UpdaterBuilder::new` supprimé au profit de `UpdaterExt::updater_builder`. Concerne l'usage Rust bas niveau, pas l'API JS
 - **`fs` et `store` 2.0.0-beta.5** : les chemins renvoyés au frontend sur Windows ne portent plus le préfixe UNC `\\?\`
 
@@ -1044,7 +1044,7 @@ Flat config obligatoire. Étendre `angular.configs.tsRecommended`, `angular.conf
 
 ### src-tauri/Cargo.toml
 
-`tauri` en `2.12.2`, `tauri-build` en `2.7.1` (build-dependency), les huit crates de plugins aux versions du tableau et `tauri-plugin-prevent-default` en `6.0.1`. Édition 2024, `rust-version = "1.90"` : en dessous, cargo écarte en silence les crates Tauri 2.12.
+`tauri` en `2.12.2`, `tauri-build` en `2.7.1` (build-dependency), les huit crates de plugins aux versions du tableau et `tauri-plugin-prevent-default` en `6.0.1`, plus `serde_json` en `1.0.151` : `tauri::generate_context!` le référence dès que `tauri.conf.json` porte une section `plugins`. Édition 2024, `rust-version = "1.90"` : en dessous, cargo écarte en silence les crates Tauri 2.12.
 
 ### src-tauri/tauri.conf.json
 
@@ -1052,7 +1052,7 @@ Flat config obligatoire. Étendre `angular.configs.tsRecommended`, `angular.conf
 
 ### src-tauri/capabilities/default.json
 
-Les permissions de six plugins, `shell`, `dialog`, `fs`, `store`, `os` et `opener`, avec `shell:allow-spawn` restreinte au sidecar déclaré et un scope `fs` limité aux chemins nécessaires. `updater` s'y ajoute à l'étape 9, et `single-instance` n'a aucune permission à déclarer.
+Les permissions des plugins `shell`, `dialog`, `fs`, `store`, `os`, `opener` et `updater`, avec `shell:allow-spawn` restreinte au sidecar déclaré et un scope `fs` limité aux chemins nécessaires. `single-instance` n'a aucune permission à déclarer.
 
 ### rust-toolchain.toml
 
@@ -1089,9 +1089,9 @@ pnpm exec ng build
 # 4. Coquille Tauri (dev, sidecar déjà construit par just build-sidecar)
 pnpm exec tauri dev
 
-# 5. Build complet local (ordre imposé : le sidecar avant tauri build)
-cd sidecar && uv run python build.py && cd ..
-pnpm exec tauri build
+# 5. Build complet local : le sidecar puis l'installeur, sans signature de l'updater
+#    (la clé privée ne vit que dans les secrets GitHub, cf. .claude/rules/tauri/config-bundle.md)
+just build
 ```
 
 ## Checklist Validation Compatibilité
