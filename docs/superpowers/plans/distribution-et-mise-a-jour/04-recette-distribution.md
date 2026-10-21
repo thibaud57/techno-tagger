@@ -220,9 +220,7 @@ Relevé attendu : points 1, 4 et 5 du Step 2, plus toute alerte antivirus.
 - **Signature refusée** (modale en échec, événement Sentry reçu) : incident critique selon PRODUCTION.md § Incident Response. Comparer la `pubkey` de `tauri.conf.json` à la clé publique sauvegardée dans le gestionnaire de mots de passe, ne jamais régénérer la paire.
 - **Écran « La mise à jour est incomplète »** : sidecar non remplacé, PRODUCTION.md § Remplacement du sidecar.
 
-- [ ] **Step 5: Mesures (geste du propriétaire pour VirusTotal)**
-
-Taille de l'installeur B relevée le 2026-10-21 (24,3 Mo). VirusTotal reporté hors du sub-project le même jour : la soumission web exige un reCAPTCHA, le geste reste au propriétaire, avec un résultat à consigner dans PRODUCTION.md § Benchmarks.
+- [x] **Step 5: Mesures (geste du propriétaire pour VirusTotal)** (2026-10-21 : installeur B de 24,3 Mo, 0/68 sur VirusTotal par l'analyse de son URL de Release ; `tagger.exe` seul non soumis, au-delà de la limite d'envoi de l'extension de navigateur)
 
 - Taille de l'installeur B (Task 2, Step 6 rejoué sur B).
 - Le propriétaire soumet l'installeur B et `tagger.exe` (tiré du dossier d'installation de la VM) à VirusTotal et relève le nombre de détections et les éditeurs concernés.
@@ -260,7 +258,7 @@ Charger `Skill[versions-doc]`. Cocher et dater « `latest.json` est publié avec
 
 Charger `Skill[architecture-doc]`. Dans § Ordre de développement, ligne de l'étape 9, ajouter en fin de « Pourquoi cet ordre » : `Livrée par la Feature 8 (recette du AAAA-MM-JJ).`, à la date réelle de la Task 4. Dans § Évolutions Futures (Post-MVP), ajouter la puce « **Réduire les faux positifs antivirus** » avec la même phrase d'ouverture que la feature du BRAINSTORM (Step 4), à la place que lui donne la Task 4, Step 6.
 
-- [x] **Step 4: BRAINSTORM.md** (2026-10-21, Feature 6, VirusTotal à mesurer)
+- [x] **Step 4: BRAINSTORM.md** (2026-10-21, Feature 6)
 
 Charger `Skill[brainstorm-doc]`. Ajouter la feature Post-MVP « Réduire les faux positifs antivirus » :
 
