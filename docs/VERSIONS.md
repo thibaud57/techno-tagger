@@ -626,7 +626,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | `@tauri-apps/plugin-store` | `2.5.0` | 2026-09-26 |
 | `@tauri-apps/plugin-os` | `2.4.0` | 2026-09-26 |
 | `@tauri-apps/plugin-opener` | `2.7.0` | 2026-09-29 |
-| `@tauri-apps/plugin-updater` | `2.13.2` | 2026-10-07 |
+| `@tauri-apps/plugin-updater` | `2.14.0` | 2026-10-14 |
 | `@tauri-apps/plugin-single-instance` | **n'existe pas** | — |
 
 `plugin-shell` 2.4.1 corrige un `close` (`Terminated`) émis avant la fin de `stdout` quand le process sort vite, ce qui concerne directement la lecture du flux NDJSON du sidecar.
@@ -762,10 +762,11 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | `tauri-plugin-os` | `2.4.0` | 2026-09-26 | `^2.12` |
 | `tauri-plugin-opener` | `2.7.0` | 2026-09-29 | `^2.12` |
 | `tauri-plugin-single-instance` | `2.5.2` | 2026-10-01 | `^2.12` |
-| `tauri-plugin-updater` | `2.13.2` | 2026-10-07 | `^2.12` |
+| `tauri-plugin-updater` | `2.14.0` | 2026-10-14 | `^2.12` |
 
 **Breaking Changes Majeurs** :
 - **`updater` 2.12** : `plugins.updater.requireSignedVersion` (défaut `false`, posé à `true` par `tauri add updater`) rejette une réponse d'endpoint dont la version diffère de celle inscrite dans la signature, et `check()` n'accepte plus `allowDowngrades` depuis le webview. Les releases signées avant le CLI 2.12 ne portent aucune version et sont rejetées : sans conséquence ici, aucune release n'a encore publié d'artefact updater
+- **`updater` 2.14.0** : sous Windows, l'échec du lancement de l'installeur rapporte la raison de `ShellExecuteW` (« Access is denied » sur un refus UAC), et `install` revérifie les octets du paquet avant de l'installer
 - **`updater` 2.11.0** : sous Windows, `install` lève une erreur si l'installeur ne démarre pas. `downloadAndInstall` gagne l'option `restartAfterInstall`, vraie par défaut : l'installeur relance l'application, sans plugin `process` (vérifié dans le crate 2.13.2, `updater.rs`, le 2026-10-15)
 - **`updater` 2.5.0** : `UpdaterBuilder::new` supprimé au profit de `UpdaterExt::updater_builder`. Concerne l'usage Rust bas niveau, pas l'API JS
 - **`fs` et `store` 2.0.0-beta.5** : les chemins renvoyés au frontend sur Windows ne portent plus le préfixe UNC `\\?\`
