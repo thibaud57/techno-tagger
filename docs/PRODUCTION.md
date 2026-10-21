@@ -147,11 +147,11 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 
 > ⚠️ **L'updater ignore les releases en brouillon.** Une Release laissée en draft n'apparaît pas derrière `/releases/latest/`, et l'application ne trouve alors aucune mise à jour, **sans erreur visible**.
 >
-> **La Release est donc publiée directement, jamais en draft.** Le montage inverse (draft → vérification des assets → publication à la main) paraît plus prudent mais coûte deux régressions : une release GitHub en brouillon **ne crée pas le tag Git**, celui-ci n'étant matérialisé qu'à la publication, et `draft: true` côté release-please l'empêche de retrouver la release précédente, donc de calculer le bump ([release-please#1650](https://github.com/googleapis/release-please/issues/1650)). Le tag et la détection de version passent avant le point de contrôle.
+> **La Release est créée en draft et publiée par le dernier step du build**, une fois `latest.json` réécrit et la garde verte : aucune fenêtre où `latest.json` rend 404, aucune Release incomplète publique. `force-tag-creation` pose le tag dès la création du draft, sans quoi release-please ne retrouverait pas la release précédente ([release-please#1650](https://github.com/googleapis/release-please/issues/1650)). Vérifié dans le code de release-please-action v5.0.0, de `gh` et de `tauri-action` v1.0.0 le 2026-10-20, à éprouver à la release suivante.
 >
-> Contrepartie assumée : pendant les quelques minutes du build, la Release existe sans ses assets et `latest.json` rend 404. Un utilisateur qui lance l'application exactement dans cette fenêtre ne voit pas la mise à jour et la verra au lancement suivant. Si le build échoue, la Release reste vide : la dépublier à la main (`gh release edit <tag> --draft=true`) est la première étape du § Rollback.
-
-> **`tauri-action` sait attacher ses artefacts à une Release déjà créée par release-please** : lui passer `tagName` suffit, il retrouve la release existante au lieu d'en créer une. `releaseName` n'est requis que s'il doit en créer une, et `releaseDraft: true` ne servirait qu'à retrouver une release en brouillon, cas écarté ci-dessus.
+> **Build en échec** : le draft reste avec son tag, et release-please compte cette version comme sortie. Relancer par « Re-run failed jobs » du même run, le seul qui garde `release_created`. Si la cause est dans le code : hotfix et nouveau tag `PATCH`, puis supprimer le draft resté (`gh release delete <tag>`), jamais publié.
+>
+> `tauri-action` reçoit l'`id` de la Release créée par release-please (`releaseId`) : il n'a rien à retrouver par tag, draft ou non.
 
 > **Canal beta** : pré-release sur un manifeste updater distinct, listé en Post-MVP. Rien à mettre en place tant que la distribution ne s'élargit pas.
 
@@ -160,7 +160,7 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 | Élément | Signé | Mécanisme | Conséquence |
 |---|---|---|---|
 | Bundle de mise à jour (`.sig`) | ✅ Oui, obligatoire | minisign, `TAURI_SIGNING_PRIVATE_KEY` (+ password) injectés au build de la CI. Le build local passe `--no-sign` | Sans signature valide, l'updater **refuse** la mise à jour |
-| Installeur Windows | ❌ Non | — | SmartScreen avertit au premier lancement, contournable en deux clics dans la fenêtre |
+| Installeur Windows | ❌ Non | — | SmartScreen avertit au premier lancement, contournable en deux clics dans la fenêtre. Smart App Control (Windows 11 neuf) peut en revanche le bloquer, mise à jour comprise ([plugins-workspace#3555](https://github.com/tauri-apps/plugins-workspace/issues/3555)) |
 | Sidecar `tagger-*.exe` | ❌ Non | — | Faux positifs Defender possibles, que le mode PyInstaller retenu peut atténuer (cf. § Performance) |
 
 Signer l'installeur ne changerait pas grand-chose : depuis mars 2024, les certificats EV n'ont plus de contournement SmartScreen instantané, la réputation se construisant par volume de téléchargements qu'une application distribuée à quelques amis n'atteindra jamais. Azure Artifact Signing (~9,99 $/mois) n'est ouvert aux individus qu'aux USA et au Canada ; les autres options, Microsoft Store en MSIX, certificat Certum Open Source ou OV, bootloader PyInstaller recompilé, attendent la mesure des faux positifs de la première recette, le mode `--onedir` retenu les atténuant déjà sans rien dépenser (mise à jour du 2026-10-15 d'[ADR-015](adrs/015-cibles-distribution-windows.md)).
@@ -273,7 +273,7 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 |---------|--------|-------|
 | Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | Gate qualité |
 | Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
-| Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release | GitHub Releases |
+| Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release → URL de `latest.json` remplacées par les liens sous le tag → garde → publication de la Release (créée en draft) | GitHub Releases |
 
 > 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run, with the following exceptions » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : les exceptions sont `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, un push de tag n'en fait pas partie. Le tag créé par release-please ne déclenche donc aucun workflow. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** : la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
 >
@@ -289,8 +289,10 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 
 Il n'y a **rien à faire redescendre** : aucun serveur ne sert cette application. Le retour arrière est un roll-*forward*.
 
-**Procédure** :
-1. **Dépublier la Release fautive** (la repasser en draft) pour que `latest.json` cesse d'être servi. Les installations non encore mises à jour arrêtent immédiatement de la voir ; celles qui l'ont déjà prise ne reviennent pas en arrière pour autant. Le tag Git, lui, reste : matérialisé au merge de la PR de release, avec la Release publiée d'emblée, il ne disparaît pas quand celle-ci repasse en brouillon.
+**Build rouge** : la Release est restée en draft, jamais servie : § Canaux, « Build en échec ».
+
+**Procédure**, pour une Release publiée :
+1. **Dépublier la Release fautive** (la repasser en draft) pour que `latest.json` cesse d'être servi. Les installations non encore mises à jour arrêtent immédiatement de la voir ; celles qui l'ont déjà prise ne reviennent pas en arrière pour autant. Le tag Git, lui, reste : il ne disparaît pas quand la Release repasse en brouillon.
 2. `hotfix/*` depuis `main` → PR titrée `fix:` → merge → PR release-please → **nouveau tag `PATCH`**. Jamais de suppression du tag fautif, qui fausserait le CHANGELOG sans rien corriger chez personne.
 3. Vérifier la nouvelle Release : installeur + `latest.json` présents, smoke test d'installation et de mise à jour.
 4. **Prévenir les utilisateurs à la main** si la version fautive a pu être installée. C'est le seul canal disponible : aucun mécanisme ne permet de forcer une mise à jour ni de savoir qui tourne sur quelle version.
@@ -738,7 +740,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 - [Tauri v2 : Updater](https://v2.tauri.app/plugin/updater/) : génération des clés, `pubkey`, format de `latest.json`
 - [Tauri v2 : Sidecar](https://v2.tauri.app/develop/sidecar/) : `externalBin`, suffixe target-triple
 - [Tauri v2 : Distribution GitHub](https://v2.tauri.app/distribute/pipelines/github/)
-- [tauri-action](https://github.com/tauri-apps/tauri-action) : `tagName`, `releaseDraft`, `uploadUpdaterJson`
+- [tauri-action](https://github.com/tauri-apps/tauri-action) : `releaseId`, `uploadUpdaterJson`
 - [release-please : customizing](https://github.com/googleapis/release-please/blob/main/docs/customizing.md) : `extra-files`, updaters TOML et JSON génériques
 - [GitHub Actions : déclencheurs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) : un tag créé par `GITHUB_TOKEN` ne déclenche aucun workflow
 - [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `data_collection`, `server_name`, `before_send`

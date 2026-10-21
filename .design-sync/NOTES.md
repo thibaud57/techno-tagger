@@ -71,7 +71,7 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-Rien au 2026-10-20.
+- **`AppShell`** : note d'échec d'installation de l'invite de mise à jour, livrée par le code, absente de la maquette (constaté le 2026-10-21).
 
 ## Journal
 

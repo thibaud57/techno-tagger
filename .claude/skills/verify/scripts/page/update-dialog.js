@@ -24,6 +24,7 @@ async (page) => {
       busy: "Disponible à la fin du travail en cours",
       counter: "4 Mo sur 10 Mo",
       failed: "La mise à jour a échoué.\nVérifiez votre connexion, puis réessayez.",
+      installFailed: "La dernière installation n'a pas abouti.\nRéessayez, ou téléchargez l'installeur depuis la page des nouveautés.",
       badge: "Mise à jour 2.0.0",
     },
     en: {
@@ -37,6 +38,7 @@ async (page) => {
       busy: "Available once the current work is done",
       counter: "4 MB of 10 MB",
       failed: "The update failed.\nCheck your connection, then try again.",
+      installFailed: "The last installation did not complete.\nTry again, or download the installer from the release notes page.",
       badge: "Update 2.0.0",
     },
   }
@@ -191,7 +193,15 @@ async (page) => {
           })(),
           message: (() => {
             const m = d.querySelector("app-message .p-message")
-            return m ? { error: m.classList.contains("p-message-error"), text: m.textContent, icon: !!m.querySelector("svg") } : null
+            return m
+              ? {
+                  error: m.classList.contains("p-message-error"),
+                  warn: m.classList.contains("p-message-warn"),
+                  text: m.textContent,
+                  icon: !!m.querySelector("svg"),
+                  first: body?.firstElementChild?.tagName.toLowerCase() === "app-message",
+                }
+              : null
           })(),
         }
       })
@@ -247,6 +257,7 @@ async (page) => {
       `${language} pied : ${JSON.stringify(a.buttons)}`,
     )
     check(a.bodyPadBottom === "0px" && a.bodyMarginBottom === "0px" && a.gapBelowBody === parseFloat(a.contentPadBottom), `${language} marge basse disponible : ${a.bodyPadBottom} ${a.bodyMarginBottom} ${a.gapBelowBody} ${a.contentPadBottom}`)
+    check(a.message === null, `${language} note d'echec sans installation ratee : ${JSON.stringify(a.message)}`)
     await shot("1-available")
 
     // 2. Lien des nouveautes.
@@ -363,6 +374,40 @@ async (page) => {
     out.entered = await p.evaluate(() => window.__entered)
     const bodies = out.entered.filter((e) => e.tag !== "ng-template")
     check(bodies.length >= 4 && bodies.every((e) => e.fade), `${language} fondus : ${JSON.stringify(out.entered)}`)
+
+    // 10. Installation ratee : `installFailed` pose a la main, le store etant absent hors Tauri.
+    await p.evaluate(() => window.__dl.reject(new Error("probe")))
+    await settle(300)
+    await p.evaluate(async () => {
+      window.__upd._state.set({ kind: "none" })
+      window.__upd._installFailed.set("2.0.0")
+      window.__upd.reopen()
+      await window.__upd.check()
+    })
+    await p.waitForSelector(".p-dialog app-message", { timeout: 4000 })
+    await waitStable()
+    out.installFailed = await dialog()
+    const n = out.installFailed
+    check(
+      n.message?.warn && !n.message.error && n.message.icon && n.message.first && flat(n.message.text) === flat(want.installFailed),
+      `${language} note d'echec d'installation : ${JSON.stringify(n.message)}`,
+    )
+    check(n.bodyText?.includes(want.body.split("\n")[0]) && n.notes?.text === want.notes, `${language} corps disponible sous la note : ${flat(n.bodyText)}`)
+    check(
+      n.cross && n.buttons.map((x) => x.action).join(",") === "later,install" && n.buttons[1].text === want.retry && n.buttons[0].text === want.later && !n.buttons[1].disabled,
+      `${language} pied apres installation ratee : ${n.cross} ${JSON.stringify(n.buttons)}`,
+    )
+    check(n.width === 480 && n.gapBelowBody === parseFloat(n.contentPadBottom), `${language} cadre avec note : ${n.width} ${n.gapBelowBody} ${n.contentPadBottom}`)
+    out.noteGeometry = await p.evaluate(() => {
+      const body = document.querySelector(".p-dialog-content > *")
+      const [note, para] = [body.children[0], body.children[1]]
+      return { gap: Math.round(para.getBoundingClientRect().top - note.getBoundingClientRect().bottom), noteWhiteSpace: getComputedStyle(note.querySelector(".p-message-text") ?? note).whiteSpace }
+    })
+    await shot("7-install-failed")
+    await p.click('[data-action="install"]')
+    await settle(500)
+    out.afterRetry = await p.evaluate(() => ({ kind: window.__upd.state().kind, installFailed: window.__upd.installFailed() }))
+    check(out.afterRetry.kind === "downloading" && out.afterRetry.installFailed === null, `${language} reessayer apres installation ratee : ${JSON.stringify(out.afterRetry)}`)
 
     out.pageErrors = pageErrors
     out.consoleErrors = consoleErrors

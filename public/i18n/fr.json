@@ -490,6 +490,7 @@
     "later": "Plus tard",
     "install": "Installer",
     "retry": "Réessayer",
+    "installFailed": "La dernière installation n'a pas abouti.\nRéessayez, ou téléchargez l'installeur depuis la page des nouveautés.",
     "busy": "Disponible à la fin du travail en cours",
     "downloading": "Téléchargement",
     "counter": "{{received}} sur {{total}}",

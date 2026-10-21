@@ -67,6 +67,9 @@ import { MessageComponent } from "../feedback/message.component"
               class="flex flex-col gap-2 text-sm whitespace-pre-line text-muted-color"
               [animate.enter]="fadeIn"
             >
+              @if (installFailed()) {
+                <app-message severity="warn">{{ "update.installFailed" | translate }}</app-message>
+              }
               <p class="m-0">
                 {{
                   "update.available"
@@ -113,7 +116,7 @@ import { MessageComponent } from "../feedback/message.component"
               [tooltipOptions]="tooltip"
               (click)="confirm()"
             >
-              {{ (failed() ? "update.retry" : "update.install") | translate }}
+              {{ (retryable() ? "update.retry" : "update.install") | translate }}
             </button>
           }
         </ng-template>
@@ -134,7 +137,9 @@ export class UpdateDialogComponent {
   protected readonly tooltip = TOOLTIP
   protected readonly fadeIn = FADE_IN
 
+  protected readonly installFailed = this.service.installFailed
   protected readonly failed = computed(() => this.state().kind === "failed")
+  protected readonly retryable = computed(() => this.failed() || this.installFailed() !== null)
 
   private readonly progress = computed(() => {
     const state = this.state()

@@ -626,7 +626,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | `@tauri-apps/plugin-store` | `2.5.0` | 2026-09-26 |
 | `@tauri-apps/plugin-os` | `2.4.0` | 2026-09-26 |
 | `@tauri-apps/plugin-opener` | `2.7.0` | 2026-09-29 |
-| `@tauri-apps/plugin-updater` | `2.13.2` | 2026-10-07 |
+| `@tauri-apps/plugin-updater` | `2.14.0` | 2026-10-14 |
 | `@tauri-apps/plugin-single-instance` | **n'existe pas** | — |
 
 `plugin-shell` 2.4.1 corrige un `close` (`Terminated`) émis avant la fin de `stdout` quand le process sort vite, ce qui concerne directement la lecture du flux NDJSON du sidecar.
@@ -762,11 +762,12 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | `tauri-plugin-os` | `2.4.0` | 2026-09-26 | `^2.12` |
 | `tauri-plugin-opener` | `2.7.0` | 2026-09-29 | `^2.12` |
 | `tauri-plugin-single-instance` | `2.5.2` | 2026-10-01 | `^2.12` |
-| `tauri-plugin-updater` | `2.13.2` | 2026-10-07 | `^2.12` |
+| `tauri-plugin-updater` | `2.14.0` | 2026-10-14 | `^2.12` |
 
 **Breaking Changes Majeurs** :
 - **`updater` 2.12** : `plugins.updater.requireSignedVersion` (défaut `false`, posé à `true` par `tauri add updater`) rejette une réponse d'endpoint dont la version diffère de celle inscrite dans la signature, et `check()` n'accepte plus `allowDowngrades` depuis le webview. Les releases signées avant le CLI 2.12 ne portent aucune version et sont rejetées : sans conséquence ici, aucune release n'a encore publié d'artefact updater
-- **`updater` 2.11.0** : sous Windows, `install` lève une erreur si l'installeur ne démarre pas. `downloadAndInstall` gagne l'option `restartAfterInstall`, vraie par défaut : l'installeur relance l'application, sans plugin `process` (vérifié dans le crate 2.13.2, `updater.rs`, le 2026-10-15)
+- **`updater` 2.14.0** : sous Windows, l'échec du lancement de l'installeur rapporte la raison de `ShellExecuteW` (« Access is denied » sur un refus UAC), et `install` revérifie les octets du paquet avant de l'installer
+- **`updater` 2.11.0** : sous Windows, `install` lève une erreur si l'installeur ne démarre pas. `downloadAndInstall` gagne l'option `restartAfterInstall`, vraie par défaut : l'installeur relance l'application, sans plugin `process` (vérifié dans le crate 2.14.0, `updater.rs`, le 2026-10-21)
 - **`updater` 2.5.0** : `UpdaterBuilder::new` supprimé au profit de `UpdaterExt::updater_builder`. Concerne l'usage Rust bas niveau, pas l'API JS
 - **`fs` et `store` 2.0.0-beta.5** : les chemins renvoyés au frontend sur Windows ne portent plus le préfixe UNC `\\?\`
 
@@ -819,7 +820,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | `dorny/paths-filter` | `v4.0.3` (2026-08-05) | Job `changes` : saute les trois zones sur une PR de markdown seul. La 4.0.3 corrige GHSA-7hc6-8hq5-9q2m (noms de fichiers multi-lignes) |
 | `dtolnay/rust-toolchain` | `@stable` | Pas de semver : la révision **est** la sélection. Le `rust-toolchain.toml` du dépôt prime ensuite sur ce choix |
 | `Swatinem/rust-cache` | `v2.9.2` (2026-08-06) | Supporte le layout de build Cargo V2 |
-| `tauri-apps/tauri-action` | `v1.0.0` (2026-06-29) | v1 abandonne Tauri v1, supprime `includeRelease`/`includeDebug`, renomme `assetNamePattern` en `releaseAssetNamePattern` |
+| `tauri-apps/tauri-action` | `v1.0.0` (2026-06-29) | v1 abandonne Tauri v1, supprime `includeRelease`/`includeDebug`, renomme `assetNamePattern` en `releaseAssetNamePattern`. Écrit dans `latest.json` l'URL d'API de l'asset (tauri-action#1315), limitée à 60 appels par heure et par IP sans token : le workflow la remplace par le lien sous le tag (constaté sur la v0.10.0) |
 | `googleapis/release-please-action` | `v5.0.0` (2026-04-22) | v5 : passage au runtime Node 24 |
 | `extractions/setup-just` | `v4.0.0` | Installe `just` sur le runner : les deux workflows appellent les recettes du `Justfile` plutôt que de dupliquer les commandes. Appelée par la seule action composite `.github/actions/setup-just`, qui lit la version dans `minimum-version` du `Justfile` |
 | `getsentry/action-release` | `v3.7.1` (2026-10-05) | Job `sentry-release` : une release par projet Sentry (`techno-tagger-ui`, `techno-tagger-sidecar`), `set_commits: auto` d'où le `fetch-depth: 0`. Action composite, la 3.7.1 ne corrige que des dépendances transitives (`js-yaml`, `undici`) |

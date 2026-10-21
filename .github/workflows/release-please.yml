@@ -24,6 +24,7 @@ jobs:
       pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
+      id: ${{ steps.release.outputs.id }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
       pr: ${{ steps.release.outputs.pr }}
@@ -152,9 +153,30 @@ jobs:
           # arrive minifiee. Org et projet ont leur defaut, non secrets.
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         with:
-          tagName: ${{ needs.release-please.outputs.tag_name }}
-          releaseName: ${{ needs.release-please.outputs.tag_name }}
-          releaseDraft: false
+          # La Release que release-please vient de creer, draft compris : rien a retrouver par tag.
+          releaseId: ${{ needs.release-please.outputs.id }}
+
+      # tauri-action v1 ecrit l'URL d'API de l'asset (tauri-action#1315), limitee a 60 appels
+      # par heure et par IP sans token. Le lien sous le tag n'a pas ce quota.
+      - name: Publier latest.json avec les liens de telechargement
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          gh release download $env:TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
+          $path = Join-Path $env:RUNNER_TEMP 'latest.json'
+          $links = @{}
+          # Lien construit : celui d'un asset de draft devient faux a la publication.
+          $base = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG"
+          foreach ($asset in (gh release view $env:TAG --json assets | ConvertFrom-Json).assets) { $links[$asset.apiUrl] = "$base/$([uri]::EscapeDataString($asset.name))" }
+          # Texte remplace tel quel : ConvertTo-Json reformaterait pub_date. Une URL sans lien
+          # connu devient vide, et la garde qui suit echoue dessus.
+          $raw = [regex]::Replace((Get-Content $path -Raw), 'https://api\.github\.com/repos/[^/"]+/[^/"]+/releases/assets/\d+', { param($m) $links[$m.Value] })
+          [IO.File]::WriteAllText($path, $raw)
+          gh release upload $env:TAG $path --clobber
 
       # tauri-action reste vert sans artefact d'updater (constate sur la v0.1.0), et
       # Tauri valide tout latest.json avant d'en lire la version : sans ce controle,
@@ -181,8 +203,18 @@ jobs:
           foreach ($entry in $entries) {
             if (-not $entry.Value.signature) { throw "Signature $($entry.Name) vide dans latest.json" }
             if ($entry.Value.url -notmatch $expected) { throw "url $($entry.Name) hors du tag $env:TAG : $($entry.Value.url)" }
-            # Le manifeste peut annoncer un installeur dont le .sig n'a pas ete publie.
-            $setup = ($entry.Value.url -split '/')[-1]
-            if ($assets -notcontains "$setup.sig") { throw "$setup.sig absent de la Release $env:TAG (entree $($entry.Name))" }
+            # Le manifeste peut annoncer un installeur, ou son .sig, qui n'a pas ete publie.
+            $setup = [uri]::UnescapeDataString(($entry.Value.url -split '/')[-1])
+            foreach ($file in $setup, "$setup.sig") {
+              if ($assets -notcontains $file) { throw "$file absent de la Release $env:TAG (entree $($entry.Name))" }
+            }
           }
           Write-Output "latest.json $($manifest.version) et sa signature publies sur $env:TAG"
+
+      # Creee en draft par release-please : l'updater ne voit la Release qu'une fois complete.
+      - name: Publier la Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: gh release edit $env:TAG --draft=false --latest

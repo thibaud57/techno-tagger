@@ -14,25 +14,32 @@ import {
   hangingUpdate,
   updaterStub,
 } from "../../../fixtures/updater"
+import { preferencesStub } from "../../../fixtures/preferences-stub"
 import { CAPTURE_EXCEPTION } from "../observability/capture-exception"
 import type { DetectedRun } from "../stores/resume.store"
 
+import { PreferencesService } from "./preferences.service"
 import { UpdateService } from "./update.service"
 import { APP_UPDATER } from "./updater"
 
 const captureException = vi.fn()
 
-const mount = (updater: ReturnType<typeof updaterStub>, overrides: SidecarStubOverrides = {}) => {
+const mount = (
+  updater: ReturnType<typeof updaterStub>,
+  overrides: SidecarStubOverrides = {},
+  preferences = preferencesStub(),
+) => {
   const sidecar = sidecarStub(overrides)
   TestBed.configureTestingModule({
     providers: [
       { provide: APP_UPDATER, useValue: updater },
       { provide: CAPTURE_EXCEPTION, useValue: captureException },
+      { provide: PreferencesService, useValue: preferences },
       provideSidecarStub(sidecar),
     ],
   })
 
-  return { service: TestBed.inject(UpdateService), sidecar, updater }
+  return { service: TestBed.inject(UpdateService), sidecar, updater, preferences }
 }
 
 describe("UpdateService", () => {
@@ -196,10 +203,12 @@ describe("UpdateService", () => {
 
     void service.install()
 
-    expect(service.state()).toEqual({
-      kind: "downloading",
-      update,
-      progress: { received: 4, total: 10 },
+    await vi.waitFor(() => {
+      expect(service.state()).toEqual({
+        kind: "downloading",
+        update,
+        progress: { received: 4, total: 10 },
+      })
     })
   })
 
@@ -258,5 +267,78 @@ describe("UpdateService", () => {
     await service.retry()
 
     expect(service.update()).toBeNull()
+  })
+
+  it("records the attempt before downloading", async () => {
+    const update = hangingUpdate()
+    const { service, preferences } = mount(updaterStub(update))
+    await service.check()
+    preferences.writeUpdateAttempt.mockClear()
+
+    void service.install()
+
+    await vi.waitFor(() => {
+      expect(update.downloadAndInstall).toHaveBeenCalled()
+    })
+    expect(preferences.writeUpdateAttempt).toHaveBeenCalledWith({
+      from: APP_VERSION,
+      to: "2.0.0",
+    })
+    const [written] = preferences.writeUpdateAttempt.mock.invocationCallOrder
+    const [downloaded] = vi.mocked(update.downloadAndInstall).mock.invocationCallOrder
+    expect(written).toBeLessThan(downloaded ?? 0)
+  })
+
+  it("flags a failed installation when the app still runs the version it left", async () => {
+    const preferences = preferencesStub({ updateAttempt: { from: APP_VERSION, to: "99.0.0" } })
+    const { service } = mount(updaterStub(null), {}, preferences)
+
+    await service.check()
+
+    expect(service.installFailed()).toBe("99.0.0")
+    expect(captureException).toHaveBeenCalledExactlyOnceWith(
+      new Error("update install did not complete"),
+      { tags: { area: "updater" } },
+    )
+  })
+
+  it("reports nothing when the app runs the targeted version", async () => {
+    const preferences = preferencesStub({ updateAttempt: { from: "0.0.1", to: APP_VERSION } })
+    const { service } = mount(updaterStub(null), {}, preferences)
+
+    await service.check()
+
+    expect(service.installFailed()).toBeNull()
+    expect(captureException).not.toHaveBeenCalled()
+  })
+
+  it("clears the attempt once read at startup", async () => {
+    const preferences = preferencesStub({ updateAttempt: { from: APP_VERSION, to: "99.0.0" } })
+    const { service } = mount(updaterStub(null), {}, preferences)
+
+    await service.check()
+
+    expect(preferences.writeUpdateAttempt).toHaveBeenLastCalledWith(null)
+  })
+
+  it("clears the attempt when the download fails", async () => {
+    const { service, preferences } = mount(updaterStub(failingUpdate()))
+    await service.check()
+
+    await service.install()
+
+    expect(preferences.writeUpdateAttempt).toHaveBeenLastCalledWith(null)
+  })
+
+  it("forgets the failed installation once a new attempt starts", async () => {
+    const preferences = preferencesStub({ updateAttempt: { from: APP_VERSION, to: "99.0.0" } })
+    const { service } = mount(updaterStub(hangingUpdate()), {}, preferences)
+    await service.check()
+
+    void service.install()
+
+    await vi.waitFor(() => {
+      expect(service.installFailed()).toBeNull()
+    })
   })
 })
