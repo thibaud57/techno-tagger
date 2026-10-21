@@ -24,6 +24,7 @@ jobs:
       pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
+      id: ${{ steps.release.outputs.id }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
       pr: ${{ steps.release.outputs.pr }}
@@ -152,9 +153,8 @@ jobs:
           # arrive minifiee. Org et projet ont leur defaut, non secrets.
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         with:
-          tagName: ${{ needs.release-please.outputs.tag_name }}
-          releaseName: ${{ needs.release-please.outputs.tag_name }}
-          releaseDraft: true
+          # La Release que release-please vient de creer, draft compris : rien a retrouver par tag.
+          releaseId: ${{ needs.release-please.outputs.id }}
 
       # tauri-action v1 ecrit l'URL d'API de l'asset (tauri-action#1315), limitee a 60 appels
       # par heure et par IP sans token. Le lien sous le tag n'a pas ce quota.
@@ -169,10 +169,9 @@ jobs:
           gh release download $env:TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
           $path = Join-Path $env:RUNNER_TEMP 'latest.json'
           $links = @{}
-          # Lien construit : celui que GitHub donne aux assets d'un draft ne vaut plus apres publication.
-          foreach ($asset in (gh release view $env:TAG --json assets | ConvertFrom-Json).assets) {
-            $links[$asset.apiUrl] = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG/$([uri]::EscapeDataString($asset.name))"
-          }
+          # Lien construit : celui d'un asset de draft devient faux a la publication.
+          $base = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG"
+          foreach ($asset in (gh release view $env:TAG --json assets | ConvertFrom-Json).assets) { $links[$asset.apiUrl] = "$base/$([uri]::EscapeDataString($asset.name))" }
           # Texte remplace tel quel : ConvertTo-Json reformaterait pub_date. Une URL sans lien
           # connu devient vide, et la garde qui suit echoue dessus.
           $raw = [regex]::Replace((Get-Content $path -Raw), 'https://api\.github\.com/repos/[^/"]+/[^/"]+/releases/assets/\d+', { param($m) $links[$m.Value] })

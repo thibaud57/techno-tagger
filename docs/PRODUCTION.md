@@ -116,7 +116,7 @@ Conséquences par lock, très inégales :
 - [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
 - [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles sur la version de release` présent en tête de la PR de release. Garantit que le lock committé au tag porte la version publiée, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run »
-- [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `tauri build` + signature + publication de la Release)
+- [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `tauri build` + signature)
 - [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent. **Confirmé au premier run (v0.1.0)** : les source maps sont bien montées sur `techno-tagger@0.1.0`. Symptôme si cela régressait : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
 - [ ] Étape **« Verifier les artefacts de l'updater »** du job de build **verte** : elle échoue si `latest.json` ou le `.sig` manquent, si le manifeste annonce une autre version que le tag, ou si son entrée `windows-x86_64` est incomplète. `tauri-action` seul reste vert sans artefact d'updater, `uploadUpdaterJson` fût-il à `true` (constaté sur la v0.1.0, publiée avec le seul installeur)
 - [ ] **Smoke test d'installation** sur une machine ou une VM propre : l'installeur passe, l'application démarre, le sidecar répond, et `F5`, `Ctrl+R` comme le clic droit restent sans effet (un rechargement relancerait un second sidecar)
@@ -150,8 +150,8 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 > **La Release est créée en draft et publiée par le dernier step du build**, une fois `latest.json` réécrit et la garde verte : aucune fenêtre où `latest.json` rend 404, aucune Release incomplète publique. `force-tag-creation` pose le tag dès la création du draft, sans quoi release-please ne retrouverait pas la release précédente ([release-please#1650](https://github.com/googleapis/release-please/issues/1650)). Vérifié dans le code de release-please-action v5.0.0, de `gh` et de `tauri-action` v1.0.0 le 2026-10-20, à éprouver à la release suivante.
 >
 > **Build en échec** : le draft reste avec son tag, et release-please compte cette version comme sortie. Relancer par « Re-run failed jobs » du même run, le seul qui garde `release_created`.
-
-> **`tauri-action` retrouve le draft par `tagName`** : `releaseDraft: true` doit rester aligné sur l'état de la Release, sans quoi il en crée une seconde.
+>
+> `tauri-action` reçoit l'`id` de la Release créée par release-please (`releaseId`) : il n'a rien à retrouver par tag, draft ou non.
 
 > **Canal beta** : pré-release sur un manifeste updater distinct, listé en Post-MVP. Rien à mettre en place tant que la distribution ne s'élargit pas.
 
@@ -273,7 +273,7 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 |---------|--------|-------|
 | Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff + Mypy strict + pytest (`sidecar/`), ESLint + typecheck + Vitest (`src/`), `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/` | Gate qualité |
 | Push `main` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
-| Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release → URL de `latest.json` remplacées par les liens sous le tag → garde → publication de la Release, créée en draft | GitHub Releases |
+| Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release → URL de `latest.json` remplacées par les liens sous le tag → garde → publication de la Release (créée en draft) | GitHub Releases |
 
 > 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run, with the following exceptions » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : les exceptions sont `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, un push de tag n'en fait pas partie. Le tag créé par release-please ne déclenche donc aucun workflow. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** : la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
 >
@@ -290,7 +290,7 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 Il n'y a **rien à faire redescendre** : aucun serveur ne sert cette application. Le retour arrière est un roll-*forward*.
 
 **Procédure** :
-1. **Dépublier la Release fautive** (la repasser en draft) pour que `latest.json` cesse d'être servi. Les installations non encore mises à jour arrêtent immédiatement de la voir ; celles qui l'ont déjà prise ne reviennent pas en arrière pour autant. Le tag Git, lui, reste : posé dès la création de la Release (`force-tag-creation`), il ne disparaît pas quand celle-ci repasse en brouillon.
+1. **Dépublier la Release fautive** (la repasser en draft) pour que `latest.json` cesse d'être servi. Les installations non encore mises à jour arrêtent immédiatement de la voir ; celles qui l'ont déjà prise ne reviennent pas en arrière pour autant. Le tag Git, lui, reste : il ne disparaît pas quand la Release repasse en brouillon.
 2. `hotfix/*` depuis `main` → PR titrée `fix:` → merge → PR release-please → **nouveau tag `PATCH`**. Jamais de suppression du tag fautif, qui fausserait le CHANGELOG sans rien corriger chez personne.
 3. Vérifier la nouvelle Release : installeur + `latest.json` présents, smoke test d'installation et de mise à jour.
 4. **Prévenir les utilisateurs à la main** si la version fautive a pu être installée. C'est le seul canal disponible : aucun mécanisme ne permet de forcer une mise à jour ni de savoir qui tourne sur quelle version.
@@ -738,7 +738,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 - [Tauri v2 : Updater](https://v2.tauri.app/plugin/updater/) : génération des clés, `pubkey`, format de `latest.json`
 - [Tauri v2 : Sidecar](https://v2.tauri.app/develop/sidecar/) : `externalBin`, suffixe target-triple
 - [Tauri v2 : Distribution GitHub](https://v2.tauri.app/distribute/pipelines/github/)
-- [tauri-action](https://github.com/tauri-apps/tauri-action) : `tagName`, `releaseDraft`, `uploadUpdaterJson`
+- [tauri-action](https://github.com/tauri-apps/tauri-action) : `releaseId`, `uploadUpdaterJson`
 - [release-please : customizing](https://github.com/googleapis/release-please/blob/main/docs/customizing.md) : `extra-files`, updaters TOML et JSON génériques
 - [GitHub Actions : déclencheurs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) : un tag créé par `GITHUB_TOKEN` ne déclenche aucun workflow
 - [Sentry : Options Python](https://docs.sentry.io/platforms/python/configuration/options/) : `data_collection`, `server_name`, `before_send`
