@@ -154,7 +154,7 @@ jobs:
         with:
           tagName: ${{ needs.release-please.outputs.tag_name }}
           releaseName: ${{ needs.release-please.outputs.tag_name }}
-          releaseDraft: false
+          releaseDraft: true
 
       # tauri-action v1 ecrit l'URL d'API de l'asset (tauri-action#1315), limitee a 60 appels
       # par heure et par IP sans token. Le lien sous le tag n'a pas ce quota.
@@ -169,7 +169,10 @@ jobs:
           gh release download $env:TAG --pattern latest.json --dir $env:RUNNER_TEMP --clobber
           $path = Join-Path $env:RUNNER_TEMP 'latest.json'
           $links = @{}
-          foreach ($asset in (gh release view $env:TAG --json assets | ConvertFrom-Json).assets) { $links[$asset.apiUrl] = $asset.url }
+          # Lien construit : celui que GitHub donne aux assets d'un draft ne vaut plus apres publication.
+          foreach ($asset in (gh release view $env:TAG --json assets | ConvertFrom-Json).assets) {
+            $links[$asset.apiUrl] = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG/$([uri]::EscapeDataString($asset.name))"
+          }
           # Texte remplace tel quel : ConvertTo-Json reformaterait pub_date. Une URL sans lien
           # connu devient vide, et la garde qui suit echoue dessus.
           $raw = [regex]::Replace((Get-Content $path -Raw), 'https://api\.github\.com/repos/[^/"]+/[^/"]+/releases/assets/\d+', { param($m) $links[$m.Value] })
@@ -206,3 +209,11 @@ jobs:
             if ($assets -notcontains "$setup.sig") { throw "$setup.sig absent de la Release $env:TAG (entree $($entry.Name))" }
           }
           Write-Output "latest.json $($manifest.version) et sa signature publies sur $env:TAG"
+
+      # Creee en draft par release-please : l'updater ne voit la Release qu'une fois complete.
+      - name: Publier la Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: gh release edit $env:TAG --draft=false --latest
