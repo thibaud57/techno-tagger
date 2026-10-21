@@ -371,7 +371,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 - [x] **`latest.json` accessible sans authentification** (2026-10-21, v0.11.0) : `curl -L https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json` rend le manifeste, avec `version`, `platforms.windows-x86_64.url` et `.signature` renseignés
 - [x] **Chaîne de mise à jour vérifiée en réel** : machine en version N-1, l'updater détecte, télécharge, **vérifie la signature**, installe et relance (2026-10-21, 0.10.0 → 0.11.0)
 - [x] **Installation depuis zéro sur une machine tierce** (2026-10-21) : celle d'un des utilisateurs réels, pas une VM : SmartScreen, antivirus et trousseau s'y comportent différemment
-- [ ] **Faux positif antivirus mesuré** : soumission de l'installeur et du sidecar à VirusTotal pour connaître l'ampleur réelle, et signalement aux éditeurs concernés si le blocage est bloquant. Installeur fait (§ Benchmarks), sidecar seul à soumettre
+- [x] **Faux positif antivirus mesuré** : soumission de l'installeur et du sidecar à VirusTotal pour connaître l'ampleur réelle, et signalement aux éditeurs concernés si le blocage est bloquant (2026-10-21, § Benchmarks)
 - [x] **Chaîne d'alerte Sentry** : self-test côté sidecar et côté webview (§ Observabilité > Vérifier la remontée depuis l'application installée), vérifier la réception de l'issue **et** de l'email. Confirmé le 2026-10-19 (`v0.9.0`), exception capturée comprise
 - [x] **Payload Sentry inspecté en vrai** : ouvrir l'event du self-test dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau. Confirmé le 2026-10-19 (`v0.9.0`)
 - [ ] **Clé API révoquée testée** : avec une clé invalide, le run s'arrête après trois `403` consécutifs avec un message nommant la clé, pas 100 échecs indiscernables d'une panne réseau
@@ -712,7 +712,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 | Démarrage du sidecar, `--onedir` | — | **335 ms** (médiane, 5 runs) |
 | Taille produite, `--onefile` | — | **16 Mo**, 1 fichier |
 | Taille produite, `--onedir` | — | **32 Mo**, 65 fichiers (exe : 6,9 Mo) |
-| Détections antivirus, `--onefile` vs `--onedir` | Comparaison sur Defender | `--onedir` (2026-10-21) : aucun blocage chez un utilisateur réel, installeur v0.11.0 à **0/68** sur VirusTotal, sidecar seul non soumis |
+| Détections antivirus, `--onefile` vs `--onedir` | Comparaison sur Defender | `--onedir` (2026-10-21) : aucun blocage chez un utilisateur réel ; VirusTotal : installeur v0.11.0 à **0/68**, `tagger.exe` à **4/71** (Microsoft `Trojan:Win32/Wacatac.B!ml`, Bkav Pro, SecureAge, Skyhigh), faux positif déclaré à Microsoft |
 | Run de 100 morceaux, cache froid | À établir, borné par le pool de concurrence (3 Beatport, 2 Bandcamp, cf. [ADR-017](adrs/017-taille-pool-concurrence.md)) | à mesurer |
 | Run de 100 morceaux, cache chaud | Réseau quasi nul, seul le local compte | à mesurer |
 | Phase d'écriture, 100 morceaux | Quelques secondes, pochettes déjà en cache | à mesurer |

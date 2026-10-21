@@ -220,7 +220,7 @@ Relevé attendu : points 1, 4 et 5 du Step 2, plus toute alerte antivirus.
 - **Signature refusée** (modale en échec, événement Sentry reçu) : incident critique selon PRODUCTION.md § Incident Response. Comparer la `pubkey` de `tauri.conf.json` à la clé publique sauvegardée dans le gestionnaire de mots de passe, ne jamais régénérer la paire.
 - **Écran « La mise à jour est incomplète »** : sidecar non remplacé, PRODUCTION.md § Remplacement du sidecar.
 
-- [x] **Step 5: Mesures (geste du propriétaire pour VirusTotal)** (2026-10-21 : installeur B de 24,3 Mo, 0/68 sur VirusTotal par l'analyse de son URL de Release ; `tagger.exe` seul non soumis, au-delà de la limite d'envoi de l'extension de navigateur)
+- [x] **Step 5: Mesures (geste du propriétaire pour VirusTotal)** (2026-10-21 : installeur B de 24,3 Mo, 0/68 sur VirusTotal ; `tagger.exe` à 4/71, dont Microsoft `Trojan:Win32/Wacatac.B!ml`, faux positif déclaré à Microsoft)
 
 - Taille de l'installeur B (Task 2, Step 6 rejoué sur B).
 - Le propriétaire soumet l'installeur B et `tagger.exe` (tiré du dossier d'installation de la VM) à VirusTotal et relève le nombre de détections et les éditeurs concernés.
