@@ -60,7 +60,7 @@ Les gestes sur les machines de test et chez l'utilisateur sont joués par le pro
 - Modify: `docs/adrs/015-cibles-distribution-windows.md` (après le paragraphe « L'option la moins chère accessible à un développeur individuel… »)
 - Modify: `docs/PRODUCTION.md` § Code Signing (paragraphe « Signer l'installeur ne changerait pas grand-chose… »)
 
-- [ ] **Step 1: Écrire la section Installation**
+- [x] **Step 1: Écrire la section Installation** (constaté le 2026-10-21)
 
 Dans `README.md`, avant `## Démarrage` :
 
@@ -79,7 +79,7 @@ Les mises à jour se proposent d'elles-mêmes au lancement de l'application.
 
 `<version>` reste tel quel dans le README : il désigne le numéro de chaque Release, pas une valeur à remplir.
 
-- [ ] **Step 2: Corriger ADR-015**
+- [x] **Step 2: Corriger ADR-015** (constaté le 2026-10-21)
 
 Charger `Skill[architecture-doc]`, puis ajouter après le paragraphe « L'option la moins chère accessible à un développeur individuel est **Azure Trusted Signing**… » :
 
@@ -87,7 +87,7 @@ Charger `Skill[architecture-doc]`, puis ajouter après le paragraphe « L'option
 **Mise à jour 2026-10-15** : devenu Azure Artifact Signing (~9,99 $/mois), le service n'est ouvert aux développeurs individuels qu'aux USA et au Canada, aux organisations qu'aux USA, au Canada, dans l'UE et au Royaume-Uni ([Microsoft Learn, Code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options), page du 2026-08-29). Il n'est donc pas accessible à un développeur individuel en dehors de ces deux pays. Les options réelles et leur coût sont relevés dans la spec `docs/superpowers/specs/distribution-et-mise-a-jour/04-recette-distribution-design.md` et portés par la feature Post-MVP « Réduire les faux positifs antivirus ».
 ```
 
-- [ ] **Step 3: Corriger PRODUCTION.md § Code Signing**
+- [x] **Step 3: Corriger PRODUCTION.md § Code Signing** (constaté le 2026-10-21)
 
 Charger `Skill[production-doc]`, puis dans le paragraphe « Signer l'installeur ne changerait pas grand-chose… », remplacer la phrase entière « L'option la moins chère accessible à un individu, Azure Trusted Signing (~120 $/an), est écartée au vu du budget nul ; son bénéfice réel serait la réduction des faux positifs antivirus, que le mode `--onedir` retenu atténue sans rien dépenser ([ADR-015](adrs/015-cibles-distribution-windows.md)). » par :
 
@@ -95,7 +95,7 @@ Charger `Skill[production-doc]`, puis dans le paragraphe « Signer l'installeur 
 Azure Artifact Signing (~9,99 $/mois) n'est ouvert aux individus qu'aux USA et au Canada ; les autres options, Microsoft Store en MSIX, certificat Certum Open Source ou OV, bootloader PyInstaller recompilé, attendent la mesure des faux positifs de la première recette, le mode `--onedir` retenu les atténuant déjà sans rien dépenser (mise à jour du 2026-10-15 d'[ADR-015](adrs/015-cibles-distribution-windows.md)).
 ```
 
-- [ ] **Step 4: Commit sur la branche de la feature** (`feature/*`, mergée dans `develop` avant la Task 2)
+- [x] **Step 4: Commit sur la branche de la feature** (`feature/*`, mergée dans `develop` avant la Task 2)
 
 ```bash
 git add README.md docs/adrs/015-cibles-distribution-windows.md docs/PRODUCTION.md
@@ -183,7 +183,9 @@ Le propriétaire envoie le lien de la section Installation du README. La clé de
 
 **Files:** aucun (constats relevés pour la Task 5).
 
-- [ ] **Step 1: Publier B**
+Passage de A à B prouvé le 2026-10-21 sur le poste de développement (`.claude/skills/verify/SKILL.md` § Pilotage de l'invite de mise à jour) : ne remplace ni la VM propre ni l'utilisateur réel.
+
+- [x] **Step 1: Publier B** (2026-10-21 : v0.11.0, build vert, Release publiée par le workflow après la garde, `latest.json` sous le tag)
 
 Le premier lot `feat:` ou `fix:` qui suit A, publié comme à la Task 2, Steps 1 à 6. Expected : Release B complète, contrôle vert, `latest.json` en version B.
 
