@@ -11,6 +11,7 @@ import {
   sidecarStub,
   type SidecarStubOverrides,
 } from "../../../../fixtures/sidecar-stub"
+import { preferencesStub } from "../../../../fixtures/preferences-stub"
 import { translateWith } from "../../../../fixtures/translate"
 import {
   availableUpdate,
@@ -19,6 +20,7 @@ import {
   updaterStub,
 } from "../../../../fixtures/updater"
 import { NativeService } from "../../../core/platform/native.service"
+import { PreferencesService } from "../../../core/platform/preferences.service"
 import { UpdateService } from "../../../core/platform/update.service"
 import { APP_UPDATER, type AvailableUpdate } from "../../../core/platform/updater"
 
@@ -33,11 +35,13 @@ beforeEach(() => {
 const mount = async (
   update: AvailableUpdate = availableUpdate(),
   overrides: SidecarStubOverrides = {},
+  preferences = preferencesStub(),
 ) => {
   TestBed.configureTestingModule({
     imports: [UpdateDialogComponent],
     providers: [
       provideTranslateService(),
+      { provide: PreferencesService, useValue: preferences },
       { provide: APP_UPDATER, useValue: updaterStub(update) },
       provideSidecarStub(sidecarStub(overrides)),
       { provide: NativeService, useValue: native },
@@ -116,6 +120,27 @@ describe("UpdateDialogComponent", () => {
     expect(action("later")).not.toBeNull()
   })
 
+  it("shows the failure note and retry after an installation that did not complete", async () => {
+    const attempt = preferencesStub({ updateAttempt: { from: APP_VERSION, to: "2.0.0" } })
+    const { fixture } = await mount(availableUpdate(), {}, attempt)
+
+    fixture.detectChanges()
+
+    const note = page().querySelector("app-message")
+    expect(note?.querySelector("p-message")?.classList.contains("p-message-warn")).toBe(true)
+    expect(note?.textContent).toContain("update.installFailed")
+    expect(action("install")?.textContent).toContain("update.retry")
+  })
+
+  it("shows no failure note without a failed installation", async () => {
+    const { fixture } = await mount()
+
+    fixture.detectChanges()
+
+    expect(page().querySelector("app-message")).toBeNull()
+    expect(action("install")?.textContent).toContain("update.install")
+  })
+
   it("shows an indeterminate bar and no counter while the total is unknown", async () => {
     const { fixture } = await mount(neverEnding(null))
     translateWith({ update: { counter: "{{received}} of {{total}}" } })
@@ -129,10 +154,13 @@ describe("UpdateDialogComponent", () => {
   })
 
   it("shows the counter and a determinate bar once the total is known", async () => {
-    const { fixture } = await mount(neverEnding())
+    const { fixture, service } = await mount(neverEnding())
     translateWith({ update: { counter: "{{received}} of {{total}}" } })
 
     action("install")?.click()
+    await vi.waitFor(() => {
+      expect(service.state()).toMatchObject({ progress: { received: 4_000_000 } })
+    })
     fixture.detectChanges()
 
     const bar = page().querySelector("app-phase-progress p-progressbar")

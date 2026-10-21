@@ -2,6 +2,7 @@ import { Service, computed, inject, linkedSignal, signal } from "@angular/core"
 import { CAPTURE_EXCEPTION } from "../observability/capture-exception"
 import { SidecarService } from "../sidecar/sidecar.service"
 
+import { PreferencesService } from "./preferences.service"
 import {
   APP_UPDATER,
   type AvailableUpdate,
@@ -28,6 +29,7 @@ export class UpdateService {
   private readonly updater = inject(APP_UPDATER)
   private readonly sidecar = inject(SidecarService)
   private readonly captureException = inject(CAPTURE_EXCEPTION)
+  private readonly preferences = inject(PreferencesService)
 
   private readonly _state = signal<UpdateState>({ kind: "none" })
   readonly state = this._state.asReadonly()
@@ -37,6 +39,10 @@ export class UpdateService {
 
     return state.kind === "none" ? null : state.update
   })
+
+  private readonly _installFailed = signal<string | null>(null)
+  /** Version visee par l'installation qui n'a pas abouti. */
+  readonly installFailed = this._installFailed.asReadonly()
 
   readonly installable = computed(() => this.sidecar.phase() === "idle")
 
@@ -59,6 +65,7 @@ export class UpdateService {
   )
 
   async check(): Promise<void> {
+    await this.detectFailedInstall()
     const update = await this.lookup()
     if (update !== null && update !== "failed") {
       this.adopt(update)
@@ -80,6 +87,21 @@ export class UpdateService {
     this.reopen()
 
     return "found"
+  }
+
+  /** L'installeur ferme l'application : seul le lancement suivant voit son echec (plugins-workspace#3514). */
+  private async detectFailedInstall(): Promise<void> {
+    const attempt = await this.preferences.readUpdateAttempt()
+    if (attempt === null) {
+      return
+    }
+    if (attempt.from === APP_VERSION) {
+      this._installFailed.set(attempt.to)
+      this.captureException(new Error("update install did not complete"), {
+        tags: { area: "updater" },
+      })
+    }
+    await this.preferences.writeUpdateAttempt(null)
   }
 
   /** Hors ligne, manifeste en 404 ou hors Tauri : frequent, rien a signaler a Sentry. */
@@ -145,7 +167,10 @@ export class UpdateService {
   }
 
   private async download(update: AvailableUpdate): Promise<void> {
+    this._installFailed.set(null)
     this._state.set({ kind: "downloading", update, progress: NOTHING_RECEIVED })
+    // Attendue : l'installation ferme l'application.
+    await this.preferences.writeUpdateAttempt({ from: APP_VERSION, to: update.version })
     try {
       await update.downloadAndInstall((progress) => {
         this._state.set({ kind: "downloading", update, progress })
@@ -155,6 +180,7 @@ export class UpdateService {
       // Response). Le plugin rejette une chaine sans pile : le tag isole ces issues.
       this.captureException(error, { tags: { area: "updater" } })
       this._state.set({ kind: "failed", update })
+      await this.preferences.writeUpdateAttempt(null)
     }
   }
 }

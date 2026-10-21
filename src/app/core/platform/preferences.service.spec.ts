@@ -104,6 +104,19 @@ describe("PreferencesService", () => {
     expect(result).toBeNull()
   })
 
+  it.each([
+    ["without a target version", { from: "1.0.0" }],
+    ["with a version that is not a string", { from: 1, to: "2.0.0" }],
+    ["with an empty version", { from: "", to: "2.0.0" }],
+    ["not an object", "1.0.0"],
+  ])("ignores a malformed stored update attempt %s", async (_case, stored) => {
+    vi.mocked(load).mockResolvedValue(storeStub(stored))
+
+    const result = await service.readUpdateAttempt()
+
+    expect(result).toBeNull()
+  })
+
   // Les cles vivent dans le fichier de l'utilisateur : en renommer une lui ferait perdre son reglage.
   it.each<[string, (target: PreferencesService) => Promise<void>, unknown]>([
     ["extraction_mode", (target) => target.writeExtractionMode("move"), "move"],
@@ -111,6 +124,11 @@ describe("PreferencesService", () => {
     ["language", (target) => target.writeLanguage("fr"), "fr"],
     ["last_destination", (target) => target.writeLastDestination("C:/work"), "C:/work"],
     ["thresholds", (target) => target.writeThresholds(CUSTOM_THRESHOLDS), CUSTOM_THRESHOLDS],
+    [
+      "update_attempt",
+      (target) => target.writeUpdateAttempt({ from: "1.0.0", to: "2.0.0" }),
+      { from: "1.0.0", to: "2.0.0" },
+    ],
   ])("writes the %s preference under its key", async (key, write, expected) => {
     const store = storeStub()
     vi.mocked(load).mockResolvedValue(store)
