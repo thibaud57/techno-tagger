@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/thibaud57/techno-tagger/compare/v0.10.0...v0.11.0) (2026-10-21)
+
+
+### Features
+
+* signaler une installation de mise a jour qui n'a pas abouti ([#90](https://github.com/thibaud57/techno-tagger/issues/90)) ([970f046](https://github.com/thibaud57/techno-tagger/commit/970f046d823f79eb6cf976af301de33396aca301))
+
 ## [0.10.0](https://github.com/thibaud57/techno-tagger/compare/v0.9.0...v0.10.0) (2026-10-20)
 
 
