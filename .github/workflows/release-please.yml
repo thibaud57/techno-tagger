@@ -203,9 +203,11 @@ jobs:
           foreach ($entry in $entries) {
             if (-not $entry.Value.signature) { throw "Signature $($entry.Name) vide dans latest.json" }
             if ($entry.Value.url -notmatch $expected) { throw "url $($entry.Name) hors du tag $env:TAG : $($entry.Value.url)" }
-            # Le manifeste peut annoncer un installeur dont le .sig n'a pas ete publie.
-            $setup = ($entry.Value.url -split '/')[-1]
-            if ($assets -notcontains "$setup.sig") { throw "$setup.sig absent de la Release $env:TAG (entree $($entry.Name))" }
+            # Le manifeste peut annoncer un installeur, ou son .sig, qui n'a pas ete publie.
+            $setup = [uri]::UnescapeDataString(($entry.Value.url -split '/')[-1])
+            foreach ($file in $setup, "$setup.sig") {
+              if ($assets -notcontains $file) { throw "$file absent de la Release $env:TAG (entree $($entry.Name))" }
+            }
           }
           Write-Output "latest.json $($manifest.version) et sa signature publies sur $env:TAG"
 
