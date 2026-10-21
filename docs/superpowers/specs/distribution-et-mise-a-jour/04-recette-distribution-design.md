@@ -1,8 +1,8 @@
 ---
 feature: "Feature 8 : Distribution et mise à jour"
 subproject: "recette-distribution"
-goal: "Valider sur de vraies Releases la chaîne complète de distribution et de mise à jour, jusqu'au jalon 1.0.0"
-status: "draft"
+goal: "Valider sur de vraies Releases la chaîne complète de distribution et de mise à jour"
+status: "implemented"
 complexity: "M"
 tdd_scope: "none"
 depends_on: ["01-chaine-de-signature-design.md", "02-invite-de-mise-a-jour-design.md", "03-version-dans-les-reglages-design.md"]
@@ -26,10 +26,12 @@ Couvre :
 - la section Installation du README ;
 - la mesure des faux positifs antivirus et la décision qui en découle ;
 - la correction d'ADR-015 et de PRODUCTION.md sur l'éligibilité d'Azure Artifact Signing ;
-- les cases correspondantes de PRODUCTION.md et VERSIONS.md, cochées et datées ;
-- la release 1.0.0 qui suit.
+- les cases correspondantes de PRODUCTION.md et VERSIONS.md, cochées et datées.
 
 Exclut :
+- la release 1.0.0, sortie du périmètre le 2026-10-21 par décision du propriétaire et publiée à part ;
+- la VM propre, écartée le même jour : la machine de l'utilisateur réel tient lieu de machine tierce ;
+- la soumission à VirusTotal, reportée le même jour (reCAPTCHA), geste du propriétaire ;
 - tout code applicatif, un défaut trouvé partant en `hotfix/*` (PRODUCTION.md § Rollback) ;
 - les items Sentry de la Checklist Post-MEP (chaîne d'alerte, payload inspecté, release Sentry au tag), qui relèvent de la Feature 9 ;
 - les mesures de runs de 100 morceaux.
@@ -39,8 +41,7 @@ Exclut :
 À la fin de ce sub-project :
 - une installation en version A, sur VM propre comme chez un utilisateur réel, se met à jour seule en version B, sidecar compris ;
 - une clé API refusée arrête le run ;
-- les cases de distribution et de mise à jour de PRODUCTION.md et VERSIONS.md sont cochées avec leur date ;
-- la version suivante est publiée en 1.0.0.
+- les cases de distribution et de mise à jour de PRODUCTION.md et VERSIONS.md sont cochées avec leur date.
 
 ## Dependencies
 
@@ -98,7 +99,6 @@ Exclut :
   - SignPath Foundation, gratuite pour l'open source, est écartée d'avance : elle refuse tout composant non open source (PrimeNG v22, ADR-003) et exige une réputation vérifiable du projet.
   - Une signature ne retire pas l'avertissement SmartScreen, qui suit la réputation des téléchargements depuis 2024 (ADR-015).
 - **ADR-015 et PRODUCTION.md § Code Signing corrigés** en tête de la recette : Azure Artifact Signing n'est pas accessible à un développeur individuel hors des USA et du Canada (Microsoft Learn, quickstart Trusted Signing, consulté le 2026-10-15). Le texte présentait l'option comme « accessible à un développeur individuel ».
-- **1.0.0** : une fois B installée par l'updater chez l'utilisateur réel, la PR `develop → main` suivante est squashée avec `Release-As: 1.0.0` pour corps (PRODUCTION.md § Versioning) : un footer posé dans un commit de branche ne survit pas au squash. Cette release passe elle aussi par l'updater (PRODUCTION.md § Versioning, jalon 1.0.0).
 - **Cases cochées** au fil de la recette, chacune datée, aucune cochée sur une preuve indirecte (règle « Écrire durable » des instructions utilisateur).
 - **Un défaut trouvé** :
   - en `hotfix/*` puis nouveau tag PATCH, la Release fautive dépubliée si elle casse la chaîne (PRODUCTION.md § Rollback) ;
@@ -129,18 +129,13 @@ Exclut :
 **THEN** la modale propose B, la progression avance, l'application se ferme puis se relance
 **AND** Réglages > Version indique B, sans écran de versions désaccordées
 
-### Scénario 5 : jalon 1.0.0
-**GIVEN** B installée par l'updater chez l'utilisateur réel
-**WHEN** le lot suivant porte `Release-As: 1.0.0`
-**THEN** la Release 1.0.0 est publiée et proposée par l'updater aux installations B
-
 ## Edge cases
 
 - **Contrôle des artefacts rouge sur A** : Release dépubliée, correctif en `hotfix/*` (PRODUCTION.md § Rollback), A devient le PATCH suivant.
 - **Signature refusée chez l'utilisateur** (clé de la CI désynchronisée de la `pubkey`) : un événement Sentry part (sub-project 02), incident critique, aucune rotation possible sans l'ancienne clé (PRODUCTION.md § Rotation).
 - **Sidecar en quarantaine après B** : empreinte nouvelle, faux positif possible. L'exclusion se refait, le faux positif se déclare à Microsoft et la décision « mesurer puis décider » s'applique (PRODUCTION.md § Rollback, dernier point).
 - **Application non relancée** : installation réussie mais fenêtre fermée. Le plugin `process` s'ajoute en `fix:`, la recette de B est rejouée.
-- **Utilisateur réel indisponible** : la VM ne vaut pas la machine tierce pour SmartScreen, l'antivirus et le trousseau (Checklist Post-MEP). La case reste ouverte et la 1.0.0 attend.
+- **Utilisateur réel indisponible** : la VM ne vaut pas la machine tierce pour SmartScreen, l'antivirus et le trousseau (Checklist Post-MEP). La case reste ouverte.
 
 ## Architectural decisions
 

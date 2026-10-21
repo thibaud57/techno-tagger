@@ -2,15 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Valider sur de vraies Releases la chaîne complète de distribution et de mise à jour, jusqu'au jalon 1.0.0.
+**Goal:** Valider sur de vraies Releases la chaîne complète de distribution et de mise à jour.
 
-**Architecture:** Recette manuelle en six tâches, sans code applicatif :
+**Architecture:** Recette manuelle en cinq tâches, sans code applicatif :
 - les documents qui partent avec la Release A (README § Installation, ADR-015 et PRODUCTION.md corrigés sur Azure) ;
 - la publication de A, son contrôle d'artefacts et son manifeste ;
 - l'installation de A sur VM propre puis chez un utilisateur réel ;
 - la publication de B et la mise à jour de A vers B sur les deux machines, avec les mesures ;
-- la consignation (cases datées, benchmarks, feature Post-MVP antivirus) ;
-- la release 1.0.0.
+- la consignation (cases datées, benchmarks, feature Post-MVP antivirus).
+
+La release 1.0.0, prévue en Task 6, est sortie du périmètre le 2026-10-21 par décision du propriétaire et publiée à part.
 
 Les gestes sur les machines de test et chez l'utilisateur sont joués par le propriétaire. L'agent prépare, guide, relève et consigne.
 
@@ -36,7 +37,7 @@ Les gestes sur les machines de test et chez l'utilisateur sont joués par le pro
 - **Application non relancée par l'installeur** : `fix:` qui ajoute le plugin `process` (sub-project 02, décision B), Task 4 rejouée sur la Release suivante (Task 4, Step 4).
 - **Signature refusée chez l'utilisateur** : incident critique, Sentry reçoit l'échec, aucune rotation sans l'ancienne clé (Task 4, Step 4).
 - **Sidecar en quarantaine après B** : nouvelle empreinte, faux positif déclaré à Microsoft, feature antivirus en n°1 du Post-MVP (Task 4, Step 6 ; Task 5, Step 4).
-- **Utilisateur réel indisponible** : la case « machine tierce » reste ouverte et la 1.0.0 attend (Task 6, Step 1).
+- **Utilisateur réel indisponible** : la case « machine tierce » reste ouverte (Task 3, Step 2).
 
 ---
 
@@ -221,6 +222,8 @@ Relevé attendu : points 1, 4 et 5 du Step 2, plus toute alerte antivirus.
 
 - [ ] **Step 5: Mesures (geste du propriétaire pour VirusTotal)**
 
+Taille de l'installeur B relevée le 2026-10-21 (24,3 Mo). VirusTotal reporté hors du sub-project le même jour : la soumission web exige un reCAPTCHA, le geste reste au propriétaire, avec un résultat à consigner dans PRODUCTION.md § Benchmarks.
+
 - Taille de l'installeur B (Task 2, Step 6 rejoué sur B).
 - Le propriétaire soumet l'installeur B et `tagger.exe` (tiré du dossier d'installation de la VM) à VirusTotal et relève le nombre de détections et les éditeurs concernés.
 
@@ -287,32 +290,3 @@ Mettre à jour la « Décision Ordre du Post-MVP » en conséquence, avec sa dat
 git add docs/PRODUCTION.md docs/VERSIONS.md docs/ARCHITECTURE.md docs/BRAINSTORM.md
 git commit -m "docs: recette de la distribution et de la mise a jour"
 ```
-
----
-
-### Task 6: Release 1.0.0
-
-**Files:** aucun.
-
-- [x] **Step 1: Condition** (2026-10-21 : B installée par l'updater chez l'utilisateur réel)
-
-B installée par l'updater chez l'utilisateur réel (Task 4, Step 3 réussi). Sinon, s'arrêter : la case « machine tierce » reste ouverte et la 1.0.0 attend (PRODUCTION.md, jalon 1.0.0).
-
-- [ ] **Step 2: Publier en forçant la version**
-
-Task 2, Steps 1 à 6, la PR `develop → main` titrée `feat: version 1.0.0` et mergée par :
-
-```bash
-gh pr merge <n> --squash --body "Release-As: 1.0.0"
-```
-
-Le footer va dans le corps du squash, seul texte que release-please lit (PRODUCTION.md § Versioning) : posé dans un commit de branche, il ne survivrait pas au squash. Expected : PR release-please en 1.0.0, Release 1.0.0 complète, contrôle vert.
-
-- [ ] **Step 3: Vérifier le tag**
-
-Run: `gh release view v1.0.0 --json tagName,isDraft --jq '"\(.tagName) draft=\(.isDraft)"'`
-Expected: `v1.0.0 draft=false`.
-
-- [ ] **Step 4: Proposée par l'updater**
-
-Le propriétaire lance l'application en B sur la VM. Expected : la modale propose 1.0.0.
