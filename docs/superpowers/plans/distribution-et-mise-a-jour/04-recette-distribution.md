@@ -108,34 +108,36 @@ git commit -m "docs: installation pour les utilisateurs et eligibilite d'Azure A
 
 **Files:** aucun.
 
+Faite le 2026-10-20 : v0.10.0. Le contrôle a échoué sur les URL d'API que `tauri-action` v1 écrit dans `latest.json` ; manifeste corrigé à la main, réécriture ajoutée au workflow (PR #86). La Release est créée en draft depuis (Steps 3 et 4 ci-dessous).
+
 **Interfaces:**
 - Produces : tag `vA` (version calculée par release-please), Release publiée portant l'installeur, son `.sig` et `latest.json`.
 
-- [ ] **Step 1: Ouvrir la PR `develop → main`**
+- [x] **Step 1: Ouvrir la PR `develop → main`**
 
 Via le skill `git-ops`, titre `feat: distribution et mise a jour de l'application`. Confirmer le merge avec le propriétaire, puis :
 
 Run: `gh pr merge <n> --squash --body "Updater signe, invite de mise a jour et version dans les reglages"`
 
-- [ ] **Step 2: Merger la PR release-please**
+- [x] **Step 2: Merger la PR release-please**
 
 Attendre le job `sync-lockfiles` vert et le commit `chore: realigner les lockfiles…` en tête de la PR de release, approuver les workflows en attente, relire le CHANGELOG, confirmer avec le propriétaire, merger.
 
-- [ ] **Step 3: Suivre le job `build`**
+- [x] **Step 3: Suivre le job `build`**
 
 Run: `gh run watch $(gh run list --workflow release-please.yml --limit 1 --json databaseId --jq '.[0].databaseId')`
-Expected: job `build` vert, étape « Verifier les artefacts de l'updater » (nom sans accent, comme dans le workflow) comprise, avec sa ligne `latest.json <version> et sa signature publies sur v<version>`.
+Expected: job `build` vert, étape « Verifier les artefacts de l'updater » (nom sans accent, comme dans le workflow) comprise, avec sa ligne `latest.json <version> et sa signature publies sur v<version>`, puis « Publier la Release ».
 
-- [ ] **Step 4: Si le contrôle échoue**
+- [x] **Step 4: Si le contrôle échoue**
 
-Dépublier (`gh release edit v<version> --draft=true`), ouvrir un `hotfix/*` selon PRODUCTION.md § Rollback, rejouer la Task 2 sur le PATCH. Ne pas continuer la recette sur une Release dont le contrôle est rouge.
+La Release reste en draft, jamais servie. « Re-run failed jobs » du même run ; si la cause est dans le code, `hotfix/*` et Task 2 rejouée sur le PATCH (PRODUCTION.md § Canaux, « Build en échec »). Ne pas continuer la recette sur une Release dont le contrôle est rouge.
 
-- [ ] **Step 5: Manifeste accessible sans authentification**
+- [x] **Step 5: Manifeste accessible sans authentification**
 
 Run: `curl -sL https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json`
 Expected: JSON avec `version` égale à A, `platforms.windows-x86_64.url` vers `…/releases/download/vA/…-setup.exe`, `signature` non vide.
 
-- [ ] **Step 6: Assets de la Release**
+- [x] **Step 6: Assets de la Release**
 
 Run: `gh release view vA --json assets --jq '.assets[] | "\(.name) \(.size)"'`
 Expected: `…_x64-setup.exe`, `…_x64-setup.exe.sig`, `latest.json`. Noter la taille de l'installeur.
