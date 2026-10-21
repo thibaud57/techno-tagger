@@ -286,7 +286,7 @@ Parsing du TXT Rekordbox, destiné à KUVO et donc orienté affichage : ses colo
 
 ### Feature 6 : Réduire les faux positifs antivirus
 
-Le sidecar PyInstaller non signé est le mode de panne le plus probable chez un utilisateur (PRODUCTION.md § Benchmarks) : mis en quarantaine, il laisse l'application sur son écran bloquant. Mesure de la première recette : ni blocage ni quarantaine chez un utilisateur réel, à l'installation comme à la mise à jour (2026-10-21) ; VirusTotal à mesurer.
+Le sidecar PyInstaller non signé est le mode de panne le plus probable chez un utilisateur (PRODUCTION.md § Benchmarks) : mis en quarantaine, il laisse l'application sur son écran bloquant. Mesure de la première recette : ni blocage ni quarantaine chez un utilisateur réel, à l'installation comme à la mise à jour, et installeur v0.11.0 à 0/68 sur VirusTotal (2026-10-21) ; `tagger.exe` seul non soumis.
 
 Pistes relevées le 2026-10-15, à trancher par un ADR le jour où la feature est prise :
 - Microsoft Store en MSIX : gratuit, re-signé par Microsoft, sans avertissement SmartScreen ; mises à jour par le Store à la place de l'updater, emballage MSIX en CI, certification à chaque version

@@ -31,7 +31,6 @@ Couvre :
 Exclut :
 - la release 1.0.0, sortie du périmètre le 2026-10-21 par décision du propriétaire et publiée à part ;
 - la VM propre, écartée le même jour : la machine de l'utilisateur réel tient lieu de machine tierce ;
-- la soumission à VirusTotal, reportée le même jour (reCAPTCHA), geste du propriétaire ;
 - tout code applicatif, un défaut trouvé partant en `hotfix/*` (PRODUCTION.md § Rollback) ;
 - les items Sentry de la Checklist Post-MEP (chaîne d'alerte, payload inspecté, release Sentry au tag), qui relèvent de la Feature 9 ;
 - les mesures de runs de 100 morceaux.
