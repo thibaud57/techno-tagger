@@ -150,6 +150,8 @@ Expected: `…_x64-setup.exe`, `…_x64-setup.exe.sig`, `latest.json`. Noter la 
 
 - [ ] **Step 1: Sur VM propre (geste du propriétaire)**
 
+Écartée le 2026-10-21 par décision du propriétaire : la machine de l'utilisateur réel (Step 2) tient lieu de machine tierce, et une VM sous Windows Home coûterait une à deux heures pour le seul Smart App Control, déjà consigné comme risque (PRODUCTION.md § Code Signing). Vaut aussi pour la Task 4, Step 2.
+
 Message au propriétaire, puis attendre son relevé :
 
 ```
@@ -173,7 +175,7 @@ Garde cette VM en vA pour la Task 4.
 
 Expected : chaque point observé, avec sa date. Un point en échec renvoie au § Rollback (hotfix), ou à la section Installation du README si c'est elle qui est fausse.
 
-- [ ] **Step 2: Chez l'utilisateur réel (geste du propriétaire)**
+- [x] **Step 2: Chez l'utilisateur réel (geste du propriétaire)** (2026-10-21 : SmartScreen contourné, clé gardée après relance, run sur quelques morceaux)
 
 Le propriétaire envoie le lien de la section Installation du README. La clé de l'utilisateur part à part, par canal privé (PRODUCTION.md § Gestion des clés utilisateurs). Relevé attendu : points 1 à 5 et 7 du Step 1, sans le test de la clé invalide. L'utilisateur reste en vA pour la Task 4.
 
@@ -207,11 +209,11 @@ Sur la VM restée en vA :
 7. Note toute alerte Defender sur le nouveau tagger.exe.
 ```
 
-- [ ] **Step 3: Mise à jour chez l'utilisateur réel (geste du propriétaire)**
+- [x] **Step 3: Mise à jour chez l'utilisateur réel (geste du propriétaire)** (2026-10-21 : 0.11.0 proposée, installée, relancée, version 0.11.0 dans Réglages, aucune alerte antivirus)
 
 Relevé attendu : points 1, 4 et 5 du Step 2, plus toute alerte antivirus.
 
-- [ ] **Step 4: Si un point échoue**
+- [x] **Step 4: Si un point échoue** (sans objet le 2026-10-21 : aucun point en échec)
 
 - **Application non relancée au point 4** : `fix:` qui ajoute le plugin `process` et un `relaunch()` après l'installation (sub-project 02, décision « relance après installation », option B), puis Task 4 rejouée sur la Release suivante.
 - **Signature refusée** (modale en échec, événement Sentry reçu) : incident critique selon PRODUCTION.md § Incident Response. Comparer la `pubkey` de `tauri.conf.json` à la clé publique sauvegardée dans le gestionnaire de mots de passe, ne jamais régénérer la paire.
@@ -222,7 +224,7 @@ Relevé attendu : points 1, 4 et 5 du Step 2, plus toute alerte antivirus.
 - Taille de l'installeur B (Task 2, Step 6 rejoué sur B).
 - Le propriétaire soumet l'installeur B et `tagger.exe` (tiré du dossier d'installation de la VM) à VirusTotal et relève le nombre de détections et les éditeurs concernés.
 
-- [ ] **Step 6: Faux positifs bloquants**
+- [x] **Step 6: Faux positifs bloquants** (2026-10-21 : aucun, la feature antivirus suit la demande)
 
 Le sidecar a été mis en quarantaine ou bloqué par Defender sur une machine (Task 3 ou Task 4) : le propriétaire déclare le faux positif à Microsoft pour ce build et la feature antivirus passe en n°1 du Post-MVP à la Task 5. Sinon, elle se range avec les features qui suivent la demande.
 
@@ -236,7 +238,7 @@ Le sidecar a été mis en quarantaine ou bloqué par Defender sur une machine (T
 - Modify: `docs/ARCHITECTURE.md`
 - Modify: `docs/BRAINSTORM.md`
 
-- [ ] **Step 1: PRODUCTION.md**
+- [x] **Step 1: PRODUCTION.md** (2026-10-21)
 
 Charger `Skill[production-doc]`. Cocher et dater, sur les seuls constats des Tasks 2 à 4. Les Checklists Release et Distribution se déroulent à chaque release : la case cochée et datée atteste du premier passage réel, comme le fait déjà « Confirmé au premier run (v0.1.0) » dans la Checklist Release, elle ne dispense pas de les rejouer à la release suivante :
 - Checklist Distribution : les six items ;
@@ -247,15 +249,15 @@ Charger `Skill[production-doc]`. Cocher et dater, sur les seuls constats des Tas
 
 Benchmarks : renseigner « Taille de l'installeur » (B, avec sa date) et « Détections antivirus » (résultat VirusTotal daté, éditeurs concernés).
 
-- [ ] **Step 2: VERSIONS.md**
+- [x] **Step 2: VERSIONS.md** (2026-10-21)
 
 Charger `Skill[versions-doc]`. Cocher et dater « `latest.json` est publié avec une signature valide, et un client sur la version antérieure détecte la mise à jour » (citation du doc) et « WebView2 est bien présent sur l'image du runner Windows… ».
 
-- [ ] **Step 3: ARCHITECTURE.md**
+- [x] **Step 3: ARCHITECTURE.md** (2026-10-21)
 
 Charger `Skill[architecture-doc]`. Dans § Ordre de développement, ligne de l'étape 9, ajouter en fin de « Pourquoi cet ordre » : `Livrée par la Feature 8 (recette du AAAA-MM-JJ).`, à la date réelle de la Task 4. Dans § Évolutions Futures (Post-MVP), ajouter la puce « **Réduire les faux positifs antivirus** » avec la même phrase d'ouverture que la feature du BRAINSTORM (Step 4), à la place que lui donne la Task 4, Step 6.
 
-- [ ] **Step 4: BRAINSTORM.md**
+- [x] **Step 4: BRAINSTORM.md** (2026-10-21, Feature 6, VirusTotal à mesurer)
 
 Charger `Skill[brainstorm-doc]`. Ajouter la feature Post-MVP « Réduire les faux positifs antivirus » :
 
@@ -279,7 +281,7 @@ Placer la feature et numéroter selon la Task 4, Step 6 :
 
 Mettre à jour la « Décision Ordre du Post-MVP » en conséquence, avec sa date. `<résultat …>` se remplace par la mesure réelle de la Task 4, Step 5.
 
-- [ ] **Step 5: Commit sur une branche `feature/*`**, mergée dans `develop` (`git-ops`)
+- [x] **Step 5: Commit sur une branche `feature/*`** (2026-10-21), mergée dans `develop` (`git-ops`)
 
 ```bash
 git add docs/PRODUCTION.md docs/VERSIONS.md docs/ARCHITECTURE.md docs/BRAINSTORM.md
@@ -292,7 +294,7 @@ git commit -m "docs: recette de la distribution et de la mise a jour"
 
 **Files:** aucun.
 
-- [ ] **Step 1: Condition**
+- [x] **Step 1: Condition** (2026-10-21 : B installée par l'updater chez l'utilisateur réel)
 
 B installée par l'updater chez l'utilisateur réel (Task 4, Step 3 réussi). Sinon, s'arrêter : la case « machine tierce » reste ouverte et la 1.0.0 attend (PRODUCTION.md, jalon 1.0.0).
 

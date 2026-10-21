@@ -284,7 +284,19 @@ Linux est indolore par comparaison : runner GitHub gratuit, aucune signature exi
 
 Parsing du TXT Rekordbox, destiné à KUVO et donc orienté affichage : ses colonnes dépendent de la langue d'export, il faudrait rendre leurs clés configurables. Et du XML, qui exporte la collection entière et non une playlist.
 
-### Feature 6 : Canal beta
+### Feature 6 : Réduire les faux positifs antivirus
+
+Le sidecar PyInstaller non signé est le mode de panne le plus probable chez un utilisateur (PRODUCTION.md § Benchmarks) : mis en quarantaine, il laisse l'application sur son écran bloquant. Mesure de la première recette : ni blocage ni quarantaine chez un utilisateur réel, à l'installation comme à la mise à jour (2026-10-21) ; VirusTotal à mesurer.
+
+Pistes relevées le 2026-10-15, à trancher par un ADR le jour où la feature est prise :
+- Microsoft Store en MSIX : gratuit, re-signé par Microsoft, sans avertissement SmartScreen ; mises à jour par le Store à la place de l'updater, emballage MSIX en CI, certification à chaque version
+- Certificat Certum Open Source : dès 49 €, au nom civil du propriétaire, affiché dans chaque binaire
+- Bootloader PyInstaller recompilé en CI : gratuit, efficace contre les seules détections par signature
+- Certificat OV : 150 à 300 $ par an
+
+SignPath Foundation est écartée : elle refuse tout composant non open source (PrimeNG v22) et exige une réputation vérifiable du projet. Une signature ne retire pas l'avertissement SmartScreen, qui suit la réputation des téléchargements.
+
+### Feature 7 : Canal beta
 
 Pré-release GitHub publiée sur un manifeste updater distinct, pour installer une mise à jour sur une machine avant de la pousser à tout le monde.
 
@@ -372,7 +384,7 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 - **Décision vie privée** : durcissement du SDK plutôt que consentement (une case à cocher n'empêche aucune donnée de partir, la configuration si), scrubbing des chemins, région EU, aucun titre de morceau envoyé automatiquement
 - **Décision Clé API** : une clé par utilisateur saisie dans les Settings vs clé partagée embarquée (une clé compilée dans le binaire est extractible, et la révoquer obligerait à rediffuser l'app à tout le monde)
 - **Décision Cibles** : Windows seul au MVP, macOS et Linux en Post-MVP (aucun utilisateur Mac confirmé à ce jour, et la cible coûtait à elle seule 99 $/an de notarisation, un runner macOS facturé x10 en CI et un second build PyInstaller ; sans notarisation, Gatekeeper bloque au premier lancement et le contournement par Contrôle-clic ne suffit plus depuis macOS Sequoia)
-- **Décision Ordre du Post-MVP** : édition manuelle, tests bout-en-bout puis agent IA vs agent IA en premier (l'édition manuelle comble à moindre coût le dernier trou de la chaîne de résolution ; le filet e2e précède l'agent IA, plus gros changement de comportement à venir ; macOS et Linux, formats de playlist et canal beta suivent la demande)
+- **Décision Ordre du Post-MVP** : édition manuelle, tests bout-en-bout puis agent IA vs agent IA en premier (l'édition manuelle comble à moindre coût le dernier trou de la chaîne de résolution ; le filet e2e précède l'agent IA, plus gros changement de comportement à venir ; macOS et Linux, formats de playlist, faux positifs antivirus et canal beta suivent la demande ; les faux positifs n'ont bloqué aucun utilisateur à la recette du 2026-10-21, d'où leur place parmi ces derniers)
 - **Décision Dépôt** : dépôt neuf vs évolution de `BeatportScrapper-TrackTagger` (la CLI sert de référence à lire, rien n'est porté tel quel, l'arborescence à plat ne correspond pas à la structure Tauri)
 
 **Principes directeurs :**

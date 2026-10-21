@@ -1086,7 +1086,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 | 6 | Onglet scraping, pipeline et liste | Le cœur |
 | 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, bouton de rollback, plan de run et reprise, rapport, récapitulatif et runs passés | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
 | 8 | Reste des Settings, monitoring | Transversaux, une fois le flux principal stable. Monitoring livré avec la Release v0.9.0 (2026-10-19). |
-| 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers |
+| 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers. Livrée par la Feature 8 (recette du 2026-10-21). |
 
 ---
 
@@ -1097,6 +1097,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 - **Agent IA d'arbitrage (PydanticAI)** : en renfort du fuzzy et non à sa place, sur la zone grise (tranche avant d'ouvrir la modale) et sur les non résolus (reformule la requête et relance). Mode activable, désactivé par défaut, clé du fournisseur saisie par l'utilisateur. Cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md).
 - **macOS et Linux** : macOS coûte un runner CI facturé x10 sur dépôt privé, un second build PyInstaller et surtout la notarisation. Sans Apple Developer Program à 99 $/an, Gatekeeper bloque au premier lancement et le contournement par Contrôle-clic ne suffit plus depuis macOS Sequoia. Linux est indolore par comparaison. Cf. [ADR-015](adrs/015-cibles-distribution-windows.md).
 - **Formats de playlist supplémentaires** : TXT Rekordbox (clés de colonnes configurables, l'export dépendant de la langue) et XML de collection
+- **Réduire les faux positifs antivirus** : le sidecar PyInstaller non signé est le mode de panne le plus probable chez un utilisateur, mis en quarantaine il laisse l'application sur son écran bloquant
 - **Canal beta** : pré-release GitHub sur un manifeste updater distinct, pour tester une mise à jour avant de la pousser
 
 ---

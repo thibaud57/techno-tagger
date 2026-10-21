@@ -120,7 +120,7 @@ Conséquences par lock, très inégales :
 - [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent. **Confirmé au premier run (v0.1.0)** : les source maps sont bien montées sur `techno-tagger@0.1.0`. Symptôme si cela régressait : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
 - [ ] Étape **« Verifier les artefacts de l'updater »** du job de build **verte** : elle échoue si `latest.json` ou le `.sig` manquent, si le manifeste annonce une autre version que le tag, ou si son entrée `windows-x86_64` est incomplète. `tauri-action` seul reste vert sans artefact d'updater, `uploadUpdaterJson` fût-il à `true` (constaté sur la v0.1.0, publiée avec le seul installeur)
 - [ ] **Smoke test d'installation** sur une machine ou une VM propre : l'installeur passe, l'application démarre, le sidecar répond, et `F5`, `Ctrl+R` comme le clic droit restent sans effet (un rechargement relancerait un second sidecar)
-- [ ] **Smoke test de mise à jour** : depuis une installation en version N-1, l'updater propose, télécharge, installe et relance, **et le sidecar a bien changé de version** (cf. § Remplacement du sidecar à la mise à jour)
+- [x] **Smoke test de mise à jour** : depuis une installation en version N-1, l'updater propose, télécharge, installe et relance, **et le sidecar a bien changé de version** (cf. § Remplacement du sidecar à la mise à jour). Premier passage le 2026-10-21, 0.10.0 → 0.11.0, sur le poste de développement et chez un utilisateur réel
 - [ ] Un run réel de bout en bout : playlist → arbitrage → écriture → rapport
 - [ ] Back-merge `main → develop` (fait redescendre le bump de version + le CHANGELOG)
 
@@ -193,10 +193,10 @@ Le binaire du sidecar porte en revanche un **suffixe target-triple obligatoire**
 
 À dérouler à chaque release qui part chez un tiers (complète la Checklist Release ci-dessus) :
 
-- [ ] Installeur téléchargé **depuis la Release publiée**, pas depuis l'artefact de CI
-- [ ] Installation sur une machine ou VM propre, sans toolchain de développement
-- [ ] Avertissement SmartScreen constaté et documenté dans le message envoyé aux utilisateurs
-- [ ] Aucun faux positif Defender bloquant sur le sidecar (sinon : marche à suivre d'exclusion + signalement du faux positif à Microsoft)
+- [x] Installeur téléchargé **depuis la Release publiée**, pas depuis l'artefact de CI (2026-10-21)
+- [x] Installation sur une machine ou VM propre, sans toolchain de développement (2026-10-21, machine d'un utilisateur réel)
+- [x] Avertissement SmartScreen constaté et documenté dans le message envoyé aux utilisateurs (2026-10-21, README § Installation)
+- [x] Aucun faux positif Defender bloquant sur le sidecar (sinon : marche à suivre d'exclusion + signalement du faux positif à Microsoft) (2026-10-21, ni blocage ni quarantaine chez l'utilisateur réel, installation et mise à jour)
 - [ ] Premier lancement sans clé API : l'écran de Settings explique clairement quoi saisir
 - [ ] Sidecar absent ou mis en quarantaine : l'écran bloquant nomme le fichier attendu et son emplacement, pas une interface vide
 
@@ -314,11 +314,11 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`target/release/` hors cache CI**, ou purgé de la copie du sidecar avant le build : couvert par le nettoyage de `Swatinem/rust-cache` (cf. § Remplacement du sidecar à la mise à jour), à revérifier si cette action change
 - [ ] **Contrôle de version UI ↔ sidecar au démarrage** : refuser de lancer un run si les deux versions diffèrent, filet contre le sidecar non remplacé
 - [ ] **Sortie NDJSON vidée à chaque ligne** : `line_buffering=True` posé sur `stdout` au démarrage, un binaire PyInstaller derrière un pipe ne respectant ni `-u` ni `PYTHONUNBUFFERED` : sans lui, l'interface paraît figée pendant tout le run (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
-- [ ] **Backend keyring forcé explicitement** : le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
+- [x] **Backend keyring forcé explicitement** (clé relue après relance de l'application installée, 2026-10-21) : le hidden import seul ne suffit pas : les backends sont découverts par *entry points*, donc `--collect-metadata keyring` est requis, avec `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes`. Le plus sûr reste de court-circuiter la découverte par `keyring.set_keyring(WinVaultKeyring())`, et non par `PYTHON_KEYRING_BACKEND` : l'environnement du sidecar est hérité du process parent, hors de portée de son propre code. Sans cela le bundle lève `No recommended backend was available`, **au runtime chez l'utilisateur** (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)).
   ⚠️ **Non vérifiable avant l'étape 5** : au bootstrap, aucun module n'importe `keyring`, il n'entre donc pas dans le graphe analysé et `hook-keyring.py` ne se déclenche jamais. Constaté sur le binaire du bootstrap, qui ne contient ni `keyring.backends` ni `WinVaultKeyring`, seulement les métadonnées posées par le `copy_metadata` explicite du `.spec`. Cocher cet item sur un binaire antérieur à l'étape 5 ne prouve rien
 - [x] **`target-branch: main` valide sur le flux `develop → main`** : release-please raisonne sur une branche de vérité unique, et ce flux n'est documenté nulle part de son côté (cf. [VERSIONS.md](VERSIONS.md) § release-please). Confirmé au premier run (`v0.1.0`) : le squash-merge de la PR est un commit ordinaire de `main`, rien à régler
-- [ ] **`extra-files` a bumpé les deux manifestes TOML** : après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
-- [ ] **WebView2 présent sur le runner `windows-2025`** : sa présence sur l'image n'est pas confirmée (cf. [VERSIONS.md](VERSIONS.md) § GitHub Actions). Son absence casse `tauri build`, ou pire produit un installeur dont l'application ne s'ouvre pas
+- [x] **`extra-files` a bumpé les deux manifestes TOML** (tous trois en 0.11.0, 2026-10-21) : après la première release, `src-tauri/Cargo.toml` et `sidecar/pyproject.toml` portent la même version que `package.json`. Un `jsonpath` qui ne matche rien **n'échoue pas**, il ne fait rien : `sidecar/tests/unit/test_main.py` le rattrape au commit suivant, pas au moment du tag
+- [x] **WebView2 présent sur le runner `windows-2025`** (l'application construite en CI s'ouvre, 2026-10-21) : sa présence sur l'image n'est pas confirmée (cf. [VERSIONS.md](VERSIONS.md) § GitHub Actions). Son absence casse `tauri build`, ou pire produit un installeur dont l'application ne s'ouvre pas
 - [x] **Releases Sentry créées dans les deux projets** : job `sentry-release` de `release-please.yml`, matrice sur `techno-tagger-ui` et `techno-tagger-sidecar`, `set_commits: auto` (d'où le `fetch-depth: 0`). Sans la release des deux côtés, une erreur de webview et une erreur de sidecar ne se croisent sur aucune livraison. Confirmé le 2026-10-19 (`v0.9.0`), 2 commits rattachés
 - [ ] **Source maps de la webview uploadées puis purgées** : `sourceMap: { hidden: true }` en configuration `production`, upload par `sentry-cli` dans le script npm `sourcemaps`, que `pnpm build` enchaine, suppression des `.map` avant que `tauri build` n'embarque `frontendDist`. `tauri-codegen` n'écarte aucune extension : une map oubliée met tout le TypeScript d'origine dans l'installeur. Sentry résout par les Debug IDs qu'`@angular/build` injecte, pas par le chemin des fichiers. Upload confirmé le 2026-10-19 (`v0.9.0`), purge à confirmer au prochain build (décompte des `.map` restants dans le log)
 - [ ] **`pnpm-workspace.yaml` créé** : même sans monorepo : depuis pnpm 11, `.npmrc` n'accepte plus que l'auth et le registry, et `allowBuilds: { esbuild: true }` doit y vivre
@@ -361,16 +361,16 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 - [ ] **`just typecheck`** : `tsc --noEmit` sur les deux tsconfig Angular, Mypy strict sur `sidecar/src` et `sidecar/tests`
 - [ ] **`just test`** : pytest avec le seuil de couverture 80 % bloquant sur `sidecar/`, Vitest sur `src/`
 - [ ] **`just build`** : binaire PyInstaller du sidecar (`build-sidecar`) puis installeur NSIS (`tauri build`)
-- [ ] **Smoke test du livrable** : installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux
+- [x] **Smoke test du livrable** : installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux (2026-10-21, installeur de la Release chez un utilisateur réel)
 - [ ] **Test de sécurité vert** : la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry
 
 ## Checklist Post-MEP
 
 Items one-shot après la première Release publiée, nécessitant qu'elle soit accessible publiquement.
 
-- [ ] **`latest.json` accessible sans authentification** : `curl -L https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json` rend le manifeste, avec `version`, `platforms.windows-x86_64.url` et `.signature` renseignés
-- [ ] **Chaîne de mise à jour vérifiée en réel** : machine en version N-1, l'updater détecte, télécharge, **vérifie la signature**, installe et relance
-- [ ] **Installation depuis zéro sur une machine tierce** : celle d'un des utilisateurs réels, pas une VM : SmartScreen, antivirus et trousseau s'y comportent différemment
+- [x] **`latest.json` accessible sans authentification** (2026-10-21, v0.11.0) : `curl -L https://github.com/thibaud57/techno-tagger/releases/latest/download/latest.json` rend le manifeste, avec `version`, `platforms.windows-x86_64.url` et `.signature` renseignés
+- [x] **Chaîne de mise à jour vérifiée en réel** : machine en version N-1, l'updater détecte, télécharge, **vérifie la signature**, installe et relance (2026-10-21, 0.10.0 → 0.11.0)
+- [x] **Installation depuis zéro sur une machine tierce** (2026-10-21) : celle d'un des utilisateurs réels, pas une VM : SmartScreen, antivirus et trousseau s'y comportent différemment
 - [ ] **Faux positif antivirus mesuré** : soumission de l'installeur et du sidecar à VirusTotal pour connaître l'ampleur réelle, et signalement aux éditeurs concernés si le blocage est bloquant
 - [x] **Chaîne d'alerte Sentry** : self-test côté sidecar et côté webview (§ Observabilité > Vérifier la remontée depuis l'application installée), vérifier la réception de l'issue **et** de l'email. Confirmé le 2026-10-19 (`v0.9.0`), exception capturée comprise
 - [x] **Payload Sentry inspecté en vrai** : ouvrir l'event du self-test dans l'interface Sentry et confirmer l'absence de variables locales, de nom de machine, de chemin utilisateur et de titre de morceau. Confirmé le 2026-10-19 (`v0.9.0`)
@@ -712,11 +712,11 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 | Démarrage du sidecar, `--onedir` | — | **335 ms** (médiane, 5 runs) |
 | Taille produite, `--onefile` | — | **16 Mo**, 1 fichier |
 | Taille produite, `--onedir` | — | **32 Mo**, 65 fichiers (exe : 6,9 Mo) |
-| Détections antivirus, `--onefile` vs `--onedir` | Comparaison sur Defender | à mesurer chez un utilisateur (cf. note ci-dessous) |
+| Détections antivirus, `--onefile` vs `--onedir` | Comparaison sur Defender | `--onedir` : ni blocage ni quarantaine chez un utilisateur réel, installation et mise à jour (2026-10-21) ; VirusTotal à mesurer |
 | Run de 100 morceaux, cache froid | À établir, borné par le pool de concurrence (3 Beatport, 2 Bandcamp, cf. [ADR-017](adrs/017-taille-pool-concurrence.md)) | à mesurer |
 | Run de 100 morceaux, cache chaud | Réseau quasi nul, seul le local compte | à mesurer |
 | Phase d'écriture, 100 morceaux | Quelques secondes, pochettes déjà en cache | à mesurer |
-| Taille de l'installeur | Baseline pour détecter une inflation ultérieure | à mesurer |
+| Taille de l'installeur | Baseline pour détecter une inflation ultérieure | **24,3 Mo** (v0.11.0, 2026-10-21) |
 
 > **Protocole de la mesure de démarrage** (2026-08-27) : prototype embarquant les dépendances réelles du sidecar (mutagen, rapidfuzz, httpx2, keyring, sentry-sdk), lancé par un process parent **via un pipe**, comme le fera Tauri. Le chiffre est le délai entre le lancement et l'arrivée de la première ligne NDJSON, médiane sur 5 exécutions. Un hello-world aurait mesuré zéro : le coût d'extraction de `--onefile` est proportionnel au poids des dépendances embarquées.
 

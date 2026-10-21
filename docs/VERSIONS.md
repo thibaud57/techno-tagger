@@ -1123,13 +1123,13 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 - [ ] `capabilities/default.json` autorise le spawn du sidecar et rien d'autre
 - [ ] Une pochette du dossier de cache s'affiche dans la webview via `convertFileSrc()`
 - [ ] L'installeur NSIS s'installe et se désinstalle proprement
-- [ ] WebView2 est bien présent sur l'image du runner Windows, sa présence n'a pas pu être confirmée dans la documentation
+- [x] WebView2 est bien présent sur l'image du runner Windows, sa présence n'a pas pu être confirmée dans la documentation (l'application construite en CI s'ouvre, 2026-10-21)
 
 **Au premier passage CI** :
 
 - [x] Le flux `develop` → `main` de release-please est validé : premier run réel, tag `v0.1.0`
 - [x] Le job de build est chaîné en `needs:` sur `release_created`, et **pas** sur `on: push: tags` : installeur publié sur la Release `v0.1.0`
-- [ ] `latest.json` est publié avec une signature valide, et un client sur la version antérieure détecte la mise à jour
+- [x] `latest.json` est publié avec une signature valide, et un client sur la version antérieure détecte la mise à jour (2026-10-21, 0.10.0 → 0.11.0)
 - [ ] `pnpm/setup` est pinné sur le SHA de la v3.1.1, pas sur un tag flottant, et le cache pnpm fonctionne sur le runner Windows
 - [ ] Les workflows installent pnpm et Node par la seule action `pnpm/setup`, sans `corepack enable` ni `actions/setup-node`
 - [ ] `pnpm install --frozen-lockfile` passe sur une PR Dependabot fraîche, sans `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`
