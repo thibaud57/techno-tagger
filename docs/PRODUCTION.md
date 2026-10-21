@@ -149,7 +149,7 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 >
 > **La Release est créée en draft et publiée par le dernier step du build**, une fois `latest.json` réécrit et la garde verte : aucune fenêtre où `latest.json` rend 404, aucune Release incomplète publique. `force-tag-creation` pose le tag dès la création du draft, sans quoi release-please ne retrouverait pas la release précédente ([release-please#1650](https://github.com/googleapis/release-please/issues/1650)). Vérifié dans le code de release-please-action v5.0.0, de `gh` et de `tauri-action` v1.0.0 le 2026-10-20, à éprouver à la release suivante.
 >
-> **Build en échec** : le draft reste avec son tag, et release-please compte cette version comme sortie. Relancer par « Re-run failed jobs » du même run, le seul qui garde `release_created`.
+> **Build en échec** : le draft reste avec son tag, et release-please compte cette version comme sortie. Relancer par « Re-run failed jobs » du même run, le seul qui garde `release_created`. Si la cause est dans le code : hotfix et nouveau tag `PATCH`, puis supprimer le draft resté (`gh release delete <tag>`), jamais publié.
 >
 > `tauri-action` reçoit l'`id` de la Release créée par release-please (`releaseId`) : il n'a rien à retrouver par tag, draft ou non.
 
@@ -289,7 +289,9 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 
 Il n'y a **rien à faire redescendre** : aucun serveur ne sert cette application. Le retour arrière est un roll-*forward*.
 
-**Procédure** :
+**Build rouge** : la Release est restée en draft, jamais servie : § Canaux, « Build en échec ».
+
+**Procédure**, pour une Release publiée :
 1. **Dépublier la Release fautive** (la repasser en draft) pour que `latest.json` cesse d'être servi. Les installations non encore mises à jour arrêtent immédiatement de la voir ; celles qui l'ont déjà prise ne reviennent pas en arrière pour autant. Le tag Git, lui, reste : il ne disparaît pas quand la Release repasse en brouillon.
 2. `hotfix/*` depuis `main` → PR titrée `fix:` → merge → PR release-please → **nouveau tag `PATCH`**. Jamais de suppression du tag fautif, qui fausserait le CHANGELOG sans rien corriger chez personne.
 3. Vérifier la nouvelle Release : installeur + `latest.json` présents, smoke test d'installation et de mise à jour.
