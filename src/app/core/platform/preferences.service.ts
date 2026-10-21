@@ -56,6 +56,21 @@ export const isThresholds = (stored: unknown): stored is ThresholdsPayload => {
   )
 }
 
+/** Notee avant l'installation : relance encore en `from`, elle a echoue. */
+export interface UpdateAttempt {
+  readonly from: string
+  readonly to: string
+}
+
+const isUpdateAttempt = (stored: unknown): stored is UpdateAttempt => {
+  if (typeof stored !== "object" || stored === null) {
+    return false
+  }
+  const { from, to } = stored as Record<string, unknown>
+
+  return typeof from === "string" && from !== "" && typeof to === "string" && to !== ""
+}
+
 /**
  * La copie est le defaut : la bibliotheque source reste intacte pendant que le
  * re-tagging reecrit les fichiers de destination.
@@ -83,6 +98,11 @@ const language = definePreference<Language | null>("language", null, (stored): s
   LANGUAGES.some((known) => known === stored),
 )
 const thresholds = definePreference<ThresholdsPayload | null>("thresholds", null, isThresholds)
+const updateAttempt = definePreference<UpdateAttempt | null>(
+  "update_attempt",
+  null,
+  isUpdateAttempt,
+)
 
 /** Seul point d'entree du store Tauri de la webview : les specs le remplacent par `preferencesStub`. */
 @Service()
@@ -119,6 +139,14 @@ export class PreferencesService {
 
   writeThresholds(value: ThresholdsPayload | null): Promise<void> {
     return thresholds.write(value)
+  }
+
+  readUpdateAttempt(): Promise<UpdateAttempt | null> {
+    return updateAttempt.read()
+  }
+
+  writeUpdateAttempt(value: UpdateAttempt | null): Promise<void> {
+    return updateAttempt.write(value)
   }
 
   /** Le dossier re-taggue est presque toujours la destination de la derniere extraction. */

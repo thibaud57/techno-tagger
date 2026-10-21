@@ -9,6 +9,7 @@
     success: true,
     kind: state.kind,
     offered: state.kind === "none" ? null : state.update.version,
+    installFailed: updates.installFailed(),
     dialogVisible: updates.dialogVisible(),
     badgeVisible: updates.badgeVisible(),
     dialog: document.querySelector(".p-dialog h3")?.textContent.trim() ?? null,

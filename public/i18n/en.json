@@ -490,6 +490,7 @@
     "later": "Later",
     "install": "Install",
     "retry": "Retry",
+    "installFailed": "The last installation did not complete.\nTry again, or download the installer from the release notes page.",
     "busy": "Available once the current work is done",
     "downloading": "Downloading",
     "counter": "{{received}} of {{total}}",

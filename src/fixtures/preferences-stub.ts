@@ -5,6 +5,7 @@ import {
   DEFAULT_EXTRACTION_MODE,
   DEFAULT_SOUND_SIGNAL,
   type PreferencesService,
+  type UpdateAttempt,
 } from "../app/core/platform/preferences.service"
 import type { ExtractionMode, ThresholdsPayload } from "../app/core/sidecar/protocol"
 
@@ -19,6 +20,7 @@ interface Preferences {
   language: Language | null
   thresholds: ThresholdsPayload | null
   lastDestination: string | null
+  updateAttempt: UpdateAttempt | null
 }
 
 /** `stored` : ce que le store contient deja au montage ; le reste suit les defauts du service. */
@@ -29,6 +31,7 @@ export const preferencesStub = (stored: Partial<Preferences> = {}): PreferencesS
     language: null,
     thresholds: null,
     lastDestination: null,
+    updateAttempt: null,
     ...stored,
   }
 
@@ -60,6 +63,14 @@ export const preferencesStub = (stored: Partial<Preferences> = {}): PreferencesS
     ),
     writeThresholds: vi.fn<PreferencesService["writeThresholds"]>((value) => {
       values.thresholds = value
+
+      return Promise.resolve()
+    }),
+    readUpdateAttempt: vi.fn<PreferencesService["readUpdateAttempt"]>(() =>
+      Promise.resolve(values.updateAttempt),
+    ),
+    writeUpdateAttempt: vi.fn<PreferencesService["writeUpdateAttempt"]>((value) => {
+      values.updateAttempt = value
 
       return Promise.resolve()
     }),
