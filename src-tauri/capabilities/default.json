@@ -1,12 +1,17 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions de la fenetre principale : lancement du sidecar, selection de chemins, preferences, locale, ouverture de dossiers, verification et installation des mises a jour et fermeture de la fenetre apres confirmation.",
+  "description": "Permissions de la fenetre principale : lancement du sidecar, selection de chemins, preferences, locale, ouverture de dossiers, mises a jour, barre de titre maison et fermeture de la fenetre apres confirmation.",
   "windows": ["main"],
   "platforms": ["windows"],
   "permissions": [
     "core:default",
     "core:window:allow-destroy",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close",
     {
       "identifier": "shell:allow-spawn",
       "allow": [{ "name": "binaries/tagger", "sidecar": true }]

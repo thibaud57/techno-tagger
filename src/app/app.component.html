@@ -1,4 +1,26 @@
+<!-- Logo et nom, dans la barre d'onglets comme dans celle de l'ecran bloquant. Le logo laisse
+     passer le clic : la zone de deplacement est son parent. -->
+<ng-template #brand>
+  <img
+    src="logo.png"
+    alt=""
+    width="20"
+    height="20"
+    draggable="false"
+    class="pointer-events-none size-5"
+  />
+  {{ appTitle }}
+</ng-template>
+
 @if (blocked(); as reason) {
+  <!-- Sans decorations, cette barre est la seule a deplacer et a fermer la fenetre. `box-content` :
+       40px plus le filet, comme la barre d'onglets, pour que rien ne saute entre les deux. -->
+  <div class="box-content flex h-10 items-center border-b border-surface" data-tauri-drag-region>
+    <div class="flex flex-1 items-center gap-2 px-3 text-sm font-semibold" data-tauri-drag-region>
+      <ng-container [ngTemplateOutlet]="brand" />
+    </div>
+    <app-window-controls />
+  </div>
   <!-- Ecran bloquant et non modal, a l'anatomie de nos modales : 30rem, texte a gauche, action
        en pied a droite. Carte neutre plutot qu'un pave d'alerte : le rouge ne doit pas baigner la
        phrase qui dit quoi faire. -->
@@ -32,38 +54,48 @@
   </div>
 } @else {
   <!-- Les onglets restent freres et en tete : la navigation au clavier de `p-tab` suit le DOM
-       (frere suivant, premier enfant), `order` fait le reste a l'ecran. Le nom part de 4rem,
-       l'engrenage (`w-12`) plus la marge des badges (`pl-4`), pour que Playlist et Tagging tombent
-       au centre exact de la barre. -->
+       (frere suivant, premier enfant), `order` fait le reste a l'ecran. La barre est aussi la barre
+       de titre (`decorations: false`) : `data-tauri-drag-region` sur ce qui n'est pas un controle.
+       Le nom part de 4rem + 147px, l'engrenage (`w-12`), la marge des badges (`pl-4`), le filet
+       (9px) et les boutons de fenetre (3 x 46px), pour que Playlist et Tagging tombent au centre
+       exact de la barre. -->
   <p-tabs [value]="activeTab()" (valueChange)="navigate($event)" [dt]="tabsTokens">
     <p-tablist>
       @for (tab of workflowTabs; track tab) {
-        <p-tab [value]="tab">
+        <p-tab [value]="tab" class="h-10">
           <app-icon [name]="tabIcons[tab]" [size]="16" />
           {{ "nav." + tab | translate }}
         </p-tab>
       }
       <p-tab
         [value]="settingsTab"
-        class="order-2 w-12 justify-center"
+        class="order-2 h-10 w-12 justify-center"
         [attr.aria-label]="'nav.settings' | translate"
         [attr.title]="'nav.settings' | translate"
       >
         <app-icon [name]="tabIcons[settingsTab]" [size]="16" />
       </p-tab>
+      <span
+        class="order-3 mx-1 h-5 self-center border-l border-surface"
+        data-p-disabled="true"
+        data-tauri-drag-region
+      ></span>
+      <app-window-controls class="order-3" data-p-disabled="true" />
       <!-- `data-p-disabled` : les fleches et Debut / Fin de `p-tab` sautent ce frere, qui n'est pas un
            onglet ; sans lui, la navigation au clavier s'arrete sur le nom ou sur les badges. -->
       <div
-        class="order-first flex flex-[1_1_4rem] items-center gap-2 px-4 text-sm font-semibold"
+        class="order-first flex flex-[1_1_calc(4rem+147px)] items-center gap-2 px-3 text-sm font-semibold"
         role="none"
         data-p-disabled="true"
+        data-tauri-drag-region
       >
-        <span class="grid size-6 place-items-center rounded-sm bg-highlight text-primary">
-          <app-icon name="tag" [size]="16" />
-        </span>
-        {{ appTitle }}
+        <ng-container [ngTemplateOutlet]="brand" />
       </div>
-      <div class="order-1 flex flex-1 items-center justify-end gap-2 pl-4" data-p-disabled="true">
+      <div
+        class="order-1 flex flex-1 items-center justify-end gap-2 pl-4"
+        data-p-disabled="true"
+        data-tauri-drag-region
+      >
         @if (arbitrationCount() > 0) {
           <button
             type="button"
@@ -106,7 +138,7 @@
             </p-tag>
           </button>
         }
-        <span class="ml-2 h-5 border-l border-surface"></span>
+        <span class="pointer-events-none ml-2 h-5 border-l border-surface"></span>
       </div>
     </p-tablist>
   </p-tabs>

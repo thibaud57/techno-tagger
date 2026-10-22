@@ -91,7 +91,9 @@ async (page) => {
         const rows = [...host.querySelectorAll("app-settings-row")].map((row) => {
           const label = row.querySelector("[rowLabel]")
           const control = row.querySelector("[rowControl]")
-          const extra = row.querySelector(":scope > div:not([rowControl])")
+          // Colonne d'actions (Administration) : c'est elle, et non le controle, qui touche le bord droit.
+          const action = row.querySelector("[rowAction]")
+          const extra = row.querySelector(":scope > div.col-start-2")
           // Classe utilitaire `hint` (src/styles.css) : le style se mesure ensuite sur l'element, pas sur ses classes.
           const hint = row.querySelector(".hint")
           const l = label.getBoundingClientRect()
@@ -111,6 +113,7 @@ async (page) => {
             controlRight: n(c.right),
             // Le controle s'arrete au bord interieur de la section (son padding), pas a son bord.
             controlRightToSection: n(s.right - parseFloat(getComputedStyle(section).paddingRight) - c.right),
+            actionRightToSection: action ? n(s.right - parseFloat(getComputedStyle(section).paddingRight) - action.getBoundingClientRect().right) : null,
             hint: hint ? { font: getComputedStyle(hint).fontSize, mutedColor: getComputedStyle(hint).color === muted, whiteSpace: getComputedStyle(hint).whiteSpace, left: n(hint.getBoundingClientRect().left) } : null,
             hintBelowControl: hint && extra && extra.contains(hint) ? n(hint.getBoundingClientRect().top - c.bottom) : null,
             extraGap: extra && extra.getBoundingClientRect().height > 0 ? getComputedStyle(extra).rowGap : null,
@@ -173,7 +176,7 @@ async (page) => {
         check(row.hint !== null, `${language} ${name} ${row.label} : aucune aide (classe hint) dans la rangee`)
         check(row.labelFont === "14px" && row.labelWeight === "400" && row.labelColorIsText, `${language} ${name} ${row.label} : libelle ${row.labelFont}/${row.labelWeight}/texte=${row.labelColorIsText}`)
         check(row.controlLeft === m.api.rows[0].controlLeft, `${language} ${name} ${row.label} : controle a ${row.controlLeft}`)
-        check(Math.abs(row.controlRightToSection) < 0.6, `${language} ${name} ${row.label} : controle a ${row.controlRightToSection}px du bord droit`)
+        check(Math.abs(row.actionRightToSection ?? row.controlRightToSection) < 0.6, `${language} ${name} ${row.label} : ${row.actionRightToSection === null ? "controle" : "action"} a ${row.actionRightToSection ?? row.controlRightToSection}px du bord droit`)
         if (row.hint) {
           check(row.hint.font === "12px" && row.hint.mutedColor && row.hint.whiteSpace === "pre-line", `${language} ${name} ${row.label} : aide ${JSON.stringify(row.hint)}`)
         }

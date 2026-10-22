@@ -265,7 +265,8 @@ async (page) => {
         const host = document.querySelector(css)
         const box = host.querySelector(".p-message") ?? host
         const row = host.closest("app-settings-row")
-        const control = row.querySelector("[rowControl]").getBoundingClientRect()
+        // Ce qui precede le message : le plus bas du controle et de l'action (le bouton de la colonne de droite).
+        const control = { bottom: Math.max(...[row.querySelector("[rowControl]"), row.querySelector("[rowAction]")].filter(Boolean).map((e) => e.getBoundingClientRect().bottom)) }
         const b = box.getBoundingClientRect()
         const r = row.getBoundingClientRect()
         const border = parseFloat(getComputedStyle(row).borderBottomWidth)
@@ -380,15 +381,18 @@ async (page) => {
         const label = row.querySelector("[rowLabel]")
         const control = row.querySelector("[rowControl]")
         // Classe utilitaire `hint` : 12px, muted et pre-line se mesurent ensuite sur le style calcule.
-        const hint = control.querySelector(".hint")
+        // Sans champ, le controle est l'aide elle-meme (Logs, Version) ou la porte (Cache, avec la taille).
+        const hint = row.querySelector(".hint")
         const action = row.querySelector("button[data-action]")
         const size = row.querySelector("[data-cache-size]")
         const c = control.getBoundingClientRect()
         const h = hint.getBoundingClientRect()
         const a = action.getBoundingClientRect()
         const l = label.getBoundingClientRect()
+        const sectionRight = section.getBoundingClientRect().right - parseFloat(getComputedStyle(section).paddingRight)
         const result = {
-          columns: getComputedStyle(row).gridTemplateColumns,
+          // La rangee est un subgrid : les colonnes se lisent sur la grille parente (`settings-rows`).
+          columns: getComputedStyle(row.parentElement).gridTemplateColumns,
           labelText: label.textContent.trim(),
           labelFont: getComputedStyle(label).fontSize,
           labelAlone: row.querySelectorAll("[rowLabel]").length === 1 && label.querySelector(".hint") === null,
@@ -401,10 +405,16 @@ async (page) => {
           hintLeftOnControl: n(h.left - c.left),
           hintLines: lines(hint),
           hintWidth: n(h.width),
-          hintCenterToButtonCenter: n(h.top + h.height / 2 - (a.top + a.height / 2)),
+          // Le bloc du controle (aide, et taille du cache dessous) est centre sur la ligne du bouton.
+          controlCenterToButtonCenter: n(c.top + c.height / 2 - (a.top + a.height / 2)),
           hintToButton: n(a.left - h.right),
           // Bord interieur de la section (son padding), pas son bord.
-          controlRightToSection: n(section.getBoundingClientRect().right - parseFloat(getComputedStyle(section).paddingRight) - c.right),
+          controlRightToSection: n(sectionRight - c.right),
+          // Colonne d'actions : le bouton la remplit, au bord interieur de la section, a la meme
+          // largeur que les autres boutons de la section (`settings-rows`, max-content).
+          buttonLeft: n(a.left),
+          buttonWidth: n(a.width),
+          buttonRightToSection: n(sectionRight - a.right),
           buttonHeight: n(a.height),
           rowHeight: n(row.getBoundingClientRect().height),
         }
@@ -416,13 +426,9 @@ async (page) => {
             font: style.fontSize,
             muted: style.color === muted,
             tabular: style.fontVariantNumeric,
-            rightOfButton: s.left >= a.right - 0.5,
-            buttonToSize: n(s.left - a.right),
-            rightEdgeToControl: n(c.right - s.right),
-            centerToButtonCenter: n(s.top + s.height / 2 - (a.top + a.height / 2)),
+            // La taille est dans la premiere phrase de l'aide (`hintSized`), pas un element a part.
+            isHint: size === hint,
           }
-        } else {
-          result.buttonRightToControl = n(c.right - a.right)
         }
         return result
       }
@@ -453,23 +459,25 @@ async (page) => {
       check(row.controlLeftFromLabel === 176, `${language} ${name} controle a ${row.controlLeftFromLabel}px du libelle (160 + gap 16)`)
       check(row.hintFont === "12px" && row.hintMuted && row.hintWhiteSpace === "pre-line", `${language} ${name} aide : ${row.hintFont} muted=${row.hintMuted} ${row.hintWhiteSpace}`)
       check(Math.abs(row.hintLeftOnControl) < 0.6, `${language} ${name} aide pas a gauche du controle : ${row.hintLeftOnControl}`)
-      check(Math.abs(row.hintCenterToButtonCenter) < 1.5, `${language} ${name} aide pas sur la ligne du bouton : ${row.hintCenterToButtonCenter}`)
+      check(Math.abs(row.controlCenterToButtonCenter) < 1.5, `${language} ${name} aide pas sur la ligne du bouton : ${row.controlCenterToButtonCenter}`)
       check(row.hintToButton >= 15.5, `${language} ${name} aide trop pres du bouton : ${row.hintToButton}`)
-      check(flat(row.hintText) === flat(text.hint ?? ""), `${language} ${name} aide : ${JSON.stringify(row.hintText)}`)
+      // Cache : la taille entre parentheses s'ajoute a la premiere phrase (`hintSized`), elle se verifie a part
+      check(flat(row.hintText).replace(/ \([^)]+\)/, "") === flat(text.hint ?? ""), `${language} ${name} aide : ${JSON.stringify(row.hintText)}`)
+      check(Math.abs(row.buttonRightToSection) < 0.6, `${language} bouton ${name} pas au bout de la ligne : ${row.buttonRightToSection}`)
     }
-    check(lay.cache.size?.text !== undefined && flat(lay.cache.size.text) === want.cache.size, `${language} taille du cache : ${JSON.stringify(lay.cache.size)}`)
+    check(lay.cache.size?.text !== undefined && flat(lay.cache.size.text).includes(want.cache.size), `${language} taille du cache : ${JSON.stringify(lay.cache.size)}`)
     check(
-      lay.cache.size?.font === "14px" && lay.cache.size.muted && lay.cache.size.tabular.includes("tabular-nums") && lay.cache.size.rightOfButton,
-      `${language} taille du cache (style, a droite du bouton) : ${JSON.stringify(lay.cache.size)}`,
+      lay.cache.size?.font === "12px" && lay.cache.size.muted && lay.cache.size.tabular.includes("tabular-nums") && lay.cache.size.isHint,
+      `${language} taille du cache (dans l'aide, 12px muted tabular) : ${JSON.stringify(lay.cache.size)}`,
     )
-    check(Math.abs(lay.cache.size?.rightEdgeToControl ?? 99) < 0.6, `${language} taille du cache pas au bout de la ligne : ${lay.cache.size?.rightEdgeToControl}`)
-    check(lay.cache.size?.buttonToSize === 8, `${language} ecart bouton Cache -> taille : ${lay.cache.size?.buttonToSize}`)
-    check(Math.abs(lay.logs.buttonRightToControl) < 0.6, `${language} bouton Logs pas au bout de la ligne : ${lay.logs.buttonRightToControl}`)
     const ver = lay.version
     check(ver.columns.startsWith("160px ") && ver.labelAlone && ver.controlLeftFromLabel === 176, `${language} version colonnes : ${ver.columns} ${ver.controlLeftFromLabel}`)
-    check(ver.hintFont === "12px" && ver.hintMuted && Math.abs(ver.hintCenterToButtonCenter) < 1.5 && ver.hintToButton >= 15.5, `${language} version aide : ${JSON.stringify(ver)}`)
+    check(ver.hintFont === "12px" && ver.hintMuted && Math.abs(ver.controlCenterToButtonCenter) < 1.5 && ver.hintToButton >= 15.5, `${language} version aide : ${JSON.stringify(ver)}`)
     check(want.version.hint.test(flat(ver.hintText)), `${language} version texte : ${JSON.stringify(ver.hintText)}`)
-    check(Math.abs(ver.buttonRightToControl) < 0.6, `${language} bouton Version pas au bout de la ligne : ${ver.buttonRightToControl}`)
+    check(Math.abs(ver.buttonRightToSection) < 0.6, `${language} bouton Version pas au bout de la ligne : ${ver.buttonRightToSection}`)
+    // Colonne d'actions : les trois boutons partagent le meme bord gauche et la meme largeur.
+    const actions = [lay.cache, lay.logs, ver]
+    check(new Set(actions.map((r) => r.buttonLeft)).size === 1 && new Set(actions.map((r) => r.buttonWidth)).size === 1, `${language} colonne d'actions : ${actions.map((r) => `${r.buttonLeft}+${r.buttonWidth}`)}`)
     await p.click('[data-action="check-update"]')
     await p.waitForSelector("[data-version-error]")
     const versionFeedback = await p.evaluate(() => {
@@ -711,7 +719,8 @@ async (page) => {
     for (const bytes of [999, 999_499, 999_999, 1_000_000]) {
       await line({ event: "cache_size", size_bytes: bytes })
       await settle(200)
-      out.bytes[bytes] = flat(await p.evaluate(() => document.querySelector("[data-cache-size]")?.textContent ?? ""))
+      // La taille est entre parentheses dans la premiere phrase de l'aide (`hintSized`).
+      out.bytes[bytes] = flat(await p.evaluate(() => document.querySelector("[data-cache-size]")?.textContent.match(/\(([^)]+)\)/)?.[1] ?? ""))
     }
     const wantBytes = language === "fr" ? { 999: "999 o", 999_499: "999 ko", 999_999: "1 Mo", 1_000_000: "1 Mo" } : { 999: "999 byte", 999_499: "999 kB", 999_999: "1 MB", 1_000_000: "1 MB" }
     check(JSON.stringify(out.bytes) === JSON.stringify(wantBytes), `${language} formatBytes : ${JSON.stringify(out.bytes)}`)

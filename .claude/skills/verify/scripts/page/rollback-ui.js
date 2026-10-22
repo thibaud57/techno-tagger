@@ -737,8 +737,9 @@ async (page) => {
         const control = r.querySelector("[rowControl]")
         const below = r.querySelector(":scope > div.col-start-2")
         // Classe utilitaire `hint` : son style (12px, muted, pre-line) se mesure sur l'element.
-        const hint = control.querySelector(".hint") ?? below.querySelector(".hint")
-        const button = control.querySelector("button")
+        // Sans champ (Restauration), le controle est l'aide elle-meme et le bouton est l'action de la rangee.
+        const hint = (control.matches(".hint") ? control : control.querySelector(".hint")) ?? below.querySelector(".hint")
+        const button = r.querySelector("[rowAction]") ?? control.querySelector("button")
         const cs = getComputedStyle(r)
         const rb = r.getBoundingClientRect()
         const cb = control.getBoundingClientRect()
@@ -748,7 +749,8 @@ async (page) => {
           display: cs.display,
           rowPad: `${cs.paddingTop}/${cs.paddingBottom}`,
           border: `${cs.borderBottomWidth} ${cs.borderBottomStyle} ${cs.borderBottomColor}`,
-          colW: Math.round(parseFloat(cs.gridTemplateColumns.split(" ")[0])),
+          // La rangee est un subgrid : la colonne des libelles se lit sur la grille parente.
+          colW: Math.round(parseFloat(getComputedStyle(r.parentElement).gridTemplateColumns.split(" ")[0])),
           labelSize: getComputedStyle(label).fontSize,
           hintSize: getComputedStyle(hint).fontSize,
           hintColor: getComputedStyle(hint).color,
@@ -802,7 +804,8 @@ async (page) => {
       if (!host) return null
       const r = (host.querySelector(".p-message") ?? host).getBoundingClientRect()
       const prev = host.previousElementSibling
-      const above = (prev ?? row.querySelector("[rowControl]")).getBoundingClientRect().bottom
+      // Sans retour avant lui, l'ecart se mesure depuis le plus bas du controle et de l'action (le bouton).
+      const above = prev ? prev.getBoundingClientRect().bottom : Math.max(...[row.querySelector("[rowControl]"), row.querySelector("[rowAction]")].filter(Boolean).map((e) => e.getBoundingClientRect().bottom))
       const bottom = row.getBoundingClientRect().bottom - parseFloat(getComputedStyle(row).borderBottomWidth)
       return { first: prev === null, above: Math.round(r.top - above), below: Math.round(bottom - r.bottom) }
     })
@@ -823,7 +826,7 @@ async (page) => {
     check("8 h2 Administration text-lg semibold", adm?.size === "18px" && adm.weight === "600", adm)
     const a = geo.api
     const r = geo.rollback
-    check("8 two app-settings-row: same grid (10rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 160 && a.colW === 160 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(r.controlRightGap) <= 1 && Math.abs(a.controlRightGap) <= 1, { api: a, rollback: r })
+    check("8 two app-settings-row: same grid (10rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 160 && a.colW === 160 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(a.controlRightGap) <= 1 && Math.abs(r.buttonRightGap) <= 1, { api: a, rollback: r })
     check("8 API hint below the control, Restauration hint on the button line with the button at the end of the row", a?.hintBelowControl && r?.hintOnButtonLine && !r.hintBelowControl && Math.abs(r.buttonRightGap) <= 1, { api: a, rollback: r })
     // Deux phrases sur une ligne : exception a la rule ngx-translate, decidee le 2026-10-11 (DESIGN.md § Arbitrages).
     check("8 API row: label Clé API (14px), hint on one line under the field", a?.labelText === "Clé API" && a.labelSize === "14px" && a.hintBelowControl && !a.hintText.includes("\n") && a.hintText.startsWith("Enregistrée de façon sécurisée sur cet ordinateur. Elle ne s'affiche plus ensuite"), a)

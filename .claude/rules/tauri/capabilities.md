@@ -32,6 +32,7 @@ paths:
 - `deny` prime sur `allow` dans un scope : un chemin listé des deux côtés est refusé
 - Un programme hors du scope `shell:allow-spawn` échoue explicitement (`program not allowed on the configured shell scope`), contrairement à un argument
 - `single-instance` et `prevent-default` n'ont aucune permission à déclarer ni paquet npm : la règle d'alignement crate / npm ne les concerne pas
+- Fenêtre sans décorations : `data-tauri-drag-region` exige `core:window:allow-start-dragging` et, pour le double-clic, `core:window:allow-internal-toggle-maximize`, absents de `core:default` ; sans eux la barre ne déplace rien, sans erreur visible
 - `updater` 2.5.0 supprime `UpdaterBuilder::new` au profit de `UpdaterExt::updater_builder` : concerne l'usage Rust bas niveau, pas l'API JS
 
 ## Exemples

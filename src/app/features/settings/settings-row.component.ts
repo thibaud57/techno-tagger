@@ -1,25 +1,35 @@
 import { Component } from "@angular/core"
 
-/** Libelle dans une colonne commune a toutes les rangees pour aligner les controles ; aide et retours sous le controle, a sa largeur. */
+/**
+ * Rangee d'une section des Reglages, sur les colonnes de `settings-rows` (subgrid) : libelle, controle,
+ * action. Les boutons d'une section partagent la largeur de la colonne d'actions ; aide et retours sous
+ * le controle, a sa largeur.
+ */
 @Component({
   selector: "app-settings-row",
   template: `
     <ng-content select="[rowLabel]" />
-    <ng-content select="[rowControl]" />
-    <!-- Une aide colle au controle (pt-2). Un retour en garde 12px, comme le py-3 de la rangee
-         sous lui : gap-3 apres une aide, mt-1 en premier (DESIGN.md § Feedback et chargement).
-         Masque tant qu'il n'a aucun element. -->
+    <!-- 16px entre les colonnes par un padding des cellules et non un gap de la grille : une section
+         sans action garde son controle au bout de la ligne, la troisieme colonne restant vide. -->
+    <!-- flex-col : une aide en span y devient un bloc, a l'interligne de son text-xs et non a celui
+         de la rangee, donc centree sur la ligne du bouton. -->
+    <div class="flex min-w-0 flex-col pl-4">
+      <ng-content select="[rowControl]" />
+    </div>
+    <div class="hidden min-w-0 pl-4 has-[*]:grid">
+      <ng-content select="[rowAction]" />
+    </div>
+    <!-- Sous le controle et l'action, a leur largeur. Une aide colle au controle (pt-2). Un retour en
+         garde 12px, comme le py-3 de la rangee sous lui : gap-3 apres une aide, mt-1 en premier
+         (DESIGN.md § Feedback et chargement). Masque tant qu'il n'a aucun element. -->
     <div
-      class="col-start-2 hidden min-w-0 flex-col gap-3 pt-2 has-[*]:flex [&>app-error-message:first-child]:mt-1 [&>app-message:first-child]:mt-1 [&>app-rollback-failures:first-child]:mt-1"
+      class="col-span-2 col-start-2 hidden min-w-0 flex-col gap-3 pt-2 pl-4 has-[*]:flex [&>app-error-message:first-child]:mt-1 [&>app-message:first-child]:mt-1 [&>app-rollback-failures:first-child]:mt-1"
     >
       <ng-content />
     </div>
   `,
-  // 10rem : colonne des libelles, mesuree sur « Signal sonore de fin », le plus long en FR et en
-  // EN. Plus large, elle laisse un vide sous chaque libelle court.
   host: {
-    class:
-      "grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-x-4 border-b border-surface-800 py-3",
+    class: "col-span-full grid grid-cols-subgrid items-center border-b border-surface-800 py-3",
   },
 })
 export class SettingsRowComponent {}

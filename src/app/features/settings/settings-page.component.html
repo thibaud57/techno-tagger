@@ -30,7 +30,7 @@
 
     @switch (section()) {
       @case ("api") {
-        <div class="flex flex-col">
+        <div class="settings-rows">
           <app-settings-row>
             <label rowLabel pLabel for="api-key">{{ "settings.api.key.label" | translate }}</label>
 
@@ -95,7 +95,7 @@
         </div>
       }
       @case ("matching") {
-        <div class="flex flex-col">
+        <div class="settings-rows">
           <app-settings-row>
             <span rowLabel id="floor-label" class="text-sm">{{
               "settings.matching.floor.label" | translate
@@ -187,7 +187,7 @@
         </div>
       }
       @case ("interface") {
-        <div class="flex flex-col">
+        <div class="settings-rows">
           <app-settings-row>
             <span rowLabel id="language-label" class="text-sm">{{
               "settings.interface.language.label" | translate
@@ -232,38 +232,34 @@
         </div>
       }
       @case ("admin") {
-        <div class="flex flex-col">
+        <div class="settings-rows">
           <app-settings-row>
             <span rowLabel class="text-sm">{{ "settings.admin.cache.label" | translate }}</span>
 
-            <!-- Sans champ, l'aide prend la place du controle, sur la ligne du bouton. -->
-            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="hint">{{ "settings.admin.cache.hint" | translate }}</span>
-              <div class="flex shrink-0 items-center gap-2">
-                @let cacheBlocked =
-                  cacheBlockedReason() ? (cacheBlockedReason() | translate) : undefined;
-                <button
-                  pButton
-                  type="button"
-                  size="small"
-                  severity="secondary"
-                  [outlined]="true"
-                  data-action="clear-cache"
-                  [disabled]="cacheBlocked !== undefined || cacheClearing()"
-                  [pTooltip]="cacheBlocked"
-                  [tooltipOptions]="tooltip"
-                  (click)="clearCache()"
-                >
-                  <app-icon [name]="cacheClearing() ? 'spinner' : 'trash'" [size]="16" />
-                  {{ "settings.admin.cache.action" | translate }}
-                </button>
-                @if (cacheSize(); as size) {
-                  <span data-cache-size class="text-sm text-muted-color tabular-nums">{{
-                    size
-                  }}</span>
-                }
-              </div>
-            </div>
+            <!-- Sans champ, l'aide prend la place du controle, la taille du cache dans sa premiere phrase. -->
+            <span rowControl class="hint tabular-nums" [attr.data-cache-size]="cacheSize()">{{
+              (cacheSize() ? "settings.admin.cache.hintSized" : "settings.admin.cache.hint")
+                | translate: { size: cacheSize() }
+            }}</span>
+            @let cacheBlocked =
+              cacheBlockedReason() ? (cacheBlockedReason() | translate) : undefined;
+            <button
+              rowAction
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              [outlined]="true"
+              class="w-full"
+              data-action="clear-cache"
+              [disabled]="cacheBlocked !== undefined || cacheClearing()"
+              [pTooltip]="cacheBlocked"
+              [tooltipOptions]="tooltip"
+              (click)="clearCache()"
+            >
+              <app-icon [name]="cacheClearing() ? 'spinner' : 'trash'" [size]="16" />
+              {{ "settings.admin.cache.action" | translate }}
+            </button>
 
             @if (cacheError(); as shown) {
               <app-error-message data-cache-error size="small" [error]="shown" />
@@ -273,27 +269,25 @@
           <app-settings-row>
             <span rowLabel class="text-sm">{{ "settings.admin.logs.label" | translate }}</span>
 
-            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="hint">{{ "settings.admin.logs.hint" | translate }}</span>
-              @let logsBlocked =
-                logsBlockedReason() ? (logsBlockedReason() | translate) : undefined;
-              <button
-                pButton
-                type="button"
-                size="small"
-                severity="secondary"
-                [outlined]="true"
-                class="shrink-0"
-                data-action="reveal-logs"
-                [disabled]="logsBlocked !== undefined"
-                [pTooltip]="logsBlocked"
-                [tooltipOptions]="tooltip"
-                (click)="revealLogs()"
-              >
-                <app-icon name="external-link" [size]="16" />
-                {{ "settings.admin.logs.action" | translate }}
-              </button>
-            </div>
+            <span rowControl class="hint">{{ "settings.admin.logs.hint" | translate }}</span>
+            @let logsBlocked = logsBlockedReason() ? (logsBlockedReason() | translate) : undefined;
+            <button
+              rowAction
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              [outlined]="true"
+              class="w-full"
+              data-action="reveal-logs"
+              [disabled]="logsBlocked !== undefined"
+              [pTooltip]="logsBlocked"
+              [tooltipOptions]="tooltip"
+              (click)="revealLogs()"
+            >
+              <app-icon name="external-link" [size]="16" />
+              {{ "settings.admin.logs.action" | translate }}
+            </button>
 
             @if (logsUnavailable()) {
               <app-message data-logs-error severity="error" size="small">{{
@@ -305,26 +299,25 @@
           <app-settings-row>
             <span rowLabel class="text-sm">{{ "settings.admin.rollback.label" | translate }}</span>
 
-            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="hint">{{ "settings.admin.rollback.hint" | translate }}</span>
-              @let blocked =
-                restoreBlockedReason() ? (restoreBlockedReason() | translate) : undefined;
-              <button
-                pButton
-                type="button"
-                size="small"
-                [outlined]="true"
-                class="shrink-0"
-                data-action="restore-last"
-                [disabled]="blocked !== undefined"
-                [pTooltip]="blocked"
-                [tooltipOptions]="tooltip"
-                (click)="restoreLast()"
-              >
-                <app-icon [name]="rollingBack() ? 'spinner' : 'refresh'" [size]="16" />
-                {{ "settings.admin.rollback.action" | translate }}
-              </button>
-            </div>
+            <span rowControl class="hint">{{ "settings.admin.rollback.hint" | translate }}</span>
+            @let blocked =
+              restoreBlockedReason() ? (restoreBlockedReason() | translate) : undefined;
+            <button
+              rowAction
+              pButton
+              type="button"
+              size="small"
+              [outlined]="true"
+              class="w-full"
+              data-action="restore-last"
+              [disabled]="blocked !== undefined"
+              [pTooltip]="blocked"
+              [tooltipOptions]="tooltip"
+              (click)="restoreLast()"
+            >
+              <app-icon [name]="rollingBack() ? 'spinner' : 'refresh'" [size]="16" />
+              {{ "settings.admin.rollback.action" | translate }}
+            </button>
 
             <!-- Le run vise sur une ligne tronquee (le dossier peut etre long), son compte dessous. Rien
              sans run : le tooltip du bouton grise en dit deja la raison. -->
@@ -350,39 +343,39 @@
               "settings.admin.pastRuns.label" | translate
             }}</span>
 
-            <div rowControl class="flex min-w-0 items-center gap-2">
-              <!-- Aucune largeur figee : le select prend le reste de la ligne et coupe le dossier.
-               `contain` : sans lui, un dossier long elargirait la colonne des controles. -->
-              <p-select
-                class="min-w-0 flex-1 contain-inline-size"
-                size="small"
-                data-field="past-run"
-                ariaLabelledBy="past-run-label"
-                [formField]="pastFields.runId"
-                [options]="pastRunOptions()"
-                optionLabel="label"
-                optionValue="value"
-                [placeholder]="'settings.admin.pastRuns.none' | translate"
-              >
-                <!-- Ferme, le select coupe le texte : le tooltip le rend lisible. -->
-                <ng-template #selectedItem let-run>
-                  <app-truncated-text [text]="run.label" />
-                </ng-template>
-              </p-select>
-              <button
-                pButton
-                type="button"
-                size="small"
-                [outlined]="true"
-                severity="secondary"
-                class="shrink-0"
-                data-action="open-past-run"
-                [disabled]="pastFields.runId().disabled()"
-                (click)="openPastRun()"
-              >
-                {{ "settings.admin.pastRuns.open" | translate }}
-              </button>
-            </div>
+            <!-- Aucune largeur figee : le select remplit la colonne du controle et coupe le dossier.
+             `contain` : sans lui, un dossier long elargirait la colonne. -->
+            <p-select
+              rowControl
+              class="w-full min-w-0 contain-inline-size"
+              size="small"
+              data-field="past-run"
+              ariaLabelledBy="past-run-label"
+              [formField]="pastFields.runId"
+              [options]="pastRunOptions()"
+              optionLabel="label"
+              optionValue="value"
+              [placeholder]="'settings.admin.pastRuns.none' | translate"
+            >
+              <!-- Ferme, le select coupe le texte : le tooltip le rend lisible. -->
+              <ng-template #selectedItem let-run>
+                <app-truncated-text [text]="run.label" />
+              </ng-template>
+            </p-select>
+            <button
+              rowAction
+              pButton
+              type="button"
+              size="small"
+              [outlined]="true"
+              severity="secondary"
+              class="w-full"
+              data-action="open-past-run"
+              [disabled]="pastFields.runId().disabled()"
+              (click)="openPastRun()"
+            >
+              {{ "settings.admin.pastRuns.open" | translate }}
+            </button>
 
             <span class="hint">{{ "settings.admin.pastRuns.hint" | translate }}</span>
           </app-settings-row>
@@ -390,28 +383,24 @@
           <app-settings-row data-version-row>
             <span rowLabel class="text-sm">{{ "settings.admin.version.label" | translate }}</span>
 
-            <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="hint">{{
-                "settings.admin.version.installed" | translate: { version: appVersion }
-              }}</span>
-              <button
-                pButton
-                type="button"
-                size="small"
-                severity="secondary"
-                [outlined]="true"
-                class="shrink-0"
-                data-action="check-update"
-                [disabled]="updateCheck() === 'checking'"
-                (click)="checkUpdate()"
-              >
-                <app-icon
-                  [name]="updateCheck() === 'checking' ? 'spinner' : 'refresh'"
-                  [size]="16"
-                />
-                {{ "settings.admin.version.action" | translate }}
-              </button>
-            </div>
+            <span rowControl class="hint">{{
+              "settings.admin.version.installed" | translate: { version: appVersion }
+            }}</span>
+            <button
+              rowAction
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              [outlined]="true"
+              class="w-full"
+              data-action="check-update"
+              [disabled]="updateCheck() === 'checking'"
+              (click)="checkUpdate()"
+            >
+              <app-icon [name]="updateCheck() === 'checking' ? 'spinner' : 'refresh'" [size]="16" />
+              {{ "settings.admin.version.action" | translate }}
+            </button>
 
             @switch (updateCheck()) {
               @case ("upToDate") {

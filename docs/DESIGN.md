@@ -134,7 +134,7 @@ Le rapport d'extraction rattache ses catégories aux mêmes familles :
 
 - ✅ Toujours référencer une couleur par token ou par classe du plugin : jamais de hex, jamais de couleur Tailwind brute (`bg-emerald-500`)
 - ✅ **La couleur ne porte jamais seule l'information** : chaque état a toujours une icône et un libellé traduit
-- ✅ L'accent `primary` marque l'interactif : actions, sélection, focus, contrôle actif et progression. Seule exception, le glyphe du nom de l'application (§ Identité). Un écran où tout est vert ne signale plus rien
+- ✅ L'accent `primary` marque l'interactif : actions, sélection, focus, contrôle actif et progression. Seule exception, le logo de l'application (§ Identité). Un écran où tout est vert ne signale plus rien
 - ✅ `success` est le seul autre vert, réservé aux états : jamais sur un contrôle
 - ✅ Le `danger` **d'une action** est réservé au bouton d'acceptation du rollback, qui défait l'écriture et consomme la sauvegarde des tags d'origine ; les déclencheurs (écriture, relance, restauration) restent `primary`. Sur un `p-tag` ou un `p-message`, la même sévérité ne décide rien : elle rapporte la famille Échec
 
@@ -208,7 +208,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | Aucun mode router en v22 : l'onglet actif se dérive de l'URL. Playlist (`list`) et Tagging (`tag`) au centre de la barre, Réglages en icône seule (`cog`) tout à droite, nommé par `title`. Trait de l'actif sur la bordure de l'onglet |
+| Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | Aucun mode router en v22 : l'onglet actif se dérive de l'URL. Playlist (`list`) et Tagging (`tag`) au centre de la barre, Réglages en icône seule (`cog`) tout à droite, nommé par `title`. Trait de l'actif sur la bordure de l'onglet. Barre de 40px, aussi barre de titre de la fenêtre (§ Structure de Page) : déplacement et double-clic sur ce qui n'est pas un contrôle, puis, après un filet, réduire, agrandir ou restaurer et fermer en boutons de 46px (largeur de Windows 11), croix au survol `red.600`. Fermer passe par la garde de sortie |
 | Navigation des Réglages | `p-menu` dans le panneau de la page, une entrée par section, l'active en `bg-highlight` et `aria-current="page"` | PrimeNG | Icônes `key`, `sliders-h`, `desktop`, `wrench`, en `primary` sur l'entrée active. Une section affichée à la fois (§ Structure de Page) |
 | Badges de file, de rattrapage et de mise à jour | bouton portant un `p-tag` `info`, icône `info-circle` (`download` pour la mise à jour) | PrimeNG | À droite de la barre, en `gap-2`, séparés de l'engrenage par un filet vertical, masqués sur 0. Chacun rouvre sa modale : « N à arbitrer » celle de l'arbitrage, « N à rattraper » celle du lien (masqué aussi pendant la recherche), « Mise à jour X.Y.Z » l'invite fermée (masqué pendant le téléchargement) |
 
@@ -221,9 +221,9 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 | Lancement de l'extraction | `button pButton` `primary` `size="small"` | PrimeNG | Sur la ligne du mode (§ Layout) |
 | Modification de l'extraction | `button pButton` `secondary` outlined `size="small"` | PrimeNG | « Modifier », au bout de la ligne de résumé (§ Layout) |
 | Passage au tagging | `button pButton` `primary` outlined `size="small"`, icône `arrow-right` | PrimeNG | Sous le rapport. `primary` : étape suivante ; outlined : le plein reste aux lancements et aux validations |
-| Restauration | `button pButton` `primary` outlined `size="small"`, icône `refresh`, `spinner` pendant l'opération | PrimeNG | « Restaurer ce morceau » sous la pochette du détail, « Restaurer le run » à droite de la barre d'écriture, « Restaurer le dernier run » dans les Réglages, sa cible dessous en `text-xs text-muted-color`. Un seul verbe, « Restaurer ». Ouvre la confirmation d'un geste sur les fichiers |
+| Restauration | `button pButton` `primary` outlined `size="small"`, icône `refresh`, `spinner` pendant l'opération | PrimeNG | « Restaurer ce morceau » sous la pochette du détail, « Restaurer le run » à droite de la barre d'écriture, « Restaurer le dernier run » dans la colonne d'actions des Réglages, sa cible dessous en `text-xs text-muted-color`. Un seul verbe, « Restaurer ». Ouvre la confirmation d'un geste sur les fichiers |
 | Ouverture du récapitulatif | `button pButton` `secondary` outlined `size="small"` | PrimeNG | « Récapitulatif », à droite de la barre d'écriture une fois l'écriture terminée |
-| Actions d'administration | `button pButton` `secondary` outlined `size="small"`, icône à gauche (`trash`, `external-link`) | PrimeNG | « Vider le cache » et « Ouvrir le dossier des logs », rangées Cache et Logs des Réglages, aide sur la ligne du bouton. Vidage sans confirmation (cache jetable), `spinner` jusqu'à la réponse, taille à sa droite en `text-sm text-muted-color tabular-nums`. Grisés tant que le moteur démarre, le cache aussi sur un run affiché non écrit : raison en tooltip |
+| Actions d'administration | `button pButton` `secondary` outlined `size="small"`, icône à gauche (`trash`, `external-link`) | PrimeNG | « Vider le cache » et « Ouvrir le dossier des logs », rangées Cache et Logs des Réglages, dans la colonne d'actions, l'aide à la place du contrôle. Vidage sans confirmation (cache jetable), `spinner` jusqu'à la réponse, taille du cache entre parenthèses dans la première phrase de l'aide. Grisés tant que le moteur démarre, le cache aussi sur un run affiché non écrit : raison en tooltip |
 | Envoi du rapport | `button pButton` `secondary` outlined `size="small"`, icône `external-link` puis `spinner` | PrimeNG | « Envoyer ce rapport », pied du récapitulatif. Seul geste par lequel des titres quittent la machine ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)) : tooltip `WIDE_TOOLTIP` d'avertissement ; grisé, sa raison en tooltip |
 
 **Phases du bouton d'action du run** :
@@ -245,9 +245,9 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 | Mode copie / déplacement | `p-selectbutton` `size="small"` | PrimeNG | Copie par défaut |
 | Champ de lien | `UrlLinkFormComponent` : `input pInputText` `pSize="small"` `type="url"` + `app-error-message`, boutons par `UrlLinkActionsComponent` | composant maison (PrimeNG) | Modale du lien et étape lien. Au-dessus du champ : cellule réservée `min-h-8` (deux lignes de `text-xs` : motif ou « Rattrapé sur »), puis l'aide `hint`. Refus sous le champ. « Résoudre » en `spinner` pendant le geste |
 | Clé API | `input pInputPassword` dans un `p-iconfield` + « Enregistrer » `size="small"` | PrimeNG | Jamais préremplie ni relue ([ADR-012](adrs/012-securite-cle-api-keyring.md)) : 24 points en placeholder une fois enregistrée, sans tag, état en `sr-only`. L'œil, bouton du template (`p-password` déprécié), n'apparaît que pendant une saisie |
-| Rangée des Réglages | `SettingsRowComponent` | composant maison (Tailwind) | Grille `grid-cols-[10rem_minmax(0,1fr)]` `gap-x-4`, `py-3`, filet `border-b border-surface-800`, rangées d'une section jointives. Libellé seul à gauche, 10rem mesurés sur « Signal sonore de fin ». Aide avec le contrôle : dessous (`pt-2`) ou sur la ligne d'un bouton seul ; retours dessous en `small` (§ Feedback et chargement) |
-| Runs passés | `p-select` `size="small"` + « Ouvrir le récapitulatif » `secondary` outlined, dans une rangée | PrimeNG | Sous « Restauration ». Sans largeur figée : le dossier est coupé, son tooltip le montre |
-| Version | Version installée en aide + « Rechercher une mise à jour » `secondary` outlined (`refresh`, puis `spinner` et grisé pendant la recherche), dans une rangée | PrimeNG | Dernière d'Administration. Retour `small` dessous : `success` à jour, `error` en échec ; une mise à jour trouvée ouvre l'invite |
+| Rangée des Réglages | `SettingsRowComponent`, rangées d'une section en `settings-rows` | composant maison (Tailwind) | Grille `10rem` / `minmax(0,1fr)` / `max-content` sur la section, chaque rangée en subgrid, 16px de padding entre les colonnes, `py-3`, filet `border-b border-surface-800`, rangées jointives. Libellé seul à gauche, 10rem mesurés sur « Signal sonore de fin » ; contrôle au milieu ; action à droite, dans une colonne à la largeur du plus long bouton de la section, que chaque bouton remplit (`w-full`), absente dans une section sans action. Aide avec le contrôle : dessous (`pt-2`), ou à la place du contrôle quand la rangée n'a qu'une action ; retours dessous, sur les colonnes du contrôle et de l'action, en `small` (§ Feedback et chargement) |
+| Runs passés | `p-select` `size="small"` en contrôle, « Ouvrir le récapitulatif » `secondary` outlined dans la colonne d'actions | PrimeNG | Sous « Restauration ». Le sélecteur remplit la colonne du contrôle : le dossier est coupé, son tooltip le montre |
+| Version | Version installée en aide à la place du contrôle, « Rechercher une mise à jour » `secondary` outlined (`refresh`, puis `spinner` et grisé pendant la recherche) dans la colonne d'actions | PrimeNG | Dernière d'Administration. Retour `small` dessous : `success` à jour, `error` en échec ; une mise à jour trouvée ouvre l'invite |
 | Langue | `p-select` `size="small"`, 9rem (`w-36`) mesurés sur « Français » | PrimeNG | Largeur fixe : le select ne change pas de taille d'une langue à l'autre |
 | Bascule des Réglages | `p-toggleswitch`, à droite, aide sur sa ligne | PrimeNG | Signal sonore de fin |
 | Seuils de matching | `p-slider` lié à un `p-inputnumber` `size="small"` sans boutons de pas, 4rem (`w-16`) mesurés sur « 100 » ; « Rétablir les valeurs par défaut » en `secondary` outlined, calé à droite sous la section | PrimeNG | Plancher et seuil haut, les deux pistes sur 0-100 : le seuil qui bouge bute sur l'autre, le champ refuse les bornes croisées |
@@ -278,7 +278,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Écran bloquant | `p-card` centrée dans la page, à l'anatomie de nos modales : titre `text-lg` 600, texte `text-sm text-muted-color`, action `secondary` outlined `size="small"` en pied à droite | PrimeNG | Sidecar absent ou en quarantaine (« Réessayer »), divergence de version (sans action). Pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui dit quoi faire |
+| Écran bloquant | `p-card` centrée dans la page, sous une barre de titre réduite au logo, au nom et aux boutons de fenêtre, à l'anatomie de nos modales : titre `text-lg` 600, texte `text-sm text-muted-color`, action `secondary` outlined `size="small"` en pied à droite | PrimeNG | Sidecar absent ou en quarantaine (« Réessayer »), divergence de version (sans action). Pas une modale : la barre d'onglets n'est pas rendue. Neutre plutôt qu'un `p-message`, dont le fond d'alerte couvrirait la phrase qui dit quoi faire |
 | Notifications | `p-toast` en bas à droite, `success` et 4s par défaut | PrimeNG | Fin d'une phase longue (extraction, run, écriture, restauration) et vidage du cache ; `warn` avec le nombre d'échecs. Recouvre le pied de Playlist pendant ses 4s, la croix le ferme |
 | Message inline | `MessageComponent` | composant maison (`p-message`) | Seule voie vers `p-message`. Icône selon la sévérité (`info-circle`, `check-circle`, `exclamation-triangle`, `times-circle`), 20px, 16px en `small`. `whitespace-pre-line`. `[animated]="false"` dans une cellule réservée |
 | Erreur contextuelle | `ErrorMessageComponent` | composant maison (`MessageComponent`) | Erreur du sidecar traduite (`code`, `params`), dans l'écran concerné, jamais en toast (récapitulatif compris, sous son en-tête). Même écart au-dessus et en dessous que son conteneur (§ Structure de Page) |
@@ -321,7 +321,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Nom de l'application | Glyphe `tag` 16px `text-primary` sur un carré `size-6` `rounded-sm` `bg-highlight`, puis le nom en `text-sm` 600 | Tailwind | À gauche de la barre d'onglets, même nom que la barre de titre de la fenêtre |
+| Nom de l'application | Logo de l'application (`public/logo.png`, celui de l'installeur) en `size-5`, puis le nom en `text-sm` 600 | Tailwind | À gauche de la barre d'onglets, même nom et même icône que la fenêtre |
 | Logo de source | `SourceLogoComponent` | composant maison (Simple Icons) | Beatport, Bandcamp, SoundCloud et VLC en `currentColor`, aux tailles des icônes (§ Icônes) |
 | Source retenue | `SourceLabelComponent` : `SourceLogoComponent` 16px + nom de marque | composant maison (Simple Icons) | Colonne Source de la liste, ligne Source du détail |
 
@@ -356,6 +356,8 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 **Librairie UI** : `@primeicons/angular` 8 : composants standalone en SVG inline, sans police ni classes `pi pi-*`, rendus par `IconComponent`
 
 **Librairie logos** : [Simple Icons](https://simpleicons.org), quatre tracés recopiés dans `SourceLogoComponent` (sources dans `src/assets/icons/`)
+
+**Logo de l'application** : `public/logo.png`, le dessin de l'icône de l'installeur (`src-tauri/icons/`) sur fond transparent, pour la barre d'onglets (20px) et le favicon
 
 | Logo | Où |
 |------|-----|
@@ -417,7 +419,7 @@ Aucune dépendance d'animation dédiée.
 
 | Élément | Valeur | Usage |
 |---------|--------|-------|
-| Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond | Plancher dicté par les sept colonnes de la liste du run (`tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)) |
+| Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond, sans décorations : la barre d'onglets tient lieu de barre de titre | Plancher dicté par les sept colonnes de la liste du run (`tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)) |
 | Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page ne défile jamais, le scroll vit dans la table. `overscroll-behavior: none` coupe le rebond de WebView2 |
 | Container | Pleine largeur, `px-16 py-8`, porté par le shell | Tous les écrans : formulaire et table sur la même largeur, la pleine largeur servant Avant et Après |
 | Densité | `text-sm` dans les tables et les listes de candidats | Une ligne de plus visible par cran |
@@ -482,7 +484,7 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 
 **Utilitaire** : classes Tailwind dans le template, conditionnées par `[class.x]` ou `[ngClass]`. Le DOM interne d'un composant PrimeNG se règle par `[pt]`, ou dans le preset quand l'écart vaut partout.
 
-**Rôles partagés** : un `@utility` de `styles.css` (`page-host`, `panel`, `hint`) pour un rôle répété d'un écran à l'autre, employé comme toute classe pour qu'il ne dérive pas ; le preset pour un rôle d'un composant PrimeNG (bouton à icône seule, bouton `link`).
+**Rôles partagés** : un `@utility` de `styles.css` (`page-host`, `panel`, `hint`, `settings-rows`) pour un rôle répété d'un écran à l'autre, employé comme toute classe pour qu'il ne dérive pas ; le preset pour un rôle d'un composant PrimeNG (bouton à icône seule, bouton `link`).
 
 **Preset** : `TECHNO_TAGGER_PRESET` dérive d'Aura par `definePreset()` et n'y change que ce que ce document décide : rayons de la carte (`lg`), du tag et du badge (`sm`), badge en 12px, carte sans ombre, libellé de champ en 14px 400, en-tête, croix et pied des modales (§ Overlays), croix du toast, bouton à icône seule carré et bouton `link` en lien de texte, onglet centré, `info` de `p-message` en `sky`.
 
@@ -526,6 +528,8 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 Écarts au design system ou à la maquette tranchés par le propriétaire. Ils priment sur eux pour tous les écrans. Un écart réaligné dans la maquette sort de cette liste : sa règle vit dans sa section, son historique dans git et `.design-sync/NOTES.md`.
 
 - **Icônes** : SVG inline par `IconComponent` et `SourceLogoComponent`, là où le design system rend les glyphes par la police PrimeIcons. Écart définitif : React n'importe pas un composant Angular
+- **Marque de la barre d'onglets** : logo de l'application en `size-5`, là où `AppShell` pose le glyphe `tag` sur une tuile `bg-highlight`. Décidé le 2026-10-22
+- **Barre de titre** : barre d'onglets fusionnée avec la barre de titre de Windows, en 40px avec les boutons de fenêtre à droite, là où `AppShell` garde la barre système au-dessus des onglets. Décidé le 2026-10-22
 
 ## Documentation Officielle
 

@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from "@angular/common"
 import { Component, DOCUMENT, computed, effect, inject, linkedSignal } from "@angular/core"
 import { toSignal } from "@angular/core/rxjs-interop"
 import { NavigationEnd, Router, RouterOutlet } from "@angular/router"
@@ -21,6 +22,7 @@ import { CloseConfirmationComponent } from "./shared/components/dialogs/close-co
 import { ResumeDialogComponent } from "./shared/components/dialogs/resume-dialog.component"
 import { UpdateDialogComponent } from "./shared/components/dialogs/update-dialog.component"
 import { IconComponent, type IconName } from "./shared/components/display/icon.component"
+import { WindowControlsComponent } from "./shared/components/window/window-controls.component"
 import { FADE_IN } from "./shared/utils/motion"
 
 /** Une icone devant chaque libelle de la barre ; Reglages n'a que la sienne (DESIGN.md § Icones). */
@@ -35,6 +37,7 @@ const SETTINGS_TAB = "settings" satisfies TabName
 @Component({
   selector: "app-root",
   imports: [
+    NgTemplateOutlet,
     RouterOutlet,
     Tabs,
     TabList,
@@ -49,6 +52,7 @@ const SETTINGS_TAB = "settings" satisfies TabName
     ResumeDialogComponent,
     UpdateDialogComponent,
     IconComponent,
+    WindowControlsComponent,
   ],
   templateUrl: "./app.component.html",
   // `overflow-hidden` tient la regle « la page ne defile jamais » : sans lui, un pixel de
@@ -74,7 +78,8 @@ export class AppComponent {
    * l'ink bar qu'au changement d'onglet, et des onglets centres bougent avec la fenetre.
    */
   protected readonly tabsTokens = {
-    tab: { borderWidth: "0 0 1px 0", activeBorderColor: "{primary.color}" },
+    // Padding vertical nul : la hauteur vient de `h-10`, celle d'une barre de titre Windows.
+    tab: { borderWidth: "0 0 1px 0", activeBorderColor: "{primary.color}", padding: "0 0.875rem" },
     activeBar: { height: "0" },
   }
   protected readonly appTitle = APP_TITLE

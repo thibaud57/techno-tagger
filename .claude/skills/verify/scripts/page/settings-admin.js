@@ -138,15 +138,18 @@
     const describe = (row) => {
       const label = row.querySelector("[rowLabel]")
       const control = row.querySelector("[rowControl]")
-      const hint = control.querySelector(".text-xs")
+      // Sans champ, le controle est l'aide elle-meme (Logs) ou la porte (Cache, avec la taille dessous).
+      const hint = row.querySelector(".hint")
       const action = row.querySelector("button[data-action]")
       const size = row.querySelector("[data-cache-size]")
       const c = control.getBoundingClientRect()
       const h = hint.getBoundingClientRect()
       const a = action.getBoundingClientRect()
       const svg = action.querySelector("svg")
+      const sectionRight = section.getBoundingClientRect().right - parseFloat(getComputedStyle(section).paddingRight)
       const result = {
-        columns: getComputedStyle(row).gridTemplateColumns,
+        // La rangee est un subgrid : les colonnes se lisent sur la grille parente (`settings-rows`).
+        columns: getComputedStyle(row.parentElement).gridTemplateColumns,
         label: label.textContent.trim(),
         labelFont: getComputedStyle(label).fontSize,
         hint: hint.textContent,
@@ -166,7 +169,10 @@
           iconRightOfLabelLeft: svg ? n(svg.getBoundingClientRect().right - a.left) : null,
           height: n(a.height),
         },
-        controlRightMinusButtonRight: n(c.right - a.right),
+        // Colonne d'actions : le bouton la remplit, au bord interieur de la section.
+        buttonLeft: n(a.left),
+        buttonWidth: n(a.width),
+        buttonRightToSection: n(sectionRight - a.right),
         rowHeight: n(row.getBoundingClientRect().height),
       }
       if (size) {
@@ -177,8 +183,8 @@
           font: style.fontSize,
           muted: style.color === muted,
           tabular: style.fontVariantNumeric,
-          buttonToSize: n(s.left - a.right),
-          rightEdgeToControl: n(c.right - s.right),
+          // La taille est dans la premiere phrase de l'aide (`hintSized`), pas un element a part.
+          isHint: size === hint,
         }
       }
       return result

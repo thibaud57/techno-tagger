@@ -678,9 +678,13 @@ describe("SettingsPageComponent", () => {
     }
 
     it("shows the cache size in the interface language", () => {
-      const { fixture } = mountWith({ cacheSize: signal<number | null>(418_000_000) }, "admin")
+      const { fixture, component } = mountWith(
+        { cacheSize: signal<number | null>(418_000_000) },
+        "admin",
+      )
 
-      expect(hostOf(fixture).querySelector("[data-cache-size]")?.textContent.trim()).toBe("418 MB")
+      expect(component["cacheSize"]()).toBe("418 MB")
+      expect(hostOf(fixture).querySelector("[rowControl][data-cache-size]")).not.toBeNull()
     })
 
     it("sends the clearing", () => {

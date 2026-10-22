@@ -194,7 +194,8 @@ async (page) => {
           labelFont: getComputedStyle(label).fontSize,
           labelColor: getComputedStyle(label).color,
           rowPadding: [getComputedStyle(row).paddingTop, getComputedStyle(row).paddingBottom],
-          rowColumns: getComputedStyle(row).gridTemplateColumns,
+          // La rangee est un subgrid : les colonnes se lisent sur la grille parente (`settings-rows`).
+          rowColumns: getComputedStyle(row.parentElement).gridTemplateColumns,
           columnGap: getComputedStyle(row).columnGap,
           rowBorder: getComputedStyle(row).borderBottomWidth,
           controlGap: getComputedStyle(control).columnGap,

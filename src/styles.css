@@ -32,6 +32,13 @@
   @apply text-xs text-pretty whitespace-pre-line text-muted-color;
 }
 
+/* Rangées d'une section des Réglages : libellé (10rem, mesurés sur « Signal sonore de fin »),
+   contrôle, puis une colonne d'actions à la largeur du plus long bouton de la section, que
+   chaque rangée (`app-settings-row`, en subgrid) remplit. Sans action, la colonne n'existe pas. */
+@utility settings-rows {
+  @apply grid grid-cols-[10rem_minmax(0,1fr)_max-content];
+}
+
 /* WebView2 fait rebondir toute la vue quand la molette tourne sur une page qui ne defile
    pas : la barre d'onglets tremble puis revient. C'est le seul moyen de le couper, aucune
    option Tauri ne le fait. */
