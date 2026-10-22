@@ -586,7 +586,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 **Compatibilité Écosystème** :
 - Import unique en tête de `src/styles.css` : `@import "@fontsource-variable/inter/wght.css";`, qui couvre l'axe `wght` de 100 à 900 en romain. Ajouter `wght-italic.css` seulement si de l'italique est réellement utilisé
 - **Aucune entrée `angular.json` requise** : les `url()` du CSS sont résolus par esbuild comme n'importe quel asset, et les `.woff2` sortent en fichiers hashés
-- Déclarer la famille par `--font-sans` dans le `@theme` de Tailwind, que le preflight applique à `html` ; le preset Aura déclare `fontFamily: 'inherit'` et la suit
+- Famille déclarée par `--font-sans` dans le `@theme` de Tailwind, le preset Aura en hérite (`fontFamily: 'inherit'`)
 - Licence SIL OFL 1.1 : redistribution libre dans un installeur Windows, à condition de conserver le fichier de licence
 
 **Recommandation** : ✅

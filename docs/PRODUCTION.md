@@ -346,7 +346,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 
 - [ ] **BRAINSTORM.md** : auditer le doc dans son ensemble et identifier les écarts entre la vision / les features et l'implémentation livrée
 - [ ] **ARCHITECTURE.md** : auditer le doc dans son ensemble (ADRs compris) et identifier les écarts avec le code, dont le mécanisme de déclenchement du build signalé en § Pipelines
-- [x] **DESIGN.md** : auditer le doc dans son ensemble et identifier les écarts entre le design system et l'interface livrée (audité le 2026-10-22 : fondations mesurées sur le rendu, 44 affirmations vérifiées contre le code, arbitrages réalignés retirés)
+- [x] **DESIGN.md** : auditer le doc dans son ensemble et identifier les écarts entre le design system et l'interface livrée (audité le 2026-10-22)
 - [ ] **VERSIONS.md** : confronter les versions documentées à celles réellement installées (`pyproject.toml`, `package.json`, `Cargo.toml`), et vérifier que les incertitudes de sa checklist ont toutes été levées par le premier build
 - [ ] **PRODUCTION.md** : auditer le doc dans son ensemble et vérifier que toutes les procédures documentées sont effectivement en place (secrets, sauvegarde de la clé, alertes, rotation)
 - [ ] **README.md** : présentation, stack, getting started, liens docs, complété une fois les autres docs stabilisées. Rester factuel : « récupère des métadonnées via une API », pas « scrape Beatport » ([ADR-021](adrs/021-visibilite-du-depot.md))
