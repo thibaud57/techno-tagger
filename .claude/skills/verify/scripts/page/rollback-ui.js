@@ -715,7 +715,8 @@ async (page) => {
     await settle(400)
   }
   const gotoSettings = async () => {
-    await page.locator("p-tab", { hasText: /Réglages|Settings/ }).click()
+    // Onglet a icone seule : son nom est son aria-label, plus aucun texte.
+    await page.locator("p-tab[aria-label='Réglages'], p-tab[aria-label='Settings']").click()
     await page.waitForSelector("app-settings-page")
     await settle(700)
   }
@@ -725,12 +726,18 @@ async (page) => {
       // retours dessous dans la seconde colonne. L'aide est dessous (cle API) ou dans le controle,
       // sur la ligne du bouton (Restauration).
       const rows = [...document.querySelectorAll("app-settings-page app-settings-row")]
+      const mutedProbe = document.createElement("span")
+      mutedProbe.className = "text-muted-color"
+      document.body.append(mutedProbe)
+      const mutedColor = getComputedStyle(mutedProbe).color
+      mutedProbe.remove()
       const info = (r) => {
         if (!r) return null
         const label = r.querySelector("[rowLabel]")
         const control = r.querySelector("[rowControl]")
         const below = r.querySelector(":scope > div.col-start-2")
-        const hint = control.querySelector("span.text-xs") ?? below.querySelector("span.text-xs")
+        // Classe utilitaire `hint` : son style (12px, muted, pre-line) se mesure sur l'element.
+        const hint = control.querySelector(".hint") ?? below.querySelector(".hint")
         const button = control.querySelector("button")
         const cs = getComputedStyle(r)
         const rb = r.getBoundingClientRect()
@@ -745,7 +752,7 @@ async (page) => {
           labelSize: getComputedStyle(label).fontSize,
           hintSize: getComputedStyle(hint).fontSize,
           hintColor: getComputedStyle(hint).color,
-          hintMuted: hint.closest(".text-muted-color") !== null,
+          hintMuted: getComputedStyle(hint).color === mutedColor,
           hintWhiteSpace: getComputedStyle(hint).whiteSpace,
           hintBelowControl: hb.top >= cb.bottom - 0.5,
           hintOnButtonLine: control.contains(hint) && hb.top < bb.bottom && hb.bottom > bb.top,
@@ -813,7 +820,7 @@ async (page) => {
     out.measures.settingsRows = geo
     check("8 section order: API then Administration", JSON.stringify(geo.order) === JSON.stringify(["API", "Administration"]), geo.order)
     const adm = geo.h2s.find((h) => h.text === "Administration")
-    check("8 h2 Administration text-xl semibold", adm?.size === "20px" && adm.weight === "600", adm)
+    check("8 h2 Administration text-lg semibold", adm?.size === "18px" && adm.weight === "600", adm)
     const a = geo.api
     const r = geo.rollback
     check("8 two app-settings-row: same grid (10rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 160 && a.colW === 160 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(r.controlRightGap) <= 1 && Math.abs(a.controlRightGap) <= 1, { api: a, rollback: r })
@@ -1013,7 +1020,8 @@ async (page) => {
     await settle(600)
     const f = await failuresBox()
     out.measures.settingsFailures = f
-    check("12 rollback_finished with failures: list under the row (error, times-circle 20px, 2 files)", f?.error && f.icon === 20 && f.text.includes(`Fichiers non restaurés${NBSP}: 2`) && f.items.length === 2, f)
+    // Message `small` dans une rangee des Reglages : icone de 16px (20px hors rangee, cf. controle 5).
+    check("12 rollback_finished with failures: list under the row (error, small message, times-circle 16px, 2 files)", f?.error && f.icon === 16 &&f.text.includes(`Fichiers non restaurés${NBSP}: 2`) && f.items.length === 2, f)
     check("12 settings failures use the restore wording (no write retry)", f?.items.every((x) => /puis relancez la restauration\.$/.test(x)), f?.items)
     const under = await page.evaluate(() => {
       const btnR = document.querySelector('app-settings-page [data-action="restore-last"]').getBoundingClientRect()

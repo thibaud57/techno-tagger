@@ -37,7 +37,7 @@
              preset (1px primary) recopie en classes, vers l'interieur : la table defile et rognerait un
              anneau exterieur. -->
         <tr
-          class="h-14 transition-colors duration-150 ease-out focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis data-shown:bg-highlight"
+          class="h-14 transition-colors focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis data-shown:bg-highlight"
           [attr.data-shown]="open ? '' : null"
           [attr.data-arbitrable]="track.arbitrable ? '' : null"
           [attr.data-recoverable]="track.recoverable ? '' : null"
@@ -57,6 +57,7 @@
               [text]="true"
               severity="secondary"
               data-row-toggle
+              [iconOnly]="true"
               [attr.aria-expanded]="open"
               [attr.aria-label]="'tagging.list.showDetail' | translate"
               [title]="'tagging.list.showDetail' | translate"

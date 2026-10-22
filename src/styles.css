@@ -13,6 +13,23 @@
    regle sur body. */
 @theme {
   --font-sans: "Inter Variable", system-ui, sans-serif;
+  /* 200ms `ease-out` : la duree des composants PrimeNG, pour que les transitions custom suivent. */
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Roles repetes d'un ecran a l'autre (DESIGN.md § Composition de Styles) : ecrits une fois ici
+   pour qu'ils ne derivent pas, et employes comme n'importe quelle classe. */
+@utility page-host {
+  @apply flex min-h-0 flex-1 flex-col gap-6;
+}
+
+@utility panel {
+  @apply rounded-lg border border-surface bg-surface-900;
+}
+
+@utility hint {
+  @apply text-xs text-pretty whitespace-pre-line text-muted-color;
 }
 
 /* WebView2 fait rebondir toute la vue quand la molette tourne sur une page qui ne defile

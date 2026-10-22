@@ -18,7 +18,8 @@ import { Component } from "@angular/core"
   // 10rem : colonne des libelles, mesuree sur « Signal sonore de fin », le plus long en FR et en
   // EN. Plus large, elle laisse un vide sous chaque libelle court.
   host: {
-    class: "grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-x-4 border-b border-surface py-3",
+    class:
+      "grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-x-4 border-b border-surface-800 py-3",
   },
 })
 export class SettingsRowComponent {}

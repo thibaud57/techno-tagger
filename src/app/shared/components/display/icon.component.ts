@@ -6,6 +6,8 @@ import { ChevronRight } from "@primeicons/angular/chevron-right"
 import { Check } from "@primeicons/angular/check"
 import { CheckCircle } from "@primeicons/angular/check-circle"
 import { Clock } from "@primeicons/angular/clock"
+import { Cog } from "@primeicons/angular/cog"
+import { Desktop } from "@primeicons/angular/desktop"
 import { Download } from "@primeicons/angular/download"
 import { ExclamationTriangle } from "@primeicons/angular/exclamation-triangle"
 import { ExternalLink } from "@primeicons/angular/external-link"
@@ -15,16 +17,21 @@ import { File as FileIcon } from "@primeicons/angular/file"
 import { Folder } from "@primeicons/angular/folder"
 import { Image as ImageIcon } from "@primeicons/angular/image"
 import { InfoCircle } from "@primeicons/angular/info-circle"
+import { Key } from "@primeicons/angular/key"
+import { List } from "@primeicons/angular/list"
 import { MinusCircle } from "@primeicons/angular/minus-circle"
 import { Play } from "@primeicons/angular/play"
 import { Refresh } from "@primeicons/angular/refresh"
 import { Search } from "@primeicons/angular/search"
+import { SlidersH } from "@primeicons/angular/sliders-h"
 import { Spinner } from "@primeicons/angular/spinner"
 import { Stop } from "@primeicons/angular/stop"
+import { Tag as TagIcon } from "@primeicons/angular/tag"
 import { Times } from "@primeicons/angular/times"
 import { TimesCircle } from "@primeicons/angular/times-circle"
 import { Trash } from "@primeicons/angular/trash"
 import { Undo } from "@primeicons/angular/undo"
+import { Wrench } from "@primeicons/angular/wrench"
 
 /**
  * Les icones reellement utilisees (et non `string`) : un nom ouvert imposerait un
@@ -59,6 +66,13 @@ export const ICON_NAMES = [
   "external-link",
   "trash",
   "download",
+  "cog",
+  "tag",
+  "desktop",
+  "key",
+  "list",
+  "sliders-h",
+  "wrench",
 ] as const
 export type IconName = (typeof ICON_NAMES)[number]
 
@@ -99,6 +113,13 @@ export type IconSize = 16 | 20 | 24
     Search,
     Trash,
     Download,
+    Cog,
+    TagIcon,
+    Desktop,
+    Key,
+    List,
+    SlidersH,
+    Wrench,
   ],
   template: `
     @switch (name()) {
@@ -180,10 +201,31 @@ export type IconSize = 16 | 20 | 24
       @case ("download") {
         <svg data-p-icon="download" [size]="size()" />
       }
+      @case ("cog") {
+        <svg data-p-icon="cog" [size]="size()" />
+      }
+      @case ("tag") {
+        <svg data-p-icon="tag" [size]="size()" />
+      }
+      @case ("desktop") {
+        <svg data-p-icon="desktop" [size]="size()" />
+      }
+      @case ("key") {
+        <svg data-p-icon="key" [size]="size()" />
+      }
+      @case ("list") {
+        <svg data-p-icon="list" [size]="size()" />
+      }
+      @case ("sliders-h") {
+        <svg data-p-icon="sliders-h" [size]="size()" />
+      }
+      @case ("wrench") {
+        <svg data-p-icon="wrench" [size]="size()" />
+      }
     }
   `,
 })
 export class IconComponent {
   readonly name = input.required<IconName>()
-  readonly size = input<IconSize>(20)
+  readonly size = input<IconSize>(16)
 }

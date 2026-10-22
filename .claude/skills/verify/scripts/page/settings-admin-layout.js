@@ -215,16 +215,23 @@ async (page) => {
       await p.mouse.move(2, 2)
       await settle(500)
     }
-    const hint = (row) => p.evaluate((i) => document.querySelectorAll("app-settings-row")[i].querySelector(".text-xs").textContent, row)
+    const hint = (row) => p.evaluate((i) => document.querySelectorAll("app-settings-row")[i].querySelector(".hint").textContent, row)
     const scrolls = () =>
       p.evaluate(() => {
         const main = document.querySelector("main")
+        // La section defile dans le panneau quand son contenu depasse : le debordement se lit sur elle aussi.
+        const section = document.querySelector("app-settings-page section")
         return {
           pageV: document.scrollingElement.scrollHeight > innerHeight,
           mainV: main.scrollHeight > main.clientHeight,
           mainH: main.scrollWidth > main.clientWidth,
+          sectionV: section.scrollHeight > section.clientHeight,
           pageH: document.scrollingElement.scrollWidth > innerWidth,
-          overshoot: Math.max(document.scrollingElement.scrollHeight - innerHeight, main.scrollHeight - main.clientHeight),
+          overshoot: Math.max(
+            document.scrollingElement.scrollHeight - innerHeight,
+            main.scrollHeight - main.clientHeight,
+            section.scrollHeight - section.clientHeight,
+          ),
         }
       })
     const cacheState = () =>
@@ -372,7 +379,8 @@ async (page) => {
       const describe = (row) => {
         const label = row.querySelector("[rowLabel]")
         const control = row.querySelector("[rowControl]")
-        const hint = control.querySelector(".text-xs")
+        // Classe utilitaire `hint` : 12px, muted et pre-line se mesurent ensuite sur le style calcule.
+        const hint = control.querySelector(".hint")
         const action = row.querySelector("button[data-action]")
         const size = row.querySelector("[data-cache-size]")
         const c = control.getBoundingClientRect()
@@ -383,7 +391,7 @@ async (page) => {
           columns: getComputedStyle(row).gridTemplateColumns,
           labelText: label.textContent.trim(),
           labelFont: getComputedStyle(label).fontSize,
-          labelAlone: row.querySelectorAll("[rowLabel]").length === 1 && label.querySelector(".text-xs") === null,
+          labelAlone: row.querySelectorAll("[rowLabel]").length === 1 && label.querySelector(".hint") === null,
           controlLeft: n(c.left),
           controlLeftFromLabel: n(c.left - l.left),
           hintText: hint.textContent,
@@ -395,7 +403,8 @@ async (page) => {
           hintWidth: n(h.width),
           hintCenterToButtonCenter: n(h.top + h.height / 2 - (a.top + a.height / 2)),
           hintToButton: n(a.left - h.right),
-          controlRightToSection: n(section.getBoundingClientRect().right - c.right),
+          // Bord interieur de la section (son padding), pas son bord.
+          controlRightToSection: n(section.getBoundingClientRect().right - parseFloat(getComputedStyle(section).paddingRight) - c.right),
           buttonHeight: n(a.height),
           rowHeight: n(row.getBoundingClientRect().height),
         }
@@ -430,7 +439,7 @@ async (page) => {
           page: document.scrollingElement.scrollHeight > innerHeight,
           main: main.scrollHeight > main.clientHeight,
           section: section.scrollHeight > section.clientHeight,
-          bottomRoom: Math.round(main.getBoundingClientRect().bottom - rows[rows.length - 1].getBoundingClientRect().bottom),
+          bottomRoom: Math.round(section.getBoundingClientRect().bottom - parseFloat(getComputedStyle(section).paddingBottom) - rows[rows.length - 1].getBoundingClientRect().bottom),
         },
       }
     })
@@ -466,7 +475,9 @@ async (page) => {
     const versionFeedback = await p.evaluate(() => {
       const e = document.querySelector("[data-version-error]")
       const b = document.querySelector('[data-action="check-update"]')
-      return { text: e.textContent, disabled: b.disabled, label: b.textContent, scroll: document.querySelector("main").scrollHeight > document.querySelector("main").clientHeight }
+      const main = document.querySelector("main")
+      const section = document.querySelector("app-settings-page section")
+      return { text: e.textContent, disabled: b.disabled, label: b.textContent, scroll: main.scrollHeight > main.clientHeight || section.scrollHeight > section.clientHeight }
     })
     out.version = versionFeedback
     check(flat(versionFeedback.text) === flat(want.version.failed), `${language} version echec : ${JSON.stringify(versionFeedback.text)}`)
@@ -670,8 +681,9 @@ async (page) => {
       Math.abs(out.cacheErrorAgain.above - out.logsError.above) < 0.6 && Math.abs(out.cacheErrorAgain.below - out.logsError.below) < 0.6,
       `${language} ecarts Cache ${out.cacheErrorAgain.above}/${out.cacheErrorAgain.below} contre Logs ${out.logsError.above}/${out.logsError.below}`,
     )
-    // Depuis la seconde passe : meme aspect que l'erreur du Cache (icone de 20px, deux lignes, meme hauteur)
-    check(out.logsError.iconSize === 20 && out.cacheErrorAgain.iconSize === 20, `${language} icones des erreurs : Logs ${out.logsError.iconSize}px, Cache ${out.cacheErrorAgain.iconSize}px`)
+    // Depuis la seconde passe : meme aspect que l'erreur du Cache (deux lignes, meme hauteur). Messages `small`
+    // d'une rangee : icone de 16px (20px dans un message de taille normale).
+    check(out.logsError.iconSize === 16 && out.cacheErrorAgain.iconSize === 16,`${language} icones des erreurs : Logs ${out.logsError.iconSize}px, Cache ${out.cacheErrorAgain.iconSize}px`)
     check(Math.abs(out.logsError.height - out.cacheErrorAgain.height) < 0.6, `${language} hauteur des erreurs : Logs ${out.logsError.height}px, Cache ${out.cacheErrorAgain.height}px`)
     // La reussite qui suit retire le message
     await p.evaluate(() => {

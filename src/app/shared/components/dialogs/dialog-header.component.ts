@@ -14,7 +14,7 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
   // le logo garde l'ecart des actions d'en-tete (gap-3).
   template: `
     <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-      <h3 class="m-0 min-w-0 text-lg font-semibold" data-title>
+      <h3 class="min-w-0 text-lg font-semibold" data-title>
         <app-truncated-text [text]="title()" />
       </h3>
       <!-- Ligne gardee meme vide : d'un morceau a l'autre, le contenu ne se decale pas. -->

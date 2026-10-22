@@ -26,12 +26,12 @@ import { CloseGuard } from "../../../core/platform/close-guard.service"
       [closeAriaLabel]="'app.close.stay' | translate"
     >
       <ng-template #header>
-        <h3 class="m-0 text-lg font-semibold">
+        <h3 class="text-lg font-semibold">
           {{ (blocked() ? "app.close.blockedTitle" : "app.close.title") | translate }}
         </h3>
       </ng-template>
 
-      <ul class="flex flex-col gap-2 text-sm whitespace-pre-line">
+      <ul class="flex flex-col gap-2 text-sm whitespace-pre-line text-muted-color">
         @for (work of request() ?? []; track work.kind) {
           <li>{{ "app.close." + work.kind | translate }}</li>
         }

@@ -333,7 +333,8 @@ async (page) => {
       const row = labelEl.closest("app-settings-row")
       const all = [...host.querySelectorAll("app-settings-row")]
       const rect = (e) => e.getBoundingClientRect()
-      const hint = [...row.querySelectorAll("span")].find((s) => s.className.includes("text-xs") && !sel.contains(s))
+      // Classe utilitaire `hint` : la taille se mesure ensuite sur le style calcule.
+      const hint = [...row.querySelectorAll(".hint")].find((s) => !sel.contains(s))
       const labelled = sel.querySelector("[aria-labelledby]")
       const ref = labelled && document.getElementById(labelled.getAttribute("aria-labelledby"))
       const labelBox = rect(labelEl)
@@ -620,7 +621,12 @@ async (page) => {
         messageAbove: !!msg && !!empty && msg.getBoundingClientRect().bottom <= empty.getBoundingClientRect().top + 1,
         messageBelowHeader: !!msg && msg.getBoundingClientRect().top >= host.querySelector("h1").getBoundingClientRect().bottom - 1,
         emptyText: empty?.textContent.replace(/[ \t\r\n]+/g, " ").trim() ?? null,
-        emptyFramed: !!empty && /rounded-lg/.test(empty.className + (empty.firstElementChild?.className ?? "")),
+        // Cadre du panneau (hote de `app-empty-state` en `framed`) lu sur son style calcule : bordure de 1px, rayon de 8px, fond plein.
+        emptyFramed: (() => {
+          if (!empty) return false
+          const style = getComputedStyle(empty)
+          return style.borderTopWidth === "1px" && style.borderTopLeftRadius === "8px" && style.backgroundColor !== "rgba(0, 0, 0, 0)"
+        })(),
         table: host.querySelector("table, app-run-list") !== null,
         skeleton: host.querySelector("app-skeleton-rows") !== null,
         back: back !== null,

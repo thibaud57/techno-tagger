@@ -1,14 +1,32 @@
 <h1 class="text-2xl font-semibold">{{ "settings.title" | translate }}</h1>
 
-<!-- Colonne du menu a sa propre largeur : celle du composant, plus large seulement si un
-     libelle l'exige. -->
-<div class="grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-6">
-  <p-menu class="self-start" [model]="menuItems()" [pt]="menuPt()" />
+<!-- Un seul panneau sur toute la hauteur, comme le bloc de Playlist et de Tagging. Colonne du
+     menu a sa propre largeur : celle du composant, plus large seulement si un libelle l'exige. -->
+<div class="grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] panel">
+  <div class="border-r border-surface">
+    <p-menu [model]="menuItems()" [pt]="menuPt()" [dt]="menuTokens">
+      <!-- `p-menu` ne rend une icone que par classe de police : l'entree se compose ici, avec les
+           classes d'Aura. Entree et Espace cliquent son contenu, qui porte la commande. -->
+      <ng-template #item let-item>
+        @let active = item.id === activeItemId();
+        <a class="p-menu-item-link" tabindex="-1" [attr.aria-current]="active ? 'page' : null">
+          <app-icon
+            [name]="item.icon"
+            [size]="16"
+            [class.text-primary]="active"
+            [class.text-muted-color]="!active"
+          />
+          <span class="p-menu-item-label">{{ item.label }}</span>
+        </a>
+      </ng-template>
+    </p-menu>
+  </div>
 
   <!-- Rangees jointives dans un groupe : le filet seul les separe, a egale distance des deux
-       contenus (py-3). Un gap entre elles le decalerait vers le haut. -->
-  <section class="flex min-w-0 flex-col gap-4">
-    <h2 class="text-xl font-semibold">{{ "settings." + section() + ".title" | translate }}</h2>
+       contenus (py-3). Un gap entre elles le decalerait vers le haut. Au plancher de la fenetre, des
+       retours empiles peuvent depasser : la section defile alors dans le panneau. -->
+  <section class="flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto p-6">
+    <h2 class="text-lg font-semibold">{{ "settings." + section() + ".title" | translate }}</h2>
 
     @switch (section()) {
       @case ("api") {
@@ -69,11 +87,9 @@
               </button>
             </div>
 
-            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-              "settings.api.key.hint" | translate
-            }}</span>
+            <span class="hint">{{ "settings.api.key.hint" | translate }}</span>
             @if (error(); as shown) {
-              <app-error-message [error]="shown" />
+              <app-error-message size="small" [error]="shown" />
             }
           </app-settings-row>
         </div>
@@ -114,9 +130,7 @@
               />
             </div>
 
-            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-              "settings.matching.floor.hint" | translate
-            }}</span>
+            <span class="hint">{{ "settings.matching.floor.hint" | translate }}</span>
           </app-settings-row>
 
           <app-settings-row>
@@ -149,9 +163,7 @@
               />
             </div>
 
-            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-              "settings.matching.ceiling.hint" | translate
-            }}</span>
+            <span class="hint">{{ "settings.matching.ceiling.hint" | translate }}</span>
           </app-settings-row>
         </div>
 
@@ -197,9 +209,7 @@
               />
             </div>
 
-            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-              "settings.interface.language.hint" | translate
-            }}</span>
+            <span class="hint">{{ "settings.interface.language.hint" | translate }}</span>
           </app-settings-row>
 
           <app-settings-row>
@@ -209,9 +219,7 @@
 
             <!-- Sans champ, l'aide prend la place du controle, sur la ligne de la bascule. -->
             <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-                "settings.interface.sound.hint" | translate
-              }}</span>
+              <span class="hint">{{ "settings.interface.sound.hint" | translate }}</span>
               <p-toggleswitch
                 class="shrink-0"
                 data-field="sound"
@@ -230,9 +238,7 @@
 
             <!-- Sans champ, l'aide prend la place du controle, sur la ligne du bouton. -->
             <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-                "settings.admin.cache.hint" | translate
-              }}</span>
+              <span class="hint">{{ "settings.admin.cache.hint" | translate }}</span>
               <div class="flex shrink-0 items-center gap-2">
                 @let cacheBlocked =
                   cacheBlockedReason() ? (cacheBlockedReason() | translate) : undefined;
@@ -260,7 +266,7 @@
             </div>
 
             @if (cacheError(); as shown) {
-              <app-error-message data-cache-error [error]="shown" />
+              <app-error-message data-cache-error size="small" [error]="shown" />
             }
           </app-settings-row>
 
@@ -268,9 +274,7 @@
             <span rowLabel class="text-sm">{{ "settings.admin.logs.label" | translate }}</span>
 
             <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-                "settings.admin.logs.hint" | translate
-              }}</span>
+              <span class="hint">{{ "settings.admin.logs.hint" | translate }}</span>
               @let logsBlocked =
                 logsBlockedReason() ? (logsBlockedReason() | translate) : undefined;
               <button
@@ -292,7 +296,7 @@
             </div>
 
             @if (logsUnavailable()) {
-              <app-message data-logs-error severity="error">{{
+              <app-message data-logs-error severity="error" size="small">{{
                 "settings.admin.logs.unavailable" | translate
               }}</app-message>
             }
@@ -302,9 +306,7 @@
             <span rowLabel class="text-sm">{{ "settings.admin.rollback.label" | translate }}</span>
 
             <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-                "settings.admin.rollback.hint" | translate
-              }}</span>
+              <span class="hint">{{ "settings.admin.rollback.hint" | translate }}</span>
               @let blocked =
                 restoreBlockedReason() ? (restoreBlockedReason() | translate) : undefined;
               <button
@@ -336,10 +338,10 @@
               </div>
             }
             @if (rollbackError(); as shown) {
-              <app-error-message [error]="shown" />
+              <app-error-message size="small" [error]="shown" />
             }
             @if (rollbackFailures().length > 0) {
-              <app-rollback-failures [failures]="rollbackFailures()" />
+              <app-rollback-failures size="small" [failures]="rollbackFailures()" />
             }
           </app-settings-row>
 
@@ -348,7 +350,7 @@
               "settings.admin.pastRuns.label" | translate
             }}</span>
 
-            <div rowControl class="flex min-w-0 items-center gap-4">
+            <div rowControl class="flex min-w-0 items-center gap-2">
               <!-- Aucune largeur figee : le select prend le reste de la ligne et coupe le dossier.
                `contain` : sans lui, un dossier long elargirait la colonne des controles. -->
               <p-select
@@ -382,16 +384,14 @@
               </button>
             </div>
 
-            <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
-              "settings.admin.pastRuns.hint" | translate
-            }}</span>
+            <span class="hint">{{ "settings.admin.pastRuns.hint" | translate }}</span>
           </app-settings-row>
 
           <app-settings-row data-version-row>
             <span rowLabel class="text-sm">{{ "settings.admin.version.label" | translate }}</span>
 
             <div rowControl class="flex min-w-0 items-center justify-between gap-4">
-              <span class="text-xs text-pretty whitespace-pre-line text-muted-color">{{
+              <span class="hint">{{
                 "settings.admin.version.installed" | translate: { version: appVersion }
               }}</span>
               <button

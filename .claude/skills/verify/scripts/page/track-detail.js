@@ -71,6 +71,19 @@ async (page) => {
             left: grid ? art.getBoundingClientRect().right <= grid.getBoundingClientRect().left : null,
           },
           valueWidth: cells[0] ? Math.round(cells[0][3].getBoundingClientRect().width) : null,
+          // gap-4 entre la pochette et la grille ; cle (« TPE1 ») dans le gris du libelle, lui-meme `text-muted-color`.
+          artToGrid: art && grid ? Math.round(grid.getBoundingClientRect().left - art.querySelector("img, p-skeleton, div").getBoundingClientRect().right) : null,
+          keyColor: (() => {
+            if (!cells[0]) return null
+            const probe = document.createElement("span")
+            probe.className = "text-muted-color"
+            document.body.append(probe)
+            const muted = getComputedStyle(probe).color
+            probe.remove()
+            const label = getComputedStyle(cells[0][0]).color
+            const key = getComputedStyle(cells[0][1]).color
+            return { label, key, sameAsLabel: key === label, labelMuted: label === muted }
+          })(),
           rowHeights: rows.map((x) => Math.round(x.getBoundingClientRect().height)),
           restoreButtons: d.querySelectorAll('[data-action="restore-track"]').length,
           source: (() => {
@@ -103,6 +116,8 @@ async (page) => {
       return {
         th: Math.round(th.getBoundingClientRect().width),
         button: Math.round(b.width),
+        buttonHeight: Math.round(b.height),
+        iconOnly: button.classList.contains("p-button-icon-only"),
         clipped: b.right > tdBox.right || b.left < tdBox.left,
         label: button.getAttribute("aria-label"),
         // Colonne de 48px (`w-12`), cellule sans marge droite : les ecarts bouton / vignette et
@@ -189,7 +204,7 @@ async (page) => {
   out.measures.chevronEn = await chevronColumn()
   await page.evaluate(() => ng.getComponent(document.querySelector("app-root")).translate.use("fr"))
   await settle()
-  check("button fits its 48px column (fr, en), cell without right padding", !out.measures.chevronFr.clipped && !out.measures.chevronEn.clipped && out.measures.chevronFr.th === 48 && out.measures.chevronEn.th === 48 && out.measures.chevronFr.button === 34 && out.measures.chevronFr.padRight === "0px", [out.measures.chevronFr, out.measures.chevronEn])
+  check("button fits its 48px column (fr, en), cell without right padding", !out.measures.chevronFr.clipped && !out.measures.chevronEn.clipped && out.measures.chevronFr.th === 48 && out.measures.chevronEn.th === 48 && out.measures.chevronFr.button === 28 && out.measures.chevronFr.buttonHeight === 28 && out.measures.chevronFr.iconOnly && out.measures.chevronEn.button === 28 && out.measures.chevronEn.buttonHeight === 28 && out.measures.chevronFr.padRight === "0px", [out.measures.chevronFr, out.measures.chevronEn])
   check("button label translated", out.measures.chevronFr.label === "Afficher le détail" && out.measures.chevronEn.label === "Show details", [out.measures.chevronFr.label, out.measures.chevronEn.label])
   check("button closed: aria-expanded false", (await toggle(R.file_name).getAttribute("aria-expanded")) === "false", await toggle(R.file_name).getAttribute("aria-expanded"))
 
@@ -205,6 +220,8 @@ async (page) => {
   check("resolved: first row, key beside the label", JSON.stringify(r?.rows[0]) === JSON.stringify(["Artiste", "TPE1", "adam beyer", "Adam Beyer, Bart Skils"]), r?.rows[0])
   check("resolved: comment row, after em dash", JSON.stringify(r?.rows.at(-1)) === JSON.stringify(["Commentaire", "", "Ripped by X", "—"]), r?.rows.at(-1))
   check("artwork 168px left of the grid", r?.art?.w === 168 && r?.art?.left === true && r?.art?.frame, r?.art)
+  check("artwork 16px (gap-4) before the grid", r?.artToGrid === 16, r?.artToGrid)
+  check("key in the muted grey of its label", r?.keyColor?.labelMuted === true && r.keyColor.sameAsLabel === true, r?.keyColor)
   check("not restorable: no restore button, frame still 7 rows", r?.restoreButtons === 0 && r.frame === 7 * ROW, r && { buttons: r.restoreButtons, frame: r.frame })
   check("source row: brand logo 16px then the brand name, not the raw value", r?.source?.text === "Beatport" && r.source.display === "inline-flex" && r.source.logoFirst && r.source.logoW === 16 && r.source.logoBeforeText && r.rows[12][3] === "Beatport", r?.source)
   const listSource = await page.evaluate((name) => {

@@ -58,7 +58,7 @@ const RESOLVED: Record<TrackResolution, StateStyle> = {
   imports: [Tag, TranslatePipe, IconComponent],
   template: `
     <p-tag
-      class="transition-colors duration-150 ease-out"
+      class="transition-colors"
       [severity]="style().severity"
       [attr.data-severity]="style().severity"
     >

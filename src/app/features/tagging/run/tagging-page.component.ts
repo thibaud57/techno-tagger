@@ -18,7 +18,7 @@ import { PhaseProgressComponent } from "../../../shared/components/display/phase
 import { ErrorMessageComponent } from "../../../shared/components/feedback/error-message.component"
 import { MessageComponent } from "../../../shared/components/feedback/message.component"
 import { PathPickerComponent } from "../../../shared/components/inputs/path-picker.component"
-import { FADE_IN, PAGE_HOST } from "../../../shared/utils/motion"
+import { FADE_IN } from "../../../shared/utils/motion"
 import { progressPercentage } from "../../../shared/utils/progress"
 import { TOOLTIP } from "../../../shared/utils/tooltip"
 
@@ -57,7 +57,7 @@ interface ActionButton {
     UrlRecoveryDialogComponent,
   ],
   templateUrl: "./tagging-page.component.html",
-  host: { class: PAGE_HOST, "animate.enter": FADE_IN },
+  host: { class: "page-host", "animate.enter": FADE_IN },
 })
 export default class TaggingPageComponent {
   private readonly sidecar = inject(SidecarService)

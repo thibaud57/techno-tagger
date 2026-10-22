@@ -16,3 +16,6 @@ export const errorMessageOf = (root: ParentNode): Element | null =>
 
 export const iconOf = (root: ParentNode, name: IconName): Element | null =>
   root.querySelector(`[data-icon="${name}"]`)
+
+/** Pixels d'une classe de hauteur Tailwind (`h-10.25`) : un cran vaut 4px (`--spacing` : 0.25rem). */
+export const heightClassPx = (className: string): number => Number(className.replace("h-", "")) * 4

@@ -212,6 +212,11 @@ def test_the_application_identity_is_the_same_everywhere() -> None:
     assert read_toml("src-tauri/Cargo.toml", "package", "name") == APP_NAME
     assert f"{APP_NAME}@{__version__}" == RELEASE
     assert read_json("angular.json", *build, "define", "APP_NAME") == f"'{APP_NAME}'"
+    # Le nom de la barre d'onglets et le <title> de la page reprennent le titre de la fenetre.
+    title = read_json("src-tauri/tauri.conf.json", "app", "windows", 0, "title")
+    assert isinstance(title, str)
+    assert read_json("angular.json", *build, "define", "APP_TITLE") == f"'{title}'"
+    assert f"<title>{title}</title>" in (REPO / "src/index.html").read_text(encoding="utf-8")
     assert f"{APP_NAME}@" in str(read_json("package.json", "scripts", "sourcemaps"))
     assert f"release: {APP_NAME}@" in workflow
 

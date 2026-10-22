@@ -92,7 +92,8 @@ async (page) => {
           const label = row.querySelector("[rowLabel]")
           const control = row.querySelector("[rowControl]")
           const extra = row.querySelector(":scope > div:not([rowControl])")
-          const hint = row.querySelector(".text-xs.whitespace-pre-line, .text-xs")
+          // Classe utilitaire `hint` (src/styles.css) : le style se mesure ensuite sur l'element, pas sur ses classes.
+          const hint = row.querySelector(".hint")
           const l = label.getBoundingClientRect()
           const c = control.getBoundingClientRect()
           const first = control.querySelector("button, input, p-select, p-slider, p-toggleswitch")?.getBoundingClientRect()
@@ -108,7 +109,8 @@ async (page) => {
             labelCenterMinusFirstControlCenter: first ? n(l.top + l.height / 2 - (first.top + first.height / 2)) : null,
             controlLeft: n(c.left),
             controlRight: n(c.right),
-            controlRightToSection: n(s.right - c.right),
+            // Le controle s'arrete au bord interieur de la section (son padding), pas a son bord.
+            controlRightToSection: n(s.right - parseFloat(getComputedStyle(section).paddingRight) - c.right),
             hint: hint ? { font: getComputedStyle(hint).fontSize, mutedColor: getComputedStyle(hint).color === muted, whiteSpace: getComputedStyle(hint).whiteSpace, left: n(hint.getBoundingClientRect().left) } : null,
             hintBelowControl: hint && extra && extra.contains(hint) ? n(hint.getBoundingClientRect().top - c.bottom) : null,
             extraGap: extra && extra.getBoundingClientRect().height > 0 ? getComputedStyle(extra).rowGap : null,
@@ -119,6 +121,7 @@ async (page) => {
           h2: { text: h2.textContent.trim(), font: getComputedStyle(h2).fontSize, weight: getComputedStyle(h2).fontWeight, left: n(h2.getBoundingClientRect().left) },
           sectionLeft: n(s.left),
           sectionRight: n(s.right),
+          sectionPadding: getComputedStyle(section).padding,
           rows,
           loose: [...section.querySelectorAll("button")].filter((b) => !b.closest("app-settings-row")).map(describe),
           menuCursor: getComputedStyle(host.querySelector(".p-menu-item-link")).cursor,
@@ -164,8 +167,10 @@ async (page) => {
     const m = measures[language]
     for (const name of ["api", "matching", "interface", "admin"]) {
       const s = m[name]
-      check(s.h2.font === "20px" && s.h2.weight === "600", `${language} ${name} : h2 ${s.h2.font}/${s.h2.weight}`)
+      check(s.h2.font === "18px" && s.h2.weight === "600", `${language} ${name} : h2 ${s.h2.font}/${s.h2.weight}`)
+      check(s.sectionPadding === "24px", `${language} ${name} : padding de la section ${s.sectionPadding}`)
       for (const row of s.rows) {
+        check(row.hint !== null, `${language} ${name} ${row.label} : aucune aide (classe hint) dans la rangee`)
         check(row.labelFont === "14px" && row.labelWeight === "400" && row.labelColorIsText, `${language} ${name} ${row.label} : libelle ${row.labelFont}/${row.labelWeight}/texte=${row.labelColorIsText}`)
         check(row.controlLeft === m.api.rows[0].controlLeft, `${language} ${name} ${row.label} : controle a ${row.controlLeft}`)
         check(Math.abs(row.controlRightToSection) < 0.6, `${language} ${name} ${row.label} : controle a ${row.controlRightToSection}px du bord droit`)

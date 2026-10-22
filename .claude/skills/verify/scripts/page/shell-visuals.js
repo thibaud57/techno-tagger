@@ -176,7 +176,8 @@ async (page) => {
       out.pageBackground = {
         root: await p.evaluate(() => getComputedStyle(document.querySelector("app-root")).backgroundColor),
         body: await p.evaluate(() => getComputedStyle(document.body).backgroundColor),
-        underTabs: await backdrop(p, 900, 660),
+        // Dans la marge du container, a droite du panneau des Reglages qui descend jusqu'en bas.
+        underTabs: await backdrop(p, 1000, 660),
         tabBarEmptyArea: await backdrop(p, 700, 24),
       }
       check(rgb(out.pageBackground.root) === "rgb(9, 9, 11)" && rgb(out.pageBackground.underTabs.bg) === "rgb(9, 9, 11)", `${language} fond de page : ${JSON.stringify(out.pageBackground)}`)

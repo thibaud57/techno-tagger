@@ -37,12 +37,16 @@ import { UrlLinkActionsComponent } from "../url-recovery/url-link-actions.compon
 import { UrlLinkFormComponent } from "../url-recovery/url-link-form.component"
 
 /**
- * `scrollHeight` ne pose qu'un max-height : la hauteur fixe tient la ligne d'aide en place.
- * Sans option ciblee, Aura ne marque pas le focus de la liste : la bordure le fait, comme un champ.
+ * Hauteur de la liste des candidats : la classe la fixe et tient la ligne d'aide en place,
+ * `scrollHeight` n'en pose que le maximum.
  */
+export const LIST_HEIGHT_CLASS = "h-67"
+export const LIST_SCROLL_HEIGHT = "268px"
+
+/** Sans option ciblee, Aura ne marque pas le focus de la liste : la bordure le fait, comme un champ. */
 const LISTBOX_PT: ListBoxPassThrough = {
   root: { class: "focus-within:border-primary" },
-  listContainer: { class: "h-67" },
+  listContainer: { class: LIST_HEIGHT_CLASS },
   emptyMessage: { class: "flex h-full items-center justify-center text-sm text-muted-color" },
 }
 
@@ -92,6 +96,7 @@ export class ArbitrationDialogComponent {
 
   protected readonly noMotion = NO_MOTION
   protected readonly listboxPt = LISTBOX_PT
+  protected readonly listScrollHeight = LIST_SCROLL_HEIGHT
 
   readonly visible = input.required<boolean>()
   readonly dismissed = output()

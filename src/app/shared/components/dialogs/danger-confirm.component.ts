@@ -14,7 +14,7 @@ import { ConfirmDialog } from "primeng/confirmdialog"
   template: `
     <p-confirmdialog styleClass="w-120" defaultFocus="reject">
       <ng-template #message let-confirmation>
-        <p class="m-0 text-sm leading-normal whitespace-pre-line text-muted-color">
+        <p class="text-sm whitespace-pre-line text-muted-color">
           {{ confirmation.message }}
         </p>
       </ng-template>

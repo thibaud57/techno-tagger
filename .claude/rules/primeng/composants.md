@@ -17,7 +17,8 @@ paths:
 - Nommer en commentaire ce sur quoi une largeur figée a été mesurée
 - Dimensionner un `p-dialog` par `styleClass` et des classes Tailwind, pas par `[style]`
 - Poser `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur toute `p-table` : colonnes figées sur l'en-tête et état vide centré sur toute la hauteur
-- Poser `size="small"` sur tout bouton, `link` excepté, boutons des modales de confirmation compris (`acceptButtonProps` et `rejectButtonProps` de `injectDangerConfirm`)
+- Poser `size="small"` sur tout bouton, `link` excepté, boutons des modales de confirmation compris (`acceptButtonProps` et `rejectButtonProps` de `injectDangerConfirm`), et sur tout champ (`pSize="small"` sur un `pInputText`) : la densité compacte vaut pour tous les contrôles
+- Régler dans le preset (`src/app/core/platform/theme.ts`) un écart d'Aura aux échelles du design system : badge à 12px, `info` de `p-message` en `sky`, pied de modale à 8px, croix des modales et du toast en carré de 28px, bouton à icône seule carré (avec `[iconOnly]="true"`), bouton `link` en lien de texte, onglet centré
 - Lier tout `pTooltip` par `[tooltipOptions]` au jeu `TOOLTIP` (ou `WIDE_TOOLTIP` pour un texte long, `src/app/shared/utils/tooltip.ts`) : il pose le délai et la position sous l'élément (`TOOLTIP_POSITION`). PrimeNG n'a aucun défaut global : sans ce jeu le tooltip s'ouvre à droite et sans délai, et sur le côté la place manque dès que l'élément touche le bord de la fenêtre
 - Régler une fois dans le preset (`src/app/core/platform/theme.ts`, `dialog.css`) la croix des modales, calée sur la première ligne du titre et sur le bord du contenu
 
@@ -40,6 +41,7 @@ paths:
 - Le câblage tabs ↔ router est manuel, une dizaine de lignes dans le shell, sans aucune synchronisation automatique
 - Le preset pose `display: contents` sur `p-dialog` et `p-confirmdialog` : fermée, une modale ne rend que sa balise hôte, qui compte sinon comme un enfant vide de la colonne flex de la page et ajoute un `gap` sous le dernier élément (48px sous la liste de Tagging, relevé le 2026-10-11)
 - `outline: none` est interdit : la modale d'arbitrage se traite entièrement au clavier et le focus doit rester visible
+- La sévérité d'avertissement s'écrit `warn` partout (`p-tag`, `p-badge`, `p-message`, `pButton` et son `badgeSeverity`), le compilateur refuse `warning` ; `p-message` n'a pas `danger`, son erreur est `error`
 
 ## Exemples
 ```typescript

@@ -32,7 +32,7 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
         styleClass="w-120"
       >
         <ng-template #header>
-          <h3 class="m-0 text-lg font-semibold">{{ "resume.title" | translate }}</h3>
+          <h3 class="text-lg font-semibold">{{ "resume.title" | translate }}</h3>
         </ng-template>
 
         <div
@@ -40,7 +40,7 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
           [animate.enter]="fadeIn"
         >
           @if (detected.kind === "unreadable") {
-            <p class="m-0">
+            <p>
               {{
                 (detected.found === null
                   ? "resume.unreadable.corrupted"
@@ -49,9 +49,9 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
               }}
             </p>
           } @else {
-            <p class="m-0">{{ "resume.summary" | translate: summary() }}</p>
+            <p>{{ "resume.summary" | translate: summary() }}</p>
             <app-truncated-text class="text-color" direction="rtl" [text]="detected.folder" />
-            <p class="m-0">
+            <p>
               {{ (detected.folder_missing ? "resume.folderMissing" : "resume.safe") | translate }}
             </p>
           }

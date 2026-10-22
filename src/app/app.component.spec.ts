@@ -62,6 +62,9 @@ const recoveryBadge = (fixture: Hosted): HTMLButtonElement | null =>
 const updateBadge = (fixture: Hosted): HTMLButtonElement | null =>
   hostOf(fixture).querySelector<HTMLButtonElement>("[data-update-badge]")
 
+const tabsOf = (fixture: Hosted): HTMLElement[] =>
+  Array.from(hostOf(fixture).querySelectorAll<HTMLElement>("p-tab"))
+
 /** Un morceau a rattraper derriere un morceau deja rattrape : le badge vise le second. */
 const mountWithRecoverableTracks = () => {
   const mounted = mount()
@@ -78,6 +81,23 @@ describe("AppComponent", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it("names the icon-only settings tab for assistive technologies", () => {
+    const { fixture } = mount()
+
+    expect(tabsOf(fixture).at(-1)?.getAttribute("aria-label")).toBe("nav.settings")
+  })
+
+  // Le nom de l'application et les badges sont des freres des onglets dans le DOM.
+  it("wraps the arrow keys from the settings tab to the first tab, past the name and the badges", () => {
+    const { fixture } = mount()
+    const [first, , settings] = tabsOf(fixture)
+    settings?.focus()
+
+    settings?.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowRight", bubbles: true }))
+
+    expect(document.activeElement).toBe(first)
   })
 
   it("keeps the arbitration dialog closed on an empty queue", () => {

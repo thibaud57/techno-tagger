@@ -43,7 +43,7 @@ import { MessageComponent } from "../feedback/message.component"
         [closeAriaLabel]="'update.later' | translate"
       >
         <ng-template #header>
-          <h3 class="m-0 text-lg font-semibold">{{ "update.title" | translate }}</h3>
+          <h3 class="text-lg font-semibold">{{ "update.title" | translate }}</h3>
         </ng-template>
 
         @switch (state().kind) {
@@ -54,7 +54,7 @@ import { MessageComponent } from "../feedback/message.component"
                 [counter]="counter()"
                 [value]="percent()"
               />
-              <p class="m-0 text-sm text-muted-color">{{ "update.closing" | translate }}</p>
+              <p class="text-sm text-muted-color">{{ "update.closing" | translate }}</p>
             </div>
           }
           @case ("failed") {
@@ -70,7 +70,7 @@ import { MessageComponent } from "../feedback/message.component"
               @if (installFailed()) {
                 <app-message severity="warn">{{ "update.installFailed" | translate }}</app-message>
               }
-              <p class="m-0">
+              <p>
                 {{
                   "update.available"
                     | translate: { version: offered.version, current: offered.currentVersion }
@@ -81,7 +81,7 @@ import { MessageComponent } from "../feedback/message.component"
                   pButton
                   type="button"
                   [link]="true"
-                  class="self-start border-0 p-0 text-xs"
+                  class="self-start"
                   data-action="notes"
                   (click)="openNotes(releasePage)"
                 >

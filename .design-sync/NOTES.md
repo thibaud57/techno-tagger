@@ -28,8 +28,8 @@ Un push, dans l'ordre :
 2. Modifier l'export local, puis `finalize_plan` sur la liste exacte des chemins et `write_files`
    depuis l'export (`localPath`)
 3. Ajouter à `readme.md` § Réserves l'entrée datée de l'alignement
-4. Poser `_ds_needs_recompile`, puis dater dans `docs/DESIGN.md` § Arbitrages les écarts réalignés,
-   vider le Reste ouvert ci-dessous et écrire l'entrée du Journal
+4. Poser `_ds_needs_recompile`, puis retirer de `docs/DESIGN.md` § Arbitrages les écarts réalignés
+   (leur règle vit dans leur section), vider le Reste ouvert ci-dessous et écrire l'entrée du Journal
 
 - **Le convertisseur de `/design-sync` ne s'applique pas et le lancer détruirait le projet
   distant** : le skill empaquette un `dist/` React ou un Storybook pour que l'agent de design rende
@@ -72,6 +72,9 @@ Un push, dans l'ordre :
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
 - **`AppShell`** : note d'échec d'installation de l'invite de mise à jour, livrée par le code, absente de la maquette (constaté le 2026-10-21).
+- **`AppShell` et `Tabs`** : barre d'onglets de DESIGN.md § Arbitrages « Barre d'onglets » (nom de l'application à gauche, Playlist et Tagging au centre avec leur icône, Réglages en engrenage à droite après les badges, trait sur la bordure de l'onglet), livrée par le code ; la fiche `Tabs` dit encore « aucune icône » (décidé le 2026-10-22).
+- **`SettingsScreen` et `SectionMenu`** : menu et section dans un seul panneau jusqu'en bas, icône devant chaque entrée du menu (DESIGN.md § Arbitrages « Menu des Réglages »), livrés par le code (décidé le 2026-10-22).
+- **Fondations** (DESIGN.md § Arbitrages « Fondations harmonisées », § Bordures) : table encadrée, titre de section en 18px, badge en 12px, `info` en `sky`, pieds de modale à 8px, corps de modale atténué, filets de liste en `surface-800`, livrés par le code (décidé le 2026-10-22).
 
 ## Journal
 

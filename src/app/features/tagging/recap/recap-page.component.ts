@@ -17,7 +17,7 @@ import { IconComponent } from "../../../shared/components/display/icon.component
 import { TruncatedTextComponent } from "../../../shared/components/display/truncated-text.component"
 import { ErrorMessageComponent } from "../../../shared/components/feedback/error-message.component"
 import { MessageComponent } from "../../../shared/components/feedback/message.component"
-import { FADE_IN, PAGE_HOST } from "../../../shared/utils/motion"
+import { FADE_IN } from "../../../shared/utils/motion"
 import { runLine } from "../../../shared/utils/run-date"
 import { WIDE_TOOLTIP } from "../../../shared/utils/tooltip"
 
@@ -62,7 +62,7 @@ interface RecapCriteria {
     TruncatedTextComponent,
   ],
   templateUrl: "./recap-page.component.html",
-  host: { class: PAGE_HOST, "animate.enter": FADE_IN },
+  host: { class: "page-host", "animate.enter": FADE_IN },
 })
 export default class RecapPageComponent {
   private readonly sidecar = inject(SidecarService)

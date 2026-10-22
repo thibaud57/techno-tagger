@@ -584,9 +584,9 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 - Aucun depuis 5.2.8. La dernière rupture structurelle est la migration v4 → v5 : scission des polices variables sous le scope `@fontsource-variable/*` et correction du nom de famille (`InterVariable` devient `Inter Variable`, avec l'espace)
 
 **Compatibilité Écosystème** :
-- Import unique dans `main.ts` : `import '@fontsource-variable/inter/wght.css';`, qui couvre l'axe `wght` de 100 à 900 en romain. Ajouter `wght-italic.css` seulement si de l'italique est réellement utilisé
+- Import unique en tête de `src/styles.css` : `@import "@fontsource-variable/inter/wght.css";`, qui couvre l'axe `wght` de 100 à 900 en romain. Ajouter `wght-italic.css` seulement si de l'italique est réellement utilisé
 - **Aucune entrée `angular.json` requise** : les `url()` du CSS sont résolus par esbuild comme n'importe quel asset, et les `.woff2` sortent en fichiers hashés
-- Poser `font-family: 'Inter Variable', sans-serif;` sur `:root`, le preset Aura n'en déclarant aucune
+- Déclarer la famille par `--font-sans` dans le `@theme` de Tailwind, que le preflight applique à `html` ; le preset Aura déclare `fontFamily: 'inherit'` et la suit
 - Licence SIL OFL 1.1 : redistribution libre dans un installeur Windows, à condition de conserver le fichier de licence
 
 **Recommandation** : ✅
