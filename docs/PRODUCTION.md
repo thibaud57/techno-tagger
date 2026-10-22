@@ -712,7 +712,7 @@ Pas de test de non-régression de performance au MVP : le facteur limitant est l
 | Démarrage du sidecar, `--onedir` | — | **335 ms** (médiane, 5 runs) |
 | Taille produite, `--onefile` | — | **16 Mo**, 1 fichier |
 | Taille produite, `--onedir` | — | **32 Mo**, 65 fichiers (exe : 6,9 Mo) |
-| Détections antivirus, `--onefile` vs `--onedir` | Comparaison sur Defender | `--onedir` (2026-10-21) : aucun blocage chez un utilisateur réel ; VirusTotal : installeur v0.11.0 à **0/68**, `tagger.exe` à **4/71** (Microsoft `Trojan:Win32/Wacatac.B!ml`, Bkav Pro, SecureAge, Skyhigh), faux positif déclaré à Microsoft |
+| Détections antivirus, `--onefile` vs `--onedir` | Comparaison sur Defender | `--onedir` (2026-10-21) : aucun blocage chez un utilisateur réel ; VirusTotal : installeur v0.11.0 à **0/68**, `tagger.exe` à **4/71** (Microsoft `Trojan:Win32/Wacatac.B!ml`, Bkav Pro, SecureAge, Skyhigh), faux positif déclaré à Microsoft, détection retirée le 2026-10-22 (vaut pour ce build seul) |
 | Run de 100 morceaux, cache froid | À établir, borné par le pool de concurrence (3 Beatport, 2 Bandcamp, cf. [ADR-017](adrs/017-taille-pool-concurrence.md)) | à mesurer |
 | Run de 100 morceaux, cache chaud | Réseau quasi nul, seul le local compte | à mesurer |
 | Phase d'écriture, 100 morceaux | Quelques secondes, pochettes déjà en cache | à mesurer |
