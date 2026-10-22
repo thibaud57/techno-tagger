@@ -439,7 +439,7 @@ Aucune dépendance d'animation dédiée.
 
 | Colonne | Largeur | Contenu |
 |---------|---------|---------|
-| Chevron | 48px (`w-12`) | Bouton `small` de 34px plus la seule marge gauche de sa cellule : l'écart chevron → vignette égale l'écart vignette → texte |
+| Chevron | 48px (`w-12`) | Bouton à icône seule (28px) plus la marge gauche de sa cellule, sans marge droite |
 | Pochette | 60px (`w-15`) | Vignette de 32px plus les marges de la cellule |
 | Avant | **fluide** | Artiste et titre lus dans le fichier, nom du fichier en sous-texte `text-xs text-muted-color`. Tags vides : le nom de fichier sans extension en ligne principale |
 | Après | **fluide** | Ce que la source retenue va écrire |
@@ -526,11 +526,6 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 Écarts au design system ou à la maquette tranchés par le propriétaire. Ils priment sur eux pour tous les écrans. Un écart réaligné dans la maquette sort de cette liste : sa règle vit dans sa section, son historique dans git et `.design-sync/NOTES.md`.
 
 - **Icônes** : SVG inline par `IconComponent` et `SourceLogoComponent`, là où le design system rend les glyphes par la police PrimeIcons. Écart définitif : React n'importe pas un composant Angular
-- **Filets de liste** : `border-surface-800` entre les lignes d'une table et des rangées des Réglages (§ Bordures), clé d'un champ du détail en `text-muted-color`, là où la maquette pose `border-surface`. Décidé le 2026-10-22
-- **Menu des Réglages** : icône devant chaque entrée, menu et section dans un seul panneau jusqu'en bas, là où `SettingsScreen` pose le menu en carte à sa hauteur, sans icône. Décidé le 2026-10-22
-- **Fondations harmonisées** : bloc principal encadré même rempli d'une table, un seul titre de section et de modale (18px), badge en 12px, `info` en `sky`, pieds de modale à 8px, corps de modale en `text-muted-color`, boutons à icône seule et croix carrés de 28px, là où la maquette laisse la table plate, pose les sections des Réglages en 20px et suit Aura ailleurs. Décidé le 2026-10-22
-- **Barre d'onglets** : nom de l'application à gauche, Playlist et Tagging au centre avec leur icône, Réglages en engrenage à droite, là où `AppShell` aligne les trois onglets à gauche, libellé seul. Décidé le 2026-10-22
-- **Invite de mise à jour** : note d'échec d'installation (`warn` en tête, « Réessayer »), là où `AppShell` n'en a pas. Constaté le 2026-10-21
 
 ## Documentation Officielle
 
