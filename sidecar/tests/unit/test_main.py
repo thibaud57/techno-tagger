@@ -4,6 +4,7 @@ sont donc armes avant que la boucle de commandes ne lise quoi que ce soit.
 
 import base64
 import io
+import logging
 import re
 import sys
 import tomllib
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING, Final, NamedTuple
 from unittest.mock import Mock, patch
 
 import pytest
+from log_capture import messages_of
 from repo_files import REPO, read_json, read_toml
 from run_plans import plan_of, save_plan
 from tagging_records import RECORD
@@ -89,6 +91,17 @@ def test_logging_and_sentry_are_armed_before_the_loop(
         "_purge_old",
         "run_loop",
     ]
+
+
+def test_the_startup_logs_the_release_once_logging_and_sentry_are_armed(
+    startup: _Startup, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger=__main__.__name__)
+
+    with patch.object(__main__, "_purge_old", autospec=True):
+        __main__.main()
+
+    assert messages_of(caplog, __main__.__name__) == [f"sidecar started {RELEASE}"]
 
 
 @pytest.mark.parametrize(
