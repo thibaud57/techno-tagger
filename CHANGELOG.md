@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/thibaud57/techno-tagger/compare/v0.11.0...v1.0.0) (2026-10-23)
+
+
+### Features
+
+* version 1.0.0 ([#94](https://github.com/thibaud57/techno-tagger/issues/94)) ([4a0d0b9](https://github.com/thibaud57/techno-tagger/commit/4a0d0b96e305909a5decc623f17f63b3cd864114))
+
 ## [0.11.0](https://github.com/thibaud57/techno-tagger/compare/v0.10.0...v0.11.0) (2026-10-21)
 
 
