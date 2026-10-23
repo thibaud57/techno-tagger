@@ -16,7 +16,7 @@ import { PhaseProgressComponent } from "../display/phase-progress.component"
 import { MessageComponent } from "../feedback/message.component"
 
 /**
- * Gabarit de l'invite de reprise, fermable vers le badge (DESIGN.md § Arbitrages). Pas de bouton
+ * Gabarit de l'invite de reprise, fermable vers le badge (DESIGN.md § Overlays). Pas de bouton
  * focalise a l'ouverture, comme elle : le focus va au corps de la modale.
  */
 @Component({
