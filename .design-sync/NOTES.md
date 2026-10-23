@@ -71,8 +71,7 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-- **`AppShell`** : barre d'onglets fusionnée avec la barre de titre, 40px, boutons de fenêtre à droite après un filet (2026-10-22)
-- **`PlaylistScreen`** : mode copie/déplacement en `SelectButton` `fluid`, à la largeur des boutons de chemin (2026-10-23)
+Rien à pousser au 2026-10-23.
 
 ## Journal
 
@@ -245,3 +244,7 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 - **2026-10-23, sélecteur de choix** : `SelectButton` (`.jsx`, `.d.ts`, fiche) prend le cadre d'un
   champ, 28px en `small` et l'option `fluid`, comme le code livré ; réserve n° 27 du `readme.md`,
   `_ds_needs_recompile` posé. La maquette n'est pas touchée (Reste ouvert).
+- **2026-10-23, barre de titre et maquette** : `Tabs` (`.jsx`, `.d.ts`, fiche) gagne la barre de titre
+  de 40px et `windowControls`, `AppShell` la garde sur l'écran bloquant, `PlaylistScreen` passe le mode en
+  `SelectButton` `fluid`, sur demande explicite du propriétaire. Prévisualisés en local (bundle esbuild),
+  distant relu identique à l'export avant le push, réserve n° 28, `_ds_needs_recompile` posé. Reste ouvert vidé.
