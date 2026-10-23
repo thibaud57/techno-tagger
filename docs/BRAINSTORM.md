@@ -305,6 +305,16 @@ Pré-release GitHub publiée sur un manifeste updater distinct, pour installer u
 
 Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se justifie le jour où un bug de mise à jour toucherait des utilisateurs qui ne savent pas revenir en arrière.
 
+### Feature 8 : Compatibilité des tags avec les logiciels DJ
+
+Ce que Rekordbox ne lit pas encore dans les tags écrits, relevé le 2026-10-23 (cf. [knowledges/rekordbox.md](knowledges/rekordbox.md)) :
+- **WAV** : Rekordbox ignore le chunk ID3 et ne lit que le RIFF `LIST/INFO`, qu'aucun fichier ne reçoit aujourd'hui. Un WAV tagué s'y affiche avec son nom de fichier pour titre et sans artiste. mutagen n'écrit pas ce bloc : écriture maison, avec sa sauvegarde pour la restauration. Label, tonalité et pochette n'y passent pas
+- **Remixeur FLAC** : `REMIXER` n'est pas lu, le nom attendu (`MIXARTIST` ou autre) n'est établi par aucune source. Un import de variantes le tranche avant d'écrire une ligne
+- **Nom du mix** : la version est écrite dans le titre, `TIT3` n'est pas posé, le champ « Nom du mix » de Rekordbox reste vide
+- **Date de sortie** : seule l'année est écrite (ADR-011), alors que Rekordbox lit une date complète dans `TDRL`
+
+La tonalité FLAC, elle, est corrigée au MVP le 2026-10-23 (`KEY` et `INITIALKEY`). Traktor, Serato et Engine DJ restent à relever : aucune source n'a dit quels champs FLAC ils lisent.
+
 ---
 
 # ⚠️ Contraintes
@@ -338,7 +348,7 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 - **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ? ✅ **Tranché** : requête embarquée, schéma vérifié avant traitement plutôt qu'un fichier SQL externe. L'inspection du fichier a montré une autre raison à cette externalisation : un nom de playlist codé en dur (`WHERE p.name = 'final'`), pas une protection contre un schéma instable. Aucun changement de schéma n'a d'ailleurs jamais été observé ([ADR-019](adrs/019-resilience-schema-vlc-media-db.md))
 - **Doublons de noms de fichiers** : que faire quand plusieurs fichiers du dossier source portent le même nom (demander, prendre le plus gros, tout signaler dans le rapport) ? ✅ **Tranché** : le plus volumineux est retenu, chaque cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md))
 - **Nettoyage des noms de fichiers** : quels motifs retirer avant d'envoyer la requête (`[FREE DL]`, `320kbps`, numéros de piste, tirets bas) ? Mécanisme tranché (nettoyage de la chaîne interrogée, jamais des tags), la liste exacte des motifs reste à établir au premier run réel (cf. [ARCHITECTURE.md](ARCHITECTURE.md#capacités-natives))
-- **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport. Toujours ouvert (étape 1, cf. [ARCHITECTURE.md § Questions ouvertes](ARCHITECTURE.md#questions-ouvertes))
+- **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport. ✅ **Tranché pour Rekordbox** le 2026-10-23 : le chunk ID3 est ignoré, seul le RIFF INFO est lu ([knowledges/rekordbox.md](knowledges/rekordbox.md)), suite en Post-MVP Feature 8. Traktor et Serato non relevés
 - **Clés libres Vorbis** : quelles conventions retenir pour `key`, `catalog_number` et `source` sur FLAC, où aucun champ standard n'existe (aligner sur Picard) ? ✅ **Tranché** : conventions Picard suivies ([ADR-011](adrs/011-politique-ecriture-tags.md))
 - **Motif de renommage** : quel format par défaut, et jusqu'où le rendre configurable ? ✅ **Tranché** : fixé à `{artist} - {title}.{ext}` au MVP, non configurable (voir plus haut)
 - **Versionnement du plan JSON** : un plan écrit par une version antérieure doit-il rester reprenable après mise à jour de l'app ? ✅ **Tranché** : numéro de version de schéma, plan de version inconnue refusé, rapport de version antérieure migré ([ADR-018](adrs/018-versionnement-plan-de-run.md))

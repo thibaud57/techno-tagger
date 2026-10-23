@@ -1081,7 +1081,7 @@ Vérifications restantes, sans enjeu architectural et donc sans ADR.
 
 | Sujet | À résoudre | Quand |
 |---|---|---|
-| Tags WAV | Ce que les lecteurs DJ relisent réellement d'un chunk ID3v2 dans un WAV. Informatif, sert à formuler l'avertissement du rapport ; ne conditionne pas l'implémentation (cf. [ADR-011](adrs/011-politique-ecriture-tags.md)). | Étape 1 |
+| Tags WAV | Ce que les lecteurs DJ relisent réellement d'un chunk ID3v2 dans un WAV. Informatif, sert à formuler l'avertissement du rapport ; ne conditionne pas l'implémentation (cf. [ADR-011](adrs/011-politique-ecriture-tags.md)). Relevé le 2026-10-23 pour Rekordbox : chunk ignoré, seul le RIFF INFO est lu ([knowledges/rekordbox.md](knowledges/rekordbox.md)) ; Traktor et Serato non relevés. | Étape 1 |
 | Sélection des modèles LLM | Comment proposer une liste à jour sans la coder en dur ni la maintenir à chaque sortie de modèle. | Post-MVP |
 | Maturité de PyInstaller sur macOS | À vérifier le jour où la cible macOS revient au programme. | Post-MVP |
 
