@@ -5,6 +5,7 @@ spec du sub-project 03 de la Feature 2.
 """
 
 import re
+from copy import replace
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
 from pathlib import PurePath
@@ -23,8 +24,9 @@ if TYPE_CHECKING:
 # Jumeau cote techno-scraper (`shared/normalize/`, ADR-012 de techno-scraper), qui nettoie
 # la sortie des sources la ou ce module nettoie la requete : une correction sur une brique
 # commune se reporte de l'autre cote, les politiques restent distinctes.
+_REMIX_WORDS: Final = r"remix|rmx"
 _VERSION_WORDS: Final = (
-    r"(?:re-edit|remix|mix|edit|rework|remaster|version|dub|extended|radio|bootleg"
+    rf"(?:re-edit|{_REMIX_WORDS}|mix|edit|rework|remaster|version|dub|extended|radio|bootleg"
     r"|vip|live|instrumental|acapella|reprise|tool|loop|intro|outro)(?:ed|s)?"
 )
 _COLLABORATION_WORDS: Final = r"feat\.?|ft\.?|featuring|with|pres\.?|vs\.?"
@@ -65,12 +67,13 @@ _LETTER: Final = re.compile(r"[^\W\d_]")
 _TRACK_NUMBER: Final = re.compile(r"^\d{1,2}(?!\d)\s*[-._)]?\s*")
 _FILE_NAME_SEPARATOR: Final = " - "
 _EDGE_NOISE: Final = " -_.,;"
-_ORIGINAL_MIX: Final = "Original Mix"
+# « (Original) » nomme l'original comme « Original Mix » : aucune version demandee.
+_ORIGINALS: Final = frozenset({"original", "original mix"})
 # Deux libelles se reconnaissent au-dela de la casse : « Extended Mix » vaut
 # « Extended ». Distinct des seuils, qui portent sur l'artiste et le titre.
 _VERSION_MATCH_FLOOR: Final = 70
 # Mot entier : sinon "remix" matche dans "Premix" ou "Extremixed".
-_REMIX_WORD: Final = re.compile(r"\bremix\b", re.IGNORECASE)
+_REMIX_WORD: Final = re.compile(rf"\b(?:{_REMIX_WORDS})\b", re.IGNORECASE)
 # « Pt. 1 » et « Pt. 2 » sont deux morceaux mais ne different que d'un caractere au score.
 # Toute divergence compte, un nombre ajoute d'un seul cote compris : « Fernhollow » face a
 # « Fernhollow 1 » (meme morceau, desambigue par Beatport) passe en zone grise a tort. Cout
@@ -96,8 +99,8 @@ class TrackQuery:
 
     @property
     def text(self) -> str:
-        """Chaine envoyee a techno-scraper."""
-        return f"{self.artist} {self.title}".strip()
+        """Chaine envoyee a techno-scraper : sans les groupes que `title` garde pour le scoring."""
+        return f"{self.artist} {_clean(self.title) or self.title}".strip()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -192,7 +195,7 @@ def _from_tags(artist: str, title: str) -> TrackQuery | None:
     # Un titre que le nettoyage vide reprend sa valeur brute, une requete bruitee
     # valant mieux qu'une requete vide.
     query_artist = _normalise_artists(artist)
-    query_title = _clean(title) or title.strip()
+    query_title = _clean(title, keep_parentheses=True) or title.strip()
     if not (_LETTER.search(query_artist) and _LETTER.search(query_title)):
         return None
     return TrackQuery(artist=query_artist, title=query_title, origin=QueryOrigin.TAGS)
@@ -202,7 +205,7 @@ def _from_file_name(file_name: str) -> TrackQuery | None:
     stem = PurePath(file_name).stem
     if " " not in stem:
         stem = stem.replace("_", " ")
-    cleaned = _clean(_TRACK_NUMBER.sub("", stem, count=1))
+    cleaned = _clean(_TRACK_NUMBER.sub("", stem, count=1), keep_parentheses=True)
     if not _LETTER.search(cleaned):
         return None
     artist, separator, title = cleaned.partition(_FILE_NAME_SEPARATOR)
@@ -213,16 +216,24 @@ def _from_file_name(file_name: str) -> TrackQuery | None:
     )
 
 
-def _clean(text: str) -> str:
-    """Retire le bruit d'une chaine interrogee ou comparee, jamais des tags ecrits."""
+def _clean(text: str, *, keep_parentheses: bool = False) -> str:
+    """Retire le bruit d'une chaine interrogee ou comparee, jamais des tags ecrits.
+
+    `keep_parentheses` : une parenthese porte une version, un crochet un label ou un genre.
+    """
     text = _DOWNLOAD.sub(" ", text)
     text = _ENCODING.sub(" ", text)
-    text = _GROUP.sub(_keep_guarded_group, text)
-    return _SPACES.sub(" ", text).strip(_EDGE_NOISE)
+    keep = _keep_parenthesized_group if keep_parentheses else _keep_guarded_group
+    text = _GROUP.sub(keep, text)
+    return _SPACES.sub(" ", _EMPTY_GROUP.sub(" ", text)).strip(_EDGE_NOISE)
 
 
 def _keep_guarded_group(match: re.Match[str]) -> str:
     return match.group(0) if _GUARD.search(match.group("content")) else " "
+
+
+def _keep_parenthesized_group(match: re.Match[str]) -> str:
+    return match.group(0) if match.group(0).startswith("(") else _keep_guarded_group(match)
 
 
 def _normalise_artists(artist: str) -> str:
@@ -248,13 +259,15 @@ def classify(
     asked = _prepare(query)
     scored: list[ScoredCandidate] = []
     for candidate in candidates:
-        # Candidat deja normalise par techno-scraper. Seul le sous-titre qu'il garde (« PATT
-        # (Party All The Time) ») part, comme de la requete : nettoyer un seul cote fait
-        # tomber un morceau identique sous le plancher.
-        offered = _Parts(_clean(candidate.title), candidate.mix_name or "")
+        # Candidat deja normalise par techno-scraper : un groupe que son titre garde (« PATT
+        # (Party All The Time) ») est un sous-titre, retire des deux cotes. Sans quoi la
+        # requete le prendrait pour une version et bloquerait un morceau identique.
+        title, subtitle = _split_version(_clean(candidate.title, keep_parentheses=True))
+        offered = _Parts(title, candidate.mix_name or "")
         if not _passes_remix_guard(_Parts(asked.title, asked.version), offered):
             continue
-        scored.append(_score(asked, candidate, offered))
+        version = _without_subtitle(asked.version, subtitle)
+        scored.append(_score(replace(asked, version=version), candidate, offered))
 
     every = tuple(scored)
     in_play = sorted(
@@ -285,7 +298,7 @@ def _prepare(query: TrackQuery) -> _AskedFor:
     """Titre nu, version et invite se separent ici, sur le tag local que techno-scraper ne
     voit jamais : le candidat arrive deja sous cette forme.
     """
-    bare, version = _split_version(_clean(query.title))
+    bare, version = _split_version(_clean(query.title, keep_parentheses=True))
     title = _SPACES.sub(" ", _FEATURING.sub(" ", bare)).strip(_EDGE_NOISE + "([")
     artists = tuple(part.strip() for part in query.artist.split(",") if part.strip())
     return _AskedFor(title=title, version=version, artists=artists, numbers=_numbers(title))
@@ -301,7 +314,11 @@ def _split_version(title: str) -> _Parts:
     def take(match: re.Match[str]) -> str:
         content = match.group("content")
         if _VERSION_GUARD.search(content) is None:
-            return match.group(0)
+            if _COLLABORATION_GUARD.search(content):
+                return match.group(0)
+            # « (CY's Cosmic Jorney) » : perdue, la version laisserait l'original valider seul.
+            taken.append(content.strip())
+            return " "
         # Un groupe qui nomme aussi un invite reste une version : « (Extended Mix feat. X) »
         # cede sa mention d'invite, « (A vs B Remix) » garde la sienne (le credit de remix est
         # le libelle de la version). Le laisser dans le titre perdrait la version et y collerait
@@ -352,9 +369,13 @@ def _versions_agree(asked: str, offered: str) -> bool:
     return fuzz.ratio(left, right, processor=utils.default_process) >= _VERSION_MATCH_FLOOR
 
 
+def _without_subtitle(version: str, subtitle: str) -> str:
+    return re.sub(re.escape(subtitle), " ", version, flags=re.IGNORECASE) if subtitle else version
+
+
 def _normalise_version(version: str) -> str:
     stripped = _SPACES.sub(" ", version).strip()
-    return "" if stripped.casefold() == _ORIGINAL_MIX.casefold() else stripped
+    return "" if stripped.casefold() in _ORIGINALS else stripped
 
 
 def _artist_score(asked: tuple[str, ...], candidate: TrackCandidate) -> float:
