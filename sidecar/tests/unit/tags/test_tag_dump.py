@@ -36,6 +36,12 @@ ORIGIN: Final = OriginalTags(
     3,
     MappingProxyType({TagField.ARTIST: ("adam beyer",), TagField.BPM: ("130",)}),
 )
+VORBIS_ORIGIN: Final = OriginalTags(
+    TagSystem.VORBIS,
+    None,
+    MappingProxyType({TagField.KEY: ("8A",)}),
+    MappingProxyType({"INITIALKEY": ("8A",)}),
+)
 WRITTEN: Final = OriginalTags(
     TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Adam Beyer",)})
 )
@@ -74,13 +80,14 @@ def test_refuses_a_dump_dated_without_a_time_zone() -> None:
         TagDump(run_id=RUN_ID, created_at=CREATED.replace(tzinfo=None), folder=RUN_FOLDER)
 
 
-def test_reloads_the_entries_it_saved(tmp_path: Path) -> None:
-    saved = _saved(tmp_path, "your mind.mp3")
+@pytest.mark.parametrize("original", [ORIGIN, VORBIS_ORIGIN], ids=["id3", "vorbis-mirrors"])
+def test_reloads_the_entries_it_saved(tmp_path: Path, original: OriginalTags) -> None:
+    saved = save_entries(tmp_path, _dump(), {"your mind": _entry("your mind", original)})
 
     reloaded = load_dump(dump_path(tmp_path, saved))
 
     assert reloaded == saved
-    assert reloaded.entries["your mind.mp3"].original_tags() == ORIGIN
+    assert reloaded.entries["your mind"].original_tags() == original
 
 
 def test_never_replaces_an_entry_already_saved(tmp_path: Path) -> None:

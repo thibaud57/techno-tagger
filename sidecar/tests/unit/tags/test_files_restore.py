@@ -1,3 +1,4 @@
+from copy import replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
@@ -57,6 +58,7 @@ def _tag(path: Path, id3_version: int = 3) -> None:
         audio["DATE"] = ["2019-06-16"]
         audio["BPM"] = ["130"]
         audio["URL"] = [YOUR_MIND_BANDCAMP_URL]
+        audio["INITIALKEY"] = ["8A"]
         audio.save()
         return
     audio.add_tags()
@@ -88,6 +90,19 @@ def test_restores_exactly_the_original_fields_after_a_write(
     assert read_original_tags(path) == original
 
 
+def test_leaves_the_key_mirror_alone_for_a_dump_written_before_it(
+    blank_audio: Callable[[str], Path],
+) -> None:
+    path = blank_audio("flac")
+    _tag(path)
+    original = read_original_tags(path)
+    write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
+
+    restore_tags(path, replace(original, vorbis_mirrors=None))
+
+    assert FLAC(path)["INITIALKEY"] == [BEATPORT_CANDIDATE.key]
+
+
 @pytest.mark.parametrize(
     ("audio_format", "id3_version", "expected"),
     [
@@ -107,6 +122,7 @@ def test_restores_exactly_the_original_fields_after_a_write(
                 TagSystem.VORBIS,
                 None,
                 TAGGED_FIELDS,
+                MappingProxyType({"INITIALKEY": ("8A",)}),
             ),
         ),
     ],

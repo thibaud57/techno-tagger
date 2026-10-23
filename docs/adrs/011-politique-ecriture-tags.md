@@ -102,7 +102,7 @@ Les clés Vorbis suivent **MusicBrainz Picard**, référence de fait des bibliot
 | Label | TPUB | `LABEL` |
 | Numéro de catalogue | TXXX:CATALOGNUMBER | `CATALOGNUMBER` |
 | BPM | TBPM | `BPM` |
-| Key | TKEY | `KEY` |
+| Key | TKEY | `KEY` et `INITIALKEY`, même valeur (ajout du 2026-10-23 : rekordbox ne lit que le second, VirtualDJ préfère le premier, cf. [knowledges/rekordbox.md](../knowledges/rekordbox.md)) |
 | ISRC | TSRC | `ISRC` |
 | Numéro de piste | TRCK | `TRACKNUMBER` |
 | URL de la fiche | WOAS | `URL` |
