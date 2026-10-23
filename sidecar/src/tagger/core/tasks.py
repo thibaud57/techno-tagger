@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
-async def cancel_all(tasks: Iterable[asyncio.Task[None]]) -> None:
+async def cancel_all[Result](tasks: Iterable[asyncio.Task[Result]]) -> None:
     """Annule et attend les taches, erreurs comprises : un nettoyage ne doit pas lever."""
     pending = tuple(tasks)
     for task in pending:

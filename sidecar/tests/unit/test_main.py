@@ -199,7 +199,7 @@ def test_the_protocol_stream_ends_lines_with_lf_only(monkeypatch: pytest.MonkeyP
 def test_the_application_identity_is_the_same_everywhere() -> None:
     """Le nom et l'identifiant sont recopies a la main dans plusieurs fichiers que rien ne
     synchronise, et chaque divergence est muette : un identifiant desaccorde envoie
-    les deux cotes dans deux dossiers de donnees voisins, hors des scopes fs, et un
+    les deux cotes dans deux dossiers de donnees voisins, et un
     nom desaccorde disperse les erreurs sur deux releases Sentry incomparables.
     """
     build = ("projects", f"{APP_NAME}-ui", "architect", "build", "options")
@@ -369,3 +369,34 @@ def test_the_ci_node_major_is_declared_in_engines() -> None:
 def test_the_repository_url_is_the_one_cargo_publishes() -> None:
     """Recopiee a la main : l'issue de retour de matching s'ouvrirait sur un autre depot."""
     assert read_toml("src-tauri/Cargo.toml", "package", "repository") == REPOSITORY_URL
+
+
+def _minor(version: str) -> str:
+    return ".".join(version.lstrip("^~").split(".")[:2])
+
+
+def test_the_tauri_crates_and_their_npm_packages_are_aligned() -> None:
+    """Dependabot monte les crates et les paquets par deux PR distinctes, et la CI ne lance
+    jamais `tauri build` : un ecart ne se verrait qu'au build de release, tag deja pose.
+    Chaque plugin suit son paquet au numero pres ; le noyau et son API ou CLI, a la mineure.
+    """
+    crates = read_toml("src-tauri/Cargo.toml", "dependencies")
+    packages = read_json("package.json", "dependencies")
+    dev_packages = read_json("package.json", "devDependencies")
+    assert isinstance(crates, dict)
+    assert isinstance(packages, dict)
+    assert isinstance(dev_packages, dict)
+    plugins = {
+        name.removeprefix("tauri-plugin-"): spec
+        for name, spec in crates.items()
+        if name.startswith("tauri-plugin-")
+    }
+    tauri = crates["tauri"]
+    assert isinstance(tauri, dict)
+
+    for plugin, spec in plugins.items():
+        package = packages.get(f"@tauri-apps/plugin-{plugin}")
+        if package is not None:
+            assert spec == package, plugin
+    assert _minor(str(tauri["version"])) == _minor(str(packages["@tauri-apps/api"]))
+    assert _minor(str(tauri["version"])) == _minor(str(dev_packages["@tauri-apps/cli"]))

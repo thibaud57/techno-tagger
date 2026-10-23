@@ -13,7 +13,7 @@ APP_NAME: Final = "techno-tagger"
 RELEASE: Final = f"{APP_NAME}@{__version__}"
 
 # Doit egaler `identifier` de tauri.conf.json : Tauri en compose `appLocalDataDir()`,
-# pas APP_NAME. Sinon les deux cotes ecrivent dans deux dossiers voisins, hors des scopes fs.
+# pas APP_NAME. Sinon les deux cotes ecrivent dans deux dossiers voisins.
 BUNDLE_IDENTIFIER: Final = "fr.empiricmind.techno-tagger"
 
 # Copie de `repository` dans src-tauri/Cargo.toml, que le sidecar ne lit pas.

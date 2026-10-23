@@ -196,7 +196,7 @@ class RunWriter:
         """
         try:
             self._dump = record_renamed_path(self._dump_folder, self._dump, record.track_id, target)
-        except (TagDumpError, KeyError) as error:  # KeyError : entree absente du dump
+        except TagDumpError as error:
             logger.exception(
                 "tag dump not updated before rename run=%s track=%d reason=rename_not_noted",
                 self._live.run_id,
@@ -217,7 +217,7 @@ class RunWriter:
                 self._dump = record_renamed_path(
                     self._dump_folder, self._dump, record.track_id, None
                 )
-            except TagDumpError, KeyError:
+            except TagDumpError:
                 logger.exception(
                     "tag dump note kept run=%s track=%d reason=rename_note_kept",
                     self._live.run_id,

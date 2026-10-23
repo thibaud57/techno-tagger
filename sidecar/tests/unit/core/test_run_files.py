@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -75,3 +76,15 @@ def test_leaves_no_partial_file_when_the_replacement_fails(
         write_atomically(target, "{}")
 
     assert names(tmp_path) == []
+
+
+@pytest.mark.parametrize(("durable", "synced"), [(True, 1), (False, 0)], ids=["durable", "default"])
+def test_syncs_the_pending_file_only_when_asked_to(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, durable: bool, synced: int
+) -> None:
+    syncs: list[int] = []
+    monkeypatch.setattr(os, "fsync", syncs.append)
+
+    write_atomically(tmp_path / stamped_name(CREATED, "a3f9c1", ".json"), "{}", durable=durable)
+
+    assert len(syncs) == synced

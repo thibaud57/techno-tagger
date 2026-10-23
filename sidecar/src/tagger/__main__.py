@@ -253,15 +253,13 @@ class _Session:
     def resolve_arbitration(self, command: ResolveArbitration) -> None:
         """Choix ou refus en tache de fond : un appel Bandcamp ne gele pas stdin."""
         current = self._arbitrable(command.track_id)
-        start_gesture: Callable[[], Awaitable[None]]
-        if command.candidate is None:
-            start_gesture = functools.partial(
-                current.arbitration.refuse, command.track_id, command.source
-            )
-        else:
-            start_gesture = functools.partial(
+        start_gesture: Callable[[], Awaitable[None]] = (
+            functools.partial(current.arbitration.refuse, command.track_id, command.source)
+            if command.candidate is None
+            else functools.partial(
                 current.arbitration.choose, command.track_id, command.source, command.candidate
             )
+        )
         settle = functools.partial(self._then_url_progress, current, start_gesture)
         self._spawn_gesture(current, settle, command, name="arbitration")
 
@@ -475,17 +473,7 @@ class _Session:
     async def _phase(
         self,
         start_work: Callable[[], Awaitable[Event | None]],
-        command: (
-            StartTagging
-            | ExtractPlaylist
-            | ResolveArbitration
-            | ResolveByUrl
-            | CommitRun
-            | RetryWrite
-            | Rollback
-            | ResumeRun
-            | LoadRun
-        ),
+        command: ExecutableCommand,
         track_id: str | None = None,
     ) -> None:
         """Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait toute la session."""

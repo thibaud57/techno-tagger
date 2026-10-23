@@ -1,10 +1,16 @@
 """Racine des donnees de l'application, source unique des chemins sous `appLocalDataDir()`."""
 
+import logging
 import os
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from tagger import BUNDLE_IDENTIFIER
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
+logger = logging.getLogger(__name__)
 
 _EXTENDED_PREFIX: Final = "\\\\?\\"
 _UNC_PREFIX: Final = "\\\\"
@@ -41,3 +47,28 @@ def extended_path(path: Path) -> Path:
     if text.startswith(_UNC_PREFIX):
         return Path(f"{_EXTENDED_PREFIX}UNC\\{text.removeprefix(_UNC_PREFIX)}")
     return Path(f"{_EXTENDED_PREFIX}{text}")
+
+
+def is_utf8_encodable(path: Path) -> bool:
+    """Faux pour un nom qui porte un surrogate isole : NTFS l'admet, UTF-8 non.
+
+    Le protocole NDJSON ne sait pas l'emettre, et `model_dump_json()` leve sur l'evenement.
+    """
+    try:
+        str(path).encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def encodable_only(paths: Iterable[Path], label: str) -> Iterator[Path]:
+    """Ecarte, avec un warning sans le nom (un titre), les chemins que `emit` ne saurait ecrire.
+
+    Mieux vaut un morceau ignore qu'un sidecar mort a l'emission : le dossier resterait
+    inutilisable a chaque lancement.
+    """
+    for path in paths:
+        if is_utf8_encodable(path):
+            yield path
+        else:
+            logger.warning("%s skipped reason=name_not_utf8", label)

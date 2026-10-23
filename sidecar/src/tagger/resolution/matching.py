@@ -367,7 +367,7 @@ def _artist_score(asked: tuple[str, ...], candidate: TrackCandidate) -> float:
     comparent tels quels.
     """
     credits = [credit.name for credit in candidate.artists]
-    if not credits or not asked:
+    if not credits:
         return 0.0
     return max(_credits_score(asked, credits), _credits_score(_split_duos(asked), credits))
 
@@ -383,7 +383,7 @@ def _split_duos(asked: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _credits_score(asked: tuple[str, ...], credits: list[str]) -> float:
-    return min(_best_credit(name, credits) for name in asked) if asked else 0.0
+    return min(_best_credit(name, credits) for name in asked)
 
 
 def _best_credit(name: str, credits: list[str]) -> float:

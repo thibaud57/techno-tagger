@@ -11,9 +11,10 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Final, Self, override
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, model_validator
+from pydantic import AwareDatetime, model_validator
 
 from tagger.core.errors import RunNotFoundError, TaggerError
+from tagger.core.models import StrictFrozenModel
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import (
     PENDING_SUFFIX,
@@ -53,11 +54,7 @@ SCHEMA_VERSION: Final = 1
 _SUFFIX: Final = ".json"
 
 
-class _PlanModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class PlanQuery(_PlanModel):
+class PlanQuery(StrictFrozenModel):
     artist: str
     title: str
     origin: QueryOrigin
@@ -70,7 +67,7 @@ class PlanQuery(_PlanModel):
         return TrackQuery(artist=self.artist, title=self.title, origin=self.origin)
 
 
-class PlanScores(_PlanModel):
+class PlanScores(StrictFrozenModel):
     """Scores bruts, non arrondis : la reprise les rend tels que le scoring les a calcules."""
 
     artist: float | None
@@ -100,7 +97,7 @@ class PlanScores(_PlanModel):
         )
 
 
-class PlanScored(_PlanModel):
+class PlanScored(StrictFrozenModel):
     candidate: TrackCandidate
     scores: PlanScores
 
@@ -112,7 +109,7 @@ class PlanScored(_PlanModel):
         return self.scores.applied_to(self.candidate)
 
 
-class PlanSourceList(_PlanModel):
+class PlanSourceList(StrictFrozenModel):
     source: Source
     candidates: tuple[PlanScored, ...]
     empty_reason: FailureReason | None = None
@@ -133,7 +130,7 @@ class PlanSourceList(_PlanModel):
         )
 
 
-class PlanArbitration(_PlanModel):
+class PlanArbitration(StrictFrozenModel):
     """Listes deja obtenues : la reprise repropose l'arbitrage sans rappeler l'API."""
 
     source: Source
@@ -162,7 +159,7 @@ class PlanArbitration(_PlanModel):
         )
 
 
-class PlanThresholds(_PlanModel):
+class PlanThresholds(StrictFrozenModel):
     """Seuils du run : la reprise classe les morceaux restants comme les premiers."""
 
     floor: float
@@ -178,7 +175,7 @@ class PlanThresholds(_PlanModel):
         return MatchingThresholds(floor=self.floor, ceiling=self.ceiling)
 
 
-class PlanTrack(_PlanModel):
+class PlanTrack(StrictFrozenModel):
     """Ce que le run a decide d'un morceau. Ni pochette (cache jetable, ADR-013), ni tags lus
     sur un fichier qui n'a pas bouge, ni rien de l'ecriture, que le plan ne suit plus."""
 
@@ -226,7 +223,7 @@ class PlanTrack(_PlanModel):
         )
 
 
-class RunPlan(_PlanModel):
+class RunPlan(StrictFrozenModel):
     """Plan tel qu'il est ecrit sur le disque, morceaux par `track_id` dans l'ordre du dossier."""
 
     schema_version: int = SCHEMA_VERSION

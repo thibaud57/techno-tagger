@@ -391,7 +391,7 @@ async def test_never_logs_the_pasted_url(tmp_path: Path, caplog: pytest.LogCaptu
     async with _recovering(two_tracks(tmp_path), api) as (_opened, recovery):
         await recovery.resolve("a.mp3", BANDCAMP_TRACK)
         with pytest.raises(TrackNotFoundError):
-            await recovery.resolve("b.mp3", "https://amelielens.bandcamp.com/track/unknown")
+            await recovery.resolve("b.mp3", "https://jane-doe.bandcamp.com/track/unknown")
 
     ours = messages_of(caplog, LOGGER)
     assert len(ours) == 2

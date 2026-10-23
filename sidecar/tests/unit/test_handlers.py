@@ -120,11 +120,22 @@ def test_answers_set_api_key_with_a_version_that_reports_the_key(
 
 
 @pytest.mark.parametrize(
-    "api_key", ["", "k3y t0k3n", "clé", "x" * 2561], ids=["empty", "space", "non-ascii", "too-long"]
+    "api_key", ["", "k3y t0k3n", "clé", "x" * 1281], ids=["empty", "space", "non-ascii", "too-long"]
 )
 def test_rejects_an_api_key_out_of_format(api_key: str) -> None:
     with pytest.raises(ValidationError):
         SetApiKey(command="set_api_key", api_key=api_key)
+
+
+def test_accepts_an_api_key_at_the_credential_manager_limit(
+    memory_keyring: MemoryKeyring,
+) -> None:
+    """Au-dela, `CredWrite` echoue : la limite du protocole doit rester sous celle du trousseau."""
+    command = SetApiKey(command="set_api_key", api_key="x" * 1280)
+
+    handle_set_api_key(command)
+
+    assert memory_keyring.secrets[(SERVICE, USERNAME)] == "x" * 1280
 
 
 def test_never_shows_the_api_key_in_the_command_repr() -> None:

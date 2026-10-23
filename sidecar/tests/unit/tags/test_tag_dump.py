@@ -11,10 +11,12 @@ from pydantic import ValidationError
 from stubs import raising, unlink_except
 from tagging_records import CREATED, RUN_ID, UNREADABLE_CONTENTS
 
+from tagger.core.run_files import PENDING_SUFFIX
 from tagger.tags.files import OriginalTags, TagField, TagSystem
 from tagger.tags.tag_dump import (
     DumpEntry,
     TagDump,
+    TagDumpEntryMissingError,
     TagDumpUnreadableError,
     TagDumpWriteError,
     dump_path,
@@ -204,7 +206,7 @@ def test_leaves_no_half_written_line_when_the_journal_cannot_be_synced(
 def test_refuses_to_note_a_track_the_dump_does_not_hold(tmp_path: Path) -> None:
     saved = _saved(tmp_path, "a.mp3")
 
-    with pytest.raises(KeyError):
+    with pytest.raises(TagDumpEntryMissingError):
         record_renamed_path(tmp_path, saved, "b.mp3", MIDNIGHT)
 
     assert not journal_path(dump_path(tmp_path, saved)).exists()
@@ -292,6 +294,25 @@ def test_refuses_an_unreadable_dump(tmp_path: Path, content: str) -> None:
 
     with pytest.raises(TagDumpUnreadableError):
         load_dump(path)
+
+
+def test_forces_the_dump_onto_the_disk_before_it_takes_its_final_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = dump_path(tmp_path, _dump())
+    pending = target.with_suffix(PENDING_SUFFIX)
+    synced: list[tuple[bool, bool]] = []
+    real_fsync = os.fsync
+
+    def checking_fsync(descriptor: int) -> None:
+        synced.append((pending.stat().st_size > 0, target.exists()))
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", checking_fsync)
+
+    _saved(tmp_path, "a.mp3")
+
+    assert synced == [(True, False)]
 
 
 def test_leaves_no_partial_file_when_the_dump_cannot_be_written(

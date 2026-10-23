@@ -27,6 +27,8 @@ import httpx2
 
 from tagger.core.errors import TaggerError
 from tagger.core.paths import app_data_dir
+from tagger.core.run_files import PENDING_SUFFIX
+from tagger.core.tasks import cancel_all
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping
@@ -55,7 +57,6 @@ ARTWORK_EXTENSIONS: Final = {"image/jpeg": "jpg", "image/png": "png", "image/web
 _ARTWORK_MAX_REDIRECTS: Final = 5
 
 _HASH_LENGTH: Final = 64
-_TMP_SUFFIX: Final = ".tmp"
 
 
 def resolve_host(host: str) -> list[str]:
@@ -67,7 +68,6 @@ def resolve_host(host: str) -> list[str]:
 @dataclass(frozen=True, slots=True)
 class _Entry:
     path: Path
-    key_hash: str
     written_at: int
 
 
@@ -158,11 +158,6 @@ class DiskCache:
         # Sans la racine : elle est sous le profil de l'utilisateur.
         return f"DiskCache(size={self._size}, max_bytes={self._max_bytes})"
 
-    @property
-    def size(self) -> int:
-        """Taille totale des entrees publiees, en octets."""
-        return self._size
-
     def get(self, key: str) -> Path | None:
         """Chemin de l'entree, ou `None` si elle est absente ou expiree."""
         entry = self._find(_hash(key))
@@ -199,7 +194,7 @@ class DiskCache:
         path = self._root / f"{key_hash}.{int(self._clock())}.{extension}"
         # Deux ecritures de la meme cle dans la meme seconde partagent `path`, jamais
         # leur `.tmp` : le dernier `commit` gagne, aucun octet ne s'interleave.
-        temporary = path.with_name(f"{path.name}.{uuid4().hex}{_TMP_SUFFIX}")
+        temporary = path.with_name(f"{path.name}.{uuid4().hex}{PENDING_SUFFIX}")
         self._root.mkdir(parents=True, exist_ok=True)
         return PendingWrite(temporary.open("wb"), temporary, path, key_hash)
 
@@ -248,7 +243,7 @@ class DiskCache:
         total = 0
         for scanned in self._scan():
             path = self._root / scanned.name
-            if scanned.name.endswith(_TMP_SUFFIX):
+            if scanned.name.endswith(PENDING_SUFFIX):
                 _unlink(path)
                 continue
             entry = _parse(path)
@@ -406,15 +401,17 @@ class ArtworkFetcher:
     async def __aexit__(self, *_exc_info: object) -> None:
         # `shield` (cf. `fetch`) laisse en vol le telechargement d'un appelant annule : fermer
         # le client sous lui leverait dans une tache que plus personne n'attend.
-        pending = list(self._in_flight.values())
-        for running in pending:
-            running.cancel()
-        if pending:
-            await asyncio.gather(*pending, return_exceptions=True)
+        await cancel_all(self._in_flight.values())
         await self._http.aclose()
 
     async def fetch(self, url: str) -> Path:
         """Chemin de la pochette en cache, telechargee au premier appel."""
+        try:
+            url.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            # Un surrogate isole venu du JSON de l'API leverait ici, dans `_hash`, hors de
+            # la garde de `_fetch_once`.
+            raise ArtworkUnavailableError("blocked_url") from exc
         cached = await asyncio.to_thread(self._cache.get, url)
         if cached is not None:
             return cached
@@ -433,6 +430,11 @@ class ArtworkFetcher:
                 return await self._download(url)
             except httpx2.RequestError as exc:
                 raise ArtworkUnavailableError("network") from exc
+            except httpx2.InvalidURL as exc:
+                # `artwork_url` vient de l'API, sans garantie de forme : httpx2 leve
+                # `InvalidURL` (hors de `RequestError`) sur une URL ou une redirection mal
+                # formee, ce qui sortirait du `TaskGroup` des appelants et tuerait le run.
+                raise ArtworkUnavailableError("blocked_url") from exc
 
     async def _download(self, url: str) -> Path:
         target = url
@@ -488,7 +490,11 @@ async def _check_artwork_url(url: str, resolve: HostResolver) -> None:
     clair. Le rebinding (le DNS rend une autre adresse entre ce controle et la
     connexion) est rattrape apres coup par `_check_connected_address`.
     """
-    parsed = urlsplit(url)
+    try:
+        parsed = urlsplit(url)
+    except ValueError as exc:
+        # Crochet IPv6 non ferme ou port non numerique : `urlsplit` refuse l'URL de l'API.
+        raise ArtworkUnavailableError("blocked_url") from exc
     if parsed.scheme != "https" or not parsed.hostname:
         raise ArtworkUnavailableError("blocked_url")
     try:
@@ -549,7 +555,7 @@ def _parse(path: Path) -> _Entry | None:
         return None
     if "." in extension:
         return None
-    return _Entry(path, key_hash, int(written_at))
+    return _Entry(path, int(written_at))
 
 
 def _size_of(statable: Path | os.DirEntry[str]) -> int:

@@ -9,12 +9,15 @@ from extraction_samples import CYRILLIC_TRACK, EXPECTED_STAMP, GENERATED_AT
 from mirrors import assert_same_fields
 from stubs import raising, refusing_suffix
 
+from tagger.core.run_files import write_atomically
 from tagger.playlists.extraction import (
     DiscardedCandidate,
     DuplicateResolution,
     ExtractionFailure,
     ExtractionResult,
 )
+from tagger.reports import common as report_common
+from tagger.reports.common import ReportWriteError
 from tagger.reports.extraction import (
     REPORT_KIND,
     SCHEMA_VERSION,
@@ -23,14 +26,17 @@ from tagger.reports.extraction import (
     ExtractionReport,
     FailureEntry,
     ReportContext,
-    ReportWriteError,
-    render_json,
+    build_report,
     write_extraction_report,
 )
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
     from pydantic import BaseModel
+
+
+def _rendered_json(result: ExtractionResult, context: ReportContext) -> str:
+    return build_report(result, context).model_dump_json(indent=2)
 
 
 @pytest.mark.parametrize(
@@ -46,7 +52,7 @@ def test_carries_its_header_fields(
     extraction_result: ExtractionResult, report_context: ReportContext, key: str, expected: object
 ) -> None:
     """`kind` distingue ce rapport de celui du re-tagging."""
-    payload = json.loads(render_json(extraction_result, report_context))
+    payload = json.loads(_rendered_json(extraction_result, report_context))
 
     assert payload[key] == expected
 
@@ -54,7 +60,7 @@ def test_carries_its_header_fields(
 def test_carries_the_five_categories(
     extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    payload = json.loads(render_json(extraction_result, report_context))
+    payload = json.loads(_rendered_json(extraction_result, report_context))
 
     assert set(payload) >= {
         "extracted",
@@ -68,7 +74,7 @@ def test_carries_the_five_categories(
 def test_counts_match_the_categories(
     extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    payload = json.loads(render_json(extraction_result, report_context))
+    payload = json.loads(_rendered_json(extraction_result, report_context))
 
     assert payload["counts"] == {
         "extracted": 2,
@@ -82,7 +88,7 @@ def test_counts_match_the_categories(
 def test_an_empty_result_still_reports_zero_counts(
     empty_extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    payload = json.loads(render_json(empty_extraction_result, report_context))
+    payload = json.loads(_rendered_json(empty_extraction_result, report_context))
 
     assert payload["counts"] == {
         "extracted": 0,
@@ -96,7 +102,7 @@ def test_an_empty_result_still_reports_zero_counts(
 def test_a_resolved_duplicate_is_verifiable(
     extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    payload = json.loads(render_json(extraction_result, report_context))
+    payload = json.loads(_rendered_json(extraction_result, report_context))
 
     duplicate = payload["duplicates"][0]
     assert duplicate["kept_size"] == 12_000
@@ -109,7 +115,7 @@ def test_a_resolved_duplicate_is_verifiable(
 def test_writes_full_paths(
     extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    payload = json.loads(render_json(extraction_result, report_context))
+    payload = json.loads(_rendered_json(extraction_result, report_context))
 
     assert payload["duplicates"][0]["kept_path"].endswith("beta.mp3")
     assert "singles" in payload["duplicates"][0]["kept_path"]
@@ -118,7 +124,7 @@ def test_writes_full_paths(
 def test_keeps_non_ascii_readable(
     extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    rendered = render_json(extraction_result, report_context)
+    rendered = _rendered_json(extraction_result, report_context)
 
     assert CYRILLIC_TRACK in rendered
 
@@ -126,8 +132,8 @@ def test_keeps_non_ascii_readable(
 def test_is_deterministic(
     extraction_result: ExtractionResult, report_context: ReportContext
 ) -> None:
-    first = render_json(extraction_result, report_context)
-    second = render_json(extraction_result, report_context)
+    first = _rendered_json(extraction_result, report_context)
+    second = _rendered_json(extraction_result, report_context)
 
     assert first == second
 
@@ -234,7 +240,7 @@ def test_written_json_is_the_rendered_json(
 ) -> None:
     paths = write_extraction_report(extraction_result, report_context)
 
-    assert paths.json_path.read_text(encoding="utf-8") == render_json(
+    assert paths.json_path.read_text(encoding="utf-8") == _rendered_json(
         extraction_result, report_context
     )
 
@@ -250,7 +256,7 @@ def test_a_refused_write_becomes_a_business_error_naming_the_report(
     monkeypatch: pytest.MonkeyPatch,
     error: OSError,
 ) -> None:
-    monkeypatch.setattr(Path, "write_text", raising(error))
+    monkeypatch.setattr(Path, "replace", raising(error))
 
     with pytest.raises(ReportWriteError) as raised:
         write_extraction_report(extraction_result, report_context)
@@ -268,7 +274,9 @@ def test_a_refused_markdown_write_names_the_markdown_file_not_the_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        Path, "write_text", refusing_suffix(Path.write_text, ".md", OSError(28, "No space left"))
+        report_common,
+        "write_atomically",
+        refusing_suffix(write_atomically, ".md", OSError(28, "No space left")),
     )
 
     with pytest.raises(ReportWriteError) as raised:

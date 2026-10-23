@@ -131,6 +131,19 @@ class TrackCandidate(_ApiModel):
     url: str | None = None
     source: Source
 
+    @property
+    def release_year(self) -> int | None:
+        released = None if self.release is None else self.release.release_date
+        return None if released is None else released.year
+
+    @property
+    def artwork_url(self) -> str | None:
+        return None if self.release is None else self.release.artwork_url
+
+    @property
+    def label_name(self) -> str | None:
+        return None if self.label is None else self.label.name
+
 
 class _TrackPage(_ApiModel):
     items: tuple[TrackCandidate, ...] = ()
