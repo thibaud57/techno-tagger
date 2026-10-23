@@ -136,14 +136,12 @@ export default class PlaylistPageComponent {
   )
 
   /**
-   * Le service efface la reponse precedente a chaque listage : un format nul signifie
-   * donc « en attente », sauf si une erreur est venue a sa place.
+   * L'attente est un etat du service, pas une deduction : toute commande efface `lastError`,
+   * donc « format nul et pas d'erreur » resterait vrai a jamais apres un listage refuse puis
+   * un passage par les Reglages.
    */
   protected readonly awaitsPlaylists = computed(
-    () =>
-      this.playlistPath() !== null &&
-      this.sidecar.playlistFormat() === null &&
-      this.lastError() === null,
+    () => this.playlistPath() !== null && this.sidecar.listingPending(),
   )
 
   /**

@@ -144,8 +144,6 @@
               <app-track-detail
                 class="h-full"
                 [track]="row"
-                [restorable]="row.restorable"
-                [restoring]="row.restoring"
                 [blocked]="restoreBlocked()"
                 (restore)="restore.emit($event)"
               />

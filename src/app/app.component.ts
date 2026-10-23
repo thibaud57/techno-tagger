@@ -12,7 +12,14 @@ import { filter, map } from "rxjs"
 
 import { languageFromTag } from "./core/i18n/language"
 import { CloseGuard } from "./core/platform/close-guard.service"
-import { TABS, isTabName, tabFromUrl, type TabName, type TabValue } from "./core/platform/tabs"
+import {
+  TABS,
+  isTabName,
+  isTabRoot,
+  tabFromUrl,
+  type TabName,
+  type TabValue,
+} from "./core/platform/tabs"
 import { UpdateService } from "./core/platform/update.service"
 import { SIDECAR_FILE } from "./core/sidecar/sidecar-transport"
 import { SidecarService } from "./core/sidecar/sidecar.service"
@@ -141,6 +148,16 @@ export class AppComponent {
 
   protected navigate(tab: TabValue): void {
     if (isTabName(tab)) {
+      void this.router.navigate([tab])
+    }
+  }
+
+  /**
+   * Cliquer l'onglet deja actif ne change pas le modele de `p-tabs` : aucun `valueChange`. Sur une
+   * sous-page (le recapitulatif), c'est pourtant le geste qui ramene a la liste.
+   */
+  protected revisit(tab: TabName): void {
+    if (tab === this.activeTab() && !isTabRoot(this.router.url)) {
       void this.router.navigate([tab])
     }
   }

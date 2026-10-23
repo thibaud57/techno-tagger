@@ -62,7 +62,7 @@
   <p-tabs [value]="activeTab()" (valueChange)="navigate($event)" [dt]="tabsTokens">
     <p-tablist>
       @for (tab of workflowTabs; track tab) {
-        <p-tab [value]="tab" class="h-10">
+        <p-tab [value]="tab" class="h-10" (click)="revisit(tab)">
           <app-icon [name]="tabIcons[tab]" [size]="16" />
           {{ "nav." + tab | translate }}
         </p-tab>

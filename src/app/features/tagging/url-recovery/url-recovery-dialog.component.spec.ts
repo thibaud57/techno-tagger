@@ -2,7 +2,7 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { linkField, page, pasteLink } from "../../../../fixtures/dialog"
+import { dialogLabel, linkField, page, pasteLink } from "../../../../fixtures/dialog"
 import { action, errorMessageOf, iconOf } from "../../../../fixtures/dom"
 import { activeRun, provideSidecarStub, sidecarStub } from "../../../../fixtures/sidecar-stub"
 import { PENDING_TRACK, recoveredTrack, unresolvedTrack } from "../../../../fixtures/tagging"
@@ -60,6 +60,12 @@ describe("UrlRecoveryDialogComponent", () => {
 
     expect(page().textContent).toContain("Adam Beyer - Your Mind")
     expect(page().textContent).toContain("tagging.reason.no_result")
+  })
+
+  it("names the dialog by the title of its header", () => {
+    mount()
+
+    expect(dialogLabel()).toBe(page().querySelector("[data-title]"))
   })
 
   it("names the source of a track already resolved by url", () => {

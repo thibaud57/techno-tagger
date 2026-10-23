@@ -3,11 +3,10 @@ import { computed, inject, signal, Service } from "@angular/core"
 import { SidecarService } from "../sidecar/sidecar.service"
 import { APP_WINDOW } from "./app-window"
 
-export type PendingWork =
-  { readonly kind: "extraction" } | { readonly kind: "write" } | { readonly kind: "rollback" }
+export type PendingWork = "extraction" | "write" | "rollback"
 
 /** Quitter couperait un fichier en plein travail : Tauri arrete le sidecar a la sortie. */
-const BLOCKING: ReadonlySet<PendingWork["kind"]> = new Set(["write", "rollback"])
+const BLOCKING: ReadonlySet<PendingWork> = new Set(["write", "rollback"])
 
 @Service()
 export class CloseGuard {
@@ -22,23 +21,18 @@ export class CloseGuard {
    * non confirme vivent dans le plan de run : ils sont proposes a la reprise au lancement suivant.
    */
   readonly pendingWork = computed<readonly PendingWork[]>(() => {
-    const work: PendingWork[] = []
-    if (this.sidecar.extracting()) {
-      work.push({ kind: "extraction" })
-    }
-    if (this.sidecar.writing()) {
-      work.push({ kind: "write" })
-    }
-    if (this.sidecar.rollingBack() !== null) {
-      work.push({ kind: "rollback" })
-    }
+    const candidates: readonly (PendingWork | false)[] = [
+      this.sidecar.extracting() && "extraction",
+      this.sidecar.writing() && "write",
+      this.sidecar.rollingBack() !== null && "rollback",
+    ]
 
-    return work
+    return candidates.filter((work) => work !== false)
   })
   /** Instantane : un travail qui s'acheve pendant la lecture ne change pas la confirmation. */
   readonly request = this._request.asReadonly()
   /** Lu en direct : l'ecriture peut finir modale ouverte, elle redevient alors quittable. */
-  readonly blocked = computed(() => this.pendingWork().some((work) => BLOCKING.has(work.kind)))
+  readonly blocked = computed(() => this.pendingWork().some((work) => BLOCKING.has(work)))
 
   async install(): Promise<void> {
     if (this.installed) {

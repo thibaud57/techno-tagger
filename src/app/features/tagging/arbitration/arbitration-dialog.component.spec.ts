@@ -3,7 +3,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { linkField, page, pasteLink } from "../../../../fixtures/dialog"
+import { dialogLabel, linkField, page, pasteLink } from "../../../../fixtures/dialog"
 import { action, errorMessageOf, heightClassPx } from "../../../../fixtures/dom"
 import {
   type SidecarStub,
@@ -117,6 +117,12 @@ describe("ArbitrationDialogComponent", () => {
     expect(
       [...page().querySelectorAll("[data-release]")].map((line) => line.textContent.trim()),
     ).toEqual(["Drumcode · 2023", ""])
+  })
+
+  it("names the dialog by the title of its header", () => {
+    mountWith()
+
+    expect(dialogLabel()).toBe(titleOf())
   })
 
   it("falls back on the track id without a run row", () => {

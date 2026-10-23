@@ -13,9 +13,10 @@
   styleClass="h-140 w-180"
   [closeAriaLabel]="'arbitration.close' | translate"
 >
-  <ng-template #header>
+  <ng-template #header let-ariaLabelledBy="ariaLabelledBy">
     <!-- Le logo nomme la source des candidats : rien a l'etape du lien, qui n'en a pas. -->
     <app-dialog-header
+      [titleId]="ariaLabelledBy"
       [title]="title()"
       [fileName]="fileName()"
       [source]="linkStep() === null ? (current()?.source ?? null) : null"

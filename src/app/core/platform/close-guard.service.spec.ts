@@ -70,7 +70,7 @@ describe("CloseGuard", () => {
     const held = appWindow.requestClose()
 
     expect(held).toBe(true)
-    expect(guard.request()).toEqual([{ kind }])
+    expect(guard.request()).toEqual([kind])
     expect(guard.blocked()).toBe(blocked)
   })
 
@@ -116,11 +116,7 @@ describe("CloseGuard", () => {
     sidecar.writing.set(true)
     sidecar.extracting.set(true)
 
-    expect(guard.pendingWork()).toEqual([
-      { kind: "extraction" },
-      { kind: "write" },
-      { kind: "rollback" },
-    ])
+    expect(guard.pendingWork()).toEqual(["extraction", "write", "rollback"])
   })
 
   it("keeps the window open when the user stays", async () => {
@@ -159,7 +155,7 @@ describe("CloseGuard", () => {
 
     sidecar.extracting.set(false)
 
-    expect(guard.request()).toEqual([{ kind: "extraction" }])
+    expect(guard.request()).toEqual(["extraction"])
   })
 
   it("replaces the snapshot when closing is asked again", async () => {
@@ -170,7 +166,7 @@ describe("CloseGuard", () => {
 
     appWindow.requestClose()
 
-    expect(guard.request()).toEqual([{ kind: "extraction" }, { kind: "write" }])
+    expect(guard.request()).toEqual(["extraction", "write"])
   })
 
   it("reopens the application when the window refuses to close", async () => {

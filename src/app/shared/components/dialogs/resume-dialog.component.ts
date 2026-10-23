@@ -1,4 +1,4 @@
-import { Component, computed, inject } from "@angular/core"
+import { Component, type ElementRef, computed, inject, viewChild } from "@angular/core"
 import { Router } from "@angular/router"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
@@ -14,7 +14,8 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
 /**
  * Invite non fermable : le run interrompu attend un choix. « Plus tard » n'existe que pour un
  * dossier introuvable, qu'un disque rebranche rendra reprenable au lancement suivant. Aucun
- * focus a l'ouverture : le premier bouton est « Repartir de zero » et Entree supprimerait le plan.
+ * bouton focalise a l'ouverture : le premier est « Repartir de zero » et Entree supprimerait le plan.
+ * Le focus va au corps de la modale, sans quoi il reste derriere le masque et Tab parcourt la page.
  */
 @Component({
   selector: "app-resume-dialog",
@@ -30,12 +31,17 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
         [resizable]="false"
         [focusOnShow]="false"
         styleClass="w-120"
+        (onShow)="focusBody()"
       >
-        <ng-template #header>
-          <h3 class="text-lg font-semibold">{{ "resume.title" | translate }}</h3>
+        <ng-template #header let-ariaLabelledBy="ariaLabelledBy">
+          <h3 class="text-lg font-semibold" [id]="ariaLabelledBy">
+            {{ "resume.title" | translate }}
+          </h3>
         </ng-template>
 
         <div
+          #body
+          tabindex="-1"
           class="flex flex-col gap-2 text-sm whitespace-pre-line text-muted-color"
           [animate.enter]="fadeIn"
         >
@@ -105,6 +111,7 @@ export class ResumeDialogComponent {
 
   protected readonly run = this.sidecar.interruptedRun
   protected readonly fadeIn = FADE_IN
+  private readonly body = viewChild<ElementRef<HTMLElement>>("body")
   protected readonly summary = computed(() => {
     const run = this.run()
 
@@ -116,6 +123,10 @@ export class ResumeDialogComponent {
         }
       : null
   })
+
+  protected focusBody(): void {
+    this.body()?.nativeElement.focus()
+  }
 
   protected async resume(run: InterruptedRun): Promise<void> {
     if (await this.sidecar.resume(run)) {

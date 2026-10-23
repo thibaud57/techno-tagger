@@ -3,7 +3,7 @@
        w-42 : la pochette en grand (168px, `ArtworkComponent`), dont le bouton prend la largeur. -->
   <div class="flex w-42 shrink-0 flex-col gap-4">
     <app-artwork [url]="track().artworkUrl" [pending]="track().artworkPending" [large]="true" />
-    @if (restorable()) {
+    @if (track().restorable) {
       @let busy = blocked() ? ("tagging.rollback.blocked" | translate) : undefined;
       <button
         pButton
@@ -17,7 +17,7 @@
         [tooltipOptions]="tooltip"
         (click)="restore.emit(track().trackId)"
       >
-        <app-icon [name]="restoring() ? 'spinner' : 'refresh'" [size]="16" />
+        <app-icon [name]="track().restoring ? 'spinner' : 'refresh'" [size]="16" />
         {{ "tagging.rollback.track" | translate }}
       </button>
     }

@@ -86,11 +86,15 @@ export class ArbitrationStore {
     this.remove(trackId)
   }
 
-  rejected(trackId: string, code: string): void {
+  /** Vrai quand le sidecar ne tient plus l'arbitrage : la ligne du run ne doit plus l'attendre non plus. */
+  rejected(trackId: string, code: string): boolean {
     this.release(trackId)
-    if (code === NOT_PENDING) {
+    const dropped = code === NOT_PENDING
+    if (dropped) {
       this.remove(trackId)
     }
+
+    return dropped
   }
 
   sent(trackId: string): void {

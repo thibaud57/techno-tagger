@@ -3,7 +3,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { page } from "../../../../fixtures/dialog"
+import { dialogLabel, page } from "../../../../fixtures/dialog"
 import { action } from "../../../../fixtures/dom"
 import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
 import {
@@ -84,6 +84,22 @@ describe("UpdateDialogComponent", () => {
     expect(service.badgeVisible()).toBe(true)
   })
 
+  it("names the dialog by its title", async () => {
+    await mount()
+
+    expect(dialogLabel()?.textContent).toContain("update.title")
+  })
+
+  // Sans focus dans la modale, Tab parcourt la page derriere le masque.
+  it("puts the initial focus inside the dialog, on no button", async () => {
+    const { fixture } = await mount()
+
+    await fixture.whenStable()
+
+    expect(document.activeElement?.closest('[role="dialog"]')).not.toBeNull()
+    expect(document.activeElement).not.toBeInstanceOf(HTMLButtonElement)
+  })
+
   it("disables install while the engine is busy", async () => {
     // Trouvee pendant un travail, la mise a jour part au badge : la modale est rouverte par lui.
     const { fixture, service } = await mount(availableUpdate(), { writing: signal(true) })
@@ -104,6 +120,33 @@ describe("UpdateDialogComponent", () => {
     expect(action("install")).toBeNull()
     expect(action("later")).toBeNull()
     expect(cross()).toBeNull()
+  })
+
+  // PrimeNG ne lit `closeOnEscape` qu'a l'ouverture : Echap ferme sinon la modale en plein telechargement.
+  it("keeps the dialog on Escape while downloading, so the failure still shows in it", async () => {
+    let fail: (error: Error) => void = () => undefined
+    const update = availableUpdate({
+      downloadAndInstall: vi.fn(
+        () =>
+          new Promise<void>((_, reject) => {
+            fail = reject
+          }),
+      ),
+    })
+    const { fixture, service } = await mount(update)
+    action("install")?.click()
+    await vi.waitFor(() => {
+      expect(update.downloadAndInstall).toHaveBeenCalled()
+    })
+    fixture.detectChanges()
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+    fail(new Error("signature"))
+    await vi.waitFor(() => {
+      expect(service.state().kind).toBe("failed")
+    })
+
+    expect(service.dialogVisible()).toBe(true)
   })
 
   it("shows the failure with a retry", async () => {

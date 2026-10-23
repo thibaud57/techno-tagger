@@ -2,14 +2,14 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
 import { closeGuardStub } from "../../../../fixtures/close-guard"
-import { page } from "../../../../fixtures/dialog"
+import { dialogLabel, page } from "../../../../fixtures/dialog"
 import { action } from "../../../../fixtures/dom"
 import { CloseGuard } from "../../../core/platform/close-guard.service"
 
 import { CloseConfirmationComponent } from "./close-confirmation.component"
 
 const mount = (blocked = false) => {
-  const guard = closeGuardStub([{ kind: "extraction" }, { kind: "write" }], blocked)
+  const guard = closeGuardStub(["extraction", "write"], blocked)
   TestBed.configureTestingModule({
     imports: [CloseConfirmationComponent],
     providers: [provideTranslateService(), { provide: CloseGuard, useValue: guard }],
@@ -64,6 +64,12 @@ describe("CloseConfirmationComponent", () => {
     expect(page().textContent).toContain("app.close.blockedTitle")
     expect(action("leave")).toBeNull()
     expect(action("stay")).not.toBeNull()
+  })
+
+  it("names the dialog by its title", () => {
+    mount(true)
+
+    expect(dialogLabel()?.textContent).toContain("app.close.blockedTitle")
   })
 
   it("puts the focus on the stay button", async () => {

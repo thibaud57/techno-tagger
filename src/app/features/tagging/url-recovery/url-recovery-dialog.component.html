@@ -15,8 +15,9 @@
   [closeAriaLabel]="'tagging.recovery.close' | translate"
 >
   <!-- Meme en-tete que l'arbitrage : les deux modales se relaient. -->
-  <ng-template #header>
+  <ng-template #header let-ariaLabelledBy="ariaLabelledBy">
     <app-dialog-header
+      [titleId]="ariaLabelledBy"
       [title]="title()"
       [fileName]="track()?.fileName ?? null"
       [source]="recoveredSource()"

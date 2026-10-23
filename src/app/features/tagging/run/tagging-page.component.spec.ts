@@ -754,6 +754,43 @@ describe("TaggingPageComponent", () => {
     expect(component["error"]()?.code).toBe(code)
   })
 
+  // `lastError` n'a qu'un emplacement : la restauration lancee depuis les Reglages y atterrit aussi.
+  it.each([
+    { case: "names the shown run", params: { run_id: RUN_ID, track_id: null }, shown: true },
+    {
+      case: "names a track of the shown run",
+      params: { run_id: RUN_ID, track_id: "a.mp3" },
+      shown: true,
+    },
+    {
+      case: "names another run",
+      params: { run_id: OTHER_PAST_RUN.run_id, track_id: null },
+      shown: false,
+    },
+    {
+      case: "names a track outside the shown run",
+      params: { track_id: "z.mp3" },
+      shown: false,
+    },
+    { case: "names no run nor track", params: {}, shown: true },
+  ])("shows a rollback error only when it $case: $shown", async ({ params, shown }) => {
+    const { component } = await mountWith({
+      ...commandFailed("rollback", "rollback_unavailable", params),
+      ...activeRun(RUN_ID),
+      taggingTracks: signal([written("a.mp3")]),
+    })
+
+    expect(component["error"]() !== null).toBe(shown)
+  })
+
+  it("hides a rollback error naming a run while no run is shown", async () => {
+    const { component } = await mountWith(
+      commandFailed("rollback", "rollback_unavailable", { run_id: RUN_ID }),
+    )
+
+    expect(component["error"]()).toBeNull()
+  })
+
   it("follows the folder of a run resumed while the page is shown", async () => {
     const requestedFolder = signal<string | null>(null)
     const { component } = await mountWith({
