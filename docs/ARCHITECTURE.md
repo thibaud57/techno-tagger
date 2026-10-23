@@ -971,7 +971,7 @@ Un bouton « Ouvrir le dossier des logs » dans les Réglages permet de récupé
 
 ### Monitoring
 
-Erreurs techniques uniquement, des deux côtés : sidecar qui tombe, API injoignable, parsing cassé.
+Erreurs techniques uniquement, des deux côtés : sidecar qui tombe, parsing cassé. Une API injoignable n'est pas remontée : `SourceUnavailableError` n'est pas capturée et la `LoggingIntegration` est fermée, une rafale de 504 viderait le quota. Elle se lit dans le log local (`WARNING` `source unavailable`) et dans le rapport de run (`source_unavailable`). Un sidecar qui ne démarre pas n'initialise pas Sentry : l'écran bloquant de l'application (« moteur introuvable ») est le seul signal.
 
 Aucun événement métier n'est envoyé. Le plan gratuit plafonne à 5 000 erreurs par mois et **jette silencieusement les suivantes** : noyer les crashs sous de la télémétrie ferait perdre le vrai bug quand il arrive.
 
@@ -981,7 +981,7 @@ Le seul geste explicite est le bouton « envoyer ce rapport » de l'écran final
 
 ### Alerts
 
-Notifications Sentry par courriel sur nouvelle issue, sans règle plus fine. Un projet à quelques utilisateurs n'a pas de volume justifiant une astreinte.
+Notifications Sentry par courriel sur nouvelle issue, sans règle plus fine, donc ni crash du sidecar au démarrage ni API injoignable (cf. § Monitoring). Un projet à quelques utilisateurs n'a pas de volume justifiant une astreinte.
 
 Le canal d'amélioration du matching n'est pas Sentry mais ce bouton, qui ne consomme pas le quota. **L'application ne pousse rien elle-même** : le plugin `opener` ouvre le navigateur, l'utilisateur relit, ampute ou abandonne l'issue avant de valider. La liste des destinations HTTPS (§ Protection Données) reste donc vraie. Le bouton ouvre l'Issue Form `matching-report.yml`, qui pose le label `matching-report`, pré-remplie d'un résumé qui tient dans une URL de 2048 caractères ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). L'export nettoyé du run, écrit dans `appLocalDataDir()/feedback/`, se glisse dans l'issue ; il est purgé au démarrage 30 jours après la date du run, portée par le nom de l'export.
 
