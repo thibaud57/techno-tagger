@@ -1,8 +1,9 @@
-<div class="flex h-full items-start gap-6 p-4">
-  <!-- Le bouton sous la pochette : la place y est libre, le détail garde sa hauteur avec ou sans lui. -->
+<div class="flex h-full items-start gap-4 p-4">
+  <!-- Le bouton sous la pochette : la place y est libre, le détail garde sa hauteur avec ou sans lui.
+       w-42 : la pochette en grand (168px, `ArtworkComponent`), dont le bouton prend la largeur. -->
   <div class="flex w-42 shrink-0 flex-col gap-4">
     <app-artwork [url]="track().artworkUrl" [pending]="track().artworkPending" [large]="true" />
-    @if (restorable()) {
+    @if (track().restorable) {
       @let busy = blocked() ? ("tagging.rollback.blocked" | translate) : undefined;
       <button
         pButton
@@ -16,7 +17,7 @@
         [tooltipOptions]="tooltip"
         (click)="restore.emit(track().trackId)"
       >
-        <app-icon [name]="restoring() ? 'spinner' : 'refresh'" [size]="16" />
+        <app-icon [name]="track().restoring ? 'spinner' : 'refresh'" [size]="16" />
         {{ "tagging.rollback.track" | translate }}
       </button>
     }
@@ -42,9 +43,9 @@
           <div class="col-span-3 grid grid-cols-subgrid py-0.5" data-detail-row>
             <!-- Clé à côté du libellé et 2px de padding : 15 ou 16 lignes de champs tiennent dans
                  les lignes que la liste réserve au détail (`detailSpan`). -->
-            <span class="flex gap-2">
-              <span class="text-muted-color" data-cell>{{ row.labelKey | translate }}</span>
-              <span class="text-surface-600" data-cell>{{ row.key }}</span>
+            <span class="flex gap-2 text-muted-color">
+              <span data-cell>{{ row.labelKey | translate }}</span>
+              <span data-cell>{{ row.key }}</span>
             </span>
             <span class="min-w-0 text-muted-color" data-cell>
               @if (row.beforeSource; as source) {
@@ -61,7 +62,7 @@
                   pButton
                   type="button"
                   [link]="true"
-                  class="max-w-full border-0 p-0 text-xs"
+                  class="max-w-full"
                   data-action="open-source"
                   (click)="openSource(url)"
                 >

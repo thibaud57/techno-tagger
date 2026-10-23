@@ -15,9 +15,10 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Final, Self
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
+from pydantic import AwareDatetime, Field, ValidationError
 
 from tagger.core.errors import TaggerError
+from tagger.core.models import StrictFrozenModel
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import (
     PENDING_SUFFIX,
@@ -26,6 +27,7 @@ from tagger.core.run_files import (
     purge_stamped,
     read_versioned,
     stamped_name,
+    unlink_logged,
     write_atomically,
 )
 from tagger.tags.files import OriginalTags, TagField, TagSystem
@@ -43,10 +45,8 @@ _JOURNAL_SUFFIX: Final = ".renames.ndjson"
 _RETAINED_SUFFIXES: Final = (_SUFFIX, PENDING_SUFFIX, ".ndjson")
 
 
-class DumpEntry(BaseModel):
+class DumpEntry(StrictFrozenModel):
     """Etat d'origine d'un morceau, avec son emplacement apres renommage."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     path: Path
     renamed_path: Path | None = None
@@ -67,10 +67,8 @@ class DumpEntry(BaseModel):
         return OriginalTags(self.system, self.id3_version, MappingProxyType(self.fields))
 
 
-class TagDump(BaseModel):
+class TagDump(StrictFrozenModel):
     """Dump d'un run tel qu'il est ecrit sur le disque, entrees par `track_id`."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     schema_version: int = SCHEMA_VERSION
     run_id: str
@@ -80,10 +78,8 @@ class TagDump(BaseModel):
     entries: dict[str, DumpEntry] = Field(default_factory=dict)
 
 
-class _RenameNote(BaseModel):
+class _RenameNote(StrictFrozenModel):
     """Une ligne du journal : ou trouver le fichier d'un morceau, `None` pour l'oublier."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     track_id: str
     renamed_path: Path | None
@@ -100,6 +96,16 @@ class TagDumpWriteError(TagDumpError):
 
     def __init__(self, path: Path) -> None:
         super().__init__(f"tag dump not written: {path.name}", file=path.name)
+
+
+class TagDumpEntryMissingError(TagDumpError):
+    """Le dump ne porte pas le morceau a noter : un bug de l'appelant, pas une panne de disque.
+
+    Pas de `track_id` en param : c'est un chemin relatif, donc un titre.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("tag dump holds no entry for the track")
 
 
 class TagDumpUnreadableError(TagDumpError):
@@ -170,7 +176,7 @@ def record_renamed_path(
     morceau ecrit avant lui, le rollback qui inverse l'ordre doit le rendre en premier.
     """
     if track_id not in dump.entries:
-        raise KeyError(track_id)
+        raise TagDumpEntryMissingError
     note = _RenameNote(track_id=track_id, renamed_path=renamed)
     _append(journal_path(dump_path(folder, dump)), note.model_dump_json())
     entries = dict(dump.entries)
@@ -200,7 +206,7 @@ def remove_entries(folder: Path, dump: TagDump, track_ids: Collection[str]) -> T
             path.unlink(missing_ok=True)
         except OSError as exc:
             raise TagDumpWriteError(path) from exc
-        _drop_journal(path, updated)
+        _drop_journal(path)
     return updated
 
 
@@ -276,21 +282,18 @@ def _append(path: Path, line: str) -> None:
         raise TagDumpWriteError(path) from exc
 
 
-def _drop_journal(dump_file: Path, dump: TagDump) -> None:
+def _drop_journal(dump_file: Path) -> None:
     """Un journal qui reste est sans danger : relu apres le dump, il rend les memes notes."""
-    try:
-        journal_path(dump_file).unlink(missing_ok=True)
-    except OSError:
-        logger.warning("tag dump journal not removed run=%s reason=unlink_failed", dump.run_id)
+    unlink_logged(journal_path(dump_file), "tag dump journal not removed")
 
 
 def _write(path: Path, dump: TagDump) -> None:
-    """Atomique : une coupure en cours d'ecriture ne laisse jamais un dump tronque.
+    """Atomique et durable : une coupure, meme apres le retour, ne laisse jamais un dump tronque.
 
     Ecrit le dump complet, journal compris : celui-ci n'a plus rien a dire et part ensuite.
     """
     try:
-        write_atomically(path, dump.model_dump_json(indent=2))
+        write_atomically(path, dump.model_dump_json(indent=2), durable=True)
     except OSError as exc:
         raise TagDumpWriteError(path) from exc
-    _drop_journal(path, dump)
+    _drop_journal(path)

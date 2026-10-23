@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Final
 
 import keyring
 import pytest
-from memory_keyring import RefusingKeyring
-from ndjson_loop import conversation, drive_raw, line, resolved_run
+from memory_keyring import CredentialManagerKeyring, RefusingKeyring
+from ndjson_loop import conversation, drive, drive_raw, line, resolved_run
 from scraper_responses import YOUR_MIND, found, invalid_track_payload
 from sentry_sdk.utils import event_from_exception
 from tagging_api import BEATPORT_SEARCH
@@ -52,6 +52,19 @@ def test_never_echoes_the_api_key_when_the_keyring_refuses_it(
     assert SECRET not in output
     assert SECRET not in caplog.text
     assert json.loads(output)["code"] == "api_key_not_stored"
+
+
+def test_keeps_answering_when_the_credential_manager_fails() -> None:
+    """Regression : l'erreur Win32 brute sortait de la boucle et tuait le sidecar sans evenement."""
+    keyring.set_keyring(CredentialManagerKeyring())
+
+    events = drive(line("get_version") + line("set_api_key", api_key=SECRET) + line("get_version"))
+
+    assert [(event["event"], event.get("code")) for event in events] == [
+        ("version", None),
+        ("error", "api_key_not_stored"),
+        ("version", None),
+    ]
 
 
 @pytest.mark.asyncio

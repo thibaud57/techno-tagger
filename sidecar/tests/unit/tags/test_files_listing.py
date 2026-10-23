@@ -2,8 +2,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from log_capture import messages_of
+from unencodable_names import UNENCODABLE_NAME
 
-from tagger.tags.files import TaggingFolderUnreadableError, list_audio_files
+from tagger.tags.files import TaggingFolderUnreadableError, has_audio_files, list_audio_files
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -67,6 +69,28 @@ def test_ignores_a_folder_named_like_an_audio_file(tmp_path: Path) -> None:
     found = list_audio_files(tmp_path)
 
     assert _relative(tmp_path, found) == ["album.mp3/track.flac"]
+
+
+def test_skips_a_file_whose_name_utf8_cannot_encode_and_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Regression : ce nom faisait lever `run_started` a l'emission et tuait le sidecar."""
+    _touch(tmp_path, "a.mp3", UNENCODABLE_NAME)
+
+    found = list_audio_files(tmp_path)
+
+    assert _relative(tmp_path, found) == ["a.mp3"]
+    assert messages_of(caplog, "tagger.core.paths") == ["audio file skipped reason=name_not_utf8"]
+
+
+def test_finds_no_audio_file_when_the_only_one_has_a_name_utf8_cannot_encode(
+    tmp_path: Path,
+) -> None:
+    _touch(tmp_path, UNENCODABLE_NAME)
+
+    found = has_audio_files(tmp_path)
+
+    assert found is False
 
 
 def test_returns_an_empty_tuple_for_a_folder_without_audio_files(tmp_path: Path) -> None:

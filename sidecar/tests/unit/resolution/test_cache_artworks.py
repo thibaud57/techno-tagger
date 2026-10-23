@@ -173,6 +173,27 @@ async def test_refuses_an_url_that_does_not_name_a_public_cdn(
     assert requests == []
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://[::1/cover.jpg",
+        "https://cdn.example.com:abc/cover.jpg",
+        "https://cdn.example.com/cover\ud800.jpg",
+    ],
+    ids=["unclosed-ipv6-bracket", "non-numeric-port", "lone-surrogate"],
+)
+async def test_refuses_a_malformed_url_instead_of_raising_it(
+    tmp_path: Path, requests: list[httpx2.Request], url: str
+) -> None:
+    """Regression : l'exception brute sortait en `ExceptionGroup` et tuait le sidecar."""
+    async with _fetcher(tmp_path, recording(requests, image())) as fetcher:
+        with pytest.raises(ArtworkUnavailableError) as error:
+            await fetcher.fetch(url)
+
+    assert error.value.reason == "blocked_url"
+    assert requests == []
+
+
 class _ConnectedTo:
     """Le peu de `network_stream` que le garde lit : l'adresse reellement connectee."""
 

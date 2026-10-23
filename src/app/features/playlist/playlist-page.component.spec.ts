@@ -4,6 +4,7 @@ import { provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
+import { heightClassPx } from "../../../fixtures/dom"
 import { EMPTY_EXTRACTION, EXTRACTION_REQUEST } from "../../../fixtures/extraction"
 import { type NativeStub, nativeStub } from "../../../fixtures/native-stub"
 import { type PreferencesStub, preferencesStub } from "../../../fixtures/preferences-stub"
@@ -18,7 +19,10 @@ import { NativeService } from "../../core/platform/native.service"
 import { PreferencesService } from "../../core/platform/preferences.service"
 import type { PlaylistFormat } from "../../core/sidecar/protocol"
 
-import PlaylistPageComponent from "./playlist-page.component"
+import PlaylistPageComponent, {
+  REPORT_ROW_CLASS,
+  REPORT_ROW_HEIGHT,
+} from "./playlist-page.component"
 
 interface Natives {
   native?: NativeStub
@@ -61,6 +65,11 @@ const withAllPathsChosen = (component: PlaylistPageComponent): void => {
 describe("PlaylistPageComponent", () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  // Une ligne d'une autre hauteur ferait sauter le defilement virtuel.
+  it("sizes the virtual scroll on the height of the report row class", () => {
+    expect(heightClassPx(REPORT_ROW_CLASS)).toBe(REPORT_ROW_HEIGHT)
   })
 
   it("restores the choices of the last extraction when the tab is reopened", () => {
@@ -233,11 +242,32 @@ describe("PlaylistPageComponent", () => {
   })
 
   it("awaits the listing of a chosen file until the sidecar answers", () => {
-    const { component } = mountWith({ playlistFormat: signal(null), playlists: signal([]) })
+    const { component } = mountWith({
+      playlistFormat: signal(null),
+      playlists: signal([]),
+      listingPending: signal(true),
+    })
 
     component["playlistPath"].set("C:/x/vlc_media.db")
 
     expect(component["awaitsPlaylists"]()).toBe(true)
+  })
+
+  // Un listage refuse puis un passage par les Reglages ont efface `lastError` : le fichier
+  // restaure sans format ne doit plus se lire comme une attente.
+  it("asks for the file again when its listing failed and the error is gone", () => {
+    const { component } = mountWith({
+      playlistFormat: signal(null),
+      playlists: signal([]),
+      listedPlaylistPath: signal("C:/x/vlc_media.db"),
+      listingPending: signal(false),
+      lastError: signal(null),
+    })
+
+    expect([component["awaitsPlaylists"](), component["missingChoices"]()]).toEqual([
+      false,
+      expect.arrayContaining(["playlist.missing.file"]),
+    ])
   })
 
   it.each([

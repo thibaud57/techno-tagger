@@ -5,6 +5,9 @@ from typing import override
 from keyring.backend import KeyringBackend
 from keyring.errors import KeyringError, PasswordSetError
 
+# Meme classe que celle que `WinVaultKeyring` laisse passer : non typee, sans `py.typed`.
+from win32ctypes.pywin32.pywintypes import error as win32_error  # type: ignore[import-untyped]
+
 
 class MemoryKeyring(KeyringBackend):
     """Secrets gardes en memoire, pour le temps d'un test."""
@@ -43,3 +46,17 @@ class FailingKeyring(MemoryKeyring):
     @override
     def get_password(self, service: str, username: str) -> str | None:
         raise KeyringError("locked")
+
+
+class CredentialManagerKeyring(MemoryKeyring):
+    """Echoue comme `WinVaultKeyring` sur un `CredRead` / `CredWrite` en echec : l'erreur Win32
+    brute, qui n'herite pas de `KeyringError`.
+    """
+
+    @override
+    def get_password(self, service: str, username: str) -> str | None:
+        raise win32_error(5, "CredRead", "Access is denied.")
+
+    @override
+    def set_password(self, service: str, username: str, password: str) -> None:
+        raise win32_error(1783, "CredWrite", "The stub received bad data")

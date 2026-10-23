@@ -18,7 +18,7 @@ import { PhaseProgressComponent } from "../../../shared/components/display/phase
 import { ErrorMessageComponent } from "../../../shared/components/feedback/error-message.component"
 import { MessageComponent } from "../../../shared/components/feedback/message.component"
 import { PathPickerComponent } from "../../../shared/components/inputs/path-picker.component"
-import { FADE_IN, PAGE_HOST } from "../../../shared/utils/motion"
+import { FADE_IN } from "../../../shared/utils/motion"
 import { progressPercentage } from "../../../shared/utils/progress"
 import { TOOLTIP } from "../../../shared/utils/tooltip"
 
@@ -57,7 +57,7 @@ interface ActionButton {
     UrlRecoveryDialogComponent,
   ],
   templateUrl: "./tagging-page.component.html",
-  host: { class: PAGE_HOST, "animate.enter": FADE_IN },
+  host: { class: "page-host", "animate.enter": FADE_IN },
 })
 export default class TaggingPageComponent {
   private readonly sidecar = inject(SidecarService)
@@ -135,8 +135,7 @@ export default class TaggingPageComponent {
   protected readonly action = this.sidecar.runAction(this.folder)
   /**
    * Comptes lus sur les etats recus : l'interface ne decide rien de ce qui sera ecrit. Les
-   * attentes se comptent sur les lignes, la file d'arbitrage pouvant en retirer une que sa
-   * ligne porte encore (`arbitration_not_pending`).
+   * attentes se comptent sur les lignes.
    */
   private readonly counts = computed(() => ({
     writable: this.sidecar.taggingWritableCount(),
@@ -198,7 +197,7 @@ export default class TaggingPageComponent {
         }
     }
   })
-  protected readonly error = this.sidecar.errorFor(
+  private readonly commandError = this.sidecar.errorFor(
     "start_tagging",
     "resume_run",
     "discard_run",
@@ -206,6 +205,16 @@ export default class TaggingPageComponent {
     "retry_write",
     "rollback",
   )
+  /**
+   * `lastError` n'a qu'un emplacement : un `rollback` lance depuis les Reglages (`rollback_unavailable`
+   * nomme alors le run vise) y atterrit aussi. Il ne se montre ici que s'il ne vise pas un autre run ;
+   * sans identifiant (`phase_busy`), rien ne le distingue d'un refus de cet ecran.
+   */
+  protected readonly error = computed(() => {
+    const error = this.commandError()
+
+    return error?.command === "rollback" && this.namesAnotherRun(error.params) ? null : error
+  })
   protected readonly percentage = computed(() => progressPercentage(this.progress()))
   protected readonly recovery = this.sidecar.urlRecoveryProgress
   protected readonly recoveryPercentage = computed(() => progressPercentage(this.recovery()))
@@ -286,6 +295,15 @@ export default class TaggingPageComponent {
 
   protected openRecap(): void {
     void this.router.navigateByUrl("/tagging/recap")
+  }
+
+  private namesAnotherRun(params: Readonly<Record<string, unknown>>): boolean {
+    const { run_id: runId, track_id: trackId } = params
+    if (typeof runId === "string") {
+      return runId !== this.sidecar.taggingRunId()
+    }
+
+    return typeof trackId === "string" && !this.tracks().some((track) => track.trackId === trackId)
   }
 
   private t(key: string, params?: Record<string, unknown>): string {

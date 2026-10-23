@@ -207,17 +207,19 @@ describe("ArbitrationStore", () => {
   it("drops an arbitration the sidecar no longer holds", () => {
     queue("a.mp3", "b.mp3")
 
-    store.rejected("a.mp3", "arbitration_not_pending")
+    const dropped = store.rejected("a.mp3", "arbitration_not_pending")
 
     expect(queued()).toEqual(["b.mp3"])
+    expect(dropped).toBe(true)
   })
 
   it("keeps an arbitration rejected for another reason", () => {
     queue("a.mp3")
 
-    store.rejected("a.mp3", "arbitration_candidate_unknown")
+    const dropped = store.rejected("a.mp3", "arbitration_candidate_unknown")
 
     expect(queued()).toEqual(["a.mp3"])
+    expect(dropped).toBe(false)
   })
 
   it("ignores an update for a track outside the queue", () => {

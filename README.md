@@ -1,16 +1,16 @@
 # techno-tagger
 
-Application desktop Windows qui extrait les morceaux d'une playlist depuis une bibliothèque musicale, puis remplace leurs métadonnées par des données propres issues de Beatport et Bandcamp.
+Application desktop Windows qui extrait les morceaux d'une playlist (médiathèque VLC ou M3U8) depuis une bibliothèque musicale, puis récupère des métadonnées via une API pour remplacer celles de leurs fichiers. Aucun tag n'est réécrit avant la confirmation globale du run. Les tags d'origine sont sauvegardés pour pouvoir être restaurés.
 
 Trois couches sur la machine de l'utilisateur, aucun serveur ni port ouvert :
 
 | Zone | Rôle | Gestionnaire |
 |---|---|---|
-| `src/` | Interface Angular 22 + PrimeNG, aucune logique métier | pnpm |
+| `src/` | Interface Angular + PrimeNG, aucune logique métier | pnpm |
 | `sidecar/` | Métier complet en Python, empaqueté en binaire par PyInstaller | uv |
-| `src-tauri/` | Coquille Tauri v2 : plugins, packaging, updater | cargo |
+| `src-tauri/` | Coquille Tauri : plugins, packaging, updater | cargo |
 
-L'interface et le métier communiquent par un protocole NDJSON sur les flux standard, testable en ligne de commande sans lancer l'application.
+Versions exactes : [docs/VERSIONS.md](docs/VERSIONS.md). L'interface et le métier communiquent par un protocole NDJSON sur les flux standard, testable en ligne de commande sans lancer l'application (`just dev-sidecar`).
 
 ## Installation
 
@@ -25,7 +25,7 @@ Les mises à jour se proposent d'elles-mêmes au lancement de l'application.
 
 ## Démarrage
 
-Prérequis : [pnpm](https://pnpm.io/), [uv](https://docs.astral.sh/uv/), [cargo](https://www.rust-lang.org/tools/install), [just](https://github.com/casey/just) avec bash (Git Bash sous Windows, le `Justfile` et les scripts pnpm passant par `bash`) et [actionlint](https://github.com/rhysd/actionlint) (`winget install rhysd.actionlint`, requis par `just lint`). Versions exactes dans `engines` et `devEngines` de `package.json` (Node, pnpm), `required-version` de `sidecar/pyproject.toml` (uv), `rust-toolchain.toml` et `sidecar/.python-version`.
+Prérequis : [Node](https://nodejs.org/), [pnpm](https://pnpm.io/), [uv](https://docs.astral.sh/uv/), [cargo](https://www.rust-lang.org/tools/install), [just](https://github.com/casey/just) avec bash (Git Bash sous Windows, le `Justfile` et les scripts pnpm passant par `bash`), [actionlint](https://github.com/rhysd/actionlint) (`winget install rhysd.actionlint`, requis par `just lint`) et les Build Tools C++ de Visual Studio (cf. [docs/VERSIONS.md § Post-Install](docs/VERSIONS.md#post-install--setup)). Versions exactes dans `engines` et `devEngines` de `package.json` (Node, pnpm), `required-version` de `sidecar/pyproject.toml` (uv), `rust-toolchain.toml` et `sidecar/.python-version`.
 
 ```bash
 cp .env.example .env    # secrets de build, commentés dans le fichier (DSN vides = SDK Sentry inerte)

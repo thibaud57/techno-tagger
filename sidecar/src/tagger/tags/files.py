@@ -20,7 +20,7 @@ from mutagen.wave import WAVE
 
 from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason, file_failure_reason
-from tagger.core.paths import extended_path
+from tagger.core.paths import encodable_only, extended_path, is_utf8_encodable
 from tagger.resolution.cache import ARTWORK_EXTENSIONS
 from tagger.resolution.matching import credited_artists, full_title
 
@@ -209,12 +209,14 @@ def list_audio_files(folder: Path) -> tuple[Path, ...]:
     Le tri porte sur les segments du chemin relatif, casse ignoree : trier la chaine
     entiere ferait dependre l'ordre du separateur (l'antislash passe apres les chiffres,
     la barre oblique avant). Meme parcours que le dossier source de l'extraction : `rglob`
-    y saute sans erreur un sous-dossier illisible.
+    y saute sans erreur un sous-dossier illisible. Un fichier dont le nom n'a pas
+    d'equivalent UTF-8 est ecarte avec un warning, l'evenement `run_started` ne pouvant le porter.
     """
     if not folder.is_dir():
         raise TaggingFolderUnreadableError(folder)
 
-    found = [path for path in folder.rglob("*") if _is_audio(path)]
+    audio = (path for path in folder.rglob("*") if _is_audio(path))
+    found = list(encodable_only(audio, "audio file"))
     # `rglob` avale l'OSError de son scandir : sans ce second controle, un support
     # debranche en cours de parcours rendrait une liste tronquee sans erreur.
     if not folder.is_dir():
@@ -225,7 +227,7 @@ def list_audio_files(folder: Path) -> tuple[Path, ...]:
 
 def has_audio_files(folder: Path) -> bool:
     """S'arrete au premier fichier audio : un dossier de bibliotheque se parcourt entier sinon."""
-    return any(_is_audio(path) for path in folder.rglob("*"))
+    return any(_is_audio(path) and is_utf8_encodable(path) for path in folder.rglob("*"))
 
 
 def _is_audio(path: Path) -> bool:
@@ -333,15 +335,14 @@ def project_tags(candidate: TrackCandidate) -> TagValues:
     Le remixeur n'entre jamais dans l'artiste ; la date se reduit a l'annee.
     """
     release = candidate.release
-    year = release.release_date.year if release and release.release_date else None
     projected: dict[TagField, object] = {
         TagField.ARTIST: credited_artists(candidate),
         TagField.REMIXER: _join(credit.name for credit in candidate.remixers),
         TagField.TITLE: full_title(candidate),
         TagField.ALBUM: release.title if release else None,
-        TagField.DATE: year,
+        TagField.DATE: candidate.release_year,
         TagField.GENRE: candidate.genre,
-        TagField.LABEL: candidate.label.name if candidate.label else None,
+        TagField.LABEL: candidate.label_name,
         TagField.CATALOG_NUMBER: release.catalog_number if release else None,
         # 0 vaut inconnu : ecrit, il ecraserait la valeur du fichier.
         TagField.BPM: candidate.bpm or None,

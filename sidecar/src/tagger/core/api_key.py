@@ -10,6 +10,10 @@ from typing import ClassVar, Final
 import keyring
 from keyring.errors import KeyringError, NoKeyringError, PasswordSetError
 
+# pywin32-ctypes ne livre ni stubs ni `py.typed` : l'import est non type, et la classe est
+# ramenee a `type[Exception]` juste en dessous pour ne pas propager d'`Any`.
+from win32ctypes.pywin32.pywintypes import error as win32_error  # type: ignore[import-untyped]
+
 from tagger import APP_NAME
 from tagger.core.errors import TaggerError
 
@@ -18,6 +22,10 @@ logger = logging.getLogger(__name__)
 SERVICE: Final = APP_NAME
 # Une seule entree : l'identifiant ne sert qu'a la retrouver dans le Credential Manager.
 USERNAME: Final = "x-api-key"
+# `WinVaultKeyring` laisse passer l'erreur Win32 brute d'un `CredRead` / `CredWrite` en echec
+# (secret trop gros, strategie de securite qui bloque le Credential Manager), qui n'herite
+# pas de `KeyringError` : sans elle, l'exception sortirait de la boucle et tuerait le sidecar.
+_CREDENTIAL_MANAGER_ERROR: Final[type[Exception]] = win32_error
 
 
 class ApiKeyError(TaggerError):
@@ -59,7 +67,7 @@ def read_api_key() -> str | None:
     """
     try:
         return keyring.get_password(SERVICE, USERNAME)
-    except KeyringError:
+    except KeyringError, _CREDENTIAL_MANAGER_ERROR:
         logger.warning("api key unreadable reason=keyring_error")
         return None
 
@@ -69,5 +77,5 @@ def store_api_key(key: str) -> None:
         keyring.set_password(SERVICE, USERNAME, key)
     except NoKeyringError as exc:
         raise KeyringUnavailableError from exc
-    except PasswordSetError as exc:
+    except (PasswordSetError, _CREDENTIAL_MANAGER_ERROR) as exc:
         raise ApiKeyNotStoredError from exc

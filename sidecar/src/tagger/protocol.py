@@ -90,9 +90,11 @@ class ExtractPlaylist(Command):
 
 
 # ASCII imprimable sans espace : contrainte du decodage latin-1 des en-tetes cote
-# API (PRODUCTION.md § Gestion des cles utilisateurs). 2560 : plafond du Credential Manager.
+# API (PRODUCTION.md § Gestion des cles utilisateurs). 1280 : le Credential Manager plafonne
+# le secret a 2560 octets et l'ecrit en UTF-16 (2 octets par caractere) : au-dela, `CredWrite`
+# echoue en erreur 1783.
 _API_KEY_PATTERN: Final = r"^[\x21-\x7e]+$"
-_API_KEY_MAX_LENGTH: Final = 2560
+_API_KEY_MAX_LENGTH: Final = 1280
 
 
 class SetApiKey(Command):

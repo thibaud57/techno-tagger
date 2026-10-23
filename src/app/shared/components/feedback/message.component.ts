@@ -4,6 +4,7 @@ import { Message } from "primeng/message"
 import { IconComponent, type IconName } from "../display/icon.component"
 
 export type MessageSeverity = "info" | "success" | "warn" | "error"
+export type MessageSize = "small"
 
 /** L'icone suit la severite, comme la fiche `Message` du design system. */
 export const MESSAGE_ICONS = {
@@ -33,7 +34,7 @@ export const MESSAGE_ICONS = {
 })
 export class MessageComponent {
   readonly severity = input<MessageSeverity>("info")
-  readonly size = input<"small" | undefined>(undefined)
+  readonly size = input<MessageSize>()
   /** Faux la ou l'entree ferait bouger un chemin de decision (modale d'arbitrage). */
   readonly animated = input(true)
 

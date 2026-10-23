@@ -2,7 +2,6 @@
 
 import copy
 import logging
-from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, NamedTuple, override
 
@@ -15,6 +14,7 @@ from tagger.resolution.scraper_client import (
     SourceUnavailableError,
 )
 from tagger.resolution.sources import ApiKeyRejectedRunError
+from tagger.run.gestures import InFlight
 from tagger.run.models import (
     FailureReason,
     PendingArbitration,
@@ -24,7 +24,7 @@ from tagger.run.models import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable
 
     from tagger.resolution.matching import TrackQuery
     from tagger.resolution.sources import RunSources
@@ -81,8 +81,7 @@ class _Pending(NamedTuple):
 
 
 class Arbitration:
-    """Second geste refuse (pas mis en file) si le premier est deja en vol sur ce morceau :
-    des clics rapides lanceraient sinon deux appels reseau."""
+    """Choix ou refus d'un candidat par l'utilisateur, un geste a la fois par morceau."""
 
     def __init__(
         self,
@@ -93,11 +92,11 @@ class Arbitration:
         self._live = live
         self._sources = sources
         self._on_event = on_event
-        self._busy: set[str] = set()
+        self._in_flight = InFlight(ArbitrationBusyError)
 
     @override
     def __repr__(self) -> str:
-        return f"Arbitration(run_id={self._live.run_id!r}, busy={len(self._busy)})"
+        return f"Arbitration(run_id={self._live.run_id!r}, busy={self._in_flight.count})"
 
     async def choose(self, track_id: str, source: Source, index: int) -> None:
         current = self._pending(track_id)
@@ -105,18 +104,12 @@ class Arbitration:
         if source is not shown.source or not 0 <= index < len(shown.candidates):
             raise ArbitrationCandidateUnknownError(track_id)
         chosen = shown.candidates[index]
-        with self._in_flight(track_id):
+        with self._in_flight.hold(track_id):
             try:
                 candidate, artwork = await self._sources.retained(current.position, source, chosen)
             except ApiKeyRejectedRunError as exc:
                 # Le 403 ne concerne que ce morceau : arreter le run revient au pipeline.
-                logger.warning(
-                    "refetch failed, search candidate kept run=%s track=%d source=%s reason=%s",
-                    self._live.run_id,
-                    current.position,
-                    source,
-                    exc.code,
-                )
+                self._sources.log_refetch_failed(current.position, source, exc.code)
                 candidate, artwork = chosen.candidate, None
         logger.info(
             "arbitration decided run=%s track=%d source=%s score=%.0f status=resolved",
@@ -143,7 +136,7 @@ class Arbitration:
         if shown.other is not None:
             self._show(current, shown.other)
             return
-        with self._in_flight(track_id):
+        with self._in_flight.hold(track_id):
             answer = await self._ask_bandcamp(current.position, current.query)
         self._show(current, answer)
 
@@ -205,21 +198,11 @@ class Arbitration:
         self._settle(current.record.unresolved(reason))
 
     def _pending(self, track_id: str) -> _Pending:
-        if track_id in self._busy:
-            raise ArbitrationBusyError(track_id)
+        self._in_flight.check(track_id)
         record = self._live.record(track_id)
         if record is None or record.arbitration is None or record.query is None:
             raise ArbitrationNotPendingError(track_id)
         return _Pending(record, record.arbitration, record.query, self._live.position(track_id))
-
-    @contextmanager
-    def _in_flight(self, track_id: str) -> Generator[None]:
-        """Marque le morceau occupe le temps d'un appel, annulation comprise."""
-        self._busy.add(track_id)
-        try:
-            yield
-        finally:
-            self._busy.discard(track_id)
 
     def _settle(self, record: TrackRecord) -> None:
         self._live.update(record)

@@ -71,7 +71,7 @@ _WINDOWS_PATH: Final = re.compile(
     rf"(?<=\"){_PATH_START}[^\"\r\n]*"
     rf"|(?<='){_PATH_START}(?:[^\r\n]*(?=')|[^'\r\n]*)"
     rf"|(?<![\w'\"]){_PATH_START}"
-    r"(?:(?!\s+(?:run|track|source|score|status|reason|request_id)=|:\s)[^\"<>\r\n])*"
+    r"(?:(?!\s+(?:run|track|source|score|status|reason|request_id|errno)=|:\s)[^\"<>\r\n])*"
 )
 
 # `USERNAME` sous Windows, `USER` sur les runners Linux de la CI.

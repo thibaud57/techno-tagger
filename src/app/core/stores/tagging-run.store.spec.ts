@@ -126,6 +126,15 @@ describe("TaggingRunStore", () => {
     expect(track?.arbitration?.beatport_unavailable).toBe(true)
   })
 
+  it("stops awaiting an arbitration the sidecar no longer holds", () => {
+    startRun()
+    store.awaiting(AWAITING)
+
+    store.droppedAwaiting("b.mp3")
+
+    expect(store.tracks()[1]?.arbitration).toBeNull()
+  })
+
   it("exposes the counters of a finished network phase", () => {
     startRun()
 

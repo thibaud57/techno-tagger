@@ -102,7 +102,7 @@ max-positional-args = 8
 [tool.ruff.lint.flake8-type-checking]
 # Pydantic resout les annotations a l'execution : un --fix de TC001-TC003 qui
 # deplacerait un import de modele sous TYPE_CHECKING casserait la validation
-runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "tagger.core.models.StrictFrozenModel"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "asyncio.get_event_loop".msg = "Leve RuntimeError hors event loop en 3.14. Utiliser asyncio.run()."

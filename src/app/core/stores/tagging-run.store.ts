@@ -176,6 +176,11 @@ export class TaggingRunStore {
     this.patch(event.track_id, (row) => ({ ...row, arbitration: event }))
   }
 
+  /** Le sidecar ne tient plus l'arbitrage : sans cela la ligne resterait cliquable et comptee en attente. */
+  droppedAwaiting(trackId: string): void {
+    this.patch(trackId, (row) => ({ ...row, arbitration: null }))
+  }
+
   advanced(processed: number, total: number): void {
     this._progress.set({ processed, total })
   }

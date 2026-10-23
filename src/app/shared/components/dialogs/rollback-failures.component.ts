@@ -6,7 +6,7 @@ import type { RollbackFailure } from "../../../core/sidecar/protocol"
 
 import { ReasonTextPipe, rollbackReasonKeys } from "../../utils/reason"
 
-import { MessageComponent } from "../feedback/message.component"
+import { MessageComponent, type MessageSize } from "../feedback/message.component"
 
 /** Fichiers qu'un rollback a laisses en l'etat, avec la phrase de leur motif. */
 @Component({
@@ -14,7 +14,7 @@ import { MessageComponent } from "../feedback/message.component"
   imports: [AsyncPipe, MessageComponent, ReasonTextPipe, TranslatePipe],
   template: `
     @if (failures().length > 0) {
-      <app-message severity="error" data-rollback-failures>
+      <app-message severity="error" data-rollback-failures [size]="size()">
         <div class="flex flex-col gap-2">
           <span>{{ "rollback.failures" | translate: { count: failures().length } }}</span>
           <ul class="flex flex-col gap-2">
@@ -36,6 +36,7 @@ import { MessageComponent } from "../feedback/message.component"
 })
 export class RollbackFailuresComponent {
   readonly failures = input.required<readonly RollbackFailure[]>()
+  readonly size = input<MessageSize>()
 
   protected readonly rows = computed(() =>
     this.failures().map((failure) => ({

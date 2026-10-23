@@ -5,17 +5,20 @@ import { PHASE_BUSY, type SidecarErrorEvent } from "../../../core/sidecar/protoc
 import { FADE_IN } from "../../utils/motion"
 import { brandName } from "../../utils/sources"
 
-import { MessageComponent } from "./message.component"
+import { MessageComponent, type MessageSize } from "./message.component"
 
 /** Erreur du sidecar dans l'ecran concerne, traduite depuis son `code` et ses `params`. */
 @Component({
   selector: "app-error-message",
   imports: [MessageComponent, TranslatePipe],
-  template: ` <app-message severity="error">{{ key() | translate: params() }}</app-message> `,
+  template: `
+    <app-message severity="error" [size]="size()">{{ key() | translate: params() }}</app-message>
+  `,
   host: { class: "block", "animate.enter": FADE_IN },
 })
 export class ErrorMessageComponent {
   readonly error = input.required<SidecarErrorEvent>()
+  readonly size = input<MessageSize>()
 
   /** Une phrase par phase pour `phase_busy` : le geste qui repare depend de ce qui tourne. */
   protected readonly key = computed(() => {

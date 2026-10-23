@@ -416,6 +416,44 @@ describe("SidecarService", () => {
     expect(service.playlistFormat()).toBe("vlc_dump")
   })
 
+  it("awaits the listing from the request until the playlists arrive", async () => {
+    await service.start()
+    await service.listPlaylists("C:/x.m3u8")
+    const whileAwaiting = service.listingPending()
+
+    transport.emit(playlistsListed())
+
+    expect([whileAwaiting, service.listingPending()]).toEqual([true, false])
+  })
+
+  it("stops awaiting the listing when the sidecar refuses it", async () => {
+    await service.start()
+    await service.listPlaylists("C:/x.m3u8")
+
+    transport.emit(commandError("list_playlists", "playlist_file_unreadable"))
+
+    expect(service.listingPending()).toBe(false)
+  })
+
+  // `send` efface `lastError` pour toute commande : l'attente ne peut pas se lire dans l'absence d'erreur.
+  it("keeps awaiting the listing when another command clears the error", async () => {
+    await service.start()
+    await service.listPlaylists("C:/x.m3u8")
+
+    await service.loadCacheSize()
+
+    expect(service.listingPending()).toBe(true)
+  })
+
+  it("stops awaiting the listing when the sidecar terminates", async () => {
+    await service.start()
+    await service.listPlaylists("C:/x.m3u8")
+
+    transport.handlers?.onTerminated()
+
+    expect(service.listingPending()).toBe(false)
+  })
+
   it("feeds the received progress", async () => {
     await service.start()
 
@@ -743,6 +781,26 @@ describe("SidecarService", () => {
     transport.emit(commandError("resolve_arbitration", "arbitration_busy"))
 
     expect(service.arbitrationBusy()).toBe(true)
+  })
+
+  it("takes the row off the awaiting list when the sidecar no longer holds its arbitration", async () => {
+    await queueArbitrations("a.mp3")
+
+    transport.emit(
+      commandError("resolve_arbitration", "arbitration_not_pending", { track_id: "a.mp3" }),
+    )
+
+    expect(service.taggingTracks()[0]?.arbitration).toBeNull()
+  })
+
+  it("keeps the row awaiting on a refusal that leaves the arbitration pending", async () => {
+    await queueArbitrations("a.mp3")
+
+    transport.emit(
+      commandError("resolve_arbitration", "arbitration_candidate_unknown", { track_id: "a.mp3" }),
+    )
+
+    expect(service.taggingTracks()[0]?.arbitration).not.toBeNull()
   })
 
   it("leaves the queue alone on the error of another command", async () => {

@@ -7,6 +7,7 @@ departages et copies en echec sont consignes, jamais leves.
 """
 
 import logging
+import os
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
@@ -14,9 +15,10 @@ from typing import TYPE_CHECKING, ClassVar, NamedTuple
 
 from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason, file_failure_reason
+from tagger.core.paths import encodable_only
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterator, Sequence
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -112,6 +114,31 @@ class DestinationFolderUnwritableError(ExtractionError):
         super().__init__(f"unwritable destination folder: {path.name}", folder=path.name)
 
 
+def _regular_files(source: Path, excluded: Path | None) -> Iterator[Path]:
+    """Fichiers de l'arborescence, sans entrer dans `excluded` ni suivre les liens.
+
+    `scandir` plutot que `rglob` + `is_file()` : sous Windows, le type d'une entree vient
+    de l'enumeration elle-meme, un `stat` par fichier en moins sur une bibliotheque entiere.
+    Un sous-dossier illisible est ignore, comme `rglob` le faisait.
+    """
+    pending = [source]
+    while pending:
+        folder = pending.pop()
+        try:
+            with os.scandir(folder) as entries:
+                listed = list(entries)
+        except OSError:
+            logger.warning("source subfolder skipped reason=unreadable")
+            continue
+        for entry in listed:
+            path = folder / entry.name
+            if entry.is_dir(follow_symlinks=False):
+                if path != excluded:
+                    pending.append(path)
+            elif entry.is_file():
+                yield path
+
+
 def pick_file(file_name: str, candidates: Sequence[Path]) -> PickedFile:
     """Retient un chemin parmi des homonymes et rend la trace du choix.
 
@@ -164,11 +191,8 @@ def build_source_index(
         raise SourceFolderUnreadableError(source)
 
     grouped: defaultdict[str, list[Path]] = defaultdict(list)
-    for path in source.rglob("*"):
-        if excluded is not None and path.is_relative_to(excluded):
-            continue
-        if path.is_file():
-            grouped[path.name.lower()].append(path)
+    for path in encodable_only(_regular_files(source, excluded), "source file"):
+        grouped[path.name.lower()].append(path)
 
     logger.info("source indexed with %d names source=%s", len(grouped), source.name)
 

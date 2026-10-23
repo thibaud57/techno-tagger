@@ -13,7 +13,7 @@ paths:
 - Un logger par module via `logging.getLogger(__name__)`, la configuration se faisant une seule fois au point d'entrée
 - `logger.exception(...)` dans un `except` (traceback inclus), avec formatage lazy `%s`, pas de f-string
 - Trier les erreurs d'un `TaskGroup` par `except*`, une clause par famille : plusieurs clauses peuvent s'exécuter pour un même groupe, et `except*` ne se mélange pas avec un `except` classique dans le même `try`
-- Structurer les logs en logfmt avec le jeu de clés fixe (`run`, `track`, `source`, `score`, `status`, `reason`, `request_id`) : une clé inventée fausse un `grep` sans que rien ne casse
+- Structurer les logs en logfmt avec le jeu de clés fixe (`run`, `track`, `source`, `score`, `status`, `reason`, `request_id`, `errno`) : une clé inventée fausse un `grep` sans que rien ne casse
 - Rattacher un incident propre à un morceau à son `failure_reason`, pas à un message libre
 
 ## À éviter

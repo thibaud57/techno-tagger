@@ -58,7 +58,7 @@ const RESOLVED: Record<TrackResolution, StateStyle> = {
   imports: [Tag, TranslatePipe, IconComponent],
   template: `
     <p-tag
-      class="transition-colors duration-150 ease-out"
+      class="transition-colors"
       [severity]="style().severity"
       [attr.data-severity]="style().severity"
     >
@@ -79,7 +79,8 @@ export class StateTagComponent {
     if (this.awaiting()) {
       return AWAITING
     }
-    switch (this.state()) {
+    const state = this.state()
+    switch (state) {
       // `written` garde le libelle de sa voie.
       case "resolved":
       case "written":
@@ -90,8 +91,13 @@ export class StateTagComponent {
         return WRITE_ERROR
       case "rolled_back":
         return ROLLED_BACK
-      default:
+      case null:
         return this.interrupted() ? NOT_PROCESSED : PENDING
+      default: {
+        const exhaustive: never = state
+
+        return exhaustive
+      }
     }
   })
 }

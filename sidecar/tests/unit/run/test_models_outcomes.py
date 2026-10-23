@@ -154,6 +154,24 @@ async def test_marks_a_track_as_source_unavailable_when_both_sources_fail(
     assert result.tracks[0].failure_reason is FailureReason.SOURCE_UNAVAILABLE
 
 
+@pytest.mark.parametrize("bandcamp_candidates", [(), (basiel(),)], ids=["empty", "below-the-floor"])
+async def test_marks_a_track_as_source_unavailable_when_beatport_is_down_and_bandcamp_finds_nothing(
+    tmp_path: Path, bandcamp_candidates: tuple[dict[str, object], ...]
+) -> None:
+    """Beatport n'a pas repondu : rien n'est tranche, la reprise doit rejouer le morceau."""
+    api = FakeApi()
+    api.on("/beatport/search", "*", failing(504, "request_timeout"))
+    api.on("/bandcamp/search", "*", found(*bandcamp_candidates))
+
+    result = await run(one_track(tmp_path), api)
+
+    record = result.tracks[0]
+    assert (record.state, record.failure_reason) == (
+        TrackState.UNRESOLVED,
+        FailureReason.SOURCE_UNAVAILABLE,
+    )
+
+
 async def test_keeps_the_search_candidate_when_the_refetch_fails(tmp_path: Path) -> None:
     api = FakeApi()
     api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))

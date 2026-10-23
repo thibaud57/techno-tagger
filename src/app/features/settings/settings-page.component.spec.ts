@@ -303,6 +303,20 @@ describe("SettingsPageComponent", () => {
     expect(current.map((link) => link.textContent.trim())).toEqual(["settings.admin.title"])
   })
 
+  // L'entree est composee par le template : Entree passe par le contenu de l'entree, pas par un lien.
+  it("opens a section from the keyboard through the composed menu entry", () => {
+    const { fixture } = mountWith()
+    fixture.detectChanges()
+    const list = hostOf(fixture).querySelector<HTMLElement>("p-menu ul")
+    list?.focus()
+    list?.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowDown", bubbles: true }))
+
+    list?.dispatchEvent(new KeyboardEvent("keydown", { code: "Enter", bubbles: true }))
+    fixture.detectChanges()
+
+    expect(hostOf(fixture).querySelector("h2")?.textContent.trim()).toBe("settings.matching.title")
+  })
+
   it("drops an unsaved key once its section is left", () => {
     const { fixture, component } = mountWith()
     component["entry"].set({ apiKey: "typed-but-not-saved" })
@@ -664,9 +678,13 @@ describe("SettingsPageComponent", () => {
     }
 
     it("shows the cache size in the interface language", () => {
-      const { fixture } = mountWith({ cacheSize: signal<number | null>(418_000_000) }, "admin")
+      const { fixture, component } = mountWith(
+        { cacheSize: signal<number | null>(418_000_000) },
+        "admin",
+      )
 
-      expect(hostOf(fixture).querySelector("[data-cache-size]")?.textContent.trim()).toBe("418 MB")
+      expect(component["cacheSize"]()).toBe("418 MB")
+      expect(hostOf(fixture).querySelector("[rowControl][data-cache-size]")).not.toBeNull()
     })
 
     it("sends the clearing", () => {

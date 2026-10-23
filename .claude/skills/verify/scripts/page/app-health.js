@@ -10,6 +10,9 @@
   const [action, target] = __args
   const service = __sidecarService()
 
+  // Reglages est un onglet a icone seule : son nom est son aria-label, son texte est vide.
+  const tabName = (tab) => tab.getAttribute("aria-label") ?? tab.textContent.trim()
+
   const here = () => ({
     url: location.pathname,
     h1: document.querySelector("main h1")?.textContent?.trim() ?? null,
@@ -40,7 +43,7 @@
       defaultThresholds: service.defaultThresholds?.() ?? "absent",
       logFile: service.logFile?.() ?? "absent",
       lang: document.documentElement.lang,
-      tabs: [...document.querySelectorAll("p-tab")].map((tab) => tab.textContent.trim()),
+      tabs: [...document.querySelectorAll("p-tab")].map(tabName),
       ...here(),
     }
   }
@@ -51,7 +54,7 @@
     for (const tab of [...tabs, tabs[0]]) {
       tab.click()
       await wait(400)
-      visited.push({ tab: tab.textContent.trim(), ...here() })
+      visited.push({ tab: tabName(tab), ...here() })
     }
     return { visited }
   }

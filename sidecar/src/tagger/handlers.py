@@ -53,9 +53,10 @@ from tagger.protocol import (
     UnreadablePlanPayload,
     Version,
 )
-from tagger.reports.extraction import ReportContext, ReportWriteError, write_extraction_report
+from tagger.reports.common import ReportWriteError
+from tagger.reports.extraction import ReportContext, write_extraction_report
 from tagger.reports.feedback import feedback_dir, feedback_issue_url, write_feedback_export
-from tagger.reports.index import IndexEntry, index_path, list_reports, record_report
+from tagger.reports.index import IndexEntry, find_report, index_path, list_reports, record_report
 from tagger.reports.tagging import (
     load_tagging_report,
     report_paths,
@@ -78,7 +79,7 @@ from tagger.resolution.matching import (
 from tagger.resolution.scraper_client import TechnoScraperClient
 from tagger.resolution.sources import RunSources
 from tagger.run.arbitration import Arbitration
-from tagger.run.models import TrackState
+from tagger.run.models import TrackRecord, TrackState
 from tagger.run.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
 from tagger.run.plan import PlanRecorder, RunPlan, plan_dir
 from tagger.run.resume import InterruptedRun, UnreadablePlan, detect_interrupted, reopen_run
@@ -105,7 +106,7 @@ if TYPE_CHECKING:
     import httpx2
 
     from tagger.protocol import Event
-    from tagger.reports.extraction import ReportPaths
+    from tagger.reports.common import ReportPaths
     from tagger.reports.tagging import TaggingReport, TaggingReportTrack
     from tagger.resolution.cache import HostResolver
     from tagger.run.models import LiveRun
@@ -535,7 +536,7 @@ def _report_of(run_id: str) -> TaggingReport:
 
     Leve `RunNotFoundError` (run absent) ou `TaggingReportUnreadableError` (rapport illisible).
     """
-    entry = next((known for known in list_reports(index_path()) if known.run_id == run_id), None)
+    entry = find_report(index_path(), run_id)
     if entry is None:
         raise RunNotFoundError(run_id)
     return load_tagging_report(entry.report_path)
@@ -656,26 +657,26 @@ async def handle_rollback(
     `rolled_back`.
     """
 
-    def restored(track_id: str, path: Path) -> None:
+    def settle(track_id: str, step: Callable[[TrackRecord], TrackRecord]) -> None:
         if live is None:
             return
         record = live.record(track_id)
         if record is None:
             return
-        rolled_back = record.rolled_back(path)
-        live.update(rolled_back)
-        emit(resolved_event(rolled_back))
+        settled = step(record)
+        live.update(settled)
+        emit(resolved_event(settled))
 
-    summary = await roll_back(dump_dir(), command.run_id, command.track_id, restored)
+    summary = await roll_back(
+        dump_dir(),
+        command.run_id,
+        command.track_id,
+        lambda track_id, path: settle(track_id, lambda record: record.rolled_back(path)),
+    )
     # Entree retiree sans restauration : l'etat reste, mais l'interface ne doit plus proposer
     # une restauration qui rendrait `rollback_unavailable`.
-    if live is not None:
-        for track_id in summary.forgotten:
-            record = live.record(track_id)
-            if record is not None:
-                unrestorable = record.unrestorable()
-                live.update(unrestorable)
-                emit(resolved_event(unrestorable))
+    for track_id in summary.forgotten:
+        settle(track_id, TrackRecord.unrestorable)
     return RollbackFinished(
         event="rollback_finished",
         run_id=summary.run_id,

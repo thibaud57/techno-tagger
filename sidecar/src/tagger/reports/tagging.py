@@ -7,22 +7,22 @@ est la seule. Le plan de run, jetable, refuse au contraire une version inconnue.
 """
 
 import copy
-import logging
 from collections import Counter
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Final, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict
+from pydantic import AwareDatetime
 
 from tagger.core.errors import TaggerError
-from tagger.core.run_files import TIMESTAMP_FORMAT, read_versioned, write_atomically
-from tagger.reports.extraction import (
-    ReportWriteError,
+from tagger.core.models import StrictFrozenModel
+from tagger.core.run_files import TIMESTAMP_FORMAT, read_versioned
+from tagger.reports.common import (
     escape_markdown,
     format_instant,
     table_row,
     table_section,
     unused_report_paths,
+    write_report_pair,
 )
 from tagger.resolution.matching import QueryOrigin, credited_artists, full_title
 from tagger.resolution.scraper_client import Source
@@ -40,34 +40,28 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from datetime import datetime
 
-    from tagger.reports.extraction import ReportPaths
+    from tagger.reports.common import ReportPaths
     from tagger.resolution.matching import MatchingThresholds
     from tagger.resolution.scraper_client import TrackCandidate
     from tagger.run.models import TaggingRun, TrackRecord
-
-logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION: Final = 1
 REPORT_KIND: Final = "tagging"
 FILE_STEM: Final = "tagging-report"
 
 
-class _ReportModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class ReportQuery(_ReportModel):
+class ReportQuery(StrictFrozenModel):
     text: str
     origin: QueryOrigin
 
 
-class ReportTagValue(_ReportModel):
+class ReportTagValue(StrictFrozenModel):
     field: TagField
     key: str
     value: str | None
 
 
-class ReportScores(_ReportModel):
+class ReportScores(StrictFrozenModel):
     """Scores bruts du candidat retenu ; distincts de ceux du plan, jetable et jamais migre."""
 
     artist: float | None
@@ -77,12 +71,12 @@ class ReportScores(_ReportModel):
     number_mismatch: bool
 
 
-class ReportThresholds(_ReportModel):
+class ReportThresholds(StrictFrozenModel):
     floor: float
     ceiling: float
 
 
-class TaggingReportCounts(_ReportModel):
+class TaggingReportCounts(StrictFrozenModel):
     written: int
     write_error: int
     unresolved: int
@@ -91,7 +85,7 @@ class TaggingReportCounts(_ReportModel):
     not_processed: int
 
 
-class TaggingReportTrack(_ReportModel):
+class TaggingReportTrack(StrictFrozenModel):
     """Ce que le run a fait d'un morceau : de quoi rouvrir son recapitulatif sans rien relire.
 
     Un morceau restaure par rollback n'a plus de decision : seuls son fichier et ses tags
@@ -121,7 +115,7 @@ class TaggingReportTrack(_ReportModel):
     artwork_written: bool
 
 
-class TaggingReport(_ReportModel):
+class TaggingReport(StrictFrozenModel):
     schema_version: int = SCHEMA_VERSION
     kind: Literal["tagging"] = REPORT_KIND
     generated_at: AwareDatetime
@@ -270,20 +264,7 @@ def write_tagging_report(
     Leve `ReportWriteError` en nommant le fichier refuse.
     """
     report = build_tagging_report(run, thresholds, generated_at)
-    _write(paths.json_path, report.model_dump_json(indent=2))
-    try:
-        _write(paths.markdown_path, render_tagging_markdown(report))
-    except ReportWriteError:
-        # Le JSON est deja sur le disque : la relance le reecrit, sous le meme nom.
-        logger.warning("json report orphaned by a failed markdown write run=%s", run.run_id)
-        raise
-
-
-def _write(path: Path, content: str) -> None:
-    try:
-        write_atomically(path, content)
-    except OSError as error:
-        raise ReportWriteError(path) from error
+    write_report_pair(paths, report.model_dump_json(indent=2), render_tagging_markdown(report))
 
 
 def _by_state(
@@ -345,7 +326,6 @@ def _track(record: TrackRecord) -> TaggingReportTrack:
         record.query,
         record.tags_before,
     )
-    release = None if candidate is None else candidate.release
     return TaggingReportTrack(
         track_id=record.track_id,
         file_before=record.track_id,
@@ -371,7 +351,7 @@ def _track(record: TrackRecord) -> TaggingReportTrack:
         artist=None if candidate is None else credited_artists(candidate),
         title=None if candidate is None else full_title(candidate),
         url=None if candidate is None else candidate.url,
-        artwork_url=None if release is None else release.artwork_url,
+        artwork_url=None if candidate is None else candidate.artwork_url,
         system=None if before is None else before.system,
         tags_before=None if before is None else tag_rows(before.fields, before.system),
         comment_before=None if before is None else before.comment,

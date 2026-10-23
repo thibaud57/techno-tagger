@@ -1,10 +1,10 @@
 ---
 title: "BRAINSTORM — Vision & Idéation Projet"
 description: "Vision de techno-tagger : application desktop de re-tagging et d'organisation de bibliothèque musicale pour DJ, consommatrice de l'API techno-scraper."
-date: "2026-08-02"
+date: "2026-10-23"
 keywords: ["brainstorm", "desktop", "tauri", "dj", "metadata", "tagging"]
 scope: ["docs", "planning"]
-technologies: ["Tauri", "Angular", "PrimeNG", "ngx-translate", "Python", "mutagen", "rapidfuzz", "httpx2", "PyInstaller"]
+technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "Python", "pydantic", "mutagen", "rapidfuzz", "httpx2", "keyring", "PyInstaller"]
 ---
 
 # 🎯 Vision Projet
@@ -42,7 +42,7 @@ Une bibliothèque de DJ accumule des fichiers téléchargés de partout, aux tag
 
 **Solution** :
 
-Une application desktop en deux onglets (déplacement par playlist, re-tagging), qui délègue tout le scraping à l'API techno-scraper, enchaîne Beatport puis Bandcamp, demande un arbitrage à l'écran quand le score est ambigu, et laisse coller une URL en dernier recours. Rien n'est écrit sur le disque avant une confirmation globale, et chaque run produit un rapport consultable.
+Une application desktop en deux onglets (extraction par playlist, re-tagging) et des Réglages, qui délègue tout le scraping à l'API techno-scraper, enchaîne Beatport puis Bandcamp, demande un arbitrage à l'écran quand le score est ambigu et laisse coller une URL en dernier recours. Rien n'est écrit sur le disque avant une confirmation globale, et chaque run produit un rapport consultable.
 
 ---
 
@@ -55,8 +55,8 @@ Application desktop à trois couches, sans serveur ni port ouvert. Le « backend
 | Couche | Rôle |
 |---|---|
 | Angular + PrimeNG | Interface seule : sélection de dossiers, listes, modales d'arbitrage, progression, récapitulatif |
-| Sidecar Python | Tout le métier : lecture/écriture des tags (mutagen), appels à techno-scraper, scoring rapidfuzz, déplacement de fichiers, plan de run |
-| Tauri / Rust | Colle uniquement : `Command.sidecar()`, permissions, packaging, updater |
+| Sidecar Python | Tout le métier : lecture/écriture des tags (mutagen), appels à techno-scraper, scoring rapidfuzz, copie ou déplacement de fichiers, renommage, rollback, plan de run, rapports |
+| Tauri / Rust | Colle uniquement : `Command.sidecar()`, permissions, packaging, updater, instance unique, fenêtre sans décorations (barre de titre dans l'interface) |
 
 La clé `X-API-Key` vit dans le process Python et ne touche jamais le JavaScript de la webview.
 
@@ -76,7 +76,7 @@ Le sidecar est un process long lancé au démarrage, pas une invocation par acti
 
 Trois états après interrogation d'une source : **auto** (candidat au-dessus du seuil haut), **zone grise** (décision humaine dans une modale), **vide**.
 
-**Bandcamp n'est jamais appelé spéculativement**, seulement au refus ou au vide de Beatport. Les échecs convergent vers « non résolu », rattrapé par saisie d'URL en fin de run, SoundCloud n'étant accepté que là.
+**Bandcamp n'est jamais appelé spéculativement**, seulement au refus, au vide ou à l'indisponibilité de Beatport (Bandcamp ne valide alors jamais seul). Les échecs convergent vers « non résolu », rattrapé par saisie d'URL, juste après un refus ou en fin de run, SoundCloud n'étant accepté que là.
 
 > Diagramme et états détaillés : [ARCHITECTURE.md § Chaîne de résolution](ARCHITECTURE.md#chaîne-de-résolution-dun-morceau). Justification de l'enchaînement : [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md).
 
@@ -91,6 +91,7 @@ Trois états après interrogation d'une source : **auto** (candidat au-dessus du
 - Matching : **rapidfuzz**, successeur de fuzzywuzzy, MIT
 - Client HTTP : **httpx2**, fork de maintenance de httpx repris par l'équipe Pydantic, en asyncio, pool de concurrence borné. Pas de curl_cffi, l'app n'appelle que sa propre API.
 - Secrets : **keyring**, côté Python, pour que la clé API ne transite jamais par le JavaScript
+- Protocole : **pydantic**, modèles des commandes et des événements NDJSON
 - Packaging : **PyInstaller**, qui ne cross-compile pas : un binaire par plateforme, donc un seul tant qu'on reste sur Windows
 - Outillage : uv, Ruff, Mypy strict, pytest (aligné sur techno-scraper)
 - Monitoring : sentry-sdk
@@ -100,9 +101,9 @@ Trois états après interrogation d'une source : **auto** (candidat au-dessus du
 
 - Type : Desktop
 - Framework : **Angular**
-- UI System : **PrimeNG**, dernière version (catalogue large, table à scroll virtuel pour les listes de 100 lignes)
+- UI System : **PrimeNG**, dernière version (catalogue large, table à scroll virtuel pour les listes de 100 lignes), thème sombre permanent, **Tailwind CSS** pour la mise en page
 - i18n : **ngx-translate**, FR et EN, bascule à l'exécution. Pas `@angular/localize`, qui traduit à la compilation et imposerait un build et un installeur par langue.
-- Plugins Tauri : shell (sidecar), dialog (sélection de dossiers), fs, store (préférences), os (locale système), updater, single-instance, opener
+- Plugins Tauri : shell (sidecar), dialog (sélection de dossiers), store (préférences), os (locale système), updater, single-instance, opener, prevent-default (rechargement et menu contextuel coupés en release)
 - Monitoring : @sentry/angular
 
 > ⚠️ **PrimeNG n'est plus open source à partir de la v22** : Community License gratuite, conditions cumulatives vérifiées pour ce projet, clé de licence requise même en développement, Optimus UI (fork MIT de la v21) gardé comme porte de sortie. Cf. [ADR-003](adrs/003-primeng-community-license.md).
@@ -136,9 +137,10 @@ Isoler dans un dossier de travail les morceaux d'une playlist, pris dans une bib
 - Sélection d'un dossier source (sous-dossiers parcourus), d'un dossier destination et d'un fichier de playlist
 - **Sélecteur de playlist** quand le fichier est un dump VLC : celui-ci contient toute la médiathèque, l'app liste donc les playlists présentes avec leur nombre de morceaux. Sans objet pour un M3U8, qui n'en contient qu'une.
 - Toggle copier / déplacer, **copier par défaut** : la bibliothèque source reste intacte pendant que le re-tagging réécrit les fichiers de destination
-- Un titre de la playlist introuvable dans le dossier source est logué et le traitement continue
+- Un titre introuvable ou un transfert en échec est consigné dans le rapport et le traitement continue. Un fichier déjà présent à la destination n'est pas recopié.
 - Barre de progression
-- Rapport de run écrit dans le dossier destination
+- Rapport d'extraction écrit dans le dossier destination
+- Fin d'extraction : signal sonore (désactivable) et toast, puis bouton « Passer au tagging » qui ouvre l'onglet Tagging sur le dossier extrait
 
 **Deux formats, deux provenances :**
 
@@ -151,20 +153,18 @@ Les deux sont nécessaires : **VLC Android n'a aucune fonction d'export de playl
 
 **Résolution par nom de fichier, pas par chemin** : la base vient du téléphone, les fichiers sont sur le PC. Deux fichiers de même nom, le plus volumineux est retenu et le cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md)). Détail du flux : [ARCHITECTURE.md § Use-case 1](ARCHITECTURE.md#use-case-1--extraction-sélective-par-playlist).
 
-> **Ajouté depuis la Feature 2** (2026-09-20) : la fin d'une extraction annonce elle aussi le signal sonore et un toast, par le service partagé livré avec l'onglet Scraping. La bascule du son reste un réglage de la Feature 7. Une fois l'extraction terminée, un bouton « Passer au tagging » ouvre l'onglet Scraping sur le dossier tout juste extrait (2026-09-22) : c'est l'enchaînement normal des deux onglets.
+### Feature 2 : Onglet Tagging, pipeline de re-tagging
 
-### Feature 2 : Onglet Scraping, pipeline de re-tagging
-
-- Sélection d'un dossier (typiquement la destination de l'onglet 1)
+- Sélection d'un dossier (typiquement la destination de l'onglet Playlist, préremplie avec la dernière utilisée)
 - La requête envoyée à l'API est construite depuis les tags ID3 artiste et titre ; s'ils sont vides ou inexploitables, on retombe sur le nom de fichier nettoyé
-- Interrogation de Beatport, puis de Bandcamp si Beatport ne renvoie rien, ou si tu refuses ses candidats (cf. § Chaîne de résolution)
+- Interrogation de Beatport, puis de Bandcamp si Beatport ne renvoie rien ou est indisponible, ou si tu refuses ses candidats (cf. § Chaîne de résolution)
 - Scoring rapidfuzz des candidats, avec des seuils réglables dans les Settings
 - Pool asyncio borné : plusieurs morceaux en vol simultanément, le débit restant tenu par l'API
 - Cache disque des réponses de l'API et des pochettes téléchargées, TTL 30 jours, plafond 500 Mo en éviction LRU
-- Liste scrollable affichant `Artiste - Titre` et un état par ligne : vert validé (coche), rouge sans correspondance (croix), bleu en attente d'arbitrage (i)
-- Barre de progression, **signal sonore de fin** (désactivable) : se déclenche une seule fois, à la fin de cette phase réseau, pas par arbitrage
-
-> **Ajouté en cours de route** (2026-09-25) : un run s'interrompt depuis l'écran, sans fermer l'application, pour qu'un dossier lancé par erreur cesse de consommer le quota de l'API. Les morceaux déjà résolus gardent leurs résultats, les autres passent en « Non traité ».
+- Liste scrollable affichant `Artiste - Titre`, la source, le score et un état par ligne : vert validé (coche), rouge sans correspondance (croix) ou échec d'écriture, bleu en attente d'arbitrage (i), gris en attente ou restauré ; le motif d'un échec s'affiche au survol
+- Barre de progression, **signal sonore de fin** (désactivable) et toast : une seule fois par phase longue (extraction, phase réseau, écriture, restauration), pas par arbitrage
+- Un run s'interrompt depuis l'écran, sans fermer l'application, pour qu'un dossier lancé par erreur cesse de consommer le quota de l'API : les morceaux déjà résolus gardent leurs résultats, les autres passent en « Non traité »
+- Un seul bouton d'action dont le rôle suit la phase : lancer, interrompre, confirmer l'écriture, relancer l'écriture
 
 ### Feature 3 : Arbitrage utilisateur
 
@@ -173,25 +173,25 @@ Le pipeline ne s'arrête jamais. Les morceaux ambigus s'empilent en file, la mod
 - En haut de la modale, le morceau à identifier ; en dessous, **les candidats en zone grise uniquement**, avec leur score. Cinq résultats renvoyés dont trois en zone grise : on affiche les trois.
 - Sélection d'un candidat, ou choix explicite « aucune correspondance »
 - Le refus déclenche l'appel Bandcamp, et **sa liste remplace celle de Beatport** dans la même fenêtre, l'en-tête indiquant la bascule et un lien discret permettant de revenir en arrière
-- Si Bandcamp ne renvoie rien : message dans la modale, une seule action pour passer au suivant, le morceau part en non résolu
+- Beatport indisponible : la liste Bandcamp s'ouvre d'emblée avec un bandeau qui le dit, sans validation automatique
+- Si Bandcamp ne renvoie rien : message dans la modale, une seule action pour passer à l'étape lien
+- Le refus de tous les candidats ouvre une étape lien dans la même modale : coller une URL (Feature 4) ou passer, le morceau restant rattrapable en fin de run
 - Navigation entre les arbitrages en attente par flèches, avec compteur (1/3, 2/3), la file se réduisant au fil des décisions
-- Fermeture possible par la croix, l'arbitrage restant en file
-- Tentative de quitter avec un travail en cours : modale de confirmation qui nomme ce qui sera perdu
-
-> **Étendu en cours de route** (2026-09-26) : la confirmation, prévue pour les seuls arbitrages en attente, couvre aussi une extraction et un run en cours.
+- Fermeture possible par la croix, l'arbitrage restant en file, et un badge de la barre d'onglets rouvre la modale
+- Tentative de quitter pendant une extraction, une écriture ou une restauration : modale de confirmation qui nomme le travail. L'extraction se quitte après confirmation, l'écriture et la restauration retiennent la fenêtre. Un run en cours, ses arbitrages et un run non confirmé ne retiennent rien : le plan de run les propose à la reprise (Feature 6).
 
 ### Feature 4 : Rattrapage par URL manuelle
 
-À la toute fin du run, avant la confirmation globale, l'app propose de résoudre à la main les morceaux restés sans correspondance.
+L'app propose de résoudre à la main les morceaux restés sans correspondance, dès le refus d'un arbitrage ou à la toute fin du run, avant la confirmation globale.
 
-- Champ de saisie d'URL par morceau, acceptant Beatport, Bandcamp et SoundCloud
-- L'URL est résolue via les routes correspondantes de l'API
+- Champ de saisie d'URL par morceau, acceptant Beatport, Bandcamp et SoundCloud, dans une modale ouverte depuis la ligne du morceau ou par un badge de la barre d'onglets (compteur de morceaux à rattraper, navigation de l'un à l'autre)
+- L'URL est résolue via les routes correspondantes de l'API ; recoller un lien sur un morceau déjà rattrapé remplace le précédent avant l'écriture
 - Barre de progression sur cette phase également
 - Étape entièrement facultative, on peut la passer
 
 ### Feature 5 : Écriture des tags et renommage
 
-Aucun fichier n'est modifié avant la confirmation globale de fin de run. L'écriture est purement locale et dure quelques secondes, les pochettes ayant été téléchargées et mises en cache pendant la phase réseau.
+Aucun fichier n'est modifié avant la confirmation globale de fin de run, une modale qui nomme le dossier et chiffre les morceaux à écrire, les non résolus et les arbitrages en attente. L'écriture est purement locale et dure quelques secondes, les pochettes ayant été téléchargées et mises en cache pendant la phase réseau. Un fichier en échec n'arrête pas les suivants : l'écriture des seuls fichiers en échec se relance sans réseau ni arbitrage.
 
 Principe : **on écrit tout ce que l'API renvoie**. La CLI actuelle écrivait dix champs, le contrat `Track` en expose davantage.
 
@@ -199,30 +199,32 @@ Principe : **on écrit tout ce que l'API renvoie**. La CLI actuelle écrivait di
 
 La couverture des sources est très asymétrique, Beatport remplissant tout le contrat quand Bandcamp ne donne que le socle d'identité. L'écriture se construit donc à partir de ce qui est présent, sans jamais supposer un champ, et **un champ `null` ne touche pas au tag existant** : c'est ce qui rend un tagging Bandcamp non destructif.
 
-Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant réécriture, avec rollback par run ou par morceau.
+Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant réécriture, avec rollback par run (onglet Tagging, ou dernier run depuis les Réglages) ou par morceau (ligne dépliée). Le rollback rend les champs de la table et le nom d'origine, pas la pochette posée ni les commentaires retirés, et le dump n'est conservé que 30 jours (cf. Feature 6).
 
-> Table de correspondance complète des 17 champs, conventions Vorbis et règles de titre : [ADR-011](adrs/011-politique-ecriture-tags.md).
+La ligne dépliée de la liste du run compare avant et après champ par champ selon la table de correspondance, pochette en grand, lien vers la fiche source et bouton de restauration du morceau (DESIGN.md § Tables et listes, « Détail avant / après »).
 
-> **Reporté ici depuis la Feature 2** (décomposition du 2026-09-19) : la ligne dépliée de la liste du run, qui compare avant et après champ par champ selon la table de l'ADR-011, pochette en grand. La maquette la montre dans `ui_kits/techno-tagger/TaggingScreen.jsx` (`TrackDetail`), DESIGN.md dans § Tables et listes (« Détail avant / après »). Elle revient à cette feature parce qu'elle projette le `Track` sur la table de correspondance que l'écriture construit.
+> Table de correspondance complète des champs, conventions Vorbis et règles de titre : [ADR-011](adrs/011-politique-ecriture-tags.md).
 
 ### Feature 6 : Plan de run, reprise et rapport
 
 - Chaque décision (validation auto, arbitrage, URL manuelle, abandon) est écrite au fil de l'eau dans un plan JSON, dans le répertoire de données de l'app (`appLocalDataDir()`), pas dans le dossier de musique
-- Un run interrompu est détecté au lancement suivant : « Run du 2 août sur `D:\Sets\Août`, 62/100 traités, reprendre ou repartir de zéro ? ». Aucun fichier n'a été touché entre-temps.
-- Purge automatique au démarrage : les plans des runs terminés et écrits sont supprimés, les runs interrompus conservés, plafond d'ancienneté à 30 jours
-- Écran récapitulatif final dans l'app : tableau filtrable (tout, validés, arbitrés, échecs), avant/après par morceau, lien vers la fiche source
-- **Deux rapports distincts**, celui de l'extraction dans le dossier destination, celui du re-tagging dans le dossier du run (le dossier re-tagué), chacun en deux formats : JSON (source de vérité, relu par l'app pour rouvrir un run passé) et Markdown (lisible hors application)
+- Un run interrompu est détecté au lancement suivant : « Run du 2 août sur `D:\Sets\Août`, 62/100 traités, reprendre ou repartir de zéro ? ». Aucun fichier n'a été touché entre-temps. Un plan d'une autre version ou illisible ne laisse que « repartir de zéro », un dossier introuvable ajoute « Plus tard » (ADR-018).
+- Purge automatique au démarrage : plans des runs confirmés supprimés, puis plans, dumps de tags et exports de feedback au-delà de 30 jours, un run interrompu restant reprenable dans cette limite
+- Écran récapitulatif dans l'app, ouvert par le bouton « Récapitulatif » de l'onglet Tagging : tableau filtrable (tout, validés, arbitrés, échecs) avec recherche texte, avant/après par morceau, lien vers la fiche source. Les runs passés se rouvrent depuis les Réglages.
+- **Deux rapports distincts**, celui de l'extraction dans le dossier destination, celui du re-tagging dans le dossier du run (le dossier re-tagué), chacun en deux formats : JSON (source de vérité, relu par l'app pour rouvrir un run passé) et Markdown (lisible hors application), rédigés en anglais quelle que soit la langue de l'interface
 - Le rapport de re-tagging détaille par morceau : requête envoyée, source ayant répondu, décision et son origine, champs écrits, ancien et nouveau nom de fichier, erreurs
 
 ### Feature 7 : Settings
 
-- URL de l'API et clé `X-API-Key`, saisie par l'utilisateur, stockée chiffrée via le trousseau de l'OS
+- Clé `X-API-Key` saisie par l'utilisateur, jamais relue ensuite, stockée via le trousseau de l'OS. Le lancement du re-tagging est bloqué sans clé. Un run s'arrête sur une clé refusée (trois refus consécutifs), avec renvoi aux Réglages.
 - Langue : FR ou EN. Au premier lancement, la locale système est lue via le plugin OS de Tauri (`locale()`, format BCP-47) : commence par `fr` donne du français, tout le reste donne de l'anglais. Le sélecteur permet de forcer l'une ou l'autre ensuite.
-- Seuils de matching (validation automatique, zone grise)
-- Motif de renommage des fichiers
+- Seuils de matching (validation automatique, zone grise), réinitialisables aux valeurs par défaut du sidecar
 - Signal sonore de fin
 - Bouton « ouvrir le dossier de logs », pour récupérer une trace à distance
-- Bouton « vider le cache »
+- Bouton « vider le cache », taille affichée, refusé tant que le run courant attend son écriture
+- Restauration du dernier run, dont la confirmation nomme le run visé (Feature 5)
+- Sélecteur de runs passés, pour rouvrir leur récapitulatif (Feature 6)
+- Version installée et recherche manuelle de mise à jour (Feature 8)
 
 > ⚠️ **Décidé autrement depuis** : le motif de renommage n'est finalement pas une préférence des Settings. Il est fixé à `{artist} - {title}.{ext}` au MVP et n'a donc rien à persister dans le store (cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)).
 
@@ -231,7 +233,8 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 ### Feature 8 : Distribution et mise à jour
 
 - Installeur Windows produit par la CI au tag, publié sur les GitHub Releases
-- Updater Tauri intégré : vérification d'un manifeste au démarrage, proposition de mise à jour, bundles signés avec la paire de clés Tauri
+- Updater Tauri intégré : vérification d'un manifeste au démarrage et à la demande depuis les Réglages, proposition de mise à jour en modale que rouvre un badge de la barre d'onglets, bundles signés avec la paire de clés Tauri
+- Jamais d'installation pendant un travail en cours : l'installeur ferme l'application. Un échec d'installation est détecté au lancement suivant et remonté à Sentry.
 - Une clé API distincte par utilisateur, révocable individuellement
 
 ### Feature 9 : Monitoring
@@ -239,9 +242,9 @@ Renommage après l'écriture, jamais avant. Dump JSON des tags d'origine avant r
 - Sentry actif d'office, erreurs techniques uniquement (sidecar qui tombe, API injoignable, parsing cassé), SDK durci : variables locales des frames désactivées, nom de machine fixé, chemins scrubbés
 - Scrubbing des chemins de fichiers dans les stack traces (ils contiennent le nom d'utilisateur de l'OS)
 - Aucun titre de morceau envoyé automatiquement : les cas d'arbitrage et d'échec restent dans le rapport local
-- Bouton « envoyer ce rapport pour améliorer le matching » dans l'écran final : geste explicite de l'utilisateur, pousse le JSON du run, ne consomme pas le quota Sentry
+- Bouton « envoyer ce rapport pour améliorer le matching » dans l'écran final, run courant ou passé : geste explicite de l'utilisateur, ne consomme pas le quota Sentry
 
-> ⚠️ **Décidé autrement depuis** : l'application ne pousse rien elle-même. Le bouton ouvre, via le plugin `opener`, une issue pré-remplie du dépôt que l'utilisateur relit, ampute ou abandonne avant de valider (cf. [ARCHITECTURE.md § Alerts](ARCHITECTURE.md#alerts)).
+> ⚠️ **Décidé autrement depuis** : l'application ne pousse rien elle-même. Le bouton ouvre, via le plugin `opener`, une issue pré-remplie du dépôt et révèle dans l'Explorateur un export nettoyé du run (ni dossier ni chemin absolu) à y joindre ; l'utilisateur relit, joint ou abandonne avant de valider (cf. [ARCHITECTURE.md § Alerts](ARCHITECTURE.md#alerts)).
 
 ## Post-MVP
 
@@ -330,7 +333,7 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 ## Techniques
 
 - **techno-scraper multi-clés** : [`core/security.py`](https://github.com/thibaud57/techno-scraper/blob/HEAD/src/technoscraper/core/security.py) compare contre une clé unique (`settings.api_key`). Une clé par utilisateur impose de passer à un jeu de clés nommées. Changement petit, mais sur une API déjà en production. ✅ **Tranché** : jeu de clés nommées en variable d'environnement ([ADR-016](adrs/016-multi-cles-techno-scraper.md)), chantier porté par techno-scraper, livré le 2026-10-05 (son ADR-013)
-- **Taille du pool de concurrence** : combien d'appels en vol simultanés sans dégrader la latence de l'API ? À mesurer, pas à deviner. ✅ **Tranché** : pool aligné sur les sémaphores de l'API, 3 pour Beatport et 2 pour Bandcamp ([ADR-017](adrs/017-taille-pool-concurrence.md))
+- **Taille du pool de concurrence** : combien d'appels en vol simultanés sans dégrader la latence de l'API ? À mesurer, pas à deviner. ✅ **Tranché** : pool aligné sur les sémaphores de l'API, 3 pour Beatport, 2 pour Bandcamp et 5 pour SoundCloud ([ADR-017](adrs/017-taille-pool-concurrence.md))
 - **Seuils de matching par défaut** : les valeurs de la CLI actuelle sont-elles transposables, sachant que le contrat de sortie de l'API a changé ? Toujours ouvert : à recalibrer aux premiers runs réels (cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
 - **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ? ✅ **Tranché** : requête embarquée, schéma vérifié avant traitement plutôt qu'un fichier SQL externe. L'inspection du fichier a montré une autre raison à cette externalisation : un nom de playlist codé en dur (`WHERE p.name = 'final'`), pas une protection contre un schéma instable. Aucun changement de schéma n'a d'ailleurs jamais été observé ([ADR-019](adrs/019-resilience-schema-vlc-media-db.md))
 - **Doublons de noms de fichiers** : que faire quand plusieurs fichiers du dossier source portent le même nom (demander, prendre le plus gros, tout signaler dans le rapport) ? ✅ **Tranché** : le plus volumineux est retenu, chaque cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md))
@@ -390,7 +393,7 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 **Principes directeurs :**
 
 - L'application ne scrape rien elle-même. Toute donnée vient de techno-scraper, seule surface à réparer quand un site change.
-- Aucun fichier n'est modifié sans confirmation explicite, et les tags d'origine sont toujours récupérables.
+- Aucun fichier n'est modifié sans confirmation explicite, et les champs de tags d'origine restent récupérables le temps de la rétention du dump (30 jours).
 - Le dossier de cache est jetable par définition : le supprimer ne doit jamais casser un run.
 - **Ce n'est pas un produit.** Pas de multi-tenant, pas de compte, pas de facturation, jamais.
 

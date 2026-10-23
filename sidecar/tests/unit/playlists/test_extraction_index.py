@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
 
 import pytest
+from log_capture import messages_of
+from unencodable_names import UNENCODABLE_NAME
 
 from tagger.playlists.extraction import (
     DuplicateCriterion,
@@ -37,6 +39,19 @@ def test_skips_an_excluded_subfolder(music_library: Path) -> None:
 
     assert "delta.mp3" not in index
     assert len(index["beta.mp3"]) == 1
+
+
+def test_skips_a_file_whose_name_utf8_cannot_encode_and_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Regression : ce nom revenait dans les homonymes de l'evenement et tuait le sidecar."""
+    (tmp_path / "alpha.mp3").write_bytes(b"\x00")
+    (tmp_path / UNENCODABLE_NAME).write_bytes(b"\x00")
+
+    index = build_source_index(tmp_path)
+
+    assert sorted(index) == ["alpha.mp3"]
+    assert messages_of(caplog, "tagger.core.paths") == ["source file skipped reason=name_not_utf8"]
 
 
 def test_raises_on_a_missing_source_folder(tmp_path: Path) -> None:

@@ -82,7 +82,8 @@
   }
 
   const toSettings = async () => {
-    ;[...document.querySelectorAll("p-tab")].find((tab) => /r[ée]glages|settings/i.test(tab.textContent))?.click()
+    // Onglet a icone seule : son nom est son aria-label, il n'a plus de texte.
+    ;[...document.querySelectorAll("p-tab")].find((tab) => /r[ée]glages|settings/i.test(tab.getAttribute("aria-label") ?? ""))?.click()
     await wait(300)
   }
 

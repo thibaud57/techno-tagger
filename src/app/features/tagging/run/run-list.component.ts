@@ -44,6 +44,7 @@ export interface RunRow extends TaggingTrack {
   readonly reason: ReasonKeys | null
   readonly arbitrable: boolean
   readonly recoverable: boolean
+  /** Morceau écrit ou en échec d'un run confirmé : le dump peut le rendre. */
   readonly restorable: boolean
   readonly restoring: boolean
 }

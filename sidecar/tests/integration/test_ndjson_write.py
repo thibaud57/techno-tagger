@@ -27,7 +27,7 @@ from tagger import BUNDLE_IDENTIFIER, handlers
 from tagger.core.api_key import SERVICE, USERNAME
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.run_files import write_atomically
-from tagger.reports import tagging as tagging_report
+from tagger.reports import common as report_common
 from tagger.reports.index import index_path, list_reports
 from tagger.reports.tagging import load_tagging_report
 from tagger.run import writing
@@ -327,7 +327,7 @@ async def test_finishes_the_write_phase_when_the_report_cannot_be_written(
     folder: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     refusal = OSError(28, "No space left", "C:/private/profile/Music/x.json")
-    monkeypatch.setattr(tagging_report, "write_atomically", raising(refusal))
+    monkeypatch.setattr(report_common, "write_atomically", raising(refusal))
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
@@ -363,12 +363,12 @@ async def test_keeps_one_pair_of_files_when_the_markdown_was_refused_once(
 ) -> None:
     refusal = OSError(28, "No space left on device")
     monkeypatch.setattr(
-        tagging_report, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
+        report_common, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
     )
 
     async with conversation() as talk:
         run_id = await written_run(talk, folder)
-        monkeypatch.setattr(tagging_report, "write_atomically", write_atomically)
+        monkeypatch.setattr(report_common, "write_atomically", write_atomically)
         await retried(talk, run_id)
 
     assert [path.suffix for path in report_files(folder)] == [".json", ".md"]

@@ -715,7 +715,8 @@ async (page) => {
     await settle(400)
   }
   const gotoSettings = async () => {
-    await page.locator("p-tab", { hasText: /Réglages|Settings/ }).click()
+    // Onglet a icone seule : son nom est son aria-label, plus aucun texte.
+    await page.locator("p-tab[aria-label='Réglages'], p-tab[aria-label='Settings']").click()
     await page.waitForSelector("app-settings-page")
     await settle(700)
   }
@@ -725,13 +726,20 @@ async (page) => {
       // retours dessous dans la seconde colonne. L'aide est dessous (cle API) ou dans le controle,
       // sur la ligne du bouton (Restauration).
       const rows = [...document.querySelectorAll("app-settings-page app-settings-row")]
+      const mutedProbe = document.createElement("span")
+      mutedProbe.className = "text-muted-color"
+      document.body.append(mutedProbe)
+      const mutedColor = getComputedStyle(mutedProbe).color
+      mutedProbe.remove()
       const info = (r) => {
         if (!r) return null
         const label = r.querySelector("[rowLabel]")
         const control = r.querySelector("[rowControl]")
         const below = r.querySelector(":scope > div.col-start-2")
-        const hint = control.querySelector("span.text-xs") ?? below.querySelector("span.text-xs")
-        const button = control.querySelector("button")
+        // Classe utilitaire `hint` : son style (12px, muted, pre-line) se mesure sur l'element.
+        // Sans champ (Restauration), le controle est l'aide elle-meme et le bouton est l'action de la rangee.
+        const hint = (control.matches(".hint") ? control : control.querySelector(".hint")) ?? below.querySelector(".hint")
+        const button = r.querySelector("[rowAction]") ?? control.querySelector("button")
         const cs = getComputedStyle(r)
         const rb = r.getBoundingClientRect()
         const cb = control.getBoundingClientRect()
@@ -741,11 +749,12 @@ async (page) => {
           display: cs.display,
           rowPad: `${cs.paddingTop}/${cs.paddingBottom}`,
           border: `${cs.borderBottomWidth} ${cs.borderBottomStyle} ${cs.borderBottomColor}`,
-          colW: Math.round(parseFloat(cs.gridTemplateColumns.split(" ")[0])),
+          // La rangee est un subgrid : la colonne des libelles se lit sur la grille parente.
+          colW: Math.round(parseFloat(getComputedStyle(r.parentElement).gridTemplateColumns.split(" ")[0])),
           labelSize: getComputedStyle(label).fontSize,
           hintSize: getComputedStyle(hint).fontSize,
           hintColor: getComputedStyle(hint).color,
-          hintMuted: hint.closest(".text-muted-color") !== null,
+          hintMuted: getComputedStyle(hint).color === mutedColor,
           hintWhiteSpace: getComputedStyle(hint).whiteSpace,
           hintBelowControl: hb.top >= cb.bottom - 0.5,
           hintOnButtonLine: control.contains(hint) && hb.top < bb.bottom && hb.bottom > bb.top,
@@ -795,7 +804,8 @@ async (page) => {
       if (!host) return null
       const r = (host.querySelector(".p-message") ?? host).getBoundingClientRect()
       const prev = host.previousElementSibling
-      const above = (prev ?? row.querySelector("[rowControl]")).getBoundingClientRect().bottom
+      // Sans retour avant lui, l'ecart se mesure depuis le plus bas du controle et de l'action (le bouton).
+      const above = prev ? prev.getBoundingClientRect().bottom : Math.max(...[row.querySelector("[rowControl]"), row.querySelector("[rowAction]")].filter(Boolean).map((e) => e.getBoundingClientRect().bottom))
       const bottom = row.getBoundingClientRect().bottom - parseFloat(getComputedStyle(row).borderBottomWidth)
       return { first: prev === null, above: Math.round(r.top - above), below: Math.round(bottom - r.bottom) }
     })
@@ -813,10 +823,10 @@ async (page) => {
     out.measures.settingsRows = geo
     check("8 section order: API then Administration", JSON.stringify(geo.order) === JSON.stringify(["API", "Administration"]), geo.order)
     const adm = geo.h2s.find((h) => h.text === "Administration")
-    check("8 h2 Administration text-xl semibold", adm?.size === "20px" && adm.weight === "600", adm)
+    check("8 h2 Administration text-lg semibold", adm?.size === "18px" && adm.weight === "600", adm)
     const a = geo.api
     const r = geo.rollback
-    check("8 two app-settings-row: same grid (10rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 160 && a.colW === 160 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(r.controlRightGap) <= 1 && Math.abs(a.controlRightGap) <= 1, { api: a, rollback: r })
+    check("8 two app-settings-row: same grid (10rem label column, py-3, bottom border), text-xs muted hint starting at the second column, control at the end of the line", r && a && r.display === "grid" && a.display === "grid" && r.rowPad === "12px/12px" && r.rowPad === a.rowPad && r.border === a.border && r.colW === 160 && a.colW === 160 && r.hintSize === "12px" && a.hintSize === "12px" && r.hintMuted && a.hintMuted && r.hintColor === a.hintColor && r.hintLeft === a.hintLeft && Math.abs(a.controlRightGap) <= 1 && Math.abs(r.buttonRightGap) <= 1, { api: a, rollback: r })
     check("8 API hint below the control, Restauration hint on the button line with the button at the end of the row", a?.hintBelowControl && r?.hintOnButtonLine && !r.hintBelowControl && Math.abs(r.buttonRightGap) <= 1, { api: a, rollback: r })
     // Deux phrases sur une ligne : exception a la rule ngx-translate, decidee le 2026-10-11 (DESIGN.md § Arbitrages).
     check("8 API row: label Clé API (14px), hint on one line under the field", a?.labelText === "Clé API" && a.labelSize === "14px" && a.hintBelowControl && !a.hintText.includes("\n") && a.hintText.startsWith("Enregistrée de façon sécurisée sur cet ordinateur. Elle ne s'affiche plus ensuite"), a)
@@ -1013,7 +1023,8 @@ async (page) => {
     await settle(600)
     const f = await failuresBox()
     out.measures.settingsFailures = f
-    check("12 rollback_finished with failures: list under the row (error, times-circle 20px, 2 files)", f?.error && f.icon === 20 && f.text.includes(`Fichiers non restaurés${NBSP}: 2`) && f.items.length === 2, f)
+    // Message `small` dans une rangee des Reglages : icone de 16px (20px hors rangee, cf. controle 5).
+    check("12 rollback_finished with failures: list under the row (error, small message, times-circle 16px, 2 files)", f?.error && f.icon === 16 &&f.text.includes(`Fichiers non restaurés${NBSP}: 2`) && f.items.length === 2, f)
     check("12 settings failures use the restore wording (no write retry)", f?.items.every((x) => /puis relancez la restauration\.$/.test(x)), f?.items)
     const under = await page.evaluate(() => {
       const btnR = document.querySelector('app-settings-page [data-action="restore-last"]').getBoundingClientRect()

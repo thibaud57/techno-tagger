@@ -54,6 +54,20 @@ stop: stop-ui stop-app
 build-sidecar:
     uv run --group build python build.py
 
+# Lancer le binaire fige et exiger sa reponse a `get_version` : seul test d'un import
+# dynamique absent du .spec, que `tauri dev` (sources Python) ne voit jamais
+[group('quality')]
+smoke-sidecar:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    expected=$(node -p "require('./package.json').version")
+    # LOCALAPPDATA jetable : le binaire y ecrit ses logs et y purge ses plans
+    export LOCALAPPDATA=$(mktemp -d)
+    answer=$(printf '{"command":"get_version"}\n' | "src-tauri/binaries/tagger-$(rustc --print host-tuple).exe")
+    first=${answer%%$'\n'*}
+    grep -qF "\"event\":\"version\",\"version\":\"$expected\"" <<< "$first" || { echo "smoke-sidecar: reponse inattendue : $first" >&2; exit 1; }
+    echo "smoke-sidecar: version $expected"
+
 # Compiler la webview Angular
 [group('quality')]
 build-ui:

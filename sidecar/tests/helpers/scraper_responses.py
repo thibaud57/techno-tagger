@@ -21,9 +21,9 @@ TEST_API_KEY: Final = "test-key"
 # Requetes des deux morceaux des tests ; `track_payload` rend « Your Mind » par defaut.
 YOUR_MIND: Final = "Adam Beyer Your Mind"
 BASIEL: Final = "Amelie Lens Basiel"
-SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/drumcode/kasia-faithless-tarantula-2"
-BANDCAMP_TRACK: Final = "https://amelielens.bandcamp.com/track/basiel"
-YOUR_MIND_BANDCAMP_URL: Final = "https://adambeyer.bandcamp.com/track/your-mind"
+SOUNDCLOUD_TRACK: Final = "https://soundcloud.com/acme-records/kasia-faithless-tarantula-2"
+BANDCAMP_TRACK: Final = "https://jane-doe.bandcamp.com/track/basiel"
+YOUR_MIND_BANDCAMP_URL: Final = "https://john-doe.bandcamp.com/track/your-mind"
 # Pochette du gabarit Beatport : une seule source pour `track_payload` et les tests qui la lisent.
 ARTWORK_URL: Final = "https://geo-media.beatport.com/image_size/500x500/cover.jpg"
 
@@ -155,7 +155,7 @@ def profile_payload() -> dict[str, object]:
         "profile": {
             "id": "770001",
             "name": "Drumcode",
-            "url": "https://soundcloud.com/drumcode",
+            "url": "https://soundcloud.com/acme-records",
             "followers": 1000,
             "social_links": [],
         },

@@ -20,6 +20,9 @@
  */
 declare const APP_NAME: string
 
+/** Le nom affiche, celui de la barre de titre de la fenetre (`tauri.conf.json`). */
+declare const APP_TITLE: string
+
 /** Vide en local : une notice de licence s'affiche, rien ne casse. */
 declare const PRIMENG_LICENSE_KEY: string
 

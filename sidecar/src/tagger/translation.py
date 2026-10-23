@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from tagger.protocol import Event, RunPhase
-    from tagger.reports.extraction import ReportPaths
+    from tagger.reports.common import ReportPaths
     from tagger.reports.tagging import ReportTagValue
     from tagger.resolution.matching import ScoredCandidate
     from tagger.resolution.scraper_client import TrackCandidate
@@ -158,12 +158,12 @@ def _arbitration_state(
 
 def _candidate(scored: ScoredCandidate) -> CandidatePayload:
     candidate = scored.candidate
-    released = candidate.release.release_date if candidate.release else None
+    names = _names(candidate)
     return CandidatePayload(
-        artist=credited_artists(candidate),
-        title=full_title(candidate),
-        label=None if candidate.label is None else candidate.label.name,
-        year=None if released is None else released.year,
+        artist=names.artist,
+        title=names.title,
+        label=candidate.label_name,
+        year=candidate.release_year,
         scores=_scores(scored),
     )
 
