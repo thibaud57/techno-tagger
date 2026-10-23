@@ -195,7 +195,7 @@ def test_pins_the_field_table_of_the_adr() -> None:
         TagField.LABEL: TagKeys(id3="TPUB", vorbis="LABEL"),
         TagField.CATALOG_NUMBER: TagKeys(id3="TXXX:CATALOGNUMBER", vorbis="CATALOGNUMBER"),
         TagField.BPM: TagKeys(id3="TBPM", vorbis="BPM"),
-        TagField.KEY: TagKeys(id3="TKEY", vorbis="KEY"),
+        TagField.KEY: TagKeys(id3="TKEY", vorbis="KEY", vorbis_mirrors=("INITIALKEY",)),
         TagField.ISRC: TagKeys(id3="TSRC", vorbis="ISRC"),
         TagField.TRACK_NUMBER: TagKeys(id3="TRCK", vorbis="TRACKNUMBER"),
         TagField.URL: TagKeys(id3="WOAS", vorbis="URL"),
@@ -302,17 +302,31 @@ def test_keeps_accented_text_intact(blank_audio: Callable[[str], Path], audio_fo
     assert _read_back(path)[TagField.TITLE] == "Für Éline (Señor Remix)"
 
 
-def test_replaces_existing_vorbis_values_whatever_their_case_or_count(
+@pytest.mark.parametrize(
+    ("stale", "names", "expected"),
+    [
+        pytest.param(
+            ("artist", ["Old One", "Old Two"]), ("ARTIST",), "Adam Beyer", id="case-and-count"
+        ),
+        pytest.param(
+            ("KEY", ["stale"]), ("KEY", "INITIALKEY"), BEATPORT_CANDIDATE.key, id="key-mirror"
+        ),
+    ],
+)
+def test_replaces_existing_vorbis_values_under_every_name(
     blank_audio: Callable[[str], Path],
+    stale: tuple[str, list[str]],
+    names: tuple[str, ...],
+    expected: str,
 ) -> None:
     path = blank_audio("flac")
     audio = FLAC(path)
-    audio["artist"] = ["Old One", "Old Two"]
+    audio[stale[0]] = stale[1]
     audio.save()
 
     write_tags(path, project_tags(BEATPORT_CANDIDATE), None)
 
-    assert FLAC(path)["ARTIST"] == ["Adam Beyer"]
+    assert [FLAC(path)[name] for name in names] == [[expected]] * len(names)
 
 
 @pytest.mark.parametrize(

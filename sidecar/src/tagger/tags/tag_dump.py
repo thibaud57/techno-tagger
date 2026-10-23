@@ -53,18 +53,28 @@ class DumpEntry(StrictFrozenModel):
     system: TagSystem
     id3_version: int | None
     fields: dict[TagField, tuple[str, ...]]
+    # Absent d'un dump ecrit avant les miroirs Vorbis : la restauration n'y touche pas.
+    vorbis_mirrors: dict[str, tuple[str, ...]] | None = None
 
     @classmethod
     def of(cls, path: Path, original: OriginalTags) -> Self:
+        mirrors = original.vorbis_mirrors
         return cls(
             path=path,
             system=original.system,
             id3_version=original.id3_version,
             fields=dict(original.fields),
+            vorbis_mirrors=None if mirrors is None else dict(mirrors),
         )
 
     def original_tags(self) -> OriginalTags:
-        return OriginalTags(self.system, self.id3_version, MappingProxyType(self.fields))
+        mirrors = self.vorbis_mirrors
+        return OriginalTags(
+            self.system,
+            self.id3_version,
+            MappingProxyType(self.fields),
+            None if mirrors is None else MappingProxyType(mirrors),
+        )
 
 
 class TagDump(StrictFrozenModel):

@@ -40,6 +40,8 @@ _UNREADABLE: Final = FileFailureReason.WRITE_FAILED
 class TagKeys(NamedTuple):
     id3: str
     vorbis: str
+    # Rekordbox lit INITIALKEY, VirtualDJ KEY (knowledges/rekordbox.md).
+    vorbis_mirrors: tuple[str, ...] = ()
 
 
 @verify(UNIQUE)
@@ -72,7 +74,7 @@ TAG_FIELDS: Final[dict[TagField, TagKeys]] = {
     TagField.REMIXER: TagKeys(id3="TPE4", vorbis="REMIXER"),
     TagField.GENRE: TagKeys(id3="TCON", vorbis="GENRE"),
     TagField.BPM: TagKeys(id3="TBPM", vorbis="BPM"),
-    TagField.KEY: TagKeys(id3="TKEY", vorbis="KEY"),
+    TagField.KEY: TagKeys(id3="TKEY", vorbis="KEY", vorbis_mirrors=("INITIALKEY",)),
     TagField.LABEL: TagKeys(id3="TPUB", vorbis="LABEL"),
     TagField.CATALOG_NUMBER: TagKeys(id3="TXXX:CATALOGNUMBER", vorbis="CATALOGNUMBER"),
     TagField.ISRC: TagKeys(id3="TSRC", vorbis="ISRC"),
@@ -83,6 +85,8 @@ TAG_FIELDS: Final[dict[TagField, TagKeys]] = {
     TagField.URL: TagKeys(id3="WOAS", vorbis="URL"),
     TagField.SOURCE_ID: TagKeys(id3="TXXX:SOURCE_ID", vorbis="SOURCE_ID"),
 }
+
+_VORBIS_MIRRORS: Final = tuple(name for keys in TAG_FIELDS.values() for name in keys.vorbis_mirrors)
 
 # Valeurs a ecrire, un champ absent laissant le tag du fichier intact.
 type TagValues = Mapping[TagField, str]
@@ -128,11 +132,13 @@ class OriginalTags:
 
     `id3_version` est la version lue (2 a 4), `None` sans tag ID3 et pour un FLAC ; seule
     une v2.4 est rendue telle quelle, toute autre repart en v2.3, que mutagen sait ecrire.
+    `vorbis_mirrors` a `None` (hors FLAC, dump d'avant les miroirs) : la restauration les laisse.
     """
 
     system: TagSystem
     id3_version: int | None
     fields: Mapping[TagField, tuple[str, ...]]
+    vorbis_mirrors: Mapping[str, tuple[str, ...]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -278,9 +284,15 @@ def read_original_tags(path: Path) -> OriginalTags:
     """
     match _load(path):
         case FLAC(), VCFLACDict() as comments:
-            return OriginalTags(TagSystem.VORBIS, None, MappingProxyType(_raw_fields(comments)))
+            mirrors = {name: tuple(comments[name]) for name in _VORBIS_MIRRORS if name in comments}
+            return OriginalTags(
+                TagSystem.VORBIS,
+                None,
+                MappingProxyType(_raw_fields(comments)),
+                MappingProxyType(mirrors),
+            )
         case FLAC(), None:
-            return OriginalTags(TagSystem.VORBIS, None, MappingProxyType({}))
+            return OriginalTags(TagSystem.VORBIS, None, MappingProxyType({}), MappingProxyType({}))
         case MP3() | WAVE() | AIFF(), ID3() as tags:
             return OriginalTags(TagSystem.ID3, tags.version[1], MappingProxyType(_raw_fields(tags)))
         case MP3() | WAVE() | AIFF(), None:
@@ -467,6 +479,13 @@ def _restore_vorbis(comments: VCFLACDict, original: OriginalTags) -> None:
             comments[keys.vorbis] = list(original.fields[field])
         elif keys.vorbis in comments:
             del comments[keys.vorbis]
+    if original.vorbis_mirrors is None:
+        return
+    for name in _VORBIS_MIRRORS:
+        if name in original.vorbis_mirrors:
+            comments[name] = list(original.vorbis_mirrors[name])
+        elif name in comments:
+            del comments[name]
 
 
 def failure_reason(path: Path, error: MutagenError | OSError) -> FileFailureReason:
@@ -528,7 +547,9 @@ def _write_vorbis(
     audio: FLAC, comments: VCFLACDict, values: TagValues, artwork: _Artwork | None
 ) -> None:
     for field, value in values.items():
-        comments[TAG_FIELDS[field].vorbis] = [value]
+        keys = TAG_FIELDS[field]
+        for name in (keys.vorbis, *keys.vorbis_mirrors):
+            comments[name] = [value]
     for key in _VORBIS_COMMENTS:
         if key in comments:
             del comments[key]
