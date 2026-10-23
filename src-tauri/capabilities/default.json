@@ -18,8 +18,6 @@
     },
     "shell:allow-stdin-write",
     "dialog:allow-open",
-    "fs:allow-applocaldata-read-recursive",
-    "fs:allow-applocaldata-write-recursive",
     "store:default",
     "os:allow-locale",
     "opener:allow-reveal-item-in-dir",

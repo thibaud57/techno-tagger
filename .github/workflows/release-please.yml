@@ -136,6 +136,8 @@ jobs:
           # Grave par build.py dans le binaire fige : PyInstaller n'a pas
           # d'equivalent au --define d'esbuild. Absent, le SDK reste inerte.
           SENTRY_DSN_SIDECAR: ${{ secrets.SENTRY_DSN_SIDECAR }}
+      # Un sidecar qui ne demarre pas passerait le build et l'updater le distribuerait.
+      - run: just smoke-sidecar
 
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
