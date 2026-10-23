@@ -1,9 +1,7 @@
 """Regles du morceau et du run vivant qui ne demandent aucun reseau."""
 
-from pathlib import Path
-
 import pytest
-from tagging_records import RECORD, RUN_ID, awaiting
+from tagging_records import MUSIC, RECORD, RUN_ID, awaiting
 
 from tagger.run.models import FailureReason, LiveRun, TrackRecord
 
@@ -28,7 +26,7 @@ def test_tells_a_decided_track_from_one_to_send_back_to_the_network(
 
 
 def test_tells_the_observer_of_each_update() -> None:
-    live = LiveRun(RUN_ID, Path("music"), [RECORD])
+    live = LiveRun(RUN_ID, MUSIC, [RECORD])
     seen: list[TrackRecord] = []
     live.observe(seen.append)
     updated = RECORD.unresolved(FailureReason.NO_RESULT)

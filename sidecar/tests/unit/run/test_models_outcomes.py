@@ -5,6 +5,8 @@ from audio_samples import write_blank_mp3, write_not_audio
 from cdn_doubles import FakeCdn
 from scraper_responses import ARTWORK_URL, YOUR_MIND, failing, found, ok, track_payload
 from tagging_api import (
+    BANDCAMP_SEARCH,
+    BEATPORT_SEARCH,
     ON_BANDCAMP,
     ORIGINAL,
     ORIGINAL_REFETCH,
@@ -12,6 +14,7 @@ from tagging_api import (
     basiel,
     beatport_down,
     hold_on_beatport,
+    knows_your_mind,
     one_track,
     run,
 )
@@ -27,7 +30,7 @@ pytestmark = pytest.mark.asyncio
 
 async def test_validates_automatically_on_beatport_without_calling_bandcamp(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    knows_your_mind(api)
     api.on(
         ORIGINAL_REFETCH,
         "*",
@@ -52,7 +55,7 @@ async def test_validates_automatically_on_bandcamp_after_an_empty_beatport_searc
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on("/bandcamp/search", YOUR_MIND, found(ON_BANDCAMP))
+    api.on(BANDCAMP_SEARCH, YOUR_MIND, found(ON_BANDCAMP))
 
     result = await run(one_track(tmp_path), api)
 
@@ -115,7 +118,7 @@ async def test_marks_a_track_whose_candidates_are_below_the_floor_as_below_thres
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(basiel()))
+    api.on(BEATPORT_SEARCH, YOUR_MIND, found(basiel()))
 
     result = await run(one_track(tmp_path), api)
 
@@ -146,8 +149,8 @@ async def test_marks_a_track_as_source_unavailable_when_both_sources_fail(
     tmp_path: Path, beatport: tuple[int, str], bandcamp: tuple[int, str]
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", "*", failing(*beatport))
-    api.on("/bandcamp/search", "*", failing(*bandcamp))
+    api.on(BEATPORT_SEARCH, "*", failing(*beatport))
+    api.on(BANDCAMP_SEARCH, "*", failing(*bandcamp))
 
     result = await run(one_track(tmp_path), api)
 
@@ -160,8 +163,8 @@ async def test_marks_a_track_as_source_unavailable_when_beatport_is_down_and_ban
 ) -> None:
     """Beatport n'a pas repondu : rien n'est tranche, la reprise doit rejouer le morceau."""
     api = FakeApi()
-    api.on("/beatport/search", "*", failing(504, "request_timeout"))
-    api.on("/bandcamp/search", "*", found(*bandcamp_candidates))
+    api.on(BEATPORT_SEARCH, "*", failing(504, "request_timeout"))
+    api.on(BANDCAMP_SEARCH, "*", found(*bandcamp_candidates))
 
     result = await run(one_track(tmp_path), api)
 
@@ -174,7 +177,7 @@ async def test_marks_a_track_as_source_unavailable_when_beatport_is_down_and_ban
 
 async def test_keeps_the_search_candidate_when_the_refetch_fails(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    knows_your_mind(api)
     api.on(ORIGINAL_REFETCH, "*", failing(503, "source_unavailable"))
 
     result = await run(one_track(tmp_path), api)
@@ -187,7 +190,7 @@ async def test_keeps_the_search_candidate_when_the_refetch_fails(tmp_path: Path)
 
 async def test_resolves_a_track_without_artwork_when_the_cdn_refuses_it(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    knows_your_mind(api)
     cdn = FakeCdn()
     cdn.refused.add(ARTWORK_URL)
 
@@ -201,7 +204,7 @@ async def test_resolves_a_track_without_artwork_when_the_cdn_refuses_it(tmp_path
 async def test_falls_back_on_the_file_name_when_the_tags_are_unreadable(music_folder: Path) -> None:
     write_not_audio(music_folder / "Adam Beyer - Your Mind.mp3")
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    knows_your_mind(api)
 
     result = await run(music_folder, api)
 

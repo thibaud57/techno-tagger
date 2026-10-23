@@ -309,20 +309,20 @@ def test_keeps_a_name_already_suffixed_by_a_previous_run(tmp_path: Path) -> None
     assert plan is None
 
 
-def test_gives_the_file_back_its_original_name(tmp_path: Path) -> None:
-    current = _file(tmp_path, TARGET)
+@pytest.mark.parametrize(
+    ("renamed", "original"),
+    [
+        (TARGET, ORIGINAL_NAME),
+        ("Adam Beyer - Your Mind.mp3", "adam beyer - your mind.mp3"),
+    ],
+    ids=["other-name", "differs-only-by-case"],
+)
+def test_gives_the_file_back_its_original_name(tmp_path: Path, renamed: str, original: str) -> None:
+    current = _file(tmp_path, renamed)
 
-    restore_name(current, tmp_path / ORIGINAL_NAME)
+    restore_name(current, tmp_path / original)
 
-    assert names(tmp_path) == [ORIGINAL_NAME]
-
-
-def test_gives_back_a_name_that_differs_only_by_case(tmp_path: Path) -> None:
-    current = _file(tmp_path, "Adam Beyer - Your Mind.mp3")
-
-    restore_name(current, tmp_path / "adam beyer - your mind.mp3")
-
-    assert names(tmp_path) == ["adam beyer - your mind.mp3"]
+    assert names(tmp_path) == [original]
 
 
 def test_refuses_an_original_name_taken_by_another_file(tmp_path: Path) -> None:

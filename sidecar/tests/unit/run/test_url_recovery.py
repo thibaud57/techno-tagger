@@ -10,19 +10,19 @@ from log_capture import messages_of
 from scraper_responses import (
     ARTWORK_URL,
     BANDCAMP_TRACK,
-    YOUR_MIND,
     bandcamp_track_payload,
     failing,
-    found,
     ok,
     track_candidate,
     track_payload,
 )
 from tagging_api import (
+    BANDCAMP_TRACKS,
     ONE_TRACK,
-    ORIGINAL,
     FakeApi,
     cancelled,
+    knows_the_bandcamp_track,
+    knows_your_mind,
     must_record,
     networked_run,
     one_track,
@@ -82,15 +82,11 @@ async def _recovering(
         yield opened, UrlRecovery(opened.live, opened.sources, sink.append)
 
 
-def _bandcamp_found(api: FakeApi) -> None:
-    api.on("/bandcamp/tracks", BANDCAMP_TRACK, ok(bandcamp_track_payload()))
-
-
 async def test_resolves_an_unresolved_track_by_url_with_the_fetched_candidate_and_its_artwork(
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
@@ -109,7 +105,7 @@ async def test_resolves_an_unresolved_track_by_url_with_the_fetched_candidate_an
 
 async def test_emits_the_resolved_track_then_the_url_progress(tmp_path: Path) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
     events: list[UrlRecoveryEvent] = []
 
     async with _recovering(one_track(tmp_path), api, events) as (opened, recovery):
@@ -128,7 +124,7 @@ async def test_replaces_a_track_already_resolved_by_url(
     tmp_path: Path, second_url: str, source: Source, candidate_id: str
 ) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
     api.on("/beatport/tracks/99000202", "*", ok(ON_BEATPORT))
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
@@ -146,7 +142,7 @@ async def test_replaces_a_track_already_resolved_by_url(
 
 async def test_counts_recovered_tracks_over_tracks_to_recover(tmp_path: Path) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
 
     async with _recovering(three_tracks(tmp_path), api) as (_opened, recovery):
         before = recovery.progress()
@@ -161,7 +157,7 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
 ) -> None:
     """Un refus d'arbitrage apres la phase reseau entre dans le total au prochain calcul."""
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
 
     async with _recovering(three_tracks(tmp_path), api) as (opened, recovery):
         late = must_record(opened.live, "c.mp3")
@@ -177,7 +173,7 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
 
 async def test_counts_zero_over_zero_when_nothing_is_left_to_recover(tmp_path: Path) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    knows_your_mind(api)
 
     async with _recovering(one_track(tmp_path), api) as (_opened, recovery):
         progress = recovery.progress()
@@ -210,7 +206,7 @@ async def test_refuses_a_track_that_is_not_eligible_without_any_request(
     tmp_path: Path, into: Callable[[TrackRecord], TrackRecord]
 ) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         record = must_record(opened.live, ONE_TRACK)
@@ -232,8 +228,8 @@ async def test_refuses_a_track_unknown_to_the_run(tmp_path: Path) -> None:
 
 async def test_refuses_a_second_gesture_in_flight_on_the_same_track(tmp_path: Path) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
-    fetch = api.gate("/bandcamp/tracks", BANDCAMP_TRACK)
+    knows_the_bandcamp_track(api)
+    fetch = api.gate(BANDCAMP_TRACKS, BANDCAMP_TRACK)
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         first = asyncio.create_task(recovery.resolve(ONE_TRACK, BANDCAMP_TRACK), name="first")
@@ -253,8 +249,8 @@ async def test_refuses_a_second_gesture_in_flight_on_the_same_track(tmp_path: Pa
 
 async def test_releases_the_track_when_the_gesture_is_cancelled(tmp_path: Path) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
-    fetch = api.gate("/bandcamp/tracks", BANDCAMP_TRACK)
+    knows_the_bandcamp_track(api)
+    fetch = api.gate(BANDCAMP_TRACKS, BANDCAMP_TRACK)
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         before = opened.live.record(ONE_TRACK)
@@ -288,7 +284,7 @@ async def test_keeps_the_track_untouched_and_emits_nothing_when_the_url_fails(
 ) -> None:
     """Une URL non prise en charge est refusee avant tout appel : la reponse n'y sert pas."""
     api = FakeApi()
-    api.on("/bandcamp/tracks", BANDCAMP_TRACK, reply)
+    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, reply)
     events: list[UrlRecoveryEvent] = []
 
     async with _recovering(one_track(tmp_path), api, events) as (opened, recovery):
@@ -305,7 +301,7 @@ async def test_keeps_the_track_untouched_and_emits_nothing_when_the_url_fails(
 
 async def test_keeps_the_previous_url_when_a_correction_fails(tmp_path: Path) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
@@ -322,7 +318,7 @@ async def test_logs_the_state_the_track_keeps_when_a_correction_fails(
 ) -> None:
     """Un grep sur `status=unresolved` ne doit pas remonter un morceau toujours rattrape."""
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
     caplog.set_level(logging.WARNING, logger=LOGGER)
 
     async with _recovering(one_track(tmp_path), api) as (_opened, recovery):
@@ -339,7 +335,7 @@ async def test_resolves_the_track_without_artwork_when_the_artwork_download_fail
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
     cdn = FakeCdn()
     cdn.refused.add(ARTWORK_URL)
 
@@ -355,7 +351,7 @@ async def test_stops_on_the_third_consecutive_api_key_rejection_across_gestures(
 ) -> None:
     """La garde des 403 est celle du run : les gestes URL la partagent."""
     api = FakeApi()
-    api.on("/bandcamp/tracks", "*", failing(403))
+    api.on(BANDCAMP_TRACKS, "*", failing(403))
 
     async with _recovering(three_tracks(tmp_path), api) as (_opened, recovery):
         for track_id in ("a.mp3", "b.mp3"):
@@ -369,12 +365,12 @@ async def test_stops_on_the_third_consecutive_api_key_rejection_across_gestures(
 async def test_releases_the_track_after_a_failed_gesture(tmp_path: Path) -> None:
     api = FakeApi()
     broken = bandcamp_track_payload() | {"title": None}
-    api.on("/bandcamp/tracks", BANDCAMP_TRACK, ok(broken))
+    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, ok(broken))
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         with pytest.raises(ApiContractError):
             await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
-        _bandcamp_found(api)
+        knows_the_bandcamp_track(api)
 
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
 
@@ -385,7 +381,7 @@ async def test_releases_the_track_after_a_failed_gesture(tmp_path: Path) -> None
 async def test_never_logs_the_pasted_url(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     """Le slug nomme l'artiste et le morceau : rien de l'URL dans les logs du module."""
     api = FakeApi()
-    _bandcamp_found(api)
+    knows_the_bandcamp_track(api)
     caplog.set_level(logging.INFO, logger=LOGGER)
 
     async with _recovering(two_tracks(tmp_path), api) as (_opened, recovery):

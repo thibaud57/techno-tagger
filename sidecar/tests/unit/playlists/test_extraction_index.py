@@ -71,14 +71,24 @@ def test_raises_when_the_source_is_a_file(tmp_path: Path) -> None:
         build_source_index(not_a_folder)
 
 
-def test_keeps_the_largest_of_two_homonyms(music_library: Path) -> None:
+@pytest.mark.parametrize(
+    ("name", "kept_folder", "criterion"),
+    [
+        ("beta.mp3", "singles", DuplicateCriterion.LARGEST_FILE),
+        ("gamma.mp3", "aaa", DuplicateCriterion.PATH_ORDER),
+    ],
+    ids=["largest-of-two-homonyms", "size-tie-broken-on-path-order"],
+)
+def test_keeps_one_of_the_homonyms_by_its_criterion(
+    music_library: Path, name: str, kept_folder: str, criterion: DuplicateCriterion
+) -> None:
     index = build_source_index(music_library)
 
-    kept, resolution = pick_file("beta.mp3", index["beta.mp3"])
+    kept, resolution = pick_file(name, index[name])
 
-    assert kept.parent.name == "singles"
+    assert kept.parent.name == kept_folder
     assert resolution is not None
-    assert resolution.criterion is DuplicateCriterion.LARGEST_FILE
+    assert resolution.criterion is criterion
 
 
 def test_records_the_discarded_candidate_with_path_and_size(music_library: Path) -> None:
@@ -90,16 +100,6 @@ def test_records_the_discarded_candidate_with_path_and_size(music_library: Path)
     assert [(candidate.path.parent.name, candidate.size) for candidate in resolution.discarded] == [
         ("albums", 5_000)
     ]
-
-
-def test_breaks_a_size_tie_on_path_order(music_library: Path) -> None:
-    index = build_source_index(music_library)
-
-    kept, resolution = pick_file("gamma.mp3", index["gamma.mp3"])
-
-    assert kept.parent.name == "aaa"
-    assert resolution is not None
-    assert resolution.criterion is DuplicateCriterion.PATH_ORDER
 
 
 def test_is_deterministic_across_two_runs(music_library: Path) -> None:

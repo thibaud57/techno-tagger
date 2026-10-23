@@ -122,11 +122,14 @@ async def test_refuses_a_command_while_an_extraction_copies(
     )
 
 
-@pytest.mark.parametrize(
+each_command = pytest.mark.parametrize(
     "command",
     ["extract_playlist", "start_tagging", "commit_run", "retry_write", "rollback"],
     ids=["extract-playlist", "start-tagging", "commit-run", "retry-write", "rollback"],
 )
+
+
+@each_command
 async def test_refuses_a_command_while_writing(
     folder: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -151,11 +154,7 @@ async def test_refuses_a_command_while_writing(
     )
 
 
-@pytest.mark.parametrize(
-    "command",
-    ["extract_playlist", "start_tagging", "commit_run", "retry_write", "rollback"],
-    ids=["extract-playlist", "start-tagging", "commit-run", "retry-write", "rollback"],
-)
+@each_command
 async def test_refuses_a_command_while_rolling_back(
     folder: Path,
     monkeypatch: pytest.MonkeyPatch,

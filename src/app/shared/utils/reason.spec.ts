@@ -24,18 +24,19 @@ describe("reason keys", () => {
     },
   )
 
-  it("keeps a resolution reason in the tagging set", () => {
-    expect(trackReasonKeys("no_result")).toEqual({
+  it.each([
+    {
+      case: "keeps a resolution reason in the tagging set",
+      keys: trackReasonKeys("no_result"),
       cause: "tagging.reason.no_result",
-      remedy: null,
-    })
-  })
-
-  it("keeps the rollback only reason in the rollback set", () => {
-    expect(rollbackReasonKeys("name_taken")).toEqual({
+    },
+    {
+      case: "keeps the rollback only reason in the rollback set",
+      keys: rollbackReasonKeys("name_taken"),
       cause: "rollback.reason.name_taken",
-      remedy: null,
-    })
+    },
+  ])("$case", ({ keys, cause }) => {
+    expect(keys).toEqual({ cause, remedy: null })
   })
 })
 
@@ -54,22 +55,22 @@ describe("ReasonTextPipe", () => {
     return TestBed.runInInjectionContext(() => new ReasonTextPipe())
   }
 
-  it("puts the gesture to repair on the line after the cause", async () => {
-    const text = await firstValueFrom(pipe().transform(rollbackReasonKeys("file_locked")))
+  it.each([
+    {
+      case: "puts the gesture to repair on the line after the cause",
+      keys: rollbackReasonKeys("file_locked"),
+      expected: "locked\nClose it, then restore again.",
+    },
+    {
+      case: "gives a reason without a gesture its cause alone",
+      keys: rollbackReasonKeys("write_failed"),
+      expected: "not written",
+    },
+    { case: "renders nothing without a reason", keys: null, expected: "" },
+  ])("$case", async ({ keys, expected }) => {
+    const text = await firstValueFrom(pipe().transform(keys))
 
-    expect(text).toBe("locked\nClose it, then restore again.")
-  })
-
-  it("gives a reason without a gesture its cause alone", async () => {
-    const text = await firstValueFrom(pipe().transform(rollbackReasonKeys("write_failed")))
-
-    expect(text).toBe("not written")
-  })
-
-  it("renders nothing without a reason", async () => {
-    const text = await firstValueFrom(pipe().transform(null))
-
-    expect(text).toBe("")
+    expect(text).toBe(expected)
   })
 
   it("follows a language change", async () => {

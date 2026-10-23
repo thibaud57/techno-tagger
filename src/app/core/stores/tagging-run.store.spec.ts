@@ -74,15 +74,10 @@ describe("TaggingRunStore", () => {
       store.reset()
       store.started({
         ...RUN_STARTED,
-        tracks: [
-          {
-            track_id: "a.mp3",
-            file_name: "a.mp3",
-            artist: "Adam Beyer",
-            title: "Your Mind",
-            tags_before: TAGS_BEFORE,
-          },
-        ],
+        tracks: RUN_STARTED.tracks.slice(0, 1).map((track) => ({
+          ...track,
+          tags_before: TAGS_BEFORE,
+        })),
       })
     }
 

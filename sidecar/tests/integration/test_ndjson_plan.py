@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 from ndjson_loop import (
     CHOOSE_ON_BEATPORT,
+    cancelled_run,
     conversation,
     held_call,
     recover_by_url,
@@ -10,14 +11,13 @@ from ndjson_loop import (
     start_command,
 )
 from run_plans import only_plan, plan_files
-from scraper_responses import BANDCAMP_TRACK, bandcamp_track_payload, ok
 from tagging_api import (
-    BANDCAMP_TRACKS,
     FIRST_TRACK,
     ONE_TRACK,
     SECOND_TRACK,
     FakeApi,
     hold_on_beatport,
+    knows_the_bandcamp_track,
     knows_your_mind,
 )
 
@@ -79,7 +79,7 @@ async def test_records_an_arbitration_decision(unresolved_folder: Path, api: Fak
 
 
 async def test_records_a_recovery_by_url(unresolved_folder: Path, api: FakeApi) -> None:
-    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, ok(bandcamp_track_payload()))
+    knows_the_bandcamp_track(api)
 
     async with conversation() as talk:
         await resolved_run(talk, unresolved_folder)
@@ -98,17 +98,12 @@ async def _shut_down(talk: Conversation) -> None:
     talk.shut_down()
 
 
-async def _cancel_run(talk: Conversation) -> None:
-    talk.send(command="cancel_run")
-    await talk.expect("progress", phase="url_recovery")
-
-
-@pytest.mark.parametrize("stop", [_shut_down, _cancel_run], ids=["shutdown", "cancel-run"])
+@pytest.mark.parametrize("stop", [_shut_down, cancelled_run], ids=["shutdown", "cancel-run"])
 async def test_keeps_the_plan_of_a_run_stopped_mid_network(
     two_tracks_folder: Path,
     api: FakeApi,
     basiel_gate: Gate,
-    stop: Callable[[Conversation], Awaitable[None]],
+    stop: Callable[[Conversation], Awaitable[object]],
 ) -> None:
     knows_your_mind(api)
 

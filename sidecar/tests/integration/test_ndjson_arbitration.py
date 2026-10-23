@@ -4,6 +4,7 @@ import pytest
 from ndjson_loop import (
     CHOOSE_ON_BEATPORT,
     REFUSE_BEATPORT,
+    SWITCH_TO_BEATPORT,
     arbitrate,
     conversation,
     resolved_run,
@@ -72,7 +73,7 @@ async def test_shows_the_beatport_list_again_without_calling_the_api(
         talk.send(**REFUSE_BEATPORT)
         await talk.expect("arbitration_updated")
         calls = len(api.requests)
-        talk.send(command="switch_arbitration_source", track_id=ONE_TRACK, source="beatport")
+        talk.send(**SWITCH_TO_BEATPORT)
         back = await talk.expect("arbitration_updated")
 
     assert (back["source"], back["other_source"]) == ("beatport", "bandcamp")
@@ -157,7 +158,7 @@ async def test_reports_a_rejected_gesture_with_its_command_and_its_track(
 ) -> None:
     async with conversation() as talk:
         await resolved_run(talk, unresolved_folder)
-        talk.send(command="switch_arbitration_source", track_id=ONE_TRACK, source="beatport")
+        talk.send(**SWITCH_TO_BEATPORT)
         error = await talk.expect("error")
 
     assert (error["code"], error["command"], error["params"]) == (

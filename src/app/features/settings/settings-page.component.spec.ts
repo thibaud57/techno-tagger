@@ -22,7 +22,7 @@ import { RUN_ID } from "../../../fixtures/tagging"
 import { spyToast } from "../../../fixtures/toast"
 import { translateWith } from "../../../fixtures/translate"
 import { availableUpdate, updaterStub } from "../../../fixtures/updater"
-import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
+import { ROLLBACK_RUN, failedRollback, rollbackInFlight } from "../../../fixtures/write"
 import { NativeService } from "../../core/platform/native.service"
 import { PreferencesService } from "../../core/platform/preferences.service"
 import { UpdateService } from "../../core/platform/update.service"
@@ -234,7 +234,7 @@ describe("SettingsPageComponent", () => {
     {
       name: "a restore",
       overrides: {
-        rollingBack: signal<RollbackInFlight | null>({ runId: RUN_ID, trackId: null }),
+        rollingBack: signal<RollbackInFlight | null>(rollbackInFlight()),
       },
     },
   ])("blocks the undo while $name is in progress", ({ overrides }) => {
@@ -751,7 +751,7 @@ describe("SettingsPageComponent", () => {
       const button = action("clear-cache", hostOf(fixture))
 
       expect(button?.disabled).toBe(true)
-      expect(button?.querySelector('[data-icon="spinner"]')).not.toBeNull()
+      expect(iconOf(button, "spinner")).not.toBeNull()
     })
 
     it("shows a refused clearing under the cache row", () => {

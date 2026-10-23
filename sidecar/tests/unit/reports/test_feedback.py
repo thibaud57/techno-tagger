@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Final
 from urllib.parse import parse_qs, unquote_plus, urlsplit
 
 import pytest
+from fs_listing import files
 from repo_files import REPO
 from tagging_records import CREATED, RUN_ID
 from tagging_report_samples import COMMENT, HOME_FOLDER, report_of, report_track
@@ -109,7 +110,7 @@ def test_a_second_export_of_the_same_run_rewrites_the_same_file(tmp_path: Path) 
     second = write_feedback_export(tmp_path, report, RELEASE)
 
     assert second == first
-    assert list(tmp_path.iterdir()) == [first]
+    assert files(tmp_path) == [first]
 
 
 def test_an_export_that_cannot_be_written_names_its_file(tmp_path: Path) -> None:
@@ -130,7 +131,7 @@ def test_an_export_that_cannot_be_serialized_names_its_file(tmp_path: Path) -> N
         write_feedback_export(tmp_path, report, RELEASE)
 
     assert error.value.params == {"file": export_path(tmp_path, report).name}
-    assert not list(tmp_path.iterdir())
+    assert files(tmp_path) == []
 
 
 def test_the_purge_removes_an_export_past_the_retention_and_keeps_a_recent_one(
@@ -144,7 +145,7 @@ def test_the_purge_removes_an_export_past_the_retention_and_keeps_a_recent_one(
 
     purge_feedback_exports(tmp_path, now)
 
-    assert list(tmp_path.iterdir()) == [recent]
+    assert files(tmp_path) == [recent]
 
 
 EXPORT_NAME: Final = stamped_name(CREATED, RUN_ID, ".json")

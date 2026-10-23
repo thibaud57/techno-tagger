@@ -5,7 +5,7 @@ import httpx2
 import pytest
 from cdn_doubles import JPEG, InFlight, image, public_resolver
 from fs_listing import files
-from scraper_responses import ARTWORK_URL, recording
+from scraper_responses import ARTWORK_URL, recording, unreachable
 from stubs import locked_file
 
 from tagger.resolution.cache import (
@@ -28,10 +28,6 @@ def _fetcher(
     root: Path, handler: Handler, resolve: Callable[[str], list[str]] = public_resolver
 ) -> ArtworkFetcher:
     return ArtworkFetcher(DiskCache(root), transport=httpx2.MockTransport(handler), resolve=resolve)
-
-
-def _unreachable(request: httpx2.Request) -> httpx2.Response:
-    raise httpx2.ConnectError("unreachable", request=request)
 
 
 def _redirecting_to(location: str, status: int = 302) -> Handler:
@@ -93,7 +89,7 @@ async def test_names_the_file_after_the_content_type_whatever_its_case(
             ),
             "not_an_image",
         ),
-        (_unreachable, "network"),
+        (unreachable([], httpx2.ConnectError), "network"),
         (_redirecting_to("https://127.0.0.1:8000/cover.jpg"), "blocked_url"),
         (_looping, "too_many_redirects"),
     ],
@@ -158,34 +154,28 @@ async def test_downloads_once_when_two_tracks_share_an_artwork(
         "https://127.0.0.1:8000/cover.jpg",
         "https://192.168.1.1/cover.jpg",
         "file:///C:/Windows/win.ini",
-    ],
-    ids=["plain-http", "loopback", "private-network", "not-http"],
-)
-async def test_refuses_an_url_that_does_not_name_a_public_cdn(
-    tmp_path: Path, requests: list[httpx2.Request], url: str
-) -> None:
-    """`artwork_url` vient d'une reponse de l'API : elle ne doit pas sonder la machine."""
-    async with _fetcher(tmp_path, recording(requests, image())) as fetcher:
-        with pytest.raises(ArtworkUnavailableError) as error:
-            await fetcher.fetch(url)
-
-    assert error.value.reason == "blocked_url"
-    assert requests == []
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
         "https://[::1/cover.jpg",
         "https://cdn.example.com:abc/cover.jpg",
         "https://cdn.example.com/cover\ud800.jpg",
     ],
-    ids=["unclosed-ipv6-bracket", "non-numeric-port", "lone-surrogate"],
+    ids=[
+        "plain-http",
+        "loopback",
+        "private-network",
+        "not-http",
+        "unclosed-ipv6-bracket",
+        "non-numeric-port",
+        "lone-surrogate",
+    ],
 )
-async def test_refuses_a_malformed_url_instead_of_raising_it(
+async def test_refuses_an_url_that_does_not_name_a_public_cdn(
     tmp_path: Path, requests: list[httpx2.Request], url: str
 ) -> None:
-    """Regression : l'exception brute sortait en `ExceptionGroup` et tuait le sidecar."""
+    """`artwork_url` vient d'une reponse de l'API : elle ne doit pas sonder la machine.
+
+    Regression des trois dernieres : l'exception brute sortait en `ExceptionGroup` et tuait
+    le sidecar.
+    """
     async with _fetcher(tmp_path, recording(requests, image())) as fetcher:
         with pytest.raises(ArtworkUnavailableError) as error:
             await fetcher.fetch(url)
