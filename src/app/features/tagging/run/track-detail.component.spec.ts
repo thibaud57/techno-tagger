@@ -143,7 +143,7 @@ describe("TrackDetailComponent", () => {
   it("adds a comment row when the file carries one", () => {
     const root = mount({ ...RESOLVED, tagsBefore: TAGS_BEFORE })
 
-    expect(rowsOf(root).at(-1)).toEqual(["tagging.detail.field.comment", "", "Ripped by X", "—"])
+    expect(rowsOf(root).at(-1)).toEqual(["tagging.detail.field.comment", "Ripped by X", "—"])
   })
 
   it("adds no comment row when the file carries none", () => {

@@ -248,3 +248,6 @@ Rien à pousser au 2026-10-23.
   de 40px et `windowControls`, `AppShell` la garde sur l'écran bloquant, `PlaylistScreen` passe le mode en
   `SelectButton` `fluid`, sur demande explicite du propriétaire. Prévisualisés en local (bundle esbuild),
   distant relu identique à l'export avant le push, réserve n° 28, `_ds_needs_recompile` posé. Reste ouvert vidé.
+- **2026-10-23, détail déplié** : `TrackDetail` (`TaggingScreen.jsx`) et la carte `data` séparent le
+  libellé de sa clé par `·`, clé en `text-muted-color`, sur demande explicite du propriétaire. Distant
+  relu identique à l'export avant le push, réserve n° 29, `_ds_needs_recompile` posé.
