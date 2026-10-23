@@ -30,52 +30,57 @@ describe("PreferencesService", () => {
     service = TestBed.inject(PreferencesService)
   })
 
-  it("restores a stored move mode", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub("move"))
+  it.each([
+    { case: "restores a stored move mode", stored: "move", expected: "move" },
+    {
+      case: "falls back to copy on an unreadable stored value",
+      stored: 42,
+      expected: DEFAULT_EXTRACTION_MODE,
+    },
+  ])("$case", async ({ stored, expected }) => {
+    vi.mocked(load).mockResolvedValue(storeStub(stored))
 
     const result = await service.readExtractionMode()
 
-    expect(result).toBe("move")
+    expect(result).toBe(expected)
   })
 
-  it("falls back to copy on an unreadable stored value", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub(42))
-
-    const result = await service.readExtractionMode()
-
-    expect(result).toBe(DEFAULT_EXTRACTION_MODE)
-  })
-
-  it("falls back to copy when the store cannot be loaded", async () => {
+  it.each<{
+    case: string
+    read: (target: PreferencesService) => Promise<unknown>
+    fallback: unknown
+  }>([
+    {
+      case: "falls back to copy when the store cannot be loaded",
+      read: (target) => target.readExtractionMode(),
+      fallback: DEFAULT_EXTRACTION_MODE,
+    },
+    {
+      case: "falls back to the sound signal default when the store cannot be loaded",
+      read: (target) => target.readSoundSignal(),
+      fallback: DEFAULT_SOUND_SIGNAL,
+    },
+  ])("$case", async ({ read, fallback }) => {
     vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
 
-    const result = await service.readExtractionMode()
+    const result = await read(service)
 
-    expect(result).toBe(DEFAULT_EXTRACTION_MODE)
+    expect(result).toBe(fallback)
   })
 
-  it("falls back to the sound signal default when the store cannot be loaded", async () => {
-    vi.mocked(load).mockRejectedValue(new TypeError("store unavailable"))
-
-    const result = await service.readSoundSignal()
-
-    expect(result).toBe(DEFAULT_SOUND_SIGNAL)
-  })
-
-  it("reads a stored language the application offers", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub("en"))
+  it.each([
+    { case: "reads a stored language the application offers", stored: "en", expected: "en" },
+    {
+      case: "ignores a stored language the application does not offer",
+      stored: "de",
+      expected: null,
+    },
+  ])("$case", async ({ stored, expected }) => {
+    vi.mocked(load).mockResolvedValue(storeStub(stored))
 
     const result = await service.readLanguage()
 
-    expect(result).toBe("en")
-  })
-
-  it("ignores a stored language the application does not offer", async () => {
-    vi.mocked(load).mockResolvedValue(storeStub("de"))
-
-    const result = await service.readLanguage()
-
-    expect(result).toBeNull()
+    expect(result).toBe(expected)
   })
 
   it.each([

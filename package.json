@@ -20,7 +20,7 @@
     "watch": "ng build --watch --configuration development --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\"",
     "test": "ng test",
     "lint": "ng lint",
-    "sourcemaps": "if [ -n \"$SENTRY_AUTH_TOKEN\" ]; then sentry-cli sourcemaps upload --org \"${SENTRY_ORG:-tg-ws}\" --project \"${SENTRY_PROJECT_UI:-techno-tagger-ui}\" --release \"techno-tagger@$npm_package_version\" dist/$npm_package_name/browser; fi; find dist/$npm_package_name/browser -name '*.map' -delete; echo \"source maps left after purge: $(find dist/$npm_package_name/browser -name '*.map' | wc -l)\""
+    "sourcemaps": "if [ -n \"$SENTRY_AUTH_TOKEN\" ]; then sentry-cli sourcemaps upload --org \"${SENTRY_ORG:-tg-ws}\" --project \"${SENTRY_PROJECT_UI:-techno-tagger-ui}\" --release \"techno-tagger@$npm_package_version\" dist/$npm_package_name/browser || echo '::warning::sentry source maps upload failed, this release will report minified stacks'; fi; find dist/$npm_package_name/browser -name '*.map' -delete; left=$(find dist/$npm_package_name/browser -name '*.map' | wc -l); echo \"source maps left after purge: $left\"; test \"$left\" -eq 0"
   },
   "dependencies": {
     "@angular/cdk": "22.2.2",
@@ -38,7 +38,6 @@
     "@sentry/angular": "11.6.0",
     "@tauri-apps/api": "2.12.1",
     "@tauri-apps/plugin-dialog": "2.8.1",
-    "@tauri-apps/plugin-fs": "2.6.0",
     "@tauri-apps/plugin-opener": "2.7.0",
     "@tauri-apps/plugin-os": "2.4.0",
     "@tauri-apps/plugin-shell": "2.4.1",

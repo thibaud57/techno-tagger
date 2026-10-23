@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import MappingProxyType
 from typing import Final
@@ -11,10 +11,12 @@ from pydantic import ValidationError
 from stubs import raising, unlink_except
 from tagging_records import CREATED, RUN_ID, UNREADABLE_CONTENTS
 
+from tagger.core.run_files import PENDING_SUFFIX
 from tagger.tags.files import OriginalTags, TagField, TagSystem
 from tagger.tags.tag_dump import (
     DumpEntry,
     TagDump,
+    TagDumpEntryMissingError,
     TagDumpUnreadableError,
     TagDumpWriteError,
     dump_path,
@@ -33,6 +35,12 @@ ORIGIN: Final = OriginalTags(
     TagSystem.ID3,
     3,
     MappingProxyType({TagField.ARTIST: ("adam beyer",), TagField.BPM: ("130",)}),
+)
+VORBIS_ORIGIN: Final = OriginalTags(
+    TagSystem.VORBIS,
+    None,
+    MappingProxyType({TagField.KEY: ("8A",)}),
+    MappingProxyType({"INITIALKEY": ("8A",)}),
 )
 WRITTEN: Final = OriginalTags(
     TagSystem.ID3, 3, MappingProxyType({TagField.ARTIST: ("Adam Beyer",)})
@@ -54,18 +62,17 @@ def _saved(folder: Path, *names: str) -> TagDump:
     return save_entries(folder, _dump(), {name: _entry(name) for name in names})
 
 
-def test_names_the_dump_after_its_time_and_run(tmp_path: Path) -> None:
-    path = dump_path(tmp_path, _dump())
+@pytest.mark.parametrize(
+    "created_at",
+    [CREATED, CREATED.astimezone(timezone(timedelta(hours=2)))],
+    ids=["utc", "other-local-offset"],
+)
+def test_names_the_dump_after_its_utc_time_and_run(tmp_path: Path, created_at: datetime) -> None:
+    dump = TagDump(run_id=RUN_ID, created_at=created_at, folder=RUN_FOLDER)
+
+    path = dump_path(tmp_path, dump)
 
     assert path == tmp_path / "20261006T211403Z-a3f9c1.json"
-
-
-def test_stamps_the_dump_name_in_utc_whatever_the_local_offset(tmp_path: Path) -> None:
-    paris = CREATED.astimezone(timezone(timedelta(hours=2)))
-
-    path = dump_path(tmp_path, TagDump(run_id=RUN_ID, created_at=paris, folder=RUN_FOLDER))
-
-    assert path.name == "20261006T211403Z-a3f9c1.json"
 
 
 def test_refuses_a_dump_dated_without_a_time_zone() -> None:
@@ -73,13 +80,14 @@ def test_refuses_a_dump_dated_without_a_time_zone() -> None:
         TagDump(run_id=RUN_ID, created_at=CREATED.replace(tzinfo=None), folder=RUN_FOLDER)
 
 
-def test_reloads_the_entries_it_saved(tmp_path: Path) -> None:
-    saved = _saved(tmp_path, "your mind.mp3")
+@pytest.mark.parametrize("original", [ORIGIN, VORBIS_ORIGIN], ids=["id3", "vorbis-mirrors"])
+def test_reloads_the_entries_it_saved(tmp_path: Path, original: OriginalTags) -> None:
+    saved = save_entries(tmp_path, _dump(), {"your mind": _entry("your mind", original)})
 
     reloaded = load_dump(dump_path(tmp_path, saved))
 
     assert reloaded == saved
-    assert reloaded.entries["your mind.mp3"].original_tags() == ORIGIN
+    assert reloaded.entries["your mind"].original_tags() == original
 
 
 def test_never_replaces_an_entry_already_saved(tmp_path: Path) -> None:
@@ -204,7 +212,7 @@ def test_leaves_no_half_written_line_when_the_journal_cannot_be_synced(
 def test_refuses_to_note_a_track_the_dump_does_not_hold(tmp_path: Path) -> None:
     saved = _saved(tmp_path, "a.mp3")
 
-    with pytest.raises(KeyError):
+    with pytest.raises(TagDumpEntryMissingError):
         record_renamed_path(tmp_path, saved, "b.mp3", MIDNIGHT)
 
     assert not journal_path(dump_path(tmp_path, saved)).exists()
@@ -292,6 +300,25 @@ def test_refuses_an_unreadable_dump(tmp_path: Path, content: str) -> None:
 
     with pytest.raises(TagDumpUnreadableError):
         load_dump(path)
+
+
+def test_forces_the_dump_onto_the_disk_before_it_takes_its_final_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = dump_path(tmp_path, _dump())
+    pending = target.with_suffix(PENDING_SUFFIX)
+    synced: list[tuple[bool, bool]] = []
+    real_fsync = os.fsync
+
+    def checking_fsync(descriptor: int) -> None:
+        synced.append((pending.stat().st_size > 0, target.exists()))
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", checking_fsync)
+
+    _saved(tmp_path, "a.mp3")
+
+    assert synced == [(True, False)]
 
 
 def test_leaves_no_partial_file_when_the_dump_cannot_be_written(

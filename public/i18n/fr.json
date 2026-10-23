@@ -4,6 +4,12 @@
     "tagging": "Tagging",
     "settings": "Réglages"
   },
+  "window": {
+    "minimize": "Réduire",
+    "maximize": "Agrandir",
+    "restore": "Restaurer",
+    "close": "Fermer"
+  },
   "app": {
     "blocked": {
       "missing": {
@@ -427,6 +433,7 @@
       "cache": {
         "label": "Cache",
         "hint": "Réponses de l'API et pochettes déjà téléchargées.\nLe vider ne touche à aucun fichier de musique : les prochains runs les retéléchargent.",
+        "hintSized": "Réponses de l'API et pochettes déjà téléchargées ({{size}}).\nLe vider ne touche à aucun fichier de musique : les prochains runs les retéléchargent.",
         "action": "Vider le cache",
         "blocked": {
           "busy": "Une opération est en cours.\nAttendez sa fin."

@@ -9,6 +9,7 @@ import httpx2
 import pytest
 from pydantic import TypeAdapter
 from repo_files import read_json
+from sentry_dsn import DSN
 
 from tagger import APP_NAME, RELEASE
 from tagger.core import observability as obs
@@ -21,7 +22,6 @@ from tagger.core.observability import (
 )
 from tagger.resolution.scraper_client import API_BASE_URL, ApiContractError
 
-DSN: Final = "https://key@o1.ingest.de.sentry.io/1"
 SEARCH_URL: Final = f"{API_BASE_URL}/beatport/search"
 CONTRACT_ERROR_MODULE: Final = ApiContractError.__module__
 PATH_MASK_CASES: Final = TypeAdapter(list[dict[str, str]]).validate_python(

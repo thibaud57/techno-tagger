@@ -5,7 +5,7 @@ from ndjson_loop import drive, line, line_of, rows
 from stubs import raising
 
 from tagger import handlers
-from tagger.reports.extraction import ReportWriteError
+from tagger.reports.common import ReportWriteError
 
 if TYPE_CHECKING:
     import pytest

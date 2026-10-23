@@ -115,6 +115,7 @@ jobs:
       # externalBin est valide des la compilation : sans le binaire en place,
       # cargo check echoue avant meme de compiler notre code.
       - run: just build-sidecar
+      - run: just smoke-sidecar
       - run: just lint-tauri
 
   # Check unique exige par la protection de branche : les noms des trois jobs

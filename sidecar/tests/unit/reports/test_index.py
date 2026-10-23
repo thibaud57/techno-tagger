@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from stubs import raising
-from tagging_records import CREATED, UNREADABLE_CONTENTS
+from tagging_records import CREATED, RUN_ID, UNREADABLE_CONTENTS
 
 from tagger.reports import index as report_index
 from tagger.reports.index import IndexEntry, list_reports, record_report
@@ -27,7 +27,7 @@ def _entry(tmp_path: Path, run_id: str, *, days_ago: int = 0) -> IndexEntry:
 
 def test_lists_the_reports_from_newest_to_oldest(tmp_path: Path) -> None:
     index = tmp_path / "reports.json"
-    older, newer = _entry(tmp_path, "1b2c3d", days_ago=3), _entry(tmp_path, "a3f9c1")
+    older, newer = _entry(tmp_path, "1b2c3d", days_ago=3), _entry(tmp_path, RUN_ID)
     record_report(index, older)
     record_report(index, newer)
 
@@ -38,8 +38,8 @@ def test_lists_the_reports_from_newest_to_oldest(tmp_path: Path) -> None:
 
 def test_replaces_the_entry_of_a_run_written_again(tmp_path: Path) -> None:
     index = tmp_path / "reports.json"
-    record_report(index, _entry(tmp_path, "a3f9c1", days_ago=1))
-    again = _entry(tmp_path, "a3f9c1")
+    record_report(index, _entry(tmp_path, RUN_ID, days_ago=1))
+    again = _entry(tmp_path, RUN_ID)
 
     record_report(index, again)
 
@@ -48,7 +48,7 @@ def test_replaces_the_entry_of_a_run_written_again(tmp_path: Path) -> None:
 
 def test_leaves_out_a_report_that_no_longer_exists(tmp_path: Path) -> None:
     index = tmp_path / "reports.json"
-    gone, kept = _entry(tmp_path, "1b2c3d", days_ago=3), _entry(tmp_path, "a3f9c1")
+    gone, kept = _entry(tmp_path, "1b2c3d", days_ago=3), _entry(tmp_path, RUN_ID)
     record_report(index, gone)
     record_report(index, kept)
     gone.report_path.unlink()
@@ -76,7 +76,7 @@ def test_starts_over_from_an_unreadable_index(
 ) -> None:
     index = tmp_path / "reports.json"
     index.write_text(content, encoding="utf-8")
-    entry = _entry(tmp_path, "a3f9c1")
+    entry = _entry(tmp_path, RUN_ID)
 
     record_report(index, entry)
 
@@ -89,7 +89,7 @@ def test_logs_an_index_it_cannot_write_without_the_path(
 ) -> None:
     refusal = OSError(28, "No space left", "C:/private/profile/reports.json")
     monkeypatch.setattr(report_index, "write_atomically", raising(refusal))
-    entry = _entry(tmp_path, "a3f9c1")
+    entry = _entry(tmp_path, RUN_ID)
 
     record_report(tmp_path / "reports.json", entry)
 
@@ -102,7 +102,7 @@ def test_leaves_an_index_it_cannot_read_untouched(
 ) -> None:
     index = tmp_path / "reports.json"
     index.mkdir()
-    entry = _entry(tmp_path, "a3f9c1")
+    entry = _entry(tmp_path, RUN_ID)
 
     record_report(index, entry)
 

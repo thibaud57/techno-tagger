@@ -2,14 +2,14 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
 import { closeGuardStub } from "../../../../fixtures/close-guard"
-import { page } from "../../../../fixtures/dialog"
+import { dialogLabel, page } from "../../../../fixtures/dialog"
 import { action } from "../../../../fixtures/dom"
 import { CloseGuard } from "../../../core/platform/close-guard.service"
 
 import { CloseConfirmationComponent } from "./close-confirmation.component"
 
 const mount = (blocked = false) => {
-  const guard = closeGuardStub([{ kind: "extraction" }, { kind: "write" }], blocked)
+  const guard = closeGuardStub(["extraction", "write"], blocked)
   TestBed.configureTestingModule({
     imports: [CloseConfirmationComponent],
     providers: [provideTranslateService(), { provide: CloseGuard, useValue: guard }],
@@ -31,22 +31,16 @@ describe("CloseConfirmationComponent", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)
   })
 
-  it("stays, without leaving, on the stay button", () => {
+  it.each([
+    { button: "stay", other: "leave" },
+    { button: "leave", other: "stay" },
+  ] as const)("only calls $button on the $button button, not $other", ({ button, other }) => {
     const { guard } = mount()
 
-    action("stay")?.click()
+    action(button)?.click()
 
-    expect(guard.stay).toHaveBeenCalledOnce()
-    expect(guard.leave).not.toHaveBeenCalled()
-  })
-
-  it("leaves the application on the leave button", () => {
-    const { guard } = mount()
-
-    action("leave")?.click()
-
-    expect(guard.leave).toHaveBeenCalledOnce()
-    expect(guard.stay).not.toHaveBeenCalled()
+    expect(guard[button]).toHaveBeenCalledOnce()
+    expect(guard[other]).not.toHaveBeenCalled()
   })
 
   it("stays when the dialog is dismissed", () => {
@@ -64,6 +58,12 @@ describe("CloseConfirmationComponent", () => {
     expect(page().textContent).toContain("app.close.blockedTitle")
     expect(action("leave")).toBeNull()
     expect(action("stay")).not.toBeNull()
+  })
+
+  it("names the dialog by its title", () => {
+    mount(true)
+
+    expect(dialogLabel()?.textContent).toContain("app.close.blockedTitle")
   })
 
   it("puts the focus on the stay button", async () => {

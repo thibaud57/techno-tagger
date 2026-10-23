@@ -119,4 +119,6 @@ La frontière entre `BaseModel` et `dataclass` est le point à tenir dans la dur
 
 Deux réglages ne sont pas symétriques et ne doivent pas être uniformisés par souci de cohérence : `extra="forbid"` sur les commandes, parce qu'un champ inconnu venu de l'interface est un bug du contrat, et `extra="ignore"` sur les réponses de l'API, parce qu'un champ ajouté en amont ne doit pas casser un run.
 
+**Mise à jour 2026-10-23** : la borne basse de `pydantic>=2.13.5,<3` citée dans la décision a depuis été relevée, `sidecar/pyproject.toml` pose `>=2.14.0`. La version courante vit dans [VERSIONS.md § Pydantic](../VERSIONS.md#3-pydantic).
+
 Détail technique et exemples dans [knowledges/pydantic.md](../knowledges/pydantic.md), versions et compatibilité dans [VERSIONS.md § Pydantic](../VERSIONS.md#3-pydantic).

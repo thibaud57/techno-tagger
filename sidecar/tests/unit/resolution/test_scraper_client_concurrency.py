@@ -77,7 +77,7 @@ async def test_never_keeps_more_soundcloud_requests_in_flight_than_the_source_al
     async with make_client(in_flight.handler) as client, asyncio.TaskGroup() as group:
         for index in range(10):
             group.create_task(
-                client.fetch_by_url(f"https://soundcloud.com/drumcode/track-{index}"),
+                client.fetch_by_url(f"https://soundcloud.com/acme-records/track-{index}"),
                 name=f"resolve:{index}",
             )
 

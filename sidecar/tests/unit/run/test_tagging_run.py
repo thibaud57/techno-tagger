@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 import pytest
-from audio_samples import tagged_mp3
+from run_plans import music
 from scraper_responses import BASIEL, YOUR_MIND, failing, found, invalid_track_payload
 from stubs import ignore
 from tagging_api import (
@@ -80,8 +80,7 @@ async def test_stops_the_run_after_three_consecutive_rejections_of_the_key(
     tmp_path: Path,
 ) -> None:
     folder = tmp_path / "music"
-    for index in range(5):
-        tagged_mp3(folder, f"{index}.mp3", "Adam Beyer", f"Track {index}")
+    music(folder, 5)
     api = FakeApi()
     api.on("/beatport/search", "*", failing(403))
     events: list[RunEvent] = []

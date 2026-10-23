@@ -1,7 +1,7 @@
 ---
 title: "ARCHITECTURE — Vue d'ensemble"
 description: "Architecture de techno-tagger : application desktop Tauri + Angular à sidecar Python, consommatrice de l'API techno-scraper, pour le re-tagging et l'organisation de bibliothèques musicales DJ."
-date: "2026-10-19"
+date: "2026-10-23"
 keywords: ["architecture", "adr", "desktop", "tauri", "sidecar", "dj", "metadata"]
 scope: ["docs", "architecture"]
 technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "Python", "pydantic", "mutagen", "rapidfuzz", "httpx2", "PyInstaller"]
@@ -83,11 +83,11 @@ techno-tagger/
 │   │   ├── core/                         # singletons et état, sans écran
 │   │   │   ├── sidecar/                  # flux NDJSON <-> sidecar, frontière Tauri remplacée en test, types miroir du contrat (protocol.ts)
 │   │   │   ├── stores/                   # un store signal par domaine du contrat : run, arbitrage, rattrapage URL, écriture, reprise, runs passés
-│   │   │   ├── platform/                 # fenêtre, garde de fermeture, signal de fin, thème, préférences, onglets
+│   │   │   ├── platform/                 # fenêtre, garde de fermeture, signal de fin, thème, préférences, onglets, mise à jour
 │   │   │   ├── i18n/                     # choix de langue, spec de cohérence des JSON
 │   │   │   └── observability/            # masquage PII et options Sentry
 │   │   ├── shared/
-│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Mapping Composants) : dialogs/, display/, feedback/, inputs/
+│   │   │   ├── components/               # wrappers custom (cf. DESIGN.md § Mapping Composants) : dialogs/, display/, feedback/, inputs/, window/
 │   │   │   └── utils/                    # fonctions et constantes d'affichage sans état
 │   │   ├── features/
 │   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
@@ -102,7 +102,7 @@ techno-tagger/
 │   ├── main.ts                           # bootstrapApplication, init Sentry
 │   ├── build-constants.d.ts              # constantes substituées par --define
 │   └── styles.css                        # CSS pur, jamais SCSS
-├── public/i18n/                          # JSON ngx-translate : Angular sert public/ à la racine
+├── public/                               # servi à la racine par Angular : logo.png, i18n/ (JSON ngx-translate)
 ├── angular.json
 ├── .postcssrc.json                       # @tailwindcss/postcss
 ├── package.json                          # dépendances front, versions dans VERSIONS.md
@@ -115,25 +115,26 @@ techno-tagger/
 │   │   ├── protocol.py                   # modèles des commandes et des événements
 │   │   ├── handlers.py                   # handlers des commandes, run courant
 │   │   ├── translation.py                # événements du pipeline traduits en événements du protocole
-│   │   ├── core/                         # socle transverse : erreurs, chemins, logs, Sentry, clé API, fichiers d'un run, tâches asyncio
+│   │   ├── core/                         # socle transverse : erreurs, chemins, logs, Sentry, clé API, fichiers d'un run, base des modèles écrits sur disque, tâches asyncio
 │   │   ├── playlists/                    # parsing VLC SQLite et M3U8, copie ou déplacement des morceaux
 │   │   ├── resolution/                   # scoring rapidfuzz, client techno-scraper, cache, sources
 │   │   ├── tags/                         # mutagen, dump des tags d'origine, renommage
-│   │   ├── run/                          # run vivant : état (models), pipeline, arbitrage, rattrapage URL, écriture, rollback, plan, reprise
-│   │   └── reports/                      # rapports d'extraction et de re-tagging, registre des runs passés, issue de retour de matching et son export nettoyé
+│   │   ├── run/                          # run vivant : état (models), pipeline, arbitrage, rattrapage URL, garde d'un geste par morceau, écriture, rollback, plan, reprise
+│   │   └── reports/                      # socle commun des rapports, rapports d'extraction et de re-tagging, registre des runs passés, issue de retour de matching et son export nettoyé
 │   ├── tests/                            # pytest, seuil de couverture bloquant en CI
 │   │   ├── unit/                         # un module isole, un sous-dossier par package de src/tagger/
 │   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
 │   │   ├── fixtures/                     # donnees figees : audio, vlc_media.db, M3U8
 │   │   └── helpers/                      # constructeurs partages, importables a plat
 │   ├── tagger.spec                       # hidden imports et métadonnées collectées
-│   └── build.py                          # PyInstaller -> binaire
+│   ├── build.py                          # PyInstaller -> binaire
+│   └── demo.py                           # bibliothèque de démonstration hors dépôt, pour piloter l'application à la main
 │
 ├── src-tauri/
 │   ├── binaries/
 │   │   ├── tagger-x86_64-pc-windows-msvc.exe   # suffixe target-triple OBLIGATOIRE
 │   │   └── _internal/                          # deps PyInstaller --onedir -> bundle.resources
-│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, fs, store, os, opener, updater
+│   ├── capabilities/default.json         # permissions : shell(sidecar), dialog, store, os, opener, updater, fenêtre
 │   ├── icons/
 │   ├── src/
 │   │   ├── main.rs                       # entrée desktop, généré, jamais modifié
@@ -213,9 +214,9 @@ L'utilisateur choisit un dossier, typiquement la destination du use-case 1. Pour
 
 **Candidat comparé tel que techno-scraper le rend** (depuis sa normalisation des champs texte, son ADR-012 du 2026-09-30 ; décision côté tagger du 2026-10-02) : titre sans version ni invité, version dans `mix_name`, crédits déjà découpés, pour les trois sources. Le sidecar ne les redécoupe pas : seul un sous-titre que la gateway garde (« PATT (Party All The Time) ») est retiré du titre du candidat, comme il l'est de la requête, pour comparer les deux sous la même forme.
 
-**Nettoyage de la requête** avant envoi. Il s'applique à la **chaîne interrogée**, jamais aux tags du fichier : que la source soit les tags ID3 ou le nom de fichier, le bruit est le même. Le motif porte sur le **contenu, pas sur le délimiteur**, `[FREE DL]` et `(Free DL)` devant tomber ensemble. La liste de départ des motifs (mentions de téléchargement, marqueurs d'encodage, numéro de piste en tête du nom de fichier, groupes entre crochets ou parenthèses sans mention de version ni de collaboration, qui couvrent les labels) est fixée le 2026-09-19 dans le spec du sub-project 03 de la Feature 2 et s'ajustera au premier run réel.
+**Nettoyage de la requête** avant envoi. Il s'applique à la **chaîne interrogée**, jamais aux tags du fichier : que la source soit les tags ID3 ou le nom de fichier, le bruit est le même. Le motif porte sur le **contenu, pas sur le délimiteur**, `[FREE DL]` et `(Free DL)` devant tomber ensemble. La liste de départ des motifs (mentions de téléchargement, marqueurs d'encodage, numéro de piste en tête du nom de fichier, groupes entre crochets ou parenthèses sans mention de version ni de collaboration, qui couvrent les labels) est fixée le 2026-09-19 dans le spec du sub-project 03 de la Feature 2. Ajustée au premier run réel (2026-10-23) : un groupe entre parenthèses ne quitte que la chaîne envoyée à techno-scraper et reste dans le titre comparé comme version, « (CY's Cosmic Jorney) » ne portant aucun mot de version, sauf si le titre du candidat le porte aussi (sous-titre). Un groupe libre comme « (Drumcode) » envoie donc le morceau en zone grise plutôt que de laisser l'original valider seul ; un groupe entre crochets reste du bruit (label, genre) ; « (Original) » vaut « Original Mix ».
 
-> **Garde absolue** : un groupe n'est jamais retiré s'il contient une **mention de version** (`mix`, `remix`, `edit`, `version`, `dub`, `extended`, `radio`, étendue le 2026-09-19 à `rework`, `bootleg`, `vip`, `live`, `instrumental`, `acapella`, `reprise`, `re-edit`, `remaster`, puis le 2026-09-20 à `tool`, `loop`, `intro`, `outro` et aux formes suffixées en `-ed` et `-s` de ces mentions : les groupes sans mention étant retirés, une version absente de cette liste disparaîtrait de la requête) ou de **collaboration** (`feat.`, `ft.`, `featuring`, `with`, `pres.`, `vs.`). `(Adam Beyer Remix)` et `feat. Roisin Murphy` **identifient le morceau** : Beatport traite le featuring comme un artiste à part entière et supprimer une mention de version casserait la règle de scoring ci-dessus, qui écarte un candidat sans remix quand la requête en contient un. Cette garde contraint donc deux modules, pas seulement le nettoyage.
+> **Garde absolue** : un groupe n'est jamais retiré s'il contient une **mention de version** (`mix`, `remix`, `edit`, `version`, `dub`, `extended`, `radio`, étendue le 2026-09-19 à `rework`, `bootleg`, `vip`, `live`, `instrumental`, `acapella`, `reprise`, `re-edit`, `remaster`, le 2026-09-20 à `tool`, `loop`, `intro`, `outro` et aux formes suffixées en `-ed` et `-s` de ces mentions, puis le 2026-10-23 à `rmx`, qui compte aussi comme remix : un groupe sans mention étant retiré de la chaîne envoyée, une version absente de cette liste disparaîtrait de la recherche) ou de **collaboration** (`feat.`, `ft.`, `featuring`, `with`, `pres.`, `vs.`). `(Adam Beyer Remix)` et `feat. Roisin Murphy` **identifient le morceau** : Beatport traite le featuring comme un artiste à part entière et supprimer une mention de version casserait la règle de scoring ci-dessus, qui écarte un candidat sans remix quand la requête en contient un. Cette garde contraint donc deux modules, pas seulement le nettoyage.
 
 ### Use-case 3 : Arbitrage utilisateur
 
@@ -260,7 +261,7 @@ flowchart TD
     bpauto -->|"zone grise"| m1["MODALE temps 1<br/>candidats Beatport"]
     bp -->|"injoignable"| bcp["Bandcamp, sans validation automatique"]
     bcp -->|"candidats"| m3
-    bcp -->|"vide"| kon
+    bcp -->|"vide ou sous le plancher"| kos
     bcp -->|"en panne"| kos["unresolved<br/>failure_reason = source_unavailable"]
     bc -->|"en panne"| kos
     kos --> url
@@ -315,7 +316,7 @@ flowchart TD
 
 Trois états après interrogation d'une source : **auto** (un candidat au-dessus du seuil haut), **zone grise** (candidats plausibles, décision humaine), **vide** (zéro résultat ou tout sous le plancher). Zéro résultat, candidats sous le plancher et refus utilisateur convergent tous vers **un seul `state`**, `unresolved`, le paquet que la phase URL rattrape. Leur `failure_reason` continue de les distinguer dans le rapport, la correction à apporter n'étant pas la même selon le motif.
 
-**Beatport injoignable** : une fois les nouvelles tentatives du client épuisées, ou sur une réponse hors contrat, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en validation automatique. Si Bandcamp échoue aussi, le morceau part en `unresolved` / `source_unavailable` (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)).
+**Beatport injoignable** : une fois les nouvelles tentatives du client épuisées, ou sur une réponse hors contrat, Bandcamp est interrogé, mais tout ce qu'il trouve part en zone grise, jamais en validation automatique. Si Bandcamp échoue aussi, ou ne rend aucun candidat retenu (liste vide ou tout sous le plancher), le morceau part en `unresolved` / `source_unavailable`, rejoué à la reprise : Beatport n'ayant rien dit, `no_result` et `below_threshold` seraient des constats définitifs (cf. [ADR-009](adrs/009-enchainement-sources-et-arbitrage.md)).
 
 **Liste Bandcamp vide après un refus** : le morceau reste à arbitrer, la modale affichant la liste vide, jusqu'au geste « passer ». Il part alors en `unresolved` avec le motif de Bandcamp (`no_result`, `below_threshold` ou `source_unavailable`), jamais `user_refused` : la correction à apporter est celle de Bandcamp. Après un refus, Bandcamp ne valide jamais seul, l'utilisateur étant en train de décider.
 
@@ -373,6 +374,8 @@ Trois écrans et des stores à signals ne justifient pas la cérémonie d'un NgR
 
 PrimeNG v22 ne fournit **aucun mode router** sur `p-tabs` et `p-tabMenu` a été supprimé de la bibliothèque. L'onglet actif se dérive donc de l'URL et la navigation se déclenche au changement de valeur, soit une dizaine de lignes dans le shell (cf. [DESIGN.md § Mapping Composants](DESIGN.md#mapping-composants)).
 
+**La barre d'onglets est la barre de titre** (`decorations: false`) : logo et nom à gauche, Playlist et Tagging au centre, Réglages en engrenage, puis les badges (arbitrages, liens à coller, mise à jour) et les boutons de fenêtre (`WindowControlsComponent`) à droite. `data-tauri-drag-region` couvre ce qui n'est pas un contrôle. L'écran bloquant (sidecar absent ou en conflit de version) porte la même barre : sans elle, la fenêtre ne se déplacerait ni ne se fermerait.
+
 ### Capacités Natives
 
 Plugins Tauri v2 enregistrés dans `src-tauri/src/lib.rs`, permissions dans `src-tauri/capabilities/default.json` :
@@ -381,13 +384,13 @@ Plugins Tauri v2 enregistrés dans `src-tauri/src/lib.rs`, permissions dans `src
 |---|---|
 | `shell` | Lancement du sidecar via `Command.sidecar()`. Permission `shell:allow-spawn` et non `shell:allow-execute` : le sidecar est un process long démarré par `spawn()`, pas une exécution ponctuelle. La permission cible le chemin du sidecar avec `"sidecar": true`, aucune commande arbitraire n'est autorisée. `shell:allow-stdin-write` laisse passer les commandes NDJSON. |
 | `dialog` | Sélection des dossiers source, destination et du fichier de playlist |
-| `fs` | Restreint à `$APPLOCALDATA` (plans de run, cache, logs), en lecture et écriture récursives. La webview n'accède pas aux chemins de la bibliothèque musicale : le sidecar Python lit et écrit ces fichiers directement, hors du système de permissions Tauri |
+| `core` (fenêtre) | Barre de titre maison (`decorations: false`) : `core:window:allow-minimize`, `allow-toggle-maximize`, `allow-internal-toggle-maximize` (double-clic de la barre), `allow-start-dragging`, `allow-close` et `allow-destroy`. `close` repasse par la garde de sortie (`CloseGuard`), `destroy` ferme sans la repasser : la garde l'appelle après confirmation et l'écouteur de fermeture l'exige. `allow-start-dragging` et `allow-internal-toggle-maximize` sont absents de `core:default` : sans eux la barre ne déplace rien, sans erreur visible |
 | `store` | Préférences : mode copie / déplacement, signal sonore, dernière destination ; langue (`language`, `null` tant que rien n'est choisi) ; seuils (`thresholds` : l'écart aux défauts du sidecar, `null` sinon). L'URL de l'API n'y figure pas : c'est une constante du sidecar, seul à appeler techno-scraper (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)) |
 | `os` | Lecture de la locale système au premier lancement (`locale()`, format BCP-47) |
 | `opener` | Lien vers la fiche source du détail d'un morceau ; bouton « Ouvrir le dossier des logs » des Réglages : `revealItemInDir` sur le fichier de logs courant (`version.log_file`) ; bouton « Envoyer ce rapport » du récapitulatif : `openUrl` sur l'issue de retour et `revealItemInDir` sur son export, sans permission de plus. En Tauri v2, l'ouverture d'un chemin ou d'une URL a quitté `shell` pour ce plugin dédié ; la permission `shell` retenue ici étant `shell:allow-spawn` restreinte au sidecar, elle ne couvre ni l'un ni l'autre |
 | `single-instance` | Un second lancement donne le focus à la fenêtre existante. Deux fenêtres signifieraient deux sidecars écrivant le même plan de run (cf. § [Robustesse](#%EF%B8%8F-robustesse--modes-de-panne)) |
 | `updater` | Vérification du manifeste de la Release au démarrage, téléchargement et installation signés (`updater:default`). Clé publique dans `tauri.conf.json`, artefacts signés en CI seule, le build local passant `--no-sign` (cf. [PRODUCTION.md § Code Signing](PRODUCTION.md#code-signing)) |
-| `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe le rechargement (`F5`, `Ctrl+R`) et le menu contextuel en release : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié |
+| `prevent-default` | Plugin tiers, sans permission ni paquet npm. Coupe en release le rechargement (`F5`, `Ctrl+R`), le menu contextuel, l'ouverture d'un fichier (`Ctrl+O`) et l'affichage du source (`Ctrl+U`), ces deux derniers naviguant hors de l'application : un rechargement relancerait le sidecar sans arrêter le précédent, qui poursuivrait un run que l'interface a oublié. Le debug garde tout pour le live reload |
 
 Le **signal sonore marque la fin d'une phase longue** : la fin d'une extraction et la fin de la phase réseau d'un run, quand l'écran d'arbitrage prend la main, puis la fin d'une écriture et celle d'un rollback. Il part quel que soit l'onglet affiché, l'utilisateur qui regarde ailleurs étant celui qu'il doit prévenir. Jamais par arbitrage : un son par arbitrage serait une vingtaine de bips sur un run de 100 morceaux et la préférence serait coupée dès le premier usage. Le pipeline continuant de tourner pendant qu'une modale attend, rien n'oblige à arbitrer au fil de l'eau : tout se traite à la fin et c'est ce moment-là qu'il faut signaler.
 
@@ -396,7 +399,7 @@ Le **motif de renommage n'est pas une préférence** : il est fixé à `{artist}
 Deux réglages ne passent pas par un plugin :
 
 - **`app.security.assetProtocol`** dans `tauri.conf.json`, `enable: true` plus un `scope` restreint au dossier de cache. Sans lui, la webview ne peut pas afficher les pochettes lues sur le disque, que le sidecar ne transporte jamais en base64 dans le flux NDJSON (cf. [DESIGN.md § Mapping Composants](DESIGN.md#mapping-composants)).
-- **Le dimensionnement de la fenêtre**, dans `tauri.conf.json` : `width` / `height` à 1280 × 800, `minWidth` / `minHeight` à 1024 × 700, `resizable` laissé à `true`, donc agrandissement libre sans plafond. Le plancher vient du jeu de colonnes de la liste d'un run (cf. [DESIGN.md § Layout](DESIGN.md#-layout--espacement)). La taille **n'est pas mémorisée** entre deux lancements : `width` et `height` s'appliquent à chaque démarrage et un agrandissement est perdu à la fermeture. Le plugin `window-state` corrigerait ça, il n'est pas retenu au MVP.
+- **La fenêtre**, dans `tauri.conf.json` : `decorations: false` (la barre d'onglets fait barre de titre, cf. § Navigation), puis `width` / `height` à 1280 × 800, `minWidth` / `minHeight` à 1024 × 700, `resizable` laissé à `true`, donc agrandissement libre sans plafond. Le plancher vient du jeu de colonnes de la liste d'un run (cf. [DESIGN.md § Layout](DESIGN.md#-layout--espacement)). La taille **n'est pas mémorisée** entre deux lancements : `width` et `height` s'appliquent à chaque démarrage et un agrandissement est perdu à la fermeture. Le plugin `window-state` corrigerait ça, il n'est pas retenu au MVP.
 
 ### Structure du Code
 
@@ -406,13 +409,13 @@ Deux réglages ne passent pas par un plugin :
 |---|---|
 | `core/sidecar/` | `sidecar.service.ts` (flux NDJSON), `sidecar-transport.ts` (frontière Tauri, remplacée en test), `protocol.ts` (types miroir du contrat, maintenus à la main) |
 | `core/stores/` | Un store signal par domaine du contrat : `tagging-run`, `arbitration`, `url-recovery`, `write`, `resume`, `past-runs`. Le service sidecar les alimente, les écrans les lisent |
-| `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, onglets, mise à jour de l'application ; seuls accès aux plugins Tauri : `PreferencesService` (préférences du `store`), `NativeService` (dialogues, ouverture, révélation, URL d'asset) et `APP_UPDATER` (vérification et installation d'une mise à jour) |
+| `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, onglets, mise à jour de l'application ; seuls accès aux plugins Tauri : `PreferencesService` (préférences du `store`), `NativeService` (dialogues, ouverture, révélation, URL d'asset), `APP_UPDATER` (vérification et installation d'une mise à jour) et `APP_WINDOW` (réduire, agrandir, fermer, détruire, écouter la demande de fermeture et le redimensionnement) |
 | `core/i18n/` | Choix de langue et spec de cohérence des deux JSON de `public/i18n/` |
 | `core/observability/` | Masquage PII et options Sentry de la webview |
 | `features/playlist/` | Onglet 1 : dossiers, playlist, lignes d'extraction |
 | `features/tagging/` | Onglet 2, un dossier par vue : `run/` (page, liste, détail d'un morceau, restauration), `arbitration/`, `url-recovery/`, `recap/` |
 | `features/settings/` | Onglet 3 : menu des sections ; clé API, seuils de matching, langue, signal sonore, runs passés, restauration, cache (taille et vidage), logs |
-| `shared/components/` | `dialogs/` (en-tête, confirmations, reprise, mise à jour, échecs de rollback), `display/` (pochette, icône, étiquettes d'état et de source, texte tronqué, états vides), `feedback/` (messages), `inputs/` (sélecteur de chemin) |
+| `shared/components/` | `dialogs/` (en-tête, confirmations, reprise, mise à jour, échecs de rollback), `display/` (pochette, icône, étiquettes d'état et de source, texte tronqué, états vides), `feedback/` (messages), `inputs/` (sélecteur de chemin), `window/` (boutons de la barre de titre) |
 | `shared/utils/` | Fonctions et constantes d'affichage sans état |
 
 ### i18n
@@ -452,7 +455,8 @@ Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre
 | | `observability.py` | Init Sentry durci, scrubbing PII |
 | | `build_info.py` | Façade des constantes gravées au packaging |
 | | `api_key.py` | Clé API dans le trousseau, via keyring |
-| | `run_files.py` | Nom horodaté, écriture atomique, lecture versionnée et rétention des fichiers d'un run, partagés par dumps, plans, rapports et exports de feedback |
+| | `run_files.py` | Nom horodaté, écriture atomique (durable sur demande : `fsync` avant le remplacement), lecture versionnée et rétention des fichiers d'un run, partagés par dumps, plans, rapports et exports de feedback |
+| | `models.py` | `StrictFrozenModel` : base immuable et fermée (`extra="forbid"`) des modèles écrits sur le disque, dumps, plans, rapports et registre. Un champ inconnu signale un fichier d'une autre version ou corrompu |
 | | `tasks.py` | Annulation groupée de tâches asyncio, partagée par la session et les runs |
 | `playlists/` | `vlc.py`, `m3u8.py`, `models.py`, `errors.py` | Parsing VLC SQLite et M3U8, façade dans `__init__.py` |
 | | `extraction.py` | Copie ou déplacement des morceaux d'une playlist |
@@ -467,11 +471,13 @@ Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre
 | | `tagging.py` | Pipeline de résolution : lecture des identités, cascade Beatport puis Bandcamp |
 | | `arbitration.py` | Gestes d'arbitrage sur un run vivant |
 | | `url_recovery.py` | Rattrapage d'un morceau par URL |
+| | `gestures.py` | `InFlight` : un seul geste en vol par morceau, le second refusé et jamais mis en file, règle commune à l'arbitrage et au rattrapage |
 | | `writing.py` | Phase d'écriture d'un run : dump, tags, renommage, relance |
 | | `rollback.py` | Restauration d'un run ou d'un morceau depuis son dump |
 | | `plan.py` | Plan de run : modèle, enregistrement, relecture, purge |
 | | `resume.py` | Détection d'un run interrompu, reconstruction depuis son plan |
-| `reports/` | `extraction.py` | Rapport d'extraction, JSON et Markdown |
+| `reports/` | `common.py` | Socle partagé des rapports d'extraction et de re-tagging : erreurs, chemins horodatés, rendu Markdown, écriture atomique du couple JSON + Markdown |
+| | `extraction.py` | Rapport d'extraction, JSON et Markdown |
 | | `tagging.py` | Rapport de re-tagging d'un run, JSON et Markdown, relecture migrable |
 | | `index.py` | Registre des rapports écrits, pour rouvrir un run passé |
 | | `feedback.py` | Issue de retour de matching : URL de l'Issue Form, URL bornée à 2048 caractères, export nettoyé du run |
@@ -509,7 +515,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `rollback` | identifiant du run, `track_id` optionnel pour un seul morceau. En tâche de fond : nom d'origine puis tags d'origine, un nom d'origine pris par un autre fichier laissant le morceau intact (`name_taken`). Refusée en `phase_busy` dès qu'une phase longue tourne, phase réseau comprise, `rollback_unavailable` sans dump ou sur un morceau absent du dump. Un morceau dont le fichier est introuvable sous ses deux noms échoue en `file_missing` et quitte le dump, sauf si son dossier d'origine a disparu : l'entrée reste alors. Sur le run affiché, ce morceau repart en `track_resolved` à `restorable: false`, son `state` inchangé. Ni `cancel_run`, ni `shutdown`, ni l'EOF ne la coupent |
 | `list_runs` | aucune. Rend `runs_listed` : les runs passés relisibles, lus dans le registre `reports.json`, ce qui alimente l'état vide « aucun run passé » |
 | `load_run` | identifiant du run. Relit son rapport JSON, point d'entrée de la politique de migration de l'[ADR-018](adrs/018-versionnement-plan-de-run.md) et rend `run_loaded` sans rejouer quoi que ce soit. Tâche de fond en lecture seule : refusée en `phase_busy` pendant une phase longue, annulée à la fermeture de la session. Les pochettes sont retéléchargées par le cache puis le CDN, jamais par l'API. `run_not_found` sans rapport, `tagging_report_unreadable` sur un rapport illisible. Tout refus, `phase_busy` compris, porte `params.run_id` : deux chargements pouvant courir, c'est lui qui rattache l'erreur à son run |
-| `set_api_key` | administration depuis les Settings. Seul passage de la clé dans le protocole, sa réponse est l'événement `version`. Pas de `set_api_url` : l'URL est une constante du sidecar (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)). |
+| `set_api_key` | administration depuis les Settings. Seul passage de la clé dans le protocole, sa réponse est l'événement `version`. Le format est contrôlé, pas la validité (une clé révoquée arrête le run sur ses 403) : ASCII imprimable sans espace, 1280 caractères au plus, sinon `api_key_malformed`. Pas de `set_api_url` : l'URL est une constante du sidecar (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md)). |
 
 **Événements (sidecar → UI, NDJSON sur stdout)**
 
@@ -532,7 +538,7 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `cache_size` | `size_bytes` : taille du cache. Réponse à `get_cache_size` |
 | `cache_cleared` | `freed_bytes` : octets supprimés ; `size_bytes` : ce qui reste, un fichier verrouillé survivant au vidage. Réponse à `clear_cache` |
 | `feedback_ready` | `run_id`, `url` : l'Issue Form pré-remplie, que l'interface ouvre dans le navigateur ; `export_path` : l'export nettoyé du run, que l'interface révèle dans l'Explorateur. Réponse à `prepare_feedback` |
-| `error` | `code`, `params`, `message` technique, `command` ayant échoué, morceau concerné le cas échéant. Toute erreur d'un geste sur un morceau (`resolve_arbitration`, `resolve_by_url`) porte `params.track_id`, y compris une erreur du client, pour que l'interface la place sur la bonne ligne |
+| `error` | `code`, `params`, `message` technique, `command` ayant échoué. Toute erreur d'un geste sur un morceau (`resolve_arbitration`, `resolve_by_url`) porte `params.track_id`, y compris une erreur du client, pour que l'interface la place sur la bonne ligne |
 
 **`error` nomme la commande qui a échoué, l'interface ne la déduit pas.** Un écran n'affiche que les erreurs des commandes qu'il émet, sans quoi l'échec d'un enregistrement de clé s'afficherait en bannière sur l'onglet Playlist ouvert ensuite. Tant que la boucle traitait une commande à la fois, l'interface pouvait retenir la dernière envoyée et lui attribuer l'erreur suivante. `start_tagging` rendant la main aussitôt (§ [Concurrence](#concurrence)), cette déduction est fausse : une commande courte émise pendant un run récupérerait l'échec du run et le run l'échec de la commande courte. D'où le champ, que le sidecar remplit dans ses deux chemins d'émission. Il vaut `null` sur une ligne trop malformée pour désigner une commande du contrat, son nom éventuel restant dans les `params`.
 
@@ -560,7 +566,7 @@ Deux axes de phase, deux enums : `Phase` (`extraction`, `tagging`, `url_recovery
 
 **`source_unavailable` couvre tout ce qui empêche la source de répondre** : 504 après le budget de l'API, timeout client, coupure réseau. Le distinguer de `no_result` n'est pas cosmétique, c'est la différence entre « la source ne connaît pas ce morceau » et « la source n'a pas répondu » : le premier est définitif, le second se rejoue tel quel sur un run suivant. Un 504 n'est pas retryé dans le run, il signale une file saturée ([ADR-017](adrs/017-taille-pool-concurrence.md)) et le morceau part en erreur.
 
-**Un incident qui concerne un morceau ne produit jamais les deux événements.** Il sort en `track_resolved`, avec son `state` et son `failure_reason` : c'est ce que consomment la liste et les filtres du récapitulatif. L'événement `error` est réservé à ce qui ne se rattache à aucun morceau, comme une clé invalide, un dump VLC illisible ou un sidecar en perdition. Son champ « morceau concerné » ne sert qu'à situer un incident technique dans les logs, jamais à porter l'état d'un morceau. Sans cette règle, un fichier verrouillé arriverait à l'interface par deux chemins et serait compté deux fois.
+**Un incident qui concerne un morceau ne produit jamais les deux événements.** Il sort en `track_resolved`, avec son `state` et son `failure_reason` : c'est ce que consomment la liste et les filtres du récapitulatif. L'événement `error` est réservé à ce qui ne se rattache à aucun morceau, comme une clé invalide, un dump VLC illisible ou un sidecar en perdition. Son `params.track_id` ne sert qu'à situer l'échec d'un geste sur sa ligne, jamais à porter l'état d'un morceau. Sans cette règle, un fichier verrouillé arriverait à l'interface par deux chemins et serait compté deux fois.
 
 Trois conséquences. **Aucun état « en attente » ni « en cours » ne circule sur le flux** : le sidecar n'émet `track_resolved` qu'une fois le morceau tranché et l'interface affiche par défaut « en attente » tout ce qu'elle n'a pas encore reçu. Un événement `track_started` doublerait le trafic pour un signal que la barre de progression donne déjà. **Après `commit_run`, `state` passe à `written` ou `write_error`**, la voie de résolution restant lisible dans `resolution`. Et **un cas d'échec nouveau s'ajoute dans `failure_reason`**, sans jamais créer une valeur d'état de plus.
 
@@ -643,7 +649,7 @@ Pool **asyncio** borné, client **httpx2** (cf. [ADR-007](adrs/007-client-http-h
 
 La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en mémoire exposée à l'interface par les événements NDJSON. Aucun courtier de messages, tout vit dans un seul process. Les gestes d'arbitrage avancent en parallèle d'un morceau à l'autre et partagent les sémaphores du client avec le pipeline. Un seul geste est en vol par morceau : le second est refusé en `arbitration_busy`, jamais mis en file, sans quoi les clics rapides de la modale lanceraient deux appels Bandcamp. Un geste sur une liste qui n'est plus affichée est refusé en `arbitration_candidate_unknown` : un double clic arrivé après la bascule refuserait sinon Bandcamp.
 
-**Le rattrapage par URL vit dans le même run vivant.** Ses gestes partagent les sémaphores du client et la garde des 403 du run avec le pipeline et l'arbitrage. Un seul geste est en vol par morceau : le second est refusé en `url_recovery_busy`, par le même principe que `arbitration_busy`.
+**Le rattrapage par URL vit dans le même run vivant.** Ses gestes partagent les sémaphores du client et la garde des 403 du run avec le pipeline et l'arbitrage. Un seul geste est en vol par morceau : le second est refusé en `url_recovery_busy`, par la même garde (`InFlight`) que `arbitration_busy`.
 
 **Le run courant survit à sa phase réseau.** `start_tagging` ouvre un run dont le client et le fetcher de pochettes restent ouverts après `run_finished` comme après `cancel_run`, le temps des arbitrages. Ils ne se ferment qu'au run suivant, au `shutdown` ou à l'EOF, qui annulent aussi les gestes en vol. Un choix ou un refus attend le réseau, un refetch ou un appel Bandcamp : il part en tâche de fond comme les phases longues, pour la même raison. `switch_arbitration_source` n'attend rien et s'exécute dans la boucle.
 
@@ -651,7 +657,7 @@ La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en 
 
 - **AuthN / AuthZ** : sans objet, application locale mono-utilisateur. Aucun compte, aucun rôle, aucun port en écoute.
 - **Authentification sortante** : header `X-API-Key` vers techno-scraper, une clé par utilisateur, saisie dans les Settings et stockée via **keyring** dans le Credential Manager Windows (cf. [ADR-012](adrs/012-securite-cle-api-keyring.md))
-- **Durcissement** : le plugin `shell` de Tauri n'autorise que le lancement du sidecar déclaré, pas de commande arbitraire. Le périmètre `fs` est restreint à `$APPLOCALDATA` ; les fichiers musicaux sont lus et écrits par le sidecar Python, jamais par la webview.
+- **Durcissement** : le plugin `shell` de Tauri n'autorise que le lancement du sidecar déclaré, pas de commande arbitraire. La webview n'a aucun accès au système de fichiers (aucun plugin `fs`) : les fichiers musicaux et les artefacts de run (plans, cache, dumps, rapports, logs) sont lus et écrits par le sidecar Python seul, la webview ne lisant que les pochettes du cache par l'asset protocol.
 - **Validation** : toute commande reçue sur `stdin` est validée contre son modèle Pydantic avant exécution, `extra="forbid"` rejetant tout champ non déclaré ; une commande malformée produit un événement `error`, jamais un effet de bord partiel.
 - **Requête sortante vers une adresse libre** : `release.artwork_url` est la seule valeur du contrat qui en déclenche une et le CDN de la source n'est documenté nulle part, donc aucune liste blanche de domaines. Le garde juge l'hôte sur ce qu'il résout et non sur sa forme (`https` obligatoire, toute adresse non globale refusée), puis **relit l'adresse réellement connectée** : le client HTTP refaisant sa propre résolution, un DNS qui en rend une autre entre les deux ferait sinon sonder la machine ou le réseau de l'utilisateur et les motifs d'échec suffiraient à dire ce qui y répond. Tous ces cas rendent un `blocked_url` unique. Reste hors de portée la connexion TCP elle-même, qu'exclure demanderait d'épingler l'adresse validée jusque dans le transport.
 
@@ -675,7 +681,7 @@ La file d'arbitrage vit dans le run vivant (`LiveRun`), une simple structure en 
 | Rapport d'extraction, JSON + Markdown | Dossier destination | Permanente, livrable | Titres introuvables, doublons résolus et candidats écartés |
 | Rapport de run, JSON + Markdown (`tagging-report-<horodatage>`) | Dossier du run, celui de `start_tagging` et non le dossier destination | Permanente, livrable. Réécrit sous les mêmes noms à la fin de chaque relance de l'écriture, jamais après un rollback | Traçabilité, relecture par l'app, envoi de feedback |
 | Registre des rapports | `appLocalDataDir()/reports.json` | Permanente, une entrée par run écrit, rapports disparus écartés à la lecture | Liste des runs passés |
-| Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé**. Un morceau en sort une fois restauré, ou quand son fichier est introuvable sous ses deux noms tant que son dossier d'origine existe : si le dossier a disparu (disque externe débranché, lettre de lecteur changée), l'entrée reste, pour ne pas perdre les tags d'origine. Le dump porte le dossier du run (`folder`), que le rollback annonce tel quel plutôt que de le déduire des chemins. Depuis le 2026-10-11, une note de renommage s'écrit au journal voisin (ligne suivante) et une note qui ne s'y écrit pas refuse le renommage : le morceau passe en `write_error` (tags écrits, relance possible), car un fichier renommé sans note serait introuvable au rollback. Une note restée derrière un renommage raté est effacée par une note nulle, son nom n'étant pas occupé : sans cela, le rollback rendrait le fichier d'un autre morceau. Un dump vidé est supprimé : le dernier run annulable devient le précédent | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
+| Dump des tags d'origine | `appLocalDataDir()/dumps`, un JSON par run nommé par son horodatage et son `run_id` | **30 jours, y compris pour un run terminé**. Un morceau en sort une fois restauré, ou quand son fichier est introuvable sous ses deux noms tant que son dossier d'origine existe : si le dossier a disparu (disque externe débranché, lettre de lecteur changée), l'entrée reste, pour ne pas perdre les tags d'origine. Le dump porte le dossier du run (`folder`), que le rollback annonce tel quel plutôt que de le déduire des chemins. Depuis le 2026-10-11, une note de renommage s'écrit au journal voisin (ligne suivante) et une note qui ne s'y écrit pas refuse le renommage : le morceau passe en `write_error` (tags écrits, relance possible), car un fichier renommé sans note serait introuvable au rollback. Une note restée derrière un renommage raté est effacée par une note nulle, son nom n'étant pas occupé : sans cela, le rollback rendrait le fichier d'un autre morceau. Un dump vidé est supprimé : le dernier run annulable devient le précédent. Écriture atomique, temporaire forcé sur le disque (`fsync`) avant le remplacement : une coupure, même après le retour de l'écriture, ne laisse jamais un dump tronqué | Rollback par run ou par morceau : champs de la table seuls, ni images ni commentaires |
 | Journal des renommages du dump | `appLocalDataDir()/dumps`, voisin de son dump, `<dump>.renames.ndjson` | Le temps d'une phase d'écriture : supprimé quand le dump est réécrit en fin de phase ou vidé, purgé avec la rétention du dump sinon, **y compris orphelin** | Une ligne par renommage, ajoutée puis forcée sur le disque (`flush` et `fsync`) avant que le fichier ne bouge, fusionnée au dump à chaque chargement. Évite la réécriture complète du dump à chaque morceau, quadratique, sans perdre la garantie « note avant déplacement ». Une dernière ligne tronquée par une coupure est ignorée : elle n'a jamais précédé un renommage |
 | Export de feedback | `appLocalDataDir()/feedback`, un JSON par envoi nommé `<horodatage>-<run_id>.json` | 30 jours, purgé au démarrage, temporaire d'une écriture coupée compris | Run nettoyé (ni dossier ni `run_id` dans le contenu), joint à l'issue de retour par l'utilisateur. Jamais relu par l'application |
 | Logs du sidecar | `appLocalDataDir()/logs` | Rotation à 5 Mo, 3 sauvegardes | Débogage à distance chez un utilisateur |
@@ -816,8 +822,8 @@ Aucun. L'application tourne intégralement sur la machine de l'utilisateur. La s
 
 | Déclencheur | Étapes |
 |---|---|
-| Push, pull request | Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `just build-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/` |
-| Merge de la PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows, copie du binaire en `src-tauri/binaries/` avec le suffixe target-triple, `tauri build`, signature de l'updater, publication de la Release |
+| Push sur `main`, pull request vers `main` ou `develop` | Ruff + Mypy strict + pytest sur `sidecar/`, lint + actionlint + typecheck + build Angular + Vitest sur `src/`, `just build-sidecar` puis `just smoke-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/`. L'audit des dépendances ne bloque pas |
+| Merge de la PR release-please | Tag `vX.Y.Z` et Release en brouillon, puis **dans le même workflow** : releases Sentry, build PyInstaller Windows, copie du binaire en `src-tauri/binaries/` avec le suffixe target-triple, `just smoke-sidecar`, `tauri build`, signature de l'updater, contrôle des artefacts de l'updater, publication de la Release |
 
 > ⚠️ **Le build est chaîné en `needs:` au job release-please, jamais posé sur `on: push: tags`.** Un tag créé par release-please via `GITHUB_TOKEN` ne déclenche aucun workflow : un fichier séparé sur le tag ne partirait jamais, sans la moindre erreur, laissant une Release vide qu'aucun updater ne verrait. Mécanisme et alternative : [PRODUCTION.md](PRODUCTION.md#pipelines).
 
@@ -832,7 +838,8 @@ graph LR
     rp --> tag["Tag v*"]
     tag --> sr["Releases Sentry<br/>techno-tagger-ui et techno-tagger-sidecar"]
     tag --> pyi["PyInstaller<br/>tagger-x86_64-pc-windows-msvc.exe"]
-    pyi --> tb["tauri build<br/>installeur Windows"]
+    pyi --> smoke["Smoke test<br/>get_version sur le binaire figé"]
+    smoke --> tb["tauri build<br/>installeur Windows"]
     tb --> sig["Signature du bundle<br/>TAURI_SIGNING_PRIVATE_KEY"]
     sig --> rel["GitHub Release<br/>installeur + latest.json"]
     rel --> upd["Updater : vérification au démarrage (étape 9)"]
@@ -862,6 +869,7 @@ Secrets GitHub Actions, injectés au build, jamais commités :
 | `TAURI_SIGNING_PRIVATE_KEY` | Signature des bundles de l'updater | **Plus aucune mise à jour possible sur les installations existantes.** À sauvegarder hors de GitHub. |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Mot de passe de la clé ci-dessus | Idem |
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Remontée d'erreurs, un projet Sentry par langage (cf. [PRODUCTION.md](PRODUCTION.md#stack-monitoring)) | Régénérables |
+| `SENTRY_AUTH_TOKEN` | Création des releases Sentry et upload des source maps de la webview | Régénérable. Sans lui, les stacks de la webview arrivent minifiées |
 | `PRIMENG_LICENSE_KEY` | `providePrimeNG({ license })` | Renouvellement gratuit annuel, bandeau de licence chez les utilisateurs si oublié |
 
 La clé publique de l'updater est compilée dans `tauri.conf.json`, la clé privée ne quitte jamais les secrets GitHub.
@@ -888,7 +896,7 @@ Une clé par utilisateur, saisie dans les Settings, jamais compilée dans le bin
 ### Protection Données
 
 - **Au repos** : clé API chiffrée par le Credential Manager Windows via keyring. Les autres artefacts (plans, cache, rapports) sont en clair, ils ne contiennent que des métadonnées musicales déjà présentes dans les fichiers.
-- **En transit** : HTTPS uniquement, vers trois destinations et pas une de plus : techno-scraper, Sentry et GitHub pour le manifeste de l'updater et le téléchargement des mises à jour.
+- **En transit** : HTTPS uniquement, vers quatre destinations et pas une de plus : techno-scraper, le CDN des pochettes de la source (téléchargées par le sidecar, cf. § Sécurité Backend), Sentry et GitHub pour le manifeste de l'updater et le téléchargement des mises à jour.
 - **Rotation** : la clé API est remplaçable depuis les Settings, la clé de signature de l'updater n'est pas rotative sans casser les installations existantes.
 
 > **Ce qui sort de la machine.** Outil personnel partagé entre amis, sans commercialisation : le cadre réglementaire ne s'applique pas ici et les règles ci-dessous sont des choix produit, pas des obligations. Elles coûtent trois lignes de configuration et évitent d'envoyer chez un tiers ce qui appartient à quelqu'un d'autre.
@@ -945,6 +953,10 @@ Deux fenêtres ouvertes signifieraient deux sidecars écrivant le même plan de 
 
 Une bibliothèque profonde plus un renommage en `{artist} - {title}` franchissent facilement la limite de 260 caractères de l'API Win32. La clé `LongPathsEnabled` est désactivée par défaut chez l'utilisateur et l'application ne peut pas l'activer à sa place, même manifestée (`longPathAware` de PyInstaller). Le sidecar **préfixe donc ses chemins Windows par `\\?\`** à la frontière d'I/O de `files.py` (ouverture des tags en lecture et en écriture), à l'appel système du renommage et aux contrôles du rollback (`paths.extended_path`) ; l'extraction ne passe pas par lui. Le préfixe ne vaut que pour le sidecar, les logiciels non adaptés aux chemins longs butant à 260 caractères : le nom généré est tronqué en fin de titre pour que le chemin complet reste à 259 caractères au plus. La troncature est signalée dans le rapport. Quand l'extension et le marqueur de collision (` (2)`) ne laissent aucune place au nom, le renommage est refusé en `path_too_long` : un nom hors limite ne se fabrique pas, le morceau passe en `write_error` et se rattrape comme les autres.
 
+### Nom de fichier sans équivalent UTF-8
+
+NTFS admet un nom portant un surrogate isolé, que le flux NDJSON ne sait pas émettre (UTF-8 strict) : l'événement qui le porterait ferait tomber le sidecar, à chaque lancement sur ce dossier. Le fichier est écarté avec un warning sans son nom (`reason=name_not_utf8`), à l'indexation du dossier source de l'extraction comme à la liste des fichiers audio d'un run. Il reste intact sur le disque et n'entre pas dans le run.
+
 ## 📊 Observabilité
 
 ### Logs
@@ -959,7 +971,7 @@ Un bouton « Ouvrir le dossier des logs » dans les Réglages permet de récupé
 
 ### Monitoring
 
-Erreurs techniques uniquement, des deux côtés : sidecar qui tombe, API injoignable, parsing cassé.
+Erreurs techniques uniquement, des deux côtés : sidecar qui tombe, parsing cassé. Une API injoignable n'est pas remontée : `SourceUnavailableError` n'est pas capturée et la `LoggingIntegration` est fermée, une rafale de 504 viderait le quota. Elle se lit dans le log local (`WARNING` `source unavailable`) et dans le rapport de run (`source_unavailable`). Un sidecar qui ne démarre pas n'initialise pas Sentry : l'écran bloquant de l'application (« moteur introuvable ») est le seul signal.
 
 Aucun événement métier n'est envoyé. Le plan gratuit plafonne à 5 000 erreurs par mois et **jette silencieusement les suivantes** : noyer les crashs sous de la télémétrie ferait perdre le vrai bug quand il arrive.
 
@@ -969,9 +981,9 @@ Le seul geste explicite est le bouton « envoyer ce rapport » de l'écran final
 
 ### Alerts
 
-Notifications Sentry par courriel sur nouvelle issue, sans règle plus fine. Un projet à quelques utilisateurs n'a pas de volume justifiant une astreinte.
+Notifications Sentry par courriel sur nouvelle issue, sans règle plus fine, donc ni crash du sidecar au démarrage ni API injoignable (cf. § Monitoring). Un projet à quelques utilisateurs n'a pas de volume justifiant une astreinte.
 
-Le canal d'amélioration du matching n'est pas Sentry mais ce bouton, qui ne consomme pas le quota. **L'application ne pousse rien elle-même** : le plugin `opener` ouvre le navigateur, l'utilisateur relit, ampute ou abandonne l'issue avant de valider. La règle « HTTPS vers techno-scraper, Sentry et GitHub uniquement » reste donc vraie. Le bouton ouvre l'Issue Form `matching-report.yml`, qui pose le label `matching-report`, pré-remplie d'un résumé qui tient dans une URL de 2048 caractères ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). L'export nettoyé du run, écrit dans `appLocalDataDir()/feedback/`, se glisse dans l'issue ; il est purgé au démarrage 30 jours après la date du run, portée par le nom de l'export.
+Le canal d'amélioration du matching n'est pas Sentry mais ce bouton, qui ne consomme pas le quota. **L'application ne pousse rien elle-même** : le plugin `opener` ouvre le navigateur, l'utilisateur relit, ampute ou abandonne l'issue avant de valider. La liste des destinations HTTPS (§ Protection Données) reste donc vraie. Le bouton ouvre l'Issue Form `matching-report.yml`, qui pose le label `matching-report`, pré-remplie d'un résumé qui tient dans une URL de 2048 caractères ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)). L'export nettoyé du run, écrit dans `appLocalDataDir()/feedback/`, se glisse dans l'issue ; il est purgé au démarrage 30 jours après la date du run, portée par le nom de l'export.
 
 ## 🧪 Tests
 
@@ -983,6 +995,7 @@ Le métier vit dans le sidecar, l'effort de test y est concentré.
 |---|---|
 | Unitaires (sidecar) | Parsing VLC SQLite et M3U8, nettoyage des requêtes **et ses gardes** (groupes de version et de featuring préservés, repli quand le nettoyage vide tout), scoring rapidfuzz et classement en trois états, correspondances ID3 et Vorbis, règles de non-écrasement sur `null`, éviction LRU du cache |
 | Intégration (sidecar) | Protocole NDJSON de bout en bout par injection de commandes sur `stdin`, plan de run et reprise après interruption, dump et rollback des tags, client techno-scraper mocké par le `MockTransport` natif d'httpx2, `respx` et `pytest-httpx` ne le supportant pas (cf. [ADR-007](adrs/007-client-http-httpx2.md)) |
+| Binaire figé | `just smoke-sidecar` lance le binaire PyInstaller et exige la réponse à `get_version`, à la version du `package.json`. Seul test d'un import dynamique absent du `.spec`, que `tauri dev` (sources Python) ne voit jamais. En CI (job Tauri) et avant `tauri build` à la release |
 | Unitaires (UI) | Services : parsing du flux d'événements, file d'arbitrage, transitions d'état du run. Et les **règles métier portées par un composant**, testées à travers son rendu : la modale n'affiche que les candidats en zone grise, la liste Bandcamp remplace celle de Beatport après refus, le compteur d'arbitrages en attente, l'état par ligne de la liste. |
 | Performance | Sans objet au MVP. La mesure du pool de concurrence est un travail de calibrage, pas un test de non-régression. |
 | Sécurité | Vérification que la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry |
@@ -1068,7 +1081,7 @@ Vérifications restantes, sans enjeu architectural et donc sans ADR.
 
 | Sujet | À résoudre | Quand |
 |---|---|---|
-| Tags WAV | Ce que les lecteurs DJ relisent réellement d'un chunk ID3v2 dans un WAV. Informatif, sert à formuler l'avertissement du rapport ; ne conditionne pas l'implémentation (cf. [ADR-011](adrs/011-politique-ecriture-tags.md)). | Étape 1 |
+| Tags WAV | Ce que les lecteurs DJ relisent réellement d'un chunk ID3v2 dans un WAV. Informatif, sert à formuler l'avertissement du rapport ; ne conditionne pas l'implémentation (cf. [ADR-011](adrs/011-politique-ecriture-tags.md)). Relevé le 2026-10-23 pour Rekordbox : chunk ignoré, seul le RIFF INFO est lu ([knowledges/rekordbox.md](knowledges/rekordbox.md)) ; Traktor et Serato non relevés. | Étape 1 |
 | Sélection des modèles LLM | Comment proposer une liste à jour sans la coder en dur ni la maintenir à chaque sortie de modèle. | Post-MVP |
 | Maturité de PyInstaller sur macOS | À vérifier le jour où la cible macOS revient au programme. | Post-MVP |
 
@@ -1086,17 +1099,19 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 | 6 | Onglet scraping, pipeline et liste | Le cœur |
 | 7 | Arbitrage, URL manuelle, écriture **avec son dump des tags d'origine**, bouton de rollback, plan de run et reprise, rapport, récapitulatif et runs passés | S'appuient tous sur le pipeline. Le dump n'est pas dissociable de l'écriture : sans lui, les premiers essais réels se feraient sans filet. |
 | 8 | Reste des Settings, monitoring | Transversaux, une fois le flux principal stable. Monitoring livré avec la Release v0.9.0 (2026-10-19). |
-| 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers |
+| 9 | **Chaîne de release** : build au tag, signature de l'updater, installeur, publication | Avant la première distribution à un tiers. Livrée par la Feature 8 (recette du 2026-10-21). |
 
 ---
 
 # 🚀 Évolutions Futures (Post-MVP)
 
+- **Compatibilité des tags avec les logiciels DJ** : RIFF `LIST/INFO` pour les WAV (Rekordbox ignore leur chunk ID3), remixeur FLAC, nom du mix et date de sortie. Cf. [knowledges/rekordbox.md](knowledges/rekordbox.md)
 - **Édition manuelle des tags** : formulaire de correction champ par champ quand aucune source ne convient et qu'aucune URL n'existe
 - **Tests bout-en-bout** : WebdriverIO + `tauri-driver` sur l'application empaquetée, avant l'agent IA qui modifie la chaîne de décision
 - **Agent IA d'arbitrage (PydanticAI)** : en renfort du fuzzy et non à sa place, sur la zone grise (tranche avant d'ouvrir la modale) et sur les non résolus (reformule la requête et relance). Mode activable, désactivé par défaut, clé du fournisseur saisie par l'utilisateur. Cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md).
 - **macOS et Linux** : macOS coûte un runner CI facturé x10 sur dépôt privé, un second build PyInstaller et surtout la notarisation. Sans Apple Developer Program à 99 $/an, Gatekeeper bloque au premier lancement et le contournement par Contrôle-clic ne suffit plus depuis macOS Sequoia. Linux est indolore par comparaison. Cf. [ADR-015](adrs/015-cibles-distribution-windows.md).
 - **Formats de playlist supplémentaires** : TXT Rekordbox (clés de colonnes configurables, l'export dépendant de la langue) et XML de collection
+- **Réduire les faux positifs antivirus** : le sidecar PyInstaller non signé est le mode de panne le plus probable chez un utilisateur, mis en quarantaine il laisse l'application sur son écran bloquant
 - **Canal beta** : pré-release GitHub sur un manifeste updater distinct, pour tester une mise à jour avant de la pousser
 
 ---

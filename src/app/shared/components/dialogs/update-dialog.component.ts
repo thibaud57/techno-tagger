@@ -1,4 +1,4 @@
-import { Component, computed, inject } from "@angular/core"
+import { Component, ElementRef, computed, inject, viewChild } from "@angular/core"
 import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Dialog } from "primeng/dialog"
@@ -15,7 +15,10 @@ import { IconComponent } from "../display/icon.component"
 import { PhaseProgressComponent } from "../display/phase-progress.component"
 import { MessageComponent } from "../feedback/message.component"
 
-/** Gabarit de l'invite de reprise, mais fermable vers le badge (DESIGN.md § Arbitrages). */
+/**
+ * Gabarit de l'invite de reprise, fermable vers le badge (DESIGN.md § Overlays). Pas de bouton
+ * focalise a l'ouverture, comme elle : le focus va au corps de la modale.
+ */
 @Component({
   selector: "app-update-dialog",
   imports: [
@@ -41,36 +44,41 @@ import { MessageComponent } from "../feedback/message.component"
         [focusOnShow]="false"
         styleClass="w-120"
         [closeAriaLabel]="'update.later' | translate"
+        (onShow)="focusBody()"
       >
-        <ng-template #header>
-          <h3 class="m-0 text-lg font-semibold">{{ "update.title" | translate }}</h3>
+        <ng-template #header let-ariaLabelledBy="ariaLabelledBy">
+          <h3 class="text-lg font-semibold" [id]="ariaLabelledBy">
+            {{ "update.title" | translate }}
+          </h3>
         </ng-template>
 
         @switch (state().kind) {
           @case ("downloading") {
-            <div class="flex flex-col gap-4" [animate.enter]="fadeIn">
+            <div #body tabindex="-1" class="flex flex-col gap-4" [animate.enter]="fadeIn">
               <app-phase-progress
                 [label]="'update.downloading' | translate"
                 [counter]="counter()"
                 [value]="percent()"
               />
-              <p class="m-0 text-sm text-muted-color">{{ "update.closing" | translate }}</p>
+              <p class="text-sm text-muted-color">{{ "update.closing" | translate }}</p>
             </div>
           }
           @case ("failed") {
-            <app-message severity="error" [animate.enter]="fadeIn">{{
+            <app-message #body tabindex="-1" severity="error" [animate.enter]="fadeIn">{{
               "update.failed" | translate
             }}</app-message>
           }
           @default {
             <div
+              #body
+              tabindex="-1"
               class="flex flex-col gap-2 text-sm whitespace-pre-line text-muted-color"
               [animate.enter]="fadeIn"
             >
               @if (installFailed()) {
                 <app-message severity="warn">{{ "update.installFailed" | translate }}</app-message>
               }
-              <p class="m-0">
+              <p>
                 {{
                   "update.available"
                     | translate: { version: offered.version, current: offered.currentVersion }
@@ -81,7 +89,7 @@ import { MessageComponent } from "../feedback/message.component"
                   pButton
                   type="button"
                   [link]="true"
-                  class="self-start border-0 p-0 text-xs"
+                  class="self-start"
                   data-action="notes"
                   (click)="openNotes(releasePage)"
                 >
@@ -136,6 +144,9 @@ export class UpdateDialogComponent {
   protected readonly downloading = this.service.downloading
   protected readonly tooltip = TOOLTIP
   protected readonly fadeIn = FADE_IN
+  private readonly dialog = viewChild(Dialog)
+  // `read: ElementRef` : `#body` tombe sur un composant (`app-message`) dans l'etat echec.
+  private readonly body = viewChild("body", { read: ElementRef })
 
   protected readonly installFailed = this.service.installFailed
   protected readonly failed = computed(() => this.state().kind === "failed")
@@ -170,8 +181,24 @@ export class UpdateDialogComponent {
   })
 
   protected onVisibleChange(visible: boolean): void {
-    if (!visible) {
-      this.service.dismiss()
+    if (visible) {
+      return
+    }
+    if (this.downloading()) {
+      // PrimeNG ne lit `closable` et `closeOnEscape` qu'a l'ouverture : Echap ferme la modale en
+      // interne sans que `dialogVisible` le sache. Elle disparaitrait en plein telechargement,
+      // progression et echec avec elle, et `dismiss()` masquerait ensuite le badge.
+      this.dialog()?.visible.set(true)
+
+      return
+    }
+    this.service.dismiss()
+  }
+
+  protected focusBody(): void {
+    const element: unknown = this.body()?.nativeElement
+    if (element instanceof HTMLElement) {
+      element.focus()
     }
   }
 

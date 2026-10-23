@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 import pytest
+from audio_samples import write_blank_mp3
 from mutagen.id3 import COMM, ID3, TBPM
 from ndjson_loop import drive, line, rows, start_tagging, sub
 from scraper_responses import BASIEL, YOUR_MIND, failing, found, track_payload
@@ -15,6 +16,7 @@ from tagging_api import (
     knows_your_mind,
     three_tracks,
 )
+from unencodable_names import UNENCODABLE_NAME
 
 from tagger.tags.files import TAG_FIELDS
 
@@ -66,6 +68,23 @@ def test_emits_the_whole_sequence_of_a_tagging_run(
         "report_path": None,
     }
     assert events[-1] == {"event": "progress", "phase": "url_recovery", "processed": 0, "total": 1}
+
+
+@pytest.mark.usefixtures("_key")
+def test_starts_a_run_without_the_files_whose_name_utf8_cannot_encode(
+    run_folder: Path, api_knowing_your_mind: FakeApi
+) -> None:
+    """Regression : un tel nom faisait lever l'emission de `run_started`, sidecar mort."""
+    write_blank_mp3(run_folder / UNENCODABLE_NAME)
+
+    events = drive(start_tagging(run_folder))
+
+    assert [track["track_id"] for track in rows(events[0], "tracks")] == [
+        FIRST_TRACK,
+        SECOND_TRACK,
+        "c.mp3",
+    ]
+    assert events[-2]["event"] == "run_finished"
 
 
 @pytest.mark.usefixtures("_key")

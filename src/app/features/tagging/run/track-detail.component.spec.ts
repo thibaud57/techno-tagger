@@ -36,7 +36,7 @@ const WITH_SOURCE: TaggingTrack = {
   tagsAfter: [...TAGS_AFTER, { field: "url", key: "WOAS", value: SOURCE_URL }],
 }
 
-/** La liste construit la ligne ; le détail ne lit d'elle que le morceau et l'état de sa pochette. */
+/** La liste construit la ligne ; le détail ne lit d'elle que le morceau, sa pochette et sa restauration. */
 const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
   ...track,
   mainLine: "",
@@ -143,7 +143,7 @@ describe("TrackDetailComponent", () => {
   it("adds a comment row when the file carries one", () => {
     const root = mount({ ...RESOLVED, tagsBefore: TAGS_BEFORE })
 
-    expect(rowsOf(root).at(-1)).toEqual(["tagging.detail.field.comment", "", "Ripped by X", "—"])
+    expect(rowsOf(root).at(-1)).toEqual(["tagging.detail.field.comment", "Ripped by X", "—"])
   })
 
   it("adds no comment row when the file carries none", () => {
@@ -189,7 +189,7 @@ describe("TrackDetailComponent", () => {
   })
 
   it("offers the restore on a restorable track", () => {
-    const root = mount(RESOLVED, { restorable: true })
+    const root = mount(RESOLVED, {}, { restorable: true })
 
     expect(action("restore-track", root)).not.toBeNull()
   })
@@ -201,7 +201,7 @@ describe("TrackDetailComponent", () => {
   })
 
   it("asks to restore its track on click", () => {
-    const fixture = mountFixture(RESOLVED, { restorable: true })
+    const fixture = mountFixture(RESOLVED, {}, { restorable: true })
     const asked = vi.fn()
     fixture.componentInstance.restore.subscribe(asked)
 
@@ -211,7 +211,7 @@ describe("TrackDetailComponent", () => {
   })
 
   it("disables the restore while files are busy", () => {
-    const root = mount(RESOLVED, { restorable: true, blocked: true })
+    const root = mount(RESOLVED, { blocked: true }, { restorable: true })
 
     expect(action("restore-track", root)?.disabled).toBe(true)
   })

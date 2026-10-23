@@ -114,6 +114,16 @@ class RunSources:
                 exc.request_id,
             )
 
+    def log_refetch_failed(self, position: int, source: Source, reason: str) -> None:
+        """Le candidat de la recherche reste retenu quand son rechargement echoue."""
+        logger.warning(
+            "refetch failed, search candidate kept run=%s track=%d source=%s reason=%s",
+            self.run_id,
+            position,
+            source,
+            reason,
+        )
+
     async def _refetch(
         self, position: int, source: Source, candidate: TrackCandidate
     ) -> TrackCandidate:
@@ -132,18 +142,12 @@ class RunSources:
             TrackNotFoundError,
             ApiContractError,
         ) as exc:
-            logger.warning(
-                "refetch failed, search candidate kept run=%s track=%d source=%s reason=%s",
-                self.run_id,
-                position,
-                source,
-                exc.code,
-            )
+            self.log_refetch_failed(position, source, exc.code)
             return candidate
 
     async def artwork(self, position: int, candidate: TrackCandidate) -> Path | None:
         """Pochette du candidat, cache d'abord ; son absence ne fait pas echouer le morceau."""
-        url = candidate.release.artwork_url if candidate.release else None
+        url = candidate.artwork_url
         if url is None:
             return None
         try:

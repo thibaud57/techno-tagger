@@ -1,6 +1,5 @@
 """Pipeline de resolution d'un run de re-tagging (use-case 2).
 
-Orchestre `tags.files`, `resolution.matching` et `resolution.sources` sans rien reimplementer.
 Il ignore le protocole NDJSON : les evenements sortent par un rappel, que le handler
 traduit. Aucun fichier musical n'est ecrit ici (ADR-010). L'etat du run vit dans `run.models`.
 """
@@ -9,7 +8,7 @@ import asyncio
 import copy
 import logging
 import secrets
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, assert_never, override
 
 from tagger.resolution.matching import Outcome, ScoredCandidate, build_query, classify
 from tagger.resolution.scraper_client import (
@@ -81,10 +80,9 @@ async def resolve_run(
 async def read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -> list[TrackRecord]:
     """Identites lues avant tout appel reseau : la liste s'affiche entiere des le depart.
 
-    Les lectures partent en parallele sur le pool de threads : enchainees, plusieurs
-    centaines d'ouvertures de fichier tenaient la liste vide pendant des secondes.
-    `return_exceptions=True` garde chaque tag illisible local a son morceau, la
-    seule erreur qui doive arreter le run etant celle de `list_audio_files`, deja levee.
+    Les lectures partent en parallele sur le pool de threads : enchainees, plusieurs centaines
+    d'ouvertures tenaient la liste vide pendant des secondes. `return_exceptions=True` garde
+    chaque tag illisible local a son morceau, seule `list_audio_files` devant arreter le run.
     """
     reads = await asyncio.gather(
         *(asyncio.to_thread(read_shown_tags, path) for path in paths), return_exceptions=True
@@ -142,9 +140,9 @@ class _Runner:
         self._processed += 1
         self._on_event(RunProgress(processed=self._processed, total=self._total))
 
-    # PLR0911 : une sortie par issue de la cascade (deux sources, trois classements
+    # PLR0911, PLR0912 : une sortie par issue de la cascade (deux sources, trois classements
     # chacune) est plus lisible qu'un decoupage en sous-fonctions qui eclaterait l'etat.
-    async def _resolve(self, position: int, record: TrackRecord) -> TrackRecord:  # noqa: PLR0911
+    async def _resolve(self, position: int, record: TrackRecord) -> TrackRecord:  # noqa: PLR0911, PLR0912
         identity = record.identity
         query = build_query(identity.artist, identity.title, record.file_name)
         if query is None:
@@ -204,13 +202,19 @@ class _Runner:
                     classification.retained,
                     beatport_unavailable=beatport_unavailable,
                 )
-            case _:
-                # `Outcome.EMPTY` en pratique : `case _` rend le match provablement
-                # exhaustif pour mypy, qui sinon signale un retour manquant (StrEnum).
+            case Outcome.EMPTY:
+                # Beatport n'a jamais repondu : un classement definitif (`no_result`,
+                # `below_threshold`) ne serait pas rejoue a la reprise.
                 reason = (
-                    FailureReason.BELOW_THRESHOLD if had_candidates else FailureReason.NO_RESULT
+                    FailureReason.SOURCE_UNAVAILABLE
+                    if beatport_unavailable
+                    else FailureReason.BELOW_THRESHOLD
+                    if had_candidates
+                    else FailureReason.NO_RESULT
                 )
                 return self._unresolved(position, record, reason)
+            case _:
+                assert_never(classification.outcome)
 
     async def _accept(
         self, position: int, record: TrackRecord, source: Source, chosen: ScoredCandidate

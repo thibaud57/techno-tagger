@@ -9,7 +9,7 @@ paths:
 
 ## À faire
 - Octroyer chaque permission de plugin explicitement : en v2 les commandes de plugin passent toujours par l'ACL. Les commandes d'application, elles, sont autorisées par défaut tant qu'aucun manifeste d'app (`permissions/*.toml`) ne les déclare
-- Restreindre au strict nécessaire : `shell:allow-spawn` ciblé sur le sidecar, `fs` limité à `$APPLOCALDATA` (les fichiers musicaux sont gérés par le sidecar, pas par la webview), `assetProtocol` limité au cache
+- Restreindre au strict nécessaire : `shell:allow-spawn` ciblé sur le sidecar, `assetProtocol` limité au cache, aucun plugin `fs` (fichiers musicaux comme données de l'application sont lus et écrits par le sidecar, jamais par la webview)
 - Accorder `shell:allow-spawn` et non `shell:allow-execute` : la permission suit la méthode réellement appelée
 - Poser `"sidecar": true` sur l'entrée `allow` : aucune commande arbitraire n'est autorisée, même avec le plugin `shell` actif
 - Restreindre la capability par `windows` (fenêtre nommée) et `platforms` (OS)
@@ -32,6 +32,7 @@ paths:
 - `deny` prime sur `allow` dans un scope : un chemin listé des deux côtés est refusé
 - Un programme hors du scope `shell:allow-spawn` échoue explicitement (`program not allowed on the configured shell scope`), contrairement à un argument
 - `single-instance` et `prevent-default` n'ont aucune permission à déclarer ni paquet npm : la règle d'alignement crate / npm ne les concerne pas
+- Fenêtre sans décorations : `data-tauri-drag-region` exige `core:window:allow-start-dragging` et, pour le double-clic, `core:window:allow-internal-toggle-maximize`, absents de `core:default` ; sans eux la barre ne déplace rien, sans erreur visible
 - `updater` 2.5.0 supprime `UpdaterBuilder::new` au profit de `UpdaterExt::updater_builder` : concerne l'usage Rust bas niveau, pas l'API JS
 
 ## Exemples

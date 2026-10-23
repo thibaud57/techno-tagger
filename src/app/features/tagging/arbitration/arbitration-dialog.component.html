@@ -13,9 +13,10 @@
   styleClass="h-140 w-180"
   [closeAriaLabel]="'arbitration.close' | translate"
 >
-  <ng-template #header>
+  <ng-template #header let-ariaLabelledBy="ariaLabelledBy">
     <!-- Le logo nomme la source des candidats : rien a l'etape du lien, qui n'en a pas. -->
     <app-dialog-header
+      [titleId]="ariaLabelledBy"
       [title]="title()"
       [fileName]="fileName()"
       [source]="linkStep() === null ? (current()?.source ?? null) : null"
@@ -26,12 +27,9 @@
     <!-- Meme cadre que les listes : passer des candidats au lien ne deplace aucun bouton. -->
     <app-url-link-form [trackId]="trackId" />
   } @else if (current(); as shown) {
-    <!-- gap-3 hors echelle : l'espacement de colonne de la maquette `ArbitrationDialog` (12px). -->
-    <div class="flex h-full flex-col gap-3" data-keys tabindex="-1" (keydown)="onKeydown($event)">
-      <!--
-        Hauteur mesuree sur un p-message small : la liste reste a sa place quand la source change.
-        Une seule cellule : le bandeau sortant reste une image de plus (animate.leave), superpose et non a cote.
-      -->
+    <div class="flex h-full flex-col gap-4" data-keys tabindex="-1" (keydown)="onKeydown($event)">
+      <!-- Hauteur d'un p-message small : la liste reste en place quand la source change. Une seule
+           cellule : le bandeau sortant (animate.leave) se superpose au lieu de s'ajouter. -->
       <div class="grid min-h-6.5 items-center *:col-start-1 *:row-start-1">
         <!-- Sans animation d'entree : elle ferait glisser la liste sur le chemin de decision. -->
         @if (shown.beatport_unavailable) {
@@ -45,7 +43,6 @@
               pButton
               type="button"
               [link]="true"
-              class="p-0 text-xs"
               data-action="back"
               [disabled]="busy()"
               (click)="goBack()"
@@ -71,14 +68,13 @@
           [metaKeySelection]="true"
           [autoOptionFocus]="false"
           [readonly]="busy()"
-          scrollHeight="268px"
+          [scrollHeight]="listScrollHeight"
           [pt]="listboxPt"
           [emptyMessage]="emptyMessage() | translate"
           [ariaLabel]="'arbitration.candidates' | translate"
         >
           <ng-template #item let-option>
-            <!-- gap-3 hors echelle : l'ecart des options du `Listbox` de la maquette (12px). -->
-            <div class="flex w-full min-w-0 items-center gap-3">
+            <div class="flex w-full min-w-0 items-center gap-4">
               <div class="flex min-w-0 flex-1 flex-col">
                 <app-truncated-text class="text-sm" [text]="option.names" />
                 <!-- Ligne gardee meme vide : Bandcamp ne rend ni label ni annee : ses lignes
@@ -106,7 +102,7 @@
         <app-error-message [error]="refused" />
       }
 
-      <p class="text-xs text-muted-color">{{ "arbitration.help" | translate }}</p>
+      <p class="hint">{{ "arbitration.help" | translate }}</p>
     </div>
   }
 
@@ -121,6 +117,7 @@
           [outlined]="true"
           severity="secondary"
           [disabled]="!hasPrevious()"
+          [iconOnly]="true"
           [attr.aria-label]="'arbitration.previous' | translate"
           [attr.title]="'arbitration.previous' | translate"
           (click)="previous()"
@@ -139,6 +136,7 @@
           [outlined]="true"
           severity="secondary"
           [disabled]="!hasNext()"
+          [iconOnly]="true"
           [attr.aria-label]="'arbitration.next' | translate"
           [attr.title]="'arbitration.next' | translate"
           (click)="next()"

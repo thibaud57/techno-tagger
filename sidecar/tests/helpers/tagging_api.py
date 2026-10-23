@@ -14,11 +14,14 @@ import pytest
 from audio_samples import tagged_mp3
 from cdn_doubles import FakeCdn, public_resolver
 from scraper_responses import (
+    BANDCAMP_TRACK,
     YOUR_MIND,
     YOUR_MIND_BANDCAMP_URL,
+    bandcamp_track_payload,
     failing,
     found,
     make_client,
+    ok,
     page_payload,
     track_payload,
 )
@@ -152,6 +155,11 @@ def knows_your_mind(api: FakeApi, *, refetch: bool = False) -> None:
     api.on(BEATPORT_SEARCH, YOUR_MIND, found(ORIGINAL))
     if refetch:
         api.on(ORIGINAL_REFETCH, "*", found(ORIGINAL))
+
+
+def knows_the_bandcamp_track(api: FakeApi) -> None:
+    """L'URL Bandcamp collee (`BANDCAMP_TRACK`) designe un morceau connu de l'API."""
+    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, ok(bandcamp_track_payload()))
 
 
 def beatport_down(api: FakeApi, status: int = 503, api_code: str = "source_unavailable") -> None:

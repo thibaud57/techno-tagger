@@ -22,7 +22,7 @@ import { RUN_ID } from "../../../fixtures/tagging"
 import { spyToast } from "../../../fixtures/toast"
 import { translateWith } from "../../../fixtures/translate"
 import { availableUpdate, updaterStub } from "../../../fixtures/updater"
-import { ROLLBACK_RUN, failedRollback } from "../../../fixtures/write"
+import { ROLLBACK_RUN, failedRollback, rollbackInFlight } from "../../../fixtures/write"
 import { NativeService } from "../../core/platform/native.service"
 import { PreferencesService } from "../../core/platform/preferences.service"
 import { UpdateService } from "../../core/platform/update.service"
@@ -234,7 +234,7 @@ describe("SettingsPageComponent", () => {
     {
       name: "a restore",
       overrides: {
-        rollingBack: signal<RollbackInFlight | null>({ runId: RUN_ID, trackId: null }),
+        rollingBack: signal<RollbackInFlight | null>(rollbackInFlight()),
       },
     },
   ])("blocks the undo while $name is in progress", ({ overrides }) => {
@@ -301,6 +301,20 @@ describe("SettingsPageComponent", () => {
     const current = Array.from(hostOf(fixture).querySelectorAll('[aria-current="page"]'))
     expect(marked.map((content) => content.textContent.trim())).toEqual(["settings.admin.title"])
     expect(current.map((link) => link.textContent.trim())).toEqual(["settings.admin.title"])
+  })
+
+  // L'entree est composee par le template : Entree passe par le contenu de l'entree, pas par un lien.
+  it("opens a section from the keyboard through the composed menu entry", () => {
+    const { fixture } = mountWith()
+    fixture.detectChanges()
+    const list = hostOf(fixture).querySelector<HTMLElement>("p-menu ul")
+    list?.focus()
+    list?.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowDown", bubbles: true }))
+
+    list?.dispatchEvent(new KeyboardEvent("keydown", { code: "Enter", bubbles: true }))
+    fixture.detectChanges()
+
+    expect(hostOf(fixture).querySelector("h2")?.textContent.trim()).toBe("settings.matching.title")
   })
 
   it("drops an unsaved key once its section is left", () => {
@@ -664,9 +678,13 @@ describe("SettingsPageComponent", () => {
     }
 
     it("shows the cache size in the interface language", () => {
-      const { fixture } = mountWith({ cacheSize: signal<number | null>(418_000_000) }, "admin")
+      const { fixture, component } = mountWith(
+        { cacheSize: signal<number | null>(418_000_000) },
+        "admin",
+      )
 
-      expect(hostOf(fixture).querySelector("[data-cache-size]")?.textContent.trim()).toBe("418 MB")
+      expect(component["cacheSize"]()).toBe("418 MB")
+      expect(hostOf(fixture).querySelector("[rowControl][data-cache-size]")).not.toBeNull()
     })
 
     it("sends the clearing", () => {
@@ -733,7 +751,7 @@ describe("SettingsPageComponent", () => {
       const button = action("clear-cache", hostOf(fixture))
 
       expect(button?.disabled).toBe(true)
-      expect(button?.querySelector('[data-icon="spinner"]')).not.toBeNull()
+      expect(iconOf(button, "spinner")).not.toBeNull()
     })
 
     it("shows a refused clearing under the cache row", () => {

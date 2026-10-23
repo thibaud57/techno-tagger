@@ -11,8 +11,8 @@ from tagging_report_samples import RUN, WRITTEN, WRITTEN_AS
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.run_files import write_atomically
-from tagger.reports import tagging as tagging_report
-from tagger.reports.extraction import ReportWriteError
+from tagger.reports import common as report_common
+from tagger.reports.common import ReportWriteError
 from tagger.reports.tagging import (
     TaggingReportCounts,
     TaggingReportUnreadableError,
@@ -276,7 +276,7 @@ def test_logs_a_json_left_without_its_markdown(
 ) -> None:
     refusal = OSError(28, "No space left on device")
     monkeypatch.setattr(
-        tagging_report, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
+        report_common, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
     )
     run = replace(RUN, folder=tmp_path)
     paths = report_paths(tmp_path, CREATED)
@@ -285,4 +285,7 @@ def test_logs_a_json_left_without_its_markdown(
         write_tagging_report(run, DEFAULT_THRESHOLDS, CREATED, paths)
 
     assert paths.json_path.is_file()
-    assert "json report orphaned by a failed markdown write run=a3f9c1" in caplog.messages
+    assert (
+        f"json report orphaned by a failed markdown write: {paths.json_path.name}"
+        in caplog.messages
+    )

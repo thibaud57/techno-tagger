@@ -17,7 +17,7 @@ import { IconComponent } from "../../../shared/components/display/icon.component
 import { TruncatedTextComponent } from "../../../shared/components/display/truncated-text.component"
 import { ErrorMessageComponent } from "../../../shared/components/feedback/error-message.component"
 import { MessageComponent } from "../../../shared/components/feedback/message.component"
-import { FADE_IN, PAGE_HOST } from "../../../shared/utils/motion"
+import { FADE_IN } from "../../../shared/utils/motion"
 import { runLine } from "../../../shared/utils/run-date"
 import { WIDE_TOOLTIP } from "../../../shared/utils/tooltip"
 
@@ -38,8 +38,8 @@ interface RecapCriteria {
 }
 
 /**
- * Recapitulatif du run affiche (maquette `Recap`) ou, avec `runId`, d'un run passe relu dans son
- * rapport, en lecture seule. La relance reste au bouton d'action du run, onglet Tagging.
+ * Recapitulatif du run affiche ou, avec `runId`, d'un run passe relu dans son rapport, en
+ * lecture seule.
  */
 @Component({
   selector: "app-recap-page",
@@ -62,7 +62,7 @@ interface RecapCriteria {
     TruncatedTextComponent,
   ],
   templateUrl: "./recap-page.component.html",
-  host: { class: PAGE_HOST, "animate.enter": FADE_IN },
+  host: { class: "page-host", "animate.enter": FADE_IN },
 })
 export default class RecapPageComponent {
   private readonly sidecar = inject(SidecarService)
@@ -72,7 +72,6 @@ export default class RecapPageComponent {
   protected readonly runRestore = injectRunRestore()
   protected readonly wideTooltip = WIDE_TOOLTIP
 
-  /** Un seul signal : `form()` en derive les champs que `[formField]` lie. */
   protected readonly criteria = signal<RecapCriteria>({ filter: "all", query: "" })
   protected readonly fields = form(this.criteria)
 

@@ -49,7 +49,7 @@ from tagger.run.plan import (
     purge_plans,
 )
 
-WAITING: Final = replace(RECORD, track_id="e.mp3", path=Path("music/e.mp3"))
+WAITING: Final = replace(RECORD, track_id="e.mp3", path=MUSIC / "e.mp3")
 AUTO: Final = replace(RECORD, query=QUERY).resolved(
     Resolution.AUTO,
     Source.BEATPORT,
@@ -60,7 +60,7 @@ AUTO: Final = replace(RECORD, query=QUERY).resolved(
 HELD: Final = replace(
     RECORD,
     track_id="b.mp3",
-    path=Path("music/b.mp3"),
+    path=MUSIC / "b.mp3",
     query=QUERY,
     arbitration=PendingArbitration(
         Source.BANDCAMP,
@@ -69,14 +69,14 @@ HELD: Final = replace(
         other=SourceList(Source.BEATPORT, (scored_candidate(artist=80.0, title=75.0),)),
     ),
 )
-BY_URL: Final = replace(RECORD, track_id="c.mp3", path=Path("music/c.mp3")).resolved(
+BY_URL: Final = replace(RECORD, track_id="c.mp3", path=MUSIC / "c.mp3").resolved(
     Resolution.URL, Source.BANDCAMP, track_candidate(track_id="42"), None, None
 )
-UNRESOLVED: Final = replace(
-    RECORD, track_id="d.mp3", path=Path("music/d.mp3"), query=QUERY
-).unresolved(FailureReason.NO_RESULT)
+UNRESOLVED: Final = replace(RECORD, track_id="d.mp3", path=MUSIC / "d.mp3", query=QUERY).unresolved(
+    FailureReason.NO_RESULT
+)
 UNAVAILABLE: Final = replace(
-    RECORD, track_id="f.mp3", path=Path("music/f.mp3"), query=QUERY
+    RECORD, track_id="f.mp3", path=MUSIC / "f.mp3", query=QUERY
 ).unresolved(FailureReason.SOURCE_UNAVAILABLE)
 
 
@@ -430,7 +430,7 @@ def test_purges_the_plans_that_will_never_be_resumed(tmp_path: Path) -> None:
 
     purge_plans(tmp_path, CREATED)
 
-    assert set(tmp_path.iterdir()) == {open_recent, unknown_version, *foreign}
+    assert set(files(tmp_path)) == {open_recent, unknown_version, *foreign}
     assert not committed.exists()
     assert not open_expired.exists()
     assert not orphan.exists()

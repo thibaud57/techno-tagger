@@ -64,7 +64,8 @@ async (page) => {
               const box = label.getBoundingClientRect()
               return {
                 text: label.textContent.trim(),
-                columns: getComputedStyle(row).gridTemplateColumns,
+                // La rangee est un subgrid : les colonnes se lisent sur la grille parente (`settings-rows`).
+                columns: getComputedStyle(row.parentElement).gridTemplateColumns,
                 textWidth: Math.round(text.width * 10) / 10,
                 boxWidth: Math.round(box.width * 10) / 10,
                 lines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size,
@@ -79,11 +80,13 @@ async (page) => {
               const n = (x) => Math.round(x * 10) / 10
               const rows = [...host.querySelectorAll("app-settings-row")]
               const extent = (row) => {
-                const parts = [row.querySelector("[rowLabel]"), row.querySelector("[rowControl]")]
-                const extra = row.querySelector(":scope > div:not([rowControl])")
+                // Le contenu d'une rangee : libelle, controle et action (colonne de droite, quand elle existe),
+                // plus la zone des retours (`div.col-start-2`) quand elle est affichee.
+                const parts = [row.querySelector("[rowLabel]"), row.querySelector("[rowControl]"), row.querySelector("[rowAction]")].filter(Boolean)
+                const extra = row.querySelector(":scope > div.col-start-2")
                 const shown = extra && extra.getBoundingClientRect().height > 0 ? extra : null
                 const tops = parts.map((p) => p.getBoundingClientRect().top)
-                const bottoms = [parts[1], shown].filter(Boolean).map((p) => p.getBoundingClientRect().bottom)
+                const bottoms = [...parts.slice(1), shown].filter(Boolean).map((p) => p.getBoundingClientRect().bottom)
                 return { top: Math.min(...tops), bottom: Math.max(...bottoms) }
               }
               const border = (row) => parseFloat(getComputedStyle(row).borderBottomWidth)

@@ -7,7 +7,7 @@ import { Tooltip } from "primeng/tooltip"
 import { vi } from "vitest"
 
 import { spyConfirmation } from "../../../../fixtures/confirm"
-import { action, hostOf } from "../../../../fixtures/dom"
+import { action, hostOf, iconOf } from "../../../../fixtures/dom"
 import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
 import { OTHER_PAST_RUN } from "../../../../fixtures/past-runs"
 import { preferencesStub } from "../../../../fixtures/preferences-stub"
@@ -28,7 +28,7 @@ import {
   writtenTrack as written,
 } from "../../../../fixtures/tagging"
 import { translateWith } from "../../../../fixtures/translate"
-import { WRITE_FINISHED, failedRollback } from "../../../../fixtures/write"
+import { WRITE_FINISHED, failedRollback, rollbackInFlight } from "../../../../fixtures/write"
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"
 import type { RunFinishedEvent } from "../../../core/sidecar/protocol"
@@ -158,11 +158,7 @@ describe("TaggingPageComponent", () => {
       { ...activeRun(RUN_ID), urlRecoveryBusy: signal(new Set(["a.mp3"])) },
       "tagging.blocked.recovering",
     ],
-    [
-      "a rollback runs",
-      { rollingBack: signal({ runId: RUN_ID, trackId: null }) },
-      "tagging.blocked.restoring",
-    ],
+    ["a rollback runs", { rollingBack: signal(rollbackInFlight()) }, "tagging.blocked.restoring"],
     [
       "a run is in progress, ahead of every other cause",
       { tagging: signal(true), apiKeyConfigured: signal(false) },
@@ -286,7 +282,7 @@ describe("TaggingPageComponent", () => {
   it.each([
     [
       "while a rollback runs",
-      { rollingBack: signal({ runId: RUN_ID, trackId: null }) },
+      { rollingBack: signal(rollbackInFlight()) },
       "tagging.blocked.restoring",
     ],
     [
@@ -455,9 +451,7 @@ describe("TaggingPageComponent", () => {
       fixture.detectChanges()
 
       expect(failureMessage(fixture)).toBeUndefined()
-      expect(
-        action("retry", hostOf(fixture))?.querySelector('[data-icon="spinner"]'),
-      ).not.toBeNull()
+      expect(iconOf(action("retry", hostOf(fixture)), "spinner")).not.toBeNull()
     })
 
     it("disables the retry while a rollback runs", async () => {
@@ -466,7 +460,7 @@ describe("TaggingPageComponent", () => {
         requestedFolder: signal(FOLDER),
         runRetryable: signal(true),
         taggingTracks: signal([written("a.mp3", "write_error")]),
-        rollingBack: signal({ runId: RUN_ID, trackId: null }),
+        rollingBack: signal(rollbackInFlight()),
       })
 
       fixture.detectChanges()
@@ -579,7 +573,7 @@ describe("TaggingPageComponent", () => {
     const { fixture } = await mountWith({
       ...committedRun(),
       taggingTracks: signal([written("a.mp3")]),
-      rollingBack: signal({ runId: RUN_ID, trackId: "a.mp3" }),
+      rollingBack: signal(rollbackInFlight("a.mp3")),
     })
 
     fixture.detectChanges()
@@ -588,9 +582,13 @@ describe("TaggingPageComponent", () => {
   })
 
   it.each([
-    ["a run restore of the shown run", { runId: RUN_ID, trackId: null }, true],
-    ["a run restore of another run", { runId: OTHER_PAST_RUN.run_id, trackId: null }, false],
-    ["a track restore of the shown run", { runId: RUN_ID, trackId: "a.mp3" }, false],
+    ["a run restore of the shown run", rollbackInFlight(), true],
+    [
+      "a run restore of another run",
+      { ...rollbackInFlight(), runId: OTHER_PAST_RUN.run_id },
+      false,
+    ],
+    ["a track restore of the shown run", rollbackInFlight("a.mp3"), false],
   ])("flags the run restore as running only for %s", async (_name, rollingBack, expected) => {
     const { component } = await mountWith({
       ...committedRun(),
@@ -605,7 +603,7 @@ describe("TaggingPageComponent", () => {
   it.each([
     {
       case: "a restore runs",
-      rollingBack: { runId: RUN_ID, trackId: "a.mp3" },
+      rollingBack: rollbackInFlight("a.mp3"),
       reason: "tagging.rollback.blocked",
     },
     { case: "files are idle", rollingBack: null, reason: undefined },
@@ -744,6 +742,7 @@ describe("TaggingPageComponent", () => {
   })
 
   it.each([
+    ["start_tagging", "api_key_rejected"],
     ["rollback", "rollback_unavailable"],
     ["commit_run", "tag_dump_write_failed"],
     ["resume_run", "tagging_folder_unreadable"],
@@ -752,6 +751,43 @@ describe("TaggingPageComponent", () => {
     const { component } = await mountWith(commandFailed(command, code))
 
     expect(component["error"]()?.code).toBe(code)
+  })
+
+  // `lastError` n'a qu'un emplacement : la restauration lancee depuis les Reglages y atterrit aussi.
+  it.each([
+    { case: "names the shown run", params: { run_id: RUN_ID, track_id: null }, shown: true },
+    {
+      case: "names a track of the shown run",
+      params: { run_id: RUN_ID, track_id: "a.mp3" },
+      shown: true,
+    },
+    {
+      case: "names another run",
+      params: { run_id: OTHER_PAST_RUN.run_id, track_id: null },
+      shown: false,
+    },
+    {
+      case: "names a track outside the shown run",
+      params: { track_id: "z.mp3" },
+      shown: false,
+    },
+    { case: "names no run nor track", params: {}, shown: true },
+  ])("shows a rollback error only when it $case: $shown", async ({ params, shown }) => {
+    const { component } = await mountWith({
+      ...commandFailed("rollback", "rollback_unavailable", params),
+      ...activeRun(RUN_ID),
+      taggingTracks: signal([written("a.mp3")]),
+    })
+
+    expect(component["error"]() !== null).toBe(shown)
+  })
+
+  it("hides a rollback error naming a run while no run is shown", async () => {
+    const { component } = await mountWith(
+      commandFailed("rollback", "rollback_unavailable", { run_id: RUN_ID }),
+    )
+
+    expect(component["error"]()).toBeNull()
   })
 
   it("follows the folder of a run resumed while the page is shown", async () => {
@@ -813,12 +849,9 @@ describe("TaggingPageComponent", () => {
     expect(component["idleDescription"]()).toBe(expected)
   })
 
-  it.each([
-    ["shows an error raised by its own command", "start_tagging", "api_key_rejected"],
-    ["ignores an error raised by another screen", "set_api_key", null],
-  ] as const)("%s", async (_name, command, expected) => {
-    const { component } = await mountWith(commandFailed(command, "api_key_rejected"))
+  it("ignores an error raised by another screen", async () => {
+    const { component } = await mountWith(commandFailed("set_api_key", "api_key_rejected"))
 
-    expect(component["error"]()?.code ?? null).toBe(expected)
+    expect(component["error"]()).toBeNull()
   })
 })

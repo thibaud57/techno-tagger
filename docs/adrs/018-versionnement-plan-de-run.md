@@ -109,6 +109,8 @@ Le schéma du plan est figé à l'étape 3 de l'ordre de développement, en mêm
 
 Le format Markdown du rapport n'est pas versionné : il est un rendu, jamais relu par l'application, et se régénère depuis le JSON.
 
+**Mise à jour 2026-10-23** : le tableau place le rapport en « Dossier destination ». Seul le rapport d'extraction y va : le rapport de re-tagging, qui est celui relu et migré, vit dans le dossier du run (celui de `start_tagging`), comme le fixe l'[ADR-014](014-observabilite-sentry-et-rgpd.md).
+
 La question ne se pose pas pour le protocole NDJSON : l'interface et le sidecar sont empaquetés dans le même installeur et ne peuvent pas diverger en version.
 
 > ⚠️ **Cette affirmation vaut en régime nominal seulement.** Deux cas font diverger les deux couches : l'installeur NSIS ne remplace pas le binaire du sidecar lors d'une réinstallation de la même version ([tauri#15134](https://github.com/tauri-apps/tauri/issues/15134)), et une mise en quarantaine antivirus peut laisser une copie ancienne en place. L'interface interroge donc la version du sidecar au démarrage, par la commande `get_version` et l'événement `version` du contrat, et refuse de lancer un run si elle diffère de la sienne. Le protocole n'est pas versionné pour autant : le contrôle porte sur la version applicative, pas sur un champ de schéma. Cf. [ARCHITECTURE.md § Backend > API](../ARCHITECTURE.md#api) et [PRODUCTION.md § Remplacement du sidecar à la mise à jour](../PRODUCTION.md#remplacement-du-sidecar-à-la-mise-à-jour).

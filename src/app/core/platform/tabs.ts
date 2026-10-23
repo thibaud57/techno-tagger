@@ -11,10 +11,18 @@ export type TabValue = string | number | undefined
 export const isTabName = (value: TabValue): value is TabName =>
   typeof value === "string" && (TABS as readonly string[]).includes(value)
 
+const segmentsOf = (url: string): string[] => {
+  const [path = ""] = url.split(/[?#]/, 1)
+
+  return path.split("/").filter((part) => part !== "")
+}
+
 /** Onglet porte par une URL : son premier segment. Tout le reste retombe sur le premier onglet. */
 export const tabFromUrl = (url: string): TabName => {
-  const [path = ""] = url.split(/[?#]/, 1)
-  const [segment = ""] = path.split("/").filter((part) => part !== "")
+  const [segment = ""] = segmentsOf(url)
 
   return isTabName(segment) ? segment : DEFAULT_TAB
 }
+
+/** Vrai sur la route de base d'un onglet, faux sur l'une de ses sous-pages (`/tagging/recap`). */
+export const isTabRoot = (url: string): boolean => segmentsOf(url).length <= 1

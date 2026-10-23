@@ -19,18 +19,23 @@ describe("ResumeStore", () => {
     expect(prompt).toEqual(INTERRUPTED)
   })
 
-  it("prompts nothing once the engine announces no run", () => {
+  it.each<[string, (target: ResumeStore) => void]>([
+    [
+      "the engine announces no run",
+      (target) => {
+        target.announced(null)
+      },
+    ],
+    [
+      "the gesture closes it",
+      (target) => {
+        target.cleared()
+      },
+    ],
+  ])("prompts nothing once %s", (_when, end) => {
     store.announced(INTERRUPTED)
 
-    store.announced(null)
-
-    expect(store.prompt()).toBeNull()
-  })
-
-  it("closes the prompt at the gesture", () => {
-    store.announced(INTERRUPTED)
-
-    store.cleared()
+    end(store)
 
     expect(store.prompt()).toBeNull()
   })

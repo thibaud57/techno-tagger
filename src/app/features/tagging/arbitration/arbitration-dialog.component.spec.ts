@@ -3,8 +3,8 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { linkField, page, pasteLink } from "../../../../fixtures/dialog"
-import { action, errorMessageOf } from "../../../../fixtures/dom"
+import { dialogLabel, linkField, page, pasteLink } from "../../../../fixtures/dialog"
+import { action, errorMessageOf, heightClassPx, iconOf } from "../../../../fixtures/dom"
 import {
   type SidecarStub,
   type SidecarStubOverrides,
@@ -21,7 +21,11 @@ import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import { RecoveryUiStore } from "../url-recovery/recovery-ui.store"
 
-import { ArbitrationDialogComponent } from "./arbitration-dialog.component"
+import {
+  ArbitrationDialogComponent,
+  LIST_HEIGHT_CLASS,
+  LIST_SCROLL_HEIGHT,
+} from "./arbitration-dialog.component"
 
 const ON_BEATPORT: ArbitrationState = {
   ...arbitrationRequired("a.mp3"),
@@ -93,6 +97,11 @@ const pressOnList = (key: string): void => {
 }
 
 describe("ArbitrationDialogComponent", () => {
+  // Une hauteur fixe sous le maximum du scroll decalerait la ligne d'aide.
+  it("caps the candidate scroll at the fixed height of the list", () => {
+    expect(`${heightClassPx(LIST_HEIGHT_CLASS)}px`).toBe(LIST_SCROLL_HEIGHT)
+  })
+
   it("shows the candidates of the current arbitration with their score, label and year", () => {
     mountWith()
 
@@ -108,6 +117,12 @@ describe("ArbitrationDialogComponent", () => {
     expect(
       [...page().querySelectorAll("[data-release]")].map((line) => line.textContent.trim()),
     ).toEqual(["Drumcode · 2023", ""])
+  })
+
+  it("names the dialog by the title of its header", () => {
+    mountWith()
+
+    expect(dialogLabel()).toBe(titleOf())
   })
 
   it("falls back on the track id without a run row", () => {
@@ -271,24 +286,19 @@ describe("ArbitrationDialogComponent", () => {
     service.arbitrationBusy.set(true)
     fixture.detectChanges()
 
-    expect(action("validate")?.querySelector('[data-icon="spinner"]')).not.toBeNull()
-    expect(action("refuse")?.querySelector('[data-icon="spinner"]')).toBeNull()
+    expect(iconOf(action("validate"), "spinner")).not.toBeNull()
+    expect(iconOf(action("refuse"), "spinner")).toBeNull()
   })
 
-  it("goes to the next arbitration with the right arrow", () => {
+  it.each([
+    { case: "next", key: "ArrowRight", move: "nextArbitration" },
+    { case: "previous", key: "ArrowLeft", move: "previousArbitration" },
+  ] as const)("goes to the $case arbitration with the $key key", ({ key, move }) => {
     const { service } = mountWith()
 
-    pressOnList("ArrowRight")
+    pressOnList(key)
 
-    expect(service.nextArbitration).toHaveBeenCalledOnce()
-  })
-
-  it("goes to the previous arbitration with the left arrow", () => {
-    const { service } = mountWith()
-
-    pressOnList("ArrowLeft")
-
-    expect(service.previousArbitration).toHaveBeenCalledOnce()
+    expect(service[move]).toHaveBeenCalledOnce()
   })
 
   it("validates the selected candidate with Enter", () => {

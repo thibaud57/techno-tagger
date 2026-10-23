@@ -1,12 +1,10 @@
 """Modeles Pydantic des commandes et des evenements du protocole NDJSON.
 
-Seule interface publique du sidecar : tout le reste est appele depuis la boucle
-de `__main__.py`. Les types TypeScript de `src/app/core/sidecar/protocol.ts` sont maintenus
-a la main en miroir de ce fichier.
+Les types TypeScript de `src/app/core/sidecar/protocol.ts` sont maintenus a la main en
+miroir de ce fichier.
 
-Les commandes entrantes sont fermees (`extra="forbid"`) et strictes : un champ
-inconnu ou mal type est une commande malformee, pas un detail a ignorer
-(cf. ADR-022).
+Les commandes entrantes sont fermees (`extra="forbid"`) et strictes : un champ inconnu ou
+mal type est une commande malformee (cf. ADR-022).
 """
 
 from datetime import datetime
@@ -39,11 +37,9 @@ if TYPE_CHECKING:
 class Command(BaseModel):
     """Base des commandes recues sur `stdin`.
 
-    `strict=True` interdit la coercion lax sur ce qui vient de l'interface. En
-    contrepartie, ces modeles ne se valident **que** depuis du JSON : en mode
-    Python, une chaine n'est plus convertie en `Path` et la validation echoue sur
-    `is_instance_of`. Toujours passer par `parse_command`, jamais par
-    `model_validate` sur un dict.
+    Ces modeles ne se valident **que** depuis du JSON : en mode strict Python, une chaine
+    n'est plus convertie en `Path` (`is_instance_of`). Passer par `parse_command`, jamais
+    par `model_validate` sur un dict.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
@@ -90,9 +86,11 @@ class ExtractPlaylist(Command):
 
 
 # ASCII imprimable sans espace : contrainte du decodage latin-1 des en-tetes cote
-# API (PRODUCTION.md § Gestion des cles utilisateurs). 2560 : plafond du Credential Manager.
+# API (PRODUCTION.md § Gestion des cles utilisateurs). 1280 : le Credential Manager plafonne
+# le secret a 2560 octets et l'ecrit en UTF-16 (2 octets par caractere) : au-dela, `CredWrite`
+# echoue en erreur 1783.
 _API_KEY_PATTERN: Final = r"^[\x21-\x7e]+$"
-_API_KEY_MAX_LENGTH: Final = 2560
+_API_KEY_MAX_LENGTH: Final = 1280
 
 
 class SetApiKey(Command):
@@ -120,9 +118,8 @@ class ThresholdsPayload(BaseModel):
 
     @model_validator(mode="after")
     def _within_bounds(self) -> Self:
-        # Les bornes ne sont pas reecrites ici, `check_thresholds` les porte. Pydantic
-        # enveloppe en `ValidationError` ce que leve un validateur, d'ou le
-        # `malformed_command` des la validation plutot qu'une erreur en plein run.
+        # Pydantic enveloppe en `ValidationError` ce que leve un validateur : `malformed_command`
+        # des la validation, pas une erreur en plein run.
         check_thresholds(self.floor, self.ceiling)
         return self
 
@@ -330,10 +327,8 @@ _COMMAND_NAMES: Final[dict[str, CommandName]] = {
 
 
 def parse_command(line: str) -> AnyCommand:
-    """Valide une ligne de `stdin` et rend la commande correspondante.
-
-    Leve `ValidationError`, que la boucle convertit en evenement `error` : un
-    message Pydantic ne remonte jamais jusqu'a l'ecran.
+    """Leve `ValidationError`, que la boucle convertit en evenement `error` : un message
+    Pydantic ne remonte jamais jusqu'a l'ecran.
     """
     return _COMMAND_ADAPTER.validate_json(line)
 
@@ -359,14 +354,9 @@ class Event(BaseModel):
 
 
 class Version(Event):
-    """`api_key_configured` parce que seul le sidecar lit le trousseau : c'est ici
-    que l'interface apprend qu'une cle existe, avant tout run (ADR-012).
-
-    `default_thresholds` et `log_file` pour la meme raison : seul le sidecar les connait,
-    les Reglages en partent sans les recopier.
-
-    `sentry_selftest` : seul le sidecar lit son environnement, l'interface y apprend qu'elle
-    doit envoyer son evenement de test.
+    """Seul le sidecar connait le trousseau (`api_key_configured`, ADR-012), ses seuils par
+    defaut, son fichier de log et son environnement (`sentry_selftest`) : l'interface les
+    apprend ici, avant tout run, sans les recopier.
     """
 
     event: Literal["version"]
@@ -386,11 +376,8 @@ class PlaylistEntry(BaseModel):
 
 
 class PlaylistsListed(Event):
-    """Porte le format reconnu autant que les playlists.
-
-    L'interface doit savoir s'il faut proposer un selecteur, mais reconnaitre un format
-    cote TypeScript serait une regle metier au mauvais endroit. Un M3U8 rend donc une
-    liste vide et son format, jamais une erreur.
+    """Porte le format reconnu : reconnaitre un format cote TypeScript serait une regle
+    metier au mauvais endroit. Un M3U8 rend une liste vide, jamais une erreur.
     """
 
     event: Literal["playlists_listed"]
@@ -732,10 +719,9 @@ class Error(Event):
     """Reserve a ce qui ne se rattache a aucun morceau. Le `message` est technique,
     destine aux logs ; l'interface traduit le `code`.
 
-    `command` nomme celle qui a echoue, `None` quand la ligne recue etait trop
-    malformee pour la designer. Le run de re-tagging tournant en tache de fond
-    pendant que la boucle lit la suite, l'interface ne peut pas la deduire de la
-    derniere commande envoyee : c'est au sidecar de la dire.
+    `command` nomme celle qui a echoue, `None` si la ligne etait trop malformee. Le run
+    tournant en tache de fond, l'interface ne peut pas la deduire de la derniere commande
+    envoyee.
     """
 
     event: Literal["error"] = "error"
@@ -747,11 +733,9 @@ class Error(Event):
 
 MALFORMED_COMMAND: Final = "malformed_command"
 API_KEY_MALFORMED: Final = "api_key_malformed"
-# Les champs du contrat saisis a la main : leur refus dit quoi corriger, quand une autre
-# commande mal formee ne peut venir que d'un defaut de l'application. Une table plutot
-# qu'une branche, pour que le prochain champ tape par l'utilisateur soit une ligne ici.
-# Cle typee comme `loc`, qui porte un index numerique des qu'une erreur vise un element
-# de liste : la restreindre a deux chaines obligerait a un `cast()`.
+# Champs du contrat saisis a la main : leur refus dit quoi corriger, toute autre commande
+# mal formee vient d'un defaut de l'application. Cle typee comme `loc` (index numerique
+# pour un element de liste) : la restreindre a deux chaines obligerait a un `cast()`.
 _TYPED_BY_HAND: Final[dict[tuple[int | str, ...], str]] = {
     ("set_api_key", "api_key"): API_KEY_MALFORMED
 }
@@ -763,11 +747,9 @@ UNKNOWN_COMMAND_ERROR: Final = "union_tag_invalid"
 def error_from_validation(exc: ValidationError) -> Error:
     """Convertit un refus de validation en evenement structure.
 
-    Seuls `loc` et `type` sont retenus : ils suffisent a situer le champ fautif dans les
-    logs, le message de Pydantic n'ayant pas vocation a etre lu par l'utilisateur. Une
-    commande inconnue est en plus nommee sous `command` : Pydantic ne la porte que dans
-    `ctx`, que `loc` et `type` laissent de cote. `ctx` n'est pas recopie en entier, il
-    peut porter des objets que le JSON ne serialise pas (l'exception d'un validateur).
+    Seuls `loc` et `type` sont retenus : ils situent le champ fautif dans les logs. Une
+    commande inconnue est en plus nommee sous `command` (Pydantic ne la porte que dans
+    `ctx`, non recopie en entier : il peut porter des objets non serialisables en JSON).
     """
     details: list[dict[str, object]] = []
     params: dict[str, object] = {"errors": details}
@@ -780,9 +762,8 @@ def error_from_validation(exc: ValidationError) -> Error:
         # `loc` vide : le discriminant de la ligne elle-meme, pas celui d'une union imbriquee.
         if error["type"] == UNKNOWN_COMMAND_ERROR and not loc:
             params["command"] = error.get("ctx", {}).get("tag")
-        # Un champ refuse sur une commande connue : Pydantic ouvre `loc` par son
-        # discriminant. La nommer rend l'erreur a l'ecran qui l'a envoyee, sans quoi
-        # aucun ne l'affiche (une cle API collee avec un espace se perdait ainsi).
+        # Champ refuse sur une commande connue : `loc` s'ouvre par son discriminant. La nommer
+        # rend l'erreur a l'ecran qui l'a envoyee (une cle API collee avec un espace se perdait).
         elif loc and isinstance(loc[0], str):
             command = _COMMAND_NAMES.get(loc[0], command)
 

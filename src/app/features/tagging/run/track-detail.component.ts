@@ -77,9 +77,6 @@ export class TrackDetailComponent {
   protected readonly tooltip = TOOLTIP
 
   readonly track = input.required<RunRow>()
-  /** Morceau écrit ou en échec d'un run confirmé : le dump peut le rendre. */
-  readonly restorable = input(false)
-  readonly restoring = input(false)
   /** Une écriture ou une restauration tourne : le moteur n'en accepte qu'une à la fois. */
   readonly blocked = input(false)
   readonly restore = output<string>()

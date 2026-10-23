@@ -5,6 +5,7 @@ import { vi } from "vitest"
 import { silenceConsoleError } from "../../../../fixtures/console"
 import { FEEDBACK_READY } from "../../../../fixtures/feedback"
 import { nativeStub } from "../../../../fixtures/native-stub"
+import { OTHER_PAST_RUN } from "../../../../fixtures/past-runs"
 import { sidecarStub } from "../../../../fixtures/sidecar-stub"
 import { RUN_ID } from "../../../../fixtures/tagging"
 import { NativeService } from "../../../core/platform/native.service"
@@ -103,7 +104,7 @@ describe("injectFeedbackSend", () => {
     const { send, native, ready } = setUp()
     send.send()
 
-    ready.set({ ...FEEDBACK_READY, run_id: "b4c5d6" })
+    ready.set({ ...FEEDBACK_READY, run_id: OTHER_PAST_RUN.run_id })
     TestBed.tick()
 
     expect(native.openUrl).not.toHaveBeenCalled()

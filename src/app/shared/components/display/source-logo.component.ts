@@ -1,8 +1,10 @@
 import { Component, computed, input } from "@angular/core"
 
+import type { TrackSource } from "../../../core/sidecar/protocol"
+
 import type { IconSize } from "./icon.component"
 
-export type SourceName = "beatport" | "bandcamp" | "soundcloud" | "vlc"
+export type SourceName = TrackSource | "vlc"
 
 /** Traces releves dans `src/assets/icons/<source>.svg`, inchanges, tous en `viewBox="0 0 24 24"`. */
 const PATHS: Record<SourceName, string> = {

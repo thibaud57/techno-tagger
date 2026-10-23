@@ -37,7 +37,7 @@ import { TruncatedTextComponent } from "../../shared/components/display/truncate
 import { ErrorMessageComponent } from "../../shared/components/feedback/error-message.component"
 import { PathPickerComponent } from "../../shared/components/inputs/path-picker.component"
 import { formatFileSize } from "../../shared/utils/file-size"
-import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { FADE_IN } from "../../shared/utils/motion"
 import { progressPercentage } from "../../shared/utils/progress"
 import { ReasonTextPipe } from "../../shared/utils/reason"
 import { fullHeightTable } from "../../shared/utils/table"
@@ -51,8 +51,7 @@ interface PlaylistChoice {
 }
 
 /**
- * Familles de DESIGN.md § Couleurs Semantiques, la couleur n'informant jamais seule.
- * Un doublon departage est une issue positive, pas une decision attendue : vert, le libelle
+ * Familles de DESIGN.md § Couleurs Semantiques. Un doublon departage est une issue positive, pas une decision attendue : vert, le libelle
  * portant la voie. Les deux rouges ne partagent pas l'icone, leurs corrections etant opposees
  * (retrouver le fichier, relancer le transfert).
  */
@@ -63,6 +62,10 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
   missing: { severity: "danger", icon: "times" },
   failure: { severity: "danger", icon: "exclamation-triangle" },
 }
+
+/** Hauteur d'une ligne du rapport : la classe la pose, le defilement virtuel la calcule sans la mesurer. */
+export const REPORT_ROW_CLASS = "h-10.25"
+export const REPORT_ROW_HEIGHT = 41
 
 @Component({
   selector: "app-playlist-page",
@@ -89,7 +92,7 @@ const CATEGORY_STYLE: Record<ExtractionCategory, { severity: TagSeverity; icon: 
     Tooltip,
   ],
   templateUrl: "./playlist-page.component.html",
-  host: { class: PAGE_HOST, "animate.enter": FADE_IN },
+  host: { class: "page-host", "animate.enter": FADE_IN },
 })
 export default class PlaylistPageComponent {
   private readonly sidecar = inject(SidecarService)
@@ -132,14 +135,12 @@ export default class PlaylistPageComponent {
   )
 
   /**
-   * Le service efface la reponse precedente a chaque listage : un format nul signifie
-   * donc « en attente », sauf si une erreur est venue a sa place.
+   * L'attente est un etat du service, pas une deduction : toute commande efface `lastError`,
+   * donc « format nul et pas d'erreur » resterait vrai a jamais apres un listage refuse puis
+   * un passage par les Reglages.
    */
   protected readonly awaitsPlaylists = computed(
-    () =>
-      this.playlistPath() !== null &&
-      this.sidecar.playlistFormat() === null &&
-      this.lastError() === null,
+    () => this.playlistPath() !== null && this.sidecar.listingPending(),
   )
 
   /**
@@ -230,8 +231,8 @@ export default class PlaylistPageComponent {
     return run === null ? null : (run.playlist_name ?? run.playlist_path.replace(/^.*[\\/]/, ""))
   })
 
-  /** Hauteur de la classe `h-10.25` posee sur les lignes : le defilement virtuel la calcule, il ne la mesure pas. */
-  protected readonly rowHeight = 41
+  protected readonly rowHeight = REPORT_ROW_HEIGHT
+  protected readonly rowClass = REPORT_ROW_CLASS
 
   protected readonly tablePt = computed(() => fullHeightTable(this.rows().length === 0))
 

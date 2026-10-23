@@ -136,6 +136,8 @@ jobs:
           # Grave par build.py dans le binaire fige : PyInstaller n'a pas
           # d'equivalent au --define d'esbuild. Absent, le SDK reste inerte.
           SENTRY_DSN_SIDECAR: ${{ secrets.SENTRY_DSN_SIDECAR }}
+      # Un sidecar qui ne demarre pas passerait le build et l'updater le distribuerait.
+      - run: just smoke-sidecar
 
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
@@ -178,9 +180,8 @@ jobs:
           [IO.File]::WriteAllText($path, $raw)
           gh release upload $env:TAG $path --clobber
 
-      # tauri-action reste vert sans artefact d'updater (constate sur la v0.1.0), et
-      # Tauri valide tout latest.json avant d'en lire la version : sans ce controle,
-      # une Release que l'updater ne verrait pas passerait inapercue.
+      # tauri-action reste vert sans artefact d'updater : sans ce controle, une Release
+      # que l'updater ne verrait pas passerait inapercue.
       - name: Verifier les artefacts de l'updater
         shell: pwsh
         env:

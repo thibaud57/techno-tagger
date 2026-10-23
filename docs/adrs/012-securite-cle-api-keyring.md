@@ -110,3 +110,5 @@ Un test de sécurité vérifie explicitement que la clé n'apparaît ni dans les
 Le passage de techno-scraper à un jeu de clés nommées est traité séparément (cf. [ADR-016](016-multi-cles-techno-scraper.md)), et conditionne le nombre d'utilisateurs réellement gérable. **Mise à jour 2026-10-05** : livré, cf. la note de l'ADR-016.
 
 L'URL de l'API n'est pas un secret : elle est publique et présente en clair dans le binaire distribué. Prévue d'abord configurable dans les Settings, elle est figée en constante du sidecar depuis le 2026-09-19, l'application n'ayant qu'une API à appeler.
+
+**Mise à jour 2026-10-23** : `set_api_key` plafonne la clé à 1280 caractères. Le Credential Manager limite le secret à 2560 octets et l'écrit en UTF-16, à 2 octets par caractère : au-delà, `CredWrite` échoue en erreur 1783. L'erreur Win32 brute d'une écriture refusée (secret trop gros, stratégie de sécurité) est convertie en `api_key_not_stored` au lieu de sortir de la boucle.

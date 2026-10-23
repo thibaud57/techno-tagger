@@ -4,12 +4,11 @@ import { extractionReasonKeys, type ReasonKeys } from "../../shared/utils/reason
 export type ExtractionCategory =
   "extracted" | "already_present" | "missing" | "duplicate" | "failure"
 
-/** `detailKey` et `detailParams` plutot qu'une phrase : le sidecar n'emet aucun texte utilisateur, le composant traduit. */
+/** Cle et parametres plutot qu'une phrase : le sidecar n'emet aucun texte utilisateur. */
 export interface ExtractionRow {
   readonly fileName: string
   readonly category: ExtractionCategory
   readonly detailKey: string | null
-  /** Tailles deja formatees. */
   readonly detailParams: Record<string, string | number> | null
   /** Motif ou critere a part : une valeur d'enum du sidecar ne se traduit pas en parametre d'interpolation. */
   readonly reason: ReasonKeys | null
@@ -29,8 +28,7 @@ export type FormatSize = (bytes: number) => string
 
 /**
  * Ce qui demande un geste ouvre la liste (echecs, introuvables, doublons) : un rapport de
- * 300 morceaux se lit par le haut. Aucun tri dans une categorie, l'ordre du sidecar est
- * conserve. `formatSize` vient de l'appelant, seul a connaitre la langue.
+ * 300 morceaux se lit par le haut. `formatSize` vient de l'appelant, seul a connaitre la langue.
  */
 export const toExtractionRows = (
   result: ExtractionFinishedEvent,

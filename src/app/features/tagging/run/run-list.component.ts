@@ -44,6 +44,7 @@ export interface RunRow extends TaggingTrack {
   readonly reason: ReasonKeys | null
   readonly arbitrable: boolean
   readonly recoverable: boolean
+  /** Morceau écrit ou en échec d'un run confirmé : le dump peut le rendre. */
   readonly restorable: boolean
   readonly restoring: boolean
 }
@@ -93,7 +94,6 @@ export class RunListComponent {
   readonly recoverable = input<ReadonlySet<string>>(new Set())
   /** Run confirme : plus aucune decision n'y entre, le sidecar les refuserait (`run_committed`). */
   readonly frozen = input(false)
-  /** Morceaux que le dump peut rendre, calcules par la page. */
   readonly restorableIds = input<ReadonlySet<string>>(new Set())
   readonly restoringTrackId = input<string | null>(null)
   readonly restoreBlocked = input(false)

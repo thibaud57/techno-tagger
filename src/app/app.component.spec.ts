@@ -1,5 +1,5 @@
 import { DeferBlockBehavior, TestBed } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
+import { Router, provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 import { vi } from "vitest"
@@ -29,7 +29,7 @@ class ResizeObserverStub {
   }
 }
 
-const mount = (update: AvailableUpdate | null = null) => {
+const mount = (update: AvailableUpdate | null = null, url: string | null = null) => {
   // `RecoveryUiStore`, reel ici, lit le run : le badge et la modale du lien en dependent.
   const service = sidecarStub(activeRun())
   const closeGuard = closeGuardStub()
@@ -47,6 +47,10 @@ const mount = (update: AvailableUpdate | null = null) => {
       { provide: APP_UPDATER, useValue: updaterStub(update) },
     ],
   })
+  if (url !== null) {
+    // Aucune route n'est declaree ici : l'URL est posee, l'onglet actif en est derive.
+    vi.spyOn(TestBed.inject(Router), "url", "get").mockReturnValue(url)
+  }
   const fixture = TestBed.createComponent(AppComponent)
   fixture.detectChanges()
 
@@ -61,6 +65,9 @@ const recoveryBadge = (fixture: Hosted): HTMLButtonElement | null =>
 
 const updateBadge = (fixture: Hosted): HTMLButtonElement | null =>
   hostOf(fixture).querySelector<HTMLButtonElement>("[data-update-badge]")
+
+const tabsOf = (fixture: Hosted): HTMLElement[] =>
+  Array.from(hostOf(fixture).querySelectorAll<HTMLElement>("p-tab"))
 
 /** Un morceau a rattraper derriere un morceau deja rattrape : le badge vise le second. */
 const mountWithRecoverableTracks = () => {
@@ -78,6 +85,58 @@ describe("AppComponent", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it("names the icon-only settings tab for assistive technologies", () => {
+    const { fixture } = mount()
+
+    expect(tabsOf(fixture).at(-1)?.getAttribute("aria-label")).toBe("nav.settings")
+  })
+
+  // Le nom de l'application et les badges sont des freres des onglets dans le DOM.
+  it("wraps the arrow keys from the settings tab to the first tab, past the name and the badges", () => {
+    const { fixture } = mount()
+    const [first, , settings] = tabsOf(fixture)
+    settings?.focus()
+
+    settings?.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowRight", bubbles: true }))
+
+    expect(document.activeElement).toBe(first)
+  })
+
+  // Cliquer l'onglet actif ne change pas le modele de `p-tabs` : aucun `valueChange`.
+  it.each([
+    {
+      case: "returns to the list when the active tab is clicked on /tagging/recap",
+      url: "/tagging/recap",
+      tab: 1,
+      navigations: [[["tagging"]]],
+    },
+    {
+      case: "returns to the list when the active tab is clicked on /tagging/recap/a3f9c1",
+      url: "/tagging/recap/a3f9c1",
+      tab: 1,
+      navigations: [[["tagging"]]],
+    },
+    {
+      case: "does not navigate when the active tab is clicked on its own route",
+      url: "/tagging",
+      tab: 1,
+      navigations: [],
+    },
+    {
+      case: "navigates once when another tab is clicked from a subpage",
+      url: "/tagging/recap",
+      tab: 0,
+      navigations: [[["playlist"]]],
+    },
+  ])("$case", ({ url, tab, navigations }) => {
+    const { fixture } = mount(null, url)
+    const navigate = stubNavigation("navigate")
+
+    tabsOf(fixture)[tab]?.click()
+
+    expect(navigate.mock.calls).toEqual(navigations)
   })
 
   it("keeps the arbitration dialog closed on an empty queue", () => {
@@ -150,10 +209,13 @@ describe("AppComponent", () => {
     expect(component["arbitrationVisible"]()).toBe(true)
   })
 
-  it("hides the queue badge on an empty queue", () => {
+  it.each([
+    { case: "hides the queue badge on an empty queue", find: badge },
+    { case: "shows no update badge without an update", find: updateBadge },
+  ])("$case", ({ find }) => {
     const { fixture } = mount()
 
-    expect(badge(fixture)).toBeNull()
+    expect(find(fixture)).toBeNull()
   })
 
   it.each([
@@ -220,12 +282,6 @@ describe("AppComponent", () => {
     updateBadge(fixture)?.click()
 
     expect(component["updateDialogVisible"]()).toBe(true)
-  })
-
-  it("shows no update badge without an update", () => {
-    const { fixture } = mount()
-
-    expect(updateBadge(fixture)).toBeNull()
   })
 
   it("installs the close guard at startup", () => {

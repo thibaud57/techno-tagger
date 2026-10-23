@@ -253,10 +253,19 @@ Le dimensionnement vit dans `tauri.conf.json` et s'applique à chaque démarrage
       "title": "techno-tagger",
       "width": 1280, "height": 800,
       "minWidth": 1024, "minHeight": 700,
-      "resizable": true
+      "resizable": true,
+      "decorations": false
     }]
   }
 }
+```
+
+```html
+<!-- Barre de titre maison : chaque element qui doit deplacer la fenetre porte l'attribut -->
+<div class="titlebar" data-tauri-drag-region>
+  <span data-tauri-drag-region>App</span>
+  <button (click)="appWindow.minimize()">–</button>
+</div>
 ```
 
 ### Points Importants
@@ -264,6 +273,9 @@ Le dimensionnement vit dans `tauri.conf.json` et s'applique à chaque démarrage
 - **La taille n'est pas mémorisée entre deux lancements** : un agrandissement est perdu à la fermeture. Le plugin `window-state` corrigerait ça, il n'est pas retenu au MVP
 - `resizable: true` sans plafond : l'agrandissement est libre, seul le plancher est contraint
 - Le mode sombre est posé côté webview (classe sur `<html>` plus `darkModeSelector` PrimeNG), pas par Tauri
+- **`decorations: false`** (choix du 2026-10-22) : la barre d'onglets tient lieu de barre de titre. Sous Windows, le redimensionnement par les bords et l'ombre restent ; le menu d'agencement au survol d'« agrandir » disparaît
+- `data-tauri-drag-region` ne vaut que pour l'élément qui le porte, pas pour ses enfants : le poser sur chaque zone vide, jamais sur un contrôle
+- Le déplacement exige `core:window:allow-start-dragging`, le double-clic qui agrandit `core:window:allow-internal-toggle-maximize`, les boutons `allow-minimize`, `allow-toggle-maximize` et `allow-close`. `close()` passe par `onCloseRequested`, donc par la garde de sortie, à l'inverse de `destroy()`
 
 ---
 

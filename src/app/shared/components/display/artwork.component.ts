@@ -30,8 +30,8 @@ import { IconComponent } from "./icon.component"
            laisserait un trou que l'oeil lit comme un chargement qui n'arrive jamais. -->
       <div
         class="flex items-center justify-center rounded-sm border border-surface bg-surface-800 text-muted-color"
-        [class.size-8]="!large()"
-        [class.size-42]="large()"
+        [style.width.px]="px()"
+        [style.height.px]="px()"
       >
         <app-icon name="image" [size]="large() ? 24 : 16" />
       </div>

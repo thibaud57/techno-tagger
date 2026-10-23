@@ -6,6 +6,7 @@ Le nom s'ouvre sur l'horodatage de creation : age et ordre se lisent sans ouvrir
 import contextlib
 import json
 import logging
+import os
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Final, Protocol
 
@@ -64,15 +65,25 @@ def find_by_run_id(folder: Path, suffix: str, run_id: str) -> Path | None:
     return next((path for path in newest_first(folder, suffix) if run_id_of(path) == run_id), None)
 
 
-def write_atomically(path: Path, text: str) -> None:
+def write_atomically(path: Path, text: str, *, durable: bool = False) -> None:
     """Temporaire voisin puis remplacement : une coupure ne laisse jamais un fichier tronque.
+
+    `durable` fsync le temporaire avant le remplacement : sans cela, une coupure de courant
+    peut garder le nouveau nom et perdre son contenu. Lent, donc reserve a ce qui doit survivre
+    (pas au plan, reecrit a chaque decision). Le dossier n'est pas synchronise (impossible
+    sous Windows) : NTFS journalise le renommage, la coupure rend l'ancien
+    fichier, jamais un tronque.
 
     Leve `OSError`, que l'appelant traduit dans son domaine.
     """
     pending = path.with_suffix(PENDING_SUFFIX)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        pending.write_text(text, encoding="utf-8")
+        with pending.open("w", encoding="utf-8") as handle:
+            handle.write(text)
+            if durable:
+                handle.flush()
+                os.fsync(handle.fileno())
         pending.replace(path)
     except OSError:
         with contextlib.suppress(OSError):

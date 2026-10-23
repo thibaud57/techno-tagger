@@ -4,7 +4,7 @@ import { provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { page } from "../../../../fixtures/dialog"
+import { dialogLabel, page } from "../../../../fixtures/dialog"
 import { action } from "../../../../fixtures/dom"
 import { CORRUPTED, FOLDER_MISSING, INTERRUPTED, UNREADABLE } from "../../../../fixtures/resume"
 import { provideSidecarStub, sidecarStub } from "../../../../fixtures/sidecar-stub"
@@ -42,12 +42,23 @@ describe("ResumeDialogComponent", () => {
     expect(page().textContent).toContain(INTERRUPTED.folder)
   })
 
-  it("leaves the initial focus off the destructive button", async () => {
-    const { fixture } = mount(INTERRUPTED)
+  it("names the dialog by its title", () => {
+    mount(INTERRUPTED)
+
+    expect(dialogLabel()?.textContent).toContain("resume.title")
+  })
+
+  // Sans focus dans la modale, Tab parcourt la page derriere le masque.
+  it.each([
+    ["a run to resume", INTERRUPTED],
+    ["an unreadable plan", UNREADABLE],
+  ])("puts the initial focus inside the dialog, on no button, for %s", async (_case, run) => {
+    const { fixture } = mount(run)
 
     await fixture.whenStable()
 
-    expect(document.activeElement).not.toBe(action("discard"))
+    expect(document.activeElement?.closest('[role="dialog"]')).not.toBeNull()
+    expect(document.activeElement).not.toBeInstanceOf(HTMLButtonElement)
   })
 
   it("resumes the run then shows the tagging tab", async () => {

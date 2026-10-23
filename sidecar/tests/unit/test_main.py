@@ -4,6 +4,7 @@ sont donc armes avant que la boucle de commandes ne lise quoi que ce soit.
 
 import base64
 import io
+import logging
 import re
 import sys
 import tomllib
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING, Final, NamedTuple
 from unittest.mock import Mock, patch
 
 import pytest
+from log_capture import messages_of
 from repo_files import REPO, read_json, read_toml
 from run_plans import plan_of, save_plan
 from tagging_records import RECORD
@@ -89,6 +91,17 @@ def test_logging_and_sentry_are_armed_before_the_loop(
         "_purge_old",
         "run_loop",
     ]
+
+
+def test_the_startup_logs_the_release_once_logging_and_sentry_are_armed(
+    startup: _Startup, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger=__main__.__name__)
+
+    with patch.object(__main__, "_purge_old", autospec=True):
+        __main__.main()
+
+    assert messages_of(caplog, __main__.__name__) == [f"sidecar started {RELEASE}"]
 
 
 @pytest.mark.parametrize(
@@ -199,7 +212,7 @@ def test_the_protocol_stream_ends_lines_with_lf_only(monkeypatch: pytest.MonkeyP
 def test_the_application_identity_is_the_same_everywhere() -> None:
     """Le nom et l'identifiant sont recopies a la main dans plusieurs fichiers que rien ne
     synchronise, et chaque divergence est muette : un identifiant desaccorde envoie
-    les deux cotes dans deux dossiers de donnees voisins, hors des scopes fs, et un
+    les deux cotes dans deux dossiers de donnees voisins, et un
     nom desaccorde disperse les erreurs sur deux releases Sentry incomparables.
     """
     build = ("projects", f"{APP_NAME}-ui", "architect", "build", "options")
@@ -212,6 +225,11 @@ def test_the_application_identity_is_the_same_everywhere() -> None:
     assert read_toml("src-tauri/Cargo.toml", "package", "name") == APP_NAME
     assert f"{APP_NAME}@{__version__}" == RELEASE
     assert read_json("angular.json", *build, "define", "APP_NAME") == f"'{APP_NAME}'"
+    # Le nom de la barre d'onglets et le <title> de la page reprennent le titre de la fenetre.
+    title = read_json("src-tauri/tauri.conf.json", "app", "windows", 0, "title")
+    assert isinstance(title, str)
+    assert read_json("angular.json", *build, "define", "APP_TITLE") == f"'{title}'"
+    assert f"<title>{title}</title>" in (REPO / "src/index.html").read_text(encoding="utf-8")
     assert f"{APP_NAME}@" in str(read_json("package.json", "scripts", "sourcemaps"))
     assert f"release: {APP_NAME}@" in workflow
 
@@ -364,3 +382,34 @@ def test_the_ci_node_major_is_declared_in_engines() -> None:
 def test_the_repository_url_is_the_one_cargo_publishes() -> None:
     """Recopiee a la main : l'issue de retour de matching s'ouvrirait sur un autre depot."""
     assert read_toml("src-tauri/Cargo.toml", "package", "repository") == REPOSITORY_URL
+
+
+def _minor(version: str) -> str:
+    return ".".join(version.lstrip("^~").split(".")[:2])
+
+
+def test_the_tauri_crates_and_their_npm_packages_are_aligned() -> None:
+    """Dependabot monte les crates et les paquets par deux PR distinctes, et la CI ne lance
+    jamais `tauri build` : un ecart ne se verrait qu'au build de release, tag deja pose.
+    Chaque plugin suit son paquet au numero pres ; le noyau et son API ou CLI, a la mineure.
+    """
+    crates = read_toml("src-tauri/Cargo.toml", "dependencies")
+    packages = read_json("package.json", "dependencies")
+    dev_packages = read_json("package.json", "devDependencies")
+    assert isinstance(crates, dict)
+    assert isinstance(packages, dict)
+    assert isinstance(dev_packages, dict)
+    plugins = {
+        name.removeprefix("tauri-plugin-"): spec
+        for name, spec in crates.items()
+        if name.startswith("tauri-plugin-")
+    }
+    tauri = crates["tauri"]
+    assert isinstance(tauri, dict)
+
+    for plugin, spec in plugins.items():
+        package = packages.get(f"@tauri-apps/plugin-{plugin}")
+        if package is not None:
+            assert spec == package, plugin
+    assert _minor(str(tauri["version"])) == _minor(str(packages["@tauri-apps/api"]))
+    assert _minor(str(tauri["version"])) == _minor(str(dev_packages["@tauri-apps/cli"]))

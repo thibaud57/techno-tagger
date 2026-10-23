@@ -1,16 +1,16 @@
 """Rattrapage par URL en fin de run (use-case 4), hors protocole NDJSON : rendu par rappel."""
 
 import logging
-from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, override
 
 from tagger.core.errors import TaggerError
 from tagger.resolution.scraper_client import ScraperError
+from tagger.run.gestures import InFlight
 from tagger.run.models import Resolution, TrackResolved, TrackState
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable
 
     from tagger.resolution.sources import RunSources
     from tagger.run.models import LiveRun, TrackRecord
@@ -62,8 +62,7 @@ class UrlRecoveryNotOpenError(UrlRecoveryError):
 
 
 class UrlRecovery:
-    """Second geste refuse (pas mis en file) si le premier est deja en vol sur ce morceau :
-    des clics rapides lanceraient sinon deux appels reseau."""
+    """Rattrapage d'un morceau non resolu par une URL saisie, un geste a la fois par morceau."""
 
     def __init__(
         self,
@@ -74,17 +73,17 @@ class UrlRecovery:
         self._live = live
         self._sources = sources
         self._on_event = on_event
-        self._busy: set[str] = set()
+        self._in_flight = InFlight(UrlRecoveryBusyError)
 
     @override
     def __repr__(self) -> str:
-        return f"UrlRecovery(run_id={self._live.run_id!r}, busy={len(self._busy)})"
+        return f"UrlRecovery(run_id={self._live.run_id!r}, busy={self._in_flight.count})"
 
     async def resolve(self, track_id: str, url: str) -> None:
         """Resout le morceau depuis `url` ; un echec laisse le morceau tel qu'il etait."""
         record = self._eligible(track_id)
         position = self._live.position(track_id)
-        with self._in_flight(track_id):
+        with self._in_flight.hold(track_id):
             try:
                 candidate, artwork = await self._sources.from_url(position, url)
             except TaggerError as exc:
@@ -118,21 +117,11 @@ class UrlRecovery:
 
     def _eligible(self, track_id: str) -> TrackRecord:
         """Non resolu, ou deja resolu par URL : recoller corrige un mauvais lien."""
-        if track_id in self._busy:
-            raise UrlRecoveryBusyError(track_id)
+        self._in_flight.check(track_id)
         record = self._live.record(track_id)
         if record is None or not (record.state is TrackState.UNRESOLVED or _recovered(record)):
             raise UrlRecoveryNotEligibleError(track_id)
         return record
-
-    @contextmanager
-    def _in_flight(self, track_id: str) -> Generator[None]:
-        """Marque le morceau occupe le temps d'un appel, annulation comprise."""
-        self._busy.add(track_id)
-        try:
-            yield
-        finally:
-            self._busy.discard(track_id)
 
 
 def _recovered(record: TrackRecord) -> bool:

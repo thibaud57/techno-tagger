@@ -51,7 +51,8 @@
               "APP_VERSION": "'0.0.0-dev'",
               "SENTRY_DSN_UI": "''",
               "APP_ENVIRONMENT": "'development'",
-              "APP_NAME": "'techno-tagger'"
+              "APP_NAME": "'techno-tagger'",
+              "APP_TITLE": "'Techno Tagger'"
             }
           },
           "configurations": {

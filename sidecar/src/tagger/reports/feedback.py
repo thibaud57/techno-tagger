@@ -9,13 +9,14 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Final, Literal
 from urllib.parse import quote_plus, urlencode
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict
+from pydantic import AwareDatetime
 
 from tagger import REPOSITORY_URL
 from tagger.core.errors import TaggerError
+from tagger.core.models import StrictFrozenModel
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import PENDING_SUFFIX, purge_stamped, stamped_name, write_atomically
-from tagger.reports.extraction import table_row
+from tagger.reports.common import table_row
 from tagger.reports.tagging import (
     ReportQuery,
     ReportScores,
@@ -67,11 +68,7 @@ class FeedbackExportWriteError(TaggerError):
         super().__init__(f"feedback export not written: {path.name}", file=path.name)
 
 
-class _FeedbackModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class FeedbackTrack(_FeedbackModel):
+class FeedbackTrack(StrictFrozenModel):
     """Liste fermee : un champ ajoute a `TaggingReportTrack` n'en sort pas sans decision.
 
     Ecartes : `track_id` (chemin relatif, sous-dossiers compris), `artwork_url`, `system` et
@@ -96,7 +93,7 @@ class FeedbackTrack(_FeedbackModel):
     artwork_written: bool
 
 
-class FeedbackExport(_FeedbackModel):
+class FeedbackExport(StrictFrozenModel):
     """Le run tel qu'il part dans une issue publique : ni `folder` (chemin absolu, compte de
     l'OS) ni `run_id`, que porte deja le nom du fichier. Jamais relu par l'application.
     """

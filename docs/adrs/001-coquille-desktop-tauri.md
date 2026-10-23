@@ -95,4 +95,6 @@ Le Rust reste une zone morte : `src-tauri/src/lib.rs` se limite à l'initialisat
 
 Le choix de la coquille ne conditionne pas le métier : le sidecar communique par flux standard (cf. [ADR-005](005-sidecar-python-protocole-ndjson.md)), et resterait utilisable tel quel derrière une autre coquille, voire en ligne de commande.
 
+**Mise à jour 2026-10-23** : le plugin `fs` est retiré (crate, paquet npm, initialisation, permissions `fs:allow-applocaldata-*`), la webview ne l'importait pas. La conséquence positive sur le périmètre `fs` ne vaut plus : la webview n'a aucun accès au système de fichiers, ses permissions se limitent au lancement du sidecar, aux dialogues, au `store`, à la locale, à l'ouverture, à l'updater et à la fenêtre (cf. [ARCHITECTURE.md § Capacités Natives](../ARCHITECTURE.md#capacités-natives)).
+
 Références : [Tauri v2 : Sidecar](https://v2.tauri.app/develop/sidecar/), [Tauri v2 : Plugins](https://v2.tauri.app/plugin/).

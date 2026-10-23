@@ -4,6 +4,12 @@
     "tagging": "Tagging",
     "settings": "Settings"
   },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore down",
+    "close": "Close"
+  },
   "app": {
     "blocked": {
       "missing": {
@@ -427,6 +433,7 @@
       "cache": {
         "label": "Cache",
         "hint": "API responses and artwork already downloaded.\nClearing it touches no music file: the next runs download them again.",
+        "hintSized": "API responses and artwork already downloaded ({{size}}).\nClearing it touches no music file: the next runs download them again.",
         "action": "Clear the cache",
         "blocked": {
           "busy": "An operation is in progress.\nWait for it to finish."

@@ -1,63 +1,46 @@
 """Rapport d'extraction, ecrit dans le dossier destination en JSON et en Markdown, tous
 deux en anglais quelle que soit la langue de l'interface (ARCHITECTURE.md § Donnees).
 
-Le JSON porte un champ de version des la premiere version : l'ajouter apres coup
-laisserait une generation de rapports non identifiables (ADR-018). Pas de migration
-tant qu'il n'existe qu'une version : sans version d'origine, elle ne serait ni
-exercable ni testable. Le Markdown n'est pas versionne : c'est un rendu, regenerable
-depuis le JSON et jamais relu.
+Le JSON porte un champ de version des la premiere version : l'ajouter apres coup laisserait
+des rapports non identifiables (ADR-018). Pas de migration tant qu'il n'existe qu'une version.
+Le Markdown n'est pas versionne : rendu regenerable depuis le JSON, jamais relu.
 """
 
-import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Final, Literal, NamedTuple
+from typing import TYPE_CHECKING, Final, Literal
 
-from pydantic import BaseModel
-
-from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason
+from tagger.core.models import StrictFrozenModel
 from tagger.core.run_files import TIMESTAMP_FORMAT
 from tagger.playlists.extraction import DuplicateCriterion, ExtractionMode
+from tagger.reports.common import (
+    ReportPaths,
+    ReportWriteError,
+    escape_markdown,
+    format_instant,
+    table_row,
+    table_section,
+    unused_report_paths,
+    write_report_pair,
+)
 
 if TYPE_CHECKING:
     from tagger.playlists.extraction import ExtractionResult
-
-logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION: Final = 1
 REPORT_KIND: Final = "extraction"
 FILE_STEM: Final = "extraction-report"
 
 
-class ReportError(TaggerError):
-    code: ClassVar[str] = "report_error"
-
-
-class ReportWriteError(ReportError):
-    """Le run a extrait ses fichiers mais son rapport n'a pas pu etre ecrit.
-
-    Erreur metier et non `OSError` brute : la boucle NDJSON n'intercepte que
-    `TaggerError`. Un disque plein doit produire un evenement `error`, jamais un
-    sidecar mort en silence.
-    """
-
-    code: ClassVar[str] = "report_write_failed"
-
-    def __init__(self, path: Path) -> None:
-        super().__init__(f"cannot write report: {path.name}", filename=path.name)
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ReportContext:
     """Ce qu'un rapport dit du run, en plus de son resultat.
 
-    `playlist_name` vaut `None` pour un M3U8. `generated_at` est normalise en UTC a la
-    construction : un aware dans un autre fuseau mentirait dans le stamp du nom de
-    fichier (litteralement suffixe `Z`). Un naive est refuse plutot que
-    reinterprete : `astimezone` le prendrait silencieusement pour l'heure locale de
-    la machine hote.
+    `playlist_name` vaut `None` pour un M3U8. `generated_at` est normalise en UTC : le stamp
+    du nom de fichier est suffixe `Z`. Un naive est refuse, `astimezone` le prendrait pour
+    l'heure locale de la machine.
     """
 
     source_folder: Path
@@ -73,14 +56,14 @@ class ReportContext:
         object.__setattr__(self, "generated_at", self.generated_at.astimezone(UTC))
 
 
-class DiscardedEntry(BaseModel):
+class DiscardedEntry(StrictFrozenModel):
     """Homonyme ecarte, avec de quoi le retrouver a la main."""
 
     path: Path
     size: int
 
 
-class DuplicateEntry(BaseModel):
+class DuplicateEntry(StrictFrozenModel):
     """Choix automatique entre homonymes, rendu verifiable (ADR-020)."""
 
     file_name: str
@@ -90,14 +73,14 @@ class DuplicateEntry(BaseModel):
     discarded: tuple[DiscardedEntry, ...]
 
 
-class FailureEntry(BaseModel):
+class FailureEntry(StrictFrozenModel):
     """Morceau trouve mais non transfere, avec le motif."""
 
     file_name: str
     reason: FileFailureReason
 
 
-class ReportCounts(BaseModel):
+class ReportCounts(StrictFrozenModel):
     """Decomptes des categories, lus sans parcourir les listes."""
 
     extracted: int
@@ -107,20 +90,19 @@ class ReportCounts(BaseModel):
     failures: int
 
 
-class PlaylistRef(BaseModel):
+class PlaylistRef(StrictFrozenModel):
     """Playlist du run. `name` vaut `None` pour un M3U8, qui n'en contient qu'une."""
 
     path: Path
     name: str | None
 
 
-class ExtractionReport(BaseModel):
+class ExtractionReport(StrictFrozenModel):
     """Rapport d'extraction, tel qu'il est ecrit sur le disque.
 
-    `BaseModel` et non un `dict` serialise a la main : le rapport franchit une
-    frontiere et il est permanent, donc relu par une version ulterieure de
-    l'application. C'est ce modele qui portera la migration d'un `schema_version`
-    anterieur, dans un `@model_validator(mode="before")`.
+    Un modele et non un `dict` : le rapport est permanent, relu par une version ulterieure.
+    Il portera la migration d'un `schema_version` anterieur, dans un
+    `@model_validator(mode="before")`.
     """
 
     schema_version: int = SCHEMA_VERSION
@@ -155,8 +137,7 @@ def build_report(result: ExtractionResult, context: ReportContext) -> Extraction
         extracted=result.extracted,
         already_present=result.already_present,
         missing=result.missing,
-        # Meme recopie que celle de l'evenement `extraction_finished` : les deux schemas
-        # restent libres d'evoluer separement, leur remplissage non.
+        # Meme recopie que `extraction_finished`, dont les schemas evoluent separement.
         duplicates=tuple(
             DuplicateEntry.model_validate(duplicate, from_attributes=True)
             for duplicate in result.duplicates
@@ -168,33 +149,13 @@ def build_report(result: ExtractionResult, context: ReportContext) -> Extraction
     )
 
 
-def render_json(result: ExtractionResult, context: ReportContext) -> str:
-    """Rend le rapport JSON, destine a etre relu par l'application.
-
-    `model_dump_json` garde les titres non-ASCII lisibles, rend les `Path` en chaines
-    et suit l'ordre de declaration des champs : deux rendus du meme resultat sont
-    identiques. L'indentation est admise, la regle qui l'interdit vise le flux NDJSON
-    (une ligne, un evenement).
-    """
-    return _render_json(build_report(result, context))
-
-
-def _render_json(report: ExtractionReport) -> str:
-    return report.model_dump_json(indent=2)
-
-
-def render_markdown(result: ExtractionResult, context: ReportContext) -> str:
+def render_markdown(report: ExtractionReport) -> str:
     """Rapport lisible, en anglais.
 
-    Meme `ExtractionReport` que `render_json` : decomptes et listes ne sont jamais
-    recalcules ici, sinon un changement de definition d'un decompte pourrait
-    desynchroniser les deux rendus. Une categorie vide est omise, le tableau de
-    synthese portant deja les decomptes.
+    Rendu du meme `ExtractionReport` que le JSON : decomptes et listes ne sont jamais
+    recalcules ici, sinon les deux rendus pourraient diverger. Une categorie vide est omise,
+    le tableau de synthese portant les decomptes.
     """
-    return _render_markdown(build_report(result, context))
-
-
-def _render_markdown(report: ExtractionReport) -> str:
     counts = report.counts
     lines = [
         "# Extraction report",
@@ -243,12 +204,6 @@ def _render_markdown(report: ExtractionReport) -> str:
     return "\n".join(lines) + "\n"
 
 
-def format_instant(instant: datetime) -> str:
-    """ISO 8601 UTC suffixe `Z`, comme le rendu JSON de pydantic : les deux rapports
-    d'un meme run portent le meme horodatage a la lettre pres."""
-    return instant.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _format_playlist(playlist: PlaylistRef) -> str:
     """Nom quand il existe, suivi du chemin complet (seul identifiant fiable de deux
     bibliotheques homonymes). `is not None` et non une verite : un nom vide (playlist VLC
@@ -259,17 +214,6 @@ def _format_playlist(playlist: PlaylistRef) -> str:
     return str(playlist.path)
 
 
-def escape_markdown(value: object) -> str:
-    """Neutralise ce qui casserait la structure Markdown dans une valeur venue de
-    la playlist source : un nom introuvable n'est jamais confronte a un chemin
-    Windows reel, rien n'exclut donc un `|` ou un retour ligne.
-
-    `splitlines()` plutot qu'une suite de `replace` : il couvre le `\\r` seul autant
-    que le `\\r\\n` : un rendu Markdown traite le premier comme un saut de ligne.
-    """
-    return " ".join(str(value).replace("|", "\\|").splitlines())
-
-
 def _bullet_section(title: str, entries: tuple[str, ...]) -> list[str]:
     """Section a puces, ou rien si la categorie est vide."""
     if not entries:
@@ -278,42 +222,15 @@ def _bullet_section(title: str, entries: tuple[str, ...]) -> list[str]:
     return ["", f"## {title}", "", *(f"- {escape_markdown(entry)}" for entry in entries)]
 
 
-def table_section(title: str, header: tuple[str, ...], rows: list[str]) -> list[str]:
-    """Section en tableau, ou rien si la categorie est vide."""
-    if not rows:
-        return []
-
-    separator = " | ".join("---" for _ in header)
-    return ["", f"## {title}", "", f"| {' | '.join(header)} |", f"| {separator} |", *rows]
-
-
-def table_row(*cells: object) -> str:
-    """Ligne de tableau a partir de valeurs brutes, echappees : jamais assemblee a la
-    main au point d'appel, pour que le nombre de cellules ne diverge pas du header.
-    """
-    return f"| {' | '.join(escape_markdown(cell) for cell in cells)} |"
-
-
-class ReportPaths(NamedTuple):
-    """Chemins des deux fichiers ecrits ; le JSON remonte a l'interface dans l'evenement
-    de fin de run.
-    """
-
-    json_path: Path
-    markdown_path: Path
-
-
 def write_extraction_report(result: ExtractionResult, context: ReportContext) -> ReportPaths:
     """Depose le rapport dans le dossier destination et rend les deux chemins.
 
-    Couple de fichiers horodate par run : le rapport est permanent, un nom fixe
-    ecraserait celui du run precedent.
+    Couple horodate par run : le rapport est permanent, un nom fixe ecraserait le precedent.
 
-    Leve `ReportWriteError` en nommant le fichier ou le dossier reellement en cause :
-    les morceaux sont deja extraits, seul le rapport manque, l'appelant doit pouvoir
-    dire ce qui a echoue.
+    Leve `ReportWriteError` en nommant le fichier ou le dossier en cause : les morceaux sont
+    deja extraits, seul le rapport manque.
     """
-    json_path, markdown_path = unused_report_paths(
+    paths = unused_report_paths(
         context.destination_folder, FILE_STEM, context.generated_at.strftime(TIMESTAMP_FORMAT)
     )
 
@@ -322,40 +239,8 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     except OSError as error:
         raise ReportWriteError(context.destination_folder) from error
 
-    # Construit une seule fois : `render_json`/`render_markdown` en repartiraient
-    # chacun de zero, doublant la validation pydantic du rapport pour un run.
+    # Construit une seule fois : un rendu chacun doublerait la validation pydantic.
     report = build_report(result, context)
-    _write_report_file(json_path, _render_json(report))
-    try:
-        _write_report_file(markdown_path, _render_markdown(report))
-    except ReportWriteError:
-        # Le JSON est deja durablement sur le disque : sans cette trace,
-        # rien ne le rattache plus au run qui l'a produit une fois l'erreur remontee.
-        # Le nom du fichier reste en texte libre : aucune cle du jeu logfmt fixe ne le porte.
-        logger.warning("json report orphaned by a failed markdown write: %s", json_path.name)
-        raise
+    write_report_pair(paths, report.model_dump_json(indent=2), render_markdown(report))
 
-    return ReportPaths(json_path=json_path, markdown_path=markdown_path)
-
-
-def unused_report_paths(folder: Path, file_stem: str, stamp: str) -> ReportPaths:
-    """Suffixe `-2`, `-3`... si ce couple horodate existe deja.
-
-    L'horodatage est a la seconde. Un run qui ne trouve que des fichiers deja presents
-    se termine en quelques millisecondes : relance aussitot, il ecraserait le rapport
-    du premier.
-    """
-    stem, attempt = f"{file_stem}-{stamp}", 1
-    while (folder / f"{stem}.json").exists() or (folder / f"{stem}.md").exists():
-        attempt += 1
-        stem = f"{file_stem}-{stamp}-{attempt}"
-
-    return ReportPaths(json_path=folder / f"{stem}.json", markdown_path=folder / f"{stem}.md")
-
-
-def _write_report_file(path: Path, content: str) -> None:
-    """Ecrit un fichier de rapport, l'erreur nommant ce fichier et non l'autre."""
-    try:
-        path.write_text(content, encoding="utf-8")
-    except OSError as error:
-        raise ReportWriteError(path) from error
+    return paths

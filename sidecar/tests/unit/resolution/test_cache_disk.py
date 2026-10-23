@@ -109,23 +109,25 @@ def test_never_evicts_the_entry_just_written(tmp_path: Path, clock: FakeClock) -
     assert cache.get("a") is not None
 
 
-def test_computes_the_total_size_of_existing_entries_on_open(
+def test_counts_the_entries_found_on_open_toward_the_ceiling(
     tmp_path: Path, clock: FakeClock
 ) -> None:
     first = DiskCache(tmp_path, clock=clock)
     _write(first, "a", b"x" * 10)
+    clock.advance(timedelta(seconds=1))
     _write(first, "b", b"x" * 20)
+    clock.advance(timedelta(seconds=1))
+    reopened = DiskCache(tmp_path, max_bytes=35, clock=clock)
 
-    reopened = DiskCache(tmp_path, clock=clock)
+    _write(reopened, "c", b"x" * 10)
 
-    assert reopened.size == 30
+    assert reopened.get("a") is None
+    assert all(reopened.get(key) is not None for key in ("b", "c"))
 
 
 @pytest.mark.asyncio
-async def test_keeps_the_size_counter_consistent_under_concurrent_writes(
-    tmp_path: Path, clock: FakeClock
-) -> None:
-    cache = DiskCache(tmp_path, clock=clock)
+async def test_holds_the_ceiling_under_concurrent_writes(tmp_path: Path, clock: FakeClock) -> None:
+    cache = DiskCache(tmp_path, max_bytes=100, clock=clock)
 
     async with asyncio.TaskGroup() as group:
         for index in range(20):
@@ -133,7 +135,7 @@ async def test_keeps_the_size_counter_consistent_under_concurrent_writes(
                 asyncio.to_thread(_write, cache, f"key-{index}"), name=f"write:{index}"
             )
 
-    assert cache.size == sum(path.stat().st_size for path in files(tmp_path))
+    assert cache_size(tmp_path) <= 100
 
 
 def test_removes_orphan_temporary_files_on_open(tmp_path: Path, clock: FakeClock) -> None:
@@ -153,7 +155,6 @@ def test_replaces_the_previous_version_of_a_key(tmp_path: Path, clock: FakeClock
     _write(cache, "a", b"second")
 
     assert [path.read_bytes() for path in files(tmp_path)] == [b"second"]
-    assert cache.size == len(b"second")
 
 
 def test_misses_without_error_once_the_folder_is_deleted_then_recreates_it(

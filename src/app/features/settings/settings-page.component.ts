@@ -36,12 +36,12 @@ import {
   injectDangerConfirm,
 } from "../../shared/components/dialogs/danger-confirm.component"
 import { RollbackFailuresComponent } from "../../shared/components/dialogs/rollback-failures.component"
-import { IconComponent } from "../../shared/components/display/icon.component"
+import { IconComponent, type IconName } from "../../shared/components/display/icon.component"
 import { TruncatedTextComponent } from "../../shared/components/display/truncated-text.component"
 import { ErrorMessageComponent } from "../../shared/components/feedback/error-message.component"
 import { MessageComponent } from "../../shared/components/feedback/message.component"
 import { formatBytes } from "../../shared/utils/bytes"
-import { FADE_IN, PAGE_HOST } from "../../shared/utils/motion"
+import { FADE_IN } from "../../shared/utils/motion"
 import { runLine } from "../../shared/utils/run-date"
 import { TOOLTIP } from "../../shared/utils/tooltip"
 
@@ -109,6 +109,13 @@ const SECTIONS = ["api", "matching", "interface", "admin"] as const
 
 export type SettingsSection = (typeof SECTIONS)[number]
 
+const SECTION_ICONS = {
+  api: "key",
+  matching: "sliders-h",
+  interface: "desktop",
+  admin: "wrench",
+} as const satisfies Record<SettingsSection, IconName>
+
 const menuItemId = (section: SettingsSection): string => `settings-section-${section}`
 
 /** PrimeNG passe `context` (item, index, focused, disabled) aux fonctions `pt` sans le typer. */
@@ -139,7 +146,7 @@ type MenuItemPassThroughContext = PassThroughContext & { context?: { item?: Menu
     SettingsRowComponent,
   ],
   templateUrl: "./settings-page.component.html",
-  host: { class: PAGE_HOST, "animate.enter": FADE_IN },
+  host: { class: "page-host", "animate.enter": FADE_IN },
 })
 export default class SettingsPageComponent {
   private readonly sidecar = inject(SidecarService)
@@ -163,6 +170,7 @@ export default class SettingsPageComponent {
 
     return SECTIONS.map((section) => ({
       id: menuItemId(section),
+      icon: SECTION_ICONS[section],
       label: this.translate.instant(`settings.${section}.title`) as string,
       command: () => {
         this.openSection(section)
@@ -207,8 +215,7 @@ export default class SettingsPageComponent {
   )
   protected readonly thresholdsFields = form(this.thresholdsChoice, (path) => {
     // Sans valeur connue, un geste enregistrerait 0 et 100. Store pas encore lu : le geste
-    // enregistrerait sur des defauts le reglage que la lecture vient ecraser, ou la lecture
-    // tardive annulerait le geste en cours.
+    // s'enregistrerait sur des defauts, ou la lecture tardive l'annulerait.
     const unknown = (): boolean =>
       this.shownThresholds() === null || this.storedThresholds() === undefined
     disabled(path.floor, { when: unknown })
@@ -222,22 +229,24 @@ export default class SettingsPageComponent {
 
     return stored !== null && stored !== undefined
   })
+  protected readonly activeItemId = computed(() => menuItemId(this.section()))
   /**
    * Le marqueur va sur le contenu de l'entree, pas sur son `li` : Aura peint le survol et le focus
    * sur le contenu, qui recouvrirait un fond pose sur le `li`. L'entree active l'emporte ainsi.
-   * `aria-current` la nomme aussi : la couleur ne porte jamais seule l'information.
    */
   protected readonly menuPt = computed<MenuPassThrough>(() => {
-    const activeId = menuItemId(this.section())
+    const activeId = this.activeItemId()
     const isActive = (options: PassThroughContext): boolean =>
       (options as MenuItemPassThroughContext).context?.item?.id === activeId
 
-    // Valeurs vides explicites : `pBind` ne retire pas ce qu'une valeur absente laisse en place.
+    // Valeur vide explicite : `pBind` ne retire pas ce qu'une valeur absente laisse en place.
+    // `border-0` : le cadre est celui du panneau de la page.
     return {
+      root: "border-0",
       itemContent: (options) => (isActive(options) ? "bg-highlight" : ""),
-      itemLink: (options) => ({ "aria-current": isActive(options) ? "page" : null }),
     }
   })
+  protected readonly menuTokens = { list: { padding: "0.5rem" } }
 
   protected readonly cacheSize = computed(() => {
     const bytes = this.sidecar.cacheSize()
@@ -362,8 +371,7 @@ export default class SettingsPageComponent {
 
   constructor() {
     // Le dernier run annulable a pu etre ecrit dans une autre session : seul le moteur le sait.
-    // La page se monte avant sa reponse au lancement ; `loadRollbackTarget` n'envoie rien sans
-    // moteur : la demande suit sa disponibilite, pas la construction.
+    // La page se monte avant sa reponse : la demande suit la disponibilite du moteur.
     effect(() => {
       if (this.sidecar.available() === true) {
         untracked(() => {
@@ -385,8 +393,7 @@ export default class SettingsPageComponent {
       })
     })
 
-    // Lu au montage, jamais ecrit : seule la bascule enregistre un choix. Une lecture qui arrive
-    // apres un clic ne l'ecrase pas.
+    // Une lecture qui arrive apres un clic n'ecrase pas le choix.
     void this.preferences.readSoundSignal().then((enabled) => {
       if (!this.soundChosen) {
         this.soundChoice.set({ enabled })

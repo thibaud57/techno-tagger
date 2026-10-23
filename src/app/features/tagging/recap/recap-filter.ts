@@ -1,8 +1,7 @@
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
-export type RecapFilter = "all" | "validated" | "arbitrated" | "failed"
-
-export const RECAP_FILTERS: readonly RecapFilter[] = ["all", "validated", "arbitrated", "failed"]
+export const RECAP_FILTERS = ["all", "validated", "arbitrated", "failed"] as const
+export type RecapFilter = (typeof RECAP_FILTERS)[number]
 
 /** Tranche par le run et toujours debout : un echec d'ecriture arbitre n'est qu'un echec. */
 const settled = (track: TaggingTrack): boolean =>

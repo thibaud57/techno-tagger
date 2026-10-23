@@ -42,6 +42,7 @@ from tagger.tags.files import (
 from tagger.tags.renaming import RenamedTrack, RenameError, RenamePlan
 from tagger.tags.tag_dump import (
     TagDump,
+    TagDumpEntryMissingError,
     TagDumpWriteError,
     dump_path,
     journal_path,
@@ -149,6 +150,7 @@ async def test_dumps_every_origin_before_writing_the_first_file(
     def spying_write(*args: object) -> object:
         if not dumped_at_first_write:
             dumped_at_first_write.append(set(load_dump(_dump(dumps, live)).entries))
+        # Espion a signature libre : les arguments sont ceux que `write_tags` recoit.
         return real_write(*args)  # type: ignore[arg-type]
 
     monkeypatch.setattr(writing, "write_tags", spying_write)
@@ -266,7 +268,7 @@ async def test_notes_the_rename_target_before_the_file_moves(
 
 @pytest.mark.parametrize(
     "error",
-    [TagDumpWriteError(Path("dump.json")), KeyError("a.mp3")],
+    [TagDumpWriteError(Path("dump.json")), TagDumpEntryMissingError()],
     ids=["dump-not-written", "entry-gone"],
 )
 async def test_refuses_the_rename_when_the_dump_cannot_note_it(

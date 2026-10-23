@@ -76,6 +76,7 @@ const defaults = (): StubbedState => ({
   playlistFormat: signal("vlc_dump"),
   playlists: signal(PLAYLISTS),
   listedPlaylistPath: signal(null),
+  listingPending: signal(false),
   progress: signal(null),
   extraction: signal(null),
   extractionRequest: signal(null),

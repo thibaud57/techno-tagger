@@ -183,7 +183,8 @@ async (page) => {
         const slider = row.querySelector("p-slider")
         const number = row.querySelector("p-inputnumber")
         const input = number.querySelector("input")
-        const hint = row.querySelector(".text-xs")
+        // Classe utilitaire `hint` : 12px, muted et pre-line se mesurent ensuite sur le style calcule.
+        const hint = row.querySelector(".hint")
         const style = getComputedStyle(input)
         canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
         const hintStyle = getComputedStyle(hint)
@@ -193,7 +194,8 @@ async (page) => {
           labelFont: getComputedStyle(label).fontSize,
           labelColor: getComputedStyle(label).color,
           rowPadding: [getComputedStyle(row).paddingTop, getComputedStyle(row).paddingBottom],
-          rowColumns: getComputedStyle(row).gridTemplateColumns,
+          // La rangee est un subgrid : les colonnes se lisent sur la grille parente (`settings-rows`).
+          rowColumns: getComputedStyle(row.parentElement).gridTemplateColumns,
           columnGap: getComputedStyle(row).columnGap,
           rowBorder: getComputedStyle(row).borderBottomWidth,
           controlGap: getComputedStyle(control).columnGap,
@@ -279,7 +281,8 @@ async (page) => {
           classes: [...button.classList].filter((c) => /^p-button/.test(c)).join(" "),
           disabled: button.disabled,
           justify: getComputedStyle(wrapper).justifyContent,
-          rightEdgeToSection: px(rect(section).right - rect(button).right),
+          // Bord interieur de la section (son padding), pas son bord : le bouton finit au bout du contenu.
+          rightEdgeToSection: px(rect(section).right - parseFloat(getComputedStyle(section).paddingRight) - rect(button).right),
           gapAfterLastRow: px(rect(wrapper).top - rect(lastRow).bottom),
           height: px(rect(button).height),
           font: getComputedStyle(button).fontSize,
@@ -287,7 +290,7 @@ async (page) => {
         scroll: {
           page: document.scrollingElement.scrollHeight > document.scrollingElement.clientHeight,
           main: main.scrollHeight > main.clientHeight,
-          bottomRoom: px(main.getBoundingClientRect().bottom - rect(wrapper).bottom),
+          bottomRoom: px(rect(section).bottom - parseFloat(getComputedStyle(section).paddingBottom) - rect(wrapper).bottom),
           section: section.scrollHeight > section.clientHeight,
         },
         text: section.innerText,

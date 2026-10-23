@@ -106,7 +106,6 @@ export class TaggingRunStore {
     () => this.tracks().filter((track) => track.state === "write_error").length,
   )
 
-  /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {
     this._runId.set(null)
     this._folder.set(null)
@@ -174,6 +173,11 @@ export class TaggingRunStore {
 
   awaiting(event: ArbitrationRequiredEvent): void {
     this.patch(event.track_id, (row) => ({ ...row, arbitration: event }))
+  }
+
+  /** Le sidecar ne tient plus l'arbitrage : sans cela la ligne resterait cliquable et comptee en attente. */
+  droppedAwaiting(trackId: string): void {
+    this.patch(trackId, (row) => ({ ...row, arbitration: null }))
   }
 
   advanced(processed: number, total: number): void {

@@ -1,5 +1,5 @@
-"""Registre local des rapports de re-tagging : les rapports vivent dans les dossiers de musique,
-seul ce fichier dit ou les retrouver pour rouvrir un run passe.
+"""Registre local des rapports de re-tagging, qui vivent dans les dossiers de musique : seul
+ce fichier dit ou les retrouver pour rouvrir un run passe.
 
 Jamais purge : il suit des livrables permanents. Absent, corrompu ou d'une autre version, il se
 lit vide et repart de zero, les rapports restant dans leurs dossiers. Un fichier que le systeme
@@ -11,8 +11,9 @@ import logging
 from pathlib import Path
 from typing import Final
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, ValidationError
+from pydantic import AwareDatetime, ValidationError
 
+from tagger.core.models import StrictFrozenModel
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import write_atomically
 
@@ -21,18 +22,14 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION: Final = 1
 
 
-class IndexEntry(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class IndexEntry(StrictFrozenModel):
     run_id: str
     written_at: AwareDatetime
     folder: Path
     report_path: Path
 
 
-class ReportIndex(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class ReportIndex(StrictFrozenModel):
     schema_version: int = SCHEMA_VERSION
     entries: tuple[IndexEntry, ...] = ()
 
@@ -63,8 +60,22 @@ def list_reports(index: Path) -> tuple[IndexEntry, ...]:
     known = _read(index)
     if known is None:
         return ()
-    entries = (entry for entry in known.entries if entry.report_path.is_file())
+    entries = filter(_present, known.entries)
     return tuple(sorted(entries, key=lambda entry: entry.written_at, reverse=True))
+
+
+def find_report(index: Path, run_id: str) -> IndexEntry | None:
+    """Entree d'un run dont le rapport existe encore : seule elle est verifiee sur le disque."""
+    known = _read(index)
+    if known is None:
+        return None
+    return next(
+        (entry for entry in known.entries if entry.run_id == run_id and _present(entry)), None
+    )
+
+
+def _present(entry: IndexEntry) -> bool:
+    return entry.report_path.is_file()
 
 
 def _read(index: Path) -> ReportIndex | None:

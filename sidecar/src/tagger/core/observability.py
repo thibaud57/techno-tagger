@@ -71,7 +71,7 @@ _WINDOWS_PATH: Final = re.compile(
     rf"(?<=\"){_PATH_START}[^\"\r\n]*"
     rf"|(?<='){_PATH_START}(?:[^\r\n]*(?=')|[^'\r\n]*)"
     rf"|(?<![\w'\"]){_PATH_START}"
-    r"(?:(?!\s+(?:run|track|source|score|status|reason|request_id)=|:\s)[^\"<>\r\n])*"
+    r"(?:(?!\s+(?:run|track|source|score|status|reason|request_id|errno)=|:\s)[^\"<>\r\n])*"
 )
 
 # `USERNAME` sous Windows, `USER` sur les runners Linux de la CI.
@@ -267,7 +267,7 @@ def capture_unexpected(error: BaseException) -> None:
     `LoggingIntegration` est coupee (cf. `init_sentry`) : le log ne part pas, le bug doit
     remonter par ici.
     """
-    # Meme import differe que `init_sentry` : le SDK n'est paye que sur le chemin qui s'en sert.
+    # Import differe, comme dans `init_sentry`.
     import sentry_sdk  # noqa: PLC0415
 
     sentry_sdk.capture_exception(error)

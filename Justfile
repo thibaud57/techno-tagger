@@ -54,19 +54,31 @@ stop: stop-ui stop-app
 build-sidecar:
     uv run --group build python build.py
 
+# Lancer le binaire fige et exiger sa reponse a `get_version` : seul test d'un import
+# dynamique absent du .spec, que `tauri dev` (sources Python) ne voit jamais
+[group('quality')]
+smoke-sidecar:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    expected=$(node -p "require('./package.json').version")
+    # LOCALAPPDATA jetable : le binaire y ecrit ses logs et y purge ses plans
+    export LOCALAPPDATA=$(mktemp -d)
+    answer=$(printf '{"command":"get_version"}\n' | "src-tauri/binaries/tagger-$(rustc --print host-tuple).exe")
+    first=${answer%%$'\n'*}
+    grep -qF "\"event\":\"version\",\"version\":\"$expected\"" <<< "$first" || { echo "smoke-sidecar: reponse inattendue : $first" >&2; exit 1; }
+    echo "smoke-sidecar: version $expected"
+
 # Compiler la webview Angular
 [group('quality')]
 build-ui:
-    # Tout le detail du build vit dans les scripts npm : `pnpm build` seul doit
-    # rendre un dist livrable. `set dotenv-load` exporte les variables, npm en herite.
+    # Le detail vit dans les scripts npm : `pnpm build` seul rend un dist livrable
     pnpm build
 
 # Produire l'installeur Windows
 [group('quality')]
 build: build-sidecar
-    # Ordre impose : sans le binaire du sidecar, tauri build echoue sur externalBin.
-    # --no-sign : la cle privee de l'updater ne vit que dans les secrets GitHub, la
-    # release signe en CI ; sans le flag, le build exigerait la cle ici.
+    # Sans le binaire du sidecar (dependance), tauri build echoue sur externalBin.
+    # --no-sign : la cle de l'updater ne vit que dans les secrets GitHub (signature en CI)
     pnpm exec tauri build --no-sign
 
 # Lint de la webview
@@ -142,9 +154,7 @@ audit: audit-ui audit-sidecar
 [group('quality')]
 typecheck-ui:
     pnpm exec tsc --noEmit -p tsconfig.app.json
-    # tsconfig.app.json exclut les .spec.ts, que Vitest transpile par esbuild sans
-    # jamais appeler tsc : sans cette ligne, une erreur de type dans un test est
-    # verte partout.
+    # tsconfig.app.json exclut les .spec.ts, que Vitest transpile sans tsc
     pnpm exec tsc --noEmit -p tsconfig.spec.json
 
 # Typage du sidecar
@@ -169,8 +179,7 @@ test-sidecar:
 # Tests de la webview, sans watch
 [group('quality')]
 test-ui:
-    # `--watch=false` explicite : le builder met watch a true des que le terminal
-    # est un TTY : `just test` (parallel) resterait bloque.
+    # Le builder active watch sur un TTY : `just test` (parallel) resterait bloque
     pnpm exec ng test --watch=false
 
 # Tous les tests

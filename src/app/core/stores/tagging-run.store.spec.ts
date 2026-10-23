@@ -74,15 +74,10 @@ describe("TaggingRunStore", () => {
       store.reset()
       store.started({
         ...RUN_STARTED,
-        tracks: [
-          {
-            track_id: "a.mp3",
-            file_name: "a.mp3",
-            artist: "Adam Beyer",
-            title: "Your Mind",
-            tags_before: TAGS_BEFORE,
-          },
-        ],
+        tracks: RUN_STARTED.tracks.slice(0, 1).map((track) => ({
+          ...track,
+          tags_before: TAGS_BEFORE,
+        })),
       })
     }
 
@@ -124,6 +119,15 @@ describe("TaggingRunStore", () => {
     const track = store.tracks()[1]
     expect(track?.state).toBeNull()
     expect(track?.arbitration?.beatport_unavailable).toBe(true)
+  })
+
+  it("stops awaiting an arbitration the sidecar no longer holds", () => {
+    startRun()
+    store.awaiting(AWAITING)
+
+    store.droppedAwaiting("b.mp3")
+
+    expect(store.tracks()[1]?.arbitration).toBeNull()
   })
 
   it("exposes the counters of a finished network phase", () => {

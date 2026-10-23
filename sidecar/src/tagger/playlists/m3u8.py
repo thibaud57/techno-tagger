@@ -13,9 +13,8 @@ from .errors import UnreadablePlaylistFileError, UnsupportedPlaylistFormatError
 if TYPE_CHECKING:
     from pathlib import Path
 
-# Les deux separateurs sont traites ensemble : le fichier vient d'une autre machine
-# que celle qui le lit, ce qu'une classe `PurePath` liee a la plateforme courante ne
-# couvrirait pas.
+# Les deux ensemble : le fichier vient d'une autre machine, ce qu'un `PurePath` lie a la
+# plateforme courante ne couvrirait pas.
 SEPARATORS: Final = ("\\", "/")
 
 DIRECTIVE_PREFIX: Final = "#"
@@ -27,10 +26,9 @@ def read_playlist(path: Path) -> tuple[str, ...]:
     Lu en `utf-8-sig` : Rekordbox et VLC desktop posent un BOM, qui colle sinon
     `\\ufeff` au premier nom et le rend introuvable sur disque.
 
-    La facade aiguille ici tout ce qui n'a pas d'en-tete SQLite : un fichier illisible
-    en texte (ni dump ni playlist) ressort en erreur metier, pas en `UnicodeDecodeError`.
-    Un fichier disparu ou verrouille entre la detection de format et cette lecture aussi,
-    pas en `OSError` brute (symetrique a `vlc.is_vlc_dump`).
+    Tout ce qui n'a pas d'en-tete SQLite arrive ici : un fichier illisible en texte, disparu
+    ou verrouille depuis la detection sort en erreur metier, pas en `UnicodeDecodeError` ou
+    `OSError` (symetrique a `vlc.is_vlc_dump`).
     """
     try:
         content = path.read_text(encoding="utf-8-sig")

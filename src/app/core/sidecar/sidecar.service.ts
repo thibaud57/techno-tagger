@@ -104,6 +104,7 @@ export class SidecarService {
   private readonly _cacheClearing = signal(false)
   private readonly _listing = signal<PlaylistsListedEvent | null>(null)
   private readonly _listedPlaylistPath = signal<string | null>(null)
+  private readonly _listingPending = signal(false)
   private readonly _progress = signal<ExtractionProgressEvent | null>(null)
   private readonly _extraction = signal<ExtractionFinishedEvent | null>(null)
   private readonly _extractionRequest = signal<ExtractionRequest | null>(null)
@@ -111,7 +112,6 @@ export class SidecarService {
   /** Dossier tel que l'utilisateur l'a saisi : le sidecar renvoie le sien normalise (`taggingFolder`). */
   private readonly _requestedFolder = signal<string | null>(null)
   private readonly _lastError = signal<SidecarErrorEvent | null>(null)
-  private readonly _lastErrorCommand = signal<SidecarCommand["command"] | null>(null)
   /**
    * Lancement d'un run, neuf ou repris : `failed()` ne vide pas le run affiche, seul l'etat
    * « en cours » du lancement retombe.
@@ -167,11 +167,9 @@ export class SidecarService {
   readonly sentrySelftest = this._sentrySelftest.asReadonly()
   /** Octets du cache, `null` avant la premiere mesure. */
   readonly cacheSize = this._cacheSize.asReadonly()
-  /** Dernier vidage : de quoi l'annoncer. */
   readonly cacheCleared = this._cacheCleared.asReadonly()
   /** `clear_cache` envoye sans reponse encore : vrai jusqu'a `cache_cleared` ou son refus. */
   readonly cacheClearing = this._cacheClearing.asReadonly()
-  /** Derniere issue de retour preparee : de quoi l'ouvrir et reveler son export. */
   readonly feedbackReady = this._feedbackReady.asReadonly()
   /** Run dont l'issue de retour se prepare, `null` hors attente. */
   readonly feedbackPending = this._feedbackPending.asReadonly()
@@ -180,11 +178,15 @@ export class SidecarService {
 
     return sidecar === null || sidecar === APP_VERSION ? null : { ui: APP_VERSION, sidecar }
   })
-  /** Decide si l'interface propose un selecteur de playlist. */
   readonly playlistFormat = computed(() => this._listing()?.playlist_format ?? null)
   readonly playlists = computed(() => this._listing()?.playlists ?? [])
   /** Le fichier que decrivent `playlistFormat` et `playlists`, l'evenement ne le nommant pas. */
   readonly listedPlaylistPath = this._listedPlaylistPath.asReadonly()
+  /**
+   * `list_playlists` envoyee sans reponse encore : vrai jusqu'a `playlists_listed`, son refus ou
+   * la fin du process. L'absence d'erreur ne le dit pas, `send` efface `lastError` pour toute commande.
+   */
+  readonly listingPending = this._listingPending.asReadonly()
   readonly progress = this._progress.asReadonly()
   readonly extraction = this._extraction.asReadonly()
   /** Les choix du dernier run lance, gardes avec son rapport : l'onglet qui les a saisis peut etre demonte. */
@@ -193,7 +195,7 @@ export class SidecarService {
   readonly extracting = this._extracting.asReadonly()
   readonly lastError = this._lastError.asReadonly()
   /** Commande a l'origine de `lastError` : un ecran n'affiche que celles qu'il emet. */
-  readonly lastErrorCommand = this._lastErrorCommand.asReadonly()
+  readonly lastErrorCommand = computed(() => this._lastError()?.command ?? null)
   /** Exige la version recue : absente, la divergence n'est pas encore controlee (ADR-018). */
   readonly ready = computed(
     () =>
@@ -393,6 +395,7 @@ export class SidecarService {
     // La reponse precedente decrivait un autre fichier : l'ecran attend la nouvelle.
     this._listing.set(null)
     this._listedPlaylistPath.set(playlistPath)
+    this._listingPending.set(true)
     await this.send({ command: "list_playlists", playlist_path: playlistPath })
   }
 
@@ -597,7 +600,7 @@ export class SidecarService {
       return
     }
     // Une erreur ne vaut que pour la commande qui l'a provoquee.
-    this.setLastError(null)
+    this._lastError.set(null)
     try {
       // Une ligne, une commande : c'est ce que lit la boucle du sidecar.
       await this.transport.send(`${JSON.stringify(command)}\n`)
@@ -655,7 +658,9 @@ export class SidecarService {
       Object.hasOwn(ARBITRATION_COMMANDS, event.command) &&
       typeof trackId === "string"
     ) {
-      this.arbitration.rejected(trackId, event.code)
+      if (this.arbitration.rejected(trackId, event.code)) {
+        this.taggingRun.droppedAwaiting(trackId)
+      }
     }
   }
 
@@ -701,13 +706,8 @@ export class SidecarService {
    * commande refusee, a la difference d'une erreur recue sur le flux.
    */
   private reportUnavailable(command: SidecarCommand["command"] | null): void {
-    this.setLastError(unavailableError(command))
+    this._lastError.set(unavailableError(command))
     this.endRun()
-  }
-
-  private setLastError(error: SidecarErrorEvent | null): void {
-    this._lastError.set(error)
-    this._lastErrorCommand.set(error?.command ?? null)
   }
 
   /** Le process est perdu : toute phase longue s'arrete, quelle qu'en soit la cause. */
@@ -718,6 +718,7 @@ export class SidecarService {
     this.arbitration.clear()
     this.urlRecovery.clear()
     this._cacheClearing.set(false)
+    this._listingPending.set(false)
     this._feedbackPending.set(null)
     // Le run charge reste affiche : seul l'attente tombe, sinon `loadRun` du meme id ne repart plus.
     this.pastRunsStore.loadAbandoned()
@@ -767,6 +768,7 @@ export class SidecarService {
       }
       case "playlists_listed":
         this._listing.set(event)
+        this._listingPending.set(false)
         break
       case "progress":
         this.routeProgress(event)
@@ -835,11 +837,14 @@ export class SidecarService {
         this._feedbackReady.set(event)
         break
       case "error":
-        // Avant `setLastError` : la relance de l'annonce passe par `send`, qui efface l'erreur courante.
+        // Avant l'ecriture de l'erreur : la relance de l'annonce passe par `send`, qui efface l'erreur courante.
         this.routeResumeError(event)
-        this.setLastError(event)
+        this._lastError.set(event)
         if (event.command === "clear_cache") {
           this._cacheClearing.set(false)
+        }
+        if (event.command === "list_playlists") {
+          this._listingPending.set(false)
         }
         // Chaque phase longue ne tombe que sur l'echec de la commande qui l'a ouverte :
         // elles tournent en parallele, l'une ne dit rien de l'autre.

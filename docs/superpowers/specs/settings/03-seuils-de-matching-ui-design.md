@@ -33,7 +33,7 @@ Les valeurs de départ viennent du sidecar. Le réglage est persisté et envoyé
 
 ## Références de design
 
-- **Maquette** : `SettingsScreen`, section Matching, rangées « Plancher » et « Seuil haut ». Rangée « Mode agent IA » écartée (Post-MVP Feature 3). Bouton « Rétablir les valeurs par défaut » absent de la maquette, ajouté au Reste ouvert de `.design-sync/NOTES.md`.
+- **Maquette** : `SettingsScreen`, section Matching, rangées « Plancher » et « Seuil haut ». Rangée « Mode agent IA » écartée (Post-MVP, agent IA d'arbitrage). Bouton « Rétablir les valeurs par défaut » absent de la maquette, ajouté au Reste ouvert de `.design-sync/NOTES.md`.
 - **Design system** : fiches `components/forms/Slider`, `components/forms/InputNumber`, `components/forms/SettingsRow`, `components/forms/Button`. Les valeurs de départ 70 et 90 qu'écrivent les fiches Slider et InputNumber ne sont pas reprises (Reste ouvert).
 - Règle de lecture : `.claude/rules/design/claude-design.md`
 

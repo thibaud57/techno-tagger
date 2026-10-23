@@ -1,7 +1,8 @@
 <h1 class="text-2xl font-semibold">{{ "playlist.title" | translate }}</h1>
 
 @if (formCollapsed()) {
-  <div class="flex flex-col gap-2" [animate.enter]="fadeIn">
+  <!-- gap-6 : le resume et la barre sont deux blocs, comme les actions et la barre de Tagging. -->
+  <div class="flex flex-col gap-6" [animate.enter]="fadeIn">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div class="flex min-w-0 flex-1 items-center gap-2 text-sm">
         @if (lastRun(); as run) {
@@ -131,9 +132,11 @@
     <span id="playlist-mode-label" class="col-start-1 text-sm">{{
       "playlist.mode.label" | translate
     }}</span>
+    <!-- `fluid` : les deux options se partagent la colonne, a la largeur des boutons du dessus. -->
     <p-selectbutton
       class="w-full"
       size="small"
+      [fluid]="true"
       [formField]="fields.mode"
       [options]="modeOptions"
       optionValue="value"
@@ -208,7 +211,7 @@
         </tr>
       </ng-template>
       <ng-template #body let-row>
-        <tr class="h-10.25">
+        <tr [class]="rowClass">
           <td>
             <app-truncated-text [text]="row.fileName" />
           </td>

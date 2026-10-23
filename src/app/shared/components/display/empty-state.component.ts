@@ -7,10 +7,7 @@ import { IconComponent, type IconName } from "./icon.component"
   selector: "app-empty-state",
   imports: [IconComponent],
   // `framed` : hors d'une table, le bloc porte le panneau que la table lui donnerait.
-  host: {
-    "[class]":
-      "framed() ? 'flex flex-1 items-center justify-center rounded-lg border border-surface bg-surface-900' : ''",
-  },
+  host: { "[class]": "framed() ? 'flex flex-1 items-center justify-center panel' : ''" },
   template: `
     <div class="flex flex-col items-center gap-2 p-6 text-center">
       <app-icon class="text-muted-color" [name]="icon()" [size]="24" />

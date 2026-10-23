@@ -21,9 +21,8 @@ from .models import PlaylistSummary
 if TYPE_CHECKING:
     from pathlib import Path
 
-# Les 16 premiers octets de toute base SQLite. Reconnaitre le format ici plutot
-# qu'a l'extension : l'utilisateur choisit un chemin dans un dialogue, rien ne
-# garantit le nom du fichier.
+# Les 16 premiers octets de toute base SQLite. L'en-tete plutot que l'extension : rien ne
+# garantit le nom d'un fichier choisi dans un dialogue.
 SQLITE_HEADER: Final = b"SQLite format 3\x00"
 
 
@@ -47,15 +46,11 @@ EXPECTED_SCHEMA: Final[dict[str, tuple[str, ...]]] = {
 
 
 def connect(dump_path: Path) -> sqlite3.Connection:
-    """Ouvre le dump pret a etre requete : lecture seule, collation enregistree,
-    schema verifie.
+    """Ouvre le dump en lecture seule, collation enregistree, schema verifie.
 
-    L'ordre compte. La collation precede la verification parce que celle-ci lit
-    deja `Media`. La verification precede toute requete metier pour qu'un
-    schema inconnu echoue avant d'avoir extrait quoi que ce soit.
-
-    `Path.as_uri()` leve `ValueError` sur un chemin relatif : capturee avec
-    `sqlite3.DatabaseError` pour que l'appelant ne voie que des erreurs metier.
+    La collation precede la verification, qui lit deja `Media`. `Path.as_uri()` leve
+    `ValueError` sur un chemin relatif : capturee avec `sqlite3.DatabaseError` pour n'exposer
+    que des erreurs metier.
     """
     connection: sqlite3.Connection | None = None
     ready = False
@@ -67,9 +62,8 @@ def connect(dump_path: Path) -> sqlite3.Connection:
     except (sqlite3.DatabaseError, ValueError) as error:
         raise UnreadableDumpError(dump_path) from error
     finally:
-        # `_verify_schema` peut lever `IncompatibleDumpSchemaError`, qui n'est pas une
-        # erreur sqlite3 : sans ce filet la connexion deja ouverte resterait a la
-        # charge du ramasse-miettes.
+        # `IncompatibleDumpSchemaError` n'est pas une erreur sqlite3 : sans ce filet la
+        # connexion ouverte resterait au ramasse-miettes.
         if not ready and connection is not None:
             connection.close()
 
@@ -79,10 +73,9 @@ def connect(dump_path: Path) -> sqlite3.Connection:
 def _collate_filename(left: str, right: str) -> int:
     """Collation `FILENAME`, absente de `sqlite3` mais declaree par `Media.filename`.
 
-    Sa logique reelle est inconnue, VLC ne la documentant pas ; cette version
-    insensible a la casse est celle qu'employait la CLI d'origine. Elle ne gouverne
-    que la deduplication du `SELECT DISTINCT`, l'ordre etant impose par le
-    `COLLATE NOCASE` explicite de l'`ORDER BY`.
+    Logique reelle inconnue (non documentee par VLC), d'ou cette version insensible a la
+    casse. Elle ne gouverne que la deduplication du `SELECT DISTINCT`, l'ordre venant du
+    `COLLATE NOCASE` de l'`ORDER BY`.
     """
     lowered_left, lowered_right = left.lower(), right.lower()
     return (lowered_left > lowered_right) - (lowered_left < lowered_right)
@@ -134,7 +127,6 @@ def list_playlists(dump_path: Path) -> tuple[PlaylistSummary, ...]:
     )
 
 
-# Requete d'origine de la CLI, nom de playlist parametre et non plus code en dur.
 # Le `CAST(... AS TEXT) COLLATE NOCASE` impose l'ordre independamment de la
 # collation de colonne, ce qui rend le rapport lisible.
 # `m.filename` n'est pas declare `NOT NULL` : sans le filtre, un media sans nom de fichier

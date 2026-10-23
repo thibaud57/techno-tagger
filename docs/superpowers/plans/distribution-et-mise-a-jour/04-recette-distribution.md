@@ -2,15 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Valider sur de vraies Releases la chaîne complète de distribution et de mise à jour, jusqu'au jalon 1.0.0.
+**Goal:** Valider sur de vraies Releases la chaîne complète de distribution et de mise à jour.
 
-**Architecture:** Recette manuelle en six tâches, sans code applicatif :
+**Architecture:** Recette manuelle en cinq tâches, sans code applicatif :
 - les documents qui partent avec la Release A (README § Installation, ADR-015 et PRODUCTION.md corrigés sur Azure) ;
 - la publication de A, son contrôle d'artefacts et son manifeste ;
 - l'installation de A sur VM propre puis chez un utilisateur réel ;
 - la publication de B et la mise à jour de A vers B sur les deux machines, avec les mesures ;
-- la consignation (cases datées, benchmarks, feature Post-MVP antivirus) ;
-- la release 1.0.0.
+- la consignation (cases datées, benchmarks, feature Post-MVP antivirus).
+
+La release 1.0.0, prévue en Task 6, est sortie du périmètre le 2026-10-21 par décision du propriétaire et publiée à part.
 
 Les gestes sur les machines de test et chez l'utilisateur sont joués par le propriétaire. L'agent prépare, guide, relève et consigne.
 
@@ -36,7 +37,7 @@ Les gestes sur les machines de test et chez l'utilisateur sont joués par le pro
 - **Application non relancée par l'installeur** : `fix:` qui ajoute le plugin `process` (sub-project 02, décision B), Task 4 rejouée sur la Release suivante (Task 4, Step 4).
 - **Signature refusée chez l'utilisateur** : incident critique, Sentry reçoit l'échec, aucune rotation sans l'ancienne clé (Task 4, Step 4).
 - **Sidecar en quarantaine après B** : nouvelle empreinte, faux positif déclaré à Microsoft, feature antivirus en n°1 du Post-MVP (Task 4, Step 6 ; Task 5, Step 4).
-- **Utilisateur réel indisponible** : la case « machine tierce » reste ouverte et la 1.0.0 attend (Task 6, Step 1).
+- **Utilisateur réel indisponible** : la case « machine tierce » reste ouverte (Task 3, Step 2).
 
 ---
 
@@ -60,7 +61,7 @@ Les gestes sur les machines de test et chez l'utilisateur sont joués par le pro
 - Modify: `docs/adrs/015-cibles-distribution-windows.md` (après le paragraphe « L'option la moins chère accessible à un développeur individuel… »)
 - Modify: `docs/PRODUCTION.md` § Code Signing (paragraphe « Signer l'installeur ne changerait pas grand-chose… »)
 
-- [ ] **Step 1: Écrire la section Installation**
+- [x] **Step 1: Écrire la section Installation** (constaté le 2026-10-21)
 
 Dans `README.md`, avant `## Démarrage` :
 
@@ -79,7 +80,7 @@ Les mises à jour se proposent d'elles-mêmes au lancement de l'application.
 
 `<version>` reste tel quel dans le README : il désigne le numéro de chaque Release, pas une valeur à remplir.
 
-- [ ] **Step 2: Corriger ADR-015**
+- [x] **Step 2: Corriger ADR-015** (constaté le 2026-10-21)
 
 Charger `Skill[architecture-doc]`, puis ajouter après le paragraphe « L'option la moins chère accessible à un développeur individuel est **Azure Trusted Signing**… » :
 
@@ -87,7 +88,7 @@ Charger `Skill[architecture-doc]`, puis ajouter après le paragraphe « L'option
 **Mise à jour 2026-10-15** : devenu Azure Artifact Signing (~9,99 $/mois), le service n'est ouvert aux développeurs individuels qu'aux USA et au Canada, aux organisations qu'aux USA, au Canada, dans l'UE et au Royaume-Uni ([Microsoft Learn, Code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options), page du 2026-08-29). Il n'est donc pas accessible à un développeur individuel en dehors de ces deux pays. Les options réelles et leur coût sont relevés dans la spec `docs/superpowers/specs/distribution-et-mise-a-jour/04-recette-distribution-design.md` et portés par la feature Post-MVP « Réduire les faux positifs antivirus ».
 ```
 
-- [ ] **Step 3: Corriger PRODUCTION.md § Code Signing**
+- [x] **Step 3: Corriger PRODUCTION.md § Code Signing** (constaté le 2026-10-21)
 
 Charger `Skill[production-doc]`, puis dans le paragraphe « Signer l'installeur ne changerait pas grand-chose… », remplacer la phrase entière « L'option la moins chère accessible à un individu, Azure Trusted Signing (~120 $/an), est écartée au vu du budget nul ; son bénéfice réel serait la réduction des faux positifs antivirus, que le mode `--onedir` retenu atténue sans rien dépenser ([ADR-015](adrs/015-cibles-distribution-windows.md)). » par :
 
@@ -95,7 +96,7 @@ Charger `Skill[production-doc]`, puis dans le paragraphe « Signer l'installeur 
 Azure Artifact Signing (~9,99 $/mois) n'est ouvert aux individus qu'aux USA et au Canada ; les autres options, Microsoft Store en MSIX, certificat Certum Open Source ou OV, bootloader PyInstaller recompilé, attendent la mesure des faux positifs de la première recette, le mode `--onedir` retenu les atténuant déjà sans rien dépenser (mise à jour du 2026-10-15 d'[ADR-015](adrs/015-cibles-distribution-windows.md)).
 ```
 
-- [ ] **Step 4: Commit sur la branche de la feature** (`feature/*`, mergée dans `develop` avant la Task 2)
+- [x] **Step 4: Commit sur la branche de la feature** (`feature/*`, mergée dans `develop` avant la Task 2)
 
 ```bash
 git add README.md docs/adrs/015-cibles-distribution-windows.md docs/PRODUCTION.md
@@ -150,6 +151,8 @@ Expected: `…_x64-setup.exe`, `…_x64-setup.exe.sig`, `latest.json`. Noter la 
 
 - [ ] **Step 1: Sur VM propre (geste du propriétaire)**
 
+Écartée le 2026-10-21 par décision du propriétaire : la machine de l'utilisateur réel (Step 2) tient lieu de machine tierce, et une VM sous Windows Home coûterait une à deux heures pour le seul Smart App Control, déjà consigné comme risque (PRODUCTION.md § Code Signing). Vaut aussi pour la Task 4, Step 2.
+
 Message au propriétaire, puis attendre son relevé :
 
 ```
@@ -173,7 +176,7 @@ Garde cette VM en vA pour la Task 4.
 
 Expected : chaque point observé, avec sa date. Un point en échec renvoie au § Rollback (hotfix), ou à la section Installation du README si c'est elle qui est fausse.
 
-- [ ] **Step 2: Chez l'utilisateur réel (geste du propriétaire)**
+- [x] **Step 2: Chez l'utilisateur réel (geste du propriétaire)** (2026-10-21 : SmartScreen contourné, clé gardée après relance, run sur quelques morceaux)
 
 Le propriétaire envoie le lien de la section Installation du README. La clé de l'utilisateur part à part, par canal privé (PRODUCTION.md § Gestion des clés utilisateurs). Relevé attendu : points 1 à 5 et 7 du Step 1, sans le test de la clé invalide. L'utilisateur reste en vA pour la Task 4.
 
@@ -183,7 +186,9 @@ Le propriétaire envoie le lien de la section Installation du README. La clé de
 
 **Files:** aucun (constats relevés pour la Task 5).
 
-- [ ] **Step 1: Publier B**
+Passage de A à B prouvé le 2026-10-21 sur le poste de développement (`.claude/skills/verify/SKILL.md` § Pilotage de l'invite de mise à jour) : ne remplace ni la VM propre ni l'utilisateur réel.
+
+- [x] **Step 1: Publier B** (2026-10-21 : v0.11.0, build vert, Release publiée par le workflow après la garde, `latest.json` sous le tag)
 
 Le premier lot `feat:` ou `fix:` qui suit A, publié comme à la Task 2, Steps 1 à 6. Expected : Release B complète, contrôle vert, `latest.json` en version B.
 
@@ -205,22 +210,22 @@ Sur la VM restée en vA :
 7. Note toute alerte Defender sur le nouveau tagger.exe.
 ```
 
-- [ ] **Step 3: Mise à jour chez l'utilisateur réel (geste du propriétaire)**
+- [x] **Step 3: Mise à jour chez l'utilisateur réel (geste du propriétaire)** (2026-10-21 : 0.11.0 proposée, installée, relancée, version 0.11.0 dans Réglages, aucune alerte antivirus)
 
 Relevé attendu : points 1, 4 et 5 du Step 2, plus toute alerte antivirus.
 
-- [ ] **Step 4: Si un point échoue**
+- [x] **Step 4: Si un point échoue** (sans objet le 2026-10-21 : aucun point en échec)
 
 - **Application non relancée au point 4** : `fix:` qui ajoute le plugin `process` et un `relaunch()` après l'installation (sub-project 02, décision « relance après installation », option B), puis Task 4 rejouée sur la Release suivante.
 - **Signature refusée** (modale en échec, événement Sentry reçu) : incident critique selon PRODUCTION.md § Incident Response. Comparer la `pubkey` de `tauri.conf.json` à la clé publique sauvegardée dans le gestionnaire de mots de passe, ne jamais régénérer la paire.
 - **Écran « La mise à jour est incomplète »** : sidecar non remplacé, PRODUCTION.md § Remplacement du sidecar.
 
-- [ ] **Step 5: Mesures (geste du propriétaire pour VirusTotal)**
+- [x] **Step 5: Mesures (geste du propriétaire pour VirusTotal)** (2026-10-21 : installeur B de 24,3 Mo, 0/68 sur VirusTotal ; `tagger.exe` à 4/71, dont Microsoft `Trojan:Win32/Wacatac.B!ml`, faux positif déclaré à Microsoft)
 
 - Taille de l'installeur B (Task 2, Step 6 rejoué sur B).
 - Le propriétaire soumet l'installeur B et `tagger.exe` (tiré du dossier d'installation de la VM) à VirusTotal et relève le nombre de détections et les éditeurs concernés.
 
-- [ ] **Step 6: Faux positifs bloquants**
+- [x] **Step 6: Faux positifs bloquants** (2026-10-21 : aucun, la feature antivirus suit la demande)
 
 Le sidecar a été mis en quarantaine ou bloqué par Defender sur une machine (Task 3 ou Task 4) : le propriétaire déclare le faux positif à Microsoft pour ce build et la feature antivirus passe en n°1 du Post-MVP à la Task 5. Sinon, elle se range avec les features qui suivent la demande.
 
@@ -234,7 +239,7 @@ Le sidecar a été mis en quarantaine ou bloqué par Defender sur une machine (T
 - Modify: `docs/ARCHITECTURE.md`
 - Modify: `docs/BRAINSTORM.md`
 
-- [ ] **Step 1: PRODUCTION.md**
+- [x] **Step 1: PRODUCTION.md** (2026-10-21)
 
 Charger `Skill[production-doc]`. Cocher et dater, sur les seuls constats des Tasks 2 à 4. Les Checklists Release et Distribution se déroulent à chaque release : la case cochée et datée atteste du premier passage réel, comme le fait déjà « Confirmé au premier run (v0.1.0) » dans la Checklist Release, elle ne dispense pas de les rejouer à la release suivante :
 - Checklist Distribution : les six items ;
@@ -245,15 +250,15 @@ Charger `Skill[production-doc]`. Cocher et dater, sur les seuls constats des Tas
 
 Benchmarks : renseigner « Taille de l'installeur » (B, avec sa date) et « Détections antivirus » (résultat VirusTotal daté, éditeurs concernés).
 
-- [ ] **Step 2: VERSIONS.md**
+- [x] **Step 2: VERSIONS.md** (2026-10-21)
 
 Charger `Skill[versions-doc]`. Cocher et dater « `latest.json` est publié avec une signature valide, et un client sur la version antérieure détecte la mise à jour » (citation du doc) et « WebView2 est bien présent sur l'image du runner Windows… ».
 
-- [ ] **Step 3: ARCHITECTURE.md**
+- [x] **Step 3: ARCHITECTURE.md** (2026-10-21)
 
 Charger `Skill[architecture-doc]`. Dans § Ordre de développement, ligne de l'étape 9, ajouter en fin de « Pourquoi cet ordre » : `Livrée par la Feature 8 (recette du AAAA-MM-JJ).`, à la date réelle de la Task 4. Dans § Évolutions Futures (Post-MVP), ajouter la puce « **Réduire les faux positifs antivirus** » avec la même phrase d'ouverture que la feature du BRAINSTORM (Step 4), à la place que lui donne la Task 4, Step 6.
 
-- [ ] **Step 4: BRAINSTORM.md**
+- [x] **Step 4: BRAINSTORM.md** (2026-10-21, Feature 6)
 
 Charger `Skill[brainstorm-doc]`. Ajouter la feature Post-MVP « Réduire les faux positifs antivirus » :
 
@@ -277,38 +282,9 @@ Placer la feature et numéroter selon la Task 4, Step 6 :
 
 Mettre à jour la « Décision Ordre du Post-MVP » en conséquence, avec sa date. `<résultat …>` se remplace par la mesure réelle de la Task 4, Step 5.
 
-- [ ] **Step 5: Commit sur une branche `feature/*`**, mergée dans `develop` (`git-ops`)
+- [x] **Step 5: Commit sur une branche `feature/*`** (2026-10-21), mergée dans `develop` (`git-ops`)
 
 ```bash
 git add docs/PRODUCTION.md docs/VERSIONS.md docs/ARCHITECTURE.md docs/BRAINSTORM.md
 git commit -m "docs: recette de la distribution et de la mise a jour"
 ```
-
----
-
-### Task 6: Release 1.0.0
-
-**Files:** aucun.
-
-- [ ] **Step 1: Condition**
-
-B installée par l'updater chez l'utilisateur réel (Task 4, Step 3 réussi). Sinon, s'arrêter : la case « machine tierce » reste ouverte et la 1.0.0 attend (PRODUCTION.md, jalon 1.0.0).
-
-- [ ] **Step 2: Publier en forçant la version**
-
-Task 2, Steps 1 à 6, la PR `develop → main` titrée `feat: version 1.0.0` et mergée par :
-
-```bash
-gh pr merge <n> --squash --body "Release-As: 1.0.0"
-```
-
-Le footer va dans le corps du squash, seul texte que release-please lit (PRODUCTION.md § Versioning) : posé dans un commit de branche, il ne survivrait pas au squash. Expected : PR release-please en 1.0.0, Release 1.0.0 complète, contrôle vert.
-
-- [ ] **Step 3: Vérifier le tag**
-
-Run: `gh release view v1.0.0 --json tagName,isDraft --jq '"\(.tagName) draft=\(.isDraft)"'`
-Expected: `v1.0.0 draft=false`.
-
-- [ ] **Step 4: Proposée par l'updater**
-
-Le propriétaire lance l'application en B sur la VM. Expected : la modale propose 1.0.0.

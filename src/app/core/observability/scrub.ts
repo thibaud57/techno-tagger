@@ -1,15 +1,12 @@
 import type { BrowserOptions } from "@sentry/angular"
 
 /**
- * Pendant webview de `_scrub` du sidecar, memes motifs dans le meme ordre : query string
- * d'URL, chemin de lecteur ou UNC, dossier personnel restant. Seule la borne avant un champ
- * logfmt reste propre au sidecar. Le navigateur ne connait pas le nom d'utilisateur de l'OS :
- * le masquage se fait par motif seulement.
+ * Pendant webview de `_scrub` du sidecar, memes motifs dans le meme ordre (seule la borne avant
+ * un champ logfmt lui est propre) : query string d'URL, chemin de lecteur ou UNC, dossier
+ * personnel. Le navigateur ne connait pas le nom d'utilisateur de l'OS : masquage par motif seulement.
  *
- * Les chemins arrivent ici parce que le sidecar en envoie dans ses evenements NDJSON et
- * que l'interface les affiche : un message d'erreur formate autour d'un morceau porte son
- * chemin, donc le nom du fichier, l'artiste et le titre. Les messages JS restent envoyes :
- * ils sont le seul diagnostic de la webview.
+ * Un message d'erreur formate autour d'un morceau porte son chemin, donc fichier, artiste et
+ * titre. Les messages JS restent envoyes : seul diagnostic de la webview.
  */
 
 export const MASK = "<user>"
@@ -70,9 +67,10 @@ const maskDeep = (value: unknown): unknown => {
   return value
 }
 
-/** Parcours recursif sans liste de champs : un champ ajoute plus tard est couvert,
- * cles comprises. Pas de cles d'enveloppe exclues comme cote sidecar : les motifs sont
- * ancres, ils ne peuvent matcher ni `release` ni `environment`.
+/**
+ * Parcours recursif sans liste de champs (cles comprises) : un champ ajoute plus tard est couvert.
+ * Aucune cle d'enveloppe exclue, contrairement au sidecar : les motifs sont ancres et ne
+ * matchent ni `release` ni `environment`.
  */
 export const scrub: NonNullable<BrowserOptions["beforeSend"]> = (event) =>
   maskDeep(event) as typeof event

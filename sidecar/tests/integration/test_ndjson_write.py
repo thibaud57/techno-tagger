@@ -7,6 +7,7 @@ from ndjson_loop import (
     CHOOSE_ON_BEATPORT,
     EXPECT_TIMEOUT,
     LEAVING,
+    SWITCH_TO_BEATPORT,
     UNKNOWN_RUN,
     committed,
     conversation,
@@ -19,15 +20,21 @@ from ndjson_loop import (
 )
 from report_files import only_report, report_files
 from run_plans import only_plan
-from scraper_responses import BANDCAMP_TRACK, bandcamp_track_payload, ok
+from scraper_responses import BANDCAMP_TRACK
 from stubs import raising, refusing_suffix
-from tagging_api import BANDCAMP_TRACKS, ONE_TRACK, WRITTEN_NAME, FakeApi
+from tagging_api import (
+    BANDCAMP_TRACKS,
+    ONE_TRACK,
+    WRITTEN_NAME,
+    FakeApi,
+    knows_the_bandcamp_track,
+)
 
 from tagger import BUNDLE_IDENTIFIER, handlers
 from tagger.core.api_key import SERVICE, USERNAME
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.run_files import write_atomically
-from tagger.reports import tagging as tagging_report
+from tagger.reports import common as report_common
 from tagger.reports.index import index_path, list_reports
 from tagger.reports.tagging import load_tagging_report
 from tagger.run import writing
@@ -92,7 +99,7 @@ async def test_refuses_a_write_the_run_is_not_open_to(
     "decision",
     [
         CHOOSE_ON_BEATPORT,
-        {"command": "switch_arbitration_source", "track_id": ONE_TRACK, "source": "beatport"},
+        SWITCH_TO_BEATPORT,
         recover_by_url(),
     ],
     ids=["resolve-arbitration", "switch-arbitration-source", "resolve-by-url"],
@@ -236,7 +243,7 @@ async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
 async def test_refuses_a_commit_while_a_gesture_is_in_flight(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
-    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, ok(bandcamp_track_payload()))
+    knows_the_bandcamp_track(api)
     fetch = api.gate(BANDCAMP_TRACKS, BANDCAMP_TRACK)
 
     async with conversation() as talk:
@@ -327,7 +334,7 @@ async def test_finishes_the_write_phase_when_the_report_cannot_be_written(
     folder: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     refusal = OSError(28, "No space left", "C:/private/profile/Music/x.json")
-    monkeypatch.setattr(tagging_report, "write_atomically", raising(refusal))
+    monkeypatch.setattr(report_common, "write_atomically", raising(refusal))
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
@@ -363,12 +370,12 @@ async def test_keeps_one_pair_of_files_when_the_markdown_was_refused_once(
 ) -> None:
     refusal = OSError(28, "No space left on device")
     monkeypatch.setattr(
-        tagging_report, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
+        report_common, "write_atomically", refusing_suffix(write_atomically, ".md", refusal)
     )
 
     async with conversation() as talk:
         run_id = await written_run(talk, folder)
-        monkeypatch.setattr(tagging_report, "write_atomically", write_atomically)
+        monkeypatch.setattr(report_common, "write_atomically", write_atomically)
         await retried(talk, run_id)
 
     assert [path.suffix for path in report_files(folder)] == [".json", ".md"]

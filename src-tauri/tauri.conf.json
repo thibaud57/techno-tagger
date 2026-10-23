@@ -16,7 +16,8 @@
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
-        "minHeight": 700
+        "minHeight": 700,
+        "decorations": false
       }
     ],
     "security": {
@@ -29,6 +30,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "Empiric Mind",
     "targets": ["nsis"],
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/tagger"],

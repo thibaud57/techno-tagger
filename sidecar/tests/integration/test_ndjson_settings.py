@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from cache_files import cached_files, fill_cache
 from ndjson_loop import (
+    cancelled_run,
     committed,
     conversation,
     drive,
@@ -97,8 +98,7 @@ async def _resolved(talk: Conversation, folder: Path, _api: FakeApi) -> None:
 async def _cancelled(talk: Conversation, folder: Path, api: FakeApi) -> None:
     gate = api.gate(BEATPORT_SEARCH, YOUR_MIND)
     await searching(talk, folder, gate)
-    talk.send(command="cancel_run")
-    await talk.expect("progress", phase="url_recovery")
+    await cancelled_run(talk)
 
 
 async def _write_failed(talk: Conversation, folder: Path, _api: FakeApi) -> None:

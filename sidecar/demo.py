@@ -9,8 +9,6 @@ en un seul run.
     uv run python demo.py --lock N   # tient un morceau verrouille N secondes
     uv run python demo.py --clean    # efface l'arborescence
 
-Rien ne s'accumule : chaque construction repart de zero.
-
 Le verrou reproduit un lecteur audio qui joue le fichier : c'est la seule facon d'obtenir
 un vrai `file_locked` plutot que de le simuler.
 """
