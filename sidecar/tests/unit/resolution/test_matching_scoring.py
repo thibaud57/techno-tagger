@@ -11,6 +11,7 @@ from tagger.resolution.matching import (
     Outcome,
     QueryOrigin,
     TrackQuery,
+    build_query,
     classify,
 )
 
@@ -52,6 +53,11 @@ def test_matches_a_candidate_crediting_more_than_the_tag(
             track_candidate("PATT (Party All The Time)", "Green Velvet Remix", artists=("Sharam",)),
             id="subtitle-cleaned",
         ),
+        pytest.param(
+            tags_query("Sharam", "PATT (Party All The Time)"),
+            track_candidate("PATT (Party All The Time)", "Original Mix", artists=("Sharam",)),
+            id="subtitle-on-both-sides",
+        ),
         # Regression : « ( Original Mix ) » ne s'annulait pas et bloquait l'auto.
         pytest.param(
             tags_query("Adam Beyer", "Your Mind ( Original Mix )"),
@@ -74,6 +80,16 @@ def test_matches_a_candidate_crediting_more_than_the_tag(
             tags_query("Adam Beyer", "Club Premix"),
             track_candidate("Club Premix"),
             id="premix-not-remix",
+        ),
+        pytest.param(
+            tags_query("Adam Beyer", "Your Mind [Drumcode]"),
+            track_candidate("Your Mind", "Original Mix"),
+            id="label-in-brackets",
+        ),
+        pytest.param(
+            tags_query("Adam Beyer", "Your Mind (Original)"),
+            track_candidate("Your Mind", "Original Mix"),
+            id="original-without-mix",
         ),
     ],
 )
@@ -126,8 +142,9 @@ def test_reads_the_version_of_a_group_that_also_names_a_guest(
     [
         ("Your Mind (Extended Mix)", "Your Mind", "Extended Mix"),
         ("Your Mind [Extended Mix]", "Your Mind", "Extended Mix"),
+        ("Your Mind (Sainte Anne Drop)", "Your Mind", "Sainte Anne Drop"),
     ],
-    ids=["parentheses", "square-brackets"],
+    ids=["parentheses", "square-brackets", "version-without-version-word"],
 )
 def test_matches_a_version_however_the_tag_writes_it(
     query_title: str, candidate_title: str, mix_name: str
@@ -163,6 +180,15 @@ def test_keeps_other_versions_in_the_grey_zone_for_a_query_without_version() -> 
     assert classification.outcome is Outcome.GREY_ZONE
     assert all(scored.version_mismatch for scored in classification.retained)
     assert all(scored.score == 100 for scored in classification.retained)
+
+
+def test_never_validates_the_original_for_a_version_without_version_word() -> None:
+    query = build_query("Adam Beyer", "Your Mind (Sainte Anne Drop)", "track.mp3")
+    assert query is not None
+
+    classification = classify(query, [track_candidate("Your Mind", "Original Mix")])
+
+    assert classification.outcome is Outcome.GREY_ZONE
 
 
 @pytest.mark.parametrize(
@@ -301,10 +327,11 @@ def test_scores_a_swapped_artist_name_below_a_perfect_match() -> None:
     assert artist_score < 100
 
 
-def test_drops_a_candidate_without_remix_when_the_query_holds_one() -> None:
-    query = tags_query("Adam Beyer", "Your Mind (Bart Skils Remix)")
+@pytest.mark.parametrize("mix_name", ["Bart Skils Remix", "Bart Skils RMX"], ids=["remix", "rmx"])
+def test_drops_a_candidate_without_remix_when_the_query_holds_one(mix_name: str) -> None:
+    query = tags_query("Adam Beyer", f"Your Mind ({mix_name})")
     original = track_candidate("Your Mind", "Original Mix", track_id="original")
-    remix = track_candidate("Your Mind", "Bart Skils Remix", track_id="remix")
+    remix = track_candidate("Your Mind", mix_name, track_id="remix")
 
     classification = classify(query, [original, remix])
 

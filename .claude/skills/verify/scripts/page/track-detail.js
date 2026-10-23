@@ -62,6 +62,7 @@ async (page) => {
           gapUnderLast: last ? Math.round(box.bottom - last.getBoundingClientRect().bottom) : null,
           nextRowTop: next ? Math.round(next.getBoundingClientRect().top - box.bottom) : null,
           rows: cells.map((c) => c.map((x) => x.textContent.trim())),
+          fieldTexts: rows.map((x) => x.firstElementChild.textContent.replace(/[ \t\r\n]+/g, " ").trim()),
           cut: cells.flatMap((c) => c.slice(0, 2).filter((x) => x.scrollWidth > x.clientWidth).map((x) => x.textContent.trim())),
           unreadable: d.querySelector("[data-unreadable]")?.textContent.trim() ?? null,
           art: art && {
@@ -216,9 +217,10 @@ async (page) => {
   check("detail opens right under its row, full width", r !== null && r.gapToRow === 0 && r.fullWidth, r && { gap: r.gapToRow, full: r.fullWidth })
   check("open row highlighted and expanded", r?.highlighted === true && r.toggleExpanded === "true", r && { h: r.highlighted, e: r.toggleExpanded })
   check("resolved: 14 fields plus comment, no source id", r?.rows.length === 15 && !r?.rows.some((x) => x[1] === "SOURCE_ID"), r?.rows.map((x) => x[1]))
-  check("resolved: fields in the sidecar order, custom keys without the TXXX: prefix", JSON.stringify(r?.rows.map((x) => x[0])) === JSON.stringify(["Artiste", "Titre", "Remixeur", "Genre", "BPM", "Key", "Label", "Numéro de catalogue", "ISRC", "Album", "Numéro de piste", "Année", "Source", "URL", "Commentaire"]) && JSON.stringify(r.rows.map((x) => x[1])) === JSON.stringify(["TPE1", "TIT2", "TPE4", "TCON", "TBPM", "TKEY", "TPUB", "CATALOGNUMBER", "TSRC", "TALB", "TRCK", "TYER", "SOURCE", "WOAS", ""]), r?.rows.map((x) => `${x[0]} ${x[1]}`))
+  check("resolved: fields in the sidecar order, custom keys without the TXXX: prefix", JSON.stringify(r?.rows.map((x) => x[0])) === JSON.stringify(["Artiste", "Titre", "Remixeur", "Genre", "BPM", "Key", "Label", "Numéro de catalogue", "ISRC", "Album", "Numéro de piste", "Année", "Source", "URL", "Commentaire"]) && JSON.stringify(r.rows.slice(0, -1).map((x) => x[1])) === JSON.stringify(["TPE1", "TIT2", "TPE4", "TCON", "TBPM", "TKEY", "TPUB", "CATALOGNUMBER", "TSRC", "TALB", "TRCK", "TYER", "SOURCE", "WOAS"]), r?.fieldTexts)
   check("resolved: first row, key beside the label", JSON.stringify(r?.rows[0]) === JSON.stringify(["Artiste", "TPE1", "adam beyer", "Adam Beyer, Bart Skils"]), r?.rows[0])
-  check("resolved: comment row, after em dash", JSON.stringify(r?.rows.at(-1)) === JSON.stringify(["Commentaire", "", "Ripped by X", "—"]), r?.rows.at(-1))
+  check("field column: label, middle dot, key (DESIGN.md § Séparateurs)", r?.fieldTexts[0] === "Artiste · TPE1" && r.fieldTexts[7] === "Numéro de catalogue · CATALOGNUMBER", r?.fieldTexts.slice(0, 8))
+  check("resolved: comment row without key nor dot, after em dash", JSON.stringify(r?.rows.at(-1)) === JSON.stringify(["Commentaire", "Ripped by X", "—"]) && r.fieldTexts.at(-1) === "Commentaire", [r?.rows.at(-1), r?.fieldTexts.at(-1)])
   check("artwork 168px left of the grid", r?.art?.w === 168 && r?.art?.left === true && r?.art?.frame, r?.art)
   check("artwork 16px (gap-4) before the grid", r?.artToGrid === 16, r?.artToGrid)
   check("key in the muted grey of its label", r?.keyColor?.labelMuted === true && r.keyColor.sameAsLabel === true, r?.keyColor)

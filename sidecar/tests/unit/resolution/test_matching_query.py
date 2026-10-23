@@ -8,6 +8,7 @@ from tagger.resolution.matching import QueryOrigin, TrackQuery, build_query
 GUARD_WORDS: Final = [
     "mix",
     "remix",
+    "rmx",
     "edit",
     "version",
     "dub",
@@ -34,7 +35,7 @@ COLLABORATION_WORDS: Final = ["feat.", "ft.", "featuring", "with", "pres.", "vs.
 def _title(title: str) -> str:
     query = build_query("Adam Beyer", title, "track.mp3")
     assert query is not None
-    return query.title
+    return query.text.removeprefix("Adam Beyer ")
 
 
 def _artist(artist: str) -> str:
@@ -215,6 +216,7 @@ def test_falls_back_on_the_raw_tag_when_cleaning_empties_it() -> None:
     query = build_query("Adam Beyer", "[FREE DL]", "track.mp3")
 
     assert query == tags_query("Adam Beyer", "[FREE DL]")
+    assert query.text == "Adam Beyer [FREE DL]"
 
 
 def test_falls_back_on_the_file_name_when_a_tag_has_no_letter() -> None:

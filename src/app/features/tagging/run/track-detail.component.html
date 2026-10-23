@@ -43,9 +43,11 @@
           <div class="col-span-3 grid grid-cols-subgrid py-0.5" data-detail-row>
             <!-- Clé à côté du libellé et 2px de padding : 15 ou 16 lignes de champs tiennent dans
                  les lignes que la liste réserve au détail (`detailSpan`). -->
-            <span class="flex gap-2 text-muted-color">
+            <span class="text-muted-color">
               <span data-cell>{{ row.labelKey | translate }}</span>
-              <span data-cell>{{ row.key }}</span>
+              @if (row.key; as key) {
+                · <span data-cell>{{ key }}</span>
+              }
             </span>
             <span class="min-w-0 text-muted-color" data-cell>
               @if (row.beforeSource; as source) {
