@@ -105,34 +105,38 @@ describe("AppComponent", () => {
   })
 
   // Cliquer l'onglet actif ne change pas le modele de `p-tabs` : aucun `valueChange`.
-  it.each(["/tagging/recap", "/tagging/recap/a3f9c1"])(
-    "returns to the list when the active tab is clicked on %s",
-    (url) => {
-      const { fixture } = mount(null, url)
-      const navigate = stubNavigation("navigate")
-
-      tabsOf(fixture)[1]?.click()
-
-      expect(navigate).toHaveBeenCalledExactlyOnceWith(["tagging"])
+  it.each([
+    {
+      case: "returns to the list when the active tab is clicked on /tagging/recap",
+      url: "/tagging/recap",
+      tab: 1,
+      navigations: [[["tagging"]]],
     },
-  )
-
-  it("does not navigate when the active tab is clicked on its own route", () => {
-    const { fixture } = mount(null, "/tagging")
+    {
+      case: "returns to the list when the active tab is clicked on /tagging/recap/a3f9c1",
+      url: "/tagging/recap/a3f9c1",
+      tab: 1,
+      navigations: [[["tagging"]]],
+    },
+    {
+      case: "does not navigate when the active tab is clicked on its own route",
+      url: "/tagging",
+      tab: 1,
+      navigations: [],
+    },
+    {
+      case: "navigates once when another tab is clicked from a subpage",
+      url: "/tagging/recap",
+      tab: 0,
+      navigations: [[["playlist"]]],
+    },
+  ])("$case", ({ url, tab, navigations }) => {
+    const { fixture } = mount(null, url)
     const navigate = stubNavigation("navigate")
 
-    tabsOf(fixture)[1]?.click()
+    tabsOf(fixture)[tab]?.click()
 
-    expect(navigate).not.toHaveBeenCalled()
-  })
-
-  it("navigates once when another tab is clicked from a subpage", () => {
-    const { fixture } = mount(null, "/tagging/recap")
-    const navigate = stubNavigation("navigate")
-
-    tabsOf(fixture)[0]?.click()
-
-    expect(navigate).toHaveBeenCalledExactlyOnceWith(["playlist"])
+    expect(navigate.mock.calls).toEqual(navigations)
   })
 
   it("keeps the arbitration dialog closed on an empty queue", () => {
@@ -205,10 +209,13 @@ describe("AppComponent", () => {
     expect(component["arbitrationVisible"]()).toBe(true)
   })
 
-  it("hides the queue badge on an empty queue", () => {
+  it.each([
+    { case: "hides the queue badge on an empty queue", find: badge },
+    { case: "shows no update badge without an update", find: updateBadge },
+  ])("$case", ({ find }) => {
     const { fixture } = mount()
 
-    expect(badge(fixture)).toBeNull()
+    expect(find(fixture)).toBeNull()
   })
 
   it.each([
@@ -275,12 +282,6 @@ describe("AppComponent", () => {
     updateBadge(fixture)?.click()
 
     expect(component["updateDialogVisible"]()).toBe(true)
-  })
-
-  it("shows no update badge without an update", () => {
-    const { fixture } = mount()
-
-    expect(updateBadge(fixture)).toBeNull()
   })
 
   it("installs the close guard at startup", () => {

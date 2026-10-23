@@ -71,16 +71,14 @@ smoke-sidecar:
 # Compiler la webview Angular
 [group('quality')]
 build-ui:
-    # Tout le detail du build vit dans les scripts npm : `pnpm build` seul doit
-    # rendre un dist livrable. `set dotenv-load` exporte les variables, npm en herite.
+    # Le detail vit dans les scripts npm : `pnpm build` seul rend un dist livrable
     pnpm build
 
 # Produire l'installeur Windows
 [group('quality')]
 build: build-sidecar
-    # Ordre impose : sans le binaire du sidecar, tauri build echoue sur externalBin.
-    # --no-sign : la cle privee de l'updater ne vit que dans les secrets GitHub, la
-    # release signe en CI ; sans le flag, le build exigerait la cle ici.
+    # Sans le binaire du sidecar (dependance), tauri build echoue sur externalBin.
+    # --no-sign : la cle de l'updater ne vit que dans les secrets GitHub (signature en CI)
     pnpm exec tauri build --no-sign
 
 # Lint de la webview
@@ -156,9 +154,7 @@ audit: audit-ui audit-sidecar
 [group('quality')]
 typecheck-ui:
     pnpm exec tsc --noEmit -p tsconfig.app.json
-    # tsconfig.app.json exclut les .spec.ts, que Vitest transpile par esbuild sans
-    # jamais appeler tsc : sans cette ligne, une erreur de type dans un test est
-    # verte partout.
+    # tsconfig.app.json exclut les .spec.ts, que Vitest transpile sans tsc
     pnpm exec tsc --noEmit -p tsconfig.spec.json
 
 # Typage du sidecar
@@ -183,8 +179,7 @@ test-sidecar:
 # Tests de la webview, sans watch
 [group('quality')]
 test-ui:
-    # `--watch=false` explicite : le builder met watch a true des que le terminal
-    # est un TTY : `just test` (parallel) resterait bloque.
+    # Le builder active watch sur un TTY : `just test` (parallel) resterait bloque
     pnpm exec ng test --watch=false
 
 # Tous les tests

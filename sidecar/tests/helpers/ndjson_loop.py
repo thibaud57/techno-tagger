@@ -54,6 +54,11 @@ def arbitrate(source: str, candidate: int | None, track_id: str = ONE_TRACK) -> 
 
 CHOOSE_ON_BEATPORT: Final = arbitrate("beatport", 0)
 REFUSE_BEATPORT: Final = arbitrate("beatport", None)
+SWITCH_TO_BEATPORT: Final[dict[str, object]] = {
+    "command": "switch_arbitration_source",
+    "track_id": ONE_TRACK,
+    "source": "beatport",
+}
 
 
 def recover_by_url(url: str = BANDCAMP_TRACK, track_id: str = ONE_TRACK) -> dict[str, object]:
@@ -239,6 +244,12 @@ async def retried(talk: Conversation, run_id: str) -> dict[str, object]:
     """Rejoue les echecs d'ecriture et rend la fin de la phase."""
     talk.send(command="retry_write", run_id=run_id)
     return await talk.expect("run_finished", phase="write")
+
+
+async def cancelled_run(talk: Conversation) -> dict[str, object]:
+    """Annule le run et rend l'ouverture du rattrapage par URL, que l'annulation laisse ouvert."""
+    talk.send(command="cancel_run")
+    return await talk.expect("progress", phase="url_recovery")
 
 
 async def rolled_back(

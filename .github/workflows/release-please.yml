@@ -180,9 +180,8 @@ jobs:
           [IO.File]::WriteAllText($path, $raw)
           gh release upload $env:TAG $path --clobber
 
-      # tauri-action reste vert sans artefact d'updater (constate sur la v0.1.0), et
-      # Tauri valide tout latest.json avant d'en lire la version : sans ce controle,
-      # une Release que l'updater ne verrait pas passerait inapercue.
+      # tauri-action reste vert sans artefact d'updater : sans ce controle, une Release
+      # que l'updater ne verrait pas passerait inapercue.
       - name: Verifier les artefacts de l'updater
         shell: pwsh
         env:

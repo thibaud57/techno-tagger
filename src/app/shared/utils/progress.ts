@@ -5,10 +5,8 @@ interface Counted {
 }
 
 /**
- * Pourcentage d'une phase, ou `undefined` pour la barre indeterminee de PrimeNG.
- *
- * Un total nul n'est pas une phase vide mais une phase dont le compte n'est pas
- * encore connu : la division rendrait `NaN`, que `p-progressbar` affiche tel quel.
+ * Pourcentage d'une phase, `undefined` pour la barre indeterminee de PrimeNG : un total nul est un
+ * compte pas encore connu, et la division rendrait `NaN`, que `p-progressbar` affiche tel quel.
  */
 export const progressPercentage = (progress: Counted | null): number | undefined =>
   progress === null || progress.total === 0

@@ -106,7 +106,6 @@ export class TaggingRunStore {
     () => this.tracks().filter((track) => track.state === "write_error").length,
   )
 
-  /** Efface le run precedent des l'envoi de la commande : l'ecran ne melange rien. */
   reset(): void {
     this._runId.set(null)
     this._folder.set(null)

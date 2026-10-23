@@ -4,7 +4,7 @@ import { vi } from "vitest"
 import { FakeAppWindow } from "../../../fixtures/app-window"
 import { silenceConsoleError } from "../../../fixtures/console"
 import { type SidecarStub, provideSidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
-import { RUN_ID } from "../../../fixtures/tagging"
+import { rollbackInFlight } from "../../../fixtures/write"
 import { APP_WINDOW } from "./app-window"
 import { CloseGuard } from "./close-guard.service"
 
@@ -42,7 +42,7 @@ const PENDING = [
   {
     case: "a rollback runs",
     start: (sidecar: SidecarStub) => {
-      sidecar.rollingBack.set({ runId: RUN_ID, trackId: null })
+      sidecar.rollingBack.set(rollbackInFlight())
     },
     kind: "rollback",
     blocked: true,
@@ -54,8 +54,31 @@ describe("CloseGuard", () => {
     vi.restoreAllMocks()
   })
 
-  it("lets the window close when no work is pending", async () => {
-    const { appWindow, guard } = await setup()
+  it.each([
+    {
+      case: "no work is pending",
+      inTauri: true,
+      start: () => undefined,
+    },
+    {
+      case: "a run has arbitrations pending or is left unwritten",
+      inTauri: true,
+      start: (sidecar: SidecarStub) => {
+        sidecar.tagging.set(true)
+        sidecar.arbitrationCount.set(3)
+        sidecar.runConfirmable.set(true)
+      },
+    },
+    {
+      case: "an extraction runs outside Tauri",
+      inTauri: false,
+      start: (sidecar: SidecarStub) => {
+        sidecar.extracting.set(true)
+      },
+    },
+  ])("lets the window close when $case", async ({ inTauri, start }) => {
+    const { appWindow, sidecar, guard } = await setup({ inTauri })
+    start(sidecar)
 
     const held = appWindow.requestClose()
 
@@ -97,22 +120,10 @@ describe("CloseGuard", () => {
     },
   )
 
-  it("lets the window close during a run, with arbitrations pending or a run left unwritten", async () => {
-    const { appWindow, sidecar, guard } = await setup()
-    sidecar.tagging.set(true)
-    sidecar.arbitrationCount.set(3)
-    sidecar.runConfirmable.set(true)
-
-    const held = appWindow.requestClose()
-
-    expect(held).toBe(false)
-    expect(guard.request()).toBeNull()
-  })
-
   it("lists the pending work in a fixed order", async () => {
     const { sidecar, guard } = await setup()
 
-    sidecar.rollingBack.set({ runId: RUN_ID, trackId: null })
+    sidecar.rollingBack.set(rollbackInFlight())
     sidecar.writing.set(true)
     sidecar.extracting.set(true)
 
@@ -136,16 +147,6 @@ describe("CloseGuard", () => {
     await guard.install()
 
     expect(appWindow.registrations).toBe(1)
-  })
-
-  it("stays silent outside Tauri", async () => {
-    const { appWindow, sidecar, guard } = await setup({ inTauri: false })
-    sidecar.extracting.set(true)
-
-    const held = appWindow.requestClose()
-
-    expect(held).toBe(false)
-    expect(guard.request()).toBeNull()
   })
 
   it("keeps the snapshot when the work ends during the confirmation", async () => {

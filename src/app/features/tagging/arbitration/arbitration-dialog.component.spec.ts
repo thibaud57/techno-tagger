@@ -4,7 +4,7 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
 import { dialogLabel, linkField, page, pasteLink } from "../../../../fixtures/dialog"
-import { action, errorMessageOf, heightClassPx } from "../../../../fixtures/dom"
+import { action, errorMessageOf, heightClassPx, iconOf } from "../../../../fixtures/dom"
 import {
   type SidecarStub,
   type SidecarStubOverrides,
@@ -286,24 +286,19 @@ describe("ArbitrationDialogComponent", () => {
     service.arbitrationBusy.set(true)
     fixture.detectChanges()
 
-    expect(action("validate")?.querySelector('[data-icon="spinner"]')).not.toBeNull()
-    expect(action("refuse")?.querySelector('[data-icon="spinner"]')).toBeNull()
+    expect(iconOf(action("validate"), "spinner")).not.toBeNull()
+    expect(iconOf(action("refuse"), "spinner")).toBeNull()
   })
 
-  it("goes to the next arbitration with the right arrow", () => {
+  it.each([
+    { case: "next", key: "ArrowRight", move: "nextArbitration" },
+    { case: "previous", key: "ArrowLeft", move: "previousArbitration" },
+  ] as const)("goes to the $case arbitration with the $key key", ({ key, move }) => {
     const { service } = mountWith()
 
-    pressOnList("ArrowRight")
+    pressOnList(key)
 
-    expect(service.nextArbitration).toHaveBeenCalledOnce()
-  })
-
-  it("goes to the previous arbitration with the left arrow", () => {
-    const { service } = mountWith()
-
-    pressOnList("ArrowLeft")
-
-    expect(service.previousArbitration).toHaveBeenCalledOnce()
+    expect(service[move]).toHaveBeenCalledOnce()
   })
 
   it("validates the selected candidate with Enter", () => {

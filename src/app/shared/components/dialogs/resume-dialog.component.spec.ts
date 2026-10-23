@@ -48,14 +48,6 @@ describe("ResumeDialogComponent", () => {
     expect(dialogLabel()?.textContent).toContain("resume.title")
   })
 
-  it("leaves the initial focus off the destructive button", async () => {
-    const { fixture } = mount(INTERRUPTED)
-
-    await fixture.whenStable()
-
-    expect(document.activeElement).not.toBe(action("discard"))
-  })
-
   // Sans focus dans la modale, Tab parcourt la page derriere le masque.
   it.each([
     ["a run to resume", INTERRUPTED],

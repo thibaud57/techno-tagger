@@ -21,6 +21,7 @@ from scraper_responses import (
     recording,
     track_payload,
 )
+from sentry_dsn import DSN
 from sentry_sdk.transport import Transport
 
 from tagger import APP_NAME, RELEASE
@@ -41,7 +42,6 @@ if TYPE_CHECKING:
     from sentry_sdk.envelope import Envelope
     from sentry_sdk.types import Event
 
-DSN: Final = "https://key@o1.ingest.de.sentry.io/1"
 API_KEY: Final = "tt-fake-0000-0000"
 TRACK_ID: Final = "Albums/Nova Pulse - Your Mind.mp3"
 TRACK_PATH: Final = Path(r"D:\Musique") / TRACK_ID

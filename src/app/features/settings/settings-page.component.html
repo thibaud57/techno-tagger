@@ -1,7 +1,6 @@
 <h1 class="text-2xl font-semibold">{{ "settings.title" | translate }}</h1>
 
-<!-- Un seul panneau sur toute la hauteur, comme le bloc de Playlist et de Tagging. Colonne du
-     menu a sa propre largeur : celle du composant, plus large seulement si un libelle l'exige. -->
+<!-- Colonne du menu a la largeur du composant, plus large seulement si un libelle l'exige. -->
 <div class="grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] panel">
   <div class="border-r border-surface">
     <p-menu [model]="menuItems()" [pt]="menuPt()" [dt]="menuTokens">
@@ -104,7 +103,6 @@
             <!-- Curseur pour le mouvement grossier, champ pour le nombre exact (fiche Slider). Les
                  deux curseurs gardent l'echelle entiere : le modele fait buter l'un sur l'autre. -->
             <div rowControl class="flex items-center gap-4">
-              <!-- Main sur la piste : un clic y regle la valeur. -->
               <p-slider
                 class="flex-1"
                 data-field="floor"

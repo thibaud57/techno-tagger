@@ -52,7 +52,7 @@ def extended_path(path: Path) -> Path:
 def is_utf8_encodable(path: Path) -> bool:
     """Faux pour un nom qui porte un surrogate isole : NTFS l'admet, UTF-8 non.
 
-    Le protocole NDJSON ne sait pas l'emettre, et `model_dump_json()` leve sur l'evenement.
+    `model_dump_json()` leve sur l'evenement NDJSON qui le porterait.
     """
     try:
         str(path).encode("utf-8")
@@ -64,8 +64,7 @@ def is_utf8_encodable(path: Path) -> bool:
 def encodable_only(paths: Iterable[Path], label: str) -> Iterator[Path]:
     """Ecarte, avec un warning sans le nom (un titre), les chemins que `emit` ne saurait ecrire.
 
-    Mieux vaut un morceau ignore qu'un sidecar mort a l'emission : le dossier resterait
-    inutilisable a chaque lancement.
+    Un morceau ignore plutot qu'un sidecar mort a l'emission, a chaque lancement sur ce dossier.
     """
     for path in paths:
         if is_utf8_encodable(path):

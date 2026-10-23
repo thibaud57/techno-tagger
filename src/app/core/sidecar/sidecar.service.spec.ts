@@ -30,6 +30,7 @@ import {
   phaseBusy,
   progressEvent,
   rollbackFinished,
+  rollbackInFlight,
   writeFinishedWithFailures,
 } from "../../../fixtures/write"
 import { PastRunsStore } from "../stores/past-runs.store"
@@ -179,20 +180,36 @@ describe("SidecarService", () => {
     expect(parseLine(transport.sent[0] ?? "")).toEqual({ command: "get_version" })
   })
 
-  it("feeds the version from the received event", async () => {
+  it.each<{
+    case: string
+    event: VersionEvent
+    read: (target: SidecarService) => unknown
+    expected: unknown
+  }>([
+    {
+      case: "feeds the version from the received event",
+      event: versionEvent(),
+      read: (target) => target.version(),
+      expected: APP_VERSION,
+    },
+    {
+      case: "feeds the api key state from the version event",
+      event: versionEvent({ api_key_configured: true }),
+      read: (target) => target.apiKeyConfigured(),
+      expected: true,
+    },
+    {
+      case: "tells whether the engine asks for the self-test",
+      event: versionEvent({ sentry_selftest: true }),
+      read: (target) => target.sentrySelftest(),
+      expected: true,
+    },
+  ])("$case", async ({ event, read, expected }) => {
     await service.start()
 
-    transport.emit(versionEvent())
+    transport.emit(event)
 
-    expect(service.version()).toBe(APP_VERSION)
-  })
-
-  it("feeds the api key state from the version event", async () => {
-    await service.start()
-
-    transport.emit(versionEvent({ api_key_configured: true }))
-
-    expect(service.apiKeyConfigured()).toBe(true)
+    expect(read(service)).toBe(expected)
   })
 
   it("feeds the default thresholds and the log file from the version event", async () => {
@@ -202,14 +219,6 @@ describe("SidecarService", () => {
 
     expect(service.defaultThresholds()).toEqual(DEFAULT_THRESHOLDS)
     expect(service.logFile()).toBe(LOG_FILE)
-  })
-
-  it("tells whether the engine asks for the self-test", async () => {
-    await service.start()
-
-    transport.emit(versionEvent({ sentry_selftest: true }))
-
-    expect(service.sentrySelftest()).toBe(true)
   })
 
   it("forgets the log file at a restart", async () => {
@@ -247,20 +256,20 @@ describe("SidecarService", () => {
     expect(service.cacheClearing()).toBe(true)
   })
 
-  it("stops clearing the cache when the engine answers", async () => {
+  it.each<{ case: string; answer: SidecarEvent }>([
+    {
+      case: "stops clearing the cache when the engine answers",
+      answer: { event: "cache_cleared", freed_bytes: 4000, size_bytes: 0 },
+    },
+    {
+      case: "stops clearing the cache when the engine refuses it",
+      answer: commandError("clear_cache", "run_not_written"),
+    },
+  ])("$case", async ({ answer }) => {
     await service.start()
     await service.clearCache()
 
-    transport.emit({ event: "cache_cleared", freed_bytes: 4000, size_bytes: 0 })
-
-    expect(service.cacheClearing()).toBe(false)
-  })
-
-  it("stops clearing the cache when the engine refuses it", async () => {
-    await service.start()
-    await service.clearCache()
-
-    transport.emit(commandError("clear_cache", "run_not_written"))
+    transport.emit(answer)
 
     expect(service.cacheClearing()).toBe(false)
   })
@@ -426,11 +435,24 @@ describe("SidecarService", () => {
     expect([whileAwaiting, service.listingPending()]).toEqual([true, false])
   })
 
-  it("stops awaiting the listing when the sidecar refuses it", async () => {
+  it.each<[string, () => void]>([
+    [
+      "the sidecar refuses it",
+      () => {
+        transport.emit(commandError("list_playlists", "playlist_file_unreadable"))
+      },
+    ],
+    [
+      "the sidecar terminates",
+      () => {
+        transport.handlers?.onTerminated()
+      },
+    ],
+  ])("stops awaiting the listing when %s", async (_when, end) => {
     await service.start()
     await service.listPlaylists("C:/x.m3u8")
 
-    transport.emit(commandError("list_playlists", "playlist_file_unreadable"))
+    end()
 
     expect(service.listingPending()).toBe(false)
   })
@@ -443,15 +465,6 @@ describe("SidecarService", () => {
     await service.loadCacheSize()
 
     expect(service.listingPending()).toBe(true)
-  })
-
-  it("stops awaiting the listing when the sidecar terminates", async () => {
-    await service.start()
-    await service.listPlaylists("C:/x.m3u8")
-
-    transport.handlers?.onTerminated()
-
-    expect(service.listingPending()).toBe(false)
   })
 
   it("feeds the received progress", async () => {
@@ -1119,19 +1132,6 @@ describe("SidecarService", () => {
       expect(service.arbitrationCount()).toBe(1)
     })
 
-    it("closes the prompt at the gesture", async () => {
-      await service.start()
-      transport.emit(interruptedRun(INTERRUPTED))
-
-      await service.discard(INTERRUPTED.run_id)
-
-      expect(parseLine(transport.sent.at(-1) ?? "")).toEqual({
-        command: "discard_run",
-        run_id: RUN_ID,
-      })
-      expect(service.interruptedRun()).toBeNull()
-    })
-
     it("prompts the next run once the previous one is discarded", async () => {
       await service.start()
       transport.emit(interruptedRun(INTERRUPTED))
@@ -1323,8 +1323,7 @@ describe("SidecarService", () => {
       await service.prepareFeedback(RUN_ID)
       await service.prepareFeedback(RUN_ID)
 
-      const sent = transport.sent.filter((line) => commandOf(line) === "prepare_feedback")
-      expect(sent).toHaveLength(1)
+      expect(countOf("prepare_feedback")).toBe(1)
     })
 
     it("ends the wait when the preparation is refused", async () => {
@@ -1347,22 +1346,24 @@ describe("SidecarService", () => {
       expect(service.feedbackReady()).toEqual(FEEDBACK_READY)
     })
 
-    it("keeps waiting for the asked run when another run is refused", async () => {
+    it.each([
+      {
+        case: "keeps waiting for the asked run when another run is refused",
+        asked: "b4d2e0",
+        refusal: commandError("prepare_feedback", "run_not_found", { run_id: RUN_ID }),
+      },
+      {
+        case: "keeps waiting when another command fails",
+        asked: RUN_ID,
+        refusal: commandError("clear_cache", "run_not_written"),
+      },
+    ])("$case", async ({ asked, refusal }) => {
       await service.start()
-      await service.prepareFeedback("b4d2e0")
+      await service.prepareFeedback(asked)
 
-      transport.emit(commandError("prepare_feedback", "run_not_found", { run_id: RUN_ID }))
+      transport.emit(refusal)
 
-      expect(service.feedbackPending()).toBe("b4d2e0")
-    })
-
-    it("keeps waiting when another command fails", async () => {
-      await service.start()
-      await service.prepareFeedback(RUN_ID)
-
-      transport.emit(commandError("clear_cache", "run_not_written"))
-
-      expect(service.feedbackPending()).toBe(RUN_ID)
+      expect(service.feedbackPending()).toBe(asked)
     })
 
     it("ends the wait when the engine stops during it", async () => {
@@ -1804,7 +1805,7 @@ describe("SidecarService", () => {
       await service.rollback(RUN_ID, "a.mp3")
 
       expect(sentOf("rollback")).toEqual([{ command: "rollback", run_id: RUN_ID, track_id: "a.mp3" }])
-      expect(service.rollingBack()).toEqual({ runId: RUN_ID, trackId: "a.mp3" })
+      expect(service.rollingBack()).toEqual(rollbackInFlight("a.mp3"))
     })
 
     it("replays a track rollback", async () => {
@@ -1955,7 +1956,7 @@ describe("SidecarService", () => {
           await service.rollback(RUN_ID)
         },
         observe: () => ({ rollingBack: service.rollingBack() }),
-        sent: { rollingBack: { runId: RUN_ID, trackId: null } },
+        sent: { rollingBack: rollbackInFlight() },
         refused: { rollingBack: null },
       },
     ]

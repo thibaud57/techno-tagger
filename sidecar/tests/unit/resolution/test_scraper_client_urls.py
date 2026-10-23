@@ -154,32 +154,28 @@ async def test_resolves_a_soundcloud_track_url_through_the_resolve_route_without
     assert candidate.title == "Tarantula"
 
 
-async def test_sends_a_soundcloud_short_link_to_the_resolve_route(
-    requests: list[httpx2.Request],
-) -> None:
-    """Le code du lien court garde sa casse : seul l'hote passe en minuscules."""
-    async with make_client(answering(requests, soundcloud_track_payload())) as client:
-        await client.fetch_by_url("https://On.SoundCloud.com/AbC123xYz?si=share")
-
-    assert requests[0].url.params["url"] == "https://on.soundcloud.com/AbC123xYz"
-
-
 @pytest.mark.parametrize(
-    "pasted",
+    ("pasted", "sent"),
     [
-        "https://www.soundcloud.com/acme-records/kasia-faithless-tarantula-2",
-        "https://m.soundcloud.com/acme-records/kasia-faithless-tarantula-2/?si=abc#t=1:23",
+        ("https://www.soundcloud.com/acme-records/kasia-faithless-tarantula-2", SOUNDCLOUD_TRACK),
+        (
+            "https://m.soundcloud.com/acme-records/kasia-faithless-tarantula-2/?si=abc#t=1:23",
+            SOUNDCLOUD_TRACK,
+        ),
+        ("https://On.SoundCloud.com/AbC123xYz?si=share", "https://on.soundcloud.com/AbC123xYz"),
     ],
-    ids=["www", "mobile-with-query-and-slash"],
+    ids=["www", "mobile-with-query-and-slash", "short-link-keeping-the-code-case"],
 )
-async def test_rewrites_the_www_and_mobile_soundcloud_hosts(
-    requests: list[httpx2.Request], pasted: str
+async def test_sends_a_soundcloud_url_in_its_single_normalised_form(
+    requests: list[httpx2.Request], pasted: str, sent: str
 ) -> None:
-    """SoundCloud rend 404 sur `www.`, `m.` et un `/` final."""
+    """SoundCloud rend 404 sur `www.`, `m.` et un `/` final. Le code d'un lien court garde sa
+    casse : seul l'hote passe en minuscules.
+    """
     async with make_client(answering(requests, soundcloud_track_payload())) as client:
         await client.fetch_by_url(pasted)
 
-    assert requests[0].url.params["url"] == SOUNDCLOUD_TRACK
+    assert requests[0].url.params["url"] == sent
 
 
 async def test_refuses_a_soundcloud_url_that_resolves_to_a_profile(

@@ -206,11 +206,10 @@ class TagsWriteError(FilesError):
 def list_audio_files(folder: Path) -> tuple[Path, ...]:
     """Fichiers audio du dossier, sous-dossiers compris, dans un ordre stable.
 
-    Le tri porte sur les segments du chemin relatif, casse ignoree : trier la chaine
-    entiere ferait dependre l'ordre du separateur (l'antislash passe apres les chiffres,
-    la barre oblique avant). Meme parcours que le dossier source de l'extraction : `rglob`
-    y saute sans erreur un sous-dossier illisible. Un fichier dont le nom n'a pas
-    d'equivalent UTF-8 est ecarte avec un warning, l'evenement `run_started` ne pouvant le porter.
+    Tri sur les segments du chemin relatif, casse ignoree : trier la chaine entiere ferait
+    dependre l'ordre du separateur (l'antislash passe apres les chiffres, la barre oblique
+    avant). `rglob` saute un sous-dossier illisible, comme pour la source de l'extraction. Un
+    nom sans equivalent UTF-8 est ecarte avec un warning, `run_started` ne pouvant le porter.
     """
     if not folder.is_dir():
         raise TaggingFolderUnreadableError(folder)

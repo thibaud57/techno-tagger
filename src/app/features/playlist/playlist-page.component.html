@@ -132,9 +132,11 @@
     <span id="playlist-mode-label" class="col-start-1 text-sm">{{
       "playlist.mode.label" | translate
     }}</span>
+    <!-- `fluid` : les deux options se partagent la colonne, a la largeur des boutons du dessus. -->
     <p-selectbutton
       class="w-full"
       size="small"
+      [fluid]="true"
       [formField]="fields.mode"
       [options]="modeOptions"
       optionValue="value"

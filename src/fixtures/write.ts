@@ -9,6 +9,7 @@ import type {
   SidecarCommand,
   SidecarErrorEvent,
 } from "../app/core/sidecar/protocol"
+import type { RollbackInFlight } from "../app/core/stores/write.store"
 
 import { RUN_ID } from "./tagging"
 
@@ -54,6 +55,12 @@ export const ROLLBACK_RUN: RollbackRun = {
   folder: "D:/Music/Promo Octobre",
   tracks: 1,
 }
+
+/** Restauration envoyee et pas encore finie : celle du run entier, ou d'un seul morceau. */
+export const rollbackInFlight = (trackId: string | null = null): RollbackInFlight => ({
+  runId: RUN_ID,
+  trackId,
+})
 
 export const rollbackFinished = (
   trackId: string | null = null,

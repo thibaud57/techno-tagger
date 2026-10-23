@@ -15,8 +15,7 @@ export const TECHNO_TAGGER_PRESET = definePreset(Aura, {
       // Seule la croix des modales n'est pas `small` : son icone seule prend le carre compact.
       root: { iconOnlyWidth: COMPACT_CONTROL },
       // PrimeNG 22 ne fixe la hauteur d'une icone seule que si le bouton est `rounded` : le carre.
-      // Un bouton `link` est toujours un lien de texte, en `text-xs`, ni bordure ni padding, a
-      // l'interligne du texte qui l'entoure : il ne grandit pas sa ligne.
+      // Un `link` reste un lien de texte `text-xs` sans padding : il ne grandit pas sa ligne.
       css: () => `
         .p-button-icon-only {
           aspect-ratio: 1;
@@ -69,11 +68,21 @@ export const TECHNO_TAGGER_PRESET = definePreset(Aura, {
     label: {
       root: { fontSize: "0.875rem", fontWeight: "400" },
     },
+    togglebutton: {
+      // Aura 3.0.1 borde le groupe en `surface.950` (le fond de page) : seul le segment actif se
+      // voit. La bordure d'un champ le dessine comme les autres controles.
+      // `sm` a 2px de padding : 28px de haut, comme tout controle compact (Aura : 32px).
+      root: {
+        borderColor: "{form.field.border.color}",
+        checkedBorderColor: "{form.field.border.color}",
+        sm: { padding: "0.125rem" },
+      },
+    },
     dialog: {
       // 8px entre les boutons du pied, comme les pieds composes par l'application (Aura 3.0.1 : 6px).
       footer: { gap: "0.5rem" },
-      // Croix en carre compact (Aura 3.0.1 : rond de 36px), haute comme la ligne d'un titre `text-lg` :
-      // calee sans marge. La marge negative met son icone de 14px sur le bord du contenu.
+      // Croix en carre compact (Aura 3.0.1 : rond de 36px), haute comme un titre `text-lg`. La marge
+      // negative met son icone de 14px sur le bord du contenu.
       // Fermee, la balise host reste un enfant vide de la colonne de la page : un gap de trop.
       css: () => `
         p-dialog,

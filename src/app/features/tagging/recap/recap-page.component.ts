@@ -38,8 +38,8 @@ interface RecapCriteria {
 }
 
 /**
- * Recapitulatif du run affiche (maquette `Recap`) ou, avec `runId`, d'un run passe relu dans son
- * rapport, en lecture seule. La relance reste au bouton d'action du run, onglet Tagging.
+ * Recapitulatif du run affiche ou, avec `runId`, d'un run passe relu dans son rapport, en
+ * lecture seule.
  */
 @Component({
   selector: "app-recap-page",
@@ -72,7 +72,6 @@ export default class RecapPageComponent {
   protected readonly runRestore = injectRunRestore()
   protected readonly wideTooltip = WIDE_TOOLTIP
 
-  /** Un seul signal : `form()` en derive les champs que `[formField]` lie. */
   protected readonly criteria = signal<RecapCriteria>({ filter: "all", query: "" })
   protected readonly fields = form(this.criteria)
 

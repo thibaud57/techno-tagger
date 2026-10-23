@@ -10,18 +10,16 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 # SPEC est fourni par PyInstaller, et build.py compose ce nom de fichier depuis
-# `project.name` : le nom en derive donc sans relire le manifeste ici, ce qu'un
-# spec ne pourrait pas faire par import (cf. rules/pyinstaller/build.md).
+# `project.name`, qu'un spec ne peut pas relire par import (cf. rules/pyinstaller/build.md).
 PACKAGE = Path(SPEC).stem
 
 a = Analysis(
     [f"src/{PACKAGE}/__main__.py"],
     pathex=[],
     binaries=[],
-    # Redondant avec le `hook-keyring.py` de PyInstaller, garde volontairement : ce
-    # hook resout le backend par `collect_submodules("keyring.backends")`, la copie
-    # des metadonnees ne fait qu'alimenter la decouverte par entry points. Le jour
-    # ou le hook regresse, l'echec est un NoKeyringError visible du seul binaire.
+    # Redondant avec le `hook-keyring.py` de PyInstaller, garde volontairement : le hook
+    # resout le backend par `collect_submodules`, ceci alimente la decouverte par entry
+    # points. Si le hook regresse, l'echec est un NoKeyringError visible du seul binaire.
     datas=copy_metadata("keyring"),
     hiddenimports=[
         # Tires par WinVaultKeyring, jamais par une instruction d'import visible.
@@ -41,9 +39,8 @@ a = Analysis(
         "tkinter",
         "PyQt5",
         "PySide2",
-        # Le hook pydantic collecte `pydantic.mypy`, qui tire le type checker
-        # complet et sa runtime mypyc dans le binaire distribue. Rien ne
-        # l'importe a l'execution : mypy est une dependance de developpement.
+        # Le hook pydantic collecte `pydantic.mypy`, qui tire le type checker et sa runtime
+        # mypyc dans le binaire ; rien ne l'importe a l'execution.
         "mypy",
     ],
     noarchive=False,

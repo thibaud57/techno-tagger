@@ -1,7 +1,12 @@
 import keyring
 import pytest
 from keyring.backends import fail
-from memory_keyring import CredentialManagerKeyring, FailingKeyring, RefusingKeyring
+from memory_keyring import (
+    CredentialManagerKeyring,
+    FailingKeyring,
+    MemoryKeyring,
+    RefusingKeyring,
+)
 
 from tagger.core.api_key import (
     ApiKeyNotStoredError,
@@ -25,24 +30,28 @@ def test_stores_then_reads_the_key() -> None:
     assert key == "k3y-t0k3n"
 
 
-def test_reads_no_key_when_the_keyring_fails_on_read() -> None:
-    keyring.set_keyring(FailingKeyring())
+@pytest.mark.parametrize(
+    "backend",
+    [FailingKeyring, CredentialManagerKeyring],
+    ids=["keyring-error", "credential-manager"],
+)
+def test_reads_no_key_when_the_keyring_fails_on_read(backend: type[MemoryKeyring]) -> None:
+    keyring.set_keyring(backend())
 
     key = read_api_key()
 
     assert key is None
 
 
-def test_reads_no_key_when_the_credential_manager_fails_on_read() -> None:
-    keyring.set_keyring(CredentialManagerKeyring())
-
-    key = read_api_key()
-
-    assert key is None
-
-
-def test_raises_api_key_not_stored_when_the_keyring_refuses_the_write() -> None:
-    keyring.set_keyring(RefusingKeyring())
+@pytest.mark.parametrize(
+    "backend",
+    [RefusingKeyring, CredentialManagerKeyring],
+    ids=["keyring-refusal", "credential-manager"],
+)
+def test_raises_api_key_not_stored_when_the_keyring_fails_on_write(
+    backend: type[MemoryKeyring],
+) -> None:
+    keyring.set_keyring(backend())
 
     with pytest.raises(ApiKeyNotStoredError) as error:
         store_api_key("k3y-t0k3n")
@@ -50,16 +59,6 @@ def test_raises_api_key_not_stored_when_the_keyring_refuses_the_write() -> None:
     assert error.value.code == "api_key_not_stored"
     assert "k3y-t0k3n" not in str(error.value)
     assert error.value.params == {}
-
-
-def test_raises_api_key_not_stored_when_the_credential_manager_fails_on_write() -> None:
-    keyring.set_keyring(CredentialManagerKeyring())
-
-    with pytest.raises(ApiKeyNotStoredError) as error:
-        store_api_key("k3y-t0k3n")
-
-    assert error.value.code == "api_key_not_stored"
-    assert "k3y-t0k3n" not in str(error.value)
 
 
 def test_raises_keyring_unavailable_without_backend() -> None:

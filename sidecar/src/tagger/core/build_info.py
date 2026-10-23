@@ -14,7 +14,6 @@ try:
 except ImportError:
     from importlib.metadata import version
 
-    # Hors packaging : le paquet est installe en editable, la version est lisible.
     # La distribution porte le nom du package racine, pas celui de `tagger.core`.
     SENTRY_DSN = ""
     VERSION = version(__name__.partition(".")[0])

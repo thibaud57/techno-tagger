@@ -147,13 +147,26 @@ def test_writes_both_files_in_the_destination(
     assert paths.markdown_path.is_file()
 
 
-def test_file_names_carry_the_generation_stamp(
-    extraction_result: ExtractionResult, report_context: ReportContext
+@pytest.mark.parametrize(
+    ("generated_at", "stamp"),
+    [
+        (GENERATED_AT, EXPECTED_STAMP),
+        (datetime(2026, 9, 8, 22, 15, 0, tzinfo=timezone(timedelta(hours=2))), "20260908T201500Z"),
+    ],
+    ids=["utc-instant", "local-instant-converted-to-utc"],
+)
+def test_file_names_carry_the_utc_generation_stamp(
+    extraction_result: ExtractionResult,
+    report_context: ReportContext,
+    generated_at: datetime,
+    stamp: str,
 ) -> None:
-    paths = write_extraction_report(extraction_result, report_context)
+    context = replace(report_context, generated_at=generated_at)
 
-    assert paths.json_path.name == f"extraction-report-{EXPECTED_STAMP}.json"
-    assert paths.markdown_path.name == f"extraction-report-{EXPECTED_STAMP}.md"
+    paths = write_extraction_report(extraction_result, context)
+
+    assert paths.json_path.name == f"extraction-report-{stamp}.json"
+    assert paths.markdown_path.name == f"extraction-report-{stamp}.md"
 
 
 def test_file_names_avoid_characters_windows_forbids(
@@ -163,19 +176,6 @@ def test_file_names_avoid_characters_windows_forbids(
 
     forbidden = set('<>:"/\\|?*')
     assert not forbidden & set(paths.json_path.name)
-
-
-def test_file_name_uses_the_utc_instant_not_the_local_one(
-    extraction_result: ExtractionResult, report_context: ReportContext
-) -> None:
-    non_utc = replace(
-        report_context,
-        generated_at=datetime(2026, 9, 8, 22, 15, 0, tzinfo=timezone(timedelta(hours=2))),
-    )
-
-    paths = write_extraction_report(extraction_result, non_utc)
-
-    assert paths.json_path.name == "extraction-report-20260908T201500Z.json"
 
 
 def test_a_second_run_does_not_overwrite_the_first(

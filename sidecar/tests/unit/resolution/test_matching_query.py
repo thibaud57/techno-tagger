@@ -223,18 +223,24 @@ def test_falls_back_on_the_file_name_when_a_tag_has_no_letter() -> None:
     assert query == TrackQuery(artist="adam beyer", title="your mind", origin=QueryOrigin.FILENAME)
 
 
-def test_replaces_underscores_in_a_file_name_without_spaces() -> None:
-    query = build_query("", "", "adam_beyer_-_your_mind.mp3")
+@pytest.mark.parametrize(
+    ("file_name", "artist", "title"),
+    [
+        ("adam_beyer_-_your_mind.mp3", "adam beyer", "your mind"),
+        (
+            "05 reinier zonneveld - move your step (320kbps).mp3",
+            "reinier zonneveld",
+            "move your step",
+        ),
+        ("Jay-Z - Title.flac", "Jay-Z", "Title"),
+    ],
+    ids=["underscores-without-spaces", "track-number-and-noise", "first-spaced-dash"],
+)
+def test_reads_artist_and_title_from_a_file_name(file_name: str, artist: str, title: str) -> None:
+    query = build_query("", "", file_name)
 
     assert query is not None
-    assert (query.artist, query.title) == ("adam beyer", "your mind")
-
-
-def test_strips_a_leading_track_number_and_the_noise_of_a_file_name() -> None:
-    query = build_query("", "", "05 reinier zonneveld - move your step (320kbps).mp3")
-
-    assert query is not None
-    assert (query.artist, query.title) == ("reinier zonneveld", "move your step")
+    assert (query.artist, query.title) == (artist, title)
 
 
 @pytest.mark.parametrize(
@@ -247,13 +253,6 @@ def test_keeps_a_numeric_artist_that_is_not_a_track_number(file_name: str, artis
 
     assert query is not None
     assert query.artist == artist
-
-
-def test_splits_the_file_name_on_the_first_spaced_dash() -> None:
-    query = build_query("", "", "Jay-Z - Title.flac")
-
-    assert query is not None
-    assert (query.artist, query.title) == ("Jay-Z", "Title")
 
 
 def test_puts_the_whole_file_name_in_the_title_without_a_spaced_dash() -> None:

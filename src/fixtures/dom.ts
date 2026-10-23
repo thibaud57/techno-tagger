@@ -14,8 +14,8 @@ export const action = (name: string, root: ParentNode = document.body): HTMLButt
 export const errorMessageOf = (root: ParentNode): Element | null =>
   root.querySelector("app-error-message")
 
-export const iconOf = (root: ParentNode, name: IconName): Element | null =>
-  root.querySelector(`[data-icon="${name}"]`)
+export const iconOf = (root: ParentNode | null | undefined, name: IconName): Element | null =>
+  root?.querySelector(`[data-icon="${name}"]`) ?? null
 
 /** Pixels d'une classe de hauteur Tailwind (`h-10.25`) : un cran vaut 4px (`--spacing` : 0.25rem). */
 export const heightClassPx = (className: string): number => Number(className.replace("h-", "")) * 4

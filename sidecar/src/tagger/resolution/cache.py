@@ -45,9 +45,8 @@ CACHE_MAX_BYTES: Final = 500 * 1000 * 1000
 # Pool du CDN des pochettes, distinct des semaphores de l'API (ADR-017).
 ARTWORK_CONCURRENCY: Final = 6
 
-# `read` court : un CDN sert un fichier statique, pas de budget de 90 s a couvrir
-# comme l'API. Les autres phases alignees sur `scraper_client._TIMEOUT` : memes
-# conditions reseau locales.
+# `read` court : un CDN sert un fichier statique. Les autres phases suivent
+# `scraper_client._TIMEOUT` (memes conditions reseau locales).
 _ARTWORK_TIMEOUT: Final = httpx2.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
 
 ARTWORK_EXTENSIONS: Final = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
@@ -215,9 +214,8 @@ class DiskCache:
     def abort(self, pending: PendingWrite) -> None:
         """Abandonne l'ecriture : le `.tmp` est supprime, rien n'est publie.
 
-        Ne leve jamais : appele depuis un `except`, une erreur de nettoyage y
-        remplacerait l'echec en cours. Un `.tmp` verrouille ferait aussi echouer le
-        morceau pour un simple residu de cache.
+        Ne leve jamais : appele depuis un `except`, une erreur de nettoyage y remplacerait
+        l'echec en cours, et un `.tmp` verrouille ferait echouer le morceau pour un residu.
         """
         with contextlib.suppress(OSError):
             pending.file.close()
@@ -292,9 +290,9 @@ class DiskCache:
                 self.discard(path)
 
     def _scan(self) -> list[os.DirEntry[str]]:
-        """`scandir` et non `iterdir` : l'enumeration porte deja type, taille et mtime,
-        sans `Path.stat()` par fichier. Le parcours de `_evict` se paie sous verrou a
-        chaque ecriture, une fois le plafond atteint.
+        """`scandir` et non `iterdir` : l'enumeration porte type, taille et mtime, sans
+        `Path.stat()` par fichier. `_evict` s'en sert sous verrou a chaque ecriture au-dela
+        du plafond.
         """
         try:
             with os.scandir(self._root) as entries:
@@ -479,16 +477,13 @@ class ArtworkFetcher:
 async def _check_artwork_url(url: str, resolve: HostResolver) -> None:
     """Refuse une URL de pochette qui ne designe pas un CDN public, avant d'emettre.
 
-    `artwork_url` arrive dans une reponse de l'API : c'est la seule valeur du contrat
-    qui declenche une requete vers une adresse libre. Une API detournee pointerait
-    sinon la boucle locale ou le reseau de l'utilisateur. Aucune liste blanche de
-    domaines : les hotes des CDN ne sont documentes nulle part, elle casserait au
-    premier changement de CDN.
+    `artwork_url` vient de l'API : seule valeur du contrat qui declenche une requete vers une
+    adresse libre, une API detournee pointerait la boucle locale ou le reseau de l'utilisateur.
+    Pas de liste blanche de domaines : les hotes des CDN ne sont documentes nulle part.
 
-    L'hote est resolu puis juge sur ses adresses, non sur sa forme : un nom de domaine
-    qui pointe la boucle locale passerait un controle limite aux adresses ecrites en
-    clair. Le rebinding (le DNS rend une autre adresse entre ce controle et la
-    connexion) est rattrape apres coup par `_check_connected_address`.
+    L'hote est resolu puis juge sur ses adresses : un nom de domaine qui pointe la boucle
+    locale passerait un controle sur les adresses ecrites en clair. Le rebinding (le DNS rend
+    une autre adresse a la connexion) est rattrape par `_check_connected_address`.
     """
     try:
         parsed = urlsplit(url)

@@ -8,7 +8,6 @@ export interface CloseRequest {
 
 export interface AppWindow {
   onCloseRequested(handler: (request: CloseRequest) => void): Promise<void>
-  /** Rend la fonction qui retire l'ecouteur. */
   onResized(handler: () => void): Promise<() => void>
   isMaximized(): Promise<boolean>
   minimize(): Promise<void>

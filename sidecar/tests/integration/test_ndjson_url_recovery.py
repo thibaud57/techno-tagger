@@ -1,14 +1,22 @@
 from typing import TYPE_CHECKING
 
 import pytest
-from ndjson_loop import arbitrate, conversation, recover_by_url, resolved_run, start_command
-from scraper_responses import BANDCAMP_TRACK, bandcamp_track_payload, ok
+from ndjson_loop import (
+    arbitrate,
+    cancelled_run,
+    conversation,
+    recover_by_url,
+    resolved_run,
+    start_command,
+)
+from scraper_responses import BANDCAMP_TRACK
 from tagging_api import (
     BANDCAMP_TRACKS,
     FIRST_TRACK,
     ONE_TRACK,
     FakeApi,
     hold_on_beatport,
+    knows_the_bandcamp_track,
     knows_your_mind,
 )
 
@@ -23,7 +31,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 @pytest.fixture
 def api(api: FakeApi) -> FakeApi:
     """L'URL Bandcamp collee designe un morceau connu de l'API."""
-    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, ok(bandcamp_track_payload()))
+    knows_the_bandcamp_track(api)
     return api
 
 
@@ -127,8 +135,7 @@ async def test_opens_the_url_recovery_phase_when_the_run_is_cancelled(
         talk.send(**start_command(two_tracks_folder))
         await talk.expect("track_resolved", track_id=FIRST_TRACK, state="unresolved")
         await basiel_gate.wait_reached()
-        talk.send(command="cancel_run")
-        opened = await talk.expect("progress", phase="url_recovery")
+        opened = await cancelled_run(talk)
         talk.send(**recover_by_url(track_id=FIRST_TRACK))
         resolved = await talk.expect("track_resolved", track_id=FIRST_TRACK, resolution="url")
 

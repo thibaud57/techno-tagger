@@ -262,7 +262,6 @@ export class ArbitrationDialogComponent {
     }
   }
 
-  /** Un seul geste en vol par morceau : pendant l'attente, aucun autre ne part. */
   private idleArbitration(): ArbitrationState | null {
     return this.busy() ? null : this.current()
   }

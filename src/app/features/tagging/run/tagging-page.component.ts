@@ -86,7 +86,6 @@ export default class TaggingPageComponent {
   protected readonly runFrozen = this.sidecar.runFrozen
   protected readonly writing = this.sidecar.writing
   protected readonly writeProgress = this.sidecar.writeProgress
-  /** Le bilan de l'ecriture est arrive : le recapitulatif a quelque chose a montrer. */
   protected readonly recapAvailable = computed(() => this.sidecar.writeFinished() !== null)
   protected readonly showsWriteBar = computed(() => this.writing() || this.writeProgress() !== null)
   protected readonly writePercentage = computed(() => progressPercentage(this.writeProgress()))
@@ -157,7 +156,6 @@ export default class TaggingPageComponent {
 
     return null
   })
-  /** Un seul bouton d'action : libelle, icone, raison de blocage et geste suivent l'action. */
   protected readonly actionButton = computed<ActionButton>(() => {
     const action = this.action()
     const write = (label: string, idle: IconName, run: () => void): ActionButton => ({

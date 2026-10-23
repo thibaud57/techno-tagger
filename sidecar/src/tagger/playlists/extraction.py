@@ -119,7 +119,7 @@ def _regular_files(source: Path, excluded: Path | None) -> Iterator[Path]:
 
     `scandir` plutot que `rglob` + `is_file()` : sous Windows, le type d'une entree vient
     de l'enumeration elle-meme, un `stat` par fichier en moins sur une bibliotheque entiere.
-    Un sous-dossier illisible est ignore, comme `rglob` le faisait.
+    Un sous-dossier illisible est ignore.
     """
     pending = [source]
     while pending:
@@ -142,9 +142,8 @@ def _regular_files(source: Path, excluded: Path | None) -> Iterator[Path]:
 def pick_file(file_name: str, candidates: Sequence[Path]) -> PickedFile:
     """Retient un chemin parmi des homonymes et rend la trace du choix.
 
-    Departage dans l'ordre : taille decroissante, puis ordre alphabetique du chemin a
-    taille egale, sans quoi deux runs sur le meme dossier pourraient retenir deux
-    fichiers differents.
+    Taille decroissante, puis ordre alphabetique du chemin : deux runs sur le meme dossier
+    retiennent le meme fichier.
 
     `resolution` vaut `None` quand il n'y avait qu'un candidat : rien a consigner.
     """
@@ -180,12 +179,11 @@ def build_source_index(
 ) -> dict[str, tuple[Path, ...]]:
     """Indexe le dossier source en une passe : nom de fichier vers ses chemins.
 
-    Une recherche par nom relirait l'arborescence a chaque morceau et devrait de
-    toute facon la parcourir entierement pour reperer les homonymes.
+    Une recherche par nom relirait l'arborescence a chaque morceau.
 
-    Les cles sont en minuscules : la cible est Windows, dont le systeme de fichiers
-    est insensible a la casse. `excluded` ecarte un sous-dossier de `source`, compare
-    lexicalement : aucun appel systeme de plus par fichier.
+    Cles en minuscules : le systeme de fichiers de Windows est insensible a la casse.
+    `excluded` ecarte un sous-dossier de `source`, compare lexicalement : aucun appel
+    systeme de plus par fichier.
     """
     if not source.is_dir():
         raise SourceFolderUnreadableError(source)
@@ -205,11 +203,7 @@ class PreparedRun(NamedTuple):
 
 
 def _prepare_run(file_names: Sequence[str], source: Path, destination: Path) -> PreparedRun:
-    """Indexe la source puis cree la destination, dans cet ordre.
-
-    L'ordre est la garantie : un dossier source illisible leve avant qu'aucun dossier
-    n'ait ete cree, donc un run impossible ne laisse rien derriere lui.
-    """
+    """Indexe la source avant de creer la destination : un run impossible ne laisse rien."""
     resolved_source, resolved_destination = source.resolve(), destination.resolve()
 
     # Extraire dans le dossier source lui-meme n'extrait rien : en mode deplacement

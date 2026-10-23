@@ -31,22 +31,16 @@ describe("CloseConfirmationComponent", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)
   })
 
-  it("stays, without leaving, on the stay button", () => {
+  it.each([
+    { button: "stay", other: "leave" },
+    { button: "leave", other: "stay" },
+  ] as const)("only calls $button on the $button button, not $other", ({ button, other }) => {
     const { guard } = mount()
 
-    action("stay")?.click()
+    action(button)?.click()
 
-    expect(guard.stay).toHaveBeenCalledOnce()
-    expect(guard.leave).not.toHaveBeenCalled()
-  })
-
-  it("leaves the application on the leave button", () => {
-    const { guard } = mount()
-
-    action("leave")?.click()
-
-    expect(guard.leave).toHaveBeenCalledOnce()
-    expect(guard.stay).not.toHaveBeenCalled()
+    expect(guard[button]).toHaveBeenCalledOnce()
+    expect(guard[other]).not.toHaveBeenCalled()
   })
 
   it("stays when the dialog is dismissed", () => {

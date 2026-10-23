@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 from scraper_responses import track_candidate
-from tagging_records import RECORD, RUN_ID, scored_candidate
+from tagging_records import MUSIC, RECORD, RUN_ID, scored_candidate
 
 from tagger.protocol import (
     ArbitrationRequired,
@@ -144,7 +144,7 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
             candidate=track_candidate(),
             scored=scored_candidate(),
         ),
-        path=Path("music/a.FLAC"),
+        path=MUSIC / "a.FLAC",
         tags_before=None,
     )
 

@@ -81,8 +81,17 @@ describe("RecoveryUiStore", () => {
       expect(store.linkStep()).toBeNull()
     })
 
-    it("targets the refused track once it left the queue unresolved", () => {
-      const { store, service } = mount()
+    it.each([
+      {
+        case: "targets the refused track once it left the queue unresolved",
+        tracks: [unresolvedTrack("a.mp3")],
+      },
+      {
+        case: "targets a track passed on an empty Bandcamp list, unresolved with its list reason",
+        tracks: [unresolvedTrack("a.mp3", "no_result")],
+      },
+    ])("$case", ({ tracks }) => {
+      const { store, service } = mount(tracks)
       service.arbitrations.set([arbitrationRequired("a.mp3")])
       store.refused("a.mp3")
 
@@ -98,16 +107,6 @@ describe("RecoveryUiStore", () => {
       service.taggingRunId.set("run-2")
 
       expect(store.linkStep()).toBeNull()
-    })
-
-    it("targets a track passed on an empty Bandcamp list, unresolved with its list reason", () => {
-      const { store, service } = mount([unresolvedTrack("a.mp3", "no_result")])
-      service.arbitrations.set([arbitrationRequired("a.mp3")])
-      store.refused("a.mp3")
-
-      service.arbitrations.set([])
-
-      expect(store.linkStep()).toBe("a.mp3")
     })
 
     it("stays empty when the refused track was resolved meanwhile", () => {
@@ -215,22 +214,24 @@ describe("RecoveryUiStore", () => {
       expect(store.target()).toBeNull()
     })
 
-    it("drops its target once the track is no longer recoverable", () => {
+    it.each([
+      {
+        case: "drops its target once the track is no longer recoverable",
+        left: "b.mp3",
+        target: null,
+      },
+      {
+        case: "keeps its target while the track stays recoverable",
+        left: "a.mp3",
+        target: "a.mp3",
+      },
+    ])("$case", ({ left, target }) => {
       const { store, service } = mount([unresolvedTrack("a.mp3"), unresolvedTrack("b.mp3")])
       store.open("a.mp3")
 
-      service.recoverableTracks.set([unresolvedTrack("b.mp3")])
+      service.recoverableTracks.set([unresolvedTrack(left)])
 
-      expect(store.target()).toBeNull()
-    })
-
-    it("keeps its target while the track stays recoverable", () => {
-      const { store, service } = mount([unresolvedTrack("a.mp3"), unresolvedTrack("b.mp3")])
-      store.open("a.mp3")
-
-      service.recoverableTracks.set([unresolvedTrack("a.mp3")])
-
-      expect(store.target()).toBe("a.mp3")
+      expect(store.target()).toBe(target)
     })
 
     it("closes back to no target", () => {

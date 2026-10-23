@@ -7,7 +7,6 @@ export interface DownloadProgress {
   readonly total: number | null
 }
 
-/** L'objet `Update` du plugin, reduit a ce que l'application emploie. */
 export interface AvailableUpdate {
   readonly version: string
   readonly currentVersion: string

@@ -159,7 +159,7 @@ Toujours 1px. Trois gris, du plus marqué au plus discret :
 
 | Rôle | Couleur | Classe |
 |------|---------|--------|
-| Champ | `{surface.600}` | par le preset |
+| Champ, cadre d'un `p-selectbutton` | `{surface.600}` | par le preset |
 | Panneau et filet de structure | `{surface.700}` | `border-surface` |
 | Filet entre les lignes d'une liste (tables, rangées des Réglages) | `{surface.800}` | `border-surface-800`, par le preset dans une table |
 
@@ -243,7 +243,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
 | Sélecteur de playlist (dump VLC) | `p-select` `size="small"` | PrimeNG | Option : nom et nombre de morceaux. Un `p-skeleton` à sa hauteur tant que la liste est attendue. Nom long coupé, lu au survol : `contain: inline-size` l'empêche d'élargir la colonne |
-| Mode copie / déplacement | `p-selectbutton` `size="small"` | PrimeNG | Copie par défaut |
+| Mode copie / déplacement | `p-selectbutton` `size="small"` `[fluid]="true"` | PrimeNG | Copie par défaut. Les deux segments se partagent la colonne, à la largeur des boutons de chemin du dessus |
 | Champ de lien | `UrlLinkFormComponent` : `input pInputText` `pSize="small"` `type="url"` + `app-error-message`, boutons par `UrlLinkActionsComponent` | composant maison (PrimeNG) | Modale du lien et étape lien. Au-dessus du champ : cellule réservée `min-h-8` (deux lignes de `text-xs` : motif ou « Rattrapé sur »), puis l'aide `hint`. Refus sous le champ. « Résoudre » en `spinner` pendant le geste |
 | Clé API | `input pInputPassword` dans un `p-iconfield` + « Enregistrer » `size="small"` | PrimeNG | Jamais préremplie ni relue ([ADR-012](adrs/012-securite-cle-api-keyring.md)) : 24 points en placeholder une fois enregistrée, sans tag, état en `sr-only`. L'œil, bouton du template (`p-password` déprécié), n'apparaît que pendant une saisie |
 | Rangée des Réglages | `SettingsRowComponent`, rangées d'une section en `settings-rows` | composant maison (Tailwind) | Grille `10rem` / `minmax(0,1fr)` / `max-content` sur la section, chaque rangée en subgrid, 16px de padding entre les colonnes, `py-3`, filet `border-b border-surface-800`, rangées jointives. Libellé seul à gauche, 10rem mesurés sur « Signal sonore de fin » ; contrôle au milieu ; action à droite, dans une colonne à la largeur du plus long bouton de la section, que chaque bouton remplit (`w-full`), absente dans une section sans action. Aide avec le contrôle : dessous (`pt-2`), ou à la place du contrôle quand la rangée n'a qu'une action ; retours dessous, sur les colonnes du contrôle et de l'action, en `small` (§ Feedback et chargement) |
@@ -426,7 +426,7 @@ Aucune dépendance d'animation dédiée.
 | Densité | `text-sm` dans les tables et les listes de candidats | Une ligne de plus visible par cran |
 | Bloc principal | `panel` (`rounded-lg border-surface bg-surface-900`), jusqu'en bas de la page | Le même cadre vide ou rempli : bloc vide, table (par `fullHeightTable`), panneau des Réglages (menu des sections à gauche, séparé par un filet, une section à la fois sans défilement ; seuls plusieurs retours empilés au plancher font défiler la section dans son panneau) |
 | Padding d'une surface | `p-6` panneau (bloc vide, section des Réglages), `p-4` détail déplié, `p-2` menu des Réglages (token `list.padding`) ; 18px d'Aura dans les modales et les cartes (`1.125rem`) | Plus la surface est grande, plus le padding l'est |
-| Hauteur de contrôle | 28px (`size="small"`) ; à icône seule, carré de 28px (`[iconOnly]`), croix des modales et des toasts comprise ; `p-selectbutton` 32px, son cadre entourant les segments | Sans `[iconOnly]`, un bouton à icône seule serait plus large que haut |
+| Hauteur de contrôle | 28px (`size="small"`) ; à icône seule, carré de 28px (`[iconOnly]`), croix des modales et des toasts comprise ; `p-selectbutton` aussi (preset : padding `sm` à 2px, Aura le pose à 32px), son cadre entourant les segments | Sans `[iconOnly]`, un bouton à icône seule serait plus large que haut |
 | Modale d'arbitrage | 720 × 560px, liste de 268px à scroll interne | Figée quel que soit le nombre de candidats, étape lien comprise, tenue sans défiler au plancher : rien ne se décale entre deux clics rapides |
 | Modale du lien | 720px, hauteur au contenu, erreur réservée `min-h-13.5`, `pb-4` | `min-h-13.5` (54px) : une erreur de deux lignes en FR sans déplacer le pied |
 | Modales de texte | 30rem (`w-120`) : confirmation d'un geste sur les fichiers, invite de reprise, invite de mise à jour, écran bloquant (centré dans la page en `p-8`) ; 32rem (`w-128`) pour la confirmation de sortie | 32rem mesurés sur le titre et les deux boutons en français |

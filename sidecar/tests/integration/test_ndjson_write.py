@@ -7,6 +7,7 @@ from ndjson_loop import (
     CHOOSE_ON_BEATPORT,
     EXPECT_TIMEOUT,
     LEAVING,
+    SWITCH_TO_BEATPORT,
     UNKNOWN_RUN,
     committed,
     conversation,
@@ -19,9 +20,15 @@ from ndjson_loop import (
 )
 from report_files import only_report, report_files
 from run_plans import only_plan
-from scraper_responses import BANDCAMP_TRACK, bandcamp_track_payload, ok
+from scraper_responses import BANDCAMP_TRACK
 from stubs import raising, refusing_suffix
-from tagging_api import BANDCAMP_TRACKS, ONE_TRACK, WRITTEN_NAME, FakeApi
+from tagging_api import (
+    BANDCAMP_TRACKS,
+    ONE_TRACK,
+    WRITTEN_NAME,
+    FakeApi,
+    knows_the_bandcamp_track,
+)
 
 from tagger import BUNDLE_IDENTIFIER, handlers
 from tagger.core.api_key import SERVICE, USERNAME
@@ -92,7 +99,7 @@ async def test_refuses_a_write_the_run_is_not_open_to(
     "decision",
     [
         CHOOSE_ON_BEATPORT,
-        {"command": "switch_arbitration_source", "track_id": ONE_TRACK, "source": "beatport"},
+        SWITCH_TO_BEATPORT,
         recover_by_url(),
     ],
     ids=["resolve-arbitration", "switch-arbitration-source", "resolve-by-url"],
@@ -236,7 +243,7 @@ async def test_neither_cancel_nor_the_end_of_the_session_cuts_a_write(
 async def test_refuses_a_commit_while_a_gesture_is_in_flight(
     unresolved_folder: Path, api: FakeApi
 ) -> None:
-    api.on(BANDCAMP_TRACKS, BANDCAMP_TRACK, ok(bandcamp_track_payload()))
+    knows_the_bandcamp_track(api)
     fetch = api.gate(BANDCAMP_TRACKS, BANDCAMP_TRACK)
 
     async with conversation() as talk:

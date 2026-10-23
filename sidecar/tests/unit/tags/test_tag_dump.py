@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import MappingProxyType
 from typing import Final
@@ -56,18 +56,17 @@ def _saved(folder: Path, *names: str) -> TagDump:
     return save_entries(folder, _dump(), {name: _entry(name) for name in names})
 
 
-def test_names_the_dump_after_its_time_and_run(tmp_path: Path) -> None:
-    path = dump_path(tmp_path, _dump())
+@pytest.mark.parametrize(
+    "created_at",
+    [CREATED, CREATED.astimezone(timezone(timedelta(hours=2)))],
+    ids=["utc", "other-local-offset"],
+)
+def test_names_the_dump_after_its_utc_time_and_run(tmp_path: Path, created_at: datetime) -> None:
+    dump = TagDump(run_id=RUN_ID, created_at=created_at, folder=RUN_FOLDER)
+
+    path = dump_path(tmp_path, dump)
 
     assert path == tmp_path / "20261006T211403Z-a3f9c1.json"
-
-
-def test_stamps_the_dump_name_in_utc_whatever_the_local_offset(tmp_path: Path) -> None:
-    paris = CREATED.astimezone(timezone(timedelta(hours=2)))
-
-    path = dump_path(tmp_path, TagDump(run_id=RUN_ID, created_at=paris, folder=RUN_FOLDER))
-
-    assert path.name == "20261006T211403Z-a3f9c1.json"
 
 
 def test_refuses_a_dump_dated_without_a_time_zone() -> None:

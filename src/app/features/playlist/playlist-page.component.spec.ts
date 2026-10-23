@@ -125,24 +125,27 @@ describe("PlaylistPageComponent", () => {
     expect(component["formCollapsed"]()).toBe(true)
   })
 
-  it("names the playlist of the displayed run in the summary", () => {
-    const extractionRequest = signal(EXTRACTION_REQUEST)
+  it.each([
+    {
+      case: "names the playlist of the displayed run in the summary",
+      request: EXTRACTION_REQUEST,
+      expected: "set",
+    },
+    {
+      case: "names an M3U8 run by its file name",
+      request: {
+        ...EXTRACTION_REQUEST,
+        playlist_path: "C:\\sets\\samedi.m3u8",
+        playlist_name: null,
+      },
+      expected: "samedi.m3u8",
+    },
+  ])("$case", ({ request, expected }) => {
+    const extractionRequest = signal(request)
 
     const { component } = mountWith({ extractionRequest })
 
-    expect(component["lastRunPlaylist"]()).toBe("set")
-  })
-
-  it("names an M3U8 run by its file name", () => {
-    const extractionRequest = signal({
-      ...EXTRACTION_REQUEST,
-      playlist_path: "C:\\sets\\samedi.m3u8",
-      playlist_name: null,
-    })
-
-    const { component } = mountWith({ extractionRequest })
-
-    expect(component["lastRunPlaylist"]()).toBe("samedi.m3u8")
+    expect(component["lastRunPlaylist"]()).toBe(expected)
   })
 
   it("names every choice still missing", () => {

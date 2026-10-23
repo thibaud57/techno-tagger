@@ -22,53 +22,44 @@ def _relative(root: Path, paths: tuple[Path, ...]) -> list[str]:
     return [path.relative_to(root).as_posix() for path in paths]
 
 
-def test_lists_audio_files_recursively_and_ignores_other_extensions(tmp_path: Path) -> None:
-    _touch(
-        tmp_path,
-        "a.mp3",
-        "b.wav",
-        "sub/c.aiff",
-        "sub/deep/d.flac",
-        "e.aif",
-        "cover.jpg",
-        "playlist.m3u8",
-        "notes.txt",
-    )
+@pytest.mark.parametrize(
+    ("present", "listed"),
+    [
+        (
+            [
+                "a.mp3",
+                "b.wav",
+                "sub/c.aiff",
+                "sub/deep/d.flac",
+                "e.aif",
+                "cover.jpg",
+                "playlist.m3u8",
+                "notes.txt",
+            ],
+            ["a.mp3", "b.wav", "e.aif", "sub/c.aiff", "sub/deep/d.flac"],
+        ),
+        (["a.MP3", "b.Aif", "c.FLAC"], ["a.MP3", "b.Aif", "c.FLAC"]),
+        (
+            ["b.mp3", "A.mp3", "sub/c.flac", "Sub2/a.wav"],
+            ["A.mp3", "b.mp3", "sub/c.flac", "Sub2/a.wav"],
+        ),
+        (["album.mp3/track.flac"], ["album.mp3/track.flac"]),
+    ],
+    ids=[
+        "recursive-other-extensions-ignored",
+        "extensions-regardless-of-case",
+        "sorted-by-relative-path-case-insensitively",
+        "folder-named-like-an-audio-file-ignored",
+    ],
+)
+def test_lists_the_audio_files_of_a_folder(
+    tmp_path: Path, present: list[str], listed: list[str]
+) -> None:
+    _touch(tmp_path, *present)
 
     found = list_audio_files(tmp_path)
 
-    assert _relative(tmp_path, found) == [
-        "a.mp3",
-        "b.wav",
-        "e.aif",
-        "sub/c.aiff",
-        "sub/deep/d.flac",
-    ]
-
-
-def test_recognises_extensions_regardless_of_case(tmp_path: Path) -> None:
-    _touch(tmp_path, "a.MP3", "b.Aif", "c.FLAC")
-
-    found = list_audio_files(tmp_path)
-
-    assert _relative(tmp_path, found) == ["a.MP3", "b.Aif", "c.FLAC"]
-
-
-def test_returns_files_sorted_by_relative_path_case_insensitively(tmp_path: Path) -> None:
-    _touch(tmp_path, "b.mp3", "A.mp3", "sub/c.flac", "Sub2/a.wav")
-
-    found = list_audio_files(tmp_path)
-
-    assert _relative(tmp_path, found) == ["A.mp3", "b.mp3", "sub/c.flac", "Sub2/a.wav"]
-
-
-def test_ignores_a_folder_named_like_an_audio_file(tmp_path: Path) -> None:
-    (tmp_path / "album.mp3").mkdir()
-    _touch(tmp_path, "album.mp3/track.flac")
-
-    found = list_audio_files(tmp_path)
-
-    assert _relative(tmp_path, found) == ["album.mp3/track.flac"]
+    assert _relative(tmp_path, found) == listed
 
 
 def test_skips_a_file_whose_name_utf8_cannot_encode_and_warns(

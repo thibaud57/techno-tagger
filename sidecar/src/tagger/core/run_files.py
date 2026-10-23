@@ -68,11 +68,11 @@ def find_by_run_id(folder: Path, suffix: str, run_id: str) -> Path | None:
 def write_atomically(path: Path, text: str, *, durable: bool = False) -> None:
     """Temporaire voisin puis remplacement : une coupure ne laisse jamais un fichier tronque.
 
-    `durable` force le temporaire sur le disque avant le remplacement : sans cela, une coupure
-    de courant peut garder le nouveau nom et perdre son contenu. A reserver a ce qui doit
-    survivre a la coupure, `fsync` etant lent (le plan, reecrit a chaque decision, s'en passe).
-    Le dossier n'est pas synchronise (impossible sous Windows) : NTFS journalise le renommage,
-    la coupure peut rendre l'ancien fichier, jamais un fichier tronque.
+    `durable` fsync le temporaire avant le remplacement : sans cela, une coupure de courant
+    peut garder le nouveau nom et perdre son contenu. Lent, donc reserve a ce qui doit survivre
+    (pas au plan, reecrit a chaque decision). Le dossier n'est pas synchronise (impossible
+    sous Windows) : NTFS journalise le renommage, la coupure rend l'ancien
+    fichier, jamais un tronque.
 
     Leve `OSError`, que l'appelant traduit dans son domaine.
     """

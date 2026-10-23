@@ -1,6 +1,4 @@
-"""Ce que les rapports d'extraction et de re-tagging partagent : erreurs, chemins
-horodates, rendu Markdown et ecriture atomique du couple JSON + Markdown.
-"""
+"""Ce que partagent les rapports d'extraction et de re-tagging."""
 
 import logging
 from typing import TYPE_CHECKING, ClassVar, NamedTuple
@@ -22,9 +20,8 @@ class ReportError(TaggerError):
 class ReportWriteError(ReportError):
     """Le run a extrait ses fichiers mais son rapport n'a pas pu etre ecrit.
 
-    Erreur metier et non `OSError` brute : la boucle NDJSON n'intercepte que
-    `TaggerError`. Un disque plein doit produire un evenement `error`, jamais un
-    sidecar mort en silence.
+    Pas une `OSError` brute : la boucle NDJSON n'intercepte que `TaggerError`, et un
+    disque plein doit donner un evenement `error`, pas un sidecar mort.
     """
 
     code: ClassVar[str] = "report_write_failed"
@@ -34,9 +31,7 @@ class ReportWriteError(ReportError):
 
 
 class ReportPaths(NamedTuple):
-    """Chemins des deux fichiers ecrits ; le JSON remonte a l'interface dans l'evenement
-    de fin de run.
-    """
+    """Chemins des deux fichiers ecrits (le JSON remonte a l'interface)."""
 
     json_path: Path
     markdown_path: Path
@@ -45,9 +40,8 @@ class ReportPaths(NamedTuple):
 def unused_report_paths(folder: Path, file_stem: str, stamp: str) -> ReportPaths:
     """Suffixe `-2`, `-3`... si ce couple horodate existe deja.
 
-    L'horodatage est a la seconde. Un run qui ne trouve que des fichiers deja presents
-    se termine en quelques millisecondes : relance aussitot, il ecraserait le rapport
-    du premier.
+    L'horodatage est a la seconde : un run sans rien a extraire dure quelques millisecondes
+    et, relance aussitot, ecraserait le rapport du premier.
     """
     stem, attempt = f"{file_stem}-{stamp}", 1
     while (folder / f"{stem}.json").exists() or (folder / f"{stem}.md").exists():
@@ -58,18 +52,16 @@ def unused_report_paths(folder: Path, file_stem: str, stamp: str) -> ReportPaths
 
 
 def format_instant(instant: datetime) -> str:
-    """ISO 8601 UTC suffixe `Z`, comme le rendu JSON de pydantic : les deux rapports
-    d'un meme run portent le meme horodatage a la lettre pres."""
+    """ISO 8601 UTC suffixe `Z`, comme le JSON de pydantic : les deux rapports concordent."""
     return instant.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def escape_markdown(value: object) -> str:
-    """Neutralise ce qui casserait la structure Markdown dans une valeur venue de
-    la playlist source : un nom introuvable n'est jamais confronte a un chemin
-    Windows reel, rien n'exclut donc un `|` ou un retour ligne.
+    """Neutralise ce qui casserait le Markdown dans une valeur venue de la playlist source
+    (un nom introuvable n'est jamais confronte a un chemin reel : `|` et retour ligne possibles).
 
-    `splitlines()` plutot qu'une suite de `replace` : il couvre le `\\r` seul autant
-    que le `\\r\\n` : un rendu Markdown traite le premier comme un saut de ligne.
+    `splitlines()` plutot que des `replace` : il couvre aussi le `\\r` seul, que Markdown
+    traite comme un saut de ligne.
     """
     return " ".join(str(value).replace("|", "\\|").splitlines())
 
@@ -84,9 +76,7 @@ def table_section(title: str, header: tuple[str, ...], rows: list[str]) -> list[
 
 
 def table_row(*cells: object) -> str:
-    """Ligne de tableau a partir de valeurs brutes, echappees : jamais assemblee a la
-    main au point d'appel, pour que le nombre de cellules ne diverge pas du header.
-    """
+    """Ligne de tableau de valeurs brutes echappees, pour que les cellules suivent le header."""
     return f"| {' | '.join(escape_markdown(cell) for cell in cells)} |"
 
 

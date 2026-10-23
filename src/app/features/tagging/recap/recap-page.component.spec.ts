@@ -30,6 +30,13 @@ import RecapPageComponent from "./recap-page.component"
 
 const OTHER_ROLLBACK_RUN = { ...ROLLBACK_RUN, run_id: OTHER_PAST_RUN.run_id }
 
+const LOADED: LoadedRun = {
+  runId: PAST_RUN.run_id,
+  folder: PAST_RUN.folder,
+  writtenAt: PAST_RUN.written_at,
+  tracks: [loadedTrack(TRACK_LOADED)],
+}
+
 /** Non restaurable : seul un test du run passe pose un morceau restaurable. */
 const writtenAs = (trackId: string, title: string): TaggingTrack => ({
   ...writtenTrack(trackId, "written", false),
@@ -123,24 +130,17 @@ describe("RecapPageComponent", () => {
     expect(hostOf(fixture).textContent).toContain("recap.empty.heading")
   })
 
-  it("closes the detail of a track the filter hides", async () => {
+  it.each([
+    { case: "closes the detail of a track the filter hides", name: "failed", details: 0 },
+    { case: "keeps the detail of a track the filter still shows", name: "validated", details: 1 },
+  ])("$case", async ({ name, details }) => {
     const { fixture } = await mountWith([writtenAs("a", "Your Mind"), unresolvedTrack("b")])
     toggleOf(fixture)?.click()
     await settleScroller(fixture)
 
-    await filter(fixture, "failed")
+    await filter(fixture, name)
 
-    expect(hostOf(fixture).querySelectorAll("app-track-detail")).toHaveLength(0)
-  })
-
-  it("keeps the detail of a track the filter still shows", async () => {
-    const { fixture } = await mountWith([writtenAs("a", "Your Mind"), unresolvedTrack("b")])
-    toggleOf(fixture)?.click()
-    await settleScroller(fixture)
-
-    await filter(fixture, "validated")
-
-    expect(hostOf(fixture).querySelectorAll("app-track-detail")).toHaveLength(1)
+    expect(hostOf(fixture).querySelectorAll("app-track-detail")).toHaveLength(details)
   })
 
   it("announces the write failures of the displayed tracks", async () => {
@@ -207,13 +207,6 @@ describe("RecapPageComponent", () => {
   })
 
   describe("past run", () => {
-    const LOADED: LoadedRun = {
-      runId: PAST_RUN.run_id,
-      folder: PAST_RUN.folder,
-      writtenAt: PAST_RUN.written_at,
-      tracks: [loadedTrack(TRACK_LOADED)],
-    }
-
     it("loads a past run once per page", async () => {
       const { service } = await mountWith([], {}, RUN_ID)
 
@@ -350,15 +343,9 @@ describe("RecapPageComponent", () => {
     })
 
     it("asks for the issue of a past run", async () => {
-      const loaded = {
-        runId: PAST_RUN.run_id,
-        folder: PAST_RUN.folder,
-        writtenAt: PAST_RUN.written_at,
-        tracks: [loadedTrack(TRACK_LOADED)],
-      }
       const { fixture, service } = await mountWith(
         [],
-        { loadedRun: signal(loaded) },
+        { loadedRun: signal(LOADED) },
         PAST_RUN.run_id,
       )
 

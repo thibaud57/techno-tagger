@@ -307,10 +307,10 @@ def discard_plan(path: Path) -> None:
 class PlanRecorder:
     """Tient le plan d'un run et le vide sur le disque hors de la boucle.
 
-    Une seule tache de vidage a la fois : elle ecrit le dernier etat, puis repart tant qu'un
-    changement est arrive pendant l'ecriture. Une rafale de decisions ne coute que quelques
-    ecritures, jamais deux en parallele. Le plan est un filet : un echec d'ecriture se logue
-    et se retente, il n'arrete jamais le run.
+    Une seule tache de vidage a la fois : elle ecrit le dernier etat et repart tant qu'un
+    changement est arrive pendant l'ecriture (quelques ecritures par rafale, jamais deux en
+    parallele). Le plan est un filet : un echec d'ecriture se logue et se retente, il
+    n'arrete jamais le run.
     """
 
     def __init__(self, plan: RunPlan, folder: Path) -> None:

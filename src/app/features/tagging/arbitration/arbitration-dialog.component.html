@@ -28,10 +28,8 @@
     <app-url-link-form [trackId]="trackId" />
   } @else if (current(); as shown) {
     <div class="flex h-full flex-col gap-4" data-keys tabindex="-1" (keydown)="onKeydown($event)">
-      <!--
-        Hauteur mesuree sur un p-message small : la liste reste a sa place quand la source change.
-        Une seule cellule : le bandeau sortant reste une image de plus (animate.leave), superpose et non a cote.
-      -->
+      <!-- Hauteur d'un p-message small : la liste reste en place quand la source change. Une seule
+           cellule : le bandeau sortant (animate.leave) se superpose au lieu de s'ajouter. -->
       <div class="grid min-h-6.5 items-center *:col-start-1 *:row-start-1">
         <!-- Sans animation d'entree : elle ferait glisser la liste sur le chemin de decision. -->
         @if (shown.beatport_unavailable) {

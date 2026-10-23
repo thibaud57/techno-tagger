@@ -1,8 +1,7 @@
 """Construction de la requete d'un morceau et classement de ses candidats.
 
 Fonctions pures, sans IO. Regles et mesures : ARCHITECTURE.md § Use-case 2 et le
-spec du sub-project 03 de la Feature 2. Origine des seuils : la CLI
-BeatportScrapper-TrackTagger.
+spec du sub-project 03 de la Feature 2.
 """
 
 import re
@@ -72,12 +71,11 @@ _ORIGINAL_MIX: Final = "Original Mix"
 _VERSION_MATCH_FLOOR: Final = 70
 # Mot entier : sinon "remix" matche dans "Premix" ou "Extremixed".
 _REMIX_WORD: Final = re.compile(r"\bremix\b", re.IGNORECASE)
-# « Pt. 1 » et « Pt. 2 » sont deux morceaux, mais ne different que d'un caractere au score.
-# Toute divergence compte, un nombre ajoute d'un seul cote y compris : Beatport desambigue
-# parfois « Fernhollow » en « Fernhollow 1 » pour le meme morceau, qui passe donc en zone
-# grise a tort. C'est le cout assume du choix inverse, ou « Minimal Nation 2 » se validerait
-# tout seul sur le tag « Minimal Nation » : un arbitrage de plus coute une seconde, un
-# mauvais tag ecrit sans relecture coute un fichier de la bibliotheque.
+# « Pt. 1 » et « Pt. 2 » sont deux morceaux mais ne different que d'un caractere au score.
+# Toute divergence compte, un nombre ajoute d'un seul cote compris : « Fernhollow » face a
+# « Fernhollow 1 » (meme morceau, desambigue par Beatport) passe en zone grise a tort. Cout
+# assume du choix inverse, ou « Minimal Nation 2 » se validerait seul sur « Minimal Nation » :
+# un arbitrage coute une seconde, un mauvais tag ecrit sans relecture un fichier.
 _NUMBER: Final = re.compile(r"\d+")
 _MAX_SCORE: Final = 100
 
@@ -133,9 +131,9 @@ DEFAULT_THRESHOLDS: Final = MatchingThresholds()
 class ScoredCandidate:
     """Scores d'un candidat, gardes pour le rapport et le recalibrage des seuils.
 
-    `artist_score` vaut `None` sans artiste dans la requete. Les deux `_mismatch`
-    nomment la cause, pour le rapport ; c'est `blocks_auto` que la classification lit,
-    de sorte qu'une troisieme cause n'ait pas a rouvrir sa condition.
+    `artist_score` vaut `None` sans artiste dans la requete. Les deux `_mismatch` nomment la
+    cause pour le rapport ; la classification lit `blocks_auto`, qu'une troisieme cause
+    n'oblige pas a rouvrir.
     """
 
     candidate: TrackCandidate
@@ -304,10 +302,10 @@ def _split_version(title: str) -> _Parts:
         content = match.group("content")
         if _VERSION_GUARD.search(content) is None:
             return match.group(0)
-        # Un groupe qui nomme aussi un invite reste une version : « (Extended Mix feat.
-        # X) » cede sa mention d'invite, « (A vs B Remix) » garde la sienne, le credit
-        # de remix etant le libelle meme de la version. Laisser le groupe entier dans le
-        # titre perdait la version et y collait une parenthese jamais fermee.
+        # Un groupe qui nomme aussi un invite reste une version : « (Extended Mix feat. X) »
+        # cede sa mention d'invite, « (A vs B Remix) » garde la sienne (le credit de remix est
+        # le libelle de la version). Le laisser dans le titre perdrait la version et y collerait
+        # une parenthese jamais fermee.
         if _COLLABORATION_GUARD.search(content):
             # `content` n'a pas de crochet, `_FEATURING` ne peut donc pas en emporter un.
             without_guest = _FEATURING.sub(" ", content).strip()
@@ -375,9 +373,9 @@ def _artist_score(asked: tuple[str, ...], candidate: TrackCandidate) -> float:
 def _split_duos(asked: tuple[str, ...]) -> tuple[str, ...]:
     """Seconde lecture d'une esperluette : celle qui separe deux artistes.
 
-    « A & B » nomme un duo (« Pig & Dan ») ou deux artistes qu'un logiciel a joints, et
-    la chaine seule ne le dit pas. Les deux lectures sont donc scorees et la meilleure
-    gagne : c'est la facon dont la source credite qui tranche, jamais une regle devinee.
+    « A & B » nomme un duo (« Pig & Dan ») ou deux artistes joints par un logiciel, ce que
+    la chaine seule ne dit pas : les deux lectures sont scorees, la meilleure gagne, la
+    facon dont la source credite tranchant, jamais une regle devinee.
     """
     return tuple(part.strip() for name in asked for part in _AMPERSAND.split(name) if part.strip())
 

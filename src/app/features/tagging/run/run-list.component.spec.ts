@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { type Hosted, hostOf } from "../../../../fixtures/dom"
+import { type Hosted, hostOf, iconOf } from "../../../../fixtures/dom"
 import { nativeStub } from "../../../../fixtures/native-stub"
 import {
   PENDING_TRACK,
@@ -112,7 +112,7 @@ describe("RunListComponent", () => {
 
     expect(cellOf(fixture, ART)?.querySelector("img")).toBeNull()
     expect(cellOf(fixture, ART)?.querySelector("p-skeleton")).toBeNull()
-    expect(cellOf(fixture, ART)?.querySelector('[data-icon="image"]')).not.toBeNull()
+    expect(iconOf(cellOf(fixture, ART), "image")).not.toBeNull()
   })
 
   it("shows a skeleton artwork for a track awaiting its turn in a run in progress", async () => {
