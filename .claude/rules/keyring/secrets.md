@@ -29,7 +29,7 @@ paths:
 - Depuis 12.0.0, les backends ne sont découverts que par entry points : sans hook, le binaire figé lève `NoKeyringError` (`No recommended backend was available`), jamais en développement
 - `hook-keyring.py` de PyInstaller résout le backend (`collect_submodules`) et copie les métadonnées ; le `.spec` double volontairement ce `copy_metadata`. Les `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes` restent indispensables
 - Le `hook-keyring.backend.py` du dépôt GitHub de keyring n'est découvert par personne : ne pas s'y fier
-- Le Credential Manager plafonne à 2560 octets : au-delà, `CredWrite ... (1783, "The stub received bad data")`, remonté en `PasswordSetError`
+- Le Credential Manager plafonne à 2560 octets, soit 1280 caractères en UTF-16 : au-delà, `CredWrite ... (1783, "The stub received bad data")`, levé en `pywintypes.error` brut (pas un `KeyringError`) : à rattraper explicitement, comme toute erreur `CredRead` / `CredWrite`
 - Le secret est lisible par l'utilisateur Windows connecté : keyring protège d'un fichier en clair, pas d'un utilisateur malveillant sur sa propre session
 - 25.3.0 déprécie les `username` vides. La dépendance est `pywin32-ctypes`, pure Python, donc sans extension compilée à empaqueter
 

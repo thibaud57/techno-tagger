@@ -323,7 +323,7 @@
       "refuse-unwritten": refusal("run_not_written", {}),
     }
     if (preset === "clear-error") {
-      service.setLastError(null)
+      service._lastError.set(null)
     } else if (presets[preset]) {
       service.handleLine(JSON.stringify(presets[preset]))
     } else {

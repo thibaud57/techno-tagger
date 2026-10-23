@@ -374,10 +374,14 @@ async (page) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await settle()
 
-  // 9. Clic sur l'onglet Tagging deja actif : ne navigue pas, d'ou « Retour a la liste ».
+  // 9. Clic sur l'onglet Tagging deja actif : ramene a la liste (`revisit`, 2026-10-23 ; avant, aucune
+  // navigation, `p-tabs` n'emettant rien sur sa valeur courante), puis retour au recapitulatif.
   await page.locator("p-tab", { hasText: "Tagging" }).click()
   await settle()
-  check("active Tagging tab click stays on the recap", (await url()) === "/tagging/recap", await url())
+  check("active Tagging tab click returns to the run list", (await url()) === "/tagging", await url())
+  await navigate("/tagging/recap")
+  await page.waitForSelector("app-recap-page")
+  await settle()
 
   // 7. Restauration en cours : le recapitulatif n'offre toujours ni « Restaurer le run » ni « Nouveau run », le retour reste actif.
   await page.evaluate((id) => window.__svc.rollback(id, null), RUN)

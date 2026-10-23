@@ -550,16 +550,16 @@ async (page) => {
       Math.abs(out.cacheErrorBusy.above - 12) < 0.6 && Math.abs(out.cacheErrorBusy.below - 12) < 0.6,
       `${language} refus phase_busy : ecarts ${out.cacheErrorBusy.above} au-dessus, ${out.cacheErrorBusy.below} en dessous (anime=${out.cacheErrorBusyStable})`,
     )
-    await p.evaluate(() => window.__svc.setLastError(null))
+    await p.evaluate(() => window.__svc._lastError.set(null))
     await settle(300)
     await line(refusal("run_not_written", {}))
     await p.waitForSelector("[data-cache-error]")
     await stable("[data-cache-error]")
     out.cacheErrorNotWritten = await gaps("[data-cache-error]")
     check(flat(out.cacheErrorNotWritten.text) === flat(want.cache.notWritten), `${language} refus run_not_written : ${JSON.stringify(out.cacheErrorNotWritten.text)}`)
-    await p.evaluate(() => window.__svc.setLastError(null))
+    await p.evaluate(() => window.__svc._lastError.set(null))
     await settle(300)
-    check((await cacheState()).error === null, `${language} refus : message encore la apres setLastError(null)`)
+    check((await cacheState()).error === null, `${language} refus : message encore la apres _lastError.set(null)`)
 
     // ---- 5. Etats grises du bouton Cache
     const cacheRow = async (name) => {
