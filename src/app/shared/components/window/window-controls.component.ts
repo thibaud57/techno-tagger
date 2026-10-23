@@ -8,7 +8,7 @@ export const RESIZE_SETTLE_MS = 150
 
 /** 46px : la largeur des boutons de legende de Windows 11, que l'utilisateur vise sans regarder. */
 const CONTROL =
-  "grid w-[46px] place-items-center text-muted-color hover:bg-emphasis hover:text-color focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+  "grid w-[46px] place-items-center text-muted-color transition-colors hover:bg-emphasis hover:text-color focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary"
 
 /** Boutons de fenetre de la barre de titre maison (`decorations: false`). */
 @Component({

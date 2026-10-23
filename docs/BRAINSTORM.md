@@ -239,7 +239,7 @@ La ligne dépliée de la liste du run compare avant et après champ par champ se
 
 ### Feature 9 : Monitoring
 
-- Sentry actif d'office, erreurs techniques uniquement (sidecar qui tombe, API injoignable, parsing cassé), SDK durci : variables locales des frames désactivées, nom de machine fixé, chemins scrubbés
+- Sentry actif d'office, erreurs techniques uniquement (sidecar qui tombe, parsing cassé), SDK durci : variables locales des frames désactivées, nom de machine fixé, chemins scrubbés
 - Scrubbing des chemins de fichiers dans les stack traces (ils contiennent le nom d'utilisateur de l'OS)
 - Aucun titre de morceau envoyé automatiquement : les cas d'arbitrage et d'échec restent dans le rapport local
 - Bouton « envoyer ce rapport pour améliorer le matching » dans l'écran final, run courant ou passé : geste explicite de l'utilisateur, ne consomme pas le quota Sentry

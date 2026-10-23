@@ -126,6 +126,15 @@ class Phase(StrEnum):
     ROLLBACK = auto()
 
 
+@verify(UNIQUE)
+class StopReason(StrEnum):
+    """Fin de la boucle, valeur de la cle `reason` de la ligne `sidecar stopped`."""
+
+    SHUTDOWN = auto()
+    EOF = auto()
+    CRASH = auto()
+
+
 class PhaseBusyError(TaggerError):
     """Une phase longue tourne encore : aucune autre ne demarre avant sa fin.
 
@@ -494,6 +503,8 @@ def main() -> None:
     # handler pour `logger.exception` autre que celui de dernier recours.
     setup_logging(log_dir())
     init_sentry(SENTRY_DSN, RELEASE)
+    # Premiere ligne d'un log envoye en signalement : elle dit quelle version l'a ecrit.
+    logger.info("sidecar started %s", RELEASE)
     if selftest_requested():
         send_selftest()
     _purge_old()
@@ -536,34 +547,44 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     volontairement : l'avaler cacherait un bug que Sentry remonte comme crash du sidecar
     (cf. PRODUCTION.md § Alertes).
     """
-    async with asyncio.TaskGroup() as group:
-        session = _Session(group, stdout)
-        while True:
-            line = await asyncio.to_thread(stdin.readline)
-            if not line:
-                await session.close(cancel=False)
-                return
+    try:
+        async with asyncio.TaskGroup() as group:
+            stopped = await _read_commands(_Session(group, stdout), stdin)
+    except BaseException:
+        # Aussi l'annulation : la ligne dit que la session a fini sans passer par la sortie normale.
+        logger.info("sidecar stopped reason=%s", StopReason.CRASH)
+        raise
+    # Apres le `TaskGroup` : l'EOF attend les phases longues, la ligne marque la vraie fin.
+    logger.info("sidecar stopped reason=%s", stopped)
 
-            stripped = line.strip()
-            if not stripped:
-                continue
 
-            try:
-                command = parse_command(stripped)
-            except ValidationError as error:
-                session.send(error_from_validation(error))
-                continue
+async def _read_commands(session: _Session, stdin: TextIO) -> StopReason:
+    while True:
+        line = await asyncio.to_thread(stdin.readline)
+        if not line:
+            await session.close(cancel=False)
+            return StopReason.EOF
 
-            if isinstance(command, Shutdown):
-                await session.close(cancel=True)
-                return
-            # Mypy retire `Shutdown` de l'union a partir d'ici, ce dont `_dispatch` depend.
+        stripped = line.strip()
+        if not stripped:
+            continue
 
-            try:
-                await _dispatch(command, session)
-            except TaggerError as error:
-                logger.exception("command failed reason=%s", error.code)
-                session.send(_error_of(error, command))
+        try:
+            command = parse_command(stripped)
+        except ValidationError as error:
+            session.send(error_from_validation(error))
+            continue
+
+        if isinstance(command, Shutdown):
+            await session.close(cancel=True)
+            return StopReason.SHUTDOWN
+        # Mypy retire `Shutdown` de l'union a partir d'ici, ce dont `_dispatch` depend.
+
+        try:
+            await _dispatch(command, session)
+        except TaggerError as error:
+            logger.exception("command failed reason=%s", error.code)
+            session.send(_error_of(error, command))
 
 
 # PLR0912 : une branche par commande. `Shutdown` etant traite par la boucle, le `match`

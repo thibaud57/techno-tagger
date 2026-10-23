@@ -536,7 +536,7 @@ Pas de métrique serveur à surveiller. Les signaux utiles se lisent dans Sentry
 | Morceaux en échec **par erreur de source** (5xx épuisés, parsing, réponse hors schéma) | ≥ 3 sur un run | ≥ 10 % du run : la source a changé, pas la bibliothèque |
 | `403` consécutifs sur techno-scraper | 1 | 3 : le run s'arrête de lui-même, clé invalide ou révoquée |
 | `504` sur techno-scraper dans un run | quelques-uns | rafale : pool client désaligné des sémaphores de l'API ([ADR-017](adrs/017-taille-pool-concurrence.md)) |
-| Échecs de démarrage du sidecar | 1 remontée | plusieurs utilisateurs : faux positif antivirus généralisé sur le build courant |
+| Échecs de démarrage du sidecar | Aucune remontée : le sidecar n'initialise pas Sentry, l'écran bloquant « moteur introuvable » de l'application est le seul signal | Un utilisateur qui écrit, plusieurs : faux positif antivirus généralisé sur le build courant |
 | Taille du dossier de cache | > 400 Mo | > 500 Mo : l'éviction LRU ne tient pas sa promesse ([ADR-013](adrs/013-cache-disque-jetable.md)) |
 | Taille du dossier de logs | — | > 20 Mo : la rotation ne fonctionne pas (5 Mo × 4 fichiers est le maximum théorique) |
 
@@ -549,7 +549,7 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 | Alerte | Condition | Canal |
 |--------|-----------|-------|
 | Crash du sidecar | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
-| API injoignable | Cible, non appliquée : `SourceUnavailableError` n'est pas capturée par Sentry (`LoggingIntegration` fermée), elle sort en `WARNING` `source unavailable` dans le fichier de log et dans le rapport de run | Aucun : fichier de log, rapport de run |
+| API injoignable | Pas d'alerte : `SourceUnavailableError` n'est pas capturée par Sentry (`LoggingIntegration` fermée, une rafale de 504 viderait le quota). Elle sort en `WARNING` `source unavailable` dans le fichier de log et en `source_unavailable` dans le rapport de run | Aucun : fichier de log, rapport de run |
 | Parsing cassé | Réponse de techno-scraper non conforme au schéma attendu | Email (Sentry) |
 | Erreur de la webview | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
@@ -587,7 +587,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 | Level | Usage |
 |-------|-------|
 | `DEBUG` | Cible, non appliquée : niveau racine fixé à `INFO` (`setup_logging`), aucun appel `logger.debug` |
-| `INFO` | Décisions de matching et d'arbitrage, début et fin de la phase d'écriture et du rollback, fin d'extraction, vidage du cache |
+| `INFO` | Démarrage du sidecar (avec sa release) et arrêt (`reason=shutdown`, `eof` ou `crash`), décisions de matching et d'arbitrage, début et fin de la phase d'écriture et du rollback, fin d'extraction, vidage du cache |
 | `WARNING` | Retry réseau, source ou pochette indisponible, fichier illisible ou verrouillé, clé API illisible, écriture ou purge de cache en échec |
 | `ERROR` | Échec d'écriture, rollback en échec, plan de run ou rapport non écrit, contrat d'API rompu, commande ou phase en échec (trace jointe, dont les `403` répétés) |
 
@@ -605,7 +605,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 ## Règles Logging
 
 ### Règles
-- ✅ **Jeu de clés logfmt fixe** : `run`, `track`, `source`, `score`, `status`, `reason`, `request_id`, `errno`. C'est le seul coût du format : une clé inventée au fil des commits (`track_id` à côté de `track`) rend un `grep` faux sans que rien ne casse ni ne se voie. `request_id` reprend l'en-tête `X-Request-ID` de techno-scraper, seul lien entre une ligne du sidecar et la ligne correspondante côté API (ajoutée le 2026-09-19).
+- ✅ **Jeu de clés logfmt fixe** : `run`, `track`, `source`, `score`, `status`, `reason`, `request_id`, `errno`. C'est le seul coût du format : une clé inventée au fil des commits (`track_id` à côté de `track`) rend un `grep` faux sans que rien ne casse ni ne se voie. `request_id` reprend l'en-tête `X-Request-ID` de techno-scraper, seul lien entre une ligne du sidecar et la ligne correspondante côté API (ajoutée le 2026-09-19). `run` n'est posé que là où un run existe : les lignes du client réseau, du cache, de la clé API et de l'extraction n'en ont pas. `track` est la position du morceau dans un run, le nom du fichier à l'extraction.
 - ✅ **Le fichier local peut contenir des chemins complets**, c'est la machine de l'utilisateur et c'est ce qui rend un dépannage à distance possible. **Sentry non** : les chemins y sont scrubbés parce qu'ils portent le nom d'utilisateur de l'OS, ainsi que l'artiste et le titre par le nom du fichier (tout chemin de lecteur ou UNC part en `<path>` depuis le 2026-10-11 ; hors d'une liste fermée de types sans donnée, le message d'une exception part en `<message>` depuis le 2026-10-15, [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)).
 - ✅ **Une ligne par décision de matching** : score, source, état retenu. C'est la trace qui permet de comprendre après coup pourquoi un morceau est parti en arbitrage.
 - ✅ **Distinguer les motifs d'échec** : « aucune source n'a répondu » et « on n'avait rien à demander après nettoyage » sont deux lignes différentes, elles n'appellent pas la même correction.

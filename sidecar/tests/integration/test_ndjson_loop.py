@@ -1,9 +1,12 @@
 import asyncio
+import logging
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
+from unittest.mock import patch
 
 import pytest
+from log_capture import messages_of
 from ndjson_loop import (
     EXPECT_TIMEOUT,
     LEAVING,
@@ -184,3 +187,30 @@ async def test_the_loop_ends_without_answering_anything_further(
         talk.send(command="get_version")
 
     assert talk.events == []
+
+
+@pytest.mark.parametrize(
+    ("commands", "reason"),
+    [(line("shutdown"), "shutdown"), ("", "eof")],
+    ids=["shutdown", "end-of-input"],
+)
+def test_logs_why_the_loop_stopped(
+    caplog: pytest.LogCaptureFixture, commands: str, reason: str
+) -> None:
+    caplog.set_level(logging.INFO, logger=main.__name__)
+
+    drive(commands)
+
+    assert messages_of(caplog, main.__name__) == [f"sidecar stopped reason={reason}"]
+
+
+def test_logs_a_crash_as_the_reason_the_loop_stopped(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger=main.__name__)
+
+    with (
+        patch.object(main, "_dispatch", autospec=True, side_effect=RuntimeError),
+        pytest.raises(ExceptionGroup),
+    ):
+        drive(line("get_version"))
+
+    assert "sidecar stopped reason=crash" in messages_of(caplog, main.__name__)
