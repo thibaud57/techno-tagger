@@ -206,8 +206,7 @@ def handle_extract_playlist(
             generated_at=datetime.now(UTC),
         ),
     )
-    # Sans compteurs : aucune cle du jeu logfmt fixe ne les porte, le rapport ecrit juste
-    # avant les detaille deja.
+    # Sans compteurs : aucune cle logfmt ne les porte, le rapport les detaille.
     logger.info("extraction finished")
 
     return ExtractionFinished(
@@ -215,9 +214,8 @@ def handle_extract_playlist(
         extracted=result.extracted,
         already_present=result.already_present,
         missing=result.missing,
-        # Les modeles de frontiere reprennent champ pour champ les dataclasses du
-        # metier : `from_attributes` les recopie, `discarded` compris, plutot qu'une
-        # enumeration a tenir a jour ici et dans le rapport (cf. `reports/extraction.py`).
+        # `from_attributes` recopie les dataclasses du metier, `discarded` compris, sans
+        # enumeration a tenir ici et dans le rapport (cf. `reports/extraction.py`).
         duplicates=tuple(
             DuplicatePayload.model_validate(duplicate, from_attributes=True)
             for duplicate in result.duplicates

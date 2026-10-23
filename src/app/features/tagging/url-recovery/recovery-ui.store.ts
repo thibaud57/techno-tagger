@@ -13,8 +13,8 @@ export class RecoveryUiStore {
   private readonly sidecar = inject(SidecarService)
 
   /**
-   * Lien colle par morceau, garde apres un succes pour qu'on voie et corrige le lien utilise.
-   * Rattache a son run comme le refus : les identifiants de morceau se repetent d'un run a l'autre.
+   * Lien colle par morceau, garde apres un succes pour corriger le lien utilise. Rattache a son
+   * run : les identifiants de morceau se repetent d'un run a l'autre.
    */
   private readonly _drafts = signal<{
     readonly runId: string | null
@@ -103,7 +103,6 @@ export class RecoveryUiStore {
 
   /**
    * Sans morceau designe, le premier encore non resolu : le badge ne s'affiche qu'avec un.
-   * Sert aussi a naviguer d'un morceau a l'autre dans la modale.
    */
   open(trackId?: string): void {
     const recoverable = this.sidecar.recoverableTracks()

@@ -1,5 +1,4 @@
-<!-- Logo et nom, dans la barre d'onglets comme dans celle de l'ecran bloquant. Le logo laisse
-     passer le clic : la zone de deplacement est son parent. -->
+<!-- Le logo laisse passer le clic : la zone de deplacement est son parent. -->
 <ng-template #brand>
   <img
     src="logo.png"
@@ -21,9 +20,8 @@
     </div>
     <app-window-controls />
   </div>
-  <!-- Ecran bloquant et non modal, a l'anatomie de nos modales : 30rem, texte a gauche, action
-       en pied a droite. Carte neutre plutot qu'un pave d'alerte : le rouge ne doit pas baigner la
-       phrase qui dit quoi faire. -->
+  <!-- Carte neutre plutot qu'un pave d'alerte : le rouge ne doit pas baigner la phrase qui dit
+       quoi faire. -->
   <div class="flex flex-1 items-center justify-center p-8">
     <p-card class="w-120 max-w-full border border-surface" [animate.enter]="fadeIn">
       <div class="flex flex-col gap-4">
@@ -53,12 +51,11 @@
     </p-card>
   </div>
 } @else {
-  <!-- Les onglets restent freres et en tete : la navigation au clavier de `p-tab` suit le DOM
-       (frere suivant, premier enfant), `order` fait le reste a l'ecran. La barre est aussi la barre
-       de titre (`decorations: false`) : `data-tauri-drag-region` sur ce qui n'est pas un controle.
-       Le nom part de 4rem + 147px, l'engrenage (`w-12`), la marge des badges (`pl-4`), le filet
-       (9px) et les boutons de fenetre (3 x 46px), pour que Playlist et Tagging tombent au centre
-       exact de la barre. -->
+  <!-- Les onglets restent freres et en tete : la navigation au clavier de `p-tab` suit le DOM,
+       `order` fait le reste a l'ecran. La barre est aussi la barre de titre (`decorations: false`) :
+       `data-tauri-drag-region` sur ce qui n'est pas un controle. Le nom part de 4rem + 147px,
+       l'engrenage (`w-12`), la marge des badges (`pl-4`), le filet (9px) et les boutons de fenetre
+       (3 x 46px), pour que Playlist et Tagging tombent au centre exact de la barre. -->
   <p-tabs [value]="activeTab()" (valueChange)="navigate($event)" [dt]="tabsTokens">
     <p-tablist>
       @for (tab of workflowTabs; track tab) {

@@ -106,8 +106,7 @@ def _force_utf8_streams() -> None:
     (cf. ADR-005).
     """
     for stream in (sys.stdin, sys.stdout):
-        # Un flux substitue (capture de test, redirection) n'est pas un
-        # TextIOWrapper et n'a rien a reconfigurer : seul le cas reel compte ici.
+        # Un flux substitue (capture de test, redirection) n'est pas un TextIOWrapper.
         if isinstance(stream, io.TextIOWrapper):
             stream.reconfigure(
                 encoding="utf-8",
@@ -525,13 +524,10 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
     """Lit les commandes ligne a ligne et emet les evenements produits.
 
     `stdin` est lu par `asyncio.to_thread` : sous Windows, `connect_read_pipe` sur
-    stdin echoue en `OSError: [WinError 6]`, la lecture asynchrone native est donc
-    hors jeu. La delegation en thread laisse la boucle libre, ce qui permet aux
-    evenements `progress` de partir pendant qu'une commande bloquante est traitee.
+    stdin echoue en `OSError: [WinError 6]`.
 
-    Les phases longues tournent en tache de fond dans le `TaskGroup` : la boucle lit
-    les commandes suivantes pendant qu'elles avancent. `shutdown` n'annule que la phase
-    reseau (cf. `_Session.close`), l'EOF les attend toutes.
+    Les phases longues tournent en tache de fond dans le `TaskGroup`. `shutdown` n'annule
+    que la phase reseau (cf. `_Session.close`), l'EOF les attend toutes.
 
     Une ligne rejetee a la validation ou une erreur metier produit un evenement
     `error` et la boucle continue : seuls `shutdown` et l'EOF l'arretent. La phase
@@ -575,10 +571,8 @@ async def run_loop(stdin: TextIO, stdout: TextIO) -> None:
 async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # noqa: PLR0912
     """Route une commande validee vers son handler.
 
-    Les handlers sont bloquants (SQLite, parcours du dossier source, copie de
-    fichiers, trousseau Windows) et passent donc par `to_thread`, sans quoi la
-    boucle gelerait. Les phases longues partent en tache de fond, `to_thread`
-    seul laissant la boucle attendre leur retour.
+    Les handlers bloquants (SQLite, copie de fichiers, trousseau Windows) passent par
+    `to_thread`, les phases longues en tache de fond : `to_thread` seul ferait attendre la boucle.
     """
     match command:
         case GetVersion():

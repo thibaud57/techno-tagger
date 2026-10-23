@@ -32,7 +32,7 @@ import { IconComponent, type IconName } from "./shared/components/display/icon.c
 import { WindowControlsComponent } from "./shared/components/window/window-controls.component"
 import { FADE_IN } from "./shared/utils/motion"
 
-/** Une icone devant chaque libelle de la barre ; Reglages n'a que la sienne (DESIGN.md § Icones). */
+/** Reglages n'a que son icone (DESIGN.md § Icones). */
 const TAB_ICONS = {
   playlist: "list",
   tagging: "tag",
@@ -76,7 +76,6 @@ export class AppComponent {
   private readonly recovery = inject(RecoveryUiStore)
   private readonly updates = inject(UpdateService)
 
-  /** Le flux de travail au centre de la barre ; les Reglages a part, en engrenage a droite. */
   protected readonly workflowTabs = TABS.filter((tab) => tab !== SETTINGS_TAB)
   protected readonly settingsTab = SETTINGS_TAB
   protected readonly tabIcons = TAB_ICONS

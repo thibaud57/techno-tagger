@@ -1,5 +1,5 @@
-"""Registre local des rapports de re-tagging : les rapports vivent dans les dossiers de musique,
-seul ce fichier dit ou les retrouver pour rouvrir un run passe.
+"""Registre local des rapports de re-tagging, qui vivent dans les dossiers de musique : seul
+ce fichier dit ou les retrouver pour rouvrir un run passe.
 
 Jamais purge : il suit des livrables permanents. Absent, corrompu ou d'une autre version, il se
 lit vide et repart de zero, les rapports restant dans leurs dossiers. Un fichier que le systeme
@@ -75,7 +75,6 @@ def find_report(index: Path, run_id: str) -> IndexEntry | None:
 
 
 def _present(entry: IndexEntry) -> bool:
-    """Un rapport deplace ou supprime n'est plus propose."""
     return entry.report_path.is_file()
 
 

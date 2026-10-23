@@ -23,10 +23,7 @@ BUILD_INFO = SIDECAR / "src" / PACKAGE / "_build_info.py"
 
 
 def write_build_info() -> None:
-    """Grave les constantes de build, PyInstaller n'ayant pas d'equivalent au
-    `--define` d'esbuild. La version en fait partie : le binaire ne porte aucun
-    `tagger.dist-info`, `importlib.metadata` y leverait PackageNotFoundError.
-    """
+    """Grave les constantes de build (cf. `tagger.core.build_info`)."""
     dsn = os.environ.get("SENTRY_DSN_SIDECAR", "")
     if not dsn:
         print("SENTRY_DSN_SIDECAR absent : binaire sans remontee d'erreurs", file=sys.stderr)
@@ -57,9 +54,7 @@ def main() -> int:
 
     write_build_info()
     try:
-        # S603 assume : le nom de la spec vient du pyproject.toml du depot, pas d'une
-        # entree externe. Il est derive et non ecrit en dur pour qu'un renommage du
-        # paquet ne laisse pas cet appel pointer sur l'ancien fichier.
+        # S603 assume : le nom de la spec vient du pyproject.toml du depot, pas d'une entree externe
         subprocess.run(  # noqa: S603
             [sys.executable, "-m", "PyInstaller", f"{PACKAGE}.spec", "--noconfirm", "--clean"],
             cwd=SIDECAR,

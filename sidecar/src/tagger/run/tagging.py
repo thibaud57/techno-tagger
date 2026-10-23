@@ -1,6 +1,5 @@
 """Pipeline de resolution d'un run de re-tagging (use-case 2).
 
-Orchestre `tags.files`, `resolution.matching` et `resolution.sources` sans rien reimplementer.
 Il ignore le protocole NDJSON : les evenements sortent par un rappel, que le handler
 traduit. Aucun fichier musical n'est ecrit ici (ADR-010). L'etat du run vit dans `run.models`.
 """
@@ -81,10 +80,9 @@ async def resolve_run(
 async def read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -> list[TrackRecord]:
     """Identites lues avant tout appel reseau : la liste s'affiche entiere des le depart.
 
-    Les lectures partent en parallele sur le pool de threads : enchainees, plusieurs
-    centaines d'ouvertures de fichier tenaient la liste vide pendant des secondes.
-    `return_exceptions=True` garde chaque tag illisible local a son morceau, la
-    seule erreur qui doive arreter le run etant celle de `list_audio_files`, deja levee.
+    Les lectures partent en parallele sur le pool de threads : enchainees, plusieurs centaines
+    d'ouvertures tenaient la liste vide pendant des secondes. `return_exceptions=True` garde
+    chaque tag illisible local a son morceau, seule `list_audio_files` devant arreter le run.
     """
     reads = await asyncio.gather(
         *(asyncio.to_thread(read_shown_tags, path) for path in paths), return_exceptions=True

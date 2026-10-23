@@ -102,9 +102,8 @@
     </div>
   }
 } @else if (recovery(); as phase) {
-  <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run.
-         La modale du lien s'ouvre par la ligne du morceau ; sans morceau a rattraper, l'etat
-         vide prend la place de la barre. -->
+  <!-- Une seule phase a la fois : la barre du rattrapage prend la place de celle du run. Sans
+         morceau a rattraper, l'etat vide prend celle de la barre. -->
   @if (phase.total > 0) {
     <app-phase-progress
       [label]="'tagging.recovery.phase' | translate"

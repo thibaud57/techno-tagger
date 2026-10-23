@@ -7,12 +7,9 @@ import { LANGUAGES, type Language } from "../i18n/language"
 const STORE_FILE = "preferences.json"
 
 /**
- * Ne leve jamais : hors Tauri `load` rejette. Une preference non enregistree n'est
- * pas une panne. Les deux retombent sur le defaut, l'interface restant utilisable
- * sous `ng serve` seul.
- *
- * `accept` filtre la valeur lue : un fichier edite a la main peut porter n'importe
- * quoi sous une cle typee.
+ * Ne leve jamais : hors Tauri `load` rejette et une preference non enregistree n'est pas une
+ * panne, donc defaut (l'interface reste utilisable sous `ng serve`). `accept` filtre la valeur
+ * lue : un fichier edite a la main peut porter n'importe quoi sous une cle typee.
  */
 const definePreference = <T>(
   key: string,

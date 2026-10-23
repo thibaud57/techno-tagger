@@ -2,8 +2,7 @@ import { Component } from "@angular/core"
 
 /**
  * Rangee d'une section des Reglages, sur les colonnes de `settings-rows` (subgrid) : libelle, controle,
- * action. Les boutons d'une section partagent la largeur de la colonne d'actions ; aide et retours sous
- * le controle, a sa largeur.
+ * action. Les boutons d'une section partagent la largeur de la colonne d'actions.
  */
 @Component({
   selector: "app-settings-row",
@@ -19,9 +18,9 @@ import { Component } from "@angular/core"
     <div class="hidden min-w-0 pl-4 has-[*]:grid">
       <ng-content select="[rowAction]" />
     </div>
-    <!-- Sous le controle et l'action, a leur largeur. Une aide colle au controle (pt-2). Un retour en
-         garde 12px, comme le py-3 de la rangee sous lui : gap-3 apres une aide, mt-1 en premier
-         (DESIGN.md § Feedback et chargement). Masque tant qu'il n'a aucun element. -->
+    <!-- Une aide colle au controle (pt-2). Un retour en garde 12px, comme le py-3 de la rangee :
+         gap-3 apres une aide, mt-1 en premier (DESIGN.md § Feedback et chargement). Masque tant
+         qu'il est vide. -->
     <div
       class="col-span-2 col-start-2 hidden min-w-0 flex-col gap-3 pt-2 pl-4 has-[*]:flex [&>app-error-message:first-child]:mt-1 [&>app-message:first-child]:mt-1 [&>app-rollback-failures:first-child]:mt-1"
     >

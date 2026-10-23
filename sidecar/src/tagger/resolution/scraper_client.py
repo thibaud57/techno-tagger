@@ -288,9 +288,8 @@ class TechnoScraperClient:
     async def search(self, source: SearchSource, query: str) -> tuple[TrackCandidate, ...]:
         """Premiere page de candidats, vide quand la source ne connait pas le morceau.
 
-        `limit` reste constant a chaque appel et le client ne relit jamais de curseur :
-        il ne peut donc declencher ni `cursor_limit_mismatch` ni `cursor_scope_mismatch`
-        (`.claude/rules/techno-scraper/contrat.md`).
+        `limit` constant et aucun curseur relu : ni `cursor_limit_mismatch` ni
+        `cursor_scope_mismatch` possibles (`.claude/rules/techno-scraper/contrat.md`).
         """
         params = {
             "q": query[:QUERY_MAX_LENGTH],
@@ -464,8 +463,8 @@ def _failure_reason(error: httpx2.RequestError) -> str:
 def _parse_track_url(pasted: str) -> _TrackUrl:
     """Source et cible d'une URL collee, normalisee comme l'attend sa route.
 
-    Query, fragment et `/` final tombent, `hostname` rend l'hote en minuscules et
-    `http` devient `https`. La casse du chemin est conservee.
+    Query, fragment et `/` final tombent, `http` devient `https`, la casse du chemin est
+    conservee.
     """
     try:
         parts = urlsplit(pasted.strip())

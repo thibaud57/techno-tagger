@@ -51,8 +51,7 @@ interface PlaylistChoice {
 }
 
 /**
- * Familles de DESIGN.md § Couleurs Semantiques, la couleur n'informant jamais seule.
- * Un doublon departage est une issue positive, pas une decision attendue : vert, le libelle
+ * Familles de DESIGN.md § Couleurs Semantiques. Un doublon departage est une issue positive, pas une decision attendue : vert, le libelle
  * portant la voie. Les deux rouges ne partagent pas l'icone, leurs corrections etant opposees
  * (retrouver le fichier, relancer le transfert).
  */

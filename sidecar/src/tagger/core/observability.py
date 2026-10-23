@@ -267,7 +267,7 @@ def capture_unexpected(error: BaseException) -> None:
     `LoggingIntegration` est coupee (cf. `init_sentry`) : le log ne part pas, le bug doit
     remonter par ici.
     """
-    # Meme import differe que `init_sentry` : le SDK n'est paye que sur le chemin qui s'en sert.
+    # Import differe, comme dans `init_sentry`.
     import sentry_sdk  # noqa: PLC0415
 
     sentry_sdk.capture_exception(error)

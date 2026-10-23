@@ -167,11 +167,9 @@ export class SidecarService {
   readonly sentrySelftest = this._sentrySelftest.asReadonly()
   /** Octets du cache, `null` avant la premiere mesure. */
   readonly cacheSize = this._cacheSize.asReadonly()
-  /** Dernier vidage : de quoi l'annoncer. */
   readonly cacheCleared = this._cacheCleared.asReadonly()
   /** `clear_cache` envoye sans reponse encore : vrai jusqu'a `cache_cleared` ou son refus. */
   readonly cacheClearing = this._cacheClearing.asReadonly()
-  /** Derniere issue de retour preparee : de quoi l'ouvrir et reveler son export. */
   readonly feedbackReady = this._feedbackReady.asReadonly()
   /** Run dont l'issue de retour se prepare, `null` hors attente. */
   readonly feedbackPending = this._feedbackPending.asReadonly()
@@ -180,7 +178,6 @@ export class SidecarService {
 
     return sidecar === null || sidecar === APP_VERSION ? null : { ui: APP_VERSION, sidecar }
   })
-  /** Decide si l'interface propose un selecteur de playlist. */
   readonly playlistFormat = computed(() => this._listing()?.playlist_format ?? null)
   readonly playlists = computed(() => this._listing()?.playlists ?? [])
   /** Le fichier que decrivent `playlistFormat` et `playlists`, l'evenement ne le nommant pas. */

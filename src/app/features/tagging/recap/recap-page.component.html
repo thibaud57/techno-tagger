@@ -1,4 +1,4 @@
-<!-- Comme la maquette, les filtres passent sous le titre quand la largeur manque (FR a 1024px). -->
+<!-- Les filtres passent sous le titre quand la largeur manque (FR a 1024px). -->
 <div class="flex flex-wrap items-center gap-4">
   <h1 class="text-2xl font-semibold whitespace-nowrap">{{ "recap.title" | translate }}</h1>
 
@@ -54,9 +54,8 @@
   <app-rollback-failures [failures]="runRestore.runRollbackFailures()" />
 }
 
-<!-- Pied comme sous le rapport de Playlist : la restauration du run reste dans l'onglet
-     Tagging, d'ou le recapitulatif s'ouvre. « Envoyer ce rapport » est le seul geste qui fait
-     sortir des titres (ADR-014). -->
+<!-- La restauration du run reste dans l'onglet Tagging. « Envoyer ce rapport » est le seul
+     geste qui fait sortir des titres (ADR-014). -->
 <div class="flex min-h-0 flex-1 flex-col gap-2">
   @if (refusal() !== null) {
     <app-empty-state

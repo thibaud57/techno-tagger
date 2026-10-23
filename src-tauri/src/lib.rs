@@ -27,11 +27,9 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-/// Chaque rechargement de la webview relance le sidecar sans arreter le precedent, qui
-/// poursuivrait un run que l'interface a oublie. Le menu contextuel porte aussi
-/// « Recharger » ; `Ctrl+O` et `Ctrl+U` navigueraient hors de l'application, et le retour
-/// arriere la rechargerait. Le debug garde tout pour le live reload ; les autres raccourcis
-/// restent actifs (`Shift+Tab`, zoom).
+/// Un rechargement de la webview relance le sidecar sans arreter le precedent, qui
+/// poursuivrait un run oublie. Le menu contextuel porte aussi « Recharger », `Ctrl+O` et
+/// `Ctrl+U` naviguent hors de l'application. Le debug garde tout pour le live reload.
 fn prevent_reload<R: Runtime>() -> TauriPlugin<R> {
     let flags = if cfg!(debug_assertions) {
         Flags::empty()

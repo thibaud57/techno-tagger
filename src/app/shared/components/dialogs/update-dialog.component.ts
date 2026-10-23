@@ -16,9 +16,8 @@ import { PhaseProgressComponent } from "../display/phase-progress.component"
 import { MessageComponent } from "../feedback/message.component"
 
 /**
- * Gabarit de l'invite de reprise, mais fermable vers le badge (DESIGN.md § Arbitrages). Aucun
- * bouton focalise a l'ouverture, comme elle : le focus va au corps de la modale, sans quoi il
- * reste derriere le masque et Tab parcourt la page.
+ * Gabarit de l'invite de reprise, fermable vers le badge (DESIGN.md § Arbitrages). Pas de bouton
+ * focalise a l'ouverture, comme elle : le focus va au corps de la modale.
  */
 @Component({
   selector: "app-update-dialog",

@@ -1,11 +1,9 @@
 """Rapport d'extraction, ecrit dans le dossier destination en JSON et en Markdown, tous
 deux en anglais quelle que soit la langue de l'interface (ARCHITECTURE.md § Donnees).
 
-Le JSON porte un champ de version des la premiere version : l'ajouter apres coup
-laisserait une generation de rapports non identifiables (ADR-018). Pas de migration
-tant qu'il n'existe qu'une version : sans version d'origine, elle ne serait ni
-exercable ni testable. Le Markdown n'est pas versionne : c'est un rendu, regenerable
-depuis le JSON et jamais relu.
+Le JSON porte un champ de version des la premiere version : l'ajouter apres coup laisserait
+des rapports non identifiables (ADR-018). Pas de migration tant qu'il n'existe qu'une version.
+Le Markdown n'est pas versionne : rendu regenerable depuis le JSON, jamais relu.
 """
 
 from dataclasses import dataclass
@@ -40,11 +38,9 @@ FILE_STEM: Final = "extraction-report"
 class ReportContext:
     """Ce qu'un rapport dit du run, en plus de son resultat.
 
-    `playlist_name` vaut `None` pour un M3U8. `generated_at` est normalise en UTC a la
-    construction : un aware dans un autre fuseau mentirait dans le stamp du nom de
-    fichier (litteralement suffixe `Z`). Un naive est refuse plutot que
-    reinterprete : `astimezone` le prendrait silencieusement pour l'heure locale de
-    la machine hote.
+    `playlist_name` vaut `None` pour un M3U8. `generated_at` est normalise en UTC : le stamp
+    du nom de fichier est suffixe `Z`. Un naive est refuse, `astimezone` le prendrait pour
+    l'heure locale de la machine.
     """
 
     source_folder: Path
@@ -104,10 +100,9 @@ class PlaylistRef(StrictFrozenModel):
 class ExtractionReport(StrictFrozenModel):
     """Rapport d'extraction, tel qu'il est ecrit sur le disque.
 
-    `BaseModel` et non un `dict` serialise a la main : le rapport franchit une
-    frontiere et il est permanent, donc relu par une version ulterieure de
-    l'application. C'est ce modele qui portera la migration d'un `schema_version`
-    anterieur, dans un `@model_validator(mode="before")`.
+    Un modele et non un `dict` : le rapport est permanent, relu par une version ulterieure.
+    Il portera la migration d'un `schema_version` anterieur, dans un
+    `@model_validator(mode="before")`.
     """
 
     schema_version: int = SCHEMA_VERSION
@@ -142,8 +137,7 @@ def build_report(result: ExtractionResult, context: ReportContext) -> Extraction
         extracted=result.extracted,
         already_present=result.already_present,
         missing=result.missing,
-        # Meme recopie que celle de l'evenement `extraction_finished` : les deux schemas
-        # restent libres d'evoluer separement, leur remplissage non.
+        # Meme recopie que `extraction_finished`, dont les schemas evoluent separement.
         duplicates=tuple(
             DuplicateEntry.model_validate(duplicate, from_attributes=True)
             for duplicate in result.duplicates
@@ -159,9 +153,8 @@ def render_markdown(report: ExtractionReport) -> str:
     """Rapport lisible, en anglais.
 
     Rendu du meme `ExtractionReport` que le JSON : decomptes et listes ne sont jamais
-    recalcules ici, sinon un changement de definition d'un decompte pourrait
-    desynchroniser les deux rendus. Une categorie vide est omise, le tableau de
-    synthese portant deja les decomptes.
+    recalcules ici, sinon les deux rendus pourraient diverger. Une categorie vide est omise,
+    le tableau de synthese portant les decomptes.
     """
     counts = report.counts
     lines = [
@@ -232,12 +225,10 @@ def _bullet_section(title: str, entries: tuple[str, ...]) -> list[str]:
 def write_extraction_report(result: ExtractionResult, context: ReportContext) -> ReportPaths:
     """Depose le rapport dans le dossier destination et rend les deux chemins.
 
-    Couple de fichiers horodate par run : le rapport est permanent, un nom fixe
-    ecraserait celui du run precedent.
+    Couple horodate par run : le rapport est permanent, un nom fixe ecraserait le precedent.
 
-    Leve `ReportWriteError` en nommant le fichier ou le dossier reellement en cause :
-    les morceaux sont deja extraits, seul le rapport manque, l'appelant doit pouvoir
-    dire ce qui a echoue.
+    Leve `ReportWriteError` en nommant le fichier ou le dossier en cause : les morceaux sont
+    deja extraits, seul le rapport manque.
     """
     paths = unused_report_paths(
         context.destination_folder, FILE_STEM, context.generated_at.strftime(TIMESTAMP_FORMAT)
@@ -248,8 +239,7 @@ def write_extraction_report(result: ExtractionResult, context: ReportContext) ->
     except OSError as error:
         raise ReportWriteError(context.destination_folder) from error
 
-    # Construit une seule fois : deux rendus qui repartiraient chacun de zero doubleraient
-    # la validation pydantic du rapport pour un run.
+    # Construit une seule fois : un rendu chacun doublerait la validation pydantic.
     report = build_report(result, context)
     write_report_pair(paths, report.model_dump_json(indent=2), render_markdown(report))
 

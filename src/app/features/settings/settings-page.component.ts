@@ -215,8 +215,7 @@ export default class SettingsPageComponent {
   )
   protected readonly thresholdsFields = form(this.thresholdsChoice, (path) => {
     // Sans valeur connue, un geste enregistrerait 0 et 100. Store pas encore lu : le geste
-    // enregistrerait sur des defauts le reglage que la lecture vient ecraser, ou la lecture
-    // tardive annulerait le geste en cours.
+    // s'enregistrerait sur des defauts, ou la lecture tardive l'annulerait.
     const unknown = (): boolean =>
       this.shownThresholds() === null || this.storedThresholds() === undefined
     disabled(path.floor, { when: unknown })
@@ -230,7 +229,6 @@ export default class SettingsPageComponent {
 
     return stored !== null && stored !== undefined
   })
-  /** L'entree active, que le template de l'entree nomme aussi par `aria-current`. */
   protected readonly activeItemId = computed(() => menuItemId(this.section()))
   /**
    * Le marqueur va sur le contenu de l'entree, pas sur son `li` : Aura peint le survol et le focus
@@ -248,7 +246,6 @@ export default class SettingsPageComponent {
       itemContent: (options) => (isActive(options) ? "bg-highlight" : ""),
     }
   })
-  /** Les entrees a 8px des bords du panneau. */
   protected readonly menuTokens = { list: { padding: "0.5rem" } }
 
   protected readonly cacheSize = computed(() => {
@@ -374,8 +371,7 @@ export default class SettingsPageComponent {
 
   constructor() {
     // Le dernier run annulable a pu etre ecrit dans une autre session : seul le moteur le sait.
-    // La page se monte avant sa reponse au lancement ; `loadRollbackTarget` n'envoie rien sans
-    // moteur : la demande suit sa disponibilite, pas la construction.
+    // La page se monte avant sa reponse : la demande suit la disponibilite du moteur.
     effect(() => {
       if (this.sidecar.available() === true) {
         untracked(() => {
@@ -397,8 +393,7 @@ export default class SettingsPageComponent {
       })
     })
 
-    // Lu au montage, jamais ecrit : seule la bascule enregistre un choix. Une lecture qui arrive
-    // apres un clic ne l'ecrase pas.
+    // Une lecture qui arrive apres un clic n'ecrase pas le choix.
     void this.preferences.readSoundSignal().then((enabled) => {
       if (!this.soundChosen) {
         this.soundChoice.set({ enabled })
