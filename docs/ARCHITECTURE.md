@@ -1105,6 +1105,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 
 # 🚀 Évolutions Futures (Post-MVP)
 
+- **Compatibilité des tags avec les logiciels DJ** : RIFF `LIST/INFO` pour les WAV (Rekordbox ignore leur chunk ID3), remixeur FLAC, nom du mix et date de sortie. Cf. [knowledges/rekordbox.md](knowledges/rekordbox.md)
 - **Édition manuelle des tags** : formulaire de correction champ par champ quand aucune source ne convient et qu'aucune URL n'existe
 - **Tests bout-en-bout** : WebdriverIO + `tauri-driver` sur l'application empaquetée, avant l'agent IA qui modifie la chaîne de décision
 - **Agent IA d'arbitrage (PydanticAI)** : en renfort du fuzzy et non à sa place, sur la zone grise (tranche avant d'ouvrir la modale) et sur les non résolus (reformule la requête et relance). Mode activable, désactivé par défaut, clé du fournisseur saisie par l'utilisateur. Cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md).
