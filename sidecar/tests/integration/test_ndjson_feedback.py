@@ -7,7 +7,6 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from ndjson_loop import (
-    UNKNOWN_RUN,
     conversation,
     drive,
     line,
@@ -18,6 +17,7 @@ from ndjson_loop import (
 )
 from report_files import report_json
 from tagging_api import two_tracks
+from tagging_records import UNKNOWN_RUN
 
 from tagger.reports.feedback import EXPORT_FIELD, ISSUE_TEMPLATE, MAX_URL_LENGTH, feedback_dir
 

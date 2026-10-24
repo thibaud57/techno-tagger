@@ -115,7 +115,7 @@ techno-tagger/
 │   │   ├── protocol.py                   # modèles des commandes et des événements
 │   │   ├── handlers.py                   # handlers des commandes, run courant
 │   │   ├── translation.py                # événements du pipeline traduits en événements du protocole
-│   │   ├── core/                         # socle transverse : erreurs, chemins, logs, Sentry, clé API, fichiers d'un run, base des modèles écrits sur disque, tâches asyncio
+│   │   ├── core/                         # socle transverse : erreurs, chemins, logs, Sentry, clé API, identifiants, fichiers d'un run, base des modèles écrits sur disque, tâches asyncio
 │   │   ├── playlists/                    # parsing VLC SQLite et M3U8, copie ou déplacement des morceaux
 │   │   ├── resolution/                   # scoring rapidfuzz, client techno-scraper, cache, sources
 │   │   ├── tags/                         # mutagen, dump des tags d'origine, renommage
@@ -228,7 +228,7 @@ Dernière phase réseau, entièrement **facultative**. Une fois le pipeline term
 
 L'URL se colle dans la modale du lien, ou dans l'étape lien qui suit le refus de tous les candidats d'un arbitrage (cf. [DESIGN.md](DESIGN.md)). Elle est résolue via la route correspondante de l'API, avec sa propre barre de progression. **Les trois sources n'ont pas la même voie** : Bandcamp et SoundCloud résolvent l'URL directement, Beatport n'expose pas de résolution par URL et impose d'extraire l'identifiant du morceau de l'URL collée pour appeler la route par id. L'étape se passe intégralement.
 
-**Morceaux éligibles** : un morceau `unresolved` accepte une URL, un morceau déjà résolu par URL aussi, recoller remplaçant alors l'URL précédente pour corriger un mauvais lien avant l'écriture. Les morceaux résolus automatiquement, par arbitrage, en attente d'arbitrage ou jamais traités n'en acceptent pas.
+**Morceaux éligibles** : un morceau `unresolved` accepte une URL, un morceau déjà résolu par URL aussi, recoller remplaçant alors l'URL précédente pour corriger un mauvais lien avant l'écriture. Les morceaux résolus automatiquement, par arbitrage, en attente d'arbitrage ou jamais traités n'en acceptent pas. Le sidecar calcule cette éligibilité et l'envoie dans `recoverable` (cf. § API).
 
 La barre de la phase compte les morceaux rattrapés sur les morceaux à rattraper (non résolus + rattrapés), le tout calculé sur l'état du run : une correction ne compte pas deux fois, un refus d'arbitrage tardif grossit le total. Un morceau rattrapé n'a pas de score (décisions du propriétaire du 2026-10-02).
 
@@ -455,26 +455,27 @@ Les modules sont regroupés en **packages par étape du pipeline**, dans l'ordre
 | | `observability.py` | Init Sentry durci, scrubbing PII |
 | | `build_info.py` | Façade des constantes gravées au packaging |
 | | `api_key.py` | Clé API dans le trousseau, via keyring |
+| | `identifiers.py` | `RunId` et `TrackId` nominaux : une permutation d'identifiants casse au typage |
 | | `run_files.py` | Nom horodaté, écriture atomique (durable sur demande : `fsync` avant le remplacement), lecture versionnée et rétention des fichiers d'un run, partagés par dumps, plans, rapports et exports de feedback |
 | | `models.py` | `StrictFrozenModel` : base immuable et fermée (`extra="forbid"`) des modèles écrits sur le disque, dumps, plans, rapports et registre. Un champ inconnu signale un fichier d'une autre version ou corrompu |
 | | `tasks.py` | Annulation groupée de tâches asyncio, partagée par la session et les runs |
 | `playlists/` | `vlc.py`, `m3u8.py`, `models.py`, `errors.py` | Parsing VLC SQLite et M3U8, façade dans `__init__.py` |
 | | `extraction.py` | Copie ou déplacement des morceaux d'une playlist |
-| `resolution/` | `matching.py` | Scoring rapidfuzz |
+| `resolution/` | `matching.py` | Scoring rapidfuzz, classement d'une source en auto, zone grise ou vide |
 | | `scraper_client.py` | Appels techno-scraper + X-API-Key |
 | | `cache.py` | Réponses API et artworks |
 | | `sources.py` | Accès aux sources d'un run, garde des 403 |
 | `tags/` | `files.py` | mutagen : lecture/écriture des tags |
 | | `tag_dump.py` | Dump des tags d'origine d'un run et journal des renommages, purgés après 30 jours |
 | | `renaming.py` | Plan de renommage artiste - titre, collisions, chemins longs |
-| `run/` | `models.py` | État d'un run : enums d'issue (`TrackState`, `Resolution`, `FailureReason`), fiche d'un morceau, run gelé ou vivant, événements internes du pipeline |
+| `run/` | `models.py` | État d'un run : enums d'issue (`TrackState`, `Resolution`, `FailureReason`), fiche d'un morceau (identité et issue en union de variantes, qui portent leurs projections et les règles du « déjà traité » et du rattrapage), run gelé ou vivant, événements internes du pipeline |
 | | `tagging.py` | Pipeline de résolution : lecture des identités, cascade Beatport puis Bandcamp |
 | | `arbitration.py` | Gestes d'arbitrage sur un run vivant |
 | | `url_recovery.py` | Rattrapage d'un morceau par URL |
 | | `gestures.py` | `InFlight` : un seul geste en vol par morceau, le second refusé et jamais mis en file, règle commune à l'arbitrage et au rattrapage |
 | | `writing.py` | Phase d'écriture d'un run : dump, tags, renommage, relance |
 | | `rollback.py` | Restauration d'un run ou d'un morceau depuis son dump |
-| | `plan.py` | Plan de run : modèle, enregistrement, relecture, purge |
+| | `plan.py` | Plan de run : modèle, enregistrement, relecture (un morceau incohérent rend le plan illisible), purge |
 | | `resume.py` | Détection d'un run interrompu, reconstruction depuis son plan |
 | `reports/` | `common.py` | Socle partagé des rapports d'extraction et de re-tagging : erreurs, chemins horodatés, rendu Markdown, écriture atomique du couple JSON + Markdown |
 | | `extraction.py` | Rapport d'extraction, JSON et Markdown |
@@ -526,11 +527,11 @@ Imposé par deux besoins du MVP : la barre de progression et le pipeline qui con
 | `progress` | phase en cours, traités sur total. Couvre l'extraction, le pipeline de tagging, le rattrapage par URL et l'écriture, le rollback n'en émettant pas. En phase `url_recovery`, émis à l'ouverture du rattrapage (après `run_finished(network)` ou après un `cancel_run` qui a interrompu la phase réseau), après chaque rattrapage réussi et après chaque geste d'arbitrage hors phase réseau ; mesure les morceaux rattrapés sur les morceaux à rattraper. En phase `write`, mesure les morceaux traités sur les morceaux visés par l'écriture ou par la relance |
 | `extraction_finished` | morceaux extraits, fichiers déjà présents en destination, titres introuvables, doublons résolus avec leurs candidats écartés, transferts en échec avec leur motif, chemin du rapport d'extraction |
 | `run_started` | identifiant du run, dossier du run (`folder`) que l'interface compare à celui qu'elle montre et tous ses morceaux : identifiant, nom de fichier, artiste et titre lus, plus `tags_before` : système de tags, commentaire et les champs de la table dans son ordre, chacun avec la clé du fichier écrit (`TYER` pour la date ID3) et sa valeur, nulle si absente. `tags_before` est nul si les tags étaient illisibles. Sans `run_started`, la liste resterait vide jusqu'à la première résolution |
-| `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, noms écrits (`after`), scores arrondis, chemin de la pochette, `tags_after` : les valeurs que le fichier contiendra après écriture (valeur du candidat, sinon valeur d'origine gardée), nul pour un non résolu ; `source_url` : lien vers la fiche du candidat retenu, nul sans candidat ; `restorable` : vrai quand le dump du run porte l'origine du morceau (cf. § ci-dessous) |
+| `track_resolved` | morceau, source retenue, `state` / `resolution` / `failure_reason`, noms écrits (`after`), scores arrondis, chemin de la pochette, `tags_after` : les valeurs que le fichier contiendra après écriture (valeur du candidat, sinon valeur d'origine gardée), nul pour un non résolu ; `source_url` : lien vers la fiche du candidat retenu, nul sans candidat ; `restorable` : vrai quand le dump du run porte l'origine du morceau (cf. § ci-dessous) ; `recoverable` : vrai quand le morceau accepte une URL (cf. [Use-case 4](#use-case-4--rattrapage-par-url)) |
 | `arbitration_required` | état complet de l'arbitrage d'un morceau entré dans la file : source affichée, candidats en zone grise avec leur score, leur label et leur année (nuls sur Bandcamp, dont la recherche ne rend ni l'un ni l'autre), `beatport_unavailable` quand Bandcamp n'a été interrogé que parce que Beatport était en panne (§ Chaîne de résolution), `empty_reason` d'une liste Bandcamp vide et `other_source`, la liste que `switch_arbitration_source` peut réafficher. L'index d'un candidat est sa position dans la liste |
 | `arbitration_updated` | mêmes champs qu'`arbitration_required`, pour un morceau déjà dans la file : l'interface remplace son entrée en bloc. Émis à la bascule sur Bandcamp et au retour à Beatport |
 | `run_finished` | `phase` (`network` après la boucle de résolution, `write` après `commit_run` ou `retry_write`), identifiant du run, compteurs `resolved`, `unresolved`, `written`, `write_error` et en attente d'arbitrage, dans les deux phases ; `report_path` : JSON du rapport de re-tagging en phase `write`, nul en phase `network` ou si le rapport n'a pas pu être écrit |
-| `interrupted_run` | `run` : `kind` `interrupted` (`run_id`, `started_at`, `folder`, `processed`, `total`, `folder_missing` : dossier absent ou vidé de ses fichiers audio), `kind` `unreadable` (`run_id`, `started_at`, `found` : la version trouvée, nulle si le plan n'en porte pas de lisible et `expected`), ou nul. Réponse à `get_interrupted_run` et à `discard_run` |
+| `interrupted_run` | `run` : `kind` `interrupted` (`run_id`, `started_at`, `folder`, `processed`, `total`, `folder_missing` : dossier absent ou vidé de ses fichiers audio), `kind` `unreadable` (`run_id`, `started_at`, `found` : la version trouvée, nulle si le plan n'en porte pas de lisible ou si son contenu est invalide (morceau incohérent compris) et `expected`), ou nul. Réponse à `get_interrupted_run` et à `discard_run` |
 | `runs_listed` | `runs`, du plus récent au plus ancien : `run_id`, `written_at`, `folder` et `report_path` (JSON du rapport). Les compteurs se lisent dans le récapitulatif chargé |
 | `run_loaded` | `run_id`, `folder`, `generated_at` et `tracks` : par morceau, nom du fichier d'origine, artiste et titre d'origine, `state` / `resolution` / `failure_reason`, source, noms écrits, scores arrondis, `tags_before` (même forme que dans `run_started`), `tags_after`, `source_url` et `artwork_path` (pochette retéléchargée, nulle si indisponible). Sans `restorable` : un run passé se lit sans geste |
 | `rollback_target` | `run` : identifiant, date d'écriture, dossier du run tel que le dump l'a enregistré (le `folder` de `start_tagging`, plus haut que le dossier des fichiers quand ils sont tous dans des sous-dossiers), morceaux à restaurer ; nul s'il n'y a rien à annuler |
@@ -561,6 +562,8 @@ Deux axes de phase, deux enums : `Phase` (`extraction`, `tagging`, `url_recovery
 **Les motifs d'écriture ne se réduisent pas au fichier verrouillé**, qui n'est que le plus fréquent sur Windows. Tous produisent le même `state` et se rattrapent par `retry_write` : c'est le motif qui change, jamais l'état ni la correction.
 
 **La restaurabilité d'un morceau se lit sur `restorable`, jamais sur son `state`.** Le champ est toujours présent sur `track_resolved`, faux par défaut. Il est vrai quand le dump du run porte l'origine du morceau : état `written`, ou `write_error` dont l'origine a été lue et sauvegardée avant l'échec (verrou, droits, renommage refusé). Il est faux pour un `write_error` dont l'origine n'a jamais pu être lue (donc jamais au dump), pour un morceau `rolled_back` et pour tous les autres états. Il retombe aussi à faux, `state` inchangé, quand un rollback retire du dump un morceau introuvable (`file_missing`) : l'interface ne propose plus une restauration qui rendrait `rollback_unavailable`. `run_started.tracks[]` n'en porte pas, aucun morceau n'ayant d'entrée au dump à l'ouverture, ni `run_loaded.tracks[]`, le récapitulatif d'un run passé étant en lecture seule.
+
+**L'éligibilité au rattrapage est calculée par le sidecar et publiée dans `recoverable`.** Le champ est toujours présent sur `track_resolved` (faux par défaut) et ne dit que l'éligibilité du morceau : la phase de rattrapage ouverte et le run non confirmé restent des conditions à part, refusées en `url_recovery_not_open` et `run_committed`. `run_started.tracks[]` et `run_loaded.tracks[]` n'en portent pas, comme `restorable`.
 
 **Un seul champ `failure_reason` sur le fil, deux enums côté sidecar.** `FailureReason` couvre la résolution et `name_taken`, `FileFailureReason` les pannes de fichier (extraction, écriture, restauration), la valeur émise étant l'union des deux. Un test garde leurs chaînes disjointes.
 

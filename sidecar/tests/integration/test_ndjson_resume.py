@@ -1,10 +1,9 @@
 import json
 from datetime import timedelta
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 import pytest
 from ndjson_loop import (
-    UNKNOWN_RUN,
     committed,
     conversation,
     resolved_run,
@@ -13,8 +12,15 @@ from ndjson_loop import (
 )
 from run_plans import music, only_plan, plan_files, plan_of, save_plan
 from scraper_responses import BASIEL
-from tagging_api import FIRST_TRACK, knows_your_mind
-from tagging_records import CREATED, RUN_ID
+from tagging_api import knows_your_mind
+from tagging_records import (
+    CREATED,
+    FIRST_TRACK,
+    RUN_ID,
+    SECOND_RUN_ID,
+    UNKNOWN_RUN,
+    unresolved,
+)
 
 from tagger.core.run_files import run_id_of, stamped_name
 from tagger.run.models import FailureReason
@@ -32,8 +38,6 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("_key")]
 
-OTHER_RUN: Final = "9e8f7a"
-
 
 async def test_announces_no_interrupted_run_without_plans() -> None:
     async with conversation() as talk:
@@ -46,7 +50,7 @@ async def test_announces_no_interrupted_run_without_plans() -> None:
 async def test_announces_an_interrupted_run(tmp_path: Path) -> None:
     folder = tmp_path / "music"
     records = music(folder, 2)
-    plan = plan_of(folder, [records[0].unresolved(FailureReason.NO_RESULT), records[1]])
+    plan = plan_of(folder, [unresolved(records[0], FailureReason.NO_RESULT), records[1]])
     save_plan(plan_dir(), plan)
 
     async with conversation() as talk:
@@ -123,26 +127,26 @@ async def test_discarding_a_plan_announces_the_next_interrupted_run(tmp_path: Pa
     records = music(folder, 1)
     older = CREATED - timedelta(days=2)
     save_plan(plan_dir(), plan_of(folder, records))
-    save_plan(plan_dir(), plan_of(folder, records, run_id=OTHER_RUN, started_at=older))
+    save_plan(plan_dir(), plan_of(folder, records, run_id=SECOND_RUN_ID, started_at=older))
 
     async with conversation() as talk:
         talk.send(command="discard_run", run_id=RUN_ID)
         announced = await talk.expect("interrupted_run")
 
     run = sub(announced, "run")
-    assert run["run_id"] == OTHER_RUN
-    assert [run_id_of(path) for path in plan_files()] == [OTHER_RUN]
+    assert run["run_id"] == SECOND_RUN_ID
+    assert [run_id_of(path) for path in plan_files()] == [SECOND_RUN_ID]
 
 
 async def test_discarding_an_interrupted_plan_does_not_announce_the_open_run(
     folder: Path, tmp_path: Path
 ) -> None:
     other = tmp_path / "other"
-    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=OTHER_RUN))
+    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=SECOND_RUN_ID))
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
-        talk.send(command="discard_run", run_id=OTHER_RUN)
+        talk.send(command="discard_run", run_id=SECOND_RUN_ID)
         announced = await talk.expect("interrupted_run")
 
     assert announced["run"] is None
@@ -210,13 +214,13 @@ async def test_resumes_a_run_cut_short_by_a_shutdown(
 
 
 def _save_committed_plan(other: Path) -> None:
-    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=OTHER_RUN, committed=True))
+    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=SECOND_RUN_ID, committed=True))
 
 
 def _save_dumped_plan(other: Path) -> None:
-    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=OTHER_RUN))
+    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=SECOND_RUN_ID))
     dump_dir().mkdir(parents=True, exist_ok=True)
-    (dump_dir() / stamped_name(CREATED, OTHER_RUN, ".json")).write_text("{}", encoding="utf-8")
+    (dump_dir() / stamped_name(CREATED, SECOND_RUN_ID, ".json")).write_text("{}", encoding="utf-8")
 
 
 @pytest.mark.parametrize(
@@ -229,17 +233,17 @@ async def test_refuses_a_plan_that_cannot_be_resumed_and_keeps_the_open_run(
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
-        talk.send(command="resume_run", run_id=OTHER_RUN)
+        talk.send(command="resume_run", run_id=SECOND_RUN_ID)
         refused = await talk.expect("error")
         finished = await committed(talk, run_id)
 
     assert (refused["code"], refused["command"], refused["params"]) == (
         "run_not_found",
         "resume_run",
-        {"run_id": OTHER_RUN},
+        {"run_id": SECOND_RUN_ID},
     )
     assert finished["written"] == 1
-    assert OTHER_RUN in {run_id_of(path) for path in plan_files()}
+    assert SECOND_RUN_ID in {run_id_of(path) for path in plan_files()}
 
 
 def _lose_the_key(keyring: MemoryKeyring, _other: Path) -> None:
@@ -264,18 +268,18 @@ async def test_a_resume_refused_at_opening_keeps_the_open_run_and_its_plan(
     code: str,
 ) -> None:
     other = tmp_path / "other"
-    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=OTHER_RUN))
+    save_plan(plan_dir(), plan_of(other, music(other, 1), run_id=SECOND_RUN_ID))
 
     async with conversation() as talk:
         run_id = await resolved_run(talk, folder)
         spoil(memory_keyring, other)
-        talk.send(command="resume_run", run_id=OTHER_RUN)
+        talk.send(command="resume_run", run_id=SECOND_RUN_ID)
         refused = await talk.expect("error")
         finished = await committed(talk, run_id)
 
     assert (refused["code"], refused["command"]) == (code, "resume_run")
     assert finished["written"] == 1
-    assert {run_id_of(path) for path in plan_files()} == {run_id, OTHER_RUN}
+    assert {run_id_of(path) for path in plan_files()} == {run_id, SECOND_RUN_ID}
 
 
 def _empty_the_folder_of(_folder: Path, records: list[TrackRecord]) -> None:

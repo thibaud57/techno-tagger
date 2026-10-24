@@ -10,6 +10,7 @@ from tagging_records import CREATED, UNREADABLE_CONTENTS
 from tagging_report_samples import RUN, WRITTEN, WRITTEN_AS
 
 from tagger.core.file_failures import FileFailureReason
+from tagger.core.identifiers import TrackId
 from tagger.core.run_files import write_atomically
 from tagger.reports import common as report_common
 from tagger.reports.common import ReportWriteError
@@ -202,15 +203,20 @@ _WITHOUT_COVER: Final = WriteOutcome(
 )
 
 
+def _written_without_cover(*, offered: bool) -> TrackRecord:
+    """Ecrit sans pochette, que la source en ait proposee une ou non."""
+    outcome = WRITTEN.outcome
+    candidate = BEATPORT_CANDIDATE if offered else payload_candidate(release=None)
+    retained = replace(outcome.retained, candidate=candidate)
+    return replace(WRITTEN, outcome=replace(outcome, retained=retained, written=_WITHOUT_COVER))
+
+
 @pytest.mark.parametrize(
     ("track", "cover"),
     [
         (WRITTEN, "written"),
-        (replace(WRITTEN, written=_WITHOUT_COVER), "missing"),
-        (
-            replace(WRITTEN, written=_WITHOUT_COVER, candidate=payload_candidate(release=None)),
-            "none",
-        ),
+        (_written_without_cover(offered=True), "missing"),
+        (_written_without_cover(offered=False), "none"),
     ],
     ids=["written-with-cover", "cover-not-written", "no-cover-offered"],
 )
@@ -223,7 +229,7 @@ def test_flags_the_cover_of_a_written_track(track: TrackRecord, cover: str) -> N
 
 
 def test_escapes_a_value_that_would_break_a_table() -> None:
-    piped = replace(WRITTEN, track_id="a | b\nc.mp3")
+    piped = replace(WRITTEN, track_id=TrackId("a | b\nc.mp3"))
 
     markdown = _markdown(replace(RUN, tracks=(piped,)))
 

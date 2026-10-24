@@ -8,7 +8,6 @@ from ndjson_loop import (
     EXPECT_TIMEOUT,
     LEAVING,
     SWITCH_TO_BEATPORT,
-    UNKNOWN_RUN,
     committed,
     conversation,
     held_call,
@@ -29,6 +28,7 @@ from tagging_api import (
     FakeApi,
     knows_the_bandcamp_track,
 )
+from tagging_records import UNKNOWN_RUN
 
 from tagger import BUNDLE_IDENTIFIER, handlers
 from tagger.core.api_key import SERVICE, USERNAME

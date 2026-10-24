@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 import pytest
@@ -13,7 +12,6 @@ from scraper_responses import (
     bandcamp_track_payload,
     failing,
     ok,
-    track_candidate,
     track_payload,
 )
 from tagging_api import (
@@ -23,13 +21,24 @@ from tagging_api import (
     cancelled,
     knows_the_bandcamp_track,
     knows_your_mind,
+    must_be,
     must_record,
     networked_run,
     one_track,
     three_tracks,
     two_tracks,
 )
-from tagging_records import awaiting, scored_candidate
+from tagging_records import (
+    FIRST_TRACK,
+    SECOND_TRACK,
+    THIRD_TRACK,
+    UNKNOWN_TRACK,
+    awaiting,
+    resolved,
+    scored_candidate,
+    unresolved,
+    waiting,
+)
 
 from tagger.resolution.scraper_client import (
     ApiContractError,
@@ -40,7 +49,7 @@ from tagger.resolution.scraper_client import (
     UnsupportedTrackUrlError,
 )
 from tagger.resolution.sources import ApiKeyRejectedRunError
-from tagger.run.models import FailureReason, Resolution, TrackResolved, TrackState
+from tagger.run.models import FailureReason, Resolution, Resolved, TrackResolved, TrackState
 from tagger.run.url_recovery import (
     UrlProgress,
     UrlRecovery,
@@ -55,7 +64,7 @@ if TYPE_CHECKING:
     from scraper_responses import Reply
     from tagging_api import OpenedRun
 
-    from tagger.run.models import TrackRecord
+    from tagger.run.models import ResolvedBy, TrackRecord
     from tagger.run.url_recovery import UrlRecoveryEvent
 
 pytestmark = pytest.mark.asyncio
@@ -92,15 +101,15 @@ async def test_resolves_an_unresolved_track_by_url_with_the_fetched_candidate_an
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
 
         record = must_record(opened.live, ONE_TRACK)
-    assert (record.state, record.resolution, record.source) == (
+    retained = must_be(record, Resolved).outcome.retained
+    assert (record.state, retained.resolution, retained.source) == (
         TrackState.RESOLVED,
         Resolution.URL,
         Source.BANDCAMP,
     )
-    assert (record.failure_reason, record.scored) == (None, None)
-    assert record.candidate is not None
-    assert record.candidate.id == "7"
-    assert record.artwork is not None
+    assert retained.scored is None
+    assert retained.candidate.id == "7"
+    assert retained.artwork is not None
 
 
 async def test_emits_the_resolved_track_then_the_url_progress(tmp_path: Path) -> None:
@@ -112,7 +121,7 @@ async def test_emits_the_resolved_track_then_the_url_progress(tmp_path: Path) ->
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
 
         record = must_record(opened.live, ONE_TRACK)
-    assert events == [TrackResolved(record), UrlProgress(processed=1, total=1)]
+    assert events == [TrackResolved(must_be(record, Resolved)), UrlProgress(processed=1, total=1)]
 
 
 @pytest.mark.parametrize(
@@ -134,9 +143,9 @@ async def test_replaces_a_track_already_resolved_by_url(
 
         record = must_record(opened.live, ONE_TRACK)
         progress = recovery.progress()
-    assert (record.resolution, record.source) == (Resolution.URL, source)
-    assert record.candidate is not None
-    assert record.candidate.id == candidate_id
+    retained = must_be(record, Resolved).outcome.retained
+    assert (retained.resolution, retained.source) == (Resolution.URL, source)
+    assert retained.candidate.id == candidate_id
     assert progress == UrlProgress(processed=1, total=1)
 
 
@@ -146,7 +155,7 @@ async def test_counts_recovered_tracks_over_tracks_to_recover(tmp_path: Path) ->
 
     async with _recovering(three_tracks(tmp_path), api) as (_opened, recovery):
         before = recovery.progress()
-        await recovery.resolve("a.mp3", BANDCAMP_TRACK)
+        await recovery.resolve(FIRST_TRACK, BANDCAMP_TRACK)
         after = recovery.progress()
 
     assert (before, after) == (UrlProgress(processed=0, total=3), UrlProgress(processed=1, total=3))
@@ -160,12 +169,12 @@ async def test_grows_the_total_when_a_late_refusal_leaves_a_track_unresolved(
     knows_the_bandcamp_track(api)
 
     async with _recovering(three_tracks(tmp_path), api) as (opened, recovery):
-        late = must_record(opened.live, "c.mp3")
+        late = must_record(opened.live, THIRD_TRACK)
         opened.live.update(awaiting(late))
-        await recovery.resolve("a.mp3", BANDCAMP_TRACK)
+        await recovery.resolve(FIRST_TRACK, BANDCAMP_TRACK)
         before = recovery.progress()
 
-        opened.live.update(awaiting(late).unresolved(FailureReason.USER_REFUSED))
+        opened.live.update(unresolved(awaiting(late), FailureReason.USER_REFUSED))
 
         after = recovery.progress()
     assert (before, after) == (UrlProgress(processed=1, total=2), UrlProgress(processed=1, total=3))
@@ -181,15 +190,8 @@ async def test_counts_zero_over_zero_when_nothing_is_left_to_recover(tmp_path: P
     assert progress == UrlProgress(processed=0, total=0)
 
 
-def _resolved_by(resolution: Resolution) -> Callable[[TrackRecord], TrackRecord]:
-    return lambda record: record.resolved(
-        resolution, Source.BEATPORT, track_candidate(), scored_candidate(), None
-    )
-
-
-def _not_processed(record: TrackRecord) -> TrackRecord:
-    """Morceau jamais atteint par un run interrompu : ni etat, ni attente."""
-    return replace(record, state=None, resolution=None, failure_reason=None)
+def _resolved_by(resolution: ResolvedBy) -> Callable[[TrackRecord], TrackRecord]:
+    return lambda record: resolved(record, resolution, scored=scored_candidate())
 
 
 @pytest.mark.parametrize(
@@ -198,7 +200,7 @@ def _not_processed(record: TrackRecord) -> TrackRecord:
         _resolved_by(Resolution.AUTO),
         _resolved_by(Resolution.ARBITRATION),
         awaiting,
-        _not_processed,
+        waiting,
     ],
     ids=["auto", "arbitration", "awaiting-arbitration", "not-processed"],
 )
@@ -223,7 +225,7 @@ async def test_refuses_a_track_that_is_not_eligible_without_any_request(
 async def test_refuses_a_track_unknown_to_the_run(tmp_path: Path) -> None:
     async with _recovering(one_track(tmp_path), FakeApi()) as (_opened, recovery):
         with pytest.raises(UrlRecoveryNotEligibleError):
-            await recovery.resolve("unknown.mp3", BANDCAMP_TRACK)
+            await recovery.resolve(UNKNOWN_TRACK, BANDCAMP_TRACK)
 
 
 async def test_refuses_a_second_gesture_in_flight_on_the_same_track(tmp_path: Path) -> None:
@@ -244,7 +246,7 @@ async def test_refuses_a_second_gesture_in_flight_on_the_same_track(tmp_path: Pa
         await first
         record = must_record(opened.live, ONE_TRACK)
     assert refusal.value.params == {"track_id": ONE_TRACK}
-    assert record.source is Source.BANDCAMP
+    assert must_be(record, Resolved).outcome.retained.source is Source.BANDCAMP
 
 
 async def test_releases_the_track_when_the_gesture_is_cancelled(tmp_path: Path) -> None:
@@ -343,7 +345,7 @@ async def test_resolves_the_track_without_artwork_when_the_artwork_download_fail
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
 
         record = must_record(opened.live, ONE_TRACK)
-    assert (record.state, record.artwork) == (TrackState.RESOLVED, None)
+    assert must_be(record, Resolved).outcome.retained.artwork is None
 
 
 async def test_stops_on_the_third_consecutive_api_key_rejection_across_gestures(
@@ -354,12 +356,12 @@ async def test_stops_on_the_third_consecutive_api_key_rejection_across_gestures(
     api.on(BANDCAMP_TRACKS, "*", failing(403))
 
     async with _recovering(three_tracks(tmp_path), api) as (_opened, recovery):
-        for track_id in ("a.mp3", "b.mp3"):
+        for track_id in (FIRST_TRACK, SECOND_TRACK):
             with pytest.raises(ApiKeyRejectedError):
                 await recovery.resolve(track_id, BANDCAMP_TRACK)
 
         with pytest.raises(ApiKeyRejectedRunError):
-            await recovery.resolve("c.mp3", BANDCAMP_TRACK)
+            await recovery.resolve(THIRD_TRACK, BANDCAMP_TRACK)
 
 
 async def test_releases_the_track_after_a_failed_gesture(tmp_path: Path) -> None:
@@ -385,9 +387,9 @@ async def test_never_logs_the_pasted_url(tmp_path: Path, caplog: pytest.LogCaptu
     caplog.set_level(logging.INFO, logger=LOGGER)
 
     async with _recovering(two_tracks(tmp_path), api) as (_opened, recovery):
-        await recovery.resolve("a.mp3", BANDCAMP_TRACK)
+        await recovery.resolve(FIRST_TRACK, BANDCAMP_TRACK)
         with pytest.raises(TrackNotFoundError):
-            await recovery.resolve("b.mp3", "https://jane-doe.bandcamp.com/track/unknown")
+            await recovery.resolve(SECOND_TRACK, "https://jane-doe.bandcamp.com/track/unknown")
 
     ours = messages_of(caplog, LOGGER)
     assert len(ours) == 2

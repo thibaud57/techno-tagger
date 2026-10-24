@@ -1,12 +1,11 @@
 """Arbitrage en zone grise (use-case 3, ADR-009), hors protocole NDJSON : rendu par rappel."""
 
-import copy
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, NamedTuple, override
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never, override
 
 from tagger.core.errors import TaggerError
-from tagger.resolution.matching import classify
+from tagger.resolution.matching import Empty, GreyZone, rank
 from tagger.resolution.scraper_client import (
     ApiContractError,
     ApiKeyRejectedError,
@@ -16,26 +15,32 @@ from tagger.resolution.scraper_client import (
 from tagger.resolution.sources import ApiKeyRejectedRunError
 from tagger.run.gestures import InFlight
 from tagger.run.models import (
+    AwaitingArbitration,
     FailureReason,
     PendingArbitration,
     Resolution,
+    Resolved,
+    Retained,
     SourceList,
     TrackResolved,
+    Unresolved,
+    holds,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from tagger.core.identifiers import TrackId
     from tagger.resolution.matching import TrackQuery
     from tagger.resolution.sources import RunSources
-    from tagger.run.models import LiveRun, TrackRecord
+    from tagger.run.models import LiveRun, SettledOutcome, TrackRecord
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class ArbitrationUpdated:
-    record: TrackRecord
+    record: TrackRecord[AwaitingArbitration]
 
 
 type ArbitrationEvent = ArbitrationUpdated | TrackResolved
@@ -44,7 +49,7 @@ type ArbitrationEvent = ArbitrationUpdated | TrackResolved
 class ArbitrationError(TaggerError):
     code: ClassVar[str] = "arbitration_error"
 
-    def __init__(self, message: str, track_id: str) -> None:
+    def __init__(self, message: str, track_id: TrackId) -> None:
         super().__init__(message, track_id=track_id)
 
 
@@ -53,7 +58,7 @@ class ArbitrationNotPendingError(ArbitrationError):
 
     code: ClassVar[str] = "arbitration_not_pending"
 
-    def __init__(self, track_id: str) -> None:
+    def __init__(self, track_id: TrackId) -> None:
         super().__init__("track not awaiting arbitration", track_id)
 
 
@@ -62,21 +67,19 @@ class ArbitrationCandidateUnknownError(ArbitrationError):
 
     code: ClassVar[str] = "arbitration_candidate_unknown"
 
-    def __init__(self, track_id: str) -> None:
+    def __init__(self, track_id: TrackId) -> None:
         super().__init__("candidate not in the shown list", track_id)
 
 
 class ArbitrationBusyError(ArbitrationError):
     code: ClassVar[str] = "arbitration_busy"
 
-    def __init__(self, track_id: str) -> None:
+    def __init__(self, track_id: TrackId) -> None:
         super().__init__("a gesture is already in flight for this track", track_id)
 
 
 class _Pending(NamedTuple):
-    record: TrackRecord
-    arbitration: PendingArbitration
-    query: TrackQuery
+    record: TrackRecord[AwaitingArbitration]
     position: int
 
 
@@ -98,9 +101,9 @@ class Arbitration:
     def __repr__(self) -> str:
         return f"Arbitration(run_id={self._live.run_id!r}, busy={self._in_flight.count})"
 
-    async def choose(self, track_id: str, source: Source, index: int) -> None:
+    async def choose(self, track_id: TrackId, source: Source, index: int) -> None:
         current = self._pending(track_id)
-        shown = current.arbitration
+        shown = current.record.outcome.pending
         if source is not shown.source or not 0 <= index < len(shown.candidates):
             raise ArbitrationCandidateUnknownError(track_id)
         chosen = shown.candidates[index]
@@ -118,16 +121,15 @@ class Arbitration:
             source,
             chosen.score,
         )
-        self._settle(
-            current.record.resolved(Resolution.ARBITRATION, source, candidate, chosen, artwork)
-        )
+        retained = Retained(Resolution.ARBITRATION, source, candidate, chosen, artwork)
+        self._settle(current.record.with_outcome(Resolved(current.record.outcome.query, retained)))
 
-    async def refuse(self, track_id: str, source: Source) -> None:
+    async def refuse(self, track_id: TrackId, source: Source) -> None:
         """Refuse `source` : Bandcamp apres Beatport, non resolu apres Bandcamp ; `source` doit
         matcher la liste affichee, sinon un double clic en pleine bascule la validerait a tort.
         """
         current = self._pending(track_id)
-        shown = current.arbitration
+        shown = current.record.outcome.pending
         if source is not shown.source:
             raise ArbitrationCandidateUnknownError(track_id)
         if shown.source is Source.BANDCAMP:
@@ -137,13 +139,13 @@ class Arbitration:
             self._show(current, shown.other)
             return
         with self._in_flight.hold(track_id):
-            answer = await self._ask_bandcamp(current.position, current.query)
+            answer = await self._ask_bandcamp(current.position, current.record.outcome.query)
         self._show(current, answer)
 
-    def show(self, track_id: str, source: Source) -> None:
+    def show(self, track_id: TrackId, source: Source) -> None:
         """Reaffiche la liste deja obtenue de `source`, sans appel reseau."""
         current = self._pending(track_id)
-        kept = current.arbitration.other
+        kept = current.record.outcome.pending.other
         if kept is None or kept.source is not source:
             raise ArbitrationCandidateUnknownError(track_id)
         self._show(current, kept)
@@ -157,25 +159,30 @@ class Arbitration:
         except (SourceUnavailableError, ApiContractError) as exc:
             self._sources.log_source_failure(position, Source.BANDCAMP, exc)
             return SourceList(Source.BANDCAMP, (), FailureReason.SOURCE_UNAVAILABLE)
-        retained = classify(query, found, self._sources.thresholds, allow_auto=False).retained
-        if retained:
-            return SourceList(Source.BANDCAMP, retained)
-        reason = FailureReason.BELOW_THRESHOLD if found else FailureReason.NO_RESULT
-        return SourceList(Source.BANDCAMP, (), reason)
+        ranking = rank(query, found, self._sources.thresholds)
+        match ranking:
+            case GreyZone(candidates=candidates):
+                return SourceList(Source.BANDCAMP, candidates)
+            case Empty(had_candidates=had_candidates):
+                reason = (
+                    FailureReason.BELOW_THRESHOLD if had_candidates else FailureReason.NO_RESULT
+                )
+                return SourceList(Source.BANDCAMP, (), reason)
+            case _:
+                assert_never(ranking)
 
     def _show(self, current: _Pending, kept: SourceList) -> None:
         """`kept` passe a l'affichage, la liste affichee est mise de cote."""
-        shown = current.arbitration
-        record = copy.replace(
-            current.record,
-            arbitration=PendingArbitration(
-                kept.source,
-                kept.candidates,
-                shown.beatport_unavailable,
-                empty_reason=kept.empty_reason,
-                other=SourceList(shown.source, shown.candidates, shown.empty_reason),
-            ),
+        outcome = current.record.outcome
+        shown = outcome.pending
+        pending = PendingArbitration(
+            kept.source,
+            kept.candidates,
+            shown.beatport_unavailable,
+            empty_reason=kept.empty_reason,
+            other=SourceList(shown.source, shown.candidates, shown.empty_reason),
         )
+        record = current.record.with_outcome(AwaitingArbitration(outcome.query, pending))
         logger.info(
             "arbitration switched run=%s track=%d source=%s status=grey_zone",
             self._live.run_id,
@@ -187,7 +194,8 @@ class Arbitration:
 
     def _give_up(self, current: _Pending) -> None:
         """Bandcamp refuse, ou passe sur une liste vide dont le motif est garde."""
-        reason = current.arbitration.empty_reason or FailureReason.USER_REFUSED
+        outcome = current.record.outcome
+        reason = outcome.pending.empty_reason or FailureReason.USER_REFUSED
         logger.info(
             "arbitration refused run=%s track=%d source=%s status=unresolved reason=%s",
             self._live.run_id,
@@ -195,15 +203,15 @@ class Arbitration:
             Source.BANDCAMP,
             reason,
         )
-        self._settle(current.record.unresolved(reason))
+        self._settle(current.record.with_outcome(Unresolved(outcome.query, reason)))
 
-    def _pending(self, track_id: str) -> _Pending:
+    def _pending(self, track_id: TrackId) -> _Pending:
         self._in_flight.check(track_id)
         record = self._live.record(track_id)
-        if record is None or record.arbitration is None or record.query is None:
+        if record is None or not holds(record, AwaitingArbitration):
             raise ArbitrationNotPendingError(track_id)
-        return _Pending(record, record.arbitration, record.query, self._live.position(track_id))
+        return _Pending(record, self._live.position(track_id))
 
-    def _settle(self, record: TrackRecord) -> None:
+    def _settle(self, record: TrackRecord[SettledOutcome]) -> None:
         self._live.update(record)
         self._on_event(TrackResolved(record))

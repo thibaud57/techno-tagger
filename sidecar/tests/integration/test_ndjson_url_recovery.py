@@ -12,13 +12,13 @@ from ndjson_loop import (
 from scraper_responses import BANDCAMP_TRACK
 from tagging_api import (
     BANDCAMP_TRACKS,
-    FIRST_TRACK,
     ONE_TRACK,
     FakeApi,
     hold_on_beatport,
     knows_the_bandcamp_track,
     knows_your_mind,
 )
+from tagging_records import FIRST_TRACK
 
 if TYPE_CHECKING:
     from pathlib import Path

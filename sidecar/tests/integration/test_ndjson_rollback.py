@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 import pytest
 from audio_samples import tagged_mp3
 from ndjson_loop import (
-    UNKNOWN_RUN,
     conversation,
     held_call,
     resolved_run,
@@ -14,6 +13,7 @@ from ndjson_loop import (
     written_run,
 )
 from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, knows_your_mind
+from tagging_records import UNKNOWN_RUN
 
 from tagger.run import rollback
 from tagger.tags.files import read_original_tags
@@ -54,6 +54,7 @@ async def test_marks_a_restored_track_that_retry_leaves_alone(folder: Path) -> N
     assert restored["track_id"] == ONE_TRACK
     assert restored["restorable"] is False
     assert (restored["after"], restored["source"]) == (None, None)
+    assert restored["resolution"] == "auto"
     assert (finished["track_id"], finished["restored"]) == (ONE_TRACK, [ONE_TRACK])
     assert (second_write["written"], second_write["write_error"]) == (0, 0)
     assert (folder / ONE_TRACK).is_file()

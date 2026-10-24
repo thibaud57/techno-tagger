@@ -6,6 +6,7 @@ Sequentielle : deux morceaux visant le meme nom ne se doublent pas.
 """
 
 import asyncio
+import copy
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -13,7 +14,14 @@ from typing import TYPE_CHECKING, override
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.core.observability import capture_unexpected
-from tagger.run.models import TrackResolved, TrackState, WriteOutcome
+from tagger.run.models import (
+    Resolved,
+    TrackResolved,
+    WriteFailed,
+    WriteOutcome,
+    Written,
+    holds,
+)
 from tagger.tags.files import (
     OriginalTags,
     TagField,
@@ -39,6 +47,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
+    from tagger.core.identifiers import TrackId
     from tagger.run.models import LiveRun, TrackRecord
 
 logger = logging.getLogger(__name__)
@@ -81,14 +90,14 @@ class RunWriter:
 
     async def write(self) -> None:
         """Ecrit les morceaux resolus ; non resolus et attentes d'arbitrage restent intacts."""
-        await self._apply(TrackState.RESOLVED)
+        await self._apply(Resolved)
 
     async def retry(self) -> None:
         """Rejoue les seuls echecs d'ecriture, sans refaire ni reseau ni arbitrage."""
-        await self._apply(TrackState.WRITE_ERROR)
+        await self._apply(WriteFailed)
 
-    async def _apply(self, state: TrackState) -> None:
-        targets = [record for record in self._live.snapshot().tracks if record.state is state]
+    async def _apply(self, kind: type[Resolved] | type[WriteFailed]) -> None:
+        targets = [record for record in self._live.snapshot().tracks if holds(record, kind)]
         logger.info("write phase started run=%s", self._live.run_id)
 
         unreadable = await self._dump_originals(targets)
@@ -97,16 +106,18 @@ class RunWriter:
             processed += 1
             self._settle(record, processed, len(targets))
         unreadable_ids = {record.track_id for record in unreadable}
-        for record in targets:
-            if record.track_id not in unreadable_ids:
-                written = await asyncio.to_thread(self._write_one, record)
+        for target in targets:
+            if target.track_id not in unreadable_ids:
+                settled = await asyncio.to_thread(self._write_one, target)
                 processed += 1
-                self._settle(written, processed, len(targets))
+                self._settle(settled, processed, len(targets))
 
         await asyncio.to_thread(self._rewrite_dump)
         logger.info("write phase finished run=%s", self._live.run_id)
 
-    async def _dump_originals(self, targets: Sequence[TrackRecord]) -> list[TrackRecord]:
+    async def _dump_originals(
+        self, targets: Sequence[TrackRecord[Resolved | WriteFailed]]
+    ) -> list[TrackRecord[WriteFailed]]:
         """Lit et enregistre l'origine des morceaux absents du dump, avant tout fichier.
 
         Rend les morceaux dont la lecture a echoue, en `write_error` mais pas encore regles :
@@ -120,14 +131,14 @@ class RunWriter:
             *(asyncio.to_thread(read_original_tags, record.path) for record in unread),
             return_exceptions=True,
         )
-        entries: dict[str, DumpEntry] = {}
-        failed: list[TrackRecord] = []
+        entries: dict[TrackId, DumpEntry] = {}
+        failed: list[TrackRecord[WriteFailed]] = []
         for record, read in zip(unread, reads, strict=True):
             match read:
                 case OriginalTags():
                     entries[record.track_id] = DumpEntry.of(record.path, read)
                 case TagsUnreadableError():
-                    failed.append(record.write_failed(read.reason, restorable=False))
+                    failed.append(_write_failed(record, read.reason, restorable=False))
                 case Exception():
                     # Hors `TagsUnreadableError` : mutagen laisse passer `struct.error` ou
                     # `ValueError` sur un fichier corrompu, un seul morceau ne coupe pas la phase.
@@ -139,7 +150,7 @@ class RunWriter:
                     )
                     capture_unexpected(read)
                     failed.append(
-                        record.write_failed(FileFailureReason.WRITE_FAILED, restorable=False)
+                        _write_failed(record, FileFailureReason.WRITE_FAILED, restorable=False)
                     )
                 case _:
                     raise read
@@ -149,15 +160,15 @@ class RunWriter:
             )
         return failed
 
-    def _write_one(self, record: TrackRecord) -> TrackRecord:
-        candidate = record.candidate
-        if candidate is None:
-            raise ValueError("resolved track without candidate")
-        values = project_tags(candidate)
+    def _write_one(
+        self, record: TrackRecord[Resolved | WriteFailed]
+    ) -> TrackRecord[Written | WriteFailed]:
+        retained = record.outcome.retained
+        values = project_tags(retained.candidate)
         noted = False
 
         try:
-            written = write_tags(record.path, values, record.artwork)
+            tags_written = write_tags(record.path, values, retained.artwork)
             plan = plan_rename(record.path, values.get(TagField.ARTIST), values.get(TagField.TITLE))
             if plan is None:
                 renamed = RenamedTrack(record.path, truncated=False)
@@ -166,7 +177,7 @@ class RunWriter:
                 noted = True
                 renamed = plan.apply()
         except (TagsWriteError, RenameError) as error:
-            return self._failed(record, error.reason, noted=noted)
+            return self._fail_clearing_note(record, error.reason, noted=noted)
         except Exception as error:
             # Hors `TagsWriteError`, meme piege mutagen que dans `_dump_originals`. Pas de
             # `BaseException` : l'annulation doit passer.
@@ -176,9 +187,11 @@ class RunWriter:
                 self._live.position(record.track_id),
             )
             capture_unexpected(error)
-            return self._failed(record, FileFailureReason.WRITE_FAILED, noted=noted)
-        outcome = WriteOutcome(written, renamed.truncated)
-        return record.written_to(renamed.path, outcome)
+            return self._fail_clearing_note(record, FileFailureReason.WRITE_FAILED, noted=noted)
+        done = WriteOutcome(tags_written, renamed.truncated)
+        outcome = Written(record.outcome.query, retained, done, restorable=True)
+        # `path` suit le renommage, `track_id` reste celui du run.
+        return copy.replace(record.with_outcome(outcome), path=renamed.path)
 
     def _rewrite_dump(self) -> None:
         """Reecrit le dump une fois la phase finie ; un echec laisse le journal, qui fait foi."""
@@ -187,7 +200,7 @@ class RunWriter:
         except TagDumpWriteError:
             logger.warning("tag dump not rewritten run=%s reason=journal_kept", self._live.run_id)
 
-    def _note_rename(self, record: TrackRecord, target: Path) -> None:
+    def _note_rename(self, record: TrackRecord[Resolved | WriteFailed], target: Path) -> None:
         """Note le chemin cible au dump avant que le fichier ne bouge.
 
         Une coupure entre les deux laisse un chemin que le rollback retrouve par l'ancien
@@ -204,9 +217,13 @@ class RunWriter:
             )
             raise RenameError(record.path, FileFailureReason.WRITE_FAILED) from error
 
-    def _failed(
-        self, record: TrackRecord, reason: FileFailureReason, *, noted: bool
-    ) -> TrackRecord:
+    def _fail_clearing_note(
+        self,
+        record: TrackRecord[Resolved | WriteFailed],
+        reason: FileFailureReason,
+        *,
+        noted: bool,
+    ) -> TrackRecord[WriteFailed]:
         """Morceau en `write_error` ; une note de renommage restee derriere est effacee.
 
         Le nom note n'est pas occupe : un morceau suivant peut le prendre ; le rollback
@@ -224,16 +241,25 @@ class RunWriter:
                     self._live.position(record.track_id),
                 )
         # L'origine est au dump : `_write_one` ne tourne que pour les morceaux qui y sont.
-        return record.write_failed(reason, restorable=True)
+        return _write_failed(record, reason, restorable=True)
 
-    def _settle(self, record: TrackRecord, processed: int, total: int) -> None:
+    def _settle(
+        self, record: TrackRecord[Written | WriteFailed], processed: int, total: int
+    ) -> None:
         self._live.update(record)
-        if record.state is TrackState.WRITE_ERROR:
+        if isinstance(record.outcome, WriteFailed):
             logger.error(
                 "write failed run=%s track=%d reason=%s",
                 self._live.run_id,
                 self._live.position(record.track_id),
-                record.failure_reason,
+                record.outcome.reason,
             )
         self._on_event(TrackResolved(record))
         self._on_event(WriteProgress(processed=processed, total=total))
+
+
+def _write_failed(
+    record: TrackRecord[Resolved | WriteFailed], reason: FileFailureReason, *, restorable: bool
+) -> TrackRecord[WriteFailed]:
+    outcome = record.outcome
+    return record.with_outcome(WriteFailed(outcome.query, outcome.retained, reason, restorable))

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, ClassVar, Final, Self
 from pydantic import AwareDatetime, Field, ValidationError
 
 from tagger.core.errors import TaggerError
+from tagger.core.identifiers import RunId, TrackId
 from tagger.core.models import StrictFrozenModel
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import (
@@ -81,17 +82,17 @@ class TagDump(StrictFrozenModel):
     """Dump d'un run tel qu'il est ecrit sur le disque, entrees par `track_id`."""
 
     schema_version: int = SCHEMA_VERSION
-    run_id: str
+    run_id: RunId
     created_at: AwareDatetime
     # Dossier du run : celui que le rollback annonce, plutot que deduit des chemins.
     folder: Path
-    entries: dict[str, DumpEntry] = Field(default_factory=dict)
+    entries: dict[TrackId, DumpEntry] = Field(default_factory=dict)
 
 
 class _RenameNote(StrictFrozenModel):
     """Une ligne du journal : ou trouver le fichier d'un morceau, `None` pour l'oublier."""
 
-    track_id: str
+    track_id: TrackId
     renamed_path: Path | None
 
 
@@ -146,7 +147,7 @@ def journal_path(dump_file: Path) -> Path:
     return dump_file.with_suffix(_JOURNAL_SUFFIX)
 
 
-def find_dump(folder: Path, run_id: str) -> Path | None:
+def find_dump(folder: Path, run_id: RunId) -> Path | None:
     return find_by_run_id(folder, _SUFFIX, run_id)
 
 
@@ -162,7 +163,7 @@ def dump_on_disk(folder: Path, dump: TagDump) -> TagDump:
     return dump.model_copy(update={"entries": {}})
 
 
-def save_entries(folder: Path, dump: TagDump, entries: Mapping[str, DumpEntry]) -> TagDump:
+def save_entries(folder: Path, dump: TagDump, entries: Mapping[TrackId, DumpEntry]) -> TagDump:
     """Ajoute les entrees absentes du disque, dans l'ordre d'ecriture que le rollback inverse.
 
     Le disque fait foi : un rollback a pu y consommer des entrees que l'appelant garde en
@@ -176,7 +177,7 @@ def save_entries(folder: Path, dump: TagDump, entries: Mapping[str, DumpEntry]) 
 
 
 def record_renamed_path(
-    folder: Path, dump: TagDump, track_id: str, renamed: Path | None
+    folder: Path, dump: TagDump, track_id: TrackId, renamed: Path | None
 ) -> TagDump:
     """Retient ou trouver le fichier apres son renommage, `None` l'oublie (renommage rate).
 
@@ -204,7 +205,7 @@ def rewrite_dump(folder: Path, dump: TagDump) -> None:
         _write(path, dump)
 
 
-def remove_entries(folder: Path, dump: TagDump, track_ids: Collection[str]) -> TagDump:
+def remove_entries(folder: Path, dump: TagDump, track_ids: Collection[TrackId]) -> TagDump:
     """Retire les morceaux restaures ; un dump vide est supprime, plus rien n'y est a annuler."""
     kept = {key: entry for key, entry in dump.entries.items() if key not in track_ids}
     updated = dump.model_copy(update={"entries": kept})
@@ -266,7 +267,7 @@ def _replay(dump: TagDump, journal: str) -> TagDump:
     return dump.model_copy(update={"entries": entries})
 
 
-def _note_renamed(entries: dict[str, DumpEntry], note: _RenameNote) -> None:
+def _note_renamed(entries: dict[TrackId, DumpEntry], note: _RenameNote) -> None:
     """Pose la note et deplace l'entree en fin de dict, ce que `record_renamed_path` documente."""
     entries[note.track_id] = entries.pop(note.track_id).model_copy(
         update={"renamed_path": note.renamed_path}

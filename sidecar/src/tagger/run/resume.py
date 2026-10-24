@@ -6,18 +6,20 @@ import asyncio
 import copy
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from tagger.core.errors import RunNotFoundError
 from tagger.core.run_files import created_at_of, run_id_of
 from tagger.resolution.matching import build_query
 from tagger.run.models import (
-    ArbitrationRequired,
+    AwaitingArbitration,
     LiveRun,
+    Resolved,
     RunProgress,
     RunStarted,
-    TrackResolved,
-    TrackState,
+    Unresolved,
+    Waiting,
+    holds,
 )
 from tagger.run.plan import (
     RunPlanUnreadableError,
@@ -26,7 +28,7 @@ from tagger.run.plan import (
     plans_newest_first,
     require_plan,
 )
-from tagger.run.tagging import read_identities
+from tagger.run.tagging import announced, read_identities
 from tagger.tags.files import TaggingFolderUnreadableError, has_audio_files, list_audio_files
 from tagger.tags.tag_dump import find_dump
 
@@ -35,8 +37,9 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
+    from tagger.core.identifiers import RunId, TrackId
     from tagger.resolution.sources import RunSources
-    from tagger.run.models import RunEvent, TrackRecord
+    from tagger.run.models import NetworkOutcome, RunEvent, TrackRecord
     from tagger.run.plan import PlanTrack, RunPlan
 
 logger = logging.getLogger(__name__)
@@ -46,7 +49,7 @@ logger = logging.getLogger(__name__)
 class InterruptedRun:
     """Run a proposer a la reprise, resume tire du plan."""
 
-    run_id: str
+    run_id: RunId
     started_at: datetime
     folder: Path
     processed: int
@@ -59,7 +62,7 @@ class InterruptedRun:
 class UnreadablePlan:
     """Plan illisible ou d'une autre version : jamais repris, son erreur dit pourquoi (ADR-018)."""
 
-    run_id: str
+    run_id: RunId
     started_at: datetime
     error: RunPlanUnreadableError
 
@@ -68,7 +71,7 @@ type DetectedPlan = InterruptedRun | UnreadablePlan
 
 
 def detect_interrupted(
-    plans: Path, dumps: Path, *, active_run_id: str | None = None
+    plans: Path, dumps: Path, *, active_run_id: RunId | None = None
 ) -> DetectedPlan | None:
     """Le plan le plus recent a proposer ; un plus ancien attend le lancement suivant.
 
@@ -101,7 +104,7 @@ def detect_interrupted(
     return None
 
 
-def load_resumable(plans: Path, dumps: Path, run_id: str) -> RunPlan:
+def load_resumable(plans: Path, dumps: Path, run_id: RunId) -> RunPlan:
     """Plan a rouvrir : `run_not_found` s'il manque ou a vu des fichiers bouger."""
     plan = load_plan(require_plan(plans, run_id))
     if _files_written(plan, dumps):
@@ -127,10 +130,7 @@ async def reopen_run(
     on_event(RunStarted(plan.run_id, plan.folder, tuple(records)))
     records = await _with_artworks(records, sources)
     for record in records:
-        if record.arbitration is not None:
-            on_event(ArbitrationRequired(record))
-        elif record.state is not None:
-            on_event(TrackResolved(record))
+        _replay(record, on_event)
     on_event(RunProgress(processed=sum(record.decided for record in records), total=len(records)))
     return LiveRun(plan.run_id, plan.folder, records)
 
@@ -154,7 +154,7 @@ def _folder_missing(folder: Path) -> bool:
     return not (folder.is_dir() and has_audio_files(folder))
 
 
-def _decided_or_waiting(plan: RunPlan, record: TrackRecord) -> TrackRecord:
+def _decided_or_waiting(plan: RunPlan, record: TrackRecord[Waiting]) -> TrackRecord[NetworkOutcome]:
     """Decision du plan posee sur le morceau ; fichier nouveau, source muette ou requete changee
     depuis le plan (fichier retague) : en attente."""
     track = plan.tracks.get(record.track_id)
@@ -169,7 +169,7 @@ def _same_query(track: PlanTrack, record: TrackRecord) -> bool:
     return current == (None if track.query is None else track.query.to_query())
 
 
-def _log_missing(plan: RunPlan, on_disk: Collection[str]) -> None:
+def _log_missing(plan: RunPlan, on_disk: Collection[TrackId]) -> None:
     """Fichier disparu depuis le plan : il sort du run, sa decision avec lui."""
     for position, track_id in enumerate(plan.tracks, start=1):
         if track_id not in on_disk:
@@ -178,19 +178,40 @@ def _log_missing(plan: RunPlan, on_disk: Collection[str]) -> None:
             )
 
 
-async def _with_artworks(records: list[TrackRecord], sources: RunSources) -> list[TrackRecord]:
+def _replay(record: TrackRecord[NetworkOutcome], on_event: Callable[[RunEvent], None]) -> None:
+    """Rejoue l'evenement de la decision relue ; un morceau en attente n'en a pas."""
+    outcome = record.outcome
+    match outcome:
+        case Waiting():
+            pass
+        case AwaitingArbitration() | Unresolved() | Resolved():
+            on_event(announced(record.with_outcome(outcome)))
+        case _:
+            assert_never(outcome)
+
+
+async def _with_artworks(
+    records: list[TrackRecord[NetworkOutcome]], sources: RunSources
+) -> list[TrackRecord[NetworkOutcome]]:
     """Pochettes des morceaux resolus, cache d'abord : le plan n'en garde aucune (ADR-013)."""
     async with asyncio.TaskGroup() as group:
         fetches = {
             record.track_id: group.create_task(
-                sources.artwork(position, record.candidate), name=f"artwork:{position}"
+                _pictured(position, record, sources), name=f"artwork:{position}"
             )
             for position, record in enumerate(records, start=1)
-            if record.state is TrackState.RESOLVED and record.candidate is not None
+            if holds(record, Resolved)
         }
     return [
-        copy.replace(record, artwork=fetches[record.track_id].result())
-        if record.track_id in fetches
-        else record
+        fetches[record.track_id].result() if record.track_id in fetches else record
         for record in records
     ]
+
+
+async def _pictured(
+    position: int, record: TrackRecord[Resolved], sources: RunSources
+) -> TrackRecord[Resolved]:
+    outcome = record.outcome
+    artwork = await sources.artwork(position, outcome.retained.candidate)
+    retained = copy.replace(outcome.retained, artwork=artwork)
+    return record.with_outcome(copy.replace(outcome, retained=retained))

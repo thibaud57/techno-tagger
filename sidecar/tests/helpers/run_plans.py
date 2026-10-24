@@ -2,18 +2,20 @@
 isole par la fixture `app_data`.
 """
 
+import json
 from typing import TYPE_CHECKING
 
 from audio_samples import tagged_mp3
-from tagging_records import CREATED, RUN_ID
+from tagging_records import CREATED, MUSIC, RUN_ID
 
+from tagger.core.identifiers import RunId, TrackId
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
-from tagger.run.models import LiveRun, TrackRecord
+from tagger.run.models import LiveRun, TrackRecord, Waiting
 from tagger.run.plan import RunPlan, load_plan, plan_dir, plan_path
 from tagger.tags.files import IdentityTags
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from datetime import datetime
     from pathlib import Path
 
@@ -30,7 +32,9 @@ def music(folder: Path, count: int) -> list[TrackRecord]:
         name, title = f"t{number:03d}.mp3", f"Mind {_letters(number)}"
         path = tagged_mp3(folder, name, "Adam Beyer", title)
         identity = IdentityTags(artist="Adam Beyer", title=title)
-        records.append(TrackRecord(track_id=name, path=path, identity=identity))
+        records.append(
+            TrackRecord(track_id=TrackId(name), path=path, identity=identity, outcome=Waiting())
+        )
     return records
 
 
@@ -38,7 +42,7 @@ def plan_of(
     folder: Path,
     records: Sequence[TrackRecord],
     *,
-    run_id: str = RUN_ID,
+    run_id: RunId = RUN_ID,
     started_at: datetime = CREATED,
     committed: bool = False,
 ) -> RunPlan:
@@ -46,12 +50,24 @@ def plan_of(
     return plan.model_copy(update={"committed": committed})
 
 
-def save_plan(plans: Path, plan: RunPlan) -> Path:
-    """Ecrit le plan sous son nom horodate, dossier cree au besoin."""
+def _save(plans: Path, plan: RunPlan, content: str) -> Path:
     path = plan_path(plans, plan)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(plan.model_dump_json(), encoding="utf-8")
+    path.write_text(content, encoding="utf-8")
     return path
+
+
+def save_plan(plans: Path, plan: RunPlan) -> Path:
+    """Ecrit le plan sous son nom horodate, dossier cree au besoin."""
+    return _save(plans, plan, plan.model_dump_json())
+
+
+def save_plan_document(plans: Path, tracks: Mapping[str, object]) -> Path:
+    """Ecrit un plan dont les morceaux sont du JSON brut : un `PlanTrack` incoherent ne se
+    construit plus, seul le disque peut en porter un."""
+    plan = plan_of(MUSIC, [])
+    document = plan.model_dump(mode="json") | {"tracks": tracks}
+    return _save(plans, plan, json.dumps(document))
 
 
 def plan_files() -> list[Path]:

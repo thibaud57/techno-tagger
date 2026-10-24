@@ -167,6 +167,7 @@ export class TaggingRunStore {
         tags_after: null,
         source_url: null,
         restorable: false,
+        recoverable: false,
       })
     }
   }

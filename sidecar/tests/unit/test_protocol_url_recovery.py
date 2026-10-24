@@ -3,6 +3,7 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 from scraper_responses import BANDCAMP_TRACK
+from tagging_records import FIRST_TRACK
 
 from tagger.protocol import Phase, Progress, ResolveByUrl, error_from_business, parse_command
 from tagger.resolution.scraper_client import UnsupportedTrackUrlError
@@ -18,9 +19,9 @@ def _resolve(fields: str) -> str:
 
 
 def test_accepts_a_url_recovery_command() -> None:
-    command = parse_command(_resolve(f'"track_id":"a.mp3","url":"{URL}"'))
+    command = parse_command(_resolve(f'"track_id":"{FIRST_TRACK}","url":"{URL}"'))
 
-    assert command == ResolveByUrl(command="resolve_by_url", track_id="a.mp3", url=URL)
+    assert command == ResolveByUrl(command="resolve_by_url", track_id=FIRST_TRACK, url=URL)
 
 
 @pytest.mark.parametrize(
@@ -46,15 +47,15 @@ def test_translates_the_url_progress_into_a_url_recovery_progress() -> None:
 
 @pytest.mark.parametrize(
     "error",
-    [UnsupportedTrackUrlError(), ArbitrationNotPendingError("a.mp3")],
+    [UnsupportedTrackUrlError(), ArbitrationNotPendingError(FIRST_TRACK)],
     ids=["client-error", "already-carried"],
 )
 def test_joins_the_track_to_the_error_of_a_gesture(
     error: UnsupportedTrackUrlError | ArbitrationNotPendingError,
 ) -> None:
-    event = error_from_business(error, "resolve_by_url", "a.mp3")
+    event = error_from_business(error, "resolve_by_url", FIRST_TRACK)
 
-    assert (event.command, event.params) == ("resolve_by_url", {"track_id": "a.mp3"})
+    assert (event.command, event.params) == ("resolve_by_url", {"track_id": FIRST_TRACK})
 
 
 def test_leaves_the_error_of_a_command_without_track_untouched() -> None:

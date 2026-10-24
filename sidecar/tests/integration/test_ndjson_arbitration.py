@@ -12,13 +12,8 @@ from ndjson_loop import (
     start_command,
 )
 from scraper_responses import YOUR_MIND
-from tagging_api import (
-    BANDCAMP_SEARCH,
-    FIRST_TRACK,
-    ONE_TRACK,
-    FakeApi,
-    hold_with_bandcamp_fallback,
-)
+from tagging_api import BANDCAMP_SEARCH, ONE_TRACK, FakeApi, hold_with_bandcamp_fallback
+from tagging_records import FIRST_TRACK
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

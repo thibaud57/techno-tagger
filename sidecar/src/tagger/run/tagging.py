@@ -5,30 +5,48 @@ traduit. Aucun fichier musical n'est ecrit ici (ADR-010). L'etat du run vit dans
 """
 
 import asyncio
-import copy
 import logging
 import secrets
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, assert_never, override
 
-from tagger.resolution.matching import Outcome, ScoredCandidate, build_query, classify
+from tagger.core.identifiers import RunId, TrackId
+from tagger.resolution.matching import (
+    Auto,
+    Classification,
+    Empty,
+    GreyZone,
+    ScoredCandidate,
+    TrackQuery,
+    build_query,
+    classify,
+    rank,
+)
 from tagger.resolution.scraper_client import (
     ApiContractError,
     ApiKeyRejectedError,
+    SearchSource,
     Source,
     SourceUnavailableError,
 )
 from tagger.resolution.sources import ApiKeyRejectedRunError
 from tagger.run.models import (
     ArbitrationRequired,
+    AwaitingArbitration,
     FailureReason,
     LiveRun,
     PendingArbitration,
     Resolution,
+    Resolved,
+    Retained,
     RunEvent,
     RunProgress,
     RunStarted,
     TrackRecord,
     TrackResolved,
+    Unresolved,
+    Verdict,
+    Waiting,
 )
 from tagger.tags.files import (
     IdentityTags,
@@ -53,7 +71,7 @@ _NO_IDENTITY: Final = IdentityTags(artist="", title="")
 async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> LiveRun:
     """Liste les fichiers et lit leur identite, avant tout appel reseau."""
     paths = await asyncio.to_thread(list_audio_files, folder)
-    run_id = secrets.token_hex(3)
+    run_id = RunId(secrets.token_hex(3))
     records = await read_identities(run_id, folder, paths)
     on_event(RunStarted(run_id, folder, tuple(records)))
     return LiveRun(run_id, folder, records)
@@ -80,7 +98,9 @@ async def resolve_run(
         raise ApiKeyRejectedRunError from None
 
 
-async def read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) -> list[TrackRecord]:
+async def read_identities(
+    run_id: RunId, folder: Path, paths: tuple[Path, ...]
+) -> list[TrackRecord[Waiting]]:
     """Identites lues avant tout appel reseau : la liste s'affiche entiere des le depart.
 
     Les lectures partent en parallele sur le pool de threads : enchainees, plusieurs centaines
@@ -96,16 +116,19 @@ async def read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) ->
     )
     return [
         TrackRecord(
-            track_id=path.relative_to(folder).as_posix(),
+            track_id=TrackId(path.relative_to(folder).as_posix()),
             path=path,
             identity=_NO_IDENTITY if tags is None else tags.identity,
+            outcome=Waiting(),
             tags_before=tags,
         )
         for path, tags in shown
     ]
 
 
-def _shown_or_none(run_id: str, position: int, read: ShownTags | BaseException) -> ShownTags | None:
+def _shown_or_none(
+    run_id: RunId, position: int, read: ShownTags | BaseException
+) -> ShownTags | None:
     match read:
         case ShownTags():
             return read
@@ -119,6 +142,26 @@ def _shown_or_none(run_id: str, position: int, read: ShownTags | BaseException) 
             return None
         case _:
             raise read
+
+
+@dataclass(frozen=True, slots=True)
+class _Silent:
+    """Source sans reponse exploitable ; `key_rejected` : la cle API est en cause."""
+
+    key_rejected: bool
+
+
+def _empty_reason(beatport: _Silent | Empty, bandcamp: Empty) -> FailureReason:
+    match beatport:
+        case _Silent():
+            # Beatport n'a jamais repondu : un classement definitif (`no_result`,
+            # `below_threshold`) ne serait pas rejoue a la reprise.
+            return FailureReason.SOURCE_UNAVAILABLE
+        case Empty():
+            offered = beatport.had_candidates or bandcamp.had_candidates
+            return FailureReason.BELOW_THRESHOLD if offered else FailureReason.NO_RESULT
+        case _:
+            assert_never(beatport)
 
 
 class _Runner:
@@ -144,94 +187,76 @@ class _Runner:
         return f"_Runner(processed={self._processed}, total={self._total})"
 
     async def process(self, position: int, record: TrackRecord) -> None:
-        done = await self._resolve(position, record)
-        self._live.update(done)
-        event = ArbitrationRequired(done) if done.arbitration else TrackResolved(done)
+        event = announced(record.with_outcome(await self._resolve(position, record)))
+        self._live.update(event.record)
         self._on_event(event)
         self._processed += 1
         self._on_event(RunProgress(processed=self._processed, total=self._total))
 
-    # PLR0911, PLR0912 : une sortie par issue de la cascade (deux sources, trois classements
-    # chacune) est plus lisible qu'un decoupage en sous-fonctions qui eclaterait l'etat.
-    async def _resolve(self, position: int, record: TrackRecord) -> TrackRecord:  # noqa: PLR0911, PLR0912
+    async def _resolve(self, position: int, record: TrackRecord) -> Verdict:
         identity = record.identity
         query = build_query(identity.artist, identity.title, record.file_name)
         if query is None:
-            return self._unresolved(position, record, FailureReason.EMPTY_QUERY)
-        record = copy.replace(record, query=query)
+            return self._unresolved(position, None, FailureReason.EMPTY_QUERY)
 
-        beatport_unavailable = False
-        had_candidates = False
-        try:
-            found = await self._sources.search(Source.BEATPORT, query)
-        except ApiKeyRejectedError:
-            return self._unresolved(position, record, FailureReason.SOURCE_UNAVAILABLE)
-        except (SourceUnavailableError, ApiContractError) as exc:
-            self._sources.log_source_failure(position, Source.BEATPORT, exc)
-            beatport_unavailable = True
-        else:
-            had_candidates = bool(found)
-            classification = classify(query, found, self._sources.thresholds)
-            match classification.outcome:
-                case Outcome.AUTO:
-                    return await self._accept(
-                        position, record, Source.BEATPORT, classification.retained[0]
-                    )
-                case Outcome.GREY_ZONE:
-                    return self._hold(
-                        position,
-                        record,
-                        Source.BEATPORT,
-                        classification.retained,
-                        beatport_unavailable=False,
-                    )
-                case Outcome.EMPTY:
-                    pass
-                case _:
-                    assert_never(classification.outcome)
-
-        try:
-            found = await self._sources.search(Source.BANDCAMP, query)
-        except ApiKeyRejectedError:
-            return self._unresolved(position, record, FailureReason.SOURCE_UNAVAILABLE)
-        except (SourceUnavailableError, ApiContractError) as exc:
-            self._sources.log_source_failure(position, Source.BANDCAMP, exc)
-            return self._unresolved(position, record, FailureReason.SOURCE_UNAVAILABLE)
-        had_candidates = had_candidates or bool(found)
-        # Beatport injoignable : Bandcamp ne valide jamais seul (decision du 2026-09-19).
-        classification = classify(
-            query, found, self._sources.thresholds, allow_auto=not beatport_unavailable
-        )
-        match classification.outcome:
-            case Outcome.AUTO:
-                return await self._accept(
-                    position, record, Source.BANDCAMP, classification.retained[0]
+        beatport = await self._ask(position, Source.BEATPORT, query, allow_auto=True)
+        match beatport:
+            case Auto(chosen):
+                return await self._accept(position, query, Source.BEATPORT, chosen)
+            case GreyZone(candidates=candidates):
+                return self._hold(
+                    position, query, Source.BEATPORT, candidates, beatport_unavailable=False
                 )
-            case Outcome.GREY_ZONE:
+            case _Silent(key_rejected=True):
+                return self._unresolved(position, query, FailureReason.SOURCE_UNAVAILABLE)
+            case _Silent() | Empty() as answer:
+                return await self._resolve_on_bandcamp(position, query, answer)
+            case _:
+                assert_never(beatport)
+
+    async def _resolve_on_bandcamp(
+        self, position: int, query: TrackQuery, beatport: _Silent | Empty
+    ) -> Verdict:
+        # Beatport injoignable : Bandcamp ne valide jamais seul (decision du 2026-09-19).
+        beatport_unavailable = isinstance(beatport, _Silent)
+        bandcamp = await self._ask(
+            position, Source.BANDCAMP, query, allow_auto=not beatport_unavailable
+        )
+        match bandcamp:
+            case Auto(chosen):
+                return await self._accept(position, query, Source.BANDCAMP, chosen)
+            case GreyZone(candidates=candidates):
                 return self._hold(
                     position,
-                    record,
+                    query,
                     Source.BANDCAMP,
-                    classification.retained,
+                    candidates,
                     beatport_unavailable=beatport_unavailable,
                 )
-            case Outcome.EMPTY:
-                # Beatport n'a jamais repondu : un classement definitif (`no_result`,
-                # `below_threshold`) ne serait pas rejoue a la reprise.
-                reason = (
-                    FailureReason.SOURCE_UNAVAILABLE
-                    if beatport_unavailable
-                    else FailureReason.BELOW_THRESHOLD
-                    if had_candidates
-                    else FailureReason.NO_RESULT
-                )
-                return self._unresolved(position, record, reason)
+            case _Silent():
+                return self._unresolved(position, query, FailureReason.SOURCE_UNAVAILABLE)
+            case Empty():
+                return self._unresolved(position, query, _empty_reason(beatport, bandcamp))
             case _:
-                assert_never(classification.outcome)
+                assert_never(bandcamp)
+
+    async def _ask(
+        self, position: int, source: SearchSource, query: TrackQuery, *, allow_auto: bool
+    ) -> Classification | _Silent:
+        try:
+            found = await self._sources.search(source, query)
+        except ApiKeyRejectedError:
+            return _Silent(key_rejected=True)
+        except (SourceUnavailableError, ApiContractError) as exc:
+            self._sources.log_source_failure(position, source, exc)
+            return _Silent(key_rejected=False)
+        if allow_auto:
+            return classify(query, found, self._sources.thresholds)
+        return rank(query, found, self._sources.thresholds)
 
     async def _accept(
-        self, position: int, record: TrackRecord, source: Source, chosen: ScoredCandidate
-    ) -> TrackRecord:
+        self, position: int, query: TrackQuery, source: Source, chosen: ScoredCandidate
+    ) -> Resolved:
         candidate, artwork = await self._sources.retained(position, source, chosen)
         logger.info(
             "candidate retained run=%s track=%d source=%s score=%.0f status=resolved",
@@ -240,17 +265,17 @@ class _Runner:
             source,
             chosen.score,
         )
-        return record.resolved(Resolution.AUTO, source, candidate, chosen, artwork)
+        return Resolved(query, Retained(Resolution.AUTO, source, candidate, chosen, artwork))
 
     def _hold(
         self,
         position: int,
-        record: TrackRecord,
+        query: TrackQuery,
         source: Source,
         candidates: tuple[ScoredCandidate, ...],
         *,
         beatport_unavailable: bool,
-    ) -> TrackRecord:
+    ) -> AwaitingArbitration:
         logger.info(
             "arbitration required run=%s track=%d source=%s score=%.0f status=grey_zone",
             self._sources.run_id,
@@ -258,15 +283,29 @@ class _Runner:
             source,
             candidates[0].score,
         )
-        return copy.replace(
-            record, arbitration=PendingArbitration(source, candidates, beatport_unavailable)
+        return AwaitingArbitration(
+            query, PendingArbitration(source, candidates, beatport_unavailable)
         )
 
-    def _unresolved(self, position: int, record: TrackRecord, reason: FailureReason) -> TrackRecord:
+    def _unresolved(
+        self, position: int, query: TrackQuery | None, reason: FailureReason
+    ) -> Unresolved:
         logger.info(
             "track unresolved run=%s track=%d status=unresolved reason=%s",
             self._sources.run_id,
             position,
             reason,
         )
-        return record.unresolved(reason)
+        return Unresolved(query, reason)
+
+
+def announced(record: TrackRecord[Verdict]) -> ArbitrationRequired | TrackResolved:
+    """Evenement de l'issue : une attente d'arbitrage n'est pas un morceau regle."""
+    outcome = record.outcome
+    match outcome:
+        case AwaitingArbitration():
+            return ArbitrationRequired(record.with_outcome(outcome))
+        case Unresolved() | Resolved():
+            return TrackResolved(record.with_outcome(outcome))
+        case _:
+            assert_never(outcome)

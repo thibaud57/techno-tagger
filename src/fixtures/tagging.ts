@@ -51,6 +51,7 @@ export const TRACK_RESOLVED: TrackResolvedEvent = {
   artwork_path: "C:/AppData/cache/artworks/abc.jpg",
   tags_after: null,
   restorable: false,
+  recoverable: false,
   source_url: null,
 }
 

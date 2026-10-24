@@ -347,6 +347,8 @@ export interface TrackResolvedEvent {
   readonly tags_after: readonly TagValue[] | null
   /** Le dump du run porte l'origine du morceau : le sidecar est seul a savoir si une restauration est possible. */
   readonly restorable: boolean
+  /** Le sidecar calcule l'eligibilite du morceau au rattrapage par URL ; phase ouverte et run non confirme restent des conditions a part. */
+  readonly recoverable: boolean
   /** Lien vers la fiche du candidat retenu, nul sans candidat. */
   readonly source_url: string | null
 }
