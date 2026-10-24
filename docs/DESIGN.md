@@ -95,7 +95,7 @@ Le design system ne connaît pas la liste des états d'un morceau, seulement **q
 
 Les sévérités, déjà câblées dans `p-tag`, `p-badge`, `p-message` et `pButton`, suivent le preset sans maintenance. `info` est en `sky` partout : `p-tag` et `p-badge` par Aura, `p-message` par le preset (Aura le teinte en `blue`).
 
-**Trois états sont dérivés par l'interface**, faute d'événement : « en attente » pour ce qu'elle n'a pas encore reçu, « non traité » pour ce qu'un run interrompu n'a jamais atteint, « à arbitrer » pour une demande restée sans réponse. Les autres se lisent sur `state`.
+**Trois états sont dérivés par l'interface**, faute d'événement : « en attente » pour ce qu'elle n'a pas encore reçu, « non traité » pour ce qu'un run interrompu ou figé (confirmé, ou perdu avec le moteur) n'atteindra plus, « à arbitrer » pour une demande restée sans réponse. Les autres se lisent sur `state`.
 
 **Bleu plutôt qu'orange sur la décision attendue** : un arbitrage qui attend est une étape normale, pas une anomalie (choix posé dans [BRAINSTORM.md](BRAINSTORM.md)). `warn` n'est donc porté par aucun état de morceau : il reste aux avertissements qui ne concernent pas une ligne.
 
@@ -271,7 +271,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| État d'un morceau | `StateTagComponent` (`p-tag`) | composant maison (PrimeNG) | `state`, `resolution`, `awaiting`, `interrupted` traduits en famille, icône et libellé (§ Couleurs Sémantiques), écrits une fois. Un `failure_reason` ajoute `info-circle` derrière le tag, motif en tooltip |
+| État d'un morceau | `StateTagComponent` (`p-tag`) | composant maison (PrimeNG) | `status` (le `state` reçu, ou l'un des trois états dérivés, calculé par la liste du run) et `resolution` traduits en famille, icône et libellé (§ Couleurs Sémantiques), écrits une fois. Un `failure_reason` ajoute `info-circle` derrière le tag, motif en tooltip |
 | Catégorie du rapport | `p-tag` + icône `info-circle` | PrimeNG | Familles du § Couleurs Sémantiques |
 | Compteur de navigation | `p-badge` `secondary`, sans `size`, `h-auto`, `tabular-nums` | PrimeNG | « 1/3 » entre les flèches des modales d'arbitrage et du lien, à la hauteur des boutons `small` qui l'encadrent. Neutre : un compteur n'est pas une action |
 

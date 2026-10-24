@@ -71,7 +71,7 @@ Un push, dans l'ordre :
 
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
-Rien à pousser au 2026-10-23.
+- **`StateTag`** (relevé le 2026-10-24, issue #115) : le composant de l'app reçoit `status` (le `state` reçu, ou « en attente », « à arbitrer », « non traité » calculés par la liste du run) et `resolution` ; celui du design system lit encore `state`, `awaiting` et `interrupted`. Rendu identique.
 
 ## Journal
 

@@ -79,6 +79,7 @@ export const PENDING_TRACK: TaggingTrack = {
   sourceUrl: null,
   arbitration: null,
   restorable: false,
+  recoverable: false,
 }
 
 // Les builders ci-dessous nomment le fichier d'apres l'identifiant : deux lignes de meme nom
@@ -104,7 +105,7 @@ export const writtenTrack = (
   restorable,
 })
 
-/** Ligne non resolue, refusee par defaut : un test pose son motif ou ses ecarts. */
+/** Ligne non resolue, refusee par defaut, eligible au rattrapage : un test pose son motif ou ses ecarts. */
 export const unresolvedTrack = (
   trackId: string,
   failureReason: TrackFailureReason = "user_refused",
@@ -115,9 +116,10 @@ export const unresolvedTrack = (
   state: "unresolved",
   resolution: "none",
   failureReason,
+  recoverable: true,
 })
 
-/** Ligne rattrapee par une URL Bandcamp : resolue, sans motif d'echec. */
+/** Ligne rattrapee par une URL Bandcamp : resolue, sans motif d'echec, encore eligible au rattrapage. */
 export const recoveredTrack = (trackId: string): TaggingTrack => ({
   ...PENDING_TRACK,
   trackId,
@@ -125,6 +127,7 @@ export const recoveredTrack = (trackId: string): TaggingTrack => ({
   state: "resolved",
   resolution: "url",
   source: "bandcamp",
+  recoverable: true,
 })
 
 /** Ligne resolue par Beatport, avec ses scores et sa pochette : le cas nominal d'une ligne affichee. */

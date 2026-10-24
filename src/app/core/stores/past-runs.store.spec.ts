@@ -25,6 +25,7 @@ describe("PastRunsStore", () => {
       tagsAfter: TRACK_LOADED.tags_after,
       arbitration: null,
       restorable: false,
+      recoverable: false,
     })
   })
 

@@ -260,21 +260,9 @@ export class SidecarService {
   )
   /** Un run fige n'arbitrera plus : ses attentes ne sont pas un travail en suspens, le compte est nul. */
   readonly arbitrationCount = computed(() => (this.runFrozen() ? 0 : this.arbitration.count()))
-  /**
-   * Lignes a afficher dans la phase : non resolues, ou deja rattrapees (pour corriger un
-   * mauvais lien). Vide sur un run fige, que le sidecar refuserait. Simple filtre d'affichage :
-   * le sidecar reste seul juge de l'eligibilite.
-   */
+  /** Vide sur un run fige, que le sidecar refuserait. */
   readonly recoverableTracks = computed(() =>
-    this.runFrozen()
-      ? []
-      : this.taggingRun
-          .tracks()
-          .filter(
-            (track) =>
-              track.state === "unresolved" ||
-              (track.state === "resolved" && track.resolution === "url"),
-          ),
+    this.runFrozen() ? [] : this.taggingRun.tracks().filter((track) => track.recoverable),
   )
   readonly phase = computed<SidecarPhase>(() => {
     if (this.writePhase.rollingBack() !== null) {

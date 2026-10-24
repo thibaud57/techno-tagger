@@ -41,12 +41,28 @@ export interface TaggingTrack {
   readonly arbitration: ArbitrationRequiredEvent | null
   /** Faux tant que le sidecar n'a rien dit : une ligne jamais resolue n'a pas d'origine au dump. */
   readonly restorable: boolean
+  /** Eligibilite au rattrapage telle que le sidecar l'envoie, fausse tant qu'il n'a rien dit. */
+  readonly recoverable: boolean
 }
 
 export interface RunProgress {
   readonly processed: number
   readonly total: number
 }
+
+/** Partages par `pending` et `rolledBack` : un champ d'issue ajoute se remet a vide dans les deux. */
+const NO_OUTCOME = {
+  failureReason: null,
+  source: null,
+  after: null,
+  scores: null,
+  artworkPath: null,
+  tagsAfter: null,
+  sourceUrl: null,
+  arbitration: null,
+  restorable: false,
+  recoverable: false,
+} as const satisfies Partial<TaggingTrack>
 
 const pending = (entry: TrackEntry): TaggingTrack => ({
   trackId: entry.track_id,
@@ -55,17 +71,23 @@ const pending = (entry: TrackEntry): TaggingTrack => ({
   title: entry.title,
   state: null,
   resolution: null,
-  failureReason: null,
-  source: null,
-  after: null,
-  scores: null,
-  artworkPath: null,
   tagsBefore: entry.tags_before,
-  tagsAfter: null,
-  sourceUrl: null,
-  arbitration: null,
-  restorable: false,
+  ...NO_OUTCOME,
 })
+
+/** Rendue a son origine : l'issue s'efface, l'identite et la voie restent. */
+const rolledBack = (row: TaggingTrack): TaggingTrack => ({
+  ...row,
+  ...NO_OUTCOME,
+  state: "rolled_back",
+})
+
+/** Un run est dans un seul de ces etats : fini et interrompu ne se combinent pas. */
+type RunLifecycle =
+  | { readonly status: "idle" }
+  | { readonly status: "running" }
+  | { readonly status: "finished"; readonly event: RunFinishedEvent }
+  | { readonly status: "interrupted" }
 
 /** Etat d'un run de re-tagging, alimente par le routage des evenements de `SidecarService`. */
 @Service()
@@ -76,9 +98,7 @@ export class TaggingRunStore {
   // une cle existante, jamais en ajouter une.
   private readonly _rows = signal<ReadonlyMap<string, TaggingTrack>>(new Map())
   private readonly _progress = signal<RunProgress | null>(null)
-  private readonly _running = signal(false)
-  private readonly _finished = signal<RunFinishedEvent | null>(null)
-  private readonly _interrupted = signal(false)
+  private readonly _lifecycle = signal<RunLifecycle>({ status: "idle" })
   private readonly _lost = signal(false)
 
   readonly runId = this._runId.asReadonly()
@@ -87,13 +107,17 @@ export class TaggingRunStore {
   readonly tracks = computed<readonly TaggingTrack[]>(() => [...this._rows().values()])
   readonly progress = this._progress.asReadonly()
   /** Vrai de l'envoi de `start_tagging` jusqu'a `run_finished` ou une erreur. */
-  readonly running = this._running.asReadonly()
-  readonly finished = this._finished.asReadonly()
+  readonly running = computed(() => this._lifecycle().status === "running")
+  readonly finished = computed(() => {
+    const lifecycle = this._lifecycle()
+
+    return lifecycle.status === "finished" ? lifecycle.event : null
+  })
   /**
    * Arrete par une erreur ou la mort du process : ses morceaux non tranches ne le seront plus.
    * Pose par `failed()` plutot que deduit de `running`, que d'autres arrets eteignent aussi.
    */
-  readonly interrupted = this._interrupted.asReadonly()
+  readonly interrupted = computed(() => this._lifecycle().status === "interrupted")
   /** Un nouveau moteur ne connait pas ce run : rien n'en sera ecrit. Ecrit, il reste restaurable par son dump. */
   readonly lost = this._lost.asReadonly()
   /** Morceaux qu'une ecriture toucherait : les resolus pas encore ecrits. */
@@ -111,10 +135,8 @@ export class TaggingRunStore {
     this._folder.set(null)
     this._rows.set(new Map())
     this._progress.set(null)
-    this._finished.set(null)
-    this._interrupted.set(false)
     this._lost.set(false)
-    this._running.set(true)
+    this._lifecycle.set({ status: "running" })
   }
 
   started(event: RunStartedEvent): void {
@@ -137,39 +159,28 @@ export class TaggingRunStore {
       sourceUrl: event.source_url,
       arbitration: null,
       restorable: event.restorable,
+      recoverable: event.recoverable,
     }))
   }
 
   /**
    * Un run que le moteur ne tient plus restaure sans `track_resolved` : le bilan est alors le
-   * seul a dire quelles lignes sont rendues. Meme projection qu'un `track_resolved` en
-   * `rolled_back`, les lignes deja passees par lui ne bougent pas.
+   * seul a dire quelles lignes sont rendues. Les lignes deja passees par lui ne bougent pas.
    */
   restored(event: RollbackFinishedEvent): void {
     if (event.run_id !== this._runId()) {
       return
     }
-    for (const trackId of event.restored) {
-      const row = this._rows().get(trackId)
-      if (row === undefined || row.state === "rolled_back" || row.resolution === null) {
-        continue
-      }
-      this.resolved({
-        event: "track_resolved",
-        track_id: trackId,
-        state: "rolled_back",
-        resolution: row.resolution,
-        failure_reason: null,
-        source: null,
-        after: null,
-        scores: null,
-        artwork_path: null,
-        tags_after: null,
-        source_url: null,
-        restorable: false,
-        recoverable: false,
-      })
-    }
+    const restored = new Set(event.restored)
+    this._rows.update(
+      (rows) =>
+        new Map(
+          [...rows].map(([trackId, row]): [string, TaggingTrack] => [
+            trackId,
+            restored.has(trackId) && row.state !== "rolled_back" ? rolledBack(row) : row,
+          ]),
+        ),
+    )
   }
 
   awaiting(event: ArbitrationRequiredEvent): void {
@@ -186,16 +197,18 @@ export class TaggingRunStore {
   }
 
   completed(event: RunFinishedEvent): void {
-    this._finished.set(event)
-    this._running.set(false)
+    this._lifecycle.set({ status: "finished", event })
   }
 
   /** Erreur du sidecar ou annulation : le run s'arrete, les lignes restent. */
   failed(): void {
-    this._running.set(false)
-    // Avant `run_started` aucune ligne n'existe, apres `run_finished` le run a sa fin : rien
-    // a etiqueter « non traite ». Le process peut mourir apres, pendant l'ecriture.
-    this._interrupted.set(this._runId() !== null && this._finished() === null)
+    // Avant `run_started` aucune ligne n'existe, apres `run_finished` le run a sa fin : rien a
+    // etiqueter « non traite ». Le process peut mourir apres, pendant l'ecriture.
+    this._lifecycle.update((lifecycle) =>
+      lifecycle.status === "finished"
+        ? lifecycle
+        : { status: this._runId() === null ? "idle" : "interrupted" },
+    )
   }
 
   /** Le process est mort : sans run affiche, il n'y a rien a perdre. */

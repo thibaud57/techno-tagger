@@ -222,9 +222,6 @@ export default class TaggingPageComponent {
   protected readonly percentage = computed(() => progressPercentage(this.progress()))
   protected readonly recovery = this.sidecar.urlRecoveryProgress
   protected readonly recoveryPercentage = computed(() => progressPercentage(this.recovery()))
-  protected readonly recoverableIds = computed(
-    () => new Set(this.sidecar.recoverableTracks().map((track) => track.trackId)),
-  )
 
   constructor() {
     void this.prefill()

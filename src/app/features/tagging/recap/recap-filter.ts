@@ -1,33 +1,45 @@
+import type { TrackResolution } from "../../../core/sidecar/protocol"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 export const RECAP_FILTERS = ["all", "validated", "arbitrated", "failed"] as const
 export type RecapFilter = (typeof RECAP_FILTERS)[number]
 
-/** Tranche par le run et toujours debout : un echec d'ecriture arbitre n'est qu'un echec. */
-const settled = (track: TaggingTrack): boolean =>
-  track.state === "resolved" || track.state === "written"
+type Category = Exclude<RecapFilter, "all">
+
+const ROUTE: Record<TrackResolution, Category | null> = {
+  auto: "validated",
+  arbitration: "arbitrated",
+  url: "arbitrated",
+  none: null,
+}
 
 /**
- * Regle d'ARCHITECTURE.md § API : « Echecs » lit `state`, « Valides » et « Arbitres »
- * lisent `state` puis `resolution`. Un `rolled_back` n'appartient a aucun filtre.
+ * Regle d'ARCHITECTURE.md § API : « Echecs » lit `state`, « Valides » et « Arbitres » lisent
+ * `state` puis `resolution`. Un etat ou une resolution ajoutes cassent la compilation ici.
  */
-export const inFilter = (track: TaggingTrack, filter: RecapFilter): boolean => {
-  switch (filter) {
-    case "all":
-      return true
-    case "validated":
-      return settled(track) && track.resolution === "auto"
-    case "arbitrated":
-      return settled(track) && (track.resolution === "arbitration" || track.resolution === "url")
-    case "failed":
-      return track.state === "unresolved" || track.state === "write_error"
+const categoryOf = (track: TaggingTrack): Category | null => {
+  switch (track.state) {
+    case "resolved":
+    case "written":
+      return ROUTE[track.resolution ?? "none"]
+    // Un echec d'ecriture arbitre n'est qu'un echec.
+    case "unresolved":
+    case "write_error":
+      return "failed"
+    // Rendu a son origine, ou jamais tranche : dans aucun filtre.
+    case "rolled_back":
+    case null:
+      return null
     default: {
-      const exhaustive: never = filter
+      const exhaustive: never = track.state
 
       return exhaustive
     }
   }
 }
+
+export const inFilter = (track: TaggingTrack, filter: RecapFilter): boolean =>
+  filter === "all" || categoryOf(track) === filter
 
 /** La somme des filtres peut etre inferieure a « Tout » : les restaures n'y sont pas. */
 export const recapCounts = (tracks: readonly TaggingTrack[]): Record<RecapFilter, number> => ({
