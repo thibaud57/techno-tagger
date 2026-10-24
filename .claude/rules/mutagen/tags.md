@@ -6,7 +6,7 @@ paths:
 # mutagen — Écriture des tags
 
 ## À faire
-- Maintenir la table de correspondance ID3 ↔ Vorbis dans un seul module : aucune table officielle unifiée n'existe en amont, ID3 et Vorbis Comments ne sont pas deux dialectes du même modèle
+- Maintenir la table de correspondance ID3 ↔ Vorbis dans un seul module : aucune table officielle unifiée n'existe en amont, ID3 et Vorbis Comments ne sont pas deux dialectes du même modèle. Un champ Vorbis sans nom standard y porte ses noms concurrents (`vorbis_mirrors`) : la tonalité s'écrit sous `KEY` et `INITIALKEY`, même valeur
 - Appeler `update_to_v23()` puis `save(v2_version=3)` : mutagen vise v2.4 par défaut, et `save(v2_version=3)` seul laisse `TDRC` et `TDOR` sur le disque
 - Lire le texte d'une frame ID3 par `.text` (une liste), et toute valeur Vorbis comme une liste même pour un champ unique
 - `clear_pictures()` avant `add_picture()` sur FLAC, sans quoi un re-run empile les pochettes ; sur ID3, l'unicité d'une `APIC` tient au couple `(type, desc)`
@@ -32,7 +32,7 @@ paths:
 - Aucune année d'origine n'est écrite (ADR-011, 2026-10-11) : un `TORY` ou `ORIGINALDATE` du fichier reste intact, et `update_to_v23()` convertit seulement un `TDOR` déjà présent en `TORY`
 - `EasyID3` avec `v2_version=3` peut produire une frame `TDRC` vide en plus du `TYER` : asserter sur le fichier relu, pas sur le retour de l'API
 - 1.48.0 : l'attribut `salt` d'`APIC` change la `HashKey` en `APIC:<desc><salt>`, donc l'unicité
-- WAV : seul le chunk ID3v2 est supporté (pas RIFF/INFO), écrit `id3 ` en minuscules que d'autres logiciels peuvent ignorer
+- WAV : seul le chunk ID3v2 est supporté (pas RIFF/INFO), et Rekordbox l'ignore quelle que soit sa casse, il ne lit que le RIFF INFO (cf. [rekordbox.md](../../../docs/knowledges/rekordbox.md))
 - `mutagen.File()` rend `None` sur un format non reconnu, il ne lève pas : le cas se traite
 
 ## Exemples

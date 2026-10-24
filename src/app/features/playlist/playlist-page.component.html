@@ -216,7 +216,7 @@
             <app-truncated-text [text]="row.fileName" />
           </td>
           @let reasonLines = row.reason | reasonText | async;
-          @let detailText = row.detailKey ? (row.detailKey | translate: row.detailParams) : "";
+          @let detailText = row.detail ? (row.detail.key | translate: row.detail.params) : "";
           @let separator = "playlist.report.separator" | translate;
           @let details =
             reasonLines && detailText

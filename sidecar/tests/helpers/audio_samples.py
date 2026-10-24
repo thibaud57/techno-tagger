@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from mutagen.id3 import ID3
+    from stubs import Replacement
 
 # MPEG-1 Layer III, 128 kbit/s, 44,1 kHz, mono, sans CRC ni padding : une trame
 # fait 144 * 128000 / 44100 = 417 octets. Plusieurs trames, mutagen se
@@ -238,7 +239,7 @@ def held_open(path: Path) -> Iterator[None]:
         kernel32.CloseHandle(handle)
 
 
-def mutagen_refusing(os_error: OSError) -> Callable[..., NoReturn]:
+def mutagen_refusing(os_error: OSError) -> Replacement[NoReturn]:
     """Remplacant d'une fonction de mutagen qui echoue sur `os_error`, enveloppee comme lui."""
     refusal = MutagenError("file in use")
     refusal.__cause__ = os_error

@@ -3,18 +3,19 @@ import { convertFileSrc } from "@tauri-apps/api/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener"
 
+import { withFallback } from "./tauri-fallback"
+
 /** Seul point d'entree des plugins `dialog` et `opener` et des URL d'asset : les specs le remplacent par `nativeStub`. */
 @Service()
 export class NativeService {
-  /** Hors Tauri, le plugin `dialog` rejette : l'ecran reste utilisable. */
+  /** `null` : annulation (le plugin la signale par `null`, pas par une erreur) ou hors Tauri. */
   async pickPath(options: { directory: boolean }): Promise<string | null> {
-    try {
-      const chosen = await open({ directory: options.directory, multiple: false })
+    const chosen = await withFallback(
+      () => open({ directory: options.directory, multiple: false }),
+      null,
+    )
 
-      return typeof chosen === "string" ? chosen : null
-    } catch {
-      return null
-    }
+    return typeof chosen === "string" ? chosen : null
   }
 
   openUrl(url: string): Promise<void> {

@@ -35,12 +35,15 @@ def test_stores_then_reads_the_key() -> None:
     [FailingKeyring, CredentialManagerKeyring],
     ids=["keyring-error", "credential-manager"],
 )
-def test_reads_no_key_when_the_keyring_fails_on_read(backend: type[MemoryKeyring]) -> None:
+def test_raises_keyring_unavailable_when_the_keyring_fails_on_read(
+    backend: type[MemoryKeyring],
+) -> None:
     keyring.set_keyring(backend())
 
-    key = read_api_key()
+    with pytest.raises(KeyringUnavailableError) as error:
+        read_api_key()
 
-    assert key is None
+    assert error.value.code == "keyring_unavailable"
 
 
 @pytest.mark.parametrize(

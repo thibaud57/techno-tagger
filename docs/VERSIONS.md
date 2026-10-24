@@ -203,12 +203,12 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Compatibilité Écosystème** :
 - Pur Python, aucune dépendance hors bibliothèque standard : c'est précisément l'argument de l'[ADR-011](adrs/011-politique-ecriture-tags.md) contre pytaglib. Aucun hook PyInstaller dédié n'existe dans `pyinstaller-hooks-contrib`, et aucun n'est nécessaire
 - Livre un `py.typed`, donc typé pour Mypy strict sans stub externe
-- **WAV** : seul le chunk ID3v2 est supporté, le chunk RIFF/INFO ne l'est pas. Le chunk est écrit en minuscules (`id3 `) là où d'autres implémentations attendent `ID3 `. La lecture côté mutagen est insensible à la casse, les autres logiciels pas forcément
+- **WAV** : seul le chunk ID3v2 est supporté, le chunk RIFF/INFO ne l'est pas. Le chunk est écrit en minuscules (`id3 `) là où d'autres implémentations attendent `ID3 `. La lecture côté mutagen est insensible à la casse. Rekordbox, lui, ignore ce chunk quelle que soit sa casse et ne lit que le RIFF INFO (relevé le 2026-10-23, [knowledges/rekordbox.md](knowledges/rekordbox.md))
 - **ID3v2.3** : `save(v2_version=3)` repasse les frames texte d'UTF-8 en UTF-16, mais ne convertit pas `TDRC` ni `TDOR` : sans `update_to_v23()` préalable ils restent sur le disque sous un en-tête v2.3 (constaté le 2026-10-06 sur 1.48.1). techno-tagger écrit une seule chaîne par champ, `v23_sep` ne lui sert donc pas, et n'écrit aucun `TDOR` : seul un `TDOR` déjà présent dans le fichier est converti en `TORY`
 
 **Recommandation** : ⚠️ Retenu, sans alternative crédible. Deux points à couvrir par des tests, tous deux dans le périmètre déjà prévu par [ARCHITECTURE.md § Stratégie de Tests](ARCHITECTURE.md#stratégie-de-tests) :
 1. `EasyID3` combiné à `v2_version=3` a produit historiquement une frame `TDRC` v2.4 vide en plus du `TYER` v2.3 attendu (issue #188, fermée sans détail de correctif vérifiable). Écrire l'assertion sur le contenu réel du fichier, pas sur le retour de l'API
-2. La casse du chunk WAV (`id3 ` vs `ID3 `) est une source d'incompatibilité avec d'autres outils, à documenter plutôt qu'à corriger
+2. La casse du chunk WAV (`id3 ` vs `ID3 `) ne règle rien côté Rekordbox, qui ignore ce chunk : le RIFF INFO, que mutagen n'écrit pas, est à la charge du projet (Post-MVP Feature 1 du BRAINSTORM)
 
 ### 5. RapidFuzz
 **Version actuelle** : `3.14.6` (2026-08-30)

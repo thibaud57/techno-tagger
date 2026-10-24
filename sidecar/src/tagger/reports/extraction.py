@@ -175,31 +175,29 @@ def render_markdown(report: ExtractionReport) -> str:
         f"| Missing | {counts.missing} |",
         f"| Duplicates resolved | {counts.duplicates} |",
         f"| Failures | {counts.failures} |",
+        *_bullet_section("Extracted", report.extracted),
+        *_bullet_section("Already present", report.already_present),
+        *_bullet_section("Missing", report.missing),
+        *table_section(
+            "Duplicates resolved",
+            ("File", "Kept", "Size", "Criterion", "Discarded"),
+            [
+                table_row(
+                    duplicate.file_name,
+                    duplicate.kept_path,
+                    duplicate.kept_size,
+                    duplicate.criterion,
+                    "; ".join(f"{item.path} ({item.size})" for item in duplicate.discarded),
+                )
+                for duplicate in report.duplicates
+            ],
+        ),
+        *table_section(
+            "Failures",
+            ("File", "Reason"),
+            [table_row(failure.file_name, failure.reason) for failure in report.failures],
+        ),
     ]
-
-    lines += _bullet_section("Extracted", report.extracted)
-    lines += _bullet_section("Already present", report.already_present)
-    lines += _bullet_section("Missing", report.missing)
-
-    lines += table_section(
-        "Duplicates resolved",
-        ("File", "Kept", "Size", "Criterion", "Discarded"),
-        [
-            table_row(
-                duplicate.file_name,
-                duplicate.kept_path,
-                duplicate.kept_size,
-                duplicate.criterion,
-                "; ".join(f"{item.path} ({item.size})" for item in duplicate.discarded),
-            )
-            for duplicate in report.duplicates
-        ],
-    )
-    lines += table_section(
-        "Failures",
-        ("File", "Reason"),
-        [table_row(failure.file_name, failure.reason) for failure in report.failures],
-    )
 
     return "\n".join(lines) + "\n"
 

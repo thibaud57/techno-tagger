@@ -71,9 +71,9 @@ export class CloseConfirmationComponent {
     // `focusOnShow` du dialog le donnerait au premier bouton, « Quitter quand meme ».
     afterRenderEffect({
       write: () => {
-        const button = this.stayButton()?.nativeElement as HTMLElement | undefined
-        if (this.request() !== null) {
-          button?.focus()
+        const button: unknown = this.stayButton()?.nativeElement
+        if (this.request() !== null && button instanceof HTMLElement) {
+          button.focus()
         }
       },
     })

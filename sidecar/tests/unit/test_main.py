@@ -26,8 +26,10 @@ from tagger.reports.feedback import feedback_dir
 from tagger.run.plan import plan_dir
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Iterator
     from pathlib import Path
+
+    from stubs import Replacement
 
 
 class _Startup(NamedTuple):
@@ -35,7 +37,7 @@ class _Startup(NamedTuple):
     calls: list[str]
 
 
-def _noting(calls: list[str], name: str) -> Callable[..., None]:
+def _noting(calls: list[str], name: str) -> Replacement[None]:
     def note(*_args: object, **_kwargs: object) -> None:
         calls.append(name)
 

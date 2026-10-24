@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 from unittest.mock import patch
 
+import keyring
 import pytest
 from log_capture import messages_of
+from memory_keyring import FailingKeyring
 from ndjson_loop import (
     EXPECT_TIMEOUT,
     LEAVING,
@@ -37,6 +39,16 @@ def test_answers_a_version_request() -> None:
 
     assert events[0]["event"] == "version"
     assert "api_key_configured" in events[0]
+
+
+def test_answers_a_version_request_then_an_error_when_the_keyring_is_unreadable() -> None:
+    keyring.set_keyring(FailingKeyring())
+
+    events = drive(line("get_version"))
+
+    assert [event["event"] for event in events] == ["version", "error"]
+    assert events[0]["api_key_configured"] is False
+    assert events[1]["code"] == "keyring_unavailable"
 
 
 @pytest.mark.parametrize(

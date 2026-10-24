@@ -3,46 +3,38 @@ import { load } from "@tauri-apps/plugin-store"
 
 import { SCORE_SCALE, type ExtractionMode, type ThresholdsPayload } from "../sidecar/protocol"
 import { LANGUAGES, type Language } from "../i18n/language"
+import { withFallback } from "./tauri-fallback"
+import { isRecord } from "../record"
 
 const STORE_FILE = "preferences.json"
 
-/**
- * Ne leve jamais : hors Tauri `load` rejette et une preference non enregistree n'est pas une
- * panne, donc defaut (l'interface reste utilisable sous `ng serve`). `accept` filtre la valeur
- * lue : un fichier edite a la main peut porter n'importe quoi sous une cle typee.
- */
+/** `accept` filtre la valeur lue : un fichier edite a la main peut porter n'importe quoi sous une cle typee. */
 const definePreference = <T>(
   key: string,
   fallback: T,
   accept: (stored: unknown) => stored is T,
 ) => ({
-  read: async (): Promise<T> => {
-    try {
+  read: (): Promise<T> =>
+    withFallback(async () => {
       const store = await load(STORE_FILE)
       const stored = await store.get<unknown>(key)
 
       return accept(stored) ? stored : fallback
-    } catch {
-      return fallback
-    }
-  },
-  write: async (value: T): Promise<void> => {
-    try {
+    }, fallback),
+  write: (value: T): Promise<void> =>
+    withFallback(async () => {
       const store = await load(STORE_FILE)
       await store.set(key, value)
       await store.save()
-    } catch {
-      return
-    }
-  },
+    }, undefined),
 })
 
 /** Une valeur editee a la main hors de ces bornes ferait refuser `start_tagging`. */
 export const isThresholds = (stored: unknown): stored is ThresholdsPayload => {
-  if (typeof stored !== "object" || stored === null) {
+  if (!isRecord(stored)) {
     return false
   }
-  const { floor, ceiling } = stored as Record<string, unknown>
+  const { floor, ceiling } = stored
 
   return (
     typeof floor === "number" &&
@@ -60,10 +52,10 @@ export interface UpdateAttempt {
 }
 
 const isUpdateAttempt = (stored: unknown): stored is UpdateAttempt => {
-  if (typeof stored !== "object" || stored === null) {
+  if (!isRecord(stored)) {
     return false
   }
-  const { from, to } = stored as Record<string, unknown>
+  const { from, to } = stored
 
   return typeof from === "string" && from !== "" && typeof to === "string" && to !== ""
 }

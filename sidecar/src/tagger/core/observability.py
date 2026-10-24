@@ -79,7 +79,7 @@ _USERNAME: Final = os.getenv("USERNAME") or os.getenv("USER") or ""
 # Les deux ecritures : le SDK rend des chemins Windows en `\`, les tracebacks de
 # modules importes en `/`. Une seule des deux formes laisserait passer l'autre.
 _HOME: Final = str(Path.home())
-_HOME_FORMS: Final = {_HOME, _HOME.replace("\\", "/")}
+_HOME_FORMS: Final = frozenset({_HOME, _HOME.replace("\\", "/")})
 
 
 def _mask(text: str) -> str:
