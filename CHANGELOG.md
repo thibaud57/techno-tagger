@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/thibaud57/techno-tagger/compare/v1.0.0...v1.0.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* trousseau illisible et index de rapports corrompu signales ([#119](https://github.com/thibaud57/techno-tagger/issues/119)) ([17cb117](https://github.com/thibaud57/techno-tagger/commit/17cb11732d165575113ee6d41452a43626fbce36))
+
 ## [1.0.0](https://github.com/thibaud57/techno-tagger/compare/v0.11.0...v1.0.0) (2026-10-23)
 
 
