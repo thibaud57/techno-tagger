@@ -39,6 +39,7 @@ const WITH_SOURCE: TaggingTrack = {
 /** La liste construit la ligne ; le détail ne lit d'elle que le morceau, sa pochette et sa restauration. */
 const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
   ...track,
+  status: "pending",
   mainLine: "",
   afterLine: null,
   artworkUrl: null,

@@ -69,6 +69,16 @@ describe("TaggingRunStore", () => {
     expect(store.tracks()[0]?.sourceUrl).toBe(SOURCE_URL)
   })
 
+  it("carries the eligibility the sidecar sends", () => {
+    startRun()
+
+    store.resolved(
+      trackResolved("a.mp3", { state: "unresolved", resolution: "none", recoverable: true }),
+    )
+
+    expect(store.tracks().map((track) => track.recoverable)).toEqual([true, false])
+  })
+
   describe("tags", () => {
     const startWithTagsBefore = (): void => {
       store.reset()
@@ -202,12 +212,41 @@ describe("TaggingRunStore", () => {
       },
       false,
     ],
+    [
+      "restarted after an interruption",
+      (run: TaggingRunStore) => {
+        run.started(RUN_STARTED)
+        run.failed()
+        run.reset()
+      },
+      false,
+    ],
+    // Un `run_finished` deja en vol croise l'annulation : le sidecar tient le run pour fini.
+    [
+      "cancelled as its end was already on the way",
+      (run: TaggingRunStore) => {
+        run.started(RUN_STARTED)
+        run.failed()
+        run.completed(FINISHED)
+      },
+      false,
+    ],
   ] as const)("tells whether a run %s is interrupted", (_name, play, expected) => {
     store.reset()
 
     play(store)
 
     expect(store.interrupted()).toBe(expected)
+  })
+
+  it("keeps the summary of a finished run whose process died", () => {
+    startRun()
+    store.completed(FINISHED)
+
+    store.failed()
+
+    expect(store.finished()).toBe(FINISHED)
+    expect(store.running()).toBe(false)
   })
 
   it("loses a started run with its engine", () => {
@@ -235,7 +274,14 @@ describe("TaggingRunStore", () => {
 
   it("rolls back a written row from the summary alone, as a rolled back resolution would", () => {
     startRun()
-    store.resolved(trackResolved("a.mp3", { state: "written", tags_after: TAGS_AFTER }))
+    store.resolved(
+      trackResolved("a.mp3", {
+        state: "written",
+        tags_after: TAGS_AFTER,
+        restorable: true,
+        source_url: SOURCE_URL,
+      }),
+    )
 
     store.restored(rollbackFinished())
 
@@ -248,6 +294,9 @@ describe("TaggingRunStore", () => {
       scores: null,
       artworkPath: null,
       tagsAfter: null,
+      sourceUrl: null,
+      restorable: false,
+      recoverable: false,
     })
   })
 

@@ -118,12 +118,7 @@
               [pTooltip]="(track.reason | reasonText | async) || undefined"
               [tooltipOptions]="WIDE_TOOLTIP"
             >
-              <app-state-tag
-                [state]="track.state"
-                [resolution]="track.resolution"
-                [awaiting]="track.arbitrable"
-                [interrupted]="settled()"
-              />
+              <app-state-tag [status]="track.status" [resolution]="track.resolution" />
               @if (track.reason) {
                 <app-icon class="text-muted-color" name="info-circle" [size]="16" />
               }

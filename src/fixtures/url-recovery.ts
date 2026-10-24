@@ -8,7 +8,7 @@ import { trackResolved } from "./tagging"
 /** Lien colle par l'utilisateur : le sidecar seul le juge, aucun test ne lit sa valeur. */
 export const TRACK_URL = "https://www.beatport.com/track/midnight-static/99000123"
 
-/** Morceau rattrape par une URL Bandcamp : resolu, sans score ni motif d'echec. */
+/** Morceau rattrape par une URL Bandcamp : resolu, sans score ni motif d'echec, encore eligible au rattrapage. */
 export const resolvedByUrl = (trackId: string): TrackResolvedEvent =>
   trackResolved(trackId, {
     resolution: "url",
@@ -16,6 +16,7 @@ export const resolvedByUrl = (trackId: string): TrackResolvedEvent =>
     after: { artist: "Amelie Lens", title: "Basiel" },
     scores: null,
     artwork_path: null,
+    recoverable: true,
   })
 
 /** Erreur d'un geste de rattrapage, `track_id` joint par le sidecar. */

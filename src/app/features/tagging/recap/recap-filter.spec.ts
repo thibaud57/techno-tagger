@@ -1,4 +1,4 @@
-import { resolvedTrack, unresolvedTrack } from "../../../../fixtures/tagging"
+import { PENDING_TRACK, resolvedTrack, unresolvedTrack } from "../../../../fixtures/tagging"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import { inFilter, matchesSearch, recapCounts, type RecapFilter } from "./recap-filter"
@@ -18,14 +18,15 @@ const FAILED_WRITE = track({
 })
 const UNRESOLVED = unresolvedTrack("unresolved")
 const RESTORED = track({ trackId: "restored", state: "rolled_back", resolution: "auto" })
-const RUN = [AUTO, ARBITRATED, BY_URL, FAILED_WRITE, UNRESOLVED, RESTORED]
+const UNTOUCHED = { ...PENDING_TRACK, trackId: "untouched" }
+const RUN = [AUTO, ARBITRATED, BY_URL, FAILED_WRITE, UNRESOLVED, RESTORED, UNTOUCHED]
 
 const kept = (filter: RecapFilter): string[] =>
   RUN.filter((candidate) => inFilter(candidate, filter)).map((candidate) => candidate.trackId)
 
 describe("recap filters", () => {
   it.each<[RecapFilter, string[]]>([
-    ["all", ["auto", "arbitrated", "url", "failed-write", "unresolved", "restored"]],
+    ["all", ["auto", "arbitrated", "url", "failed-write", "unresolved", "restored", "untouched"]],
     ["validated", ["auto"]],
     ["arbitrated", ["arbitrated", "url"]],
     ["failed", ["failed-write", "unresolved"]],
@@ -36,7 +37,7 @@ describe("recap filters", () => {
   })
 
   it.each<[string, TaggingTrack[], Record<RecapFilter, number>]>([
-    ["each filter with the same rule", RUN, { all: 6, validated: 1, arbitrated: 2, failed: 2 }],
+    ["each filter with the same rule", RUN, { all: 7, validated: 1, arbitrated: 2, failed: 2 }],
     [
       "nothing in the three filters for a fully restored run",
       [RESTORED, { ...RESTORED, trackId: "restored-2" }],

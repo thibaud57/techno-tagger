@@ -6,6 +6,7 @@ import { TableModule } from "primeng/table"
 import { Tooltip } from "primeng/tooltip"
 
 import { NativeService } from "../../../core/platform/native.service"
+import type { TrackState } from "../../../core/sidecar/protocol"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 import { ArtworkComponent } from "../../../shared/components/display/artwork.component"
 import { EmptyStateComponent } from "../../../shared/components/display/empty-state.component"
@@ -13,7 +14,10 @@ import { IconComponent } from "../../../shared/components/display/icon.component
 import { NoValueComponent } from "../../../shared/components/display/no-value.component"
 import { SkeletonRowsComponent } from "../../../shared/components/display/skeleton-rows.component"
 import { SourceLabelComponent } from "../../../shared/components/display/source-label.component"
-import { StateTagComponent } from "../../../shared/components/display/state-tag.component"
+import {
+  type RowStatus,
+  StateTagComponent,
+} from "../../../shared/components/display/state-tag.component"
 import { TruncatedTextComponent } from "../../../shared/components/display/truncated-text.component"
 import { joinIdentity, trackMainLine } from "../../../shared/utils/identity"
 import { type ReasonKeys, ReasonTextPipe, trackReasonKeys } from "../../../shared/utils/reason"
@@ -35,7 +39,20 @@ const ROW_HEIGHT = 56
  */
 const SCROLLER_OPTIONS = { numToleratedItems: MAX_DETAIL_SPAN + 1 }
 
+/**
+ * L'arbitrage en attente l'emporte sur l'etat recu ; sans etat, une ligne d'un run regle ne recevra
+ * plus rien.
+ */
+const rowStatus = (state: TrackState | null, arbitrable: boolean, settled: boolean): RowStatus => {
+  if (arbitrable) {
+    return "awaiting"
+  }
+
+  return state ?? (settled ? "not_processed" : "pending")
+}
+
 export interface RunRow extends TaggingTrack {
+  readonly status: RowStatus
   readonly mainLine: string
   readonly afterLine: string | null
   readonly artworkUrl: string | null
@@ -43,6 +60,7 @@ export interface RunRow extends TaggingTrack {
   readonly artworkPending: boolean
   readonly reason: ReasonKeys | null
   readonly arbitrable: boolean
+  /** Eligibilite envoyee par le sidecar, sur un run non fige, comme `arbitrable`. */
   readonly recoverable: boolean
   /** Morceau écrit ou en échec d'un run confirmé : le dump peut le rendre. */
   readonly restorable: boolean
@@ -90,8 +108,6 @@ export class RunListComponent {
   /** « folder » : dossier sans fichier audio ; « search » : filtre ou recherche du recapitulatif. */
   readonly emptyState = input<"folder" | "search">("folder")
   readonly interrupted = input(false)
-  /** Morceaux que le sidecar accepte de rattraper par lien : lus, jamais deduits ici (vides sur un run fige). */
-  readonly recoverable = input<ReadonlySet<string>>(new Set())
   /** Run confirme : plus aucune decision n'y entre, le sidecar les refuserait (`run_committed`). */
   readonly frozen = input(false)
   readonly restorableIds = input<ReadonlySet<string>>(new Set())
@@ -113,26 +129,27 @@ export class RunListComponent {
   private readonly expansions = new WeakMap<RunRow, readonly RenderRow[]>()
 
   /** Interrompu ou confirme : les lignes encore vides ne recevront plus rien. */
-  protected readonly settled = computed(() => this.interrupted() || this.frozen())
+  private readonly settled = computed(() => this.interrupted() || this.frozen())
   protected readonly empty = computed(() => this.tracks().length === 0)
   protected readonly tablePt = computed(() => fullHeightTable(this.empty()))
   /** Calculee ici et non dans le template, ou chaque cycle la rejouerait pour chaque ligne. */
   protected readonly rows = computed<RunRow[]>(() => {
     const frozen = this.frozen()
     const settled = this.settled()
-    const recoverableIds = this.recoverable()
     const restorableIds = this.restorableIds()
     const restoringTrackId = this.restoringTrackId()
 
     return this.tracks().map((track) => {
       const arbitrable = !frozen && track.arbitration !== null
-      const recoverable = recoverableIds.has(track.trackId)
+      const recoverable = !frozen && track.recoverable
       const restorable = restorableIds.has(track.trackId)
       const restoring = restoringTrackId === track.trackId
       const artworkPending = track.state === null && !settled
+      const status = rowStatus(track.state, arbitrable, settled)
       const cached = this.rowCache.get(track)
       if (
-        cached?.arbitrable === arbitrable &&
+        cached?.status === status &&
+        cached.arbitrable === arbitrable &&
         cached.recoverable === recoverable &&
         cached.restorable === restorable &&
         cached.restoring === restoring &&
@@ -142,6 +159,7 @@ export class RunListComponent {
       }
       const row: RunRow = {
         ...track,
+        status,
         mainLine: trackMainLine(track.artist, track.title, track.fileName),
         afterLine:
           track.after === null ? null : joinIdentity(track.after.artist, track.after.title),

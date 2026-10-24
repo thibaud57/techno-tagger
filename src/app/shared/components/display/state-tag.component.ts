@@ -6,18 +6,18 @@ import type { TrackResolution, TrackState } from "../../../core/sidecar/protocol
 
 import { IconComponent, type IconName } from "./icon.component"
 
+/** Les `state` du flux, plus les trois statuts qu'aucun evenement ne porte : la liste les calcule. */
+export type RowStatus = TrackState | "pending" | "awaiting" | "not_processed"
+
 interface StateStyle {
   readonly severity: TagSeverity
   readonly icon: IconName
   readonly label: string
 }
 
-/**
- * DESIGN.md § Couleurs Semantiques. « En attente » et « a arbitrer » ne correspondent a aucun
- * `state` : rien ne circule sur le flux tant qu'un morceau n'est pas tranche.
- */
+/** DESIGN.md § Couleurs Semantiques. */
 const PENDING: StateStyle = { severity: "secondary", icon: "clock", label: "tagging.state.pending" }
-/** Run interrompu : l'horloge promettrait une suite qui ne viendra pas. */
+/** Run interrompu ou confirme : l'horloge promettrait une suite qui ne viendra pas. */
 const NOT_PROCESSED: StateStyle = {
   ...PENDING,
   icon: "minus-circle",
@@ -70,17 +70,18 @@ const RESOLVED: Record<TrackResolution, StateStyle> = {
   host: { class: "inline-flex" },
 })
 export class StateTagComponent {
-  readonly state = input<TrackState | null>(null)
+  readonly status = input.required<RowStatus>()
   readonly resolution = input<TrackResolution | null>(null)
-  readonly awaiting = input(false)
-  readonly interrupted = input(false)
 
   protected readonly style = computed<StateStyle>(() => {
-    if (this.awaiting()) {
-      return AWAITING
-    }
-    const state = this.state()
-    switch (state) {
+    const status = this.status()
+    switch (status) {
+      case "awaiting":
+        return AWAITING
+      case "pending":
+        return PENDING
+      case "not_processed":
+        return NOT_PROCESSED
       // `written` garde le libelle de sa voie.
       case "resolved":
       case "written":
@@ -91,10 +92,8 @@ export class StateTagComponent {
         return WRITE_ERROR
       case "rolled_back":
         return ROLLED_BACK
-      case null:
-        return this.interrupted() ? NOT_PROCESSED : PENDING
       default: {
-        const exhaustive: never = state
+        const exhaustive: never = status
 
         return exhaustive
       }
