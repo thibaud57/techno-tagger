@@ -1,18 +1,14 @@
 """Chaque code d'erreur du sidecar a sa phrase dans les deux fichiers de langue."""
 
-import importlib
-import pkgutil
 from typing import TYPE_CHECKING, Final
 
 import pytest
+from error_codes import error_codes
 from repo_files import read_json
 
-import tagger
 from tagger.__main__ import BusyPhase
-from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason
 from tagger.playlists.extraction import DuplicateCriterion
-from tagger.protocol import API_KEY_MALFORMED, MALFORMED_COMMAND
 from tagger.run.models import FailureReason
 
 if TYPE_CHECKING:
@@ -30,18 +26,11 @@ def _section(language: str, path: tuple[str, ...]) -> dict[str, object]:
     return section
 
 
-def _codes(base: type[TaggerError]) -> set[str]:
-    return {base.code}.union(*(_codes(sub) for sub in base.__subclasses__()))
-
-
 @pytest.mark.parametrize("language", LANGUAGES, ids=LANGUAGES)
 def test_every_error_code_has_a_translation(language: str) -> None:
-    """Importe tous les modules : une erreur ajoutee ailleurs est couverte d'office."""
-    for module in pkgutil.walk_packages(tagger.__path__, "tagger."):
-        importlib.import_module(module.name)
     errors = _section(language, ("errors",))
 
-    missing = (_codes(TaggerError) | {MALFORMED_COMMAND, API_KEY_MALFORMED}) - errors.keys()
+    missing = error_codes() - errors.keys()
 
     assert not missing
 

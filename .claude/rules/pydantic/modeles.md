@@ -37,7 +37,7 @@ paths:
 - `extra="ignore"` est le défaut : sans `forbid`, une commande portant un champ en trop passe silencieusement
 - `model_dump(by_alias=True)` n'émet un alias que si le champ déclare `alias` ou `serialization_alias` ; un `validation_alias` seul garde le nom Python en sortie
 - `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON : jamais d'`indent` sur le flux, seulement dans un rapport déposé en fichier
-- Les types TypeScript sont maintenus à la main en miroir de `protocol.py` : tout changement de champ se répercute des deux côtés
+- Les types TypeScript sont maintenus à la main en miroir de `protocol.py` : tout changement de nom de champ, de valeur d'énumération ou de code d'erreur interprété se répercute des deux côtés, sinon `test_protocol_mirror.py` échoue (types et optionalité non comparés)
 - `strict=True` garde quelques coercions sûres : un `int` reste accepté pour un champ `float`
 - 2.14 : `model_config` n'est plus muté après la définition de la classe, et `ser_json_timedelta` ne s'applique plus aux autres types date en sérialisation inférée
 

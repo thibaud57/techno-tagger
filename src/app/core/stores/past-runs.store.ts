@@ -1,5 +1,6 @@
 import { signal, Service } from "@angular/core"
 
+import { errorRunId } from "../sidecar/error-params"
 import type { PastRun, RunLoadedEvent, SidecarErrorEvent, TrackLoaded } from "../sidecar/protocol"
 import type { TaggingTrack } from "./tagging-run.store"
 
@@ -79,8 +80,7 @@ export class PastRunsStore {
 
   /** Un refus de phase occupee ne porte pas de `run_id` : il vise le chargement en cours. */
   loadFailed(event: SidecarErrorEvent): void {
-    const target = event.params["run_id"]
-    const runId = typeof target === "string" ? target : this._loading()
+    const runId = errorRunId(event) ?? this._loading()
     if (runId === null) {
       return
     }

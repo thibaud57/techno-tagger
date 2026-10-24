@@ -1,8 +1,7 @@
-import re
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from repo_files import REPO
+from protocol_mirror import ts_score_scale
 from scraper_responses import track_candidate
 from tagging_records import QUERY, tags_query
 
@@ -23,8 +22,6 @@ if TYPE_CHECKING:
 
 # Plafond a 100 : seul un score parfait valide d'office.
 STRICT: Final = MatchingThresholds(floor=70, ceiling=100)
-# `SCORE_SCALE` y recopie l'echelle des seuils : rien ne la derive cote TypeScript.
-PROTOCOL_TS: Final = REPO / "src/app/core/sidecar/protocol.ts"
 
 
 @pytest.mark.parametrize(
@@ -455,7 +452,7 @@ def test_rejects_inconsistent_thresholds(floor: float, ceiling: float) -> None:
 
 
 def test_accepts_the_whole_score_scale_the_interface_mirrors() -> None:
-    low, high = _mirrored_score_scale()
+    low, high = ts_score_scale()
 
     thresholds = MatchingThresholds(floor=low, ceiling=high)
 
@@ -466,14 +463,7 @@ def test_accepts_the_whole_score_scale_the_interface_mirrors() -> None:
 def test_rejects_thresholds_beyond_the_score_scale_the_interface_mirrors(
     below: int, above: int
 ) -> None:
-    low, high = _mirrored_score_scale()
+    low, high = ts_score_scale()
 
     with pytest.raises(ValueError, match="inconsistent thresholds"):
         MatchingThresholds(floor=low - below, ceiling=high + above)
-
-
-def _mirrored_score_scale() -> tuple[int, int]:
-    source = PROTOCOL_TS.read_text(encoding="utf-8")
-    scale = re.search(r"SCORE_SCALE = \{ min: (\d+), max: (\d+) \}", source)
-    assert scale is not None
-    return int(scale[1]), int(scale[2])

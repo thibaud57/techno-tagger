@@ -18,6 +18,7 @@ import { ButtonDirective } from "primeng/button"
 import { Dialog } from "primeng/dialog"
 import { Listbox, type ListBoxPassThrough } from "primeng/listbox"
 
+import { errorTrackId } from "../../../core/sidecar/error-params"
 import type {
   ArbitrationState,
   CandidatePayload,
@@ -145,7 +146,7 @@ export class ArbitrationDialogComponent {
   protected readonly error = computed(() => {
     const error = this.gestureError()
 
-    return error !== null && error.params["track_id"] === this.current()?.track_id ? error : null
+    return error !== null && errorTrackId(error) === this.current()?.track_id ? error : null
   })
 
   /** La selection repart de zero a chaque morceau et a chaque liste affichee. */

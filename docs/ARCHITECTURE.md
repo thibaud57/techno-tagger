@@ -60,7 +60,7 @@ La frontière UI ↔ métier est un protocole NDJSON sur les flux standard, trai
 
 ### Type de Repo
 
-Monolithe. Dépôt unique `techno-tagger`, trois zones : `src/` (Angular), `sidecar/` (Python), `src-tauri/` (Rust). Pas de workspace, pas de packages partagés : les types TypeScript du contrat NDJSON sont maintenus à la main en miroir des modèles Python.
+Monolithe. Dépôt unique `techno-tagger`, trois zones : `src/` (Angular), `sidecar/` (Python), `src-tauri/` (Rust). Pas de workspace, pas de packages partagés : les types TypeScript du contrat NDJSON sont maintenus à la main en miroir des modèles Python, gardés par un test de cohérence côté sidecar (`test_protocol_mirror.py`).
 
 ### Package Manager
 
@@ -407,7 +407,7 @@ Deux réglages ne passent pas par un plugin :
 
 | Dossier | Contenu |
 |---|---|
-| `core/sidecar/` | `sidecar.service.ts` (flux NDJSON), `sidecar-transport.ts` (frontière Tauri, remplacée en test), `protocol.ts` (types miroir du contrat, maintenus à la main) |
+| `core/sidecar/` | `sidecar.service.ts` (flux NDJSON), `sidecar-transport.ts` (frontière Tauri, remplacée en test), `protocol.ts` (types miroir du contrat, maintenus à la main), `error-params.ts` (accesseurs typés des `params` d'une erreur) |
 | `core/stores/` | Un store signal par domaine du contrat : `tagging-run`, `arbitration`, `url-recovery`, `write`, `resume`, `past-runs`. Le service sidecar les alimente, les écrans les lisent |
 | `core/platform/` | Fenêtre et garde de fermeture, signal sonore de fin, thème PrimeNG, onglets, mise à jour de l'application ; seuls accès aux plugins Tauri : `PreferencesService` (préférences du `store`), `NativeService` (dialogues, ouverture, révélation, URL d'asset), `APP_UPDATER` (vérification et installation d'une mise à jour) et `APP_WINDOW` (réduire, agrandir, fermer, détruire, écouter la demande de fermeture et le redimensionnement) |
 | `core/i18n/` | Choix de langue et spec de cohérence des deux JSON de `public/i18n/` |
@@ -1076,7 +1076,7 @@ Décisions tranchées ne justifiant pas un ADR à part entière.
 - **Formats de playlist : VLC SQLite + M3U8**, pas le TXT Rekordbox. Le M3U8 couvre Rekordbox, Traktor, foobar et VLC desktop avec un seul parser ; le TXT dépend de la langue d'export, donc fragile. Le dump SQLite est incontournable côté VLC Android, qui **n'a aucune fonction d'export de playlist** : les scripts tiers type `vlc-to-m3u` ne font rien d'autre que lire cette base.
 - **Copie par défaut, déplacement en option.** La bibliothèque source reste intacte pendant que le re-tagging réécrit les fichiers de destination. Une ligne de différence à l'implémentation.
 - **Dépôt neuf plutôt qu'évolution de `BeatportScrapper-TrackTagger`.** La CLI sert de référence à lire, rien n'est porté tel quel, son arborescence à plat ne correspond pas à la structure Tauri.
-- **Types TypeScript maintenus à la main** en miroir de `protocol.py`, sans génération de code (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md)).
+- **Types TypeScript maintenus à la main** en miroir de `protocol.py`, sans génération de code (cf. [ADR-005](adrs/005-sidecar-python-protocole-ndjson.md)) : `test_protocol_mirror.py` compare noms de champs, valeurs d'énumération et codes d'erreur interprétés par l'interface.
 
 ## Questions ouvertes
 

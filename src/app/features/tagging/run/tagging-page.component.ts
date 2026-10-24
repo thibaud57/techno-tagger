@@ -6,6 +6,8 @@ import { Tooltip } from "primeng/tooltip"
 
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"
+import { errorRunId, errorTrackId } from "../../../core/sidecar/error-params"
+import type { SidecarErrorEvent } from "../../../core/sidecar/protocol"
 import { SidecarService, type RunAction } from "../../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
@@ -215,7 +217,7 @@ export default class TaggingPageComponent {
   protected readonly error = computed(() => {
     const error = this.commandError()
 
-    return error?.command === "rollback" && this.namesAnotherRun(error.params) ? null : error
+    return error?.command === "rollback" && this.namesAnotherRun(error) ? null : error
   })
   protected readonly percentage = computed(() => progressPercentage(this.progress()))
   protected readonly recovery = this.sidecar.urlRecoveryProgress
@@ -299,13 +301,14 @@ export default class TaggingPageComponent {
     void this.router.navigateByUrl("/tagging/recap")
   }
 
-  private namesAnotherRun(params: Readonly<Record<string, unknown>>): boolean {
-    const { run_id: runId, track_id: trackId } = params
-    if (typeof runId === "string") {
+  private namesAnotherRun(error: SidecarErrorEvent): boolean {
+    const runId = errorRunId(error)
+    if (runId !== null) {
       return runId !== this.sidecar.taggingRunId()
     }
+    const trackId = errorTrackId(error)
 
-    return typeof trackId === "string" && !this.tracks().some((track) => track.trackId === trackId)
+    return trackId !== null && !this.tracks().some((track) => track.trackId === trackId)
   }
 
   private t(key: string, params?: Record<string, unknown>): string {
