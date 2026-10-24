@@ -7,11 +7,12 @@ from typing import TYPE_CHECKING, ClassVar, override
 from tagger.core.errors import TaggerError
 from tagger.resolution.scraper_client import ScraperError
 from tagger.run.gestures import InFlight
-from tagger.run.models import Resolution, TrackResolved, TrackState
+from tagger.run.models import Resolution, Resolved, Retained, TrackResolved
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from tagger.core.identifiers import TrackId
     from tagger.resolution.sources import RunSources
     from tagger.run.models import LiveRun, TrackRecord
 
@@ -32,7 +33,7 @@ type UrlRecoveryEvent = TrackResolved | UrlProgress
 class UrlRecoveryError(TaggerError):
     code: ClassVar[str] = "url_recovery_error"
 
-    def __init__(self, message: str, track_id: str) -> None:
+    def __init__(self, message: str, track_id: TrackId) -> None:
         super().__init__(message, track_id=track_id)
 
 
@@ -41,14 +42,14 @@ class UrlRecoveryNotEligibleError(UrlRecoveryError):
 
     code: ClassVar[str] = "url_recovery_not_eligible"
 
-    def __init__(self, track_id: str) -> None:
+    def __init__(self, track_id: TrackId) -> None:
         super().__init__("track not eligible for url recovery", track_id)
 
 
 class UrlRecoveryBusyError(UrlRecoveryError):
     code: ClassVar[str] = "url_recovery_busy"
 
-    def __init__(self, track_id: str) -> None:
+    def __init__(self, track_id: TrackId) -> None:
         super().__init__("a url is already being resolved for this track", track_id)
 
 
@@ -57,7 +58,7 @@ class UrlRecoveryNotOpenError(UrlRecoveryError):
 
     code: ClassVar[str] = "url_recovery_not_open"
 
-    def __init__(self, track_id: str) -> None:
+    def __init__(self, track_id: TrackId) -> None:
         super().__init__("url recovery is not open", track_id)
 
 
@@ -79,7 +80,7 @@ class UrlRecovery:
     def __repr__(self) -> str:
         return f"UrlRecovery(run_id={self._live.run_id!r}, busy={self._in_flight.count})"
 
-    async def resolve(self, track_id: str, url: str) -> None:
+    async def resolve(self, track_id: TrackId, url: str) -> None:
         """Resout le morceau depuis `url` ; un echec laisse le morceau tel qu'il etait."""
         record = self._eligible(track_id)
         position = self._live.position(track_id)
@@ -102,7 +103,8 @@ class UrlRecovery:
             position,
             candidate.source,
         )
-        resolved = record.resolved(Resolution.URL, candidate.source, candidate, None, artwork)
+        retained = Retained(Resolution.URL, candidate.source, candidate, None, artwork)
+        resolved = record.with_outcome(Resolved(record.query, retained))
         self._live.update(resolved)
         self._on_event(TrackResolved(resolved))
         self._on_event(self.progress())
@@ -111,18 +113,17 @@ class UrlRecovery:
         """Calcule et non compte : une correction ne compte pas deux fois, un refus
         d'arbitrage tardif entre dans le total sans compteur a tenir en phase."""
         tracks = self._live.snapshot().tracks
-        recovered = sum(1 for record in tracks if _recovered(record))
-        waiting = sum(1 for record in tracks if record.state is TrackState.UNRESOLVED)
-        return UrlProgress(processed=recovered, total=recovered + waiting)
+        recovered = sum(
+            1
+            for record in tracks
+            if isinstance(record.outcome, Resolved) and record.outcome.retained.by_url
+        )
+        return UrlProgress(processed=recovered, total=sum(record.recoverable for record in tracks))
 
-    def _eligible(self, track_id: str) -> TrackRecord:
+    def _eligible(self, track_id: TrackId) -> TrackRecord:
         """Non resolu, ou deja resolu par URL : recoller corrige un mauvais lien."""
         self._in_flight.check(track_id)
         record = self._live.record(track_id)
-        if record is None or not (record.state is TrackState.UNRESOLVED or _recovered(record)):
+        if record is None or not record.recoverable:
             raise UrlRecoveryNotEligibleError(track_id)
         return record
-
-
-def _recovered(record: TrackRecord) -> bool:
-    return record.state is TrackState.RESOLVED and record.resolution is Resolution.URL

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Final, get_args
 import pytest
 from mirrors import assert_same_fields
 from pydantic import ValidationError
+from tagging_records import FIRST_TRACK
 
 from tagger.core.file_failures import FileFailureReason
 from tagger.playlists.errors import PlaylistNotFoundError
@@ -143,7 +144,7 @@ def test_a_failure_reason_serialises_as_its_plain_name(
 ) -> None:
     event = TrackResolved(
         event="track_resolved",
-        track_id="a.mp3",
+        track_id=FIRST_TRACK,
         state=TrackState.WRITE_ERROR,
         resolution=Resolution.AUTO,
         failure_reason=reason,

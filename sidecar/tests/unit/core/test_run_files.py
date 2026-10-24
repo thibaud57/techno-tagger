@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from fs_listing import names
 from stubs import raising
-from tagging_records import CREATED, RUN_ID
+from tagging_records import CREATED, FOURTH_RUN_ID, RUN_ID, SECOND_RUN_ID, THIRD_RUN_ID
 
 from tagger.core.run_files import (
     created_at_of,
@@ -44,13 +44,13 @@ def test_reads_no_time_on_a_name_that_is_not_stamped(tmp_path: Path) -> None:
 
 
 def test_lists_the_newest_files_first_and_skips_the_other_names(tmp_path: Path) -> None:
-    oldest = tmp_path / stamped_name(CREATED - timedelta(days=2), "1b2c3d", ".json")
-    newest = tmp_path / stamped_name(CREATED, "4d5e6f", ".json")
+    oldest = tmp_path / stamped_name(CREATED - timedelta(days=2), THIRD_RUN_ID, ".json")
+    newest = tmp_path / stamped_name(CREATED, FOURTH_RUN_ID, ".json")
     for path in (
         oldest,
         newest,
         tmp_path / "notes.json",
-        tmp_path / stamped_name(CREATED, "x", ".tmp"),
+        tmp_path / stamped_name(CREATED, SECOND_RUN_ID, ".tmp"),
     ):
         path.write_text("{}", encoding="utf-8")
 

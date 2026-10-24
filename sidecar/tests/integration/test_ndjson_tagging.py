@@ -7,15 +7,14 @@ from ndjson_loop import drive, line, rows, start_tagging, sub
 from scraper_responses import BASIEL, YOUR_MIND, failing, found, track_payload
 from tagging_api import (
     BEATPORT_SEARCH,
-    FIRST_TRACK,
     ORIGINAL,
     ORIGINAL_REFETCH,
-    SECOND_TRACK,
     FakeApi,
     basiel,
     knows_your_mind,
     three_tracks,
 )
+from tagging_records import FIRST_TRACK, SECOND_TRACK
 from unencodable_names import UNENCODABLE_NAME
 
 from tagger.tags.files import TAG_FIELDS

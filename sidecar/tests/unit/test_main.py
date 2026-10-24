@@ -17,7 +17,7 @@ import pytest
 from log_capture import messages_of
 from repo_files import REPO, read_json, read_toml
 from run_plans import plan_of, save_plan
-from tagging_records import RECORD
+from tagging_records import RECORD, SECOND_RUN_ID
 
 from tagger import APP_NAME, BUNDLE_IDENTIFIER, RELEASE, REPOSITORY_URL, __main__, __version__
 from tagger.core.observability import SELFTEST_ENV
@@ -169,7 +169,7 @@ def test_the_startup_purge_removes_the_plans_older_than_thirty_days(tmp_path: Pa
 @pytest.mark.usefixtures("app_data")
 def test_the_startup_purge_removes_the_feedback_exports_older_than_thirty_days() -> None:
     expired = feedback_dir() / stamped_name(
-        datetime.now(UTC) - timedelta(days=31), "a1b2c3", ".json"
+        datetime.now(UTC) - timedelta(days=31), SECOND_RUN_ID, ".json"
     )
     expired.parent.mkdir(parents=True)
     expired.write_text("{}", encoding="utf-8")

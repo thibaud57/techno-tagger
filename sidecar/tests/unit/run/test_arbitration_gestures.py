@@ -14,11 +14,14 @@ from tagging_api import (
     cancelled,
     hold_on_beatport,
     hold_with_bandcamp_fallback,
+    must_be,
     must_record,
+    must_record_as,
     networked_run,
     one_track,
     two_tracks,
 )
+from tagging_records import FIRST_TRACK, SECOND_TRACK, THIRD_TRACK, UNKNOWN_TRACK
 
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
 from tagger.resolution.scraper_client import Source
@@ -29,7 +32,15 @@ from tagger.run.arbitration import (
     ArbitrationNotPendingError,
     ArbitrationUpdated,
 )
-from tagger.run.models import FailureReason, Resolution, TrackResolved, TrackState
+from tagger.run.models import (
+    AwaitingArbitration,
+    FailureReason,
+    Resolution,
+    Resolved,
+    TrackResolved,
+    TrackState,
+    Unresolved,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -38,14 +49,15 @@ if TYPE_CHECKING:
     from scraper_responses import Reply
     from tagging_api import OpenedRun
 
+    from tagger.core.identifiers import TrackId
     from tagger.run.arbitration import ArbitrationEvent
     from tagger.run.models import PendingArbitration
 
-    type Gesture = Callable[[Arbitration, str], Awaitable[None]]
+    type Gesture = Callable[[Arbitration, TrackId], Awaitable[None]]
 
 pytestmark = pytest.mark.asyncio
 
-COPIES: Final = ("a.mp3", "b.mp3", "c.mp3")
+COPIES: Final = (FIRST_TRACK, SECOND_TRACK, THIRD_TRACK)
 STRANGER: Final = basiel(id="43", source="bandcamp", mix_name=None)
 
 
@@ -67,24 +79,22 @@ async def _arbitrating(
 
 
 def _shown(opened: OpenedRun) -> PendingArbitration:
-    record = must_record(opened.live, ONE_TRACK)
-    assert record.arbitration is not None
-    return record.arbitration
+    return must_record_as(opened.live, ONE_TRACK, AwaitingArbitration).outcome.pending
 
 
 def _bandcamp_searches(api: FakeApi) -> int:
     return api.paths().count("/bandcamp/search")
 
 
-async def _choose(arbitration: Arbitration, track_id: str) -> None:
+async def _choose(arbitration: Arbitration, track_id: TrackId) -> None:
     await arbitration.choose(track_id, Source.BEATPORT, 0)
 
 
-async def _refuse(arbitration: Arbitration, track_id: str) -> None:
+async def _refuse(arbitration: Arbitration, track_id: TrackId) -> None:
     await arbitration.refuse(track_id, Source.BEATPORT)
 
 
-async def _show(arbitration: Arbitration, track_id: str) -> None:
+async def _show(arbitration: Arbitration, track_id: TrackId) -> None:
     arbitration.show(track_id, Source.BANDCAMP)
 
 
@@ -109,22 +119,22 @@ async def test_resolves_a_track_by_arbitration_with_the_refetched_candidate_and_
         await arbitration.choose(ONE_TRACK, Source.BEATPORT, 1)
 
         record = must_record(opened.live, ONE_TRACK)
-    assert (record.state, record.resolution, record.source, record.arbitration) == (
+    resolved = must_be(record, Resolved)
+    retained = resolved.outcome.retained
+    assert (record.state, record.resolution, retained.source) == (
         TrackState.RESOLVED,
         Resolution.ARBITRATION,
         Source.BEATPORT,
-        None,
     )
-    assert record.candidate is not None
-    assert record.candidate.isrc == "REFETCHED"
-    assert record.artwork is not None
-    assert events == [TrackResolved(record)]
+    assert retained.candidate.isrc == "REFETCHED"
+    assert retained.artwork is not None
+    assert events == [TrackResolved(resolved)]
 
 
 @each_gesture
-@pytest.mark.parametrize("track_id", ["ghost.mp3", ONE_TRACK], ids=["unknown", "resolved"])
+@pytest.mark.parametrize("track_id", [UNKNOWN_TRACK, ONE_TRACK], ids=["unknown", "resolved"])
 async def test_rejects_a_gesture_on_a_track_that_is_unknown_or_already_resolved(
-    tmp_path: Path, gesture: Gesture, track_id: str
+    tmp_path: Path, gesture: Gesture, track_id: TrackId
 ) -> None:
     api = FakeApi()
     api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
@@ -208,10 +218,10 @@ async def test_calls_bandcamp_once_and_shows_its_list_when_beatport_is_refused(
     async with _arbitrating(one_track(tmp_path), api, events) as (opened, arbitration):
         await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
 
-        record = must_record(opened.live, ONE_TRACK)
-    assert record.arbitration is not None
-    assert record.arbitration.source is Source.BANDCAMP
-    assert [entry.candidate.id for entry in record.arbitration.candidates] == ["42"]
+        record = must_record_as(opened.live, ONE_TRACK, AwaitingArbitration)
+    pending = record.outcome.pending
+    assert pending.source is Source.BANDCAMP
+    assert [entry.candidate.id for entry in pending.candidates] == ["42"]
     assert events == [ArbitrationUpdated(record)]
     assert _bandcamp_searches(api) == 1
 
@@ -225,10 +235,8 @@ async def test_keeps_a_bandcamp_candidate_above_the_ceiling_in_the_list_after_a_
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
         await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
 
-        record = must_record(opened.live, ONE_TRACK)
-        assert record.state is None
-        assert record.arbitration is not None
-        assert record.arbitration.candidates[0].score >= DEFAULT_THRESHOLDS.ceiling
+        shown = _shown(opened)
+        assert shown.candidates[0].score >= DEFAULT_THRESHOLDS.ceiling
 
 
 async def test_shows_the_beatport_list_again_without_calling_any_source(tmp_path: Path) -> None:
@@ -277,12 +285,11 @@ async def test_leaves_a_track_unresolved_as_user_refused_when_bandcamp_is_refuse
 
         await arbitration.refuse(ONE_TRACK, Source.BANDCAMP)
 
-        record = must_record(opened.live, ONE_TRACK)
-    assert (record.state, record.resolution, record.failure_reason, record.arbitration) == (
+        record = must_record_as(opened.live, ONE_TRACK, Unresolved)
+    assert (record.state, record.resolution, record.failure_reason) == (
         TrackState.UNRESOLVED,
         Resolution.NONE,
         FailureReason.USER_REFUSED,
-        None,
     )
     assert events[-1] == TrackResolved(record)
 
@@ -372,8 +379,8 @@ async def test_leaves_the_bandcamp_list_empty_as_source_unavailable_when_the_key
         records = [opened.live.record(name) for name in COPIES]
     assert all(
         record is not None
-        and record.arbitration is not None
-        and record.arbitration.empty_reason is FailureReason.SOURCE_UNAVAILABLE
+        and isinstance(record.outcome, AwaitingArbitration)
+        and record.outcome.pending.empty_reason is FailureReason.SOURCE_UNAVAILABLE
         for record in records
     )
 
@@ -389,19 +396,19 @@ async def test_keeps_the_search_candidate_when_the_key_is_rejected_on_choice(
     events: list[ArbitrationEvent] = []
 
     async with _arbitrating(_copies(music_folder), api, events) as (opened, arbitration):
-        await arbitration.refuse("a.mp3", Source.BEATPORT)
-        await arbitration.refuse("b.mp3", Source.BEATPORT)
+        await arbitration.refuse(FIRST_TRACK, Source.BEATPORT)
+        await arbitration.refuse(SECOND_TRACK, Source.BEATPORT)
 
-        await arbitration.choose("c.mp3", Source.BEATPORT, 1)
+        await arbitration.choose(THIRD_TRACK, Source.BEATPORT, 1)
 
-        record = must_record(opened.live, "c.mp3")
-    assert (record.state, record.resolution, record.artwork) == (
+        record = must_record_as(opened.live, THIRD_TRACK, Resolved)
+    retained = record.outcome.retained
+    assert (record.state, retained.resolution, retained.artwork) == (
         TrackState.RESOLVED,
         Resolution.ARBITRATION,
         None,
     )
-    assert record.candidate is not None
-    assert record.candidate.id == "2"
+    assert retained.candidate.id == "2"
     assert events[-1] == TrackResolved(record)
 
 
@@ -418,14 +425,13 @@ async def test_refuses_one_track_while_another_refusal_waits_for_bandcamp(
     slow = api.gate("/bandcamp/search", YOUR_MIND)
 
     async with _arbitrating(two_tracks(tmp_path), api) as (opened, arbitration):
-        first = asyncio.create_task(arbitration.refuse("a.mp3", Source.BEATPORT), name="first")
+        first = asyncio.create_task(arbitration.refuse(FIRST_TRACK, Source.BEATPORT), name="first")
         await slow.wait_reached()
 
-        await arbitration.refuse("b.mp3", Source.BEATPORT)
+        await arbitration.refuse(SECOND_TRACK, Source.BEATPORT)
 
-        other = must_record(opened.live, "b.mp3")
-        assert other.arbitration is not None
-        assert other.arbitration.source is Source.BANDCAMP
+        other = must_record_as(opened.live, SECOND_TRACK, AwaitingArbitration)
+        assert other.outcome.pending.source is Source.BANDCAMP
         assert not first.done()
         slow.release.set()
         await first

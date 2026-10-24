@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 from pydantic import BaseModel, ValidationError
 
+from tagger.core.identifiers import RunId
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
@@ -31,7 +33,7 @@ class Unreadable(Protocol):
     def __call__(self, path: Path, found: int | str | None = None, /) -> Exception: ...
 
 
-def stamped_name(created_at: datetime, run_id: str, suffix: str) -> str:
+def stamped_name(created_at: datetime, run_id: RunId, suffix: str) -> str:
     """`<horodatage UTC>-<run_id><suffix>`, quel que soit le decalage de `created_at`."""
     stamp = created_at.astimezone(UTC).strftime(TIMESTAMP_FORMAT)
     return f"{stamp}-{run_id}{suffix}"
@@ -46,10 +48,10 @@ def created_at_of(path: Path) -> datetime | None:
         return None
 
 
-def run_id_of(path: Path) -> str:
+def run_id_of(path: Path) -> RunId:
     """Identifiant du run, quel que soit le suffixe du fichier (`.json`, `.tmp`, journal)."""
     _, _, run_id = path.name.partition("-")
-    return run_id.partition(".")[0]
+    return RunId(run_id.partition(".")[0])
 
 
 def newest_first(folder: Path, suffix: str) -> list[Path]:
@@ -60,7 +62,7 @@ def newest_first(folder: Path, suffix: str) -> list[Path]:
     return sorted(stamped, reverse=True)
 
 
-def find_by_run_id(folder: Path, suffix: str, run_id: str) -> Path | None:
+def find_by_run_id(folder: Path, suffix: str, run_id: RunId) -> Path | None:
     """Fichier d'un run ; compare, jamais glob : un `*` designerait tout."""
     return next((path for path in newest_first(folder, suffix) if run_id_of(path) == run_id), None)
 

@@ -3,13 +3,24 @@
 import asyncio
 import json
 from contextlib import AsyncExitStack
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import pytest
+from audio_samples import tagged_mp3
 from ndjson_loop import extraction_command
 from pydantic import ValidationError
 from stubs import ignore
-from tagging_api import FakeApi, one_track, opened_run
+from tagging_api import FakeApi, must_record, must_record_as, one_track, opened_run
+from tagging_records import (
+    CREATED,
+    FIRST_TRACK,
+    RECORD,
+    RUN_ID,
+    resolved,
+    write_failed_record,
+    written_record,
+)
 from vlc_dump import PLAYLIST_MAIN, PLAYLIST_OTHER, TRACKS
 
 from tagger import __version__
@@ -19,18 +30,35 @@ from tagger.handlers import (
     handle_extract_playlist,
     handle_get_version,
     handle_list_playlists,
+    handle_rollback,
     handle_set_api_key,
     tagging_transports,
 )
-from tagger.protocol import ExtractPlaylist, ListPlaylists, Phase, Progress, SetApiKey
+from tagger.protocol import (
+    ExtractPlaylist,
+    ListPlaylists,
+    Phase,
+    Progress,
+    Rollback,
+    RollbackFinished,
+    SetApiKey,
+    TrackResolved,
+)
 from tagger.resolution.cache import resolve_host
 from tagger.run.arbitration import Arbitration
+from tagger.run.models import LiveRun, Resolved
 from tagger.run.url_recovery import UrlRecovery
+from tagger.tags.files import read_original_tags
+from tagger.tags.tag_dump import DumpEntry, TagDump, dump_dir, save_entries
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from memory_keyring import MemoryKeyring
+
+    from tagger.protocol import Event
+    from tagger.run.models import TrackRecord
 
 
 def extract_command(library: Path, dump: Path, destination: Path) -> ExtractPlaylist:
@@ -195,3 +223,61 @@ async def test_closes_the_client_even_when_closing_is_cancelled(tmp_path: Path) 
             await close_task
 
     assert closed
+
+
+def _dumped_run(folder: Path) -> LiveRun:
+    """Run dont le seul morceau, resolu, a une entree au dump : comme apres une ecriture."""
+    path = tagged_mp3(folder, FIRST_TRACK, "adam beyer", "your mind")
+    run = TagDump(run_id=RUN_ID, created_at=CREATED, folder=folder)
+    save_entries(dump_dir(), run, {FIRST_TRACK: DumpEntry.of(path, read_original_tags(path))})
+    return LiveRun(RUN_ID, folder, [resolved(replace(RECORD, path=path))])
+
+
+async def _rolled_back(live: LiveRun) -> tuple[RollbackFinished, list[Event]]:
+    events: list[Event] = []
+    command = Rollback(command="rollback", run_id=RUN_ID)
+
+    return await handle_rollback(command, live, events.append), events
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("app_data")
+async def test_skips_the_displayed_track_of_a_dump_entry_it_never_wrote(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    live = _dumped_run(tmp_path / "music")
+    before = live.record(FIRST_TRACK)
+
+    finished, events = await _rolled_back(live)
+
+    assert finished.restored == (FIRST_TRACK,)
+    assert (events, live.record(FIRST_TRACK)) == ([], before)
+    assert (
+        "rollback entry on a track not written run=a3f9c1 track=1 status=resolved "
+        "reason=not_written"
+    ) in caplog.messages
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("app_data")
+@pytest.mark.parametrize(
+    "settle",
+    [
+        written_record,
+        lambda record: write_failed_record(record, restorable=True),
+    ],
+    ids=["written", "write-failed"],
+)
+async def test_stops_offering_a_restore_for_an_entry_forgotten_without_one(
+    tmp_path: Path, settle: Callable[[TrackRecord[Resolved]], TrackRecord]
+) -> None:
+    live = _dumped_run(tmp_path / "music")
+    settled = settle(must_record_as(live, FIRST_TRACK, Resolved))
+    live.update(settled)
+    settled.path.unlink()
+
+    _finished, events = await _rolled_back(live)
+
+    forgotten = must_record(live, FIRST_TRACK)
+    assert (forgotten.state, forgotten.restorable) == (settled.state, False)
+    assert [event.restorable for event in events if isinstance(event, TrackResolved)] == [False]

@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, unquote_plus, urlsplit
 import pytest
 from fs_listing import files
 from repo_files import REPO
-from tagging_records import CREATED, RUN_ID
+from tagging_records import CREATED, RUN_ID, SECOND_RUN_ID, THIRD_RUN_ID
 from tagging_report_samples import COMMENT, HOME_FOLDER, report_of, report_track
 
 from tagger import RELEASE, REPOSITORY_URL
@@ -138,8 +138,8 @@ def test_the_purge_removes_an_export_past_the_retention_and_keeps_a_recent_one(
     tmp_path: Path,
 ) -> None:
     now = datetime(2026, 10, 16, 9, 0, tzinfo=UTC)
-    expired = tmp_path / stamped_name(now - timedelta(days=31), "a1b2c3", ".json")
-    recent = tmp_path / stamped_name(now - timedelta(days=2), "d4e5f6", ".json")
+    expired = tmp_path / stamped_name(now - timedelta(days=31), SECOND_RUN_ID, ".json")
+    recent = tmp_path / stamped_name(now - timedelta(days=2), THIRD_RUN_ID, ".json")
     for path in (expired, recent):
         path.write_text("{}", encoding="utf-8")
 

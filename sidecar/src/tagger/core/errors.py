@@ -5,7 +5,10 @@ serialise l'evenement `error` du protocole NDJSON, l'interface se chargeant de l
 traduction (cf. ARCHITECTURE.md § API). Le message reste en anglais, pour les logs.
 """
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from tagger.core.identifiers import RunId
 
 
 class TaggerError(Exception):
@@ -21,5 +24,5 @@ class RunNotFoundError(TaggerError):
 
     code: ClassVar[str] = "run_not_found"
 
-    def __init__(self, run_id: str) -> None:
+    def __init__(self, run_id: RunId) -> None:
         super().__init__(f"run not found: {run_id}", run_id=run_id)

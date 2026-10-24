@@ -23,6 +23,7 @@ from pydantic import (
 )
 
 from tagger.core.file_failures import FileFailureReason
+from tagger.core.identifiers import RunId, TrackId
 from tagger.playlists import PlaylistFormat
 from tagger.playlists.extraction import DuplicateCriterion, ExtractionMode
 from tagger.resolution.matching import MatchingThresholds, check_thresholds
@@ -141,7 +142,7 @@ class ResolveArbitration(Command):
     n'est plus la liste affichee (double clic apres bascule)."""
 
     command: Literal["resolve_arbitration"]
-    track_id: str
+    track_id: TrackId
     source: SearchSource
     candidate: Annotated[int, Field(ge=0)] | None
 
@@ -150,7 +151,7 @@ class SwitchArbitrationSource(Command):
     """Reaffiche la liste deja obtenue de `source`, sans appel reseau."""
 
     command: Literal["switch_arbitration_source"]
-    track_id: str
+    track_id: TrackId
     source: SearchSource
 
 
@@ -158,7 +159,7 @@ class ResolveByUrl(Command):
     """URL collee sur un morceau en fin de run ; sa forme est jugee par le client."""
 
     command: Literal["resolve_by_url"]
-    track_id: str
+    track_id: TrackId
     url: Annotated[str, Field(min_length=1)]
 
 
@@ -166,14 +167,14 @@ class CommitRun(Command):
     """Confirmation globale : le point de non-retour, avant lequel aucun tag n'est ecrit."""
 
     command: Literal["commit_run"]
-    run_id: str
+    run_id: RunId
 
 
 class RetryWrite(Command):
     """Rejoue l'ecriture des seuls morceaux en echec, sans reseau ni arbitrage."""
 
     command: Literal["retry_write"]
-    run_id: str
+    run_id: RunId
 
 
 class GetRollbackTarget(Command):
@@ -198,8 +199,8 @@ class Rollback(Command):
     """Restaure un run entier depuis son dump, ou son seul morceau `track_id`."""
 
     command: Literal["rollback"]
-    run_id: str
-    track_id: str | None = None
+    run_id: RunId
+    track_id: TrackId | None = None
 
 
 class GetInterruptedRun(Command):
@@ -212,14 +213,14 @@ class DiscardRun(Command):
     """Repartir de zero : le plan part, l'annonce suivante dit s'il en reste un autre."""
 
     command: Literal["discard_run"]
-    run_id: str
+    run_id: RunId
 
 
 class ResumeRun(Command):
     """Reprend le run interrompu annonce : decisions rendues, seuls les restants partent."""
 
     command: Literal["resume_run"]
-    run_id: str
+    run_id: RunId
 
 
 class ListRuns(Command):
@@ -232,14 +233,14 @@ class LoadRun(Command):
     """Rouvre le recapitulatif d'un run passe depuis son rapport, sans rien rejouer."""
 
     command: Literal["load_run"]
-    run_id: str
+    run_id: RunId
 
 
 class PrepareFeedback(Command):
     """Prepare l'issue de retour d'un run, courant ou passe : export ecrit, URL construite."""
 
     command: Literal["prepare_feedback"]
-    run_id: str
+    run_id: RunId
 
 
 type AnyCommand = Annotated[
@@ -463,7 +464,7 @@ class TrackEntry(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    track_id: str
+    track_id: TrackId
     file_name: str
     artist: str
     title: str
@@ -476,7 +477,7 @@ class RunStarted(Event):
     """
 
     event: Literal["run_started"]
-    run_id: str
+    run_id: RunId
     folder: Path
     tracks: tuple[TrackEntry, ...]
 
@@ -504,7 +505,7 @@ class TrackResolved(Event):
     """Etat d'un morceau en trois champs, jamais en une valeur plate."""
 
     event: Literal["track_resolved"]
-    track_id: str
+    track_id: TrackId
     state: TrackState
     resolution: Resolution
     failure_reason: TrackFailureReason | None = None
@@ -516,6 +517,8 @@ class TrackResolved(Event):
     tags_after: tuple[TagValuePayload, ...] | None = None
     # Vrai quand le dump du run porte l'origine du morceau : un rollback peut le rendre.
     restorable: bool = False
+    # Eligibilite du morceau seule : phase ouverte et run non confirme sont des conditions a part.
+    recoverable: bool = False
     # Lien vers la fiche source, donnee de navigation : jamais lu dans les lignes du detail.
     source_url: str | None = None
 
@@ -537,7 +540,7 @@ class ArbitrationState(Event):
     """Etat complet d'un arbitrage (remplace en bloc) ; `other_source` est reaffichable,
     `empty_reason` dit pourquoi la liste Bandcamp est vide."""
 
-    track_id: str
+    track_id: TrackId
     source: Source
     beatport_unavailable: bool
     candidates: tuple[CandidatePayload, ...]
@@ -560,7 +563,7 @@ class RunFinished(Event):
 
     event: Literal["run_finished"]
     phase: RunPhase
-    run_id: str
+    run_id: RunId
     resolved: int
     unresolved: int
     written: int
@@ -575,7 +578,7 @@ class RollbackRun(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    run_id: str
+    run_id: RunId
     written_at: datetime
     folder: Path
     tracks: int
@@ -604,7 +607,7 @@ class CacheCleared(Event):
 class RollbackFailurePayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    track_id: str
+    track_id: TrackId
     file_name: str
     reason: TrackFailureReason
 
@@ -613,9 +616,9 @@ class RollbackFinished(Event):
     """Bilan d'un rollback ; un morceau en echec reste dans le dump, le suivant le retente."""
 
     event: Literal["rollback_finished"]
-    run_id: str
-    track_id: str | None
-    restored: tuple[str, ...]
+    run_id: RunId
+    track_id: TrackId | None
+    restored: tuple[TrackId, ...]
     failed: tuple[RollbackFailurePayload, ...]
 
 
@@ -625,7 +628,7 @@ class InterruptedRunPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["interrupted"] = "interrupted"
-    run_id: str
+    run_id: RunId
     started_at: datetime
     folder: Path
     processed: int
@@ -643,7 +646,7 @@ class UnreadablePlanPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["unreadable"] = "unreadable"
-    run_id: str
+    run_id: RunId
     started_at: datetime
     found: int | str | None
     expected: int
@@ -661,7 +664,7 @@ class InterruptedRunEvent(Event):
 class PastRunPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    run_id: str
+    run_id: RunId
     written_at: datetime
     folder: Path
     report_path: Path
@@ -680,7 +683,7 @@ class TrackLoaded(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    track_id: str
+    track_id: TrackId
     file_name: str
     artist: str
     title: str
@@ -699,7 +702,7 @@ class TrackLoaded(BaseModel):
 
 class RunLoaded(Event):
     event: Literal["run_loaded"]
-    run_id: str
+    run_id: RunId
     folder: Path
     generated_at: datetime
     tracks: tuple[TrackLoaded, ...]
@@ -710,7 +713,7 @@ class FeedbackReady(Event):
     va qu'a la webview, qui le revele dans l'Explorateur."""
 
     event: Literal["feedback_ready"]
-    run_id: str
+    run_id: RunId
     url: str
     export_path: Path
 
@@ -778,9 +781,9 @@ def error_from_validation(exc: ValidationError) -> Error:
 def error_from_business(
     exc: TaggerError,
     command: CommandName,
-    track_id: str | None = None,
+    track_id: TrackId | None = None,
     *,
-    run_id: str | None = None,
+    run_id: RunId | None = None,
 ) -> Error:
     """Convertit une erreur metier en evenement, en gardant son code et ses params.
 

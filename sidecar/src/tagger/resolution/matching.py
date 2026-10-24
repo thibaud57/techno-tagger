@@ -170,20 +170,31 @@ class _AskedFor:
     numbers: tuple[int, ...]
 
 
-@verify(UNIQUE)
-class Outcome(StrEnum):
-    AUTO = auto()
-    GREY_ZONE = auto()
-    EMPTY = auto()
+@dataclass(frozen=True, slots=True)
+class Auto:
+    """Candidat valide d'office ; `scored` garde tous les candidats notes pour le rapport."""
+
+    chosen: ScoredCandidate
+    scored: tuple[ScoredCandidate, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GreyZone:
+    """Candidats en jeu pour l'utilisateur, meilleur score en tete."""
+
+    candidates: tuple[ScoredCandidate, ...]
+    scored: tuple[ScoredCandidate, ...]
 
 
 @dataclass(frozen=True, slots=True)
-class Classification:
-    """`retained` : le candidat valide (auto), les candidats en jeu (zone grise), ou rien."""
+class Empty:
+    """Aucun candidat en jeu ; `had_candidates` distingue `below_threshold` de `no_result`."""
 
-    outcome: Outcome
-    retained: tuple[ScoredCandidate, ...]
     scored: tuple[ScoredCandidate, ...]
+    had_candidates: bool
+
+
+type Classification = Auto | GreyZone | Empty
 
 
 def build_query(artist: str, title: str, file_name: str) -> TrackQuery | None:
@@ -244,17 +255,14 @@ def _normalise_artists(artist: str) -> str:
     return ", ".join(part for part in parts if part)
 
 
-def classify(
+def rank(
     query: TrackQuery,
     candidates: Sequence[TrackCandidate],
     thresholds: MatchingThresholds = DEFAULT_THRESHOLDS,
-    *,
-    allow_auto: bool = True,
-) -> Classification:
+) -> GreyZone | Empty:
     """Tri stable : a score egal, l'ordre de l'API departage.
 
-    `allow_auto=False` force la zone grise, ce dont le pipeline se sert quand Beatport
-    n'a pas repondu.
+    Jamais d'auto, ce dont le pipeline se sert quand Beatport n'a pas repondu.
     """
     asked = _prepare(query)
     every = tuple(
@@ -267,23 +275,30 @@ def classify(
         key=lambda entry: entry.score,
         reverse=True,
     )
-    automatic = (
-        next(
-            (
-                entry
-                for entry in in_play
-                if not entry.blocks_auto and entry.score >= thresholds.ceiling
-            ),
-            None,
-        )
-        if allow_auto
-        else None
+    if not in_play:
+        # Le garde-fou remix compte : la source a repondu, rien n'a passe.
+        return Empty(every, had_candidates=bool(candidates))
+    return GreyZone(candidates=tuple(in_play), scored=every)
+
+
+def classify(
+    query: TrackQuery,
+    candidates: Sequence[TrackCandidate],
+    thresholds: MatchingThresholds = DEFAULT_THRESHOLDS,
+) -> Classification:
+    """`rank`, dont le premier candidat sans ecart au-dessus du seuil haut est valide d'office."""
+    ranked = rank(query, candidates, thresholds)
+    if isinstance(ranked, Empty):
+        return ranked
+    automatic = next(
+        (
+            entry
+            for entry in ranked.candidates
+            if not entry.blocks_auto and entry.score >= thresholds.ceiling
+        ),
+        None,
     )
-    if automatic is not None:
-        return Classification(Outcome.AUTO, (automatic,), every)
-    if in_play:
-        return Classification(Outcome.GREY_ZONE, tuple(in_play), every)
-    return Classification(Outcome.EMPTY, (), every)
+    return ranked if automatic is None else Auto(automatic, ranked.scored)
 
 
 def _score_candidate(asked: _AskedFor, candidate: TrackCandidate) -> ScoredCandidate | None:

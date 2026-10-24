@@ -6,7 +6,6 @@ Le rapport est permanent et se migre (ADR-018 option B) : la migration se posera
 est la seule. Le plan de run, jetable, refuse au contraire une version inconnue.
 """
 
-import copy
 from collections import Counter
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Final, Literal
@@ -14,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar, Final, Literal
 from pydantic import AwareDatetime
 
 from tagger.core.errors import TaggerError
+from tagger.core.identifiers import RunId, TrackId
 from tagger.core.models import StrictFrozenModel
 from tagger.core.run_files import TIMESTAMP_FORMAT, read_versioned
 from tagger.reports.common import (
@@ -26,7 +26,7 @@ from tagger.reports.common import (
 )
 from tagger.resolution.matching import QueryOrigin, credited_artists, full_title
 from tagger.resolution.scraper_client import Source
-from tagger.run.models import Resolution, TrackFailureReason, TrackState
+from tagger.run.models import Resolution, RolledBack, TrackFailureReason, TrackState, Written
 from tagger.tags.files import (
     TagField,
     TagSystem,
@@ -92,7 +92,7 @@ class TaggingReportTrack(StrictFrozenModel):
     d'origine restent.
     """
 
-    track_id: str
+    track_id: TrackId
     file_before: str
     file_after: str | None
     truncated: bool
@@ -119,7 +119,7 @@ class TaggingReport(StrictFrozenModel):
     schema_version: int = SCHEMA_VERSION
     kind: Literal["tagging"] = REPORT_KIND
     generated_at: AwareDatetime
-    run_id: str
+    run_id: RunId
     folder: Path
     thresholds: ReportThresholds
     counts: TaggingReportCounts
@@ -316,16 +316,11 @@ def after_rows(record: TrackRecord, candidate: TrackCandidate) -> tuple[ReportTa
 
 
 def _track(record: TrackRecord) -> TaggingReportTrack:
-    if record.state is TrackState.ROLLED_BACK:
-        # La restauration efface source, candidat et pochette du run vivant mais garde la voie et
-        # la requete, que l'ecran masque : le rapport ne les garde pas non plus.
-        record = copy.replace(record, resolution=None, query=None)
-    candidate, written, query, before = (
-        record.candidate,
-        record.written,
-        record.query,
-        record.tags_before,
-    )
+    outcome, retained = record.outcome, record.retained
+    candidate = None if retained is None else retained.candidate
+    scored = None if retained is None else retained.scored
+    written = outcome.written if isinstance(outcome, Written) else None
+    query, before = record.query, record.tags_before
     return TaggingReportTrack(
         track_id=record.track_id,
         file_before=record.track_id,
@@ -335,18 +330,19 @@ def _track(record: TrackRecord) -> TaggingReportTrack:
         else (PurePosixPath(record.track_id).parent / record.path.name).as_posix(),
         truncated=written is not None and written.truncated,
         query=None if query is None else ReportQuery(text=query.text, origin=query.origin),
-        source=record.source,
+        source=None if retained is None else retained.source,
         state=record.state,
-        resolution=record.resolution,
+        # Comme l'ecran, le rapport masque la voie d'un morceau restaure, que le run vivant garde.
+        resolution=None if isinstance(outcome, RolledBack) else record.resolution,
         failure_reason=record.failure_reason,
         scores=None
-        if record.scored is None
+        if scored is None
         else ReportScores(
-            artist=record.scored.artist_score,
-            title=record.scored.title_score,
-            average=record.scored.score,
-            version_mismatch=record.scored.version_mismatch,
-            number_mismatch=record.scored.number_mismatch,
+            artist=scored.artist_score,
+            title=scored.title_score,
+            average=scored.score,
+            version_mismatch=scored.version_mismatch,
+            number_mismatch=scored.number_mismatch,
         ),
         artist=None if candidate is None else credited_artists(candidate),
         title=None if candidate is None else full_title(candidate),
