@@ -56,6 +56,8 @@ if TYPE_CHECKING:
     from typing import NoReturn
     from unittest.mock import MagicMock
 
+    from stubs import Replacement
+
 pytestmark = pytest.mark.asyncio
 
 WRITTEN_STEM: Final = "Adam Beyer - Your Mind (Extended Mix)"
@@ -360,7 +362,7 @@ async def test_rolls_back_the_tags_of_a_track_whose_rename_was_refused(
     assert read_original_tags(music_folder / "a.mp3").fields[TagField.TITLE] == ("your mind",)
 
 
-def _failing_after_the_note() -> Callable[..., NoReturn]:
+def _failing_after_the_note() -> Replacement[NoReturn]:
     """Renommage qui echoue apres sa note, comme un fichier verrouille au dernier moment."""
     return raising(RenameError(Path("a.mp3"), FileFailureReason.FILE_LOCKED))
 
@@ -396,7 +398,7 @@ async def test_keeps_the_failure_when_the_noted_target_cannot_be_forgotten(
         failing_when(
             record_renamed_path,
             TagDumpWriteError(dumps),
-            lambda _folder, _dump, _track_id, renamed: renamed is None,
+            lambda folder, dump, track_id, renamed: renamed is None,
         ),
     )
 
@@ -456,7 +458,7 @@ async def test_retries_only_the_failures_and_keeps_the_dumped_origin(
         patched.setattr(
             RenamePlan,
             "apply",
-            failing_when(RenamePlan.apply, held, lambda plan: plan.path == failing.path),
+            failing_when(RenamePlan.apply, held, lambda self: self.path == failing.path),
         )
         await writer.write()
     written_paths: list[Path] = []

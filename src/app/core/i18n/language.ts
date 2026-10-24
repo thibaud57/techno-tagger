@@ -1,5 +1,7 @@
 import { locale } from "@tauri-apps/plugin-os"
 
+import { withFallback } from "../platform/tauri-fallback"
+
 export const LANGUAGES = ["fr", "en"] as const
 
 export type Language = (typeof LANGUAGES)[number]
@@ -14,19 +16,15 @@ export const languageFromTag = (tag: string | null | undefined): Language =>
  * Locale systeme, puis navigateur, puis anglais.
  *
  * Le navigateur couvre `just dev-ui` : hors Tauri, `invoke()` lit `window.__TAURI_INTERNALS__`
- * sans garde et rejette avec une `TypeError`.
+ * sans garde et rejette avec une `TypeError`. Dans Tauri, un rejet est une vraie panne : il remonte.
  */
 export const resolveInitialLanguage = async (
   readSystemLocale: () => Promise<string | null> = locale,
   readBrowserLanguage: () => string = () => navigator.language,
 ): Promise<Language> => {
-  try {
-    const systemLocale = await readSystemLocale()
-    if (systemLocale) {
-      return languageFromTag(systemLocale)
-    }
-  } catch {
-    // Fallback attendu hors Tauri, pas une panne.
+  const systemLocale = await withFallback(readSystemLocale, null)
+  if (systemLocale) {
+    return languageFromTag(systemLocale)
   }
 
   return languageFromTag(readBrowserLanguage())

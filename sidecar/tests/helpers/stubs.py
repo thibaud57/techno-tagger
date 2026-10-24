@@ -1,17 +1,27 @@
 """Remplacants de fonctions, partages par les tests unitaires et d'integration."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Concatenate, NoReturn
+from typing import TYPE_CHECKING, Concatenate, NoReturn, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+
+class Replacement[R](Protocol):
+    """Remplacant pose par `monkeypatch`, appelable sous n'importe quelle signature."""
+
+    def __call__(self, *args: object, **kwargs: object) -> R: ...
+
+
+class _Unlink(Protocol):
+    def __call__(self, path: Path, /, missing_ok: bool = False) -> None: ...
 
 
 def ignore(*_args: object) -> None:
     """Rappel d'un test qui n'observe pas ce qu'on lui passe."""
 
 
-def raising(error: BaseException) -> Callable[..., NoReturn]:
+def raising(error: BaseException) -> Replacement[NoReturn]:
     """Remplacant d'une fonction qui leve toujours `error`."""
 
     def raise_error(*_args: object, **_kwargs: object) -> NoReturn:
@@ -20,13 +30,13 @@ def raising(error: BaseException) -> Callable[..., NoReturn]:
     return raise_error
 
 
-def locked_file() -> Callable[..., NoReturn]:
+def locked_file() -> Replacement[NoReturn]:
     """Remplacant de `Path.unlink` ou `Path.replace` quand un antivirus tient le fichier."""
     return raising(PermissionError(13, "locked by another process"))
 
 
 def failing_when[**P, R](
-    real: Callable[P, R], error: BaseException, predicate: Callable[..., bool]
+    real: Callable[P, R], error: BaseException, predicate: Callable[P, bool]
 ) -> Callable[P, R]:
     """Remplacant de `real` qui leve `error` quand `predicate` approuve les arguments."""
 
@@ -77,7 +87,7 @@ def spying[T, **P, R](
     return wrapper
 
 
-def unlink_except(locked: Path) -> Callable[..., None]:
+def unlink_except(locked: Path) -> _Unlink:
     """Remplacant de `Path.unlink` qui refuse `locked` et supprime le reste pour de bon."""
     real_unlink = Path.unlink
 

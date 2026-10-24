@@ -23,6 +23,12 @@ export type UpdateState =
 /** Issue d'une recherche lancee depuis les Reglages, pour le retour de leur rangee. */
 export type ManualCheck = "found" | "upToDate" | "failed"
 
+/** Issue brute d'une recherche : `failed` se distingue d'une version a jour. */
+type Lookup =
+  | { readonly kind: "failed" }
+  | { readonly kind: "upToDate" }
+  | { readonly kind: "found"; readonly update: AvailableUpdate }
+
 /** Jamais installee pendant un travail : l'installation ferme l'application (ADR-001). */
 @Service()
 export class UpdateService {
@@ -66,23 +72,20 @@ export class UpdateService {
 
   async check(): Promise<void> {
     await this.detectFailedInstall()
-    const update = await this.lookup()
-    if (update !== null && update !== "failed") {
-      this.adopt(update)
+    const result = await this.lookup()
+    if (result.kind === "found") {
+      this.adopt(result.update)
     }
   }
 
   /** Une mise a jour deja connue rouvre la modale sans nouvelle verification. */
   async checkNow(): Promise<ManualCheck> {
     if (this.update() === null) {
-      const update = await this.lookup()
-      if (update === "failed") {
-        return "failed"
+      const result = await this.lookup()
+      if (result.kind !== "found") {
+        return result.kind
       }
-      if (update === null) {
-        return "upToDate"
-      }
-      this.adopt(update)
+      this.adopt(result.update)
     }
     this.reopen()
 
@@ -105,11 +108,13 @@ export class UpdateService {
   }
 
   /** Hors ligne, manifeste en 404 ou hors Tauri : frequent, rien a signaler a Sentry. */
-  private async lookup(): Promise<AvailableUpdate | null | "failed"> {
+  private async lookup(): Promise<Lookup> {
     try {
-      return await this.updater.check()
+      const update = await this.updater.check()
+
+      return update === null ? { kind: "upToDate" } : { kind: "found", update }
     } catch {
-      return "failed"
+      return { kind: "failed" }
     }
   }
 
@@ -152,18 +157,18 @@ export class UpdateService {
 
     // Des le clic, pour qu'un second clic ne relance rien.
     this._state.set({ kind: "downloading", update: state.update, progress: NOTHING_RECEIVED })
-    const update = await this.lookup()
-    if (update === "failed") {
+    const result = await this.lookup()
+    if (result.kind === "failed") {
       this._state.set(state)
       return
     }
 
     this.release(state.update)
-    if (update === null) {
+    if (result.kind === "upToDate") {
       this._state.set({ kind: "none" })
       return
     }
-    await this.download(update)
+    await this.download(result.update)
   }
 
   private async download(update: AvailableUpdate): Promise<void> {

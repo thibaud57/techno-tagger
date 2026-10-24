@@ -1,6 +1,8 @@
 import { InjectionToken } from "@angular/core"
 import { check, type DownloadEvent } from "@tauri-apps/plugin-updater"
 
+import { isRecord } from "../record"
+
 /** Octets recus depuis le debut ; `total` est nul quand le serveur ne l'annonce pas. */
 export interface DownloadProgress {
   readonly received: number
@@ -28,9 +30,6 @@ const CHECK_TIMEOUT_MS = 30_000
 
 const RELEASE_DOWNLOAD =
   /^(https:\/\/github\.com\/[^/]+\/[^/]+\/releases)\/download\/([^/]+)\/[^/]+$/
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
 
 /** `.../releases/download/<tag>/<installeur>` donne `.../releases/tag/<tag>` : aucune adresse du depot en TypeScript. */
 export const releasePageOf = (manifest: Record<string, unknown>): string | null => {

@@ -71,16 +71,19 @@ def test_lists_nothing_without_an_index(tmp_path: Path) -> None:
         pytest.param(json.dumps({"schema_version": 2, "entries": []}), id="unknown-version"),
     ],
 )
-def test_starts_over_from_an_unreadable_index(
+def test_starts_over_from_an_unreadable_index_after_backing_it_up(
     tmp_path: Path, content: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     index = tmp_path / "reports.json"
+    backup = tmp_path / "reports.json.bak"
     index.write_text(content, encoding="utf-8")
+    backup.write_text("older backup", encoding="utf-8")
     entry = _entry(tmp_path, RUN_ID)
 
     record_report(index, entry)
 
     assert list_reports(index) == (entry,)
+    assert backup.read_text(encoding="utf-8") == content
     assert "report index unreadable reason=unreadable" in caplog.messages
 
 

@@ -34,6 +34,9 @@ module.exports = defineConfig([
       // Un nombre interpole n'a qu'un rendu possible, contrairement a un objet ou un nullish
       // qui restent interdits. C'est le defaut de la regle, seul strict-type-checked le coupe.
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
+      // Un cas d'union oublie casse au lint, pas en production (hors strictTypeChecked).
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+      "@typescript-eslint/prefer-readonly": "error",
       "@angular-eslint/directive-selector": [
         "error",
         {

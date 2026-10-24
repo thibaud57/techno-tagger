@@ -125,7 +125,7 @@ export default class TaggingPageComponent {
     if (this.folder() === "") {
       return "tagging.blocked.folder"
     }
-    if (this.sidecar.ready() !== true) {
+    if (!this.sidecar.ready()) {
       return this.sidecar.extracting() ? "tagging.blocked.extracting" : "tagging.blocked.sidecar"
     }
 
@@ -193,6 +193,10 @@ export default class TaggingPageComponent {
           blocked: this.blockedReason(),
           run: () => void this.start(),
         }
+      default: {
+        const exhaustive: never = action
+        throw new Error(`Action non geree : ${String(exhaustive)}`)
+      }
     }
   })
   private readonly commandError = this.sidecar.errorFor(

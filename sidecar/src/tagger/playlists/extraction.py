@@ -18,7 +18,7 @@ from tagger.core.file_failures import FileFailureReason, file_failure_reason
 from tagger.core.paths import encodable_only
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -176,7 +176,7 @@ def pick_file(file_name: str, candidates: Sequence[Path]) -> PickedFile:
 
 def build_source_index(
     source: Path, *, excluded: Path | None = None
-) -> dict[str, tuple[Path, ...]]:
+) -> Mapping[str, tuple[Path, ...]]:
     """Indexe le dossier source en une passe : nom de fichier vers ses chemins.
 
     Une recherche par nom relirait l'arborescence a chaque morceau.
@@ -198,7 +198,7 @@ def build_source_index(
 
 
 class PreparedRun(NamedTuple):
-    source_index: dict[str, tuple[Path, ...]]
+    source_index: Mapping[str, tuple[Path, ...]]
     extracts_in_place: bool
 
 

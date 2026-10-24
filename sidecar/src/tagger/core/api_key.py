@@ -4,7 +4,6 @@ Seul module du sidecar a toucher le trousseau. La cle n'apparait dans aucun log,
 d'erreur ni evenement : l'interface n'apprend que son existence (evenement `version`).
 """
 
-import logging
 from typing import ClassVar, Final
 
 import keyring
@@ -16,8 +15,6 @@ from win32ctypes.pywin32.pywintypes import error as win32_error  # type: ignore[
 
 from tagger import APP_NAME
 from tagger.core.errors import TaggerError
-
-logger = logging.getLogger(__name__)
 
 SERVICE: Final = APP_NAME
 # Une seule entree : l'identifiant ne sert qu'a la retrouver dans le Credential Manager.
@@ -44,7 +41,7 @@ class ApiKeyNotStoredError(ApiKeyError):
 
 
 class KeyringUnavailableError(ApiKeyError):
-    """Aucun backend de trousseau : le symptome du binaire fige mal empaquete."""
+    """Trousseau inutilisable (aucun backend, ou lecture en echec) : jamais une cle absente."""
 
     code: ClassVar[str] = "keyring_unavailable"
 
@@ -60,16 +57,15 @@ class ApiKeyMissingError(ApiKeyError):
 
 
 def read_api_key() -> str | None:
-    """Cle enregistree, `None` au premier lancement ou si le trousseau est illisible.
+    """Cle enregistree, `None` au premier lancement seulement.
 
-    Un trousseau illisible ne bloque pas l'application : l'onglet Tagging dira qu'il
-    manque la cle, ce qui oriente vers la bonne correction.
+    Un trousseau illisible leve : le prendre pour une cle absente ferait ressaisir une cle
+    qui existe peut-etre encore.
     """
     try:
         return keyring.get_password(SERVICE, USERNAME)
-    except KeyringError, _CREDENTIAL_MANAGER_ERROR:
-        logger.warning("api key unreadable reason=keyring_error")
-        return None
+    except (KeyringError, _CREDENTIAL_MANAGER_ERROR) as exc:
+        raise KeyringUnavailableError from exc
 
 
 def store_api_key(key: str) -> None:

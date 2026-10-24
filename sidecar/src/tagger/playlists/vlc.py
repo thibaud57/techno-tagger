@@ -19,6 +19,7 @@ from .errors import (
 from .models import PlaylistSummary
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
 # Les 16 premiers octets de toute base SQLite. L'en-tete plutot que l'extension : rien ne
@@ -38,7 +39,7 @@ def is_vlc_dump(path: Path) -> bool:
 # Les seules tables et colonnes dont l'existence est attestee. Comparees en
 # minuscules : la colonne se declare `filename`, une comparaison litterale
 # rejetterait un schema valide.
-EXPECTED_SCHEMA: Final[dict[str, tuple[str, ...]]] = {
+EXPECTED_SCHEMA: Final[Mapping[str, tuple[str, ...]]] = {
     "Playlist": ("id_playlist", "name"),
     "PlaylistMediaRelation": ("playlist_id", "media_id"),
     "Media": ("id_media", "filename"),
@@ -88,18 +89,27 @@ def _verify_schema(connection: sqlite3.Connection) -> None:
         for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
 
-    missing: list[str] = []
-    for table, columns in EXPECTED_SCHEMA.items():
-        if table.lower() not in present_tables:
-            missing.append(table)
-            continue
-
-        pragma_query = f"PRAGMA table_info({table})"
-        declared = {str(row[1]).lower() for row in connection.execute(pragma_query)}
-        missing.extend(f"{table}.{column}" for column in columns if column.lower() not in declared)
-
+    missing = [
+        name
+        for table, columns in EXPECTED_SCHEMA.items()
+        for name in _missing_names(connection, table, columns, present_tables)
+    ]
     if missing:
         raise IncompatibleDumpSchemaError(missing)
+
+
+def _missing_names(
+    connection: sqlite3.Connection,
+    table: str,
+    columns: tuple[str, ...],
+    present_tables: set[str],
+) -> list[str]:
+    if table.lower() not in present_tables:
+        return [table]
+
+    pragma_query = f"PRAGMA table_info({table})"
+    declared = {str(row[1]).lower() for row in connection.execute(pragma_query)}
+    return [f"{table}.{column}" for column in columns if column.lower() not in declared]
 
 
 # `count(DISTINCT ...)` : un morceau peut figurer deux fois dans une playlist, mais le

@@ -8,8 +8,7 @@ export type ExtractionCategory =
 export interface ExtractionRow {
   readonly fileName: string
   readonly category: ExtractionCategory
-  readonly detailKey: string | null
-  readonly detailParams: Record<string, string | number> | null
+  readonly detail: { readonly key: string; readonly params: Record<string, string | number> } | null
   /** Motif ou critere a part : une valeur d'enum du sidecar ne se traduit pas en parametre d'interpolation. */
   readonly reason: ReasonKeys | null
 }
@@ -19,8 +18,7 @@ const DETAIL_PREFIX = "playlist.report.detail"
 const plain = (fileName: string, category: ExtractionCategory): ExtractionRow => ({
   fileName,
   category,
-  detailKey: null,
-  detailParams: null,
+  detail: null,
   reason: null,
 })
 
@@ -37,20 +35,23 @@ export const toExtractionRows = (
   ...result.failures.map((failure) => ({
     fileName: failure.file_name,
     category: "failure" as const,
-    detailKey: null,
-    detailParams: null,
+    detail: null,
     reason: extractionReasonKeys(failure.reason),
   })),
   ...result.missing.map((name) => plain(name, "missing")),
   ...result.duplicates.map((duplicate) => ({
     fileName: duplicate.file_name,
     category: "duplicate" as const,
-    detailKey: `${DETAIL_PREFIX}.duplicate`,
-    detailParams: {
-      kept: duplicate.kept_path,
-      keptSize: formatSize(duplicate.kept_size),
-      discarded: duplicate.discarded.map((candidate) => candidate.path).join(", "),
-      discardedSizes: duplicate.discarded.map((candidate) => formatSize(candidate.size)).join(", "),
+    detail: {
+      key: `${DETAIL_PREFIX}.duplicate`,
+      params: {
+        kept: duplicate.kept_path,
+        keptSize: formatSize(duplicate.kept_size),
+        discarded: duplicate.discarded.map((candidate) => candidate.path).join(", "),
+        discardedSizes: duplicate.discarded
+          .map((candidate) => formatSize(candidate.size))
+          .join(", "),
+      },
     },
     reason: { cause: `playlist.report.criterion.${duplicate.criterion}`, remedy: null },
   })),
