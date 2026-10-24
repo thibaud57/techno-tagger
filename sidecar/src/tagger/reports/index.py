@@ -2,7 +2,8 @@
 ce fichier dit ou les retrouver pour rouvrir un run passe.
 
 Jamais purge : il suit des livrables permanents. Absent, corrompu ou d'une autre version, il se
-lit vide et repart de zero, les rapports restant dans leurs dossiers. Un fichier que le systeme
+lit vide et repart de zero, les rapports restant dans leurs dossiers, apres une copie `.bak`
+du fichier illisible. Un fichier que le systeme
 refuse de lire n'est en revanche jamais reecrit : son contenu n'est pas en cause, l'ecraser par
 une seule entree perdrait un historique intact.
 """
@@ -40,7 +41,7 @@ def index_path() -> Path:
 
 def record_report(index: Path, entry: IndexEntry) -> None:
     """Inscrit le rapport d'un run ; une reecriture du meme run remplace son entree."""
-    known = _read(index)
+    known = _read(index, backup=True)
     if known is None:
         return
     kept = tuple(item for item in known.entries if item.run_id != entry.run_id)
@@ -78,8 +79,8 @@ def _present(entry: IndexEntry) -> bool:
     return entry.report_path.is_file()
 
 
-def _read(index: Path) -> ReportIndex | None:
-    """`None` : le systeme refuse de lire le fichier, sans que son contenu soit en cause."""
+def _read(index: Path, *, backup: bool = False) -> ReportIndex | None:
+    """`None` : lecture refusee par le systeme, ou copie `.bak` echouee avant ecrasement."""
     try:
         content = index.read_bytes()
     except FileNotFoundError:
@@ -93,5 +94,16 @@ def _read(index: Path) -> ReportIndex | None:
         parsed = None
     if parsed is None or parsed.schema_version != SCHEMA_VERSION:
         logger.error("report index unreadable reason=unreadable")
+        if backup and not _back_up(index):
+            return None
         return ReportIndex()
     return parsed
+
+
+def _back_up(index: Path) -> bool:
+    try:
+        index.copy(index.with_name(f"{index.name}.bak"))
+    except OSError:
+        logger.warning("report index not backed up reason=write_failed")
+        return False
+    return True

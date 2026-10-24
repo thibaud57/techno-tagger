@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
 from types import MappingProxyType
-from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple, Protocol
+from typing import TYPE_CHECKING, ClassVar, Final, Literal, NamedTuple, Protocol
 from urllib.parse import quote
 
 import mutagen
@@ -68,7 +68,7 @@ class TagField(StrEnum):
 # TPE2 n'y entre pas : le contrat ne rend pas d'artiste de sortie. La date est en frame v2.4,
 # celle de mutagen en memoire : `update_to_v23()` l'ecrit en TYER.
 # L'ordre est celui du detail avant / apres : l'interface l'affiche sans le retrier.
-TAG_FIELDS: Final[dict[TagField, TagKeys]] = {
+TAG_FIELDS: Final[Mapping[TagField, TagKeys]] = {
     TagField.ARTIST: TagKeys(id3="TPE1", vorbis="ARTIST"),
     TagField.TITLE: TagKeys(id3="TIT2", vorbis="TITLE"),
     TagField.REMIXER: TagKeys(id3="TPE4", vorbis="REMIXER"),
@@ -91,6 +91,9 @@ _VORBIS_MIRRORS: Final = tuple(name for keys in TAG_FIELDS.values() for name in 
 # Valeurs a ecrire, un champ absent laissant le tag du fichier intact.
 type TagValues = Mapping[TagField, str]
 
+# Versions ID3 qu'une ecriture vise : v2.3 (cible) ou v2.4 (restauration d'un fichier d'origine).
+type Id3Target = Literal[3, 4]
+
 # La virgule fait basculer le scoring d'un artiste multiple sur token_sort_ratio.
 _MULTI_VALUE_SEPARATOR: Final = ", "
 
@@ -101,13 +104,15 @@ _URL_SAFE: Final = "".join(map(chr, range(128)))
 _ID3_COMMENT: Final = "COMM"
 _VORBIS_COMMENTS: Final = ("COMMENT", "DESCRIPTION")
 
-_ARTWORK_MIME: Final = {f".{extension}": mime for mime, extension in ARTWORK_EXTENSIONS.items()}
+_ARTWORK_MIME: Final[Mapping[str, str]] = {
+    f".{extension}": mime for mime, extension in ARTWORK_EXTENSIONS.items()
+}
 
 _ID3_V23: Final = 3
 # Seule version autre que la cible v2.3 qu'une restauration rend au fichier.
 _ID3_V24: Final = 4
 # L'ecriture passe en v2.3 : la date y porte cette cle, pas TDRC.
-_ID3_V23_KEYS: Final = {TagField.DATE: "TYER"}
+_ID3_V23_KEYS: Final[Mapping[TagField, str]] = {TagField.DATE: "TYER"}
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -440,7 +445,7 @@ def _edit_tags(
     path: Path,
     edit_vorbis: Callable[[FLAC, VCFLACDict], None],
     edit_id3: Callable[[ID3], None],
-    id3_version: int,
+    id3_version: Id3Target,
 ) -> None:
     try:
         audio = mutagen.File(extended_path(path))

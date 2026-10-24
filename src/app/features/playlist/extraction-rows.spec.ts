@@ -72,8 +72,8 @@ describe("toExtractionRows", () => {
     expect(rows).toHaveLength(1)
     const [row] = rows
     expect(row?.category).toBe("duplicate")
-    expect(row?.detailKey).toBe("playlist.report.detail.duplicate")
-    expect(row?.detailParams).toEqual({
+    expect(row?.detail?.key).toBe("playlist.report.detail.duplicate")
+    expect(row?.detail?.params).toEqual({
       kept: "C:/lib/singles/beta.mp3",
       keptSize: "12000 o",
       discarded: "C:/lib/albums/beta.mp3",
@@ -114,8 +114,8 @@ describe("toExtractionRows", () => {
 
     expect(rows).toHaveLength(1)
     const [row] = rows
-    expect(row?.detailParams?.["discarded"]).toBe("C:/albums/old/track.mp3, C:/backup/track.mp3")
-    expect(row?.detailParams?.["discardedSizes"]).toBe("3000 o, 5500 o")
+    expect(row?.detail?.params["discarded"]).toBe("C:/albums/old/track.mp3, C:/backup/track.mp3")
+    expect(row?.detail?.params["discardedSizes"]).toBe("3000 o, 5500 o")
   })
 
   it("keeps two files of the same category in their input order", () => {

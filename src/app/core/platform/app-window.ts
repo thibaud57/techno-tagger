@@ -1,6 +1,7 @@
 import { InjectionToken } from "@angular/core"
-import { isTauri } from "@tauri-apps/api/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
+
+import { withFallback } from "./tauri-fallback"
 
 export interface CloseRequest {
   preventDefault(): void
@@ -19,37 +20,24 @@ export interface AppWindow {
 
 class TauriAppWindow implements AppWindow {
   async onCloseRequested(handler: (request: CloseRequest) => void): Promise<void> {
-    try {
-      // Un listener pose prend la fermeture a son compte : sans `preventDefault`, l'API
-      // appelle `destroy()` apres lui, d'ou `core:window:allow-destroy` dans la capability.
+    // Un listener pose prend la fermeture a son compte : sans `preventDefault`, l'API
+    // appelle `destroy()` apres lui, d'ou `core:window:allow-destroy` dans la capability.
+    await withFallback(async () => {
       await getCurrentWindow().onCloseRequested(handler)
-    } catch {
-      // Hors Tauri, `getCurrentWindow` echoue faute de `window.__TAURI_INTERNALS__`.
-    }
+    }, undefined)
   }
 
-  async onResized(handler: () => void): Promise<() => void> {
-    try {
-      return await getCurrentWindow().onResized(handler)
-    } catch (error) {
-      // Hors Tauri, rien a ecouter ni a retirer. Une vraie erreur remonte.
-      if (!isTauri()) {
-        return () => undefined
-      }
-      throw error
-    }
+  // Hors Tauri, rien a ecouter ni a retirer.
+  onResized(handler: () => void): Promise<() => void> {
+    return withFallback(
+      () => getCurrentWindow().onResized(handler),
+      () => undefined,
+    )
   }
 
-  async isMaximized(): Promise<boolean> {
-    try {
-      return await getCurrentWindow().isMaximized()
-    } catch (error) {
-      // Hors Tauri, aucune fenetre : restauree.
-      if (!isTauri()) {
-        return false
-      }
-      throw error
-    }
+  // Hors Tauri, aucune fenetre : restauree.
+  isMaximized(): Promise<boolean> {
+    return withFallback(() => getCurrentWindow().isMaximized(), false)
   }
 
   async minimize(): Promise<void> {

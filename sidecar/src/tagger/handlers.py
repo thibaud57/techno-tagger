@@ -118,10 +118,14 @@ logger = logging.getLogger(__name__)
 
 def handle_get_version() -> Version:
     """Version nue et presence d'une cle : jamais la cle elle-meme (ADR-012)."""
+    return version_event(api_key_configured=read_api_key() is not None)
+
+
+def version_event(*, api_key_configured: bool) -> Version:
     return Version(
         event="version",
         version=__version__,
-        api_key_configured=read_api_key() is not None,
+        api_key_configured=api_key_configured,
         sentry_selftest=selftest_requested(),
         default_thresholds=ThresholdsPayload.model_validate(
             DEFAULT_THRESHOLDS, from_attributes=True

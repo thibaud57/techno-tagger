@@ -23,7 +23,7 @@ Ce qui distingue ce projet d'une API : **il n'y a pas de consommateur de contrat
 
 > **Exemple** : `0.5.0` → `0.6.0` (rattrapage par URL) → `0.6.1` (fix du nettoyage de requête).
 
-> **Milestone `1.0.0`** : premier installeur **distribué à un tiers** et mis à jour avec succès par l'updater depuis une version antérieure (étape 9 de l'ordre de développement). Tant que la chaîne complète build → Release → updater n'a pas tourné en réel chez quelqu'un d'autre que l'auteur, le projet reste en `0.x`, où un `MAJOR` de plan de run ne coûte rien à personne. Sous `1.0.0`, `bump-minor-pre-major: true` (`release-please-config.json`) fait bumper un `feat!` en `MINOR` : la `1.0.0` se force par `Release-As: 1.0.0` (cf. § Convention Commits).
+> **Régime `1.x` actif depuis le 2026-10-23** : un `feat!` bumpe le `MAJOR`. Un plan de run ou un rapport incompatible coûte ses arbitrages à un utilisateur réel : une migration d'abord, le `MAJOR` en dernier recours.
 
 ## Workflow Release
 
@@ -67,7 +67,7 @@ Scope conseillé = la zone ou le module concerné : `sidecar`, `ui`, `tauri`, ou
 | Type | Usage | release-please |
 |------|-------|----------------|
 | `feat` | Nouvelle feature visible (`feat(playlists): support M3U8 étendu`) | **MINOR bump** |
-| `feat!` | Schéma de rapport ou de plan de run incompatible (footer `BREAKING CHANGE:` accepté aussi) | **MAJOR bump** (`MINOR` sous `1.0.0`) |
+| `feat!` | Schéma de rapport ou de plan de run incompatible (footer `BREAKING CHANGE:` accepté aussi) | **MAJOR bump** |
 | `fix` | Correction (parsing, scoring, écriture de tags, interface) | **PATCH bump** |
 | `docs` | Documentation uniquement (docs/, ADRs, README) | skip |
 | `refactor` | Refactoring sans changement de comportement | skip |
@@ -115,7 +115,7 @@ Conséquences par lock, très inégales :
 - [ ] **Sauvegarde de la clé privée updater revérifiée** : l'entrée de la clé et celle de son mot de passe sont présentes dans le gestionnaire de mots de passe et correspondent à la clé en service. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
 - [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
-- [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles sur la version de release` présent en tête de la PR de release. Garantit que le lock committé au tag porte la version publiée, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run »
+- [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles sur la version de release` présent en tête de la PR de release. Garantit que le lock committé au tag porte la version publiée, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run » (ou `gh api -X POST repos/<owner>/<repo>/actions/runs/<id du run en action_required>/approve`)
 - [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `just smoke-sidecar` + `tauri build` + signature)
 - [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent. Un upload en échec ne bloque pas le build (`::warning::` dans le log du job `build`) : le lire. **Confirmé au premier run (v0.1.0)** : les source maps sont bien montées sur `techno-tagger@0.1.0`. Symptôme si cela régressait : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
 - [ ] Étape **« Verifier les artefacts de l'updater »** du job de build **verte** : elle échoue si `latest.json` ou le `.sig` manquent, si le manifeste annonce une autre version que le tag, ou si son entrée `windows-x86_64` est incomplète. `tauri-action` seul reste vert sans artefact d'updater, `uploadUpdaterJson` fût-il à `true` (constaté sur la v0.1.0, publiée avec le seul installeur)
@@ -147,7 +147,7 @@ Aucun store. Windows seul au MVP ([ADR-015](adrs/015-cibles-distribution-windows
 
 > ⚠️ **L'updater ignore les releases en brouillon.** Une Release laissée en draft n'apparaît pas derrière `/releases/latest/`, et l'application ne trouve alors aucune mise à jour, **sans erreur visible**.
 >
-> **La Release est créée en draft et publiée par le dernier step du build**, une fois `latest.json` réécrit et la garde verte : aucune fenêtre où `latest.json` rend 404, aucune Release incomplète publique. `force-tag-creation` pose le tag dès la création du draft, sans quoi release-please ne retrouverait pas la release précédente ([release-please#1650](https://github.com/googleapis/release-please/issues/1650)). Vérifié dans le code de release-please-action v5.0.0, de `gh` et de `tauri-action` v1.0.0 le 2026-10-20, à éprouver à la release suivante.
+> **La Release est créée en draft et publiée par le dernier step du build**, une fois `latest.json` réécrit et la garde verte : aucune fenêtre où `latest.json` rend 404, aucune Release incomplète publique. `force-tag-creation` pose le tag dès la création du draft, sans quoi release-please ne retrouverait pas la release précédente ([release-please#1650](https://github.com/googleapis/release-please/issues/1650)). Éprouvé à la `1.0.0` (2026-10-23).
 >
 > **Build en échec** : le draft reste avec son tag, et release-please compte cette version comme sortie. Relancer par « Re-run failed jobs » du même run, le seul qui garde `release_created`. Si la cause est dans le code : hotfix et nouveau tag `PATCH`, puis supprimer le draft resté (`gh release delete <tag>`), jamais publié.
 >

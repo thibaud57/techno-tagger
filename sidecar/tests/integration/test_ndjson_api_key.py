@@ -62,8 +62,10 @@ def test_keeps_answering_when_the_credential_manager_fails() -> None:
 
     assert [(event["event"], event.get("code")) for event in events] == [
         ("version", None),
+        ("error", "keyring_unavailable"),
         ("error", "api_key_not_stored"),
         ("version", None),
+        ("error", "keyring_unavailable"),
     ]
 
 

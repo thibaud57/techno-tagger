@@ -838,6 +838,9 @@ Pièges :
 ### Flux qui valent le coup
 
 - Clé API : hors format (espace, non ASCII, vide, champ en trop) rendu en `malformed_command` sans la valeur dans `params`, enregistrement répondu par `version` à `api_key_configured: true`, état retrouvé par un nouveau process
+- Trousseau illisible (depuis le 2026-10-24) : `get_version` rend `version` à `api_key_configured: false` puis `error` `keyring_unavailable`, `start_tagging` refusé en `keyring_unavailable` et non plus `api_key_missing`. Un trousseau cassé ne se provoque pas sans toucher au vrai : la preuve vit dans `test_ndjson_loop.py` et `test_api_key.py`
+
+Socle qualité #87, relevé le 2026-10-24 sur l'état gelé non commité : binaire figé par `drive.py` sous `BINARY` contre la vraie API, clé du trousseau lue (`api_key_configured` vrai), 4 morceaux écrits et renommés, rapport `.json` + `.md` ; un `reports.json` posé corrompu (`{not json`) avant le run est copié en `reports.json.bak` puis réécrit à une entrée. Sous `ng serve`, `app-tabs.js` vert, seule erreur console `[sidecar] lancement impossible` (le repli hors Tauri ne signale rien). Fenêtre Tauri : `app-health.js state` (moteur 1.0.0, clé lue, langue `fr` par la locale système, préférences lues), `window-controls.js state`, garde de fermeture retenue sur une extraction puis fermeture propre, 0 process.
 
 ## Pilotage de l'interface
 

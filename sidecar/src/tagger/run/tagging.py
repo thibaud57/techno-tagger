@@ -8,7 +8,7 @@ import asyncio
 import copy
 import logging
 import secrets
-from typing import TYPE_CHECKING, assert_never, override
+from typing import TYPE_CHECKING, Final, assert_never, override
 
 from tagger.resolution.matching import Outcome, ScoredCandidate, build_query, classify
 from tagger.resolution.scraper_client import (
@@ -45,6 +45,9 @@ if TYPE_CHECKING:
     from tagger.resolution.sources import RunSources
 
 logger = logging.getLogger(__name__)
+
+# Tags illisibles : la requete se rabat sur le nom de fichier.
+_NO_IDENTITY: Final = IdentityTags(artist="", title="")
 
 
 async def open_run(folder: Path, *, on_event: Callable[[RunEvent], None]) -> LiveRun:
@@ -87,27 +90,35 @@ async def read_identities(run_id: str, folder: Path, paths: tuple[Path, ...]) ->
     reads = await asyncio.gather(
         *(asyncio.to_thread(read_shown_tags, path) for path in paths), return_exceptions=True
     )
-    records: list[TrackRecord] = []
-    for position, (path, read) in enumerate(zip(paths, reads, strict=True), start=1):
-        tags_before: ShownTags | None
-        match read:
-            case ShownTags():
-                identity, tags_before = read.identity, read
-            case TagsUnreadableError():
-                logger.warning(
-                    "tags unreadable, file name used run=%s track=%d reason=%s",
-                    run_id,
-                    position,
-                    read.reason,
-                )
-                identity, tags_before = IdentityTags(artist="", title=""), None
-            case _:
-                raise read
-        track_id = path.relative_to(folder).as_posix()
-        records.append(
-            TrackRecord(track_id=track_id, path=path, identity=identity, tags_before=tags_before)
+    shown = (
+        (path, _shown_or_none(run_id, position, read))
+        for position, (path, read) in enumerate(zip(paths, reads, strict=True), start=1)
+    )
+    return [
+        TrackRecord(
+            track_id=path.relative_to(folder).as_posix(),
+            path=path,
+            identity=_NO_IDENTITY if tags is None else tags.identity,
+            tags_before=tags,
         )
-    return records
+        for path, tags in shown
+    ]
+
+
+def _shown_or_none(run_id: str, position: int, read: ShownTags | BaseException) -> ShownTags | None:
+    match read:
+        case ShownTags():
+            return read
+        case TagsUnreadableError():
+            logger.warning(
+                "tags unreadable, file name used run=%s track=%d reason=%s",
+                run_id,
+                position,
+                read.reason,
+            )
+            return None
+        case _:
+            raise read
 
 
 class _Runner:
@@ -176,6 +187,8 @@ class _Runner:
                     )
                 case Outcome.EMPTY:
                     pass
+                case _:
+                    assert_never(classification.outcome)
 
         try:
             found = await self._sources.search(Source.BANDCAMP, query)

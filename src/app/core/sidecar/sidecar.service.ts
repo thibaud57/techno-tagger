@@ -24,6 +24,7 @@ import { ResumeStore } from "../stores/resume.store"
 import { TaggingRunStore } from "../stores/tagging-run.store"
 import { UrlRecoveryStore } from "../stores/url-recovery.store"
 import { WriteStore } from "../stores/write.store"
+import { isRecord } from "../record"
 import { SIDECAR_TRANSPORT } from "./sidecar-transport"
 
 // Table indexee par le discriminant : oublier un evenement du contrat devient
@@ -199,7 +200,7 @@ export class SidecarService {
   /** Exige la version recue : absente, la divergence n'est pas encore controlee (ADR-018). */
   readonly ready = computed(
     () =>
-      this._available() &&
+      this._available() === true &&
       this._version() !== null &&
       this.versionMismatch() === null &&
       !this._extracting(),
@@ -734,19 +735,8 @@ export class SidecarService {
    * contrat desynchronise.
    */
   private handleLine(line: string): void {
-    let event: SidecarEvent
-
-    try {
-      const parsed: unknown = JSON.parse(line)
-      if (!this.isKnownEvent(parsed)) {
-        console.error("[sidecar] evenement inconnu, contrat desynchronise", line)
-
-        return
-      }
-      event = parsed
-    } catch {
-      console.error("[sidecar] ligne illisible", line)
-
+    const event = this.parseLine(line)
+    if (event === undefined) {
       return
     }
 
@@ -894,13 +884,25 @@ export class SidecarService {
     }
   }
 
+  private parseLine(line: string): SidecarEvent | undefined {
+    try {
+      const parsed: unknown = JSON.parse(line)
+      if (this.isKnownEvent(parsed)) {
+        return parsed
+      }
+      console.error("[sidecar] evenement inconnu, contrat desynchronise", line)
+    } catch {
+      console.error("[sidecar] ligne illisible", line)
+    }
+
+    return undefined
+  }
+
   private isKnownEvent(parsed: unknown): parsed is SidecarEvent {
     return (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      "event" in parsed &&
-      typeof parsed.event === "string" &&
-      Object.hasOwn(KNOWN_EVENTS, parsed.event)
+      isRecord(parsed) &&
+      typeof parsed["event"] === "string" &&
+      Object.hasOwn(KNOWN_EVENTS, parsed["event"])
     )
   }
 }

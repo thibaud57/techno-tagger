@@ -7,7 +7,7 @@ paths:
 
 ## À faire
 - Configurer `strict = true` dans `pyproject.toml`, pas en flag de ligne de commande : `--strict` en CLI ferait doublon
-- Ajouter `warn_unreachable` explicitement : il n'est pas couvert par `strict`
+- Ajouter `warn_unreachable` et `disallow_any_explicit` explicitement : `strict` ne les couvre pas. Un remplaçant de test sous n'importe quelle signature se type par le Protocol `Replacement` de `tests/helpers/stubs.py`, jamais par `Callable[..., T]`
 - Fixer `python_version` sur la cible réelle du sidecar : Mypy applique les règles de la version déclarée, pas de celle qui l'exécute
 - Lancer Mypy par `uv run` pour garantir les mêmes versions qu'en CI
 - Annoter une fonction `async` par le type obtenu **après `await`**, jamais par sa coroutine

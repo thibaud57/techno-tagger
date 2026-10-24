@@ -8,7 +8,7 @@ import pytest
 from repo_files import read_json
 
 import tagger
-from tagger.__main__ import Phase as BusyPhase
+from tagger.__main__ import BusyPhase
 from tagger.core.errors import TaggerError
 from tagger.core.file_failures import FileFailureReason
 from tagger.playlists.extraction import DuplicateCriterion

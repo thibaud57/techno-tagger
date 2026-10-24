@@ -111,6 +111,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "tagger.core.models.Stri
 [tool.mypy]
 strict = true
 warn_unreachable = true  # non couvert par strict
+disallow_any_explicit = true  # non couvert par strict : `object` puis narrowing
 python_version = "3.14"
 plugins = ["pydantic.mypy"]
 # Les tests ne sont pas des packages (pytest en importlib) : sans bases explicites,

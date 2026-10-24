@@ -18,6 +18,7 @@ from keyring.backends.Windows import WinVaultKeyring
 from pydantic import ValidationError
 
 from tagger import RELEASE
+from tagger.core.api_key import KeyringUnavailableError
 from tagger.core.build_info import SENTRY_DSN
 from tagger.core.errors import RunNotFoundError, TaggerError
 from tagger.core.logger import setup_logging
@@ -43,6 +44,7 @@ from tagger.handlers import (
     handle_set_api_key,
     handle_start_tagging,
     url_progress,
+    version_event,
 )
 from tagger.protocol import (
     CancelRun,
@@ -117,7 +119,7 @@ def _force_utf8_streams() -> None:
 
 
 @verify(UNIQUE)
-class Phase(StrEnum):
+class BusyPhase(StrEnum):
     """Phase longue de la session, valeur du parametre `phase` de `phase_busy`."""
 
     EXTRACTION = auto()
@@ -145,7 +147,7 @@ class PhaseBusyError(TaggerError):
 
     code: ClassVar[str] = "phase_busy"
 
-    def __init__(self, phase: Phase) -> None:
+    def __init__(self, phase: BusyPhase) -> None:
         super().__init__(f"a {phase} phase is already in progress", phase=phase)
 
 
@@ -179,7 +181,7 @@ class RunNotWrittenError(TaggerError):
 
 
 class _RunningPhase(NamedTuple):
-    phase: Phase
+    phase: BusyPhase
     task: asyncio.Task[None]
 
 
@@ -221,7 +223,7 @@ class _Session:
         self._ensure_idle()
         replaced, self._current = self._current, None
         start_work = functools.partial(self._replace, replaced, command)
-        self._spawn_phase(Phase.TAGGING, start_work, command)
+        self._spawn_phase(BusyPhase.TAGGING, start_work, command)
 
     def resume_run(self, command: ResumeRun) -> None:
         """Le run affiche ne part qu'une fois le run repris ouvert : un refus ne lui coute rien."""
@@ -230,7 +232,7 @@ class _Session:
             # Jamais annonce : le reprendre supprimerait le plan qu'il ecrit.
             raise RunNotFoundError(command.run_id)
         start_work = functools.partial(self._resume, command)
-        self._spawn_phase(Phase.TAGGING, start_work, command)
+        self._spawn_phase(BusyPhase.TAGGING, start_work, command)
 
     async def _resume(self, command: ResumeRun) -> None:
         plan = await asyncio.to_thread(load_resumable, plan_dir(), dump_dir(), command.run_id)
@@ -242,7 +244,7 @@ class _Session:
         start_work = functools.partial(
             asyncio.to_thread, handle_extract_playlist, command, self.send
         )
-        self._spawn_phase(Phase.EXTRACTION, start_work, command)
+        self._spawn_phase(BusyPhase.EXTRACTION, start_work, command)
 
     async def cancel_run(self) -> None:
         """N'annule que la phase reseau, qui ne tient que du reseau et de la memoire.
@@ -309,7 +311,7 @@ class _Session:
             current.live if current is not None and current.live.run_id == command.run_id else None
         )
         start_work = functools.partial(handle_rollback, command, live, self.send)
-        self._spawn_phase(Phase.ROLLBACK, start_work, command, command.track_id)
+        self._spawn_phase(BusyPhase.ROLLBACK, start_work, command, command.track_id)
 
     def load_run(self, command: LoadRun) -> None:
         """Lecture seule en tache de fond : aucun fichier de musique n'est touche et les pochettes
@@ -380,11 +382,11 @@ class _Session:
     def _spawn_write(
         self, start_work: Callable[[], Awaitable[Event]], command: CommitRun | RetryWrite
     ) -> None:
-        self._spawn_phase(Phase.WRITE, start_work, command)
+        self._spawn_phase(BusyPhase.WRITE, start_work, command)
 
     def _spawn_phase(
         self,
-        phase: Phase,
+        phase: BusyPhase,
         start_work: Callable[[], Awaitable[Event | None]],
         command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback | ResumeRun),
         track_id: str | None = None,
@@ -422,7 +424,7 @@ class _Session:
         en cours rend `write_not_open`, le run n'etant pas encore ouvert a l'ecriture.
         """
         running = self._running()
-        if running is not None and running.phase is not Phase.TAGGING:
+        if running is not None and running.phase is not BusyPhase.TAGGING:
             raise PhaseBusyError(running.phase)
         current = self._current
         if current is None or current.live.run_id != run_id or current.busy or running is not None:
@@ -476,7 +478,7 @@ class _Session:
     def _active_run(self) -> asyncio.Task[None] | None:
         """La phase reseau en cours, `None` si une autre phase tourne ou si aucune."""
         running = self._running()
-        return running.task if running is not None and running.phase is Phase.TAGGING else None
+        return running.task if running is not None and running.phase is BusyPhase.TAGGING else None
 
     async def _phase(
         self,
@@ -587,6 +589,15 @@ async def _read_commands(session: _Session, stdin: TextIO) -> StopReason:
             session.send(_error_of(error, command))
 
 
+async def _answer_get_version(session: _Session) -> None:
+    """La version part meme sans trousseau lisible : l'interface en a besoin pour demarrer."""
+    try:
+        session.send(await asyncio.to_thread(handle_get_version))
+    except KeyringUnavailableError:
+        session.send(version_event(api_key_configured=False))
+        raise
+
+
 # PLR0912 : une branche par commande. `Shutdown` etant traite par la boucle, le `match`
 # couvre toutes les variantes et `assert_never` rend l'oubli d'un handler visible au typage.
 async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # noqa: PLR0912
@@ -597,7 +608,7 @@ async def _dispatch(command: ExecutableCommand, session: _Session) -> None:  # n
     """
     match command:
         case GetVersion():
-            session.send(await asyncio.to_thread(handle_get_version))
+            await _answer_get_version(session)
         case SetApiKey():
             session.send(await asyncio.to_thread(handle_set_api_key, command))
         case ListPlaylists():

@@ -49,7 +49,11 @@ ARTWORK_CONCURRENCY: Final = 6
 # `scraper_client._TIMEOUT` (memes conditions reseau locales).
 _ARTWORK_TIMEOUT: Final = httpx2.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
 
-ARTWORK_EXTENSIONS: Final = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+ARTWORK_EXTENSIONS: Final[Mapping[str, str]] = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
 
 # Une pochette vit sur un CDN public : quelques sauts suffisent. La borne evite qu'une
 # boucle de redirections ne tienne une place du pool jusqu'au timeout.

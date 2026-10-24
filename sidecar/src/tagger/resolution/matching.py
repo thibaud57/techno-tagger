@@ -257,19 +257,11 @@ def classify(
     n'a pas repondu.
     """
     asked = _prepare(query)
-    scored: list[ScoredCandidate] = []
-    for candidate in candidates:
-        # Candidat deja normalise par techno-scraper : un groupe que son titre garde (« PATT
-        # (Party All The Time) ») est un sous-titre, retire des deux cotes. Sans quoi la
-        # requete le prendrait pour une version et bloquerait un morceau identique.
-        title, subtitle = _split_version(_clean(candidate.title, keep_parentheses=True))
-        offered = _Parts(title, candidate.mix_name or "")
-        if not _passes_remix_guard(_Parts(asked.title, asked.version), offered):
-            continue
-        version = _without_subtitle(asked.version, subtitle)
-        scored.append(_score(replace(asked, version=version), candidate, offered))
-
-    every = tuple(scored)
+    every = tuple(
+        entry
+        for candidate in candidates
+        if (entry := _score_candidate(asked, candidate)) is not None
+    )
     in_play = sorted(
         (entry for entry in every if _above_floor(entry, thresholds.floor)),
         key=lambda entry: entry.score,
@@ -292,6 +284,19 @@ def classify(
     if in_play:
         return Classification(Outcome.GREY_ZONE, tuple(in_play), every)
     return Classification(Outcome.EMPTY, (), every)
+
+
+def _score_candidate(asked: _AskedFor, candidate: TrackCandidate) -> ScoredCandidate | None:
+    """`None` quand le garde-fou remix ecarte le candidat."""
+    # Candidat deja normalise par techno-scraper : un groupe que son titre garde (« PATT
+    # (Party All The Time) ») est un sous-titre, retire des deux cotes. Sans quoi la
+    # requete le prendrait pour une version et bloquerait un morceau identique.
+    title, subtitle = _split_version(_clean(candidate.title, keep_parentheses=True))
+    offered = _Parts(title, candidate.mix_name or "")
+    if not _passes_remix_guard(_Parts(asked.title, asked.version), offered):
+        return None
+    version = _without_subtitle(asked.version, subtitle)
+    return _score(replace(asked, version=version), candidate, offered)
 
 
 def _prepare(query: TrackQuery) -> _AskedFor:
