@@ -157,6 +157,7 @@ audio.save(v2_version=3)
 - `AIFF` s'utilise exactement pareil
 - Le support WAVE étendu et la gestion des fichiers IFF tronqués datent de la 1.47.0, donc acquis ici
 - **C'est la couverture du WAV qui justifie mutagen** : beaucoup de bibliothèques de tags s'arrêtent aux formats compressés
+- **Rekordbox ignore le chunk ID3 d'un WAV** et ne lit que le RIFF INFO, que mutagen n'écrit pas (relevé le 2026-10-23, cf. [rekordbox.md](rekordbox.md))
 
 ---
 
