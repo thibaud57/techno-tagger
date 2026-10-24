@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
 import { commandError, phaseBusy } from "../../../../fixtures/write"
-import type { BusyPhase, SidecarErrorEvent } from "../../../core/sidecar/protocol"
+import { BUSY_PHASES, type SidecarErrorEvent } from "../../../core/sidecar/protocol"
 import { ErrorMessageComponent } from "./error-message.component"
 
 const mount = (error: SidecarErrorEvent) => {
@@ -41,14 +41,11 @@ describe("ErrorMessageComponent", () => {
     expect(component["params"]()).toEqual(expected)
   })
 
-  it.each<BusyPhase>(["extraction", "tagging", "write", "rollback"])(
-    "words a busy phase by the phase that runs (%s)",
-    (phase) => {
-      const component = mount(phaseBusy("start_tagging", phase))
+  it.each(BUSY_PHASES)("words a busy phase by the phase that runs (%s)", (phase) => {
+    const component = mount(phaseBusy("start_tagging", phase))
 
-      expect(component["key"]()).toBe(`errors.phase_busy.${phase}`)
-    },
-  )
+    expect(component["key"]()).toBe(`errors.phase_busy.${phase}`)
+  })
 
   it("keeps the code as the key of any other error", () => {
     const component = mount(commandError("commit_run", "write_not_open"))

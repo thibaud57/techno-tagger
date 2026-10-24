@@ -1,13 +1,11 @@
 import { computed, linkedSignal, signal, Service } from "@angular/core"
 
-import type {
-  ArbitrationRequiredEvent,
-  ArbitrationState,
-  ArbitrationUpdatedEvent,
+import {
+  ARBITRATION_NOT_PENDING,
+  type ArbitrationRequiredEvent,
+  type ArbitrationState,
+  type ArbitrationUpdatedEvent,
 } from "../sidecar/protocol"
-
-/** Seul refus qui retire un arbitrage : le sidecar ne le tient plus, la file etait desynchronisee. */
-const NOT_PENDING = "arbitration_not_pending"
 
 /** File des arbitrages dans l'ordre d'arrivee : un nouvel arbitrage n'y decale jamais celui affiche. */
 @Service()
@@ -86,10 +84,10 @@ export class ArbitrationStore {
     this.remove(trackId)
   }
 
-  /** Vrai quand le sidecar ne tient plus l'arbitrage : la ligne du run ne doit plus l'attendre non plus. */
+  /** Vrai quand le sidecar ne tient plus l'arbitrage (seul `arbitration_not_pending`, file desynchronisee) : la ligne du run ne l'attend plus. */
   rejected(trackId: string, code: string): boolean {
     this.release(trackId)
-    const dropped = code === NOT_PENDING
+    const dropped = code === ARBITRATION_NOT_PENDING
     if (dropped) {
       this.remove(trackId)
     }

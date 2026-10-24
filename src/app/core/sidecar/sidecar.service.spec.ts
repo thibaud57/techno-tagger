@@ -34,7 +34,7 @@ import {
   writeFinishedWithFailures,
 } from "../../../fixtures/write"
 import { PastRunsStore } from "../stores/past-runs.store"
-import { BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
+import { BUSY_PHASES, BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { type RunAction, type SidecarPhase, SidecarService } from "./sidecar.service"
 
@@ -73,8 +73,6 @@ class FakeTransport implements SidecarTransport {
     this.handlers?.onLine(line)
   }
 }
-
-const BUSY_PHASES: readonly BusyPhase[] = ["extraction", "tagging", "write", "rollback"]
 
 type LaunchCommand =
   "extract_playlist" | "start_tagging" | "resume_run" | "commit_run" | "retry_write" | "rollback"

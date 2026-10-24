@@ -1,6 +1,7 @@
 import { Component, computed, input } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 
+import { busyPhase } from "../../../core/sidecar/error-params"
 import { PHASE_BUSY, type SidecarErrorEvent } from "../../../core/sidecar/protocol"
 import { FADE_IN } from "../../utils/motion"
 import { brandName } from "../../utils/sources"
@@ -22,11 +23,10 @@ export class ErrorMessageComponent {
 
   /** Une phrase par phase pour `phase_busy` : le geste qui repare depend de ce qui tourne. */
   protected readonly key = computed(() => {
-    const { code, params } = this.error()
+    const error = this.error()
+    const phase = busyPhase(error)
 
-    return code === PHASE_BUSY && typeof params["phase"] === "string"
-      ? `errors.${PHASE_BUSY}.${params["phase"]}`
-      : `errors.${code}`
+    return phase === null ? `errors.${error.code}` : `errors.${PHASE_BUSY}.${phase}`
   })
 
   /**

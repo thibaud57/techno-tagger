@@ -9,6 +9,7 @@ import { InputText } from "primeng/inputtext"
 import { SelectButton } from "primeng/selectbutton"
 import { Tooltip } from "primeng/tooltip"
 
+import { errorRunId } from "../../../core/sidecar/error-params"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import { DangerConfirmComponent } from "../../../shared/components/dialogs/danger-confirm.component"
 import { RollbackFailuresComponent } from "../../../shared/components/dialogs/rollback-failures.component"
@@ -130,12 +131,14 @@ export default class RecapPageComponent {
   /** Le refus d'un autre run ne s'affiche pas ici ; un refus sans run (commande malformee) s'affiche. */
   protected readonly feedbackError = computed(() => {
     const error = this.feedbackErrors()
-    const refusedRun = error?.params["run_id"]
 
-    return error !== null &&
-      (refusedRun === undefined || refusedRun === this.feedbackTarget()?.runId)
-      ? error
-      : null
+    if (error === null) {
+      return null
+    }
+
+    const refusedRun = errorRunId(error)
+
+    return refusedRun === null || refusedRun === this.feedbackTarget()?.runId ? error : null
   })
   /** Lecture seule : les fichiers d'un run passe ont pu etre retagues depuis. */
   protected readonly restorableIds = computed<ReadonlySet<string>>(() =>
