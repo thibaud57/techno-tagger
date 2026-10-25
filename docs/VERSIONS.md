@@ -208,7 +208,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 
 **Recommandation** : ⚠️ Retenu, sans alternative crédible. Deux points à couvrir par des tests, tous deux dans le périmètre déjà prévu par [ARCHITECTURE.md § Stratégie de Tests](ARCHITECTURE.md#stratégie-de-tests) :
 1. `EasyID3` combiné à `v2_version=3` a produit historiquement une frame `TDRC` v2.4 vide en plus du `TYER` v2.3 attendu (issue #188, fermée sans détail de correctif vérifiable). Écrire l'assertion sur le contenu réel du fichier, pas sur le retour de l'API
-2. La casse du chunk WAV (`id3 ` vs `ID3 `) ne règle rien côté Rekordbox, qui ignore ce chunk : le RIFF INFO, que mutagen n'écrit pas, est à la charge du projet (Post-MVP Feature 1 du BRAINSTORM)
+2. La casse du chunk WAV (`id3 ` vs `ID3 `) ne règle rien côté Rekordbox, qui ignore ce chunk : le RIFF INFO, que mutagen n'écrit pas, est à la charge du projet (Post-MVP « Compatibilité des tags avec les logiciels DJ » du BRAINSTORM)
 
 ### 5. RapidFuzz
 **Version actuelle** : `3.14.6` (2026-08-30)
