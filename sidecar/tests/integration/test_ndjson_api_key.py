@@ -9,9 +9,8 @@ import keyring
 import pytest
 from memory_keyring import CredentialManagerKeyring, RefusingKeyring
 from ndjson_loop import conversation, drive, drive_raw, line, resolved_run
-from scraper_responses import YOUR_MIND, found, invalid_track_payload
+from scraper_responses import BEATPORT_SEARCH, YOUR_MIND, found, invalid_track_payload
 from sentry_sdk.utils import event_from_exception
-from tagging_api import BEATPORT_SEARCH
 
 from tagger.core.api_key import SERVICE, USERNAME
 from tagger.core.observability import _scrub

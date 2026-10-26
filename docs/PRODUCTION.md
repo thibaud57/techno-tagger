@@ -1,10 +1,10 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-10-23"
+date: "2026-10-26"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
-technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry"]
+technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry", "Docker", "Dokploy"]
 ---
 
 # 🚀 Release Strategy
@@ -113,10 +113,12 @@ Conséquences par lock, très inégales :
 **Manuel :**
 - [ ] `just audit` lu : chaque vulnérabilité remontée est corrigée, ou constatée sans correctif disponible (cf. § Dépendances)
 - [ ] **Sauvegarde de la clé privée updater revérifiée** : l'entrée de la clé et celle de son mot de passe sont présentes dans le gestionnaire de mots de passe et correspondent à la clé en service. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
+- [ ] **`DEMO_IMAGE` vaut `latest` dans Dokploy** (onglet Environment du compose de la démo) : laissée épinglée après un retour arrière, elle redéploierait l'ancienne version à ce tag, sans alerte (cf. § Rollback)
 - [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
 - [ ] Job `sync-lockfiles` **vert**, et commit `chore: realigner les lockfiles sur la version de release` présent en tête de la PR de release. Garantit que le lock committé au tag porte la version publiée, et les runs de CI de cette PR restent **en attente d'approbation** tant que personne ne clique « Approve workflows to run » (ou `gh api -X POST repos/<owner>/<repo>/actions/runs/<id du run en action_required>/approve`)
 - [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `just smoke-sidecar` + `tauri build` + signature)
+- [ ] **Job `demo` vert**, puis démo redéployée : la version affichée dans les Réglages de la démo égale le tag ; le parcours joué par `/verify` ne produit aucune violation CSP ni requête hors origine. Un échec du job ne touche pas l'installeur, déjà publié : relancer par « Re-run job » (cf. § Pipelines)
 - [ ] **Source maps rattachées à la bonne release Sentry** : les jobs `sentry-release` et `build` tournent en parallèle, volontairement (coupler la distribution à l'observabilité ferait perdre l'installeur sur un incident Sentry). `sentry-cli sourcemaps upload --release` crée la release si elle manque, ce qui rend l'ordre indifférent. Un upload en échec ne bloque pas le build (`::warning::` dans le log du job `build`) : le lire. **Confirmé au premier run (v0.1.0)** : les source maps sont bien montées sur `techno-tagger@0.1.0`. Symptôme si cela régressait : une release Sentry sans artefact, et toute stack Angular minifiée. Correctif alors : `sentry-cli releases new` en tête du script `sourcemaps`, côté build
 - [ ] Étape **« Verifier les artefacts de l'updater »** du job de build **verte** : elle échoue si `latest.json` ou le `.sig` manquent, si le manifeste annonce une autre version que le tag, ou si son entrée `windows-x86_64` est incomplète. `tauri-action` seul reste vert sans artefact d'updater, `uploadUpdaterJson` fût-il à `true` (constaté sur la v0.1.0, publiée avec le seul installeur)
 - [ ] **Smoke test d'installation** sur une machine ou une VM propre : l'installeur passe, l'application démarre, le sidecar répond, et `F5`, `Ctrl+R`, `Ctrl+O`, `Ctrl+U` comme le clic droit restent sans effet (un rechargement relancerait un second sidecar)
@@ -206,14 +208,15 @@ Le binaire du sidecar porte en revanche un **suffixe target-triple obligatoire**
 
 ## Liste Environnements
 
-Deux états de l'application, pas des branches ni des serveurs. **Aucun hébergement** : tout tourne sur la machine de l'utilisateur, la seule dépendance distante étant techno-scraper, hors périmètre de ce projet.
+Deux états de l'application, pas des branches ni des serveurs, plus la démo web publique. **Aucun hébergement pour l'application** : tout tourne sur la machine de l'utilisateur, la seule dépendance distante étant techno-scraper, hors périmètre de ce projet. Seule la **démo web** est hébergée : un container nginx statique sur le VPS déjà utilisé pour techno-scraper, déployé par Dokploy ([ADR-023](adrs/023-demo-web-par-rejeu.md)).
 
 | Env | Accès | Branch | Sidecar | Auto-publication |
 |-----|-------|--------|---------|------------------|
 | Développement | `tauri dev` en local | `develop`, `feature/*` | Binaire de `just build-sidecar`, exigé dès la compilation | Non |
 | Distribution | Installeur GitHub Releases | `main` (tags uniquement) | Binaire PyInstaller empaqueté, signature de l'updater en CI | Oui, au tag (cf. § Pipelines) |
+| Démo web | `https://demo-techno-tagger.thibaud-geisler.com` | `main` (tags uniquement ; Dokploy relit `demo/compose.yaml` sur `main` à chaque redéploiement) | Aucun : image statique, le métier est rejoué depuis un scénario enregistré | Oui, au tag (job `demo`, cf. § Pipelines) |
 
-Pas de staging : sans serveur ni base, il n'y a rien à déployer entre les deux. Le rôle du staging est tenu par la **VM propre** du smoke test d'installation.
+Pas de staging : sans serveur ni base, il n'y a rien à déployer entre les deux. Le rôle du staging est tenu par la **VM propre** du smoke test d'installation. La démo n'en a pas non plus : son image est construite, lancée en lecture seule et sondée à chaque PR (job `demo-image`) ; le retour arrière est un changement de variable (cf. § Rollback).
 
 > ⚠️ **Deux pièges connus n'existent qu'en Distribution** et sont strictement invisibles en `tauri dev` : le sidecar non remplacé à la mise à jour et le backend keyring introuvable (cf. § Bootstrap technique). La sortie NDJSON bufferisée, elle, se voit dès le développement, qui lance le même binaire par un pipe ([ADR-005](adrs/005-sidecar-python-protocole-ndjson.md)). À partir de l'étape 4, un run complet rejoué **sur le bundle** est donc la seule validation qui compte, le mode développement ne prouvant rien sur ces trois points.
 
@@ -231,7 +234,16 @@ SENTRY_DSN_SIDECAR=<DSN du projet Sentry Python `techno-tagger-sidecar`, région
 SENTRY_DSN_UI=<DSN du projet Sentry JavaScript `techno-tagger-ui`, région EU ; compilé dans le bundle Angular>
 PRIMENG_LICENSE_KEY=<clé Community License, providePrimeNG({ license })>
 SENTRY_AUTH_TOKEN=<Organization Auth Token, scope org:ci non modifiable, upload des source maps de la webview et création de la release Sentry au tag>
-GITHUB_TOKEN=<fourni par Actions, publication de la Release>
+GITHUB_TOKEN=<fourni par Actions, publication de la Release et de l'image de la démo sur GHCR>
+DOKPLOY_URL=<origine du tableau de bord Dokploy, sans slash final ; job `demo`>
+DOKPLOY_TOKEN=<clé d'API Dokploy, actif à pouvoir de déploiement ; job `demo`>
+DOKPLOY_COMPOSE_ID=<identifiant du compose de la démo dans Dokploy ; job `demo`>
+```
+
+**Côté Dokploy** (onglet Environment du compose de la démo, pas un secret GitHub) :
+
+```bash
+DEMO_IMAGE=<image publiée par le job `demo`, ghcr.io/<owner>/techno-tagger-demo:latest ; X.Y.Z pour un retour arrière>
 ```
 
 **Au runtime (machine utilisateur)** : **aucune variable de configuration**, hormis `TECHNO_TAGGER_SENTRY_SELFTEST` réservée au diagnostic. C'est la différence de fond avec une application 12-factor : il n'y a ni conteneur ni panneau d'administration où poser une valeur. La configuration vit à deux endroits, tous deux locaux :
@@ -265,20 +277,24 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 
 # 🔄 CI/CD
 
-**GitHub Actions de bout en bout** : contrôle qualité, release-please, build des binaires, signature et publication. Pas de serveur, donc pas de déploiement au sens habituel : l'équivalent est la **publication d'une Release**, et le vrai « déploiement » se fait chez l'utilisateur, au démarrage suivant de son application.
+**GitHub Actions de bout en bout** : contrôle qualité, release-please, build des binaires, signature et publication. Pas de serveur pour l'application, donc pas de déploiement au sens habituel : l'équivalent est la **publication d'une Release** et le vrai « déploiement » se fait chez l'utilisateur, au démarrage suivant de son application. Seule exception, la démo web, redéployée par Dokploy au même tag.
 
 ## Pipelines
 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
-| Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff (check + format) + Mypy strict + pytest (`sidecar/`), ESLint + Prettier + `actionlint` + typecheck + build Angular + Vitest (`src/`), `just build-sidecar` + `just smoke-sidecar` (lance le binaire figé, exige la réponse `version` égale à celle de `package.json`) puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/`, `just audit-*` non bloquants (cf. § Dépendances) | Gate qualité |
+| Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones et `demo-image` sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff (check + format) + Mypy strict + pytest (`sidecar/`), ESLint + Prettier + `actionlint` + typecheck + build Angular puis `just build-demo` + Vitest (`src/`), `just build-sidecar` + `just smoke-sidecar` (lance le binaire figé, exige la réponse `version` égale à celle de `package.json`) puis `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/`, `just audit-*` non bloquants (cf. § Dépendances) | Gate qualité |
+| Job `demo-image` de la même CI, mêmes déclencheurs, sauté sur Markdown seul | Image de la démo construite **sans la pousser** (clé PrimeNG vide), lancée sous les contraintes du compose (lecture seule, `--cap-drop ALL`, `no-new-privileges`, limites de pids, de mémoire et de CPU), puis sondée : `/healthz` à `200` ; sur `/`, `/settings`, `/demo/scenario.json` et une URL inexistante à extension, la CSP et `X-Robots-Tag` lus depuis `demo/headers.conf` ; `Cache-Control: no-cache` sur le scénario ; `<app-root` dans `/settings` ; process non root. Inclus dans l'agrégateur `ci` | Gate qualité |
 | Push `main`, `workflow_dispatch` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump), puis **un job rejoue `uv lock` et `cargo update --workspace` et pousse les lockfiles réalignés dans cette même PR** (cf. § Propagation de la version). **Aucun build.** | — |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `just smoke-sidecar` → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release → URL de `latest.json` remplacées par les liens sous le tag → garde → publication de la Release (créée en draft) | GitHub Releases |
 | Merge PR release-please | Job `sentry-release`, en parallèle du build : release `techno-tagger@X.Y.Z` créée dans les deux projets Sentry, `set_commits: auto` | Sentry |
+| Merge PR release-please, **après le job `build`** | Job `demo` : image de la démo construite au tag et poussée sur GHCR (`latest` et `X.Y.Z`), puis **une seule requête** `POST` sur l'API de redéploiement de Dokploy (secrets `DOKPLOY_URL`, `DOKPLOY_TOKEN`, `DOKPLOY_COMPOSE_ID`) | GHCR, puis Dokploy |
 
 > 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`.** « Events triggered by the `GITHUB_TOKEN` will not create a new workflow run, with the following exceptions » ([doc GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)) : les exceptions sont `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, un push de tag n'en fait pas partie. Le tag créé par release-please ne déclenche donc aucun workflow. Un workflow séparé sur `on: push: tags: v*` ne partirait **jamais, et sans erreur** : la Release resterait vide, l'updater ne verrait rien, et rien dans l'interface de GitHub ne signalerait le problème. Le build doit être **chaîné en `needs:`** dans le workflow release-please, conditionné à sa sortie `release_created`. Piège déjà rencontré sur techno-scraper.
 >
 > Alternative si un fichier séparé devenait nécessaire : donner un PAT ou un token de GitHub App à release-please, au prix d'un secret de plus à faire tourner.
+
+> **Job `demo`** : `needs: [release-please, build]`, donc la démo ne part qu'après l'installeur publié : un `build` en échec la saute. Pas de nouvelle tentative automatique sur le `POST` : une requête acceptée dont la réponse arrive trop tard, rejouée, lancerait un second redéploiement. Un échec se relance à la main (« Re-run job »), GitHub l'envoie par email, sans toucher à l'installeur. Un lot uniquement `chore:` ne crée pas de release, donc ne redéploie pas la démo. Le build de release tourne sans cache : un secret BuildKit n'entre pas dans la clé du cache de couche, donc réutiliser celui du CI publierait la démo avec une clé PrimeNG vide.
 
 > Pas de hooks pre-commit : la CI joue le même trio sur chaque PR, un `.pre-commit-config.yaml` ferait doublon.
 
@@ -288,7 +304,7 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 
 **Déclencheur** : release publiée qui ne s'installe pas, application qui ne démarre pas, régression fonctionnelle grave (écriture de tags fausse, corruption de fichiers).
 
-Il n'y a **rien à faire redescendre** : aucun serveur ne sert cette application. Le retour arrière est un roll-*forward*.
+Il n'y a **rien à faire redescendre côté application** : aucun serveur ne la sert. Le retour arrière est un roll-*forward*. La démo web fait exception (cf. la procédure dédiée plus bas).
 
 **Build rouge** : la Release est restée en draft, jamais servie : § Canaux, « Build en échec ».
 
@@ -298,9 +314,35 @@ Il n'y a **rien à faire redescendre** : aucun serveur ne sert cette application
 3. Vérifier la nouvelle Release : installeur + `latest.json` présents, smoke test d'installation et de mise à jour.
 4. **Prévenir les utilisateurs à la main** si la version fautive a pu être installée. C'est le seul canal disponible : aucun mécanisme ne permet de forcer une mise à jour ni de savoir qui tourne sur quelle version.
 
+**Démo web** : un vrai retour arrière est possible, sans rebuild ni commit.
+1. Dans Dokploy, onglet Environment du compose de la démo, poser `DEMO_IMAGE` sur la version précédente (`…-demo:X.Y.Z`, `ghcr.io/<owner>/techno-tagger-demo`).
+2. **Redeploy** : immédiat, l'image `X.Y.Z` existe déjà sur GHCR.
+3. Publier le correctif (`hotfix/*`, nouveau tag `PATCH`), puis **remettre `DEMO_IMAGE` sur `latest`**.
+
+> ⚠️ Tant que `DEMO_IMAGE` reste épinglée, la release suivante redéploie la vieille version, sans alerte. C'est pourquoi la Checklist Release vérifie qu'elle vaut `latest` avant le tag.
+
 > ⚠️ **Une régression qui a déjà écrit des tags n'est pas rattrapée par un rollback applicatif.** Le retour arrière des données passe par le **dump des tags d'origine**, conservé 30 jours indépendamment du plan de run, via le bouton de rollback de l'application ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md)). Le message aux utilisateurs doit le dire explicitement, sinon un rollback de version leur laisse croire que leurs fichiers sont revenus à l'état antérieur.
 
 > **Cas particulier, le sidecar en quarantaine après mise à jour** : un binaire recompilé change d'empreinte et peut redevenir un faux positif alors que le précédent était exclu. Ce n'est pas une régression de code et un roll-forward n'y changerait rien, il faut refaire l'exclusion antivirus.
+
+## Mise en place de la démo
+
+Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag qui embarque la démo. **Cible, en cours au 2026-10-26** : étapes 1 et 2 faites sauf la variable `DEMO_IMAGE`, étape 3 sans `DOKPLOY_TOKEN`. Rien n'est en ligne tant que les sept étapes ne sont pas cochées. Ce que Dokploy ou le portfolio présentent à ce moment (portée de la clé, version affichée) se relève ici, avec sa date.
+
+1. **DNS** : un enregistrement `demo-techno-tagger` de même cible que l'apex du domaine.
+2. **Dokploy** : projet `Techno Tagger`, environment par défaut `production` (Dokploy ne le renomme ni ne le supprime), service Compose `techno-tagger-demo` depuis GitHub (branche `main`, fichier `demo/compose.yaml`).
+   - **Isolated Deployment** activé, **déploiement automatique coupé** (la CI déclenche).
+   - Onglet **Environment** : `DEMO_IMAGE`, posée sur `latest` (cf. § Variables d'Environnement).
+   - Onglet **Domains** : hôte `demo-techno-tagger.thibaud-geisler.com`, service `demo`, port `8080`, HTTPS Let's Encrypt, **aucun middleware d'en-têtes** attaché.
+   - Générer la clé d'API et **noter la portée que Dokploy présente**, à reporter dans la § Rotation.
+3. **Secrets GitHub** : `DOKPLOY_URL` (origine du tableau de bord, sans slash final), `DOKPLOY_TOKEN`, `DOKPLOY_COMPOSE_ID`.
+4. **Première release et GHCR** : au premier push, le paquet de la démo est **privé**. Le passer en **public** pour que Dokploy le tire sans identifiants, puis relancer le job `demo` s'il a échoué au tirage.
+5. **Vérification en ligne** : en-têtes sur l'accueil, une route de l'app et une 404 (CSP de `headers.conf` et non celle du portfolio, `X-Robots-Tag: noindex`), `/healthz` à `200`, version des Réglages égale au tag, parcours joué par `/verify` sans violation CSP ni requête hors origine, aucun cookie du portfolio présent sur le sous-domaine.
+6. **Sonde de disponibilité externe** (le service déjà utilisé pour le portfolio) : une sonde HTTP sur `https://demo-techno-tagger.thibaud-geisler.com/healthz`, toutes les 5 minutes, alerte email au changement d'état.
+7. **Portfolio** (dans son dépôt) :
+   - le bouton « Voir la démo » pointe vers la démo avec `?lang=fr` ou `?lang=en` selon la langue de la page, puis s'ouvre dans un nouvel onglet (`target="_blank" rel="noopener noreferrer"`) ;
+   - les pages `/fr/contact` et `/en/contact`, que le bandeau de la démo cible, existent ;
+   - les cookies du portfolio restent **sans attribut `Domain=`** : un cookie posé sur le domaine parent serait lisible par le sous-domaine de la démo.
 
 ## Checklist Pré-MEP
 
@@ -393,6 +435,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 | Dépendances Node (pnpm) | Mensuelle / sur CVE | PR Dependabot (écosystème `npm`) → CI verte → merge |
 | Crates Rust (cargo) | Mensuelle / sur CVE | PR Dependabot (écosystème `cargo`) → CI verte → merge |
 | Actions GitHub | Mensuelle | PR Dependabot (écosystème `github-actions`) |
+| Images de base de la démo (`node`, `nginx-unprivileged`) | Mensuelle | PR Dependabot (écosystème `docker`, dossier `/demo`) → CI verte, `demo-image` comprise → merge. Une majeure de Node se monte avec `engines.node` et le runtime de `setup-pnpm` : `test_demo_image_coherence.py` échoue sinon |
 | Tauri (majeure) | Sur release majeure | PR dédiée, guide de migration, **build + smoke test d'installation obligatoires** avant merge |
 | Angular / PrimeNG (majeures) | Sur release majeure | PR dédiée, `ng update`, vérification visuelle des écrans |
 | Runtime Python du sidecar | Sur fin de support | Bump dans `pyproject.toml` et `.python-version`, rebuild PyInstaller, **retester les faux positifs antivirus** |
@@ -400,7 +443,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 | Outils (uv, pnpm) | Sur montée retenue dans VERSIONS.md | Bump de `required-version` et `uv_build` dans `sidecar/pyproject.toml`, ou de `devEngines.packageManager` dans `package.json` (puis `pnpm install` pour le lockfile) : seuls endroits où vivent ces versions, la CI les lit |
 | Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. Clé valable 12 mois avec 30 jours de grâce, décidée par l'[ADR-003](adrs/003-primeng-community-license.md) (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
 
-**Dependabot** : écosystèmes `npm`, `uv`, `cargo` et `github-actions` déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, celle de `github-actions` couvrant aussi les actions composites de `.github/actions/*`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque. Les crates Tauri (`cargo`) et leurs paquets `@tauri-apps` (`npm`) montent par deux PR distinctes alors que la CI ne lance jamais `tauri build` : `test_the_tauri_crates_and_their_npm_packages_are_aligned` (`sidecar/tests/unit/test_main.py`) fait échouer la CI tant qu'un des deux côtés est en retard.
+**Dependabot** : écosystèmes `npm`, `uv`, `cargo`, `github-actions` et `docker` (`/demo`) déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, celle de `github-actions` couvrant aussi les actions composites de `.github/actions/*`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque. Les crates Tauri (`cargo`) et leurs paquets `@tauri-apps` (`npm`) montent par deux PR distinctes alors que la CI ne lance jamais `tauri build` : `test_the_tauri_crates_and_their_npm_packages_are_aligned` (`sidecar/tests/unit/test_main.py`) fait échouer la CI tant qu'un des deux côtés est en retard.
 
 > ⚠️ **Les alertes de sécurité npm de GitHub ne sont pas fiables sur ce dépôt.** Le pin `devEngines.packageManager` (retenu le 2026-10-15, même schéma que les autres projets) donne un `pnpm-lock.yaml` à deux documents, dont le graphe de dépendances ne lit que le premier : zéro dépendance rapportée, alertes refermées sans rien afficher, PR de bump intactes ([dependabot-core#15904](https://github.com/dependabot/dependabot-core/issues/15904), ouverte). La veille CVE npm passe par `just audit-ui` en CI, non bloquant : **lire son résultat à chaque release** (Checklist Release). Détail dans [VERSIONS.md § Dependabot](VERSIONS.md#6-dependabot).
 
@@ -414,7 +457,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 
 # 🔐 Sécurité & Configuration
 
-Surface d'attaque volontairement minimale : **aucun port en écoute, aucun compte, aucune donnée stockée à distance**. Les sections Security Headers, CORS et Rate Limiting du canevas d'ops sont donc sans objet ici, il n'y a pas de serveur à protéger. Les deux risques réels sont l'exfiltration de la clé API et la corruption de fichiers musicaux, traités respectivement par le trousseau de l'OS et par l'écriture différée avec dump préalable.
+Surface d'attaque de l'application volontairement minimale : **aucun port en écoute, aucun compte, aucune donnée stockée à distance**. Les sections Security Headers, CORS et Rate Limiting du canevas d'ops sont donc sans objet pour elle, il n'y a pas de serveur à protéger. Seule la **démo web**, un serveur statique exposé, porte ces sujets (cf. § En-têtes et isolation de la démo web). Les deux risques réels de l'application sont l'exfiltration de la clé API et la corruption de fichiers musicaux, traités respectivement par le trousseau de l'OS et par l'écriture différée avec dump préalable.
 
 ## Secrets & Configuration
 
@@ -426,6 +469,7 @@ Surface d'attaque volontairement minimale : **aucun port en écoute, aucun compt
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Secrets GitHub Actions | Compilés au build, init des deux SDK (deux projets Sentry, cf. § Observabilité) | Régénérables depuis Sentry |
 | `PRIMENG_LICENSE_KEY` | Secrets GitHub Actions | `providePrimeNG({ license })`, gravée dans le bundle par `--define` | Bandeau de licence chez les utilisateurs, renouvellement gratuit (échéance au § Rotation) |
 | `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Upload des source maps de la webview par `pnpm build` et création de la release Sentry au tag, **Organization Auth Token**, scope `org:ci` imposé et non modifiable, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
+| `DOKPLOY_URL` / `DOKPLOY_TOKEN` / `DOKPLOY_COMPOSE_ID` | Secrets GitHub Actions | Job `demo`, passés par `env:` au seul step de redéploiement. **La clé d'API est un actif à pouvoir de déploiement**, exposé à toute modification de workflow qui atteint `main`. Portée : à définir, relevée à la mise en place (cf. § Mise en place de la démo) | Régénérable côté Dokploy. Sans elle, la démo cesse de se mettre à jour, l'installeur n'est pas touché |
 | Clé API techno-scraper (utilisateur) | Trousseau de l'OS via keyring, machine de l'utilisateur | Header `X-API-Key` posé par le sidecar | L'utilisateur en ressaisit une, révocation individuelle côté API |
 | Variables `API_KEYS__USER_N` (une par clé) | Variables d'environnement côté techno-scraper (Dokploy), nom de la personne en commentaire + gestionnaire de mots de passe | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
 
@@ -453,15 +497,38 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret GitHub, **publier une nouvelle version** : le DSN est compilé, les installations existantes gardent l'ancien jusqu'à leur mise à jour |
 | `PRIMENG_LICENSE_KEY` | Annuelle, **valide jusqu'au 2027-08-30** | Émise le 2026-08-30, tier Community, 4 sièges. Grâce de 30 jours au-delà, soit jusqu'au 2027-09-29. Renouvellement gratuit par reconfirmation d'éligibilité sur [primeui.dev/licenses/community](https://primeui.dev/licenses/community), puis mise à jour du secret. **Effectif à la prochaine release seulement** : une version déjà distribuée garde la clé expirée et affiche la notice |
 | `SENTRY_AUTH_TOKEN` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret. Effet immédiat, ce token n'est jamais compilé dans un binaire |
+| `DOKPLOY_TOKEN` (clé d'API Dokploy) | Au moins une fois par an (première échéance : un an après la mise en place, date à définir) ; à tout soupçon de fuite | **Révoquer côté Dokploy d'abord**, puis générer la nouvelle clé et remplacer le secret GitHub. Effet immédiat, la clé n'est jamais compilée dans un binaire |
 | **Clé de signature updater** | ❌ **Non rotative en pratique** | La release qui introduit la nouvelle `pubkey` doit être **signée avec l'ancienne clé** pour que les installations existantes l'acceptent. Sans l'ancienne clé, il n'y a pas de transition possible, seulement une réinstallation manuelle chez chaque utilisateur |
 
 > ⚠️ **Une rotation de clé de signature se prépare, elle ne s'improvise pas.** Si elle devient nécessaire (fuite avérée), la séquence est : générer la paire B, publier une version signée avec A portant la `pubkey` de B, attendre que **tout le monde** l'ait installée, puis seulement signer avec B. Tant qu'un utilisateur n'a pas pris la version de transition, il est définitivement bloqué sur A.
+
+## En-têtes et isolation de la démo web
+
+La démo ne contient aucune donnée réelle (bibliothèque fictive) et ne peut atteindre aucun service : le container est durci pour que cela reste vrai.
+
+**En-têtes** : posés par **nginx seul**, depuis `demo/headers.conf`, seule source, que la CI et le test de cohérence lisent aussi. Le fichier est inclus avec `always` dans chaque `location` : un `add_header` de `location` efface ceux du serveur, sans `always` les 4xx n'en portent aucun. Contenu : CSP restrictive (`default-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Robots-Tag: noindex`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`. `style-src 'unsafe-inline'` est exigé par les styles que PrimeNG pose à l'exécution ; le risque résiduel est une injection CSS, sans donnée à exfiltrer ; `script-src 'self'` sans inline ferme le reste.
+
+**HSTS** : posé par le reverse proxy de Dokploy seul, réglage global de son point d'entrée. **Aucun middleware d'en-têtes** n'est attaché au domaine de la démo : celui du portfolio porte une CSP qui autorise d'autres origines et remplacerait celle de la démo, sans que la vérification locale le voie. La CSP vue en ligne doit être celle de `headers.conf` (étape 5 de la mise en place).
+
+**CORS** : sans objet, la démo ne sert aucune API (`connect-src 'self'`). **Rate limiting** : celui du point d'entrée du VPS, déjà appliqué à tout hôte, dont les valeurs vivent dans la configuration de l'hébergement, hors de ce dépôt. Aucun middleware de plus sur ce domaine, il compterait double.
+
+| Isolation | Réglage | Garde |
+|---|---|---|
+| Réseau | **Isolated Deployment** de Dokploy | Hors fichier : vérifié à la mise en place |
+| Système de fichiers | `read_only: true`, `tmpfs` sur `/tmp` (16 Mo) | Test de cohérence |
+| Privilèges | `cap_drop: [ALL]`, `no-new-privileges:true`, utilisateur non-root de l'image (UID 101) | Test de cohérence ; UID vérifié par `demo-image` |
+| Ressources | `pids_limit: 64`, `mem_limit: 128m`, `cpus: "0.5"` | `pids_limit` : test de cohérence |
+| Exposition | `expose: ["8080"]`, aucun `ports`, aucun `volumes`, aucun `privileged` | Test de cohérence |
+
+Dokploy relit `main` à chaque redéploiement : une édition qui dédurcirait le compose partirait en production sans alerte. C'est ce que `test_demo_image_coherence.py` empêche en échouant dans la PR.
+
+**Logs** : le format par défaut de l'image, sur la sortie standard. L'adresse consignée est celle du reverse proxy de Dokploy, pas celle du visiteur : **aucune donnée personnelle** dans ces logs. Rétention : logging `json-file` du compose, `20m` × `5` fichiers (cf. § Logging > Rétention).
 
 ## Dépendances
 
 | Outil | Scope | Fréquence | Config |
 |-------|-------|-----------|--------|
-| Dependabot | `npm`, `uv`, `cargo`, `github-actions` | Mensuelle | `dependabot.yml`, une entrée par écosystème, PRs vers `develop`, minor+patch groupés par écosystème, majeures isolées |
+| Dependabot | `npm`, `uv`, `cargo`, `github-actions`, `docker` | Mensuelle | `dependabot.yml`, une entrée par écosystème, PRs vers `develop`, minor+patch groupés par écosystème, majeures isolées |
 | CI | Toutes les PRs Dependabot | À chaque PR | Même gate qualité que les PRs humaines |
 | Alertes de sécurité GitHub | Dépôt public | Continu | **« Dependency graph » et « Dependabot alerts » à laisser activés** : c'est le graphe de dépendances qui les produit, `dependabot.yml` ne pilote que les PR de mise à jour |
 | `just audit` | `pnpm audit --audit-level=high` sur `src/`, `uv audit` sur `sidecar/` | À chaque run CI (`audit-ui`, `audit-sidecar`), et en local avant chaque release | **Non bloquant** en CI, une CVE publiée en amont ne doit pas figer une PR sans rapport ; la Checklist Release oblige à lire le résultat. `src-tauri/` non couvert, `cargo audit` exigerait une installation à part |
@@ -501,6 +568,7 @@ Minimal et gratuit, pour un dev solo et quelques utilisateurs : **Sentry (plan D
 | Sentry (`@sentry/angular`) | Erreurs de la webview | Projet Sentry **distinct** de celui du sidecar |
 | Fichier de log local | Débogage à distance chez un utilisateur | `appLocalDataDir()/logs`, fichier envoyé par l'utilisateur |
 | Rapport de run (JSON + Markdown) | Qualité du matching, cas d'arbitrage, échecs | Dossier du run, relu par l'application (Réglages > Runs passés) |
+| Sonde de disponibilité externe (même service que celle du portfolio) | Démo web : requête HTTP sur `/healthz` toutes les 5 minutes, alerte email au changement d'état | Posée à l'étape 6 de la mise en place. **Cible, non appliquée au 2026-10-26** |
 
 **Deux projets Sentry**, un pour le sidecar Python, un pour la webview. Un projet unique accepterait techniquement les deux, mais JavaScript est bruyant : mélangé au Python, il noierait les crashs du sidecar, seuls à porter du métier. Le **quota se compte au niveau de l'organisation**, pas du projet : découper ne double pas les 5 000 events du plan gratuit, cela ne fait que les rendre triables. La version publiée doit exister comme release dans **les deux** projets.
 
@@ -511,6 +579,8 @@ Les deux projets vivent dans l'organisation `tg-ws`, sous les slugs `techno-tagg
 > ⚠️ **Tagger les events ne crée pas la release côté Sentry** : elle n'est matérialisée qu'au premier event qui la porte, donc au premier crash. Créer la release au tag, dans le même workflow que le build (job conditionné à `release_created`, secret `SENTRY_AUTH_TOKEN` portant un **Organization Auth Token**, jamais le token du CLI local qui est nominatif et à durée de vie courte).
 
 > `project:releases` existe toujours, mais c'est un scope de **Personal Token** : il n'est pas proposé à la création d'un token d'organisation.
+
+> **La sonde de la démo voit le process, pas l'app** : `/healthz` répond `200` sans fichier. Une seconde sonde sur `/` avec le mot-clé `app-root` peut s'ajouter si un incident le justifie. Elle voit aussi le VPS entier éteint, ce qu'aucun log local ne montre. Un redéploiement coupe la démo quelques secondes : un « DOWN » puis un « UP » autour d'une release est normal. Un onglet resté ouvert qui demande un bundle haché disparu reçoit une 404, jamais `index.html` : il recharge.
 
 > **Ce que le monitoring ne voit pas, et ne verra jamais** : combien d'utilisateurs tournent, sur quelle version, et si la mise à jour est passée. Aucun événement métier n'est envoyé, aucun ping de version n'existe. C'est délibéré ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md)) et cela conditionne toute la gestion d'incident : le parc est invisible, la seule information disponible est un crash spontané ou un ami qui écrit.
 
@@ -544,7 +614,7 @@ Pas de métrique serveur à surveiller. Les signaux utiles se lisent dans Sentry
 
 ## Alertes
 
-Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques utilisateurs n'a pas de volume justifiant une astreinte ni un routage plus fin.
+Canal unique : **email**, envoyé nativement par Sentry, par GitHub pour la CI et par la sonde externe pour la démo. Un projet à quelques utilisateurs n'a pas de volume justifiant une astreinte ni un routage plus fin.
 
 | Alerte | Condition | Canal |
 |--------|-----------|-------|
@@ -553,6 +623,8 @@ Canal unique : **email**, envoyé nativement par Sentry. Un projet à quelques u
 | Parsing cassé | Réponse de techno-scraper non conforme au schéma attendu | Email (Sentry) |
 | Erreur de la webview | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
+| Démo hors ligne | `/healthz` ne répond plus, y compris VPS éteint (sonde externe, cible tant que l'étape 6 de la mise en place n'est pas faite) | Email (sonde externe) |
+| Job `demo` en échec | Image non publiée ou redéploiement refusé : la démo garde la version précédente, l'installeur est intact. Se relance par « Re-run job » | Email (GitHub) |
 
 > **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8). Les retours arrivent en issues du dépôt sous le label `matching-report`, posé par l'Issue Form `matching-report.yml`. Le label doit exister dans le dépôt, sinon le formulaire ne le pose pas, sans erreur.
 
@@ -598,6 +670,7 @@ logfmt garde les deux propriétés : la ligne se lit d'un coup d'œil, et `grep 
 | Distribution (logs) | 20 Mo au maximum sur le disque | `RotatingFileHandler` sur `tagger.log` dans `appLocalDataDir()/logs` : rotation à 5 Mo, 3 sauvegardes, aucune purge à écrire |
 | Distribution (erreurs) | 30 jours | Sentry, plan Developer gratuit |
 | Distribution (rapports) | Permanente | Dossier du run (re-tagging) ou dossier destination (extraction), c'est un livrable |
+| Démo web (logs du container) | 100 Mo au maximum sur le VPS | Logging `json-file` du compose : `max-size 20m`, `max-file 5`, sortie standard, sans adresse de visiteur (cf. § Sécurité) |
 | Développement | Identique à la distribution | Même fichier, même rotation, même dossier (`appLocalDataDir()` partage l'identifiant du bundle), plus la console |
 
 À quelques dizaines de kilooctets par run, ces 20 Mo couvrent plusieurs centaines de runs.
@@ -673,6 +746,7 @@ Aucune base de données, et le code est déjà sauvegardé par GitHub. Trois act
 | Secrets GitHub Actions (DSN, licence PrimeNG) | Sur changement | Permanente | Gestionnaire de mots de passe, régénérables par ailleurs |
 | Code, historique, CHANGELOG | Continu | Permanente | GitHub (dépôt public) |
 | Installeurs publiés + `latest.json` | Au tag | Permanente | GitHub Releases |
+| Image de la démo | Au tag | Une image `X.Y.Z` par release, `latest` écrasée | GHCR : **rien à sauvegarder**, l'image se reconstruit depuis le tag. La configuration de Dokploy se refait par la § Mise en place de la démo |
 | Plan de run, cache (machine utilisateur) | Au fil de l'eau pendant le run | 30 jours si interrompu, purgé si terminé | `appLocalDataDir()`, **aucune sauvegarde** et c'est voulu |
 | Dump des tags d'origine (machine utilisateur) | Avant l'écriture d'un run | 30 jours, même pour un run terminé | `appLocalDataDir()/dumps`, aucune sauvegarde |
 | Export de feedback (machine utilisateur) | À chaque envoi de rapport | 30 jours, purgé au démarrage | `appLocalDataDir()/feedback`, aucune sauvegarde |

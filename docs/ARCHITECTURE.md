@@ -93,13 +93,17 @@ techno-tagger/
 │   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
 │   │   │   ├── tagging/                  # onglet 2, un dossier par vue : run/, arbitration/, url-recovery/, recap/
 │   │   │   └── settings/                 # sections API, Matching, Interface, Administration
+│   │   ├── demo/                         # shell de démo, fourni par `demoConfig` (build `demo` seul)
 │   │   ├── app.component.ts
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
 │   ├── fixtures/                         # événements du contrat et stubs de services partagés par les specs, hors build
+│   ├── demo/                             # généré par `just record-demo` : scenario.json et artworks/*.svg, servis par le seul build `demo` (cf. ADR-023)
 │   ├── index.html
+│   ├── index.demo.html                   # page du build `demo` : largeur fixe, noindex
 │   ├── main.ts                           # bootstrapApplication, init Sentry
+│   ├── main.demo.ts                      # point d'entrée du build `demo`, sans Sentry
 │   ├── build-constants.d.ts              # constantes substituées par --define
 │   └── styles.css                        # CSS pur, jamais SCSS
 ├── public/                               # servi à la racine par Angular : logo.png, i18n/ (JSON ngx-translate)
@@ -125,10 +129,11 @@ techno-tagger/
 │   │   ├── unit/                         # un module isole, un sous-dossier par package de src/tagger/
 │   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
 │   │   ├── fixtures/                     # donnees figees : audio, vlc_media.db, M3U8
-│   │   └── helpers/                      # constructeurs partages, importables a plat
+│   │   └── helpers/                      # constructeurs partages, importables a plat ; demo_* : catalogue fictif, pochettes, scénario et enregistrement de la démo web
 │   ├── tagger.spec                       # hidden imports et métadonnées collectées
 │   ├── build.py                          # PyInstaller -> binaire
-│   └── demo.py                           # bibliothèque de démonstration hors dépôt, pour piloter l'application à la main
+│   ├── demo.py                           # bibliothèque de démonstration hors dépôt, pour piloter l'application à la main
+│   └── record_demo.py                    # réenregistre src/demo/ sur le vrai sidecar (Windows seulement)
 │
 ├── src-tauri/
 │   ├── binaries/
@@ -817,7 +822,7 @@ Le contraste que ce diagramme rend visible : le plan JSON est écrit à chaque d
 
 ### Hébergement
 
-Aucun. L'application tourne intégralement sur la machine de l'utilisateur. La seule dépendance distante est techno-scraper, déjà hébergée sur un VPS existant hors du périmètre de ce projet.
+Aucun pour l'app ; démo web statique sur le VPS (Dokploy, [ADR-023](adrs/023-demo-web-par-rejeu.md)). L'application tourne intégralement sur la machine de l'utilisateur. La seule dépendance distante est techno-scraper, déjà hébergée sur un VPS existant hors du périmètre de ce projet. La démo est un container nginx non-root en lecture seule, sans accès à techno-scraper : exploitation, mise en place et retour arrière dans [PRODUCTION.md](PRODUCTION.md#mise-en-place-de-la-démo).
 
 ### CI/CD
 
@@ -825,8 +830,8 @@ Aucun. L'application tourne intégralement sur la machine de l'utilisateur. La s
 
 | Déclencheur | Étapes |
 |---|---|
-| Push sur `main`, pull request vers `main` ou `develop` | Ruff + Mypy strict + pytest sur `sidecar/`, lint + actionlint + typecheck + build Angular + Vitest sur `src/`, `just build-sidecar` puis `just smoke-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/`. L'audit des dépendances ne bloque pas |
-| Merge de la PR release-please | Tag `vX.Y.Z` et Release en brouillon, puis **dans le même workflow** : releases Sentry, build PyInstaller Windows, copie du binaire en `src-tauri/binaries/` avec le suffixe target-triple, `just smoke-sidecar`, `tauri build`, signature de l'updater, contrôle des artefacts de l'updater, publication de la Release |
+| Push sur `main`, pull request vers `main` ou `develop` | Ruff + Mypy strict + pytest sur `sidecar/`, lint + actionlint + typecheck + build Angular + `just build-demo` + Vitest sur `src/`, image de la démo construite puis sondée en lecture seule (job `demo-image`), `just build-sidecar` puis `just smoke-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/`. L'audit des dépendances ne bloque pas |
+| Merge de la PR release-please | Tag `vX.Y.Z` et Release en brouillon, puis **dans le même workflow** : releases Sentry, build PyInstaller Windows, copie du binaire en `src-tauri/binaries/` avec le suffixe target-triple, `just smoke-sidecar`, `tauri build`, signature de l'updater, contrôle des artefacts de l'updater, publication de la Release. Après le build, job `demo` : image de la démo poussée sur GHCR (`latest` et `X.Y.Z`), puis redéploiement par l'API de Dokploy |
 
 > ⚠️ **Le build est chaîné en `needs:` au job release-please, jamais posé sur `on: push: tags`.** Un tag créé par release-please via `GITHUB_TOKEN` ne déclenche aucun workflow : un fichier séparé sur le tag ne partirait jamais, sans la moindre erreur, laissant une Release vide qu'aucun updater ne verrait. Mécanisme et alternative : [PRODUCTION.md](PRODUCTION.md#pipelines).
 
@@ -847,6 +852,8 @@ graph LR
     sig --> rel["GitHub Release<br/>installeur + latest.json"]
     rel --> upd["Updater : vérification au démarrage (étape 9)"]
     upd --> user["Machine de l'utilisateur"]
+    rel --> demo["Job demo<br/>image GHCR puis redéploiement Dokploy"]
+    demo --> web["Démo web statique<br/>container nginx non-root"]
 
     style sig fill:#4a2d2d,color:#fff
     style rel fill:#2d4a3e,color:#fff
@@ -874,6 +881,7 @@ Secrets GitHub Actions, injectés au build, jamais commités :
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Remontée d'erreurs, un projet Sentry par langage (cf. [PRODUCTION.md](PRODUCTION.md#stack-monitoring)) | Régénérables |
 | `SENTRY_AUTH_TOKEN` | Création des releases Sentry et upload des source maps de la webview | Régénérable. Sans lui, les stacks de la webview arrivent minifiées |
 | `PRIMENG_LICENSE_KEY` | `providePrimeNG({ license })` | Renouvellement gratuit annuel, bandeau de licence chez les utilisateurs si oublié |
+| `DOKPLOY_URL` / `DOKPLOY_TOKEN` / `DOKPLOY_COMPOSE_ID` | Redéploiement de la démo web par le job `demo`. La clé d'API est un actif à pouvoir de déploiement | Révocable côté Dokploy, la démo cesse de se mettre à jour sans toucher l'installeur |
 
 La clé publique de l'updater est compilée dans `tauri.conf.json`, la clé privée ne quitte jamais les secrets GitHub.
 
@@ -1068,6 +1076,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 | [ADR-020](adrs/020-doublons-noms-de-fichiers.md) | Doublons de noms de fichiers dans la bibliothèque source | accepted |
 | [ADR-021](adrs/021-visibilite-du-depot.md) | Visibilité du dépôt et canal de distribution | accepted |
 | [ADR-022](adrs/022-modeles-pydantic-du-protocole.md) | Modèles du protocole en Pydantic | accepted |
+| [ADR-023](adrs/023-demo-web-par-rejeu.md) | Démo web publique par rejeu d'un run enregistré | accepted |
 
 ## Notes Techniques / Justifications
 
@@ -1108,6 +1117,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 
 # 🚀 Évolutions Futures (Post-MVP)
 
+- **Démo web publique** : interface rejouant dans un navigateur les réponses NDJSON du vrai sidecar, enregistrées sur une bibliothèque fictive face à un faux techno-scraper. Données fictives, garde stricte en CI, container statique isolé déployé au tag. Cf. [ADR-023](adrs/023-demo-web-par-rejeu.md)
 - **Compatibilité des tags avec les logiciels DJ** : RIFF `LIST/INFO` pour les WAV (Rekordbox ignore leur chunk ID3), remixeur FLAC, nom du mix et date de sortie. Cf. [knowledges/rekordbox.md](knowledges/rekordbox.md)
 - **Édition manuelle des tags** : formulaire de correction champ par champ quand aucune source ne convient et qu'aucune URL n'existe
 - **Tests bout-en-bout** : WebdriverIO + `tauri-driver` sur l'application empaquetée, avant l'agent IA qui modifie la chaîne de décision

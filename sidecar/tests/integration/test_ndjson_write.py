@@ -19,15 +19,9 @@ from ndjson_loop import (
 )
 from report_files import only_report, report_files
 from run_plans import only_plan
-from scraper_responses import BANDCAMP_TRACK
+from scraper_responses import BANDCAMP_TRACK, BANDCAMP_TRACKS
 from stubs import raising, refusing_suffix
-from tagging_api import (
-    BANDCAMP_TRACKS,
-    ONE_TRACK,
-    WRITTEN_NAME,
-    FakeApi,
-    knows_the_bandcamp_track,
-)
+from tagging_api import ONE_TRACK, WRITTEN_NAME, FakeApi, knows_the_bandcamp_track
 from tagging_records import UNKNOWN_RUN
 
 from tagger import BUNDLE_IDENTIFIER, handlers

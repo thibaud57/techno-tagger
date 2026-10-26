@@ -14,7 +14,11 @@ import pytest
 from audio_samples import tagged_mp3
 from cdn_doubles import FakeCdn, public_resolver
 from scraper_responses import (
+    BANDCAMP_SEARCH,
     BANDCAMP_TRACK,
+    BANDCAMP_TRACKS,
+    BEATPORT_SEARCH,
+    BEATPORT_TRACKS,
     YOUR_MIND,
     YOUR_MIND_BANDCAMP_URL,
     bandcamp_track_payload,
@@ -28,6 +32,7 @@ from scraper_responses import (
 from stubs import ignore
 from tagging_records import FIRST_TRACK, SECOND_TRACK, THIRD_TRACK
 
+from tagger import handlers
 from tagger.core.identifiers import RunId, TrackId
 from tagger.resolution.cache import ArtworkFetcher, DiskCache
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
@@ -44,19 +49,24 @@ if TYPE_CHECKING:
     from tagger.resolution.scraper_client import TechnoScraperClient
     from tagger.run.models import LiveRun, RunEvent, TaggingRun, TrackOutcome, TrackRecord
 
-BEATPORT_SEARCH: Final = "/beatport/search"
-BANDCAMP_SEARCH: Final = "/bandcamp/search"
-BANDCAMP_TRACKS: Final = "/bandcamp/tracks"
 # Borne d'une porte : une requete qui n'arrive jamais echoue au lieu de geler la suite.
 GATE_TIMEOUT: Final = 10
 
 ONE_TRACK: Final = TrackId("your mind.mp3")
 WRITTEN_NAME: Final = "Adam Beyer - Your Mind (Original Mix).mp3"
 ORIGINAL: Final = track_payload(mix_name="Original Mix")
-ORIGINAL_REFETCH: Final = f"/beatport/tracks/{ORIGINAL['id']}"
+ORIGINAL_REFETCH: Final = f"{BEATPORT_TRACKS}/{ORIGINAL['id']}"
 ON_BANDCAMP: Final = track_payload(
     id="42", source="bandcamp", mix_name=None, url=YOUR_MIND_BANDCAMP_URL
 )
+
+
+def transports(api: FakeApi, cdn: FakeCdn) -> handlers.TaggingTransports:
+    """Transports du sidecar branches sur l'API et le CDN simules, resolveur DNS compris :
+    sans lui, `ArtworkFetcher` ferait un vrai DNS."""
+    return handlers.TaggingTransports(
+        httpx2.MockTransport(api.gated_handler), httpx2.MockTransport(cdn.handler), public_resolver
+    )
 
 
 def basiel(**overrides: object) -> dict[str, object]:

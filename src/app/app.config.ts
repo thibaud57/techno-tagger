@@ -52,8 +52,9 @@ export const appConfig: ApplicationConfig = {
         prefix: "/i18n/",
         suffix: ".json",
         // Sinon un fichier absent rend `{}` en silence et l'interface affiche ses cles brutes.
-        // En dev, l'ecran reste blanc et la cause est en console.
-        failOnError: APP_ENVIRONMENT !== "production",
+        // En dev, l'ecran reste blanc et la cause est en console. La demo publique se comporte
+        // comme la production : une cle brute vaut mieux qu'un ecran blanc.
+        failOnError: APP_ENVIRONMENT === "development",
       }),
     }),
     // Avant le premier rendu : `locale()` est asynchrone, donc une bascule de langue apres

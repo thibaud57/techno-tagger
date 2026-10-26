@@ -8,6 +8,7 @@ import { nativeStub } from "../../../../fixtures/native-stub"
 import { OTHER_PAST_RUN } from "../../../../fixtures/past-runs"
 import { sidecarStub } from "../../../../fixtures/sidecar-stub"
 import { RUN_ID } from "../../../../fixtures/tagging"
+import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import type { FeedbackReadyEvent } from "../../../core/sidecar/protocol"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
@@ -17,6 +18,7 @@ import { type FeedbackTarget, injectFeedbackSend } from "./feedback-send"
 const setUp = (
   target: FeedbackTarget | null = { runId: RUN_ID, hasReport: true },
   held: FeedbackReadyEvent | null = null,
+  edition: AppEdition = "desktop",
 ) => {
   const available = signal<boolean | null>(true)
   const ready = signal<FeedbackReadyEvent | null>(held)
@@ -27,6 +29,7 @@ const setUp = (
     providers: [
       { provide: SidecarService, useValue: service },
       { provide: NativeService, useValue: native },
+      { provide: APP_EDITION, useValue: edition },
     ],
   })
   const send = TestBed.runInInjectionContext(() => injectFeedbackSend(signal(target)))
@@ -168,5 +171,13 @@ describe("injectFeedbackSend", () => {
 
     expect(send.blockedReason()).toBe(reason)
     expect(service.prepareFeedback).toHaveBeenCalledTimes(reason === null ? 1 : 0)
+  })
+
+  it("blocks sending a report with the demo reason in the demo edition", () => {
+    const { send } = setUp({ runId: RUN_ID, hasReport: true }, null, "demo")
+
+    send.send()
+
+    expect(send.blockedReason()).toBe(DEMO_UNAVAILABLE)
   })
 })

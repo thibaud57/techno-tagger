@@ -1,11 +1,11 @@
+from functools import partial
 from typing import TYPE_CHECKING
 
-import httpx2
 import pytest
-from cdn_doubles import FakeCdn, public_resolver
+from cdn_doubles import FakeCdn
 from ndjson_loop import extraction_command
-from scraper_responses import BASIEL
-from tagging_api import BEATPORT_SEARCH, FakeApi, knows_your_mind, one_track, two_tracks
+from scraper_responses import BASIEL, BEATPORT_SEARCH
+from tagging_api import FakeApi, knows_your_mind, one_track, transports, two_tracks
 
 from tagger import handlers
 from tagger.core.file_failures import FileFailureReason
@@ -36,18 +36,9 @@ def cdn() -> FakeCdn:
 @pytest.fixture(autouse=True)
 def api(monkeypatch: pytest.MonkeyPatch, cdn: FakeCdn) -> FakeApi:
     """API/CDN simules, poses pour tout test : un test qui l'oublierait toucherait le vrai
-    reseau. Le resolveur est remplace aussi, sinon `ArtworkFetcher` ferait un vrai DNS.
-    """
+    reseau."""
     fake = FakeApi()
-    monkeypatch.setattr(
-        handlers,
-        "tagging_transports",
-        lambda: handlers.TaggingTransports(
-            httpx2.MockTransport(fake.gated_handler),
-            httpx2.MockTransport(cdn.handler),
-            public_resolver,
-        ),
-    )
+    monkeypatch.setattr(handlers, "tagging_transports", partial(transports, fake, cdn))
     return fake
 
 

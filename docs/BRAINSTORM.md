@@ -1,7 +1,7 @@
 ---
 title: "BRAINSTORM — Vision & Idéation Projet"
 description: "Vision de techno-tagger : application desktop de re-tagging et d'organisation de bibliothèque musicale pour DJ, consommatrice de l'API techno-scraper."
-date: "2026-10-23"
+date: "2026-10-26"
 keywords: ["brainstorm", "desktop", "tauri", "dj", "metadata", "tagging"]
 scope: ["docs", "planning"]
 technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "Python", "pydantic", "mutagen", "rapidfuzz", "httpx2", "keyring", "PyInstaller"]
@@ -248,7 +248,21 @@ La ligne dépliée de la liste du run compare avant et après champ par champ se
 
 ## Post-MVP
 
-### Feature 1 : Compatibilité des tags avec les logiciels DJ
+### Feature 1 : Démo web publique
+
+Démo interactive de l'application dans un navigateur, ouverte dans un nouvel onglet par le bouton « Voir la démo » du portfolio, sur `demo-techno-tagger.thibaud-geisler.com`.
+
+- **Rejeu d'un run enregistré** : le vrai sidecar joue chaque branche du parcours sur une bibliothèque fictive face à un faux techno-scraper, l'interface rejoue ses réponses NDJSON. Hors scénario : les saisies libres (URL, seuils). Le rattrapage par URL n'est joué que sur un morceau, lien pré-rempli
+- Aucun sidecar ni clé API, aucun appel à techno-scraper : le visiteur ne peut ni choisir un dossier à lui ni rien envoyer. Les sélecteurs de fichiers renvoient des chemins de démo
+- **Données fictives de bout en bout**, pochettes générées comprises : les CGU Beatport réservent métadonnées et pochettes à un usage personnel (relevé du 2026-10-25). Une douzaine de morceaux, un par cas à montrer
+- Bandeau permanent : démo, données fictives, application privée non affiliée à Beatport ni Bandcamp, liens « Me contacter » et « Recommencer la démo ». Aucun lien de téléchargement
+- Langue reçue du portfolio par `?lang=fr|en`, bascule FR / EN dans les Réglages
+- Fichiers statiques dans un container durci et isolé sur le réseau, redéployé par la CI à chaque tag
+- Prérequis côté portfolio, dans son dépôt : `?lang` sur le bouton, nouvel onglet, pages de contact FR et EN
+
+> Faisabilité étudiée le 2026-10-25. Rejeu, isolation et déploiement : [ADR-023](adrs/023-demo-web-par-rejeu.md).
+
+### Feature 2 : Compatibilité des tags avec les logiciels DJ
 
 Ce que Rekordbox ne lit pas encore, relevé le 2026-10-23 ([knowledges/rekordbox.md](knowledges/rekordbox.md)) :
 - **WAV** : seul le RIFF `LIST/INFO` est lu, jamais le chunk ID3. Un WAV tagué s'affiche avec son nom de fichier pour titre, sans artiste. mutagen n'écrit pas ce bloc : écriture maison, sauvegarde de restauration comprise
@@ -258,11 +272,11 @@ Ce que Rekordbox ne lit pas encore, relevé le 2026-10-23 ([knowledges/rekordbox
 
 Traktor, Serato et Engine DJ restent à relever.
 
-### Feature 2 : Édition manuelle des tags
+### Feature 3 : Édition manuelle des tags
 
 Formulaire dans l'application pour corriger un champ à la main quand aucune source ne convient et qu'aucune URL n'existe.
 
-### Feature 3 : Tests bout-en-bout
+### Feature 4 : Tests bout-en-bout
 
 Pilotage de l'application empaquetée via WebdriverIO et `tauri-driver`, le WebDriver officiel de Tauri.
 
@@ -270,7 +284,7 @@ Rien au MVP : le contrat NDJSON est déjà testable en ligne de commande sans in
 
 Justifié le jour où l'application est distribuée à plusieurs personnes et où une régression de la chaîne UI vers sidecar cesse d'être détectable à l'œil, et dans tous les cas avant l'agent IA, qui modifie la chaîne de décision.
 
-### Feature 4 : Agent IA d'arbitrage (PydanticAI)
+### Feature 5 : Agent IA d'arbitrage (PydanticAI)
 
 **En renfort du fuzzy, pas à sa place.** Le scoring rapidfuzz reste le moteur, l'agent est un mode activable dans les Settings, désactivé par défaut, qui intervient là où le fuzzy s'arrête. Sans clé API renseignée, l'application se comporte exactement comme au MVP.
 
@@ -285,7 +299,7 @@ Implique une section Settings dédiée : clé API du fournisseur (chacun met la 
 
 Pas de n8n : l'orchestration reste dans le sidecar, PydanticAI côté Python.
 
-### Feature 5 : macOS et Linux
+### Feature 6 : macOS et Linux
 
 Deuxième et troisième cibles de distribution, à ajouter le jour où un utilisateur le demande vraiment.
 
@@ -293,11 +307,11 @@ macOS est la plus coûteuse : un runner macOS en CI (minutes facturées x10 sur 
 
 Linux est indolore par comparaison : runner GitHub gratuit, aucune signature exigée.
 
-### Feature 6 : Formats de playlist supplémentaires
+### Feature 7 : Formats de playlist supplémentaires
 
 Parsing du TXT Rekordbox, destiné à KUVO et donc orienté affichage : ses colonnes dépendent de la langue d'export, il faudrait rendre leurs clés configurables. Et du XML, qui exporte la collection entière et non une playlist.
 
-### Feature 7 : Réduire les faux positifs antivirus
+### Feature 8 : Réduire les faux positifs antivirus
 
 Le sidecar PyInstaller non signé est le mode de panne le plus probable chez un utilisateur (PRODUCTION.md § Benchmarks) : mis en quarantaine, il laisse l'application sur son écran bloquant. Mesure de la première recette : ni blocage ni quarantaine chez un utilisateur réel, à l'installation comme à la mise à jour, installeur v0.11.0 à 0/68 sur VirusTotal, mais `tagger.exe` à 4/71 dont Microsoft Defender (`Trojan:Win32/Wacatac.B!ml`, détection par machine learning), faux positif déclaré à Microsoft (2026-10-21).
 
@@ -309,7 +323,7 @@ Pistes relevées le 2026-10-15, à trancher par un ADR le jour où la feature es
 
 SignPath Foundation est écartée : elle refuse tout composant non open source (PrimeNG v22) et exige une réputation vérifiable du projet. Une signature ne retire pas l'avertissement SmartScreen, qui suit la réputation des téléchargements.
 
-### Feature 8 : Canal beta
+### Feature 9 : Canal beta
 
 Pré-release GitHub publiée sur un manifeste updater distinct, pour installer une mise à jour sur une machine avant de la pousser à tout le monde.
 
@@ -348,7 +362,7 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 - **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ? ✅ **Tranché** : requête embarquée, schéma vérifié avant traitement plutôt qu'un fichier SQL externe. L'inspection du fichier a montré une autre raison à cette externalisation : un nom de playlist codé en dur (`WHERE p.name = 'final'`), pas une protection contre un schéma instable. Aucun changement de schéma n'a d'ailleurs jamais été observé ([ADR-019](adrs/019-resilience-schema-vlc-media-db.md))
 - **Doublons de noms de fichiers** : que faire quand plusieurs fichiers du dossier source portent le même nom (demander, prendre le plus gros, tout signaler dans le rapport) ? ✅ **Tranché** : le plus volumineux est retenu, chaque cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md))
 - **Nettoyage des noms de fichiers** : quels motifs retirer avant d'envoyer la requête (`[FREE DL]`, `320kbps`, numéros de piste, tirets bas) ? Mécanisme tranché (nettoyage de la chaîne interrogée, jamais des tags), la liste exacte des motifs reste à établir au premier run réel (cf. [ARCHITECTURE.md](ARCHITECTURE.md#capacités-natives))
-- **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport. ✅ **Tranché pour Rekordbox** le 2026-10-23 : le chunk ID3 est ignoré, seul le RIFF INFO est lu ([knowledges/rekordbox.md](knowledges/rekordbox.md)), suite en Post-MVP Feature 1. Traktor et Serato non relevés
+- **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport. ✅ **Tranché pour Rekordbox** le 2026-10-23 : le chunk ID3 est ignoré, seul le RIFF INFO est lu ([knowledges/rekordbox.md](knowledges/rekordbox.md)), suite en Post-MVP Feature 2. Traktor et Serato non relevés
 - **Clés libres Vorbis** : quelles conventions retenir pour `key`, `catalog_number` et `source` sur FLAC, où aucun champ standard n'existe (aligner sur Picard) ? ✅ **Tranché** : conventions Picard suivies ([ADR-011](adrs/011-politique-ecriture-tags.md))
 - **Motif de renommage** : quel format par défaut, et jusqu'où le rendre configurable ? ✅ **Tranché** : fixé à `{artist} - {title}.{ext}` au MVP, non configurable (voir plus haut)
 - **Versionnement du plan JSON** : un plan écrit par une version antérieure doit-il rester reprenable après mise à jour de l'app ? ✅ **Tranché** : numéro de version de schéma, plan de version inconnue refusé, rapport de version antérieure migré ([ADR-018](adrs/018-versionnement-plan-de-run.md))
@@ -400,6 +414,13 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 - **Décision Compatibilité DJ en tête du Post-MVP** (2026-10-23) : avant l'édition manuelle (un WAV tagué reste illisible dans Rekordbox, format courant chez les DJ)
 - **Décision Tonalité FLAC** (2026-10-23) : `KEY` et `INITIALKEY` avec la même valeur vs `INITIALKEY` seul (Rekordbox ne lit que le second, VirtualDJ préfère un `KEY` périmé au second)
 - **Décision Ordre du Post-MVP** : édition manuelle, tests bout-en-bout puis agent IA vs agent IA en premier (l'édition manuelle comble à moindre coût le dernier trou de la chaîne de résolution ; le filet e2e précède l'agent IA, plus gros changement de comportement à venir ; macOS et Linux, formats de playlist, faux positifs antivirus et canal beta suivent la demande ; les faux positifs n'ont bloqué aucun utilisateur à la recette du 2026-10-21, d'où leur place parmi ces derniers)
+- **Décision Démo web en tête du Post-MVP** (2026-10-25) : avant la compatibilité DJ (vitrine du portfolio sans dépendance aux autres features : elle rejoue le comportement existant)
+- **Décision Démo web** (2026-10-25) : rejeu d'un run enregistré vs sidecar sur le serveur vs sidecar dans le navigateur via Pyodide (le serveur exigerait la clé API et exposerait au public un proxy vers techno-scraper, sur un sidecar Windows only ; Pyodide 314.0.7 n'a pas de wheel `rapidfuzz` et n'exécute pas les threads dont dépend `asyncio.to_thread` ; le rejeu garde tout le métier dans le sidecar et ne laisse que des fichiers statiques sur le serveur)
+- **Décision Données de la démo** (2026-10-25) : tout fictif vs vrais artistes et titres (les CGU Beatport couvrent métadonnées et pochettes ; des métadonnées inventées sur de vrais morceaux seraient trompeuses ; aucun gain pour le public du portfolio)
+- **Décision Build de la démo** (2026-10-25) : image construite en CI et poussée sur GHCR vs build par Dokploy depuis Git (aucun build sur le VPS de l'API, clé PrimeNG déjà en secret GitHub, déploiement déclenché par le tag)
+- **Décision Hébergement de la démo** (2026-10-25) : projet Dokploy dédié à l'app (`Techno Tagger`, service `techno-tagger-demo` dans l'environment par défaut `production`, révisé le 2026-10-26 : Dokploy ne renomme ni ne supprime l'environment par défaut) vs projet commun aux démos vs Compose du portfolio (une démo partage le cycle de vie de son app ; un projet Dokploy n'isole rien, l'isolation vient de l'Isolated Deployment ; le réseau du portfolio est précisément ce que la démo ne doit pas voir)
+- **Décision Rattrapage par URL de la démo** (2026-10-25) : un seul morceau, lien pré-rempli vs tous les morceaux à décision (chaque morceau rattrapable multiplie les combinaisons à enregistrer ; un seul suffit à montrer le geste)
+- **Décision Bandeau de la démo** (2026-10-25) : lien « Me contacter » vs lien de téléchargement (l'app est privée et n'est pas distribuée publiquement ; le portfolio reste le point de contact)
 - **Décision Dépôt** : dépôt neuf vs évolution de `BeatportScrapper-TrackTagger` (la CLI sert de référence à lire, rien n'est porté tel quel, l'arborescence à plat ne correspond pas à la structure Tauri)
 
 **Principes directeurs :**

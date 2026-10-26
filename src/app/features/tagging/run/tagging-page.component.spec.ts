@@ -3,11 +3,10 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { By } from "@angular/platform-browser"
 import { provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService } from "primeng/api"
-import { Tooltip } from "primeng/tooltip"
 import { vi } from "vitest"
 
 import { spyConfirmation } from "../../../../fixtures/confirm"
-import { action, hostOf, iconOf } from "../../../../fixtures/dom"
+import { action, hostOf, iconOf, tooltipOf } from "../../../../fixtures/dom"
 import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
 import { OTHER_PAST_RUN } from "../../../../fixtures/past-runs"
 import { preferencesStub } from "../../../../fixtures/preferences-stub"
@@ -29,6 +28,7 @@ import {
 } from "../../../../fixtures/tagging"
 import { translateWith } from "../../../../fixtures/translate"
 import { WRITE_FINISHED, failedRollback, rollbackInFlight } from "../../../../fixtures/write"
+import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"
 import type { RunFinishedEvent } from "../../../core/sidecar/protocol"
@@ -48,6 +48,7 @@ const FOLDER = "D:/Sets/Aout"
 const mountWith = async (
   overrides: SidecarStubOverrides = {},
   native: NativeStub = nativeStub(FOLDER),
+  edition: AppEdition = "desktop",
 ) => {
   const service = sidecarStub(overrides)
   const preferences = preferencesStub({ lastDestination: FOLDER })
@@ -60,6 +61,7 @@ const mountWith = async (
       provideSidecarStub(service),
       { provide: NativeService, useValue: native },
       { provide: PreferencesService, useValue: preferences },
+      { provide: APP_EDITION, useValue: edition },
     ],
   })
 
@@ -80,11 +82,11 @@ const committedRun = (): SidecarStubOverrides => ({
   committed: signal(true),
 })
 
-const tooltipOf = (fixture: ComponentFixture<unknown>, name: string) =>
-  fixture.debugElement
-    .query(By.css(`[data-action="${name}"]`))
-    .injector.get(Tooltip)
-    .content()
+// Les deux gestes que la demo grise et que le poste de bureau laisse libres.
+const EDITION_ACTIONS = [
+  ["interrupting", "cancel", { tagging: signal(true) }],
+  ["launching again", "start", activeRun(RUN_ID)],
+] as const
 
 describe("TaggingPageComponent", () => {
   it("shows the recovery progress bar after an interrupted run", async () => {
@@ -243,6 +245,23 @@ describe("TaggingPageComponent", () => {
     action("cancel", hostOf(fixture))?.click()
 
     expect(service.cancelTagging).toHaveBeenCalled()
+  })
+
+  it.each(EDITION_ACTIONS)("greys out %s in the demo edition", async (_case, name, overrides) => {
+    const { fixture } = await mountWith(overrides, nativeStub(FOLDER), "demo")
+
+    fixture.detectChanges()
+
+    expect(action(name, hostOf(fixture))?.disabled).toBe(true)
+    expect(tooltipOf(fixture, name)).toBe(DEMO_UNAVAILABLE)
+  })
+
+  it.each(EDITION_ACTIONS)("keeps %s in the desktop edition", async (_case, name, overrides) => {
+    const { fixture } = await mountWith(overrides)
+
+    fixture.detectChanges()
+
+    expect(action(name, hostOf(fixture))?.disabled).toBe(false)
   })
 
   it("leaves the launch available for a run that cannot be confirmed", async () => {
@@ -782,14 +801,6 @@ describe("TaggingPageComponent", () => {
     expect(component["error"]() !== null).toBe(shown)
   })
 
-  it("hides a rollback error naming a run while no run is shown", async () => {
-    const { component } = await mountWith(
-      commandFailed("rollback", "rollback_unavailable", { run_id: RUN_ID }),
-    )
-
-    expect(component["error"]()).toBeNull()
-  })
-
   it("follows the folder of a run resumed while the page is shown", async () => {
     const requestedFolder = signal<string | null>(null)
     const { component } = await mountWith({
@@ -849,8 +860,17 @@ describe("TaggingPageComponent", () => {
     expect(component["idleDescription"]()).toBe(expected)
   })
 
-  it("ignores an error raised by another screen", async () => {
-    const { component } = await mountWith(commandFailed("set_api_key", "api_key_rejected"))
+  it.each([
+    {
+      case: "ignores an error raised by another screen",
+      overrides: commandFailed("set_api_key", "api_key_rejected"),
+    },
+    {
+      case: "hides a rollback error naming a run while no run is shown",
+      overrides: commandFailed("rollback", "rollback_unavailable", { run_id: RUN_ID }),
+    },
+  ])("$case", async ({ overrides }) => {
+    const { component } = await mountWith(overrides)
 
     expect(component["error"]()).toBeNull()
   })

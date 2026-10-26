@@ -48,3 +48,14 @@ updates:
         update-types:
           - minor
           - patch
+  - package-ecosystem: "docker"
+    directory: "/demo"
+    target-branch: develop
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch

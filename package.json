@@ -17,6 +17,8 @@
     "ng": "ng",
     "start": "ng serve --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\"",
     "build": "ng build --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\" --define \"APP_ENVIRONMENT='production'\" && pnpm run sourcemaps",
+    "build:demo": "ng build --configuration production,demo --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"APP_ENVIRONMENT='demo'\"",
+    "start:demo": "ng serve --configuration demo --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\"",
     "watch": "ng build --watch --configuration development --define \"PRIMENG_LICENSE_KEY='$PRIMENG_LICENSE_KEY'\" --define \"APP_VERSION='$npm_package_version'\" --define \"SENTRY_DSN_UI='$SENTRY_DSN_UI'\"",
     "test": "ng test",
     "lint": "ng lint",

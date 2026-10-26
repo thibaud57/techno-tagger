@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Final
 from tagger.playlists.vlc import _collate_filename
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
 DDL_PLAYLIST: Final = "CREATE TABLE Playlist(id_playlist INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT COLLATE NOCASE,creation_date UNSIGNED INT NOT NULL,artwork_mrl TEXT,nb_video UNSIGNED INT NOT NULL DEFAULT 0,nb_audio UNSIGNED INT NOT NULL DEFAULT 0,nb_unknown UNSIGNED INT NOT NULL DEFAULT 0,nb_present_video UNSIGNED INT NOT NULL DEFAULT 0 CHECK(nb_present_video <= nb_video),nb_present_audio UNSIGNED INT NOT NULL DEFAULT 0 CHECK(nb_present_audio <= nb_audio),nb_present_unknown UNSIGNED INT NOT NULL DEFAULT 0 CHECK(nb_present_unknown <= nb_unknown),duration UNSIGNED INT NOT NULL DEFAULT 0,nb_duration_unknown UNSIGNED INT NOT NULL DEFAULT 0, is_favorite BOOLEAN NOT NULL DEFAULT FALSE)"  # noqa: E501
@@ -48,14 +49,16 @@ def build_dump(
     path: Path,
     *,
     tracks: tuple[str, ...] = TRACKS,
+    playlists: Mapping[str, Sequence[str]] | None = None,
     omit_table: str | None = None,
     omit_column: str | None = None,
 ) -> Path:
     """Ecrit un dump de test a `path` et rend ce chemin.
 
     `tracks` laisse la demo poser ses morceaux sans dupliquer le schema ; le jeu par defaut
-    porte l'ordre NOCASE et l'encodage. `omit_table` retire une table, `omit_column` une
-    colonne (`Table.colonne`) : un dump ampute n'est jamais rempli.
+    porte l'ordre NOCASE et l'encodage. `playlists` (nom vers noms de fichiers de `tracks`)
+    remplace les deux playlists par defaut, dans son ordre. `omit_table` retire une table,
+    `omit_column` une colonne (`Table.colonne`) : un dump ampute n'est jamais rempli.
     """
     connection = sqlite3.connect(path)
     # SQLite refuse un `CREATE TABLE` declarant une collation inconnue : la
@@ -68,7 +71,7 @@ def build_dump(
             connection.execute(_without_column(ddl, table, omit_column))
 
         if omit_table is None and omit_column is None:
-            _fill(connection, tracks)
+            _fill(connection, tracks, playlists)
 
         connection.commit()
     finally:
@@ -91,28 +94,38 @@ def _without_column(ddl: str, table: str, omit_column: str | None) -> str:
     return ",".join(kept)
 
 
-def _fill(connection: sqlite3.Connection, tracks: tuple[str, ...]) -> None:
-    """Deux playlists. La principale porte tous les morceaux plus une relation en
-    double sur le premier, pour que le `DISTINCT` de l'extraction ait quelque chose a
-    dedupliquer et que le comptage du listage doive l'etre aussi.
+def _fill(
+    connection: sqlite3.Connection,
+    tracks: tuple[str, ...],
+    playlists: Mapping[str, Sequence[str]] | None,
+) -> None:
+    """Chaque playlist porte ses fichiers dans l'ordre donne. Par defaut, deux playlists :
+    la principale porte tous les morceaux plus une relation en double sur le premier, pour
+    que le `DISTINCT` de l'extraction ait quelque chose a dedupliquer et que le comptage du
+    listage doive l'etre aussi.
 
     `nb_audio` reste a 0 : c'est la valeur relevee sur le dump reel, et le comptage
     doit passer par `PlaylistMediaRelation`.
     """
+    chosen = (
+        {PLAYLIST_MAIN: (*tracks, tracks[0]), PLAYLIST_OTHER: tracks[:1]}
+        if playlists is None
+        else playlists
+    )
+    media_ids = {file_name: index for index, file_name in enumerate(tracks, start=1)}
     connection.executemany(
         "INSERT INTO Media(id_media, filename, import_type) VALUES (?, ?, 0)",
         list(enumerate(tracks, start=1)),
     )
     connection.executemany(
         "INSERT INTO Playlist(id_playlist, name, creation_date, nb_audio) VALUES (?, ?, 0, 0)",
-        [(1, PLAYLIST_MAIN), (2, PLAYLIST_OTHER)],
+        list(enumerate(chosen, start=1)),
     )
-
-    relations = [(index, 1, index) for index in range(1, len(tracks) + 1)]
-    relations.append((1, 1, len(tracks) + 1))
-    relations.append((1, 2, 1))
-
     connection.executemany(
         "INSERT INTO PlaylistMediaRelation(media_id, playlist_id, position) VALUES (?, ?, ?)",
-        relations,
+        [
+            (media_ids[file_name], playlist_id, position)
+            for playlist_id, file_names in enumerate(chosen.values(), start=1)
+            for position, file_name in enumerate(file_names, start=1)
+        ],
     )

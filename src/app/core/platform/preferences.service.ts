@@ -9,11 +9,19 @@ import { isRecord } from "../record"
 const STORE_FILE = "preferences.json"
 
 /** `accept` filtre la valeur lue : un fichier edite a la main peut porter n'importe quoi sous une cle typee. */
-const definePreference = <T>(
+export interface Preference<T> {
+  readonly key: string
+  readonly fallback: T
+  readonly accept: (stored: unknown) => stored is T
+}
+
+const preference = <T>(
   key: string,
   fallback: T,
   accept: (stored: unknown) => stored is T,
-) => ({
+): Preference<T> => ({ key, fallback, accept })
+
+const definePreference = <T>({ key, fallback, accept }: Preference<T>) => ({
   read: (): Promise<T> =>
     withFallback(async () => {
       const store = await load(STORE_FILE)
@@ -68,30 +76,36 @@ export const DEFAULT_EXTRACTION_MODE: ExtractionMode = "copy"
 /** Actif par defaut : BRAINSTORM le decrit comme desactivable. */
 export const DEFAULT_SOUND_SIGNAL = true
 
-const extractionMode = definePreference<ExtractionMode>(
-  "extraction_mode",
-  DEFAULT_EXTRACTION_MODE,
-  (stored): stored is ExtractionMode => stored === "copy" || stored === "move",
-)
-const soundSignal = definePreference<boolean>(
-  "sound_signal",
-  DEFAULT_SOUND_SIGNAL,
-  (stored): stored is boolean => typeof stored === "boolean",
-)
-const lastDestination = definePreference<string | null>(
-  "last_destination",
-  null,
-  (stored): stored is string => typeof stored === "string",
-)
-const language = definePreference<Language | null>("language", null, (stored): stored is Language =>
-  LANGUAGES.some((known) => known === stored),
-)
-const thresholds = definePreference<ThresholdsPayload | null>("thresholds", null, isThresholds)
-const updateAttempt = definePreference<UpdateAttempt | null>(
-  "update_attempt",
-  null,
-  isUpdateAttempt,
-)
+/** Declarees une fois pour le store Tauri et pour le `localStorage` de la demo. */
+export const PREFERENCES = {
+  extractionMode: preference<ExtractionMode>(
+    "extraction_mode",
+    DEFAULT_EXTRACTION_MODE,
+    (stored): stored is ExtractionMode => stored === "copy" || stored === "move",
+  ),
+  soundSignal: preference<boolean>(
+    "sound_signal",
+    DEFAULT_SOUND_SIGNAL,
+    (stored): stored is boolean => typeof stored === "boolean",
+  ),
+  lastDestination: preference<string | null>(
+    "last_destination",
+    null,
+    (stored): stored is string => typeof stored === "string",
+  ),
+  language: preference<Language | null>("language", null, (stored): stored is Language =>
+    LANGUAGES.some((known) => known === stored),
+  ),
+  thresholds: preference<ThresholdsPayload | null>("thresholds", null, isThresholds),
+  updateAttempt: preference<UpdateAttempt | null>("update_attempt", null, isUpdateAttempt),
+} as const
+
+const extractionMode = definePreference(PREFERENCES.extractionMode)
+const soundSignal = definePreference(PREFERENCES.soundSignal)
+const lastDestination = definePreference(PREFERENCES.lastDestination)
+const language = definePreference(PREFERENCES.language)
+const thresholds = definePreference(PREFERENCES.thresholds)
+const updateAttempt = definePreference(PREFERENCES.updateAttempt)
 
 /** Seul point d'entree du store Tauri de la webview : les specs le remplacent par `preferencesStub`. */
 @Service()

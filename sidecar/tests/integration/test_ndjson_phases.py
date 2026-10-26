@@ -12,8 +12,8 @@ from ndjson_loop import (
     start_command,
     written_run,
 )
-from scraper_responses import YOUR_MIND
-from tagging_api import BEATPORT_SEARCH, ONE_TRACK
+from scraper_responses import BEATPORT_SEARCH, YOUR_MIND
+from tagging_api import ONE_TRACK
 from tagging_records import RUN_ID
 
 from tagger import __main__ as main

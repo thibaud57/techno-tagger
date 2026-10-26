@@ -4,7 +4,17 @@ from typing import TYPE_CHECKING, Final
 
 import pytest
 from audio_samples import tagged_mp3
-from scraper_responses import BASIEL, YOUR_MIND, failing, found, ok, track_payload
+from scraper_responses import (
+    BANDCAMP_SEARCH,
+    BASIEL,
+    BEATPORT_SEARCH,
+    BEATPORT_TRACKS,
+    YOUR_MIND,
+    failing,
+    found,
+    ok,
+    track_payload,
+)
 from tagging_api import (
     ONE_TRACK,
     ORIGINAL,
@@ -83,7 +93,7 @@ def _shown(opened: OpenedRun) -> PendingArbitration:
 
 
 def _bandcamp_searches(api: FakeApi) -> int:
-    return api.paths().count("/bandcamp/search")
+    return api.paths().count(BANDCAMP_SEARCH)
 
 
 async def _choose(arbitration: Arbitration, track_id: TrackId) -> None:
@@ -109,7 +119,7 @@ async def test_resolves_a_track_by_arbitration_with_the_refetched_candidate_and_
     api = FakeApi()
     hold_on_beatport(api)
     api.on(
-        "/beatport/tracks/2",
+        f"{BEATPORT_TRACKS}/2",
         "*",
         ok(track_payload(id="2", mix_name="Radio Edit", isrc="REFETCHED")),
     )
@@ -137,7 +147,7 @@ async def test_rejects_a_gesture_on_a_track_that_is_unknown_or_already_resolved(
     tmp_path: Path, gesture: Gesture, track_id: TrackId
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
+    api.on(BEATPORT_SEARCH, YOUR_MIND, found(ORIGINAL))
 
     async with _arbitrating(one_track(tmp_path), api) as (_opened, arbitration):
         with pytest.raises(ArbitrationNotPendingError, match="not awaiting"):
@@ -170,7 +180,7 @@ async def test_rejects_a_second_gesture_while_the_first_one_is_in_flight(
 ) -> None:
     api = FakeApi()
     hold_on_beatport(api)
-    refetch = api.gate("/beatport/tracks/2", "")
+    refetch = api.gate(f"{BEATPORT_TRACKS}/2", "")
 
     async with _arbitrating(one_track(tmp_path), api) as (_opened, arbitration):
         first = asyncio.create_task(arbitration.choose(ONE_TRACK, Source.BEATPORT, 1), name="first")
@@ -183,7 +193,7 @@ async def test_rejects_a_second_gesture_while_the_first_one_is_in_flight(
         assert len(api.requests) == calls
         refetch.release.set()
         await first
-    assert api.paths().count("/beatport/tracks/2") == 1
+    assert api.paths().count(f"{BEATPORT_TRACKS}/2") == 1
 
 
 async def test_leaves_a_track_awaiting_and_unchanged_when_its_gesture_is_cancelled(
@@ -191,7 +201,7 @@ async def test_leaves_a_track_awaiting_and_unchanged_when_its_gesture_is_cancell
 ) -> None:
     api = FakeApi()
     hold_on_beatport(api)
-    refetch = api.gate("/beatport/tracks/2", "")
+    refetch = api.gate(f"{BEATPORT_TRACKS}/2", "")
 
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
         before = opened.live.record(ONE_TRACK)
@@ -308,7 +318,7 @@ async def test_keeps_the_bandcamp_reason_when_an_empty_list_is_passed(
 ) -> None:
     api = FakeApi()
     hold_on_beatport(api)
-    api.on("/bandcamp/search", YOUR_MIND, reply)
+    api.on(BANDCAMP_SEARCH, YOUR_MIND, reply)
 
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
         await arbitration.refuse(ONE_TRACK, Source.BEATPORT)
@@ -370,7 +380,7 @@ async def test_leaves_the_bandcamp_list_empty_as_source_unavailable_when_the_key
     """Trois refus en 403 : le troisieme declenche la garde du run, absorbee ici."""
     api = FakeApi()
     hold_on_beatport(api)
-    api.on("/bandcamp/search", "*", failing(403))
+    api.on(BANDCAMP_SEARCH, "*", failing(403))
 
     async with _arbitrating(_copies(music_folder), api) as (opened, arbitration):
         for name in COPIES:
@@ -391,8 +401,8 @@ async def test_keeps_the_search_candidate_when_the_key_is_rejected_on_choice(
     """Deux refus en 403, puis un choix dont le refetch recoit le troisieme."""
     api = FakeApi()
     hold_on_beatport(api)
-    api.on("/bandcamp/search", "*", failing(403))
-    api.on("/beatport/tracks/2", "*", failing(403))
+    api.on(BANDCAMP_SEARCH, "*", failing(403))
+    api.on(f"{BEATPORT_TRACKS}/2", "*", failing(403))
     events: list[ArbitrationEvent] = []
 
     async with _arbitrating(_copies(music_folder), api, events) as (opened, arbitration):
@@ -418,11 +428,11 @@ async def test_refuses_one_track_while_another_refusal_waits_for_bandcamp(
     api = FakeApi()
     hold_on_beatport(api)
     api.on(
-        "/beatport/search",
+        BEATPORT_SEARCH,
         BASIEL,
         found(basiel(id="3", mix_name="Extended Mix"), basiel(id="4", mix_name="Radio Edit")),
     )
-    slow = api.gate("/bandcamp/search", YOUR_MIND)
+    slow = api.gate(BANDCAMP_SEARCH, YOUR_MIND)
 
     async with _arbitrating(two_tracks(tmp_path), api) as (opened, arbitration):
         first = asyncio.create_task(arbitration.refuse(FIRST_TRACK, Source.BEATPORT), name="first")
@@ -492,7 +502,7 @@ async def test_calls_bandcamp_again_after_a_cancelled_refusal(tmp_path: Path) ->
     """La requete annulee n'atteint jamais l'API simulee : seule la seconde est comptee."""
     api = FakeApi()
     hold_with_bandcamp_fallback(api)
-    slow = api.gate("/bandcamp/search", YOUR_MIND)
+    slow = api.gate(BANDCAMP_SEARCH, YOUR_MIND)
 
     async with _arbitrating(one_track(tmp_path), api) as (opened, arbitration):
         refusal = asyncio.create_task(

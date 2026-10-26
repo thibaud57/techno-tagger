@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bandeau de démo</title>
+<style>
+  :root { --bg: #09090b; --surface: #18181b; --border: #27272a; --text: #fafafa; --muted: #a1a1aa; --primary: #34d399; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 Inter, system-ui, sans-serif; padding: 32px 48px; }
+  h1 { font-size: 24px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0; }
+  .lead { color: var(--muted); margin: 0 0 24px; max-width: 960px; }
+  .option { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+  .option.reco { border-color: var(--primary); }
+  .option header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.reco { border-color: var(--primary); color: var(--primary); }
+  .desc { color: var(--muted); margin: 0 0 16px; max-width: 960px; }
+  .frame { width: 1024px; height: 640px; overflow: hidden; border: 1px solid var(--border); border-radius: 4px; position: relative; }
+  .frame iframe { width: 1280px; height: 800px; border: 0; transform: scale(0.8); transform-origin: 0 0; position: absolute; top: 0; left: 0; }
+</style>
+</head>
+<body>
+<h1>Bandeau de démo</h1>
+<p class="lead">Maquette cliquable du design system, avec ses vrais composants, réduite à 80 %. Les contrôles de fenêtre sont masqués dans les trois options, comme dans la démo. Texte en français seulement. L'anglais (« Demo: fictional data, no real files. Private app, not affiliated with Beatport or Bandcamp. Contact me ») fait à peu près la même longueur.</p>
+
+<section class="option">
+  <header><h2>Sans bandeau</h2><span class="badge">Actuel</span></header>
+  <p class="desc">L'app telle qu'elle est, contrôles de fenêtre compris.</p>
+  <div class="frame"><iframe src="http://127.0.0.1:8766/ui_kits/techno-tagger/index.html" title="Sans bandeau"></iframe></div>
+</section>
+
+<section class="option">
+  <header><h2>A. Message info dans la marge du contenu</h2></header>
+  <p class="desc">Le <code>Message</code> <code>info</code> <code>small</code> du design system, aligné sur la marge des écrans. Aucun écart au design system. Mais il ressemble aux messages de l'app (bandeau de source de l'arbitrage), et on pourrait le prendre pour l'un d'eux.</p>
+  <div class="frame"><iframe src="http://127.0.0.1:8766/ui_kits/techno-tagger/index.html?banner=a" title="Option A"></iframe></div>
+</section>
+
+<section class="option reco">
+  <header><h2>B. Bande neutre sous la barre d'onglets</h2><span class="badge reco">Recommandé</span></header>
+  <p class="desc">Une bande de 32px sur toute la largeur, fond <code>surface-900</code>, filet <code>surface-800</code>, texte <code>xs</code> en gris, icône <code>info-circle</code>. Elle parle de l'environnement, pas de l'app, et ne se confond avec aucun de ses messages. Écart au design system : un nouveau motif, à inscrire dans DESIGN.md s'il est retenu.</p>
+  <div class="frame"><iframe src="http://127.0.0.1:8766/ui_kits/techno-tagger/index.html?banner=b" title="Option B"></iframe></div>
+</section>
+
+<section class="option">
+  <header><h2>C. Message info sur toute la largeur</h2></header>
+  <p class="desc">Le même <code>Message</code> <code>info</code> <code>small</code>, posé bord à bord sous la barre d'onglets. Le plus visible des trois. La teinte bleue attire l'œil en permanence, à côté des badges bleus de la barre d'onglets.</p>
+  <div class="frame"><iframe src="http://127.0.0.1:8766/ui_kits/techno-tagger/index.html?banner=c" title="Option C"></iframe></div>
+</section>
+</body>
+</html>

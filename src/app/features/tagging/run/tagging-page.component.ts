@@ -4,6 +4,7 @@ import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
+import { injectDemoReason } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"
 import { errorRunId, errorTrackId } from "../../../core/sidecar/error-params"
@@ -68,6 +69,8 @@ export default class TaggingPageComponent {
   private readonly router = inject(Router)
   private readonly native = inject(NativeService)
   private readonly preferences = inject(PreferencesService)
+  /** La demo rejoue un seul run et n'en interrompt aucun : un second lancement n'aurait rien a rejouer. */
+  private readonly demoReason = injectDemoReason()
   private readonly confirmDanger = injectDangerConfirm()
   protected readonly runRestore = injectRunRestore()
 
@@ -110,6 +113,9 @@ export default class TaggingPageComponent {
    * ou en conflit de version, il ne reste que l'extraction et le demarrage du moteur.
    */
   protected readonly blockedReason = computed(() => {
+    if (this.demoReason !== null && this.sidecar.taggingRunId() !== null) {
+      return this.demoReason
+    }
     if (this.sidecar.tagging()) {
       return "tagging.blocked.running"
     }
@@ -175,7 +181,7 @@ export default class TaggingPageComponent {
           label: "tagging.cancel",
           icon: "stop",
           secondary: true,
-          blocked: null,
+          blocked: this.demoReason,
           run: () => void this.cancel(),
         }
       case "commit":
@@ -228,7 +234,7 @@ export default class TaggingPageComponent {
   }
 
   protected async choose(): Promise<void> {
-    const chosen = await this.native.pickPath({ directory: true })
+    const chosen = await this.native.pickPath("tagging_folder")
     if (chosen !== null) {
       this.folder.set(chosen)
     }

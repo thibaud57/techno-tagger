@@ -1,4 +1,4 @@
-import { signal } from "@angular/core"
+import { signal, type Provider } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 
 import {
@@ -9,20 +9,45 @@ import {
 } from "../../../../fixtures/sidecar-stub"
 import { arbitrationRequired, recoveredTrack, unresolvedTrack } from "../../../../fixtures/tagging"
 import { TRACK_URL } from "../../../../fixtures/url-recovery"
+import { type AppEdition, APP_EDITION } from "../../../core/platform/app-edition"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
+import { RECOVERY_URL_HINT } from "./recovery-url-hint"
 import { RecoveryUiStore } from "./recovery-ui.store"
 
-const mount = (tracks: readonly TaggingTrack[] = [unresolvedTrack("a.mp3")]) => {
+const mount = (
+  tracks: readonly TaggingTrack[] = [unresolvedTrack("a.mp3")],
+  providers: readonly Provider[] = [],
+) => {
   const service = sidecarStub({
     ...activeRun(),
     taggingTracks: signal(tracks),
     recoverableTracks: signal(tracks),
   })
-  TestBed.configureTestingModule({ providers: [provideSidecarStub(service)] })
+  TestBed.configureTestingModule({ providers: [provideSidecarStub(service), ...providers] })
 
   return { store: TestBed.inject(RecoveryUiStore), service }
 }
+
+// Lowlands a un lien enregistre dans la demo, le morceau refuse n'en a pas.
+const LOWLANDS = "lowlands.mp3"
+const REFUSED = "refused.mp3"
+const LOWLANDS_URL = "https://www.beatport.com/track/lowlands/12345"
+const lowlandsHint = (id: string): string | null => (id === LOWLANDS ? LOWLANDS_URL : null)
+
+const storeWith = ({
+  edition,
+  hint,
+  tracks = [unresolvedTrack(LOWLANDS), unresolvedTrack(REFUSED)],
+}: {
+  readonly edition: AppEdition
+  readonly hint?: (trackId: string) => string | null
+  readonly tracks?: readonly TaggingTrack[]
+}) =>
+  mount(tracks, [
+    { provide: APP_EDITION, useValue: edition },
+    ...(hint === undefined ? [] : [{ provide: RECOVERY_URL_HINT, useValue: hint }]),
+  ]).store
 
 const BLOCKERS: [string, (service: SidecarStub) => void][] = [
   [
@@ -261,5 +286,46 @@ describe("RecoveryUiStore", () => {
     service.taggingRunId.set("run-2")
 
     expect(store.draft("a.mp3")).toBe("")
+  })
+
+  describe("demo edition", () => {
+    it("prefills and locks a recorded recovery URL in the demo edition", () => {
+      const store = storeWith({
+        edition: "demo",
+        hint: lowlandsHint,
+      })
+
+      expect(store.draft(LOWLANDS)).toBe(LOWLANDS_URL)
+      expect(store.locked(LOWLANDS)).toBe(true)
+      expect(store.canResolve(LOWLANDS)).toBe(true)
+    })
+
+    it.each([
+      {
+        case: "greys out resolving a track without recorded URL in the demo edition",
+        trackId: REFUSED,
+        hint: () => null,
+        tracks: [unresolvedTrack(LOWLANDS), unresolvedTrack(REFUSED)],
+      },
+      {
+        case: "greys out resolving a track already recovered in the demo edition",
+        trackId: LOWLANDS,
+        hint: lowlandsHint,
+        tracks: [recoveredTrack(LOWLANDS), unresolvedTrack(REFUSED)],
+      },
+    ])("$case", ({ trackId, hint, tracks }) => {
+      const store = storeWith({ edition: "demo", hint, tracks })
+
+      expect(store.canResolve(trackId)).toBe(false)
+      expect(store.resolveBlocked(trackId)).toBe("demo.unavailable")
+    })
+
+    it("keeps recovery free in the desktop edition", () => {
+      const store = storeWith({ edition: "desktop" })
+
+      expect(store.draft(LOWLANDS)).toBe("")
+      expect(store.locked(LOWLANDS)).toBe(false)
+      expect(store.resolveBlocked(LOWLANDS)).toBeNull()
+    })
   })
 })

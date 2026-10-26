@@ -4,16 +4,8 @@ import pytest
 from audio_samples import write_blank_mp3
 from mutagen.id3 import COMM, ID3, TBPM
 from ndjson_loop import drive, line, rows, start_tagging, sub
-from scraper_responses import BASIEL, YOUR_MIND, failing, found, track_payload
-from tagging_api import (
-    BEATPORT_SEARCH,
-    ORIGINAL,
-    ORIGINAL_REFETCH,
-    FakeApi,
-    basiel,
-    knows_your_mind,
-    three_tracks,
-)
+from scraper_responses import BASIEL, BEATPORT_SEARCH, YOUR_MIND, failing, found, track_payload
+from tagging_api import ORIGINAL, ORIGINAL_REFETCH, FakeApi, basiel, knows_your_mind, three_tracks
 from tagging_records import FIRST_TRACK, SECOND_TRACK
 from unencodable_names import UNENCODABLE_NAME
 

@@ -22,7 +22,7 @@ import { Tooltip } from "primeng/tooltip"
 
 import { languageFromTag } from "../../core/i18n/language"
 import type { ExtractionMode } from "../../core/sidecar/protocol"
-import { NativeService } from "../../core/platform/native.service"
+import { NativeService, type PathTarget } from "../../core/platform/native.service"
 import {
   DEFAULT_EXTRACTION_MODE,
   PreferencesService,
@@ -259,8 +259,11 @@ export default class PlaylistPageComponent {
     this.manuallyExpanded.set(true)
   }
 
-  protected async chooseFolder(target: WritableSignal<string | null>): Promise<void> {
-    const chosen = await this.native.pickPath({ directory: true })
+  protected async chooseFolder(
+    target: WritableSignal<string | null>,
+    kind: Extract<PathTarget, "library" | "destination">,
+  ): Promise<void> {
+    const chosen = await this.native.pickPath(kind)
     if (chosen !== null) {
       target.set(chosen)
     }
@@ -268,7 +271,7 @@ export default class PlaylistPageComponent {
 
   /** Le choix du fichier declenche le listage : seul le sidecar annonce le format. */
   protected async choosePlaylistFile(): Promise<void> {
-    const chosen = await this.native.pickPath({ directory: false })
+    const chosen = await this.native.pickPath("playlist")
     if (chosen === null) {
       return
     }

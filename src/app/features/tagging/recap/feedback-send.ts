@@ -1,5 +1,6 @@
 import { type Signal, computed, effect, inject, signal, untracked } from "@angular/core"
 
+import { injectDemoReason } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import type { FeedbackReadyEvent } from "../../../core/sidecar/protocol"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
@@ -35,9 +36,13 @@ const openFeedback = async (native: NativeService, ready: FeedbackReadyEvent): P
 export const injectFeedbackSend = (target: Signal<FeedbackTarget | null>) => {
   const sidecar = inject(SidecarService)
   const native = inject(NativeService)
+  const demoReason = injectDemoReason()
   const requested = signal<string | null>(null)
 
   const blockedReason = computed(() => {
+    if (demoReason !== null) {
+      return demoReason
+    }
     if (sidecar.available() !== true) {
       return "settings.admin.starting"
     }

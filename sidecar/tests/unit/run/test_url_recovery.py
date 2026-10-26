@@ -9,13 +9,14 @@ from log_capture import messages_of
 from scraper_responses import (
     ARTWORK_URL,
     BANDCAMP_TRACK,
+    BANDCAMP_TRACKS,
+    BEATPORT_TRACKS,
     bandcamp_track_payload,
     failing,
     ok,
     track_payload,
 )
 from tagging_api import (
-    BANDCAMP_TRACKS,
     ONE_TRACK,
     FakeApi,
     cancelled,
@@ -134,7 +135,7 @@ async def test_replaces_a_track_already_resolved_by_url(
 ) -> None:
     api = FakeApi()
     knows_the_bandcamp_track(api)
-    api.on("/beatport/tracks/99000202", "*", ok(ON_BEATPORT))
+    api.on(f"{BEATPORT_TRACKS}/99000202", "*", ok(ON_BEATPORT))
 
     async with _recovering(one_track(tmp_path), api) as (opened, recovery):
         await recovery.resolve(ONE_TRACK, BANDCAMP_TRACK)
