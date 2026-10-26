@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/thibaud57/techno-tagger/compare/v1.0.1...v1.1.0) (2026-10-26)
+
+
+### Features
+
+* demo web publique, etats de morceau en union et correctifs de l'audit de dependances ([#126](https://github.com/thibaud57/techno-tagger/issues/126)) ([d3d3e95](https://github.com/thibaud57/techno-tagger/commit/d3d3e958fbc87a7359e500c0deedb8968baf5b02))
+
 ## [1.0.1](https://github.com/thibaud57/techno-tagger/compare/v1.0.0...v1.0.1) (2026-10-24)
 
 
