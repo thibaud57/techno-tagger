@@ -1,7 +1,7 @@
 ---
 title: "VERSIONS - Matrice de compatibilité (Fullstack)"
 description: "Versions des dépendances du sidecar Python, de la webview Angular et de la coquille Tauri, compatibilité croisée, configuration et migration."
-date: "2026-10-23"
+date: "2026-10-26"
 keywords: ["versions", "dependencies", "compatibility", "setup", "migration", "fullstack", "tauri", "angular", "python"]
 scope: ["docs", "config", "setup"]
 technologies: ["Python", "Angular", "Tauri", "Rust"]
@@ -9,7 +9,7 @@ technologies: ["Python", "Angular", "Tauri", "Rust"]
 
 > **Trois écosystèmes, trois gestionnaires de paquets.** `sidecar/` en uv, `src/` en pnpm, `src-tauri/` en cargo. Aucun workspace transverse (cf. [ARCHITECTURE.md § Package Manager](ARCHITECTURE.md#package-manager)). La section « Partagé / Infrastructure » couvre la coquille Tauri et la chaîne CI/CD, qui traversent les trois zones.
 
-> **Versions installées relevées le 2026-10-23** dans les **lockfiles** (`uv.lock`, `pnpm-lock.yaml`, `Cargo.lock`) et dans les workflows, c'est-à-dire ce qui est réellement résolu, pas les plages déclarées dans les manifestes. Dates de publication et notes de version relevées le 2026-10-09 (uv, Ruff, Angular, Prettier et actions CI : 2026-10-12 ; pnpm : 2026-10-16). Le périmètre est ce que le dépôt déclare : les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) en sont donc hors, elles seront documentées le jour où elles entrent réellement dans un fichier de dépendances.
+> **Versions installées relevées le 2026-10-23 (Angular : 2026-10-26)** dans les **lockfiles** (`uv.lock`, `pnpm-lock.yaml`, `Cargo.lock`) et dans les workflows, c'est-à-dire ce qui est réellement résolu, pas les plages déclarées dans les manifestes. Dates de publication et notes de version relevées le 2026-10-09 (uv, Ruff, Angular, Prettier et actions CI : 2026-10-12 ; pnpm : 2026-10-16). Le périmètre est ce que le dépôt déclare : les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) en sont donc hors, elles seront documentées le jour où elles entrent réellement dans un fichier de dépendances.
 
 > **Politique de version du projet : la dernière stable, toujours.** Une version antérieure ne se retient que sur une incompatibilité dure, documentée dans [Conflits Potentiels](#conflits-potentiels), et qu'aucune ligne de configuration ne contourne. Une rupture qui se règle par une règle de lint, un réglage ou une tournure de code à éviter n'est pas une raison de rester en arrière : elle se mécanise et on avance. Trois entrées seulement s'écartent de la dernière version publiée au relevé, et chacune s'en explique dans sa fiche : **TypeScript**, bloqué en 6.0.x par une incompatibilité qu'aucun réglage ne lève ; **Node**, tenu en 24.x LTS jusqu'au passage LTS de la 26, annoncé au 2026-10-28, parce que c'est un outil de build et non une dépendance du produit ; et **@tauri-apps/api**, en 2.12.1 alors que son patch suivant est publié depuis le 2026-10-09 : le `minimumReleaseAge` de 24 heures est écoulé, la montée attend la prochaine PR Dependabot (cadence mensuelle).
 
@@ -45,14 +45,14 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 
 | Technologie | Version Recommandée | Statut Production | Notes Critiques |
 |-------------|-------------------|-----------------|----------------|
-| Angular | `22.2.2` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé. `@angular/cli` et `@angular/build` suivent leur propre cadence de patch, en `22.2.2` au relevé |
+| Angular | `22.2.3` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé. `@angular/cli` et `@angular/build` suivent leur propre cadence de patch, en `22.2.4` au relevé |
 | TypeScript | `6.0.3` | ✅ | Contrainte dure d'Angular 22 : `>=6.0.0 <6.1.0`. **TS 7 (tsgo) casse `compiler-cli` et `typescript-eslint`**. `noUncheckedIndexedAccess` activé le 2026-09-06 : zéro erreur sur la base existante |
 | Node.js | `24.x` (LTS, Maintenance depuis le 2026-10-20) | ✅ | Bascule prévue sur 26.x quand elle passe LTS le 2026-10-28, une ligne dans `.github/actions/setup-pnpm`. Installée par `pnpm/setup`, pas par `actions/setup-node` |
 | pnpm | `12.14.0` | ✅ | Réécriture Rust, sous le dist-tag `latest` depuis début septembre 2026. Épinglé par `devEngines.packageManager` (`onFail: download`), que `pnpm/setup` lit en CI. Lockfile à deux documents depuis le 2026-10-15, cf. § Dependabot |
 | PrimeNG | `22.1.2` | ❌ | Licence PrimeUI avec clé obligatoire même en Community. Le dépôt public ne porte plus que la lignée MIT 21.x, le code 22.x vit dans un dépôt privé. Voir [Conflits Potentiels](#conflits-potentiels) |
 | @primeuix/themes | `3.0.1` | ⚠️ | **Pas une dépendance transitive de PrimeNG**, à déclarer explicitement. Base rem passée de 14px à 16px |
 | PrimeIcons | `@primeicons/angular 8.0.2` | ❌ | Dépendance directe de PrimeNG 22, **à déclarer quand même** : pnpm isole, une transitive n'est pas importable depuis `src/`. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 est sous licence PrimeUI |
-| Angular CDK | `@angular/cdk 22.2.2` | ✅ | **peerDependency de PrimeNG 22**, donc jamais installée seule : son absence ne se voit qu'au premier composant qui en dépend. Déclare `@angular/forms` en peerDependency depuis la 22.1.5 |
+| Angular CDK | `@angular/cdk 22.2.4` | ✅ | **peerDependency de PrimeNG 22**, donc jamais installée seule : son absence ne se voit qu'au premier composant qui en dépend. Déclare `@angular/forms` en peerDependency depuis la 22.1.5 |
 | Tailwind CSS | `4.3.3` | ✅ | Config CSS-first, `tailwind.config.js` disparu, ne compile ni SCSS ni LESS |
 | @tailwindcss/postcss | `4.3.3` | ✅ | Version alignée sur `tailwindcss` (même monorepo) |
 | tailwindcss-primeui | `0.6.1` | ⚠️ | Aucune publication depuis mars 2025, donc antérieure à PrimeNG 22 et à Tailwind 4.3 |
@@ -385,7 +385,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 ## Frontend
 
 ### 1. Angular
-**Version actuelle** : runtime `@angular/*`, `@angular/cli` et `@angular/build` en `22.2.2` (2026-10-08)
+**Version actuelle** : runtime `@angular/*` en `22.2.3`, `@angular/cli`, `@angular/build` et `@angular/cdk` en `22.2.4` (2026-10-26)
 **Stabilité** : ✅
 
 Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@angular/build` déclare `@angular/core` en `^22.0.0` : les aligner bloquerait les correctifs du builder.
@@ -401,6 +401,7 @@ Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@an
 - Signal Forms, API Signals, architecture zoneless et `httpResource`/`rxResource` passent en stable
 - **22.2.0** corrige GHSA-ff3f-86qr-9cv3 dans `@angular/router`, un déni de service du rendu serveur : sans objet ici, l'application n'a pas de SSR, mais `pnpm audit` le remonte jusqu'à la montée
 - **22.2.0** : `@angular/build:unit-test` accepte Vitest 5 et déprécie son option `splitting`. **22.2.1** durcit le sanitizer d'URL (`data:` et `vbscript:` bloqués), **22.2.2** ne livre que des correctifs
+- **`@angular/build` 22.2.4 fige encore `vite` en `8.3.0`** : `pnpm audit` y remonte six avis du serveur de dev (`launch-editor`, `server.fs`), corrigés en `vite` 8.3.3, sans correctif dans la chaîne Angular au 2026-10-26. Outil de dev, absent du bundle livré
 - **22.2** : option `strictUnclaimedEventNames` (opt-in, activée ici), qui rend une erreur de compilation sur un `(output)` qu'aucune directive ne déclare
 
 **Compatibilité Écosystème** :
@@ -420,7 +421,7 @@ Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@an
 - **7.0 (Corsa, compilateur natif Go)** : rend ces ruptures définitives, et surtout **l'API programmatique du compilateur n'existe pas dans `tsgo`**, elle est annoncée pour 7.1
 
 **Compatibilité Écosystème** :
-- **Angular 22 exige `>=6.0.0 <6.1.0`**, toujours vrai en 22.2.2. La demande d'élargissement à TS 7 a été fermée en `not planned` le 2026-07-09 (angular/angular#69704) : « Supporting TS 7.0, requires a major refactoring of our compiler ». Angular 23 est attendu vers juin 2027
+- **Angular 22 exige `>=6.0.0 <6.1.0`**, toujours vrai en 22.2.3. La demande d'élargissement à TS 7 a été fermée en `not planned` le 2026-07-09 (angular/angular#69704) : « Supporting TS 7.0, requires a major refactoring of our compiler ». Angular 23 est attendu vers juin 2027
 - **Aucune TS 6.1 ne sortira** : « we do not intend to release a TypeScript 6.1 » (blog TypeScript, décembre 2025). La 7.1, qui doit rendre une API programmatique (microsoft/TypeScript#63703), n'avait pas encore publié sa beta au 2026-10-09
 - `typescript-eslint` 8.71.1 déclare `typescript: >=4.8.4 <6.1.0`, et son parseur crashe réellement sous TS 7, pas seulement un avertissement de peer dependency. Le support de TS 7.1 se prépare dans typescript-eslint#10940 (PR #12803), sans version annoncée
 - `@tauri-apps/api` 2.12.1 ne déclare aucune contrainte : TypeScript n'y apparaît qu'en `devDependency`
@@ -904,17 +905,17 @@ Trois contournements, dans l'ordre de préférence :
 
 | Dépendance A | Dépendance B | Compatibilité | Notes |
 |--------------|--------------|---------------|-------|
-| Angular 22.2.2 | TypeScript 6.0.x | ✅ | Contrainte dure `>=6.0.0 <6.1.0` |
-| Angular 22.2.2 | TypeScript 7.0.x | ❌ | `compiler-cli` ne compile pas, élargissement refusé en `not planned` |
-| Angular 22.2.2 | Node 24.x et 26.x | ✅ | `engines` : `^22.22.3 \|\| ^24.15.0 \|\| >=26.0.0` |
-| Angular 22.2.2 | PrimeNG 22.1.2 | ✅ | `peerDependency` en `^22.1.0`, pas `22.x` |
-| Angular 22.2.2 | Vitest 5.0.3 | ✅ | Runner par défaut du CLI depuis la v21, peer `^4.0.8 \|\| ^5.0.0` depuis 22.2.0 |
-| Angular 22.2.2 | ngx-translate 18.0.0 | ✅ | « Tested against Angular 18, 19, 20, 21, and 22 » |
-| Angular 22.2.2 | @sentry/angular 11.6.0 | ✅ | `>= 14.x <= 22.x` |
-| Angular 22.2.2 | angular-eslint 22.5.0 | ✅ | Alignement de majeure, contrôlé à l'exécution depuis que la 22.2.0 a retiré la peer `@angular/cli` |
-| Angular 22.2.2 | Tauri 2.12.2 | ✅ | `ng build` → `dist/<app>/browser` en `frontendDist`, aucun SSR |
+| Angular 22.2.3 | TypeScript 6.0.x | ✅ | Contrainte dure `>=6.0.0 <6.1.0` |
+| Angular 22.2.3 | TypeScript 7.0.x | ❌ | `compiler-cli` ne compile pas, élargissement refusé en `not planned` |
+| Angular 22.2.3 | Node 24.x et 26.x | ✅ | `engines` : `^22.22.3 \|\| ^24.15.0 \|\| >=26.0.0` |
+| Angular 22.2.3 | PrimeNG 22.1.2 | ✅ | `peerDependency` en `^22.1.0`, pas `22.x` |
+| Angular 22.2.3 | Vitest 5.0.3 | ✅ | Runner par défaut du CLI depuis la v21, peer `^4.0.8 \|\| ^5.0.0` depuis 22.2.0 |
+| Angular 22.2.3 | ngx-translate 18.0.0 | ✅ | « Tested against Angular 18, 19, 20, 21, and 22 » |
+| Angular 22.2.3 | @sentry/angular 11.6.0 | ✅ | `>= 14.x <= 22.x` |
+| Angular 22.2.3 | angular-eslint 22.5.0 | ✅ | Alignement de majeure, contrôlé à l'exécution depuis que la 22.2.0 a retiré la peer `@angular/cli` |
+| Angular 22.2.3 | Tauri 2.12.2 | ✅ | `ng build` → `dist/<app>/browser` en `frontendDist`, aucun SSR |
 | jsdom 30.1.2 | Node 24.15+ | ✅ | `engines` : `^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`, plancher identique à celui du projet |
-| Angular 22.2.2 | Tailwind 4.3.3 | ✅ | Via `@tailwindcss/postcss` et `.postcssrc.json`, voie recommandée par les deux docs |
+| Angular 22.2.3 | Tailwind 4.3.3 | ✅ | Via `@tailwindcss/postcss` et `.postcssrc.json`, voie recommandée par les deux docs |
 | ngx-translate 18.0.0 | Tauri 2.12.2 | ✅ | Les JSON de traduction sont servis en same-origin depuis `frontendDist`, sans `asset:` |
 | TypeScript 6.0.x | typescript-eslint 8.71.1 | ✅ | `>=4.8.4 <6.1.0` |
 | PrimeNG 22.1.2 | @primeuix/themes 3.0.1 | ✅ | À installer explicitement, pas de dépendance transitive |
@@ -1024,7 +1025,7 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 `devEngines.packageManager` épingle pnpm (`12.14.0`, `onFail: download`) : seule source de la version, lue par `pnpm/setup` en CI. Pas de champ `packageManager` (legacy, Corepack). Le lockfile à deux documents qui en résulte est assumé, cf. [§ Dependabot](#6-dependabot).
 
-**Dépendances** : les paquets runtime `@angular/*` en `22.2.2` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.2.2`), `primeng` en `22.1.2`, `@primeuix/themes` en `3.0.1` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `11.6.0`, `rxjs` en `~7.8.2`, `@tauri-apps/api` en `2.12.1`, plus les six paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`, aucun `plugin-fs`).
+**Dépendances** : les paquets runtime `@angular/*` en `22.2.3` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.2.4`), `primeng` en `22.1.2`, `@primeuix/themes` en `3.0.1` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `11.6.0`, `rxjs` en `~7.8.2`, `@tauri-apps/api` en `2.12.1`, plus les six paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`, aucun `plugin-fs`).
 
 **devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `5.0.3`, `angular-eslint` en `22.5.0`, `eslint` en `^10`, `typescript-eslint` en `^8`, `eslint-config-prettier`, `prettier` en `3.9.10`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.12.1`, `@sentry/cli` en `^3.8.0`, `jsdom` en `^30.1.2`.
 
@@ -1153,7 +1154,7 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 
 | Paquet | Installée | Disponible | Ce qui casse | Levée attendue |
 |---|---|---|---|---|
-| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.2 et `typescript-eslint` 8.71.1 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-09) | TS 7.1 stable avec son API, puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
+| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.71.1 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-09) | TS 7.1 stable avec son API, puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
 | Node.js | `24.x` | `26.x` | Aucun blocage technique identifié : outil de build, rien de la 26 n'est exploité (cf. § Node.js) | Passage LTS de la 26, annoncé au 2026-10-28 |
 | @tauri-apps/api | `2.12.1` | `2.12.2` | Aucun blocage technique identifié : publiée le 2026-10-09, le `minimumReleaseAge` de 24 heures est écoulé | PR Dependabot suivante |
 
