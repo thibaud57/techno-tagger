@@ -1,6 +1,6 @@
 ---
 title: "Sentry — Remontée d'erreurs durcie (Python + Angular)"
-version: "sentry-sdk 2.71.0 / @sentry/angular 11.6.0"
+version: "sentry-sdk 2.71.0 / @sentry/angular 11.9.0"
 description: "Référence technique pour les deux SDK Sentry du projet : durcissement RGPD, réglages non négociables, scrubbing, corrélation de release et empaquetage PyInstaller."
 date: "2026-10-18"
 keywords: ["sentry", "rgpd", "scrubbing", "observabilite", "angular", "python", "pyinstaller"]
@@ -119,6 +119,7 @@ export const sentryOptions = (dsn: string, release: string, environment: string)
     urlQueryParams: false,
     graphQL: { document: false, variables: false },
     genAI: { inputs: false, outputs: false },
+    mcp: { inputs: false, outputs: false },
     databaseQueryData: false,
     queues: false,
     stackFrameVariables: false,

@@ -1,7 +1,7 @@
-import { Component, input, output } from "@angular/core"
+import { Component, inject, input, output } from "@angular/core"
 import { ButtonDirective } from "primeng/button"
 import { Label } from "primeng/label"
-import { UniqueComponentId } from "primeng/utils"
+import { UseId } from "primeng/useid"
 
 import { TruncatedTextComponent } from "../display/truncated-text.component"
 
@@ -39,7 +39,7 @@ import { TruncatedTextComponent } from "../display/truncated-text.component"
   host: { class: "contents" },
 })
 export class PathPickerComponent {
-  protected readonly id = UniqueComponentId("path-picker-")
+  protected readonly id = inject(UseId).next("path-picker-")
 
   /**
    * `null` quand le bouton se suffit : la cellule disparait de la grille de l'appelant. Requis
