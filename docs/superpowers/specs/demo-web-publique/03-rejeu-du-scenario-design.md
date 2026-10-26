@@ -70,7 +70,8 @@ Aucune règle métier n'est recalculée en TypeScript : la démo cherche une ré
   - La démo ne déduit ni issue ni phase d'une commande.
   - L'état vit dans le transport, en signals privés (`.claude/rules/angular/signals.md`, `.claude/rules/angular/services.md`).
 - **Couverture de l'ordre libre**, assurée par l'enregistrement du lot 1 :
-  - Un arbitrage, retour à Beatport compris, ne dépend que de son morceau : sa réponse est sans état. L'assemblage du lot 1 refuse deux réponses différentes pour une même clé, et prouverait le contraire.
+  - Un geste d'arbitrage, retour à Beatport compris, est une réponse avec état : la progression du rattrapage qui le suit compte les morceaux à rattraper du run entier, elle dépend donc des issues des autres morceaux (relevé le 2026-10-26 au lot 1). Il se cherche comme toute réponse avec état, sur les issues courantes des trois morceaux à décision et la phase. Son `sets` porte l'issue qu'il produit ; le refus de Beatport et le retour à Beatport, gestes intermédiaires, n'en portent aucune.
+  - Les sessions courtes du lot 1 enregistrent chaque geste d'arbitrage dans chaque état des deux autres morceaux, « Lowlands » rattrapé compris : le visiteur tranche dans l'ordre qu'il veut sans que la démo impose d'ordre. L'assemblage du lot 1 refuse deux réponses différentes pour une même clé.
   - Le rattrapage de « Lowlands » est avec état. Dans les 16 combinaisons où il est rattrapé, il vient après les autres décisions, donc il couvre chaque issue des deux autres morceaux, `pending` compris : un visiteur qui le rattrape en premier trouve la réponse enregistrée avec les deux autres en attente.
 - **Émission toujours en différé** :
   - Aucune ligne n'est émise pendant `send`. L'interface pose son état d'attente avant d'envoyer, et `cancelTagging` agit encore après l'envoi.
@@ -164,7 +165,7 @@ Aucune règle métier n'est recalculée en TypeScript : la démo cherche une ré
 
 ## Edge cases
 
-- **Arbitrage tranché avant la fin de la phase réseau** : la réponse s'intercale dans la file. La ligne enregistrée est la même, seul le moment change.
+- **Arbitrage tranché avant la fin de la phase réseau** : à trancher au lot 3. Le vrai sidecar n'émet le `progress` du rattrapage qu'après la phase réseau (relevé le 2026-10-26, `__main__.py`, `_then_url_progress`), donc la réponse enregistrée porte une ligne de plus qu'une décision prise pendant cette phase. Deux options : rejouer la réponse enregistrée telle quelle (le compteur du rattrapage apparaît en avance) ou griser les arbitrages jusqu'au `run_finished` de la phase réseau.
 - **Run passé ouvert depuis les Réglages** : `load_run` du run passé, réponse sans état.
 - **« Restaurer le dernier run » avant l'écriture du visiteur** : la réponse du démarrage dit qu'aucune cible n'existe, le bouton reste grisé par sa raison habituelle.
 - **Rechargement de la page en cours de run** : tout repart de zéro, comme « Recommencer la démo ».

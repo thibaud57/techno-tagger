@@ -14,7 +14,7 @@
 
 - **Aucune modification de `sidecar/src/`.** Tout ce qui manque s'ajoute dans `sidecar/tests/helpers/`.
 - **Catalogue** : les 13 morceaux et les 4 labels de `01-pochettes-options.html`, avec leurs noms, titres, labels, références et cas. Le label garde ses valeurs `bg`, `fg`, `hue` et `motif`. BPM, tonalité, genre, date de sortie et ISRC sont fictifs. Les ISRC prennent le code pays `ZZ`, jamais attribué.
-- **Morceaux à décision et issues** : « Sub Rosa » {`first_beatport`, `second_beatport`, `refused`, `pending`}, « Тишина » {`first_beatport`, `bandcamp`, `refused`, `pending`}, « Lowlands » {`recovered_by_url`, `unresolved`}. Cela donne 32 combinaisons et 64 sessions (branches `retry_then_rollback` et `rollback_without_retry`).
+- **Morceaux à décision et issues** : « Sub Rosa » {`first_beatport`, `second_beatport`, `refused`, `pending`}, « Тишина » {`first_beatport`, `bandcamp`, `refused`, `pending`}, « Lowlands » {`recovered_by_url`, `unresolved`}. Cela donne 32 combinaisons et 64 sessions (branches `retry_then_rollback` et `rollback_without_retry`), plus 33 sessions courtes sans écriture pour les gestes d'arbitrage dans les ordres que les sessions complètes ne parcourent pas (relevé le 2026-10-26).
 - **Valeurs figées** : run passé `run_id = "de0001"` à `2026-08-24T20:00:00+00:00`, run du visiteur `run_id = "de0002"` à `2026-10-24T20:00:00+00:00`, `DEMO_VERSION = "demo"`, `DEMO_ROOT = C:\Users\Demo`. Toute session, extraction et démarrage compris, tourne sous `frozen_sources`.
 - **Playlist** : une seule, `"Set du samedi"`. Le dossier du run passé s'appelle `"Set de la semaine dernière"`.
 - **URLs fictives, toutes sur `.example`** : `https://beatport.example/track/<slug>/<id>`, `https://<artiste>.bandcamp.example/track/<slug>`, `https://artwork.example/<référence>.jpg`. Rattrapage de « Lowlands » seul : `https://arc-ventral.bandcamp.example/track/lowlands`, accepté parce que le harnais remplace `scraper_client._BANDCAMP_HOST` par `re.compile(r"[a-z0-9][a-z0-9-]*\.bandcamp\.example")` le temps de la session. Aucun domaine réel dans le dépôt.
@@ -567,3 +567,7 @@ Run: `just lint-sidecar && just typecheck-sidecar && just test-sidecar && just l
 git add sidecar/tests/helpers/demo_recording.py sidecar/record_demo.py Justfile .prettierignore sidecar/pyproject.toml docs/ARCHITECTURE.md src/demo sidecar/tests/integration/test_demo_scenario.py .claude/skills/quality-check/SKILL.md .claude/CLAUDE.md
 git commit -m "feat(demo): scenario et pochettes de la demo sous garde stricte"
 ```
+
+## Durée mesurée
+
+Relevé le 2026-10-26 sur le poste de développement (Task 4, Step 4) : la fixture `recorded` enregistre 64 sessions complètes et 33 sessions courtes en 27,4 s, entre 27 et 40 s selon la charge du poste.

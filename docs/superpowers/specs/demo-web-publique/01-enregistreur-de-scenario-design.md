@@ -2,7 +2,7 @@
 feature: "Post-MVP Feature 1 : Démo web publique"
 subproject: "enregistreur-de-scenario"
 goal: "Acter l'architecture de la démo dans ADR-023 et produire son scénario en faisant jouer au vrai sidecar chaque branche du parcours, sur un catalogue fictif face à un faux techno-scraper"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: []
@@ -76,7 +76,7 @@ Ce lot fixe le format du scénario, consommé par `02-shell-de-demo-design.md` (
   - **après l'écriture** : `list_runs`, `load_run`, `get_rollback_target`, `rollback` du run entier ;
   - **un run passé** enregistré avant la session principale, pour qu'il figure dans l'historique dès le démarrage. Trois sorties du catalogue (Nadia Kessler, Oblique Unit, Kaltwerk) dans un dossier « Set de la semaine dernière », daté de deux mois avant la date fixe de la démo. Son dump de restauration est retiré, comme le ferait la purge des 30 jours (mon choix, 2026-10-25). Au démarrage, `get_rollback_target` ne renvoie donc aucune cible, et seul le run du visiteur devient restaurable. Son rapport reste consultable. La garde vérifie ces trois réponses initiales.
 - **Réponses indexées par ce dont elles dépendent.** Le protocole n'a pas d'id de requête : le scénario associe chaque commande à ses lignes de réponse.
-  - Une décision d'arbitrage dépend du seul morceau et du choix : `arbitration.py` n'émet que l'état du morceau. Le visiteur tranche dans l'ordre qu'il veut.
+  - Une décision d'arbitrage dépend aussi des autres morceaux à décision : après chaque geste, le sidecar émet la progression du rattrapage (`progress` de phase `url_recovery`), dont le `total` compte les morceaux à rattraper du run entier (relevé le 2026-10-26 dans `__main__._then_url_progress`). Les gestes d'arbitrage sont donc des réponses avec état. Le visiteur tranche dans l'ordre qu'il veut : des sessions courtes couvrent les ordres que les sessions complètes ne parcourent pas.
   - Le rattrapage de « Lowlands » émet aussi le compteur « rattrapés sur à rattraper » du run (`url_recovery.py`), qui dépend des issues des deux autres morceaux à décision.
   - L'écriture, la relance, l'historique, le récap et la restauration dépendent de l'ensemble des issues. L'enregistreur énumère toutes les combinaisons d'issues des trois morceaux à décision, soit 32 combinaisons (4 × 4 × 2) :
 
@@ -88,11 +88,12 @@ Ce lot fixe le format du scénario, consommé par `02-shell-de-demo-design.md` (
 
     « Refusé » et « laissé en attente » sont enregistrés tels que le sidecar les traite à `commit_run`, sans rien présumer.
   - Deux sessions par combinaison, soit 64 : après l'écriture en échec, l'une relance puis restaure, l'autre restaure sans relancer. Chaque session repart d'une copie neuve du dossier extrait. L'extraction s'enregistre une fois, hors combinaisons. Dans chaque session, le rattrapage de « Lowlands » vient après les décisions des deux autres morceaux, ce qui couvre toutes les situations où le visiteur peut le faire.
+  - Des sessions courtes, sans écriture, enregistrent chaque geste d'arbitrage de « Sub Rosa » et de « Тишина » dans les états des deux autres morceaux que l'ordre des sessions complètes ne traverse pas : l'autre morceau à décision tranché, puis « Lowlands » rattrapé s'il le faut, puis le geste suivi des trois requêtes de la page Réglages. Relevé le 2026-10-26 : 33 sessions courtes (21 pour « Sub Rosa », 12 pour « Тишина »). L'assemblage écarte les réponses qu'elles partagent avec les sessions complètes.
   - Les trois requêtes de la page Réglages (`list_runs`, `get_rollback_target`, `get_cache_size`) sont rejouées dans chaque session après `run_finished`, après chaque décision et après le rattrapage : les sessions parcourant toutes les combinaisons dans le même ordre, chaque état intermédiaire que le visiteur peut atteindre (ouvrir les Réglages au milieu des arbitrages, par exemple) a sa réponse.
   - **Clé de commande** : le nom de la commande et ses champs identifiants, aux clés triées, un champ absent valant `null`. La liste des champs identifiants par commande est une constante de `demo_scenario.py`, écrite dans la table `key_fields` du scénario : une source, deux lecteurs, l'enregistreur qui compte ses rangs et le lot 3 qui rejoue. `start_tagging` est identifié par son dossier, pas par ses seuils ; `extract_playlist` par son mode et sa playlist. Une garde ferme la table sur les commandes du protocole (`ts_discriminant_owners("command")` de `protocol_mirror.py`). Le lot 3 ne tient aucune copie.
   - Deux sortes de réponses (mon choix, 2026-10-25) :
-    - **sans état**, indexées par la clé de commande et un rang d'appel compté par session : `get_version`, `get_interrupted_run`, `list_playlists`, extraction, lancement du tagging, arbitrages, `load_run` du run passé. Une réponse à une décision porte l'issue qu'elle donne au morceau, et une réponse qui fait changer de phase porte la phase atteinte, pour que le lot 3 tienne issues et phase sans rien déduire ;
-    - **avec état**, indexées par la clé de commande et la signature de l'état : l'issue courante de chaque morceau à décision, plus la phase (`idle` avant le tagging, puis avant écriture, écriture en échec, écrit, restauré après relance, restauré sans relance). C'est le cas des trois requêtes de la page Réglages, du rattrapage de « Lowlands » et de tout ce qui suit `commit_run`. `start_tagging` fait passer d'`idle` à « avant écriture ».
+    - **sans état**, indexées par la clé de commande et un rang d'appel compté par session : `get_version`, `get_interrupted_run`, `list_playlists`, extraction, lancement du tagging, `load_run` du run passé. Une réponse à une décision porte l'issue qu'elle donne au morceau, et une réponse qui fait changer de phase porte la phase atteinte, pour que le lot 3 tienne issues et phase sans rien déduire ;
+    - **avec état**, indexées par la clé de commande et la signature de l'état : l'issue courante de chaque morceau à décision, plus la phase (`idle` avant le tagging, puis avant écriture, écriture en échec, écrit, restauré après relance, restauré sans relance). C'est le cas des trois requêtes de la page Réglages, des gestes d'arbitrage, du rattrapage de « Lowlands » et de tout ce qui suit `commit_run`. `start_tagging` fait passer d'`idle` à « avant écriture ».
     La seconde extraction est indexée par son rang d'appel.
   - Le lot 3 n'a qu'à chercher une réponse, sans rien recalculer : aucun compteur, aucun agrégat en TypeScript.
 - **Format du scénario.** Un modèle pydantic gelé (`.claude/rules/pydantic/modeles.md`), sérialisé en JSON déterministe (clés triées, indentation fixe). Il contient :
@@ -198,6 +199,7 @@ Ce lot fixe le format du scénario, consommé par `02-shell-de-demo-design.md` (
   - starts with the past run listed and nothing to restore
   - every combination of outcomes has its post-commit responses
   - every intermediate arbitration state answers the settings queries
+  - every decision gesture has its reply in every state of the other tracks
   - every resolved release has a cover and every cover belongs to a release
   - every catalogue track ends as its case announces (cas d'extraction et de tagging)
   - the scenario never carries the sidecar version
@@ -205,7 +207,7 @@ Ce lot fixe le format du scénario, consommé par `02-shell-de-demo-design.md` (
 
 ## Edge cases
 
-- **Arbitrages tranchés dans le désordre** : réponses par morceau, indépendantes de l'ordre. Rien de plus à enregistrer.
+- **Arbitrages tranchés dans le désordre** : la réponse d'un geste dépend des issues des autres morceaux (progression du rattrapage). Les sessions courtes l'enregistrent dans chaque état que le visiteur peut atteindre, rattrapage de « Lowlands » en premier compris : le lot 3 n'impose aucun ordre.
 - **Seconde extraction** : enregistrée (tout déjà présent). Le lot 3 la rejoue à partir de la deuxième demande.
 - **Interruption du run (`cancel_run`)** : hors scénario. Le lot 3 décide de son comportement en démo.
 - **Restauration d'un seul morceau** (`rollback` avec `track_id`) : hors scénario (mon choix, 2026-10-25). Elle multiplierait les combinaisons. Le lot 2 l'ajoute aux actions indisponibles en démo, seule « Restaurer le run » reste active. Le `rollback` du run entier est enregistré avec `track_id: null`, valeur qu'un champ absent prend aussi dans la clé.

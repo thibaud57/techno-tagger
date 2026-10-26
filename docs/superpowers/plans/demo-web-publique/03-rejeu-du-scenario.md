@@ -113,8 +113,8 @@ it.each(combinations(parsed))("replays every recorded combination from the initi
   // combinations() : une entrée par StatefulReply commit_run, nommée par ses outcomes ;
   // pour chaque entrée : depuis initialReplayState, chosen() sur get_version, get_interrupted_run, list_runs, get_rollback_target, get_cache_size,
   // puis les deux extract_playlist (rang 1 et 2), puis start_tagging (la commande enregistrée), puis les trois requêtes des Réglages ;
-  // puis, pour chaque morceau dont commit.outcomes diffère de l'état courant, la réponse sans état (resolve_arbitration) ou avec état (resolve_by_url)
-  // dont sets donne cette issue, prise dans le scénario, suivie des trois requêtes ;
+  // puis, pour chaque morceau dont commit.outcomes diffère de l'état courant, la réponse avec état (resolve_arbitration ou resolve_by_url)
+  // de l'état courant dont sets donne cette issue, prise dans le scénario, suivie des trois requêtes ;
   // puis commit_run, puis les deux branches à partir de cet état : retry_write puis rollback, et rollback seul ;
   // assertions : chosen() ne lève jamais, la phase finale est rolled_back_after_retry ou rolled_back_without_retry,
   // et le nombre d'entrées vaut 32 (une par combinaison, relevé du lot 1)
