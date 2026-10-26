@@ -3,10 +3,17 @@ from typing import TYPE_CHECKING
 import pytest
 from audio_samples import write_blank_mp3, write_not_audio
 from cdn_doubles import FakeCdn
-from scraper_responses import ARTWORK_URL, YOUR_MIND, failing, found, ok, track_payload
-from tagging_api import (
+from scraper_responses import (
+    ARTWORK_URL,
     BANDCAMP_SEARCH,
     BEATPORT_SEARCH,
+    YOUR_MIND,
+    failing,
+    found,
+    ok,
+    track_payload,
+)
+from tagging_api import (
     ON_BANDCAMP,
     ORIGINAL,
     ORIGINAL_REFETCH,

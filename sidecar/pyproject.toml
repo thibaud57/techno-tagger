@@ -92,6 +92,7 @@ ignore = [
 # Scripts lances a la main : leurs messages vont au terminal, pas au protocole
 "build.py" = ["T201"]
 "demo.py" = ["T201"]
+"record_demo.py" = ["T201"]
 
 [tool.ruff.lint.pylint]
 # 5 par defaut : une fonction interne kw-only a souvent 6 ou 7 options legitimes,

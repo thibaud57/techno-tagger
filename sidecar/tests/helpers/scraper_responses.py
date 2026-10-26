@@ -18,6 +18,12 @@ if TYPE_CHECKING:
 
 TEST_API_KEY: Final = "test-key"
 
+# Routes du contrat, une source pour les fakes, les gates et les tests de requetes.
+BEATPORT_SEARCH: Final = "/beatport/search"
+BANDCAMP_SEARCH: Final = "/bandcamp/search"
+BANDCAMP_TRACKS: Final = "/bandcamp/tracks"
+BEATPORT_TRACKS: Final = "/beatport/tracks"
+
 # Requetes des deux morceaux des tests ; `track_payload` rend « Your Mind » par defaut.
 YOUR_MIND: Final = "Adam Beyer Your Mind"
 BASIEL: Final = "Amelie Lens Basiel"

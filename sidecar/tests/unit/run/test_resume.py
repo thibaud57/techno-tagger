@@ -6,7 +6,7 @@ import pytest
 from audio_samples import tag, tagged_mp3
 from cdn_doubles import FakeCdn
 from run_plans import music, plan_of, save_plan
-from scraper_responses import ARTWORK_URL, BEATPORT_CANDIDATE
+from scraper_responses import ARTWORK_URL, BEATPORT_CANDIDATE, BEATPORT_SEARCH
 from stubs import ignore
 from tagging_api import FakeApi, must_be, must_record, must_record_as, run_sources
 from tagging_records import (
@@ -428,7 +428,7 @@ async def test_resumes_a_run_left_at_62_out_of_100(music_folder: Path) -> None:
         await resolve_run(live, sources, on_event=events.append)
 
     assert api.searched() == {_query(record).text for record in records[62:]}
-    assert api.paths().count("/beatport/search") == 38
+    assert api.paths().count(BEATPORT_SEARCH) == 38
     progress = [event for event in events if isinstance(event, RunProgress)]
     assert (progress[0], progress[-1]) == (
         RunProgress(processed=62, total=100),

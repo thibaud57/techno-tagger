@@ -260,7 +260,7 @@ Démo interactive de l'application dans un navigateur, ouverte dans un nouvel on
 - Fichiers statiques dans un container durci et isolé sur le réseau, redéployé par la CI à chaque tag
 - Prérequis côté portfolio, dans son dépôt : `?lang` sur le bouton, nouvel onglet, pages de contact FR et EN
 
-> Faisabilité étudiée le 2026-10-25. Rejeu, isolation et déploiement sont à acter par un ADR.
+> Faisabilité étudiée le 2026-10-25. Rejeu, isolation et déploiement : [ADR-023](adrs/023-demo-web-par-rejeu.md).
 
 ### Feature 2 : Compatibilité des tags avec les logiciels DJ
 

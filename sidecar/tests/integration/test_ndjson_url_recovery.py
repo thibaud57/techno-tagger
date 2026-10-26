@@ -9,9 +9,8 @@ from ndjson_loop import (
     resolved_run,
     start_command,
 )
-from scraper_responses import BANDCAMP_TRACK
+from scraper_responses import BANDCAMP_TRACK, BANDCAMP_TRACKS
 from tagging_api import (
-    BANDCAMP_TRACKS,
     ONE_TRACK,
     FakeApi,
     hold_on_beatport,

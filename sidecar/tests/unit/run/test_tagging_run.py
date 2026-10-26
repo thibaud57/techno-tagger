@@ -2,7 +2,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 from run_plans import music
-from scraper_responses import BASIEL, YOUR_MIND, failing, found, invalid_track_payload
+from scraper_responses import (
+    BASIEL,
+    BEATPORT_SEARCH,
+    YOUR_MIND,
+    failing,
+    found,
+    invalid_track_payload,
+)
 from stubs import ignore
 from tagging_api import (
     ORIGINAL,
@@ -54,8 +61,8 @@ async def test_counts_a_track_as_processed_once_resolved_unresolved_or_on_hold(
     tmp_path: Path,
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", YOUR_MIND, found(ORIGINAL))
-    api.on("/beatport/search", BASIEL, found(basiel(mix_name="Extended Mix")))
+    api.on(BEATPORT_SEARCH, YOUR_MIND, found(ORIGINAL))
+    api.on(BEATPORT_SEARCH, BASIEL, found(basiel(mix_name="Extended Mix")))
     events: list[RunEvent] = []
 
     await run(three_tracks(tmp_path), api, events=events)
@@ -83,7 +90,7 @@ async def test_stops_the_run_after_three_consecutive_rejections_of_the_key(
     folder = tmp_path / "music"
     music(folder, 5)
     api = FakeApi()
-    api.on("/beatport/search", "*", failing(403))
+    api.on(BEATPORT_SEARCH, "*", failing(403))
     events: list[RunEvent] = []
 
     with pytest.raises(ApiKeyRejectedRunError, match="repeated api key rejections"):
@@ -97,7 +104,7 @@ async def test_reports_an_api_contract_error_to_sentry(
     tmp_path: Path, captured_exceptions: MagicMock
 ) -> None:
     api = FakeApi()
-    api.on("/beatport/search", "*", found(invalid_track_payload()))
+    api.on(BEATPORT_SEARCH, "*", found(invalid_track_payload()))
 
     await run(one_track(tmp_path), api)
 

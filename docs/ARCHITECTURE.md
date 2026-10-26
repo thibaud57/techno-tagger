@@ -98,6 +98,7 @@ techno-tagger/
 │   │   └── app.config.ts
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
 │   ├── fixtures/                         # événements du contrat et stubs de services partagés par les specs, hors build
+│   ├── demo/                             # généré par `just record-demo` : scenario.json et artworks/*.svg, servis par le seul build `demo` (cf. ADR-023)
 │   ├── index.html
 │   ├── main.ts                           # bootstrapApplication, init Sentry
 │   ├── build-constants.d.ts              # constantes substituées par --define
@@ -125,10 +126,11 @@ techno-tagger/
 │   │   ├── unit/                         # un module isole, un sous-dossier par package de src/tagger/
 │   │   ├── integration/                  # plusieurs modules, protocole NDJSON compris
 │   │   ├── fixtures/                     # donnees figees : audio, vlc_media.db, M3U8
-│   │   └── helpers/                      # constructeurs partages, importables a plat
+│   │   └── helpers/                      # constructeurs partages, importables a plat ; demo_* : catalogue fictif, pochettes, scénario et enregistrement de la démo web
 │   ├── tagger.spec                       # hidden imports et métadonnées collectées
 │   ├── build.py                          # PyInstaller -> binaire
-│   └── demo.py                           # bibliothèque de démonstration hors dépôt, pour piloter l'application à la main
+│   ├── demo.py                           # bibliothèque de démonstration hors dépôt, pour piloter l'application à la main
+│   └── record_demo.py                    # réenregistre src/demo/ sur le vrai sidecar (Windows seulement)
 │
 ├── src-tauri/
 │   ├── binaries/
@@ -1068,6 +1070,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 | [ADR-020](adrs/020-doublons-noms-de-fichiers.md) | Doublons de noms de fichiers dans la bibliothèque source | accepted |
 | [ADR-021](adrs/021-visibilite-du-depot.md) | Visibilité du dépôt et canal de distribution | accepted |
 | [ADR-022](adrs/022-modeles-pydantic-du-protocole.md) | Modèles du protocole en Pydantic | accepted |
+| [ADR-023](adrs/023-demo-web-par-rejeu.md) | Démo web publique par rejeu d'un run enregistré | accepted |
 
 ## Notes Techniques / Justifications
 
@@ -1108,6 +1111,7 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 
 # 🚀 Évolutions Futures (Post-MVP)
 
+- **Démo web publique** : interface rejouant dans un navigateur les réponses NDJSON du vrai sidecar, enregistrées sur une bibliothèque fictive face à un faux techno-scraper. Données fictives, garde stricte en CI, container statique isolé déployé au tag. Cf. [ADR-023](adrs/023-demo-web-par-rejeu.md)
 - **Compatibilité des tags avec les logiciels DJ** : RIFF `LIST/INFO` pour les WAV (Rekordbox ignore leur chunk ID3), remixeur FLAC, nom du mix et date de sortie. Cf. [knowledges/rekordbox.md](knowledges/rekordbox.md)
 - **Édition manuelle des tags** : formulaire de correction champ par champ quand aucune source ne convient et qu'aucune URL n'existe
 - **Tests bout-en-bout** : WebdriverIO + `tauri-driver` sur l'application empaquetée, avant l'agent IA qui modifie la chaîne de décision

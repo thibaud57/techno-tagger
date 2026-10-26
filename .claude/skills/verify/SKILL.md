@@ -826,6 +826,17 @@ Pièges :
 - Une mise à jour trouvée pendant une recherche part au badge : rouvrir par le badge avant de lire « Installer » grisé
 - Les toasts « Recherche terminée » des fins de phase simulées restent dans les captures du téléchargement : sans rapport avec la modale
 
+## Pilotage de l'enregistreur de la démo web
+
+`just record-demo` fait jouer au vrai sidecar, en process (`run_loop` par `ndjson_loop.conversation()`), chaque branche du parcours de la démo sur le catalogue fictif face au faux techno-scraper, puis réécrit `src/demo/` en entier (ADR-023). Windows seulement : `held_open` et `held_exclusively` tiennent les fichiers verrouillés. Rien ne part sur le réseau, le trousseau est un `MemoryKeyring` et `LOCALAPPDATA` vit sous un dossier temporaire.
+
+- Idempotence : lancer `just record-demo` deux fois et comparer `src/demo/scenario.json` (`cmp` sur une copie du premier passage) : aucune différence, `git status --short src/demo` vide sur un dépôt propre. Le bilan imprime le nombre de réponses et de pochettes, les 67 lignes `file_locked` sur `stderr` sont attendues (l'échec d'extraction et l'écriture refusée de la démo)
+- Garde stricte : `cd sidecar && uv run pytest tests/integration/test_demo_scenario.py -x -q --no-cov`, la fixture `recorded` réenregistre (64 sessions complètes et 33 sessions courtes) et `test_re_recording_yields_the_committed_demo_folder` compare au dossier versionné. Rouge = une réponse a changé : le message nomme la clé (commande et rang, ou phase et issues) et cite `just record-demo`
+- Rien de la machine : `grep -c "<compte de l'OS>\|pytest-of\|Temp" src/demo/scenario.json` à 0, `grep -o '"version": "[^"]*"' src/demo/scenario.json | sort -u` à la seule valeur `"demo"`, toutes les URL sur `.example`
+- Sanity du sidecar par pipe sous un `LOCALAPPDATA` du scratchpad (`get_version`, `get_interrupted_run`, `list_runs`, `shutdown`) : le lot ne touche pas `sidecar/src`, la preuve que l'app démarre et répond reste due
+
+Relevé le 2026-10-26 sur le sub-project demo-web-publique/01 (état gelé non commité) : deux enregistrements identiques (843 réponses, 11 pochettes, 3,7 Mo de JSON), garde verte en 24 s hors couverture (27 à 40 s selon la charge), aucun fragment de la machine, pipe à `version` 1.0.1, `run` nul, `runs` vide, sortie 0. Pièges : `ruff format .` lancé depuis la racine du dépôt (et non depuis `sidecar/`) reformate les blocs de code des `.md` et les scripts de ce skill ; un changement de l'ordre des requêtes de phase dans `demo_recording.py` change l'ordre des réponses du scénario, donc le JSON, sans qu'aucune réponse ne diffère : réenregistrer plutôt que chercher une régression.
+
 ## Pilotage du trousseau
 
 `set_api_key` écrit dans le **vrai** Credential Manager de Windows (cible `techno-tagger`, utilisateur `x-api-key`) : aucun trousseau en mémoire hors pytest et `LOCALAPPDATA` n'isole rien ici.

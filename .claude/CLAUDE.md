@@ -28,7 +28,7 @@ Métier : Python 3.14.8 (sidecar autonome empaqueté par PyInstaller, protocole 
 - **Aucun fichier musical n'est modifié avant la confirmation globale du run**, et les tags d'origine sont sauvegardés avant toute réécriture. Le coût d'une erreur ici est la bibliothèque de l'utilisateur, pas un test rouge.
 - **Rien de personnel ne quitte la machine** : SDK Sentry durci, aucun événement métier envoyé, et aucun titre de morceau ne part sans un geste manuel explicite. Les rapports et les logs restent en local.
 - **Une valeur, une source** : version, nom d'application, identifiant de bundle, nom du binaire du sidecar vivent à un seul endroit et sont dérivés partout ailleurs (`extra-files` de release-please, `define` esbuild, lecture du manifeste). Quand la dérivation est impossible (un JSON n'interpole rien, un `.spec` PyInstaller n'importe rien), la copie est **gardée par un test de cohérence**, jamais laissée à la vigilance : ces divergences-là sont muettes et ne se voient qu'à l'exécution du bundle.
-- **No-lib-test** : un test doit échouer contre une régression de notre code, jamais contre une mise à jour de dépendance, à une exception voulue près : la garde `data_collection` de `sidecar/tests/unit/core/test_sentry_payload.py`, faite pour échouer quand une montée de sentry-sdk ajoute une catégorie de collecte (ADR-014). On ne teste ni que mutagen sait écrire un `TPE1`, ni qu'un `@if` masque un div, mais que **notre** table de correspondance envoie le bon champ au bon tag.
+- **No-lib-test** : un test doit échouer contre une régression de notre code, jamais contre une mise à jour de dépendance, à des exceptions voulues près : la garde `data_collection` de `sidecar/tests/unit/core/test_sentry_payload.py` échoue quand une montée de sentry-sdk ajoute une catégorie de collecte (ADR-014) ; `test_re_recording_yields_the_committed_demo_folder` de `sidecar/tests/integration/test_demo_scenario.py` échoue quand un changement du sidecar ou une montée de rapidfuzz, mutagen ou pydantic modifie une réponse enregistrée de la démo web ([ADR-023](../docs/adrs/023-demo-web-par-rejeu.md)), ce qui se répare par `just record-demo` sous Windows puis le commit du diff de `src/demo/`. On ne teste ni que mutagen sait écrire un `TPE1`, ni qu'un `@if` masque un div, mais que **notre** table de correspondance envoie le bon champ au bon tag.
 
 > Les règles techniques (Angular, PrimeNG, Tauri, pydantic, keyring, PyInstaller, Ruff, Mypy…) sont dans [.claude/rules/](rules/) et chargées dynamiquement selon les fichiers touchés.
 
@@ -56,7 +56,7 @@ Commits : `type(scope): description`, types `feat | feat! | fix | docs | refacto
 | Commande / Skill | Rôle |
 |---|---|
 | `dev-server` | Lance l'app, la webview seule ou le sidecar en CLI (`just dev` / `dev-ui` / `dev-sidecar` / `stop`) |
-| `quality-check` | Lint, typage, tests sur les trois zones (`just lint` / `typecheck` / `test`) |
+| `quality-check` | Lint, typage, tests sur les trois zones (`just lint` / `typecheck` / `test`), réenregistrement de la démo web (`just record-demo`) |
 | `setup-ops` | Installation et diagnostic (`just check` / `install` / `setup` / `build-sidecar`) |
 | `git-ops` | Branches, commits Conventional, PR, versionnement. Invocation explicite uniquement |
 

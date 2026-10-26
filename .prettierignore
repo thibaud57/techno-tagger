@@ -12,6 +12,10 @@ src-tauri/Cargo.lock
 # Formate par `ruff format`, pas par Prettier
 sidecar/
 
+# Pages d'arbitrage visuel figees au moment de la decision : rendu valide tel quel, jamais
+# reformatees
+docs/superpowers/specs/**/*.html
+
 # Genere
 dist/
 .angular/
@@ -19,3 +23,5 @@ coverage/
 src-tauri/gen/
 src-tauri/target/
 src-tauri/binaries/
+# JSON ecrit par Python, hors du format de Prettier : `just record-demo` le reecrit en entier
+src/demo/

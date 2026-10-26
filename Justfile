@@ -30,6 +30,12 @@ dev-sidecar:
 demo *args:
     uv run python demo.py {{ args }}
 
+# Reenregistrer le scenario et les pochettes de la demo web dans src/demo/ (Windows seulement)
+[group('dev')]
+[working-directory('sidecar')]
+record-demo:
+    uv run python record_demo.py
+
 # Arreter le dev server Angular (port 4200, aligne sur devUrl de tauri.conf.json)
 [group('dev')]
 stop-ui:

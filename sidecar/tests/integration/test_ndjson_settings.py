@@ -18,8 +18,7 @@ from ndjson_loop import (
     written_in_a_previous_session,
     written_run,
 )
-from scraper_responses import YOUR_MIND
-from tagging_api import BEATPORT_SEARCH
+from scraper_responses import BEATPORT_SEARCH, YOUR_MIND
 
 from tagger import handlers
 from tagger.core.logger import LOG_FILE_NAME

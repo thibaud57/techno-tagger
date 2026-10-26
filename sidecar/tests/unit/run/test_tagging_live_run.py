@@ -2,7 +2,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
-from scraper_responses import BASIEL
+from scraper_responses import BASIEL, BEATPORT_SEARCH
 from stubs import ignore
 from tagging_api import FakeApi, cancelled, hold_on_beatport, must_record, opened_run, two_tracks
 from tagging_records import FIRST_TRACK, SECOND_TRACK
@@ -54,7 +54,7 @@ async def test_keeps_the_tracks_already_processed_when_the_run_is_cancelled(
 ) -> None:
     api = FakeApi()
     hold_on_beatport(api)
-    slow = api.gate("/beatport/search", BASIEL)
+    slow = api.gate(BEATPORT_SEARCH, BASIEL)
 
     async with opened_run(two_tracks(tmp_path), api) as opened:
         phase = await _until_held(opened)
@@ -73,7 +73,7 @@ async def test_resolves_an_awaiting_track_while_another_one_is_still_in_flight(
 ) -> None:
     api = FakeApi()
     hold_on_beatport(api)
-    slow = api.gate("/beatport/search", BASIEL)
+    slow = api.gate(BEATPORT_SEARCH, BASIEL)
 
     async with opened_run(two_tracks(tmp_path), api) as opened:
         phase = await _until_held(opened)
@@ -91,7 +91,7 @@ async def test_resolves_an_awaiting_track_while_another_one_is_still_in_flight(
 async def test_answers_an_awaiting_track_after_the_run_is_cancelled(tmp_path: Path) -> None:
     api = FakeApi()
     hold_on_beatport(api)
-    slow = api.gate("/beatport/search", BASIEL)
+    slow = api.gate(BEATPORT_SEARCH, BASIEL)
 
     async with opened_run(two_tracks(tmp_path), api) as opened:
         phase = await _until_held(opened)

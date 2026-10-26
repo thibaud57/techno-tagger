@@ -16,9 +16,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 from unittest.mock import patch
 
-import keyring
 import pytest
-from memory_keyring import MemoryKeyring
+from memory_keyring import MemoryKeyring, installed
 from vlc_dump import build_dump
 
 from tagger.core.api_key import SERVICE, USERNAME
@@ -57,13 +56,8 @@ def memory_keyring() -> Iterator[MemoryKeyring]:
     Autouse : `get_version` lit le trousseau, et un test qui l'oublierait toucherait
     le Credential Manager de la machine qui fait tourner la suite.
     """
-    previous = keyring.get_keyring()
-    backend = MemoryKeyring()
-    keyring.set_keyring(backend)
-
-    yield backend
-
-    keyring.set_keyring(previous)
+    with installed(MemoryKeyring()) as backend:
+        yield backend
 
 
 @pytest.fixture
