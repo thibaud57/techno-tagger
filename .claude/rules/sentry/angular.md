@@ -13,7 +13,7 @@ paths:
 ## À faire
 - Initialiser dans `main.ts` **avant** `bootstrapApplication()`
 - Retirer du jeu par défaut `Breadcrumbs` (interactions), `Console` (lignes de console, à part depuis Sentry 11), `Replay` (le DOM) et `CultureContext` (locale et fuseau) : les trois premières portent ce que l'écran affiche, la dernière localise l'utilisateur
-- Fermer explicitement chaque catégorie de `dataCollection` (`userInfo`, `cookies`, `httpHeaders`, `httpBodies`, `urlQueryParams`, `graphQL`, `genAI`, `databaseQueryData`, `queues`, `stackFrameVariables`) : depuis Sentry 11, l'option absente collecte tout, IP comprise. Ce sont les dix catégories de `@sentry/core` 11.6.0 au 2026-10-16. L'objet est typé `satisfies ClosedDataCollection` (toutes les catégories de `DataCollection` requises, `frameContextLines` exceptée) : une catégorie ajoutée par une montée casse la compilation et se ferme à cet endroit
+- Fermer explicitement chaque catégorie de `dataCollection` (`userInfo`, `cookies`, `httpHeaders`, `httpBodies`, `urlQueryParams`, `graphQL`, `genAI`, `mcp`, `databaseQueryData`, `queues`, `stackFrameVariables`) : depuis Sentry 11, l'option absente collecte tout, IP comprise. Ce sont les onze catégories de `@sentry/core` 11.9.0 au 2026-10-26, `mcp` ajoutée par la 11.9.0. L'objet est typé `satisfies ClosedDataCollection` (toutes les catégories de `DataCollection` requises, `frameContextLines` exceptée) : une catégorie ajoutée par une montée casse la compilation et se ferme à cet endroit
 - Masquer dans `scrub.ts` tout chemin de lecteur ou UNC en `<path>` et toute query string en `<query>`, par les motifs du `_scrub` du sidecar : un nom de fichier porte l'artiste et le titre
 - Garder les options dans `core/observability/sentry-options.ts`, testées sur l'événement réellement envoyé : un défaut qui change à la montée du SDK fait alors échouer un test au lieu de fuiter
 - Enregistrer le gestionnaire par `{ provide: ErrorHandler, useValue: Sentry.createErrorHandler() }` : il n'existe aucun `provideErrorHandler`
@@ -44,7 +44,7 @@ Sentry.init({
   integrations: (defaults) => defaults.filter((i) => !PRIVATE.has(i.name)),
   dataCollection: { userInfo: false, cookies: false, httpHeaders: false, httpBodies: [], urlQueryParams: false,
                     graphQL: { document: false, variables: false }, genAI: { inputs: false, outputs: false },
-                    databaseQueryData: false, queues: false, stackFrameVariables: false },
+                    mcp: { inputs: false, outputs: false }, databaseQueryData: false, queues: false, stackFrameVariables: false },
 });
 bootstrapApplication(AppComponent, appConfig);
 
