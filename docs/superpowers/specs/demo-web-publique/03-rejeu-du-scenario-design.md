@@ -2,7 +2,7 @@
 feature: "Post-MVP Feature 1 : Démo web publique"
 subproject: "rejeu-du-scenario"
 goal: "Rejouer le scénario enregistré pour que chaque action du visiteur reçoive la réponse produite par le vrai sidecar, du choix de la playlist à la restauration du run"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["01-enregistreur-de-scenario-design.md", "02-shell-de-demo-design.md"]
@@ -165,7 +165,7 @@ Aucune règle métier n'est recalculée en TypeScript : la démo cherche une ré
 
 ## Edge cases
 
-- **Arbitrage tranché avant la fin de la phase réseau** : à trancher au lot 3. Le vrai sidecar n'émet le `progress` du rattrapage qu'après la phase réseau (relevé le 2026-10-26, `__main__.py`, `_then_url_progress`), donc la réponse enregistrée porte une ligne de plus qu'une décision prise pendant cette phase. Deux options : rejouer la réponse enregistrée telle quelle (le compteur du rattrapage apparaît en avance) ou griser les arbitrages jusqu'au `run_finished` de la phase réseau.
+- **Arbitrage tranché avant la fin de la phase réseau** : la réponse enregistrée est rejouée telle quelle (décidé le 2026-10-26). Le vrai sidecar n'émet le `progress` du rattrapage qu'après la phase réseau (`__main__.py`, `_then_url_progress`), la démo l'émet avec le geste. Seul effet visible : un refus tranché dans la fenêtre d'environ 2,4 s entre `arbitration_required` et `run_finished` voit le dernier `progress` enregistré du tagging remettre le total du rattrapage à 1 au lieu de 2, jusqu'au geste suivant ; lignes et boutons restent justes. Écartés : mettre la réponse en file après la phase (clic sans réponse pendant 2 s) et griser les arbitrages jusqu'au `run_finished` (raison de démo de plus dans la modale), plus coûteux que l'écart.
 - **Run passé ouvert depuis les Réglages** : `load_run` du run passé, réponse sans état.
 - **« Restaurer le dernier run » avant l'écriture du visiteur** : la réponse du démarrage dit qu'aucune cible n'existe, le bouton reste grisé par sa raison habituelle.
 - **Rechargement de la page en cours de run** : tout repart de zéro, comme « Recommencer la démo ».
