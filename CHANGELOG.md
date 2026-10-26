@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/thibaud57/techno-tagger/compare/v1.1.0...v1.1.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* montees de dependances d'octobre 2026 ([#139](https://github.com/thibaud57/techno-tagger/issues/139)) ([27cb94c](https://github.com/thibaud57/techno-tagger/commit/27cb94c701faef28b0311d908ed369ae4d045fe2))
+
 ## [1.1.0](https://github.com/thibaud57/techno-tagger/compare/v1.0.1...v1.1.0) (2026-10-26)
 
 
