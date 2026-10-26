@@ -12,3 +12,13 @@
   {{ "demo.banner.contact" | translate }}
   <app-icon name="external-link" [size]="16" />
 </a>
+<button
+  pButton
+  type="button"
+  [link]="true"
+  data-action="restart"
+  class="text-xs"
+  (click)="restart()"
+>
+  {{ "demo.banner.restart" | translate }}
+</button>

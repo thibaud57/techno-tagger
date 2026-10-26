@@ -29,6 +29,7 @@ import {
 } from "../../../../fixtures/tagging"
 import { translateWith } from "../../../../fixtures/translate"
 import { WRITE_FINISHED, failedRollback, rollbackInFlight } from "../../../../fixtures/write"
+import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"
 import type { RunFinishedEvent } from "../../../core/sidecar/protocol"
@@ -48,6 +49,7 @@ const FOLDER = "D:/Sets/Aout"
 const mountWith = async (
   overrides: SidecarStubOverrides = {},
   native: NativeStub = nativeStub(FOLDER),
+  edition: AppEdition = "desktop",
 ) => {
   const service = sidecarStub(overrides)
   const preferences = preferencesStub({ lastDestination: FOLDER })
@@ -60,6 +62,7 @@ const mountWith = async (
       provideSidecarStub(service),
       { provide: NativeService, useValue: native },
       { provide: PreferencesService, useValue: preferences },
+      { provide: APP_EDITION, useValue: edition },
     ],
   })
 
@@ -85,6 +88,12 @@ const tooltipOf = (fixture: ComponentFixture<unknown>, name: string) =>
     .query(By.css(`[data-action="${name}"]`))
     .injector.get(Tooltip)
     .content()
+
+// Les deux gestes que la demo grise et que le poste de bureau laisse libres.
+const EDITION_ACTIONS = [
+  ["interrupting", "cancel", { tagging: signal(true) }],
+  ["launching again", "start", activeRun(RUN_ID)],
+] as const
 
 describe("TaggingPageComponent", () => {
   it("shows the recovery progress bar after an interrupted run", async () => {
@@ -243,6 +252,23 @@ describe("TaggingPageComponent", () => {
     action("cancel", hostOf(fixture))?.click()
 
     expect(service.cancelTagging).toHaveBeenCalled()
+  })
+
+  it.each(EDITION_ACTIONS)("greys out %s in the demo edition", async (_case, name, overrides) => {
+    const { fixture } = await mountWith(overrides, nativeStub(FOLDER), "demo")
+
+    fixture.detectChanges()
+
+    expect(action(name, hostOf(fixture))?.disabled).toBe(true)
+    expect(tooltipOf(fixture, name)).toBe(DEMO_UNAVAILABLE)
+  })
+
+  it.each(EDITION_ACTIONS)("keeps %s in the desktop edition", async (_case, name, overrides) => {
+    const { fixture } = await mountWith(overrides)
+
+    fixture.detectChanges()
+
+    expect(action(name, hostOf(fixture))?.disabled).toBe(false)
   })
 
   it("leaves the launch available for a run that cannot be confirmed", async () => {

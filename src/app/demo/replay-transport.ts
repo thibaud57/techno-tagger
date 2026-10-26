@@ -1,18 +1,32 @@
-import { Service, inject } from "@angular/core"
+import { Service, inject, signal } from "@angular/core"
 
-import { isRecord } from "../core/record"
+import type { SidecarCommand } from "../core/sidecar/protocol"
 import type { SidecarHandlers, SidecarTransport } from "../core/sidecar/sidecar-transport"
 import { DemoScenarioService } from "./demo-scenario.service"
-import { DemoScenarioError, type StatelessReply } from "./scenario"
+import { choose, commandKey, initialReplayState, type ReplayState } from "./replay"
+import { DemoScenarioError, isJsonObject, type JsonValue, type Scenario } from "./scenario"
 
-/** Les seules commandes auxquelles le shell repond tout seul, avant tout rejeu. */
-export const STARTUP_COMMANDS = ["get_version", "get_interrupted_run"] as const
+/** Ecart entre deux lignes d'une phase longue, pour que la progression se voie a l'ecran. */
+export const DEMO_LINE_DELAY_MS = 200
 
-const isStartupCommand = (name: string): boolean => STARTUP_COMMANDS.some((known) => known === name)
+/** Commandes dont les lignes sont etalees : celles que le vrai sidecar met du temps a produire. */
+export const LONG_PHASE_COMMANDS = [
+  "extract_playlist",
+  "start_tagging",
+  "commit_run",
+  "retry_write",
+  "rollback",
+  "resolve_by_url",
+] as const satisfies readonly SidecarCommand["command"][]
+
+const isLongPhase = (name: JsonValue | undefined): boolean =>
+  LONG_PHASE_COMMANDS.some((known) => known === name)
 
 @Service({ autoProvided: false })
 export class ReplayTransport implements SidecarTransport {
   private readonly scenarios = inject(DemoScenarioService)
+  // `null` tant qu'aucune commande n'est passee : l'etat initial se tire du scenario charge.
+  private readonly state = signal<ReplayState | null>(null)
   private handlers: SidecarHandlers | null = null
 
   async start(handlers: SidecarHandlers): Promise<boolean> {
@@ -40,32 +54,40 @@ export class ReplayTransport implements SidecarTransport {
   }
 
   private answer(line: string): void {
-    const parsed: unknown = JSON.parse(line)
-    const name = isRecord(parsed) ? parsed["command"] : undefined
-    if (typeof name !== "string" || !isStartupCommand(name)) {
+    const command: unknown = JSON.parse(line)
+    if (!isJsonObject(command)) {
+      throw new Error(`Not a command object: ${line}`)
+    }
+
+    const scenario = this.scenarios.scenario()
+    const choice = choose(scenario, this.state() ?? initialReplayState(scenario), command)
+    if (choice === null) {
+      console.error("[demo] commande hors scenario", commandKey(command, scenario.key_fields))
+
       return
     }
 
-    const reply = this.scenarios
-      .scenario()
-      .stateless.find((candidate) => candidate.call === 1 && candidate.command["command"] === name)
-    if (reply !== undefined) {
-      this.emit(reply)
-    }
+    // Resolues avant de poser l'etat : un index invalide ne laisse pas le rejeu a moitie avance.
+    const sent = choice.reply.lines.map((index) => this.lineAt(scenario, index))
+    // Pose avant l'emission : une requete envoyee pendant l'emission voit deja la nouvelle phase.
+    this.state.set(choice.next)
+
+    const spacing = isLongPhase(command["command"]) ? DEMO_LINE_DELAY_MS : 0
+    sent.forEach((payload, position) => {
+      setTimeout(() => {
+        this.handlers?.onLine(payload)
+      }, position * spacing)
+    })
   }
 
-  private emit(reply: StatelessReply): void {
-    const { lines } = this.scenarios.scenario()
-
-    for (const index of reply.lines) {
-      const recorded = lines[index]
-      if (recorded === undefined) {
-        throw new DemoScenarioError(`lines[${index}]`, "a recorded line")
-      }
-      const sent =
-        recorded["event"] === "version" ? { ...recorded, version: APP_VERSION } : recorded
-
-      this.handlers?.onLine(JSON.stringify(sent))
+  private lineAt(scenario: Scenario, index: number): string {
+    const recorded = scenario.lines[index]
+    if (recorded === undefined) {
+      throw new DemoScenarioError(`lines[${index}]`, "a recorded line")
     }
+
+    return JSON.stringify(
+      recorded["event"] === "version" ? { ...recorded, version: APP_VERSION } : recorded,
+    )
   }
 }

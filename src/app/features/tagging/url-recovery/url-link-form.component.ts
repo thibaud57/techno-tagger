@@ -60,6 +60,7 @@ export class UrlLinkFormComponent {
       reason: reason === null ? null : trackReasonKeys(reason),
       url: this.recovery.draft(trackId),
       busy: this.recovery.isBusy(trackId),
+      locked: this.recovery.locked(trackId),
       error: this.sidecar.urlRecoveryErrors().get(trackId) ?? null,
     }
   })

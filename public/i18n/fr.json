@@ -509,7 +509,8 @@
   "demo": {
     "banner": {
       "text": "Démo : données fictives, aucun fichier réel. Application privée, non affiliée à Beatport ni Bandcamp.",
-      "contact": "Me contacter"
+      "contact": "Me contacter",
+      "restart": "Recommencer la démo"
     },
     "unavailable": "Indisponible dans la démo."
   }

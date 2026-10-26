@@ -509,7 +509,8 @@
   "demo": {
     "banner": {
       "text": "Demo: fictional data, no real files. Private app, not affiliated with Beatport or Bandcamp.",
-      "contact": "Contact me"
+      "contact": "Contact me",
+      "restart": "Restart the demo"
     },
     "unavailable": "Not available in the demo."
   }

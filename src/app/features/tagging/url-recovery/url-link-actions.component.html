@@ -10,12 +10,15 @@
 >
   {{ "tagging.recovery.skip" | translate }}
 </button>
+@let blocked = resolveBlocked() ? (resolveBlocked() | translate) : undefined;
 <button
   pButton
   type="button"
   size="small"
   data-action="resolve-url"
   [disabled]="!canResolve()"
+  [pTooltip]="blocked"
+  [tooltipOptions]="tooltip"
   (click)="resolve()"
 >
   <!-- Spinner enfant : `[loading]` de pButton est deprecie depuis PrimeNG 22. -->

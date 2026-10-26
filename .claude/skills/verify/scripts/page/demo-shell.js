@@ -1,7 +1,8 @@
 // Shell de la demo web sous `just dev-demo` (navigateur nu, aucun Tauri ni sidecar) : langue prise
 // dans `?lang` puis retiree de l'URL, ordre `?lang` > choix enregistre > navigateur, bandeau sous
 // les onglets, barre centree sans controles de fenetre, selecteurs remplis par les chemins du
-// scenario, actions grisees avec leur raison, lien de contact, scenario lent ou absent. Un contexte
+// scenario, actions grisees avec leur raison, lien de contact, scenario lent ou absent (« Restaurer le dernier
+// run » grise pour sa raison, « Ouvrir le recapitulatif » actif depuis le rejeu du lot 3). Un contexte
 // de navigateur par scenario (stockage neuf). Rend `checks` et `failures`.
 async (page) => {
   const base = "http://localhost:4200"
@@ -226,11 +227,13 @@ async (page) => {
       { apiKeyField: tips.apiKeyField, thresholds: tips.thresholds },
     )
     check(`s4.${lang}.interfaceFree`, tips.interface.select && tips.interface.sound, tips.interface)
-    // Restauration et runs passes attendent `get_rollback_target` et `list_runs`, rejoues au lot 3 :
-    // ici seule l'absence de la raison de demo se prouve.
+    // Depuis le lot 3 le rejeu repond a `get_rollback_target` (aucune cible avant l'ecriture du visiteur : le bouton
+    // reste grise pour sa raison habituelle, jamais celle de la demo) et a `list_runs` (un run passe enregistre :
+    // « Ouvrir le recapitulatif » est actif).
+    const noRestoreReason = lang === "fr" ? "Aucun run à restaurer : aucune sauvegarde de tags récente." : "No run to restore: no recent tag backup."
     check(
-      `s4.${lang}.restoreAndPastRunsNotDemoReason`,
-      tips["restore-last"].tip !== reason && tips["open-past-run"].tip !== reason,
+      `s4.${lang}.restoreGreyedForItsOwnReasonPastRunsOpen`,
+      tips["restore-last"].disabled && tips["restore-last"].tip?.replace(/ /g, " ") === noRestoreReason && tips["open-past-run"].disabled === false,
       { restore: tips["restore-last"], past: tips["open-past-run"] },
     )
     if (lang === "fr") {

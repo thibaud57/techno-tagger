@@ -70,7 +70,7 @@ export class DemoScenarioError extends Error {
 
 type UnknownRecord = Readonly<Record<string, unknown>>
 
-const isPlainObject = (value: unknown): value is UnknownRecord =>
+export const isPlainObject = (value: unknown): value is UnknownRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
 const isJsonValue = (value: unknown): value is JsonValue =>
@@ -111,8 +111,11 @@ const stringAt = (value: unknown, path: string): string => {
   return value
 }
 
+export const isJsonObject = (value: unknown): value is JsonObject =>
+  isPlainObject(value) && isJsonValue(value)
+
 const jsonObjectAt = (value: unknown, path: string): JsonObject => {
-  if (!isPlainObject(value) || !isJsonValue(value)) {
+  if (!isJsonObject(value)) {
     throw new DemoScenarioError(path, "a JSON object")
   }
 
