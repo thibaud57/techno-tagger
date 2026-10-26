@@ -76,7 +76,7 @@ Le déploiement suit le modèle du portfolio (relevé du 2026-10-25), réglages 
   - `mem_limit: 128m`, `cpus: "0.5"` (mon choix, 2026-10-25).
   - Healthcheck sur `http://127.0.0.1:8080/healthz` (`wget -q --spider`), `interval: 30s`, `timeout: 5s`, `retries: 3`, `start_period: 10s`. Traefik ne route que vers un container `healthy`.
   - Logging `json-file`, `max-size 20m`, `max-file 5`, comme le portfolio.
-  - **Gardé par le test de cohérence** : Dokploy relit `main` à chaque redéploiement, une édition qui retirerait `read_only`, `cap_drop`, `no-new-privileges` ou `pids_limit`, ou ajouterait `ports`, `volumes` ou `privileged`, partirait en production sans alerte. Le test lit ces clés.
+  - **Gardé par le test de cohérence** : le compose déployé est celui de `main` au dernier Deploy, une édition qui retirerait `read_only`, `cap_drop`, `no-new-privileges` ou `pids_limit`, ou ajouterait `ports`, `volumes` ou `privileged`, partirait en production sans alerte. Le test lit ces clés.
   - L'isolation réseau (Isolated Deployment) est un réglage de Dokploy, hors fichier : la checklist de mise en place le vérifie.
 - **Job `demo`** (`release-please.yml`, `.claude/rules/github-actions/workflows.md`, `job-control.md`, `security-permissions.md`, `secrets-variables.md`, `runners.md`, `cache-outputs.md`, `expressions-contexts.md`) :
   - **Déclenchement** : `needs: [release-please, build]`, `if: needs.release-please.outputs.release_created == 'true'`. La démo ne part qu'après l'installeur publié, et un échec de `build` la saute.
@@ -200,7 +200,7 @@ Le déploiement suit le modèle du portfolio (relevé du 2026-10-25), réglages 
 - **Premier push du paquet GHCR** : privé par défaut. Dokploy échoue à tirer l'image tant qu'il n'est pas passé en public (étape 4 de la mise en place).
 - **Clé PrimeNG absente en PR** : `demo-image` construit sans clé, l'app afficherait la notice de licence. Sans effet, l'image de PR n'est jamais publiée.
 - **Redéploiement pendant une visite** : le recreate coupe la démo quelques secondes. La sonde peut voir un « DOWN » puis un « UP » autour d'une release, comme pour le portfolio. Un onglet resté ouvert qui demande un bundle haché disparu reçoit 404, pas `index.html` : il recharge.
-- **`compose.yaml` modifié par une release** : Dokploy relit `main` au redéploiement, le fichier suit donc la release qui le change, et le test de cohérence a vérifié son durcissement dans la PR.
+- **`compose.yaml` modifié par une release** : le redéploiement de la CI relance le compose cloné au dernier Deploy, sans relire `main` (relevé le 2026-10-26 à la mise en place) : le fichier ne part qu'au Deploy manuel suivant, et le test de cohérence a vérifié son durcissement dans la PR.
 - **Limitation de débit du VPS** : le point d'entrée Traefik l'applique déjà à tout hôte. Aucun middleware de plus sur ce domaine, il compterait double. Ses valeurs vivent dans la configuration de l'hébergement, hors de ce dépôt.
 - **`/healthz` toujours `200`** : la sonde voit le process, pas l'app. Une seconde sonde sur `/` avec le mot-clé `app-root` peut s'ajouter si un incident le justifie.
 - **`DEMO_IMAGE` laissée épinglée après un retour arrière** : la release suivante redéploie la vieille version. La checklist de release le vérifie avant le tag.
@@ -223,7 +223,7 @@ Le déploiement suit le modèle du portfolio (relevé du 2026-10-25), réglages 
 
 **Options envisagées :**
 - **A. Le middleware d'en-têtes du portfolio, côté Traefik** : rien dans l'image, mais une CSP écrite pour le portfolio, qui autorise d'autres origines, remplacerait celle de la démo, et la vérification locale ne verrait rien.
-- **B. nginx seul, Traefik ne posant que le HSTS** : les en-têtes voyagent avec l'image, `curl` en local les voit tels qu'en ligne, et le job `demo-image` les vérifie à chaque PR.
+- **B. nginx seul, Traefik ne posant que le HSTS** : les en-têtes voyagent avec l'image, `curl` en local les voit tels qu'en ligne, et le job `demo-image` les vérifie à chaque PR. Relevé le 2026-10-26 : le middleware d'en-têtes du point d'entrée du VPS remplace aussi `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` et `Permissions-Policy` par des valeurs équivalentes ; la CSP et `X-Robots-Tag` restent celles de nginx.
 
 **Choix : B**
 
