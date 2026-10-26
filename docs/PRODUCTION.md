@@ -327,7 +327,7 @@ Il n'y a **rien à faire redescendre côté application** : aucun serveur ne la 
 
 ## Mise en place de la démo
 
-Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag qui embarque la démo. **Étapes 1 à 5 appliquées le 2026-10-26** avec la release 1.1.0 ; restent la sonde (6) et le portfolio (7). Ce que Dokploy ou le portfolio présentent à ce moment (portée de la clé, version affichée) se relève ici, avec sa date.
+Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag qui embarque la démo. **Appliquée en entier le 2026-10-26**, avec la release 1.1.0. Ce que Dokploy ou le portfolio présentent à ce moment (portée de la clé, version affichée) se relève ici, avec sa date.
 
 1. **DNS** : un enregistrement `demo-techno-tagger` de même cible que l'apex du domaine.
 2. **Dokploy** : projet `Techno Tagger`, environment par défaut `production` (Dokploy ne le renomme ni ne le supprime), service Compose `techno-tagger-demo` depuis GitHub (branche `main`, fichier `demo/compose.yaml`).
@@ -339,9 +339,9 @@ Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag
 3. **Secrets GitHub** : `DOKPLOY_URL` (origine du tableau de bord, sans slash final), `DOKPLOY_TOKEN`, `DOKPLOY_COMPOSE_ID`.
 4. **Première release et GHCR** : le paquet de la démo doit être **public** pour que Dokploy le tire sans identifiants. Relevé public à l'issue du premier run (2026-10-26) ; s'il naît privé, le passer en public puis relancer le job `demo`.
 5. **Vérification en ligne** : en-têtes sur l'accueil, une route de l'app et une 404 (CSP de `headers.conf` et non celle du portfolio, `X-Robots-Tag: noindex`), `/healthz` à `200`, version des Réglages égale au tag, parcours joué par `/verify` sans violation CSP ni requête hors origine, aucun cookie du portfolio présent sur le sous-domaine.
-6. **Sonde de disponibilité externe** (le service déjà utilisé pour le portfolio) : une sonde HTTP sur `https://demo-techno-tagger.thibaud-geisler.com/healthz`, toutes les 5 minutes, alerte email au changement d'état.
+6. **Sonde de disponibilité externe** (le service déjà utilisé pour le portfolio) : une sonde HTTP sur `https://demo-techno-tagger.thibaud-geisler.com/healthz`, toutes les 5 minutes, alerte email au changement d'état. Elle ne surveille pas l'échéance du certificat, option payante du service (relevé le 2026-10-26).
 7. **Portfolio** (dans son dépôt) :
-   - le bouton « Voir la démo » pointe vers la démo avec `?lang=fr` ou `?lang=en` selon la langue de la page, puis s'ouvre dans un nouvel onglet (`target="_blank" rel="noopener noreferrer"`) ;
+   - le bouton « Voir la démo » ouvre la démo dans un nouvel onglet (`target="_blank" rel="noopener noreferrer"`). Lien sans `?lang`, choix du propriétaire du 2026-10-26 : la langue du navigateur décide, le portfolio n'ayant qu'un champ de lien par projet ;
    - les pages `/fr/contact` et `/en/contact`, que le bandeau de la démo cible, existent ;
    - les cookies du portfolio restent **sans attribut `Domain=`** : un cookie posé sur le domaine parent serait lisible par le sous-domaine de la démo.
 
@@ -624,7 +624,7 @@ Canal unique : **email**, envoyé nativement par Sentry, par GitHub pour la CI e
 | Parsing cassé | Réponse de techno-scraper non conforme au schéma attendu | Email (Sentry) |
 | Erreur de la webview | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
-| Démo hors ligne | `/healthz` ne répond plus, y compris VPS éteint (sonde externe, cible tant que l'étape 6 de la mise en place n'est pas faite) | Email (sonde externe) |
+| Démo hors ligne | `/healthz` ne répond plus, y compris VPS éteint | Email (sonde externe) |
 | Job `demo` en échec | Image non publiée ou redéploiement refusé : la démo garde la version précédente, l'installeur est intact. Se relance par « Re-run job » | Email (GitHub) |
 
 > **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8). Les retours arrivent en issues du dépôt sous le label `matching-report`, posé par l'Issue Form `matching-report.yml`. Le label doit exister dans le dépôt, sinon le formulaire ne le pose pas, sans erreur.

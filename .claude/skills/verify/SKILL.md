@@ -896,7 +896,7 @@ Rejoué le 2026-10-26 à la clôture de l'epic demo-web-publique (état gelé no
 
 En ligne, relevé le 2026-10-26 sur la release 1.1.0 : `DEMO_URL=https://demo-techno-tagger.thibaud-geisler.com EXPECTED_VERSION=1.1.0` donne 65 contrôles verts (aucune violation CSP, aucune requête hors origine) ; en-têtes lus par `fetch` sur six URL : CSP égale à `headers.conf`, `noindex`, HSTS du point d'entrée, aucun cookie. Le point d'entrée du VPS remplace `Permissions-Policy` et ses voisins par des valeurs équivalentes : comparer la CSP, pas l'ordre des autres. Piège : un `ERR_SSL_TLSV1_UNRECOGNIZED_NAME` sur un domaine neuf veut dire « aucun certificat », le point d'entrée refusant tout nom inconnu (`sniStrict`) ; lire alors `http://<hôte>/.well-known/acme-challenge/test`, qui doit répondre 404 par Traefik et non 301.
 
-Non prouvé ici : la sonde de disponibilité externe et le lien du portfolio, PRODUCTION.md § Mise en place de la démo.
+Sonde externe et lien du portfolio en place le 2026-10-26 (PRODUCTION.md § Mise en place de la démo) : ni l'une ni l'autre ne se rejoue ici.
 
 ## Pilotage du trousseau
 
