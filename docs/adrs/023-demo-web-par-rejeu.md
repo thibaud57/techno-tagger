@@ -120,6 +120,7 @@ A garde tout le métier dans le sidecar et ne laisse que des fichiers statiques 
 - L'enregistrement n'est possible que sous Windows (un cas de la démo repose sur un fichier verrouillé) : l'enregistreur échoue d'emblée ailleurs
 - Chaque changement de comportement du sidecar coûte une commande et un commit de `src/demo/`
 - Le parcours est borné : le rattrapage par URL n'est joué que sur un morceau, lien pré-rempli, parce que chaque morceau rattrapable multiplie les combinaisons à enregistrer
+- L'édition démo touche les écrans, là où le rejeu s'en passe : chaque action sans réponse enregistrée y est grisée par le jeton `APP_EDITION`, et une commande ajoutée côté desktop reste sans réponse en démo tant qu'aucun écran ne la grise
 
 ---
 
