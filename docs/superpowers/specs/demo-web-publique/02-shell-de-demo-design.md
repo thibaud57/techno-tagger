@@ -85,10 +85,10 @@ Aucun module de démo n'entre dans le bundle desktop, et le desktop garde son co
   - `build.configurations.demo` : `browser: "src/main.demo.ts"`, `index: "src/index.demo.html"`, `outputPath: "dist/techno-tagger-ui-demo"`, `sourceMap: false`. `frontendDist` de Tauri reste sur la sortie desktop.
   - `assets` : `public` plus `{ "glob": "**/*", "input": "src/demo", "output": "demo" }`. `src/demo/` n'est copié que dans ce build.
   - **Servie à la racine** de `demo-techno-tagger.thibaud-geisler.com` (décision du 2026-10-25) : `<base href="/">` et le chargement de `/i18n/` restent tels quels. Les fichiers de démo se lisent en absolu, `/demo/scenario.json` et `/demo/artworks/…`.
-  - `define` : la fusion étant superficielle, le `define` de `demo` remplace celui des options de base en bloc. Il reprend donc les six clés (`APP_NAME`, `APP_TITLE`, `APP_VERSION`, `PRIMENG_LICENSE_KEY`, `SENTRY_DSN_UI`, `APP_ENVIRONMENT`), avec `APP_ENVIRONMENT: "'demo'"` et `SENTRY_DSN_UI: "''"`. Une clé oubliée serait un `ReferenceError` au premier écran.
+  - `define` : la fusion étant superficielle, un `define` dans `demo` remplacerait celui des options de base en bloc. `demo` n'en porte donc aucun : `APP_ENVIRONMENT` passe par `--define`, fusionné clé par clé avec les options, et `SENTRY_DSN_UI` garde leur `''` (réaligné le 2026-10-26 à la clôture de l'epic).
   - `serve.configurations.demo` : `buildTarget: "techno-tagger-ui:build:development,demo"`, pour un `just dev-demo` aussi rapide que `dev-ui`.
 - **Scripts** (`.claude/rules/pnpm/workspace.md`) :
-  - `build:demo` (`--configuration production,demo`) et `start:demo` (`--configuration demo` de `serve`) passent `PRIMENG_LICENSE_KEY` et `APP_VERSION` par `--define`, comme `build` et `start` ;
+  - `build:demo` (`--configuration production,demo`) et `start:demo` (`--configuration demo` de `serve`) passent `PRIMENG_LICENSE_KEY` et `APP_VERSION` par `--define`, comme `build` et `start` ; `build:demo` seul y ajoute `APP_ENVIRONMENT='demo'`, le serveur de développement gardant `development` et donc `failOnError` ;
   - `build:demo` n'enchaîne pas `sourcemaps`, rien n'est envoyé à Sentry ;
   - recettes `just dev-demo` et `just build-demo`, écrites via `Skill[justfile-creator]`.
 - **Bootstrap** :
@@ -283,13 +283,13 @@ Le mapping desktop de `pickPath` (`directory` d'après la cible) n'a pas de test
 
 **Options envisagées :**
 - **A. `demo` recopie budgets, `outputHashing` et `optimization` de `production`** : lisible seul, mais trois copies qu'aucun test ne garde.
-- **B. `--configuration production,demo`** : Angular fusionne les deux dans l'ordre, `demo` ne porte que ses différences. `define` reste à recopier en entier, la fusion étant superficielle.
+- **B. `--configuration production,demo`** : Angular fusionne les deux dans l'ordre, `demo` ne porte que ses différences. `define` passe par la ligne de commande, la fusion des configurations étant superficielle.
 
 **Choix : B**
 
 **Rationale :**
 - Une valeur, une source : une montée des budgets de `production` vaut pour la démo sans rien toucher
-- La seule copie restante (`define`) casse bruyamment au premier écran si elle est incomplète
+- Aucune copie ne reste : `APP_ENVIRONMENT` passe par `--define`, fusionné clé par clé avec les options
 
 ### Décision : où lire `?lang`
 
