@@ -9,6 +9,7 @@ import {
   RESOLVED_TRACK,
   TAGS_AFTER,
   TAGS_BEFORE,
+  arbitrationRequired,
   awaitingTrack,
   unresolvedTrack,
 } from "../../../../fixtures/tagging"
@@ -27,14 +28,24 @@ const TRACK_ID = PENDING_TRACK.trackId
 
 const UNRESOLVED = unresolvedTrack(TRACK_ID)
 
+const NOT_RECOVERABLE: TaggingTrack = { ...UNRESOLVED, recoverable: false }
+
 const AWAITING = awaitingTrack(TRACK_ID)
 
 const READABLE: TaggingTrack = { ...PENDING_TRACK, tagsBefore: TAGS_BEFORE }
 
+interface RunStatus {
+  readonly frozen?: boolean
+  readonly interrupted?: boolean
+}
+
+const COMMITTED: RunStatus = { frozen: true }
+
+const INTERRUPTED: RunStatus = { interrupted: true }
+
 const mountWith = async (
   tracks: readonly TaggingTrack[],
-  recoverable: ReadonlySet<string> = new Set(),
-  frozen = false,
+  { frozen = false, interrupted = false }: RunStatus = {},
 ) => {
   TestBed.configureTestingModule({
     imports: [RunListComponent],
@@ -42,8 +53,8 @@ const mountWith = async (
   })
   const fixture = TestBed.createComponent(RunListComponent)
   fixture.componentRef.setInput("tracks", tracks)
-  fixture.componentRef.setInput("recoverable", recoverable)
   fixture.componentRef.setInput("frozen", frozen)
+  fixture.componentRef.setInput("interrupted", interrupted)
   fixture.detectChanges()
   await settle(fixture)
 
@@ -122,13 +133,58 @@ describe("RunListComponent", () => {
   })
 
   it("shows no skeleton artwork for a track awaiting its turn in a settled run", async () => {
-    const fixture = await mountWith([PENDING_TRACK], new Set(), true)
+    const fixture = await mountWith([PENDING_TRACK], COMMITTED)
 
     expect(cellOf(fixture, ART)?.querySelector("p-skeleton")).toBeNull()
   })
 
+  it.each<{ case: string; track: TaggingTrack; run?: RunStatus; label: string }>([
+    {
+      case: "awaiting an arbitration in a run in progress",
+      track: AWAITING,
+      label: "tagging.state.awaiting",
+    },
+    {
+      case: "awaiting an arbitration in a committed run",
+      track: AWAITING,
+      run: COMMITTED,
+      label: "tagging.state.notProcessed",
+    },
+    {
+      case: "resolved in a run in progress",
+      track: RESOLVED_TRACK,
+      label: "tagging.state.auto",
+    },
+    {
+      case: "unresolved in a committed run",
+      track: UNRESOLVED,
+      run: COMMITTED,
+      label: "tagging.state.unresolved",
+    },
+    {
+      case: "not searched yet in a run in progress",
+      track: PENDING_TRACK,
+      label: "tagging.state.pending",
+    },
+    {
+      case: "not searched yet in an interrupted run",
+      track: PENDING_TRACK,
+      run: INTERRUPTED,
+      label: "tagging.state.notProcessed",
+    },
+    {
+      case: "unresolved with a pending arbitration in a run in progress",
+      track: { ...UNRESOLVED, arbitration: arbitrationRequired(TRACK_ID) },
+      label: "tagging.state.awaiting",
+    },
+  ])("labels a row $case", async ({ track, run, label }) => {
+    const fixture = await mountWith([track], run)
+
+    expect(hostOf(fixture).querySelector("app-state-tag")?.textContent.trim()).toBe(label)
+  })
+
   it("marks every valueless cell of an unresolved track with an em dash", async () => {
-    const fixture = await mountWith([UNRESOLVED])
+    const fixture = await mountWith([NOT_RECOVERABLE])
 
     expect(
       [AFTER, SOURCE, SCORE].map((column) => cellOf(fixture, column)?.textContent.trim()),
@@ -136,12 +192,12 @@ describe("RunListComponent", () => {
   })
 
   it.each([
-    { output: "arbitrate", track: AWAITING, recoverable: new Set<string>() },
-    { output: "recover", track: UNRESOLVED, recoverable: new Set([UNRESOLVED.trackId]) },
+    { output: "arbitrate", track: AWAITING },
+    { output: "recover", track: UNRESOLVED },
   ] as const)(
     "emits $output with the track id when a row that offers it is clicked",
     async (row) => {
-      const fixture = await mountWith([row.track], row.recoverable)
+      const fixture = await mountWith([row.track])
       const asked = vi.fn()
       fixture.componentInstance[row.output].subscribe(asked)
 
@@ -153,7 +209,7 @@ describe("RunListComponent", () => {
 
   it.each([
     { output: "arbitrate", track: RESOLVED_TRACK },
-    { output: "recover", track: UNRESOLVED },
+    { output: "recover", track: NOT_RECOVERABLE },
   ] as const)("does not emit $output when a row that does not offer it is clicked", async (row) => {
     const fixture = await mountWith([row.track])
     const asked = vi.fn()
@@ -165,7 +221,7 @@ describe("RunListComponent", () => {
   })
 
   it("puts a recoverable row in the tab order", async () => {
-    const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+    const fixture = await mountWith([UNRESOLVED])
 
     expect(firstRowOf(fixture)?.tabIndex).toBe(0)
   })
@@ -173,7 +229,7 @@ describe("RunListComponent", () => {
   it.each(["Enter", " "])(
     "asks to recover a recoverable row from the keyboard (%j)",
     async (key) => {
-      const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+      const fixture = await mountWith([UNRESOLVED])
       const asked = vi.fn()
       fixture.componentInstance.recover.subscribe(asked)
 
@@ -184,14 +240,14 @@ describe("RunListComponent", () => {
   )
 
   it("keeps a row without action out of the tab order", async () => {
-    const fixture = await mountWith([UNRESOLVED])
+    const fixture = await mountWith([NOT_RECOVERABLE])
 
     expect(firstRowOf(fixture)?.hasAttribute("tabindex")).toBe(false)
   })
 
   describe("committed run", () => {
-    // Sur un run fige le service ne rend aucun morceau rattrapable : l'ensemble arrive vide.
-    const mountCommitted = () => mountWith([AWAITING, UNRESOLVED], new Set(), true)
+    // Le sidecar refuserait tout geste sur un run fige : meme un morceau qu'il disait eligible n'en offre plus.
+    const mountCommitted = () => mountWith([AWAITING, UNRESOLVED], COMMITTED)
 
     it("leaves the rows without action on click", async () => {
       const fixture = await mountCommitted()
@@ -212,22 +268,21 @@ describe("RunListComponent", () => {
       expect(rowsOf(fixture).some((row) => row.hasAttribute("tabindex"))).toBe(false)
     })
 
-    it("shows the rows as not processed, without skeleton", async () => {
+    it("shows the rows without skeleton", async () => {
       const fixture = await mountCommitted()
 
       expect(hostOf(fixture).querySelector("p-skeleton")).toBeNull()
-      expect(hostOf(fixture).textContent).toContain("tagging.state.notProcessed")
     })
   })
 
   it("shows the paste hint on an unresolved recoverable row", async () => {
-    const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+    const fixture = await mountWith([UNRESOLVED])
 
     expect(cellOf(fixture, AFTER)?.querySelector("[data-recover-hint]")).not.toBeNull()
   })
 
   it("shows no paste hint on an unresolved row that is not recoverable", async () => {
-    const fixture = await mountWith([UNRESOLVED])
+    const fixture = await mountWith([NOT_RECOVERABLE])
 
     expect(cellOf(fixture, AFTER)?.querySelector("[data-recover-hint]")).toBeNull()
   })
@@ -370,7 +425,7 @@ describe("RunListComponent", () => {
   })
 
   it("shows the detail of a recoverable row without asking to recover it", async () => {
-    const fixture = await mountWith([UNRESOLVED], new Set([UNRESOLVED.trackId]))
+    const fixture = await mountWith([UNRESOLVED])
     const asked = vi.fn()
     fixture.componentInstance.recover.subscribe(asked)
 

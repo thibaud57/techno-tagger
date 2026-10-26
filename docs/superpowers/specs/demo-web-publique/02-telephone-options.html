@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Démo sur téléphone</title>
+<style>
+  :root { --bg: #09090b; --surface: #18181b; --border: #27272a; --text: #fafafa; --muted: #a1a1aa; --primary: #34d399; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 Inter, system-ui, sans-serif; padding: 32px 48px; }
+  h1 { font-size: 24px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0; }
+  .lead { color: var(--muted); margin: 0 0 24px; max-width: 900px; }
+  .option { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+  .option.reco { border-color: var(--primary); }
+  .option header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.reco { border-color: var(--primary); color: var(--primary); }
+  .desc { color: var(--muted); margin: 0 0 16px; max-width: 900px; }
+  .phones { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+  .phone { border: 10px solid #3f3f46; border-radius: 36px; background: #000; overflow: hidden; position: relative; flex: none; }
+  .screen { position: relative; overflow: hidden; background: #09090b; }
+  .screen.scroll { overflow: auto; }
+  .screen iframe { border: 0; transform-origin: 0 0; display: block; position: absolute; top: 0; left: 0; }
+  .caption { font-size: 12px; color: var(--muted); margin-top: 8px; max-width: 420px; }
+  .note { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>La démo sur un téléphone</h1>
+<p class="lead">Rendus tirés de la maquette cliquable du design system, chargée depuis l'export local. Les écrans sont à l'échelle d'un téléphone de 390 × 844. La maquette garde une fenêtre de 1280 × 800 : l'app réelle remplirait la hauteur restante de l'écran.</p>
+
+<section class="option">
+  <header><h2>Sans réglage</h2><span class="badge">Actuel</span></header>
+  <p class="desc">Le téléphone met la page à sa largeur, 390px, comme <code>index.html</code> le lui demande. L'app n'a pas de largeur minimale dans la page (seule la fenêtre Tauri impose 1024px), donc ses colonnes et ses barres se compriment et se chevauchent. Non montré : la maquette a une taille fixe et ne se comprime pas comme l'app.</p>
+</section>
+
+<section class="option reco">
+  <header><h2>Page déclarée à 1280px dans le build de démo</h2><span class="badge reco">Recommandé</span></header>
+  <p class="desc">Une ligne dans la page de démo : <code>&lt;meta name="viewport" content="width=1280"&gt;</code>. Le navigateur du téléphone affiche l'app entière réduite. Le visiteur zoome avec deux doigts, puis fait glisser. Un navigateur d'ordinateur ignore cette ligne. Les deux premiers écrans sont cliquables.</p>
+  <div class="phones" id="phones"></div>
+</section>
+
+<p class="note">Ce que la page ne montre pas : sur un vrai téléphone, le zoom à deux doigts est fluide et le texte reste net à toutes les échelles.</p>
+
+<script>
+  const MOCKUP = "http://127.0.0.1:8765/ui_kits/techno-tagger/index.html";
+  const APP_WIDTH = 1280, APP_HEIGHT = 800;
+
+  const views = [
+    { title: "Portrait, à l'ouverture", w: 390, h: 844, scale: 390 / APP_WIDTH, scroll: false, caption: "Toute l'app tient en largeur. Texte trop petit pour être lu sans zoomer, mais on voit l'écran entier." },
+    { title: "Paysage, à l'ouverture", w: 844, h: 390, scale: 844 / APP_WIDTH, scroll: false, caption: "Téléphone tourné : l'app s'affiche aux deux tiers de sa taille, lisible sans zoomer." },
+    { title: "Portrait, après un zoom", w: 390, h: 844, scale: 0.75, scroll: true, caption: "Après un zoom à deux doigts, texte lisible. Fais défiler l'écran avec les barres pour simuler le glissement du doigt." },
+  ];
+
+  document.getElementById("phones").innerHTML = views.map((v) => {
+    const contentW = APP_WIDTH * v.scale, contentH = APP_HEIGHT * v.scale;
+    const inner = v.scroll
+      ? `<div style="position:relative;width:${contentW}px;height:${contentH}px"><iframe src="${MOCKUP}" width="${APP_WIDTH}" height="${APP_HEIGHT}" style="transform:scale(${v.scale});pointer-events:none" title="${v.title}"></iframe></div>`
+      : `<iframe src="${MOCKUP}" width="${APP_WIDTH}" height="${APP_HEIGHT}" style="transform:scale(${v.scale})" title="${v.title}"></iframe>`;
+    return `<div><p class="note" style="margin:0 0 8px">${v.title}</p><div class="phone"><div class="screen${v.scroll ? " scroll" : ""}" style="width:${v.w}px;height:${v.h}px">${inner}</div></div><p class="caption">${v.caption}</p></div>`;
+  }).join("");
+</script>
+</body>
+</html>

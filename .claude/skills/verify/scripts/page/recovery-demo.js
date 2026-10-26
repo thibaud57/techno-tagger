@@ -54,7 +54,7 @@
         line({ event: "error", code: "unsupported_url", params: { track_id: t.track_id }, message: "unsupported url", command: "resolve_by_url" })
         return
       }
-      line({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "url", failure_reason: null, source, after: { artist: t.artist, title: t.title }, scores: null, artwork_path: null })
+      line({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "url", failure_reason: null, source, after: { artist: t.artist, title: t.title }, scores: null, artwork_path: null, recoverable: true })
       recoveryProgress()
     } else if (command.command === "resolve_arbitration" && t) {
       await wait(800)
@@ -64,7 +64,7 @@
       } else if (command.source === "beatport") {
         line({ event: "arbitration_updated", ...arbitration(t, "bandcamp") })
       } else {
-        line({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: "user_refused", source: null, after: null, scores: null, artwork_path: null })
+        line({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: "user_refused", source: null, after: null, scores: null, artwork_path: null, recoverable: true })
       }
       recoveryProgress()
     } else if (command.command === "switch_arbitration_source" && t) {
@@ -82,7 +82,7 @@
     if (i < 6) {
       line({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "auto", failure_reason: null, source: i % 3 === 2 ? "bandcamp" : "beatport", after: { artist: t.artist, title: t.title }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null })
     } else if (i < 12) {
-      line({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: reasons[i - 6], source: null, after: null, scores: null, artwork_path: null })
+      line({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: reasons[i - 6], source: null, after: null, scores: null, artwork_path: null, recoverable: true })
     } else {
       line({ event: "arbitration_required", ...arbitration(t, "beatport") })
     }

@@ -3,7 +3,6 @@ evenements du protocole. Seule couche qui connaisse les deux cotes : `handlers` 
 decrit, aucun des deux ne projette l'autre.
 """
 
-import logging
 from collections import Counter
 from typing import TYPE_CHECKING, assert_never
 
@@ -25,6 +24,7 @@ from tagger.protocol import (
 from tagger.reports.tagging import after_rows, tag_rows
 from tagger.resolution.matching import credited_artists, full_title
 from tagger.run import arbitration, models, url_recovery, writing
+from tagger.run.models import AwaitingArbitration
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -35,13 +35,10 @@ if TYPE_CHECKING:
     from tagger.resolution.matching import ScoredCandidate
     from tagger.resolution.scraper_client import TrackCandidate
     from tagger.run.arbitration import ArbitrationEvent
-    from tagger.run.models import TaggingRun, TrackRecord
+    from tagger.run.models import SettledOutcome, TaggingRun, TrackRecord
     from tagger.run.url_recovery import UrlRecoveryEvent
     from tagger.run.writing import WriteEvent
     from tagger.tags.files import TagSystem
-
-logger = logging.getLogger(__name__)
-
 
 type PipelineEvent = models.RunEvent | ArbitrationEvent | UrlRecoveryEvent | WriteEvent
 
@@ -118,34 +115,32 @@ def payload_rows(rows: Iterable[ReportTagValue]) -> tuple[TagValuePayload, ...]:
     return tuple(TagValuePayload.model_validate(row, from_attributes=True) for row in rows)
 
 
-def resolved_event(record: TrackRecord) -> TrackResolved:
-    if record.state is None or record.resolution is None:
-        logger.error("track without state track=%s", record.track_id)
-        raise ValueError("track without state")
-    candidate = record.candidate
+def resolved_event(record: TrackRecord[SettledOutcome]) -> TrackResolved:
+    retained = record.retained
+    candidate = None if retained is None else retained.candidate
+    scored = None if retained is None else retained.scored
     return TrackResolved(
         event="track_resolved",
         track_id=record.track_id,
-        state=record.state,
-        resolution=record.resolution,
+        state=record.outcome.state,
+        resolution=record.outcome.resolution,
         failure_reason=record.failure_reason,
-        source=record.source,
+        source=None if retained is None else retained.source,
         after=None if candidate is None else _names(candidate),
-        scores=None if record.scored is None else _scores(record.scored),
-        artwork_path=record.artwork,
+        scores=None if scored is None else _scores(scored),
+        artwork_path=None if retained is None else retained.artwork,
         tags_after=None if candidate is None else payload_rows(after_rows(record, candidate)),
         restorable=record.restorable,
+        recoverable=record.recoverable,
         source_url=None if candidate is None else candidate.url,
     )
 
 
 def _arbitration_state(
-    kind: type[ArbitrationRequired | ArbitrationUpdated], record: TrackRecord
+    kind: type[ArbitrationRequired | ArbitrationUpdated],
+    record: TrackRecord[AwaitingArbitration],
 ) -> ArbitrationRequired | ArbitrationUpdated:
-    pending = record.arbitration
-    if pending is None:
-        logger.error("track without arbitration track=%s", record.track_id)
-        raise ValueError("track without arbitration")
+    pending = record.outcome.pending
     return kind(
         track_id=record.track_id,
         source=pending.source,
@@ -200,6 +195,8 @@ def run_finished_event(
         unresolved=states[models.TrackState.UNRESOLVED],
         written=states[models.TrackState.WRITTEN],
         write_error=states[models.TrackState.WRITE_ERROR],
-        awaiting_arbitration=sum(1 for record in run.tracks if record.arbitration is not None),
+        awaiting_arbitration=sum(
+            1 for record in run.tracks if isinstance(record.outcome, AwaitingArbitration)
+        ),
         report_path=None if report is None else report.json_path,
     )

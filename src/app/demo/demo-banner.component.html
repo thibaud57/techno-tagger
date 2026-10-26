@@ -1,0 +1,24 @@
+<app-icon name="info-circle" [size]="16" />
+<span>{{ "demo.banner.text" | translate }}</span>
+<a
+  pButton
+  [link]="true"
+  data-action="contact"
+  class="text-xs"
+  target="_blank"
+  rel="noopener noreferrer"
+  [href]="contactUrl()"
+>
+  {{ "demo.banner.contact" | translate }}
+  <app-icon name="external-link" [size]="16" />
+</a>
+<button
+  pButton
+  type="button"
+  [link]="true"
+  data-action="restart"
+  class="text-xs"
+  (click)="restart()"
+>
+  {{ "demo.banner.restart" | translate }}
+</button>

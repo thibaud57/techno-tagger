@@ -61,7 +61,7 @@
       [buttonLabel]="'playlist.source.choose' | translate"
       [path]="sourceFolder()"
       [placeholder]="'playlist.source.none' | translate"
-      (pick)="chooseFolder(sourceFolder)"
+      (pick)="chooseFolder(sourceFolder, 'library')"
     >
       <app-icon icon name="folder" [size]="16" />
     </app-path-picker>
@@ -71,7 +71,7 @@
       [buttonLabel]="'playlist.destination.choose' | translate"
       [path]="destinationFolder()"
       [placeholder]="'playlist.destination.none' | translate"
-      (pick)="chooseFolder(destinationFolder)"
+      (pick)="chooseFolder(destinationFolder, 'destination')"
     >
       <app-icon icon name="folder" [size]="16" />
     </app-path-picker>

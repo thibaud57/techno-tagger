@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
+    from tagger.core.identifiers import RunId, TrackId
     from tagger.run.models import TrackFailureReason
     from tagger.tags.tag_dump import DumpEntry, TagDump
 
@@ -40,7 +41,7 @@ logger = logging.getLogger(__name__)
 class RollbackTarget:
     """Dernier run annulable, de quoi le nommer dans la confirmation."""
 
-    run_id: str
+    run_id: RunId
     written_at: datetime
     folder: Path
     tracks: int
@@ -50,7 +51,7 @@ class RollbackTarget:
 class RollbackFailure:
     """Morceau laisse en l'etat ; `file_name` est son nom actuel, celui que l'utilisateur voit."""
 
-    track_id: str
+    track_id: TrackId
     file_name: str
     reason: TrackFailureReason
 
@@ -62,10 +63,10 @@ class RollbackSummary:
     `forgotten` : morceaux en `file_missing` effectivement retires du dump, sans restauration.
     """
 
-    run_id: str
-    restored: tuple[str, ...]
+    run_id: RunId
+    restored: tuple[TrackId, ...]
     failed: tuple[RollbackFailure, ...]
-    forgotten: tuple[str, ...] = ()
+    forgotten: tuple[TrackId, ...] = ()
 
 
 class RollbackUnavailableError(TaggerError):
@@ -73,7 +74,7 @@ class RollbackUnavailableError(TaggerError):
 
     code: ClassVar[str] = "rollback_unavailable"
 
-    def __init__(self, run_id: str, track_id: str | None = None) -> None:
+    def __init__(self, run_id: RunId, track_id: TrackId | None = None) -> None:
         super().__init__("nothing to roll back", run_id=run_id, track_id=track_id)
 
 
@@ -97,15 +98,15 @@ def find_rollback_target(folder: Path) -> RollbackTarget | None:
 
 async def roll_back(
     folder: Path,
-    run_id: str,
-    track_id: str | None,
-    on_restored: Callable[[str, Path], None],
+    run_id: RunId,
+    track_id: TrackId | None,
+    on_restored: Callable[[TrackId, Path], None],
 ) -> RollbackSummary:
     """Restaure un run ou son seul morceau ; `on_restored` rend chaque morceau et son chemin."""
     dump = await asyncio.to_thread(_load_run, folder, run_id)
     entries = _targets(dump, track_id)
     logger.info("rollback started run=%s", run_id)
-    restored: list[str] = []
+    restored: list[TrackId] = []
     failed: list[RollbackFailure] = []
     # Ordre inverse de l'ecriture : l'ancien nom d'un morceau peut etre le nom final d'un
     # morceau ecrit apres.
@@ -122,14 +123,14 @@ async def roll_back(
     return RollbackSummary(run_id, tuple(restored), tuple(failed), forgotten)
 
 
-def _load_run(folder: Path, run_id: str) -> TagDump:
+def _load_run(folder: Path, run_id: RunId) -> TagDump:
     path = find_dump(folder, run_id)
     if path is None:
         raise RollbackUnavailableError(run_id)
     return load_dump(path)
 
 
-def _targets(dump: TagDump, track_id: str | None) -> dict[str, DumpEntry]:
+def _targets(dump: TagDump, track_id: TrackId | None) -> dict[TrackId, DumpEntry]:
     if track_id is None:
         return dict(dump.entries)
     entry = dump.entries.get(track_id)
@@ -138,7 +139,7 @@ def _targets(dump: TagDump, track_id: str | None) -> dict[str, DumpEntry]:
     return {track_id: entry}
 
 
-def _restore_one(track_id: str, entry: DumpEntry) -> RollbackFailure | None:
+def _restore_one(track_id: TrackId, entry: DumpEntry) -> RollbackFailure | None:
     current = _located(entry)
     if current is None:
         missing = entry.renamed_path or entry.path
@@ -171,9 +172,9 @@ def _located(entry: DumpEntry) -> Path | None:
 def _forget(
     folder: Path,
     dump: TagDump,
-    restored: Sequence[str],
+    restored: Sequence[TrackId],
     failed: Sequence[RollbackFailure],
-) -> tuple[str, ...]:
+) -> tuple[TrackId, ...]:
     """Retire du dump les morceaux restaures et ceux dont le fichier a disparu : rien a leur rendre.
 
     Rend ces derniers, vide si le dump n'a pas pu etre reecrit : leur entree y reste alors.

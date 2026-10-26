@@ -17,6 +17,7 @@ import { ToggleSwitch } from "primeng/toggleswitch"
 import { Tooltip } from "primeng/tooltip"
 
 import { LANGUAGES, type Language, languageFromTag } from "../../core/i18n/language"
+import { injectDemoReason } from "../../core/platform/app-edition"
 import { TOAST_LIFE } from "../../core/platform/completion-signal.service"
 import { NativeService } from "../../core/platform/native.service"
 import { type ManualCheck, UpdateService } from "../../core/platform/update.service"
@@ -157,6 +158,8 @@ export default class SettingsPageComponent {
   private readonly native = inject(NativeService)
   private readonly preferences = inject(PreferencesService)
   private readonly updates = inject(UpdateService)
+  /** En demo, la raison passe avant toute autre sur les actions que la demo ne branche pas. */
+  protected readonly demoReason = injectDemoReason()
 
   /**
    * Une section a la fois : les rangees de toutes les sections ne tiennent pas au plancher de
@@ -216,10 +219,12 @@ export default class SettingsPageComponent {
   protected readonly thresholdsFields = form(this.thresholdsChoice, (path) => {
     // Sans valeur connue, un geste enregistrerait 0 et 100. Store pas encore lu : le geste
     // s'enregistrerait sur des defauts, ou la lecture tardive l'annulerait.
-    const unknown = (): boolean =>
-      this.shownThresholds() === null || this.storedThresholds() === undefined
-    disabled(path.floor, { when: unknown })
-    disabled(path.ceiling, { when: unknown })
+    const locked = (): boolean =>
+      this.shownThresholds() === null ||
+      this.storedThresholds() === undefined ||
+      this.demoReason !== null
+    disabled(path.floor, { when: locked })
+    disabled(path.ceiling, { when: locked })
   })
   /** Bornes croisees des champs, que `p-inputnumber` applique a la sortie du champ. */
   protected readonly floorMax = computed(() => this.thresholdsChoice().ceiling)
@@ -258,6 +263,9 @@ export default class SettingsPageComponent {
    * un refus `phase_busy` ou `run_not_written` s'affiche sous la rangee.
    */
   protected readonly cacheBlockedReason = computed(() => {
+    if (this.demoReason !== null) {
+      return this.demoReason
+    }
     if (this.sidecar.available() !== true) {
       return "settings.admin.starting"
     }
@@ -272,8 +280,12 @@ export default class SettingsPageComponent {
   /** Dernier vidage deja connu au montage : un retour sur l'onglet ne rejoue pas son toast. */
   private announcedClear = untracked(this.sidecar.cacheCleared)
   protected readonly logFile = this.sidecar.logFile
-  protected readonly logsBlockedReason = computed(() =>
-    this.logFile() === null ? "settings.admin.starting" : null,
+  protected readonly logsBlockedReason = computed(
+    () => this.demoReason ?? (this.logFile() === null ? "settings.admin.starting" : null),
+  )
+  protected readonly resetBlockedReason = computed(
+    () =>
+      this.demoReason ?? (this.thresholdsCustomized() ? null : "settings.matching.reset.blocked"),
   )
   /** Un moteur relance recree le fichier : sa nouvelle annonce efface l'echec du precedent. */
   protected readonly logsUnavailable = linkedSignal({
@@ -290,7 +302,9 @@ export default class SettingsPageComponent {
 
   /** Jamais prerempli : la cle n'est pas relue depuis le trousseau. */
   protected readonly entry = signal<ApiKeyEntry>({ apiKey: "" })
-  protected readonly fields = form(this.entry)
+  protected readonly fields = form(this.entry, (path) => {
+    disabled(path.apiKey, { when: () => this.demoReason !== null })
+  })
   protected readonly typing = computed(() => this.entry().apiKey !== "")
   /**
    * `pInputPassword` n'expose que ce model : la bascule est portee par le template. Toute saisie
@@ -301,7 +315,9 @@ export default class SettingsPageComponent {
   protected readonly storedKeyMask = computed(() =>
     this.apiKeyConfigured() ? STORED_KEY_MASK : null,
   )
-  protected readonly canSave = computed(() => this.typing() && this.sidecar.available() === true)
+  protected readonly canSave = computed(
+    () => this.demoReason === null && this.typing() && this.sidecar.available() === true,
+  )
   protected readonly error = this.sidecar.errorFor("set_api_key")
 
   protected readonly tooltip = TOOLTIP

@@ -11,7 +11,7 @@ casse un de ces formats faits main se diagnostique en comparant d'abord ici.
 import ctypes
 import struct
 import wave
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from ctypes import wintypes
 from typing import TYPE_CHECKING, Final, NoReturn
 
@@ -208,14 +208,24 @@ def append_id3v1(path: Path, *, comment: str) -> None:
 
 
 _GENERIC_READ: Final = 0x80000000
+_FILE_SHARE_NONE: Final = 0
 _FILE_SHARE_READ: Final = 1
 _OPEN_EXISTING: Final = 3
 _INVALID_HANDLE: Final = wintypes.HANDLE(-1).value
 
 
-@contextmanager
-def held_open(path: Path) -> Iterator[None]:
+def held_open(path: Path) -> AbstractContextManager[None]:
     """Tient le fichier comme un lecteur audio : lisible, plus inscriptible (Windows seulement)."""
+    return _held(path, _FILE_SHARE_READ)
+
+
+def held_exclusively(path: Path) -> AbstractContextManager[None]:
+    """Tient le fichier sans aucun partage : meme sa copie echoue (Windows seulement)."""
+    return _held(path, _FILE_SHARE_NONE)
+
+
+@contextmanager
+def _held(path: Path, share_mode: int) -> Iterator[None]:
     kernel32 = ctypes.windll.kernel32
     kernel32.CreateFileW.argtypes = [
         wintypes.LPCWSTR,
@@ -229,7 +239,7 @@ def held_open(path: Path) -> Iterator[None]:
     kernel32.CreateFileW.restype = wintypes.HANDLE
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     handle = kernel32.CreateFileW(
-        str(path), _GENERIC_READ, _FILE_SHARE_READ, None, _OPEN_EXISTING, 0, None
+        str(path), _GENERIC_READ, share_mode, None, _OPEN_EXISTING, 0, None
     )
     if handle == _INVALID_HANDLE:
         raise ctypes.WinError()

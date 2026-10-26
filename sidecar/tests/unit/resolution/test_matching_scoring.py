@@ -1,18 +1,20 @@
-import re
 from typing import TYPE_CHECKING, Final
 
 import pytest
-from repo_files import REPO
+from protocol_mirror import ts_score_scale
 from scraper_responses import track_candidate
 from tagging_records import QUERY, tags_query
 
 from tagger.resolution.matching import (
+    Auto,
+    Empty,
+    GreyZone,
     MatchingThresholds,
-    Outcome,
     QueryOrigin,
     TrackQuery,
     build_query,
     classify,
+    rank,
 )
 
 if TYPE_CHECKING:
@@ -20,8 +22,6 @@ if TYPE_CHECKING:
 
 # Plafond a 100 : seul un score parfait valide d'office.
 STRICT: Final = MatchingThresholds(floor=70, ceiling=100)
-# `SCORE_SCALE` y recopie l'echelle des seuils : rien ne la derive cote TypeScript.
-PROTOCOL_TS: Final = REPO / "src/app/core/sidecar/protocol.ts"
 
 
 @pytest.mark.parametrize(
@@ -40,7 +40,7 @@ def test_matches_a_candidate_crediting_more_than_the_tag(
 
     classification = classify(query, [track_candidate(title, mix_name, artists=credited)])
 
-    assert classification.outcome is Outcome.AUTO
+    assert isinstance(classification, Auto)
 
 
 @pytest.mark.parametrize(
@@ -98,7 +98,7 @@ def test_validates_automatically_whatever_the_formatting_of_the_tag(
 ) -> None:
     classification = classify(query, [candidate])
 
-    assert classification.outcome is Outcome.AUTO
+    assert isinstance(classification, Auto)
 
 
 def test_guards_a_remix_named_outside_any_group() -> None:
@@ -134,7 +134,7 @@ def test_reads_the_version_of_a_group_that_also_names_a_guest(
 
     classification = classify(query, [track_candidate("Your Mind", mix_name)])
 
-    assert classification.outcome is Outcome.AUTO
+    assert isinstance(classification, Auto)
 
 
 @pytest.mark.parametrize(
@@ -153,8 +153,8 @@ def test_matches_a_version_however_the_tag_writes_it(
 
     classification = classify(query, [track_candidate(candidate_title, mix_name)])
 
-    assert classification.outcome is Outcome.AUTO
-    assert classification.retained[0].title_score == 100
+    assert isinstance(classification, Auto)
+    assert classification.chosen.title_score == 100
 
 
 @pytest.mark.parametrize(
@@ -165,8 +165,8 @@ def test_matches_a_candidate_with_no_other_version_against_a_query_without_versi
 ) -> None:
     classification = classify(QUERY, [track_candidate("Your Mind", mix_name)])
 
-    assert classification.outcome is Outcome.AUTO
-    assert classification.retained[0].version_mismatch is False
+    assert isinstance(classification, Auto)
+    assert classification.chosen.version_mismatch is False
 
 
 def test_keeps_other_versions_in_the_grey_zone_for_a_query_without_version() -> None:
@@ -177,9 +177,9 @@ def test_keeps_other_versions_in_the_grey_zone_for_a_query_without_version() -> 
 
     classification = classify(QUERY, candidates)
 
-    assert classification.outcome is Outcome.GREY_ZONE
-    assert all(scored.version_mismatch for scored in classification.retained)
-    assert all(scored.score == 100 for scored in classification.retained)
+    assert isinstance(classification, GreyZone)
+    assert all(scored.version_mismatch for scored in classification.candidates)
+    assert all(scored.score == 100 for scored in classification.candidates)
 
 
 def test_never_validates_the_original_for_a_version_without_version_word() -> None:
@@ -188,7 +188,7 @@ def test_never_validates_the_original_for_a_version_without_version_word() -> No
 
     classification = classify(query, [track_candidate("Your Mind", "Original Mix")])
 
-    assert classification.outcome is Outcome.GREY_ZONE
+    assert isinstance(classification, GreyZone)
 
 
 @pytest.mark.parametrize(
@@ -209,8 +209,8 @@ def test_keeps_titles_that_only_a_number_tells_apart_in_the_grey_zone(
 
     classification = classify(query, [track_candidate(offered)])
 
-    assert classification.outcome is Outcome.GREY_ZONE
-    assert classification.retained[0].number_mismatch is True
+    assert isinstance(classification, GreyZone)
+    assert classification.candidates[0].number_mismatch is True
 
 
 @pytest.mark.parametrize(
@@ -228,7 +228,7 @@ def test_validates_automatically_when_the_title_numbers_agree(
 
     classification = classify(query, [track_candidate(offered, mix_name)])
 
-    assert classification.outcome is Outcome.AUTO
+    assert isinstance(classification, Auto)
 
 
 def test_validates_the_original_mix_automatically_when_an_extended_is_also_offered() -> None:
@@ -237,15 +237,15 @@ def test_validates_the_original_mix_automatically_when_an_extended_is_also_offer
 
     classification = classify(QUERY, [extended, original])
 
-    assert classification.outcome is Outcome.AUTO
-    assert classification.retained[0].candidate.id == "original"
+    assert isinstance(classification, Auto)
+    assert classification.chosen.candidate.id == "original"
 
 
-def test_never_validates_automatically_when_auto_is_not_allowed() -> None:
-    classification = classify(QUERY, [track_candidate("Your Mind")], allow_auto=False)
+def test_never_validates_automatically_when_only_ranking() -> None:
+    classification = rank(QUERY, [track_candidate("Your Mind")])
 
-    assert classification.outcome is Outcome.GREY_ZONE
-    assert classification.retained[0].score == 100
+    assert isinstance(classification, GreyZone)
+    assert classification.candidates[0].score == 100
 
 
 def test_ignores_remixers_when_scoring_the_artist() -> None:
@@ -253,7 +253,7 @@ def test_ignores_remixers_when_scoring_the_artist() -> None:
 
     classification = classify(QUERY, [candidate])
 
-    assert classification.retained[0].artist_score == 100
+    assert classification.scored[0].artist_score == 100
 
 
 @pytest.mark.parametrize(
@@ -286,7 +286,7 @@ def test_ignores_a_featuring_the_tag_writes_into_the_title(
 
     classification = classify(query, [biome])
 
-    assert classification.outcome is Outcome.AUTO
+    assert isinstance(classification, Auto)
 
 
 @pytest.mark.parametrize(
@@ -305,7 +305,7 @@ def test_reads_an_ampersand_the_way_the_source_credits_it(
 
     classification = classify(query, [track_candidate("Voyage", artists=credited)])
 
-    assert classification.outcome is Outcome.AUTO
+    assert isinstance(classification, Auto)
 
 
 def test_matches_several_artists_whatever_their_order() -> None:
@@ -336,7 +336,7 @@ def test_drops_a_candidate_without_remix_when_the_query_holds_one(mix_name: str)
     classification = classify(query, [original, remix])
 
     assert [scored.candidate.id for scored in classification.scored] == ["remix"]
-    assert classification.outcome is Outcome.AUTO
+    assert isinstance(classification, Auto)
 
 
 @pytest.mark.parametrize(
@@ -358,19 +358,44 @@ def test_rejects_a_candidate_that_is_not_the_track(candidate: TrackCandidate) ->
     """Un titre qui ne partage que sa version ou son debut n'est pas le morceau."""
     classification = classify(QUERY, [candidate])
 
-    assert classification.outcome is Outcome.EMPTY
-    assert classification.retained == ()
+    assert isinstance(classification, Empty)
+
+
+@pytest.mark.parametrize(
+    ("query", "candidates", "expected"),
+    [
+        pytest.param(QUERY, [track_candidate("Totally Different")], True, id="below-the-floor"),
+        # Le garde-fou remix ecarte le seul candidat, mais la source a bien repondu.
+        pytest.param(
+            tags_query("Adam Beyer", "Your Mind (Bart Skils Remix)"),
+            [track_candidate("Your Mind", "Original Mix")],
+            True,
+            id="dropped-by-the-remix-guard",
+        ),
+        pytest.param(QUERY, [], False, id="source-without-candidates"),
+    ],
+)
+def test_tells_an_empty_classification_from_a_source_without_candidates(
+    query: TrackQuery, candidates: list[TrackCandidate], expected: bool
+) -> None:
+    """`below_threshold` et `no_result` se distinguent par ce que la source a rendu."""
+    classification = classify(query, candidates)
+
+    assert isinstance(classification, Empty)
+    assert classification.had_candidates is expected
 
 
 @pytest.mark.parametrize(
     ("title", "expected"),
-    [("Your Mind", Outcome.AUTO), ("Your Mindset", Outcome.GREY_ZONE)],
+    [("Your Mind", Auto), ("Your Mindset", GreyZone)],
     ids=["at-the-ceiling", "below-the-ceiling"],
 )
-def test_validates_automatically_only_from_the_ceiling(title: str, expected: Outcome) -> None:
+def test_validates_automatically_only_from_the_ceiling(
+    title: str, expected: type[Auto | GreyZone]
+) -> None:
     classification = classify(QUERY, [track_candidate(title)], STRICT)
 
-    assert classification.outcome is expected
+    assert isinstance(classification, expected)
 
 
 def test_returns_grey_zone_candidates_sorted_by_score() -> None:
@@ -379,7 +404,8 @@ def test_returns_grey_zone_candidates_sorted_by_score() -> None:
 
     classification = classify(QUERY, [mindset, minds], STRICT)
 
-    assert [scored.candidate.id for scored in classification.retained] == ["minds", "mindset"]
+    assert isinstance(classification, GreyZone)
+    assert [scored.candidate.id for scored in classification.candidates] == ["minds", "mindset"]
 
 
 def test_keeps_the_first_candidate_on_a_tie() -> None:
@@ -388,7 +414,8 @@ def test_keeps_the_first_candidate_on_a_tie() -> None:
 
     classification = classify(QUERY, [first, second])
 
-    assert classification.retained[0].candidate.id == "first"
+    assert isinstance(classification, Auto)
+    assert classification.chosen.candidate.id == "first"
 
 
 def test_scores_the_title_only_for_a_query_without_artist() -> None:
@@ -396,8 +423,8 @@ def test_scores_the_title_only_for_a_query_without_artist() -> None:
 
     classification = classify(query, [track_candidate("Your Mind", artists=("Someone Else",))])
 
-    assert classification.outcome is Outcome.AUTO
-    assert classification.retained[0].artist_score is None
+    assert isinstance(classification, Auto)
+    assert classification.chosen.artist_score is None
 
 
 def test_records_every_candidate_it_scored() -> None:
@@ -425,7 +452,7 @@ def test_rejects_inconsistent_thresholds(floor: float, ceiling: float) -> None:
 
 
 def test_accepts_the_whole_score_scale_the_interface_mirrors() -> None:
-    low, high = _mirrored_score_scale()
+    low, high = ts_score_scale()
 
     thresholds = MatchingThresholds(floor=low, ceiling=high)
 
@@ -436,14 +463,7 @@ def test_accepts_the_whole_score_scale_the_interface_mirrors() -> None:
 def test_rejects_thresholds_beyond_the_score_scale_the_interface_mirrors(
     below: int, above: int
 ) -> None:
-    low, high = _mirrored_score_scale()
+    low, high = ts_score_scale()
 
     with pytest.raises(ValueError, match="inconsistent thresholds"):
         MatchingThresholds(floor=low - below, ceiling=high + above)
-
-
-def _mirrored_score_scale() -> tuple[int, int]:
-    source = PROTOCOL_TS.read_text(encoding="utf-8")
-    scale = re.search(r"SCORE_SCALE = \{ min: (\d+), max: (\d+) \}", source)
-    assert scale is not None
-    return int(scale[1]), int(scale[2])

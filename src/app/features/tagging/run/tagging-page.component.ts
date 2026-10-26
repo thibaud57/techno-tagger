@@ -4,8 +4,11 @@ import { TranslatePipe, TranslateService } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
+import { injectDemoReason } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"
+import { errorRunId, errorTrackId } from "../../../core/sidecar/error-params"
+import type { SidecarErrorEvent } from "../../../core/sidecar/protocol"
 import { SidecarService, type RunAction } from "../../../core/sidecar/sidecar.service"
 import {
   DangerConfirmComponent,
@@ -66,6 +69,8 @@ export default class TaggingPageComponent {
   private readonly router = inject(Router)
   private readonly native = inject(NativeService)
   private readonly preferences = inject(PreferencesService)
+  /** La demo rejoue un seul run et n'en interrompt aucun : un second lancement n'aurait rien a rejouer. */
+  private readonly demoReason = injectDemoReason()
   private readonly confirmDanger = injectDangerConfirm()
   protected readonly runRestore = injectRunRestore()
 
@@ -108,6 +113,9 @@ export default class TaggingPageComponent {
    * ou en conflit de version, il ne reste que l'extraction et le demarrage du moteur.
    */
   protected readonly blockedReason = computed(() => {
+    if (this.demoReason !== null && this.sidecar.taggingRunId() !== null) {
+      return this.demoReason
+    }
     if (this.sidecar.tagging()) {
       return "tagging.blocked.running"
     }
@@ -173,7 +181,7 @@ export default class TaggingPageComponent {
           label: "tagging.cancel",
           icon: "stop",
           secondary: true,
-          blocked: null,
+          blocked: this.demoReason,
           run: () => void this.cancel(),
         }
       case "commit":
@@ -215,21 +223,18 @@ export default class TaggingPageComponent {
   protected readonly error = computed(() => {
     const error = this.commandError()
 
-    return error?.command === "rollback" && this.namesAnotherRun(error.params) ? null : error
+    return error?.command === "rollback" && this.namesAnotherRun(error) ? null : error
   })
   protected readonly percentage = computed(() => progressPercentage(this.progress()))
   protected readonly recovery = this.sidecar.urlRecoveryProgress
   protected readonly recoveryPercentage = computed(() => progressPercentage(this.recovery()))
-  protected readonly recoverableIds = computed(
-    () => new Set(this.sidecar.recoverableTracks().map((track) => track.trackId)),
-  )
 
   constructor() {
     void this.prefill()
   }
 
   protected async choose(): Promise<void> {
-    const chosen = await this.native.pickPath({ directory: true })
+    const chosen = await this.native.pickPath("tagging_folder")
     if (chosen !== null) {
       this.folder.set(chosen)
     }
@@ -299,13 +304,14 @@ export default class TaggingPageComponent {
     void this.router.navigateByUrl("/tagging/recap")
   }
 
-  private namesAnotherRun(params: Readonly<Record<string, unknown>>): boolean {
-    const { run_id: runId, track_id: trackId } = params
-    if (typeof runId === "string") {
+  private namesAnotherRun(error: SidecarErrorEvent): boolean {
+    const runId = errorRunId(error)
+    if (runId !== null) {
       return runId !== this.sidecar.taggingRunId()
     }
+    const trackId = errorTrackId(error)
 
-    return typeof trackId === "string" && !this.tracks().some((track) => track.trackId === trackId)
+    return trackId !== null && !this.tracks().some((track) => track.trackId === trackId)
   }
 
   private t(key: string, params?: Record<string, unknown>): string {

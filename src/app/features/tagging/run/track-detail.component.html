@@ -4,7 +4,7 @@
   <div class="flex w-42 shrink-0 flex-col gap-4">
     <app-artwork [url]="track().artworkUrl" [pending]="track().artworkPending" [large]="true" />
     @if (track().restorable) {
-      @let busy = blocked() ? ("tagging.rollback.blocked" | translate) : undefined;
+      @let busy = restoreReason() ? (restoreReason() | translate) : undefined;
       <button
         pButton
         type="button"
@@ -12,7 +12,7 @@
         [outlined]="true"
         class="w-full justify-center whitespace-nowrap"
         data-action="restore-track"
-        [disabled]="blocked()"
+        [disabled]="restoreReason() !== null"
         [pTooltip]="busy"
         [tooltipOptions]="tooltip"
         (click)="restore.emit(track().trackId)"
@@ -66,6 +66,9 @@
                   [link]="true"
                   class="max-w-full"
                   data-action="open-source"
+                  [disabled]="demoReason !== null"
+                  [pTooltip]="demoReason ? (demoReason | translate) : undefined"
+                  [tooltipOptions]="tooltip"
                   (click)="openSource(url)"
                 >
                   <app-truncated-text [text]="url" />

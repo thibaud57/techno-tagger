@@ -79,7 +79,7 @@ from tagger.resolution.matching import (
 from tagger.resolution.scraper_client import TechnoScraperClient
 from tagger.resolution.sources import RunSources
 from tagger.run.arbitration import Arbitration
-from tagger.run.models import TrackRecord, TrackState
+from tagger.run.models import WriteFailed, Written, holds, rolled_back, unrestorable
 from tagger.run.plan import SCHEMA_VERSION as PLAN_SCHEMA_VERSION
 from tagger.run.plan import PlanRecorder, RunPlan, plan_dir
 from tagger.run.resume import InterruptedRun, UnreadablePlan, detect_interrupted, reopen_run
@@ -105,11 +105,12 @@ if TYPE_CHECKING:
 
     import httpx2
 
+    from tagger.core.identifiers import RunId, TrackId
     from tagger.protocol import Event
     from tagger.reports.common import ReportPaths
     from tagger.reports.tagging import TaggingReport, TaggingReportTrack
     from tagger.resolution.cache import HostResolver
-    from tagger.run.models import LiveRun
+    from tagger.run.models import LiveRun, SettledOutcome, TrackRecord
     from tagger.run.resume import DetectedPlan
     from tagger.translation import PipelineEvent
 
@@ -134,7 +135,7 @@ def version_event(*, api_key_configured: bool) -> Version:
     )
 
 
-def handle_get_interrupted_run(active_run_id: str | None) -> InterruptedRunEvent:
+def handle_get_interrupted_run(active_run_id: RunId | None) -> InterruptedRunEvent:
     """Relu sur le disque a chaque appel : un abandon change le plan a proposer."""
     detected = detect_interrupted(plan_dir(), dump_dir(), active_run_id=active_run_id)
     return InterruptedRunEvent(event="interrupted_run", run=_detected(detected))
@@ -294,7 +295,7 @@ class CurrentRun:
         """Ses pochettes servent encore : ecriture a confirmer, ou echecs que `retry_write`
         rejouera. `write_tags` les lit dans le cache au moment d'ecrire."""
         return not self.committed or any(
-            record.state is TrackState.WRITE_ERROR for record in self.live.snapshot().tracks
+            isinstance(record.outcome, WriteFailed) for record in self.live.snapshot().tracks
         )
 
     def track(self, gesture: asyncio.Task[None]) -> None:
@@ -533,7 +534,7 @@ def handle_list_runs() -> RunsListed:
     )
 
 
-def _report_of(run_id: str) -> TaggingReport:
+def _report_of(run_id: RunId) -> TaggingReport:
     """Rapport d'un run de l'index, migre si besoin.
 
     Leve `RunNotFoundError` (run absent) ou `TaggingReportUnreadableError` (rapport illisible).
@@ -659,11 +660,25 @@ async def handle_rollback(
     `rolled_back`.
     """
 
-    def settle(track_id: str, step: Callable[[TrackRecord], TrackRecord]) -> None:
+    def settle(
+        track_id: TrackId,
+        step: Callable[[TrackRecord[Written | WriteFailed]], TrackRecord[SettledOutcome]],
+    ) -> None:
         if live is None:
             return
         record = live.record(track_id)
         if record is None:
+            return
+        if not (holds(record, Written) or holds(record, WriteFailed)):
+            # Seul un morceau ecrit ou en echec d'ecriture a une entree au dump. Lever couperait
+            # le rollback en cours, dont ce rappel n'est qu'un echo vers l'ecran.
+            logger.error(
+                "rollback entry on a track not written run=%s track=%d status=%s "
+                "reason=not_written",
+                live.run_id,
+                live.position(track_id),
+                record.state,
+            )
             return
         settled = step(record)
         live.update(settled)
@@ -673,12 +688,12 @@ async def handle_rollback(
         dump_dir(),
         command.run_id,
         command.track_id,
-        lambda track_id, path: settle(track_id, lambda record: record.rolled_back(path)),
+        lambda track_id, path: settle(track_id, lambda record: rolled_back(record, path)),
     )
     # Entree retiree sans restauration : l'etat reste, mais l'interface ne doit plus proposer
     # une restauration qui rendrait `rollback_unavailable`.
     for track_id in summary.forgotten:
-        settle(track_id, TrackRecord.unrestorable)
+        settle(track_id, unrestorable)
     return RollbackFinished(
         event="rollback_finished",
         run_id=summary.run_id,

@@ -104,7 +104,7 @@ async (page) => {
     after: { artist: t.artist, title: `${t.title} (Original Mix)` }, scores: { artist: 98, title: 95, average: 96 },
     artwork_path: null, tags_after: tagsAfter(t, linkOf[t.track_id]), restorable: state !== "resolved", source_url: linkOf[t.track_id], ...extra,
   })
-  const unresolved = { event: "track_resolved", track_id: E.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false, source_url: null }
+  const unresolved = { event: "track_resolved", track_id: E.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null, restorable: false, recoverable: true, source_url: null }
   const RUN = "r6recap"
 
   await page.setViewportSize({ width: 1280, height: 800 })

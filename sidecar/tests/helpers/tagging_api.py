@@ -14,7 +14,11 @@ import pytest
 from audio_samples import tagged_mp3
 from cdn_doubles import FakeCdn, public_resolver
 from scraper_responses import (
+    BANDCAMP_SEARCH,
     BANDCAMP_TRACK,
+    BANDCAMP_TRACKS,
+    BEATPORT_SEARCH,
+    BEATPORT_TRACKS,
     YOUR_MIND,
     YOUR_MIND_BANDCAMP_URL,
     bandcamp_track_payload,
@@ -26,10 +30,14 @@ from scraper_responses import (
     track_payload,
 )
 from stubs import ignore
+from tagging_records import FIRST_TRACK, SECOND_TRACK, THIRD_TRACK
 
+from tagger import handlers
+from tagger.core.identifiers import RunId, TrackId
 from tagger.resolution.cache import ArtworkFetcher, DiskCache
 from tagger.resolution.matching import DEFAULT_THRESHOLDS
 from tagger.resolution.sources import RunSources
+from tagger.run.models import holds
 from tagger.run.tagging import open_run, resolve_run
 
 if TYPE_CHECKING:
@@ -39,23 +47,26 @@ if TYPE_CHECKING:
     from scraper_responses import Handler, Reply
 
     from tagger.resolution.scraper_client import TechnoScraperClient
-    from tagger.run.models import LiveRun, RunEvent, TaggingRun, TrackRecord
+    from tagger.run.models import LiveRun, RunEvent, TaggingRun, TrackOutcome, TrackRecord
 
-BEATPORT_SEARCH: Final = "/beatport/search"
-BANDCAMP_SEARCH: Final = "/bandcamp/search"
-BANDCAMP_TRACKS: Final = "/bandcamp/tracks"
 # Borne d'une porte : une requete qui n'arrive jamais echoue au lieu de geler la suite.
 GATE_TIMEOUT: Final = 10
 
-ONE_TRACK: Final = "your mind.mp3"
-FIRST_TRACK: Final = "a.mp3"
-SECOND_TRACK: Final = "b.mp3"
+ONE_TRACK: Final = TrackId("your mind.mp3")
 WRITTEN_NAME: Final = "Adam Beyer - Your Mind (Original Mix).mp3"
 ORIGINAL: Final = track_payload(mix_name="Original Mix")
-ORIGINAL_REFETCH: Final = f"/beatport/tracks/{ORIGINAL['id']}"
+ORIGINAL_REFETCH: Final = f"{BEATPORT_TRACKS}/{ORIGINAL['id']}"
 ON_BANDCAMP: Final = track_payload(
     id="42", source="bandcamp", mix_name=None, url=YOUR_MIND_BANDCAMP_URL
 )
+
+
+def transports(api: FakeApi, cdn: FakeCdn) -> handlers.TaggingTransports:
+    """Transports du sidecar branches sur l'API et le CDN simules, resolveur DNS compris :
+    sans lui, `ArtworkFetcher` ferait un vrai DNS."""
+    return handlers.TaggingTransports(
+        httpx2.MockTransport(api.gated_handler), httpx2.MockTransport(cdn.handler), public_resolver
+    )
 
 
 def basiel(**overrides: object) -> dict[str, object]:
@@ -144,9 +155,9 @@ def two_tracks(tmp_path: Path) -> Path:
 
 
 def three_tracks(tmp_path: Path) -> Path:
-    """`two_tracks`, plus « The Void » en `c.mp3`."""
+    """`two_tracks`, plus « The Void » en `THIRD_TRACK`."""
     folder = two_tracks(tmp_path)
-    tagged_mp3(folder, "c.mp3", "Sara Landry", "The Void")
+    tagged_mp3(folder, THIRD_TRACK, "Sara Landry", "The Void")
     return folder
 
 
@@ -186,11 +197,23 @@ def hold_with_bandcamp_fallback(api: FakeApi) -> None:
     api.on(BANDCAMP_SEARCH, YOUR_MIND, found(ON_BANDCAMP))
 
 
-def must_record(live: LiveRun, track_id: str) -> TrackRecord:
+def must_record(live: LiveRun, track_id: TrackId) -> TrackRecord:
     """Record d'un morceau que le test sait present."""
     record = live.record(track_id)
     assert record is not None
     return record
+
+
+def must_be[O: TrackOutcome](record: TrackRecord, kind: type[O]) -> TrackRecord[O]:
+    """Record dont le test sait l'issue ; echoue sinon."""
+    assert holds(record, kind)
+    return record
+
+
+def must_record_as[O: TrackOutcome](
+    live: LiveRun, track_id: TrackId, kind: type[O]
+) -> TrackRecord[O]:
+    return must_be(must_record(live, track_id), kind)
 
 
 async def cancelled(task: asyncio.Task[None]) -> None:
@@ -266,7 +289,7 @@ async def networked_run(
 
 @asynccontextmanager
 async def run_sources(
-    folder: Path, api: FakeApi, run_id: str, *, cdn: FakeCdn | None = None
+    folder: Path, api: FakeApi, run_id: RunId, *, cdn: FakeCdn | None = None
 ) -> AsyncGenerator[RunSources]:
     """Sources d'un run deja ouvert ailleurs (reprise) : rien n'est relu, rien n'est emis."""
     async with _wired(folder, api.gated_handler, cdn) as (client, artworks):

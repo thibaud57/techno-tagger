@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable
     from pathlib import Path
 
+    from tagger.core.identifiers import RunId
     from tagger.resolution.cache import ArtworkFetcher
     from tagger.resolution.matching import MatchingThresholds, ScoredCandidate, TrackQuery
     from tagger.resolution.scraper_client import SearchSource, TechnoScraperClient, TrackCandidate
@@ -63,7 +64,7 @@ class RunSources:
 
     def __init__(
         self,
-        run_id: str,
+        run_id: RunId,
         client: TechnoScraperClient,
         artworks: ArtworkFetcher,
         thresholds: MatchingThresholds,

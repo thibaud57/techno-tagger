@@ -14,6 +14,7 @@ from typing import Final
 
 from pydantic import AwareDatetime, ValidationError
 
+from tagger.core.identifiers import RunId
 from tagger.core.models import StrictFrozenModel
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import write_atomically
@@ -24,7 +25,7 @@ SCHEMA_VERSION: Final = 1
 
 
 class IndexEntry(StrictFrozenModel):
-    run_id: str
+    run_id: RunId
     written_at: AwareDatetime
     folder: Path
     report_path: Path
@@ -65,7 +66,7 @@ def list_reports(index: Path) -> tuple[IndexEntry, ...]:
     return tuple(sorted(entries, key=lambda entry: entry.written_at, reverse=True))
 
 
-def find_report(index: Path, run_id: str) -> IndexEntry | None:
+def find_report(index: Path, run_id: RunId) -> IndexEntry | None:
     """Entree d'un run dont le rapport existe encore : seule elle est verifiee sur le disque."""
     known = _read(index)
     if known is None:

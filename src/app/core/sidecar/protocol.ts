@@ -347,6 +347,8 @@ export interface TrackResolvedEvent {
   readonly tags_after: readonly TagValue[] | null
   /** Le dump du run porte l'origine du morceau : le sidecar est seul a savoir si une restauration est possible. */
   readonly restorable: boolean
+  /** Le sidecar calcule l'eligibilite du morceau au rattrapage par URL ; phase ouverte et run non confirme restent des conditions a part. */
+  readonly recoverable: boolean
   /** Lien vers la fiche du candidat retenu, nul sans candidat. */
   readonly source_url: string | null
 }
@@ -509,11 +511,17 @@ export interface FeedbackReadyEvent {
   readonly export_path: string
 }
 
+// Codes que l'interface interprete au-dela de leur phrase, gardes par le test de miroir du sidecar.
+
 /** Une phase longue tourne deja : `params.phase` la nomme, `command` dit laquelle est refusee. */
 export const PHASE_BUSY = "phase_busy"
+export const API_KEY_MISSING = "api_key_missing"
+export const ARBITRATION_NOT_PENDING = "arbitration_not_pending"
 
 /** Valeurs de `params.phase` d'un `phase_busy` : la phase qui tourne, la restauration comprise (absente de `Phase`). */
-export type BusyPhase = "extraction" | "tagging" | "write" | "rollback"
+export const BUSY_PHASES = ["extraction", "tagging", "write", "rollback"] as const
+
+export type BusyPhase = (typeof BUSY_PHASES)[number]
 
 /** `ErrorEvent` est un type DOM global : meme raison. */
 export interface SidecarErrorEvent {

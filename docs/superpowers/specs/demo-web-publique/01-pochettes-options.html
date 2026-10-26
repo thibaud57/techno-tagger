@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pochettes de démo</title>
+<style>
+  :root { --bg: #09090b; --surface: #18181b; --border: #27272a; --text: #fafafa; --muted: #a1a1aa; --primary: #34d399; --frame: #27272a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 Inter, system-ui, sans-serif; padding: 32px 64px; }
+  h1 { font-size: 24px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0; }
+  .lead { color: var(--muted); margin: 0 0 32px; }
+  .option { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+  .option.reco { border-color: var(--primary); }
+  .option header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.reco { border-color: var(--primary); color: var(--primary); }
+  .desc { color: var(--muted); margin: 0 0 16px; }
+  .sizes { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+  .grid { display: flex; gap: 16px; flex-wrap: wrap; }
+  .cover { width: 168px; height: 168px; border-radius: 4px; overflow: hidden; background: var(--frame); display: flex; align-items: center; justify-content: center; }
+  .cover svg, .thumb svg { width: 100%; height: 100%; display: block; }
+  .cover svg.icon, .thumb svg.icon { width: auto; height: auto; }
+  .caption { font-size: 12px; color: var(--muted); margin-top: 6px; width: 168px; }
+  .label-size { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .rows { border-top: 1px solid var(--border); min-width: 420px; }
+  .row { display: flex; align-items: center; gap: 16px; height: 56px; border-bottom: 1px solid var(--border); padding: 0 12px; }
+  .thumb { width: 32px; height: 32px; border-radius: 4px; overflow: hidden; background: var(--frame); flex: none; display: flex; align-items: center; justify-content: center; }
+  .row .name { flex: 1; }
+  .src { font-size: 12px; color: var(--muted); width: 72px; }
+  .score { font-size: 12px; color: var(--muted); width: 28px; text-align: right; }
+  .ok { color: var(--primary); width: 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>Pochettes de démo</h1>
+<p class="lead">Trois façons de générer les pochettes fictives, à côté de ce que la démo afficherait sans rien faire. Tailles réelles de l'app : 168px dans le détail, 32px dans la liste.</p>
+<div id="options"></div>
+<section class="option">
+  <h2>Catalogue fictif</h2>
+  <p class="desc">Un morceau par cas à montrer. Quatre labels, chacun avec son identité visuelle.</p>
+  <table id="catalogue"></table>
+  <p class="note">Noms inventés, à passer par une recherche Beatport et Discogs avant de les figer : aucun ne doit désigner un vrai artiste ou label.</p>
+</section>
+<script>
+  const LABELS = {
+    "Concrete Halls": { bg: "#1c1b19", fg: "#e8e2d6", hue: 40, motif: "rings" },
+    "Ferrous Records": { bg: "#1a1210", fg: "#f0a35c", hue: 22, motif: "waves" },
+    "Grauzone Tonträger": { bg: "#12161b", fg: "#9fb4c8", hue: 205, motif: "grid" },
+    "Lumen Drift": { bg: "#15121d", fg: "#b9a3f0", hue: 265, motif: "dots" },
+  };
+
+  const TRACKS = [
+    { artist: "Nadia Kessler", title: "Hollow Frequencies", label: "Concrete Halls", cat: "CH012", source: "Beatport", score: 96, cas: "Extrait, validé seul sur Beatport" },
+    { artist: "Oblique Unit", title: "Signal Decay", label: "Ferrous Records", cat: "FER031", source: "Beatport", score: 93, cas: "Extrait, validé seul sur Beatport" },
+    { artist: "Lena Varga", title: "Night Shift Protocol", label: "Ferrous Records", cat: "FER029", source: "Beatport", score: 95, cas: "Extrait, validé seul sur Beatport" },
+    { artist: "Kaltwerk", title: "Stahlregen", label: "Grauzone Tonträger", cat: "GZT007", source: "Beatport", score: 98, cas: "Extrait, validé seul sur Beatport" },
+    { artist: "Mirela Dragović", title: "Ferrum", label: "Lumen Drift", cat: "LMD004", source: "Bandcamp", score: 91, cas: "Extrait, absent de Beatport, trouvé sur Bandcamp" },
+    { artist: "Pale Assembly", title: "Sub Rosa", label: "Concrete Halls", cat: "CH015", source: "Beatport", score: 82, cas: "Arbitrage : Original Mix ou Dub" },
+    { artist: "Teodor Ilin", title: "Тишина", label: "Grauzone Tonträger", cat: "GZT009", source: "Bandcamp", score: 88, cas: "Arbitrage, refus de Beatport, bascule sur Bandcamp" },
+    { artist: "Arc Ventral", title: "Lowlands", label: "Lumen Drift", cat: "LMD006", source: "Bandcamp", score: 100, cas: "Introuvable, rattrapé par URL" },
+    { artist: "Sora Tanabe", title: "Glass Corridor", label: "Ferrous Records", cat: "FER033", source: "Beatport", score: 94, cas: "Écriture en échec (fichier verrouillé), relancée" },
+    { artist: "Hexen Choir", title: "Ritual IV", label: "Concrete Halls", cat: "CH010", source: "Beatport", score: 97, cas: "Déjà présent dans la destination" },
+    { artist: "Basalt Theory", title: "Erosion", label: "Grauzone Tonträger", cat: "GZT011", source: "Beatport", score: 92, cas: "Doublon dans la bibliothèque, le plus gros retenu" },
+    { artist: "Mara Linde", title: "Afterglow", label: null, cat: null, cas: "Absent de la bibliothèque" },
+    { artist: "Cold Meridian", title: "Pulse Width", label: null, cat: null, cas: "Échec de l'extraction (fichier verrouillé)" },
+  ];
+
+  const FONT = 'font-family="Inter, system-ui, sans-serif"';
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+  function hash(s) {
+    let h = 2166136261;
+    for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+
+  function rng(seed) {
+    let a = seed;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const svg = (body) => `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+
+  function emptyCover(_t, size) {
+    return `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>`;
+  }
+
+  function coverA(t) {
+    const L = LABELS[t.label], r = rng(hash(t.cat));
+    let motif = "";
+    if (L.motif === "rings") motif = `<circle cx="${60 + r() * 80}" cy="${60 + r() * 40}" r="${40 + r() * 25}" fill="none" stroke="${L.fg}" stroke-width="2"/>`;
+    if (L.motif === "waves") motif = `<rect x="-40" y="${60 + r() * 40}" width="280" height="${14 + r() * 18}" fill="${L.fg}" transform="rotate(${-15 - r() * 20} 100 100)"/>`;
+    if (L.motif === "grid") motif = Array.from({ length: 4 + Math.floor(r() * 5) }, (_, i) => `<line x1="16" x2="184" y1="${44 + i * 12}" y2="${44 + i * 12}" stroke="${L.fg}" stroke-width="${1 + (i % 2)}"/>`).join("");
+    if (L.motif === "dots") { const cy = 80 + r() * 20; motif = `<path d="M40 ${cy + 40} A60 60 0 0 1 160 ${cy + 40} Z" fill="${L.fg}" opacity=".85"/>`; }
+    return svg(`<rect width="200" height="200" fill="${L.bg}"/>${motif}
+      <text x="16" y="24" font-size="9" letter-spacing="1.2" fill="${L.fg}" opacity=".7" ${FONT}>${esc(t.label.toUpperCase())}</text>
+      <text x="184" y="24" font-size="9" text-anchor="end" fill="${L.fg}" opacity=".7" ${FONT}>${t.cat}</text>
+      <text x="16" y="164" font-size="15" font-weight="600" fill="${L.fg}" ${FONT}>${esc(t.artist)}</text>
+      <text x="16" y="182" font-size="12" fill="${L.fg}" opacity=".8" ${FONT}>${esc(t.title)}</text>`);
+  }
+
+  function coverB(t) {
+    const L = LABELS[t.label], r = rng(hash(t.cat + t.title));
+    const hue = (L.hue + r() * 30 - 15 + 360) % 360;
+    const acc = `hsl(${hue} 75% 62%)`, acc2 = `hsl(${(hue + 25) % 360} 55% 38%)`;
+    let g = "";
+    if (L.motif === "rings") {
+      const cx = 50 + r() * 100, cy = 50 + r() * 100;
+      for (let i = 1; i <= 16; i++) g += `<circle cx="${cx}" cy="${cy}" r="${i * 11}" fill="none" stroke="${i % 3 ? acc2 : acc}" stroke-width="${i % 3 ? 1 : 2.5}" opacity="${(1 - i / 20).toFixed(2)}"/>`;
+    }
+    if (L.motif === "waves") {
+      const f = 0.02 + r() * 0.04, a = 6 + r() * 14, ph = r() * 6;
+      for (let k = 0; k < 16; k++) {
+        let d = "";
+        for (let x = 0; x <= 200; x += 5) d += (x ? "L" : "M") + x + " " + (20 + k * 11 + Math.sin(x * f + ph + k * 0.35) * a * (0.4 + k / 16)).toFixed(1);
+        g += `<path d="${d}" fill="none" stroke="${k % 4 ? acc2 : acc}" stroke-width="${k % 4 ? 1 : 2}"/>`;
+      }
+    }
+    if (L.motif === "grid") {
+      const a1 = r() * 30 - 15, a2 = a1 + 3 + r() * 6;
+      const lines = (ang, col, w) => `<g transform="rotate(${ang} 100 100)">${Array.from({ length: 42 }, (_, i) => `<line x1="-60" x2="260" y1="${-60 + i * 8}" y2="${-60 + i * 8}" stroke="${col}" stroke-width="${w}"/>`).join("")}</g>`;
+      g = lines(a1, acc2, 1.2) + lines(a2, acc, 1);
+    }
+    if (L.motif === "dots") {
+      const cx = 60 + r() * 80, cy = 60 + r() * 80;
+      for (let y = 10; y < 200; y += 12) for (let x = 10; x < 200; x += 12) {
+        const d = Math.hypot(x - cx, y - cy);
+        g += `<circle cx="${x}" cy="${y}" r="${Math.max(0.6, 5 - d / 28).toFixed(2)}" fill="${d < 50 ? acc : acc2}"/>`;
+      }
+    }
+    return svg(`<rect width="200" height="200" fill="${L.bg}"/>${g}<text x="188" y="190" font-size="8" text-anchor="end" fill="${L.fg}" opacity=".6" ${FONT}>${t.cat}</text>`);
+  }
+
+  let gradientId = 0;
+  function coverC(t) {
+    const r = rng(hash(t.artist)), id = "c" + gradientId++, h = r() * 360;
+    const blobs = [0, 1, 2].map((i) => ({ x: 20 + r() * 160, y: 20 + r() * 160, rad: 90 + r() * 60, c: `hsl(${(h + i * (40 + r() * 40)) % 360} 70% ${45 + r() * 15}%)` }));
+    const initials = t.artist.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    const defs = blobs.map((b, i) => `<radialGradient id="${id}g${i}" cx="${b.x / 200}" cy="${b.y / 200}" r="${b.rad / 200}"><stop offset="0" stop-color="${b.c}"/><stop offset="1" stop-color="${b.c}" stop-opacity="0"/></radialGradient>`).join("")
+      + `<filter id="${id}n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 .35"/></feComponentTransfer></filter>`;
+    return svg(`<defs>${defs}</defs><rect width="200" height="200" fill="#111"/>${blobs.map((_, i) => `<rect width="200" height="200" fill="url(#${id}g${i})"/>`).join("")}<rect width="200" height="200" filter="url(#${id}n)"/><text x="100" y="122" font-size="60" font-weight="700" text-anchor="middle" fill="#fff" opacity=".88" ${FONT}>${initials}</text>`);
+  }
+
+  const OPTIONS = [
+    { name: "Sans pochette", badge: "Actuel", desc: "Ce que la démo afficherait sans rien faire : le cadre vide de l'app, celui d'un morceau tranché sans pochette.", fn: emptyCover },
+    { name: "A. Typographique", desc: "Fond uni, une forme par label, label, référence, artiste et titre écrits. Le style de beaucoup de labels techno, mais réduit à une forme à 32px.", fn: coverA },
+    { name: "B. Génératif par label", badge: "Recommandé", reco: true, desc: "Un motif par label (anneaux, ondes, trames, points), une variation et une teinte par morceau, référence discrète. Lisible à 32px, cohérent d'une sortie à l'autre d'un même label.", fn: coverB },
+    { name: "C. Dégradé et grain", desc: "Dégradés flous, grain, initiales de l'artiste. Look plateforme de streaming, sans lien entre les sorties d'un même label.", fn: coverC },
+  ];
+
+  const shown = TRACKS.filter((t) => t.label).slice(0, 7).filter((_, i) => i !== 2);
+
+  document.getElementById("options").innerHTML = OPTIONS.map((o) => `
+    <section class="option${o.reco ? " reco" : ""}">
+      <header><h2>${o.name}</h2>${o.badge ? `<span class="badge${o.reco ? " reco" : ""}">${o.badge}</span>` : ""}</header>
+      <p class="desc">${o.desc}</p>
+      <div class="sizes">
+        <div>
+          <p class="label-size">Détail, 168px</p>
+          <div class="grid">${shown.slice(0, 3).map((t) => `<div><div class="cover">${o.fn(t, 24)}</div><div class="caption">${esc(t.artist)}<br>${esc(t.label)}</div></div>`).join("")}</div>
+        </div>
+        <div>
+          <p class="label-size">Liste du run, 32px</p>
+          <div class="rows">${shown.map((t) => `<div class="row"><div class="thumb">${o.fn(t, 16)}</div><span class="name">${esc(t.artist)} - ${esc(t.title)}</span><span class="src">${t.source}</span><span class="score">${t.score}</span><span class="ok">✓</span></div>`).join("")}</div>
+        </div>
+      </div>
+    </section>`).join("");
+
+  document.getElementById("catalogue").innerHTML = `<tr><th>Artiste</th><th>Titre</th><th>Label</th><th>Réf.</th><th>Cas montré</th></tr>`
+    + TRACKS.map((t) => `<tr><td>${esc(t.artist)}</td><td>${esc(t.title)}</td><td>${t.label ? esc(t.label) : "-"}</td><td>${t.cat ?? "-"}</td><td>${esc(t.cas)}</td></tr>`).join("");
+</script>
+</body>
+</html>

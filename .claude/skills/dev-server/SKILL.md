@@ -14,6 +14,7 @@ Ta mission est de démarrer ou d'arrêter l'environnement de développement, en 
 |---------|------------------|------------------|
 | `just dev` | Angular + fenêtre Tauri | Vérifier l'application complète, y compris ce qui passe par les plugins Tauri |
 | `just dev-ui` | Webview Angular seule, dans le navigateur sur le port 4200 | Travailler sur l'interface pure. Aucune API Tauri n'est disponible : dialogues, store et sidecar échouent |
+| `just dev-demo` | Démo web dans le navigateur (build `demo`), sans Tauri ni sidecar | Travailler sur le shell de démo et le rejeu du scénario enregistré |
 | `just dev-sidecar` | Sidecar Python en CLI | Tester le protocole NDJSON en injectant des commandes sur stdin, sans lancer d'interface |
 | `just stop` | Arrête tout | Libérer le port et tuer les process restants |
 | `just stop-ui` / `just stop-app` | Arrêt ciblé | Ne tuer qu'une moitié |

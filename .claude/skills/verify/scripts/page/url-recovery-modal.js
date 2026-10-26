@@ -66,9 +66,9 @@ async (page) => {
     artist,
     title,
   })
-  const unresolved = (t, reason) => ({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: reason, source: null, after: null, scores: null, artwork_path: null })
+  const unresolved = (t, reason) => ({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: reason, source: null, after: null, scores: null, artwork_path: null, recoverable: true })
   const auto = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "auto", failure_reason: null, source: "beatport", after: { artist: t.artist, title: t.title }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null })
-  const byUrl = (t, source) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "url", failure_reason: null, source, after: { artist: t.artist, title: t.title }, scores: null, artwork_path: null })
+  const byUrl = (t, source) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "url", failure_reason: null, source, after: { artist: t.artist, title: t.title }, scores: null, artwork_path: null, recoverable: true })
   const arbitration = (t, source, other) => ({ track_id: t.track_id, source, beatport_unavailable: false, empty_reason: null, other_source: other, candidates: [{ artist: t.artist, title: `${t.title} (Original Mix)`, label: "Drumcode", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
 
   const A = track(1, "Amelie Lens", "Basiel")

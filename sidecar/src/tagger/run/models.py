@@ -6,7 +6,7 @@ evenements internes du pipeline. Aucun appel reseau ni fichier : le pipeline vit
 import copy
 from dataclasses import dataclass
 from enum import UNIQUE, StrEnum, auto, verify
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, ClassVar, Literal, TypeIs, assert_never, override
 
 from tagger.core.file_failures import FileFailureReason
 
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
+    from tagger.core.identifiers import RunId, TrackId
     from tagger.resolution.matching import ScoredCandidate, TrackQuery
     from tagger.resolution.scraper_client import Source, TrackCandidate
     from tagger.tags.files import IdentityTags, ShownTags, WrittenTags
@@ -62,22 +63,6 @@ class FailureReason(StrEnum):
 type TrackFailureReason = FailureReason | FileFailureReason
 
 
-def is_decided(
-    state: TrackState | None, failure_reason: TrackFailureReason | None, *, on_hold: bool
-) -> bool:
-    """Tranche, ou en attente d'une decision humaine.
-
-    Une source qui n'a pas repondu (`source_unavailable`) n'est pas une decision : le morceau
-    repart sur le reseau a la reprise, une fois la panne ou la cle corrigee.
-    """
-    if on_hold:
-        return True
-    unavailable = (
-        state is TrackState.UNRESOLVED and failure_reason is FailureReason.SOURCE_UNAVAILABLE
-    )
-    return state is not None and not unavailable
-
-
 @dataclass(frozen=True, slots=True)
 class SourceList:
     """Liste d'une source mise de cote pendant qu'une autre est affichee."""
@@ -107,27 +92,183 @@ class WriteOutcome:
     truncated: bool
 
 
-@dataclass(frozen=True, slots=True)
-class TrackRecord:
-    """Tout ce que le run sait d'un morceau. `state` vide : en attente d'arbitrage ou en cours."""
+type ResolvedBy = Literal[Resolution.AUTO, Resolution.ARBITRATION, Resolution.URL]
 
-    track_id: str
+
+@dataclass(frozen=True, slots=True)
+class Retained:
+    """Candidat retenu pour un morceau, de la resolution a l'ecriture.
+
+    `scored` nul : une URL collee n'a traverse aucun scoring.
+    """
+
+    resolution: ResolvedBy
+    source: Source
+    candidate: TrackCandidate
+    scored: ScoredCandidate | None
+    artwork: Path | None
+
+    @property
+    def by_url(self) -> bool:
+        return self.resolution is Resolution.URL
+
+
+# Chaque issue porte ses projections (`state`, `resolution`, `failure_reason`, `restorable`,
+# `recoverable`, `decided`) : `TrackRecord` les lit sans les deduire, un oubli casse au typage.
+@dataclass(frozen=True, slots=True)
+class Waiting:
+    """Jamais traite."""
+
+    state: ClassVar[None] = None
+    resolution: ClassVar[None] = None
+    failure_reason: ClassVar[None] = None
+    restorable: ClassVar[bool] = False
+    recoverable: ClassVar[bool] = False
+    decided: ClassVar[bool] = False
+
+
+@dataclass(frozen=True, slots=True)
+class AwaitingArbitration:
+    """Zone grise : une liste de candidats attend la decision humaine."""
+
+    query: TrackQuery
+    pending: PendingArbitration
+
+    state: ClassVar[None] = None
+    resolution: ClassVar[None] = None
+    failure_reason: ClassVar[None] = None
+    restorable: ClassVar[bool] = False
+    recoverable: ClassVar[bool] = False
+    decided: ClassVar[bool] = True
+
+
+@dataclass(frozen=True, slots=True)
+class Unresolved:
+    """Aucun candidat retenu ; `query` nul pour `empty_query`."""
+
+    query: TrackQuery | None
+    reason: FailureReason
+
+    state: ClassVar[TrackState] = TrackState.UNRESOLVED
+    resolution: ClassVar[Resolution] = Resolution.NONE
+    restorable: ClassVar[bool] = False
+    recoverable: ClassVar[bool] = True
+
+    @property
+    def failure_reason(self) -> FailureReason:
+        return self.reason
+
+    @property
+    def decided(self) -> bool:
+        """Une source qui n'a pas repondu (`source_unavailable`) n'est pas une decision : le
+        morceau repart sur le reseau a la reprise, une fois la panne ou la cle corrigee.
+        """
+        return self.reason is not FailureReason.SOURCE_UNAVAILABLE
+
+
+@dataclass(frozen=True, slots=True)
+class Resolved:
+    """Candidat retenu, fichier intact ; `query` nul apres le rattrapage d'une requete vide.
+
+    Aucun motif d'echec : un non resolu rattrape ne garde pas son `no_result`.
+    """
+
+    query: TrackQuery | None
+    retained: Retained
+
+    state: ClassVar[TrackState] = TrackState.RESOLVED
+    failure_reason: ClassVar[None] = None
+    restorable: ClassVar[bool] = False
+    decided: ClassVar[bool] = True
+
+    @property
+    def resolution(self) -> ResolvedBy:
+        return self.retained.resolution
+
+    @property
+    def recoverable(self) -> bool:
+        return self.retained.by_url
+
+
+@dataclass(frozen=True, slots=True)
+class Written:
+    """Ecrit sur le fichier. `restorable` : une entree au dump du run, l'origine est sauvegardee
+    et un rollback a de quoi la rendre.
+    """
+
+    query: TrackQuery | None
+    retained: Retained
+    written: WriteOutcome
+    restorable: bool
+
+    state: ClassVar[TrackState] = TrackState.WRITTEN
+    failure_reason: ClassVar[None] = None
+    recoverable: ClassVar[bool] = False
+    decided: ClassVar[bool] = True
+
+    @property
+    def resolution(self) -> ResolvedBy:
+        return self.retained.resolution
+
+
+@dataclass(frozen=True, slots=True)
+class WriteFailed:
+    """Ecriture en echec : le candidat reste, la relance n'a rien a redemander.
+
+    `restorable` faux quand l'origine n'a jamais pu etre lue, donc jamais mise au dump.
+    """
+
+    query: TrackQuery | None
+    retained: Retained
+    reason: FileFailureReason
+    restorable: bool
+
+    state: ClassVar[TrackState] = TrackState.WRITE_ERROR
+    recoverable: ClassVar[bool] = False
+    decided: ClassVar[bool] = True
+
+    @property
+    def resolution(self) -> ResolvedBy:
+        return self.retained.resolution
+
+    @property
+    def failure_reason(self) -> FileFailureReason:
+        return self.reason
+
+
+@dataclass(frozen=True, slots=True)
+class RolledBack:
+    """Rendu a son origine : plus rien du candidat, la ligne retombe sur le fichier.
+
+    `resolution` reste, `resolved_event` l'exigeant : l'etat la masque a l'ecran.
+    """
+
+    resolution: ResolvedBy
+
+    state: ClassVar[TrackState] = TrackState.ROLLED_BACK
+    failure_reason: ClassVar[None] = None
+    restorable: ClassVar[bool] = False
+    recoverable: ClassVar[bool] = False
+    decided: ClassVar[bool] = True
+
+
+type Verdict = Unresolved | Resolved | AwaitingArbitration
+type SettledOutcome = Unresolved | Resolved | Written | WriteFailed | RolledBack
+type TrackOutcome = Waiting | AwaitingArbitration | SettledOutcome
+# Ce que la phase reseau laisse : le plan s'arrete a la confirmation, avant toute ecriture.
+type NetworkOutcome = Waiting | Verdict
+
+
+@dataclass(frozen=True, slots=True)
+class TrackRecord[O: TrackOutcome = TrackOutcome]:
+    """Tout ce que le run sait d'un morceau ; `O` restreint l'issue pour qui en exige une."""
+
+    track_id: TrackId
     path: Path
     identity: IdentityTags
-    query: TrackQuery | None = None
-    state: TrackState | None = None
-    resolution: Resolution | None = None
-    failure_reason: TrackFailureReason | None = None
-    source: Source | None = None
-    candidate: TrackCandidate | None = None
-    scored: ScoredCandidate | None = None
-    artwork: Path | None = None
-    arbitration: PendingArbitration | None = None
-    written: WriteOutcome | None = None
+    outcome: O
     # Pour l'affichage seul, `None` si illisibles : le dump relit le fichier.
     tags_before: ShownTags | None = None
-    # Une entree au dump du run : l'origine est sauvegardee, un rollback a de quoi la rendre.
-    restorable: bool = False
 
     @property
     def file_name(self) -> str:
@@ -135,96 +276,100 @@ class TrackRecord:
         return self.path.name
 
     @property
+    def state(self) -> TrackState | None:
+        return self.outcome.state
+
+    @property
+    def resolution(self) -> Resolution | None:
+        """`none` pour un non resolu, nulle tant que rien n'est tranche."""
+        return self.outcome.resolution
+
+    @property
+    def failure_reason(self) -> TrackFailureReason | None:
+        return self.outcome.failure_reason
+
+    @property
+    def query(self) -> TrackQuery | None:
+        # Elargit `O` pour que le `match` se ferme par `assert_never` sur l'union.
+        outcome: TrackOutcome = self.outcome
+        match outcome:
+            case (
+                AwaitingArbitration(query=query)
+                | Unresolved(query=query)
+                | Resolved(query=query)
+                | Written(query=query)
+                | WriteFailed(query=query)
+            ):
+                return query
+            case Waiting() | RolledBack():
+                return None
+            case _:
+                assert_never(outcome)
+
+    @property
+    def retained(self) -> Retained | None:
+        outcome: TrackOutcome = self.outcome
+        match outcome:
+            case (
+                Resolved(retained=retained)
+                | Written(retained=retained)
+                | WriteFailed(retained=retained)
+            ):
+                return retained
+            case Waiting() | AwaitingArbitration() | Unresolved() | RolledBack():
+                return None
+            case _:
+                assert_never(outcome)
+
+    @property
+    def restorable(self) -> bool:
+        return self.outcome.restorable
+
+    @property
+    def recoverable(self) -> bool:
+        """Regle unique du rattrapage par URL : un non resolu, ou un lien a corriger."""
+        return self.outcome.recoverable
+
+    @property
     def decided(self) -> bool:
         """Regle unique du « deja traite » : progression, reprise et pipeline selectif."""
-        return is_decided(self.state, self.failure_reason, on_hold=self.arbitration is not None)
+        return self.outcome.decided
 
-    def resolved(
-        self,
-        resolution: Resolution,
-        source: Source,
-        candidate: TrackCandidate,
-        scored: ScoredCandidate | None,
-        artwork: Path | None,
-    ) -> TrackRecord:
-        """Morceau resolu, sorti de l'attente d'arbitrage s'il y etait.
+    def with_outcome[S: TrackOutcome](self, outcome: S) -> TrackRecord[S]:
+        """Meme morceau, autre issue ; le chemin qui change passe par `copy.replace(..., path=)`."""
+        # Champ par champ : `copy.replace` garderait le type d'issue d'origine.
+        return TrackRecord(self.track_id, self.path, self.identity, outcome, self.tags_before)
 
-        `scored` nul : une URL collee n'a traverse aucun scoring. Le motif d'echec tombe,
-        un non resolu rattrape ne doit pas garder son `no_result`.
-        """
-        return copy.replace(
-            self,
-            state=TrackState.RESOLVED,
-            resolution=resolution,
-            failure_reason=None,
-            source=source,
-            candidate=candidate,
-            scored=scored,
-            artwork=artwork,
-            arbitration=None,
-        )
 
-    def written_to(self, path: Path, outcome: WriteOutcome) -> TrackRecord:
-        """Morceau ecrit ; `path` suit le renommage, `track_id` reste celui du run."""
-        return copy.replace(
-            self,
-            state=TrackState.WRITTEN,
-            failure_reason=None,
-            path=path,
-            written=outcome,
-            restorable=True,
-        )
+def holds[S: TrackOutcome](record: TrackRecord, kind: type[S]) -> TypeIs[TrackRecord[S]]:
+    """Retype la fiche sur son issue, sans la reconstruire."""
+    return isinstance(record.outcome, kind)
 
-    def write_failed(self, reason: FileFailureReason, *, restorable: bool) -> TrackRecord:
-        """Ecriture en echec : la resolution reste, la relance n'a rien a redemander.
 
-        `restorable` faux quand l'origine n'a jamais pu etre lue, donc jamais mise au dump.
-        """
-        return copy.replace(
-            self,
-            state=TrackState.WRITE_ERROR,
-            failure_reason=reason,
-            restorable=restorable,
-        )
+def rolled_back(record: TrackRecord[Written | WriteFailed], path: Path) -> TrackRecord[RolledBack]:
+    """Le fichier est de retour sous son nom d'origine."""
+    outcome = RolledBack(record.outcome.retained.resolution)
+    return copy.replace(record.with_outcome(outcome), path=path)
 
-    def rolled_back(self, path: Path) -> TrackRecord:
-        """Rendu a son origine : plus rien du candidat, la ligne retombe sur le fichier.
 
-        `resolution` reste, `resolved_event` l'exigeant : l'etat la masque a l'ecran.
-        """
-        return copy.replace(
-            self,
-            state=TrackState.ROLLED_BACK,
-            failure_reason=None,
-            path=path,
-            written=None,
-            restorable=False,
-            source=None,
-            candidate=None,
-            scored=None,
-            artwork=None,
-        )
-
-    def unrestorable(self) -> TrackRecord:
-        """Entree retiree du dump sans restauration : l'etat reste, plus rien n'est a rendre."""
-        return copy.replace(self, restorable=False)
-
-    def unresolved(self, reason: FailureReason) -> TrackRecord:
-        """Morceau non resolu, sorti de l'attente d'arbitrage s'il y etait."""
-        return copy.replace(
-            self,
-            state=TrackState.UNRESOLVED,
-            resolution=Resolution.NONE,
-            failure_reason=reason,
-            arbitration=None,
-        )
+def unrestorable(record: TrackRecord[Written | WriteFailed]) -> TrackRecord[Written | WriteFailed]:
+    """Entree retiree du dump sans restauration : l'etat reste, plus rien n'est a rendre."""
+    outcome = record.outcome
+    # Deux branches : `copy.replace` ne se type pas sur l'union des deux issues.
+    match outcome:
+        case Written():
+            return record.with_outcome(copy.replace(outcome, restorable=False))
+        case WriteFailed():
+            return record.with_outcome(copy.replace(outcome, restorable=False))
+        case _:
+            assert_never(outcome)
 
 
 @dataclass(frozen=True, slots=True)
 class TaggingRun:
     """Etat gele d'un run."""
 
-    run_id: str
+    run_id: RunId
     folder: Path
     tracks: tuple[TrackRecord, ...]
 
@@ -232,7 +377,7 @@ class TaggingRun:
 class LiveRun:
     """Etat vivant d'un run : l'arbitrage y tranche apres la phase reseau, jusqu'au run suivant."""
 
-    def __init__(self, run_id: str, folder: Path, records: Sequence[TrackRecord]) -> None:
+    def __init__(self, run_id: RunId, folder: Path, records: Sequence[TrackRecord]) -> None:
         self.run_id = run_id
         self.folder = folder
         self._records = {record.track_id: record for record in records}
@@ -245,10 +390,10 @@ class LiveRun:
     def __repr__(self) -> str:
         return f"LiveRun(run_id={self.run_id!r}, tracks={len(self._records)})"
 
-    def record(self, track_id: str) -> TrackRecord | None:
+    def record(self, track_id: TrackId) -> TrackRecord | None:
         return self._records.get(track_id)
 
-    def position(self, track_id: str) -> int:
+    def position(self, track_id: TrackId) -> int:
         """Rang du morceau dans le dossier, la cle `track` des logs."""
         return self._positions[track_id]
 
@@ -269,7 +414,7 @@ class LiveRun:
 class RunStarted:
     """Tous les morceaux du run avec leur identite lue, avant le premier appel reseau."""
 
-    run_id: str
+    run_id: RunId
     folder: Path
     tracks: tuple[TrackRecord, ...]
 
@@ -278,12 +423,12 @@ class RunStarted:
 class TrackResolved:
     """Un morceau resolu ou non resolu."""
 
-    record: TrackRecord
+    record: TrackRecord[SettledOutcome]
 
 
 @dataclass(frozen=True, slots=True)
 class ArbitrationRequired:
-    record: TrackRecord
+    record: TrackRecord[AwaitingArbitration]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

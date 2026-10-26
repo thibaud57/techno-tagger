@@ -6,14 +6,14 @@ refuse une version inconnue ; le rapport, permanent, se migre.
 """
 
 import asyncio
-import copy
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Final, Self, override
+from typing import TYPE_CHECKING, ClassVar, Final, Self, TypeIs, override
 
 from pydantic import AwareDatetime, model_validator
 
 from tagger.core.errors import RunNotFoundError, TaggerError
+from tagger.core.identifiers import RunId, TrackId
 from tagger.core.models import StrictFrozenModel
 from tagger.core.paths import app_data_dir
 from tagger.core.run_files import (
@@ -35,18 +35,22 @@ from tagger.resolution.matching import (
 )
 from tagger.resolution.scraper_client import Source, TrackCandidate
 from tagger.run.models import (
+    AwaitingArbitration,
     FailureReason,
     PendingArbitration,
     Resolution,
+    Resolved,
+    Retained,
     SourceList,
     TrackState,
-    is_decided,
+    Unresolved,
+    Waiting,
 )
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from tagger.run.models import LiveRun, TrackFailureReason, TrackRecord
+    from tagger.run.models import LiveRun, NetworkOutcome, TrackRecord
 
 logger = logging.getLogger(__name__)
 
@@ -188,52 +192,102 @@ class PlanTrack(StrictFrozenModel):
     scores: PlanScores | None = None
     arbitration: PlanArbitration | None = None
 
+    @model_validator(mode="after")
+    def _forms_an_outcome(self) -> Self:
+        # Un morceau incoherent rend le plan illisible des la relecture, pas en pleine reprise.
+        self.outcome()
+        return self
+
     @property
     def processed(self) -> bool:
-        """Meme regle que `TrackRecord.decided`."""
-        return is_decided(self.state, self.failure_reason, on_hold=self.arbitration is not None)
+        return self.outcome().decided
 
     @classmethod
-    def of(cls, record: TrackRecord) -> Self:
-        query, scored, pending = record.query, record.scored, record.arbitration
+    def of(cls, record: TrackRecord[NetworkOutcome]) -> Self:
+        query, retained = record.query, record.retained
+        scored = None if retained is None else retained.scored
+        outcome = record.outcome
         return cls(
-            state=record.state,
-            resolution=record.resolution,
-            failure_reason=_network_reason(record.failure_reason),
-            source=record.source,
+            state=outcome.state,
+            resolution=outcome.resolution,
+            failure_reason=outcome.failure_reason,
+            source=None if retained is None else retained.source,
             query=None if query is None else PlanQuery.of(query),
-            candidate=record.candidate,
+            candidate=None if retained is None else retained.candidate,
             scores=None if scored is None else PlanScores.of(scored),
-            arbitration=None if pending is None else PlanArbitration.of(pending),
+            arbitration=PlanArbitration.of(outcome.pending)
+            if isinstance(outcome, AwaitingArbitration)
+            else None,
         )
 
-    def applied_to(self, record: TrackRecord) -> TrackRecord:
+    def applied_to(self, record: TrackRecord) -> TrackRecord[NetworkOutcome]:
         """Decision du plan posee sur le morceau relu ; sa pochette se retelecharge a part."""
-        candidate, scores = self.candidate, self.scores
-        return copy.replace(
-            record,
-            state=self.state,
-            resolution=self.resolution,
-            failure_reason=self.failure_reason,
-            source=self.source,
-            query=None if self.query is None else self.query.to_query(),
-            candidate=candidate,
-            scored=None if scores is None or candidate is None else scores.applied_to(candidate),
-            arbitration=None if self.arbitration is None else self.arbitration.to_pending(),
-        )
+        return record.with_outcome(self.outcome())
+
+    def outcome(self) -> NetworkOutcome:
+        """Issue que portent les champs a plat ; `ValueError` s'ils n'en forment aucune."""
+        query = None if self.query is None else self.query.to_query()
+        match self:
+            case PlanTrack(
+                state=None,
+                resolution=None,
+                failure_reason=None,
+                source=None,
+                query=None,
+                candidate=None,
+                scores=None,
+                arbitration=None,
+            ):
+                return Waiting()
+            case PlanTrack(
+                state=None,
+                resolution=None,
+                failure_reason=None,
+                source=None,
+                candidate=None,
+                scores=None,
+                arbitration=PlanArbitration() as pending,
+            ) if query is not None:
+                return AwaitingArbitration(query, pending.to_pending())
+            case PlanTrack(
+                state=TrackState.UNRESOLVED,
+                resolution=Resolution.NONE,
+                failure_reason=FailureReason() as reason,
+                source=None,
+                candidate=None,
+                scores=None,
+                arbitration=None,
+            ):
+                return Unresolved(query, reason)
+            case PlanTrack(
+                state=TrackState.RESOLVED,
+                resolution=(
+                    Resolution.AUTO | Resolution.ARBITRATION | Resolution.URL as resolution
+                ),
+                failure_reason=None,
+                source=Source() as source,
+                candidate=TrackCandidate() as candidate,
+                arbitration=None,
+            ):
+                scores = self.scores
+                scored = None if scores is None else scores.applied_to(candidate)
+                return Resolved(query, Retained(resolution, source, candidate, scored, None))
+            case _:
+                found = f"state={self.state} resolution={self.resolution}"
+                raise ValueError(f"plan track matches no outcome {found}")
 
 
 class RunPlan(StrictFrozenModel):
     """Plan tel qu'il est ecrit sur le disque, morceaux par `track_id` dans l'ordre du dossier."""
 
     schema_version: int = SCHEMA_VERSION
-    run_id: str
+    run_id: RunId
     folder: Path
     started_at: AwareDatetime
     thresholds: PlanThresholds
     # Frontiere de la reprise : un run confirme a pu toucher des fichiers, il ne se reprend pas.
     committed: bool = False
-    tracks: dict[str, PlanTrack]
+    tracks: dict[TrackId, PlanTrack]
 
     @classmethod
     def opened(cls, live: LiveRun, thresholds: MatchingThresholds, started_at: datetime) -> Self:
@@ -242,10 +296,12 @@ class RunPlan(StrictFrozenModel):
             folder=live.folder,
             started_at=started_at,
             thresholds=PlanThresholds(floor=thresholds.floor, ceiling=thresholds.ceiling),
-            tracks={record.track_id: PlanTrack.of(record) for record in live.snapshot().tracks},
+            tracks={
+                record.track_id: PlanTrack.of(_planned(record)) for record in live.snapshot().tracks
+            },
         )
 
-    def with_track(self, record: TrackRecord) -> Self:
+    def with_track(self, record: TrackRecord[NetworkOutcome]) -> Self:
         """Le morceau garde sa place : une cle existante ne change pas de rang dans un dict."""
         return self.model_copy(
             update={"tracks": {**self.tracks, record.track_id: PlanTrack.of(record)}}
@@ -283,11 +339,11 @@ def plans_newest_first(folder: Path) -> list[Path]:
     return newest_first(folder, _SUFFIX)
 
 
-def find_plan(folder: Path, run_id: str) -> Path | None:
+def find_plan(folder: Path, run_id: RunId) -> Path | None:
     return find_by_run_id(folder, _SUFFIX, run_id)
 
 
-def require_plan(folder: Path, run_id: str) -> Path:
+def require_plan(folder: Path, run_id: RunId) -> Path:
     """Le plan d'un run ; `run_not_found` s'il a disparu entre l'annonce et le geste."""
     path = find_plan(folder, run_id)
     if path is None:
@@ -326,7 +382,7 @@ class PlanRecorder:
 
     def record(self, record: TrackRecord) -> None:
         """Observateur de `LiveRun.update` ; ecriture, relance et rollback ne changent rien."""
-        if self._plan.committed or self._discarded:
+        if self._plan.committed or self._discarded or not _plannable(record):
             return
         self._plan = self._plan.with_track(record)
         self._wake()
@@ -421,6 +477,13 @@ def _committed(path: Path) -> bool:
         return False
 
 
-def _network_reason(reason: TrackFailureReason | None) -> FailureReason | None:
-    """Un motif de fichier n'apparait qu'apres la confirmation, que le plan ne suit plus."""
-    return reason if isinstance(reason, FailureReason) else None
+def _plannable(record: TrackRecord) -> TypeIs[TrackRecord[NetworkOutcome]]:
+    """Ce que le plan suit : une issue d'ecriture ou de rollback vient apres la confirmation."""
+    return isinstance(record.outcome, Waiting | AwaitingArbitration | Unresolved | Resolved)
+
+
+def _planned(record: TrackRecord) -> TrackRecord[NetworkOutcome]:
+    """Un plan s'ouvre avant toute ecriture : une issue d'ecriture y serait un bug, pas un tri."""
+    if not _plannable(record):
+        raise ValueError("write outcome in an opening run plan")
+    return record

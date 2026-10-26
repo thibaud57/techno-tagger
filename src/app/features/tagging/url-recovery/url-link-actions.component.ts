@@ -10,8 +10,10 @@ import {
 } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
+import { Tooltip } from "primeng/tooltip"
 
 import { IconComponent } from "../../../shared/components/display/icon.component"
+import { TOOLTIP } from "../../../shared/utils/tooltip"
 
 import { RecoveryUiStore } from "./recovery-ui.store"
 
@@ -21,7 +23,7 @@ import { RecoveryUiStore } from "./recovery-ui.store"
  */
 @Component({
   selector: "app-url-link-actions",
-  imports: [ButtonDirective, TranslatePipe, IconComponent],
+  imports: [ButtonDirective, Tooltip, TranslatePipe, IconComponent],
   templateUrl: "./url-link-actions.component.html",
   host: { class: "contents" },
 })
@@ -35,6 +37,8 @@ export class UrlLinkActionsComponent {
 
   protected readonly busy = computed(() => this.recovery.isBusy(this.trackId()))
   protected readonly canResolve = computed(() => this.recovery.canResolve(this.trackId()))
+  protected readonly resolveBlocked = computed(() => this.recovery.resolveBlocked(this.trackId()))
+  protected readonly tooltip = TOOLTIP
 
   constructor() {
     // Champ desactive pendant la recherche : « Passer » reste la seule action.

@@ -1,5 +1,6 @@
 import { signal, Service } from "@angular/core"
 
+import { errorRunId } from "../sidecar/error-params"
 import type { PastRun, RunLoadedEvent, SidecarErrorEvent, TrackLoaded } from "../sidecar/protocol"
 import type { TaggingTrack } from "./tagging-run.store"
 
@@ -16,7 +17,7 @@ export interface LoadRefusal {
   readonly error: SidecarErrorEvent
 }
 
-/** Recopie champ a champ : le sidecar est seul juge des etats. Lecture seule, `restorable` faux. */
+/** Recopie champ a champ : le sidecar est seul juge des etats. Lecture seule, `restorable` et `recoverable` faux. */
 export const loadedTrack = (track: TrackLoaded): TaggingTrack => ({
   trackId: track.track_id,
   fileName: track.file_name,
@@ -34,6 +35,7 @@ export const loadedTrack = (track: TrackLoaded): TaggingTrack => ({
   sourceUrl: track.source_url,
   arbitration: null,
   restorable: false,
+  recoverable: false,
 })
 
 /** Runs ecrits relisibles depuis leurs rapports et celui que le recapitulatif a rouvert. */
@@ -79,8 +81,7 @@ export class PastRunsStore {
 
   /** Un refus de phase occupee ne porte pas de `run_id` : il vise le chargement en cours. */
   loadFailed(event: SidecarErrorEvent): void {
-    const target = event.params["run_id"]
-    const runId = typeof target === "string" ? target : this._loading()
+    const runId = errorRunId(event) ?? this._loading()
     if (runId === null) {
       return
     }

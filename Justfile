@@ -18,6 +18,11 @@ dev:
 dev-ui:
     pnpm start
 
+# Lancer la demo web dans le navigateur, sans Tauri ni sidecar
+[group('dev')]
+dev-demo:
+    pnpm start:demo
+
 # Lancer le sidecar en CLI, pour tester le protocole sans interface
 [group('dev')]
 [working-directory('sidecar')]
@@ -29,6 +34,12 @@ dev-sidecar:
 [working-directory('sidecar')]
 demo *args:
     uv run python demo.py {{ args }}
+
+# Reenregistrer le scenario et les pochettes de la demo web dans src/demo/ (Windows seulement)
+[group('dev')]
+[working-directory('sidecar')]
+record-demo:
+    uv run python record_demo.py
 
 # Arreter le dev server Angular (port 4200, aligne sur devUrl de tauri.conf.json)
 [group('dev')]
@@ -73,6 +84,11 @@ smoke-sidecar:
 build-ui:
     # Le detail vit dans les scripts npm : `pnpm build` seul rend un dist livrable
     pnpm build
+
+# Compiler la demo web (bundle separe du desktop)
+[group('quality')]
+build-demo:
+    pnpm build:demo
 
 # Produire l'installeur Windows
 [group('quality')]

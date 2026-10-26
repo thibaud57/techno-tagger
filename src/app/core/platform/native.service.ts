@@ -5,13 +5,15 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener"
 
 import { withFallback } from "./tauri-fallback"
 
+export type PathTarget = "library" | "destination" | "playlist" | "tagging_folder"
+
 /** Seul point d'entree des plugins `dialog` et `opener` et des URL d'asset : les specs le remplacent par `nativeStub`. */
 @Service()
 export class NativeService {
   /** `null` : annulation (le plugin la signale par `null`, pas par une erreur) ou hors Tauri. */
-  async pickPath(options: { directory: boolean }): Promise<string | null> {
+  async pickPath(target: PathTarget): Promise<string | null> {
     const chosen = await withFallback(
-      () => open({ directory: options.directory, multiple: false }),
+      () => open({ directory: target !== "playlist", multiple: false }),
       null,
     )
 

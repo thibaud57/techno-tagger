@@ -3,7 +3,7 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
 import { silenceConsoleError } from "../../../../fixtures/console"
-import { action, hostOf } from "../../../../fixtures/dom"
+import { action, hostOf, tooltipOf } from "../../../../fixtures/dom"
 import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
 import {
   PENDING_TRACK,
@@ -12,6 +12,7 @@ import {
   TAGS_AFTER,
   TAGS_BEFORE,
 } from "../../../../fixtures/tagging"
+import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
@@ -39,6 +40,7 @@ const WITH_SOURCE: TaggingTrack = {
 /** La liste construit la ligne ; le détail ne lit d'elle que le morceau, sa pochette et sa restauration. */
 const asRow = (track: TaggingTrack, shown: Partial<RunRow> = {}): RunRow => ({
   ...track,
+  status: "pending",
   mainLine: "",
   afterLine: null,
   artworkUrl: null,
@@ -57,10 +59,15 @@ const mountFixture = (
   track: TaggingTrack,
   inputs: Record<string, unknown> = {},
   shown: Partial<RunRow> = {},
+  edition: AppEdition = "desktop",
 ) => {
   TestBed.configureTestingModule({
     imports: [TrackDetailComponent],
-    providers: [provideTranslateService(), { provide: NativeService, useValue: native }],
+    providers: [
+      provideTranslateService(),
+      { provide: NativeService, useValue: native },
+      { provide: APP_EDITION, useValue: edition },
+    ],
   })
   const fixture = TestBed.createComponent(TrackDetailComponent)
   fixture.componentRef.setInput("track", asRow(track, shown))
@@ -247,5 +254,14 @@ describe("TrackDetailComponent", () => {
 
     expect(action("open-source", root)).toBeNull()
     expect(columnOf(root, 3).at(-1)).toBe(SOURCE_URL)
+  })
+
+  it("greys out restoring one track and opening the source page in the demo edition", () => {
+    const fixture = mountFixture(WITH_SOURCE, {}, { restorable: true }, "demo")
+
+    const names = ["restore-track", "open-source"]
+
+    expect(names.map((name) => action(name, hostOf(fixture))?.disabled)).toEqual([true, true])
+    expect(names.map((name) => tooltipOf(fixture, name))).toEqual(Array(2).fill(DEMO_UNAVAILABLE))
   })
 })

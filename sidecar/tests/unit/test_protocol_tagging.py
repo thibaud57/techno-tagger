@@ -5,7 +5,18 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 from scraper_responses import track_candidate
-from tagging_records import MUSIC, RECORD, RUN_ID, scored_candidate
+from tagging_records import (
+    MUSIC,
+    RECORD,
+    RUN_ID,
+    awaiting,
+    resolved,
+    rolled_back_record,
+    scored_candidate,
+    unresolved,
+    write_failed_record,
+    written_record,
+)
 
 from tagger.protocol import (
     ArbitrationRequired,
@@ -16,14 +27,16 @@ from tagger.protocol import (
     TrackResolved,
     parse_command,
 )
-from tagger.resolution.scraper_client import Source, TrackCandidate
+from tagger.resolution.scraper_client import Source
 from tagger.run import models
-from tagger.run.models import PendingArbitration, Resolution, TrackRecord, TrackState
+from tagger.run.models import FailureReason, PendingArbitration, Resolution
 from tagger.tags.files import TAG_FIELDS, TagField
 from tagger.translation import to_protocol_event
 
 if TYPE_CHECKING:
-    from tagger.resolution.matching import ScoredCandidate
+    from tagger.run.models import SettledOutcome, TrackRecord
+
+_RESOLVED = resolved(RECORD, scored=scored_candidate())
 
 
 def test_accepts_a_start_tagging_command_without_thresholds() -> None:
@@ -55,28 +68,8 @@ def test_rejects_thresholds_out_of_bounds(thresholds: str) -> None:
         parse_command(line)
 
 
-def _record(
-    *,
-    state: TrackState | None = None,
-    resolution: Resolution | None = None,
-    source: Source | None = None,
-    candidate: TrackCandidate | None = None,
-    scored: ScoredCandidate | None = None,
-    arbitration: PendingArbitration | None = None,
-) -> TrackRecord:
-    return replace(
-        RECORD,
-        state=state,
-        resolution=resolution,
-        source=source,
-        candidate=candidate,
-        scored=scored,
-        arbitration=arbitration,
-    )
-
-
 def test_lists_every_track_of_a_started_run() -> None:
-    event = to_protocol_event(models.RunStarted(RUN_ID, Path("D:/Sets"), (_record(),)))
+    event = to_protocol_event(models.RunStarted(RUN_ID, Path("D:/Sets"), (RECORD,)))
 
     assert isinstance(event, RunStarted)
     assert event.folder == Path("D:/Sets")
@@ -85,15 +78,7 @@ def test_lists_every_track_of_a_started_run() -> None:
 
 
 def test_rounds_the_scores_of_a_resolved_track() -> None:
-    record = _record(
-        state=TrackState.RESOLVED,
-        resolution=Resolution.AUTO,
-        source=Source.BEATPORT,
-        candidate=track_candidate(),
-        scored=scored_candidate(),
-    )
-
-    event = to_protocol_event(models.TrackResolved(record))
+    event = to_protocol_event(models.TrackResolved(_RESOLVED))
 
     assert isinstance(event, TrackResolved)
     assert event.scores is not None
@@ -111,13 +96,7 @@ def test_rounds_the_scores_of_a_resolved_track() -> None:
 def test_renders_the_artist_and_the_title_a_source_will_write(
     title: str, mix_name: str | None, expected: str
 ) -> None:
-    record = _record(
-        state=TrackState.RESOLVED,
-        resolution=Resolution.AUTO,
-        source=Source.BEATPORT,
-        candidate=track_candidate(title, mix_name),
-        scored=scored_candidate(),
-    )
+    record = resolved(RECORD, candidate=track_candidate(title, mix_name), scored=scored_candidate())
 
     event = to_protocol_event(models.TrackResolved(record))
 
@@ -127,7 +106,7 @@ def test_renders_the_artist_and_the_title_a_source_will_write(
 
 
 def test_carries_no_tags_after_for_an_unresolved_track() -> None:
-    record = _record(state=TrackState.UNRESOLVED, resolution=Resolution.NONE)
+    record = unresolved(RECORD, FailureReason.NO_RESULT)
 
     event = to_protocol_event(models.TrackResolved(record))
 
@@ -135,27 +114,47 @@ def test_carries_no_tags_after_for_an_unresolved_track() -> None:
     assert event.tags_after is None
 
 
+@pytest.mark.parametrize(
+    ("record", "recoverable"),
+    [
+        (unresolved(RECORD, FailureReason.NO_RESULT), True),
+        (resolved(RECORD, Resolution.URL), True),
+        (_RESOLVED, False),
+        (resolved(RECORD, Resolution.ARBITRATION, scored=scored_candidate()), False),
+        (written_record(_RESOLVED), False),
+        (write_failed_record(_RESOLVED), False),
+        (rolled_back_record(written_record(resolved(RECORD, Resolution.URL))), False),
+    ],
+    ids=[
+        "unresolved",
+        "resolved-by-url",
+        "resolved-auto",
+        "resolved-by-arbitration",
+        "written",
+        "write-failed",
+        "rolled-back",
+    ],
+)
+def test_resolved_event_says_whether_the_track_is_recoverable(
+    record: TrackRecord[SettledOutcome], *, recoverable: bool
+) -> None:
+    event = to_protocol_event(models.TrackResolved(record))
+
+    assert isinstance(event, TrackResolved)
+    assert event.recoverable is recoverable
+
+
 def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> None:
-    record = replace(
-        _record(
-            state=TrackState.RESOLVED,
-            resolution=Resolution.AUTO,
-            source=Source.BEATPORT,
-            candidate=track_candidate(),
-            scored=scored_candidate(),
-        ),
-        path=MUSIC / "a.FLAC",
-        tags_before=None,
-    )
+    record = replace(_RESOLVED, path=MUSIC / "a.FLAC", tags_before=None)
 
     started = to_protocol_event(models.RunStarted(RUN_ID, Path("D:/Sets"), (record,)))
-    resolved = to_protocol_event(models.TrackResolved(record))
+    settled = to_protocol_event(models.TrackResolved(record))
 
     assert isinstance(started, RunStarted)
     assert started.tracks[0].tags_before is None
-    assert isinstance(resolved, TrackResolved)
-    assert resolved.tags_after is not None
-    rows = {row.field: row for row in resolved.tags_after}
+    assert isinstance(settled, TrackResolved)
+    assert settled.tags_after is not None
+    rows = {row.field: row for row in settled.tags_after}
     assert list(rows) == list(TAG_FIELDS)
     assert rows[TagField.ARTIST].key == "ARTIST"
     assert rows[TagField.ARTIST].value == "Adam Beyer"
@@ -165,12 +164,8 @@ def test_deduces_the_tag_system_of_an_unreadable_file_from_its_extension() -> No
 
 
 def test_reports_no_artist_score_for_a_query_without_artist() -> None:
-    record = _record(
-        state=TrackState.RESOLVED,
-        resolution=Resolution.AUTO,
-        source=Source.BANDCAMP,
-        candidate=track_candidate(),
-        scored=scored_candidate(artist=None, title=100),
+    record = resolved(
+        RECORD, source=Source.BANDCAMP, scored=scored_candidate(artist=None, title=100)
     )
 
     event = to_protocol_event(models.TrackResolved(record))
@@ -181,10 +176,9 @@ def test_reports_no_artist_score_for_a_query_without_artist() -> None:
 
 
 def test_carries_the_grey_zone_candidates_of_an_arbitration() -> None:
-    record = _record(
-        arbitration=PendingArbitration(
-            Source.BANDCAMP, (scored_candidate(),), beatport_unavailable=True
-        )
+    record = awaiting(
+        RECORD,
+        PendingArbitration(Source.BANDCAMP, (scored_candidate(),), beatport_unavailable=True),
     )
 
     event = to_protocol_event(models.ArbitrationRequired(record))

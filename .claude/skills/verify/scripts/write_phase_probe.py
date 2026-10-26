@@ -30,7 +30,18 @@ from scraper_responses import payload_candidate
 
 from tagger.resolution.scraper_client import Source
 from tagger.run import writing
-from tagger.run.models import FailureReason, Resolution, TrackRecord, TrackResolved, TrackState
+from tagger.run.models import (
+    FailureReason,
+    Resolution,
+    Resolved,
+    Retained,
+    SettledOutcome,
+    TrackRecord,
+    TrackResolved,
+    TrackState,
+    Unresolved,
+    Written,
+)
 from tagger.run.tagging import open_run
 from tagger.tags import files, renaming
 from tagger.tags.files import TagField, read_original_tags
@@ -59,19 +70,19 @@ def states(live: object) -> dict[str, dict[str, object]]:
             "failure_reason": record.failure_reason,
             "restorable": record.restorable,
             "path": record.path.name,
-            "written": None
-            if record.written is None
-            else {
-                "fields": len(record.written.written.fields),
-                "artwork": record.written.written.artwork,
-                "truncated": record.written.truncated,
-            },
+            "written": {
+                "fields": len(record.outcome.written.written.fields),
+                "artwork": record.outcome.written.written.artwork,
+                "truncated": record.outcome.written.truncated,
+            }
+            if isinstance(record.outcome, Written)
+            else None,
         }
         for record in live.snapshot().tracks  # type: ignore[attr-defined]
     }
 
 
-def summary(settled: list[TrackRecord]) -> dict[str, int]:
+def summary(settled: list[TrackRecord[SettledOutcome]]) -> dict[str, int]:
     """Ce que `WriteSummary` comptait : les morceaux regles par la phase, ecrits ou en echec."""
     counts = Counter(record.state for record in settled)
     return {"written": counts[TrackState.WRITTEN], "failed": counts[TrackState.WRITE_ERROR]}
@@ -84,9 +95,10 @@ async def run(folder: Path) -> dict[str, object]:
     candidate = payload_candidate()
     for record in live.snapshot().tracks:
         if record.track_id in (*RESOLVED, LOCKED):
-            live.update(record.resolved(Resolution.AUTO, Source.BEATPORT, candidate, None, cover))
+            retained = Retained(Resolution.AUTO, Source.BEATPORT, candidate, None, cover)
+            live.update(record.with_outcome(Resolved(None, retained)))
         elif record.track_id == UNRESOLVED:
-            live.update(record.unresolved(FailureReason.NO_RESULT))
+            live.update(record.with_outcome(Unresolved(None, FailureReason.NO_RESULT)))
 
     created = datetime.now(UTC)
     dumps = dump_dir()
@@ -129,7 +141,7 @@ async def run(folder: Path) -> dict[str, object]:
     writing.write_tags = spying_write  # type: ignore[assignment]
     renaming.RenamePlan.apply = spying_apply  # type: ignore[method-assign]
     events: list[str] = []
-    settled: list[TrackRecord] = []
+    settled: list[TrackRecord[SettledOutcome]] = []
 
     def on_event(event: writing.WriteEvent) -> None:
         events.append(type(event).__name__)

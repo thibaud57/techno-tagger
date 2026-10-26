@@ -10,9 +10,18 @@ from log_capture import leaked, messages_of
 from rename_samples import ORIGINAL_NAME, rename_now
 from scraper_responses import BEATPORT_CANDIDATE
 from stubs import failing_first, ignore, raising
-from tagging_records import RUN_ID
+from tagging_records import (
+    FIRST_TRACK,
+    RUN_ID,
+    SECOND_RUN_ID,
+    SECOND_TRACK,
+    THIRD_TRACK,
+    UNKNOWN_RUN,
+    UNKNOWN_TRACK,
+)
 
 from tagger.core.file_failures import FileFailureReason
+from tagger.core.identifiers import RunId, TrackId
 from tagger.run import rollback
 from tagger.run.models import FailureReason
 from tagger.run.rollback import (
@@ -45,6 +54,7 @@ if TYPE_CHECKING:
 
 WRITTEN_AT: Final = datetime(2026, 10, 5, 21, 14, 3, tzinfo=UTC)
 LOGGER: Final = "tagger.run.rollback"
+ORIGINAL_TRACK: Final = TrackId(ORIGINAL_NAME)
 
 
 class _Written(NamedTuple):
@@ -69,11 +79,11 @@ def _write(folder: Path, name: str) -> _Written:
 def _dumped(
     folder: Path,
     *tracks: _Written,
-    run_id: str = RUN_ID,
+    run_id: RunId = RUN_ID,
     written_at: datetime = WRITTEN_AT,
     run_folder: Path | None = None,
 ) -> TagDump:
-    entries = {track.original.name: track.entry for track in tracks}
+    entries = {TrackId(track.original.name): track.entry for track in tracks}
     run = TagDump(
         run_id=run_id,
         created_at=written_at,
@@ -101,14 +111,14 @@ def _remove_tree(folder: Path) -> None:
 async def test_gives_a_renamed_file_back_its_name_and_tags(music_folder: Path, dumps: Path) -> None:
     track = _write(music_folder, ORIGINAL_NAME)
     _dumped(dumps, track)
-    restored: list[tuple[str, Path]] = []
+    restored: list[tuple[TrackId, Path]] = []
 
     summary = await roll_back(
         dumps, RUN_ID, None, lambda track_id, path: restored.append((track_id, path))
     )
 
-    assert (summary.restored, summary.failed) == ((ORIGINAL_NAME,), ())
-    assert restored == [(ORIGINAL_NAME, track.original)]
+    assert (summary.restored, summary.failed) == ((ORIGINAL_TRACK,), ())
+    assert restored == [(ORIGINAL_TRACK, track.original)]
     assert not track.renamed.exists()
     assert read_original_tags(track.original) == track.origin
 
@@ -126,12 +136,12 @@ async def test_leaves_a_track_whose_original_name_is_taken_untouched(
 
     assert summary.failed == (
         RollbackFailure(
-            track_id=ORIGINAL_NAME, file_name=track.renamed.name, reason=FailureReason.NAME_TAKEN
+            track_id=ORIGINAL_TRACK, file_name=track.renamed.name, reason=FailureReason.NAME_TAKEN
         ),
     )
     assert read_original_tags(track.renamed) == written
     assert track.original.read_bytes() == b"newcomer"
-    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_NAME}
+    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_TRACK}
 
 
 @pytest.mark.asyncio
@@ -144,7 +154,7 @@ async def test_reports_a_file_gone_under_both_names(music_folder: Path, dumps: P
 
     assert summary.failed == (
         RollbackFailure(
-            track_id=ORIGINAL_NAME,
+            track_id=ORIGINAL_TRACK,
             file_name=track.renamed.name,
             reason=FileFailureReason.FILE_MISSING,
         ),
@@ -180,11 +190,11 @@ async def test_replays_a_track_whose_tags_failed_after_its_name_came_back(
 
     assert first.failed == (
         RollbackFailure(
-            track_id=ORIGINAL_NAME, file_name=ORIGINAL_NAME, reason=FileFailureReason.FILE_LOCKED
+            track_id=ORIGINAL_TRACK, file_name=ORIGINAL_NAME, reason=FileFailureReason.FILE_LOCKED
         ),
     )
-    assert (name_back, kept) == (True, {ORIGINAL_NAME})
-    assert (second.restored, second.failed) == ((ORIGINAL_NAME,), ())
+    assert (name_back, kept) == (True, {ORIGINAL_TRACK})
+    assert (second.restored, second.failed) == ((ORIGINAL_TRACK,), ())
     assert read_original_tags(track.original) == track.origin
 
 
@@ -196,7 +206,7 @@ async def test_restores_a_file_already_back_under_its_name(music_folder: Path, d
 
     summary = await roll_back(dumps, RUN_ID, None, ignore)
 
-    assert summary.restored == (ORIGINAL_NAME,)
+    assert summary.restored == (ORIGINAL_TRACK,)
     assert read_original_tags(track.original) == track.origin
 
 
@@ -204,9 +214,9 @@ async def test_restores_a_file_already_back_under_its_name(music_folder: Path, d
 async def test_gives_names_back_in_the_reverse_order_of_the_writing(
     music_folder: Path, dumps: Path
 ) -> None:
-    first = _write(music_folder, "a.mp3")
+    first = _write(music_folder, FIRST_TRACK)
     # Le second morceau prend, une fois le premier renomme, le nom d'origine de celui-ci.
-    second_original = tagged_mp3(music_folder, "b.mp3", "adam beyer", "your mind")
+    second_original = tagged_mp3(music_folder, SECOND_TRACK, "adam beyer", "your mind")
     second_origin = read_original_tags(second_original)
     second_renamed = second_original.rename(first.original)
     second_entry = DumpEntry.of(second_original, second_origin).model_copy(
@@ -221,7 +231,7 @@ async def test_gives_names_back_in_the_reverse_order_of_the_writing(
     summary = await roll_back(dumps, RUN_ID, None, ignore)
 
     assert summary.failed == ()
-    assert summary.restored == ("b.mp3", "a.mp3")
+    assert summary.restored == (SECOND_TRACK, FIRST_TRACK)
 
 
 @pytest.mark.asyncio
@@ -229,7 +239,7 @@ async def test_forgets_restored_and_vanished_tracks_and_keeps_the_others(
     music_folder: Path, dumps: Path
 ) -> None:
     restorable, vanished, taken = (
-        _write(music_folder, name) for name in ("a.mp3", "b.mp3", "c.mp3")
+        _write(music_folder, name) for name in (FIRST_TRACK, SECOND_TRACK, THIRD_TRACK)
     )
     dump = _dumped(dumps, restorable, vanished, taken)
     vanished.renamed.unlink()
@@ -237,8 +247,8 @@ async def test_forgets_restored_and_vanished_tracks_and_keeps_the_others(
 
     summary = await roll_back(dumps, RUN_ID, None, ignore)
 
-    assert load_dump(dump_path(dumps, dump)).entries.keys() == {"c.mp3"}
-    assert summary.forgotten == ("b.mp3",)
+    assert load_dump(dump_path(dumps, dump)).entries.keys() == {THIRD_TRACK}
+    assert summary.forgotten == (SECOND_TRACK,)
 
 
 @pytest.mark.asyncio
@@ -252,7 +262,7 @@ async def test_keeps_the_dump_entry_of_a_track_whose_whole_folder_is_gone(
     summary = await roll_back(dumps, RUN_ID, None, ignore)
 
     assert [failure.reason for failure in summary.failed] == [FileFailureReason.FILE_MISSING]
-    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_NAME}
+    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_TRACK}
     assert summary.forgotten == ()
 
 
@@ -268,7 +278,7 @@ async def test_does_not_report_a_vanished_track_forgotten_when_the_dump_cannot_b
     summary = await roll_back(dumps, RUN_ID, None, ignore)
 
     assert summary.forgotten == ()
-    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_NAME}
+    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_TRACK}
 
 
 @pytest.mark.asyncio
@@ -297,10 +307,10 @@ async def test_restores_the_tracks_even_when_the_dump_cannot_be_updated(
 
     summary = await roll_back(dumps, RUN_ID, None, ignore)
 
-    assert (summary.restored, summary.failed) == ((ORIGINAL_NAME,), ())
+    assert (summary.restored, summary.failed) == ((ORIGINAL_TRACK,), ())
     assert read_original_tags(track.original) == track.origin
     assert messages_of(caplog, LOGGER) == [f"tag dump not updated after rollback run={RUN_ID}"]
-    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_NAME}
+    assert load_dump(dump_path(dumps, dump)).entries.keys() == {ORIGINAL_TRACK}
 
 
 @pytest.mark.asyncio
@@ -338,24 +348,24 @@ async def test_logs_a_rollback_without_any_file_name_path_or_title(
 
 @pytest.mark.asyncio
 async def test_rolls_back_a_single_track_only(music_folder: Path, dumps: Path) -> None:
-    first, second = _write(music_folder, "a.mp3"), _write(music_folder, "b.mp3")
+    first, second = _write(music_folder, FIRST_TRACK), _write(music_folder, SECOND_TRACK)
     dump = _dumped(dumps, first, second)
 
-    summary = await roll_back(dumps, RUN_ID, "a.mp3", ignore)
+    summary = await roll_back(dumps, RUN_ID, FIRST_TRACK, ignore)
 
-    assert summary.restored == ("a.mp3",)
+    assert summary.restored == (FIRST_TRACK,)
     assert second.renamed.is_file()
-    assert load_dump(dump_path(dumps, dump)).entries.keys() == {"b.mp3"}
+    assert load_dump(dump_path(dumps, dump)).entries.keys() == {SECOND_TRACK}
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("run_id", "track_id"),
-    [("000000", None), (RUN_ID, "absent.mp3")],
+    [(UNKNOWN_RUN, None), (RUN_ID, UNKNOWN_TRACK)],
     ids=["run-without-dump", "track-absent-from-dump"],
 )
 async def test_refuses_what_the_dump_cannot_restore(
-    run_id: str, track_id: str | None, music_folder: Path, dumps: Path
+    run_id: RunId, track_id: TrackId | None, music_folder: Path, dumps: Path
 ) -> None:
     _dumped(dumps, _write(music_folder, ORIGINAL_NAME))
 
@@ -368,11 +378,11 @@ async def test_refuses_what_the_dump_cannot_restore(
 def test_targets_the_newest_run_left_to_restore(music_folder: Path, dumps: Path) -> None:
     _dumped(
         dumps,
-        _write(music_folder, "a.mp3"),
-        run_id="b7e2d4",
+        _write(music_folder, FIRST_TRACK),
+        run_id=SECOND_RUN_ID,
         written_at=WRITTEN_AT - timedelta(days=1),
     )
-    _dumped(dumps, _write(music_folder, "b.mp3"), _write(music_folder, "c.mp3"))
+    _dumped(dumps, _write(music_folder, SECOND_TRACK), _write(music_folder, THIRD_TRACK))
 
     target = find_rollback_target(dumps)
 
@@ -384,7 +394,7 @@ def test_targets_the_newest_run_left_to_restore(music_folder: Path, dumps: Path)
 def test_targets_the_folder_the_dump_records_not_one_deduced_from_the_files(
     music_folder: Path, dumps: Path
 ) -> None:
-    _dumped(dumps, _write(music_folder / "sets", "a.mp3"), run_folder=music_folder)
+    _dumped(dumps, _write(music_folder / "sets", FIRST_TRACK), run_folder=music_folder)
 
     target = find_rollback_target(dumps)
 
@@ -398,22 +408,22 @@ async def test_targets_the_previous_run_once_the_newest_is_restored(
 ) -> None:
     _dumped(
         dumps,
-        _write(music_folder, "a.mp3"),
-        run_id="b7e2d4",
+        _write(music_folder, FIRST_TRACK),
+        run_id=SECOND_RUN_ID,
         written_at=WRITTEN_AT - timedelta(days=1),
     )
-    _dumped(dumps, _write(music_folder, "b.mp3"))
+    _dumped(dumps, _write(music_folder, SECOND_TRACK))
     await roll_back(dumps, RUN_ID, None, ignore)
 
     target = find_rollback_target(dumps)
 
     assert target is not None
-    assert target.run_id == "b7e2d4"
+    assert target.run_id == SECOND_RUN_ID
 
 
 def test_skips_an_unreadable_dump(music_folder: Path, dumps: Path) -> None:
     _dumped(dumps, _write(music_folder, ORIGINAL_NAME))
-    (dumps / "20261006T080000Z-b7e2d4.json").write_text("{", encoding="utf-8")
+    (dumps / f"20261006T080000Z-{SECOND_RUN_ID}.json").write_text("{", encoding="utf-8")
 
     target = find_rollback_target(dumps)
 

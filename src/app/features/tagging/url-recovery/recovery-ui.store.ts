@@ -1,7 +1,10 @@
 import { computed, inject, linkedSignal, signal, Service } from "@angular/core"
 
+import { type DEMO_UNAVAILABLE, injectDemoReason } from "../../../core/platform/app-edition"
 import { SidecarService } from "../../../core/sidecar/sidecar.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
+
+import { RECOVERY_URL_HINT } from "./recovery-url-hint"
 
 /**
  * Etat d'interface du rattrapage par lien, partage par la modale du lien, l'etape lien de
@@ -11,6 +14,8 @@ import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 @Service()
 export class RecoveryUiStore {
   private readonly sidecar = inject(SidecarService)
+  private readonly hint = inject(RECOVERY_URL_HINT)
+  private readonly demoReason = injectDemoReason()
 
   /**
    * Lien colle par morceau, garde apres un succes pour corriger le lien utilise. Rattache a son
@@ -70,7 +75,30 @@ export class RecoveryUiStore {
 
   draft(trackId: string): string {
     const drafts = this._drafts()
-    return drafts.runId === this.sidecar.taggingRunId() ? (drafts.urls.get(trackId) ?? "") : ""
+    const pasted =
+      drafts.runId === this.sidecar.taggingRunId() ? drafts.urls.get(trackId) : undefined
+
+    return pasted ?? this.hint(trackId) ?? ""
+  }
+
+  /** En demo, le lien enregistre est le seul que le rejeu sait resoudre : le champ se lit, il ne s'edite pas. */
+  locked(trackId: string): boolean {
+    return this.hint(trackId) !== null
+  }
+
+  /**
+   * Raison traduisible pour laquelle « Resoudre » est grise sans que l'utilisateur y puisse rien, `null` sinon.
+   * En demo, le rejeu ne repond qu'a un morceau encore non resolu : un second envoi resterait sans reponse.
+   */
+  resolveBlocked(trackId: string): typeof DEMO_UNAVAILABLE | null {
+    if (this.demoReason === null) {
+      return null
+    }
+    const recovered = this.sidecar
+      .recoverableTracks()
+      .some((track) => track.trackId === trackId && track.resolution === "url")
+
+    return recovered || this.hint(trackId) === null ? this.demoReason : null
   }
 
   edit(trackId: string, url: string): void {
@@ -87,6 +115,7 @@ export class RecoveryUiStore {
 
   canResolve(trackId: string): boolean {
     return (
+      this.resolveBlocked(trackId) === null &&
       this.available() &&
       !this.isBusy(trackId) &&
       this.draft(trackId) !== "" &&

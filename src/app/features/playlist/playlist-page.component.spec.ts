@@ -303,7 +303,7 @@ describe("PlaylistPageComponent", () => {
     const { component } = mountWith({}, { native: nativeStub(null) })
     component["sourceFolder"].set("C:/lib")
 
-    await component["chooseFolder"](component["sourceFolder"])
+    await component["chooseFolder"](component["sourceFolder"], "library")
 
     expect(component["sourceFolder"]()).toBe("C:/lib")
   })

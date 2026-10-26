@@ -3,10 +3,17 @@ from typing import TYPE_CHECKING
 import pytest
 from audio_samples import write_blank_mp3, write_not_audio
 from cdn_doubles import FakeCdn
-from scraper_responses import ARTWORK_URL, YOUR_MIND, failing, found, ok, track_payload
-from tagging_api import (
+from scraper_responses import (
+    ARTWORK_URL,
     BANDCAMP_SEARCH,
     BEATPORT_SEARCH,
+    YOUR_MIND,
+    failing,
+    found,
+    ok,
+    track_payload,
+)
+from tagging_api import (
     ON_BANDCAMP,
     ORIGINAL,
     ORIGINAL_REFETCH,
@@ -15,12 +22,19 @@ from tagging_api import (
     beatport_down,
     hold_on_beatport,
     knows_your_mind,
+    must_be,
     one_track,
     run,
 )
 
 from tagger.resolution.scraper_client import Source
-from tagger.run.models import FailureReason, Resolution, TrackState
+from tagger.run.models import (
+    AwaitingArbitration,
+    FailureReason,
+    Resolution,
+    Resolved,
+    TrackState,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,15 +53,15 @@ async def test_validates_automatically_on_beatport_without_calling_bandcamp(tmp_
 
     result = await run(one_track(tmp_path), api)
 
-    record = result.tracks[0]
-    assert (record.state, record.resolution, record.source) == (
+    record = must_be(result.tracks[0], Resolved)
+    retained = record.outcome.retained
+    assert (record.state, retained.resolution, retained.source) == (
         TrackState.RESOLVED,
         Resolution.AUTO,
         Source.BEATPORT,
     )
-    assert record.candidate is not None
-    assert record.candidate.isrc == "REFETCHED"
-    assert record.artwork is not None
+    assert retained.candidate.isrc == "REFETCHED"
+    assert retained.artwork is not None
     assert not any(path.startswith("/bandcamp") for path in api.paths())
 
 
@@ -59,8 +73,9 @@ async def test_validates_automatically_on_bandcamp_after_an_empty_beatport_searc
 
     result = await run(one_track(tmp_path), api)
 
-    record = result.tracks[0]
-    assert (record.state, record.resolution, record.source) == (
+    record = must_be(result.tracks[0], Resolved)
+    retained = record.outcome.retained
+    assert (record.state, retained.resolution, retained.source) == (
         TrackState.RESOLVED,
         Resolution.AUTO,
         Source.BANDCAMP,
@@ -73,11 +88,9 @@ async def test_puts_a_grey_zone_track_on_hold_without_resolving_it(tmp_path: Pat
 
     result = await run(one_track(tmp_path), api)
 
-    record = result.tracks[0]
-    assert record.state is None
-    assert record.arbitration is not None
-    assert record.arbitration.source is Source.BEATPORT
-    assert [entry.candidate.id for entry in record.arbitration.candidates] == ["1", "2"]
+    pending = must_be(result.tracks[0], AwaitingArbitration).outcome.pending
+    assert pending.source is Source.BEATPORT
+    assert [entry.candidate.id for entry in pending.candidates] == ["1", "2"]
 
 
 @pytest.mark.parametrize(
@@ -94,11 +107,9 @@ async def test_sends_bandcamp_candidates_to_arbitration_when_beatport_is_unavail
 
     result = await run(one_track(tmp_path), api)
 
-    record = result.tracks[0]
-    assert record.state is None
-    assert record.arbitration is not None
-    assert record.arbitration.source is Source.BANDCAMP
-    assert record.arbitration.beatport_unavailable is True
+    pending = must_be(result.tracks[0], AwaitingArbitration).outcome.pending
+    assert pending.source is Source.BANDCAMP
+    assert pending.beatport_unavailable is True
 
 
 async def test_marks_a_track_unknown_to_both_sources_as_no_result(tmp_path: Path) -> None:
@@ -114,11 +125,12 @@ async def test_marks_a_track_unknown_to_both_sources_as_no_result(tmp_path: Path
     )
 
 
+@pytest.mark.parametrize("search", [BEATPORT_SEARCH, BANDCAMP_SEARCH], ids=["beatport", "bandcamp"])
 async def test_marks_a_track_whose_candidates_are_below_the_floor_as_below_threshold(
-    tmp_path: Path,
+    tmp_path: Path, search: str
 ) -> None:
     api = FakeApi()
-    api.on(BEATPORT_SEARCH, YOUR_MIND, found(basiel()))
+    api.on(search, YOUR_MIND, found(basiel()))
 
     result = await run(one_track(tmp_path), api)
 
@@ -182,10 +194,8 @@ async def test_keeps_the_search_candidate_when_the_refetch_fails(tmp_path: Path)
 
     result = await run(one_track(tmp_path), api)
 
-    record = result.tracks[0]
-    assert record.state is TrackState.RESOLVED
-    assert record.candidate is not None
-    assert record.candidate.isrc == ORIGINAL["isrc"]
+    retained = must_be(result.tracks[0], Resolved).outcome.retained
+    assert retained.candidate.isrc == ORIGINAL["isrc"]
 
 
 async def test_resolves_a_track_without_artwork_when_the_cdn_refuses_it(tmp_path: Path) -> None:
@@ -196,9 +206,7 @@ async def test_resolves_a_track_without_artwork_when_the_cdn_refuses_it(tmp_path
 
     result = await run(one_track(tmp_path), api, cdn=cdn)
 
-    record = result.tracks[0]
-    assert record.state is TrackState.RESOLVED
-    assert record.artwork is None
+    assert must_be(result.tracks[0], Resolved).outcome.retained.artwork is None
 
 
 async def test_falls_back_on_the_file_name_when_the_tags_are_unreadable(music_folder: Path) -> None:

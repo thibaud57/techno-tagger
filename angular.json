@@ -80,6 +80,16 @@
                 }
               }
             },
+            "demo": {
+              "browser": "src/main.demo.ts",
+              "index": { "input": "src/index.demo.html", "output": "index.html" },
+              "outputPath": "dist/techno-tagger-ui-demo",
+              "sourceMap": false,
+              "assets": [
+                { "glob": "**/*", "input": "public" },
+                { "glob": "**/*", "input": "src/demo", "output": "demo" }
+              ]
+            },
             "development": {
               "optimization": false,
               "extractLicenses": false,
@@ -96,6 +106,9 @@
             },
             "development": {
               "buildTarget": "techno-tagger-ui:build:development"
+            },
+            "demo": {
+              "buildTarget": "techno-tagger-ui:build:development,demo"
             }
           },
           "defaultConfiguration": "development"

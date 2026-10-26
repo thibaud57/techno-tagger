@@ -26,7 +26,7 @@
   data-field="url"
   [value]="shown.url"
   [disabled]="!available()"
-  [readOnly]="shown.busy"
+  [readOnly]="shown.busy || shown.locked"
   [placeholder]="'tagging.recovery.placeholder' | translate"
   [attr.aria-label]="'tagging.recovery.field' | translate: { track: shown.mainLine }"
   (input)="edit(field.value)"

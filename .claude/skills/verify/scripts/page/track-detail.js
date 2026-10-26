@@ -156,7 +156,7 @@ async (page) => {
     tags_before: before,
   })
   const resolved = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "resolved", resolution: "auto", failure_reason: null, source: "beatport", after: { artist: "Adam Beyer, Bart Skils", title: "Your Mind (Layton Giordani Remix)" }, scores: { artist: 98, title: 95, average: 96 }, artwork_path: null, tags_after: tagsAfter })
-  const unresolved = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null })
+  const unresolved = (t) => ({ event: "track_resolved", track_id: t.track_id, state: "unresolved", resolution: "none", failure_reason: "no_result", source: null, after: null, scores: null, artwork_path: null, tags_after: null, recoverable: true })
   const arbitration = (t) => ({ event: "arbitration_required", track_id: t.track_id, source: "beatport", beatport_unavailable: false, empty_reason: null, other_source: "bandcamp", candidates: [{ artist: t.artist, title: `${t.title} (Original Mix)`, label: "Drumcode", year: 2021, scores: { artist: 96, title: 74, average: 85 } }] })
 
   const R = track(1, "Adam Beyer", "Your Mind", tagsBefore("Ripped by X"))

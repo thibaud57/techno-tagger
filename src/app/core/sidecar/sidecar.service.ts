@@ -1,7 +1,9 @@
 import { type Signal, computed, inject, signal, Service } from "@angular/core"
 
 import { ArbitrationStore } from "../stores/arbitration.store"
+import { busyPhase, errorRunId, errorTrackId } from "./error-params"
 import {
+  API_KEY_MISSING,
   ArbitrationSource,
   BusyPhase,
   CacheClearedEvent,
@@ -52,8 +54,6 @@ const KNOWN_EVENTS: Record<SidecarEvent["event"], true> = {
 
 /** Seul code d'erreur que l'interface emet elle-meme : les autres viennent du sidecar. */
 export const SIDECAR_UNAVAILABLE = "sidecar_unavailable"
-
-const API_KEY_MISSING = "api_key_missing"
 
 /** Phase longue en cours, une seule a la fois : celle qui tient les fichiers prime sur les autres. */
 export type SidecarPhase = "idle" | "extracting" | "searching" | "writing" | "rollingBack"
@@ -260,21 +260,9 @@ export class SidecarService {
   )
   /** Un run fige n'arbitrera plus : ses attentes ne sont pas un travail en suspens, le compte est nul. */
   readonly arbitrationCount = computed(() => (this.runFrozen() ? 0 : this.arbitration.count()))
-  /**
-   * Lignes a afficher dans la phase : non resolues, ou deja rattrapees (pour corriger un
-   * mauvais lien). Vide sur un run fige, que le sidecar refuserait. Simple filtre d'affichage :
-   * le sidecar reste seul juge de l'eligibilite.
-   */
+  /** Vide sur un run fige, que le sidecar refuserait. */
   readonly recoverableTracks = computed(() =>
-    this.runFrozen()
-      ? []
-      : this.taggingRun
-          .tracks()
-          .filter(
-            (track) =>
-              track.state === "unresolved" ||
-              (track.state === "resolved" && track.resolution === "url"),
-          ),
+    this.runFrozen() ? [] : this.taggingRun.tracks().filter((track) => track.recoverable),
   )
   readonly phase = computed<SidecarPhase>(() => {
     if (this.writePhase.rollingBack() !== null) {
@@ -646,18 +634,18 @@ export class SidecarService {
     if (launch === undefined) {
       return
     }
-    if (event.code === PHASE_BUSY && event.params["phase"] === launch.phase) {
+    if (busyPhase(event) === launch.phase) {
       return
     }
     launch.undo()
   }
 
   private routeArbitrationError(event: SidecarErrorEvent): void {
-    const trackId = event.params["track_id"]
+    const trackId = errorTrackId(event)
     if (
       event.command !== null &&
       Object.hasOwn(ARBITRATION_COMMANDS, event.command) &&
-      typeof trackId === "string"
+      trackId !== null
     ) {
       if (this.arbitration.rejected(trackId, event.code)) {
         this.taggingRun.droppedAwaiting(trackId)
@@ -666,8 +654,8 @@ export class SidecarService {
   }
 
   private routeUrlRecoveryError(event: SidecarErrorEvent): void {
-    const trackId = event.params["track_id"]
-    if (event.command === "resolve_by_url" && typeof trackId === "string") {
+    const trackId = errorTrackId(event)
+    if (event.command === "resolve_by_url" && trackId !== null) {
       this.urlRecovery.rejected(trackId, event)
     }
   }
@@ -690,8 +678,8 @@ export class SidecarService {
    * Seule la reponse du run attendu leve l'attente : une autre ne dit rien du run demande
    * ensuite. Un refus sans `run_id` (ligne malformee) ne designe aucun run : il la leve, faute de mieux.
    */
-  private settleFeedback(runId: unknown): void {
-    if (runId === undefined || runId === this._feedbackPending()) {
+  private settleFeedback(runId: string | null): void {
+    if (runId === null || runId === this._feedbackPending()) {
       this._feedbackPending.set(null)
     }
   }
@@ -842,7 +830,7 @@ export class SidecarService {
         // `load_run` n'ouvre aucune phase, mais une phase occupee le refuse aussi : le chargement tombe.
         this.routeLoadRunError(event)
         if (event.command === "prepare_feedback") {
-          this.settleFeedback(event.params["run_id"])
+          this.settleFeedback(errorRunId(event))
         }
         // Un refus pour phase occupee ne concerne que les lancements : aucun geste n'en recoit.
         if (event.code === PHASE_BUSY) {

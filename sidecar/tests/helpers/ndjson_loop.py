@@ -29,10 +29,6 @@ if TYPE_CHECKING:
 EXPECT_TIMEOUT: Final = 10
 
 
-# Run qu'aucun plan ni dump ne connait.
-UNKNOWN_RUN: Final = "000000"
-
-
 def line_of(message: Mapping[str, object]) -> str:
     """Ligne NDJSON prete a injecter."""
     return json.dumps(message) + "\n"

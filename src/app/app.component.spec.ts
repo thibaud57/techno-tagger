@@ -1,3 +1,4 @@
+import { Component, type Provider } from "@angular/core"
 import { DeferBlockBehavior, TestBed } from "@angular/core/testing"
 import { Router, provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
@@ -11,6 +12,7 @@ import { activeRun, provideSidecarStub, sidecarStub } from "../fixtures/sidecar-
 import { recoveredTrack, unresolvedTrack } from "../fixtures/tagging"
 import { availableUpdate, updaterStub } from "../fixtures/updater"
 import { AppComponent } from "./app.component"
+import { APP_BANNER, APP_EDITION } from "./core/platform/app-edition"
 import { CloseGuard } from "./core/platform/close-guard.service"
 import { UpdateService } from "./core/platform/update.service"
 import { APP_UPDATER, type AvailableUpdate } from "./core/platform/updater"
@@ -29,7 +31,11 @@ class ResizeObserverStub {
   }
 }
 
-const mount = (update: AvailableUpdate | null = null, url: string | null = null) => {
+const mount = (
+  update: AvailableUpdate | null = null,
+  url: string | null = null,
+  extraProviders: Provider[] = [],
+) => {
   // `RecoveryUiStore`, reel ici, lit le run : le badge et la modale du lien en dependent.
   const service = sidecarStub(activeRun())
   const closeGuard = closeGuardStub()
@@ -45,6 +51,7 @@ const mount = (update: AvailableUpdate | null = null, url: string | null = null)
       provideSidecarStub(service),
       { provide: CloseGuard, useValue: closeGuard },
       { provide: APP_UPDATER, useValue: updaterStub(update) },
+      ...extraProviders,
     ],
   })
   if (url !== null) {
@@ -77,6 +84,9 @@ const mountWithRecoverableTracks = () => {
 
   return { ...mounted, navigate: stubNavigation("navigate") }
 }
+
+@Component({ selector: "app-test-banner", template: "banner" })
+class TestBannerComponent {}
 
 describe("AppComponent", () => {
   beforeEach(() => {
@@ -282,6 +292,44 @@ describe("AppComponent", () => {
     updateBadge(fixture)?.click()
 
     expect(component["updateDialogVisible"]()).toBe(true)
+  })
+
+  it.each([
+    { case: "hides the window controls in the demo edition", selector: "app-window-controls" },
+    {
+      case: "hides the separator before the window controls in the demo edition",
+      selector: "span.order-3",
+    },
+  ])("$case", ({ selector }) => {
+    const { fixture } = mount(null, null, [{ provide: APP_EDITION, useValue: "demo" }])
+
+    expect(hostOf(fixture).querySelector(selector)).toBeNull()
+  })
+
+  it.each([
+    {
+      case: "keeps the separator before the window controls in the desktop edition",
+      selector: "span.order-3",
+    },
+    { case: "shows the window controls in the desktop edition", selector: "app-window-controls" },
+  ])("$case", ({ selector }) => {
+    const { fixture } = mount()
+
+    expect(hostOf(fixture).querySelector(selector)).not.toBeNull()
+  })
+
+  it("renders the provided banner between the tabs and the page", () => {
+    const { fixture } = mount(null, null, [{ provide: APP_BANNER, useValue: TestBannerComponent }])
+
+    const banner = hostOf(fixture).querySelector("app-test-banner")
+
+    expect(banner?.nextElementSibling?.tagName).toBe("MAIN")
+  })
+
+  it("renders no banner by default", () => {
+    const { fixture } = mount()
+
+    expect(hostOf(fixture).querySelector("app-test-banner")).toBeNull()
   })
 
   it("installs the close guard at startup", () => {

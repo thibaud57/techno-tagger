@@ -22,7 +22,7 @@ paths:
 - Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin, et un double unitaire (HTTP, audio, enregistrements) n'importe jamais le harnais de run (`tagging_api`). `conftest.py` ne garde que les fixtures
 
 ## À éviter
-- Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer, sauf le garde-fou de `data_collection`, conçu pour casser à la montée du SDK qui ajoute une catégorie de collecte (ADR-014)
+- Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer, sauf des exceptions voulues : la garde `data_collection` de `sidecar/tests/unit/core/test_sentry_payload.py` casse quand une montée de sentry-sdk ajoute une catégorie de collecte (ADR-014) ; `test_re_recording_yields_the_committed_demo_folder` de `sidecar/tests/integration/test_demo_scenario.py` casse quand un changement du sidecar ou une montée de rapidfuzz, mutagen ou pydantic modifie une réponse enregistrée de la démo web ([ADR-023](../../../docs/adrs/023-demo-web-par-rejeu.md)), ce qui se répare par `just record-demo` sous Windows puis le commit du diff de `src/demo/`
 - `respx` et `pytest-httpx` : ni l'un ni l'autre ne supporte httpx2, les PR de support sont ouvertes et non mergées
 - Un appel réseau ou Sentry réel : les deux sont toujours mockés, aucun test ne consomme le quota, sauf `test_sentry_payload.py`, qui initialise le vrai SDK par `init_sentry` avec un transport factice retenant l'enveloppe : aucun réseau, aucun quota
 - Mocker sans `autospec` : un changement de signature passe alors inaperçu

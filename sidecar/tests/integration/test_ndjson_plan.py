@@ -12,14 +12,13 @@ from ndjson_loop import (
 )
 from run_plans import only_plan, plan_files
 from tagging_api import (
-    FIRST_TRACK,
     ONE_TRACK,
-    SECOND_TRACK,
     FakeApi,
     hold_on_beatport,
     knows_the_bandcamp_track,
     knows_your_mind,
 )
+from tagging_records import FIRST_TRACK, SECOND_TRACK
 
 from tagger.resolution.scraper_client import Source
 from tagger.run import writing

@@ -16,7 +16,7 @@ Ta mission est de faire tourner les mêmes gates que la CI, et de rapporter ce q
 | `sidecar/` (Python) | `just lint-sidecar` | `just format-sidecar` | `just typecheck-sidecar` | `just test-sidecar` | `just audit-sidecar` |
 | `src-tauri/` (Rust) | `just lint-tauri` | `just format-tauri` | inclus dans le lint | aucun test | aucun (`cargo audit` exige une installation à part) |
 
-Agrégats : `just lint`, `just format`, `just typecheck`, `just test`, `just audit`, tous en `[parallel]`. Build : `just build-ui`, `just build-sidecar`, `just build`. `just lint-workflows` (actionlint sur `.github/workflows`) fait partie de l'agrégat `lint`, sans zone de code propre.
+Agrégats : `just lint`, `just format`, `just typecheck`, `just test`, `just audit`, tous en `[parallel]`. Build : `just build-ui`, `just build-demo`, `just build-sidecar`, `just build`. `just lint-workflows` (actionlint sur `.github/workflows`) fait partie de l'agrégat `lint`, sans zone de code propre. `just record-demo` réenregistre `src/demo/` (scénario et pochettes de la démo web), sous Windows seulement : hors gate, c'est le remède de la garde du scénario (cf. § Règles).
 
 ## Workflow
 
@@ -32,5 +32,6 @@ Agrégats : `just lint`, `just format`, `just typecheck`, `just test`, `just aud
 - **Les agrégats entrelacent la sortie des trois zones**, ligne à ligne. La ligne `error: recipe X failed` de fin nomme la zone fautive et son code de retour est celui de `just`. Pour une sortie lisible, lancer la recette ciblée.
 - **`lint` vérifie, `format` réécrit** : un échec de lint sur le formatage se corrige par `just format`, jamais en éditant à la main ce que le formateur produit.
 - **`audit` ne fait pas partie de l'enchaînement par défaut** : à lancer sur demande, non bloquant en CI (cf. `docs/PRODUCTION.md` § Dépendances).
+- **`test_re_recording_yields_the_committed_demo_folder` rouge** : un changement du sidecar, ou une montée d'une de ses dépendances, a modifié une réponse enregistrée, que le message nomme. Lancer `just record-demo` sous Windows, relire le diff de `src/demo/`, puis le commiter avec le changement, dans la PR Dependabot elle-même le cas échéant (cf. `docs/adrs/023-demo-web-par-rejeu.md`). Jamais éditer `src/demo/` à la main.
 - **Ne jamais corriger un échec de lint par une désactivation de règle** sans avoir compris ce qu'elle signale. `S607`, `TC002` et consorts pointent des choses réelles.
 - La CI rejoue exactement ces recettes : ce qui passe ici passe là-bas, et inversement.

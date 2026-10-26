@@ -34,7 +34,7 @@ import {
   writeFinishedWithFailures,
 } from "../../../fixtures/write"
 import { PastRunsStore } from "../stores/past-runs.store"
-import { BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
+import { BUSY_PHASES, BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"
 import { type RunAction, type SidecarPhase, SidecarService } from "./sidecar.service"
 
@@ -73,8 +73,6 @@ class FakeTransport implements SidecarTransport {
     this.handlers?.onLine(line)
   }
 }
-
-const BUSY_PHASES: readonly BusyPhase[] = ["extraction", "tagging", "write", "rollback"]
 
 type LaunchCommand =
   "extract_playlist" | "start_tagging" | "resume_run" | "commit_run" | "retry_write" | "rollback"
@@ -949,29 +947,24 @@ describe("SidecarService", () => {
       expect(service.lastError()).toEqual(malformed)
     })
 
-    it("lists the unresolved tracks and those resolved by url", async () => {
+    it("lists the tracks the sidecar declares recoverable, and only those", async () => {
       await service.start()
       transport.emit({
         ...RUN_STARTED,
         tracks: [
           ...RUN_STARTED.tracks,
-          {
-            track_id: "c.mp3",
-            file_name: "c.mp3",
+          ...["c.mp3", "d.mp3", "e.mp3"].map((trackId) => ({
+            track_id: trackId,
+            file_name: trackId,
             artist: "Sara Landry",
             title: "The Void",
             tags_before: null,
-          },
-          {
-            track_id: "d.mp3",
-            file_name: "d.mp3",
-            artist: "Kasia",
-            title: "Tarantula",
-            tags_before: null,
-          },
+          })),
         ],
       })
-      transport.emit(TRACK_RESOLVED)
+      transport.emit(
+        trackResolved("a.mp3", { state: "unresolved", resolution: "none", recoverable: false }),
+      )
       transport.emit(
         trackResolved("b.mp3", {
           state: "unresolved",
@@ -981,14 +974,16 @@ describe("SidecarService", () => {
           after: null,
           scores: null,
           artwork_path: null,
+          recoverable: true,
         }),
       )
       transport.emit(resolvedByUrl("c.mp3"))
       transport.emit(arbitrationRequired("d.mp3"))
+      transport.emit(trackResolved("e.mp3", { resolution: "arbitration", recoverable: true }))
 
       const listed = service.recoverableTracks()
 
-      expect(listed.map((track) => track.trackId)).toEqual(["b.mp3", "c.mp3"])
+      expect(listed.map((track) => track.trackId)).toEqual(["b.mp3", "c.mp3", "e.mp3"])
     })
 
     it.each<[string, () => Promise<void>]>([
@@ -1656,7 +1651,7 @@ describe("SidecarService", () => {
     it("lists no recoverable track once the run is confirmed", async () => {
       await searchingRun()
       transport.emit(TRACK_RESOLVED)
-      transport.emit(trackResolved("b.mp3", { state: "unresolved" }))
+      transport.emit(trackResolved("b.mp3", { state: "unresolved", recoverable: true }))
       transport.emit(NETWORK_FINISHED)
 
       await service.commitRun()

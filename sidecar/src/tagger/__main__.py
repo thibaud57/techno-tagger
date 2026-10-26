@@ -88,6 +88,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from typing import TextIO
 
+    from tagger.core.identifiers import RunId, TrackId
     from tagger.handlers import CurrentRun
 
 logger = logging.getLogger(__name__)
@@ -166,7 +167,7 @@ class RunCommittedError(TaggerError):
 
     code: ClassVar[str] = "run_committed"
 
-    def __init__(self, track_id: str) -> None:
+    def __init__(self, track_id: TrackId) -> None:
         super().__init__("the run is committed", track_id=track_id)
 
 
@@ -185,7 +186,9 @@ class _RunningPhase(NamedTuple):
     task: asyncio.Task[None]
 
 
-def _error_of(error: TaggerError, command: ExecutableCommand, track_id: str | None = None) -> Error:
+def _error_of(
+    error: TaggerError, command: ExecutableCommand, track_id: TrackId | None = None
+) -> Error:
     """Seul chemin d'emission d'une erreur de commande : tout refus de `load_run` ou de
     `prepare_feedback` nomme son run."""
     run_id = command.run_id if isinstance(command, LoadRun | PrepareFeedback) else None
@@ -389,20 +392,20 @@ class _Session:
         phase: BusyPhase,
         start_work: Callable[[], Awaitable[Event | None]],
         command: (StartTagging | ExtractPlaylist | CommitRun | RetryWrite | Rollback | ResumeRun),
-        track_id: str | None = None,
+        track_id: TrackId | None = None,
     ) -> None:
         """Garde de `_ensure_idle` deja passee : elle precede les effets de bord du demarrage."""
         task = self._group.create_task(self._phase(start_work, command, track_id), name=phase.value)
         self._phase_task = _RunningPhase(phase, task)
 
-    def _arbitrable(self, track_id: str) -> CurrentRun:
+    def _arbitrable(self, track_id: TrackId) -> CurrentRun:
         if self._current is None:
             raise ArbitrationNotPendingError(track_id)
         if self._current.committed:
             raise RunCommittedError(track_id)
         return self._current
 
-    def _recoverable(self, track_id: str) -> CurrentRun:
+    def _recoverable(self, track_id: TrackId) -> CurrentRun:
         """Phase ouverte : un run courant dont la phase reseau ne tourne plus, finie ou
         interrompue (un run interrompu garde son ecriture, donc son rattrapage)."""
         if self._current is None or self._active_run() is not None:
@@ -417,7 +420,7 @@ class _Session:
         if running is not None:
             raise PhaseBusyError(running.phase)
 
-    def _writable(self, run_id: str) -> CurrentRun:
+    def _writable(self, run_id: RunId) -> CurrentRun:
         """Run courant designe, sans phase longue ni geste en vol.
 
         Un geste qui finirait pendant l'ecriture ecraserait un morceau ecrit. Une phase reseau
@@ -484,7 +487,7 @@ class _Session:
         self,
         start_work: Callable[[], Awaitable[Event | None]],
         command: ExecutableCommand,
-        track_id: str | None = None,
+        track_id: TrackId | None = None,
     ) -> None:
         """Une tache echouee ne remonte pas au `TaskGroup`, qui annulerait toute la session."""
         # Factory : une coroutine creee d'avance ne serait jamais attendue si annulee avant.

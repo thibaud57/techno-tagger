@@ -1,0 +1,16 @@
+# Liste blanche : le contexte ne garde que ce que le build lit.
+*
+
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!angular.json
+!tsconfig*.json
+# Sans lui le build passe et l'app sort sans Tailwind.
+!.postcssrc.json
+!src
+!public
+!demo
+
+# Exclus meme sous un dossier autorise.
+**/node_modules
