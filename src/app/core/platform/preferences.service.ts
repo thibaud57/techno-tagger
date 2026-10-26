@@ -51,7 +51,7 @@ export interface UpdateAttempt {
   readonly to: string
 }
 
-const isUpdateAttempt = (stored: unknown): stored is UpdateAttempt => {
+export const isUpdateAttempt = (stored: unknown): stored is UpdateAttempt => {
   if (!isRecord(stored)) {
     return false
   }

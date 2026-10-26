@@ -8,8 +8,10 @@ from repo_files import REPO
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from pathlib import Path
 
 _PROTOCOL_TS: Final = REPO / "src/app/core/sidecar/protocol.ts"
+SCENARIO_TS: Final = REPO / "src/app/demo/scenario.ts"
 _ERROR_PARAMS_TS: Final = REPO / "src/app/core/sidecar/error-params.ts"
 _TEXT_PARAM: Final = re.compile(r'\btextParam\(\s*event,\s*"(\w+)"\s*\)')
 _INTERFACE: Final = re.compile(
@@ -28,13 +30,14 @@ _SCORE_SCALE: Final = re.compile(r"SCORE_SCALE = \{ min: (\d+), max: (\d+) \}")
 
 
 @cache
-def _source() -> str:
-    return _PROTOCOL_TS.read_text(encoding="utf-8")
+def _source(source: Path = _PROTOCOL_TS) -> str:
+    return source.read_text(encoding="utf-8")
 
 
-def _declared() -> dict[str, tuple[str | None, str]]:
+@cache
+def _declared(source: Path = _PROTOCOL_TS) -> dict[str, tuple[str | None, str]]:
     """Nom d'une interface vers son `extends` et le corps de ses champs."""
-    return {name: (base or None, body) for name, base, body in _INTERFACE.findall(_source())}
+    return {name: (base or None, body) for name, base, body in _INTERFACE.findall(_source(source))}
 
 
 def _fields(name: str, declared: Mapping[str, tuple[str | None, str]]) -> frozenset[str]:
@@ -44,9 +47,9 @@ def _fields(name: str, declared: Mapping[str, tuple[str | None, str]]) -> frozen
     return own if base is None else own | _fields(base, declared)
 
 
-def ts_interfaces() -> dict[str, frozenset[str]]:
+def ts_interfaces(source: Path = _PROTOCOL_TS) -> dict[str, frozenset[str]]:
     """Champs de chaque interface, ceux de son `extends` compris."""
-    declared = _declared()
+    declared = _declared(source)
 
     return {name: _fields(name, declared) for name in declared}
 
@@ -81,11 +84,16 @@ def ts_error_param_keys() -> frozenset[str]:
     return frozenset(_TEXT_PARAM.findall(_ERROR_PARAMS_TS.read_text(encoding="utf-8")))
 
 
-def _literals(name: str, alias_tokens: Mapping[str, list[str]]) -> frozenset[str] | None:
+def _literals(
+    name: str, alias_tokens: Mapping[str, list[str]], seen: frozenset[str] = frozenset()
+) -> frozenset[str] | None:
+    """Un alias recursif (`JsonValue`) n'est pas une union de litteraux : il se resout a `None`."""
+    if name in seen:
+        return None
     parts = [
         frozenset({token.strip('"')})
         if token.startswith('"')
-        else (_literals(token, alias_tokens) if token in alias_tokens else None)
+        else (_literals(token, alias_tokens, seen | {name}) if token in alias_tokens else None)
         for token in alias_tokens[name]
     ]
     known = [part for part in parts if part is not None]
@@ -93,14 +101,14 @@ def _literals(name: str, alias_tokens: Mapping[str, list[str]]) -> frozenset[str
     return frozenset[str]().union(*known) if len(known) == len(parts) else None
 
 
-def ts_unions() -> dict[str, frozenset[str]]:
+def ts_unions(source: Path = _PROTOCOL_TS) -> dict[str, frozenset[str]]:
     """Litteraux de chaque alias d'union de litteraux, ou derive d'un tableau `as const`."""
-    source = _source()
-    aliases = _ALIAS.findall(source)
+    text = _source(source)
+    aliases = _ALIAS.findall(text)
     alias_tokens = {name: re.findall(_TOKEN, body) for name, body in aliases}
     resolved = {name: _literals(name, alias_tokens) for name in alias_tokens}
     arrays = {
-        name: frozenset(re.findall(r'"([^"]*)"', body)) for name, body in _ARRAY.findall(source)
+        name: frozenset(re.findall(r'"([^"]*)"', body)) for name, body in _ARRAY.findall(text)
     }
     derived = {
         name: arrays[found[1]]

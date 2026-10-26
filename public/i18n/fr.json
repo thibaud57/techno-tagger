@@ -505,5 +505,12 @@
     "failed": "La mise à jour a échoué.\nVérifiez votre connexion, puis réessayez.",
     "badge": "Mise à jour {{version}}",
     "reopen": "Voir la mise à jour"
+  },
+  "demo": {
+    "banner": {
+      "text": "Démo : données fictives, aucun fichier réel. Application privée, non affiliée à Beatport ni Bandcamp.",
+      "contact": "Me contacter"
+    },
+    "unavailable": "Indisponible dans la démo."
   }
 }

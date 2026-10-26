@@ -18,7 +18,9 @@
     <div class="flex flex-1 items-center gap-2 px-3 text-sm font-semibold" data-tauri-drag-region>
       <ng-container [ngTemplateOutlet]="brand" />
     </div>
-    <app-window-controls />
+    @if (windowControls) {
+      <app-window-controls />
+    }
   </div>
   <!-- Carte neutre plutot qu'un pave d'alerte : le rouge ne doit pas baigner la phrase qui dit
        quoi faire. -->
@@ -55,7 +57,8 @@
        `order` fait le reste a l'ecran. La barre est aussi la barre de titre (`decorations: false`) :
        `data-tauri-drag-region` sur ce qui n'est pas un controle. Le nom part de 4rem + 147px,
        l'engrenage (`w-12`), la marge des badges (`pl-4`), le filet (9px) et les boutons de fenetre
-       (3 x 46px), pour que Playlist et Tagging tombent au centre exact de la barre. -->
+       (3 x 46px), pour que Playlist et Tagging tombent au centre exact de la barre. En demo, filet
+       et boutons de fenetre sont absents : le nom ne part plus que de 4rem (engrenage et `pl-4`). -->
   <p-tabs [value]="activeTab()" (valueChange)="navigate($event)" [dt]="tabsTokens">
     <p-tablist>
       @for (tab of workflowTabs; track tab) {
@@ -72,16 +75,19 @@
       >
         <app-icon [name]="tabIcons[settingsTab]" [size]="16" />
       </p-tab>
-      <span
-        class="order-3 mx-1 h-5 self-center border-l border-surface"
-        data-p-disabled="true"
-        data-tauri-drag-region
-      ></span>
-      <app-window-controls class="order-3" data-p-disabled="true" />
+      @if (windowControls) {
+        <span
+          class="order-3 mx-1 h-5 self-center border-l border-surface"
+          data-p-disabled="true"
+          data-tauri-drag-region
+        ></span>
+        <app-window-controls class="order-3" data-p-disabled="true" />
+      }
       <!-- `data-p-disabled` : les fleches et Debut / Fin de `p-tab` sautent ce frere, qui n'est pas un
            onglet ; sans lui, la navigation au clavier s'arrete sur le nom ou sur les badges. -->
       <div
-        class="order-first flex flex-[1_1_calc(4rem+147px)] items-center gap-2 px-3 text-sm font-semibold"
+        class="order-first flex items-center gap-2 px-3 text-sm font-semibold"
+        [class]="brandBasis"
         role="none"
         data-p-disabled="true"
         data-tauri-drag-region
@@ -139,6 +145,10 @@
       </div>
     </p-tablist>
   </p-tabs>
+
+  @if (banner; as component) {
+    <ng-container *ngComponentOutlet="component" />
+  }
 
   <!-- Le layout est ici, une fois pour tous les onglets : une page ne pose que son contenu. -->
   <main class="flex min-h-0 flex-1 flex-col px-16 py-8">

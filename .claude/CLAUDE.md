@@ -55,8 +55,8 @@ Commits : `type(scope): description`, types `feat | feat! | fix | docs | refacto
 
 | Commande / Skill | Rôle |
 |---|---|
-| `dev-server` | Lance l'app, la webview seule ou le sidecar en CLI (`just dev` / `dev-ui` / `dev-sidecar` / `stop`) |
-| `quality-check` | Lint, typage, tests sur les trois zones (`just lint` / `typecheck` / `test`), réenregistrement de la démo web (`just record-demo`) |
+| `dev-server` | Lance l'app, la webview seule ou le sidecar en CLI (`just dev` / `dev-ui` / `dev-demo` / `dev-sidecar` / `stop`) |
+| `quality-check` | Lint, typage, tests sur les trois zones (`just lint` / `typecheck` / `test` / `build-demo`), réenregistrement de la démo web (`just record-demo`) |
 | `setup-ops` | Installation et diagnostic (`just check` / `install` / `setup` / `build-sidecar`) |
 | `git-ops` | Branches, commits Conventional, PR, versionnement. Invocation explicite uniquement |
 

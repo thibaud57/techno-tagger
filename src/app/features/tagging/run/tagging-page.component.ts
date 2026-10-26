@@ -228,7 +228,7 @@ export default class TaggingPageComponent {
   }
 
   protected async choose(): Promise<void> {
-    const chosen = await this.native.pickPath({ directory: true })
+    const chosen = await this.native.pickPath("tagging_folder")
     if (chosen !== null) {
       this.folder.set(chosen)
     }

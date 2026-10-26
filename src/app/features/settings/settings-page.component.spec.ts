@@ -1,8 +1,10 @@
 import { signal } from "@angular/core"
-import { TestBed } from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { By } from "@angular/platform-browser"
 import { provideRouter } from "@angular/router"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService, MessageService } from "primeng/api"
+import { Tooltip } from "primeng/tooltip"
 import { vi } from "vitest"
 
 import { spyConfirmation } from "../../../fixtures/confirm"
@@ -23,6 +25,7 @@ import { spyToast } from "../../../fixtures/toast"
 import { translateWith } from "../../../fixtures/translate"
 import { availableUpdate, updaterStub } from "../../../fixtures/updater"
 import { ROLLBACK_RUN, failedRollback, rollbackInFlight } from "../../../fixtures/write"
+import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../core/platform/app-edition"
 import { NativeService } from "../../core/platform/native.service"
 import { PreferencesService } from "../../core/platform/preferences.service"
 import { UpdateService } from "../../core/platform/update.service"
@@ -39,12 +42,18 @@ interface Natives {
   native?: NativeStub
   preferences?: PreferencesStub
   updater?: ReturnType<typeof updaterStub>
+  edition?: AppEdition
 }
 
 const mountWith = (
   overrides: SidecarStubOverrides = {},
   section: SettingsSection = "api",
-  { native = nativeStub(), preferences = preferencesStub(), updater = updaterStub() }: Natives = {},
+  {
+    native = nativeStub(),
+    preferences = preferencesStub(),
+    updater = updaterStub(),
+    edition = "desktop",
+  }: Natives = {},
 ) => {
   const service = sidecarStub({ apiKeyConfigured: signal<boolean | null>(false), ...overrides })
 
@@ -59,6 +68,7 @@ const mountWith = (
       { provide: NativeService, useValue: native },
       { provide: PreferencesService, useValue: preferences },
       { provide: APP_UPDATER, useValue: updater },
+      { provide: APP_EDITION, useValue: edition },
     ],
   })
 
@@ -75,6 +85,26 @@ const openSection = (component: SettingsPageComponent, section: SettingsSection)
     .find((item) => item.id === `settings-section-${section}`)
     ?.command?.({})
 }
+
+const buttonOf = (fixture: ComponentFixture<unknown>, name: string): HTMLButtonElement | null =>
+  action(name, hostOf(fixture))
+
+const tooltipsOf = (fixture: ComponentFixture<unknown>, names: readonly string[]) =>
+  names.map((name) =>
+    fixture.debugElement
+      .query(By.css(`[data-action="${name}"]`))
+      .injector.get(Tooltip)
+      .content(),
+  )
+
+/** Un bouton par section : on ouvre la section comme le menu, puis on lit le bouton. */
+const SECTIONED_ACTIONS = [
+  ["api", "save-api-key"],
+  ["matching", "reset-thresholds"],
+  ["admin", "reveal-logs"],
+  ["admin", "check-update"],
+  ["admin", "clear-cache"],
+] as const satisfies readonly (readonly [SettingsSection, string])[]
 
 describe("SettingsPageComponent", () => {
   afterEach(() => {
@@ -915,6 +945,81 @@ describe("SettingsPageComponent", () => {
 
       expect(shownBefore).not.toBeNull()
       expect(row(fixture)?.querySelector("app-message")).toBeNull()
+    })
+  })
+
+  describe("demo edition", () => {
+    const readSectioned = (edition: AppEdition) => {
+      const { fixture, component } = mountWith(
+        { available: signal<boolean | null>(true), logFile: signal(LOG_FILE) },
+        "api",
+        { edition },
+      )
+      component["entry"].set({ apiKey: "k3y-t0k3n" })
+
+      return SECTIONED_ACTIONS.map(([section, name]) => {
+        openSection(component, section)
+        fixture.detectChanges()
+
+        return { button: buttonOf(fixture, name), tooltip: tooltipsOf(fixture, [name])[0] }
+      })
+    }
+
+    it("greys out the API key, thresholds, logs, update check and cache clearing with the demo reason in the demo edition", () => {
+      const blocked = readSectioned("demo")
+
+      expect(blocked.every(({ button }) => button?.disabled === true)).toBe(true)
+      expect(blocked.map(({ tooltip }) => tooltip)).toEqual(Array(5).fill(DEMO_UNAVAILABLE))
+    })
+
+    it("greys out the API key field and the threshold controls in the demo edition", () => {
+      const { component } = mountWith({}, "api", { edition: "demo" })
+
+      const apiKeyDisabled = component["fields"].apiKey().disabled()
+      const thresholdsDisabled = [
+        component["thresholdsFields"].floor().disabled(),
+        component["thresholdsFields"].ceiling().disabled(),
+      ]
+
+      expect(apiKeyDisabled).toBe(true)
+      expect(thresholdsDisabled).toEqual([true, true])
+    })
+
+    it("keeps restoring the last run and past runs available in the demo edition", () => {
+      const { fixture } = mountWith(
+        {
+          rollbackTarget: signal(ROLLBACK_RUN),
+          pastRuns: signal<readonly PastRun[] | null>([PAST_RUN]),
+        },
+        "admin",
+        { edition: "demo" },
+      )
+      fixture.detectChanges()
+
+      const adminOpen = ["restore-last", "open-past-run"].map(
+        (name) => buttonOf(fixture, name)?.disabled,
+      )
+
+      expect(adminOpen).toEqual([false, false])
+      expect(tooltipsOf(fixture, ["restore-last"])).toEqual([undefined])
+    })
+
+    it("keeps language and sound editable in the demo edition and applies a language change", () => {
+      const { fixture, component } = mountWith({}, "admin", { edition: "demo" })
+      openSection(component, "interface")
+      fixture.detectChanges()
+
+      component["chooseLanguage"]("en")
+
+      expect(component["languageFields"].language().disabled()).toBe(false)
+      expect(component["soundFields"].enabled().disabled()).toBe(false)
+      expect(TestBed.inject(TranslateService).getCurrentLang()).toBe("en")
+    })
+
+    it("keeps every action available in the desktop edition", () => {
+      const reasons = readSectioned("desktop").flatMap(({ tooltip }) => tooltip ?? [])
+
+      expect(reasons).not.toContain(DEMO_UNAVAILABLE)
     })
   })
 })

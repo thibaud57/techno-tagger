@@ -89,6 +89,8 @@ jobs:
       # tsc --noEmit ne verifie pas les templates : seul le compilateur Angular
       # le fait, or ni typecheck-ui ni test-ui ne le declenchent sur toute l'app.
       - run: just build-ui
+      - name: Garde du bundle desktop
+        run: test -d dist/techno-tagger-ui/browser && test ! -d dist/techno-tagger-ui/browser/demo && ! grep -rl "scenario.json\|app-demo-banner" dist/techno-tagger-ui/browser
       - run: just test-ui
       # Non bloquant, meme raison que pour le sidecar
       - run: just audit-ui

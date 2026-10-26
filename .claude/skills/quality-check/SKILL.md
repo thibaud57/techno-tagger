@@ -16,7 +16,7 @@ Ta mission est de faire tourner les mêmes gates que la CI, et de rapporter ce q
 | `sidecar/` (Python) | `just lint-sidecar` | `just format-sidecar` | `just typecheck-sidecar` | `just test-sidecar` | `just audit-sidecar` |
 | `src-tauri/` (Rust) | `just lint-tauri` | `just format-tauri` | inclus dans le lint | aucun test | aucun (`cargo audit` exige une installation à part) |
 
-Agrégats : `just lint`, `just format`, `just typecheck`, `just test`, `just audit`, tous en `[parallel]`. Build : `just build-ui`, `just build-sidecar`, `just build`. `just lint-workflows` (actionlint sur `.github/workflows`) fait partie de l'agrégat `lint`, sans zone de code propre. `just record-demo` réenregistre `src/demo/` (scénario et pochettes de la démo web), sous Windows seulement : hors gate, c'est le remède de la garde du scénario (cf. § Règles).
+Agrégats : `just lint`, `just format`, `just typecheck`, `just test`, `just audit`, tous en `[parallel]`. Build : `just build-ui`, `just build-demo`, `just build-sidecar`, `just build`. `just lint-workflows` (actionlint sur `.github/workflows`) fait partie de l'agrégat `lint`, sans zone de code propre. `just record-demo` réenregistre `src/demo/` (scénario et pochettes de la démo web), sous Windows seulement : hors gate, c'est le remède de la garde du scénario (cf. § Règles).
 
 ## Workflow
 

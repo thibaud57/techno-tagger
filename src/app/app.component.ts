@@ -1,4 +1,4 @@
-import { NgTemplateOutlet } from "@angular/common"
+import { NgComponentOutlet, NgTemplateOutlet } from "@angular/common"
 import { Component, DOCUMENT, computed, effect, inject, linkedSignal } from "@angular/core"
 import { toSignal } from "@angular/core/rxjs-interop"
 import { NavigationEnd, Router, RouterOutlet } from "@angular/router"
@@ -11,6 +11,7 @@ import { Toast } from "primeng/toast"
 import { filter, map } from "rxjs"
 
 import { languageFromTag } from "./core/i18n/language"
+import { APP_BANNER, APP_EDITION } from "./core/platform/app-edition"
 import { CloseGuard } from "./core/platform/close-guard.service"
 import {
   TABS,
@@ -44,6 +45,7 @@ const SETTINGS_TAB = "settings" satisfies TabName
 @Component({
   selector: "app-root",
   imports: [
+    NgComponentOutlet,
     NgTemplateOutlet,
     RouterOutlet,
     Tabs,
@@ -75,6 +77,14 @@ export class AppComponent {
   private readonly closeGuard = inject(CloseGuard)
   private readonly recovery = inject(RecoveryUiStore)
   private readonly updates = inject(UpdateService)
+
+  /** En demo, la page web garde les decorations du navigateur : ni filet ni boutons de fenetre. */
+  protected readonly windowControls = inject(APP_EDITION) === "desktop"
+  /** Le nom part de la place du filet et des boutons de fenetre, absents en demo. */
+  protected readonly brandBasis = this.windowControls
+    ? "flex-[1_1_calc(4rem+147px)]"
+    : "flex-[1_1_4rem]"
+  protected readonly banner = inject(APP_BANNER)
 
   protected readonly workflowTabs = TABS.filter((tab) => tab !== SETTINGS_TAB)
   protected readonly settingsTab = SETTINGS_TAB

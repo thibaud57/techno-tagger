@@ -74,12 +74,16 @@
                   </p-inputicon>
                 }
               </p-iconfield>
+              @let saveBlocked = demoReason ? (demoReason | translate) : undefined;
               <button
                 pButton
                 type="button"
                 size="small"
                 class="shrink-0"
+                data-action="save-api-key"
                 [disabled]="!canSave()"
+                [pTooltip]="saveBlocked"
+                [tooltipOptions]="tooltip"
                 (click)="save()"
               >
                 {{ "settings.api.key.save" | translate }}
@@ -166,8 +170,7 @@
         </div>
 
         <div class="flex justify-end">
-          @let resetBlocked =
-            thresholdsCustomized() ? undefined : ("settings.matching.reset.blocked" | translate);
+          @let resetBlocked = resetBlockedReason() ? (resetBlockedReason() | translate) : undefined;
           <button
             pButton
             type="button"
@@ -384,6 +387,7 @@
             <span rowControl class="hint">{{
               "settings.admin.version.installed" | translate: { version: appVersion }
             }}</span>
+            @let checkBlocked = demoReason ? (demoReason | translate) : undefined;
             <button
               rowAction
               pButton
@@ -393,7 +397,9 @@
               [outlined]="true"
               class="w-full"
               data-action="check-update"
-              [disabled]="updateCheck() === 'checking'"
+              [disabled]="checkBlocked !== undefined || updateCheck() === 'checking'"
+              [pTooltip]="checkBlocked"
+              [tooltipOptions]="tooltip"
               (click)="checkUpdate()"
             >
               <app-icon [name]="updateCheck() === 'checking' ? 'spinner' : 'refresh'" [size]="16" />

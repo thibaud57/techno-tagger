@@ -1,5 +1,7 @@
 import { TestBed } from "@angular/core/testing"
+import { By } from "@angular/platform-browser"
 import { provideTranslateService } from "@ngx-translate/core"
+import { Tooltip } from "primeng/tooltip"
 import { vi } from "vitest"
 
 import { silenceConsoleError } from "../../../../fixtures/console"
@@ -12,6 +14,7 @@ import {
   TAGS_AFTER,
   TAGS_BEFORE,
 } from "../../../../fixtures/tagging"
+import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
@@ -58,10 +61,15 @@ const mountFixture = (
   track: TaggingTrack,
   inputs: Record<string, unknown> = {},
   shown: Partial<RunRow> = {},
+  edition: AppEdition = "desktop",
 ) => {
   TestBed.configureTestingModule({
     imports: [TrackDetailComponent],
-    providers: [provideTranslateService(), { provide: NativeService, useValue: native }],
+    providers: [
+      provideTranslateService(),
+      { provide: NativeService, useValue: native },
+      { provide: APP_EDITION, useValue: edition },
+    ],
   })
   const fixture = TestBed.createComponent(TrackDetailComponent)
   fixture.componentRef.setInput("track", asRow(track, shown))
@@ -248,5 +256,21 @@ describe("TrackDetailComponent", () => {
 
     expect(action("open-source", root)).toBeNull()
     expect(columnOf(root, 3).at(-1)).toBe(SOURCE_URL)
+  })
+
+  it("greys out restoring one track and opening the source page in the demo edition", () => {
+    const fixture = mountFixture(WITH_SOURCE, {}, { restorable: true }, "demo")
+
+    const names = ["restore-track", "open-source"]
+
+    expect(names.map((name) => action(name, hostOf(fixture))?.disabled)).toEqual([true, true])
+    expect(
+      names.map((name) =>
+        fixture.debugElement
+          .query(By.css(`[data-action="${name}"]`))
+          .injector.get(Tooltip)
+          .content(),
+      ),
+    ).toEqual(Array(2).fill(DEMO_UNAVAILABLE))
   })
 })

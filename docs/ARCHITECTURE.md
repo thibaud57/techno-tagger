@@ -93,6 +93,7 @@ techno-tagger/
 │   │   │   ├── playlist/                 # onglet 1 : dossiers, playlist, déplacement
 │   │   │   ├── tagging/                  # onglet 2, un dossier par vue : run/, arbitration/, url-recovery/, recap/
 │   │   │   └── settings/                 # sections API, Matching, Interface, Administration
+│   │   ├── demo/                         # shell de démo, fourni par `demoConfig` (build `demo` seul)
 │   │   ├── app.component.ts
 │   │   ├── app.routes.ts
 │   │   └── app.config.ts
@@ -100,7 +101,9 @@ techno-tagger/
 │   ├── fixtures/                         # événements du contrat et stubs de services partagés par les specs, hors build
 │   ├── demo/                             # généré par `just record-demo` : scenario.json et artworks/*.svg, servis par le seul build `demo` (cf. ADR-023)
 │   ├── index.html
+│   ├── index.demo.html                   # page du build `demo` : largeur fixe, noindex
 │   ├── main.ts                           # bootstrapApplication, init Sentry
+│   ├── main.demo.ts                      # point d'entrée du build `demo`, sans Sentry
 │   ├── build-constants.d.ts              # constantes substituées par --define
 │   └── styles.css                        # CSS pur, jamais SCSS
 ├── public/                               # servi à la racine par Angular : logo.png, i18n/ (JSON ngx-translate)

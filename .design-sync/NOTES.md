@@ -72,6 +72,7 @@ Un push, dans l'ordre :
 Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
 
 - **`StateTag`** (relevé le 2026-10-24, issue #115) : le composant de l'app reçoit `status` (le `state` reçu, ou « en attente », « à arbitrer », « non traité » calculés par la liste du run) et `resolution` ; celui du design system lit encore `state`, `awaiting` et `interrupted`. Rendu identique.
+- **Bandeau de démo** (relevé le 2026-10-26) : absent de la maquette et du design system, motif B validé le 2026-10-25 (`h-8`, `bg-surface-900`, `text-xs`, bouton `link`) ; les contrôles de fenêtre masqués en démo ne sont pas non plus rendus par `AppShell`.
 
 ## Journal
 

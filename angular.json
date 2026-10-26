@@ -80,6 +80,24 @@
                 }
               }
             },
+            "demo": {
+              "browser": "src/main.demo.ts",
+              "index": { "input": "src/index.demo.html", "output": "index.html" },
+              "outputPath": "dist/techno-tagger-ui-demo",
+              "sourceMap": false,
+              "assets": [
+                { "glob": "**/*", "input": "public" },
+                { "glob": "**/*", "input": "src/demo", "output": "demo" }
+              ],
+              "define": {
+                "PRIMENG_LICENSE_KEY": "''",
+                "APP_VERSION": "'0.0.0-dev'",
+                "SENTRY_DSN_UI": "''",
+                "APP_ENVIRONMENT": "'demo'",
+                "APP_NAME": "'techno-tagger'",
+                "APP_TITLE": "'Techno Tagger'"
+              }
+            },
             "development": {
               "optimization": false,
               "extractLicenses": false,
@@ -96,6 +114,9 @@
             },
             "development": {
               "buildTarget": "techno-tagger-ui:build:development"
+            },
+            "demo": {
+              "buildTarget": "techno-tagger-ui:build:development,demo"
             }
           },
           "defaultConfiguration": "development"

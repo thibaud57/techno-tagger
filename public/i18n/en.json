@@ -505,5 +505,12 @@
     "failed": "The update failed.\nCheck your connection, then try again.",
     "badge": "Update {{version}}",
     "reopen": "See the update"
+  },
+  "demo": {
+    "banner": {
+      "text": "Demo: fictional data, no real files. Private app, not affiliated with Beatport or Bandcamp.",
+      "contact": "Contact me"
+    },
+    "unavailable": "Not available in the demo."
   }
 }

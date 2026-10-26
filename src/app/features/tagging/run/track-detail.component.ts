@@ -3,6 +3,7 @@ import { TranslatePipe } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
 import { Tooltip } from "primeng/tooltip"
 
+import { injectDemoReason } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import type { TagField, TagValue, TrackSource } from "../../../core/sidecar/protocol"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
@@ -74,12 +75,20 @@ export const detailSpan = (track: TaggingTrack): number =>
 export class TrackDetailComponent {
   private readonly native = inject(NativeService)
 
+  /** Les URLs de la demo sont fictives, et la restauration n'y a rien a restaurer. */
+  protected readonly demoReason = injectDemoReason()
+
   protected readonly tooltip = TOOLTIP
 
   readonly track = input.required<RunRow>()
   /** Une écriture ou une restauration tourne : le moteur n'en accepte qu'une à la fois. */
   readonly blocked = input(false)
   readonly restore = output<string>()
+
+  /** La demo d'abord : elle prime sur le blocage d'une ecriture ou d'une restauration en cours. */
+  protected readonly restoreReason = computed(
+    () => this.demoReason ?? (this.blocked() ? "tagging.rollback.blocked" : null),
+  )
 
   /** `null` : ni avant ni après, le fichier n'a pas pu être lu et n'a pas été résolu. */
   protected readonly rows = computed<readonly DetailRow[] | null>(() => {
