@@ -2,7 +2,7 @@
 feature: "Post-MVP Feature 1 : Démo web publique"
 subproject: "shell-de-demo"
 goal: "Construire l'interface Angular dans une configuration demo qui démarre dans un navigateur nu, se présente comme une démo, accueille le visiteur dans sa langue et explique les actions indisponibles"
-status: "draft"
+status: "implemented"
 complexity: "XL"
 tdd_scope: "partial"
 depends_on: ["01-enregistreur-de-scenario-design.md"]
