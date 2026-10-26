@@ -88,15 +88,7 @@
               "assets": [
                 { "glob": "**/*", "input": "public" },
                 { "glob": "**/*", "input": "src/demo", "output": "demo" }
-              ],
-              "define": {
-                "PRIMENG_LICENSE_KEY": "''",
-                "APP_VERSION": "'0.0.0-dev'",
-                "SENTRY_DSN_UI": "''",
-                "APP_ENVIRONMENT": "'demo'",
-                "APP_NAME": "'techno-tagger'",
-                "APP_TITLE": "'Techno Tagger'"
-              }
+              ]
             },
             "development": {
               "optimization": false,

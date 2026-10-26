@@ -7,8 +7,6 @@ remplacement d'attribut de module est retabli a la sortie de la session (ADR-023
 
 Les sessions repartent toutes des memes chemins : une commande et ses lignes sont donc
 identiques d'une session a l'autre, ce que `assemble` verifie.
-
-Le scenario et les pochettes sont versionnes sous `src/demo/`, que `just record-demo` reecrit.
 """
 
 import asyncio
@@ -173,7 +171,7 @@ _VISITOR_RUN: Final[JsonObject] = {"run_id": VISITOR_RUN_ID}
 
 
 def combinations() -> tuple[Combination, ...]:
-    """Les 32 combinaisons d'issues, dans l'ordre des issues de chaque morceau."""
+    """Toutes les combinaisons d'issues, dans l'ordre des issues de chaque morceau."""
     return tuple(
         Combination(sub_rosa, tishina, lowlands)
         for sub_rosa, tishina, lowlands in product(
@@ -292,7 +290,7 @@ def record_demo_folder(target: Path) -> tuple[Scenario, Mapping[str, str]]:
     """Enregistre dans un dossier temporaire, puis reecrit `target` ; rend ce qui y est ecrit."""
     with tempfile.TemporaryDirectory() as workspace:
         scenario = record_scenario(Path(workspace))
-    covers = render_covers(TRACKS)
+    covers = render_covers()
     write_demo_folder(target, scenario, covers)
     return scenario, covers
 
@@ -335,7 +333,7 @@ def outcomes_of(combination: Combination) -> Mapping[str, Outcome]:
 
 
 def _build_library(layout: _Layout) -> None:
-    """Bibliotheque et destination de depart : les cinq cas de l'extraction."""
+    """Bibliotheque et destination de depart : les cas de l'extraction."""
     for track in TRACKS:
         if track.extraction is ExtractionCase.MISSING:
             continue
@@ -447,8 +445,7 @@ async def _start(recorder: _Recorder, folder: Path, gates: Sequence[tuple[Gate, 
 async def _full_path(
     combination: Combination, branch: Branch, folder: Path, recorder: _Recorder
 ) -> None:
-    """« Sub Rosa », puis « Тишина », puis le rattrapage de « Lowlands », puis l'ecriture : le
-    rattrapage vient apres les decisions, sa reponse existe ainsi pour toutes leurs issues."""
+    """Le rattrapage vient apres les decisions : sa reponse existe pour toutes leurs issues."""
     for track, outcome in _decisions(combination):
         await _decide(recorder, track, outcome)
     await _recover(recorder, combination.lowlands)
@@ -623,7 +620,7 @@ class _Recorder:
         self._phase = enters or self._phase
 
     async def settings(self) -> None:
-        """Les trois requetes de la page Reglages, avec l'etat courant."""
+        """Les requetes de la page Reglages, avec l'etat courant."""
         for command, until in _SETTINGS_QUERIES:
             await self.ask(command, until, stateful=True)
 

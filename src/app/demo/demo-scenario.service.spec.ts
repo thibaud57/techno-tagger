@@ -20,16 +20,17 @@ describe("DemoScenarioService", () => {
     await expect(loaded).rejects.toMatchObject({ name: "DemoScenarioError", cause })
   })
 
-  it("reports an unreadable JSON body as a DemoScenarioError", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{broken"))
-
-    const loaded = service.load()
-
-    await expect(loaded).rejects.toBeInstanceOf(DemoScenarioError)
-  })
-
-  it("reports a failed response as a DemoScenarioError", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 404 }))
+  it.each([
+    {
+      case: "reports an unreadable JSON body as a DemoScenarioError",
+      response: () => new Response("{broken"),
+    },
+    {
+      case: "reports a failed response as a DemoScenarioError",
+      response: () => new Response("", { status: 404 }),
+    },
+  ])("$case", async ({ response }) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(response())
 
     const loaded = service.load()
 

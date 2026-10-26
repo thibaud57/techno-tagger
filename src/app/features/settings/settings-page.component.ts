@@ -219,10 +219,12 @@ export default class SettingsPageComponent {
   protected readonly thresholdsFields = form(this.thresholdsChoice, (path) => {
     // Sans valeur connue, un geste enregistrerait 0 et 100. Store pas encore lu : le geste
     // s'enregistrerait sur des defauts, ou la lecture tardive l'annulerait.
-    const unknown = (): boolean =>
-      this.shownThresholds() === null || this.storedThresholds() === undefined
-    disabled(path.floor, { when: () => unknown() || this.demoReason !== null })
-    disabled(path.ceiling, { when: () => unknown() || this.demoReason !== null })
+    const locked = (): boolean =>
+      this.shownThresholds() === null ||
+      this.storedThresholds() === undefined ||
+      this.demoReason !== null
+    disabled(path.floor, { when: locked })
+    disabled(path.ceiling, { when: locked })
   })
   /** Bornes croisees des champs, que `p-inputnumber` applique a la sortie du champ. */
   protected readonly floorMax = computed(() => this.thresholdsChoice().ceiling)

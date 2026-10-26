@@ -7,10 +7,10 @@ import { choose, commandKey, initialReplayState, type ReplayState } from "./repl
 import { DemoScenarioError, isJsonObject, type JsonValue, type Scenario } from "./scenario"
 
 /** Ecart entre deux lignes d'une phase longue, pour que la progression se voie a l'ecran. */
-export const DEMO_LINE_DELAY_MS = 200
+const DEMO_LINE_DELAY_MS = 200
 
 /** Commandes dont les lignes sont etalees : celles que le vrai sidecar met du temps a produire. */
-export const LONG_PHASE_COMMANDS = [
+const LONG_PHASE_COMMANDS = [
   "extract_playlist",
   "start_tagging",
   "commit_run",

@@ -1,8 +1,8 @@
 """Pochettes generees de la demo : stables, une par sortie, au motif de leur label."""
 
 import pytest
-from demo_catalogue import TRACKS, Motif, resolved_releases
-from demo_covers import cover_name, render_cover, render_covers
+from demo_catalogue import Motif, resolved_releases
+from demo_covers import render_cover, render_covers
 
 
 def test_renders_the_same_cover_twice_for_the_same_release() -> None:
@@ -14,10 +14,11 @@ def test_renders_the_same_cover_twice_for_the_same_release() -> None:
 
 
 def test_names_one_cover_per_resolved_release_after_its_reference() -> None:
-    covers = render_covers(TRACKS)
+    releases = [release for _, release in resolved_releases()]
 
-    assert set(covers) == {cover_name(release) for _, release in resolved_releases()}
-    assert cover_name(resolved_releases()[0][1]) == f"{resolved_releases()[0][1].reference}.svg"
+    covers = render_covers()
+
+    assert set(covers) == {f"{release.reference}.svg" for release in releases}
 
 
 @pytest.mark.parametrize(

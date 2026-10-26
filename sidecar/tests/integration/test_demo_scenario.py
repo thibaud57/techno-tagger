@@ -454,10 +454,8 @@ def test_every_catalogue_track_ends_as_its_case_announces(recorded: Recorded) ->
     assert [(row["file_name"], row["reason"]) for row in rows(first["failures"])] == [
         (COLD_MERIDIAN.file_name, "file_locked")
     ]
-    assert {track_id: resolved[track_id] for track_id in tagged_as(RESOLVED_AS)} == tagged_as(
-        RESOLVED_AS
-    )
-    assert {track_id: held[track_id] for track_id in tagged_as(HELD_AS)} == tagged_as(HELD_AS)
+    assert tagged_as(RESOLVED_AS).items() <= resolved.items()
+    assert tagged_as(HELD_AS).items() <= held.items()
     assert (refused["source"], bool(refused["candidates"])) == ("bandcamp", True)
     assert (committed["state"], committed["failure_reason"]) == ("write_error", "file_locked")
     assert retried["state"] == "written"
@@ -538,7 +536,7 @@ def folder_differences(written: Path, committed: Path) -> list[str]:
 
 
 def test_re_recording_yields_the_committed_demo_folder(recorded: Recorded, tmp_path: Path) -> None:
-    write_demo_folder(tmp_path, recorded.scenario, render_covers(TRACKS))
+    write_demo_folder(tmp_path, recorded.scenario, render_covers())
 
     differences = folder_differences(tmp_path, DEMO_FOLDER)
 

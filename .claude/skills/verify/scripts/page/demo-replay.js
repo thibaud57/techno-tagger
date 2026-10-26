@@ -1,15 +1,10 @@
-// Rejeu du scenario de la demo web sous `just dev-demo` (navigateur nu, aucun Tauri ni sidecar), gestes
-// reels de Playwright : parcours complet FR, ordre libre, « les choix changent la fin », « Recommencer la
-// demo », bandeau au plancher 1024 x 700, fidelite au design system. Un contexte de navigateur par
-// scenario (stockage neuf), les commandes et les lignes du transport relevees par un `JSON.parse` espion
-// pose avant l'app (`window.__commands`, `window.__events`) et le compteur de la barre de phase echantillonne
-// par un `MutationObserver` (`window.__samples`). `ONLY=s1,s2,s3,s4,gap` ne rejoue que ces scenarios (le
-// bandeau et la fidelite tournent toujours). Rend `checks`, `failures`, `measures`.
+// Rejeu du scenario de la demo web sous `just dev-demo` (navigateur nu, aucun Tauri ni sidecar) par les gestes
+// reels de Playwright, un contexte de navigateur par scenario (stockage neuf). `ONLY=s1,s2,s3,s4,gap` ne
+// rejoue que ces scenarios (le bandeau et la fidelite tournent toujours). Rend `checks`, `failures`, `measures`.
 async (page) => {
   // `DEMO_URL` vise l'image servie par nginx (`http://localhost:8080`) au lieu de `just dev-demo`.
   const base = process.env.DEMO_URL ?? "http://localhost:4200"
   const shots = process.env.SHOTS_DIR
-  // `ONLY=s1,s5` ne rejoue que ces scenarios (mise au point) ; vide, tous.
   const only = (process.env.ONLY ?? "").split(",").filter(Boolean)
   const on = (id) => only.length === 0 || only.includes(id)
   const browser = page.context().browser()
@@ -73,7 +68,7 @@ async (page) => {
     })
     return { context, p }
   }
-  // Un scenario qui leve ne masque pas les suivants : l'echec est inscrit avec son message et une capture.
+  // Un scenario qui leve ne masque pas les suivants.
   const guard = async (label, p, fn) => {
     try {
       await fn()
@@ -214,12 +209,9 @@ async (page) => {
         const gaps = lines.slice(1).map((e, i) => Math.round(e.t - lines[i].t))
         const sorted = [...gaps].sort((a, b) => a - b)
         const end = lines[lines.length - 1]?.t ?? c.t
-        const values = []
-        const changes = []
-        for (const s of window.__samples.filter((x) => x.t >= c.t && x.t <= end + 50)) {
-          if (s.v && !values.includes(s.v)) values.push(s.v)
-          if (s.v) changes.push(s.t)
-        }
+        const shown = window.__samples.filter((x) => x.t >= c.t && x.t <= end + 50 && x.v)
+        const values = [...new Set(shown.map((s) => s.v))]
+        const changes = shown.map((s) => s.t)
         const steps = changes.slice(1).map((t, i) => Math.round(t - changes[i]))
         const stepsSorted = [...steps].sort((a, b) => a - b)
         return {
@@ -237,7 +229,6 @@ async (page) => {
     )
   const RUN_LINES = ["run_started", "track_resolved", "progress", "arbitration_required", "run_finished"]
 
-  // --- parcours ---
   const pickAndExtract = async (p, lang) => {
     await p.goto(`${base}/?lang=${lang}`)
     await p.waitForSelector("p-tablist")
@@ -381,7 +372,6 @@ async (page) => {
       )
       if (shots) await p.screenshot({ path: `${shots}/replay-s1-arbitration.png` })
 
-      // Sub Rosa : refus Beatport, liste Bandcamp vide, retour a Beatport, premier candidat.
       let text = await dialogText(p)
       check("s1.subRosaFirst", /Sub Rosa/.test(text) && /Correspondances incertaines : 2/.test(text) && /1\/2/.test(text), text)
       await refuseGesture(p)
@@ -408,7 +398,6 @@ async (page) => {
       const afterSubRosa = await badges(p)
       check("s1.queueShrinksAfterSubRosa", /1 à arbitrer/.test(afterSubRosa.arbitration ?? ""), afterSubRosa)
 
-      // Reglages au milieu des arbitrages : la modale se ferme par Echap, le badge la rouvre.
       await closeDialog(p)
       const mid = await settingsVisit(p)
       s1.visitMidArbitration = mid
@@ -416,7 +405,6 @@ async (page) => {
       await p.locator("[data-arbitration-badge]").click()
       await waitDialog(p, /Тишина/)
 
-      // Тишина : refus Beatport puis refus Bandcamp, vers l'etape lien.
       await refuseGesture(p)
       await waitDialog(p, /Les candidats Beatport ont été refusés/)
       check("s1.tishinaBandcampList", (await optionCount(p)) === 1)
@@ -426,7 +414,6 @@ async (page) => {
       check("s1.tishinaLinkStep", /Étape facultative/.test(text) && /Passer/.test(text) && /Résoudre/.test(text), text)
       if (shots) await p.screenshot({ path: `${shots}/replay-s1-link-step-refused.png` })
 
-      // Etape lien d'un morceau refuse : champ libre, « Résoudre » grise avec sa raison, meme saisie faite.
       s1.linkRefused = await p.evaluate(() => {
         const i = document.querySelector('[data-field="url"]')
         const d = document.querySelector(".p-dialog")
@@ -470,7 +457,6 @@ async (page) => {
         { afterTishina, recoveryCounter },
       )
 
-      // Lowlands : URL enregistree, lecture seule, « Résoudre » actif.
       const before = await lowlandsRecovery(p)
       s1.lowlandsBefore = before
       check(
@@ -492,7 +478,6 @@ async (page) => {
       if (shots) await p.screenshot({ path: `${shots}/replay-s1-lowlands-resolved.png` })
       await closeDialog(p)
 
-      // Lowlands deja rattrape, rouvert par sa ligne : « Résoudre » grise avec la raison, aucune commande ne part.
       await p.locator("app-run-list tr", { hasText: "Lowlands" }).first().click({ position: { x: 300, y: 20 } })
       await waitDialog(p, /Lowlands/)
       const commandsBefore = await commandCount(p)
@@ -508,7 +493,6 @@ async (page) => {
       )
       await closeDialog(p)
 
-      // Тишина refuse, rouvert par le badge : meme raison.
       await p.locator("[data-recovery-badge]").click()
       await waitDialog(p, /Résoudre/)
       if (!/Тишина/.test(await dialogText(p))) {
@@ -523,7 +507,6 @@ async (page) => {
       )
       await closeDialog(p)
 
-      // Confirmation puis ecriture avec un echec.
       await p.locator('[data-action="commit"]').click()
       const commitMessage = await confirmAccept(p, /Écrire les tags/)
       s1.commitMessage = commitMessage
@@ -551,7 +534,7 @@ async (page) => {
       await p.waitForSelector('[data-action="recap"]')
       await p.waitForFunction(() => !document.querySelector("[data-write-failures]"))
       check("s1.retryWritesTheLockedFile", true)
-      // Le run est ecrit : « Lancer le run » reprend la place du bouton, grise des l'ecriture et non de la restauration.
+      // « Lancer le run » est grise des l'ecriture et non de la restauration.
       const startWritten = await hoverTip(p, '[data-action="start"]')
       s1.startWritten = startWritten
       check(
@@ -560,7 +543,6 @@ async (page) => {
         startWritten,
       )
 
-      // Recapitulatif.
       await p.locator('[data-action="recap"]').click()
       await p.waitForURL(/\/tagging\/recap/)
       await p.waitForSelector("app-run-list tr")
@@ -570,7 +552,6 @@ async (page) => {
       await p.locator('[data-action="back"]').click()
       await p.waitForSelector("app-tagging-page")
 
-      // Restauration du run.
       await p.locator('[data-action="restore-run"]').click()
       const restoreMessage = await confirmAccept(p, /^Restaurer$/)
       await waitEvents(p, "rollback_finished", 1)
@@ -583,7 +564,6 @@ async (page) => {
       check("s1.restoredRows", restored > 0 && restored === expected, s1.restore)
       if (shots) await p.screenshot({ path: `${shots}/replay-s1-restored.png` })
 
-      // « Lancer le run » apres l'ecriture : grise, meme raison.
       const start = await hoverTip(p, '[data-action="start"]')
       s1.startAfter = start
       s1.startInfo = await buttonInfo(p, '[data-action="start"]')
@@ -593,7 +573,6 @@ async (page) => {
         start,
       )
 
-      // « Recommencer la démo » en FR : retour sur Playlist, francais, run oublie.
       await Promise.all([p.waitForURL(`${base}/playlist`), p.locator('[data-action="restart"]').click()])
       await p.waitForSelector("app-playlist-page")
       await p.waitForTimeout(600)
@@ -652,7 +631,6 @@ async (page) => {
         counter: await counter(p),
       })
       await closeDialog(p)
-      // Тишина avant Sub Rosa : fleche suivante dans la modale d'arbitrage.
       await p.locator("[data-arbitration-badge]").click()
       await waitDialog(p, /Sub Rosa/)
       await p.getByRole("button", { name: /Arbitrage suivant/ }).click()
@@ -920,7 +898,6 @@ async (page) => {
         m.contact.svgs.length === 1 && m.contact.svgs[0] === 16 && m.restart.svgs.length === 0 && m.iconSize === 16,
         { contact: m.contact.svgs, restart: m.restart.svgs, icon: m.iconSize },
       )
-      m.hoverRef = null
     })
     await context.close()
   }
@@ -978,7 +955,6 @@ async (page) => {
           m.n.contact === (s1.backNorm?.color ?? m.n.contact),
         { contact: m.contact, restart: m.restart, ref },
       )
-      // Le survol d'un lien `link` : memes soulignement que « Revenir a Beatport », le lien de reference.
       check(
         `f.${lang}.hoverLikeReferenceLink`,
         m.hover.contact === ref.hoverDecoration && m.hover.restart === ref.hoverDecoration,
@@ -1042,7 +1018,6 @@ async (page) => {
     )
   }
 
-  // --- console ---
   const unrecorded = consoleAll.filter((c) => c.text.includes("[demo] commande hors scenario"))
   const errors = consoleAll.filter((c) => c.type === "error" && !c.text.includes("Failed to load resource"))
   check("console.noUnrecordedCommand", unrecorded.length === 0, unrecorded)

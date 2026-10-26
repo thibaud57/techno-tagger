@@ -1,28 +1,35 @@
 import { takeLanguageFromQuery } from "./demo-language"
 
 describe("takeLanguageFromQuery", () => {
-  it.each(["fr", "en"] as const)("takes %s from the query and removes the parameter", (lang) => {
+  it.each([
+    {
+      case: "takes fr from the query and removes the parameter",
+      search: "?lang=fr&x=1",
+      language: "fr",
+      url: "/playlist?x=1",
+    },
+    {
+      case: "takes en from the query and removes the parameter",
+      search: "?lang=en&x=1",
+      language: "en",
+      url: "/playlist?x=1",
+    },
+    {
+      case: "ignores an unknown language and still removes the parameter",
+      search: "?lang=de",
+      language: null,
+      url: "/playlist",
+    },
+  ])("$case", ({ search, language, url }) => {
     const replaceState = vi.fn()
 
     const taken = takeLanguageFromQuery(
-      { search: `?lang=${lang}&x=1`, pathname: "/playlist", hash: "" },
+      { search, pathname: "/playlist", hash: "" },
       { replaceState },
     )
 
-    expect(taken).toBe(lang)
-    expect(replaceState).toHaveBeenCalledWith(null, "", "/playlist?x=1")
-  })
-
-  it("ignores an unknown language and still removes the parameter", () => {
-    const replaceState = vi.fn()
-
-    const taken = takeLanguageFromQuery(
-      { search: "?lang=de", pathname: "/playlist", hash: "" },
-      { replaceState },
-    )
-
-    expect(taken).toBeNull()
-    expect(replaceState).toHaveBeenCalledWith(null, "", "/playlist")
+    expect(taken).toBe(language)
+    expect(replaceState).toHaveBeenCalledWith(null, "", url)
   })
 
   it("returns nothing when the query carries no language", () => {

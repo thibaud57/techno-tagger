@@ -133,11 +133,18 @@ describe("recoveryUrlOf", () => {
     ],
   })
 
-  it("reads the url recorded for the track", () => {
-    expect(recoveryUrlOf(scenario, "lowlands.wav")).toBe("https://label.example/lowlands")
-  })
-
-  it("returns nothing for a track with no recorded url", () => {
-    expect(recoveryUrlOf(scenario, "sub rosa.mp3")).toBeNull()
+  it.each([
+    {
+      case: "reads the url recorded for the track",
+      trackId: "lowlands.wav",
+      url: "https://label.example/lowlands",
+    },
+    {
+      case: "returns nothing for a track with no recorded url",
+      trackId: "sub rosa.mp3",
+      url: null,
+    },
+  ])("$case", ({ trackId, url }) => {
+    expect(recoveryUrlOf(scenario, trackId)).toBe(url)
   })
 })

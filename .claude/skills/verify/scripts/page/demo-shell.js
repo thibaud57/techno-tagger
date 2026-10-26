@@ -1,9 +1,5 @@
-// Shell de la demo web sous `just dev-demo` (navigateur nu, aucun Tauri ni sidecar) : langue prise
-// dans `?lang` puis retiree de l'URL, ordre `?lang` > choix enregistre > navigateur, bandeau sous
-// les onglets, barre centree sans controles de fenetre, selecteurs remplis par les chemins du
-// scenario, actions grisees avec leur raison, lien de contact, scenario lent ou absent (« Restaurer le dernier
-// run » grise pour sa raison, « Ouvrir le recapitulatif » actif depuis le rejeu du lot 3). Un contexte
-// de navigateur par scenario (stockage neuf). Rend `checks` et `failures`.
+// Shell de la demo web sous `just dev-demo` (navigateur nu, aucun Tauri ni sidecar), un contexte de
+// navigateur par scenario (stockage neuf). Rend `checks` et `failures`.
 async (page) => {
   const base = "http://localhost:4200"
   // `SHOTS_DIR` facultatif : captures du shell et des Reglages pour le controle de fidelite.
@@ -227,9 +223,9 @@ async (page) => {
       { apiKeyField: tips.apiKeyField, thresholds: tips.thresholds },
     )
     check(`s4.${lang}.interfaceFree`, tips.interface.select && tips.interface.sound, tips.interface)
-    // Depuis le lot 3 le rejeu repond a `get_rollback_target` (aucune cible avant l'ecriture du visiteur : le bouton
-    // reste grise pour sa raison habituelle, jamais celle de la demo) et a `list_runs` (un run passe enregistre :
-    // « Ouvrir le recapitulatif » est actif).
+    // Le rejeu repond a `get_rollback_target` (aucune cible avant l'ecriture du visiteur : le bouton reste grise
+    // pour sa raison habituelle, jamais celle de la demo) et a `list_runs` (un run passe enregistre : « Ouvrir le
+    // recapitulatif » est actif).
     const noRestoreReason = lang === "fr" ? "Aucun run à restaurer : aucune sauvegarde de tags récente." : "No run to restore: no recent tag backup."
     check(
       `s4.${lang}.restoreGreyedForItsOwnReasonPastRunsOpen`,
@@ -273,7 +269,10 @@ async (page) => {
     const before = consoleErrors.length
     await p.route("**/demo/scenario.json", (route) => route.fulfill({ status: 404, body: "" }))
     await p.goto(`${base}/?lang=en`)
-    await p.waitForSelector("p-card", { timeout: 15000 }).catch(() => null)
+    // Une carte absente est le verdict lu juste apres : seul le delai expire est attendu ici.
+    await p.waitForSelector("p-card", { timeout: 15000 }).catch((error) => {
+      if (error.name !== "TimeoutError") throw error
+    })
     const blocked = await p.evaluate(() => ({
       card: !!document.querySelector("p-card"),
       title: document.querySelector("p-card h3")?.textContent.trim(),

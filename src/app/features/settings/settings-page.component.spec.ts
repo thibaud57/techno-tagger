@@ -1,14 +1,12 @@
 import { signal } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { By } from "@angular/platform-browser"
 import { provideRouter } from "@angular/router"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService, MessageService } from "primeng/api"
-import { Tooltip } from "primeng/tooltip"
 import { vi } from "vitest"
 
 import { spyConfirmation } from "../../../fixtures/confirm"
-import { action, errorMessageOf, hostOf, iconOf } from "../../../fixtures/dom"
+import { action, errorMessageOf, hostOf, iconOf, tooltipOf } from "../../../fixtures/dom"
 import { type NativeStub, nativeStub } from "../../../fixtures/native-stub"
 import { OTHER_PAST_RUN, PAST_RUN } from "../../../fixtures/past-runs"
 import { type PreferencesStub, preferencesStub } from "../../../fixtures/preferences-stub"
@@ -88,14 +86,6 @@ const openSection = (component: SettingsPageComponent, section: SettingsSection)
 
 const buttonOf = (fixture: ComponentFixture<unknown>, name: string): HTMLButtonElement | null =>
   action(name, hostOf(fixture))
-
-const tooltipsOf = (fixture: ComponentFixture<unknown>, names: readonly string[]) =>
-  names.map((name) =>
-    fixture.debugElement
-      .query(By.css(`[data-action="${name}"]`))
-      .injector.get(Tooltip)
-      .content(),
-  )
 
 /** Un bouton par section : on ouvre la section comme le menu, puis on lit le bouton. */
 const SECTIONED_ACTIONS = [
@@ -961,7 +951,7 @@ describe("SettingsPageComponent", () => {
         openSection(component, section)
         fixture.detectChanges()
 
-        return { button: buttonOf(fixture, name), tooltip: tooltipsOf(fixture, [name])[0] }
+        return { button: buttonOf(fixture, name), tooltip: tooltipOf(fixture, name) }
       })
     }
 
@@ -1001,7 +991,7 @@ describe("SettingsPageComponent", () => {
       )
 
       expect(adminOpen).toEqual([false, false])
-      expect(tooltipsOf(fixture, ["restore-last"])).toEqual([undefined])
+      expect(tooltipOf(fixture, "restore-last")).toBeUndefined()
     })
 
     it("keeps language and sound editable in the demo edition and applies a language change", () => {

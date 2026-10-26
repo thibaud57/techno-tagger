@@ -9,12 +9,12 @@ import math
 from functools import reduce
 from typing import TYPE_CHECKING, Final, assert_never
 
-from demo_catalogue import Motif
+from demo_catalogue import Motif, resolved_releases
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
 
-    from demo_catalogue import DemoTrack, Release
+    from demo_catalogue import Release
 
 _UINT32: Final = 0xFFFFFFFF
 _FNV_OFFSET: Final = 2166136261
@@ -45,12 +45,11 @@ def cover_name(release: Release) -> str:
     return f"{release.reference}.svg"
 
 
-def render_covers(tracks: Sequence[DemoTrack]) -> dict[str, str]:
+def render_covers() -> dict[str, str]:
     """Une pochette par sortie, par `cover_name` ; un morceau sans sortie n'en a pas."""
     return {
         cover_name(release): render_cover(release, track.title)
-        for track in tracks
-        if (release := track.release) is not None
+        for track, release in resolved_releases()
     }
 
 

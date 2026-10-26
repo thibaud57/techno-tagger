@@ -3,11 +3,10 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { By } from "@angular/platform-browser"
 import { provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService } from "primeng/api"
-import { Tooltip } from "primeng/tooltip"
 import { vi } from "vitest"
 
 import { spyConfirmation } from "../../../../fixtures/confirm"
-import { action, hostOf, iconOf } from "../../../../fixtures/dom"
+import { action, hostOf, iconOf, tooltipOf } from "../../../../fixtures/dom"
 import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
 import { OTHER_PAST_RUN } from "../../../../fixtures/past-runs"
 import { preferencesStub } from "../../../../fixtures/preferences-stub"
@@ -82,12 +81,6 @@ const committedRun = (): SidecarStubOverrides => ({
   ...activeRun(RUN_ID),
   committed: signal(true),
 })
-
-const tooltipOf = (fixture: ComponentFixture<unknown>, name: string) =>
-  fixture.debugElement
-    .query(By.css(`[data-action="${name}"]`))
-    .injector.get(Tooltip)
-    .content()
 
 // Les deux gestes que la demo grise et que le poste de bureau laisse libres.
 const EDITION_ACTIONS = [
@@ -808,14 +801,6 @@ describe("TaggingPageComponent", () => {
     expect(component["error"]() !== null).toBe(shown)
   })
 
-  it("hides a rollback error naming a run while no run is shown", async () => {
-    const { component } = await mountWith(
-      commandFailed("rollback", "rollback_unavailable", { run_id: RUN_ID }),
-    )
-
-    expect(component["error"]()).toBeNull()
-  })
-
   it("follows the folder of a run resumed while the page is shown", async () => {
     const requestedFolder = signal<string | null>(null)
     const { component } = await mountWith({
@@ -875,8 +860,17 @@ describe("TaggingPageComponent", () => {
     expect(component["idleDescription"]()).toBe(expected)
   })
 
-  it("ignores an error raised by another screen", async () => {
-    const { component } = await mountWith(commandFailed("set_api_key", "api_key_rejected"))
+  it.each([
+    {
+      case: "ignores an error raised by another screen",
+      overrides: commandFailed("set_api_key", "api_key_rejected"),
+    },
+    {
+      case: "hides a rollback error naming a run while no run is shown",
+      overrides: commandFailed("rollback", "rollback_unavailable", { run_id: RUN_ID }),
+    },
+  ])("$case", async ({ overrides }) => {
+    const { component } = await mountWith(overrides)
 
     expect(component["error"]()).toBeNull()
   })

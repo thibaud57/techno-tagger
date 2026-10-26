@@ -77,6 +77,7 @@ export class AppComponent {
   private readonly closeGuard = inject(CloseGuard)
   private readonly recovery = inject(RecoveryUiStore)
   private readonly updates = inject(UpdateService)
+  protected readonly banner = inject(APP_BANNER)
 
   /** En demo, la page web garde les decorations du navigateur : ni filet ni boutons de fenetre. */
   protected readonly windowControls = inject(APP_EDITION) === "desktop"
@@ -84,7 +85,6 @@ export class AppComponent {
   protected readonly brandBasis = this.windowControls
     ? "flex-[1_1_calc(4rem+147px)]"
     : "flex-[1_1_4rem]"
-  protected readonly banner = inject(APP_BANNER)
 
   protected readonly workflowTabs = TABS.filter((tab) => tab !== SETTINGS_TAB)
   protected readonly settingsTab = SETTINGS_TAB

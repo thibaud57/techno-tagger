@@ -100,13 +100,6 @@ _FERROUS_RECORDS: Final = Label("Ferrous Records", "#1a1210", "#f0a35c", 22, Mot
 _GRAUZONE_TONTRAGER: Final = Label("Grauzone Tonträger", "#12161b", "#9fb4c8", 205, Motif.GRID)
 _LUMEN_DRIFT: Final = Label("Lumen Drift", "#15121d", "#b9a3f0", 265, Motif.DOTS)
 
-LABELS: Final[tuple[Label, ...]] = (
-    _CONCRETE_HALLS,
-    _FERROUS_RECORDS,
-    _GRAUZONE_TONTRAGER,
-    _LUMEN_DRIFT,
-)
-
 _HOLLOW_FREQUENCIES: Final = DemoTrack(
     artist="Nadia Kessler",
     title="Hollow Frequencies",

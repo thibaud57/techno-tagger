@@ -1,11 +1,9 @@
 import { TestBed } from "@angular/core/testing"
-import { By } from "@angular/platform-browser"
 import { provideTranslateService } from "@ngx-translate/core"
-import { Tooltip } from "primeng/tooltip"
 import { vi } from "vitest"
 
 import { silenceConsoleError } from "../../../../fixtures/console"
-import { action, hostOf } from "../../../../fixtures/dom"
+import { action, hostOf, tooltipOf } from "../../../../fixtures/dom"
 import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
 import {
   PENDING_TRACK,
@@ -264,13 +262,6 @@ describe("TrackDetailComponent", () => {
     const names = ["restore-track", "open-source"]
 
     expect(names.map((name) => action(name, hostOf(fixture))?.disabled)).toEqual([true, true])
-    expect(
-      names.map((name) =>
-        fixture.debugElement
-          .query(By.css(`[data-action="${name}"]`))
-          .injector.get(Tooltip)
-          .content(),
-      ),
-    ).toEqual(Array(2).fill(DEMO_UNAVAILABLE))
+    expect(names.map((name) => tooltipOf(fixture, name))).toEqual(Array(2).fill(DEMO_UNAVAILABLE))
   })
 })

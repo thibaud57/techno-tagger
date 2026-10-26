@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 
 import type { SidecarHandlers } from "../core/sidecar/sidecar-transport"
+import { silenceConsoleError } from "../../fixtures/console"
 import { scenarioWith, statefulReply, statelessReply } from "../../fixtures/demo-scenario"
 import { DemoScenarioService } from "./demo-scenario.service"
 import { ReplayTransport } from "./replay-transport"
@@ -95,7 +96,7 @@ describe("ReplayTransport", () => {
 
   it("reports an unreadable scenario and stays unavailable", async () => {
     scenarios.load.mockRejectedValue(new DemoScenarioError("schema_version", "1"))
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const error = silenceConsoleError()
 
     const available = await transport.start(handlers)
 
@@ -198,7 +199,7 @@ describe("ReplayTransport", () => {
 
   it("reports an unrecorded command in the console without answering", async () => {
     await transport.start(handlers)
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const error = silenceConsoleError()
 
     await transport.send(line({ command: "cancel_run" }))
     vi.runAllTimers()

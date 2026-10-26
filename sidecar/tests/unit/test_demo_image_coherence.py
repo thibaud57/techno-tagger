@@ -33,15 +33,13 @@ def _package_field(*keys: str) -> str:
     return value
 
 
-def test_keeps_the_image_node_major_equal_to_package_json_engines_and_the_ci_runtime() -> None:
+def test_keeps_the_image_node_major_equal_to_package_json_engines() -> None:
+    """La CI suit deja `engines` (`test_the_ci_node_major_is_declared_in_engines`)."""
     image_major = _match(r"^FROM node:(\d+)[\d.]*-slim", DOCKERFILE)
     engines_major = re.search(r"\d+", _package_field("engines", "node"))
-    assert engines_major
-    ci_major = _match(r"runtime:\s*node@(\d+)", REPO / ".github/actions/setup-pnpm/action.yml")
 
-    assert image_major == engines_major.group(0) == ci_major, (
-        "Dockerfile, package.json et setup-pnpm divergent sur la majeure de Node"
-    )
+    assert engines_major
+    assert image_major == engines_major.group(0)
 
 
 def test_installs_the_pnpm_version_pinned_by_dev_engines() -> None:

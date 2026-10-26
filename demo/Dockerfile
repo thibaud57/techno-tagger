@@ -11,7 +11,10 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY . .
+# Pas `COPY . .` : `demo/` ne sert qu'a l'etage nginx, une retouche de sa config ne relance pas ce build.
+COPY angular.json tsconfig*.json .postcssrc.json ./
+COPY src src
+COPY public public
 # Un secret monte et non un ARG : la cle n'entre pas dans l'historique de l'image. Vide si absent (PR).
 RUN --mount=type=secret,id=primeng_license_key,required=false \
     PRIMENG_LICENSE_KEY="$(cat /run/secrets/primeng_license_key 2>/dev/null)" pnpm build:demo

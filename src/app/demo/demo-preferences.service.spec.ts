@@ -34,6 +34,16 @@ describe("DemoPreferencesService", () => {
     expect(language).toBeNull()
   })
 
+  it("saves the language of the query over the stored choice", async () => {
+    localStorage.setItem("techno-tagger-demo:language", JSON.stringify("fr"))
+    window.history.replaceState(null, "", "/?lang=en")
+
+    const language = await preferences.readLanguage()
+
+    expect(language).toBe("en")
+    expect(localStorage.getItem("techno-tagger-demo:language")).toBe(JSON.stringify("en"))
+  })
+
   it("restores a written sound signal under the demo prefix", async () => {
     await preferences.writeSoundSignal(false)
 

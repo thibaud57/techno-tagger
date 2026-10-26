@@ -1,5 +1,4 @@
 import {
-  isPlainObject,
   type JsonObject,
   type Outcome,
   type Phase,
@@ -28,15 +27,9 @@ export const initialReplayState = (scenario: Scenario): ReplayState => ({
   calls: {},
 })
 
-// Cles triees a tous les niveaux, comme `sort_keys` cote Python : l'ordre d'ecriture ne change pas la cle.
-const sortKeys = (_key: string, value: unknown): unknown =>
-  isPlainObject(value)
-    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
-    : value
-
 /**
- * Memes champs et cles triees que `command_key` (`sidecar/tests/helpers/demo_scenario.py`), un champ absent
- * vaut `null` ; la serialisation n'est comparee que de TS a TS, jamais a la cle Python.
+ * Memes champs que `command_key` (`sidecar/tests/helpers/demo_scenario.py`), un champ absent vaut `null` ;
+ * la serialisation n'est comparee que de TS a TS, jamais a la cle Python.
  */
 export const commandKey = (command: JsonObject, keyFields: Scenario["key_fields"]): CommandKey => {
   const name = command["command"]
@@ -47,13 +40,10 @@ export const commandKey = (command: JsonObject, keyFields: Scenario["key_fields"
     )
   }
 
-  return JSON.stringify(
-    {
-      command: name,
-      ...Object.fromEntries(fields.map((field) => [field, command[field] ?? null])),
-    },
-    sortKeys,
-  ) as CommandKey
+  return JSON.stringify({
+    command: name,
+    ...Object.fromEntries(fields.map((field) => [field, command[field] ?? null])),
+  }) as CommandKey
 }
 
 const sameOutcomes = (

@@ -1,11 +1,9 @@
 import { Service } from "@angular/core"
 
-import { LANGUAGES, type Language } from "../core/i18n/language"
+import type { Language } from "../core/i18n/language"
 import {
-  DEFAULT_EXTRACTION_MODE,
-  DEFAULT_SOUND_SIGNAL,
-  isThresholds,
-  isUpdateAttempt,
+  PREFERENCES,
+  type Preference,
   type PreferencesService,
   type UpdateAttempt,
 } from "../core/platform/preferences.service"
@@ -15,11 +13,7 @@ import { takeLanguageFromQuery } from "./demo-language"
 const KEY_PREFIX = "techno-tagger-demo:"
 
 /** Meme garde que le desktop : une valeur illisible ou hors type retombe sur le defaut. */
-const parseStored = <T>(
-  raw: string | null,
-  fallback: T,
-  accept: (stored: unknown) => stored is T,
-): T => {
+const parseStored = <T>(raw: string | null, { fallback, accept }: Preference<T>): T => {
   if (raw === null) {
     return fallback
   }
@@ -43,31 +37,19 @@ export class DemoPreferencesService implements PreferencesService {
   private readonly memory = new Map<string, string>()
 
   readExtractionMode(): Promise<ExtractionMode> {
-    return Promise.resolve(
-      parseStored(
-        this.get("extraction_mode"),
-        DEFAULT_EXTRACTION_MODE,
-        (stored): stored is ExtractionMode => stored === "copy" || stored === "move",
-      ),
-    )
+    return this.read(PREFERENCES.extractionMode)
   }
 
   writeExtractionMode(value: ExtractionMode): Promise<void> {
-    return this.set("extraction_mode", value)
+    return this.write(PREFERENCES.extractionMode, value)
   }
 
   readSoundSignal(): Promise<boolean> {
-    return Promise.resolve(
-      parseStored(
-        this.get("sound_signal"),
-        DEFAULT_SOUND_SIGNAL,
-        (stored): stored is boolean => typeof stored === "boolean",
-      ),
-    )
+    return this.read(PREFERENCES.soundSignal)
   }
 
   writeSoundSignal(value: boolean): Promise<void> {
-    return this.set("sound_signal", value)
+    return this.write(PREFERENCES.soundSignal, value)
   }
 
   async readLanguage(): Promise<Language | null> {
@@ -78,47 +60,43 @@ export class DemoPreferencesService implements PreferencesService {
       return fromQuery
     }
 
-    return parseStored<Language | null>(this.get("language"), null, (stored): stored is Language =>
-      LANGUAGES.some((known) => known === stored),
-    )
+    return this.read(PREFERENCES.language)
   }
 
   writeLanguage(value: Language | null): Promise<void> {
-    return this.set("language", value)
+    return this.write(PREFERENCES.language, value)
   }
 
   readThresholds(): Promise<ThresholdsPayload | null> {
-    return Promise.resolve(
-      parseStored<ThresholdsPayload | null>(this.get("thresholds"), null, isThresholds),
-    )
+    return this.read(PREFERENCES.thresholds)
   }
 
   writeThresholds(value: ThresholdsPayload | null): Promise<void> {
-    return this.set("thresholds", value)
+    return this.write(PREFERENCES.thresholds, value)
   }
 
   readUpdateAttempt(): Promise<UpdateAttempt | null> {
-    return Promise.resolve(
-      parseStored<UpdateAttempt | null>(this.get("update_attempt"), null, isUpdateAttempt),
-    )
+    return this.read(PREFERENCES.updateAttempt)
   }
 
   writeUpdateAttempt(value: UpdateAttempt | null): Promise<void> {
-    return this.set("update_attempt", value)
+    return this.write(PREFERENCES.updateAttempt, value)
   }
 
   readLastDestination(): Promise<string | null> {
-    return Promise.resolve(
-      parseStored<string | null>(
-        this.get("last_destination"),
-        null,
-        (stored): stored is string => typeof stored === "string",
-      ),
-    )
+    return this.read(PREFERENCES.lastDestination)
   }
 
   writeLastDestination(value: string | null): Promise<void> {
-    return this.set("last_destination", value)
+    return this.write(PREFERENCES.lastDestination, value)
+  }
+
+  private read<T>(preference: Preference<T>): Promise<T> {
+    return Promise.resolve(parseStored(this.get(preference.key), preference))
+  }
+
+  private write<T>({ key }: Preference<T>, value: T): Promise<void> {
+    return this.set(key, value)
   }
 
   private get(key: string): string | null {

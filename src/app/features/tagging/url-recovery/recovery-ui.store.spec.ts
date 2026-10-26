@@ -300,22 +300,24 @@ describe("RecoveryUiStore", () => {
       expect(store.canResolve(LOWLANDS)).toBe(true)
     })
 
-    it("greys out resolving a track without recorded URL in the demo edition", () => {
-      const store = storeWith({ edition: "demo", hint: () => null })
-
-      expect(store.canResolve(REFUSED)).toBe(false)
-      expect(store.resolveBlocked(REFUSED)).toBe("demo.unavailable")
-    })
-
-    it("greys out resolving a track already recovered in the demo edition", () => {
-      const store = storeWith({
-        edition: "demo",
+    it.each([
+      {
+        case: "greys out resolving a track without recorded URL in the demo edition",
+        trackId: REFUSED,
+        hint: () => null,
+        tracks: [unresolvedTrack(LOWLANDS), unresolvedTrack(REFUSED)],
+      },
+      {
+        case: "greys out resolving a track already recovered in the demo edition",
+        trackId: LOWLANDS,
         hint: lowlandsHint,
         tracks: [recoveredTrack(LOWLANDS), unresolvedTrack(REFUSED)],
-      })
+      },
+    ])("$case", ({ trackId, hint, tracks }) => {
+      const store = storeWith({ edition: "demo", hint, tracks })
 
-      expect(store.canResolve(LOWLANDS)).toBe(false)
-      expect(store.resolveBlocked(LOWLANDS)).toBe("demo.unavailable")
+      expect(store.canResolve(trackId)).toBe(false)
+      expect(store.resolveBlocked(trackId)).toBe("demo.unavailable")
     })
 
     it("keeps recovery free in the desktop edition", () => {

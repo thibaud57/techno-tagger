@@ -294,28 +294,28 @@ describe("AppComponent", () => {
     expect(component["updateDialogVisible"]()).toBe(true)
   })
 
-  it("hides the window controls in the demo edition", () => {
+  it.each([
+    { case: "hides the window controls in the demo edition", selector: "app-window-controls" },
+    {
+      case: "hides the separator before the window controls in the demo edition",
+      selector: "span.order-3",
+    },
+  ])("$case", ({ selector }) => {
     const { fixture } = mount(null, null, [{ provide: APP_EDITION, useValue: "demo" }])
 
-    expect(hostOf(fixture).querySelector("app-window-controls")).toBeNull()
+    expect(hostOf(fixture).querySelector(selector)).toBeNull()
   })
 
-  it("hides the separator before the window controls in the demo edition", () => {
-    const { fixture } = mount(null, null, [{ provide: APP_EDITION, useValue: "demo" }])
-
-    expect(hostOf(fixture).querySelector("span.order-3")).toBeNull()
-  })
-
-  it("keeps the separator before the window controls in the desktop edition", () => {
+  it.each([
+    {
+      case: "keeps the separator before the window controls in the desktop edition",
+      selector: "span.order-3",
+    },
+    { case: "shows the window controls in the desktop edition", selector: "app-window-controls" },
+  ])("$case", ({ selector }) => {
     const { fixture } = mount()
 
-    expect(hostOf(fixture).querySelector("span.order-3")).not.toBeNull()
-  })
-
-  it("shows the window controls in the desktop edition", () => {
-    const { fixture } = mount()
-
-    expect(hostOf(fixture).querySelector("app-window-controls")).not.toBeNull()
+    expect(hostOf(fixture).querySelector(selector)).not.toBeNull()
   })
 
   it("renders the provided banner between the tabs and the page", () => {

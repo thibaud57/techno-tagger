@@ -5,7 +5,7 @@ import { ButtonDirective } from "primeng/button"
 import { languageFromTag } from "../core/i18n/language"
 import { IconComponent } from "../shared/components/display/icon.component"
 
-export const DEMO_CONTACT_ORIGIN = "https://thibaud-geisler.com"
+const DEMO_CONTACT_ORIGIN = "https://thibaud-geisler.com"
 
 /** Recharge la demo sur sa page d'accueil : l'etat du rejeu vit en memoire et repart de zero. */
 export const DEMO_RELOAD = new InjectionToken<() => void>("DemoReload", {

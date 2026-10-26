@@ -1,3 +1,5 @@
+import { isRecord } from "../core/record"
+
 /** Miroir TypeScript du modele `demo_scenario.py`, garde par `test_demo_scenario_mirror.py`. */
 
 export const OUTCOMES = [
@@ -70,8 +72,8 @@ export class DemoScenarioError extends Error {
 
 type UnknownRecord = Readonly<Record<string, unknown>>
 
-export const isPlainObject = (value: unknown): value is UnknownRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
+const isPlainObject = (value: unknown): value is UnknownRecord =>
+  isRecord(value) && !Array.isArray(value)
 
 const isJsonValue = (value: unknown): value is JsonValue =>
   value === null ||

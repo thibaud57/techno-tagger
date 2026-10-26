@@ -24,7 +24,7 @@ import { recoveryUrlOf } from "./replay"
 import { ReplayTransport } from "./replay-transport"
 
 // Sentry n'est pas initialise dans l'edition demo : on remplace le handler Sentry par celui d'Angular.
-export const DEMO_PROVIDERS: Provider[] = [
+const DEMO_PROVIDERS: Provider[] = [
   { provide: APP_EDITION, useValue: "demo" },
   { provide: APP_BANNER, useValue: DemoBannerComponent },
   { provide: ErrorHandler, useClass: ErrorHandler },

@@ -317,11 +317,7 @@ def _frozen_datetime(at: datetime) -> type[datetime]:
 
 @contextmanager
 def frozen_sources(*, at: datetime, run_id: str) -> Iterator[None]:
-    """Fige le `run_id` et l'horloge du sidecar le temps d'une session.
-
-    Remplace les attributs de module qui tirent le hasard ou lisent l'horloge, comme les
-    tests remplacent `tagging_transports` : id et dates sortent fixes sans reecriture.
-    """
+    """Fige le `run_id` et l'horloge du sidecar le temps d'une session, sans reecrire son code."""
     with (
         patch.object(tagging, "secrets", _FrozenSecrets(run_id)),
         patch.object(handlers, "datetime", _frozen_datetime(at)),

@@ -21,42 +21,43 @@ describe("parseScenario", () => {
     expect(scenario.initial_outcomes["a.mp3"]).toBe("pending")
   })
 
-  it("rejects an unknown schema version", () => {
-    expect(() => parseScenario({ ...scenarioWith({}), schema_version: 2 })).toThrow(
-      DemoScenarioError,
-    )
-  })
-
-  it("rejects a reply whose outcome or phase is unknown", () => {
-    const valid = scenarioWith({})
-    const outcome = { ...valid, initial_outcomes: { "a.mp3": "maybe" } }
-    const phase = {
-      ...valid,
-      lines: [{ event: "x" }],
-      stateful: [
-        {
-          command: { command: "list_runs" },
-          outcomes: {},
-          phase: "later",
-          sets: {},
-          enters: null,
-          lines: [0],
-        },
-      ],
-    }
-
-    expect(() => parseScenario(outcome)).toThrow(DemoScenarioError)
-    expect(() => parseScenario(phase)).toThrow(DemoScenarioError)
-  })
-
-  it("rejects a reply pointing outside the lines table", () => {
-    const raw = scenarioWith({
-      lines: [],
-      stateless: [
-        { command: { command: "get_version" }, call: 1, sets: {}, enters: null, lines: [3] },
-      ],
-    })
-
-    expect(() => parseScenario(raw)).toThrow(DemoScenarioError)
+  it.each([
+    {
+      case: "rejects an unknown schema version",
+      raw: () => ({ ...scenarioWith({}), schema_version: 2 }),
+    },
+    {
+      case: "rejects a reply whose outcome is unknown",
+      raw: () => ({ ...scenarioWith({}), initial_outcomes: { "a.mp3": "maybe" } }),
+    },
+    {
+      case: "rejects a reply whose phase is unknown",
+      raw: () => ({
+        ...scenarioWith({}),
+        lines: [{ event: "x" }],
+        stateful: [
+          {
+            command: { command: "list_runs" },
+            outcomes: {},
+            phase: "later",
+            sets: {},
+            enters: null,
+            lines: [0],
+          },
+        ],
+      }),
+    },
+    {
+      case: "rejects a reply pointing outside the lines table",
+      raw: () =>
+        scenarioWith({
+          lines: [],
+          stateless: [
+            { command: { command: "get_version" }, call: 1, sets: {}, enters: null, lines: [3] },
+          ],
+        }),
+    },
+  ])("$case", ({ raw }) => {
+    expect(() => parseScenario(raw())).toThrow(DemoScenarioError)
   })
 })
