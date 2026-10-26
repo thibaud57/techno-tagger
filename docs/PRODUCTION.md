@@ -327,20 +327,21 @@ Il n'y a **rien à faire redescendre côté application** : aucun serveur ne la 
 
 ## Mise en place de la démo
 
-Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag qui embarque la démo. **Cible, en cours au 2026-10-26** : étapes 1 et 2 faites sauf la variable `DEMO_IMAGE`, étape 3 sans `DOKPLOY_TOKEN`. Rien n'est en ligne tant que les sept étapes ne sont pas cochées. Ce que Dokploy ou le portfolio présentent à ce moment (portée de la clé, version affichée) se relève ici, avec sa date.
+Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag qui embarque la démo. **Appliquée en entier le 2026-10-26**, avec la release 1.1.0. Ce que Dokploy ou le portfolio présentent à ce moment (portée de la clé, version affichée) se relève ici, avec sa date.
 
 1. **DNS** : un enregistrement `demo-techno-tagger` de même cible que l'apex du domaine.
 2. **Dokploy** : projet `Techno Tagger`, environment par défaut `production` (Dokploy ne le renomme ni ne le supprime), service Compose `techno-tagger-demo` depuis GitHub (branche `main`, fichier `demo/compose.yaml`).
    - **Isolated Deployment** activé, **déploiement automatique coupé** (la CI déclenche).
    - Onglet **Environment** : `DEMO_IMAGE`, posée sur `latest` (cf. § Variables d'Environnement).
    - Onglet **Domains** : hôte `demo-techno-tagger.thibaud-geisler.com`, service `demo`, port `8080`, HTTPS Let's Encrypt, **aucun middleware d'en-têtes** attaché.
-   - Générer la clé d'API et **noter la portée que Dokploy présente**, à reporter dans la § Rotation.
+   - Générer une clé d'API dédiée à la CI. Relevé le 2026-10-26 : elle porte les droits du compte qui la crée, donc tout le serveur, sans expiration posée (cf. § Rotation).
+   - **Premier déploiement par le bouton Deploy**, une fois l'image publiée : le redéploiement de la CI relance le compose déjà cloné sans cloner le dépôt, et échoue en « Compose file not found » sur un service jamais déployé (relevé le 2026-10-26).
 3. **Secrets GitHub** : `DOKPLOY_URL` (origine du tableau de bord, sans slash final), `DOKPLOY_TOKEN`, `DOKPLOY_COMPOSE_ID`.
-4. **Première release et GHCR** : au premier push, le paquet de la démo est **privé**. Le passer en **public** pour que Dokploy le tire sans identifiants, puis relancer le job `demo` s'il a échoué au tirage.
+4. **Première release et GHCR** : le paquet de la démo doit être **public** pour que Dokploy le tire sans identifiants. Relevé public à l'issue du premier run (2026-10-26) ; s'il naît privé, le passer en public puis relancer le job `demo`.
 5. **Vérification en ligne** : en-têtes sur l'accueil, une route de l'app et une 404 (CSP de `headers.conf` et non celle du portfolio, `X-Robots-Tag: noindex`), `/healthz` à `200`, version des Réglages égale au tag, parcours joué par `/verify` sans violation CSP ni requête hors origine, aucun cookie du portfolio présent sur le sous-domaine.
-6. **Sonde de disponibilité externe** (le service déjà utilisé pour le portfolio) : une sonde HTTP sur `https://demo-techno-tagger.thibaud-geisler.com/healthz`, toutes les 5 minutes, alerte email au changement d'état.
+6. **Sonde de disponibilité externe** (le service déjà utilisé pour le portfolio) : une sonde HTTP sur `https://demo-techno-tagger.thibaud-geisler.com/healthz`, toutes les 5 minutes, alerte email au changement d'état. Elle ne surveille pas l'échéance du certificat, option payante du service (relevé le 2026-10-26). Chaîne éprouvée le même jour en pointant la sonde sur `/nope.js` (404) : panne confirmée depuis quatre régions, mails « Down » puis « Up » reçus. Une route sans extension ne convient pas à ce test : la démo y répond `index.html` en `200`.
 7. **Portfolio** (dans son dépôt) :
-   - le bouton « Voir la démo » pointe vers la démo avec `?lang=fr` ou `?lang=en` selon la langue de la page, puis s'ouvre dans un nouvel onglet (`target="_blank" rel="noopener noreferrer"`) ;
+   - le bouton « Voir la démo » ouvre la démo dans un nouvel onglet (`target="_blank" rel="noopener noreferrer"`). Lien sans `?lang`, choix du propriétaire du 2026-10-26 : la langue du navigateur décide, le portfolio n'ayant qu'un champ de lien par projet ;
    - les pages `/fr/contact` et `/en/contact`, que le bandeau de la démo cible, existent ;
    - les cookies du portfolio restent **sans attribut `Domain=`** : un cookie posé sur le domaine parent serait lisible par le sous-domaine de la démo.
 
@@ -469,7 +470,7 @@ Surface d'attaque de l'application volontairement minimale : **aucun port en éc
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Secrets GitHub Actions | Compilés au build, init des deux SDK (deux projets Sentry, cf. § Observabilité) | Régénérables depuis Sentry |
 | `PRIMENG_LICENSE_KEY` | Secrets GitHub Actions | `providePrimeNG({ license })`, gravée dans le bundle par `--define` | Bandeau de licence chez les utilisateurs, renouvellement gratuit (échéance au § Rotation) |
 | `SENTRY_AUTH_TOKEN` | Secrets GitHub Actions | Upload des source maps de la webview par `pnpm build` et création de la release Sentry au tag, **Organization Auth Token**, scope `org:ci` imposé et non modifiable, jamais le token du CLI local | Régénérable côté Sentry, sans impact sur les binaires déjà distribués |
-| `DOKPLOY_URL` / `DOKPLOY_TOKEN` / `DOKPLOY_COMPOSE_ID` | Secrets GitHub Actions | Job `demo`, passés par `env:` au seul step de redéploiement. **La clé d'API est un actif à pouvoir de déploiement**, exposé à toute modification de workflow qui atteint `main`. Portée : à définir, relevée à la mise en place (cf. § Mise en place de la démo) | Régénérable côté Dokploy. Sans elle, la démo cesse de se mettre à jour, l'installeur n'est pas touché |
+| `DOKPLOY_URL` / `DOKPLOY_TOKEN` / `DOKPLOY_COMPOSE_ID` | Secrets GitHub Actions | Job `demo`, passés par `env:` au seul step de redéploiement. **La clé d'API est un actif à pouvoir de déploiement**, exposé à toute modification de workflow qui atteint `main`. Portée : tout le serveur, la clé portant les droits du compte qui la crée (relevé le 2026-10-26) | Régénérable côté Dokploy. Sans elle, la démo cesse de se mettre à jour, l'installeur n'est pas touché |
 | Clé API techno-scraper (utilisateur) | Trousseau de l'OS via keyring, machine de l'utilisateur | Header `X-API-Key` posé par le sidecar | L'utilisateur en ressaisit une, révocation individuelle côté API |
 | Variables `API_KEYS__USER_N` (une par clé) | Variables d'environnement côté techno-scraper (Dokploy), nom de la personne en commentaire + gestionnaire de mots de passe | Garde fail-closed de l'API | La correspondance vers les personnes est perdue, plus moyen de savoir qui révoquer |
 
@@ -497,7 +498,7 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 | `SENTRY_DSN_SIDECAR` / `SENTRY_DSN_UI` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret GitHub, **publier une nouvelle version** : le DSN est compilé, les installations existantes gardent l'ancien jusqu'à leur mise à jour |
 | `PRIMENG_LICENSE_KEY` | Annuelle, **valide jusqu'au 2027-08-30** | Émise le 2026-08-30, tier Community, 4 sièges. Grâce de 30 jours au-delà, soit jusqu'au 2027-09-29. Renouvellement gratuit par reconfirmation d'éligibilité sur [primeui.dev/licenses/community](https://primeui.dev/licenses/community), puis mise à jour du secret. **Effectif à la prochaine release seulement** : une version déjà distribuée garde la clé expirée et affiche la notice |
 | `SENTRY_AUTH_TOKEN` | Sur suspicion de fuite | Régénérer côté Sentry, mettre à jour le secret. Effet immédiat, ce token n'est jamais compilé dans un binaire |
-| `DOKPLOY_TOKEN` (clé d'API Dokploy) | Au moins une fois par an (première échéance : un an après la mise en place, date à définir) ; à tout soupçon de fuite | **Révoquer côté Dokploy d'abord**, puis générer la nouvelle clé et remplacer le secret GitHub. Effet immédiat, la clé n'est jamais compilée dans un binaire |
+| `DOKPLOY_TOKEN` (clé d'API Dokploy) | Au moins une fois par an (première échéance : 2027-10-26) ; à tout soupçon de fuite | **Révoquer côté Dokploy d'abord**, puis générer la nouvelle clé et remplacer le secret GitHub. Effet immédiat, la clé n'est jamais compilée dans un binaire |
 | **Clé de signature updater** | ❌ **Non rotative en pratique** | La release qui introduit la nouvelle `pubkey` doit être **signée avec l'ancienne clé** pour que les installations existantes l'acceptent. Sans l'ancienne clé, il n'y a pas de transition possible, seulement une réinstallation manuelle chez chaque utilisateur |
 
 > ⚠️ **Une rotation de clé de signature se prépare, elle ne s'improvise pas.** Si elle devient nécessaire (fuite avérée), la séquence est : générer la paire B, publier une version signée avec A portant la `pubkey` de B, attendre que **tout le monde** l'ait installée, puis seulement signer avec B. Tant qu'un utilisateur n'a pas pris la version de transition, il est définitivement bloqué sur A.
@@ -506,9 +507,9 @@ Une clé distincte par personne, jamais compilée dans le binaire ([ADR-012](adr
 
 La démo ne contient aucune donnée réelle (bibliothèque fictive) et ne peut atteindre aucun service : le container est durci pour que cela reste vrai.
 
-**En-têtes** : posés par **nginx seul**, depuis `demo/headers.conf`, seule source, que la CI et le test de cohérence lisent aussi. Le fichier est inclus avec `always` dans chaque `location` : un `add_header` de `location` efface ceux du serveur, sans `always` les 4xx n'en portent aucun. Contenu : CSP restrictive (`default-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Robots-Tag: noindex`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`. `style-src 'unsafe-inline'` est exigé par les styles que PrimeNG pose à l'exécution ; le risque résiduel est une injection CSS, sans donnée à exfiltrer ; `script-src 'self'` sans inline ferme le reste.
+**En-têtes** : posés par nginx depuis `demo/headers.conf`, que la CI et le test de cohérence lisent aussi. Le fichier est inclus avec `always` dans chaque `location` : un `add_header` de `location` efface ceux du serveur, sans `always` les 4xx n'en portent aucun. Contenu : CSP restrictive (`default-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Robots-Tag: noindex`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`. `style-src 'unsafe-inline'` est exigé par les styles que PrimeNG pose à l'exécution ; le risque résiduel est une injection CSS, sans donnée à exfiltrer ; `script-src 'self'` sans inline ferme le reste.
 
-**HSTS** : posé par le reverse proxy de Dokploy seul, réglage global de son point d'entrée. **Aucun middleware d'en-têtes** n'est attaché au domaine de la démo : celui du portfolio porte une CSP qui autorise d'autres origines et remplacerait celle de la démo, sans que la vérification locale le voie. La CSP vue en ligne doit être celle de `headers.conf` (étape 5 de la mise en place).
+**Point d'entrée du VPS** : son middleware d'en-têtes, appliqué à tous les sites, ajoute HSTS et remplace par ses propres valeurs `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` et `Permissions-Policy`, équivalentes à celles de nginx au 2026-10-26. La CSP et `X-Robots-Tag` restent celles de nginx seul. **Aucun middleware d'en-têtes** n'est attaché au domaine de la démo : celui du portfolio porte une CSP qui autorise d'autres origines et remplacerait celle de la démo, sans que la vérification locale le voie. La CSP vue en ligne doit être celle de `headers.conf` (étape 5 de la mise en place).
 
 **CORS** : sans objet, la démo ne sert aucune API (`connect-src 'self'`). **Rate limiting** : celui du point d'entrée du VPS, déjà appliqué à tout hôte, dont les valeurs vivent dans la configuration de l'hébergement, hors de ce dépôt. Aucun middleware de plus sur ce domaine, il compterait double.
 
@@ -520,7 +521,7 @@ La démo ne contient aucune donnée réelle (bibliothèque fictive) et ne peut a
 | Ressources | `pids_limit: 64`, `mem_limit: 128m`, `cpus: "0.5"` | `pids_limit` : test de cohérence |
 | Exposition | `expose: ["8080"]`, aucun `ports`, aucun `volumes`, aucun `privileged` | Test de cohérence |
 
-Dokploy relit `main` à chaque redéploiement : une édition qui dédurcirait le compose partirait en production sans alerte. C'est ce que `test_demo_image_coherence.py` empêche en échouant dans la PR.
+Le redéploiement de la CI relance le compose cloné au dernier Deploy, sans relire `main` : une modification de `demo/compose.yaml` ne part qu'au Deploy manuel suivant. Une édition qui dédurcirait le compose partirait alors en production sans alerte : c'est ce que `test_demo_image_coherence.py` empêche en échouant dans la PR.
 
 **Logs** : le format par défaut de l'image, sur la sortie standard. L'adresse consignée est celle du reverse proxy de Dokploy, pas celle du visiteur : **aucune donnée personnelle** dans ces logs. Rétention : logging `json-file` du compose, `20m` × `5` fichiers (cf. § Logging > Rétention).
 
@@ -623,7 +624,7 @@ Canal unique : **email**, envoyé nativement par Sentry, par GitHub pour la CI e
 | Parsing cassé | Réponse de techno-scraper non conforme au schéma attendu | Email (Sentry) |
 | Erreur de la webview | Issue de priorité haute (exception capturée ou non) | Email (Sentry) |
 | Quota Sentry proche | Notification native du plan Developer | Email (Sentry) |
-| Démo hors ligne | `/healthz` ne répond plus, y compris VPS éteint (sonde externe, cible tant que l'étape 6 de la mise en place n'est pas faite) | Email (sonde externe) |
+| Démo hors ligne | `/healthz` ne répond plus, y compris VPS éteint | Email (sonde externe) |
 | Job `demo` en échec | Image non publiée ou redéploiement refusé : la démo garde la version précédente, l'installeur est intact. Se relance par « Re-run job » | Email (GitHub) |
 
 > **Le canal d'amélioration du matching n'est pas Sentry** mais un envoi de rapport par geste explicite de l'utilisateur, seul endroit où des titres de morceaux quittent la machine, sans consommer le quota d'erreurs ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md), étape 8). Les retours arrivent en issues du dépôt sous le label `matching-report`, posé par l'Issue Form `matching-report.yml`. Le label doit exister dans le dépôt, sinon le formulaire ne le pose pas, sans erreur.
