@@ -327,10 +327,10 @@ Il n'y a **rien à faire redescendre côté application** : aucun serveur ne la 
 
 ## Mise en place de la démo
 
-Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag qui embarque la démo. **Cible, non appliquée au 2026-10-26** : rien n'est en ligne tant que ces sept étapes ne sont pas cochées. Ce que Dokploy ou le portfolio présentent à ce moment (portée de la clé, version affichée) se relève ici, avec sa date.
+Procédure à dérouler **une fois**, par le propriétaire, avant le premier tag qui embarque la démo. **Cible, en cours au 2026-10-26** : étapes 1 et 2 faites sauf la variable `DEMO_IMAGE`, étape 3 sans `DOKPLOY_TOKEN`. Rien n'est en ligne tant que les sept étapes ne sont pas cochées. Ce que Dokploy ou le portfolio présentent à ce moment (portée de la clé, version affichée) se relève ici, avec sa date.
 
 1. **DNS** : un enregistrement `demo-techno-tagger` de même cible que l'apex du domaine.
-2. **Dokploy** : projet `techno-tagger`, environment `demo`, service Compose depuis GitHub (branche `main`, fichier `demo/compose.yaml`).
+2. **Dokploy** : projet `Techno Tagger`, environment par défaut `production` (Dokploy ne le renomme ni ne le supprime), service Compose `techno-tagger-demo` depuis GitHub (branche `main`, fichier `demo/compose.yaml`).
    - **Isolated Deployment** activé, **déploiement automatique coupé** (la CI déclenche).
    - Onglet **Environment** : `DEMO_IMAGE`, posée sur `latest` (cf. § Variables d'Environnement).
    - Onglet **Domains** : hôte `demo-techno-tagger.thibaud-geisler.com`, service `demo`, port `8080`, HTTPS Let's Encrypt, **aucun middleware d'en-têtes** attaché.

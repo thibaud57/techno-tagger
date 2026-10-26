@@ -98,7 +98,7 @@ A garde tout le métier dans le sidecar et ne laisse que des fichiers statiques 
 
 **Garde stricte.** Le scénario est une copie du comportement du sidecar : une copie se garde par un test, jamais par la vigilance. La CI réenregistre et compare. Elle casse en nommant la réponse en cause dès qu'un changement du sidecar modifie une réponse enregistrée. La garde tourne sur le runner `windows-2025` du job sidecar, aucun autre OS n'est ciblé. Une garde souple (validité contre le protocole seulement) laisserait la démo datée sans rien signaler.
 
-**Isolation et hébergement.** Le projet Dokploy `techno-tagger`, en environment `demo`, déploie le container en Isolated Deployment. Un projet Dokploy n'isole rien par lui-même : l'isolation vient de l'Isolated Deployment. Le réseau du portfolio est précisément ce que la démo ne doit pas voir.
+**Isolation et hébergement.** Le projet Dokploy `Techno Tagger` déploie le service `techno-tagger-demo` en Isolated Deployment, dans l'environment par défaut `production` comme les autres projets du serveur. Un projet Dokploy n'isole rien par lui-même : l'isolation vient de l'Isolated Deployment. Le réseau du portfolio est précisément ce que la démo ne doit pas voir.
 
 **Build au tag.** L'image est construite par la CI au tag et poussée sur GHCR. Aucun build ne tourne sur le VPS de l'API, la clé PrimeNG est déjà un secret GitHub et le déploiement est déclenché par le tag. Le scénario et les pochettes vivent dans `src/demo/`, branché dans les seuls assets de la configuration `demo` : rien de la démo n'entre dans l'installeur.
 
