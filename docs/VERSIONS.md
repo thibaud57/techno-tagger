@@ -84,6 +84,8 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | release-please-action | `5.0.0` | ⚠️ | Le tag créé avec `GITHUB_TOKEN` ne déclenche aucun workflow. Chaînage `needs:` obligatoire |
 | Dependabot | app GitHub intégrée, version non épinglée par le dépôt | ✅ | Écosystèmes `npm`, `uv`, `cargo` et `github-actions` couverts par un seul `dependabot.yml`. PR de mise à jour fonctionnelles ; alertes de sécurité npm non fiables sur le lockfile à deux documents, `just audit-ui` en CI prend le relais (cf. [§ Dependabot](#6-dependabot)) |
 | pnpm/setup (action) | `3.1.1` | ✅ | Installe pnpm **et** Node en une étape. Exige pnpm 11+. La v3 détecte un fichier de version Node, sans effet ici : `runtime: node@24` est posé explicitement dans `.github/actions/setup-pnpm` |
+| nginx/nginx-unprivileged (image) | `1.30.6-alpine` | ✅ | Image de service de la démo web (`demo/Dockerfile`), non-root (UID 101), écoute sur 8080. `nginxinc/nginx-unprivileged`, l'ancien nom, n'est plus maintenu (cf. [§ Images Docker de la démo](#7-images-docker-de-la-démo)) |
+| node (image) | `24.22.1-slim` | ✅ | Étape de build de l'image de la démo. Debian, pour le `bash` qu'exige `scriptShell: bash`. Majeure gardée égale à `engines.node` et à `setup-pnpm` par `test_demo_image_coherence.py` |
 
 ---
 
@@ -885,6 +887,16 @@ Trois contournements, dans l'ordre de préférence :
 **Issue à surveiller** : [dependabot-core#15904](https://github.com/dependabot/dependabot-core/issues/15904), lecture du lockfile à deux documents par le graphe de dépendances. Sa clôture rend les alertes npm à nouveau fiables, sans rien changer au dépôt.
 
 **Recommandation** : ✅ Dependabot pour les PR de mise à jour, `just audit-ui` pour la veille CVE npm tant que #15904 est ouverte. Voir [PRODUCTION.md § Dépendances](PRODUCTION.md#dépendances) et [§ Composants applicatifs](PRODUCTION.md#composants-applicatifs) pour la procédure opérationnelle.
+
+### 7. Images Docker de la démo
+**Version actuelle** : `nginx/nginx-unprivileged:1.30.6-alpine` et `node:24.22.1-slim`, relevées le 2026-10-26 (Docker Hub)
+**Stabilité** : ✅
+
+**Compatibilité Écosystème** :
+- **`nginx/nginx-unprivileged`** : processus sous l'UID 101, port 8080 par défaut, PID dans `/tmp/nginx.pid` et fichiers temporaires sous `/tmp`, `/usr/bin/wget` présent (busybox) pour le healthcheck. Le dépôt `nginxinc/nginx-unprivileged` est déprécié au profit de `nginx/nginx-unprivileged` (github.com/nginx/docker-nginx-unprivileged, relevé le 2026-10-26)
+- **`node:24.22.1-slim`** : Debian bookworm, `bash` présent. L'alpine n'en a pas, or `scriptShell: bash` de `pnpm-workspace.yaml` l'exige pour `pnpm build:demo`
+
+**Recommandation** : ✅ Tags complets, jamais `24-slim` ni `latest` : Dependabot (écosystème `docker` sur `/demo`) propose chaque montée. La majeure de Node suit `engines.node`, la montée de l'une sans l'autre fait échouer le test de cohérence.
 
 ---
 

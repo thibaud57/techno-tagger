@@ -6,7 +6,8 @@
 // par un `MutationObserver` (`window.__samples`). `ONLY=s1,s2,s3,s4,gap` ne rejoue que ces scenarios (le
 // bandeau et la fidelite tournent toujours). Rend `checks`, `failures`, `measures`.
 async (page) => {
-  const base = "http://localhost:4200"
+  // `DEMO_URL` vise l'image servie par nginx (`http://localhost:8080`) au lieu de `just dev-demo`.
+  const base = process.env.DEMO_URL ?? "http://localhost:4200"
   const shots = process.env.SHOTS_DIR
   // `ONLY=s1,s5` ne rejoue que ces scenarios (mise au point) ; vide, tous.
   const only = (process.env.ONLY ?? "").split(",").filter(Boolean)
@@ -16,6 +17,7 @@ async (page) => {
   const checks = {}
   const consoleAll = []
   const pageErrors = []
+  const foreignRequests = []
   const measures = {}
   const check = (name, ok, detail) => {
     checks[name] = { ok, ...(detail === undefined ? {} : { detail }) }
@@ -64,6 +66,11 @@ async (page) => {
     p.setDefaultTimeout(15000)
     p.on("console", (m) => consoleAll.push({ label, type: m.type(), text: m.text() }))
     p.on("pageerror", (e) => pageErrors.push({ label, text: String(e) }))
+    // `data:` et `blob:` restent dans la page : seule une requete reseau vers un autre hote sort.
+    p.on("request", (r) => {
+      const url = r.url()
+      if (/^https?:/.test(url) && new URL(url).origin !== new URL(base).origin) foreignRequests.push({ label, url })
+    })
     return { context, p }
   }
   // Un scenario qui leve ne masque pas les suivants : l'echec est inscrit avec son message et une capture.
@@ -280,6 +287,7 @@ async (page) => {
         rollbackTarget: document.querySelector("[data-rollback-target]")?.textContent.replace(/\s+/g, " ").trim() ?? null,
         restoreDisabled: document.querySelector('[data-action="restore-last"]')?.disabled ?? null,
         pastDisabled: document.querySelector('[data-action="open-past-run"]')?.disabled ?? null,
+        versionRow: document.querySelector("[data-version-row]")?.textContent.replace(/\s+/g, " ").trim() ?? null,
       }
     })
     await p.locator("p-tab").nth(1).click()
@@ -352,6 +360,9 @@ async (page) => {
       const visit = await settingsVisit(p)
       s1.visitDuringRun = visit
       check("s4.settingsDuringRunAtOnce", visit.ms < 1500 && !!visit.cacheSize && visit.restoreDisabled !== null, visit)
+      // `EXPECTED_VERSION` (celle de package.json) prouve que le build de l'image a grave la bonne version.
+      if (process.env.EXPECTED_VERSION)
+        check("s4.versionIsThePackageVersion", visit.versionRow?.includes(process.env.EXPECTED_VERSION) ?? false, visit.versionRow)
       await p.waitForFunction(() => document.querySelectorAll("app-run-list tr").length > 1, null, { timeout: 4000 })
       check("s4.runKeepsGoingAfterSettings", true)
 
@@ -1036,6 +1047,9 @@ async (page) => {
   const errors = consoleAll.filter((c) => c.type === "error" && !c.text.includes("Failed to load resource"))
   check("console.noUnrecordedCommand", unrecorded.length === 0, unrecorded)
   check("console.noErrors", errors.length === 0 && pageErrors.length === 0, { errors, pageErrors })
+  const cspViolations = consoleAll.filter((c) => /Content Security Policy/i.test(c.text))
+  check("console.noCspViolation", cspViolations.length === 0, cspViolations)
+  check("network.sameOriginOnly", foreignRequests.length === 0, foreignRequests.slice(0, 10))
 
   return {
     success: failures.length === 0,

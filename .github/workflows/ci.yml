@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  # Markdown seul : les trois zones sont sautees et `ci` passe quand meme. Un filtre
+  # Markdown seul : les quatre zones sont sautees et `ci` passe quand meme. Un filtre
   # `paths-ignore` natif laisserait `ci`, exige par la protection, sans resultat.
   changes:
     runs-on: ubuntu-24.04
@@ -91,6 +91,7 @@ jobs:
       - run: just build-ui
       - name: Garde du bundle desktop
         run: test -d dist/techno-tagger-ui/browser && test ! -d dist/techno-tagger-ui/browser/demo && ! grep -rl "scenario.json\|app-demo-banner" dist/techno-tagger-ui/browser
+      - run: just build-demo
       - run: just test-ui
       # Non bloquant, meme raison que pour le sidecar
       - run: just audit-ui
@@ -120,29 +121,90 @@ jobs:
       - run: just smoke-sidecar
       - run: just lint-tauri
 
-  # Check unique exige par la protection de branche : les noms des trois jobs
+  # L'image de la demo est construite et sondee a chaque PR, sans rien publier ni
+  # secret : la cle PrimeNG reste vide, le build suffit a prouver le Dockerfile.
+  demo-image:
+    name: Image de demo (build, sonde)
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: demo/Dockerfile
+          push: false
+          load: true
+          tags: techno-tagger-demo:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Memes contraintes que le compose de production : lecture seule, sans capability.
+      # La CSP attendue est lue dans demo/headers.conf, jamais recopiee ici.
+      - name: Sonder l'image en lecture seule
+        run: |
+          check() { local message=$1; shift; "$@" || { echo "::error::$message"; exit 1; }; }
+
+          docker run -d --name demo --read-only --tmpfs /tmp:size=16m --cap-drop ALL \
+            --security-opt no-new-privileges:true --pids-limit 64 --memory 128m --cpus 0.5 \
+            -p 8080:8080 techno-tagger-demo:ci
+          base=http://127.0.0.1:8080
+          csp=$(grep -oP 'Content-Security-Policy "\K[^"]+' demo/headers.conf) || { echo "::error::CSP introuvable dans demo/headers.conf"; exit 1; }
+          check "$base/healthz ne repond pas apres 10 essais" \
+            curl -fs --max-time 5 --retry 10 --retry-delay 1 --retry-all-errors -o /dev/null "$base/healthz"
+
+          # grep -i : les noms d'en-tete sont insensibles a la casse
+          for path in / /settings /demo/scenario.json /nope.js; do
+            headers=$(curl -s --max-time 5 -D - -o /dev/null "$base$path" | tr -d '\r')
+            check "$path : Content-Security-Policy absente ou differente de demo/headers.conf" grep -qixF "Content-Security-Policy: $csp" <<< "$headers"
+            check "$path : X-Robots-Tag: noindex absent" grep -qix 'X-Robots-Tag: noindex' <<< "$headers"
+            case $path in
+              /nope.js) check "/nope.js : statut different de 404" grep -q '^HTTP/[0-9.]* 404' <<< "$headers" ;;
+              /demo/scenario.json) check "/demo/scenario.json : Cache-Control no-cache absent" grep -qi '^Cache-Control:.*no-cache' <<< "$headers" ;;
+            esac
+          done
+
+          settings_body=$(curl -s --max-time 5 "$base/settings")
+          check "/settings : <app-root absent, le repli SPA ne sert pas index.html" grep -q '<app-root' <<< "$settings_body"
+          uid=$(docker exec demo id -u)
+          check "Le conteneur tourne en root (uid 0)" test "$uid" != 0
+      - name: Journaux du conteneur
+        if: failure()
+        run: docker logs demo || true
+
+  # Check unique exige par la protection de branche : les noms des quatre jobs
   # ci-dessus peuvent changer sans toucher aux reglages du depot ; un job
   # ajoute plus tard est couvert des qu'il entre dans `needs`.
   ci:
-    needs: [changes, sidecar, ui, tauri]
+    needs: [changes, sidecar, ui, tauri, demo-image]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       # Zone sautee (`skipped`) = PR de markdown seul, acceptee ; detection en echec, refusee
-      - name: Verifier les trois zones
+      - name: Verifier les quatre zones
         env:
           CHANGES: ${{ needs.changes.result }}
           SIDECAR: ${{ needs.sidecar.result }}
           UI: ${{ needs.ui.result }}
           TAURI: ${{ needs.tauri.result }}
+          DEMO_IMAGE: ${{ needs.demo-image.result }}
         run: |
           if [[ "$CHANGES" != "success" ]]; then
             echo "::error::La detection des fichiers modifies n'est pas passee"
             exit 1
           fi
-          echo "sidecar=$SIDECAR ui=$UI tauri=$TAURI"
-          for r in "$SIDECAR" "$UI" "$TAURI"; do
+          echo "sidecar=$SIDECAR ui=$UI tauri=$TAURI demo-image=$DEMO_IMAGE"
+          for r in "$SIDECAR" "$UI" "$TAURI" "$DEMO_IMAGE"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::Une zone au moins n'est pas passee"
               exit 1
