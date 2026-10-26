@@ -2,7 +2,7 @@
 feature: "Post-MVP Feature 1 : Démo web publique"
 subproject: "image-et-deploiement"
 goal: "Publier la démo sur demo-techno-tagger.thibaud-geisler.com à chaque release, dans un container durci qui ne peut rien atteindre, surveillé depuis l'extérieur"
-status: "draft"
+status: "implemented"
 complexity: "L"
 tdd_scope: "partial"
 depends_on: ["01-enregistreur-de-scenario-design.md", "02-shell-de-demo-design.md", "03-rejeu-du-scenario-design.md"]
