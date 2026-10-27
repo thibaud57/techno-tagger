@@ -1,6 +1,6 @@
 ---
 title: "pnpm — Gestionnaire de paquets du frontend"
-version: "12.14.0"
+version: "12.15.0"
 description: "Référence technique pour pnpm : store et isolation des dépendances, devEngines, installation et shims sur le poste Windows, lockfile, scripts post-install bloqués et installation en CI."
 date: "2026-10-16"
 keywords: ["pnpm", "lockfile", "corepack", "packageManager", "hoisting", "ci", "windows", "shim", "self-update"]
@@ -98,7 +98,7 @@ cmd //c "pnpm --version"
 - **Un `where pnpm` sans `.cmd` signale un shim manquant** : `cmd.exe` n'exécute pas le script `sh`, d'où `'pnpm' n'est pas reconnu` sous `just dev` alors que Git Bash marche. Relevé le 2026-10-15, cause non établie
 - **`pnpm self-update` hors du projet réinstalle la version globale et réécrit les shims** (shim régénéré ainsi le 2026-10-16)
 - **Le lancer depuis Git Bash** : sous `cmd.exe`, il réécrit le `pnpm.cmd` qu'il exécute ([pnpm#16573](https://github.com/pnpm/pnpm/issues/16573))
-- Les shims de `pnpm shim add` sont des `.exe` depuis 12.3, ceux de pnpm restent `sh` + `.cmd` (relevé sur 12.14.0)
+- Les shims de `pnpm shim add` sont des `.exe` depuis 12.3, ceux de pnpm restent `sh` + `.cmd` (relevé sur 12.15.0)
 - Installation neuve : `npx get-pnpm`, recommandé par la doc sous Windows (`install.ps1` est parfois bloqué par Defender)
 - `pnpm setup` sert à la première installation (crée `PNPM_HOME`, l'ajoute au `PATH`), pas à la réparation
 
