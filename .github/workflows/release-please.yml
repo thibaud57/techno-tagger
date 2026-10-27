@@ -100,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # set_commits: auto remonte l'historique depuis la release precedente.
+          # L'action Sentry (set_commits auto par defaut) remonte l'historique depuis la release precedente.
           fetch-depth: 0
 
       - uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
