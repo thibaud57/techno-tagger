@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/thibaud57/techno-tagger/compare/v1.1.2...v1.1.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* montées de dépendances (pnpm 12.15, typescript-eslint 8.72.1, Python 3.14.10, nginx 1.31.8) ([#146](https://github.com/thibaud57/techno-tagger/issues/146)) ([10a2a50](https://github.com/thibaud57/techno-tagger/commit/10a2a501743fc50ae8a3b099c9e95773c42f492c))
+
 ## [1.1.2](https://github.com/thibaud57/techno-tagger/compare/v1.1.1...v1.1.2) (2026-10-27)
 
 
