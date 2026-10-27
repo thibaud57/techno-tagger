@@ -154,7 +154,7 @@ jobs:
 - **Le job de build tourne dans le run déclenché par le push sur `main`**, pas par un nouveau déclencheur sur tag : c'est ce qui contourne la limitation
 - **`if: needs.release-please.outputs.release_created`** évite de builder à chaque push
 - Le `checkout` doit viser `tag_name`, sinon le build part du dernier commit et non de la version publiée
-- **L'alternative est un PAT ou un token de GitHub App**, qui restaure les déclencheurs mais ajoute un secret à gérer : le chaînage évite ce secret
+- **Le token de GitHub App** (`actions/create-github-app-token`, `id: app-token`, passé en `token:`) restaurerait les déclencheurs sur tag, mais le chaînage `needs:` reste le choix : le build reçoit directement les outputs de release-please. L'App sert à la CI de la PR de release et du commit `sync-lockfiles`, sans approbation manuelle
 - Le runner est Windows (`windows-2025`, image figée) par nécessité, PyInstaller ne cross-compilant pas (cf. [pyinstaller.md](pyinstaller.md))
 
 ---
@@ -200,7 +200,7 @@ upload_url       # dépôt des artefacts sur la Release
 - **Bumper une version à la main** dans un des quatre fichiers : le manifest reprend la main au run suivant
 - **Committer hors convention** : le commit disparaît du changelog
 - **Déclarer trois packages liés** pour un livrable unique : trois changelogs et trois tags à maintenir
-- **Ajouter un PAT sans nécessité** : le chaînage `needs:` répond au même besoin sans secret supplémentaire
+- **Ajouter un PAT** : le token de la GitHub App est borné au dépôt, expire au bout d'une heure et n'est lié à aucun compte
 
 ---
 
