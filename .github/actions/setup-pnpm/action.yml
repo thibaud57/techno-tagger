@@ -8,3 +8,5 @@ runs:
       with:
         runtime: node@24
         cache: true
+        # L'install de l'action remplace celui du workflow : ce flag garde l'echec sur lockfile absent.
+        require-lockfile: true

@@ -76,7 +76,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-pnpm
       - uses: ./.github/actions/setup-just
-      - run: pnpm install --frozen-lockfile
       # Script epingle au commit du tag v1.7.12 et binaire epingle par l'argument :
       # une URL sur `main` serait une reference mutable, comme un tag d'action
       - name: Installer actionlint
@@ -129,8 +128,6 @@ jobs:
     if: needs.changes.outputs.source == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    permissions:
-      contents: read
     defaults:
       run:
         shell: bash
@@ -143,7 +140,6 @@ jobs:
         with:
           context: .
           file: demo/Dockerfile
-          push: false
           load: true
           tags: techno-tagger-demo:ci
           cache-from: type=gha
