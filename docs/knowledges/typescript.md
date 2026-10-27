@@ -41,7 +41,7 @@ TypeScript 6 est la dernière version bâtie sur le code JavaScript historique, 
 
 - **Installer TypeScript 7 casse le compilateur Angular**, avec des incompatibilités sur les entrées du `compiler-cli`. Ce n'est pas un avertissement de compatibilité, c'est un échec de build
 - **`typescript-eslint` refuse l'installation** avec TypeScript 7 : sa `peerDependency` s'arrête sous `6.1.0`, d'où un `ERESOLVE` au premier `install`
-- La demande d'élargissement de la plage côté Angular **a été fermée `not planned` le 2026-07-09** (angular/angular#69704) : « Supporting TS 7.0, requires a major refactoring of our compiler ». La levée attend TypeScript 7.1, qui doit rendre une API programmatique et dont la beta n'était pas sortie au 2026-10-09, puis un `@angular/compiler-cli` et un `typescript-eslint` (typescript-eslint#10940) qui l'acceptent
+- La demande d'élargissement de la plage côté Angular **a été fermée `not planned` le 2026-07-09** (angular/angular#69704) : « Supporting TS 7.0, requires a major refactoring of our compiler ». La levée attend TypeScript 7.1, qui doit rendre une API programmatique et dont la beta est sortie le 2026-10-20 (`7.1.0-beta`), puis un `@angular/compiler-cli` et un `typescript-eslint` (typescript-eslint#10940, ouverte au 2026-10-27) qui l'acceptent. Au 2026-10-27, `typescript-eslint` 8.72.1 et `@angular/compiler-cli` gardent tous deux une `peerDependency` TypeScript `<6.1.0` (lue sur npm)
 - **Aucune TypeScript 6.1 ne sortira** (« we do not intend to release a TypeScript 6.1 », blog TypeScript, décembre 2025) : la ligne 6.0 ne reçoit que des patchs, `6.0.3` étant le dernier au 2026-10-09
 - **Ne pas tenter de forcer par un override de résolution** : les deux outils échoueront de façon différée et confuse
 

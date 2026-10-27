@@ -1,6 +1,6 @@
 ---
 title: "Tauri v2 — Coquille desktop et pont vers le sidecar"
-version: "2.12.2"
+version: "2.12.5"
 description: "Référence technique pour Tauri v2 : sidecar, capabilities et permissions, plugins officiels, asset protocol, updater et configuration de fenêtre."
 date: "2026-10-09"
 keywords: ["tauri", "desktop", "sidecar", "capabilities", "permissions", "updater", "asset-protocol"]
@@ -14,7 +14,7 @@ Framework desktop qui empaquette une webview système et un binaire Rust. Ici, T
 
 Aucune logique métier ne vit côté Rust : le calcul des scores, la construction des requêtes et l'écriture des tags sont dans le sidecar.
 
-Versions du projet au 2026-10-09 (cf. [VERSIONS.md](../VERSIONS.md)) : crate `tauri` 2.12.2, `tauri-build` 2.7.1, `@tauri-apps/cli` 2.12.1, `@tauri-apps/api` 2.12.1. **Les patchs sont libres, pas la mineure** : `tauri build` refuse un paquet npm et une crate de mineures différentes, `@tauri-apps/api` face à `tauri` comme chaque plugin face au sien. Depuis la 2.12, toutes les crates Tauri exigent Rust 1.90, porté par le `rust-version` de `src-tauri/Cargo.toml`.
+Versions du projet au 2026-10-27 (cf. [VERSIONS.md](../VERSIONS.md)) : crate `tauri` 2.12.5, `tauri-build` 2.7.4, `@tauri-apps/cli` 2.12.4, `@tauri-apps/api` 2.12.4. **Les patchs sont libres, pas la mineure** : `tauri build` refuse un paquet npm et une crate de mineures différentes, `@tauri-apps/api` face à `tauri` comme chaque plugin face au sien. Depuis la 2.12, toutes les crates Tauri exigent Rust 1.90, porté par le `rust-version` de `src-tauri/Cargo.toml`.
 
 ---
 
@@ -235,6 +235,7 @@ tauri signer generate -w ~/.tauri/techno-tagger.key
 - **Sous Windows, l'application se ferme automatiquement avant l'installation** : un run en cours serait interrompu, d'où l'installation réservée au moteur au repos
 - `installMode: "passive"`, le défaut, évite l'assistant d'installation à chaque mise à jour
 - **`requireSignedVersion: true`** (plugin 2.12) : la réponse de l'endpoint n'est pas signée, ce flag rejette celle dont la version diffère de celle inscrite dans la signature, et ferme ainsi le downgrade vers une ancienne release authentique. `check()` n'accepte plus `allowDowngrades` depuis le webview, le réglage vit dans `plugins.updater`
+- **`bundle.windows.allowDowngrades` (défaut `true`) est un second verrou, distinct du précédent** : il pilote l'installeur et non l'updater. À `false`, l'installeur NSIS refuse d'écraser une version plus récente en mode silencieux, passif et update, donc dans le mode `passive` de l'updater. Les 2.12.3 (2026-10-10) et 2.12.5 (2026-10-21) ont corrigé ce blocage, d'abord inopérant en silencieux puis face à une installation faite par MSI ([notes 2.12.3](https://github.com/tauri-apps/tauri/releases/tag/tauri-v2.12.3), [2.12.5](https://github.com/tauri-apps/tauri/releases/tag/tauri-v2.12.5)). Non posé dans ce projet au 2026-10-27
 
 ---
 
