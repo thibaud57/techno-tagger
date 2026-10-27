@@ -7,11 +7,13 @@ scope: ["docs", "config", "setup"]
 technologies: ["Python", "Angular", "Tauri", "Rust"]
 ---
 
+> **Périmètre : ce que le dépôt déclare.** Les versions installées sont lues dans les **lockfiles** (`sidecar/uv.lock`, `pnpm-lock.yaml`, `src-tauri/Cargo.lock`), jamais dans les plages des manifestes, et dans les fichiers qui épinglent des outils et des images : `rust-toolchain.toml`, `.github/workflows/`, `.github/actions/`, `demo/Dockerfile`. Relevé le **2026-10-27**. Les dernières versions publiées de chaque entrée (npm, PyPI, crates.io, GitHub, Docker Hub, python.org via endoflife.date) ont été recontrôlées le 2026-10-27 ; les notes de version et les constats d'une fiche gardent la date de leur relevé, citée au point concerné. Les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) sont hors périmètre : elles seront documentées le jour où elles entrent dans un fichier de dépendances.
+
+> **La plateforme d'hébergement est hors périmètre.** Le VPS, Docker Engine et Dokploy, qui hébergent la démo web, ne sont déclarés par aucun fichier versionné : ils sont documentés dans [PRODUCTION.md § Liste Environnements](PRODUCTION.md#liste-environnements) et [§ Mise en place de la démo](PRODUCTION.md#mise-en-place-de-la-démo).
+
 > **Trois écosystèmes, trois gestionnaires de paquets.** `sidecar/` en uv, `src/` en pnpm, `src-tauri/` en cargo. Aucun workspace transverse (cf. [ARCHITECTURE.md § Package Manager](ARCHITECTURE.md#package-manager)). La section « Partagé / Infrastructure » couvre la coquille Tauri et la chaîne CI/CD, qui traversent les trois zones.
 
-> **Versions installées relevées le 2026-10-27** dans les **lockfiles** (`uv.lock`, `pnpm-lock.yaml`, `Cargo.lock`) et dans les workflows, c'est-à-dire ce qui est réellement résolu, pas les plages déclarées dans les manifestes. Dates de publication et notes de version relevées le 2026-10-09 (uv, Ruff, Angular, Prettier et actions CI : 2026-10-12 ; pnpm : 2026-10-16 ; montées du 2026-10-27 : relevées ce jour sur npm, PyPI, crates.io et GitHub). Le périmètre est ce que le dépôt déclare : les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) en sont donc hors, elles seront documentées le jour où elles entrent réellement dans un fichier de dépendances.
-
-> **Politique de version du projet : la dernière stable, toujours.** Une version antérieure ne se retient que sur une incompatibilité dure, documentée dans [Conflits Potentiels](#conflits-potentiels), et qu'aucune ligne de configuration ne contourne. Une rupture qui se règle par une règle de lint, un réglage ou une tournure de code à éviter n'est pas une raison de rester en arrière : elle se mécanise et on avance. Deux entrées seulement s'écartent de la dernière version publiée au relevé, et chacune s'en explique dans sa fiche : **TypeScript**, bloqué en 6.0.x par une incompatibilité qu'aucun réglage ne lève ; et **Node**, tenu en 24.x LTS jusqu'au passage LTS de la 26, annoncé au 2026-10-28, parce que c'est un outil de build et non une dépendance du produit.
+> **Politique de version du projet : la dernière stable, toujours.** Une version antérieure ne se retient que sur une incompatibilité dure, documentée dans [Conflits Potentiels](#conflits-potentiels), et qu'aucune ligne de configuration ne contourne. Une rupture qui se règle par une règle de lint, un réglage ou une tournure de code à éviter n'est pas une raison de rester en arrière : elle se mécanise et on avance. Deux entrées s'écartent par choix de la dernière version publiée au relevé, et chacune s'en explique dans sa fiche : **TypeScript**, bloqué en 6.0.x par une incompatibilité qu'aucun réglage ne lève ; et **Node**, tenu en 24.x LTS jusqu'au passage LTS de la 26, annoncé au 2026-10-28, parce que c'est un outil de build et non une dépendance du produit. Le retard restant au relevé du 2026-10-27 (`@ngx-translate/*` 18.0.0 face à 18.1.0) n'est pas un choix : la 18.1.0 date du 2026-10-27 et `minimumReleaseAge` (24 h) la refuse jusqu'au lendemain, sans incompatibilité identifiée.
 
 ---
 
@@ -23,8 +25,8 @@ Zone `sidecar/`, gestionnaire **uv**, fichier `sidecar/pyproject.toml` + `sideca
 
 | Technologie | Version Recommandée | Statut Production | Notes Critiques |
 |-------------|-------------------|-----------------|----------------|
-| Python | `3.14.8` | ✅ | Déclarée par toutes les dépendances, wheels `cp314` Windows pour rapidfuzz, supportée par PyInstaller depuis 6.15.0. Support jusqu'en 2030-10 |
-| uv | `0.13.0` | ✅ | Format `uv.lock` couvert par la politique de versionnement, ne casse qu'en bump mineur. Minor figé par `required-version` de `sidecar/pyproject.toml`, que `setup-uv` lit en CI (patch flottant dans le minor) |
+| Python | `3.14.10` | ✅ | Publiée le 2026-10-25, épinglée par `sidecar/.python-version`. Déclarée par toutes les dépendances, wheels `cp314` Windows pour rapidfuzz, supportée par PyInstaller depuis 6.15.0. Support jusqu'en 2030-10 |
+| uv | `0.13.6` | ✅ | Format `uv.lock` couvert par la politique de versionnement, ne casse qu'en bump mineur. Minor figé par `required-version` de `sidecar/pyproject.toml`, que `setup-uv` lit en CI (patch flottant dans le minor, `0.13.6` au relevé) |
 | Pydantic | `2.14.1` | ✅ | Porte les modèles du protocole NDJSON. `pydantic-core` (`2.50.1`) est une extension native : wheels `cp314` Windows publiées, hook livré par `pyinstaller-hooks-contrib` |
 | mutagen | `1.48.1` | ⚠️ | Projet peu actif (2 ans 9 mois entre 1.47.0 et 1.48.0). Piège `EasyID3` + `v2_version=3` sur TDRC/TYER |
 | RapidFuzz | `3.14.6` | ⚠️ | MIT, wheels Windows précompilées. **Aucun hook PyInstaller ne le couvre**, ni le paquet ni `pyinstaller-hooks-contrib`. La 3.14.6 abandonne Python 3.10, sans effet sur la cible `cp314` |
@@ -48,7 +50,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | Angular | `22.2.3` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé. `@angular/cli` et `@angular/build` suivent leur propre cadence de patch, en `22.2.4` au relevé |
 | TypeScript | `6.0.3` | ✅ | Contrainte dure d'Angular 22 : `>=6.0.0 <6.1.0`. **TS 7 (tsgo) casse `compiler-cli` et `typescript-eslint`**. `noUncheckedIndexedAccess` activé le 2026-09-06 : zéro erreur sur la base existante |
 | Node.js | `24.x` (LTS, Maintenance depuis le 2026-10-20) | ✅ | Bascule prévue sur 26.x quand elle passe LTS le 2026-10-28, une ligne dans `.github/actions/setup-pnpm`. Installée par `pnpm/setup`, pas par `actions/setup-node` |
-| pnpm | `12.14.0` | ✅ | Réécriture Rust, sous le dist-tag `latest` depuis début septembre 2026. Épinglé par `devEngines.packageManager` (`onFail: download`), que `pnpm/setup` lit en CI. Lockfile à deux documents depuis le 2026-10-15, cf. § Dependabot |
+| pnpm | `12.15.0` | ✅ | Réécriture Rust, sous le dist-tag `latest` depuis le 2026-10-21. Épinglé par `devEngines.packageManager` (`onFail: download`), que `pnpm/setup` lit en CI. Lockfile à deux documents depuis le 2026-10-15, cf. § Dependabot |
 | PrimeNG | `22.1.4` | ❌ | Licence PrimeUI avec clé obligatoire même en Community. Le dépôt public ne porte plus que la lignée MIT 21.x, le code 22.x vit dans un dépôt privé. Voir [Conflits Potentiels](#conflits-potentiels) |
 | @primeuix/themes | `3.1.0` | ⚠️ | **Pas une dépendance transitive de PrimeNG**, à déclarer explicitement. Base rem passée de 14px à 16px |
 | PrimeIcons | `@primeicons/angular 8.0.2` | ❌ | Dépendance directe de PrimeNG 22, **à déclarer quand même** : pnpm isole, une transitive n'est pas importable depuis `src/`. Le paquet CSS `primeicons` s'arrête à 7.0.0 pour le MIT, la 8.0.0 est sous licence PrimeUI |
@@ -57,7 +59,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | @tailwindcss/postcss | `4.3.3` | ✅ | Version alignée sur `tailwindcss` (même monorepo) |
 | tailwindcss-primeui | `0.6.1` | ⚠️ | Aucune publication depuis mars 2025, donc antérieure à PrimeNG 22 et à Tailwind 4.3 |
 | @fontsource-variable/inter | `5.3.0` | ✅ | SIL OFL, aucun CDN, importer `wght.css` |
-| @ngx-translate/core | `18.0.0` | ✅ | `TranslateModule` supprimé, `defaultLang` renommé `fallbackLang`, `currentLang` devient un Signal |
+| @ngx-translate/core | `18.0.0` | ✅ | 18.1.0 publiée le 2026-10-27 (15:18 UTC) : additive, aucune rupture dans les notes de version, mais retenue par `minimumReleaseAge` (24 h) jusqu'au 2026-10-28. `TranslateModule` supprimé, `defaultLang` renommé `fallbackLang`, `currentLang` devient un Signal |
 | @ngx-translate/http-loader | `18.0.0` | ✅ | `provideTranslateHttpLoader({ prefix, suffix })` remplace le pattern `useFactory` |
 | @tauri-apps/api | `2.12.4` | ✅ | Même mineure que la crate `tauri` : `tauri build` et `test_main.py` contrôlent l'accord des paquets npm et des crates |
 | @sentry/angular | `11.9.0` | ⚠️ | `dataCollection` absent collecte tout, IP comprise : chaque catégorie est fermée explicitement. `peerDependency` : `@angular/core >= 14.x <= 22.x` |
@@ -79,12 +81,12 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | tauri-build (crate) | `2.7.4` | ✅ | MSRV 1.90, reporté dans le `rust-version` de `src-tauri/Cargo.toml` |
 | @tauri-apps/cli | `2.12.4` | ✅ | Refuse au build un paquet npm et une crate de mineures différentes, même garde en CI que pour `@tauri-apps/api` |
 | Plugins Tauri v2 | voir [§ Plugins](#2-plugins-officiels-tauri-v2) | ✅ | Versions crate et npm strictement alignées plugin par plugin, gardées en CI par `test_the_tauri_crates_and_their_npm_packages_are_aligned` (`sidecar/tests/unit/test_main.py`) |
-| Rust | `1.99.1` (stable) | ✅ | Édition 2024. Image `windows-2025` livrée avec la 1.99.0, `rustup` installe la 1.99.1 épinglée. La 1.98.0 contenait une miscompilation corrigée en 1.98.1, la 1.99.0 une autre (booléens FFI renvoyés sur x86_64) corrigée en 1.99.1 |
+| Rust | `1.99.1` (stable) | ✅ | Édition 2024. Les images Windows Server 2025 du 2026-10-21 (`win25/20261021.299`, `win25-vs2026/20261021.278`) livrent la 1.99.1, la 1.99.0 auparavant ; `rustup` installe de toute façon la 1.99.1 épinglée. La 1.98.0 contenait une miscompilation corrigée en 1.98.1, la 1.99.0 une autre (booléens FFI renvoyés sur x86_64) corrigée en 1.99.1 |
 | GitHub Actions | voir [§ CI/CD](#4-github-actions) | ✅ | Images figées `windows-2025` (Visual Studio 2026) et `ubuntu-24.04`, jamais de label `-latest` |
 | release-please-action | `5.0.0` | ⚠️ | Le tag créé avec `GITHUB_TOKEN` ne déclenche aucun workflow. Chaînage `needs:` obligatoire |
-| Dependabot | app GitHub intégrée, version non épinglée par le dépôt | ✅ | Écosystèmes `npm`, `uv`, `cargo` et `github-actions` couverts par un seul `dependabot.yml`. PR de mise à jour fonctionnelles ; alertes de sécurité npm non fiables sur le lockfile à deux documents, `just audit-ui` en CI prend le relais (cf. [§ Dependabot](#6-dependabot)) |
+| Dependabot | app GitHub intégrée, version non épinglée par le dépôt | ✅ | Écosystèmes `npm`, `uv`, `cargo`, `github-actions` et `docker` (`/demo`) couverts par un seul `dependabot.yml`. PR de mise à jour fonctionnelles ; alertes de sécurité npm non fiables sur le lockfile à deux documents, `just audit-ui` en CI prend le relais (cf. [§ Dependabot](#6-dependabot)) |
 | pnpm/setup (action) | `3.1.2` | ✅ | Installe pnpm **et** Node en une étape. Exige pnpm 11+. La v3 détecte un fichier de version Node, sans effet ici : `runtime: node@24` est posé explicitement dans `.github/actions/setup-pnpm` |
-| nginx/nginx-unprivileged (image) | `1.31.7-alpine` | ✅ | Image de service de la démo web (`demo/Dockerfile`), non-root (UID 101), écoute sur 8080. `nginxinc/nginx-unprivileged`, l'ancien nom, n'est plus maintenu (cf. [§ Images Docker de la démo](#7-images-docker-de-la-démo)) |
+| nginx/nginx-unprivileged (image) | `1.31.8-alpine` | ✅ | Image de service de la démo web (`demo/Dockerfile`), non-root (UID 101), écoute sur 8080. `nginxinc/nginx-unprivileged`, l'ancien nom, n'est plus maintenu (cf. [§ Images Docker de la démo](#7-images-docker-de-la-démo)) |
 | node (image) | `24.22.1-slim` | ✅ | Étape de build de l'image de la démo. Debian, pour le `bash` qu'exige `scriptShell: bash`. Majeure gardée égale à `engines.node` et à `setup-pnpm` par `test_demo_image_coherence.py` |
 
 ---
@@ -94,7 +96,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 ## Backend
 
 ### 1. Python
-**Version actuelle** : `3.14.8` (2026-09-30)
+**Version actuelle** : `3.14.10` (2026-10-25, endoflife.date, relevé le 2026-10-27), installée via uv 0.13.6
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** (et ce qu'ils coûtent réellement à un sidecar écrit de zéro) :
@@ -124,14 +126,14 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | Ruff 0.17.3 | dérivé de `requires-python` du projet | Pas de `target-version` posé : Ruff le lit dans `pyproject.toml` |
 | keyring 25.7.0 | `>=3.9` | `pywin32-ctypes` est pur Python, rien à compiler |
 | mutagen 1.48.1 | `>=3.10,<4` | Classifiers non détaillés par version mineure, mais pur Python sans dépendance : risque structurellement nul |
-| uv 0.13.0 | — | Livre le build 3.14.8 depuis 0.12.22 (2026-10-01). Python 3.15 devient son défaut sans pin : neutralisé par `sidecar/.python-version` et `requires-python` |
+| uv 0.13.0 | — | Livre le build 3.14.8 depuis 0.12.22 (2026-10-01), pas le 3.14.10 (ajouté en 0.13.5). Python 3.15 devient son défaut sans pin : neutralisé par `sidecar/.python-version` et `requires-python` |
 
-**Recommandation** : ✅ **3.14.8**. Le seul critère qui aurait pu bloquer, le support PyInstaller, est acquis depuis un an, et les deux extensions natives de la stack, rapidfuzz et `pydantic-core`, publient leurs wheels `cp314` Windows. Les cinq breaking changes de 3.14 ne touchent que des tournures qu'un sidecar neuf n'écrit pas. Le gain n'est pas cosmétique : le support court jusqu'en **2030-10** au lieu de 2029-10, ce qui repousse d'un an la procédure lourde de bump du runtime (rebuild PyInstaller plus retest des faux positifs antivirus, cf. [PRODUCTION.md § Composants applicatifs](PRODUCTION.md#composants-applicatifs)).
+**Recommandation** : ✅ **3.14.10**. Le seul critère qui aurait pu bloquer, le support PyInstaller, est acquis depuis un an, et les deux extensions natives de la stack, rapidfuzz et `pydantic-core`, publient leurs wheels `cp314` Windows. Les cinq breaking changes de 3.14 ne touchent que des tournures qu'un sidecar neuf n'écrit pas. Le gain n'est pas cosmétique : le support court jusqu'en **2030-10** au lieu de 2029-10, ce qui repousse d'un an la procédure lourde de bump du runtime (rebuild PyInstaller plus retest des faux positifs antivirus, cf. [PRODUCTION.md § Composants applicatifs](PRODUCTION.md#composants-applicatifs)).
 
 **Les deux règles de codage se mécanisent plutôt qu'elles ne se surveillent.** Bannir `asyncio.get_event_loop()` et `sqlite3.version` dans `[tool.ruff.lint.flake8-tidy-imports.banned-api]` transforme la vigilance en gate CI : le lint échoue si l'un des deux réapparaît, y compris dans du code copié depuis la CLI d'origine. `TID251` attrape l'accès qualifié (sonde `ruff check` du 2026-10-23 : `asyncio.get_event_loop()` et `sqlite3.version` signalés), aucun `grep` de CI n'est nécessaire.
 
 ### 2. uv
-**Version actuelle** : `0.13.0` (2026-10-09)
+**Version actuelle** : `0.13.6` (2026-10-27), dernière 0.13.x ; la 0.13.0 date du 2026-10-09. Le dépôt ne fige que le minor, le patch flotte
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** :
@@ -148,11 +150,12 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - **0.13.0** : Python 3.15 devient la version stable par défaut quand rien n'est configuré. Sans effet ici : `sidecar/.python-version` pose `3.14.8` et `requires-python` borne à `<3.15`
 - **0.13.0** : les tarballs passent par le backend `tar-codec`, plus strict (liens physiques et extensions non gérés rejetés), et les sdists produits par `uv_build` peuvent changer d'octets donc de hash. Sans effet constaté : `uv sync` construit `tagger` en editable, aucun sdist n'est figé dans `uv.lock`
 - **0.13.0** : `--require-hashes` d'un fichier de contraintes `-c` est respecté, les contraintes éditables sont refusées, `uv build --clear` refuse un répertoire de sortie qui contient la source. Hors usage du projet
+- **0.13.1 à 0.13.6** (2026-10-14 au 2026-10-27) : aucune rupture dans les notes de version (relevé le 2026-10-27). 0.13.5 et 0.13.6 ajoutent les builds CPython 3.14.9 et 3.14.10
 - **0.13.0** : le plancher `uv_build` doit inclure 0.13 (`>=0.13.0,<0.14`), et `required-version = ">=0.13,<0.14"` sous `[tool.uv]` refuse un uv hors de la mineure
 
 **Nouvelles Features Pertinentes** :
 - **0.12.18** corrige GHSA-2cv4-cqwr-gwf7, un path traversal à l'installation d'une wheel sous Windows : raison suffisante, à elle seule, de ne pas rester en deçà
-- Le build CPython 3.14.8 retenu par le projet est téléchargeable via `uv python install` depuis la 0.12.22
+- Le build CPython 3.14.10 retenu par le projet est téléchargeable depuis la 0.13.5 ; le 3.14.8 l'était via `uv python install` depuis la 0.12.22
 - **0.12.14** : installation des chemins plus longs que `MAX_PATH` sans activer les chemins longs de Windows
 - `[dependency-groups]` (PEP 735) pour les dépendances de développement, préférable à `[project.optional-dependencies]` qui reste réservé aux extras publiés
 
@@ -344,7 +347,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Recommandation** : ✅ pour pytest lui-même. ❌ pour le mock HTTP, voir [Conflits Potentiels](#conflits-potentiels).
 
 ### 11. Ruff
-**Version actuelle** : `0.17.3` (2026-10-26)
+**Version actuelle** : `0.17.3` (2026-10-27)
 **Stabilité** : ⚠️ (par le volume du changement de défauts, pas par la qualité de l'outil)
 
 **Breaking Changes Majeurs** :
@@ -385,7 +388,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 ## Frontend
 
 ### 1. Angular
-**Version actuelle** : runtime `@angular/*` en `22.2.3`, `@angular/cli`, `@angular/build` et `@angular/cdk` en `22.2.4` (2026-10-26)
+**Version actuelle** : runtime `@angular/*` en `22.2.3` (2026-10-14), `@angular/cli` et `@angular/build` en `22.2.4` (2026-10-22), `@angular/cdk` en `22.2.4` (2026-10-21)
 **Stabilité** : ✅
 
 Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@angular/build` déclare `@angular/core` en `^22.0.0` : les aligner bloquerait les correctifs du builder.
@@ -413,7 +416,7 @@ Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@an
 **Recommandation** : ✅ Le passage d'OnPush en défaut est sans incidence, l'état passant entièrement par des signals et ngx-translate documentant la compatibilité OnPush de son pipe. Le point à surveiller est ailleurs : Angular 22 verrouille TypeScript sur la ligne 6.0.
 
 ### 2. TypeScript
-**Version actuelle** : `6.0.3` (retenue, dernière 6.0.x au 2026-10-09) / `7.0.2` (dernière stable, **inutilisable ici**)
+**Version actuelle** : `6.0.3` (retenue, dernière 6.0.x au 2026-10-27) / `7.0.2` (dernière stable, **inutilisable ici**)
 **Stabilité** : ✅ sur 6.0.x
 
 **Breaking Changes Majeurs** :
@@ -422,8 +425,8 @@ Les deux numéros viennent de dépôts distincts et n'ont pas à converger. `@an
 
 **Compatibilité Écosystème** :
 - **Angular 22 exige `>=6.0.0 <6.1.0`**, toujours vrai en 22.2.3. La demande d'élargissement à TS 7 a été fermée en `not planned` le 2026-07-09 (angular/angular#69704) : « Supporting TS 7.0, requires a major refactoring of our compiler ». Angular 23 est attendu vers juin 2027
-- **Aucune TS 6.1 ne sortira** : « we do not intend to release a TypeScript 6.1 » (blog TypeScript, décembre 2025). La 7.1, qui doit rendre une API programmatique (microsoft/TypeScript#63703), n'avait pas encore publié sa beta au 2026-10-09
-- `typescript-eslint` 8.72.0 déclare `typescript: >=4.8.4 <6.1.0`, et son parseur crashe réellement sous TS 7, pas seulement un avertissement de peer dependency. Le support de TS 7.1 se prépare dans typescript-eslint#10940 (PR #12803), sans version annoncée
+- **Aucune TS 6.1 ne sortira** : « we do not intend to release a TypeScript 6.1 » (blog TypeScript, décembre 2025). La 7.1, qui doit rendre une API programmatique (microsoft/TypeScript#63703, ouverte au 2026-10-27), a publié `7.1.0-beta` le 2026-10-20 (dist-tag `beta` de npm, relevé le 2026-10-27) ; la stable n'est pas sortie, et la présence de l'API dans la beta n'a pas été vérifiée
+- `typescript-eslint` 8.72.1 déclare `typescript: >=4.8.4 <6.1.0`, et son parseur crashe réellement sous TS 7, pas seulement un avertissement de peer dependency. Le support de TS 7.1 se prépare dans typescript-eslint#10940 (PR #12803), sans version annoncée
 - `@tauri-apps/api` 2.12.4 ne déclare aucune contrainte : TypeScript n'y apparaît qu'en `devDependency`
 - `tsconfig.json` : `target: "ES2022"` (celui du schematic `ng new` 22.2.1) et `lib: ["es2024", "dom"]` depuis le 2026-10-12. Le schematic ne pose pas de `lib` et la doc Angular ne se prononce pas sur ce réglage : la cible est la WebView2 évergreen. `dom` inclut `dom.iterable` et `dom.asynciterable` depuis TypeScript 6.0. `tsconfig.app.json` et `tsconfig.spec.json` héritent sans le redéfinir
 
@@ -462,7 +465,7 @@ La bascule d'octobre coûte une ligne (`runtime: node@24` devient `runtime: node
 Le corollaire n'est pas optionnel : sur la ligne 26, **Corepack n'existe plus**, donc `corepack enable` échouera. Ce n'est pas un problème puisque le projet ne l'utilise pas, mais c'est la raison pour laquelle la chaîne d'installation doit être posée correctement **dès maintenant**. La version de Node est posée par `pnpm/setup` via son input `runtime: node@24`, qui remplace `actions/setup-node` : ne jamais s'en remettre au Node préinstallé sur l'image du runner, qui change au fil de ses mises à jour.
 
 ### 4. pnpm
-**Version actuelle** : `12.14.0` (2026-10-15, dist-tag `latest` relevé le 2026-10-16) / `11.28.6` (dernière 11.x, publiée le 2026-10-15, maintenue jusqu'au 2027-04-30 selon le `SECURITY.md` de pnpm)
+**Version actuelle** : `12.15.0` (2026-10-21), épinglée par `devEngines.packageManager` et égale au dist-tag `latest` au 2026-10-27. `next-12` vaut `12.16.1` (2026-10-27), non adoptées. Dernière 11.x : `11.28.8` (dist-tag `latest-11`, relevé le 2026-10-27), maintenue jusqu'au 2027-04-30 selon le `SECURITY.md` de pnpm (relevé le 2026-10-16)
 **Stabilité** : ✅
 
 `latest` a basculé de la ligne 11 à la ligne 12 entre le 2026-09-04 et le 2026-09-06 (pnpm.io PR #918 : « `npm view pnpm dist-tags` now reports `latest: 12.3.4` »). Le relevé précédent de ce document, daté du 2026-10-02, la croyait encore sous `next-12` : c'était déjà faux.
@@ -470,7 +473,7 @@ Le corollaire n'est pas optionnel : sur la ligne 26, **Corepack n'existe plus**,
 **Breaking Changes Majeurs** :
 - **11.0.0** (2026-04-28) : Node `>=22.13` requis, distribution ESM pure. `onlyBuiltDependencies` et ses variantes remplacées par un unique `allowBuilds`. `.npmrc` restreint à l'auth et au registry, le reste migre vers `pnpm-workspace.yaml`. Variables `npm_config_*` renommées `pnpm_config_*`. `minimumReleaseAge` passe à 1440 minutes et `blockExoticSubdeps` à `true`
 - **12.0.0** (2026-08-26) : réécriture en Rust, binaire natif qui ne demande plus Node une fois installé, **format de lockfile inchangé** (`lockfileVersion: '9.0'`, champ optionnel `revision` par paquet). `--frozen-lockfile false` et `--resolution-only` supprimés (`--no-frozen-lockfile`, `pnpm peers check`). Une clé inconnue de `pnpm-workspace.yaml` est signalée avec suggestion de typo, en warning tant que le projet n'épingle pas pnpm. Première résolution complète : les variantes de peers des paquets cycliques sont réécrites une fois
-- Aucune de ces ruptures ne touche les réglages du projet (`allowBuilds`, `minimumReleaseAge`, `scriptShell`, `packages: []`) : les montées 11.24.0 → 12.14.0 (2026-10-09 au 2026-10-16) n'ont changé que le contenu résolu du lockfile. À surveiller : la 12.11.0 ajoute un réglage `permissions`, qui primerait sur `allowBuilds` s'il était posé
+- Aucune de ces ruptures ne touche les réglages du projet (`allowBuilds`, `minimumReleaseAge`, `scriptShell`, `packages: []`) : les montées 11.24.0 → 12.15.0 (2026-10-09 au 2026-10-21) n'ont changé que le contenu résolu du lockfile. À surveiller : la 12.11.0 ajoute un réglage `permissions`, qui primerait sur `allowBuilds` s'il était posé
 
 **Ce que la migration 10 → 11 coûte réellement sur ce projet** : moins de dix lignes. `allowBuilds: { esbuild: true }` remplace `onlyBuiltDependencies: [esbuild]` (esbuild étant tiré par `@angular/build`), et les réglages non-auth du `.npmrc` déménagent dans un `pnpm-workspace.yaml`, à créer même sans monorepo. Le renommage `npm_config_*` n'a d'effet que si la CI pilote pnpm par variables d'environnement, ce qui n'est pas le cas ici.
 
@@ -490,7 +493,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 - **Dependabot supporte pnpm 12** côté PR depuis le 2026-09-15 (dependabot-core PR #16169 et #16170). Le graphe de dépendances GitHub ne lit toujours que le premier document du lockfile, voir la fiche [Dependabot](#6-dependabot)
 - CI : `pnpm/setup@v3.1.2`, qui **exige pnpm 11 ou plus récent** et télécharge le binaire natif (`pnpm/action-setup` : cf. matrice)
 
-**Recommandation** : ✅ **12.14.0**, ce que pointe `latest`. `package.json` est la seule source de la version : `devEngines.packageManager` avec `onFail: download` fait télécharger la bonne version sur chaque poste, et `pnpm/setup` la lit en CI (sans `version`, l'action composite ne porte plus que celle de Node). Même schéma que pour uv (`required-version`) et que les autres projets pnpm du poste, aligné le 2026-10-15.
+**Recommandation** : ✅ **12.15.0**, adoptée le 2026-10-27 (`latest` depuis le 2026-10-21). `package.json` est la seule source de la version : `devEngines.packageManager` avec `onFail: download` fait télécharger la bonne version sur chaque poste, et `pnpm/setup` la lit en CI (sans `version`, l'action composite ne porte plus que celle de Node). Même schéma que pour uv (`required-version`) et que les autres projets pnpm du poste, aligné le 2026-10-15.
 
 > ⚠️ **Piège de CI à désamorcer avant le premier build.** `minimumReleaseAge` à 24 h combiné à `pnpm install --frozen-lockfile` fait échouer la CI quand un bot vient de regénérer un lockfile pointant une dépendance transitive publiée dans les dernières 24 heures. Le cas est documenté sur Angular avec `caniuse-lite`, via la chaîne browserslist, et se solde par `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. `--frozen-lockfile` ne fait que vérifier, sans repli possible. Dependabot ne régénère pas le lockfile lui-même, il appelle la CLI pnpm, qui applique son propre `minimumReleaseAge` : rien à aligner côté bot. Seule parade restante côté pnpm : `minimumReleaseAgeExclude` pour les paquets qui se republient trop souvent.
 
@@ -596,7 +599,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 **Recommandation** : ✅
 
 ### 11. ngx-translate
-**Version actuelle** : `@ngx-translate/core 18.0.0` et `@ngx-translate/http-loader 18.0.0`
+**Version actuelle** : `@ngx-translate/core 18.0.0` et `@ngx-translate/http-loader 18.0.0` installées ; `18.1.0` publiée le 2026-10-27 pour les deux (npm). Notes de version lues le 2026-10-27 : ajouts (`hasTranslationKey`, `deleteLanguage`, option de retry au chargement, récupération asynchrone des traductions), correctif `getValue` sur les clés imbriquées, aucune rupture. Non installable ce jour-là : `minimumReleaseAge` (24 h) la refuse jusqu'au 2026-10-28, à adopter à ce moment-là
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** :
@@ -705,7 +708,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 
 **Compatibilité Écosystème** :
 - Le paquet suit la majeure d'Angular. `@angular-eslint/builder` ne déclare plus `@angular/cli` en peerDependency depuis la 22.2.0 : un écart de majeure se signale à l'exécution, plus à l'installation
-- `typescript-eslint ^8.0.0` (8.72.0 au relevé), qui contraint TypeScript à `>=4.8.4 <6.1.0`
+- `typescript-eslint ^8.0.0` (8.72.1 au relevé), qui contraint TypeScript à `>=4.8.4 <6.1.0`
 - **Les règles d'accessibilité ne sont pas dans `recommended`** : il faut étendre explicitement les deux presets, `angular.configs.templateRecommended` **et** `angular.configs.templateAccessibility`. C'est ce dernier qui apporte `alt-text`, `click-events-have-key-events`, `interactive-supports-focus`, `label-has-associated-control`, `role-has-required-aria`, `valid-aria`
 - `eslint-config-prettier` reste nécessaire : angular-eslint ne désactive pas ses règles stylistiques
 
@@ -801,22 +804,20 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 
 **Compatibilité Écosystème** :
 - MSRV Tauri : 1.90 pour toutes les crates depuis la 2.12. Large marge
-- Rust 1.99.0 est **préinstallé sur l'image `windows-2025`** depuis sa version 20261004.281.1 ; `rustup` installe de toute façon la toolchain épinglée
+- Rust 1.99.0 était **préinstallé sur l'image `windows-2025`** depuis sa version 20261004.281.1, la 1.99.1 l'est depuis les images du 2026-10-21 ; `rustup` installe de toute façon la toolchain épinglée
 - Cache CI : `Swatinem/rust-cache@v2.9.3`, d'autant plus rentable ici que le rapport dépendances / code propre est extrême
 - Dependabot met à jour `Cargo.toml` et `Cargo.lock` via l'écosystème `cargo`, en déléguant la régénération à cargo
 
 **Recommandation** : ✅ Poser un `rust-toolchain.toml` épinglant la stable utilisée. Le code Rust se limitant à l'initialisation des plugins (`src-tauri/src/lib.rs`), la seule chose que la CI peut casser est un lint Clippy nouvellement promu, et Clippy déplace régulièrement des lints entre catégories. L'épinglage rend ce risque explicite au lieu de le laisser survenir au gré des mises à jour d'image de runner.
 
 ### 4. GitHub Actions
-**Version actuelle** : voir le tableau des actions ci-dessous, confronté aux workflows et aux actions composites le 2026-10-23 (dates entre parenthèses : publication)
+**Version actuelle** : voir le tableau des actions ci-dessous, confronté aux workflows et aux actions composites le 2026-10-27 (dates entre parenthèses : publication)
 **Stabilité** : ✅
 
 | Action | Version | Notes |
 |---|---|---|
 | `actions/checkout` | `v7.0.1` (2026-07-17) | v7 : migration ESM, blocage du checkout de PR de fork sur `pull_request_target` |
-| `actions/setup-node` | `v7.0.0` (2026-07-14) | **Non utilisé** : `pnpm/setup` installe aussi le runtime Node |
-| `actions/setup-python` | `v7.0.0` (2026-07-20) | Non utilisé si uv gère l'interpréteur |
-| `pnpm/setup` | `v3.1.2` | Installe pnpm et Node en une étape. **Exige pnpm 11+.** La v3 détecte un fichier de version Node et inclut l'id du run dans la clé de cache ; `runtime: node@24` reste explicite. La v3.1.0 ajoute les inputs `registry` et `save-cache`. Appelée par la seule action composite `.github/actions/setup-pnpm` |
+| `pnpm/setup` | `v3.1.2` (2026-10-25) | Installe pnpm et Node en une étape, à la place d'`actions/setup-node`. **Exige pnpm 11+.** La v3 détecte un fichier de version Node et inclut l'id du run dans la clé de cache ; `runtime: node@24` reste explicite. La v3.1.0 ajoute les inputs `registry` et `save-cache`. Appelée par la seule action composite `.github/actions/setup-pnpm` |
 | `astral-sh/setup-uv` | `v10.3.2` (2026-10-22) | Runtime `node24`. La v10.1.0 vérifie les téléchargements d'uv contre des checksums, la v10.3.0 embarque ceux d'uv jusqu'à 0.13.0. Appelée par la seule action composite `.github/actions/setup-uv` |
 | `dorny/paths-filter` | `v4.0.3` (2026-08-05) | Job `changes` : saute les trois zones sur une PR de markdown seul. La 4.0.3 corrige GHSA-7hc6-8hq5-9q2m (noms de fichiers multi-lignes) |
 | `dtolnay/rust-toolchain` | `@stable` | Pas de semver : la révision **est** la sélection. Le `rust-toolchain.toml` du dépôt prime ensuite sur ce choix |
@@ -825,6 +826,10 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | `googleapis/release-please-action` | `v5.0.0` (2026-04-22) | v5 : passage au runtime Node 24 |
 | `extractions/setup-just` | `v4.0.0` | Installe `just` sur le runner : les deux workflows appellent les recettes du `Justfile` plutôt que de dupliquer les commandes. Appelée par la seule action composite `.github/actions/setup-just`, qui lit la version dans `minimum-version` du `Justfile` |
 | `getsentry/action-release` | `v3.7.2` (2026-10-21) | Job `sentry-release` : une release par projet Sentry (`techno-tagger-ui`, `techno-tagger-sidecar`), `set_commits: auto` d'où le `fetch-depth: 0`. Action composite, la 3.7.1 ne corrige que des dépendances transitives (`js-yaml`, `undici`) |
+| `docker/setup-buildx-action` | `v4.4.1` (2026-09-16) | Jobs `demo-image` (`ci.yml`) et `demo` (`release-please.yml`) |
+| `docker/build-push-action` | `v7.4.0` (2026-09-15) | Build de l'image de la démo (`demo/Dockerfile`), sonde en CI puis publication au tag |
+| `docker/login-action` | `v4.7.0` (2026-10-23) | Connexion à GHCR, job `demo` |
+| `docker/metadata-action` | `v6.2.0` (2026-07-02) | Tags et labels de l'image `ghcr.io/<dépôt>-demo`, job `demo` |
 | `rhysd/actionlint` | `1.7.12` (2026-03-30) | Script et binaire épinglés dans le job `ui`. Le support du label `ubuntu-26.04` n'est pas confirmé dans ses notes |
 
 **Breaking Changes Majeurs** :
@@ -835,7 +840,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 - **`pull_request_target` restreint par défaut sur dépôt public à partir du 2026-11-02** (source tierce, non retrouvée dans le changelog officiel) : sans effet, aucun workflow du projet ne s'en sert
 
 **Compatibilité Écosystème** :
-- **Runners Windows** : Rust 1.99.0 (image 20261004.281.1), MSVC de Visual Studio 2026 et le SDK Windows sont préinstallés, Node, Python et uv venant des actions de setup du projet. La présence de WebView2 n'a pas pu être confirmée
+- **Runners Windows** : Rust 1.99.1 (images du 2026-10-21, 1.99.0 auparavant, relevé le 2026-10-27), MSVC de Visual Studio 2026 et le SDK Windows sont préinstallés, Node, Python et uv venant des actions de setup du projet. La présence de WebView2 n'a pas pu être confirmée
 - **Ressources d'un runner standard sur dépôt public** : 4 vCPU et 16 Go de RAM, Windows compris
 - **Coût nul** : « GitHub Actions usage is free […] for public repositories that use standard GitHub-hosted runners », runners Windows compris
 - **`tauri-action` et le sidecar** : l'action « will build the app, create a GitHub release itself, and upload the app bundles to the newly created release », et gère le `latest.json` via `uploadUpdaterJson` (`true` par défaut). Mais elle ne fait qu'appeler `tauri build` : **aucun hook pour construire un sidecar avant**. Le binaire PyInstaller doit être en place dans `src-tauri/binaries/` à son invocation, posé par une étape antérieure du même job
@@ -885,7 +890,7 @@ Trois contournements, dans l'ordre de préférence :
 - `groups` avec `update-types: [minor, patch]` groupe les mises à jour mineures et correctifs par écosystème, laissant les majeures sortir isolées, une par dépendance : c'est le réglage posé dans `.github/dependabot.yml`
 
 **Compatibilité Écosystème** :
-- **Une entrée `updates` par écosystème**, déclarée explicitement : `npm` en `/` (Angular), `uv` en `/sidecar`, `cargo` en `/src-tauri`, `github-actions` en `/` et `/.github/actions/*` (le premier ne couvre que `.github/workflows`, le second les actions composites locales). Les quatre valeurs de `package-ecosystem` sont confirmées par la doc officielle
+- **Une entrée `updates` par écosystème**, déclarée explicitement : `npm` en `/` (Angular), `uv` en `/sidecar`, `cargo` en `/src-tauri`, `github-actions` en `/` et `/.github/actions/*` (le premier ne couvre que `.github/workflows`, le second les actions composites locales), `docker` en `/demo` (`demo/Dockerfile`). Les cinq valeurs de `package-ecosystem` sont celles de la doc officielle
 - **Dependabot ne régénère pas le lockfile lui-même, il appelle la CLI du gestionnaire** (`pnpm install`, `uv lock`, `cargo update`), qui applique ses propres réglages : le `minimumReleaseAge: 1440` posé dans `pnpm-workspace.yaml` s'applique donc à une PR Dependabot exactement comme à une installation locale, rien à répliquer côté configuration du bot
 - **Gratuit et intégré à GitHub**, aucune app tierce à installer ni à autoriser séparément. « Dependency graph » et « Dependabot alerts » restent à activer dans les réglages de sécurité du dépôt, ce sont eux qui alimentent le *dependency grapher* que Dependabot consomme
 
@@ -894,7 +899,7 @@ Trois contournements, dans l'ordre de préférence :
 **Recommandation** : ✅ Dependabot pour les PR de mise à jour, `just audit-ui` pour la veille CVE npm tant que #15904 est ouverte. Voir [PRODUCTION.md § Dépendances](PRODUCTION.md#dépendances) et [§ Composants applicatifs](PRODUCTION.md#composants-applicatifs) pour la procédure opérationnelle.
 
 ### 7. Images Docker de la démo
-**Version actuelle** : `nginx/nginx-unprivileged:1.31.7-alpine` et `node:24.22.1-slim`, relevées le 2026-10-26 (Docker Hub)
+**Version actuelle** : `nginx/nginx-unprivileged:1.31.8-alpine` et `node:24.22.1-slim`, relevées le 2026-10-27 (Docker Hub)
 **Stabilité** : ✅
 
 **Compatibilité Écosystème** :
@@ -921,7 +926,7 @@ Trois contournements, dans l'ordre de préférence :
 | jsdom 30.1.3 | Node 24.15+ | ✅ | `engines` : `^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`, plancher identique à celui du projet |
 | Angular 22.2.3 | Tailwind 4.3.3 | ✅ | Via `@tailwindcss/postcss` et `.postcssrc.json`, voie recommandée par les deux docs |
 | ngx-translate 18.0.0 | Tauri 2.12.5 | ✅ | Les JSON de traduction sont servis en same-origin depuis `frontendDist`, sans `asset:` |
-| TypeScript 6.0.x | typescript-eslint 8.72.0 | ✅ | `>=4.8.4 <6.1.0` |
+| TypeScript 6.0.x | typescript-eslint 8.72.1 | ✅ | `>=4.8.4 <6.1.0` |
 | PrimeNG 22.1.4 | @primeuix/themes 3.1.0 | ✅ | À installer explicitement, pas de dépendance transitive |
 | PrimeNG 22.1.4 | @primeicons/angular 8.0.2 | ⚠️ | Dépendance directe, sous licence PrimeUI |
 | PrimeNG 22.1.4 | tailwindcss-primeui 0.6.1 | ⚠️ | Plugin figé depuis mars 2025, antérieur à la v22 |
@@ -930,30 +935,30 @@ Trois contournements, dans l'ordre de préférence :
 | Tailwind 4.3.3 | prettier-plugin-tailwindcss 0.8.1 | ✅ | Option `tailwindStylesheet` obligatoire |
 | Tailwind 4.3.3 | SCSS / LESS | ❌ | Non supporté par conception, d'où le CSS pur |
 | Tailwind 4.3.3 | WebView2 | ✅ | Plancher navigateur de la v4 très en deçà du Chromium de WebView2 |
-| pnpm 12.14.0 | Angular CLI 22 | ✅ | La branche 22.2.x d'`angular/angular-cli` tourne elle-même sur pnpm 12.6.0 depuis le 2026-09-24 |
-| pnpm 12.14.0 (lockfile à deux documents) | Dependabot | ⚠️ | PR de mise à jour OK ; alertes de sécurité npm non fiables tant que dependabot-core#15904 est ouverte, `just audit-ui` en relais |
-| Dependabot | uv, cargo, github-actions | ✅ | Écosystèmes `uv`, `cargo` et `github-actions` couverts par le même `dependabot.yml` que `npm` |
-| pnpm 12.14.0 | `pnpm/setup` v3.1.2 | ✅ | L'action exige pnpm 11+, télécharge le binaire natif et lit `devEngines.packageManager` sans `version` |
-| pnpm 12.14.0 | `pnpm/action-setup` v6 | ⚠️ | Support de pnpm 12 annoncé en v6.1.0, mais `pnpm.cmd` non reconnu sous PowerShell Windows (action-setup#291, ouverte) : le projet reste sur `pnpm/setup` |
-| pnpm 12.14.0 | `--frozen-lockfile` en CI | ⚠️ | `minimumReleaseAge` à 24 h fait échouer l'install sur une transitive trop fraîche |
+| pnpm 12.15.0 | Angular CLI 22 | ✅ | La branche 22.2.x d'`angular/angular-cli` tourne elle-même sur pnpm 12.6.0 depuis le 2026-09-24 |
+| pnpm 12.15.0 (lockfile à deux documents) | Dependabot | ⚠️ | PR de mise à jour OK ; alertes de sécurité npm non fiables tant que dependabot-core#15904 est ouverte, `just audit-ui` en relais |
+| Dependabot | uv, cargo, github-actions, docker | ✅ | Écosystèmes `uv`, `cargo`, `github-actions` et `docker` (`/demo`) couverts par le même `dependabot.yml` que `npm` |
+| pnpm 12.15.0 | `pnpm/setup` v3.1.2 | ✅ | L'action exige pnpm 11+, télécharge le binaire natif et lit `devEngines.packageManager` sans `version` |
+| pnpm 12.15.0 | `pnpm/action-setup` v6 | ⚠️ | Support de pnpm 12 annoncé en v6.1.0, mais `pnpm.cmd` non reconnu sous PowerShell Windows (action-setup#291, ouverte) : le projet reste sur `pnpm/setup` |
+| pnpm 12.15.0 | `--frozen-lockfile` en CI | ⚠️ | `minimumReleaseAge` à 24 h fait échouer l'install sur une transitive trop fraîche |
 | Node 24.x | `pnpm/setup` v3.1.2 | ✅ | `runtime: node@24`, sans Corepack ni `actions/setup-node` |
 | Node 25.x et au-delà | Corepack | ❌ | Retiré des binaires officiels, d'où la bascule d'octobre à préparer |
-| Python 3.14.8 | PyInstaller 6.22.3 | ✅ | Plage `>=3.8,<3.16`, support de 3.14 depuis 6.15.0 (2025-08-03) |
-| Python 3.14.8 | rapidfuzz 3.14.6 | ✅ | **Wheels `cp314` pour `win_amd64`**, une des deux extensions natives de la stack |
-| Python 3.14.8 | pydantic 2.14.0 | ✅ | Wheels `cp314` et `cp314t` de `pydantic-core` pour `win_amd64`, compatibilité 3.14 annoncée depuis pydantic 2.12 |
-| Python 3.14.8 | httpx2 2.16.0 | ✅ | Classifiers 3.11 à 3.15, et zstd natif à partir de 3.14 |
-| Python 3.14.8 | sentry-sdk 2.73.0 | ✅ | Classifier 3.14 explicite |
-| Python 3.14.8 | mypy 2.4.0 / pytest 9.1.1 | ✅ | Wheels `cp314` pour mypy, support pytest depuis 8.4.0 |
-| Python 3.14.8 | mutagen 1.48.1 | ✅ | `>=3.10,<4`. Classifiers non détaillés, mais pur Python sans dépendance |
-| Python 3.14.8 | `asyncio.get_event_loop()` | ❌ | Lève `RuntimeError` hors loop. À bannir par le lint, `asyncio.run()` à la place |
-| Python 3.14.8 | `sqlite3.version` | ❌ | Supprimé. Utiliser `sqlite3.sqlite_version` (moteur), `connect()` non concerné |
+| Python 3.14.10 | PyInstaller 6.22.3 | ✅ | Plage `>=3.8,<3.16`, support de 3.14 depuis 6.15.0 (2025-08-03) |
+| Python 3.14.10 | rapidfuzz 3.14.6 | ✅ | **Wheels `cp314` pour `win_amd64`**, une des deux extensions natives de la stack |
+| Python 3.14.10 | pydantic 2.14.1 | ✅ | Wheels `cp314` et `cp314t` de `pydantic-core` pour `win_amd64`, compatibilité 3.14 annoncée depuis pydantic 2.12 |
+| Python 3.14.10 | httpx2 2.16.0 | ✅ | Classifiers 3.11 à 3.15, et zstd natif à partir de 3.14 |
+| Python 3.14.10 | sentry-sdk 2.73.0 | ✅ | Classifier 3.14 explicite |
+| Python 3.14.10 | mypy 2.4.0 / pytest 9.1.1 | ✅ | Wheels `cp314` pour mypy, support pytest depuis 8.4.0 |
+| Python 3.14.10 | mutagen 1.48.1 | ✅ | `>=3.10,<4`. Classifiers non détaillés, mais pur Python sans dépendance |
+| Python 3.14.10 | `asyncio.get_event_loop()` | ❌ | Lève `RuntimeError` hors loop. À bannir par le lint, `asyncio.run()` à la place |
+| Python 3.14.10 | `sqlite3.version` | ❌ | Supprimé. Utiliser `sqlite3.sqlite_version` (moteur), `connect()` non concerné |
 | httpx2 2.16.0 | respx 0.23.1 | ❌ | Dépend de `httpx>=0.25.0`, PR #317 ouverte non mergée |
 | httpx2 2.16.0 | pytest-httpx 0.36.2 | ❌ | Dépend de `httpx==0.28.*`, PR #239 ouverte non mergée |
 | httpx2 2.16.0 | truststore + PyInstaller | ✅ | Appels `ctypes` vers l'API OS dans un binaire figé, validés par le run complet de l'installeur 0.11.0 (2026-10-21) |
 | keyring 25.7.0 | PyInstaller 6.22.3 | ⚠️ | Backends par entry points, aucun hook contrib. Forçage explicite requis, validé sur l'application installée (2026-10-21) |
 | sentry-sdk 2.73.0 | PyInstaller 6.22.3 | ✅ | `hook-sentry_sdk.py` fourni par `pyinstaller-hooks-contrib` |
 | rapidfuzz 3.14.6 | PyInstaller 6.22.3 | ⚠️ | **Aucun hook**, ni du paquet ni de `hooks-contrib` : son entry point `pyinstaller40` est `tests`, pas `hook-dirs`. Couvrir par `collect_submodules("rapidfuzz")` à cause des cibles SIMD |
-| pydantic 2.14.0 | PyInstaller 6.22.3 | ✅ | Hook `pydantic` livré par `pyinstaller-hooks-contrib`, couple `pydantic-core` + interpréteur géré par uv validé sur l'installeur 0.11.0 (2026-10-21) |
+| pydantic 2.14.1 | PyInstaller 6.22.3 | ✅ | Hook `pydantic` livré par `pyinstaller-hooks-contrib`, couple `pydantic-core` + interpréteur géré par uv validé sur l'installeur 0.11.0 (2026-10-21) |
 | mutagen 1.48.1 | PyInstaller 6.22.3 | ✅ | Pur Python, aucun hook nécessaire |
 | Mypy 2.4.0 strict | toutes les deps Python | ✅ | Toutes livrent un `py.typed` |
 | Ruff 0.17.3 lint | Ruff 0.17.3 format | ⚠️ | Exclure `COM812`, `ISC002`, `Q000`-`Q004`, `E111`, `E114`, `E117`, `W191`, `D203`, `D206`, `D300` |
@@ -1027,15 +1032,15 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 `engines.node` sur `^24.15.0`, monté avec le `runtime` de `setup-pnpm` (`test_the_ci_node_major_is_declared_in_engines` les garde). À la bascule sur 26 : `^24.15.0 || ^26.0.0`, un `>=` laisserait passer Node 25.x, hors de la plage supportée par Angular 22. Un `pnpm-workspace.yaml` est à créer même sans monorepo, pour accueillir `allowBuilds: { esbuild: true }` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11.
 
-`devEngines.packageManager` épingle pnpm (`12.14.0`, `onFail: download`) : seule source de la version, lue par `pnpm/setup` en CI. Pas de champ `packageManager` (legacy, Corepack). Le lockfile à deux documents qui en résulte est assumé, cf. [§ Dependabot](#6-dependabot).
+`devEngines.packageManager` épingle pnpm (`12.15.0`, `onFail: download`) : seule source de la version, lue par `pnpm/setup` en CI. Pas de champ `packageManager` (legacy, Corepack). Le lockfile à deux documents qui en résulte est assumé, cf. [§ Dependabot](#6-dependabot).
 
 **Dépendances** : les paquets runtime `@angular/*` en `22.2.3` (`@angular/cli` et `@angular/build`, qui sont des devDependencies, en `22.2.4`), `primeng` en `22.1.4`, `@primeuix/themes` en `3.1.0` (**déclaration explicite obligatoire**), `@ngx-translate/core` et `@ngx-translate/http-loader` en `18.0.0`, `@fontsource-variable/inter` en `5.3.0`, `@sentry/angular` en `11.9.0`, `rxjs` en `~7.8.2`, `@tauri-apps/api` en `2.12.4`, plus les six paquets `@tauri-apps/plugin-*` aux versions du tableau (pas de paquet pour `single-instance`, aucun `plugin-fs`).
 
 **`overrides` de `pnpm-workspace.yaml`** : `vite` en `8.3.5`, parce que `@angular/build` 22.2.4 épingle la 8.3.0 touchée par six avis (cf. § Angular). Relevé le 2026-10-27, à retirer quand `@angular/build` relève son épinglage.
 
-**devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `5.0.5`, `angular-eslint` en `22.6.0`, `eslint` en `^10`, `typescript-eslint` en `^8`, `eslint-config-prettier`, `prettier` en `3.9.10`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.12.4`, `@sentry/cli` en `^3.8.2`, `jsdom` en `^30.1.3`.
+**devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `5.0.5`, `angular-eslint` en `22.6.0`, `eslint` en `^10.13.0`, `typescript-eslint` en `^8.72.1`, `eslint-config-prettier` en `^10.1.8`, `prettier` en `3.9.10`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.12.4`, `@sentry/cli` en `^3.8.2`, `jsdom` en `^30.1.3`.
 
-> `eslint` en `^10` : la ligne 9 est marquée dépréciée sur npm, et `angular-eslint` 22.2.0 accepte `^9.0.0 || ^10.0.0`. `ng add angular-eslint` ajoute aussi `@angular-eslint/builder` et `@eslint/js`.
+> `eslint` en `^10.13.0` : la ligne 9 est marquée dépréciée sur npm, et `angular-eslint` 22.2.0 accepte `^9.0.0 || ^10.0.0`. `ng add angular-eslint` ajoute aussi `@angular-eslint/builder` et `@eslint/js`.
 
 ### .postcssrc.json
 
@@ -1073,7 +1078,7 @@ Les permissions des plugins `shell`, `dialog`, `store`, `os`, `opener` et `updat
 
 ### dependabot.yml
 
-Quatre entrées `updates`, une par écosystème, déclarées explicitement : `npm` en `/` (`package.json`), `uv` en `/sidecar` (`sidecar/pyproject.toml` et `uv.lock`), `cargo` en `/src-tauri` (`src-tauri/Cargo.toml`), `github-actions` en `directories: ["/", "/.github/actions/*"]` (`.github/workflows/` et les actions composites locales). Chaque bloc cible `develop`, cadence mensuelle, `groups.minor-patch` sur `update-types: [minor, patch]` pour grouper mineures et correctifs et laisser les majeures sortir isolées, `open-pull-requests-limit: 5` pour tenir le flux de PR d'uv et de Ruff.
+Cinq entrées `updates`, une par écosystème, déclarées explicitement : `npm` en `/` (`package.json`), `uv` en `/sidecar` (`sidecar/pyproject.toml` et `uv.lock`), `cargo` en `/src-tauri` (`src-tauri/Cargo.toml`), `github-actions` en `directories: ["/", "/.github/actions/*"]` (`.github/workflows/` et les actions composites locales), `docker` en `/demo` (`demo/Dockerfile`). Chaque bloc cible `develop`, cadence mensuelle, `groups.minor-patch` sur `update-types: [minor, patch]` pour grouper mineures et correctifs et laisser les majeures sortir isolées, `open-pull-requests-limit: 5` pour tenir le flux de PR d'uv et de Ruff.
 
 Aucune app tierce à installer : Dependabot est intégré à GitHub. « Dependency graph » et « Dependabot alerts » restent à activer dans les réglages de sécurité, condition de fonctionnement du *dependency grapher* que Dependabot consomme.
 
@@ -1158,16 +1163,18 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 
 ## Montées Bloquées (état au 2026-10-27)
 
-| Paquet | Installée | Disponible | Ce qui casse | Levée attendue |
+Mises à jour majeures écartées par une incompatibilité prouvée, ou identifiées et non tentées.
+
+| Paquet | Actuel | Disponible | Blocage | Levée attendue |
 |---|---|---|---|---|
-| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.0 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-27 : `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.1 déclarent toujours `<6.1`) | TS 7.1 stable avec son API, puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
+| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.1 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-27 : `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.1 déclarent toujours `<6.1`) | TS 7.1 stable avec son API (beta publiée le 2026-10-20), puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
 | Node.js | `24.x` | `26.x` | Aucun blocage technique identifié : outil de build, rien de la 26 n'est exploité (cf. § Node.js). L'image de la démo suit la même majeure, gardée par son test de cohérence : la montée se fait d'un bloc, `engines`, `setup-pnpm` et `demo/Dockerfile` | Passage LTS de la 26, annoncé au 2026-10-28 |
 
 ---
 
 # Recommandation Finale
 
-**Verdict : la stack est cohérente et production-ready.** Les trois écosystèmes s'alignent sans conflit de versions, tous les couples critiques sont vérifiés, et les points durs ont chacun une issue identifiée. Un seul sujet appelle une décision plutôt qu'une ligne de configuration : l'[ADR-007](adrs/007-client-http-httpx2.md), dont l'argument central (« l'API étant strictement identique, le choix se réduit à un critère de maintenance ») ne tient plus, `httpx` conservant seul l'outillage de mock.
+**Verdict : la stack est cohérente et production-ready.** Les trois écosystèmes s'alignent sans conflit de versions, tous les couples critiques sont vérifiés, et les points durs ont chacun une issue identifiée. Aucun sujet n'appelle une décision plutôt qu'une ligne de configuration : l'[ADR-007](adrs/007-client-http-httpx2.md) tient, le manque d'outillage de mock d'`httpx2` étant tranché par le `MockTransport` natif.
 
 ## Points Critiques
 

@@ -4,7 +4,7 @@
 FROM node:24.22.1-slim AS build
 
 # Meme valeur que devEngines.packageManager.version, gardee par test_demo_image_coherence.py.
-ARG PNPM_VERSION=12.14.0
+ARG PNPM_VERSION=12.15.0
 RUN npm install -g pnpm@${PNPM_VERSION}
 
 WORKDIR /app
@@ -19,7 +19,7 @@ COPY public public
 RUN --mount=type=secret,id=primeng_license_key,required=false \
     PRIMENG_LICENSE_KEY="$(cat /run/secrets/primeng_license_key 2>/dev/null)" pnpm build:demo
 
-FROM nginx/nginx-unprivileged:1.31.7-alpine
+FROM nginx/nginx-unprivileged:1.31.8-alpine
 
 COPY --from=build /app/dist/techno-tagger-ui-demo/browser /usr/share/nginx/html
 COPY demo/nginx.conf /etc/nginx/nginx.conf
