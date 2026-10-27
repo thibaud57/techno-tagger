@@ -15,12 +15,13 @@ paths:
 - Chaîner par `needs:` ce qui dépend d'un résultat antérieur, comme le build de release derrière release-please
 - Nommer les steps non triviaux : ce nom est ce qu'on lit dans l'onglet Actions quand la CI casse
 - Construire le sidecar PyInstaller et lancer `tauri build` dans le **même job** : `tauri-action` n'offre aucun hook pour produire un binaire externe avant son appel
+- **Token de GitHub App** pour release-please et pour le push de `sync-lockfiles` : `actions/create-github-app-token` (`client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}`, clé en secret `RELEASE_APP_PRIVATE_KEY`) avant l'étape qui l'utilise, puis `steps.<id>.outputs.token` en `token:` (release-please-action, ou `actions/checkout` pour que le push lance la CI de la PR). Le `id: app-token` est **load-bearing** : sans lui l'expression résout à vide, l'action retombe sur `github.token`, le run reste vert mais la CI de la PR de release redevient bloquée en attente d'approbation. Laisser `owner` et `repositories` vides scope le token au dépôt courant ; borner ses droits par `permission-*` (`contents`, `issues` et `pull-requests` en `write` pour release-please, `contents` seul pour `sync-lockfiles`) : sans eux, il reçoit toutes les permissions de l'installation de l'App
 - Installer un outil dont la version sert à plusieurs jobs par une action composite locale (`./.github/actions/setup-uv`, `./.github/actions/setup-pnpm`), seul endroit où vit cette version : jamais de version recopiée d'un job à l'autre
 
 ## À éviter
 - Supposer qu'un fichier produit dans un job existe dans le suivant : chaque job repart d'un runner vierge, il faut un artifact ou un cache
 - Répéter la même chaîne d'installation dans dix steps au lieu d'un `run: |` multi-ligne
-- Sortir le job de build dans son propre fichier : le tag venant du `GITHUB_TOKEN` ne le déclencherait pas, et c'est ce qui impose le chaînage `needs:` dans le workflow release-please
+- Sortir le job de build dans son propre fichier : il perdrait les outputs de release-please (`id`, `tag_name`, `version`), et le chaînage `needs:` du workflow release-please reste le choix même avec le token d'App
 - Un `workflow_call` tant qu'il n'y a qu'un appelant : secrets à repasser et logs imbriqués, sans rien factoriser
 - Rejouer en CI ce que la CI joue déjà ailleurs : pas de hooks pre-commit, le même trio lint / typecheck / tests tourne sur chaque PR
 
