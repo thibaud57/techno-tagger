@@ -1,6 +1,6 @@
 ---
 title: "Ruff — Linter et formatter du sidecar"
-version: "0.17.0"
+version: "0.17.3"
 description: "Référence technique pour Ruff : configuration dans pyproject.toml, jeu de règles par défaut passé à 413 en 0.16.0 puis ajusté en 0.17.0, select vs extend-select et ordre lint/format."
 date: "2026-10-12"
 keywords: ["ruff", "lint", "format", "pyproject", "regles", "pre-commit"]
@@ -91,6 +91,7 @@ select = ["DTZ", "RUF", "TID"]   # DTZ quitte le défaut en 0.17.0 : explicite p
 - **Les commentaires pragma de fin de ligne ne comptent plus dans la largeur** pour le formateur, `I001`, `E501` et `W505` : un import peut être reformaté au passage
 - Python par défaut 3.11 (3.15 pour les erreurs de syntaxe), sans effet quand `requires-python` est posé
 - ruff-lsp est supprimé : l'extension VS Code utilise toujours le serveur natif
+- **0.17.1 à 0.17.3 (2026-10-15 à 2026-10-26)** : correctifs et perfs, aucune rupture. Deux points touchent ce projet (`PL` et `UP` sélectionnés) : `UP035`, `PLR5501` et `PLW0120` passent leur correction en *unsafe* quand elle supprime un commentaire, donc `--fix` seul ne la fait plus ; `PLR2004` gagne l'option `lint.pylint.allow-magic-values` (liste de valeurs tolérées, en plus de `allow-magic-value-types`), alternative à un `per-file-ignores` quand une valeur courante déclenche la règle
 
 ---
 
@@ -199,5 +200,6 @@ uv run ruff format --check        # échoue si un fichier doit être reformaté
 
 - [Annonce Ruff 0.16.0](https://astral.sh/blog/ruff-v0.16.0)
 - [Notes de version 0.17.0](https://github.com/astral-sh/ruff/releases/tag/0.17.0)
+- Notes de version [0.17.1](https://github.com/astral-sh/ruff/releases/tag/0.17.1), [0.17.2](https://github.com/astral-sh/ruff/releases/tag/0.17.2), [0.17.3](https://github.com/astral-sh/ruff/releases/tag/0.17.3)
 - [ruff-pre-commit](https://github.com/astral-sh/ruff-pre-commit)
 - [mypy.md](mypy.md) : répartition des responsabilités

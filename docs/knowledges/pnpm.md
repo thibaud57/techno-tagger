@@ -256,6 +256,7 @@ pnpm with current install     # une commande avec le pnpm global, en ignorant l'
 - **Résoudre un conflit de lockfile par un `pnpm install`**, jamais à la main
 - **Vérifier `pnpm ignored-builds`** quand une dépendance native se comporte mal
 - **Cibler `public-hoist-pattern` sur le paquet qui l'exige** plutôt que d'activer `shamefully-hoist`
+- **Réserver `overrides` (dans `pnpm-workspace.yaml`) aux correctifs de sécurité d'une transitive que son parent épingle en exact**, avec en commentaire le pourquoi et la condition de retrait : le projet force ainsi vite 8.3.5 au 2026-10-27, `@angular/build` épinglant une 8.3.0 touchée par des advisories corrigés en 8.3.3
 - **Mettre pnpm à jour sur le poste par `pnpm self-update` hors du projet, depuis Git Bash**, puis vérifier `cmd //c "pnpm --version"`
 
 ## ❌ Anti-Patterns
