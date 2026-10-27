@@ -9,8 +9,9 @@ paths:
 
 ## À faire
 - Déclarer `permissions:` explicitement : `contents: read` sur le workflow, tout scope supplémentaire, en lecture (`pull-requests: read`) comme en écriture, sur le seul job qui en a l'usage
+- Laisser `permissions: contents: read` sur les jobs `release-please` et `sync-lockfiles` : leurs droits d'écriture viennent du token de la GitHub App, borné par les inputs `permission-*` (cf. [workflows.md](workflows.md))
 - Épingler chaque action tierce, actions composites locales comprises, sur le SHA de son tag avec la version en commentaire, jamais sur un tag flottant : un tag peut être réaffecté ou traîner avant un correctif, et seul le SHA laisse Dependabot proposer la montée
-- Tenir les réglages Actions du dépôt public : token par défaut `restricted`, Actions autorisées à créer et approuver une PR tant que release-please ouvre la sienne avec `GITHUB_TOKEN` (un seul interrupteur pour les deux), policy de SHA pinning, approbation de tous les contributeurs externes pour les PR de fork, et `dependabot[bot]` dans les actor rules s'il y en a (état relevé dans [PRODUCTION.md § Réglages Actions du dépôt](../../../docs/PRODUCTION.md#réglages-actions-du-dépôt))
+- Tenir les réglages Actions du dépôt public : token par défaut `restricted`, Actions non autorisées à créer et approuver une PR (release-please ouvre la sienne avec le token de la GitHub App de release), policy de SHA pinning, approbation de tous les contributeurs externes pour les PR de fork, et `dependabot[bot]` dans les actor rules s'il y en a (état relevé dans [PRODUCTION.md § Réglages Actions du dépôt](../../../docs/PRODUCTION.md#réglages-actions-du-dépôt))
 - Laisser Dependabot (écosystème `github-actions`) faire remonter les bumps d'actions en PR mensuelle, gate qualité compris
 - Passer toute valeur contrôlée par un tiers (titre de PR, corps d'issue, `client_payload`) par `env:` avant de la lire dans un `run:`
 - Laisser « Dependency graph » et « Dependabot alerts » actifs côté dépôt : les mises à jour de sécurité de Dependabot s'appuient dessus

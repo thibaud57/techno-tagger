@@ -11,6 +11,7 @@ paths:
 - Passer un secret par `env:` au niveau du step qui en a besoin, et le lire en `$VAR` dans le shell
 - Réserver `vars` (UI GitHub) aux valeurs non sensibles qui varient, et `env:` YAML aux constantes du workflow
 - Consommer le `GITHUB_TOKEN` fourni automatiquement pour publier la Release : aucun secret à créer pour cela
+- Poser la GitHub App de release en variable `RELEASE_APP_CLIENT_ID` (non sensible, lue par `vars`) et secret `RELEASE_APP_PRIVATE_KEY` (clé complète, lignes `BEGIN` et `END` comprises) : le token d'installation est frappé à chaque run et valable 1 h, la clé n'expire pas et ne tourne que sur compromission (cf. [PRODUCTION.md § Rotation](../../../docs/PRODUCTION.md#rotation))
 - Sauvegarder la clé de signature **hors de GitHub** : sa perte rend toute mise à jour impossible sur les installations déjà déployées
 
 ## À éviter
