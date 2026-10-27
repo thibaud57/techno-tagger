@@ -20,7 +20,7 @@ paths:
 - Mesurer le contenu du détail à l'exécution pour choisir son nombre de lignes : la liste se décale après l'affichage
 
 ## Gotchas
-- PrimeNG 22.1.2 : la marge de lignes rendues au-dessus de la première visible (`numToleratedItems`) n'est pas documentée, elle se lit dans le scroller. À revérifier à chaque mise à jour de PrimeNG (cf. [knowledges/primeng.md § Détail déplié sous une ligne virtualisée](../../../docs/knowledges/primeng.md#détail-déplié-sous-une-ligne-virtualisée))
+- PrimeNG 22.1.2, identique en 22.1.4 (relu le 2026-10-27) : la marge de lignes rendues au-dessus de la première visible (`numToleratedItems`) n'est pas documentée, elle se lit dans le scroller. À revérifier à chaque mise à jour de PrimeNG (cf. [knowledges/primeng.md § Détail déplié sous une ligne virtualisée](../../../docs/knowledges/primeng.md#détail-déplié-sous-une-ligne-virtualisée))
 
 ## Exemples
 ```html

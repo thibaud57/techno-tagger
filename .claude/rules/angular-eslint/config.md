@@ -28,7 +28,7 @@ paths:
 
 ## Gotchas
 - `prefer-on-push-component-change-detection` a changé de sens en v22 : OnPush étant implicite, la règle cible les opt-out (`Default` / `Eager`). Une config antérieure à la v22 vise l'inverse
-- `prefer-standalone` rejette `standalone: false` ; `inject-at-top` et `require-switch-default` existent depuis 22.1.0
+- `prefer-standalone` rejette `standalone: false`, et depuis 22.6.0 `allowExplicitStandalone: false` signale aussi `standalone: true` comme redondant ; `inject-at-top` et `require-switch-default` existent depuis 22.1.0
 - Un fichier hors des tsconfig produit une erreur de parsing, pas une violation : `--exit-on-fatal-error` sort en code 2 et distingue une config cassée d'un code fautif
 - `typescript-eslint` contraint TypeScript sous 6.1 (cf. [typescript/types.md](../typescript/types.md))
 - Prettier 3.9.4 reformate `@content(name)` en `@content (name)` côté parser Angular

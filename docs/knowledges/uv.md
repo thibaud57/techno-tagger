@@ -1,8 +1,8 @@
 ---
 title: "uv — Gestionnaire de paquets et d'environnement Python"
-version: "0.13.0"
+version: "0.13.6"
 description: "Référence technique pour uv : projet et dependency groups, lockfile et politique de versionnement, sync en CI, gestion des versions de Python et exécution des outils."
-date: "2026-10-15"
+date: "2026-10-27"
 keywords: ["uv", "python", "lockfile", "pep-735", "pyproject", "ci"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller", "GitHub Actions", "Dependabot"]
@@ -79,7 +79,9 @@ required-version = ">=0.13,<0.14"
 - `uv.lock` se commite, toujours
 - Un patch peut quand même réécrire le contenu du lock sans changer son format : entre 0.12.19 et 0.12.22, uv a cessé d'y écrire les réglages de résolution inutilisés et s'est mis à y consigner les default groups. Le premier `uv lock` après montée produit donc un diff, à committer
 - **0.13.0 (2026-10-09) : le cache change de format.** uv peut retélécharger ou reconstruire des dépendances après la montée. Plusieurs versions d'uv partagent toujours le même cache
-- **0.13.0 : les tarballs passent par `tar-codec`**, plus strict (liens physiques et extensions non gérées rejetés). Les sdists produits par `uv_build` peuvent changer d'octets, donc de hash. `UV_LEGACY_TAR_BACKEND=1` rétablit l'ancien backend
+- **0.13.0 : les tarballs passent par `tar-codec`**. Les sdists produits par `uv_build` peuvent changer d'octets, donc de hash. `UV_LEGACY_TAR_BACKEND=1` rétablit l'ancien backend. Le rejet des liens physiques et des noms d'utilisateur ou de groupe pleine longueur est levé depuis 0.13.1 (2026-10-14)
+- **0.13.4 (2026-10-20) retire du magasin de certificats embarqué une racine dont l'intermédiaire est compromis** (GHSA-hq85-5cpj-mr62), et 0.13.5 rejette aussi ces chaînes via `rustls-webpki` : le patch flotte sous `required-version`, il suffit de ne pas rester en dessous
+- **0.13.6 (2026-10-26) résout `platform_machine` en `AMD64` pour Windows x86-64** : un `uv lock` après montée peut réécrire des marqueurs, à relire avant de committer
 - **Le plancher `uv_build` de `[build-system]` suit le minor de `required-version`** (`>=0.13.0,<0.14`) : depuis 0.12.16, le backend embarqué ne sert que si sa version satisfait cette plage, sinon il se retélécharge depuis l'index à chaque build
 - **uv préfère les versions déjà verrouillées** : une nouvelle version disponible en amont ne périme pas le lockfile tant que les contraintes du projet sont satisfaites. Il n'y a donc pas d'upgrade implicite
 
@@ -230,7 +232,7 @@ uv build                            # sdist + wheel dans dist/
 
 - [uv](https://docs.astral.sh/uv/)
 - [Politique de versionnement](https://docs.astral.sh/uv/reference/policies/versioning/)
-- [Notes de version 0.13.0](https://github.com/astral-sh/uv/releases/tag/0.13.0)
+- [Notes de version 0.13.0](https://github.com/astral-sh/uv/releases/tag/0.13.0) · [0.13.4](https://github.com/astral-sh/uv/releases/tag/0.13.4) · [0.13.6](https://github.com/astral-sh/uv/releases/tag/0.13.6)
 - [Sync et lock](https://docs.astral.sh/uv/concepts/projects/sync/) · [Dépendances](https://docs.astral.sh/uv/concepts/projects/dependencies/)
 - [Versions de Python](https://docs.astral.sh/uv/concepts/python-versions/)
 - [Intégration GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/)

@@ -1,8 +1,8 @@
 ---
 title: "Sentry — Remontée d'erreurs durcie (Python + Angular)"
-version: "sentry-sdk 2.71.0 / @sentry/angular 11.9.0"
+version: "sentry-sdk 2.73.0 / @sentry/angular 11.9.0"
 description: "Référence technique pour les deux SDK Sentry du projet : durcissement RGPD, réglages non négociables, scrubbing, corrélation de release et empaquetage PyInstaller."
-date: "2026-10-18"
+date: "2026-10-27"
 keywords: ["sentry", "rgpd", "scrubbing", "observabilite", "angular", "python", "pyinstaller"]
 scope: ["docs"]
 technologies: ["Python", "Angular", "Tauri", "PyInstaller"]
@@ -54,7 +54,7 @@ sentry_sdk.init(
 
 - **`data_collection` remplace `send_default_pii` depuis la 2.70.0 et ferme chaque catégorie une à une** : `user_info`, `cookies`, `http_headers`, `http_bodies`, `url_query_params`, `graphql`, `gen_ai`, `database_query_data`, `queues` et `stack_frame_variables`. Une catégorie omise est collectée. `stack_frame_variables` joint un instantané des variables locales de chaque frame, qui contiennent les chemins complets, l'artiste et le titre en cours de traitement voire la clé API si elle transite par une variable locale de `scraper_client.py`
 - **`include_local_variables` est ignoré dès que `data_collection` est posé** (2.70.0 et suivantes, vérifié le 2026-10-15) : le passer à `False` à côté ne ferme rien puisque sa valeur d'origine (`True`) ne compte plus. Seul `stack_frame_variables` décide
-- **L'`EventScrubber` par défaut du SDK n'est pas installé sous `data_collection`** (`client.py` de 2.71.0, lu le 2026-10-16) : son denylist (`api_key`, `secret`, `token`, `password`...) ne s'applique plus aux champs libres. Aucune donnée sensible dans `set_extra`, `set_context` ni `set_tag` puisque `before_send` n'a aucun moyen de la reconnaître
+- **L'`EventScrubber` par défaut du SDK n'est pas installé sous `data_collection`** (`client.py` de 2.71.0 lu le 2026-10-16, identique en 2.73.0 le 2026-10-27) : un `event_scrubber` passé à `init()` est lui aussi ignoré, avec un warning. Son denylist (`api_key`, `secret`, `token`, `password`...) ne s'applique plus aux champs libres. Aucune donnée sensible dans `set_extra`, `set_context` ni `set_tag` puisque `before_send` n'a aucun moyen de la reconnaître
 - **Une montée du SDK qui ajoute une catégorie la laisse ouverte** : un test lit la configuration résolue et casse dans ce cas (`sidecar/tests/unit/core/test_sentry_payload.py`)
 - **`server_name` est auto-détecté** : sans valeur fixe, le nom de la machine part avec chaque événement
 - **`send_default_pii` a pour défaut `None`** (vérifié dans `sentry_sdk.consts.DEFAULT_OPTIONS`) : il ne s'active pas ; posé à côté de `data_collection`, le SDK l'ignore en émettant un `DeprecationWarning`. Le SDK JavaScript, lui, n'a plus cette option depuis la v11 (cf. § SDK Angular)

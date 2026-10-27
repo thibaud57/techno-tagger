@@ -1,8 +1,8 @@
 ---
 title: "httpx2 — Client HTTP asynchrone du sidecar"
-version: "2.13.1"
+version: "2.16.0"
 description: "Référence technique pour httpx2 : clients partagés, timeouts, limits vs sémaphores, streaming des pochettes, gestion d'erreurs et stratégie de test sans mock mature."
-date: "2026-08-29"
+date: "2026-10-27"
 keywords: ["httpx2", "asyncio", "http", "timeout", "streaming", "mocktransport"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller", "pytest"]
@@ -14,7 +14,7 @@ Client HTTP asynchrone, **fork de `httpx` maintenu par Pydantic Services**. Le s
 
 **Le paquet s'importe `httpx2`, pas `httpx`.** L'API et le design sont annoncés identiques à httpx par ses mainteneurs, ce qui rend la documentation httpx transposable, mais les imports et l'écosystème d'outillage, eux, ne le sont pas.
 
-Deux différences internes valent d'être connues : `certifi` est remplacé par `truststore` (magasin de certificats de l'OS), et `httpcore` devient `httpcore2`, une dépendance PyPI séparée épinglée à la même version exacte (`httpcore2==2.12.0`), pas du code vendorisé dans le dépôt.
+Deux différences internes valent d'être connues : `certifi` est remplacé par `truststore` (magasin de certificats de l'OS), et `httpcore` devient `httpcore2`, une dépendance PyPI séparée épinglée à la même version exacte (`httpcore2==2.16.0` au lockfile, de même version que httpx2), pas du code vendorisé dans le dépôt.
 
 ---
 
@@ -152,6 +152,8 @@ async with client_cdn.stream("GET", artwork_url) as response:
 - **`stream()` s'utilise en context manager** : sortir sans fermer laisse la connexion en vol
 - La 2.12.0 borne la décompression à 1 MiB par étape de décodage : une réponse fortement compressée ne matérialise plus un chunk inflaté entier en mémoire
 - `response.num_bytes_downloaded` suit la progression si besoin
+- **2.16.0 (2026-10-21) : le client réutilise son cookie jar** au lieu de le copier à chaque requête et redirection, et envoie les cookies du domaine le moins au plus spécifique. Une politique posée par `client.cookies.jar.set_policy()` s'applique désormais aux requêtes sortantes
+- 2.14.0 : `NO_PROXY` et `mounts` acceptent les plages CIDR. 2.15.0 exige Python 3.11+. Sans effet sur le sidecar (Python 3.14, aucun proxy configuré)
 - **Un échec de téléchargement n'échoue jamais le morceau** : les tags sont écrits sans pochette et le rapport le signale
 - Rejouer une requête dont le corps a déjà été consommé lève `StreamConsumed` : un retry doit repartir d'une requête neuve
 

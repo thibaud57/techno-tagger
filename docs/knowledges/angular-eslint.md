@@ -1,8 +1,8 @@
 ---
 title: "angular-eslint — Lint du frontend"
-version: "22.5.0"
+version: "22.6.0"
 description: "Référence technique pour angular-eslint : flat config obligatoire, blocs TS et HTML, typed linting par projectService, règles Angular notables et cohabitation avec Prettier."
-date: "2026-08-29"
+date: "2026-10-27"
 keywords: ["angular-eslint", "eslint", "flat-config", "typed-linting", "a11y", "prettier"]
 scope: ["docs"]
 technologies: ["Angular", "TypeScript", "Prettier"]
@@ -112,7 +112,7 @@ export class RunReportComponent {}
 
 ### Points Importants
 
-- **`prefer-standalone`** : rejette `standalone: false`, cohérent avec une base entièrement standalone
+- **`prefer-standalone`** : rejette `standalone: false`, cohérent avec une base entièrement standalone. Depuis 22.6.0, l'option `allowExplicitStandalone` (défaut `true`) tolère `standalone: true` explicite ; à `false`, la règle le signale comme redondant, avec correctif automatique (lu dans le plugin 22.6.0 installé, 2026-10-27)
 - **`prefer-on-push-component-change-detection` a changé de sens en v22** : Angular 22 faisant d'OnPush le défaut implicite, la règle ne réclame plus une déclaration explicite mais **cible les opt-out** (`Default` / `Eager`). Une règle ou une documentation interne écrite avant Angular 22 dit l'inverse
 - **`component-selector` et `directive-selector`** fixent le préfixe : `app` par défaut, aligné sur le CLI
 - Le jeu `templateAccessibility` couvre `alt-text`, `click-events-have-key-events`, `interactive-supports-focus`, `label-has-associated-control`, `role-has-required-aria` et d'autres : utile sur une interface pilotée majoritairement à la souris, où l'accessibilité clavier se perd facilement

@@ -35,7 +35,9 @@ paths:
 - `--frozen` n'inspecte même pas la fraîcheur du lock (aucun accès réseau), là où `--locked` échoue explicitement en cas de dérive : choisir selon qu'on veut subir ou détecter
 - 0.12 : `uv run` découvre le projet relativement au script passé, plus au répertoire courant
 - 0.13 : sans `.python-version` ni borne `requires-python`, uv prend Python 3.15 par défaut ; le pin et la borne `<3.15` du projet l'écartent
-- 0.13 : les tarballs passent par `tar-codec`, les sdists de `uv_build` peuvent changer de hash ; le cache change de format, un premier run retélécharge
+- 0.13 : les tarballs passent par `tar-codec`, les sdists de `uv_build` peuvent changer de hash (liens physiques de nouveau acceptés depuis 0.13.1) ; le cache change de format, un premier run retélécharge
+- 0.13.4 : retire du magasin de certificats embarqué une racine à intermédiaire compromis (GHSA-hq85-5cpj-mr62), ne pas rester sur 0.13.0 à 0.13.3
+- 0.13.6 : `platform_machine` vaut `AMD64` pour Windows x86-64, un `uv lock` après montée peut réécrire des marqueurs
 - `uv remove` retire aussi les transitives devenues orphelines : le lock rétrécit, c'est normal
 - `uv sync` supprime les paquets absents du lock, sauf avec `--inexact`
 - `uv build` produit sdist et wheel, pas le binaire du sidecar : c'est PyInstaller, lancé par `uv run` (cf. [pyinstaller/build.md](../pyinstaller/build.md))

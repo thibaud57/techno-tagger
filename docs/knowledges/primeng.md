@@ -1,8 +1,8 @@
 ---
 title: "PrimeNG v22 — Bibliothèque de composants Angular"
-version: "22.1.2"
+version: "22.1.4"
 description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, détail déplié sous une ligne virtualisée, tabs et icônes SVG."
-date: "2026-10-11"
+date: "2026-10-27"
 keywords: ["primeng", "primeuix", "aura", "design-tokens", "dark-mode", "table", "virtual-scroll", "primeicons"]
 scope: ["docs"]
 technologies: ["Angular", "Tailwind CSS", "Tauri"]
@@ -12,7 +12,7 @@ technologies: ["Angular", "Tailwind CSS", "Tauri"]
 
 Bibliothèque de composants Angular qui fournit l'essentiel de l'interface : tableaux, modales, formulaires, onglets. Le projet l'utilise en **mode sombre forcé**, cohérent avec les outils DJ et avec un usage nocturne (cf. [ADR-003](../adrs/003-primeng-community-license.md)).
 
-Cette fiche couvre trois paquets indissociables : `primeng` 22.1.2, `@primeuix/themes` 3.0.1 (le moteur de thème, **pas une dépendance transitive**, à déclarer explicitement) et `@primeicons/angular` 8.0.2 (les icônes, tirées par PrimeNG v22).
+Cette fiche couvre trois paquets indissociables : `primeng` 22.1.4, `@primeuix/themes` 3.0.1 (le moteur de thème, **pas une dépendance transitive**, à déclarer explicitement) et `@primeicons/angular` 8.0.2 (les icônes, tirées par PrimeNG v22).
 
 Le détail visuel du projet (tokens retenus, scale typographique, mapping composant par composant) vit dans [DESIGN.md](../DESIGN.md), pas ici.
 
@@ -174,7 +174,7 @@ Les listes du projet montent à une centaine de lignes, le récapitulatif filtra
 - **`virtualScrollItemSize` doit valoir la hauteur réelle de la ligne** : PrimeNG ne mesure rien, il multiplie ce nombre. Une valeur fausse produit un scroll qui saute ou des lignes coupées, donc une classe fixe la hauteur de la ligne et pas l'inverse
 - **Mesuré le 2026-09-17 en mode développement, sans défilement virtuel** : 0,6 s pour monter 500 lignes du rapport, 5 s pour 2 000, 29 s pour 5 000. C'est ce coût que le défilement virtuel supprime
 - Le scroll virtuel et le filtrage cohabitent, mais le filtrage recalcule la liste rendue : c'est le jeu de données filtré qui compte, pas le total
-- **`#expandedrow` ne va pas avec le scroll virtuel** : le scroller place chaque ligne à `rang × virtualScrollItemSize` et dimensionne son espaceur sur le même produit, sans mesure ; une ligne dépliée de hauteur variable décale donc toutes les suivantes (lu dans `primeng-scroller.mjs`, PrimeNG 22.1.2, 2026-10-06). Une ligne dépliable native exige de retirer `[virtualScroll]` ; le projet le garde (cf. § Détail déplié sous une ligne virtualisée)
+- **`#expandedrow` ne va pas avec le scroll virtuel** : le scroller place chaque ligne à `rang × virtualScrollItemSize` et dimensionne son espaceur sur le même produit, sans mesure ; une ligne dépliée de hauteur variable décale donc toutes les suivantes (lu dans `primeng-scroller.mjs`, PrimeNG 22.1.2, 2026-10-06 ; `itemSize` inchangé en 22.1.4, relu le 2026-10-27). Une ligne dépliable native exige de retirer `[virtualScroll]` ; le projet le garde (cf. § Détail déplié sous une ligne virtualisée)
 - **Mesuré le 2026-10-10 sous `ng serve` sur la liste du run, sans scroll virtuel et avec `#expandedrow`**, lignes mémoïsées et ligne en composant OnPush : 2 000 morceaux, 11,5 s de premier rendu et 118 ms par événement, le contrôle des 2 000 vues de lignes. Le projet garde le scroll virtuel et déplie le détail sur des lignes de hauteur fixe (cf. § Détail déplié sous une ligne virtualisée)
 
 ---
@@ -217,7 +217,7 @@ Le détail d'un morceau du run se déplie sous sa ligne sans quitter le scroll v
 
 ### Points Importants
 
-- **`numToleratedItems` garde la ligne porteuse montée** : le scroller rend toujours au moins `numToleratedItems − 1` lignes au-dessus de la première visible (`calculateFirst` et `calculateTriggerIndex` de `primeng-scroller.mjs`, lus dans PrimeNG 22.1.2 le 2026-10-10) et une valeur fournie n'est pas écrasée par le calcul par défaut (moitié des lignes visibles). Au nombre maximal de lignes d'un détail plus un, le détail ne disparaît jamais tant qu'une de ses lignes est à l'écran. Ce comportement n'est pas documenté : à revérifier à chaque mise à jour de PrimeNG
+- **`numToleratedItems` garde la ligne porteuse montée** : le scroller rend toujours au moins `numToleratedItems − 1` lignes au-dessus de la première visible (`calculateFirst` et `calculateTriggerIndex` de `primeng-scroller.mjs`, lus dans PrimeNG 22.1.2 le 2026-10-10, identiques en 22.1.4 le 2026-10-27) et une valeur fournie n'est pas écrasée par le calcul par défaut (moitié des lignes visibles). Au nombre maximal de lignes d'un détail plus un, le détail ne disparaît jamais tant qu'une de ses lignes est à l'écran. Ce comportement n'est pas documenté : à revérifier à chaque mise à jour de PrimeNG
 - **`virtualScrollOptions` passe au scroller par son input `options`** ; une nouvelle référence d'objet aux mêmes valeurs ne relance pas son calcul, ses signaux dérivés (`numToleratedItems`, `itemSize`) restant égaux
 - **Un `z-index` sur le détail le fait passer au-dessus de l'en-tête collant** (`.p-datatable-scrollable-table > .p-datatable-thead`, z-index 1 dans `@primeuix/styles` 3.0.0, dans le même contexte d'empilement que les lignes) : sans `z-index`, le détail positionné se peint au-dessus des lignes vides et sous l'en-tête
 - **Hauteur en lignes entières** : le cadre prend un nombre entier de lignes, mesuré sur le plus haut contenu de chaque cas et le contenu s'étire sur cette hauteur (`content-between` sur sa grille) pour ne laisser aucune bande vide. Le contenu ne se mesure pas à l'exécution : un changement de nombre de lignes déplacerait toute la liste après l'affichage
