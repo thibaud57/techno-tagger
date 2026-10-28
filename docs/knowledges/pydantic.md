@@ -1,8 +1,8 @@
 ---
 title: "Pydantic — Modèles & validation du protocole"
-version: "2.14.0"
+version: "2.14.1"
 description: "Référence technique pour Pydantic v2 dans le sidecar : modèles du protocole NDJSON, validation des commandes reçues sur stdin, migration du plan de run, frontière avec techno-scraper et empaquetage de pydantic-core."
-date: "2026-10-09"
+date: "2026-10-27"
 keywords: ["pydantic", "validation", "ndjson", "protocole", "pydantic-core", "mypy"]
 scope: ["docs"]
 technologies: ["Python", "PyInstaller", "Mypy", "pytest"]
@@ -107,10 +107,11 @@ class Candidate(BaseModel):
 
 ### Points Importants
 
-- `default_factory` pour tout défaut mutable : un `default=[]` partagerait la liste entre toutes les instances
+- `default_factory` pour tout défaut mutable : Pydantic copie un `default=[]` à chaque instance (vérifié sur 2.14.1), mais la même écriture partage la liste dans une dataclass, un seul style évite de confondre les deux
 - Depuis 2.10, `default_factory` accepte un paramètre `data` et peut calculer un défaut à partir des champs déjà validés
 - La syntaxe `type X = ...` (PEP 695) fonctionne et garde l'alias paresseux
 - Les contraintes numériques (`gt`, `ge`, `lt`, `le`) et de chaîne (`min_length`, `pattern`) sont vérifiées dans le cœur Rust, pas en Python
+- 2.14.1 (2026-10-11) : le validateur `Decimal` applique `max_digits` à la partie entière et un `int` hors plage est refusé pour un `timedelta` (notes de version). Sans effet sur les modèles du protocole, qui ne portent ni `Decimal` ni `timedelta`
 
 ---
 

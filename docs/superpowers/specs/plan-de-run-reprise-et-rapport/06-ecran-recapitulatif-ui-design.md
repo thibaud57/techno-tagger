@@ -93,7 +93,7 @@ Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Ré
 - **Échecs d'écriture** : le message existant (`tagging.write.failed`), en texte seul, compté sur les morceaux affichés par la page, suivi de `RollbackFailuresComponent`.
 - **Table** : `RunListComponent` réutilisé, figé (`frozen`), sur les morceaux filtrés, avec le détail déplié par `TrackDetailComponent` (`.claude/rules/primeng/ligne-depliee.md`).
   - `run-list` gagne une entrée qui remplace son état vide par `EmptyStateComponent` : « Aucun morceau ne correspond », « Changez de filtre ou videz la recherche. ».
-  - Un morceau que le filtre ou la recherche retire de la table perd son détail ouvert, car `openIds` est un `linkedSignal` sur les morceaux de la table. Ceux qui restent visibles gardent le leur.
+  - Un morceau que le filtre ou la recherche retire de la table perd son détail ouvert, car `openId` est un `linkedSignal` sur les morceaux de la table. Resté visible, le morceau ouvert garde le sien.
 - **Pied** :
   - « Restaurer le run », qui reprend le geste et la confirmation existants de la page Tagging ;
   - « Nouveau run » en `text` `secondary` avec l'icône `plus`, qui appelle `SidecarService.clearRun()` puis navigue vers `/tagging`.

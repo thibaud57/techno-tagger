@@ -3,33 +3,26 @@ paths:
   - "sidecar/tests/**/*.py"
 ---
 
-# pytest — Tests du sidecar
+# pytest : tests du sidecar
 
 ## À faire
-- N'écrire un test que s'il vérifie une règle métier du projet : une régression de notre code doit le faire échouer
 - Asserter le comportement observable (événements émis, fichier écrit), pas les appels internes : sur-mocker couple le test à l'implémentation
 - Garder par un test toute valeur recopiée entre deux manifestes quand aucune dérivation n'est possible : la divergence ne se verrait qu'à l'exécution du bundle. `test_main.py` porte nom, identifiant, binaire et versions
-- Structurer en Arrange / Act / Assert séparés par une ligne vide, sans commentaire de section
-- Nommer les tests en anglais, fonctions `test_*` comme `ids` de parametrize ; docstrings et commentaires en français
+- Écrire les `ids` de parametrize en anglais, comme les noms de tests
+- Typer un remplaçant de test sous n'importe quelle signature par le Protocol `Replacement` de `tests/helpers/stubs.py`, jamais par `Callable[..., T]`
 - Mocker le client techno-scraper par le `MockTransport` natif d'httpx2, injecté via le paramètre `transport` du client
-- Écrire dans `tmp_path`, jamais dans un chemin en dur ni dans le répertoire courant
-- `monkeypatch` pour une valeur, un attribut ou une variable d'environnement (annulation automatique) ; `unittest.mock.patch(..., autospec=True)` quand un `Mock` complet est nécessaire
-- Patcher le symbole là où il est utilisé, pas là où il est défini
+- `monkeypatch` pour une valeur, un attribut ou une variable d'environnement (annulation automatique) ; `unittest.mock.patch(..., autospec=True)` quand un `Mock` complet est nécessaire : sans `autospec`, un changement de signature passe inaperçu
 - `@pytest.mark.parametrize(..., ids=[...])` pour les jeux de données, un cas par échec localisé
-- `pytest.raises(MonErreur, match=...)`, et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
-- Mettre les fixtures partagées dans `conftest.py`, avec teardown après `yield`, et réserver `autouse=True` au setup transverse
-- Capturer les logs par `caplog` et les flux standard par `capsys` (`capfd` pour un sous-process) plutôt que de rediriger `sys.stdout` à la main
-- Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin, et un double unitaire (HTTP, audio, enregistrements) n'importe jamais le harnais de run (`tagging_api`). `conftest.py` ne garde que les fixtures
+- `pytest.raises(MonErreur, match=...)` et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
+- Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin et un double unitaire (HTTP, audio, enregistrements) n'importe jamais le harnais de run (`tagging_api`). `conftest.py` ne garde que les fixtures
 
 ## À éviter
-- Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer, sauf des exceptions voulues : la garde `data_collection` de `sidecar/tests/unit/core/test_sentry_payload.py` casse quand une montée de sentry-sdk ajoute une catégorie de collecte (ADR-014) ; `test_re_recording_yields_the_committed_demo_folder` de `sidecar/tests/integration/test_demo_scenario.py` casse quand un changement du sidecar ou une montée de rapidfuzz, mutagen ou pydantic modifie une réponse enregistrée de la démo web ([ADR-023](../../../docs/adrs/023-demo-web-par-rejeu.md)), ce qui se répare par `just record-demo` sous Windows puis le commit du diff de `src/demo/`
-- `respx` et `pytest-httpx` : ni l'un ni l'autre ne supporte httpx2, les PR de support sont ouvertes et non mergées
+- Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer, hors des deux exceptions voulues listées au No-lib-test du `CLAUDE.md` projet
+- `respx` et `pytest-httpx` : ni l'un ni l'autre ne supporte httpx2 (cf. [httpx2/client.md](../httpx2/client.md))
 - Un appel réseau ou Sentry réel : les deux sont toujours mockés, aucun test ne consomme le quota, sauf `test_sentry_payload.py`, qui initialise le vrai SDK par `init_sentry` avec un transport factice retenant l'enveloppe : aucun réseau, aucun quota
-- Mocker sans `autospec` : un changement de signature passe alors inaperçu
 - Élargir le `scope` d'une fixture qui porte de l'état mutable
 
 ## Gotchas
-- pytest 9.0 : les `PytestRemovedIn9Warning` sont des erreurs, et le contournement `filterwarnings = ignore::...` ne fonctionne plus depuis 9.1
 - pytest-asyncio 1.0 : fixture `event_loop` supprimée, remplacée par `loop_scope` de `@pytest.mark.asyncio` ; `event_loop_policy` dépréciée en 1.4
 - Le seuil de couverture du sidecar est bloquant en CI (cf. [ARCHITECTURE.md § Coverage](../../../docs/ARCHITECTURE.md#coverage)) : il localise les zones non testées, il ne prouve rien sur la qualité des assertions
 - Le protocole NDJSON se teste de bout en bout en injectant des commandes sur `stdin` et en lisant `stdout`, sans lancer l'interface

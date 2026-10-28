@@ -5,7 +5,7 @@ paths:
   - "sidecar/.python-version"
 ---
 
-# uv — Projet & dépendances
+# uv : projet et dépendances
 
 ## À faire
 - Tenir toute la configuration dans `pyproject.toml` : `[project]`, `[tool.uv]`, `[dependency-groups]`, `[tool.*]`
@@ -13,7 +13,7 @@ paths:
 - Séparer les groupes `dev` et `build` : un job de test n'a pas besoin de PyInstaller
 - Poser `required-version` sous `[tool.uv]` sur la mineure d'uv : seule source de la version, uv refuse de tourner hors plage sur le poste et `setup-uv` la lit en CI. À monter avec `uv_build`
 - Poser `package = true` pour installer le projet en editable, ce qui rend le sidecar importable sans manipuler `PYTHONPATH`
-- Passer par la CLI pour toute dépendance : `uv add`, `uv add --dev`, `uv add --group build`, `uv remove`
+- Ajouter un outil de développement par `uv add --dev` et une dépendance de packaging par `uv add --group build`
 - Committer `uv.lock` dans le même commit que le `pyproject.toml` modifié
 - En CI : `setup-uv` sans `version` dans l'action composite `.github/actions/setup-uv` (`version-file: sidecar/pyproject.toml`, le pyproject n'est pas à la racine), installer par `uv sync --locked --all-groups`
 - Borner `uv_build` dans `[build-system]` sur la même mineure que `required-version` : `test_main.py` le garde
@@ -33,9 +33,6 @@ paths:
 - Depuis 0.12.16, le backend `uv_build` embarqué ne sert que si sa version satisfait la plage de `[build-system]` : un uv plus ancien que le plancher retélécharge le backend depuis l'index à chaque build
 - uv préfère les versions déjà verrouillées : une nouvelle version en amont ne périme pas le lockfile tant que les contraintes sont satisfaites, il n'y a pas d'upgrade implicite
 - `--frozen` n'inspecte même pas la fraîcheur du lock (aucun accès réseau), là où `--locked` échoue explicitement en cas de dérive : choisir selon qu'on veut subir ou détecter
-- 0.12 : `uv run` découvre le projet relativement au script passé, plus au répertoire courant
-- 0.13 : sans `.python-version` ni borne `requires-python`, uv prend Python 3.15 par défaut ; le pin et la borne `<3.15` du projet l'écartent
-- 0.13 : les tarballs passent par `tar-codec`, les sdists de `uv_build` peuvent changer de hash ; le cache change de format, un premier run retélécharge
 - `uv remove` retire aussi les transitives devenues orphelines : le lock rétrécit, c'est normal
 - `uv sync` supprime les paquets absents du lock, sauf avec `--inexact`
 - `uv build` produit sdist et wheel, pas le binaire du sidecar : c'est PyInstaller, lancé par `uv run` (cf. [pyinstaller/build.md](../pyinstaller/build.md))

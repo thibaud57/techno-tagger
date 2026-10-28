@@ -129,14 +129,29 @@ describe("UrlRecoveryDialogComponent", () => {
     expect(linkField()?.getAttribute("aria-label")).toBe("Link for Adam Beyer - Your Mind")
   })
 
-  it("keeps the pasted url in its field once the track is recovered", () => {
+  it("moves to the next track once the shown one is recovered", () => {
     const { fixture, service } = mount()
     pasteLink(TRACK_URL)
     fixture.detectChanges()
     action("resolve-url")?.click()
 
-    service.taggingTracks.set([recoveredTrack("a.mp3"), SECOND])
     service.recoverableTracks.set([recoveredTrack("a.mp3"), SECOND])
+    service.urlRecovered.set({ trackId: "a.mp3" })
+    fixture.detectChanges()
+
+    expect(page().textContent).toContain("Amelie Lens - Basiel")
+  })
+
+  it("keeps the pasted url of a recovered track opened again", () => {
+    const { fixture, service, recovery } = mount()
+    pasteLink(TRACK_URL)
+    fixture.detectChanges()
+    action("resolve-url")?.click()
+    service.recoverableTracks.set([recoveredTrack("a.mp3"), SECOND])
+    service.urlRecovered.set({ trackId: "a.mp3" })
+    fixture.detectChanges()
+
+    recovery.open("a.mp3")
     fixture.detectChanges()
 
     expect(linkField()?.value).toBe(TRACK_URL)

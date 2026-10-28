@@ -392,25 +392,60 @@ describe("RunListComponent", () => {
     },
   )
 
-  it("opens a second detail while the first stays open", async () => {
-    const other: TaggingTrack = {
+  describe("second detail", () => {
+    const OTHER: TaggingTrack = {
       ...PENDING_TRACK,
       trackId: "b.mp3",
       fileName: "b.mp3",
       artist: "Amelie Lens",
       title: "Basiel",
+      tagsBefore: TAGS_BEFORE,
     }
-    const fixture = await mountWith([READABLE, { ...other, tagsBefore: TAGS_BEFORE }])
 
-    toggleOf(fixture, 0)?.click()
-    await settle(fixture)
-    toggleOf(fixture, 1)?.click()
-    await settle(fixture)
+    /** JSDOM n'a pas `scrollBy`. */
+    const spyScrollBy = (fixture: Hosted): ReturnType<typeof vi.fn> => {
+      const scrollBy = vi.fn()
+      Object.assign(hostOf(fixture).querySelector(".p-virtualscroller") ?? {}, { scrollBy })
 
-    expect(detailsOf(fixture)).toHaveLength(2)
-    expect(toggleOf(fixture, 0)?.getAttribute("aria-expanded")).toBe("true")
-    expect(toggleOf(fixture, 1)?.getAttribute("aria-expanded")).toBe("true")
-    expect(rowsOf(fixture)).toHaveLength(16)
+      return scrollBy
+    }
+
+    it("closes the first detail when a second one opens", async () => {
+      const fixture = await mountWith([READABLE, OTHER])
+      toggleOf(fixture, 0)?.click()
+      await settle(fixture)
+      spyScrollBy(fixture)
+
+      toggleOf(fixture, 1)?.click()
+      await settle(fixture)
+
+      expect(detailsOf(fixture)).toHaveLength(1)
+      expect(toggleOf(fixture, 0)?.getAttribute("aria-expanded")).toBe("false")
+      expect(toggleOf(fixture, 1)?.getAttribute("aria-expanded")).toBe("true")
+      expect(rowsOf(fixture)).toHaveLength(9)
+    })
+
+    it("scrolls up by the height of the detail it closes above", async () => {
+      const fixture = await mountWith([READABLE, OTHER])
+      toggleOf(fixture, 0)?.click()
+      await settle(fixture)
+      const scrollBy = spyScrollBy(fixture)
+
+      toggleOf(fixture, 1)?.click()
+
+      expect(scrollBy).toHaveBeenCalledExactlyOnceWith({ top: -7 * 56 })
+    })
+
+    it("keeps the scroll when the detail it closes is below", async () => {
+      const fixture = await mountWith([READABLE, OTHER])
+      toggleOf(fixture, 1)?.click()
+      await settle(fixture)
+      const scrollBy = spyScrollBy(fixture)
+
+      toggleOf(fixture, 0)?.click()
+
+      expect(scrollBy).not.toHaveBeenCalled()
+    })
   })
 
   it.each(["Enter", " "])("keeps the chevron keys away from the row action (%j)", async (key) => {

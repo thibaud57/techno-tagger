@@ -1,20 +1,22 @@
 ---
 paths:
   - "sidecar/src/tagger/tags/files.py"
+  - "sidecar/src/tagger/tags/tag_dump.py"
+  - "sidecar/src/tagger/tags/renaming.py"
+  - "sidecar/src/tagger/run/writing.py"
 ---
 
-# mutagen — Écriture des tags
+# mutagen : écriture des tags
 
 ## À faire
 - Maintenir la table de correspondance ID3 ↔ Vorbis dans un seul module : aucune table officielle unifiée n'existe en amont, ID3 et Vorbis Comments ne sont pas deux dialectes du même modèle. Un champ Vorbis sans nom standard y porte ses noms concurrents (`vorbis_mirrors`) : la tonalité s'écrit sous `KEY` et `INITIALKEY`, même valeur
-- Appeler `update_to_v23()` puis `save(v2_version=3)` : mutagen vise v2.4 par défaut, et `save(v2_version=3)` seul laisse `TDRC` et `TDOR` sur le disque
-- Lire le texte d'une frame ID3 par `.text` (une liste), et toute valeur Vorbis comme une liste même pour un champ unique
-- `clear_pictures()` avant `add_picture()` sur FLAC, sans quoi un re-run empile les pochettes ; sur ID3, l'unicité d'une `APIC` tient au couple `(type, desc)`
+- Appeler `update_to_v23()` puis `save(v2_version=3)` : mutagen vise v2.4 par défaut et `save(v2_version=3)` seul laisse `TDRC` et `TDOR` sur le disque
+- Lire le texte d'une frame ID3 par `.text` (une liste) et toute valeur Vorbis comme une liste même pour un champ unique
 - `audio.add_tags()` quand `audio.tags is None` : c'est le cas d'un WAV ou d'un AIFF sans chunk ID3, sinon l'indexation lève `TypeError`
 - Sérialiser le dump des tags d'origine vers des types simples avant toute écriture (rollback, dump conservé 30 jours hors plan de run, cf. [ADR-010](../../../docs/adrs/010-ecriture-batch-et-plan-de-run.md))
-- Capturer `MutagenError` et `OSError` ensemble, fichier par fichier, et lire `__cause__` pour distinguer un `PermissionError` (fichier verrouillé par un lecteur) d'une corruption réelle
+- Capturer `MutagenError` et `OSError` ensemble, fichier par fichier et lire `__cause__` pour distinguer un `PermissionError` (fichier verrouillé par un lecteur) d'une corruption réelle
 - Ne renommer qu'un fichier dont l'écriture a réussi : le nom se calcule sur la projection, sans rouvrir le fichier
-- Une seule image par fichier : retirer toutes les images (`delall("APIC")`, `clear_pictures()`) avant de poser la pochette ; sans pochette, garder le recto existant
+- Une seule image par fichier : retirer toutes les images (`delall("APIC")`, `clear_pictures()`) avant de poser la pochette, sans quoi un re-run empile les pochettes sur FLAC (sur ID3, l'unicité d'une `APIC` tient au couple `(type, desc)`) ; sans pochette, garder le recto existant
 - Retirer `COMM` en ID3, `COMMENT` et `DESCRIPTION` en Vorbis à chaque écriture
 
 ## À éviter
@@ -28,11 +30,11 @@ paths:
 - `deepcopy` des objets frame pour le dump : certains ne se copient pas proprement selon la version
 
 ## Gotchas
-- La conversion v2.4 → v2.3 n'est pas neutre : UTF-8 repasse en UTF-16, une seule chaîne par champ rend `v23_sep` sans objet, et la date réduite à l'année donne `TYER` seul, sans `TDAT` ni `TIME`
-- Aucune année d'origine n'est écrite (ADR-011, 2026-10-11) : un `TORY` ou `ORIGINALDATE` du fichier reste intact, et `update_to_v23()` convertit seulement un `TDOR` déjà présent en `TORY`
+- La conversion v2.4 → v2.3 n'est pas neutre : UTF-8 repasse en UTF-16, une seule chaîne par champ rend `v23_sep` sans objet et la date réduite à l'année donne `TYER` seul, sans `TDAT` ni `TIME`
+- Aucune année d'origine n'est écrite (ADR-011, 2026-10-11) : un `TORY` ou `ORIGINALDATE` du fichier reste intact et `update_to_v23()` convertit seulement un `TDOR` déjà présent en `TORY`
 - `EasyID3` avec `v2_version=3` peut produire une frame `TDRC` vide en plus du `TYER` : asserter sur le fichier relu, pas sur le retour de l'API
 - 1.48.0 : l'attribut `salt` d'`APIC` change la `HashKey` en `APIC:<desc><salt>`, donc l'unicité
-- WAV : seul le chunk ID3v2 est supporté (pas RIFF/INFO), et Rekordbox l'ignore quelle que soit sa casse, il ne lit que le RIFF INFO (cf. [rekordbox.md](../../../docs/knowledges/rekordbox.md))
+- WAV : seul le chunk ID3v2 est supporté (pas RIFF/INFO) et Rekordbox l'ignore quelle que soit sa casse, il ne lit que le RIFF INFO (cf. [rekordbox.md](../../../docs/knowledges/rekordbox.md))
 - `mutagen.File()` rend `None` sur un format non reconnu, il ne lève pas : le cas se traite
 
 ## Exemples

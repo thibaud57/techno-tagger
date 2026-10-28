@@ -3,7 +3,7 @@ paths:
   - "sidecar/src/tagger/**/*.py"
 ---
 
-# Python Imports & Modules — Règles
+# Python : imports et modules
 
 ## À faire
 - Imports absolus depuis `tagger.` par défaut, relatifs (`from .cache import ...`) seulement à l'intérieur d'un sous-package
@@ -11,13 +11,11 @@ paths:
 - Déclarer `__all__` dans un `__init__.py` seulement quand le package expose une façade (`playlists/`) ; un package qui ne fait que regrouper des modules importés par chemin (`core/`, `run/`, etc.) garde un `__init__.py` réduit à sa docstring
 - Lancer le sidecar par `python -m tagger`, jamais par chemin de fichier : le mode fichier casse les imports relatifs
 - Casser un cycle d'imports en extrayant le code partagé dans un troisième module
-- Importer sous `if TYPE_CHECKING:` ce qui ne sert qu'aux annotations
 
 ## À éviter
-- `import *` hors REPL
 - Manipuler `sys.path` à la main : le package est installé et résolu par `uv sync`
 - Oublier un `__init__.py` : le dossier devient un namespace package (PEP 420) et masque des erreurs d'import
-- Un import différé posé pour contourner un cycle sans corriger le découpage : il n'est légitime que pour un module lourd ou optionnel, commentaire `# noqa: PLC0415` à l'appui
+- Un `# noqa: PLC0415` posé pour contourner un cycle d'imports : il masque un mauvais découpage, ce `noqa` n'est légitime que pour un module lourd ou optionnel
 
 ## Gotchas
 - `ImportError: cannot import name X from partially initialized module` désigne un import circulaire, pas un symbole manquant

@@ -188,6 +188,18 @@ async (page) => {
   await page.locator('app-url-recovery-dialog [data-action="skip"]').click()
   await settle()
   check("skip moves to the next track", (await dialog())?.counter === "2/4", await dialog())
+  // Rattrapage depuis la modale : le morceau rattrape passe au suivant (2026-10-28). SNTS, deja
+  // rattrape sans geste, reste affiche ; Nur Jaber, rattrape par son geste, mene a Hector Oaks.
+  check("recovered track opened again stays shown", (await dialog())?.title === "SNTS - Unkept Promises", await dialog())
+  await page.locator('app-url-recovery-dialog [data-action="skip"]').click()
+  await settle()
+  await page.keyboard.type("https://amelielens.bandcamp.com/track/basiel")
+  await page.keyboard.press("Enter")
+  await settle()
+  await line(byUrl(N, "bandcamp"))
+  await line({ event: "progress", phase: "url_recovery", processed: 2, total: 4 })
+  await settle()
+  check("recovered by its gesture, moves to the next track", (await dialog())?.counter === "4/4" && (await dialog())?.title === "Hector Oaks - Sentiment", await dialog())
   await page.keyboard.press("Escape")
   await settle()
 
@@ -242,7 +254,9 @@ async (page) => {
   await page.locator('app-arbitration-dialog [data-action="skip"]').click()
   await settle(800)
   check("skip on the last link step closes", (await dialog()) === null, await dialog())
-  check("refused track counted to recover", (await badges()).recovery === "4 à rattraper", await badges())
+  // Klangkuenstler, Hector Oaks et le refuse : Nur Jaber a ete rattrape plus haut.
+  check("refused track counted to recover", (await badges()).recovery === "3 à rattraper", await badges())
+  check("link step recovery leaves the link dialog closed", (await page.evaluate(() => [...document.querySelectorAll("app-url-recovery-dialog .p-dialog")].some((d) => d.offsetParent !== null))) === false, "link dialog shown")
 
   // Run 2 : lien colle oublie, etape lien desactivee pendant la recherche, focus sur Passer.
   await page.evaluate(() => window.__svc.startTagging("C:/Musique/Extraction"))

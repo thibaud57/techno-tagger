@@ -12,11 +12,14 @@ export class UrlRecoveryStore {
   private readonly _progress = signal<RunProgress | null>(null)
   private readonly _busy = signal<ReadonlySet<string>>(new Set())
   private readonly _errors = signal<ReadonlyMap<string, SidecarErrorEvent>>(new Map())
+  private readonly _recovered = signal<{ readonly trackId: string } | null>(null)
 
   readonly progress = this._progress.asReadonly()
   readonly busy = this._busy.asReadonly()
   /** L'evenement entier : l'ecran traduit son `code` avec ses `params`. */
   readonly errors = this._errors.asReadonly()
+  /** Dernier rattrapage abouti, un objet neuf par succes. */
+  readonly recovered = this._recovered.asReadonly()
 
   isBusy(trackId: string): boolean {
     return this._busy().has(trackId)
@@ -32,7 +35,11 @@ export class UrlRecoveryStore {
     this.forget(trackId)
   }
 
+  /** Resolu pendant son geste, le morceau vient d'etre rattrape : la recherche reseau refuse le geste. */
   resolved(trackId: string): void {
+    if (this._busy().has(trackId)) {
+      this._recovered.set({ trackId })
+    }
     this.release(trackId)
     this.forget(trackId)
   }
@@ -46,6 +53,7 @@ export class UrlRecoveryStore {
     this._progress.set(null)
     this._busy.set(new Set())
     this._errors.set(new Map())
+    this._recovered.set(null)
   }
 
   private release(trackId: string): void {

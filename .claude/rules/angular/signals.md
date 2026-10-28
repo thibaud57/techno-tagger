@@ -3,7 +3,7 @@ paths:
   - "src/app/**/*.ts"
 ---
 
-# Angular Signals — Règles
+# Angular : signals
 
 ## À faire
 - Utiliser `signal()` pour tout état local, de composant comme de service : c'est le seul mécanisme de state du projet, aucune librairie de store n'est installée
@@ -11,7 +11,7 @@ paths:
 - Utiliser `.update()` quand la nouvelle valeur dépend de l'ancienne, `.set()` pour un remplacement complet
 - Créer un nouvel objet ou tableau dans `.set()` / `.update()` : retourner la même référence ne notifie aucun consommateur
 - Utiliser `linkedSignal()` pour un état dérivé modifiable qui doit se réinitialiser quand sa source change (playlist sélectionnée, candidat retenu dans une file qui se réduit)
-- Passer par la forme `{ source, computation }` de `linkedSignal()` quand la sélection courante doit survivre au changement de source, et par son option `set: (value, rawSet) => void` (22.1) pour rediriger une écriture vers la source
+- Passer par la forme `{ source, computation }` de `linkedSignal()` quand la sélection courante doit survivre au changement de source et par son option `set: (value, rawSet) => void` (22.1) pour rediriger une écriture vers la source
 - Exposer les signals d'un service en lecture seule avec `.asReadonly()` et garder le `WritableSignal` privé
 - Réserver `effect()` aux side-effects : persistance dans le `store` Tauri, DOM externe, log
 - Créer un `effect()` dans un injection context (champ de classe ou constructeur), sinon lui passer l'option `injector`
@@ -19,7 +19,7 @@ paths:
 ## À éviter
 - Muter un tableau ou un objet contenu dans un signal (`push()`, `splice()`, affectation de propriété) : rien n'est notifié
 - Utiliser un `effect()` pour calculer une valeur dérivée, c'est le rôle de `computed()`
-- Écrire dans un signal lu par le même `effect()` : boucle infinie, aucune protection depuis Angular 19
+- Écrire dans un signal lu par le même `effect()` : boucle infinie
 - `httpResource()` : la webview n'appelle aucune API, tout le réseau passe par le sidecar
 - Utiliser `resource()` pour le flux d'événements du sidecar : il est continu et unidirectionnel, cf. `rxjs-interop.md`
 
@@ -27,8 +27,6 @@ paths:
 - Angular 22 : `resource()` et `httpResource()` passent stables, ils étaient expérimentaux jusqu'en 21
 - Angular 22 : `debounced()` est expérimental et retourne une `Resource<T>`, pas un signal : les consommateurs doivent traiter l'état `loading` pendant la fenêtre de debounce
 - Une erreur levée dans un `computed()` est mise en cache et relancée à la lecture suivante, après changement d'une dépendance
-- L'option `allowSignalWrites` n'existe plus depuis Angular 19 : écrire dans un `effect()` est autorisé par défaut
-
 ## Exemples
 ```typescript
 // ✅ État privé, lecture publique, dérivation par computed

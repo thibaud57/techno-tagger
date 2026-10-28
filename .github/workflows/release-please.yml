@@ -19,9 +19,6 @@ jobs:
     name: PR de release
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # Les droits reels viennent du token de l'App (step app-token), pas du GITHUB_TOKEN.
-    permissions:
-      contents: read
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       id: ${{ steps.release.outputs.id }}
@@ -29,6 +26,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       pr: ${{ steps.release.outputs.pr }}
     steps:
+      # Les droits reels viennent du token de l'App, pas du GITHUB_TOKEN.
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
@@ -44,9 +42,6 @@ jobs:
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          target-branch: main
 
   sync-lockfiles:
     name: Realigner les lockfiles dans la PR de release
@@ -54,10 +49,8 @@ jobs:
     if: needs.release-please.outputs.pr
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # Les droits d'ecriture viennent du token de l'App (step app-token).
-    permissions:
-      contents: read
     steps:
+      # Les droits d'ecriture viennent du token de l'App.
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
@@ -98,8 +91,6 @@ jobs:
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: read
     strategy:
       # Deux projets Sentry, un par SDK : la release doit exister des deux cotes,
       # donc l'echec de l'un n'annule pas l'autre.
@@ -109,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # set_commits: auto remonte l'historique depuis la release precedente.
+          # L'action Sentry (set_commits auto par defaut) remonte l'historique depuis la release precedente.
           fetch-depth: 0
 
       - uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
@@ -121,7 +112,6 @@ jobs:
           # release-please rend la version nue, les deux SDK posent `techno-tagger@X.Y.Z`.
           release: techno-tagger@${{ needs.release-please.outputs.version }}
           environment: production
-          set_commits: auto
 
   build:
     name: Build et publication
@@ -146,7 +136,6 @@ jobs:
           workspaces: src-tauri
       - uses: ./.github/actions/setup-just
 
-      - run: pnpm install --frozen-lockfile
       - name: Installer les dependances du sidecar
         run: uv sync --locked --all-groups
         working-directory: sidecar

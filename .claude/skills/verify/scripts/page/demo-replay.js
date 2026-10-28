@@ -100,6 +100,18 @@ async (page) => {
     await p.locator(".p-dialog .p-dialog-close-button").click()
     await waitNoDialog(p)
   }
+  // Rattrape, Lowlands cede la modale au morceau suivant, ou la ferme au dernier (2026-10-28).
+  const leaveRecovery = async (p) => {
+    await p.waitForFunction(
+      () => {
+        const d = [...document.querySelectorAll(".p-dialog")].pop()
+        return !d || !/Lowlands/.test(d.innerText)
+      },
+      null,
+      { timeout: 8000 },
+    )
+    if ((await p.locator(".p-dialog").count()) > 0) await closeDialog(p)
+  }
   const counter = (p) =>
     p.evaluate(() =>
       [...document.querySelectorAll("app-phase-progress span.tabular-nums")].map((e) => e.textContent.trim()).join("|"),
@@ -467,7 +479,6 @@ async (page) => {
       const resolveCmds = await commandCount(p, "resolve_by_url")
       check("s5.lowlandsResolveSendsOneCommand", resolveCmds === 1, resolveCmds)
       await waitCounter(p, /1 sur 2 rattrapés/)
-      await waitDialog(p, /Rattrapé sur/)
       const resolveStats = await phaseStats(p, "resolve_by_url", ["track_resolved", "progress"], 2)
       s1.resolveStats = resolveStats
       check(
@@ -476,10 +487,12 @@ async (page) => {
         resolveStats,
       )
       if (shots) await p.screenshot({ path: `${shots}/replay-s1-lowlands-resolved.png` })
-      await closeDialog(p)
+      await leaveRecovery(p)
+      check("s5.lowlandsRecoveredMovesOn", true)
 
       await p.locator("app-run-list tr", { hasText: "Lowlands" }).first().click({ position: { x: 300, y: 20 } })
       await waitDialog(p, /Lowlands/)
+      await waitDialog(p, /Rattrapé sur/)
       const commandsBefore = await commandCount(p)
       const lowlandsAgain = await hoverTip(p, '[data-action="resolve-url"]')
       s1.lowlandsAgain = lowlandsAgain
@@ -630,7 +643,7 @@ async (page) => {
         first,
         counter: await counter(p),
       })
-      await closeDialog(p)
+      await leaveRecovery(p)
       await p.locator("[data-arbitration-badge]").click()
       await waitDialog(p, /Sub Rosa/)
       await p.getByRole("button", { name: /Arbitrage suivant/ }).click()
@@ -684,8 +697,7 @@ async (page) => {
     await validateFirst(p)
     await waitNoDialog(p)
     await lowlandsRecovery(p)
-    await waitDialog(p, /Rattrapé sur/)
-    await closeDialog(p)
+    await leaveRecovery(p)
     await p.locator('[data-action="commit"]').click()
     const message = await confirmAccept(p, /Écrire les tags/)
     await waitEvents(p, "run_finished", 2)
