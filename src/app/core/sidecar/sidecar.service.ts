@@ -233,6 +233,7 @@ export class SidecarService {
   readonly urlRecoveryProgress = this.urlRecovery.progress
   readonly urlRecoveryBusy = this.urlRecovery.busy
   readonly urlRecoveryErrors = this.urlRecovery.errors
+  readonly urlRecovered = this.urlRecovery.recovered
   readonly committed = this.writePhase.committed
   readonly writing = this.writePhase.writing
   readonly writeProgress = this.writePhase.progress

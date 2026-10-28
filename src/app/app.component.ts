@@ -67,7 +67,10 @@ const SETTINGS_TAB = "settings" satisfies TabName
   // `overflow-hidden` tient la regle « la page ne defile jamais » : sans lui, un pixel de
   // trop fait defiler le document et la barre d'onglets quitte l'ecran.
   // `bg-surface-950` : sans fond pose, la page prendrait le gris par defaut de WebView2, hors palette.
-  host: { class: "flex h-screen flex-col overflow-hidden bg-surface-950" },
+  host: {
+    class: "flex h-screen flex-col overflow-hidden bg-surface-950",
+    "[class.demo-portrait]": "edition === 'demo'",
+  },
 })
 export class AppComponent {
   private readonly translate = inject(TranslateService)
@@ -79,8 +82,9 @@ export class AppComponent {
   private readonly updates = inject(UpdateService)
   protected readonly banner = inject(APP_BANNER)
 
+  protected readonly edition = inject(APP_EDITION)
   /** En demo, la page web garde les decorations du navigateur : ni filet ni boutons de fenetre. */
-  protected readonly windowControls = inject(APP_EDITION) === "desktop"
+  protected readonly windowControls = this.edition === "desktop"
   /** Le nom part de la place du filet et des boutons de fenetre, absents en demo. */
   protected readonly brandBasis = this.windowControls
     ? "flex-[1_1_calc(4rem+147px)]"

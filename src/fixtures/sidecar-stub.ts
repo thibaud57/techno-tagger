@@ -110,6 +110,7 @@ const defaults = (): StubbedState => ({
   urlRecoveryProgress: signal(null),
   urlRecoveryBusy: signal(new Set()),
   urlRecoveryErrors: signal(new Map()),
+  urlRecovered: signal(null),
   committed: signal(false),
   writing: signal(false),
   writeProgress: signal(null),

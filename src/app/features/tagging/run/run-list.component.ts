@@ -1,8 +1,8 @@
 import { AsyncPipe } from "@angular/common"
-import { Component, computed, inject, input, linkedSignal, output } from "@angular/core"
+import { Component, computed, inject, input, linkedSignal, output, viewChild } from "@angular/core"
 import { TranslatePipe } from "@ngx-translate/core"
 import { ButtonDirective } from "primeng/button"
-import { TableModule } from "primeng/table"
+import { Table, TableModule } from "primeng/table"
 import { Tooltip } from "primeng/tooltip"
 
 import { NativeService } from "../../../core/platform/native.service"
@@ -117,6 +117,8 @@ export class RunListComponent {
   readonly recover = output<string>()
   readonly restore = output<string>()
 
+  private readonly table = viewChild.required(Table)
+
   /**
    * Lignes deja construites, par objet morceau : le store ne remplace que le morceau qu'un
    * evenement touche, les autres gardent leur ligne et leurs composants enfants (qui la recoivent
@@ -178,18 +180,16 @@ export class RunListComponent {
   })
 
   /**
-   * Morceaux dont le detail est ouvert. Perd ceux qui quittent la liste (nouveau run) : un meme
-   * `trackId` qui reviendrait ne rouvrirait pas un detail ferme entre-temps.
+   * Un seul detail ouvert, oublie quand son morceau quitte la liste : un meme `trackId` revenu avec
+   * un nouveau run ne rouvre pas un detail ferme entre-temps.
    */
-  protected readonly openIds = linkedSignal<readonly TaggingTrack[], ReadonlySet<string>>({
+  protected readonly openId = linkedSignal<readonly TaggingTrack[], string | null>({
     source: this.tracks,
     computation: (tracks, previous) => {
-      const open = previous?.value ?? new Set<string>()
+      const open = previous?.value ?? null
 
       // Sans detail ouvert, aucun parcours des morceaux a chaque evenement.
-      return open.size === 0
-        ? open
-        : new Set(tracks.filter((track) => open.has(track.trackId)).map((track) => track.trackId))
+      return open !== null && tracks.some((track) => track.trackId === open) ? open : null
     },
   })
 
@@ -199,10 +199,10 @@ export class RunListComponent {
    * son `RunRow`, le detail suit les evenements d'un morceau resolu pendant qu'il est ouvert.
    */
   protected readonly renderRows = computed<RenderRow[]>(() => {
-    const open = this.openIds()
+    const open = this.openId()
     const rendered: RenderRow[] = []
     for (const row of this.rows()) {
-      if (open.has(row.trackId)) {
+      if (row.trackId === open) {
         rendered.push({ kind: "track", key: `track:${row.trackId}`, row, open: true })
         rendered.push(...this.expansionOf(row))
       } else {
@@ -217,14 +217,11 @@ export class RunListComponent {
   protected readonly byKey = (_index: number, row: RenderRow): string => row.key
 
   protected toggleDetail(row: RunRow): void {
-    this.openIds.update((open) => {
-      const next = new Set(open)
-      if (!next.delete(row.trackId)) {
-        next.add(row.trackId)
-      }
-
-      return next
-    })
+    const open = this.openId()
+    if (open !== null && open !== row.trackId) {
+      this.keepInPlace(open, row.trackId)
+    }
+    this.openId.set(open === row.trackId ? null : row.trackId)
   }
 
   /**
@@ -237,6 +234,24 @@ export class RunListComponent {
       this.arbitrate.emit(row.trackId)
     } else if (row.recoverable) {
       this.recover.emit(row.trackId)
+    }
+  }
+
+  /**
+   * Un detail referme au-dessus ferait remonter la ligne ouverte : avant le rendu qui le retire.
+   * Par `trackId` : un evenement arrive depuis le rendu a pu reconstruire la ligne cliquee.
+   */
+  private keepInPlace(closing: string, opening: string): void {
+    const rows = this.rows()
+    const closedAt = rows.findIndex((row) => row.trackId === closing)
+    const closed = rows[closedAt]
+    if (closed === undefined || closedAt > rows.findIndex((row) => row.trackId === opening)) {
+      return
+    }
+    // `ElementRef<any>` cote PrimeNG.
+    const scroller: unknown = this.table().scroller()?.getElementRef()?.nativeElement
+    if (scroller instanceof HTMLElement) {
+      scroller.scrollBy({ top: -detailSpan(closed) * ROW_HEIGHT })
     }
   }
 

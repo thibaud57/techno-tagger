@@ -39,6 +39,14 @@
   @apply grid grid-cols-[10rem_minmax(0,1fr)_max-content];
 }
 
+/* Demo sur ecran tactile en portrait : a `width=1280`, `100vh` approche 2800px. Hauteur
+   d'ouverture de la fenetre de bureau (DESIGN.md § Layout). */
+@utility demo-portrait {
+  @media (orientation: portrait) and (pointer: coarse) {
+    max-height: 800px;
+  }
+}
+
 /* WebView2 fait rebondir toute la vue quand la molette tourne sur une page qui ne defile
    pas : la barre d'onglets tremble puis revient. C'est le seul moyen de le couper, aucune
    option Tauri ne le fait. */

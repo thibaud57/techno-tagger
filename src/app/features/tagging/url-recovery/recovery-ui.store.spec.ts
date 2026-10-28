@@ -269,6 +269,47 @@ describe("RecoveryUiStore", () => {
     })
   })
 
+  describe("recovered track", () => {
+    const TWO = [unresolvedTrack("a.mp3"), unresolvedTrack("b.mp3")]
+
+    it("moves to the next track once the shown one is recovered", () => {
+      const { store, service } = mount(TWO)
+      store.open("a.mp3")
+
+      service.urlRecovered.set({ trackId: "a.mp3" })
+
+      expect(store.target()).toBe("b.mp3")
+    })
+
+    it("closes once the last track is recovered", () => {
+      const { store, service } = mount(TWO)
+      store.open("b.mp3")
+
+      service.urlRecovered.set({ trackId: "b.mp3" })
+
+      expect(store.target()).toBeNull()
+    })
+
+    it("stays on the shown track when another one is recovered", () => {
+      const { store, service } = mount(TWO)
+      store.open("a.mp3")
+
+      service.urlRecovered.set({ trackId: "b.mp3" })
+
+      expect(store.target()).toBe("a.mp3")
+    })
+
+    it("stays on a recovered track opened again when the track list changes", () => {
+      const { store, service } = mount(TWO)
+      service.urlRecovered.set({ trackId: "a.mp3" })
+      store.open("a.mp3")
+
+      service.recoverableTracks.set([recoveredTrack("a.mp3"), recoveredTrack("b.mp3")])
+
+      expect(store.target()).toBe("a.mp3")
+    })
+  })
+
   it("counts the unresolved recoverable tracks only", () => {
     const { store } = mount([
       unresolvedTrack("a.mp3"),

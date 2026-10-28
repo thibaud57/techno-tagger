@@ -240,19 +240,33 @@ async (page) => {
   check("no command sent by the button", (await page.evaluate(() => window.__sent.length)) === 0, await page.evaluate(() => window.__sent))
   await shot("1-resolved")
 
-  // Second detail ouvert avec le premier, puis le meme bouton le replie.
+  // Un seul detail ouvert (2026-10-28) : le second replie le premier et le defilement retire la
+  // hauteur du detail replie au-dessus, la ligne ouverte reste a sa place.
+  const rowTop = (fileName) =>
+    page.evaluate((fileName) => {
+      const tr = [...document.querySelectorAll("app-run-list tbody tr")].find((r) => r.textContent.includes(fileName))
+      return tr ? Math.round(tr.getBoundingClientRect().top) : null
+    }, fileName)
+  await page.evaluate(() => {
+    document.querySelector("app-run-list .p-virtualscroller").scrollTop = 400
+  })
+  await settle()
+  const topBefore = await rowTop(U.file_name)
   await toggle(U.file_name).click()
   await settle()
   const u = await detail(U.file_name)
-  check("second detail opens while the first stays open", (await openCount()) === 2 && (await detail(R.file_name)) !== null, await openCount())
+  const topAfter = await rowTop(U.file_name)
+  check("second detail folds the first", (await openCount()) === 1 && (await detail(R.file_name)) === null && u !== null, await openCount())
+  check("opened row stays in place when the folded detail was above", topBefore !== null && topAfter === topBefore, { topBefore, topAfter })
   check("unresolved: after em dashes, neutral artwork", u?.rows.every((x) => x[3] === "—") && u?.art?.frame === true, u?.rows.map((x) => x[3]))
-  await shot("2-two-open")
+  await shot("2-second-open")
   await toggle(U.file_name).click()
   await settle()
-  check("same button folds its detail only", (await detail(U.file_name)) === null && (await detail(R.file_name)) !== null, await openCount())
-  await toggle(R.file_name).click()
+  check("same button folds its detail", (await openCount()) === 0, await openCount())
+  await page.evaluate(() => {
+    document.querySelector("app-run-list .p-virtualscroller").scrollTop = 0
+  })
   await settle()
-  check("all folded", (await openCount()) === 0, await openCount())
 
   // Illisible : 4 lignes ; en attente : squelette, puis le detail suit la resolution.
   await toggle(X.file_name).click()
