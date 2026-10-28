@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.6](https://github.com/thibaud57/techno-tagger/compare/v1.1.5...v1.1.6) (2026-10-28)
+
+
+### Bug Fixes
+
+* survol vert clair sur la liste du run et colonnes resserrées ([#162](https://github.com/thibaud57/techno-tagger/issues/162)) ([945e4e7](https://github.com/thibaud57/techno-tagger/commit/945e4e743398f3b71016165759a59f4ffb341938))
+
 ## [1.1.5](https://github.com/thibaud57/techno-tagger/compare/v1.1.4...v1.1.5) (2026-10-28)
 
 
