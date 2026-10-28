@@ -17,7 +17,7 @@ Application desktop mono-utilisateur (Tauri + Angular + sidecar Python), outil D
 
 - **Nom lisible** : Techno Tagger
 - **Repository Git** : `techno-tagger`
-- **Remplace** : `BeatportScrapper-TrackTagger` (CLI Python, dépôt distinct conservé en lecture seule)
+- **Remplace** : `BeatportScrapper-TrackTagger` (CLI Python, dépôt supprimé le 2026-10-28 une fois remplacé en entier)
 
 ## Description
 
@@ -439,4 +439,3 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 - [techno-scraper : README](https://github.com/thibaud57/techno-scraper/blob/HEAD/README.md) : routes, contrat `Page[T]`, sémantique des erreurs
 - [techno-scraper : ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
 - [techno-scraper : ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
-- [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : implémentation CLI de référence (parsing des playlists, matching, déplacement)

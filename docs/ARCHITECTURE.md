@@ -13,7 +13,7 @@ technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "
 
 Automatiser deux corvées de la préparation d'un set DJ : extraire d'une grosse bibliothèque les morceaux d'une playlist pour les isoler dans un dossier de travail et remplacer les métadonnées de ces fichiers par des données propres issues de Beatport et Bandcamp.
 
-L'outil existe en CLI Python mono-utilisateur ([`BeatportScrapper-TrackTagger`](https://github.com/thibaud57/BeatportScrapper-TrackTagger)). Le projet le **modernise, l'optimise et le rend distribuable**, ces trois axes étant indissociables.
+L'outil existait en CLI Python mono-utilisateur (`BeatportScrapper-TrackTagger`, dépôt supprimé le 2026-10-28, remplacé en entier par ce projet). Le projet le **modernise, l'optimise et le rend distribuable**, ces trois axes étant indissociables.
 
 **Moderniser** : sortir des dépendances datées ou sous licence contraignante, remplacer le scraping direct qui casse à chaque changement de site par une API dédiée et couvrir quatre formats de fichiers au lieu du seul MP3 en écrivant tout ce que la source expose plutôt qu'une dizaine de champs.
 
@@ -1151,7 +1151,6 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 - [techno-scraper : ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
 - [techno-scraper : ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
 - [techno-scraper : ADR-012](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/012-normalisation-des-champs-texte-en-sortie.md) : champs texte normalisés par la gateway, `source_title` pour le texte brut
-- [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : implémentation CLI de référence (parsing des playlists, matching, déplacement)
 - [BRAINSTORM.md](BRAINSTORM.md) : vision, features et décisions d'origine
 - [DESIGN.md](DESIGN.md) : design system, tokens, mapping composants et conventions de style
 - [MusicBrainz Picard : Tag Mapping](https://picard-docs.musicbrainz.org/en/latest/appendices/tag_mapping.html) : conventions retenues pour les clés hors standard
