@@ -18,7 +18,7 @@ async (page) => {
   for (const [name, options] of CASES) {
     const context = await browser.newContext(options)
     const tab = await context.newPage()
-    await tab.goto("http://localhost:4200/")
+    await tab.goto(`${process.env.DEMO_URL ?? "http://localhost:4200"}/`)
     await tab.waitForFunction(() => document.querySelector("app-root")?.children.length > 0)
     await tab.waitForTimeout(1500)
     out.measures[name] = await tab.evaluate(() => {
