@@ -24,7 +24,6 @@ jobs:
       id: ${{ steps.release.outputs.id }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
-      pr: ${{ steps.release.outputs.pr }}
     steps:
       # Les droits reels viennent du token de l'App, pas du GITHUB_TOKEN.
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -42,48 +41,6 @@ jobs:
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
-
-  sync-lockfiles:
-    name: Realigner les lockfiles dans la PR de release
-    needs: release-please
-    if: needs.release-please.outputs.pr
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      # Les droits d'ecriture viennent du token de l'App.
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        id: app-token
-        with:
-          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          permission-contents: write
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
-          # Un push avec le GITHUB_TOKEN lancerait la CI de la PR en attente d'approbation.
-          token: ${{ steps.app-token.outputs.token }}
-      - uses: ./.github/actions/setup-uv
-      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
-      # extra-files ne sait pas toucher aux lockfiles : ils portent la version du
-      # package local dans un tableau, que l'updater TOML ignore sans echouer.
-      # `uv sync --locked` refuse un uv.lock desaccorde : sans ce job, le lock
-      # committe au tag ne porterait pas la version publiee.
-      - name: Rejouer le lock du sidecar
-        working-directory: sidecar
-        run: uv lock
-      # Et non `cargo check` : reecrit le lock sans compiler, donc sans declencher
-      # la validation externalBin qui exigerait le binaire du sidecar.
-      - name: Rejouer le lock de la coquille
-        working-directory: src-tauri
-        run: cargo update --workspace
-      - name: Committer les lockfiles realignes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add sidecar/uv.lock src-tauri/Cargo.lock
-          git diff --staged --quiet || git commit -m "chore: realigner les lockfiles sur la version de release"
-          git push
 
   sentry-release:
     name: Releases Sentry

@@ -7,7 +7,7 @@ paths:
 
 ## À faire
 - Asserter le comportement observable (événements émis, fichier écrit), pas les appels internes : sur-mocker couple le test à l'implémentation
-- Garder par un test toute valeur recopiée entre deux manifestes quand aucune dérivation n'est possible : la divergence ne se verrait qu'à l'exécution du bundle. `test_main.py` porte nom, identifiant, binaire et versions
+- Garder par un test toute valeur recopiée entre deux manifestes quand aucune dérivation n'est possible : la divergence ne se verrait qu'à l'exécution du bundle. `test_main.py` porte nom, identifiant, binaire, versions et filtres des lockfiles de release-please
 - Écrire les `ids` de parametrize en anglais, comme les noms de tests
 - Typer un remplaçant de test sous n'importe quelle signature par le Protocol `Replacement` de `tests/helpers/stubs.py`, jamais par `Callable[..., T]`
 - Mocker le client techno-scraper par le `MockTransport` natif d'httpx2, injecté via le paramètre `transport` du client

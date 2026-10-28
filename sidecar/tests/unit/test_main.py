@@ -342,6 +342,25 @@ def test_the_four_manifests_carry_the_same_version() -> None:
     assert read_json(".release-please-manifest.json", ".") == __version__
 
 
+def test_the_lockfile_bumps_filter_on_the_local_package_name() -> None:
+    """release-please ne bumpe un lockfile que par un filtre sur le nom du package
+    local, recopie a la main : renomme, le filtre ne matche plus rien et l'updater
+    rend `No entries modified` sans echouer.
+    """
+    extra_files = read_json("release-please-config.json", "packages", ".", "extra-files")
+    assert isinstance(extra_files, list)
+    lockfiles = {
+        entry["path"]: entry["jsonpath"]
+        for entry in extra_files
+        if isinstance(entry, dict) and str(entry["path"]).endswith(".lock")
+    }
+
+    assert lockfiles == {
+        "sidecar/uv.lock": f"$.package[?(@.name.value=='{_sidecar_name()}')].version",
+        "src-tauri/Cargo.lock": f"$.package[?(@.name.value=='{APP_NAME}')].version",
+    }
+
+
 def _setup_input(action: str, key: str) -> str:
     """Lit une entree `with:` d'une action composite de `.github/actions/`, seul
     endroit des workflows ou vit la version d'un outil. Regex faute de lecteur YAML.

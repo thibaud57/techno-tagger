@@ -87,7 +87,9 @@ Le mode manifest est nécessaire dès qu'un fichier de version sort du fichier p
       "include-component-in-tag": false,
       "extra-files": [
         { "type": "toml", "path": "src-tauri/Cargo.toml",      "jsonpath": "$.package.version" },
-        { "type": "toml", "path": "sidecar/pyproject.toml",    "jsonpath": "$.project.version" }
+        { "type": "toml", "path": "sidecar/pyproject.toml",    "jsonpath": "$.project.version" },
+        { "type": "toml", "path": "sidecar/uv.lock",           "jsonpath": "$.package[?(@.name.value=='tagger')].version" },
+        { "type": "toml", "path": "src-tauri/Cargo.lock",      "jsonpath": "$.package[?(@.name.value=='techno-tagger')].version" }
       ]
     }
   }
@@ -106,6 +108,8 @@ Le mode manifest est nécessaire dès qu'un fichier de version sort du fichier p
 - **Un fichier de version oublié dans `extra-files` produit une désynchronisation silencieuse** : l'installeur annonce une version, le manifeste updater une autre
 - Un seul package racine plutôt que trois packages liés : l'application est un livrable unique, pas trois bibliothèques indépendantes. Trois packages produiraient trois changelogs et trois tags
 - Le `jsonpath` d'un `pyproject.toml` dépend du backend de build (`$.project.version` en PEP 621)
+- **Un lockfile porte la version du package local dans un tableau `[[package]]`** : il se cible par un filtre sur le nom, écrit `@.name.value` et non `@.name`. L'updater TOML parse avec `TaggedTOMLParser`, qui enveloppe chaque scalaire dans `{start, end, value}` pour réécrire la valeur sans toucher au reste du fichier. `@.name=='tagger'` ne matche donc rien et rend `No entries modified` sans échouer. Recette de [release-please#2455](https://github.com/googleapis/release-please/issues/2455), vérifiée le 2026-10-28 sur release-please 17.6.0 (celle qu'embarque l'action 5.0.0) et 17.11.2
+- **Le support natif d'`uv.lock` ([release-please#2693](https://github.com/googleapis/release-please/pull/2693), ouverte au 2026-10-28) ne vise que la stratégie `python`** : en `release-type: node`, l'extra-file reste nécessaire même après son merge. Aucun support natif de `Cargo.lock` hors stratégie `rust`
 
 ---
 
@@ -155,7 +159,7 @@ jobs:
 - **Le job de build tourne dans le run déclenché par le push sur `main`**, pas par un nouveau déclencheur sur tag : c'est ce qui contourne la limitation
 - **`if: needs.release-please.outputs.release_created`** évite de builder à chaque push
 - Le `checkout` doit viser `tag_name`, sinon le build part du dernier commit et non de la version publiée
-- **Le token de GitHub App** (`actions/create-github-app-token`, `id: app-token`, passé en `token:`) restaurerait les déclencheurs sur tag, mais le chaînage `needs:` reste le choix : le build reçoit directement les outputs de release-please. L'App sert à la CI de la PR de release et du commit `sync-lockfiles`, sans approbation manuelle
+- **Le token de GitHub App** (`actions/create-github-app-token`, `id: app-token`, passé en `token:`) restaurerait les déclencheurs sur tag, mais le chaînage `needs:` reste le choix : le build reçoit directement les outputs de release-please. L'App sert à lancer la CI de la PR de release sans approbation manuelle
 - Le runner est Windows (`windows-2025`, image figée) par nécessité, PyInstaller ne cross-compilant pas (cf. [pyinstaller.md](pyinstaller.md))
 
 ---
@@ -187,7 +191,7 @@ upload_url       # dépôt des artefacts sur la Release
 
 ## ✅ Recommandations
 
-- **Lister dans `extra-files` les deux fichiers que `release-type: node` ne couvre pas** (`Cargo.toml`, `pyproject.toml`) et vérifier après la première release qu'ils portent bien la même version que `package.json` ; `tauri.conf.json` reste hors d'`extra-files`, son champ `version` pointant vers `../package.json`
+- **Lister dans `extra-files` les fichiers que `release-type: node` ne couvre pas** (`Cargo.toml`, `pyproject.toml` et leurs lockfiles) et vérifier après la première release qu'ils portent bien la même version que `package.json` ; `tauri.conf.json` reste hors d'`extra-files`, son champ `version` pointant vers `../package.json`
 - **Chaîner le build en `needs:`** avec `if: release_created`, jamais sur `on: push: tags`
 - **Checkouter `tag_name`** dans le job de build
 - **Relire le changelog de la PR avant merge** : c'est le seul moment où un commit mal typé se rattrape
