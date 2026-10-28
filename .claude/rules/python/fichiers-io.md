@@ -3,22 +3,19 @@ paths:
   - "sidecar/src/tagger/**/*.py"
 ---
 
-# Python Fichiers, JSON & Dates — Règles
+# Python : fichiers, JSON et dates
 
 ## À faire
 - `encoding="utf-8"` explicite à chaque `open()`, `read_text()` et `write_text()` : la cible est Windows, dont la locale par défaut est `cp1252`
 - `pathlib.Path` et l'opérateur `/` pour tout chemin, `mkdir(parents=True, exist_ok=True)` et `unlink(missing_ok=True)` pour les créations et suppressions
 - Émettre chaque événement NDJSON sur une seule ligne (`model_dump_json()`, ou `json.dumps` sans `indent`), vidée par le `line_buffering=True` posé sur `stdout` au démarrage, pas par des `flush()` (cf. [ADR-005](../../../docs/adrs/005-sidecar-python-protocole-ndjson.md))
 - `ensure_ascii=False` pour les rapports JSON lisibles, `sort_keys=True` quand un rendu déterministe est attendu
-- `default=` et `object_hook=` pour sérialiser et relire les types non natifs
 - `datetime.now(UTC)` et `isoformat()` pour produire, `fromisoformat()` pour relire
-- Lire la configuration d'environnement par `os.getenv(clé, défaut)` avec cast explicite, et `os.environ[clé]` quand l'absence doit être fatale
+- Lire la configuration d'environnement par `os.getenv(clé, défaut)` avec cast explicite et `os.environ[clé]` quand l'absence doit être fatale
 
 ## À éviter
-- Concaténer des chemins en chaînes, ou passer par `os.path` dans du code neuf
+- Concaténer des chemins en chaînes
 - Écrire un diagnostic sur `stdout`, réservé au flux NDJSON : `stderr` et le fichier de log pour tout le reste
-- `datetime.utcnow()` et `utcfromtimestamp()` : dépréciés depuis 3.12, ils retournent un naive
-- Un chemin temporaire en dur : `tempfile.TemporaryDirectory` en code, `tmp_path` en test
 - `f.readlines()` sur un fichier volumineux : le fichier s'itère ligne par ligne
 
 ## Gotchas
@@ -27,7 +24,6 @@ paths:
 - Toute IO fichier reste bloquante : la passer par `asyncio.to_thread` dans du code async
 - 3.14 : `Path.copy()`, `Path.move()` et leurs variantes `copy_into()` / `move_into()` couvrent la copie d'arborescence sans importer `shutil`
 - 3.14 : les `Path` rendus par `iterdir()` portent un `Path.info` pré-rempli quand l'OS le fournit, qui évite un `stat()` par entrée
-- `zoneinfo` sous Windows exige le paquet `tzdata`, Windows n'embarquant pas la base IANA : à déclarer, et à vérifier dans le binaire figé, le jour où une zone nommée entre dans le code
 - Les rapports et les logs écrits sur le disque sont en anglais, indépendamment de la langue de l'interface
 
 ## Exemples

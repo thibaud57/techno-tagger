@@ -506,6 +506,9 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 - ✅ **Tout `pTooltip` se lie à `[tooltipOptions]`** (`TOOLTIP` ou `WIDE_TOOLTIP`) : PrimeNG n'a aucun défaut global, sans ce jeu il s'ouvre à droite et sans délai. Jamais de `[showDelay]` ni de `[tooltipPosition]` sur l'instance
 - ✅ **Aucun libellé en dur dans un template** : tout passe par ngx-translate, erreurs du sidecar comprises (`code` + `params`)
 - ✅ **Une phrase par ligne** : chaque phrase d'un message sur sa ligne par un `\n` de traduction, une ligne vide entre les blocs d'une modale longue, rendu en `whitespace-pre-line`. Exceptions, pour qu'une cellule réservée reste immobile : le bandeau de source de l'arbitrage (une phrase), le motif d'un non résolu dans la modale du lien (deux lignes de `text-xs`) ; l'aide de la clé API tient sur une ligne ; le bandeau de démo garde ses deux phrases sur sa ligne de 32px
+- ✅ **Vouvoiement et infinitif** : une phrase s'adresse à l'utilisateur au vouvoiement (« Relancez l'application. »), un libellé d'action est à l'infinitif (« Choisir un dossier »)
+- ✅ **Le vocabulaire de l'utilisateur** : nommer ce qu'il connaît (« le moteur de l'application », « la médiathèque VLC »), jamais l'architecture (sidecar, dump) ; un même mot pour une même chose ; un message d'erreur dit le geste qui répare (relancer, réinstaller, choisir), pas la mécanique qui a échoué
+- ✅ **Espace insécable en français** : une espace insécable (U+00A0, littérale dans `fr.json`) précède `:`, `;`, `?` et `!`, pour qu'un retour à la ligne ne sépare jamais le signe de ce qu'il ponctue
 - ✅ **Modale d'arbitrage au clavier** : flèches entre arbitrages, Entrée pour valider, focus visible en permanence
 
 ## Anti-Patterns

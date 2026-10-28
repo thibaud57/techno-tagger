@@ -3,33 +3,24 @@ paths:
   - "sidecar/src/tagger/**/*.py"
 ---
 
-# Python Gestion d'Erreurs & Logging — Règles
+# Python : gestion d'erreurs et logging
 
 ## À faire
 - Dériver toutes les erreurs métier d'une exception de base par domaine, elle-même héritée d'`Exception`
-- Suffixer `Error` **toute** classe d'exception, base comme feuille (N818) : sans ça chaque nouvelle exception traîne un `# noqa: N818`
 - Porter le `code` stable et les `params` en attributs de l'exception, jamais dans le message : l'événement `error` les sérialise, l'interface traduit
 - `raise MonErreur(...) from e` pour garder l'origine technique sous l'erreur métier, `from None` pour masquer un détail d'implémentation
 - Un logger par module via `logging.getLogger(__name__)`, la configuration se faisant une seule fois au point d'entrée
-- `logger.exception(...)` dans un `except` (traceback inclus), avec formatage lazy `%s`, pas de f-string
-- Trier les erreurs d'un `TaskGroup` par `except*`, une clause par famille : plusieurs clauses peuvent s'exécuter pour un même groupe, et `except*` ne se mélange pas avec un `except` classique dans le même `try`
+- Trier les erreurs d'un `TaskGroup` par `except*`, une clause par famille : plusieurs clauses peuvent s'exécuter pour un même groupe et `except*` ne se mélange pas avec un `except` classique dans le même `try`
 - Structurer les logs en logfmt avec le jeu de clés fixe (`run`, `track`, `source`, `score`, `status`, `reason`, `request_id`, `errno`) : une clé inventée fausse un `grep` sans que rien ne casse
 - Rattacher un incident propre à un morceau à son `failure_reason`, pas à un message libre
 
 ## À éviter
-- `except:` nu, qui capture aussi `KeyboardInterrupt` et `SystemExit`, et `except Exception` qui avale sans re-raise, qui masque les bugs
-- `print` pour du diagnostic : le binaire empaqueté n'a pas de console, et `stdout` porte le flux NDJSON
-- `assert` pour valider une commande reçue sur `stdin` : supprimé sous `python -O`
-- `return` / `break` / `continue` sortant d'un bloc `finally`
 - Logger la clé API, un chemin complet ou un titre de morceau vers Sentry (cf. [PRODUCTION.md § Secrets & Configuration](../../../docs/PRODUCTION.md#secrets--configuration))
 
 ## Gotchas
 - Toute écriture sur `stdout` autre qu'un événement NDJSON corrompt le protocole : diagnostics sur `stderr` et dans le fichier de log tournant
-- PEP 765 (3.14) : un `return` dans `finally` déclenche un `SyntaxWarning` et avale silencieusement l'exception en vol
 - PEP 758 (3.14) : `except A, B:` sans parenthèses est autorisé, mais elles redeviennent obligatoires avec `as`
 - Un incident qui concerne un morceau sort en `track_resolved`, jamais aussi en `error` : les deux ensemble le compteraient deux fois
-- `sentry_sdk.init()` peut échouer dans le binaire figé : l'entourer d'un `try/except`, une remontée cassée ne doit pas empêcher le démarrage
-
 ## Exemples
 ```python
 # ✅ code stable + params structurés, traduits côté interface

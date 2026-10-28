@@ -1,21 +1,20 @@
 ---
 paths:
   - "src/app/**/*.html"
-  - "src/app/**/*.css"
   - "src/app/**/*.ts"
 ---
 
-# Tailwind CSS — Utilitaires dans les templates
+# Tailwind CSS : utilitaires dans les templates
 
 ## À faire
-- Écrire le layout en classes Tailwind dans le template, et laisser les composants à PrimeNG : réimplémenter un bouton en utilitaires duplique le thème
+- Écrire le layout en classes Tailwind dans le template et laisser les composants à PrimeNG : réimplémenter un bouton en utilitaires duplique le thème
 - Référencer toute couleur par un token ou une classe de `tailwindcss-primeui` (`bg-primary`, `text-muted-color`, `border-surface`, `bg-surface-*`)
 - Conditionner une classe par `[class.x]` ou `[ngClass]`
-- Réserver le CSS de composant à ce que Tailwind ne couvre pas : keyframes, et sélecteurs visant le DOM interne d'un composant PrimeNG
-- Écrire les styles de composant en `.css`, le nesting natif étant supporté par la webview Windows
+- Régler le DOM interne d'un composant PrimeNG par `[pt]`, ou dans le preset quand l'écart vaut partout (cf. [DESIGN.md § Conventions de Code](../../../docs/DESIGN.md#-conventions-de-code))
+- Placer un style que Tailwind ne couvre pas dans `src/styles.css`, seul fichier de styles : aucune feuille de style par composant
 - Laisser `prettier-plugin-tailwindcss` ordonner les classes au format : aucune convention manuelle à retenir, rien à relire en review sur ce point
 - Accompagner chaque état d'une icône et d'un libellé traduit : la couleur ne porte jamais seule l'information
-- Réserver l'accent `primary` aux actions et à la sélection, et `danger` au seul bouton d'acceptation du rollback (l'écriture et sa relance acceptent en `primary`), les déclencheurs restant `primary` (cf. [DESIGN.md § Palette de Couleurs](../../../docs/DESIGN.md#palette-de-couleurs))
+- Réserver l'accent `primary` aux actions et à la sélection et `danger` au seul bouton d'acceptation du rollback (l'écriture et sa relance acceptent en `primary`), les déclencheurs restant `primary` (cf. [DESIGN.md § Palette de Couleurs](../../../docs/DESIGN.md#palette-de-couleurs))
 
 ## À éviter
 - Une couleur en dur : ni hexadécimal, ni couleur Tailwind brute (`bg-emerald-500`). Un changement de preset doit rester un changement de preset

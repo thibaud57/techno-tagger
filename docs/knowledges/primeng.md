@@ -262,7 +262,7 @@ export class ShellComponent {
 ### Points Importants
 
 - **Le câblage tabs ↔ router est manuel**, soit une dizaine de lignes dans le shell. Aucune synchronisation automatique n'existe
-- `p-tabMenu` n'est plus la voie recommandée : le pattern documenté est des tabs sans panneaux, dont le contenu vient du `router-outlet`
+- `p-tabMenu` est absent de PrimeNG 22 (aucun module `tabmenu` dans le paquet 22.1.4, relevé le 2026-10-28) : le pattern documenté est des tabs sans panneaux, dont le contenu vient du `router-outlet`
 - Dériver l'onglet de l'URL, et non l'inverse, garde le deep-link fonctionnel (retour sur le récapitulatif d'un run passé)
 
 ---
@@ -309,7 +309,7 @@ export class SourcePickerComponent {}
 
 - **Copier une config PrimeNG d'un projet en v21** : la base rem, les icônes et la licence ont tous changé
 - **Utiliser le preset `aura-compat` par confort** : il fige un calibrage 14px que le projet a explicitement écarté
-- **Attendre un mode router de `p-tabs`** : il n'existe pas, et le contourner par un `p-tabMenu` s'appuie sur un composant qui n'est plus la voie recommandée
+- **Attendre un mode router de `p-tabs`** : il n'existe pas, `p-tabMenu` non plus en v22 pour le contourner
 - **Écrire du CSS qui cible les classes internes des composants** : il casse à la montée de version, les tokens sont là pour ça
 - **Utiliser les classes `pi pi-*`** : la police n'est plus l'approche de la v22
 - **Ouvrir une issue sur le dépôt GitHub `primefaces/primeng`** en attendant une réponse : il ne sert plus que la lignée 21.x et n'est plus le canal de support

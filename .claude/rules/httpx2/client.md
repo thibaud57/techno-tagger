@@ -4,11 +4,11 @@ paths:
   - "sidecar/src/tagger/resolution/cache.py"
 ---
 
-# httpx2 — Client HTTP
+# httpx2 : client HTTP
 
 ## À faire
-- `import httpx2` : le paquet ne s'importe pas `httpx`, et l'erreur passe inaperçue si `httpx` est installé par ailleurs
-- Instancier deux `AsyncClient` au démarrage du sidecar, un par pool (API interne, CDN des pochettes), et les fermer par `await client.aclose()` à l'arrêt
+- `import httpx2` : le paquet ne s'importe pas `httpx` et l'erreur passe inaperçue si `httpx` est installé par ailleurs
+- Instancier deux `AsyncClient` au démarrage du sidecar, un par pool (API interne, CDN des pochettes) et les fermer par `await client.aclose()` à l'arrêt
 - Poser les headers communs sur le client (`X-API-Key`) : ils sont fusionnés avec ceux de chaque requête
 - Régler `Timeout` phase par phase, `read` au-dessus du budget de l'API et `pool` borné pour ne pas masquer une saturation locale
 - Appeler `raise_for_status()` sur chaque réponse : sans lui, un `500` passe pour un succès et le mapping ne s'exécute jamais
@@ -21,7 +21,6 @@ paths:
 ## À éviter
 - Créer un `AsyncClient` par requête : le pool de connexions ne sert alors à rien
 - Compter sur `Limits` pour borner la concurrence : il borne les connexions TCP, pas les requêtes. La borne en requêtes est un sémaphore
-- Installer `respx` ou `pytest-httpx` : ils ciblent `httpx`
 - Retryer une requête dont le corps a été consommé : c'est `StreamConsumed`, il faut la reconstruire
 - Sortir d'un `stream()` sans fermer le contexte : la connexion reste en vol
 - Laisser un échec de téléchargement de pochette échouer le morceau : les tags s'écrivent sans image et le rapport le signale
@@ -30,8 +29,8 @@ paths:
 ## Gotchas
 - httpx2 est le fork de httpx par Pydantic Services : API identique mais import `httpx2` et transport `httpcore2`, ce n'est pas un drop-in silencieux
 - Vérification SSL par `truststore` (trust store de l'OS) au lieu de `certifi` : plus de `cacert.pem` à bundler, mais des appels `ctypes` vers l'API Windows dans le binaire figé, à valider au premier build PyInstaller
-- Aucun mock HTTP ne supporte httpx2 (`respx` exige `httpx>=0.25.0`, `pytest-httpx` `httpx==0.28.*`) : la voie est `MockTransport`, natif et sans dépendance (cf. [pytest/tests.md](../pytest/tests.md))
-- 2.12.0 : décompression bornée à 1 MiB par étape de décodage, et zstd natif sur Python 3.14+
+- Aucun mock HTTP ne supporte httpx2 (`respx` exige `httpx>=0.25.0`, `pytest-httpx` `httpx==0.28.*`, PR de support respx#317 et pytest_httpx#239 ouvertes au 2026-10-28) : la voie est `MockTransport`, natif et sans dépendance (cf. [pytest/tests.md](../pytest/tests.md))
+- 2.12.0 : décompression bornée à 1 MiB par étape de décodage et zstd natif sur Python 3.14+
 - 2.16.0 : le client réutilise son cookie jar, une politique posée par `client.cookies.jar.set_policy()` s'applique désormais aux requêtes sortantes
 
 ## Exemples

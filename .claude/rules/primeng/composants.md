@@ -4,7 +4,7 @@ paths:
   - "src/app/**/*.ts"
 ---
 
-# PrimeNG — Composants
+# PrimeNG : composants
 
 ## À faire
 - Chercher le composant PrimeNG avant d'en écrire un : aucun composant custom tant que la bibliothèque fournit un équivalent
@@ -13,23 +13,18 @@ paths:
 - Fixer `virtualScrollItemSize` sur la hauteur réelle du `<tr>`, posée par une classe : PrimeNG ne mesure pas les lignes, une valeur fausse fait sauter le scroll
 - Dériver l'onglet actif de l'URL et naviguer sur `valueChange` : `p-tabs` n'a aucun mode router
 - Importer chaque icône `@primeicons/angular` individuellement, pour le tree-shaking
-- Apparier la taille d'un badge à celle de sa rangée, et garder neutre la puce d'un bouton : un compteur n'est pas une action
+- Apparier la taille d'un badge à celle de sa rangée et garder neutre la puce d'un bouton : un compteur n'est pas une action
 - Nommer en commentaire ce sur quoi une largeur figée a été mesurée
 - Dimensionner un `p-dialog` par `styleClass` et des classes Tailwind, pas par `[style]`
 - Poser `[pt]="fullHeightTable(vide)"` (`shared/utils/table.ts`) sur toute `p-table` : colonnes figées sur l'en-tête et état vide centré sur toute la hauteur
-- Poser `size="small"` sur tout bouton, `link` excepté, boutons des modales de confirmation compris (`acceptButtonProps` et `rejectButtonProps` de `injectDangerConfirm`), et sur tout champ (`pSize="small"` sur un `pInputText`) : la densité compacte vaut pour tous les contrôles
-- Régler dans le preset (`src/app/core/platform/theme.ts`) un écart d'Aura aux échelles du design system : badge à 12px, `info` de `p-message` en `sky`, pied de modale à 8px, croix des modales et du toast en carré de 28px, bouton à icône seule carré (avec `[iconOnly]="true"`), bouton `link` en lien de texte, onglet centré
-- Lier tout `pTooltip` par `[tooltipOptions]` au jeu `TOOLTIP` (ou `WIDE_TOOLTIP` pour un texte long, `src/app/shared/utils/tooltip.ts`) : il pose le délai et la position sous l'élément (`TOOLTIP_POSITION`). PrimeNG n'a aucun défaut global : sans ce jeu le tooltip s'ouvre à droite et sans délai, et sur le côté la place manque dès que l'élément touche le bord de la fenêtre
-- Régler une fois dans le preset (`src/app/core/platform/theme.ts`, `dialog.css`) la croix des modales, calée sur la première ligne du titre et sur le bord du contenu
-
+- Poser `size="small"` sur tout bouton, `link` excepté, boutons des modales de confirmation compris (`acceptButtonProps` et `rejectButtonProps` de `injectDangerConfirm`) et sur tout champ (`pSize="small"` sur un `pInputText`) : la densité compacte vaut pour tous les contrôles
+- Régler dans le preset (`src/app/core/platform/theme.ts`) un écart d'Aura aux échelles du design system : badge à 12px, `info` de `p-message` en `sky`, pied de modale à 8px, croix des modales et du toast en carré de 28px (celle des modales calée sur la première ligne du titre et sur le bord du contenu), bouton à icône seule carré (avec `[iconOnly]="true"`), bouton `link` en lien de texte, onglet centré
+- Lier tout `pTooltip` par `[tooltipOptions]` au jeu `TOOLTIP` (ou `WIDE_TOOLTIP` pour un texte long, `src/app/shared/utils/tooltip.ts`) : il pose le délai et la position sous l'élément (`TOOLTIP_POSITION`). PrimeNG n'a aucun défaut global : sans ce jeu le tooltip s'ouvre à droite et sans délai et sur le côté la place manque dès que l'élément touche le bord de la fenêtre
 ## À éviter
 - `::ng-deep` : il casse à la mise à jour, passer par `[dt]` ou `[pt]`
-- `!important` : si un style ne s'applique pas, c'est l'ordre des couches qui est en cause, à corriger dans `cssLayer`
-- Attendre un mode router de `p-tabs`, ou se replier sur `p-tabMenu` qui n'est plus la voie recommandée
+- Attendre un mode router de `p-tabs`, ou se replier sur `p-tabMenu`, absent de PrimeNG 22
 - Les classes `pi pi-*` : la police n'est plus l'approche de la v22
-- Un libellé en dur dans un template : tout passe par ngx-translate, y compris les messages d'erreur que le sidecar émet en `code` + `params`
 - Une largeur en dur sur un bouton ou un libellé traduit. Seule se fige une colonne qui aligne plusieurs lignes, mesurée sur son contenu le plus long en FR et en EN
-- De la logique métier dans un composant : scores, seuils et classement des candidats viennent du sidecar
 - `p-button`, déprécié en v22 : `<button pButton type="button">`
 - `p-password`, déprécié en v22 : `<input pInputPassword>`, sans œil de bascule intégré (`mask` et `toggleMask()`, icône à composer)
 - Un `[tooltipPosition]` ou un `[showDelay]` posé sur l'instance (`"left"`, `"right"`, un délai en dur) : passer par `[tooltipOptions]`
