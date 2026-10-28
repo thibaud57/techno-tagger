@@ -1,9 +1,9 @@
 ---
 paths:
-  - "src/app/core/**/*.ts"
+  - "src/app/**/*.ts"
 ---
 
-# RxJS & Interop Signals — Règles
+# Angular : RxJS et interop signals
 
 ## À faire
 - Garder RxJS pour ce qui est un flux dans le temps (événements NDJSON du sidecar, événements de navigation) et exposer le résultat en signals pour les composants
@@ -11,23 +11,14 @@ paths:
 - Injecter le transport par un jeton plutôt qu'appeler le plugin Tauri en direct : le service reste testable hors Tauri. Tauri découpe déjà `stdout` en lignes
 - Convertir avec `toSignal()` pour l'affichage et `toObservable()` pour appliquer des opérateurs à un signal
 - Fournir un `initialValue` à `toSignal()` ; ne passer `requireSync: true` que sur une source qui émet à la souscription (`BehaviorSubject`, `of()`)
-- Se désabonner par `takeUntilDestroyed()` sur toute souscription manuelle
-- Choisir l'opérateur de projection selon l'intention : `switchMap` pour annuler l'opération remplacée, `concatMap` pour sérialiser, `exhaustMap` pour ignorer un double déclenchement
-- Traiter les erreurs par `retry({ count, delay })` puis `catchError`, avec un backoff quand la source est réseau
+- Se désabonner par `takeUntilDestroyed()` sur toute souscription manuelle- Traiter les erreurs par `retry({ count, delay })` puis `catchError`, avec un backoff quand la source est réseau
 
 ## À éviter
 - Le couple `destroy$ = new Subject<void>()` + `ngOnDestroy`, remplacé par `takeUntilDestroyed()`
-- `retryWhen()`, déprécié depuis RxJS 7
-- `mergeMap` quand l'ordre des réponses compte : elles arrivent dans l'ordre du réseau, pas des émissions
 - `firstValueFrom()` sur le flux du sidecar, qui ne complète jamais
 - Les souscriptions imbriquées, à remplacer par un opérateur de projection
-- Exposer un Observable brut au template sans `async` ni `toSignal()`
-
 ## Gotchas
-- `toSignal()` et `toObservable()` exigent un injection context (champ de classe ou constructeur), sinon passer l'option `injector`
-- `combineLatest` reste silencieux tant que chacune de ses sources n'a pas émis au moins une valeur
-- Sans `shareReplay(1)`, un cold observable rejoue son travail à chaque souscription
-- Angular 22 accepte RxJS `^6.5.3 || ^7.4.0` : rester sur la ligne 7
+- `toSignal()` et `toObservable()` exigent un injection context (champ de classe ou constructeur), sinon passer l'option `injector`- Angular 22 accepte RxJS `^6.5.3 || ^7.4.0` : rester sur la ligne 7
 
 ## Exemples
 ```typescript

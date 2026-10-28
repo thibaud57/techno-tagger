@@ -103,11 +103,12 @@ Exclut la modale de confirmation d'écriture (sub-project 10 de `ecriture-des-ta
 **AND** le bouton est désactivé avec un spinner tant que la réponse n'est pas arrivée
 **AND** la touche Entrée dans le champ aurait produit le même envoi
 
-### Scénario 5 : Morceau rattrapé conservé
-**GIVEN** un morceau dont la résolution par URL sur Bandcamp vient d'aboutir
+### Scénario 5 : Passage au morceau suivant après un rattrapage
+**GIVEN** la modale ouverte sur le premier de deux morceaux rattrapables, dont la résolution par URL sur Bandcamp vient d'aboutir
 **WHEN** l'écran se met à jour
-**THEN** la modale reste sur ce morceau, dit « Rattrapé sur Bandcamp », montre le logo de la source et garde l'URL collée dans le champ
+**THEN** la modale passe au morceau suivant, et se ferme quand le morceau rattrapé était le dernier (décidé le 2026-10-28 sur un retour de prod, la modale restait sur le morceau)
 **AND** la barre de phase affiche 1 sur 2, le badge n'en compte plus qu'un et la ligne du run passe en « URL »
+**AND** rouvert, le morceau rattrapé dit « Rattrapé sur Bandcamp », montre le logo de la source et garde l'URL collée dans le champ
 
 ### Scénario 6 : Erreur sur un morceau
 **GIVEN** la modale ouverte sur un morceau, un autre morceau ayant reçu une erreur

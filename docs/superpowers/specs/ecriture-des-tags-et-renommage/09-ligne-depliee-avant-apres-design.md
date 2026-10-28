@@ -13,7 +13,7 @@ date: "2026-10-11"
 
 ## Scope
 
-Couvre le bouton d'ouverture du détail en tête de la liste du run, le détail déplié sous la ligne de tout morceau (résolu, non résolu, en attente, à arbitrer), plusieurs ouverts à la fois, le composant du détail (pochette en grand, 14 lignes plus le commentaire, valeurs absentes), le scroll virtuel de la liste, conservé, et le composant partagé de la cellule sans valeur, repris par les trois cellules qui l'écrivent en dur. Met DESIGN.md et les notes de sync de la maquette à jour de ces choix.
+Couvre le bouton d'ouverture du détail en tête de la liste du run, le détail déplié sous la ligne de tout morceau (résolu, non résolu, en attente, à arbitrer), un seul ouvert à la fois (plusieurs jusqu'au 2026-10-28), le composant du détail (pochette en grand, 14 lignes plus le commentaire, valeurs absentes), le scroll virtuel de la liste, conservé, et le composant partagé de la cellule sans valeur, repris par les trois cellules qui l'écrivent en dur. Met DESIGN.md et les notes de sync de la maquette à jour de ces choix.
 
 Exclut le bouton de rollback d'un morceau dans le détail (sub-project 11), les états d'écriture dans la colonne État (10) et le contenu des tags, tranché au sub-project 07.
 
@@ -121,7 +121,7 @@ Exclut le bouton de rollback d'un morceau dans le détail (sub-project 11), les 
 ## Edge cases
 
 - **Valeur longue** (URL, titre à remixeurs multiples) : coupée par l'ellipse, tooltip large au survol
-- **Plusieurs détails** : chacun sous sa ligne, la liste reste utilisable et défile normalement
+- **Second détail ouvert** : le précédent se referme. Refermé au-dessus de la ligne ouverte, sa hauteur est retirée du défilement et la ligne ne bouge pas (décidé le 2026-10-28 sur un retour de prod : plusieurs détails ouverts allongeaient la liste à chaque clic)
 - **Ligne porteuse au-dessus de la zone visible** : montée tant qu'une ligne du détail est à l'écran, démontée au-delà ; le détail réapparaît au retour, son morceau restant ouvert
 - **Morceau qui change d'état pendant que son détail est déplié** (résolu en cours de run, rendu restaurable après l'écriture) : le détail suit, son cadre prend le nombre de lignes du nouveau contenu
 - **Morceau déplié qui quitte la liste** (nouveau run) : le détail se replie

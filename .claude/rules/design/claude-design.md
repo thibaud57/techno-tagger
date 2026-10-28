@@ -1,18 +1,20 @@
 ---
 paths:
-  - "src/app/**/*.ts"
-  - "src/app/**/*.html"
+  - "src/app/app.component.*"
+  - "src/app/features/**/*.ts"
+  - "src/app/features/**/*.html"
+  - "src/app/shared/components/**/*.ts"
 ---
 
-# Claude Design — la maquette de l'application
+# Claude Design : maquette de l'application
 
 Le projet Claude Design « Techno Tagger Design System » porte dans `ui_kits/techno-tagger/` une recréation cliquable de l'application, un fichier par écran (`PlaylistScreen`, `TaggingScreen`, `ArbitrationDialog`, `SettingsScreen`) plus `AppShell` pour le shell. Elle fait foi sur **à quoi l'écran ressemble**, quand DESIGN.md fait foi sur **les règles et les composants** (déjà couvert par les rules `primeng` et `tailwindcss`). Le lien du projet est dans [DESIGN.md § Maquette et design system externes](../../../docs/DESIGN.md#maquette-et-design-system-externes), la procédure de sync et le journal dans `.design-sync/NOTES.md`.
 
 ## À faire
 
-- Lire l'écran de la maquette avant d'écrire ou de reprendre un composant d'écran, et le nommer dans la spec du sub-project
+- Lire l'écran de la maquette avant d'écrire ou de reprendre un composant d'écran et le nommer dans la spec du sub-project
 - Signaler une divergence entre la maquette, la spec et DESIGN.md au lieu de la trancher en silence : les trois ont été écrits séparément, l'écart est une décision à prendre, qui s'écrit ensuite dans DESIGN.md
-- Traiter la maquette comme une proposition là où DESIGN.md se tait, et DESIGN.md comme la règle là où les deux se contredisent
+- Traiter la maquette comme une proposition là où DESIGN.md se tait et DESIGN.md comme la règle là où les deux se contredisent
 - Consigner dans `.design-sync/NOTES.md` § Reste ouvert ce que le code livre et que la maquette n'a pas encore, pour le prochain push
 
 ## À éviter

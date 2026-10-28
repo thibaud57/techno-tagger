@@ -4,7 +4,7 @@ paths:
   - "src/app/**/*.html"
 ---
 
-# Angular Change Detection — Règles
+# Angular : change detection
 
 ## À faire
 - Omettre `changeDetection` dans `@Component` : `OnPush` est le défaut Angular 22
@@ -14,9 +14,6 @@ paths:
 - Utiliser le pipe `async` quand un Observable est affiché directement, il souscrit, se désabonne et déclenche la détection
 
 ## À éviter
-- `ChangeDetectionStrategy.Default` : déprécié depuis Angular 21.1, simple alias de `Eager`
-- Déclarer `ChangeDetectionStrategy.Eager` pour contourner un problème de réactivité : mettre la valeur dans un signal
-- `NgZone`, `runOutsideAngular()` et `run()` : sans zone.js, ces APIs n'ont plus d'objet
 - `detectChanges()` depuis un hook de cycle de vie : il est synchrone et provoque des cycles imbriqués, préférer `markForCheck()`
 - Modifier une valeur bindée dans `ngAfterViewInit`
 
@@ -37,7 +34,7 @@ export class RunSummaryComponent {
   protected readonly pendingCount = computed(() => this.store.tracks().length);
 }
 
-// ❌ Eager pour compenser une propriété mutable, et méthode appelée depuis le template
+// ❌ Eager pour compenser une propriété mutable et méthode appelée depuis le template
 @Component({
   template: `<p>{{ countPending() }}</p>`,
   changeDetection: ChangeDetectionStrategy.Eager

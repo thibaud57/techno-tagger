@@ -92,7 +92,7 @@ async def fetch_track(client: httpx2.AsyncClient, track_id: str) -> Track:
 ### Points Importants
 
 - **Une coroutine non attendue est inférée `Coroutine[Any, Any, Track]`** : c'est le type qui trahit un `await` oublié, et strict le signale
-- `asyncio.Semaphore` et `asyncio.gather` sont typés : un `gather` sur des types hétérogènes rend un `list[Any]` qu'il vaut mieux décomposer
+- `asyncio.Semaphore` et `asyncio.gather` sont typés : un `gather` de six awaitables au plus rend un `tuple` typé position par position, au-delà un `list` du type commun (typeshed de Mypy 2.4, `asyncio/tasks.pyi`)
 - Les callbacks passés à asyncio doivent être annotés comme les autres fonctions sous `disallow_untyped_defs`
 
 ---

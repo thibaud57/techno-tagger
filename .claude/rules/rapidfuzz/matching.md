@@ -3,10 +3,10 @@ paths:
   - "sidecar/src/tagger/resolution/matching.py"
 ---
 
-# RapidFuzz — Scoring & seuils
+# RapidFuzz : scoring et seuils
 
 ## À faire
-- Passer `processor=utils.default_process` sur **tous** les appels de scoring : depuis la 3.0, aucune fonction ne préprocesse, et mélanger des appels avec et sans processor rend les scores incomparables
+- Passer `processor=utils.default_process` sur **tous** les appels de scoring : depuis la 3.0, aucune fonction ne préprocesse et mélanger des appels avec et sans processor rend les scores incomparables. Sans lui, la casse et la ponctuation des tags ID3 tirent tous les scores vers le bas et les seuils hérités de fuzzywuzzy deviennent trop stricts
 - Comparer les artistes un à un, jamais deux listes jointes : meilleur score de chaque artiste de la requête contre les crédits du candidat, puis le plus faible de ces scores. Deux listes jointes s'écroulent dès qu'un tag est incomplet
 - Traiter le plancher comme un **ET** sur le score artiste et le score titre, le seuil haut portant sur leur moyenne : un artiste à 95 et un titre à 40 est écarté
 - Lire les deux seuils depuis la configuration : les valeurs du code sont des défauts réglables dans les Settings, pas des constantes
@@ -17,7 +17,6 @@ paths:
 - Refuser l'auto, sans toucher au score, quand la version ou un nombre du titre diffère de la requête : « Pt. 1 » contre « Pt. 2 » ne coûte qu'un caractère au `ratio`. Zone grise, jamais écarté
 
 ## À éviter
-- Omettre le `processor` en supposant le comportement de fuzzywuzzy : la casse et la ponctuation des tags ID3 tirent tous les scores vers le bas et les seuils hérités deviennent trop stricts
 - `token_set_ratio` comme critère d'auto-validation : il rend 100 dès qu'un candidat contient tous les mots de la requête, remix compris
 - Tenir 70 et 90 pour définitifs : ils viennent de la CLI d'origine, qui comparait d'autres chaînes
 - Appliquer le nettoyage de requête aux tags écrits : il porte sur la chaîne interrogée uniquement
@@ -25,10 +24,9 @@ paths:
 - Comparer des scores obtenus avec des scorers différents : même échelle, distributions différentes
 
 ## Gotchas
-- 3.0.0 : plus aucun préprocessing implicite, `**kwargs` vers le scorer supprimés, et `rapidfuzz.string_metric` remplacé par `rapidfuzz.distance`
 - rapidfuzz garde l'échelle de fuzzywuzzy mais pas ses valeurs exactes (Indel similarity partout)
 - À score égal, le premier élément de la liste gagne : l'ordre des candidats de l'API compte
-- Aucun hook PyInstaller ne couvre rapidfuzz : `collect_submodules("rapidfuzz")` dans le `.spec`, et scoring vérifié sur le binaire figé
+- Aucun hook PyInstaller ne couvre rapidfuzz : `collect_submodules("rapidfuzz")` dans le `.spec` et scoring vérifié sur le binaire figé
 
 ## Exemples
 ```python

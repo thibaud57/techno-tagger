@@ -3,28 +3,21 @@ paths:
   - "sidecar/src/tagger/**/*.py"
 ---
 
-# Python Modèles de Données — Règles
+# Python : modèles de données
 
 ## À faire
-- `@dataclass(frozen=True, slots=True)` pour les structures purement internes, jamais désérialisées depuis l'extérieur ; tout ce qui traverse une frontière est un `BaseModel` (cf. [pydantic/modeles.md](../pydantic/modeles.md))
+- `@dataclass(frozen=True, slots=True)` pour les structures purement internes, jamais désérialisées depuis l'extérieur ; tout ce qui traverse une frontière est un `BaseModel`, une dataclass ne validant rien à la construction (cf. [pydantic/modeles.md](../pydantic/modeles.md))
 - `StrEnum` + `auto()` pour les champs à valeurs fermées (`state`, `resolution`, `failure_reason`), partagés par les deux familles de modèles
 - Porter l'état interne d'un morceau par une union de variantes : la fiche garde son identité à plat et son issue (`outcome`) en variante, chaque variante déclare ses champs et ses projections (`state`, `resolution`, `failure_reason`…). Protocole, plan et rapport restent à plat : ce sont des projections, jamais une seconde source
-- `field(default_factory=...)` pour tout défaut mutable, et `kw_only=True` dès que plusieurs champs du même type se suivent
+- `kw_only=True` dès que plusieurs champs du même type se suivent
 - `copy.replace(obj, champ=...)` (3.13) pour dériver une copie modifiée d'une dataclass frozen
 - `__post_init__` pour la validation d'invariant et les champs dérivés déclarés `field(init=False)`
 - `NamedTuple` pour un retour multiple nommé et déstructurable
-- Définir `__repr__` sur tout objet métier écrit hors dataclass
 - `@verify(UNIQUE)` sur les enums d'état, pour interdire un alias silencieux
 
 ## À éviter
 - Aplatir l'état d'un morceau en une seule valeur : trois champs distincts et non interchangeables (cf. [ARCHITECTURE.md § API](../../../docs/ARCHITECTURE.md#api))
-- Une dataclass pour un modèle du protocole : rien n'est validé à la construction, une charge malformée passe
-- `TypedDict` pour une entrée externe : à l'exécution ce n'est qu'un `dict`, sans validation
-- Un attribut de classe mutable : partagé par toutes les instances
-- Définir `__eq__` sans redéfinir `__hash__` : l'objet devient non hashable
-
 ## Gotchas
-- 3.11+ : `str()` et `format()` d'un `StrEnum` / `IntEnum` rendent la valeur primitive, plus `NomEnum.MEMBRE` : un test qui parsait l'ancien format casse
 - Un `StrEnum` se sérialise tel quel, par `json.dumps` comme par `model_dump_json()`
 - `@dataclass(slots=True)` recrée la classe : une référence capturée avant le décorateur ne pointe pas sur la classe finale
 - 3.14 : évaluer `NotImplemented` dans un contexte booléen lève `TypeError`, un `__eq__` maison le retourne sans jamais le tester

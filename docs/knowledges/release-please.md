@@ -32,7 +32,7 @@ Le type du commit décide du bump. C'est le seul intrant du calcul.
 fix: gestion du 504 sans retry immédiat        → patch  (1.4.1 → 1.4.2)
 feat: rattrapage par URL SoundCloud            → minor  (1.4.2 → 1.5.0)
 feat!: nouveau format du plan de run           → major  (1.5.0 → 2.0.0)
-chore(deps): bump httpx2 to 2.12.0             → aucun bump, entrée de changelog
+chore(deps): bump httpx2 to 2.12.0             → aucun bump, aucune entrée de changelog
 ```
 
 ### Points Importants
@@ -40,6 +40,7 @@ chore(deps): bump httpx2 to 2.12.0             → aucun bump, entrée de change
 - **Un `BREAKING CHANGE:` en pied de commit vaut aussi majeure**, comme le `!`
 - `bump-minor-pre-major` et `bump-patch-for-minor-pre-major` adoucissent le calcul tant que la version est sous 1.0.0, tous deux désactivés par défaut
 - **Un commit hors convention ne produit aucune entrée** : il disparaît du changelog sans avertir
+- **`chore`, `docs`, `style`, `refactor`, `test`, `build` et `ci` sont masqués du changelog par défaut** : seuls `feat`, `fix`, `perf` et `revert` y entrent tant que `changelog-sections` n'est pas posé (preset `conventional-changelog-conventionalcommits` 6.1.0 que tire release-please, `hidden: true` dans `writer-opts.js`, relevé le 2026-10-28)
 - Les PR de Dependabot ciblent `develop` et disparaissent dans le squash `develop → main` : seul le titre de cette PR-là compte pour release-please
 
 ---

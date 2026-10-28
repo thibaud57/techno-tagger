@@ -30,13 +30,11 @@ Cette fiche couvre `@ngx-translate/core` 18.0.0 et `@ngx-translate/http-loader` 
 
 ```typescript
 // app.config.ts
-import { provideHttpClient } from '@angular/common/http';
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideHttpClient(),
     provideTranslateService({
       loader: provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json' }),
       fallbackLang: 'en',
@@ -48,7 +46,7 @@ export const appConfig: ApplicationConfig = {
 
 ### Points Importants
 
-- **`provideHttpClient()` est requis** : sans lui, le loader ne peut pas récupérer les fichiers JSON
+- **`provideHttpClient()` est inutile depuis Angular 21** : `HttpClient` y est injectable par défaut, le loader récupère les fichiers JSON sans provider. Il ne sert qu'à configurer intercepteurs ou backend
 - **`provideTranslateHttpLoader({ prefix, suffix })` remplace le pattern `useFactory`** des versions antérieures
 - Depuis Angular 18, `ng new` génère un dossier `public/` et non plus `src/assets/` : le `prefix` doit suivre l'arborescence réelle du projet
 - Deux formes de configuration coexistent dans la doc (à plat et imbriquée) ; la forme imbriquée ci-dessus est celle qui prime en cas de conflit
@@ -134,7 +132,7 @@ export class RunSummaryComponent {}
 ### Points Importants
 
 - **`TranslatePipe` et `TranslateDirective` s'importent composant par composant** : il n'y a plus de module à importer
-- La compatibilité OnPush est **annoncée par la documentation officielle** ; une source tierce décrit au contraire un pipe impur à base de RxJS. En cas de traduction qui ne se rafraîchit pas après un `use()`, c'est la première hypothèse à tester plutôt qu'à écarter
+- **`TranslatePipe` est impur** (`pure: false` dans la déclaration du pipe de `@ngx-translate/core` 18.0.0, relevé le 2026-10-28) : il se réévalue à chaque passe de détection de son composant
 - Utiliser le texte d'un élément comme clé (`<span translate>HELLO</span>`) est déprécié et prévu à la suppression : préférer `[translate]="'HELLO'"`
 
 ---

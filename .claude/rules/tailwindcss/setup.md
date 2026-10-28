@@ -5,7 +5,7 @@ paths:
   - ".prettierrc"
 ---
 
-# Tailwind CSS — Configuration
+# Tailwind CSS : configuration
 
 ## À faire
 - Garder un seul fichier CSS d'entrée, qui porte l'`@import "tailwindcss"`, les `@plugin`, le `@custom-variant` et le `@theme`
@@ -25,13 +25,11 @@ paths:
 
 ## Gotchas
 - Un fichier PostCSS maison désactive l'intégration Tailwind du builder Angular et fait passer toutes les feuilles de style par PostCSS
-- La racine du projet prime sur celle du workspace quand les deux portent un fichier PostCSS, et un fichier mal nommé est ignoré silencieusement
+- La racine du projet prime sur celle du workspace quand les deux portent un fichier PostCSS et un fichier mal nommé est ignoré silencieusement
 - Sans le sélecteur aligné des deux côtés, les composants PrimeNG sont sombres pendant que les utilitaires Tailwind suivent le réglage système : l'écart est visuel et difficile à diagnostiquer
 - `tailwindcss-primeui` n'est plus maintenu activement : un token absent se déclare directement dans `@theme`
 - `--font-sans` alimente `--default-font-family`, que le preflight applique à `html, :host` : une règle `font-family` sur `body` laisserait `font-sans` sur la pile système, écart muet
 - `tailwindStylesheet` remplace `tailwindConfig` de la v3 : sans lui, le plugin ne résout ni le thème ni les plugins et le tri devient approximatif. Il exige Prettier ≥ 3.7 et le paquet est ESM-only
-- Un outil qui résout le lockfile sans passer par la CLI pnpm ignore `minimumReleaseAge` : `pnpm install --frozen-lockfile` échoue alors sur une transitive trop fraîche
-
 ## Exemples
 ```css
 /* ✅ toute la configuration dans le CSS d'entrée */

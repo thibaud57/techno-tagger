@@ -107,7 +107,7 @@ class Candidate(BaseModel):
 
 ### Points Importants
 
-- `default_factory` pour tout défaut mutable : un `default=[]` partagerait la liste entre toutes les instances
+- `default_factory` pour tout défaut mutable : Pydantic copie un `default=[]` à chaque instance (vérifié sur 2.14.1), mais la même écriture partage la liste dans une dataclass, un seul style évite de confondre les deux
 - Depuis 2.10, `default_factory` accepte un paramètre `data` et peut calculer un défaut à partir des champs déjà validés
 - La syntaxe `type X = ...` (PEP 695) fonctionne et garde l'alias paresseux
 - Les contraintes numériques (`gt`, `ge`, `lt`, `le`) et de chaîne (`min_length`, `pattern`) sont vérifiées dans le cœur Rust, pas en Python

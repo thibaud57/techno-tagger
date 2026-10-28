@@ -25,13 +25,30 @@ export class RecoveryUiStore {
     readonly runId: string | null
     readonly urls: ReadonlyMap<string, string>
   }>({ runId: null, urls: new Map() })
-  /** Retombe a `null` des que son morceau n'est plus rattrapable : run suivant ou run fige. */
-  private readonly _target = linkedSignal<readonly TaggingTrack[], string | null>({
-    source: this.sidecar.recoverableTracks,
-    computation: (tracks, previous) => {
+  /**
+   * Retombe a `null` des que son morceau n'est plus rattrapable : run suivant ou run fige. Rattrape,
+   * il passe au suivant, et ferme au dernier.
+   */
+  private readonly _target = linkedSignal<
+    {
+      readonly tracks: readonly TaggingTrack[]
+      readonly recovered: { readonly trackId: string } | null
+    },
+    string | null
+  >({
+    source: () => ({
+      tracks: this.sidecar.recoverableTracks(),
+      recovered: this.sidecar.urlRecovered(),
+    }),
+    computation: ({ tracks, recovered }, previous) => {
       const shown = previous?.value ?? null
+      const at = tracks.findIndex((track) => track.trackId === shown)
+      if (at === -1) {
+        return null
+      }
+      const advance = recovered !== previous?.source.recovered && recovered?.trackId === shown
 
-      return tracks.some((track) => track.trackId === shown) ? shown : null
+      return advance ? (tracks[at + 1]?.trackId ?? null) : shown
     },
   })
   /**
