@@ -830,7 +830,7 @@ Aucun pour l'app ; démo web statique sur le VPS (Dokploy, [ADR-023](adrs/023-de
 
 | Déclencheur | Étapes |
 |---|---|
-| Push sur `main`, pull request vers `main` ou `develop` | Ruff + Mypy strict + pytest sur `sidecar/`, lint + actionlint + typecheck + build Angular + `just build-demo` + Vitest sur `src/`, image de la démo construite puis sondée en lecture seule (job `demo-image`), `just build-sidecar` puis `just smoke-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/`. L'audit des dépendances ne bloque pas |
+| Push sur `main`, pull request vers `main` ou `develop` | Ruff + Mypy strict + pytest sur `sidecar/`, lint + actionlint + typecheck + build Angular + `just build-demo` + Vitest sur `src/`, image de la démo construite puis sondée en lecture seule (job `demo-image`), `just build-sidecar` puis `just smoke-sidecar` puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` sur `src-tauri/`. L'audit des dépendances ne bloque pas |
 | Merge de la PR release-please | Tag `vX.Y.Z` et Release en brouillon, puis **dans le même workflow** : releases Sentry, build PyInstaller Windows, copie du binaire en `src-tauri/binaries/` avec le suffixe target-triple, `just smoke-sidecar`, `tauri build`, signature de l'updater, contrôle des artefacts de l'updater, publication de la Release. Après le build, job `demo` : image de la démo poussée sur GHCR (`latest` et `X.Y.Z`), puis redéploiement par l'API de Dokploy |
 
 > ⚠️ **Le build est chaîné en `needs:` au job release-please, jamais posé sur `on: push: tags`.** Le build consomme les outputs de release-please (`id`, `tag_name`, `version`), qu'un fichier séparé sur le tag ne recevrait pas, et un fichier posé sur `push: tags` ne partirait pas de façon fiable : une Release vide, qu'aucun updater ne verrait, sans la moindre erreur. Mécanisme et token de GitHub App : [PRODUCTION.md](PRODUCTION.md#pipelines).
@@ -1021,7 +1021,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 |---|---|
 | `sidecar/` | pytest, Ruff, Mypy strict, uv |
 | `src/` | Vitest, ESLint + `@angular-eslint` (règles de templates et d'accessibilité), Prettier + `prettier-plugin-tailwindcss` |
-| `src-tauri/` | `cargo clippy -- -D warnings`, `cargo fmt --check` (`just lint-tauri`, clippy subsume `cargo check`) |
+| `src-tauri/` | `cargo clippy --locked -- -D warnings`, `cargo fmt --check` (`just lint-tauri`, clippy subsume `cargo check`) |
 
 ### Environnement de Test
 

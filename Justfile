@@ -114,7 +114,7 @@ lint-sidecar:
 [group('quality')]
 [working-directory('src-tauri')]
 lint-tauri:
-    cargo clippy -- -D warnings
+    cargo clippy --locked -- -D warnings
     cargo fmt --check
 
 # Lint des workflows GitHub Actions
@@ -214,7 +214,7 @@ install-ui:
 [group('setup')]
 [working-directory('sidecar')]
 install-sidecar:
-    uv sync --all-groups
+    uv sync --locked --all-groups
 
 # Recuperer les crates de la coquille Tauri
 [group('setup')]

@@ -21,7 +21,7 @@ paths:
 
 ## Gotchas
 - Un event émis par le `GITHUB_TOKEN` ne lance aucun workflow, sauf `workflow_dispatch`, `repository_dispatch` et les `pull_request` `opened` / `synchronize` / `reopened`, qui partent en attente d'approbation. Un push de tag n'en fait pas partie
-- Une PR créée par le `GITHUB_TOKEN`, ou un commit qu'il pousse, lance ses workflows `pull_request` en attente d'approbation (changement GitHub du 2026-06-11) et le run s'affiche en échec (« workflow file issue », 0 job). release-please et le push de `sync-lockfiles` passent donc par le token de la GitHub App de release (cf. [workflows.md](workflows.md))
+- Une PR créée par le `GITHUB_TOKEN`, ou un commit qu'il pousse, lance ses workflows `pull_request` en attente d'approbation (changement GitHub du 2026-06-11) et le run s'affiche en échec (« workflow file issue », 0 job). release-please passe donc par le token de la GitHub App de release (cf. [workflows.md](workflows.md))
 - Le flux `develop → main` convient à release-please : le squash-merge est un commit ordinaire de `main`
 - Sur dépôt public, GitHub restreindrait par défaut `pull_request_target` à partir du 2026-11-02 (source tierce, non confirmée par le changelog officiel, cf. [VERSIONS.md § GitHub Actions](../../../docs/VERSIONS.md#4-github-actions)) : sans effet ici, aucun workflow ne s'en sert
 
