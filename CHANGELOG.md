@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.5](https://github.com/thibaud57/techno-tagger/compare/v1.1.4...v1.1.5) (2026-10-28)
+
+
+### Bug Fixes
+
+* contrat techno-scraper 4.2.7 dans la knowledge et la rule du client ([#159](https://github.com/thibaud57/techno-tagger/issues/159)) ([8515f65](https://github.com/thibaud57/techno-tagger/commit/8515f65c33055ad8c1d063ffe63d3ce3ed5d1d52))
+
 ## [1.1.4](https://github.com/thibaud57/techno-tagger/compare/v1.1.3...v1.1.4) (2026-10-28)
 
 
