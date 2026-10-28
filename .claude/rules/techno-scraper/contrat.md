@@ -15,7 +15,7 @@ paths:
 - Refetch avant d'écrire des tags : par id sur Beatport (`GET /beatport/tracks/{id}`, seul `track_number` manque en recherche), par URL sur Bandcamp (`GET /bandcamp/tracks?url=`, ni date, ni label, ni ISRC, ni numéro de piste en recherche)
 - Renvoyer `next_cursor` tel quel sous le nom qu'attend la route : `cursor`, ou `tracks_cursor` sur `/soundcloud/resolve` et `/soundcloud/users/{id}`
 - Garder `limit` identique pendant toute l'itération et ne jamais rejouer un curseur sur une autre requête : `400 cursor_limit_mismatch` / `cursor_scope_mismatch`
-- Traiter un champ nul comme « non écrit », jamais « à vider » : Bandcamp ne rend ni `bpm`, ni `key`, ni `genre` et ne rend `label` que depuis un compte de label
+- Traiter un champ nul comme « non écrit », jamais « à vider » : Bandcamp ne rend ni `bpm`, ni `key`, ni `genre` et ne rend `label` que depuis le compte hôte non crédité (`None` quand le compte est l'artiste)
 - Décider explicitement si `remixers[]` entre dans la chaîne artiste : ils sont exclus d'`artists[]` par convention, l'API ne tranche pas
 - Consigner le `source` de chaque morceau résolu dans le rapport
 - Incriminer la clé API sur un `403` sans repasser par `/health` : le gotcha ci-dessous rend ce statut non ambigu
