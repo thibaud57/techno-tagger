@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.7](https://github.com/thibaud57/techno-tagger/compare/v1.1.6...v1.1.7) (2026-10-28)
+
+
+### Continuous Integration
+
+* lockfiles bumpés par release-please, job sync-lockfiles retiré ([#165](https://github.com/thibaud57/techno-tagger/issues/165)) ([65410e5](https://github.com/thibaud57/techno-tagger/commit/65410e57fd2c5e403484516202b2ac2ec5bf48a3))
+
 ## [1.1.6](https://github.com/thibaud57/techno-tagger/compare/v1.1.5...v1.1.6) (2026-10-28)
 
 
