@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/thibaud57/techno-tagger/compare/v1.1.3...v1.1.4) (2026-10-28)
+
+
+### Bug Fixes
+
+* retours de prod sur la liste du run, le rattrapage et la démo ([#155](https://github.com/thibaud57/techno-tagger/issues/155)) ([f85f2c9](https://github.com/thibaud57/techno-tagger/commit/f85f2c9bbd788f8eb2e92d93db44957c9c02d24e))
+
 ## [1.1.3](https://github.com/thibaud57/techno-tagger/compare/v1.1.2...v1.1.3) (2026-10-27)
 
 
