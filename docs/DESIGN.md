@@ -71,7 +71,8 @@ Le projet ne définit aucune couleur : le preset Aura génère les variables `--
 | `--p-text-muted-color` | `{surface.400}` | `text-muted-color` | Texte atténué, placeholders, aides, chemins |
 | `--p-content-border-color` | `{surface.700}` | `border-surface` | Bordure d'un panneau, filet de structure (barre d'onglets, colonne du menu) |
 | `--p-highlight-background` | `color-mix(in srgb, {primary.400}, transparent 84%)` | `bg-highlight` | Sélection : ligne dépliée de la liste du run, entrée active du menu des Réglages |
-| `--p-content-hover-background` | `{surface.800}` | `bg-emphasis` | Survol d'une ligne actionnable |
+| `--p-content-hover-background` | `{surface.800}` | `bg-emphasis` | Survol d'un bouton de fenêtre, des entrées du menu des Réglages (par le preset) |
+| `--p-primary-color` à 8 % | `color-mix(in oklab, {primary.400} 8%, transparent)` | `bg-primary/8` | Survol d'une ligne actionnable de la liste du run, plus clair que la sélection (décidé le 2026-10-28) |
 | `--p-datatable-row-background` | `{content.background}` | par `fullHeightTable` | Fond de ligne étiré sur toute la hauteur d'une table |
 | `--p-datatable-body-cell-border-color` | `{surface.800}` | `border-(--p-datatable-body-cell-border-color)` | Filet des lignes de table, et des lignes squelette qui les précèdent |
 | `--p-disabled-opacity` | `0.6` | par le preset | Boutons et curseurs désactivés ; champs, sélecteurs et bascules prennent leur fond `disabled` |
@@ -341,9 +342,9 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 
 | État | Style / Comportement | Contexte |
 |------|---------------------|----------|
-| Survol d'une zone cliquable custom | `bg-emphasis`, `transition-colors` : 200ms `ease-out` par défaut du `@theme`, la durée des composants PrimeNG | Lignes actionnables de la liste du run, sans déplacement ni scale. Les badges de la barre d'onglets s'en passent : leur tag porte déjà un fond |
+| Survol d'une zone cliquable custom | `bg-primary/8` sur une ligne actionnable de la liste du run (vert plus clair que la sélection, décidé le 2026-10-28 sur un retour de prod, gris `bg-emphasis` avant), `bg-emphasis` ailleurs ; `transition-colors` : 200ms `ease-out` par défaut du `@theme`, la durée des composants PrimeNG | Sans déplacement ni scale. Les badges de la barre d'onglets s'en passent : leur tag porte déjà un fond |
 | Survol d'une surface inerte | Aucun | Lignes non actionnables, cellules, libellés |
-| Sélection | `bg-highlight` | Ligne dépliée de la liste du run, entrée active du menu des Réglages, comme l'option choisie de `p-select` et `p-listbox`. Le survol reste gris (`bg-emphasis`) |
+| Sélection | `bg-highlight` | Ligne dépliée de la liste du run, entrée active du menu des Réglages, comme l'option choisie de `p-select` et `p-listbox`. Une ligne dépliée garde `bg-highlight` au survol, actionnable ou non ; le survol du menu des Réglages reste gris (`bg-emphasis`) |
 | Focus clavier | Anneau du preset (1px `primary`, à la couleur de sa sévérité sur un bouton `secondary` ou `danger`), recopié en `focus-visible:outline-1 outline-primary` `-outline-offset-2` sur une ligne actionnable. Un champ, lui, passe sa bordure en `primary`, sans anneau | Vers l'intérieur : le défilement de la table rognerait un anneau extérieur. `outline: none` interdit |
 | Désactivé | `--p-disabled-opacity` (0.6) sur les boutons et les curseurs des seuils ; fond `disabled` à opacité 1 sur les champs, `p-select`, `p-selectbutton` et `p-toggleswitch` ; flèche de la souris | Libellé gardé, jamais masqué, raison en tooltip. Flèche comme dans une application Windows, `not-allowed` étant une convention web |
 | Chargement | `p-skeleton` aux dimensions de l'élément final ; `spinner` dans le bouton d'un geste en attente | Aucun saut de layout. Le `spinner` remplace `[loading]` de `pButton`, déprécié |
@@ -449,9 +450,9 @@ Aucune dépendance d'animation dédiée.
 | Pochette | 60px (`w-15`) | Vignette de 32px plus les marges de la cellule |
 | Avant | **fluide** | Artiste et titre lus dans le fichier, nom du fichier en sous-texte `text-xs text-muted-color`. Tags vides : le nom de fichier sans extension en ligne principale |
 | Après | **fluide** | Ce que la source retenue va écrire |
-| Source | 144px (`w-36`) | Logo 16px et libellé, mesurée sur « SoundCloud » |
+| Source | 124px (`w-31`) | Logo 16px et libellé, mesurée sur « SoundCloud » (93px rendus, relevé le 2026-10-28) |
 | Score | 128px (`w-32`) | Aligné à droite, mesurée sur `A 100 · T 100` |
-| État | 192px (`w-48`) | Tag et icône info, mesurée sur « Échec d'écriture » |
+| État | 164px (`w-41`) | Tag et icône info, mesurée sur « Échec d'écriture » (132px rendus en FR, 122px pour « Write failed », relevé le 2026-10-28) |
 
 Colonnes fixes figées, leur contenu arrivant pendant le run, chacune mesurée sur son contenu le plus large dans les deux langues : le reste va aux deux colonnes comparées. Source dit d'où vient la donnée écrite, État par quel chemin (`state` et `resolution`). Le nom de fichier est un sous-texte plutôt qu'une colonne : c'est la requête quand les tags manquent. Le score tient en trois nombres : un seul cacherait lequel des deux fait tomber le morceau en zone grise.
 
