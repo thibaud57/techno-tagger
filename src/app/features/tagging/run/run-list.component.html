@@ -18,13 +18,13 @@
       <th class="w-15"></th>
       <th>{{ "tagging.list.before" | translate }}</th>
       <th>{{ "tagging.list.after" | translate }}</th>
-      <!-- Mesuree sur « SoundCloud », le plus long des libelles de source. -->
-      <th class="w-36">{{ "tagging.list.source" | translate }}</th>
+      <!-- 124px : « SoundCloud » et son logo (93px rendus) plus les marges de la cellule. -->
+      <th class="w-31">{{ "tagging.list.source" | translate }}</th>
       <!-- Mesuree sur « A 100 · T 100 », le detail le plus long : plus etroit, il passe a la ligne. -->
       <th class="w-32 text-right">{{ "tagging.list.score" | translate }}</th>
-      <!-- Mesuree sur « Echec d'ecriture » et son icone info, le plus long des etats
-           (FR plus long que l'EN). -->
-      <th class="w-48">{{ "tagging.list.state" | translate }}</th>
+      <!-- 164px : « Echec d'ecriture » et son icone info (132px rendus, FR plus long que l'EN) plus
+           les marges de la cellule. -->
+      <th class="w-41">{{ "tagging.list.state" | translate }}</th>
     </tr>
   </ng-template>
 
@@ -37,7 +37,7 @@
              preset (1px primary) recopie en classes, vers l'interieur : la table defile et rognerait un
              anneau exterieur. -->
         <tr
-          class="h-14 transition-colors focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:hover:bg-emphasis data-recoverable:cursor-pointer data-recoverable:hover:bg-emphasis data-shown:bg-highlight"
+          class="h-14 transition-colors focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-primary data-arbitrable:cursor-pointer data-arbitrable:not-data-shown:hover:bg-primary/8 data-recoverable:cursor-pointer data-recoverable:not-data-shown:hover:bg-primary/8 data-shown:bg-highlight"
           [attr.data-shown]="open ? '' : null"
           [attr.data-arbitrable]="track.arbitrable ? '' : null"
           [attr.data-recoverable]="track.recoverable ? '' : null"
