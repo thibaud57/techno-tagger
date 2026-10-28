@@ -69,7 +69,7 @@ _Non applicable : base SQLite, aucun HTML à parser._
 
 ## Schémas de données
 
-> Relevé : inspection du fichier SQL de la CLI [`BeatportScrapper-TrackTagger`](https://github.com/thibaud57/BeatportScrapper-TrackTagger) le 2026-08-29, puis **ouverture d'un dump réel le 2026-09-08**, version de VLC Android non notée. Le DDL ci-dessous est celui de ce dump.
+> Relevé : inspection du fichier SQL de la CLI `BeatportScrapper-TrackTagger` (dépôt supprimé depuis, le 2026-10-28) le 2026-08-29, puis **ouverture d'un dump réel le 2026-09-08**, version de VLC Android non notée. Le DDL ci-dessous est celui de ce dump.
 
 ### Description
 
@@ -200,4 +200,3 @@ Un dump réel a été fourni le 2026-09-08 et inspecté hors du dépôt. Il n'y 
 
 - [ADR-019 : Lecture du dump VLC](../adrs/019-resilience-schema-vlc-media-db.md)
 - [ADR-020 : Doublons de noms de fichiers](../adrs/020-doublons-noms-de-fichiers.md)
-- [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : CLI d'origine, source de la requête SQL

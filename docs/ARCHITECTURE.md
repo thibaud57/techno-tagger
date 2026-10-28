@@ -13,7 +13,7 @@ technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "
 
 Automatiser deux corvées de la préparation d'un set DJ : extraire d'une grosse bibliothèque les morceaux d'une playlist pour les isoler dans un dossier de travail et remplacer les métadonnées de ces fichiers par des données propres issues de Beatport et Bandcamp.
 
-L'outil existe en CLI Python mono-utilisateur ([`BeatportScrapper-TrackTagger`](https://github.com/thibaud57/BeatportScrapper-TrackTagger)). Le projet le **modernise, l'optimise et le rend distribuable**, ces trois axes étant indissociables.
+L'outil existait en CLI Python mono-utilisateur (`BeatportScrapper-TrackTagger`, dépôt supprimé le 2026-10-28, remplacé en entier par ce projet). Le projet le **modernise, l'optimise et le rend distribuable**, ces trois axes étant indissociables.
 
 **Moderniser** : sortir des dépendances datées ou sous licence contraignante, remplacer le scraping direct qui casse à chaque changement de site par une API dédiée et couvrir quatre formats de fichiers au lieu du seul MP3 en écrivant tout ce que la source expose plutôt qu'une dizaine de champs.
 
@@ -830,7 +830,7 @@ Aucun pour l'app ; démo web statique sur le VPS (Dokploy, [ADR-023](adrs/023-de
 
 | Déclencheur | Étapes |
 |---|---|
-| Push sur `main`, pull request vers `main` ou `develop` | Ruff + Mypy strict + pytest sur `sidecar/`, lint + actionlint + typecheck + build Angular + `just build-demo` + Vitest sur `src/`, image de la démo construite puis sondée en lecture seule (job `demo-image`), `just build-sidecar` puis `just smoke-sidecar` puis `cargo clippy -- -D warnings` + `cargo fmt --check` sur `src-tauri/`. L'audit des dépendances ne bloque pas |
+| Push sur `main`, pull request vers `main` ou `develop` | Ruff + Mypy strict + pytest sur `sidecar/`, lint + actionlint + typecheck + build Angular + `just build-demo` + Vitest sur `src/`, image de la démo construite puis sondée en lecture seule (job `demo-image`), `just build-sidecar` puis `just smoke-sidecar` puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` sur `src-tauri/`. L'audit des dépendances ne bloque pas |
 | Merge de la PR release-please | Tag `vX.Y.Z` et Release en brouillon, puis **dans le même workflow** : releases Sentry, build PyInstaller Windows, copie du binaire en `src-tauri/binaries/` avec le suffixe target-triple, `just smoke-sidecar`, `tauri build`, signature de l'updater, contrôle des artefacts de l'updater, publication de la Release. Après le build, job `demo` : image de la démo poussée sur GHCR (`latest` et `X.Y.Z`), puis redéploiement par l'API de Dokploy |
 
 > ⚠️ **Le build est chaîné en `needs:` au job release-please, jamais posé sur `on: push: tags`.** Le build consomme les outputs de release-please (`id`, `tag_name`, `version`), qu'un fichier séparé sur le tag ne recevrait pas, et un fichier posé sur `push: tags` ne partirait pas de façon fiable : une Release vide, qu'aucun updater ne verrait, sans la moindre erreur. Mécanisme et token de GitHub App : [PRODUCTION.md](PRODUCTION.md#pipelines).
@@ -1021,7 +1021,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 |---|---|
 | `sidecar/` | pytest, Ruff, Mypy strict, uv |
 | `src/` | Vitest, ESLint + `@angular-eslint` (règles de templates et d'accessibilité), Prettier + `prettier-plugin-tailwindcss` |
-| `src-tauri/` | `cargo clippy -- -D warnings`, `cargo fmt --check` (`just lint-tauri`, clippy subsume `cargo check`) |
+| `src-tauri/` | `cargo clippy --locked -- -D warnings`, `cargo fmt --check` (`just lint-tauri`, clippy subsume `cargo check`) |
 
 ### Environnement de Test
 
@@ -1151,7 +1151,6 @@ Deux questions non techniques conditionnent des arbitrages déjà documentés : 
 - [techno-scraper : ADR-002](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : ni fallback ni matching côté API, cette logique appartient aux consommateurs
 - [techno-scraper : ADR-006](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/006-schema-track-normalise.md) : schéma `Track` normalisé, base des champs écrits
 - [techno-scraper : ADR-012](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/012-normalisation-des-champs-texte-en-sortie.md) : champs texte normalisés par la gateway, `source_title` pour le texte brut
-- [BeatportScrapper-TrackTagger](https://github.com/thibaud57/BeatportScrapper-TrackTagger) : implémentation CLI de référence (parsing des playlists, matching, déplacement)
 - [BRAINSTORM.md](BRAINSTORM.md) : vision, features et décisions d'origine
 - [DESIGN.md](DESIGN.md) : design system, tokens, mapping composants et conventions de style
 - [MusicBrainz Picard : Tag Mapping](https://picard-docs.musicbrainz.org/en/latest/appendices/tag_mapping.html) : conventions retenues pour les clés hors standard

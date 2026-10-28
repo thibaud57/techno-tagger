@@ -22,6 +22,16 @@
           "type": "toml",
           "path": "sidecar/pyproject.toml",
           "jsonpath": "$.project.version"
+        },
+        {
+          "type": "toml",
+          "path": "sidecar/uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='tagger')].version"
+        },
+        {
+          "type": "toml",
+          "path": "src-tauri/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='techno-tagger')].version"
         }
       ]
     }
