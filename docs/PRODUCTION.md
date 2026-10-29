@@ -451,16 +451,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 
 ## Plateforme d'hébergement
 
-Ce que le VPS de la démo web fait tourner sans qu'aucun fichier versionné du dépôt ne le déclare : rien ne signale qu'une version a périmé, d'où ce relevé daté (cf. [VERSIONS.md](VERSIONS.md), périmètre du préambule).
-
-| Composant | Version documentée | Dernière publiée | Relevé le |
-|-----------|--------------------|------------------|-----------|
-| Dokploy | `v0.30.10` | `v0.30.10` (publiée le 2026-10-22) | 2026-10-29 |
-| Docker Engine | à relever | à relever | à relever |
-
-**Version réelle** : `dokploy settings get-dokploy-version` pour Dokploy (source du relevé ci-dessus), `docker version` sur le VPS pour Docker Engine.
-
-**Pièges de montée** : aucun relevé à ce jour.
+Le moteur de conteneurs et le PaaS du VPS de la démo web ne sont déclarés par aucun fichier versionné. Leurs versions, relevés et pièges de montée vivent dans la documentation privée d'exploitation (hors dépôt, dépôt public).
 
 ---
 
@@ -584,7 +575,7 @@ Minimal et gratuit, pour un dev solo et quelques utilisateurs : **Sentry (plan D
 
 **Deux projets Sentry**, un pour le sidecar Python, un pour la webview. Un projet unique accepterait techniquement les deux, mais JavaScript est bruyant : mélangé au Python, il noierait les crashs du sidecar, seuls à porter du métier. Le **quota se compte au niveau de l'organisation**, pas du projet : découper ne double pas les 5 000 events du plan gratuit, cela ne fait que les rendre triables. La version publiée doit exister comme release dans **les deux** projets.
 
-Les deux projets vivent dans l'organisation `tg-ws`, sous les slugs `techno-tagger-ui` et `techno-tagger-sidecar`, écrits en dur dans `release-please.yml` et en valeur par défaut du script `sourcemaps` : ni l'un ni l'autre n'est un secret, et une `var` GitHub les rendrait invisibles depuis le dépôt. Le slug `techno-tagger-ui` désigne aussi le package Angular, ce sont deux objets distincts.
+Les deux projets vivent dans l'organisation `<org>`, sous les slugs `techno-tagger-ui` et `techno-tagger-sidecar`, écrits en dur dans `release-please.yml` et en valeur par défaut du script `sourcemaps` : ni l'un ni l'autre n'est un secret, et une `var` GitHub les rendrait invisibles depuis le dépôt. Le slug `techno-tagger-ui` désigne aussi le package Angular, ce sont deux objets distincts.
 
 **Release tracking** : `sentry_sdk.init(release="techno-tagger@X.Y.Z")`, la version étant lue du package installé, donc bumpée par release-please et jamais à la main. Le nom, lui, est **fixé en dur et identique dans les deux projets** : le package Python s'appelle `tagger`, laisser le SDK dériver le nom donnerait deux chaînes de release différentes de part et d'autre, incomparables. Le préfixe `nom@` conditionne le classement en versioning sémantique côté Sentry, et avec lui la détection de régression et le tri `release:latest`. La détection automatique du SDK ne peut pas suppléer : elle retomberait sur un SHA git absent du binaire distribué.
 
@@ -601,7 +592,7 @@ Les deux projets vivent dans l'organisation `tg-ws`, sous les slugs `techno-tagg
 Le mode développement ne prouve rien sur la remontée (DSN vide, SDK inerte). `TECHNO_TAGGER_SENTRY_SELFTEST=1` envoie un événement de test par côté depuis l'application installée.
 
 1. Fermer l'application : le plugin `single-instance` réveillerait la fenêtre ouverte, qui n'a pas la variable.
-2. Dans Sentry (organisation `tg-ws`), résoudre les issues de self-test d'un rejeu précédent : `SentrySelfTestError` dans `techno-tagger-sidecar`, `Error` « sentry self test » dans `techno-tagger-ui`. Un rejeu retombe dans le même groupe : sans nouvelle issue, aucun email ne part.
+2. Dans Sentry (organisation `<org>`), résoudre les issues de self-test d'un rejeu précédent : `SentrySelfTestError` dans `techno-tagger-sidecar`, `Error` « sentry self test » dans `techno-tagger-ui`. Un rejeu retombe dans le même groupe : sans nouvelle issue, aucun email ne part.
 3. Dans PowerShell : `$env:TECHNO_TAGGER_SENTRY_SELFTEST = "1"`, puis `& "$env:LOCALAPPDATA\techno-tagger\techno-tagger.exe"` (dossier par défaut d'une installation NSIS en `currentUser`, à confirmer par la cible du raccourci du menu Démarrer), puis `Remove-Item Env:TECHNO_TAGGER_SENTRY_SELFTEST` : sinon la variable reste posée dans la session et chaque lancement suivant enverrait ses événements.
 4. Dans Sentry, Issues de chaque projet : une issue `SentrySelfTestError` dans `techno-tagger-sidecar`, une issue `Error` dans `techno-tagger-ui`, chacune avec son email à l'adresse d'alerte du propriétaire.
 5. Ouvrir l'événement, puis la vue JSON (lien en tête de l'événement) et y rechercher `Nova`, `Mind`, le nom de compte Windows (`$env:USERNAME`), le nom de la machine (`$env:COMPUTERNAME`) et `vars` : aucune occurrence.
