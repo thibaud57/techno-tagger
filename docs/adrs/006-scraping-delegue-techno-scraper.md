@@ -1,5 +1,5 @@
 ---
-title: "ADR-006 — Scraping délégué à techno-scraper"
+title: "ADR-006 : Scraping délégué à techno-scraper"
 status: "accepted"
 description: "L'application ne scrape rien elle-même : toute donnée vient de l'API techno-scraper, seule surface à réparer quand un site change de structure."
 date: "2026-08-02"

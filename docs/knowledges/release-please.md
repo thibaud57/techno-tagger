@@ -1,5 +1,5 @@
 ---
-title: "release-please — Versionnement et publication"
+title: "release-please : Versionnement et publication"
 version: "5.0.0"
 description: "Référence technique pour release-please-action : Conventional Commits, PR de release, synchronisation de quatre fichiers de version (mode manifest, extra-files, renvoi Tauri) et chaînage needs obligatoire."
 date: "2026-08-29"
@@ -67,6 +67,30 @@ gh pr merge <numero> --squash
 - La PR se met à jour toute seule à chaque commit : inutile de la fermer et de la rouvrir
 - `separate-pull-requests` est à `false` par défaut, ce qui groupe tout dans une seule PR : le bon comportement ici, l'application étant un seul livrable
 - Le changelog généré se relit avant merge : c'est le moment de repérer un commit mal typé
+
+---
+
+## Forcer une version
+
+### Description
+
+`Release-As: X.Y.Z` impose la version de la prochaine PR de release. Il se lit dans le **corps d'un commit** de la branche de production, jamais dans la description de la pull request : « When a commit to the main branch has `Release-As: x.x.x` (case insensitive) in the commit body, Release Please will open a new pull request for the specified version ».
+
+### Exemple
+
+```bash
+# Commit vide de rattrapage sur la branche de production
+git commit --allow-empty -m "chore: forcer la version" -m "Release-As: X.Y.Z"
+
+# Merge de la PR develop -> main avec un corps explicite
+gh pr merge <numero> --squash --body "<une ligne>"
+```
+
+### Points Importants
+
+- **Le corps du commit final dépend du réglage `squash_merge_commit_message` du dépôt** : en `COMMIT_MESSAGES`, le texte tapé dans la description de la PR n'atteint jamais le commit et le footer reste sans effet, silencieusement. Le poser dans l'éditeur de message au moment du squash, ou passer le dépôt en `PR_BODY`
+- **Le corps auto-généré par GitHub liste tous les commits de la PR** : en GitFlow, chaque squash précédent ayant créé un SHA neuf sur `main`, les commits d'origine de `develop` y restent « absents » et sont re-listés à chaque release. release-please relit alors des `BREAKING CHANGE:` déjà publiés et bumpe en majeure à tort (constaté sur techno-scraper, deux majeures indues). D'où le corps explicite au merge
+- **Rattrapage a posteriori d'une version indue** : un commit vide portant `Release-As: X.Y.Z` sur la branche de production
 
 ---
 

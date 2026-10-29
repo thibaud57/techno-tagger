@@ -1,5 +1,5 @@
 ---
-title: "ADR-014 — Observabilité, rapports et ce qui sort de la machine"
+title: "ADR-014 : Observabilité, rapports et ce qui sort de la machine"
 status: "accepted"
 description: "Sentry limité aux crashs et actif d'office, protégé par un durcissement du SDK plutôt que par un consentement, rapports locaux en JSON et Markdown, envoi de feedback comme geste explicite."
 date: "2026-08-29"
@@ -126,8 +126,6 @@ S'y ajoute le **scrubbing des chemins de fichiers** dans les frames, qui contien
 
 - Un plantage chez un ami remonte automatiquement, avec sa stack trace, sans rien lui demander et sans qu'il puisse l'oublier
 - La protection repose sur trois réglages et la liste fermée des messages d'exception, tous vérifiables, plutôt que sur une déclaration d'intention
-- Le quota gratuit reste disponible pour ce qui compte
-- Aucun écran, aucune traduction, aucune branche d'initialisation à maintenir
 - Le rapport JSON sert trois usages avec un seul artefact : relecture par l'application, lisibilité humaine via le Markdown, et feedback
 
 ## Négatives

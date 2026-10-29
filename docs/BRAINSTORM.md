@@ -1,7 +1,7 @@
 ---
-title: "BRAINSTORM — Vision & Idéation Projet"
+title: "BRAINSTORM : Vision & Idéation Projet"
 description: "Vision de techno-tagger : application desktop de re-tagging et d'organisation de bibliothèque musicale pour DJ, consommatrice de l'API techno-scraper."
-date: "2026-10-26"
+date: "2026-10-29"
 keywords: ["brainstorm", "desktop", "tauri", "dj", "metadata", "tagging"]
 scope: ["docs", "planning"]
 technologies: ["Tauri", "Angular", "PrimeNG", "Tailwind CSS", "ngx-translate", "Python", "pydantic", "mutagen", "rapidfuzz", "httpx2", "keyring", "PyInstaller"]
@@ -226,10 +226,6 @@ La ligne dépliée de la liste du run compare avant et après champ par champ se
 - Sélecteur de runs passés, pour rouvrir leur récapitulatif (Feature 6)
 - Version installée et recherche manuelle de mise à jour (Feature 8)
 
-> ⚠️ **Décidé autrement depuis** : le motif de renommage n'est finalement pas une préférence des Settings. Il est fixé à `{artist} - {title}.{ext}` au MVP et n'a donc rien à persister dans le store (cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)).
-
-> ⚠️ **Décidé autrement depuis** : l'URL de l'API n'est pas un réglage. Elle est figée en constante du sidecar le 2026-09-19 et seule la clé se saisit dans les Settings, livrée avec la Feature 2.
-
 ### Feature 8 : Distribution et mise à jour
 
 - Installeur Windows produit par la CI au tag, publié sur les GitHub Releases
@@ -242,9 +238,7 @@ La ligne dépliée de la liste du run compare avant et après champ par champ se
 - Sentry actif d'office, erreurs techniques uniquement (sidecar qui tombe, parsing cassé), SDK durci : variables locales des frames désactivées, nom de machine fixé, chemins scrubbés
 - Scrubbing des chemins de fichiers dans les stack traces (ils contiennent le nom d'utilisateur de l'OS)
 - Aucun titre de morceau envoyé automatiquement : les cas d'arbitrage et d'échec restent dans le rapport local
-- Bouton « envoyer ce rapport pour améliorer le matching » dans l'écran final, run courant ou passé : geste explicite de l'utilisateur, ne consomme pas le quota Sentry
-
-> ⚠️ **Décidé autrement depuis** : l'application ne pousse rien elle-même. Le bouton ouvre, via le plugin `opener`, une issue pré-remplie du dépôt et révèle dans l'Explorateur un export nettoyé du run (ni dossier ni chemin absolu) à y joindre ; l'utilisateur relit, joint ou abandonne avant de valider (cf. [ARCHITECTURE.md § Alerts](ARCHITECTURE.md#alerts)).
+- Bouton « envoyer ce rapport pour améliorer le matching » dans l'écran final, run courant ou passé : geste explicite de l'utilisateur, qui ne consomme pas le quota Sentry. Il ouvre dans le navigateur, via le plugin `opener`, une issue pré-remplie du dépôt et révèle dans l'Explorateur un export nettoyé du run (ni dossier ni chemin absolu) à y joindre : l'application ne pousse rien elle-même, l'utilisateur relit, joint ou abandonne avant de valider (cf. [ARCHITECTURE.md § Alerts](ARCHITECTURE.md#alerts))
 
 ## Post-MVP
 
@@ -260,7 +254,7 @@ Démo interactive de l'application dans un navigateur, ouverte dans un nouvel on
 - Fichiers statiques dans un container durci et isolé sur le réseau, redéployé par la CI à chaque tag
 - Prérequis côté portfolio, dans son dépôt : `?lang` sur le bouton, nouvel onglet, pages de contact FR et EN
 
-> Faisabilité étudiée le 2026-10-25. Rejeu, isolation et déploiement : [ADR-023](adrs/023-demo-web-par-rejeu.md).
+> Livrée le 2026-10-26 avec la release 1.1.0 (cf. [PRODUCTION.md](PRODUCTION.md#-environnements)). Faisabilité étudiée le 2026-10-25. Rejeu, isolation et déploiement : [ADR-023](adrs/023-demo-web-par-rejeu.md).
 
 ### Feature 2 : Compatibilité des tags avec les logiciels DJ
 
@@ -352,29 +346,18 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 
 # ❓ Questions Ouvertes
 
-> État au moment du brainstorm. La plupart ont été tranchées depuis, lors de la rédaction de l'architecture : voir [docs/adrs/](adrs/) pour les décisions et [ARCHITECTURE.md § Questions ouvertes](ARCHITECTURE.md#questions-ouvertes) pour ce qui reste à vérifier.
+> Les questions tranchées vivent dans [docs/adrs/](adrs/).
 
 ## Techniques
 
-- **techno-scraper multi-clés** : [`core/security.py`](https://github.com/thibaud57/techno-scraper/blob/HEAD/src/technoscraper/core/security.py) compare contre une clé unique (`settings.api_key`). Une clé par utilisateur impose de passer à un jeu de clés nommées. Changement petit, mais sur une API déjà en production. ✅ **Tranché** : jeu de clés nommées en variable d'environnement ([ADR-016](adrs/016-multi-cles-techno-scraper.md)), chantier porté par techno-scraper, livré le 2026-10-05 (son ADR-013)
-- **Taille du pool de concurrence** : combien d'appels en vol simultanés sans dégrader la latence de l'API ? À mesurer, pas à deviner. ✅ **Tranché** : pool aligné sur les sémaphores de l'API, 3 pour Beatport, 2 pour Bandcamp et 5 pour SoundCloud ([ADR-017](adrs/017-taille-pool-concurrence.md))
-- **Seuils de matching par défaut** : les valeurs de la CLI actuelle sont-elles transposables, sachant que le contrat de sortie de l'API a changé ? Toujours ouvert : à recalibrer aux premiers runs réels (cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
-- **Schéma de `vlc_media.db`** : la CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), signe que le schéma de la médiathèque VLC n'est pas stable dans le temps. Faut-il garder cette souplesse, et comment détecter un schéma devenu incompatible autrement qu'en plantant ? ✅ **Tranché** : requête embarquée, schéma vérifié avant traitement plutôt qu'un fichier SQL externe. L'inspection du fichier a montré une autre raison à cette externalisation : un nom de playlist codé en dur (`WHERE p.name = 'final'`), pas une protection contre un schéma instable. Aucun changement de schéma n'a d'ailleurs jamais été observé ([ADR-019](adrs/019-resilience-schema-vlc-media-db.md))
-- **Doublons de noms de fichiers** : que faire quand plusieurs fichiers du dossier source portent le même nom (demander, prendre le plus gros, tout signaler dans le rapport) ? ✅ **Tranché** : le plus volumineux est retenu, chaque cas consigné dans le rapport ([ADR-020](adrs/020-doublons-noms-de-fichiers.md))
-- **Nettoyage des noms de fichiers** : quels motifs retirer avant d'envoyer la requête (`[FREE DL]`, `320kbps`, numéros de piste, tirets bas) ? Mécanisme tranché (nettoyage de la chaîne interrogée, jamais des tags), la liste exacte des motifs reste à établir au premier run réel (cf. [ARCHITECTURE.md](ARCHITECTURE.md#capacités-natives))
-- **Tags WAV** : quels lecteurs lisent réellement le bloc ID3 d'un WAV ? À tester sur Rekordbox avant de promettre quoi que ce soit dans le rapport. ✅ **Tranché pour Rekordbox** le 2026-10-23 : le chunk ID3 est ignoré, seul le RIFF INFO est lu ([knowledges/rekordbox.md](knowledges/rekordbox.md)), suite en Post-MVP Feature 2. Traktor et Serato non relevés
-- **Clés libres Vorbis** : quelles conventions retenir pour `key`, `catalog_number` et `source` sur FLAC, où aucun champ standard n'existe (aligner sur Picard) ? ✅ **Tranché** : conventions Picard suivies ([ADR-011](adrs/011-politique-ecriture-tags.md))
-- **Motif de renommage** : quel format par défaut, et jusqu'où le rendre configurable ? ✅ **Tranché** : fixé à `{artist} - {title}.{ext}` au MVP, non configurable (voir plus haut)
-- **Versionnement du plan JSON** : un plan écrit par une version antérieure doit-il rester reprenable après mise à jour de l'app ? ✅ **Tranché** : numéro de version de schéma, plan de version inconnue refusé, rapport de version antérieure migré ([ADR-018](adrs/018-versionnement-plan-de-run.md))
-- **Maturité de PyInstaller sur macOS** : à vérifier le jour où la cible macOS revient au programme. Toujours ouvert
-- **Licence PrimeUI** : que se passe-t-il exactement avec une clé absente ou expirée sur les versions actuelles ? Le mécanisme connu (bandeau dans l'application, erreurs invisibles sur localhost) vient du dispositif LTS de PrimeNG, à reconfirmer au moment de prendre la clé. ✅ **Tranché** : notice de licence affichée sans clé valide, y compris en développement, la webview Tauri n'étant pas exemptée contrairement au `localhost` d'un navigateur (cf. [primeng.md](knowledges/primeng.md))
-- **Sélection des modèles LLM (Post-MVP)** : comment proposer une liste à jour sans la coder en dur ni la maintenir à chaque sortie de modèle ? Toujours ouvert, hors périmètre MVP
+- **Seuils de matching par défaut** : les valeurs de la CLI actuelle sont-elles transposables, sachant que le contrat de sortie de l'API a changé ? À recalibrer aux premiers runs réels (cf. [ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
+- **Maturité de PyInstaller sur macOS** : à vérifier le jour où la cible macOS revient au programme
+- **Sélection des modèles LLM (Post-MVP)** : comment proposer une liste à jour sans la coder en dur ni la maintenir à chaque sortie de modèle ?
 
 ## Business
 
-- Combien d'utilisateurs réels, donc combien de clés API à gérer et à révoquer ? Toujours ouvert
-- Un pote est-il réellement sur Mac ? C'est ce qui déclenchera la cible macOS, et avec elle la question des 99 $/an. Toujours ouvert
-- Dépôt public ou privé ? Sans objet tant qu'on reste sur Windows, décisif dès qu'un runner macOS entre en jeu (gratuit sur public, facturé x10 sur privé). ✅ **Tranché** : dépôt public, distribution par GitHub Releases ([ADR-021](adrs/021-visibilite-du-depot.md))
+- Combien d'utilisateurs réels, donc combien de clés API à gérer et à révoquer ?
+- Un pote est-il réellement sur Mac ? C'est ce qui déclenchera la cible macOS, et avec elle la question des 99 $/an
 
 ---
 
@@ -382,45 +365,40 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 
 **Décisions actées :**
 
-- **Décision Coquille** : Tauri v2 vs Electron (webview système, bundles légers, tout le métier restant en Python, aucune raison d'embarquer Node)
-- **Décision Framework UI** : Angular vs React + Next.js (Next n'apporte rien sans serveur Node, il faudrait l'exporter en statique pour retrouver un React ordinaire avec de la configuration en plus ; Angular est déjà maîtrisé)
-- **Décision Lib UI** : PrimeNG dernière version vs Angular Material vs PrimeNG 21, dernière MIT (catalogue plus large, table à scroll virtuel, thèmes variés ; la Community License est gratuite et couvre le projet, contreparties assumées : clé embarquée, renouvellement annuel, dépendance à la politique de PrimeTek)
-- **Décision Client HTTP** : httpx2 vs httpx (fork de maintenance repris par l'équipe Pydantic, API strictement identique, déjà en place sur techno-scraper) et vs curl_cffi (inutile ici : l'app appelle sa propre API, pas un site protégé par un anti-bot)
-- **Décision Stockage de la clé API** : keyring côté Python vs plugin Tauri stronghold (la clé vit dans le sidecar, la faire transiter par le JavaScript annulerait le bénéfice recherché ; keyring parle nativement au Credential Manager Windows et au Keychain macOS)
-- **Décision Métier** : sidecar Python vs réécriture en Rust (mutagen a des années d'avance sur le parsing de tags audio et ses cas tordus ; le code existant est réutilisable tel quel)
-- **Décision Matching** : rapidfuzz au MVP, agent IA en Post-MVP **en renfort et non en remplacement** (livrable plus vite, aucune dépendance externe, aucun coût par morceau ; l'agent devient un mode activable qui n'intervient que sur la zone grise et les non résolus, et l'app reste entièrement fonctionnelle sans clé API)
-- **Décision Orchestration IA** : PydanticAI dans le sidecar vs agent n8n par webhook (l'app doit fonctionner sans infrastructure distante ; abandon de la piste n8n des premières notes)
-- **Décision Matching lib** : rapidfuzz vs fuzzywuzzy (accélérateur python-Levenshtein sous GPLv2, que le renommage en TheFuzz n'a pas changé ; rapidfuzz est MIT, plus rapide, et descend d'une version MIT de fuzzywuzzy donc les seuils se transposent)
-- **Décision Scraping** : délégué à techno-scraper vs intégré à l'app (une seule surface à réparer quand un site change de structure, et l'API existe déjà en production)
-- **Décision Sources** : Beatport puis Bandcamp en automatique, SoundCloud en URL manuelle seulement (métadonnées d'upload SoundCloud trop peu fiables pour une recherche automatique)
-- **Décision Enchaînement des sources** : modale à deux temps vs appel Bandcamp spéculatif vs seconde modale après remise en file (l'appel spéculatif paie Bandcamp même quand un candidat Beatport convient ; la remise en file fait réapparaître le morceau plus loin dans la liste et transforme le refus en pari à l'aveugle ; garder la modale ouverte donne les deux bénéfices)
-- **Décision Candidats affichés** : zone grise seulement vs tous les résultats avec leur score (liste courte et lisible ; contrepartie assumée, un bon match mal scoré reste invisible)
-- **Décision i18n** : ngx-translate vs Transloco vs `@angular/localize` (le package officiel traduit à la compilation et imposerait un installeur par langue ; entre les deux libs tierces, ngx-translate documente explicitement sa compatibilité Angular 22 et son adaptation à la nouvelle stratégie de détection de changement, là où la page de compatibilité de Transloco n'a pas bougé depuis 10 mois)
+- **Décision Coquille** : Tauri v2 vs Electron ([ADR-001](adrs/001-coquille-desktop-tauri.md))
+- **Décision Framework UI** : Angular vs React + Next.js ([ADR-002](adrs/002-framework-ui-angular.md))
+- **Décision Lib UI** : PrimeNG dernière version vs Angular Material vs PrimeNG 21, dernière MIT ([ADR-003](adrs/003-primeng-community-license.md))
+- **Décision Client HTTP** : httpx2 vs httpx vs curl_cffi ([ADR-007](adrs/007-client-http-httpx2.md))
+- **Décision Stockage de la clé API** : keyring côté Python vs plugin Tauri stronghold ([ADR-012](adrs/012-securite-cle-api-keyring.md))
+- **Décision Clé API** : une clé par utilisateur saisie dans les Settings vs clé partagée embarquée ([ADR-012](adrs/012-securite-cle-api-keyring.md))
+- **Décision Métier** : sidecar Python vs réécriture en Rust ([ADR-005](adrs/005-sidecar-python-protocole-ndjson.md))
+- **Décision Matching** : rapidfuzz au MVP, agent IA en Post-MVP en renfort et non en remplacement ([ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
+- **Décision Orchestration IA** : PydanticAI dans le sidecar vs agent n8n par webhook ([ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
+- **Décision Matching lib** : rapidfuzz vs fuzzywuzzy ([ADR-008](adrs/008-matching-rapidfuzz-et-agent-ia.md))
+- **Décision Scraping** : délégué à techno-scraper vs intégré à l'app ([ADR-006](adrs/006-scraping-delegue-techno-scraper.md))
+- **Décision Sources** : Beatport puis Bandcamp en automatique, SoundCloud en URL manuelle seulement ([ADR-009](adrs/009-enchainement-sources-et-arbitrage.md))
+- **Décision Enchaînement des sources** : modale à deux temps vs appel Bandcamp spéculatif vs seconde modale après remise en file ([ADR-009](adrs/009-enchainement-sources-et-arbitrage.md))
+- **Décision Candidats affichés** : zone grise seulement vs tous les résultats avec leur score ([ADR-009](adrs/009-enchainement-sources-et-arbitrage.md))
+- **Décision i18n** : ngx-translate vs Transloco vs `@angular/localize` ([ADR-004](adrs/004-i18n-ngx-translate.md))
 - **Décision Formats playlist** : VLC SQLite + M3U8 vs TXT Rekordbox (le M3U8 couvre Rekordbox, Traktor, foobar et VLC avec un seul parser ; le TXT dépend de la langue d'export, donc fragile)
 - **Décision Copy/Move** : toggle avec copie par défaut vs déplacement (la bibliothèque source reste intacte pendant que le re-tagging réécrit les fichiers ; une ligne de différence à l'implémentation)
 - **Décision Requête de recherche** : tags ID3 avec repli sur le nom de fichier vs nom de fichier seul (couvre aussi bien les fichiers déjà à peu près taggés que les téléchargements sauvages nommés `track01.mp3`)
-- **Décision Écriture** : batch final avec plan persisté au fil de l'eau vs écriture immédiate (l'écriture est locale et dure quelques secondes, l'anticiper ne gagne rien et coûte un dossier à moitié renommé en cas de crash, un écran de confirmation qui ne confirme plus rien, et une seconde passe après la phase URL manuelle ; le risque de perdre une session d'arbitrage se corrige en persistant le plan, pas en écrivant les fichiers)
+- **Décision Écriture** : batch final avec plan persisté au fil de l'eau vs écriture immédiate ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md))
+- **Décision Emplacement du plan** : `appLocalDataDir()` vs dossier destination ([ADR-010](adrs/010-ecriture-batch-et-plan-de-run.md))
 - **Décision Arbitrage** : pipeline qui continue en fond vs mise en pause (le flux d'événements NDJSON est de toute façon imposé par la barre de progression ; une fois là, continuer en fond coûte quelques dizaines de lignes et masque le temps d'arbitrage derrière le temps réseau)
-- **Décision Formats de fichiers** : MP3, WAV, AIFF et FLAC vs MP3 seul comme la CLI actuelle (une bibliothèque DJ mélange les achats Beatport et Bandcamp ; M4A écarté, absent des circuits d'achat DJ ; coût réel de deux tables de correspondance, couvertes par mutagen)
-- **Décision Champs écrits** : tout ce que l'API renvoie, sans cases à cocher (qui peut le plus peut le moins ; un champ récupéré mais non écrit est une information perdue pour rien, et Rekordbox recalcule BPM et key par analyse audio donc aucun conflit possible)
-- **Décision Champs absents** : un `null` ne touche pas au tag existant vs écrasement systématique (la couverture Bandcamp est bien plus pauvre que celle de Beatport, écraser rendrait un tagging Bandcamp destructif sur des fichiers déjà renseignés)
-- **Décision Emplacement du plan** : `appLocalDataDir()` vs dossier destination (le plan est un état de session, pas un livrable ; le dossier de musique peut être déplacé ou renommé, ce qui casserait la reprise)
-- **Décision Cache** : TTL 30 jours et plafond 500 Mo en éviction LRU (le dossier de cache doit pouvoir être supprimé à tout moment sans rien casser, seulement des appels réseau à repayer)
-- **Décision Rapport** : JSON + Markdown vs Markdown seul (le JSON est la source de vérité relue par l'app et la base de l'envoi de feedback, le Markdown en est le rendu lisible hors application)
-- **Décision Monitoring** : Sentry pour les crashs uniquement vs événements métier (le plan gratuit plafonne à 5 000 erreurs par mois et **jette silencieusement** les suivantes : noyer les crashs sous de la télémétrie ferait perdre le vrai bug quand il arrive)
-- **Décision vie privée** : durcissement du SDK plutôt que consentement (une case à cocher n'empêche aucune donnée de partir, la configuration si), scrubbing des chemins, région EU, aucun titre de morceau envoyé automatiquement
-- **Décision Clé API** : une clé par utilisateur saisie dans les Settings vs clé partagée embarquée (une clé compilée dans le binaire est extractible, et la révoquer obligerait à rediffuser l'app à tout le monde)
-- **Décision Cibles** : Windows seul au MVP, macOS et Linux en Post-MVP (aucun utilisateur Mac confirmé à ce jour, et la cible coûtait à elle seule 99 $/an de notarisation, un runner macOS facturé x10 en CI et un second build PyInstaller ; sans notarisation, Gatekeeper bloque au premier lancement et le contournement par Contrôle-clic ne suffit plus depuis macOS Sequoia)
+- **Décision Formats de fichiers** : MP3, WAV, AIFF et FLAC vs MP3 seul comme la CLI actuelle ([ADR-011](adrs/011-politique-ecriture-tags.md))
+- **Décision Champs écrits** : tout ce que l'API renvoie, sans cases à cocher ([ADR-011](adrs/011-politique-ecriture-tags.md))
+- **Décision Champs absents** : un `null` ne touche pas au tag existant vs écrasement systématique ([ADR-011](adrs/011-politique-ecriture-tags.md))
+- **Décision Cache** : TTL 30 jours et plafond 500 Mo en éviction LRU ([ADR-013](adrs/013-cache-disque-jetable.md))
+- **Décision Rapport** : JSON + Markdown vs Markdown seul ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- **Décision Monitoring** : Sentry pour les crashs uniquement vs événements métier ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- **Décision vie privée** : durcissement du SDK plutôt que consentement ([ADR-014](adrs/014-observabilite-sentry-et-rgpd.md))
+- **Décision Cibles** : Windows seul au MVP, macOS et Linux en Post-MVP ([ADR-015](adrs/015-cibles-distribution-windows.md))
 - **Décision Compatibilité DJ en tête du Post-MVP** (2026-10-23) : avant l'édition manuelle (un WAV tagué reste illisible dans Rekordbox, format courant chez les DJ)
-- **Décision Tonalité FLAC** (2026-10-23) : `KEY` et `INITIALKEY` avec la même valeur vs `INITIALKEY` seul (Rekordbox ne lit que le second, VirtualDJ préfère un `KEY` périmé au second)
+- **Décision Tonalité FLAC** (2026-10-23) : `KEY` et `INITIALKEY` avec la même valeur vs `INITIALKEY` seul ([ADR-011](adrs/011-politique-ecriture-tags.md))
 - **Décision Ordre du Post-MVP** : édition manuelle, tests bout-en-bout puis agent IA vs agent IA en premier (l'édition manuelle comble à moindre coût le dernier trou de la chaîne de résolution ; le filet e2e précède l'agent IA, plus gros changement de comportement à venir ; macOS et Linux, formats de playlist, faux positifs antivirus et canal beta suivent la demande ; les faux positifs n'ont bloqué aucun utilisateur à la recette du 2026-10-21, d'où leur place parmi ces derniers)
 - **Décision Démo web en tête du Post-MVP** (2026-10-25) : avant la compatibilité DJ (vitrine du portfolio sans dépendance aux autres features : elle rejoue le comportement existant)
-- **Décision Démo web** (2026-10-25) : rejeu d'un run enregistré vs sidecar sur le serveur vs sidecar dans le navigateur via Pyodide (le serveur exigerait la clé API et exposerait au public un proxy vers techno-scraper, sur un sidecar Windows only ; Pyodide 314.0.7 n'a pas de wheel `rapidfuzz` et n'exécute pas les threads dont dépend `asyncio.to_thread` ; le rejeu garde tout le métier dans le sidecar et ne laisse que des fichiers statiques sur le serveur)
-- **Décision Données de la démo** (2026-10-25) : tout fictif vs vrais artistes et titres (les CGU Beatport couvrent métadonnées et pochettes ; des métadonnées inventées sur de vrais morceaux seraient trompeuses ; aucun gain pour le public du portfolio)
-- **Décision Build de la démo** (2026-10-25) : image construite en CI et poussée sur GHCR vs build par Dokploy depuis Git (aucun build sur le VPS de l'API, clé PrimeNG déjà en secret GitHub, déploiement déclenché par le tag)
-- **Décision Hébergement de la démo** (2026-10-25) : projet Dokploy dédié à l'app (`Techno Tagger`, service `techno-tagger-demo` dans l'environment par défaut `production`, révisé le 2026-10-26 : Dokploy ne renomme ni ne supprime l'environment par défaut) vs projet commun aux démos vs Compose du portfolio (une démo partage le cycle de vie de son app ; un projet Dokploy n'isole rien, l'isolation vient de l'Isolated Deployment ; le réseau du portfolio est précisément ce que la démo ne doit pas voir)
-- **Décision Rattrapage par URL de la démo** (2026-10-25) : un seul morceau, lien pré-rempli vs tous les morceaux à décision (chaque morceau rattrapable multiplie les combinaisons à enregistrer ; un seul suffit à montrer le geste)
-- **Décision Bandeau de la démo** (2026-10-25) : lien « Me contacter » vs lien de téléchargement (l'app est privée et n'est pas distribuée publiquement ; le portfolio reste le point de contact)
+- **Décisions Démo web** (2026-10-25) : rejeu d'un run enregistré vs sidecar sur le serveur vs sidecar dans le navigateur via Pyodide, données fictives, image construite en CI, projet Dokploy dédié, rattrapage par URL sur un seul morceau, lien « Me contacter » plutôt que téléchargement ([ADR-023](adrs/023-demo-web-par-rejeu.md))
 - **Décision Dépôt** : dépôt neuf vs évolution de `BeatportScrapper-TrackTagger` (la CLI sert de référence à lire, rien n'est porté tel quel, l'arborescence à plat ne correspond pas à la structure Tauri)
 
 **Principes directeurs :**
@@ -429,8 +407,6 @@ Rien à mettre en place tant que la distribution ne s'élargit pas : le canal se
 - Aucun fichier n'est modifié sans confirmation explicite, et les champs de tags d'origine restent récupérables le temps de la rétention du dump (30 jours).
 - Le dossier de cache est jetable par définition : le supprimer ne doit jamais casser un run.
 - **Ce n'est pas un produit.** Pas de multi-tenant, pas de compte, pas de facturation, jamais.
-
-> Ordre de développement : [ARCHITECTURE.md § Ordre de développement](ARCHITECTURE.md#ordre-de-développement).
 
 **Références :**
 

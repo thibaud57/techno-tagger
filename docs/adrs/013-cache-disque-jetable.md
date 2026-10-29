@@ -1,5 +1,5 @@
 ---
-title: "ADR-013 — Cache disque jetable : TTL 30 jours, plafond 500 Mo, LRU"
+title: "ADR-013 : Cache disque jetable : TTL 30 jours, plafond 500 Mo, LRU"
 status: "accepted"
 description: "Les réponses de l'API et les pochettes sont mises en cache sur disque, avec une politique d'expiration et d'éviction telle que la suppression du dossier ne casse jamais un run."
 date: "2026-08-02"
