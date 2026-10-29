@@ -1,5 +1,5 @@
 ---
-title: "ADR-012 — Sécurité de la clé API : keyring et clé par utilisateur"
+title: "ADR-012 : Sécurité de la clé API : keyring et clé par utilisateur"
 status: "accepted"
 description: "La clé X-API-Key vit dans le sidecar Python et est stockée dans le trousseau de l'OS via keyring, avec une clé distincte et révocable par utilisateur."
 date: "2026-08-02"
@@ -90,7 +90,7 @@ Le choix du modèle de distribution découle du coût de la révocation. Une cl�
 - La clé est chiffrée par le Credential Manager Windows, sans code de chiffrement à écrire ni à auditer
 - Elle n'apparaît ni dans le protocole NDJSON (hors la commande de saisie), ni dans les logs, ni dans les rapports, ni dans les payloads Sentry
 - Une clé compromise se révoque pour une seule personne, sans rediffusion
-- Le binaire distribué ne contient aucun secret, ce qui rend le dépôt public sans risque de fuite (cf. [ADR-021](021-visibilite-du-depot.md))
+- Le dépôt public ne risque aucune fuite par le binaire (cf. [ADR-021](021-visibilite-du-depot.md))
 
 ## Négatives
 

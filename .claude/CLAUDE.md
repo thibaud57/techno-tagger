@@ -11,7 +11,7 @@ Métier : Python 3.14.10 (sidecar autonome empaqueté par PyInstaller, protocole
 | Doc | Rôle | Lire pour... |
 |-----|------|-------------|
 | [BRAINSTORM.md](../docs/BRAINSTORM.md) | Vision, features | Comprendre le projet et son périmètre |
-| [ARCHITECTURE.md](../docs/ARCHITECTURE.md) | Architecture, contrat NDJSON, ADRs | Décisions techniques, structure, ordre de développement |
+| [ARCHITECTURE.md](../docs/ARCHITECTURE.md) | Architecture, contrat NDJSON, ADRs | Décisions techniques, structure |
 | [VERSIONS.md](../docs/VERSIONS.md) | Versions exactes, compatibilité croisée | Dépendances, pièges de packaging |
 | [DESIGN.md](../docs/DESIGN.md) | Design system, mapping composants | Conventions UI |
 | [PRODUCTION.md](../docs/PRODUCTION.md) | Release, distribution, observabilité | Publier, déboguer, gérer un incident |
@@ -23,7 +23,7 @@ Métier : Python 3.14.10 (sidecar autonome empaqueté par PyInstaller, protocole
 
 ### Standards
 
-- **Tout le métier vit dans le sidecar Python** : scoring, seuils, classement des candidats, lecture et écriture des tags, plan de run. L'interface affiche ce qu'elle reçoit et émet des commandes, `src-tauri/src/` se limite à l'initialisation des plugins. Une règle métier écrite en TypeScript ou en Rust est au mauvais endroit, quelle que soit sa taille. C'est aussi ce qui gouverne l'[ordre de développement](../docs/ARCHITECTURE.md#ordre-de-développement) : le métier avant l'interface, et le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
+- **Tout le métier vit dans le sidecar Python** : scoring, seuils, classement des candidats, lecture et écriture des tags, plan de run. L'interface affiche ce qu'elle reçoit et émet des commandes, `src-tauri/src/` se limite à l'initialisation des plugins. Une règle métier écrite en TypeScript ou en Rust est au mauvais endroit, quelle que soit sa taille. C'est aussi ce qui gouverne l'ordre de développement : le métier avant l'interface, et le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
 - **Aucune ligne de scraping dans ce dépôt** : techno-scraper est la seule source de données, via son API et le header `X-API-Key`. Le dépôt est public, et c'est ce qui rend la distribution anonyme possible.
 - **Aucun fichier musical n'est modifié avant la confirmation globale du run**, et les tags d'origine sont sauvegardés avant toute réécriture. Le coût d'une erreur ici est la bibliothèque de l'utilisateur, pas un test rouge.
 - **Rien de personnel ne quitte la machine** : SDK Sentry durci, aucun événement métier envoyé, et aucun titre de morceau ne part sans un geste manuel explicite. Les rapports et les logs restent en local.

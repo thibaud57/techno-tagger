@@ -1,5 +1,5 @@
 ---
-title: "ADR-018 — Versionnement du plan de run et du rapport JSON"
+title: "ADR-018 : Versionnement du plan de run et du rapport JSON"
 status: "accepted"
 description: "Le plan et le rapport portent un numéro de version de schéma. Un plan de version inconnue est refusé avec un message explicite, un rapport de version antérieure est migré."
 date: "2026-08-29"
@@ -84,7 +84,7 @@ Un plan ou un rapport écrit par une version antérieure doit-il rester exploita
 
 Le champ de version est posé **dès la première version** sur les deux artefacts. L'ajouter après coup laisserait une génération d'artefacts non identifiables, précisément le cas que le mécanisme doit éviter.
 
-Le schéma du plan est figé à l'étape 3 de l'ordre de développement, en même temps que le protocole NDJSON, ce qui limite structurellement le nombre de changements après le MVP.
+Le schéma du plan est figé, en même temps que le protocole NDJSON, ce qui limite structurellement le nombre de changements après le MVP.
 
 ---
 

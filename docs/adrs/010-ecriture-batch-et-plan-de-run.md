@@ -1,5 +1,5 @@
 ---
-title: "ADR-010 — Écriture batch en fin de run et plan persisté au fil de l'eau"
+title: "ADR-010 : Écriture batch en fin de run et plan persisté au fil de l'eau"
 status: "accepted"
 description: "Aucun fichier n'est modifié avant confirmation globale, mais chaque décision est écrite immédiatement dans un plan JSON stocké dans appLocalDataDir, ce qui rend la reprise triviale."
 date: "2026-08-02"
@@ -95,7 +95,6 @@ Le plan vit dans `appLocalDataDir()` et non dans le dossier destination : c'est 
 
 - Les fichiers musicaux sont dans un état cohérent quoi qu'il arrive avant la confirmation
 - Un run interrompu est détecté au lancement suivant, avec une reprise sans risque puisque rien n'a été touché
-- Le dump JSON des tags d'origine, fait en une passe juste avant l'écriture, rend le rollback par run ou par morceau possible
 - La phase d'écriture est séparable et testable sans réseau ni interface
 
 ## Négatives

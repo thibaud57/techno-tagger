@@ -1,5 +1,5 @@
 ---
-title: "ADR-008 — Matching : rapidfuzz au MVP, agent IA en renfort Post-MVP"
+title: "ADR-008 : Matching : rapidfuzz au MVP, agent IA en renfort Post-MVP"
 status: "accepted"
 description: "rapidfuzz remplace fuzzywuzzy comme moteur de matching, et l'agent IA PydanticAI reste un mode activable Post-MVP qui intervient en renfort du fuzzy, jamais à sa place."
 date: "2026-08-02"
@@ -103,7 +103,7 @@ L'orchestration reste dans le sidecar via **PydanticAI**, pas dans un agent n8n 
 
 - Les cas sémantiques (translittération, orthographe approximative, artiste mal découpé) restent des échecs au MVP, rattrapés seulement par la saisie d'URL
 - Les seuils par défaut sont à recalibrer : ceux de la CLI ne sont pas transposables tels quels, le contrat de sortie de l'API ayant changé
-- Post-MVP, deux chemins de code à maintenir, et une section Settings dédiée (clé du fournisseur, sélection du modèle)
+- Une section Settings dédiée Post-MVP (clé du fournisseur, sélection du modèle)
 - La liste des modèles proposés ne doit pas être codée en dur, sous peine de maintenance à chaque sortie ; le mécanisme reste à définir
 
 ---

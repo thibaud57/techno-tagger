@@ -1,5 +1,5 @@
 ---
-title: "ADR-001 — Coquille desktop : Tauri v2"
+title: "ADR-001 : Coquille desktop : Tauri v2"
 status: "accepted"
 description: "Choix de Tauri v2 comme coquille desktop, contre Electron, pour une application dont tout le métier vit dans un sidecar Python."
 date: "2026-08-02"
@@ -79,7 +79,6 @@ Le Rust reste une zone morte : `src-tauri/src/lib.rs` se limite à l'initialisat
 
 - Installeur Windows léger, téléchargement rapide chez des utilisateurs non techniques
 - Le modèle de permissions Tauri permet de n'accorder que le lancement du sidecar et le périmètre `fs` réellement nécessaire
-- L'updater signé est fourni, avec vérification cryptographique gratuite
 - Aucune dépendance Node à l'exécution
 
 ## Négatives

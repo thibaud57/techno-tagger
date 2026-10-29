@@ -1,5 +1,5 @@
 ---
-title: "ADR-019 — Lecture du dump VLC : sélection de playlist et résilience au schéma"
+title: "ADR-019 : Lecture du dump VLC : sélection de playlist et résilience au schéma"
 status: "accepted"
 description: "La requête SQL est embarquée dans le code, la playlist est choisie dans l'interface au lieu d'être codée en dur, et le schéma est vérifié avant tout traitement."
 date: "2026-08-29"
@@ -12,7 +12,7 @@ technologies: ["SQLite", "Python", "VLC"]
 
 Le cas d'usage principal est une playlist curée sur téléphone dans VLC Android. Cette application **n'a aucune fonction d'export de playlist** : le dump de la médiathèque (`Réglages > Avancé > Dump media database`) est sa seule sortie. Les scripts tiers type `vlc-to-m3u` ne font rien d'autre que lire cette base.
 
-La CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), ce que le BRAINSTORM interprétait comme un signe d'instabilité du schéma. L'inspection du fichier montre autre chose :
+La CLI externalise sa requête SQL dans un fichier (`SQLITE_QUERY_PATH`), ce que le cadrage initial interprétait comme un signe d'instabilité du schéma. L'inspection du fichier montre autre chose :
 
 ```sql
 SELECT DISTINCT m.filename

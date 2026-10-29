@@ -1,5 +1,5 @@
 ---
-title: "ADR-020 — Doublons de noms de fichiers dans la bibliothèque source"
+title: "ADR-020 : Doublons de noms de fichiers dans la bibliothèque source"
 status: "accepted"
 description: "Quand plusieurs fichiers du dossier source portent le même nom, le plus volumineux est retenu et chaque cas est consigné dans le rapport avec les candidats écartés."
 date: "2026-08-02"

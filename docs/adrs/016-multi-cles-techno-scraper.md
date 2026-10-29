@@ -1,5 +1,5 @@
 ---
-title: "ADR-016 — Jeu de clés nommées côté techno-scraper"
+title: "ADR-016 : Jeu de clés nommées côté techno-scraper"
 status: "accepted"
 description: "techno-scraper compare aujourd'hui contre une clé unique. Passage à un jeu de clés nommées chargé depuis l'environnement, pour rendre chaque clé révocable individuellement. Chantier porté par techno-scraper, formalisé dans un brief."
 date: "2026-08-29"

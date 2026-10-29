@@ -1,8 +1,8 @@
 ---
-title: "techno-scraper — API gateway de métadonnées musicales"
-version: "4.2.9"
+title: "techno-scraper : API gateway de métadonnées musicales"
+version: "4.2.12"
 description: "Référence technique pour techno-scraper : authentification, contrat Track normalisé, routes consommées, sémantique d'erreur et bornes de concurrence."
-date: "2026-10-02"
+date: "2026-10-29"
 keywords: ["techno-scraper", "api", "track", "source_title", "beatport", "bandcamp", "soundcloud", "x-api-key"]
 scope: ["docs"]
 technologies: ["httpx2", "Python", "FastAPI", "Pydantic"]
@@ -12,7 +12,7 @@ technologies: ["httpx2", "Python", "FastAPI", "Pydantic"]
 
 API gateway bas niveau qui expose Beatport, Bandcamp et SoundCloud derrière un contrat `Track` unique. C'est la **seule source de données** de techno-tagger : l'application ne scrape rien, ne parse aucun HTML et n'embarque aucune dépendance anti-bot (cf. [ADR-006](../adrs/006-scraping-delegue-techno-scraper.md)).
 
-Le partage des responsabilités est posé par l'[ADR-002 de techno-scraper](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : **l'API ne fait ni fallback entre sources ni matching**. L'enchaînement Beatport → Bandcamp, le scoring rapidfuzz et l'arbitrage appartiennent au consommateur, donc au sidecar. Depuis l'[ADR-012 de techno-scraper](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/012-normalisation-des-champs-texte-en-sortie.md), elle normalise en revanche les champs texte qu'elle rend : le nettoyage du titre et des crédits n'est plus au sidecar.
+Le partage des responsabilités est posé par l'[ADR-002 de techno-scraper](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/002-api-gateway-bas-niveau.md) : **l'API ne fait ni fallback entre sources ni matching**. L'enchaînement Beatport → Bandcamp, le scoring rapidfuzz et l'arbitrage appartiennent au consommateur, donc au sidecar. Elle normalise en revanche les champs texte qu'elle rend ([ADR-012 de techno-scraper](https://github.com/thibaud57/techno-scraper/blob/HEAD/docs/adrs/012-normalisation-des-champs-texte-en-sortie.md)) : le nettoyage du titre et des crédits n'est pas refait par le sidecar.
 
 Contrairement à une dépendance figée par un lockfile, l'API évolue en production sans que rien ne bouge côté application. Tout le contrat est donc isolé dans `scraper_client.py` (anti-corruption layer).
 
@@ -41,7 +41,7 @@ client = httpx2.AsyncClient(
 ### Points Importants
 
 - **Clé absente et clé invalide rendent toutes deux `403`, jamais `401`.** Un `403` ne se retry pas : il remonte à l'utilisateur comme une clé à corriger dans les Settings
-- **Jeu de clés nommées depuis le 2026-10-05** (ADR-013 de techno-scraper, [ADR-016](../adrs/016-multi-cles-techno-scraper.md)) : une variable `API_KEYS__<ID>` par clé, sans repli sur l'ancienne `API_KEY`. L'identifiant (`key_id`) sort dans le log d'accès et en tag Sentry, jamais dans une réponse. Rien ne change pour le sidecar
+- **Jeu de clés nommées** (ADR-013 de techno-scraper, [ADR-016](../adrs/016-multi-cles-techno-scraper.md)) : une variable `API_KEYS__<ID>` par clé, sans repli sur l'ancienne `API_KEY`. L'identifiant (`key_id`) sort dans le log d'accès et en tag Sentry, jamais dans une réponse. Rien ne change pour le sidecar
 - `/openapi.json`, `/docs` et `/redoc` sont **désactivés en production** : la référence de contrat est le repo, pas une doc en ligne
 - Le sidecar est le seul composant à appeler l'API, par la constante `API_BASE_URL` de `scraper_client.py` : la webview n'émet jamais de requête vers l'API et ne connaît pas son URL
 
@@ -77,16 +77,16 @@ Un modèle `Track` unique quel que soit le provider, avec un champ `source` qui 
 
 ### Points Importants
 
-- **Forme vérifiée sur techno-scraper 4.0.0** (`src/technoscraper/shared/schemas.py`, lu le 2026-10-02) : la date, le numéro de catalogue et la pochette vivent sous `release`, jamais à la racine, et `duration` n'existe pas. `Profile` porte bien d'autres champs (`bio`, `location`, `followers`, `social_links`, `kind`) que le sidecar ignore
-- **Un champ nul ne signale pas une erreur mais une source qui ne l'expose pas.** Bandcamp ne rend ni `bpm`, ni `key`, ni `genre`. Sur la page track, `label` vaut le compte hôte dès qu'il ne figure dans aucun crédit (depuis 4.2.7, `is_label` à faux compris), `None` quand le compte est l'artiste lui-même, là où Beatport les remplit tous. La politique d'écriture doit traiter ces nuls comme « champ non écrit », jamais comme « champ à vider » (cf. [ADR-011](../adrs/011-politique-ecriture-tags.md))
+- **Forme vérifiée sur techno-scraper 4.0.0** (`src/technoscraper/shared/schemas.py`, lu le 2026-10-02, entrées de CHANGELOG jusqu'à la 4.2.12 relues le 2026-10-29) : la date, le numéro de catalogue et la pochette vivent sous `release`, jamais à la racine, et `duration` n'existe pas. `Profile` porte bien d'autres champs (`bio`, `location`, `followers`, `social_links`, `kind`) que le sidecar ignore
+- **Un champ nul ne signale pas une erreur mais une source qui ne l'expose pas.** Bandcamp ne rend ni `bpm`, ni `key`, ni `genre`. Sur la page track, `label` vaut le compte hôte dès qu'il ne figure dans aucun crédit (`is_label` à faux compris), `None` quand le compte est l'artiste lui-même, là où Beatport les remplit tous. La politique d'écriture doit traiter ces nuls comme « champ non écrit », jamais comme « champ à vider » (cf. [ADR-011](../adrs/011-politique-ecriture-tags.md))
 - **Convention consommateur : les remixers sont exclus de `artists[]`.** Reconstruire la chaîne artiste pour un tag suppose de décider si `remixers[]` y entre, l'API ne tranche pas à la place du consommateur
 - `mix_name` est un champ à part : le recoller au titre est un choix d'écriture, pas une donnée
 - **La recherche rend moins que le détail, et l'écart dépend de la source.** Sur Beatport, `/beatport/search` passe par le même mapper que `/beatport/tracks/{id}` : seul `track_number` y manque. Sur Bandcamp, `/bandcamp/search` ne rend ni `release.release_date`, ni `label`, ni `isrc`, ni `track_number` : le refetch par URL (`GET /bandcamp/tracks?url=`) est indispensable avant d'écrire
 - `release.artwork_url` pointe le CDN de la source. Son téléchargement ne traverse donc pas l'API et ne consomme aucun de ses sémaphores, d'où le pool séparé de 6 côté sidecar (cf. [ADR-017](../adrs/017-taille-pool-concurrence.md))
 - **`title` est nettoyé par la gateway** (ADR-012 de techno-scraper) : bruit (`Premiere`, `FREE DL`, `320kbps`, emoji, caractères invisibles), version, invité, label connu de la source et code catalogue en sont retirés ; `source_title` garde le texte exact. Un sous-titre entre parenthèses sans mot de version reste dans `title` (« PATT (Party All The Time) »), c'est le seul groupe que le sidecar retire encore, pour comparer à sa requête
-- **`artists` arrive découpé** sur `;`, `/`, `x`, `vs`, `feat`, jamais sur `&` ni `and` (« Pig & Dan » reste un crédit), invités du titre compris ; `remixers` se lit dans la version (« Charlotte de Witte Rework » → Charlotte de Witte). Un champ structuré de la source prime sur le parsing : Beatport garde ses listes v4, SoundCloud son `label_name` et son champ `release`. Exception Bandcamp depuis 4.2.7 : un single posté par un label et crédité à son nom (« hyperionORBIT - Liebe Es Total » chez SporePrint) prend l'artiste du titre, sur un compte label reconnu seulement
-- **Le label injecté dans `artists` est retiré** (bug Beatport, toutes sources) : depuis 4.2.7, la comparaison ignore la casse, un code pays final entre parenthèses et le suffixe Records / Recordings (« KYSH Records » sous le label « KYSH »). Le seul crédit n'est jamais retiré
-- **`label` et `release.catalog_number` lus dans le titre, selon la source** : sur SoundCloud, `label` vaut `label_name`, sinon l'uploader s'il est cité dans le titre, et le catalogue vaut le champ `release` de la source, sinon le code trouvé dans le titre ; sur Bandcamp, le catalogue vient du titre d'album (« Jaunde EP - OFF130 » → `OFF130`) mais `label` ne vient jamais du titre, seulement du compte hôte quand il n'est pas crédité ; un single (sans album) titre `release.title` comme son track, artiste détaché et version gardée (depuis 4.2.7, recherche comprise) ; sur Beatport, seul le catalogue retombe sur le titre de la release quand l'API v4 ne le donne pas
+- **`artists` arrive découpé** sur `;`, `/`, `x`, `vs`, `feat`, jamais sur `&` ni `and` (« Pig & Dan » reste un crédit), invités du titre compris ; `remixers` se lit dans la version (« Charlotte de Witte Rework » → Charlotte de Witte). Un champ structuré de la source prime sur le parsing : Beatport garde ses listes v4, SoundCloud son `label_name` et son champ `release`. Exception Bandcamp : un single posté par un label et crédité à son nom (« hyperionORBIT - Liebe Es Total » chez SporePrint) prend l'artiste du titre, sur un compte label reconnu seulement
+- **Le label injecté dans `artists` est retiré** (bug Beatport, toutes sources) : la comparaison ignore la casse, un code pays final entre parenthèses et le suffixe Records / Recordings (« KYSH Records » sous le label « KYSH »). Le seul crédit n'est jamais retiré
+- **`label` et `release.catalog_number` lus dans le titre, selon la source** : sur SoundCloud, `label` vaut `label_name`, sinon l'uploader s'il est cité dans le titre, et le catalogue vaut le champ `release` de la source, sinon le code trouvé dans le titre ; sur Bandcamp, le catalogue vient du titre d'album (« Jaunde EP - OFF130 » → `OFF130`) mais `label` ne vient jamais du titre, seulement du compte hôte quand il n'est pas crédité ; un single (sans album) titre `release.title` comme son track, artiste détaché et version gardée (recherche comprise) ; sur Beatport, seul le catalogue retombe sur le titre de la release quand l'API v4 ne le donne pas
 
 ---
 
@@ -136,7 +136,7 @@ La distinction est contractuelle et conditionne toute la logique de fallback du 
 404  code=not_found                              → ressource absente (id inconnu ; URL de /soundcloud/resolve ni profil ni morceau)
 422                                              → paramètre de requête invalide, corps FastAPI standard
 500  code=internal_error                         → erreur non gérée côté API
-502  code=parse_error                            → structure de la source changée, côté API
+502  code=parse_error                            → structure de la source changée, ou réponse / jeton de forme inattendue, côté API
 503  code=source_unavailable                     → source injoignable après retries
 503  code=stale_content                          → token Beatport ou SoundCloud déjà expiré à la pose (jamais sur Bandcamp)
 503  code=quota_exceeded (SoundCloud uniquement) → quota de génération de tokens épuisé
@@ -155,7 +155,7 @@ En-tête sur toutes les réponses, succès compris : X-Request-ID
 - **Une `Page[T]` vide n'est jamais une erreur.** C'est le signal « ce morceau n'existe pas sur cette source », qui déclenche le fallback, à distinguer d'une panne qui, elle, ne dit rien sur le morceau
 - **Un `504` ne se retry jamais immédiatement** : il signale une file saturée côté API, et un retry immédiat ne fait qu'y rajouter du travail
 - **Le `504` prime sur le `503`** quand les deux sont possibles : une route enchaînant plusieurs `fetch` dépasse le budget avant d'avoir épuisé ses tentatives. Les deux se traitent pareil (source indisponible), seul le code diffère
-- `502 parse_error` n'est pas actionnable côté application : c'est un parser à corriger côté API. Le morceau se traite comme non résolu, et le rapport doit le distinguer d'un « rien trouvé »
+- **`502 parse_error` couvre aussi une réponse de source de forme inattendue et un jeton dont la durée de vie n'est pas lisible** : l'API valide la forme de chaque réponse de source (le champ fautif est journalisé côté API) et rend cette erreur plutôt que de servir une donnée douteuse ou un jeton de validité inconnue (`token_service.py`, `providers/*/client.py`, lus le 2026-10-29). Il n'est pas actionnable côté application : c'est un parser à corriger côté API. Le morceau se traite comme non résolu, et le rapport doit le distinguer d'un « rien trouvé »
 - **`422` est un contrat cassé, tout `5xx` une source indisponible, `500` compris** : un `422` dit que le sidecar a mal formé sa requête, c'est son bug. Un `500` dit que l'API a planté : le classer en contrat cassé le ferait remonter dans le Sentry du sidecar pour un incident que l'API remonte déjà dans le sien, alors que du point de vue de l'utilisateur la source n'a simplement pas répondu et que le morceau se rejouera. Le `503` couvre trois causes distinctes, traitées pareil : `source_unavailable` (source injoignable après retries, ou coupe-circuit ouvert après un `429`), `stale_content` (token Beatport ou SoundCloud déjà expiré à la pose, levé par `core/token_service.py`, jamais sur Bandcamp qui n'a pas de token) et `quota_exceeded` (quota de génération de tokens épuisé, **SoundCloud uniquement**)
 - **Le retry est à la charge du consommateur** : l'API ne le fait pas pour lui, sa concurrence sortante étant mutualisée entre tous les consommateurs
 - **Le corps d'erreur ne porte ni message ni trace** : `{code, provider, request_id}` sur 404, 502 et 503, sans `provider` sur 400, 500 et 504, et le `{"detail": ...}` par défaut de FastAPI sur 403 et 422. Inutile d'y chercher un texte à afficher, le libellé utilisateur appartient au sidecar. Le `request_id`, repris en en-tête `X-Request-ID` sur toutes les réponses, est le seul lien avec la ligne de log et l'issue Sentry côté API : le journaliser à chaque échec, depuis l'en-tête plutôt que le corps
@@ -227,7 +227,7 @@ Un seul module connaît les URLs, les codes d'erreur et la forme des réponses d
 ### Exemple
 
 ```python
-# scraper_client.py — seul endroit qui connaît le contrat de l'API
+# scraper_client.py: seul endroit qui connaît le contrat de l'API
 # `type` n'existe que sur beatport et bandcamp : /soundcloud/search rend des profils
 async def search_tracks(
     self, source: Literal[Source.BEATPORT, Source.BANDCAMP], query: str

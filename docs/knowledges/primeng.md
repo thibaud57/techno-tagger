@@ -1,5 +1,5 @@
 ---
-title: "PrimeNG v22 — Bibliothèque de composants Angular"
+title: "PrimeNG v22 : Bibliothèque de composants Angular"
 version: "22.1.4"
 description: "Référence technique pour PrimeNG v22 : licence PrimeUI, preset Aura, design tokens, mode sombre forcé, table défilante, détail déplié sous une ligne virtualisée, tabs et icônes SVG."
 date: "2026-10-27"
@@ -12,7 +12,7 @@ technologies: ["Angular", "Tailwind CSS", "Tauri"]
 
 Bibliothèque de composants Angular qui fournit l'essentiel de l'interface : tableaux, modales, formulaires, onglets. Le projet l'utilise en **mode sombre forcé**, cohérent avec les outils DJ et avec un usage nocturne (cf. [ADR-003](../adrs/003-primeng-community-license.md)).
 
-Cette fiche couvre trois paquets indissociables : `primeng` 22.1.4, `@primeuix/themes` 3.0.1 (le moteur de thème, **pas une dépendance transitive**, à déclarer explicitement) et `@primeicons/angular` 8.0.2 (les icônes, tirées par PrimeNG v22).
+Cette fiche couvre trois paquets indissociables : `primeng` 22.1.4, `@primeuix/themes` 3.1.0 (le moteur de thème, **pas une dépendance transitive**, à déclarer explicitement) et `@primeicons/angular` 8.0.2 (les icônes, tirées par PrimeNG v22).
 
 Le détail visuel du projet (tokens retenus, scale typographique, mapping composant par composant) vit dans [DESIGN.md](../DESIGN.md), pas ici.
 
@@ -135,7 +135,7 @@ const TaggerPreset = definePreset(Aura, {
 ```
 
 ```css
-/* styles.css — aligner le variant Tailwind sur le sélecteur PrimeNG */
+/* styles.css: aligner le variant Tailwind sur le sélecteur PrimeNG */
 @custom-variant dark (&:where(.app-dark, .app-dark *));
 ```
 

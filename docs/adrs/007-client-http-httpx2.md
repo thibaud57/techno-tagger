@@ -1,5 +1,5 @@
 ---
-title: "ADR-007 — Client HTTP : httpx2"
+title: "ADR-007 : Client HTTP : httpx2"
 status: "accepted"
 description: "Choix de httpx2, fork de maintenance de httpx repris par l'équipe Pydantic, contre httpx et contre curl_cffi."
 date: "2026-08-02"
