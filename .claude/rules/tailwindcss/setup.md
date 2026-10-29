@@ -30,6 +30,7 @@ paths:
 - `tailwindcss-primeui` n'est plus maintenu activement : un token absent se déclare directement dans `@theme`
 - `--font-sans` alimente `--default-font-family`, que le preflight applique à `html, :host` : une règle `font-family` sur `body` laisserait `font-sans` sur la pile système, écart muet
 - `tailwindStylesheet` remplace `tailwindConfig` de la v3 : sans lui, le plugin ne résout ni le thème ni les plugins et le tri devient approximatif. Il exige Prettier ≥ 3.7 et le paquet est ESM-only
+
 ## Exemples
 ```css
 /* ✅ toute la configuration dans le CSS d'entrée */
@@ -39,7 +40,7 @@ paths:
 @custom-variant dark (&:where(.app-dark, .app-dark *));   /* même sélecteur que darkModeSelector */
 
 @theme {
-  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-sans: 'Example Sans', system-ui, sans-serif;
 }
 
 /* ❌ v3 : directives et config JS */

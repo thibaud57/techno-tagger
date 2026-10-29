@@ -1011,7 +1011,7 @@ Expected: PASS
 - [ ] **Step 6: Contrôler le découpage**
 
 Run: `pnpm exec ng build --stats-json`
-Expected: build vert. Charger `browser-stats.json` dans l'analyseur d'esbuild (esbuild.github.io/analyze) : `resume-dialog.component` figure dans un chunk différé, pas dans les fichiers initiaux (`.claude/rules/angular/lazy-loading.md`).
+Expected: build vert. Charger `browser-stats.json` dans l'analyseur d'esbuild (esbuild.github.io/analyze) : `resume-dialog.component` figure dans un chunk différé, pas dans les fichiers initiaux (`.claude/rules/angular/routing.md`).
 
 - [ ] **Step 7: Documenter**
 

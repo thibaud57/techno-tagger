@@ -65,7 +65,7 @@ Ce sub-project ajoute l'écran récapitulatif d'un run écrit : un bouton « Ré
 ### Ouverture
 
 - **Bouton « Récapitulatif »** : il apparaît dans la page Tagging dès que la phase d'écriture a rendu son bilan, dans un groupe `ml-auto flex gap-2` avec « Restaurer le run » : il y reste visible même quand ni la barre d'écriture ni « Restaurer le run » ne le sont. Il navigue vers `/tagging/recap`. La liste du run reste la vue par défaut après l'écriture : la relance et la restauration y vivent (maquette `Recap`, arbitrage « Relance de l'écriture »).
-- **Route `tagging/recap`** : `loadComponent` en `export default` (`.claude/rules/angular/routing.md`, `.claude/rules/angular/lazy-loading.md`), placée avant le `**`. `tabFromUrl` lit le premier segment, donc l'onglet Tagging reste actif et le retour à la liste passe par « Retour à la liste » dans l'en-tête du récapitulatif.
+- **Route `tagging/recap`** : `loadComponent` en `export default` (`.claude/rules/angular/routing.md`, `.claude/rules/angular/routing.md`), placée avant le `**`. `tabFromUrl` lit le premier segment, donc l'onglet Tagging reste actif et le retour à la liste passe par « Retour à la liste » dans l'en-tête du récapitulatif.
 
 ### Règle des filtres
 

@@ -73,7 +73,7 @@ Exclus : le bouton de l'écran récapitulatif, l'ouverture du navigateur par `op
 
 ### Rules applicables
 
-`.claude/rules/pydantic/modeles.md`, `.claude/rules/python/asyncio.md`, `.claude/rules/python/gestion-erreurs.md`, `.claude/rules/python/pattern-matching.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/python/imports-modules.md`, `.claude/rules/pytest/tests.md`, `.claude/rules/typescript/types.md`, `.claude/rules/angular/services.md`, `.claude/rules/angular/signals.md`, `.claude/rules/angular/tests.md`, `.claude/rules/angular/rxjs-interop.md`
+`.claude/rules/pydantic/modeles.md`, `.claude/rules/python/asyncio.md`, `.claude/rules/python/gestion-erreurs.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/python/imports-modules.md`, `.claude/rules/pytest/tests.md`, `.claude/rules/typescript/types.md`, `.claude/rules/angular/services.md`, `.claude/rules/angular/signals.md`, `.claude/rules/angular/tests.md`, `.claude/rules/angular/rxjs-interop.md`
 
 ## Acceptance criteria
 

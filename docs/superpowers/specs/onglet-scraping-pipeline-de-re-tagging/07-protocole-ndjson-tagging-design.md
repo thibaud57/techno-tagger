@@ -63,7 +63,7 @@ Exclut `resolve_arbitration` et `switch_arbitration_source` (epic `arbitrage-uti
   - l'EOF attend la fin du run : le test d'intégration en dépend, et à la fermeture réelle Tauri arrête le sidecar de toute façon ;
   - une `TaggerError` de la tâche devient un événement `error`, toute autre exception fait tomber le processus par le `TaskGroup`, comme pour la boucle (PRODUCTION.md § Alertes).
 - **Handler** `handle_start_tagging` : lit la clé par `asyncio.to_thread`, ouvre les deux caches sous `app_data_dir() / "cache"`, construit `TechnoScraperClient` et `ArtworkFetcher`, ouvre le run par `open_run` et le confie à la session avant la phase réseau (un morceau se tranche dès qu'il attend), résout par `resolve_run` avec un rappel qui traduit et émet, puis émet `run_finished`. Les transports et le résolveur d'hôte des pochettes viennent de `tagging_transports()`, qui rend `None` pour les deux transports et le résolveur réel en production : les tests remplacent les trois par des doubles, sans toucher au reste (`.claude/rules/pytest/tests.md`).
-- **Traduction des événements** : une fonction par événement interne, `match` fermé par `assert_never` (`.claude/rules/python/pattern-matching.md`). Ajouter un événement au pipeline sans le traduire devient une erreur de typage.
+- **Traduction des événements** : une fonction par événement interne, `match` fermé par `assert_never` (`.claude/rules/python/type-hints.md`). Ajouter un événement au pipeline sans le traduire devient une erreur de typage.
 - **Logs** : le handler ne logue rien de plus que le pipeline. Une erreur de run est loguée une seule fois, par la boucle, comme les erreurs métier existantes.
 
 ## Acceptance criteria

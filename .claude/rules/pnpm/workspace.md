@@ -23,6 +23,7 @@ paths:
 - Mélanger `npm install` et `pnpm install` sur le même dépôt : deux lockfiles cohabiteraient sans se voir
 - Éditer `pnpm-lock.yaml` à la main, y compris pour résoudre un conflit
 - `actions/setup-node` en plus de `pnpm/setup` : la seconde installe déjà le runtime
+
 ## Gotchas
 - Les scripts tournent sous `bash` (`scriptShell`) : utiliser `$npm_package_name` et `$npm_package_version` plutôt qu'une valeur recopiée
 - `devEngines.packageManager` ajoute un premier document (`packageManagerDependencies`) à `pnpm-lock.yaml` : le graphe de dépendances GitHub ne lit que lui, les alertes de sécurité npm ne sont pas fiables tant que dependabot-core#15904 est ouverte (ouverte au 2026-10-28) (veille par `just audit-ui`, cf. VERSIONS.md § Dependabot). Ne jamais ajouter le champ legacy `packageManager` en plus

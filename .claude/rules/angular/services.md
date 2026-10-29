@@ -14,8 +14,8 @@ paths:
 - Injecter directement dans les composants un service d'état propre à l'interface (saisie en cours, modale ouverte, demande de sortie) : il ne tient rien du sidecar et n'a pas à passer par son routage
 - Garder dans `core/sidecar/` les types miroir du contrat NDJSON (`protocol.ts`), maintenus à la main faute de package partagé avec le sidecar
 - Réserver `providers` sur un composant aux cas où l'état doit être isolé et réinitialisé avec lui
+
 ## À éviter
-- Toute logique métier dans un service Angular : lecture et écriture des tags, scoring, appels à techno-scraper et plan de run vivent dans le sidecar Python
 - `providedIn: 'platform'` et `providedIn: Module`, obsolètes avec les composants standalone
 - Instancier un service avec `new` en dehors des tests
 

@@ -97,7 +97,7 @@ Ce sont deux `dataclass(frozen=True, slots=True)` (`.claude/rules/python/modeles
 
 - Erreurs et logs : `.claude/rules/python/gestion-erreurs.md`, jeu de clés logfmt fixe, jamais de titre.
 - Modèles : `.claude/rules/pydantic/modeles.md`.
-- Types : `.claude/rules/python/type-hints.md`, `.claude/rules/mypy/strict.md`, `.claude/rules/python/pattern-matching.md` (`match` sur `DetectedPlan`).
+- Types : `.claude/rules/python/type-hints.md`, `.claude/rules/mypy/strict.md` (`match` sur `DetectedPlan`).
 - Imports : `.claude/rules/python/imports-modules.md`.
 - Fichiers : `.claude/rules/python/fichiers-io.md`.
 - Lint : `.claude/rules/ruff/lint-format.md`.

@@ -17,6 +17,7 @@ paths:
 - `continue-on-error: true` sur un step du gate qualité : il rend le job vert malgré l'échec. Seule exception, les steps `just audit-*`, non bloquants par décision
 - Tester `conclusion` après un `continue-on-error` pour détecter l'échec : c'est `outcome` qui porte le résultat brut, `conclusion` valant `success`
 - Compter sur `[skip ci]` pour éviter un run : cela ne s'applique qu'aux events `push` et `pull_request` et prive la PR de son gate
+
 ## Gotchas
 - Un job qui échoue fait sauter (`skipped`, pas `cancelled`) les jobs qui en dépendent par `needs:`, sans toucher aux jobs parallèles déjà démarrés. Un job dépendant ne tourne quand même qu'avec `if: ${{ !cancelled() }}` ou `always()`
 - `concurrency` ne garde qu'un run en attente par groupe : un nouveau run pending annule le pending précédent, même avec `cancel-in-progress: false`

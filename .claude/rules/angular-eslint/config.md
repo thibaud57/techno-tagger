@@ -7,15 +7,8 @@ paths:
 # angular-eslint : configuration du lint
 
 ## À faire
-- Écrire une flat config à deux blocs, TypeScript puis HTML dans cet ordre
-- Poser `processor: angular.processInlineTemplates` sur le bloc TypeScript, sans quoi les templates inline échappent au lint
-- Étendre `angular.configs.templateRecommended` **et** `angular.configs.templateAccessibility` : l'accessibilité n'est pas dans le preset recommandé
 - Activer le typed linting (`parserOptions.projectService: true`) **et** étendre `strictTypeChecked` plus `stylisticTypeChecked` : `projectService` seul n'active aucune règle typée
-- Activer `@typescript-eslint/switch-exhaustiveness-check` et `@typescript-eslint/prefer-readonly` en `error` : `strictTypeChecked` ne les inclut pas
-- Régler `@typescript-eslint/no-extraneous-class` avec `allowWithDecorator: true` : un composant sans logique est une classe vide décorée, ce que le preset strict interdit par défaut
-- Ancrer `tsconfigRootDir` explicitement : `src/`, `src-tauri/` et `sidecar/` cohabitent, un mauvais ancrage résout le mauvais tsconfig
 - Fixer les préfixes par `component-selector` et `directive-selector`, alignés sur le CLI
-- Placer `eslint-config-prettier/flat` en dernier : il désactive, donc tout bloc placé après le rétablirait
 - Installer par `ng add angular-eslint` (le paquet umbrella), pas par les paquets `@angular-eslint/*` séparés
 - Passer `--max-warnings 0` en CI, sinon les warnings s'accumulent sans jamais bloquer
 
@@ -30,6 +23,4 @@ paths:
 - `prefer-on-push-component-change-detection` a changé de sens en v22 : OnPush étant implicite, la règle cible les opt-out (`Default` / `Eager`). Une config antérieure à la v22 vise l'inverse
 - `prefer-standalone` rejette `standalone: false` et depuis 22.6.0 `allowExplicitStandalone: false` signale aussi `standalone: true` comme redondant ; `inject-at-top` et `require-switch-default` existent depuis 22.1.0
 - Un fichier hors des tsconfig produit une erreur de parsing, pas une violation : `--exit-on-fatal-error` sort en code 2 et distingue une config cassée d'un code fautif
-- `typescript-eslint` contraint TypeScript sous 6.1 (cf. [typescript/types.md](../typescript/types.md))
-- Prettier 3.9.4 reformate `@content(name)` en `@content (name)` côté parser Angular
 - `npx eslint-config-prettier <fichier>` liste les règles encore en conflit

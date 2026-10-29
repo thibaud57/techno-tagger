@@ -48,7 +48,7 @@ Exclut le service et le store Angular de l'écriture (sub-project 08), l'écran 
 - **Événements** : `track_resolved` du `RunWriter` traduit comme ceux du pipeline (états `written`, `write_error`, motifs d'écriture) ; `WriteProgress` devient `progress(phase=write)`. `run_finished` compte `resolved`, `unresolved`, `written`, `write_error` et les attentes d'arbitrage sur l'état de chaque morceau, dans les deux phases
 - **Traduction** : `to_protocol_event` couvre `PipelineEvent` (pipeline, arbitrage, rattrapage, écriture), `match` fermé par `assert_never` ; PLR0911 neutralisé avec sa justification, une sortie par événement traduit
 - **Miroir TypeScript** (ADR-005, manuel) : commandes, `TrackState` (`written`, `write_error`), `TrackFailureReason` (six motifs), `RunFinishedEvent` (`written`, `write_error`). Le comportement de l'interface reste au sub-project 08, qui traite `phase_busy` reçu sur `start_tagging` comme un refus de lancement : il ne clôt pas le run affiché
-- **Erreurs** dans `__main__.py`, à côté de `TaggingInProgressError`, traduites dans les deux langues (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`, `.claude/rules/python/asyncio.md`, `.claude/rules/python/pattern-matching.md`)
+- **Erreurs** dans `__main__.py`, à côté de `TaggingInProgressError`, traduites dans les deux langues (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`, `.claude/rules/python/asyncio.md`, `.claude/rules/python/type-hints.md`)
 
 ## Acceptance criteria
 

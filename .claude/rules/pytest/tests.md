@@ -7,18 +7,15 @@ paths:
 
 ## À faire
 - Asserter le comportement observable (événements émis, fichier écrit), pas les appels internes : sur-mocker couple le test à l'implémentation
-- Garder par un test toute valeur recopiée entre deux manifestes quand aucune dérivation n'est possible : la divergence ne se verrait qu'à l'exécution du bundle. `test_main.py` porte nom, identifiant, binaire, versions et filtres des lockfiles de release-please
-- Écrire les `ids` de parametrize en anglais, comme les noms de tests
+- `test_main.py` porte la garde de cohérence des valeurs recopiées entre manifestes : nom, identifiant, binaire, versions et filtres des lockfiles de release-please (cf. « Une valeur, une source » du `CLAUDE.md` projet)
 - Typer un remplaçant de test sous n'importe quelle signature par le Protocol `Replacement` de `tests/helpers/stubs.py`, jamais par `Callable[..., T]`
-- Mocker le client techno-scraper par le `MockTransport` natif d'httpx2, injecté via le paramètre `transport` du client
+- Mocker le client techno-scraper par le `MockTransport` natif d'httpx2, injecté via le paramètre `transport` du client : `respx` et `pytest-httpx` ne supportent pas httpx2 (cf. [httpx2/client.md](../httpx2/client.md))
 - `monkeypatch` pour une valeur, un attribut ou une variable d'environnement (annulation automatique) ; `unittest.mock.patch(..., autospec=True)` quand un `Mock` complet est nécessaire : sans `autospec`, un changement de signature passe inaperçu
-- `@pytest.mark.parametrize(..., ids=[...])` pour les jeux de données, un cas par échec localisé
+- `@pytest.mark.parametrize(..., ids=[...])` pour les jeux de données, `ids` en anglais comme les noms de tests, un cas par échec localisé
 - `pytest.raises(MonErreur, match=...)` et `excinfo.group_contains(...)` pour l'`ExceptionGroup` d'un `TaskGroup`
 - Chercher dans `sidecar/tests/helpers/` le fake ou le pilote avant d'en écrire un ; un helper y entre dès qu'un deuxième test en a besoin et un double unitaire (HTTP, audio, enregistrements) n'importe jamais le harnais de run (`tagging_api`). `conftest.py` ne garde que les fixtures
 
 ## À éviter
-- Tester mutagen, rapidfuzz, httpx2 ou la stdlib : un test qui casse à la mise à jour d'une dépendance est un test à supprimer, hors des deux exceptions voulues listées au No-lib-test du `CLAUDE.md` projet
-- `respx` et `pytest-httpx` : ni l'un ni l'autre ne supporte httpx2 (cf. [httpx2/client.md](../httpx2/client.md))
 - Un appel réseau ou Sentry réel : les deux sont toujours mockés, aucun test ne consomme le quota, sauf `test_sentry_payload.py`, qui initialise le vrai SDK par `init_sentry` avec un transport factice retenant l'enveloppe : aucun réseau, aucun quota
 - Élargir le `scope` d'une fixture qui porte de l'état mutable
 
