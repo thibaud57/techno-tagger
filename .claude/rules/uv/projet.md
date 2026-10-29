@@ -14,25 +14,15 @@ paths:
 - Poser `required-version` sous `[tool.uv]` sur la mineure d'uv : seule source de la version, uv refuse de tourner hors plage sur le poste et `setup-uv` la lit en CI. À monter avec `uv_build`
 - Poser `package = true` pour installer le projet en editable, ce qui rend le sidecar importable sans manipuler `PYTHONPATH`
 - Ajouter un outil de développement par `uv add --dev` et une dépendance de packaging par `uv add --group build`
-- Committer `uv.lock` dans le même commit que le `pyproject.toml` modifié
-- En CI : `setup-uv` sans `version` dans l'action composite `.github/actions/setup-uv` (`version-file: sidecar/pyproject.toml`, le pyproject n'est pas à la racine), installer par `uv sync --locked --all-groups`
 - Borner `uv_build` dans `[build-system]` sur la même mineure que `required-version` : `test_main.py` le garde
 - Fixer l'interpréteur par `uv python pin`, en gardant `.python-version` dans la plage de `requires-python`
 
 ## À éviter
-- Éditer `uv.lock` à la main : il se régénère, il ne se corrige pas
-- `uv sync` nu en CI : une re-résolution silencieuse rend le build non reproductible
 - Laisser uv sans `required-version` ou sur `latest` : un bump mineur peut rejeter le lock commité. Un `version` sur `setup-uv` dupliquerait le pyproject et divergerait à la montée suivante
-- Lancer un outil du projet hors de `uv run`, ou par `uvx` : il viendrait d'un autre environnement ou d'un environnement éphémère, dans les deux cas non verrouillé
 - Confondre `.python-version` (préférence locale) et `requires-python` (contrat du projet)
 - Créer un venv manuellement à côté de celui géré par uv, ou utiliser `pip`, `venv` ou `poetry` en parallèle
 
 ## Gotchas
-- Le format d'`uv.lock` fait partie de l'API publique d'uv et ne peut être rejeté qu'entre versions mineures
 - Depuis 0.12.16, le backend `uv_build` embarqué ne sert que si sa version satisfait la plage de `[build-system]` : un uv plus ancien que le plancher retélécharge le backend depuis l'index à chaque build
-- uv préfère les versions déjà verrouillées : une nouvelle version en amont ne périme pas le lockfile tant que les contraintes sont satisfaites, il n'y a pas d'upgrade implicite
-- `--frozen` n'inspecte même pas la fraîcheur du lock (aucun accès réseau), là où `--locked` échoue explicitement en cas de dérive : choisir selon qu'on veut subir ou détecter
-- `uv remove` retire aussi les transitives devenues orphelines : le lock rétrécit, c'est normal
-- `uv sync` supprime les paquets absents du lock, sauf avec `--inexact`
 - `uv build` produit sdist et wheel, pas le binaire du sidecar : c'est PyInstaller, lancé par `uv run` (cf. [pyinstaller/build.md](../pyinstaller/build.md))
 - L'interpréteur installé par uv est celui qu'embarquera PyInstaller : sa version décide des wheels utilisées

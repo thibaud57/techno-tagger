@@ -76,7 +76,7 @@ Ce sub-project ajoute l'annonce d'un run interrompu au lancement (`ResumeStore` 
 
 ### Invite
 
-`ResumeDialogComponent` vit dans `shared/components/`, car il est monté dans le shell, comme `CloseConfirmationComponent` (`.claude/rules/angular/components.md`). Le shell le monte dans sa branche non bloquée et le diffère comme les deux autres modales : `@defer (when interruptedRun() !== null; prefetch on idle(5s))` (`.claude/rules/angular/routing.md`).
+`ResumeDialogComponent` vit dans `shared/components/`, car il est monté dans le shell, comme `CloseConfirmationComponent` (`.claude/rules/angular/components.md`). Le shell le monte dans sa branche non bloquée et le diffère comme les deux autres modales : `@defer (when interruptedRun() !== null; prefetch on idle(5s))` (`.claude/rules/angular/lazy-loading.md`).
 
 **Forme** :
 - `p-dialog` modal, `[closable]="false"`, largeur `w-120` (celle de la `Dialog` d'`AppShell`) ;

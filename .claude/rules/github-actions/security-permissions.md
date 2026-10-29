@@ -10,7 +10,7 @@ paths:
 
 ## À faire
 - Déclarer `permissions:` explicitement : `contents: read` sur le workflow, tout scope supplémentaire, en lecture (`pull-requests: read`) comme en écriture, sur le seul job qui en a l'usage
-- Laisser `permissions: contents: read` sur le job `release-please` : ses droits d'écriture viennent du token de la GitHub App, borné par les inputs `permission-*` (cf. [workflows.md](workflows.md))
+- Laisser `permissions: contents: read` sur le job `release-please` : ses droits d'écriture viennent du token de la GitHub App, borné par les inputs `permission-*` (cf. [app-token.md](app-token.md))
 - Épingler chaque action tierce, actions composites locales comprises, sur le SHA de son tag avec la version en commentaire, jamais sur un tag flottant : un tag peut être réaffecté ou traîner avant un correctif et seul le SHA laisse Dependabot proposer la montée
 - Tenir les réglages Actions du dépôt public : token par défaut `restricted`, Actions non autorisées à créer et approuver une PR (release-please ouvre la sienne avec le token de la GitHub App de release), policy de SHA pinning, approbation de tous les contributeurs externes pour les PR de fork et `dependabot[bot]` dans les actor rules s'il y en a (état relevé dans [PRODUCTION.md § Réglages Actions du dépôt](../../../docs/PRODUCTION.md#réglages-actions-du-dépôt))
 - Laisser Dependabot (écosystème `github-actions`) faire remonter les bumps d'actions en PR mensuelle, gate qualité compris
