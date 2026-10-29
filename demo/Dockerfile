@@ -1,7 +1,7 @@
 # Contexte de build : la racine du depot (`docker build -f demo/Dockerfile .`).
 
 # Debian et non alpine : `scriptShell: bash` de pnpm-workspace.yaml exige bash.
-FROM node:24.22.1-slim AS build
+FROM node:26.13.0-slim AS build
 
 # Meme valeur que devEngines.packageManager.version, gardee par test_demo_image_coherence.py.
 ARG PNPM_VERSION=12.15.0

@@ -29,7 +29,7 @@ paths:
 - Depuis la v10, les scripts de cycle de vie des dépendances ne tournent plus à l'installation : un paquet non approuvé se voit en module manquant **à l'exécution**
 - `pnpm/setup` v3 exige pnpm 11 ou plus et détecte seul un `.node-version`, un `.nvmrc` ou un `.tool-versions` : l'input `runtime` explicite prime sur ces fichiers
 - pnpm 12 : `--frozen-lockfile false` n'existe plus (`--no-frozen-lockfile`) et une clé inconnue de `pnpm-workspace.yaml` est signalée par un warning qui suggère la bonne orthographe
-- Un correctif de sécurité sur une transitive épinglée en exact par son parent passe par `overrides` dans `pnpm-workspace.yaml` (vite 8.3.5 face à l'épingle de `@angular/build`, au 2026-10-27) : commenter le pourquoi et la condition de retrait, retirer l'entrée dès que le parent relève son épingle
+- Un correctif de sécurité sur une transitive épinglée en exact par son parent passe par `overrides` dans `pnpm-workspace.yaml` : commenter le pourquoi et la condition de retrait, retirer l'entrée dès que le parent relève son épingle
 - Un outil qui résout le lockfile sans passer par la CLI pnpm ignore `minimumReleaseAge` : `pnpm install --frozen-lockfile` échoue alors sur une transitive trop fraîche
 - `exec` lance ce qui est installé, `dlx` récupère depuis le registre à la volée : ce ne sont pas des synonymes
 - `hoist=true` par défaut hoiste dans `node_modules/.pnpm/node_modules`, zone interne qui ne casse pas l'isolation de la racine
