@@ -9,8 +9,8 @@
 Un seul projet ici, composants et maquette ensemble. Trois sources se lisent dans cet ordre avant
 d'implémenter un écran :
 
-1. `docs/DESIGN.md` fait foi sur les règles et les composants. Le projet Claude Design a été
-   généré depuis lui (son `readme.md` § 1), jamais depuis le code.
+1. `docs/DESIGN.md` fait foi sur les règles et les composants. Le design system a été
+   généré depuis lui (son `README.md` § 1), jamais depuis le code.
 2. La maquette fait foi sur **à quoi l'écran ressemble**. Là où DESIGN.md se tait, c'est une
    proposition à trancher, puis à écrire dans DESIGN.md. Là où les deux se contredisent,
    DESIGN.md gagne.
@@ -249,13 +249,9 @@ Ce que le code livre et que le design system n'a pas encore, à pousser au proch
   libellé de sa clé par `·`, clé en `text-muted-color`, sur demande explicite du propriétaire. Distant
   relu identique à l'export avant le push, réserve n° 29, `_ds_needs_recompile` posé.
 - **2026-10-29, migration en artifact** : le projet devient l'artifact Design System
-  https://claude.ai/artifact/S9PoPCEm7Kv6SzyKhjGpP3, mis au format (« Finish setting up ») le même
-  jour. Export local relu contre un export frais du projet d'origine : 189 sources identiques, seul
-  `_ds_bundle.js` local datait d'avant le push du 2026-10-23, remplacé par le bundle recompilé. Le
-  site claude.ai/design ferme le 2026-12-14 (aide Anthropic « Move from standalone Claude Design to
-  Claude »).
-- **2026-10-29, copie locale alignée sur l'artifact** : l'artifact, complété des 18 cartes de
-  guidelines et de la maquette « Application », ses vues de groupe et cartes de marque rendues
-  fidèles à l'ancien projet, est téléchargé en entier (271 fichiers) à la place de l'ancien export.
-  `components/bundle.css` rendu autonome (police et styles rétablis dans les aperçus), vues de groupe
-  renommées `<Groupe>Card` pour lever 6 collisions de casse avec les dossiers de sources.
+  https://claude.ai/artifact/S9PoPCEm7Kv6SzyKhjGpP3, mis au format (« Finish setting up »), complété
+  des 18 cartes de guidelines et de la maquette « Application » (vues de groupe et cartes de marque
+  rendues fidèles à l'ancien projet), puis téléchargé en entier (271 fichiers) à la place de l'ancien
+  export, anciens fichiers sous `archived/`. `components/bundle.css` rendu autonome (police et styles
+  rétablis dans les aperçus), vues de groupe renommées `<Groupe>Card` pour lever 6 collisions de casse
+  avec les dossiers de sources.
