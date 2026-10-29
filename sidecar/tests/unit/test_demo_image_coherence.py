@@ -33,13 +33,10 @@ def _package_field(*keys: str) -> str:
     return value
 
 
-def test_keeps_the_image_node_major_equal_to_package_json_engines() -> None:
-    """La CI suit deja `engines` (`test_the_ci_node_major_is_declared_in_engines`)."""
-    image_major = _match(r"^FROM node:(\d+)[\d.]*-slim", DOCKERFILE)
-    engines_major = re.search(r"\d+", _package_field("engines", "node"))
+def test_installs_the_node_version_pinned_by_dev_engines() -> None:
+    pinned = _package_field("devEngines", "runtime", "version")
 
-    assert engines_major
-    assert image_major == engines_major.group(0)
+    assert _match(r"^FROM node:(\S+)-slim", DOCKERFILE) == pinned
 
 
 def test_installs_the_pnpm_version_pinned_by_dev_engines() -> None:

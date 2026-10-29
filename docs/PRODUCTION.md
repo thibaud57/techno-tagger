@@ -431,11 +431,11 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 | Dépendances Node (pnpm) | Mensuelle / sur CVE | PR Dependabot (écosystème `npm`) → CI verte → merge |
 | Crates Rust (cargo) | Mensuelle / sur CVE | PR Dependabot (écosystème `cargo`) → CI verte → merge |
 | Actions GitHub | Mensuelle | PR Dependabot (écosystème `github-actions`) |
-| Images de base de la démo (`node`, `nginx-unprivileged`) | Mensuelle | PR Dependabot (écosystème `docker`, dossier `/demo`) → CI verte, `demo-image` comprise → merge. Une majeure de Node se monte avec `engines.node` et le runtime de `setup-pnpm` : `test_demo_image_coherence.py` échoue sinon |
+| Images de base de la démo (`node`, `nginx-unprivileged`) | Mensuelle | PR Dependabot (écosystème `docker`, dossier `/demo`) → CI verte, `demo-image` comprise → merge. Une montée de Node se fait avec `devEngines.runtime` : `test_demo_image_coherence.py` échoue sinon |
 | Tauri (majeure) | Sur release majeure | PR dédiée, guide de migration, **build + smoke test d'installation obligatoires** avant merge |
 | Angular / PrimeNG (majeures) | Sur release majeure | PR dédiée, `ng update`, vérification visuelle des écrans |
 | Runtime Python du sidecar | Sur fin de support | Bump dans `pyproject.toml` et `.python-version`, rebuild PyInstaller, **retester les faux positifs antivirus** |
-| Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `.github/actions/setup-pnpm` et d'`engines.node`. Node 26 est LTS depuis le 2026-10-28 (bascule faite le 2026-10-29). Prochaine échéance : Node 28, calendrier nodejs/Release à revérifier |
+| Runtime Node du build | Au passage LTS de la ligne suivante | Bump manuel de `devEngines.runtime` (Dependabot ne le monte pas, dependabot-core#13722) et du tag de `demo/Dockerfile`. Node 26 est LTS depuis le 2026-10-28 (bascule faite le 2026-10-29). Prochaine échéance : Node 28, calendrier nodejs/Release à revérifier |
 | Outils (uv, pnpm) | Sur montée retenue dans VERSIONS.md | Bump de `required-version` et `uv_build` dans `sidecar/pyproject.toml`, ou de `devEngines.packageManager` dans `package.json` (puis `pnpm install` pour le lockfile) : seuls endroits où vivent ces versions, la CI les lit |
 | Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. Clé valable 12 mois avec 30 jours de grâce, décidée par l'[ADR-003](adrs/003-primeng-community-license.md) (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
 
