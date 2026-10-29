@@ -102,11 +102,11 @@ La ligne d'arbitrage correspondante rejoint `docs/DESIGN.md`.
   - Boutons `size="small"`, « Plus tard » texte `secondary`, « Installer » `primary`, désactivé avec tooltip sous l'élément pendant un travail.
   - Rules : `.claude/rules/angular/components.md`, `.claude/rules/primeng/composants.md`, `.claude/rules/tailwindcss/utilitaires.md`.
 - **Shell** :
-  - La modale est montée en `@defer (when …; prefetch on idle(5s))` dans la branche non bloquée (`.claude/rules/angular/routing.md`).
+  - La modale est montée en `@defer (when …; prefetch on idle(5s))` dans la branche non bloquée (`.claude/rules/angular/lazy-loading.md`).
   - Le badge est un bouton portant un `p-tag` `info`, icône `download`, ajouté au groupe `gap-2` des badges. Il rouvre la modale et reste visible jusqu'au lancement suivant.
 - **Icône `download`** : import `@primeicons/angular/download`, nom dans `ICON_NAMES`, `imports`, `@case`. Le test de liste existant la couvre.
 - **Libellés** : bloc `update` dans les deux fichiers, une phrase par ligne, espace insécable avant `:` et `?`, vouvoiement, « l'application » et jamais « l'app » (`.claude/rules/ngx-translate/i18n.md`).
-- Rules applicables : `.claude/rules/angular/services.md`, `.claude/rules/angular/signals.md`, `.claude/rules/angular/components.md`, `.claude/rules/angular/routing.md`, `.claude/rules/angular/app-config.md`, `.claude/rules/angular/tests.md`, `.claude/rules/primeng/composants.md`, `.claude/rules/tailwindcss/utilitaires.md`, `.claude/rules/ngx-translate/i18n.md`, `.claude/rules/sentry/angular.md`, `.claude/rules/typescript/types.md`, `.claude/rules/tauri/config-bundle.md`, `.claude/rules/design/claude-design.md`. ADRs : ADR-001, ADR-014, ADR-018 (le plan de run survit à la mise à jour).
+- Rules applicables : `.claude/rules/angular/services.md`, `.claude/rules/angular/signals.md`, `.claude/rules/angular/components.md`, `.claude/rules/angular/routing.md`, `.claude/rules/angular/lazy-loading.md`, `.claude/rules/angular/app-config.md`, `.claude/rules/angular/tests.md`, `.claude/rules/primeng/composants.md`, `.claude/rules/tailwindcss/utilitaires.md`, `.claude/rules/ngx-translate/i18n.md`, `.claude/rules/sentry/angular.md`, `.claude/rules/typescript/types.md`, `.claude/rules/tauri/config-bundle.md`, `.claude/rules/design/claude-design.md`. ADRs : ADR-001, ADR-014, ADR-018 (le plan de run survit à la mise à jour).
 
 ## Acceptance criteria
 

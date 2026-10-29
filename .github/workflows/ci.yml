@@ -63,8 +63,14 @@ jobs:
       - run: just test-sidecar
       # Non bloquant : une CVE publiee en amont ne doit pas figer une PR sans rapport ;
       # la Checklist Release oblige a lire le resultat (PRODUCTION § Dependances).
-      - run: just audit-sidecar
+      - name: Audit dependencies sidecar
+        id: audit-sidecar
+        run: just audit-sidecar
         continue-on-error: true
+      # `continue-on-error` conclut le step en succès : sans ce warning, un audit rouge passe inaperçu.
+      - name: Signaler l'échec de l'audit sidecar
+        if: steps.audit-sidecar.outcome == 'failure'
+        run: echo "::warning title=Audit des dépendances sidecar::just audit-sidecar a relevé des vulnérabilités"
 
   ui:
     name: Webview (eslint, tsc, build, vitest)
@@ -93,8 +99,13 @@ jobs:
       - run: just build-demo
       - run: just test-ui
       # Non bloquant, meme raison que pour le sidecar
-      - run: just audit-ui
+      - name: Audit dependencies UI
+        id: audit-ui
+        run: just audit-ui
         continue-on-error: true
+      - name: Signaler l'échec de l'audit UI
+        if: steps.audit-ui.outcome == 'failure'
+        run: echo "::warning title=Audit des dépendances UI::just audit-ui a relevé des vulnérabilités"
 
   tauri:
     # Exception documentee au defaut ubuntu-24.04 : la coquille ne cible que
