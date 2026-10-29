@@ -527,7 +527,7 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 
 ## Maquette et design system externes
 
-- **Design system** : [Techno Tagger Design System](https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5) : miroirs JSX, typages et fiches d'usage des composants du mapping, plus les tokens et les guidelines. Bâti depuis ce document, qui l'emporte sur les règles et les composants
+- **Design system** : [Techno Tagger Design System](https://claude.ai/artifact/S9PoPCEm7Kv6SzyKhjGpP3), artifact Claude : miroirs JSX, typages et fiches d'usage des composants du mapping, plus les tokens et les guidelines. Bâti depuis ce document, qui l'emporte sur les règles et les composants
 - **Maquette** : le même projet, dossier `ui_kits/techno-tagger/` : un fichier par écran (Playlist, Tagging, Réglages), la modale d'arbitrage et le shell. Fait foi sur l'apparence d'un écran là où ce document se tait
 - **Synchronisation et lecture locale** : procédure, journal et export local dans `.design-sync/NOTES.md`
 
