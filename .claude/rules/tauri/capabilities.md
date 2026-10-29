@@ -30,6 +30,7 @@ paths:
 - Un programme hors du scope `shell:allow-spawn` échoue explicitement (`program not allowed on the configured shell scope`), contrairement à un argument
 - `single-instance` et `prevent-default` n'ont aucune permission à déclarer ni paquet npm : la règle d'alignement crate / npm ne les concerne pas
 - Fenêtre sans décorations : `data-tauri-drag-region` exige `core:window:allow-start-dragging`, plus `core:window:allow-internal-toggle-maximize` pour le double-clic, absents de `core:default` ; sans eux la barre ne déplace rien, sans erreur visible
+
 ## Exemples
 ```json
 // ✅ permission ciblée sur le seul sidecar déclaré

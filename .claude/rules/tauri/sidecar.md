@@ -22,7 +22,6 @@ paths:
 ## À éviter
 - `execute()` pour le sidecar : bloque jusqu'à la fin du process, donc plus de barre de progression ni d'arbitrage en cours de run
 - Omettre le suffixe target triple : le binaire est introuvable au lancement et le message d'erreur n'oriente pas vers cette cause
-- Mettre de la logique métier dans les commandes Rust : la frontière du projet est le protocole, pas un appel de fonction
 - Recharger la webview en release : chaque rechargement lance un sidecar de plus sans arrêter le précédent. `tauri-plugin-prevent-default` coupe les raccourcis, pas `location.reload()`
 - Transporter les pochettes en base64 dans le flux NDJSON : l'asset protocol existe pour ça (cf. [config-bundle.md](config-bundle.md))
 

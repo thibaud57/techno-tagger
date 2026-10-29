@@ -23,13 +23,15 @@ paths:
 ## À éviter
 - Envoyer des événements métier (morceau résolu, run terminé) : le quota de 5 000 par mois se remplit et le vrai crash est jeté
 - Activer `send_default_pii` pour « avoir plus de contexte »
-- Ajouter un écran de consentement en croyant régler le sujet : ce qui protège est ce que le SDK envoie- Oublier `pyinstaller-hooks-contrib` et son `hook-sentry_sdk.py` : les intégrations disparaissent sans message clair (cf. [pyinstaller/build.md](../pyinstaller/build.md))
+- Ajouter un écran de consentement en croyant régler le sujet : ce qui protège est ce que le SDK envoie
+- Oublier `pyinstaller-hooks-contrib` et son `hook-sentry_sdk.py` : les intégrations disparaissent sans message clair (cf. [pyinstaller/build.md](../pyinstaller/build.md))
 
 ## Gotchas
 - `sentry_sdk.init()` peut planter dans le binaire figé : les intégrations sont importées par `importlib.import_module` et le SDK n'intercepte que `DidNotEnable` et `SyntaxError`, pas `ImportError`
 - `LoggingIntegration` est active par défaut avec `level=logging.INFO` : tout log INFO devient un breadcrumb attaché au prochain événement, chemin complet ou titre de morceau compris. `level=None` coupe les breadcrumbs, `event_level=None` et `sentry_logs_level=None` les deux autres canaux du logging
 - 2.70.0 : `data_collection` passe en premier niveau ; une montée qui ajoute une catégorie la laisse ouverte, le garde-fou de `test_sentry_payload.py` la signale. Aucune catégorie ajoutée en 2.72.0 ni 2.73.0 (`data_collection.py` de 2.73.0, 2026-10-27)
 - 2.68.0 : `enable_logs` et `enable_metrics` deviennent des no-op, suppression à la prochaine majeure. Les exemples 1.x sont invalides (`with_locals` renommé `include_local_variables`, API Hub remplacée par les scopes)
+
 > Ces réglages ne dispensent pas du scrubbing : ils ferment les canaux les plus larges, pas tous. La clé API ne doit apparaître dans aucun event (cf. [keyring/secrets.md](../keyring/secrets.md) et [ADR-014](../../../docs/adrs/014-observabilite-sentry-et-rgpd.md)).
 
 ## Exemples

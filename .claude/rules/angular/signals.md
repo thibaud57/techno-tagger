@@ -12,7 +12,6 @@ paths:
 - Créer un nouvel objet ou tableau dans `.set()` / `.update()` : retourner la même référence ne notifie aucun consommateur
 - Utiliser `linkedSignal()` pour un état dérivé modifiable qui doit se réinitialiser quand sa source change (playlist sélectionnée, candidat retenu dans une file qui se réduit)
 - Passer par la forme `{ source, computation }` de `linkedSignal()` quand la sélection courante doit survivre au changement de source et par son option `set: (value, rawSet) => void` (22.1) pour rediriger une écriture vers la source
-- Exposer les signals d'un service en lecture seule avec `.asReadonly()` et garder le `WritableSignal` privé
 - Réserver `effect()` aux side-effects : persistance dans le `store` Tauri, DOM externe, log
 - Créer un `effect()` dans un injection context (champ de classe ou constructeur), sinon lui passer l'option `injector`
 
@@ -27,6 +26,7 @@ paths:
 - Angular 22 : `resource()` et `httpResource()` passent stables, ils étaient expérimentaux jusqu'en 21
 - Angular 22 : `debounced()` est expérimental et retourne une `Resource<T>`, pas un signal : les consommateurs doivent traiter l'état `loading` pendant la fenêtre de debounce
 - Une erreur levée dans un `computed()` est mise en cache et relancée à la lecture suivante, après changement d'une dépendance
+
 ## Exemples
 ```typescript
 // ✅ État privé, lecture publique, dérivation par computed

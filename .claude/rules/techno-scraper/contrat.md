@@ -10,7 +10,6 @@ paths:
 
 ## À faire
 - Isoler dans `scraper_client.py` tout ce qui vient de l'API : URLs, codes HTTP, noms de champs. Un changement d'API ne doit toucher qu'un fichier et un code HTTP qui fuit dans le code métier fait perdre son intérêt à la couche anti-corruption
-- Mapper vers des modèles internes à la frontière : un champ ajouté côté API reste ignoré tant que le mapping ne le lit pas
 - Traiter `200` + `items: []` comme « ce morceau n'existe pas sur cette source » et enchaîner le fallback ; réserver l'échec aux `5xx`, `500` compris (un `500` est une panne de l'API, déjà dans son Sentry, pas un contrat cassé)
 - Refetch avant d'écrire des tags : par id sur Beatport (`GET /beatport/tracks/{id}`, seul `track_number` manque en recherche), par URL sur Bandcamp (`GET /bandcamp/tracks?url=`, ni date, ni label, ni ISRC, ni numéro de piste en recherche)
 - Renvoyer `next_cursor` tel quel sous le nom qu'attend la route : `cursor`, ou `tracks_cursor` sur `/soundcloud/resolve` et `/soundcloud/users/{id}`
@@ -26,7 +25,8 @@ paths:
 ## À éviter
 - Retryer immédiatement un `504` : la file de l'API est déjà saturée, le retry l'allonge, le morceau part en erreur (cf. [ADR-017](../../../docs/adrs/017-taille-pool-concurrence.md)). Retryer un `403` : la clé ne redeviendra pas valide seule
 - Décoder ou fabriquer un curseur : il est opaque, forward-only et son encodage change avec la source
-- Appeler Bandcamp spéculativement : source bornée à 2, l'appel n'a de sens qu'après un échec Beatport- Mapper une réponse de `/soundcloud/resolve` sans regarder la clé `profile` : la route rend `UserProfile | Track` selon l'URL
+- Appeler Bandcamp spéculativement : source bornée à 2, l'appel n'a de sens qu'après un échec Beatport
+- Mapper une réponse de `/soundcloud/resolve` sans regarder la clé `profile` : la route rend `UserProfile | Track` selon l'URL
 - Compter les téléchargements de pochettes dans le pool de l'API : `artwork_url` pointe le CDN de la source
 
 ## Gotchas

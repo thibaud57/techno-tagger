@@ -79,7 +79,7 @@ Exclut l'appel réseau (sub-project 02), l'enchaînement Beatport puis Bandcamp 
   - `Classification.scored` garde le score de chaque candidat scoré, pour le rapport et le recalibrage des seuils. Le pipeline en déduit `no_result` (aucun candidat reçu) ou `below_threshold` (des candidats, aucun en jeu).
 - **Seuils** : `MatchingThresholds(floor=70, ceiling=90)`, seule source des défauts, avec l'invariant `0 <= floor <= ceiling <= 100` vérifié à la construction. Les défauts viennent de la CLI et sont à recalibrer (ADR-008). Les seuils arrivent par `start_tagging` (sub-project 07) et seront réglables dans les Settings (Feature 7).
 - **Scores en flottants**, tels que rapidfuzz les rend : l'arrondi pour l'affichage (« A 96 · T 92 ») relève du protocole et de l'interface.
-- **Modèles internes en dataclasses gelées, `StrEnum` annotés `@verify(UNIQUE)`** : `QueryOrigin` (`tags`, `filename`), `TrackQuery`, `MatchingThresholds`, `ScoredCandidate`, `Outcome` (`auto`, `grey_zone`, `empty`), `Classification` (`.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/type-hints.md`). Le traitement de l'issue par le pipeline se ferme par `assert_never` (`.claude/rules/python/pattern-matching.md`).
+- **Modèles internes en dataclasses gelées, `StrEnum` annotés `@verify(UNIQUE)`** : `QueryOrigin` (`tags`, `filename`), `TrackQuery`, `MatchingThresholds`, `ScoredCandidate`, `Outcome` (`auto`, `grey_zone`, `empty`), `Classification` (`.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/type-hints.md`). Le traitement de l'issue par le pipeline se ferme par `assert_never` (`.claude/rules/python/type-hints.md`).
 
 ## Acceptance criteria
 

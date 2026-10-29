@@ -12,7 +12,6 @@ paths:
 - Construire en `--onedir` et déclarer l'exe en `bundle.externalBin`, le dossier `_internal/` en `bundle.resources` (cf. [ARCHITECTURE.md § Arborescence](../../../docs/ARCHITECTURE.md#arborescence))
 - Rester en mode console (`console=True` du `.spec`) : le mode fenêtré détache `stdin`/`stdout` sous Windows et casse le protocole NDJSON
 - Déclarer `pyinstaller-hooks-contrib` dans le groupe de dépendances de build : sans lui, sentry-sdk perd ses intégrations, silencieusement ou par `ImportError` selon la version
-- Forcer le backend keyring en code par `set_keyring()` : une régression du hook ne se verrait que dans le binaire figé (cf. [keyring/secrets.md](../keyring/secrets.md))
 - Lire le target triple depuis `rustc --print host-tuple` dans `build.py`, jamais en dur et copier le binaire suffixé dans `src-tauri/binaries/`
 - Passer `--noconfirm` en CI, sans exception
 - Garder `--clean` dans `build.py` : l'analyse repart d'un arbre propre, `_build_info.py` (DSN compris) étant créé puis supprimé à chaque build. C'est aussi le premier réflexe quand un hidden import semble ignoré

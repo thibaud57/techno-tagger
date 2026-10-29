@@ -38,14 +38,12 @@ paths:
 
 ## Exemples
 ```json
-// ✅ périmètre du cache uniquement, CSP alignée
+// ✅ périmètre du cache uniquement
 {
   "app": {
     "security": {
-      "assetProtocol": { "enable": true, "scope": ["$APPLOCALDATA/cache/artworks/**"] },
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://*.ingest.de.sentry.io; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'"
-    },
-    "windows": [{ "width": 1280, "height": 800, "minWidth": 1024, "minHeight": 700 }]
+      "assetProtocol": { "enable": true, "scope": ["$APPLOCALDATA/cache/artworks/**"] }
+    }
   }
 }
 

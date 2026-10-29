@@ -120,7 +120,7 @@ Le miroir est maintenu à la main (ADR-005) :
 
 ### Dispatch
 
-Le `match` de `_dispatch` reste fermé par `assert_never` (`.claude/rules/python/pattern-matching.md`). Toute I/O passe par `asyncio.to_thread` et toute tâche est nommée et gardée par référence forte (`.claude/rules/python/asyncio.md`).
+Le `match` de `_dispatch` reste fermé par `assert_never` (`.claude/rules/python/type-hints.md`). Toute I/O passe par `asyncio.to_thread` et toute tâche est nommée et gardée par référence forte (`.claude/rules/python/asyncio.md`).
 
 ### Conventions
 

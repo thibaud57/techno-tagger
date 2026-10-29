@@ -9,7 +9,9 @@ paths:
 - `re.compile()` hors boucle, motifs en raw strings, groupes nommés `(?P<nom>...)` relus par `groupdict()`
 - `re.fullmatch` pour valider un format complet, `re.finditer` pour parcourir un gros texte
 - Se replier sur la chaîne d'origine quand le nettoyage d'une requête la vide : une requête inexploitable n'est pas « rien trouvé »
-- `Counter` pour les compteurs du récapitulatif, `defaultdict(list)` pour regrouper, les doublons de noms de fichiers notamment (cf. [ADR-020](../../../docs/adrs/020-doublons-noms-de-fichiers.md))## À éviter
+- `Counter` pour les compteurs du récapitulatif, `defaultdict(list)` pour regrouper, les doublons de noms de fichiers notamment (cf. [ADR-020](../../../docs/adrs/020-doublons-noms-de-fichiers.md))
+
+## À éviter
 - `re.match` pour valider : il n'ancre qu'au début, `re.match(r"\d+", "12abc")` matche
 - Un `.*` greedy là où une classe négée (`[^>]*`) dit la même chose, plus clairement et plus vite
 - Lire une clé d'un `defaultdict` sans intention de la créer : la lecture crée l'entrée et fausse un `in` ultérieur

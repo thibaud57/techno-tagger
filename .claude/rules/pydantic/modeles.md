@@ -16,7 +16,6 @@ paths:
 # Pydantic : modèles et validation
 
 ## À faire
-- `BaseModel` pour tout ce qui traverse une frontière : commandes et événements du protocole NDJSON, plan de run, rapports JSON
 - `model_config = ConfigDict(extra="forbid", frozen=True)` sur les commandes entrantes : un champ inconnu est une commande malformée, pas un détail à ignorer
 - Laisser `extra="ignore"` (le défaut) sur les réponses de techno-scraper : un champ ajouté côté API ne doit pas casser un run (cf. [ADR-022](../../../docs/adrs/022-modeles-pydantic-du-protocole.md))
 - `model_validate_json(ligne)` pour parser et valider en une passe, `model_dump_json()` pour émettre
@@ -38,10 +37,8 @@ paths:
 ## Gotchas
 - `pydantic-core` est une extension native Rust, seconde extension du sidecar après rapidfuzz : à valider sur le binaire PyInstaller figé, jamais sur les seules sources
 - `extra="ignore"` est le défaut : sans `forbid`, une commande portant un champ en trop passe silencieusement
-- `model_dump_json()` produit une seule ligne, ce qu'exige NDJSON : jamais d'`indent` sur le flux, seulement dans un rapport déposé en fichier
 - Les types TypeScript sont maintenus à la main en miroir de `protocol.py` : tout changement de nom de champ, de valeur d'énumération ou de code d'erreur interprété se répercute des deux côtés, sinon `test_protocol_mirror.py` échoue (types et optionalité non comparés)
 - `strict=True` garde quelques coercions sûres : un `int` reste accepté pour un champ `float`
-- 2.14 : `model_config` n'est plus muté après la définition de la classe et `ser_json_timedelta` ne s'applique plus aux autres types date en sérialisation inférée
 
 ## Exemples
 ```python

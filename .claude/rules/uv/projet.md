@@ -17,7 +17,6 @@ paths:
 - Committer `uv.lock` dans le même commit que le `pyproject.toml` modifié
 - En CI : `setup-uv` sans `version` dans l'action composite `.github/actions/setup-uv` (`version-file: sidecar/pyproject.toml`, le pyproject n'est pas à la racine), installer par `uv sync --locked --all-groups`
 - Borner `uv_build` dans `[build-system]` sur la même mineure que `required-version` : `test_main.py` le garde
-- Lancer tous les outils par `uv run`, PyInstaller compris : c'est ce qui garantit le venv verrouillé
 - Fixer l'interpréteur par `uv python pin`, en gardant `.python-version` dans la plage de `requires-python`
 
 ## À éviter
