@@ -1,7 +1,7 @@
 ---
 title: "PRODUCTION — techno-tagger"
 description: "Documentation opérationnelle de techno-tagger : release, distribution Windows signée, secrets, observabilité, incidents et sauvegarde des actifs critiques."
-date: "2026-10-26"
+date: "2026-10-29"
 keywords: ["production", "release", "tauri", "updater", "pyinstaller", "sentry", "github-releases"]
 scope: ["docs", "ops"]
 technologies: ["Tauri", "Angular", "Python", "PyInstaller", "GitHub Actions", "Sentry", "Docker", "Dokploy"]
@@ -448,6 +448,19 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 > ✅ **Toute mise à jour touchant le packaging se valide par un build complet**, pas par une CI verte : c'est `tauri build` et l'installeur qui cassent, pas les tests unitaires.
 > ❌ **Ne jamais bumper Tauri et le runtime Python dans la même PR** : les deux touchent l'empaquetage, un échec de build ne dirait plus lequel accuser.
 > ⚠️ **Un lot purement `chore:` ne publie rien** : `chore` n'est pas une unité releasable, donc pas de tag et pas de build. Titrer la PR `develop → main` en `fix:` quand le lot corrige une CVE ou une régression, ou forcer via `Release-As: X.Y.Z`.
+
+## Plateforme d'hébergement
+
+Ce que le VPS de la démo web fait tourner sans qu'aucun fichier versionné du dépôt ne le déclare : rien ne signale qu'une version a périmé, d'où ce relevé daté (cf. [VERSIONS.md](VERSIONS.md), périmètre du préambule).
+
+| Composant | Version documentée | Dernière publiée | Relevé le |
+|-----------|--------------------|------------------|-----------|
+| Dokploy | `v0.30.10` | `v0.30.10` (publiée le 2026-10-22) | 2026-10-29 |
+| Docker Engine | à relever | à relever | à relever |
+
+**Version réelle** : `dokploy settings get-dokploy-version` pour Dokploy (source du relevé ci-dessus), `docker version` sur le VPS pour Docker Engine.
+
+**Pièges de montée** : aucun relevé à ce jour.
 
 ---
 

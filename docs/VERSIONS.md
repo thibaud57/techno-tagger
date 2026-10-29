@@ -7,9 +7,9 @@ scope: ["docs", "config", "setup"]
 technologies: ["Python", "Angular", "Tauri", "Rust"]
 ---
 
-> **Périmètre : ce que le dépôt déclare.** Les versions installées sont lues dans les **lockfiles** (`sidecar/uv.lock`, `pnpm-lock.yaml`, `src-tauri/Cargo.lock`), jamais dans les plages des manifestes, et dans les fichiers qui épinglent des outils et des images : `rust-toolchain.toml`, `.github/workflows/`, `.github/actions/`, `demo/Dockerfile`. Relevé le **2026-10-27**. Les dernières versions publiées de chaque entrée (npm, PyPI, crates.io, GitHub, Docker Hub, python.org via endoflife.date) ont été recontrôlées le 2026-10-27 ; les notes de version et les constats d'une fiche gardent la date de leur relevé, citée au point concerné. Les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) sont hors périmètre : elles seront documentées le jour où elles entrent dans un fichier de dépendances.
+> **Périmètre : ce que le dépôt déclare.** Les versions installées sont lues dans les **lockfiles** (`sidecar/uv.lock`, `pnpm-lock.yaml`, `src-tauri/Cargo.lock`), jamais dans les plages des manifestes, et dans les fichiers qui épinglent des outils et des images : `rust-toolchain.toml`, `Justfile`, `.github/workflows/`, `.github/actions/`, `demo/Dockerfile`. Relevé le **2026-10-29**. Les dernières versions publiées de chaque entrée (npm, PyPI, crates.io, GitHub, Docker Hub, python.org via endoflife.date) ont été recontrôlées le 2026-10-27 ; les notes de version et les constats d'une fiche gardent la date de leur relevé, citée au point concerné. Les technos Post-MVP (PydanticAI, WebdriverIO + `tauri-driver`) sont hors périmètre : elles seront documentées le jour où elles entrent dans un fichier de dépendances.
 
-> **La plateforme d'hébergement est hors périmètre.** Le VPS, Docker Engine et Dokploy, qui hébergent la démo web, ne sont déclarés par aucun fichier versionné : ils sont documentés dans [PRODUCTION.md § Liste Environnements](PRODUCTION.md#liste-environnements) et [§ Mise en place de la démo](PRODUCTION.md#mise-en-place-de-la-démo).
+> **La plateforme d'hébergement est hors périmètre.** Le VPS, Docker Engine et Dokploy, qui hébergent la démo web, ne sont déclarés par aucun fichier versionné : ils sont documentés dans [PRODUCTION.md § Plateforme d'hébergement](PRODUCTION.md#plateforme-dhébergement) (versions), [§ Liste Environnements](PRODUCTION.md#liste-environnements) et [§ Mise en place de la démo](PRODUCTION.md#mise-en-place-de-la-démo).
 
 > **Trois écosystèmes, trois gestionnaires de paquets.** `sidecar/` en uv, `src/` en pnpm, `src-tauri/` en cargo. Aucun workspace transverse (cf. [ARCHITECTURE.md § Package Manager](ARCHITECTURE.md#package-manager)). La section « Partagé / Infrastructure » couvre la coquille Tauri et la chaîne CI/CD, qui traversent les trois zones.
 
@@ -65,10 +65,12 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | @sentry/angular | `11.9.0` | ⚠️ | `dataCollection` absent collecte tout, IP comprise : chaque catégorie est fermée explicitement. `peerDependency` : `@angular/core >= 14.x <= 22.x` |
 | @sentry/cli | `3.8.2` | ✅ | Script `sourcemaps` de `package.json` : upload des source maps `hidden` puis suppression de `dist/` |
 | rxjs | `7.8.2` | ✅ | Réservé aux flux dans le temps (événements NDJSON, navigation), exposés aux composants en signals par `toSignal()` |
+| tslib | `2.8.1` | ✅ | Dépendance d'exécution requise par Angular (peer `^2.3.0` d'`@angular/build`), `^2.8.1` dans `package.json`, version lue dans `pnpm-lock.yaml` (relevé le 2026-10-29) |
 | jsdom | `30.1.3` | ✅ | Environnement par défaut de Vitest sous `@angular/build:unit-test`. Plancher Node `^24.15.0 || >=26.0.0` depuis la 30.0.0, couvre l'`engines` du projet (`^26.0.0`) |
 | Vitest | `5.0.5` | ✅ | Runner par défaut du CLI Angular 22, accepté en 5.x par `@angular/build` depuis 22.2.0. `clearMocks` à `true` par défaut |
 | angular-eslint | `22.6.0` | ✅ | ESLint 9+ en flat config uniquement, `.eslintrc` supprimé |
-| Prettier | `3.9.10` | ✅ | Parser Angular suivi jusqu'à `@angular/compiler` 22.1.x. `semi: false` depuis le 2026-09-06, aligné sur le portfolio |
+| @eslint/js | `10.0.1` | ✅ | Preset `recommended` importé par `eslint.config.js`, peer `eslint ^10.0.0` (lue dans `pnpm-lock.yaml`, relevé le 2026-10-29), ajouté par `ng add angular-eslint`. `^10.0.1` dans `package.json` |
+| Prettier | `3.9.10` | ✅ | Parser Angular embarqué dans Prettier : `@angular/compiler` 22.0.6 (lu dans `node_modules/prettier/plugins/angular.js`, relevé le 2026-10-29), contre 22.2.3 installé pour le build. `semi: false` depuis le 2026-09-06, aligné sur le portfolio |
 | prettier-plugin-tailwindcss | `0.8.1` | ✅ | Exige Prettier ≥ 3.7.x et l'option `tailwindStylesheet` en Tailwind v4 |
 
 ## Partagé / Infrastructure
@@ -82,6 +84,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | @tauri-apps/cli | `2.12.4` | ✅ | Refuse au build un paquet npm et une crate de mineures différentes, même garde en CI que pour `@tauri-apps/api` |
 | Plugins Tauri v2 | voir [§ Plugins](#2-plugins-officiels-tauri-v2) | ✅ | Versions crate et npm strictement alignées plugin par plugin, gardées en CI par `test_the_tauri_crates_and_their_npm_packages_are_aligned` (`sidecar/tests/unit/test_main.py`) |
 | Rust | `1.99.1` (stable) | ✅ | Édition 2024. Les images Windows Server 2025 du 2026-10-21 (`win25/20261021.299`, `win25-vs2026/20261021.278`) livrent la 1.99.1, la 1.99.0 auparavant ; `rustup` installe de toute façon la 1.99.1 épinglée. La 1.98.0 contenait une miscompilation corrigée en 1.98.1, la 1.99.0 une autre (booléens FFI renvoyés sur x86_64) corrigée en 1.99.1 |
+| just | `1.58.0` (plancher) | ✅ | Plancher `set minimum-version := "1.58.0"` du `Justfile`, lu par `extractions/setup-just` en CI : la CI installe donc ce plancher, non monté ici. Le poste est en 1.59.0 (`just --version`, relevé le 2026-10-29) |
 | GitHub Actions | voir [§ CI/CD](#4-github-actions) | ✅ | Images figées `windows-2025` (Visual Studio 2026) et `ubuntu-24.04`, jamais de label `-latest` |
 | release-please-action | `5.0.0` | ⚠️ | Le tag créé avec `GITHUB_TOKEN` ne déclenche aucun workflow. Chaînage `needs:` obligatoire |
 | Dependabot | app GitHub intégrée, version non épinglée par le dépôt | ✅ | Écosystèmes `npm`, `uv`, `cargo`, `github-actions` et `docker` (`/demo`) couverts par un seul `dependabot.yml`. PR de mise à jour fonctionnelles ; alertes de sécurité npm non fiables sur le lockfile à deux documents, `just audit-ui` en CI prend le relais (cf. [§ Dependabot](#6-dependabot)) |
@@ -147,7 +150,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 - **0.12.16** : le backend `uv_build` embarqué ne sert que si sa version satisfait les pins actifs. Un uv épinglé plus ancien que le plancher de `[build-system]` retélécharge le backend depuis l'index à chaque build : c'est ce que produisait la plage `>=0.12.19` face à l'uv `0.12.16` de la CI, corrigé le 2026-10-09 en alignant les deux sur `0.12.24`
 - **0.12.19 à 0.12.22** : `uv.lock` omet les réglages de résolution inutilisés et les tables `[manifest]` vides, et enregistre les default groups des membres du workspace. Un lock produit par une version antérieure est réécrit au premier `uv lock`
 - **0.12.24** : les options mal formées d'un fichier `requirements` sont rejetées au lieu d'être ignorées, et les hashes fournis sont vérifiés même avec `--no-require-hashes`
-- **0.13.0** : Python 3.15 devient la version stable par défaut quand rien n'est configuré. Sans effet ici : `sidecar/.python-version` pose `3.14.8` et `requires-python` borne à `<3.15`
+- **0.13.0** : Python 3.15 devient la version stable par défaut quand rien n'est configuré. Sans effet ici : `sidecar/.python-version` pose `3.14.10` et `requires-python` borne à `<3.15`
 - **0.13.0** : les tarballs passent par le backend `tar-codec`, plus strict (liens physiques et extensions non gérés rejetés), et les sdists produits par `uv_build` peuvent changer d'octets donc de hash. Sans effet constaté : `uv sync` construit `tagger` en editable, aucun sdist n'est figé dans `uv.lock`
 - **0.13.0** : `--require-hashes` d'un fichier de contraintes `-c` est respecté, les contraintes éditables sont refusées, `uv build --clear` refuse un répertoire de sortie qui contient la source. Hors usage du projet
 - **0.13.1 à 0.13.6** (2026-10-14 au 2026-10-27) : aucune rupture dans les notes de version (relevé le 2026-10-27). 0.13.5 et 0.13.6 ajoutent les builds CPython 3.14.9 et 3.14.10
@@ -162,7 +165,7 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 **Compatibilité Écosystème** :
 - Politique officielle : « the minor version number is bumped for breaking changes, and the patch version number is bumped for bug fixes ». Le format `uv.lock` fait partie de l'API publique et ne casse donc qu'en bump mineur
 - Dependabot couvre `pyproject.toml` et `uv.lock` nativement via l'écosystème `uv`, en disponibilité générale depuis le 2025-03-13 (cf. [§ Dependabot](#6-dependabot))
-- CI : `astral-sh/setup-uv@v10.3.2`. La doc CI d'Astral montre encore un exemple pinné sur v9.0.0, elle est en retard sur le dépôt
+- CI : `astral-sh/setup-uv@v10.3.3`. La doc CI d'Astral montre encore un exemple pinné sur v9.0.0, elle est en retard sur le dépôt
 - **PyInstaller + interpréteur géré par uv** : ✅ **validé sur le binaire du bootstrap** : il démarre, sort en 0, écrit son log dans `%LOCALAPPDATA%`, et embarque `pydantic_core`, `rapidfuzz.fuzz`, `sentry_sdk.integrations.logging` et `win32ctypes.pywin32.win32cred`. Aucune source officielle ne documente ce couple. La doc `python-build-standalone` signale que les chemins absolus figés dans les métadonnées de build sont corrigés à l'installation par uv, donc le piège connu ne s'applique pas. **Confirmé par le build CI** : le sidecar de la 0.11.0, construit après `uv sync --locked`, est installé et fonctionnel ([PRODUCTION.md § Checklist Distribution](PRODUCTION.md#checklist-distribution), 2026-10-21)
 
 **Recommandation** : ✅ `sidecar/pyproject.toml` est la seule source de la version d'uv : `required-version` fige le minor, le poste et la CI prennent n'importe quel patch de ce minor (`setup-uv` sans `version`, `version-file: sidecar/pyproject.toml` dans l'action composite). Au minor suivant, monter `required-version` et `uv_build` ensemble, `test_main.py` garde leur alignement. Même schéma que pnpm (`devEngines.packageManager`) et que les autres projets uv du poste (aligné le 2026-10-15).
@@ -727,7 +730,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 **Compatibilité Écosystème** :
 - **Tailwind v4 sans `tailwind.config.js`** : « When using Tailwind CSS v4 you must specify your CSS file entry point […] use the `tailwindStylesheet` option in your Prettier configuration. Note that paths are resolved relative to the Prettier configuration file »
 - Le tri des classes couvre nativement `class`, `className`, `:class` et `[ngClass]`
-- Le dépôt Prettier suit activement `@angular/compiler` 22.1.x, signe d'un support à jour du parser Angular
+- Prettier 3.9.10 embarque son propre parser Angular (`@angular/compiler` 22.0.6, lu dans `node_modules/prettier/plugins/angular.js` le 2026-10-29) : il ne suit pas la version d'`@angular/compiler` du build (22.2.3), et un template qui emploie une syntaxe plus récente que la 22.0 serait à vérifier au premier échec de `prettier --check`
 
 **Recommandation** : ✅
 
@@ -811,14 +814,14 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 **Recommandation** : ✅ Poser un `rust-toolchain.toml` épinglant la stable utilisée. Le code Rust se limitant à l'initialisation des plugins (`src-tauri/src/lib.rs`), la seule chose que la CI peut casser est un lint Clippy nouvellement promu, et Clippy déplace régulièrement des lints entre catégories. L'épinglage rend ce risque explicite au lieu de le laisser survenir au gré des mises à jour d'image de runner.
 
 ### 4. GitHub Actions
-**Version actuelle** : voir le tableau des actions ci-dessous, confronté aux workflows et aux actions composites le 2026-10-27 (dates entre parenthèses : publication)
+**Version actuelle** : voir le tableau des actions ci-dessous, confronté aux workflows et aux actions composites le 2026-10-29 (dates entre parenthèses : publication)
 **Stabilité** : ✅
 
 | Action | Version | Notes |
 |---|---|---|
 | `actions/checkout` | `v7.0.1` (2026-07-17) | v7 : migration ESM, blocage du checkout de PR de fork sur `pull_request_target` |
 | `pnpm/setup` | `v3.1.2` (2026-10-25) | Installe pnpm et Node en une étape, à la place d'`actions/setup-node`. **Exige pnpm 11+.** La v3 détecte un fichier de version Node et inclut l'id du run dans la clé de cache ; `runtime: node@26` reste explicite. La v3.1.0 ajoute les inputs `registry` et `save-cache`. Appelée par la seule action composite `.github/actions/setup-pnpm` |
-| `astral-sh/setup-uv` | `v10.3.2` (2026-10-22) | Runtime `node24`. La v10.1.0 vérifie les téléchargements d'uv contre des checksums, la v10.3.0 embarque ceux d'uv jusqu'à 0.13.0. Appelée par la seule action composite `.github/actions/setup-uv` |
+| `astral-sh/setup-uv` | `v10.3.3` | Runtime `node24`. La v10.1.0 vérifie les téléchargements d'uv contre des checksums, la v10.3.0 embarque ceux d'uv jusqu'à 0.13.0. Appelée par la seule action composite `.github/actions/setup-uv` |
 | `dorny/paths-filter` | `v4.0.3` (2026-08-05) | Job `changes` : saute les trois zones sur une PR de markdown seul. La 4.0.3 corrige GHSA-7hc6-8hq5-9q2m (noms de fichiers multi-lignes) |
 | `dtolnay/rust-toolchain` | `@stable` | Pas de semver : la révision **est** la sélection. Le `rust-toolchain.toml` du dépôt prime ensuite sur ce choix |
 | `Swatinem/rust-cache` | `v2.9.3` (2026-10-20) | Supporte le layout de build Cargo V2 |
@@ -919,13 +922,13 @@ Trois contournements, dans l'ordre de préférence :
 | Angular 22.2.3 | Node 26.x (24.x aussi accepté) | ✅ | `engines` : `^22.22.3 \|\| ^24.15.0 \|\| >=26.0.0` |
 | Angular 22.2.3 | PrimeNG 22.1.4 | ✅ | `peerDependency` en `^22.1.0`, pas `22.x` |
 | Angular 22.2.3 | Vitest 5.0.5 | ✅ | Runner par défaut du CLI depuis la v21, peer `^4.0.8 \|\| ^5.0.0` depuis 22.2.0 |
-| Angular 22.2.3 | ngx-translate 18.0.0 | ✅ | « Tested against Angular 18, 19, 20, 21, and 22 » |
+| Angular 22.2.3 | ngx-translate 18.1.0 | ✅ | « Tested against Angular 18, 19, 20, 21, and 22 » |
 | Angular 22.2.3 | @sentry/angular 11.9.0 | ✅ | `>= 14.x <= 22.x` |
 | Angular 22.2.3 | angular-eslint 22.6.0 | ✅ | Alignement de majeure, contrôlé à l'exécution depuis que la 22.2.0 a retiré la peer `@angular/cli` |
 | Angular 22.2.3 | Tauri 2.12.5 | ✅ | `ng build` → `dist/<app>/browser` en `frontendDist`, aucun SSR |
 | jsdom 30.1.3 | Node 26.x | ✅ | `engines` : `^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`, couvre l'`engines` du projet |
 | Angular 22.2.3 | Tailwind 4.3.3 | ✅ | Via `@tailwindcss/postcss` et `.postcssrc.json`, voie recommandée par les deux docs |
-| ngx-translate 18.0.0 | Tauri 2.12.5 | ✅ | Les JSON de traduction sont servis en same-origin depuis `frontendDist`, sans `asset:` |
+| ngx-translate 18.1.0 | Tauri 2.12.5 | ✅ | Les JSON de traduction sont servis en same-origin depuis `frontendDist`, sans `asset:` |
 | TypeScript 6.0.x | typescript-eslint 8.72.1 | ✅ | `>=4.8.4 <6.1.0` |
 | PrimeNG 22.1.4 | @primeuix/themes 3.1.0 | ✅ | À installer explicitement, pas de dépendance transitive |
 | PrimeNG 22.1.4 | @primeicons/angular 8.0.2 | ⚠️ | Dépendance directe, sous licence PrimeUI |
@@ -1038,9 +1041,9 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 **`overrides` de `pnpm-workspace.yaml`** : aucun depuis le 2026-10-29. Le `vite` en `8.3.5` posé le 2026-10-27 est retiré, `@angular/build` 22.2.5 l'épingle lui-même (cf. § Angular).
 
-**devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `5.0.5`, `angular-eslint` en `22.6.0`, `eslint` en `^10.13.0`, `typescript-eslint` en `^8.72.1`, `eslint-config-prettier` en `^10.1.8`, `prettier` en `3.9.10`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.12.4`, `@sentry/cli` en `^3.8.2`, `jsdom` en `^30.1.3`.
+**devDependencies** : `typescript` en `~6.0.0` (tilde, pour rester sous 6.1), `tailwindcss` et `@tailwindcss/postcss` en `4.3.3`, `tailwindcss-primeui` en `0.6.1`, `vitest` en `5.0.5`, `angular-eslint` en `22.6.0`, `eslint` en `^10.13.0`, `@eslint/js` en `^10.0.1`, `typescript-eslint` en `^8.72.1`, `eslint-config-prettier` en `^10.1.8`, `prettier` en `3.9.10`, `prettier-plugin-tailwindcss` en `0.8.1`, `@tauri-apps/cli` en `2.12.4`, `@sentry/cli` en `^3.8.2`, `jsdom` en `^30.1.3`.
 
-> `eslint` en `^10.13.0` : la ligne 9 est marquée dépréciée sur npm, et `angular-eslint` 22.2.0 accepte `^9.0.0 || ^10.0.0`. `ng add angular-eslint` ajoute aussi `@angular-eslint/builder` et `@eslint/js`.
+> `eslint` en `^10.13.0` : la ligne 9 est marquée dépréciée sur npm, et `angular-eslint` 22.6.0 accepte `^9.0.0 || ^10.0.0` (peer lue dans `pnpm-lock.yaml`, relevé le 2026-10-29). `ng add angular-eslint` ajoute aussi `@angular-eslint/builder` et `@eslint/js`.
 
 ### .postcssrc.json
 
@@ -1161,13 +1164,13 @@ Les faux positifs antivirus **ne se vérifient pas ici** : un binaire qui passe 
 - [ ] La table à scroll virtuel tient 100 lignes sans dégradation à 1024×700
 - [ ] À chaque montée de PrimeNG, un détail déplié dans la liste du run reste visible en défilant dans les deux sens, sans ligne vide découverte (cf. § PrimeNG, scroll virtuel de `p-table`)
 
-## Montées Bloquées (état au 2026-10-27)
+## Montées Bloquées (état au 2026-10-29)
 
 Mises à jour majeures écartées par une incompatibilité prouvée, ou identifiées et non tentées.
 
 | Paquet | Actuel | Disponible | Blocage | Levée attendue |
 |---|---|---|---|---|
-| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.1 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-27 : `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.1 déclarent toujours `<6.1`) | TS 7.1 stable avec son API (beta publiée le 2026-10-20), puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
+| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.1 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-29 : `@angular/compiler-cli` 22.2.3 et `typescript-eslint` 8.72.1 déclarent toujours `<6.1`) | TS 7.1 stable avec son API (beta publiée le 2026-10-20), puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
 | Python | `3.14.10` | `3.15` | Aucun blocage technique identifié : décision du projet de rester en 3.14, `requires-python >=3.14,<3.15` (relevé le 2026-10-29) | À définir |
 
 ---

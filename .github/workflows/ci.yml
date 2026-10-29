@@ -97,6 +97,9 @@ jobs:
         continue-on-error: true
 
   tauri:
+    # Exception documentee au defaut ubuntu-24.04 : la coquille ne cible que
+    # Windows (cible MSVC, externalBin du sidecar en .exe). Clippy sous Linux
+    # ne compilerait pas le code reellement livre.
     name: Coquille Tauri (check, clippy)
     needs: changes
     if: needs.changes.outputs.source == 'true'
