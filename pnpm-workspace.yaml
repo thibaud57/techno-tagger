@@ -17,8 +17,3 @@ minimumReleaseAge: 1440
 
 # pnpm lance les scripts via cmd sous Windows, ou $VAR ne s expande pas.
 scriptShell: bash
-
-# @angular/build epingle vite 8.3.0 en exact, touche par six advisories corriges en 8.3.3
-# (dont launch-editor, embarque, severite high). A retirer quand @angular/build releve son epingle.
-overrides:
-  vite: 8.3.5

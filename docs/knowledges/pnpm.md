@@ -2,7 +2,7 @@
 title: "pnpm — Gestionnaire de paquets du frontend"
 version: "12.15.0"
 description: "Référence technique pour pnpm : store et isolation des dépendances, devEngines, installation et shims sur le poste Windows, lockfile, scripts post-install bloqués et installation en CI."
-date: "2026-10-16"
+date: "2026-10-29"
 keywords: ["pnpm", "lockfile", "corepack", "packageManager", "hoisting", "ci", "windows", "shim", "self-update"]
 scope: ["docs"]
 technologies: ["Node.js", "Angular", "Tauri", "GitHub Actions", "Dependabot"]
@@ -63,13 +63,13 @@ public-hoist-pattern:
 # .github/actions/setup-pnpm/action.yml : la version de pnpm vient de package.json
 - uses: pnpm/setup@<sha> # v3.x
   with:
-    runtime: node@24
+    runtime: node@26
 ```
 
 ### Points Importants
 
 - La version résolue s'écrit dans `pnpm-lock.yaml`, dans un premier document YAML (`packageManagerDependencies`) : le lockfile en compte deux, le graphe de dépendances GitHub ne lit que le premier (cf. VERSIONS.md § Dependabot)
-- Corepack est distribué avec Node de la 14.19 jusqu'à la 25 exclue : le projet ne s'en sert pas, la bascule vers Node 26 ne coûte rien de ce côté
+- Corepack est distribué avec Node de la 14.19 jusqu'à la 25 exclue : le projet ne s'en sert pas, et la ligne 26 (LTS depuis le 2026-10-28) n'en embarque pas
 - `pnpm self-update <version>` dans le projet ne met à jour que ce champ et le premier document du lockfile ; hors projet, il met à jour l'installation globale
 - La version épinglée tourne dans le projet, la globale partout ailleurs
 
@@ -159,7 +159,7 @@ Une seule action installe pnpm et Node, appelée par l'action composite locale q
 
 ```yaml
 - uses: actions/checkout@<sha>
-- uses: ./.github/actions/setup-pnpm   # pnpm lu dans package.json, Node 24 écrit une seule fois
+- uses: ./.github/actions/setup-pnpm   # pnpm lu dans package.json, Node 26 écrit une seule fois
 
 - run: pnpm install --frozen-lockfile
 - run: pnpm run build
@@ -256,7 +256,7 @@ pnpm with current install     # une commande avec le pnpm global, en ignorant l'
 - **Résoudre un conflit de lockfile par un `pnpm install`**, jamais à la main
 - **Vérifier `pnpm ignored-builds`** quand une dépendance native se comporte mal
 - **Cibler `public-hoist-pattern` sur le paquet qui l'exige** plutôt que d'activer `shamefully-hoist`
-- **Réserver `overrides` (dans `pnpm-workspace.yaml`) aux correctifs de sécurité d'une transitive que son parent épingle en exact**, avec en commentaire le pourquoi et la condition de retrait : le projet force ainsi vite 8.3.5 au 2026-10-27, `@angular/build` épinglant une 8.3.0 touchée par des advisories corrigés en 8.3.3
+- **Réserver `overrides` (dans `pnpm-workspace.yaml`) aux correctifs de sécurité d'une transitive que son parent épingle en exact**, avec en commentaire le pourquoi et la condition de retrait (aucun `overrides` en place au 2026-10-29)
 - **Mettre pnpm à jour sur le poste par `pnpm self-update` hors du projet, depuis Git Bash**, puis vérifier `cmd //c "pnpm --version"`
 
 ## ❌ Anti-Patterns
