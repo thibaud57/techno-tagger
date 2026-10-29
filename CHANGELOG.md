@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.8](https://github.com/thibaud57/techno-tagger/compare/v1.1.7...v1.1.8) (2026-10-29)
+
+
+### Bug Fixes
+
+* **deps:** Node 26 LTS et montées de dépendances ([#168](https://github.com/thibaud57/techno-tagger/issues/168)) ([6d42eb2](https://github.com/thibaud57/techno-tagger/commit/6d42eb281c1d79b3a5f3e4f4f6639bb1b7f4b2e5))
+
 ## [1.1.7](https://github.com/thibaud57/techno-tagger/compare/v1.1.6...v1.1.7) (2026-10-28)
 
 
