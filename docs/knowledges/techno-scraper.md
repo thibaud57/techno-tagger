@@ -1,6 +1,6 @@
 ---
 title: "techno-scraper — API gateway de métadonnées musicales"
-version: "4.2.7"
+version: "4.2.9"
 description: "Référence technique pour techno-scraper : authentification, contrat Track normalisé, routes consommées, sémantique d'erreur et bornes de concurrence."
 date: "2026-10-02"
 keywords: ["techno-scraper", "api", "track", "source_title", "beatport", "bandcamp", "soundcloud", "x-api-key"]
