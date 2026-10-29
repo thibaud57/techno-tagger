@@ -3,10 +3,12 @@
   "version": "1.1.8",
   "private": true,
   "license": "MIT",
-  "engines": {
-    "node": "^26.0.0"
-  },
   "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.13.0",
+      "onFail": "download"
+    },
     "packageManager": {
       "name": "pnpm",
       "version": "12.15.0",

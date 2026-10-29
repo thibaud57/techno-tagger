@@ -47,23 +47,22 @@ public-hoist-pattern:
 
 ### Description
 
-`devEngines.packageManager` de `package.json` fixe la version de pnpm pour tout le monde : avec `onFail: "download"`, un pnpm d'une autre version télécharge la bonne et la relance. C'est la seule déclaration de la version ; `pnpm/setup` la lit en CI sans input `version`. Le champ legacy `packageManager` (Corepack) n'est pas utilisé.
+`devEngines.packageManager` de `package.json` fixe la version de pnpm pour tout le monde (`devEngines.runtime`, même schéma, fixe celle de Node) : avec `onFail: "download"`, un pnpm d'une autre version télécharge la bonne et la relance. C'est la seule déclaration de la version ; `pnpm/setup` la lit en CI sans input `version`. Le champ legacy `packageManager` (Corepack) n'est pas utilisé.
 
 ### Exemple
 
 ```json
 {
   "devEngines": {
+    "runtime": { "name": "node", "version": "26.13.0", "onFail": "download" },
     "packageManager": { "name": "pnpm", "version": "12.11.2", "onFail": "download" }
   }
 }
 ```
 
 ```yaml
-# .github/actions/setup-pnpm/action.yml : la version de pnpm vient de package.json
+# .github/actions/setup-pnpm/action.yml : les versions de pnpm et de Node viennent de package.json
 - uses: pnpm/setup@<sha> # v3.x
-  with:
-    runtime: node@26
 ```
 
 ### Points Importants

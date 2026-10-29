@@ -49,7 +49,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 |-------------|-------------------|-----------------|----------------|
 | Angular | `22.2.3` | ✅ | OnPush par défaut, `fetch` remplace XHR, `provideRoutes()` supprimé. `@angular/cli` et `@angular/build` suivent leur propre cadence de patch, en `22.2.5` au relevé du 2026-10-29 |
 | TypeScript | `6.0.3` | ✅ | Contrainte dure d'Angular 22 : `>=6.0.0 <6.1.0`. **TS 7 (tsgo) casse `compiler-cli` et `typescript-eslint`**. `noUncheckedIndexedAccess` activé le 2026-09-06 : zéro erreur sur la base existante |
-| Node.js | `26.x` (Active LTS depuis le 2026-10-28) | ✅ | Bascule faite le 2026-10-29, une ligne dans `.github/actions/setup-pnpm`. Installée par `pnpm/setup`, pas par `actions/setup-node` |
+| Node.js | `26.13.0` (Active LTS depuis le 2026-10-28) | ✅ | Épinglé par `devEngines.runtime` (`onFail: download`), lu par pnpm en local et par `pnpm/setup` en CI. Montée manuelle : Dependabot ne la propose pas (dependabot-core#13722, relevé le 2026-10-29) |
 | pnpm | `12.15.0` | ✅ | Réécriture Rust, sous le dist-tag `latest` depuis le 2026-10-21. Épinglé par `devEngines.packageManager` (`onFail: download`), que `pnpm/setup` lit en CI. Lockfile à deux documents depuis le 2026-10-15, cf. § Dependabot |
 | PrimeNG | `22.1.4` | ❌ | Licence PrimeUI avec clé obligatoire même en Community. Le dépôt public ne porte plus que la lignée MIT 21.x, le code 22.x vit dans un dépôt privé. Voir [Conflits Potentiels](#conflits-potentiels) |
 | @primeuix/themes | `3.1.0` | ⚠️ | **Pas une dépendance transitive de PrimeNG**, à déclarer explicitement. Base rem passée de 14px à 16px |
@@ -66,7 +66,7 @@ Zone `src/`, gestionnaire **pnpm**, fichier `package.json` + `pnpm-lock.yaml`.
 | @sentry/cli | `3.8.2` | ✅ | Script `sourcemaps` de `package.json` : upload des source maps `hidden` puis suppression de `dist/` |
 | rxjs | `7.8.2` | ✅ | Réservé aux flux dans le temps (événements NDJSON, navigation), exposés aux composants en signals par `toSignal()` |
 | tslib | `2.8.1` | ✅ | Dépendance d'exécution requise par Angular (peer `^2.3.0` d'`@angular/build`), `^2.8.1` dans `package.json`, version lue dans `pnpm-lock.yaml` (relevé le 2026-10-29) |
-| jsdom | `30.1.3` | ✅ | Environnement par défaut de Vitest sous `@angular/build:unit-test`. Plancher Node `^24.15.0 || >=26.0.0` depuis la 30.0.0, couvre l'`engines` du projet (`^26.0.0`) |
+| jsdom | `30.1.3` | ✅ | Environnement par défaut de Vitest sous `@angular/build:unit-test`. Plancher Node `^24.15.0 || >=26.0.0` depuis la 30.0.0, couvre le Node du projet (`26.13.0`) |
 | Vitest | `5.0.5` | ✅ | Runner par défaut du CLI Angular 22, accepté en 5.x par `@angular/build` depuis 22.2.0. `clearMocks` à `true` par défaut |
 | angular-eslint | `22.6.0` | ✅ | ESLint 9+ en flat config uniquement, `.eslintrc` supprimé |
 | @eslint/js | `10.0.1` | ✅ | Preset `recommended` importé par `eslint.config.js`, peer `eslint ^10.0.0` (lue dans `pnpm-lock.yaml`, relevé le 2026-10-29), ajouté par `ng add angular-eslint`. `^10.0.1` dans `package.json` |
@@ -88,9 +88,9 @@ Zone `src-tauri/` (cargo) et `.github/` (CI/CD).
 | GitHub Actions | voir [§ CI/CD](#4-github-actions) | ✅ | Images figées `windows-2025` (Visual Studio 2026) et `ubuntu-24.04`, jamais de label `-latest` |
 | release-please-action | `5.0.0` | ⚠️ | Le tag créé avec `GITHUB_TOKEN` ne déclenche aucun workflow. Chaînage `needs:` obligatoire |
 | Dependabot | app GitHub intégrée, version non épinglée par le dépôt | ✅ | Écosystèmes `npm`, `uv`, `cargo`, `github-actions` et `docker` (`/demo`) couverts par un seul `dependabot.yml`. PR de mise à jour fonctionnelles ; alertes de sécurité npm non fiables sur le lockfile à deux documents, `just audit-ui` en CI prend le relais (cf. [§ Dependabot](#6-dependabot)) |
-| pnpm/setup (action) | `3.1.2` | ✅ | Installe pnpm **et** Node en une étape. Exige pnpm 11+. La v3 détecte un fichier de version Node, sans effet ici : `runtime: node@26` est posé explicitement dans `.github/actions/setup-pnpm` |
+| pnpm/setup (action) | `3.1.2` | ✅ | Installe pnpm **et** Node en une étape. Exige pnpm 11+. La v3 lit `devEngines.runtime` pour Node, sans input `runtime` |
 | nginx/nginx-unprivileged (image) | `1.31.8-alpine` | ✅ | Image de service de la démo web (`demo/Dockerfile`), non-root (UID 101), écoute sur 8080. `nginxinc/nginx-unprivileged`, l'ancien nom, n'est plus maintenu (cf. [§ Images Docker de la démo](#7-images-docker-de-la-démo)) |
-| node (image) | `26.13.0-slim` | ✅ | Étape de build de l'image de la démo. Debian, pour le `bash` qu'exige `scriptShell: bash`. Majeure gardée égale à `engines.node` et à `setup-pnpm` par `test_demo_image_coherence.py` |
+| node (image) | `26.13.0-slim` | ✅ | Étape de build de l'image de la démo. Debian, pour le `bash` qu'exige `scriptShell: bash`. Version égale à `devEngines.runtime` gardée par `test_demo_image_coherence.py` |
 
 ---
 
@@ -463,9 +463,9 @@ Calendrier relevé le 2026-10-09 (nodejs/Release), passage LTS de la 26 confirm�
 
 **Recommandation** : ✅ **26.13.0, ligne LTS.**
 
-Node n'est pas une dépendance du produit, c'est un outil de build : il n'est jamais embarqué dans le binaire distribué, contrairement à l'interpréteur Python que PyInstaller empaquette. La bascule a été déclenchée sur la confirmation du passage LTS (issue #60), pas sur la date annoncée. Elle a porté `runtime: node@26` dans `.github/actions/setup-pnpm`, `engines.node` (`^26.0.0`) et `demo/Dockerfile` (`node:26.13.0-slim`), que garde `test_demo_image_coherence.py`. Prochaine bascule : Node 28, à revérifier dans le calendrier nodejs/Release.
+Node n'est pas une dépendance du produit, c'est un outil de build : il n'est jamais embarqué dans le binaire distribué, contrairement à l'interpréteur Python que PyInstaller empaquette. La bascule a été déclenchée sur la confirmation du passage LTS (issue #60), pas sur la date annoncée. Elle a porté `devEngines.runtime` (`26.13.0`) et `demo/Dockerfile` (`node:26.13.0-slim`), que garde `test_demo_image_coherence.py`. Dependabot ne monte pas `devEngines.runtime` (dependabot-core#13722, relevé le 2026-10-29) : la montée de Node reste manuelle. Prochaine bascule : Node 28, à revérifier dans le calendrier nodejs/Release.
 
-Sur la ligne 26, **Corepack n'existe plus** : la chaîne d'installation passe par l'input `runtime: node@26` de `pnpm/setup`, qui remplace `actions/setup-node`. Ne jamais s'en remettre au Node préinstallé sur l'image du runner, qui change au fil de ses mises à jour.
+Sur la ligne 26, **Corepack n'existe plus** : la chaîne d'installation passe par `pnpm/setup`, qui lit `devEngines.runtime` et remplace `actions/setup-node`. Ne jamais s'en remettre au Node préinstallé sur l'image du runner, qui change au fil de ses mises à jour.
 
 ### 4. pnpm
 **Version actuelle** : `12.15.0` (2026-10-21), épinglée par `devEngines.packageManager` et égale au dist-tag `latest` au 2026-10-27. `next-12` vaut `12.16.1` (2026-10-27), non adoptées. Dernière 11.x : `11.28.8` (dist-tag `latest-11`, relevé le 2026-10-27), maintenue jusqu'au 2027-04-30 selon le `SECURITY.md` de pnpm (relevé le 2026-10-16)
@@ -820,7 +820,7 @@ Le second document (`packageManagerDependencies`) porte la résolution de pnpm l
 | Action | Version | Notes |
 |---|---|---|
 | `actions/checkout` | `v7.0.1` (2026-07-17) | v7 : migration ESM, blocage du checkout de PR de fork sur `pull_request_target` |
-| `pnpm/setup` | `v3.1.2` (2026-10-25) | Installe pnpm et Node en une étape, à la place d'`actions/setup-node`. **Exige pnpm 11+.** La v3 détecte un fichier de version Node et inclut l'id du run dans la clé de cache ; `runtime: node@26` reste explicite. La v3.1.0 ajoute les inputs `registry` et `save-cache`. Appelée par la seule action composite `.github/actions/setup-pnpm` |
+| `pnpm/setup` | `v3.1.2` (2026-10-25) | Installe pnpm et Node en une étape, à la place d'`actions/setup-node`. **Exige pnpm 11+.** La v3 lit `devEngines.runtime` pour Node et inclut l'id du run dans la clé de cache. La v3.1.0 ajoute les inputs `registry` et `save-cache`. Appelée par la seule action composite `.github/actions/setup-pnpm` |
 | `astral-sh/setup-uv` | `v10.3.3` | Runtime `node24`. La v10.1.0 vérifie les téléchargements d'uv contre des checksums, la v10.3.0 embarque ceux d'uv jusqu'à 0.13.0. Appelée par la seule action composite `.github/actions/setup-uv` |
 | `dorny/paths-filter` | `v4.0.3` (2026-08-05) | Job `changes` : saute les trois zones sur une PR de markdown seul. La 4.0.3 corrige GHSA-7hc6-8hq5-9q2m (noms de fichiers multi-lignes) |
 | `dtolnay/rust-toolchain` | `@stable` | Pas de semver : la révision **est** la sélection. Le `rust-toolchain.toml` du dépôt prime ensuite sur ce choix |
@@ -909,7 +909,7 @@ Trois contournements, dans l'ordre de préférence :
 - **`nginx/nginx-unprivileged`** : processus sous l'UID 101, port 8080 par défaut, PID dans `/tmp/nginx.pid` et fichiers temporaires sous `/tmp`, `/usr/bin/wget` présent (busybox) pour le healthcheck. Le dépôt `nginxinc/nginx-unprivileged` est déprécié au profit de `nginx/nginx-unprivileged` (github.com/nginx/docker-nginx-unprivileged, relevé le 2026-10-26)
 - **`node:26.13.0-slim`** : Debian, `bash` présent. L'alpine n'en a pas, or `scriptShell: bash` de `pnpm-workspace.yaml` l'exige pour `pnpm build:demo`
 
-**Recommandation** : ✅ Tags complets, jamais `26-slim` ni `latest` : Dependabot (écosystème `docker` sur `/demo`) propose chaque montée. La majeure de Node suit `engines.node`, la montée de l'une sans l'autre fait échouer le test de cohérence.
+**Recommandation** : ✅ Tags complets, jamais `26-slim` ni `latest` : Dependabot (écosystème `docker` sur `/demo`) propose chaque montée. Le tag de Node suit `devEngines.runtime`, la montée de l'un sans l'autre fait échouer le test de cohérence.
 
 ---
 
@@ -944,7 +944,7 @@ Trois contournements, dans l'ordre de préférence :
 | pnpm 12.15.0 | `pnpm/setup` v3.1.2 | ✅ | L'action exige pnpm 11+, télécharge le binaire natif et lit `devEngines.packageManager` sans `version` |
 | pnpm 12.15.0 | `pnpm/action-setup` v6 | ⚠️ | Support de pnpm 12 annoncé en v6.1.0, mais `pnpm.cmd` non reconnu sous PowerShell Windows (action-setup#291, ouverte) : le projet reste sur `pnpm/setup` |
 | pnpm 12.15.0 | `--frozen-lockfile` en CI | ⚠️ | `minimumReleaseAge` à 24 h fait échouer l'install sur une transitive trop fraîche |
-| Node 26.x | `pnpm/setup` v3.1.2 | ✅ | `runtime: node@26`, sans Corepack ni `actions/setup-node` |
+| Node 26.x | `pnpm/setup` v3.1.2 | ✅ | `devEngines.runtime`, sans Corepack ni `actions/setup-node` |
 | Node 25.x et au-delà | Corepack | ❌ | Retiré des binaires officiels, sans effet : le projet n'utilise pas Corepack |
 | Python 3.14.10 | PyInstaller 6.22.3 | ✅ | Plage `>=3.8,<3.16`, support de 3.14 depuis 6.15.0 (2025-08-03) |
 | Python 3.14.10 | rapidfuzz 3.14.6 | ✅ | **Wheels `cp314` pour `win_amd64`**, une des deux extensions natives de la stack |
@@ -1033,7 +1033,7 @@ Commande PyInstaller en `--onedir`, avec au minimum le forçage du backend keyri
 
 ### package.json
 
-`engines.node` sur `^26.0.0`, monté avec le `runtime` de `setup-pnpm` (`test_the_ci_node_major_is_declared_in_engines` les garde). Le `^24.15.0 || ^26.0.0` prévu pour la transition n'a pas été retenu (2026-10-29) : le poste, la CI et l'image de la démo sont tous en 26, et garder la 24 déclarée n'aurait été testé nulle part. Un `>=` laisserait passer Node 25.x, hors de la plage supportée par Angular 22. Un `pnpm-workspace.yaml` est à créer même sans monorepo, pour accueillir `allowBuilds: { esbuild: true }` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11.
+`devEngines.runtime` épingle Node (`26.13.0`, `onFail: download`) : seule source, lue par pnpm en local et par `pnpm/setup` en CI (`test_the_ci_reads_node_from_dev_engines` interdit un `runtime:` en dur dans `setup-pnpm`). Pas d'`engines.node` : l'app n'est pas publiée. Un `pnpm-workspace.yaml` est à créer même sans monorepo, pour accueillir `allowBuilds: { esbuild: true }` et les réglages que le `.npmrc` n'accepte plus depuis pnpm 11.
 
 `devEngines.packageManager` épingle pnpm (`12.15.0`, `onFail: download`) : seule source de la version, lue par `pnpm/setup` en CI. Pas de champ `packageManager` (legacy, Corepack). Le lockfile à deux documents qui en résulte est assumé, cf. [§ Dependabot](#6-dependabot).
 
