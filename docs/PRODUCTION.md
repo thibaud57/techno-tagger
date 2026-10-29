@@ -435,7 +435,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 | Tauri (majeure) | Sur release majeure | PR dédiée, guide de migration, **build + smoke test d'installation obligatoires** avant merge |
 | Angular / PrimeNG (majeures) | Sur release majeure | PR dédiée, `ng update`, vérification visuelle des écrans |
 | Runtime Python du sidecar | Sur fin de support | Bump dans `pyproject.toml` et `.python-version`, rebuild PyInstaller, **retester les faux positifs antivirus** |
-| Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `.github/actions/setup-pnpm` et d'`engines.node`. Prochaine échéance : Node 26, LTS planifiée au 2026-10-28 |
+| Runtime Node du build | Au passage LTS de la ligne suivante | Bump de `runtime:` dans `.github/actions/setup-pnpm` et d'`engines.node`. Node 26 est LTS depuis le 2026-10-28 (bascule faite le 2026-10-29). Prochaine échéance : Node 28, calendrier nodejs/Release à revérifier |
 | Outils (uv, pnpm) | Sur montée retenue dans VERSIONS.md | Bump de `required-version` et `uv_build` dans `sidecar/pyproject.toml`, ou de `devEngines.packageManager` dans `package.json` (puis `pnpm install` pour le lockfile) : seuls endroits où vivent ces versions, la CI les lit |
 | Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. Clé valable 12 mois avec 30 jours de grâce, décidée par l'[ADR-003](adrs/003-primeng-community-license.md) (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
 

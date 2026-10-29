@@ -135,6 +135,8 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["tests/helpers"]  # importable sans en faire un package
 asyncio_mode = "strict"
+# pytest-asyncio 1.4 avertit si absent, et pytest 9.2 applique filterwarnings des la configuration
+asyncio_default_fixture_loop_scope = "function"
 # Une deprecation d'une dependance se voit au premier run, pas au jour ou elle casse
 filterwarnings = ["error"]
 # Un xfail qui passe est une correction non consignee : il doit echouer
@@ -172,8 +174,8 @@ build = [
     "pyinstaller-hooks-contrib>=2026.9",
 ]
 dev = [
-    "mypy>=2.4.0",
-    "pytest>=9.1.1",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
     "pytest-asyncio>=1.4.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.3",
