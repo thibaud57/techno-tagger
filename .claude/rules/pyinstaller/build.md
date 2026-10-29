@@ -26,6 +26,7 @@ paths:
 - Déclarer `[project.scripts]` dans le `pyproject.toml` du sidecar : `uv init --package` le génère, mais le point d'entrée est le script du `.spec` et rien ne consomme la commande console
 
 ## Gotchas
+- Le `.spec` n'importe rien et un JSON n'interpole rien : le nom du binaire qu'ils recopient est gardé par un test de cohérence (`test_main.py`), pas dérivé
 - Le `.spec` ne voit pas son dossier sur `sys.path` : il n'importe aucun module voisin, tout partage avec `build.py` passe par `SPEC`, `SPECPATH`, `DISTPATH`, `workpath` ou le nom du fichier
 - Tout import par chaîne de caractères échappe à l'analyse statique : sentry-sdk (`importlib`), keyring (entry points), rapidfuzz (extension C++)
 - `--debug=imports` est le premier outil face à un `ModuleNotFoundError` propre au binaire ; `build/<nom>/` liste les modules analysés
