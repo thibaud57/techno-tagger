@@ -1,7 +1,7 @@
 ---
-title: "DESIGN — techno-tagger"
+title: "DESIGN - techno-tagger"
 description: "Design system : typographie, couleurs, librairies UI, mapping composants et conventions de style de l'interface Angular + PrimeNG."
-date: "2026-10-23"
+date: "2026-10-29"
 keywords: ["design", "ui", "design-system", "typography", "colors", "animations", "layout", "dark-mode", "icons", "desktop", "components", "spacing", "primeng", "tailwind"]
 scope: ["docs", "frontend"]
 technologies: ["Angular", "PrimeNG", "Tailwind CSS", "tailwindcss-primeui", "PrimeIcons", "Simple Icons", "Inter", "Tauri"]
@@ -72,7 +72,7 @@ Le projet ne définit aucune couleur : le preset Aura génère les variables `--
 | `--p-content-border-color` | `{surface.700}` | `border-surface` | Bordure d'un panneau, filet de structure (barre d'onglets, colonne du menu) |
 | `--p-highlight-background` | `color-mix(in srgb, {primary.400}, transparent 84%)` | `bg-highlight` | Sélection : ligne dépliée de la liste du run, entrée active du menu des Réglages |
 | `--p-content-hover-background` | `{surface.800}` | `bg-emphasis` | Survol d'un bouton de fenêtre, des entrées du menu des Réglages (par le preset) |
-| `--p-primary-color` à 8 % | `color-mix(in oklab, {primary.400} 8%, transparent)` | `bg-primary/8` | Survol d'une ligne actionnable de la liste du run, plus clair que la sélection (décidé le 2026-10-28) |
+| `--p-primary-color` à 8 % | `color-mix(in oklab, {primary.400} 8%, transparent)` | `bg-primary/8` | Survol d'une ligne actionnable de la liste du run, plus clair que la sélection |
 | `--p-datatable-row-background` | `{content.background}` | par `fullHeightTable` | Fond de ligne étiré sur toute la hauteur d'une table |
 | `--p-datatable-body-cell-border-color` | `{surface.800}` | `border-(--p-datatable-body-cell-border-color)` | Filet des lignes de table, et des lignes squelette qui les précèdent |
 | `--p-disabled-opacity` | `0.6` | par le preset | Boutons et curseurs désactivés ; champs, sélecteurs et bascules prennent leur fond `disabled` |
@@ -81,7 +81,7 @@ Le projet ne définit aucune couleur : le preset Aura génère les variables `--
 
 Le plugin expose deux familles de classes à ne pas confondre : des **tokens combinables** avec n'importe quel préfixe Tailwind (`primary`, `surface-{0..950}`, d'où `bg-surface-950` ou `outline-primary`) et des **classes complètes**, préfixe déjà inclus, à écrire telles quelles (`text-color`, `text-muted-color`, `border-surface`, `bg-emphasis`, `bg-highlight`).
 
-Valeurs de `@primeuix/themes` 3.0.1 (`dist/aura/`, relevé le 2026-10-16), le dépôt `primeuix` étant archivé.
+Valeurs d'Aura (`@primeuix/themes`, `dist/aura/`, version dans [VERSIONS.md](VERSIONS.md)), le dépôt `primeuix` étant archivé.
 
 ### Couleurs Sémantiques
 
@@ -172,11 +172,7 @@ Aucune ombre posée par le projet : celles d'Aura restent sur les overlays (moda
 
 **Stratégie** : dark permanent, aucun sélecteur dans l'interface
 
-**Mécanisme** : `darkModeSelector: '.app-dark'` dans `providePrimeNG()`, classe `app-dark` posée en dur sur `<html>` (`index.html`), jamais retirée, cas documenté par PrimeNG. Côté Tailwind, le variant suit le même sélecteur :
-
-```css
-@custom-variant dark (&:where(.app-dark, .app-dark *));
-```
+**Mécanisme** : `darkModeSelector: '.app-dark'` dans `providePrimeNG()`, classe `app-dark` posée en dur sur `<html>` (`index.html`), jamais retirée. Le `@custom-variant dark` de Tailwind reprend le même sélecteur (code dans [knowledges/primeng.md](knowledges/primeng.md#mode-sombre-forcé)).
 
 ### Règles
 
@@ -210,10 +206,10 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 
 | Catégorie | Composant | Librairie | Notes |
 |-----------|-----------|-----------|-------|
-| Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | Aucun mode router en v22 : l'onglet actif se dérive de l'URL. Playlist (`list`) et Tagging (`tag`) au centre de la barre, Réglages en icône seule (`cog`) tout à droite, nommé par `title`. Trait de l'actif sur la bordure de l'onglet. Un clic sur l'onglet actif, depuis une sous-page (le récapitulatif), ramène à sa racine. Barre de 40px, aussi barre de titre de la fenêtre (§ Structure de Page) : déplacement et double-clic sur ce qui n'est pas un contrôle, puis, après un filet, réduire, agrandir ou restaurer et fermer en boutons de 46px (largeur de Windows 11) sur toute la hauteur de la barre, `bg-emphasis` au survol, croix en `--p-red-600` (§ Tokens / Variables). Fermer passe par la garde de sortie |
+| Navigation principale | `p-tabs` synchronisé à la main avec le Router | PrimeNG | Playlist (`list`) et Tagging (`tag`) au centre de la barre, Réglages en icône seule (`cog`) tout à droite, nommé par `title`. Trait de l'actif sur la bordure de l'onglet. Un clic sur l'onglet actif, depuis une sous-page (le récapitulatif), ramène à sa racine. Barre de 40px, aussi barre de titre de la fenêtre (§ Structure de Page) : déplacement et double-clic sur ce qui n'est pas un contrôle, puis, après un filet, réduire, agrandir ou restaurer et fermer en boutons de 46px (largeur de Windows 11) sur toute la hauteur de la barre, `bg-emphasis` au survol, croix en `--p-red-600` (§ Tokens / Variables). |
 | Navigation des Réglages | `p-menu` dans le panneau de la page, une entrée par section, l'active en `bg-highlight` et `aria-current="page"` | PrimeNG | Icônes `key`, `sliders-h`, `desktop`, `wrench`, en `primary` sur l'entrée active. Une section affichée à la fois (§ Structure de Page) |
 | Badges de file, de rattrapage et de mise à jour | bouton portant un `p-tag` `info`, icône `info-circle` (`download` pour la mise à jour) | PrimeNG | À droite de la barre, en `gap-2`, séparés de l'engrenage par un filet vertical, masqués sur 0. Chacun rouvre sa modale : « N à arbitrer » celle de l'arbitrage, « N à rattraper » celle du lien (masqué aussi pendant la recherche), « Mise à jour X.Y.Z » l'invite fermée (masqué pendant le téléchargement) |
-| Bandeau de démo | `app-demo-banner` : `h-8`, `border-b border-surface-800`, `bg-surface-900`, `text-xs text-muted-color`, centré ; icône `info-circle` en 16px par `IconComponent`, texte, puis deux boutons `pButton [link]="true"` : « Me contacter » (`a`) suivi de l'icône `external-link` (16px, après le libellé, comme le lien source du détail), puis « Recommencer la démo » (`button`, sans icône) | composant maison (PrimeNG) | Édition démo seule, sous la barre d'onglets, hors du desktop. Porte deux boutons `link`, dans cet ordre : « Me contacter » (nouvel onglet, `rel="noopener noreferrer"`), puis « Recommencer la démo » (recharge la démo sur Playlist, la langue choisie est conservée ; ajouté le 2026-10-26). Nouveau motif, écart au design system : il parle de l'environnement, pas de l'application, et ne se confond avec aucun `Message`. Décidé le 2026-10-25, options dans `docs/superpowers/specs/demo-web-publique/02-bandeau-options.html` |
+| Bandeau de démo | `app-demo-banner` : `h-8`, `border-b border-surface-800`, `bg-surface-900`, `text-xs text-muted-color`, centré ; icône `info-circle` 16px, texte, puis deux boutons `pButton [link]="true"` : « Me contacter » (`a`, suivi de l'icône `external-link` 16px) et « Recommencer la démo » (`button`, sans icône) | composant maison (PrimeNG) | Édition démo seule, sous la barre d'onglets. Comportement dans la spec `demo-web-publique/02-shell-de-demo` |
 
 ### Actions
 
@@ -234,7 +230,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 | Action | Quand | Libellé, icône | Style |
 |--------|-------|----------------|-------|
 | `start` | aucun run à confirmer ni à relancer | « Lancer le run », `play` | `primary` |
-| `cancel` | recherche en cours | « Interrompre », `stop` | `secondary` outlined, actif en desktop ; grisé avec `demo.unavailable` en édition démo (décidé le 2026-10-25, spec 03) |
+| `cancel` | recherche en cours | « Interrompre », `stop` | `secondary` outlined, actif en desktop ; grisé avec `demo.unavailable` en édition démo |
 | `commit` | run cherché à confirmer | « Confirmer l'écriture », `check` | `primary` |
 | `retry` | fichiers en échec d'écriture | « Relancer l'écriture », `refresh` | `primary` |
 
@@ -248,7 +244,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 | Mode copie / déplacement | `p-selectbutton` `size="small"` `[fluid]="true"` | PrimeNG | Copie par défaut. Les deux segments se partagent la colonne, à la largeur des boutons de chemin du dessus |
 | Champ de lien | `UrlLinkFormComponent` : `input pInputText` `pSize="small"` `type="url"` + `app-error-message`, boutons par `UrlLinkActionsComponent` | composant maison (PrimeNG) | Modale du lien et étape lien. Au-dessus du champ : cellule réservée `min-h-8` (deux lignes de `text-xs` : motif ou « Rattrapé sur »), puis l'aide `hint`. Refus sous le champ. « Résoudre » en `spinner` pendant le geste |
 | Clé API | `input pInputPassword` dans un `p-iconfield` + « Enregistrer » `size="small"` | PrimeNG | Jamais préremplie ni relue ([ADR-012](adrs/012-securite-cle-api-keyring.md)) : 24 points en placeholder une fois enregistrée, sans tag, état en `sr-only`. L'œil, bouton du template (`p-password` déprécié), n'apparaît que pendant une saisie |
-| Rangée des Réglages | `SettingsRowComponent`, rangées d'une section en `settings-rows` | composant maison (Tailwind) | Grille `10rem` / `minmax(0,1fr)` / `max-content` sur la section, chaque rangée en subgrid, 16px de padding entre les colonnes, `py-3`, filet `border-b border-surface-800`, rangées jointives. Libellé seul à gauche, 10rem mesurés sur « Signal sonore de fin » ; contrôle au milieu ; action à droite, dans une colonne à la largeur du plus long bouton de la section, que chaque bouton remplit (`w-full`), absente dans une section sans action. Aide avec le contrôle : dessous (`pt-2`), ou à la place du contrôle quand la rangée n'a qu'une action ; retours dessous, sur les colonnes du contrôle et de l'action, en `small` (§ Feedback et chargement) |
+| Rangée des Réglages | `SettingsRowComponent`, rangées d'une section en `settings-rows` | composant maison (Tailwind) | Grille `10rem` / `minmax(0,1fr)` / `max-content` sur la section, chaque rangée en subgrid, 16px de padding entre les colonnes, `py-3`, filet `border-b border-surface-800`, rangées jointives. Libellé à gauche (10rem mesurés sur « Signal sonore de fin »), contrôle au milieu, action à droite dans une colonne à la largeur du plus long bouton de la section (`w-full`). Aide dessous (`pt-2`) ; retours dessous, en `small` (§ Feedback et chargement) |
 | Runs passés | `p-select` `size="small"` en contrôle, « Ouvrir le récapitulatif » `secondary` outlined dans la colonne d'actions | PrimeNG | Sous « Restauration ». Le sélecteur remplit la colonne du contrôle : le dossier est coupé, son tooltip le montre |
 | Version | Version installée en aide à la place du contrôle, « Rechercher une mise à jour » `secondary` outlined (`refresh`, puis `spinner` et grisé pendant la recherche) dans la colonne d'actions | PrimeNG | Dernière d'Administration. Retour `small` dessous : `success` à jour, `error` en échec ; une mise à jour trouvée ouvre l'invite |
 | Langue | `p-select` `size="small"`, 9rem (`w-36`) mesurés sur « Français » | PrimeNG | Largeur fixe : le select ne change pas de taille d'une langue à l'autre |
@@ -262,7 +258,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 | Rapport d'extraction | `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Deux colonnes (§ Layout), une ligne par morceau plus une par doublon départagé. Ce qui demande un geste en tête : échecs, introuvables, doublons, puis déjà présents et extraits. Catégorie en `p-tag`, détail en tooltip derrière `info-circle`. « Extraction terminée (N sur N) » en `text-sm text-muted-color` sous la table, à droite |
 | Liste des morceaux d'un run | `RunListComponent` : `p-table` `[scrollable]`, `[virtualScroll]` | PrimeNG | Sept colonnes (§ Layout). Ligne actionnable vers la modale d'arbitrage ou du lien (§ États des Composants) |
 | Table pleine hauteur | `fullHeightTable`, en `[pt]` de `p-table` | composant maison (PrimeNG) | Cadre `panel`, `table-layout: fixed`, fond de ligne sur toute la hauteur, table étirée vide pour centrer son bloc vide, jamais remplie (le défilement virtuel attend des lignes exactes) |
-| Détail avant / après | `TrackDetailComponent`, sur des lignes synthétiques de la table ([knowledges/primeng.md](knowledges/primeng.md#détail-déplié-sous-une-ligne-virtualisée)) | composant maison (PrimeNG) | Déplié sous la ligne, pleine largeur, un seul ouvert : en ouvrir un referme le précédent et le défilement retire la hauteur d'un détail refermé au-dessus, la ligne ouverte ne bouge pas (décidé le 2026-10-28). Sur un nombre entier de lignes (§ Layout). Bouton `chevron-right` / `chevron-down` texte `small` `secondary` en tête de ligne (`aria-expanded`), ligne ouverte en `bg-highlight`. Fond `bg-surface-950`, filet bas `border-surface`. Pochette à gauche, « Restaurer ce morceau » dessous ; grille Champ / Avant / Après des champs écrits (sauf l'identifiant à la source, plus le commentaire), la colonne Champ à la largeur de son plus long libellé suivi de `·` et de sa clé, en `text-muted-color`, sans préfixe `TXXX:` |
+| Détail avant / après | `TrackDetailComponent`, sur des lignes synthétiques de la table ([knowledges/primeng.md](knowledges/primeng.md#détail-déplié-sous-une-ligne-virtualisée)) | composant maison (PrimeNG) | Déplié sous la ligne, pleine largeur, un seul ouvert (comportement dans la spec `ligne-depliee-avant-apres`). Sur un nombre entier de lignes (§ Layout). Bouton `chevron-right` / `chevron-down` texte `small` `secondary` en tête de ligne (`aria-expanded`), ligne ouverte en `bg-highlight`. Fond `bg-surface-950`, filet bas `border-surface`. Pochette à gauche, « Restaurer ce morceau » dessous ; grille Champ / Avant / Après des champs écrits (sauf l'identifiant à la source, plus le commentaire), la colonne Champ à la largeur de son plus long libellé suivi de `·` et de sa clé, en `text-muted-color`, sans préfixe `TXXX:` |
 | Lien vers la fiche source | `ButtonDirective` `link`, icône `external-link` | PrimeNG | Ligne URL du détail, ouvre la page par `openUrl` du plugin `opener` |
 | Pochette | `ArtworkComponent` : `<img>` par `convertFileSrc()` + `p-skeleton` | composant maison (PrimeNG, Tauri) | 32px dans la liste, 168px dans le détail (largeur de « Restaurer ce morceau » en FR), rayon `sm`. Image, squelette tant que le morceau attend, cadre `bg-surface-800` bordé à l'icône `image` une fois tranché sans pochette |
 | Score | moyenne, puis `A 96 · T 92` en `text-xs` dessous | Tailwind | Aligné à droite, `tabular-nums` (§ Séparateurs) |
@@ -306,12 +302,12 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 | Arbitrage : décision | « Valider » `primary`, « Aucune correspondance » `secondary` outlined, `size="small"`, `spinner` pendant le geste | PrimeNG | La liste Bandcamp remplace celle de Beatport sans que rien ne bouge. Liste vide : motif centré, « Passer » à la place du refus. Geste refusé en `app-error-message` sous la liste |
 | Arbitrage : étape lien | champ de lien + `UrlLinkActionsComponent` (« Passer » `secondary` outlined, « Résoudre » `primary`) | composant maison | Après le refus de la liste Bandcamp ou « Passer » sur une liste vide : même morceau, même cadre, sans compteur |
 | Navigation entre morceaux | `button pButton` `secondary` outlined à icône seule (`chevron-left`, `chevron-right`, `[iconOnly]`) + compteur (§ Badges) | PrimeNG | Modales d'arbitrage et du lien, aussi par ← → |
-| Modale du lien | `UrlRecoveryDialogComponent` : `p-dialog` modal, sans animation | PrimeNG | Dimensions au § Layout. En-tête de morceau, logo de la source sur un rattrapé. Ouverte par la ligne ou par le badge, aussi après une interruption ; aucune reconnaissance d'hôte à la frappe, le sidecar juge l'URL. En édition démo, deux états propres (décidés le 2026-10-25) : un morceau dont le lien est enregistré a son champ en lecture seule, pré-rempli, « Résoudre » actif ; un morceau sans lien enregistré a « Résoudre » grisé, avec `demo.unavailable` en tooltip (`TOOLTIP`) |
-| Confirmation d'un geste sur les fichiers | `DangerConfirmComponent` + `injectDangerConfirm` (`p-confirmdialog`) | composant maison (PrimeNG) | Écriture, relance, restauration. Message en `text-sm text-muted-color` `whitespace-pre-line`, interpolé plutôt qu'en `innerHTML` (un chemin y figure) ; celui de la restauration dit que la pochette écrite reste en place ([ADR-011](adrs/011-politique-ecriture-tags.md)). Acceptation `danger` pour la seule restauration, `primary` sinon ; « Annuler » `secondary` outlined avec le focus, sans icône devant le message |
-| Confirmation de sortie | `CloseConfirmationComponent` : `p-dialog` modal | composant maison (PrimeNG) | Fermeture pendant une extraction, une écriture ou une restauration : « Rester » `primary` avec le focus, « Quitter quand même » `secondary` outlined ; « Rester » seul pendant l'écriture ou la restauration. Ni `p-confirmdialog` ni `danger` : la sortie ne touche aucun fichier musical |
+| Modale du lien | `UrlRecoveryDialogComponent` : `p-dialog` modal, sans animation | PrimeNG | Dimensions au § Layout. En-tête de morceau, logo de la source sur un rattrapé. Ouverte par la ligne ou par le badge, aussi après une interruption ; aucune reconnaissance d'hôte à la frappe, le sidecar juge l'URL. En édition démo : champ en lecture seule si le lien est enregistré, « Résoudre » grisé avec `demo.unavailable` sinon (spec `demo-web-publique/03-rejeu-du-scenario`) |
+| Confirmation d'un geste sur les fichiers | `DangerConfirmComponent` + `injectDangerConfirm` (`p-confirmdialog`) | composant maison (PrimeNG) | Écriture, relance, restauration. Message en `text-sm text-muted-color` `whitespace-pre-line`. Acceptation `danger` pour la seule restauration, `primary` sinon ; « Annuler » `secondary` outlined avec le focus, sans icône devant le message |
+| Confirmation de sortie | `CloseConfirmationComponent` : `p-dialog` modal | composant maison (PrimeNG) | « Rester » `primary` avec le focus, « Quitter quand même » `secondary` outlined. Ni `p-confirmdialog` ni `danger` : la sortie ne touche aucun fichier musical |
 | Tooltip | `pTooltip` lié à `TOOLTIP` ou `WIDE_TOOLTIP` | PrimeNG | Sous l'élément, retourné au-dessus quand la place manque. 12.5rem (défaut d'Aura), 26rem en `WIDE_TOOLTIP` (texte tronqué, détail du rapport, motif d'échec, avertissement d'envoi du rapport). `pointer-events: none`. Délai au § Composants Animés, usage au § Conventions de Code > Règles |
-| Reprise d'un run interrompu | `ResumeDialogComponent` : `p-dialog` modal non fermable, `w-120` | composant maison (PrimeNG) | Au démarrage, quatre états (run reprenable, dossier introuvable ou vidé, plan illisible, plan corrompu), dossier sur sa ligne tronqué à gauche. « Repartir de zéro » texte `secondary` ; « Reprendre » `primary` si le dossier existe, sinon « Plus tard » texte `secondary`. Aucun bouton focalisé : Entrée ne supprime jamais le plan. Le focus va au corps (`tabindex="-1"`), sans quoi il reste derrière le masque et Tab parcourt la page |
-| Invite de mise à jour | `UpdateDialogComponent` : `p-dialog` modal `w-120`, fermable sauf pendant le téléchargement, Échap compris ; focus sur le corps (`tabindex="-1"`) comme la reprise | composant maison (PrimeNG) | Au démarrage, différée comme les autres modales, ou depuis la rangée Version ; une invite de reprise ou un travail du moteur la renvoie au badge. Versions proposée et installée, « Voir les nouveautés » en bouton `link` vers la Release. « Plus tard » texte `secondary`, « Installer » `primary`, désactivé pendant un travail du moteur (tooltip). Téléchargement : `PhaseProgressComponent` et phrase de fermeture, sans bouton. « Réessayer » remplace « Installer » sur un échec (`MessageComponent` `error`) ou une installation non aboutie (`MessageComponent` `warn` en tête) |
+| Reprise d'un run interrompu | `ResumeDialogComponent` : `p-dialog` modal non fermable, `w-120` | composant maison (PrimeNG) | Au démarrage. Dossier sur sa ligne tronqué à gauche ; « Repartir de zéro » texte `secondary`, « Reprendre » `primary` ou « Plus tard » texte `secondary`. Aucun bouton focalisé (spec `plan-de-run-reprise-et-rapport/05-reprise-ui`) |
+| Invite de mise à jour | `UpdateDialogComponent` : `p-dialog` modal `w-120`, fermable sauf pendant le téléchargement | composant maison (PrimeNG) | Au démarrage ou depuis la rangée Version. « Voir les nouveautés » en bouton `link`, « Plus tard » texte `secondary`, « Installer » `primary`, progression par `PhaseProgressComponent`. États et échecs dans la spec `distribution-et-mise-a-jour/02-invite-de-mise-a-jour` |
 
 ### Contenu et texte
 
@@ -342,7 +338,7 @@ Les composants maison vivent dans `shared/components/`, leurs utilitaires dans `
 
 | État | Style / Comportement | Contexte |
 |------|---------------------|----------|
-| Survol d'une zone cliquable custom | `bg-primary/8` sur une ligne actionnable de la liste du run (vert plus clair que la sélection, décidé le 2026-10-28 sur un retour de prod, gris `bg-emphasis` avant), `bg-emphasis` ailleurs ; `transition-colors` : 200ms `ease-out` par défaut du `@theme`, la durée des composants PrimeNG | Sans déplacement ni scale. Les badges de la barre d'onglets s'en passent : leur tag porte déjà un fond |
+| Survol d'une zone cliquable custom | `bg-primary/8` sur une ligne actionnable de la liste du run (vert plus clair que la sélection), `bg-emphasis` ailleurs ; `transition-colors` : 200ms `ease-out` par défaut du `@theme`, la durée des composants PrimeNG | Sans déplacement ni scale. Les badges de la barre d'onglets s'en passent : leur tag porte déjà un fond |
 | Survol d'une surface inerte | Aucun | Lignes non actionnables, cellules, libellés |
 | Sélection | `bg-highlight` | Ligne dépliée de la liste du run, entrée active du menu des Réglages, comme l'option choisie de `p-select` et `p-listbox`. Une ligne dépliée garde `bg-highlight` au survol, actionnable ou non ; le survol du menu des Réglages reste gris (`bg-emphasis`) |
 | Focus clavier | Anneau du preset (1px `primary`, à la couleur de sa sévérité sur un bouton `secondary` ou `danger`), recopié en `focus-visible:outline-1 outline-primary` `-outline-offset-2` sur une ligne actionnable. Un champ, lui, passe sa bordure en `primary`, sans anneau | Vers l'intérieur : le défilement de la table rognerait un anneau extérieur. `outline: none` interdit |
@@ -392,7 +388,7 @@ Aucune dépendance d'animation dédiée.
 ## Principes Directeurs
 
 - **Intensité** : `subtile`, pour un outil de production
-- **Durée standard** : 200ms pour les fondus d'entrée, la barre de progression et les transitions de couleur, celle d'Aura (`transition.duration`). PrimeNG garde ses durées (22.1.2, relevé le 2026-10-16) : modales et `p-message` 300ms, tooltip 250ms, boucles de chargement de 1.2s à 2.1s
+- **Durée standard** : 200ms pour les fondus d'entrée, la barre de progression et les transitions de couleur, celle d'Aura (`transition.duration`). PrimeNG garde ses durées : modales et `p-message` 300ms, tooltip 250ms, boucles de chargement de 1.2s à 2.1s
 - **Easing** : `animate-ease-out`
 - **Intention** : rendre lisible un changement d'état, jamais décorer
 - **Mouvement réduit** : sous `prefers-reduced-motion: reduce` (animations coupées dans Windows), le CSS global coupe les fondus `animate-*` et les entrées et sorties de PrimeNG (modales, messages, toasts), seul `!important` toléré (§ Anti-Patterns). Restent les transitions de couleur et de largeur, le fondu du tooltip (piloté en JS) et les boucles de chargement, qui disent qu'un travail tourne
@@ -424,8 +420,6 @@ Aucune dépendance d'animation dédiée.
 |---------|--------|-------|
 | Fenêtre | 1280 × 800 à l'ouverture, plancher 1024 × 700, sans plafond, sans décorations : la barre d'onglets tient lieu de barre de titre | Plancher dicté par les sept colonnes de la liste du run (`tauri.conf.json`, cf. [ARCHITECTURE.md § Capacités Natives](ARCHITECTURE.md#capacités-natives)) |
 | Shell | Barre `p-tabs` en haut, contenu sur le reste de la hauteur | La page ne défile jamais, le scroll vit dans la table. `overscroll-behavior: none` coupe le rebond de WebView2 |
-| Contrôles de fenêtre en démo | Masqués dans la barre d'onglets comme dans celle de l'écran bloquant, avec le filet qui les précède ; la base du nom passe de `4rem + 147px` à `4rem` (engrenage et `pl-4`) | Une page de navigateur n'a ni fenêtre à réduire ni à fermer (édition démo, décidé le 2026-10-25). Sans ce réglage, Playlist et Tagging glisseraient de 69px à droite du centre (mesuré à 1024px) ; à `4rem`, écart nul (décidé le 2026-10-26) |
-| Rendu téléphone de la démo | Page déclarée à `width=1280` par `index.demo.html` seulement | Le téléphone affiche l'app entière réduite, le visiteur zoome puis fait glisser ; `src/index.html` ne change pas. Sur écran tactile en portrait, `100vh` y vaut près de 2800px : le shell s'arrête à la hauteur d'ouverture de la fenêtre, 800px (`demo-portrait`), sur le fond `bg-surface-950` (corrigé le 2026-10-28). Décidé le 2026-10-25, options dans `docs/superpowers/specs/demo-web-publique/02-telephone-options.html` |
 | Container | Pleine largeur, `px-16 py-8`, porté par le shell | Tous les écrans : formulaire et table sur la même largeur, la pleine largeur servant Avant et Après |
 | Densité | `text-sm` dans les tables et les listes de candidats | Une ligne de plus visible par cran |
 | Bloc principal | `panel` (`rounded-lg border-surface bg-surface-900`), jusqu'en bas de la page | Le même cadre vide ou rempli : bloc vide, table (par `fullHeightTable`), panneau des Réglages (menu des sections à gauche, séparé par un filet, une section à la fois sans défilement ; seuls plusieurs retours empilés au plancher font défiler la section dans son panneau) |
@@ -435,7 +429,7 @@ Aucune dépendance d'animation dédiée.
 | Modale du lien | 720px, hauteur au contenu, erreur réservée `min-h-13.5`, `pb-4` | `min-h-13.5` (54px) : une erreur de deux lignes en FR sans déplacer le pied |
 | Modales de texte | 30rem (`w-120`) : confirmation d'un geste sur les fichiers, invite de reprise, invite de mise à jour, écran bloquant (centré dans la page en `p-8`) ; 32rem (`w-128`) pour la confirmation de sortie | 32rem mesurés sur le titre et les deux boutons en français |
 | Tables | `p-table` à sa taille par défaut, `scrollHeight="flex"`, `[virtualScroll]` | `virtualScrollItemSize` égal à la hauteur exacte d'une ligne (`h-14` liste du run, `h-10.25` rapport), à remesurer si leur style change. Un contenu plus haut s'étale sur plusieurs lignes, jamais dans une ligne qui grandit |
-| Détail déplié | 7 lignes de la liste (`h-14`), 4 pour des tags illisibles | 7 : 15 lignes de champs au plus en `text-xs` (mesuré le 2026-10-10) et « Restaurer ce morceau » sous la pochette de 168px. 4 : la phrase des tags illisibles à côté d'elle. Au-delà, le détail défile ; à remesurer si la grille change |
+| Détail déplié | 7 lignes de la liste (`h-14`), 4 pour des tags illisibles | 7 : 15 lignes de champs au plus en `text-xs` (mesuré) et « Restaurer ce morceau » sous la pochette de 168px. 4 : la phrase des tags illisibles à côté d'elle. Au-delà, le détail défile ; à remesurer si la grille change |
 | Rythme interne d'un groupe | `gap-2` | Ce qui forme un tout : icône et libellé, champ et son bouton, boutons voisins d'un pied |
 | Espacement entre groupes | `gap-4` | Ce qui reste distinct sur une ligne : cellules d'une rangée de formulaire, contrôles indépendants |
 | Espacement entre sections | `gap-6` | Blocs d'un écran : titre, actions, barre de progression, bloc principal |
@@ -450,9 +444,9 @@ Aucune dépendance d'animation dédiée.
 | Pochette | 60px (`w-15`) | Vignette de 32px plus les marges de la cellule |
 | Avant | **fluide** | Artiste et titre lus dans le fichier, nom du fichier en sous-texte `text-xs text-muted-color`. Tags vides : le nom de fichier sans extension en ligne principale |
 | Après | **fluide** | Ce que la source retenue va écrire |
-| Source | 124px (`w-31`) | Logo 16px et libellé, mesurée sur « SoundCloud » (93px rendus, relevé le 2026-10-28) |
+| Source | 124px (`w-31`) | Logo 16px et libellé, mesurée sur « SoundCloud » (93px rendus) |
 | Score | 128px (`w-32`) | Aligné à droite, mesurée sur `A 100 · T 100` |
-| État | 164px (`w-41`) | Tag et icône info, mesurée sur « Échec d'écriture » (132px rendus en FR, 122px pour « Write failed », relevé le 2026-10-28) |
+| État | 164px (`w-41`) | Tag et icône info, mesurée sur « Échec d'écriture » (132px rendus en FR, 122px pour « Write failed ») |
 
 Colonnes fixes figées, leur contenu arrivant pendant le run, chacune mesurée sur son contenu le plus large dans les deux langues : le reste va aux deux colonnes comparées. Source dit d'où vient la donnée écrite, État par quel chemin (`state` et `resolution`). Le nom de fichier est un sous-texte plutôt qu'une colonne : c'est la requête quand les tags manquent. Le score tient en trois nombres : un seul cacherait lequel des deux fait tomber le morceau en zone grise.
 
@@ -506,10 +500,7 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 - ✅ **Un tooltip révèle, il ne porte pas** : il montre ce qui est déjà à l'écran mais coupé, jamais un libellé, une aide ou une erreur. Quatre exceptions : la raison d'une action désactivée, l'avertissement d'« Envoyer ce rapport » (ticket GitHub public, noms de fichiers, cf. [ADR-014](adrs/014-observabilite-sentry-et-rgpd.md) ; l'issue s'ouvre pré-remplie pour relecture avant envoi), le détail d'une ligne du rapport et le motif d'un morceau en échec, ces deux derniers annoncés par une icône `info-circle` en `text-muted-color` hors de tout tag
 - ✅ **Tout `pTooltip` se lie à `[tooltipOptions]`** (`TOOLTIP` ou `WIDE_TOOLTIP`) : PrimeNG n'a aucun défaut global, sans ce jeu il s'ouvre à droite et sans délai. Jamais de `[showDelay]` ni de `[tooltipPosition]` sur l'instance
 - ✅ **Aucun libellé en dur dans un template** : tout passe par ngx-translate, erreurs du sidecar comprises (`code` + `params`)
-- ✅ **Une phrase par ligne** : chaque phrase d'un message sur sa ligne par un `\n` de traduction, une ligne vide entre les blocs d'une modale longue, rendu en `whitespace-pre-line`. Exceptions, pour qu'une cellule réservée reste immobile : le bandeau de source de l'arbitrage (une phrase), le motif d'un non résolu dans la modale du lien (deux lignes de `text-xs`) ; l'aide de la clé API tient sur une ligne ; le bandeau de démo garde ses deux phrases sur sa ligne de 32px
-- ✅ **Vouvoiement et infinitif** : une phrase s'adresse à l'utilisateur au vouvoiement (« Relancez l'application. »), un libellé d'action est à l'infinitif (« Choisir un dossier »)
-- ✅ **Le vocabulaire de l'utilisateur** : nommer ce qu'il connaît (« le moteur de l'application », « la médiathèque VLC »), jamais l'architecture (sidecar, dump) ; un même mot pour une même chose ; un message d'erreur dit le geste qui répare (relancer, réinstaller, choisir), pas la mécanique qui a échoué
-- ✅ **Espace insécable en français** : une espace insécable (U+00A0, littérale dans `fr.json`) précède `:`, `;`, `?` et `!`, pour qu'un retour à la ligne ne sépare jamais le signe de ce qu'il ponctue
+- ✅ **Textes d'interface** : rédaction (vouvoiement, vocabulaire, espace insécable, une phrase par ligne et ses exceptions de cellule réservée) dans la rule `.claude/rules/ngx-translate/redaction.md`
 - ✅ **Modale d'arbitrage au clavier** : flèches entre arbitrages, Entrée pour valider, focus visible en permanence
 
 ## Anti-Patterns
@@ -537,29 +528,22 @@ Un jeu de colonnes qui tient au plancher plutôt qu'un masquage progressif : per
 
 - **Icônes** : SVG inline par `IconComponent` et `SourceLogoComponent`, là où le design system rend les glyphes par la police PrimeIcons. Écart définitif : React n'importe pas un composant Angular
 - **Marque de la barre d'onglets** : logo de l'application en `size-5`, là où `AppShell` pose le glyphe `tag` sur une tuile `bg-highlight`. Décidé le 2026-10-22
+- **Bandeau de démo** : bande neutre `h-8` sous la barre d'onglets (édition démo), là où le design system n'a aucun bandeau : il parle de l'environnement, pas de l'application, et ne se confond avec aucun `Message`. Décidé le 2026-10-25
 - **Barre de titre** : barre d'onglets fusionnée avec la barre de titre de Windows, en 40px avec les boutons de fenêtre à droite, là où `AppShell` garde la barre système au-dessus des onglets. Décidé le 2026-10-22
 
 ## Documentation Officielle
 
-- [PrimeNG : Theming](https://primeng.dev/theming) : design tokens, `definePreset()`, `darkModeSelector`, tokens scopés `[dt]`
-- [PrimeNG : Configuration](https://primeng.dev/configuration) : `providePrimeNG()`, licence, ripple (désactivé par défaut)
-- [PrimeNG : Tailwind CSS](https://primeng.dev/tailwind) : installation, classes issues des tokens, utilitaires d'animation, dark mode
+- [PrimeNG : Theming](https://primeng.dev/theming) : design tokens, `definePreset()`, tokens scopés `[dt]`
 - [PrimeNG : PassThrough](https://primeng.dev/passthrough) : API `[pt]`, locale et globale
-- [PrimeNG : Table](https://primeng.dev/table) : `scrollHeight="flex"`, scroll virtuel
 - [PrimeNG : Tooltip](https://primeng.dev/tooltip) : `tooltipOptions`, aucun défaut global
-- [Tailwind CSS : Dark mode](https://tailwindcss.com/docs/dark-mode) : `@custom-variant`
 - [PrimeIcons](https://primeicons.dev) : catalogue, catégories, recherche
 - [Angular : Enter and Leave animations](https://angular.dev/guide/animations) : `animate.enter` / `animate.leave`
 - [Angular : Signal Forms](https://angular.dev/guide/forms/signals/overview) : `form()`, `[formField]` des Réglages
 - [Simple Icons](https://simpleicons.org) : logos Beatport, Bandcamp, SoundCloud, VLC media player
 - [Fontsource : polices variables](https://fontsource.org/docs/getting-started/variable) : paquet `@fontsource-variable/inter`, import `wght.css`
 
+Configuration, Table, Tailwind et dark mode : [knowledges/primeng.md](knowledges/primeng.md) et [knowledges/tailwindcss.md](knowledges/tailwindcss.md).
+
 ## Ressources Complémentaires
 
-- [tailwindcss-primeui](https://github.com/primefaces/tailwindcss-primeui) : classes des tokens et utilitaires d'animation
 - [primeng#17946](https://github.com/primefaces/primeng/issues/17946) et [tailwindcss-primeui#27](https://github.com/primefaces/tailwindcss-primeui/issues/27) : l'incompatibilité SCSS de Tailwind v4
-- [knowledges/primeng.md](knowledges/primeng.md) et [knowledges/tailwindcss.md](knowledges/tailwindcss.md) : fiches techniques du projet
-- [ARCHITECTURE.md](ARCHITECTURE.md) : stack, écrans, contrat NDJSON et modes de panne à couvrir visuellement
-- [VERSIONS.md](VERSIONS.md) : versions exactes de PrimeNG, `@primeuix/themes`, `@primeicons/angular`, Tailwind CSS et Inter
-- [ADR-003](adrs/003-primeng-community-license.md) : PrimeNG sous Community License, preset Aura, `definePreset()` comme seule voie de personnalisation **du thème**, le Theme Designer n'étant pas inclus
-- [ADR-004](adrs/004-i18n-ngx-translate.md) : bascule FR / EN à l'exécution, contrainte d'élasticité des libellés

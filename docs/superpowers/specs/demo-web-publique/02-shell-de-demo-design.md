@@ -141,6 +141,8 @@ Aucun module de démo n'entre dans le bundle desktop, et le desktop garde son co
   - **Détail d'un morceau** : « Restaurer ce morceau » et le lien de la fiche source, dont les URLs sont fictives.
   - **Contrôles de fenêtre** : masqués en démo, dans la barre d'onglets comme dans celle de l'écran bloquant.
 - **Téléphone** : seule `index.demo.html` déclare `width=1280`. Le navigateur d'un téléphone affiche l'app entière réduite, le visiteur zoome puis fait glisser. Un navigateur d'ordinateur ignore cette ligne.
+  - Sur un écran tactile en portrait, `100vh` vaut près de 2800px : le shell s'arrête à la hauteur d'ouverture de la fenêtre, 800px (`demo-portrait`), sur le fond `bg-surface-950` (corrigé le 2026-10-28).
+  - Sans contrôles de fenêtre, la base du nom de la barre d'onglets passe de `4rem + 147px` à `4rem` (engrenage et `pl-4`), sinon Playlist et Tagging glissent de 69px à droite du centre à 1024px (décidé le 2026-10-26).
 - **Signals** : `.claude/rules/angular/signals.md`. **Routage** inchangé : `.claude/rules/angular/routing.md`. **Thème** inchangé : `.claude/rules/primeng/theming.md`.
 
 ## Acceptance criteria
