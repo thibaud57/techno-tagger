@@ -4,7 +4,7 @@ Application desktop Windows mono-utilisateur qui extrait les morceaux d'une play
 
 ## Stack
 
-Métier : Python 3.14.10 (sidecar autonome empaqueté par PyInstaller, protocole NDJSON sur stdin/stdout), pydantic 2.14, mutagen 1.48, rapidfuzz 3.14, httpx2 2.16, keyring 25.7 | Interface : Angular 22.2 + PrimeNG 22 (preset Aura, dark permanent) + Tailwind 4 + ngx-translate 18 | Coquille : Tauri v2 (Rust 1.99) | Gestionnaires : pnpm 12.15 (`src/`), uv 0.13 (`sidecar/`), cargo (`src-tauri/`) | Qualité : Ruff 0.17, Prettier 3.9.10
+Métier : Python (sidecar autonome empaqueté par PyInstaller, protocole NDJSON sur stdin/stdout), pydantic, mutagen, rapidfuzz, httpx2, keyring | Interface : Angular 22 + PrimeNG 22 (preset Aura, dark permanent) + Tailwind 4 + ngx-translate | Coquille : Tauri v2 (Rust) | Gestionnaires : pnpm (`src/`), uv (`sidecar/`), cargo (`src-tauri/`) | Qualité : Ruff, Prettier (versions exactes : [VERSIONS.md](../docs/VERSIONS.md))
 
 ## Documentation
 
@@ -23,12 +23,12 @@ Métier : Python 3.14.10 (sidecar autonome empaqueté par PyInstaller, protocole
 
 ### Standards
 
-- **Tout le métier vit dans le sidecar Python** : scoring, seuils, classement des candidats, lecture et écriture des tags, plan de run. L'interface affiche ce qu'elle reçoit et émet des commandes, `src-tauri/src/` se limite à l'initialisation des plugins. Une règle métier écrite en TypeScript ou en Rust est au mauvais endroit, quelle que soit sa taille. C'est aussi ce qui gouverne l'ordre de développement : le métier avant l'interface, et le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
+- **Tout le métier vit dans le sidecar Python** : l'interface affiche et émet des commandes, `src-tauri/src/` se limite à l'initialisation des plugins, une règle métier en TypeScript ou en Rust est au mauvais endroit (cf. [ADR-005](../docs/adrs/005-sidecar-python-protocole-ndjson.md)). Ordre de développement : le métier avant l'interface, le contrat NDJSON figé avant d'écrire du TypeScript contre lui.
 - **Aucune ligne de scraping dans ce dépôt** : techno-scraper est la seule source de données, via son API et le header `X-API-Key`. Le dépôt est public, et c'est ce qui rend la distribution anonyme possible.
 - **Aucun fichier musical n'est modifié avant la confirmation globale du run**, et les tags d'origine sont sauvegardés avant toute réécriture. Le coût d'une erreur ici est la bibliothèque de l'utilisateur, pas un test rouge.
 - **Rien de personnel ne quitte la machine** : SDK Sentry durci, aucun événement métier envoyé, et aucun titre de morceau ne part sans un geste manuel explicite. Les rapports et les logs restent en local.
-- **Une valeur, une source** : version, nom d'application, identifiant de bundle, nom du binaire du sidecar vivent à un seul endroit et sont dérivés partout ailleurs (`extra-files` de release-please, `define` esbuild, lecture du manifeste). Quand la dérivation est impossible (un JSON n'interpole rien, un `.spec` PyInstaller n'importe rien), la copie est **gardée par un test de cohérence**, jamais laissée à la vigilance : ces divergences-là sont muettes et ne se voient qu'à l'exécution du bundle.
-- **No-lib-test** : un test doit échouer contre une régression de notre code, jamais contre une mise à jour de dépendance, à des exceptions voulues près : la garde `data_collection` de `sidecar/tests/unit/core/test_sentry_payload.py` échoue quand une montée de sentry-sdk ajoute une catégorie de collecte (ADR-014) ; `test_re_recording_yields_the_committed_demo_folder` de `sidecar/tests/integration/test_demo_scenario.py` échoue quand un changement du sidecar ou une montée de rapidfuzz, mutagen ou pydantic modifie une réponse enregistrée de la démo web ([ADR-023](../docs/adrs/023-demo-web-par-rejeu.md)), ce qui se répare par `just record-demo` sous Windows puis le commit du diff de `src/demo/`. On ne teste ni que mutagen sait écrire un `TPE1`, ni qu'un `@if` masque un div, mais que **notre** table de correspondance envoie le bon champ au bon tag.
+- **Une valeur, une source** : version, nom d'application, identifiant de bundle et nom du binaire du sidecar vivent à un seul endroit et sont dérivés ailleurs. Une copie inévitable est gardée par un test de cohérence (cf. [release-please](rules/release-please/config.md) et [pyinstaller](rules/pyinstaller/build.md)).
+- **No-lib-test** : un test échoue contre une régression de notre code, jamais contre une montée de dépendance, sauf deux exceptions voulues : la garde `data_collection` de Sentry ([ADR-014](../docs/adrs/014-observabilite-sentry-et-rgpd.md)) et le rejeu de la démo web ([ADR-023](../docs/adrs/023-demo-web-par-rejeu.md)). Cf. [pytest](rules/pytest/tests.md).
 
 > Les règles techniques (Angular, PrimeNG, Tauri, pydantic, keyring, PyInstaller, Ruff, Mypy…) sont dans [.claude/rules/](rules/) et chargées dynamiquement selon les fichiers touchés.
 
