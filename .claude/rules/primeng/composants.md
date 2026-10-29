@@ -15,6 +15,7 @@ paths:
 - Régler dans le preset (`src/app/core/platform/theme.ts`) un écart d'Aura aux échelles du design system : badge à 12px, `info` de `p-message` en `sky`, pied de modale à 8px, croix des modales et du toast en carré de 28px (celle des modales calée sur la première ligne du titre et sur le bord du contenu), bouton à icône seule carré (avec `[iconOnly]="true"`), bouton `link` en lien de texte, onglet centré
 
 ## À éviter
+- Un `message` HTML ou un `[innerHTML]` dans une confirmation qui cite un chemin : interpoler le texte, le chemin vient du disque
 - `::ng-deep` : il casse à la mise à jour, passer par `[dt]` ou `[pt]`
 - Les classes `pi pi-*` : la police n'est plus l'approche de la v22
 - Une largeur en dur sur un bouton ou un libellé traduit. Seule se fige une colonne qui aligne plusieurs lignes, mesurée sur son contenu le plus long en FR et en EN

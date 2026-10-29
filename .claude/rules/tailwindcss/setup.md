@@ -11,7 +11,7 @@ paths:
 - Garder un seul fichier CSS d'entrée, qui porte l'`@import "tailwindcss"`, les `@plugin`, le `@custom-variant` et le `@theme`
 - Configurer en CSS : `@theme` remplace `theme.extend`, `@plugin "nom"` remplace le tableau `plugins`
 - Nommer le fichier PostCSS exactement `.postcssrc.json` ou `postcss.config.json`, avec `@tailwindcss/postcss` pour seul plugin
-- Écrire le `@custom-variant dark` sur exactement le sélecteur passé en `darkModeSelector` à `providePrimeNG()`, dans le même commit (valeur dans [DESIGN.md § Dark / Light Mode](../../../docs/DESIGN.md#dark--light-mode))
+- Écrire le `@custom-variant dark` sur exactement le sélecteur passé en `darkModeSelector` à `providePrimeNG()`, dans le même commit (valeur dans [knowledges/primeng.md](../../../docs/knowledges/primeng.md#mode-sombre-forcé))
 - Garder le `&:where(...)` du variant : sa spécificité nulle évite de faire gagner le variant sur des règles voisines
 - Déclarer `tailwindStylesheet` dans `.prettierrc` dès l'installation du plugin de tri, le chemin étant résolu relativement au fichier de config Prettier
 - Charger le plugin `tailwindcss-primeui` : il expose les design tokens du preset en classes utilitaires

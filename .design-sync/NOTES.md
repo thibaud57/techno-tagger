@@ -1,10 +1,10 @@
 # Notes de sync du design system
 
-## Le projet Claude Design et ce qui fait foi
+## Le design system et ce qui fait foi
 
 | Projet | Lien | Rôle |
 | --- | --- | --- |
-| Techno Tagger Design System (`66daf6c5-f225-4dcc-bf7d-1d792e633ee5`) | https://claude.ai/design/p/66daf6c5-f225-4dcc-bf7d-1d792e633ee5 | Les **composants** (miroir JSX, `.d.ts`, fiche `.prompt.md` et carte par composant), les tokens, les guidelines, les quatre logos et la **maquette** cliquable de l'application dans `ui_kits/techno-tagger/` (un fichier par écran, `AppShell.jsx` pour le shell) |
+| Techno Tagger Design System, artifact Claude (projet d'origine `66daf6c5-f225-4dcc-bf7d-1d792e633ee5`) | https://claude.ai/artifact/S9PoPCEm7Kv6SzyKhjGpP3 | Les **composants** (miroir JSX, `.d.ts` et fiche `README.md` par composant, vues de groupe `<Groupe>Card`), les tokens, les guidelines, les quatre logos et la **maquette** cliquable de l'application dans `ui_kits/techno-tagger/` (un fichier par écran, `AppShell.jsx` pour le shell) |
 
 Un seul projet ici, composants et maquette ensemble. Trois sources se lisent dans cet ordre avant
 d'implémenter un écran :
@@ -21,55 +21,49 @@ la maquette en diverge (constat du 2026-09-16 sur l'onglet Playlist, cf. Journal
 
 ## Comment ce dépôt se synchronise
 
-Un push, dans l'ordre :
-
-1. Relire sur le distant (`get_file`) chaque fichier à modifier et le comparer à l'export local
-   `.design-sync/design-system/`, ignoré par git et donc absent après un clone : le distant fait foi
-2. Modifier l'export local, puis `finalize_plan` sur la liste exacte des chemins et `write_files`
-   depuis l'export (`localPath`)
-3. Ajouter à `readme.md` § Réserves l'entrée datée de l'alignement
-4. Poser `_ds_needs_recompile`, puis retirer de `docs/DESIGN.md` § Arbitrages les écarts réalignés
-   (leur règle vit dans leur section), vider le Reste ouvert ci-dessous et écrire l'entrée du Journal
-
-- **Le convertisseur de `/design-sync` ne s'applique pas et le lancer détruirait le projet
-  distant** : le skill empaquette un `dist/` React ou un Storybook pour que l'agent de design rende
-  les composants compilés du dépôt. Ici il n'y a ni l'un ni l'autre : les composants sont Angular
-  et `package.json` est `private` sans `main`, `module`, `exports` ni `types`. Le
-  danger n'est pas qu'il échoue : sa clôture **supprime du distant tout ce que le build local ne
-  contient pas** sous `components/`, `tokens/`, `guidelines/`, `_preview/`, `fonts/` et `_vendor/`.
-  Avec un build vide, elle efface le design system et la maquette. Les composants du projet Claude
-  Design sont des recréations React bâties depuis DESIGN.md (son `readme.md` § Réserves), pas le
-  code livré.
-- **Le design system s'écrit donc fichier par fichier** : `components/<groupe>/<Nom>.{jsx,d.ts,prompt.md}`,
-  une carte `<groupe>.card.html` par dossier, `ui_kits/techno-tagger/<Écran>.jsx` pour la
-  maquette, via `finalize_plan` puis `write_files` de l'outil `DesignSync`.
-- **Tenir `readme.md` § Réserves à jour** : sa dernière entrée porte la date du dernier alignement
-  contre `docs/DESIGN.md` et ce qui a changé. Un push qui ne la touche pas laisse le lecteur
-  suivant sur un état faux.
-- **Finir par `_ds_needs_recompile`** (`{"by":"design-sync-manual"}`) : c'est lui qui déclenche
-  l'auto-contrôle de l'app à l'ouverture du projet, qui relit les `.d.ts`, réenregistre les
-  cartes, régénère `_ds_manifest.json` et l'adherence, puis l'efface.
-- **Pas de `_ds_sync.json`** : cette ancre décrit un build du convertisseur. Sans elle, le prochain
-  sync revérifie tout, ce que le skill appelle le choix honnête hors convertisseur.
+- **Le distant est un artifact Claude depuis le 2026-10-29**, au format Design System (`tokens.json`,
+  un dossier par composant sous `components/` avec fiche et aperçu, bundle `components/bundle.js`,
+  feuilles réunies dans `components/bundle.css`, anciens fichiers sous `archived/`). Le distant fait
+  foi.
+- **La copie locale `.design-sync/design-system/` a les chemins de l'artifact sans `project/`** :
+  un sync est 1 pour 1. Ignorée par git, donc absente après un clone ; elle se retélécharge depuis
+  l'artifact. Fiches `components/<Nom>/README.md` (une fiche citée en
+  `components/<groupe>/<Nom>.prompt.md` par un ancien spec est ce `README.md`), sources
+  `components/<groupe>/<Nom>.jsx`, maquette `ui_kits/techno-tagger/`, vues de groupe
+  `components/<Groupe>Card/`.
+- **Un push passe par l'outil Artifact** : chaque fichier changé en local se publie au même chemin
+  sous `project/`, selon le `SKILL.md` de l'artifact (relire d'abord le fichier distant, jamais la
+  copie locale, publier ensemble les fichiers changés, l'index `project/design-system.json` en
+  dernier avec son `lastChange` à jour). Ensuite, retirer de
+  `docs/DESIGN.md` § Arbitrages les écarts réalignés (leur règle vit dans leur section), vider le
+  Reste ouvert ci-dessous et écrire l'entrée du Journal.
+- **Tenir le registre d'alignement à jour** : l'entrée datée du dernier alignement contre
+  `docs/DESIGN.md` et ce qui a changé, dans § Réserves du readme d'origine, devenu le `README.md` de
+  l'artifact. Un push qui ne la touche pas laisse le lecteur suivant sur un état faux.
+- **Reconstruire le bundle à chaque composant ajouté ou modifié** : l'artifact charge
+  `components/bundle.js` tel qu'il est publié, rien ne le recompile. Build esbuild des sources JSX
+  (`--bundle --format=iife --global-name=TechnoTaggerDesignSystem_66daf6 --alias:react=<shim>`, le
+  shim rendant `window.React`), publié avec le composant.
+- **Le convertisseur de `/design-sync` ne s'applique pas et le lancer détruirait le distant** : le
+  skill empaquette un `dist/` React ou un Storybook pour que l'agent de design rende les composants
+  compilés du dépôt. Ici il n'y a ni l'un ni l'autre : les composants sont Angular et `package.json`
+  est `private` sans `main`, `module`, `exports` ni `types`. Le danger n'est pas qu'il échoue : sa
+  clôture **supprime du distant tout ce que le build local ne contient pas**. Avec un build vide,
+  elle efface le design system et la maquette. Les composants du design system sont des recréations
+  React bâties depuis DESIGN.md (son readme § Réserves), pas le code livré.
 - **`config.json` porte `mode: manual`** : clé hors schéma du skill, qui ferait échouer un run du
   convertisseur avec un message nommant la clé. C'est voulu, il n'a rien à faire ici.
-- **Prévisualiser avant le push** : cartes et écrans lisent `_ds_bundle.js`, qui n'a un composant
-  ajouté qu'après la recompilation distante. Pour les contrôler en local, servir l'export
-  (`python -m http.server`) et substituer au bundle un build esbuild de `components/*/*.jsx`
-  (`--bundle --format=iife --global-name=TechnoTaggerDesignSystem_66daf6 --alias:react=<shim>`,
-  le shim rendant `window.React`), par une route Playwright sur `**/_ds_bundle.js`. Le navigateur garde
-  l'ancien bundle en cache : vider le cache (CDP `Network.clearBrowserCache`) avant de conclure
-  qu'un composant manque.
 - **Ne jamais modifier la maquette sans demande explicite** : c'est le fichier de design du
   propriétaire, pas un artefact généré.
-- **L'export local n'est un miroir que comparé au distant** : une session peut pousser sans le
-  mettre à jour, et rien ne le signale. Relire le fichier distant avant d'en pousser un, jamais
-  une copie locale. `DesignSync` n'est disponible que dans la session principale et les agents
-  lancés au premier plan : un agent en arrière-plan ne l'a pas.
+- **Pas d'`@import` relatif dans `components/bundle.css`** : la frame des aperçus ne le résout pas,
+  et sans lui ni la police Inter ni les styles de base ne s'appliquent (constaté le 2026-10-29).
+  Les feuilles `tokens/*.css` y sont recopiées en un seul fichier.
+- **Aucun chemin ne doit différer d'un autre par la seule casse** : Windows fusionne
+  `components/Data/` et `components/data/`, et la copie locale ne correspond plus à l'artifact.
 
 ## Reste ouvert
 
-Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser au prochain sync.
+Ce que le code livre et que le design system n'a pas encore, à pousser au prochain sync.
 
 - **`StateTag`** (relevé le 2026-10-24, issue #115) : le composant de l'app reçoit `status` (le `state` reçu, ou « en attente », « à arbitrer », « non traité » calculés par la liste du run) et `resolution` ; celui du design system lit encore `state`, `awaiting` et `interrupted`. Rendu identique.
 - **Liste du run** (relevé le 2026-10-28) : survol d'une ligne actionnable en `bg-primary/8` au lieu de `bg-emphasis`, ligne dépliée gardée en `bg-highlight` au survol, un seul détail ouvert à la fois, colonnes Source à 124px et État à 164px (144 et 192 avant). `TaggingScreen` montre encore l'ancien rendu.
@@ -254,3 +248,14 @@ Ce que le code livre et que le projet Claude Design n'a pas encore, à pousser a
 - **2026-10-23, détail déplié** : `TrackDetail` (`TaggingScreen.jsx`) et la carte `data` séparent le
   libellé de sa clé par `·`, clé en `text-muted-color`, sur demande explicite du propriétaire. Distant
   relu identique à l'export avant le push, réserve n° 29, `_ds_needs_recompile` posé.
+- **2026-10-29, migration en artifact** : le projet devient l'artifact Design System
+  https://claude.ai/artifact/S9PoPCEm7Kv6SzyKhjGpP3, mis au format (« Finish setting up ») le même
+  jour. Export local relu contre un export frais du projet d'origine : 189 sources identiques, seul
+  `_ds_bundle.js` local datait d'avant le push du 2026-10-23, remplacé par le bundle recompilé. Le
+  site claude.ai/design ferme le 2026-12-14 (aide Anthropic « Move from standalone Claude Design to
+  Claude »).
+- **2026-10-29, copie locale alignée sur l'artifact** : l'artifact, complété des 18 cartes de
+  guidelines et de la maquette « Application », ses vues de groupe et cartes de marque rendues
+  fidèles à l'ancien projet, est téléchargé en entier (271 fichiers) à la place de l'ancien export.
+  `components/bundle.css` rendu autonome (police et styles rétablis dans les aperçus), vues de groupe
+  renommées `<Groupe>Card` pour lever 6 collisions de casse avec les dossiers de sources.
