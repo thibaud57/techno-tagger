@@ -49,10 +49,6 @@ Commits : `type(scope): description`, types `feat | feat! | fix | docs | refacto
 
 ## Commandes
 
-**Diagnostic au démarrage (hook `env-check`)** : respecter les instructions injectées via `additionalContext`, énumérer les blocages à l'utilisateur et proposer le correctif (`just install`, `just build-sidecar`, copie du fichier d'environnement d'exemple) avant toute tâche qui construit, lance ou empaquette le projet.
-
-**`just` et les scripts pnpm exigent bash** : le `Justfile` pose `set shell := ["bash", "-cu"]` et `pnpm-workspace.yaml` pose `scriptShell: bash`. Le hook `env-check` vérifie au démarrage que `bash` résout bien vers Git Bash et non vers le lanceur WSL.
-
 | Commande / Skill | Rôle |
 |---|---|
 | `dev-server` | Lance l'app, la webview seule ou le sidecar en CLI (`just dev` / `dev-ui` / `dev-demo` / `dev-sidecar` / `stop`) |
