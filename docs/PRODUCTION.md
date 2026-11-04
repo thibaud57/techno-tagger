@@ -386,7 +386,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 
 - [x] **`just lint`** : Ruff + Ruff format (`sidecar/`), ESLint + Prettier (`src/`), `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), `actionlint` (workflows) (2026-10-23)
 - [x] **`just typecheck`** : `tsc --noEmit` sur les deux tsconfig Angular, Mypy strict sur `sidecar/src` et `sidecar/tests` (2026-10-23)
-- [x] **`just test`** : pytest et Vitest avec le plancher de couverture 80 % bloquant sur `sidecar/` et `src/` (2026-10-23, 1238 tests sidecar, 967 tests UI)
+- [x] **`just test`** : pytest et Vitest avec le plancher de couverture 80 % bloquant sur `sidecar/` et `src/`
 - [x] **`just build`** : binaire PyInstaller du sidecar (`build-sidecar`) puis installeur NSIS (`tauri build`) (2026-10-23, installeur NSIS produit localement)
 - [x] **Smoke test du livrable** : installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux (2026-10-21, installeur de la Release chez un utilisateur réel)
 - [x] **Test de sécurité vert** : la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry (2026-10-23, clé absente des logs, rapports, exports et sorties de la recette `/verify` ; `sentry_probe` et `selftest_probe` sans chemin ni titre)
