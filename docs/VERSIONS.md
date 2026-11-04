@@ -13,7 +13,7 @@ technologies: ["Python", "Angular", "Tauri", "Rust"]
 
 > **Trois écosystèmes, trois gestionnaires de paquets.** `sidecar/` en uv, `src/` en pnpm, `src-tauri/` en cargo, sans workspace transverse (cf. [ARCHITECTURE.md § Package Manager](ARCHITECTURE.md#package-manager)). « Partagé / Infrastructure » couvre la coquille Tauri et la chaîne CI/CD.
 
-> **Politique de version : la dernière stable, toujours.** Une version antérieure ne se retient que sur une incompatibilité dure, documentée dans [Conflits Potentiels](#conflits-potentiels) ou [Montées Bloquées](#montées-bloquées-état-au-2026-10-29), qu'aucune ligne de configuration ne contourne. Une rupture qui se règle par une règle de lint, un réglage ou une tournure à éviter se mécanise et on avance. Deux écarts par choix, expliqués dans leur fiche : **TypeScript**, bloqué en 6.0.x par Angular 22, et **Python**, tenu en 3.14.x malgré la 3.15 (décision du projet, `requires-python >=3.14,<3.15`). Node suit la ligne LTS.
+> **Politique de version : la dernière stable, toujours.** Une version antérieure ne se retient que sur une incompatibilité dure, documentée dans [Conflits Potentiels](#conflits-potentiels) ou [Montées Bloquées](#montées-bloquées-état-au-2026-11-04), qu'aucune ligne de configuration ne contourne. Une rupture qui se règle par une règle de lint, un réglage ou une tournure à éviter se mécanise et on avance. Deux écarts par choix, expliqués dans leur fiche : **TypeScript**, bloqué en 6.0.x par Angular 22, et **Python**, tenu en 3.14.x malgré la 3.15 (décision du projet, `requires-python >=3.14,<3.15`). Node suit la ligne LTS.
 
 ---
 
@@ -111,7 +111,7 @@ Seules les technologies avec un piège, un arbitrage ou une montée à surveille
 
 **Pièges** : uv livre le CPython 3.14.10 depuis 0.13.5, mais fait de la 3.15 son défaut sans pin : neutralisé par `sidecar/.python-version` et `requires-python`.
 
-**Recommandation** : ✅ **3.14.10**, support jusqu'en **2030-10** : la procédure lourde de bump du runtime (rebuild PyInstaller plus retest des faux positifs antivirus, cf. [PRODUCTION.md § Composants applicatifs](PRODUCTION.md#composants-applicatifs)) recule d'un an. La 3.15 attend la maturité de l'écosystème (décision du projet : vers la 3.15.2), cf. [Montées Bloquées](#montées-bloquées-état-au-2026-10-29). `asyncio.get_event_loop` et `sqlite3.version` sont en `banned-api` (`TID251`, sonde du 2026-10-23), y compris pour du code copié de la CLI d'origine.
+**Recommandation** : ✅ **3.14.10**, support jusqu'en **2030-10** : la procédure lourde de bump du runtime (rebuild PyInstaller plus retest des faux positifs antivirus, cf. [PRODUCTION.md § Composants applicatifs](PRODUCTION.md#composants-applicatifs)) recule d'un an. La 3.15 attend la maturité de l'écosystème (décision du projet : vers la 3.15.2), cf. [Montées Bloquées](#montées-bloquées-état-au-2026-11-04). `asyncio.get_event_loop` et `sqlite3.version` sont en `banned-api` (`TID251`, sonde du 2026-10-23), y compris pour du code copié de la CLI d'origine.
 
 ### 2. uv
 **Version actuelle** : `0.13.6` (2026-10-27). Le dépôt ne fige que le minor, le patch flotte
@@ -479,7 +479,7 @@ Les couples ⚠️ et ❌ sont détaillés dans [Conflits Potentiels](#conflits-
 | Dépendance A | Dépendance B | Compatibilité | Notes |
 |--------------|--------------|---------------|-------|
 | Angular 22.2.4 | TypeScript 6.0.x | ✅ | Contrainte dure `>=6.0.0 <6.1.0` |
-| Angular 22.2.4 | TypeScript 7.0.x | ❌ | `compiler-cli` ne compile pas, élargissement refusé en `not planned` (cf. [Montées Bloquées](#montées-bloquées-état-au-2026-10-29)) |
+| Angular 22.2.4 | TypeScript 7.0.x | ❌ | `compiler-cli` ne compile pas, élargissement refusé en `not planned` (cf. [Montées Bloquées](#montées-bloquées-état-au-2026-11-04)) |
 | Angular 22.2.4 | PrimeNG 22.1.4 | ✅ | `peerDependency` en `^22.1.0`, pas `22.x` |
 | PrimeNG 22.1.4 | Tailwind 4.3.4 | ✅ | Layer `primeng` à placer après `theme` et `base`, avant `utilities` |
 | Tailwind 4.3.4 | prettier-plugin-tailwindcss 0.8.1 | ✅ | Option `tailwindStylesheet` obligatoire |
@@ -573,7 +573,7 @@ pnpm install && pnpm exec ng build
 pnpm exec tauri dev
 
 # 5. Build complet local, sans signature de l'updater
-#    (la clé privée ne vit que dans les secrets GitHub, cf. .claude/rules/tauri/config-bundle.md)
+#    (la clé privée ne vit que dans les secrets GitHub, cf. .claude/rules/tauri/updater-bundle.md)
 just build
 ```
 
@@ -611,7 +611,7 @@ Les faux positifs antivirus **ne se vérifient pas ici** : mesure dans la Checkl
 - [ ] La table à scroll virtuel tient 100 lignes sans dégradation à 1024×700
 - [ ] À chaque montée de PrimeNG, un détail déplié dans la liste du run reste visible en défilant dans les deux sens (cf. § PrimeNG et PrimeIcons, scroll virtuel de `p-table`)
 
-## Montées Bloquées (état au 2026-10-29)
+## Montées Bloquées (état au 2026-11-04)
 
 Mises à jour majeures écartées par une incompatibilité prouvée, ou identifiées et non tentées.
 
