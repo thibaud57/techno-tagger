@@ -1,6 +1,6 @@
 ---
 title: "Pydantic — Modèles & validation du protocole"
-version: "2.14.1"
+version: "2.14.2"
 description: "Référence technique pour Pydantic v2 dans le sidecar : modèles du protocole NDJSON, validation des commandes reçues sur stdin, migration du plan de run, frontière avec techno-scraper et empaquetage de pydantic-core."
 date: "2026-10-27"
 keywords: ["pydantic", "validation", "ndjson", "protocole", "pydantic-core", "mypy"]
