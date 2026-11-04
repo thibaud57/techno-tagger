@@ -1,5 +1,5 @@
 ---
-title: "ADR-022 — Modèles du protocole en Pydantic"
+title: "ADR-022 : Modèles du protocole en Pydantic"
 status: "accepted"
 description: "Les commandes reçues sur stdin, le plan de run et les réponses de techno-scraper sont des modèles Pydantic validés à la construction. Les structures internes restent des dataclasses. Le coût est une seconde extension native dans le binaire PyInstaller."
 date: "2026-08-30"
@@ -38,7 +38,7 @@ Sur quoi reposent les modèles du protocole, sachant que la validation runtime p
 **Avantages :**
 - Aucune dépendance ajoutée, donc aucun risque de packaging supplémentaire
 - Le binaire ne grossit pas, ce qui compte sur un exécutable déjà exposé aux faux positifs antivirus
-- Le contrat est petit : une vingtaine de types, stables une fois figés à l'étape 3 de l'ordre de développement
+- Le contrat est petit : une vingtaine de types, stables une fois le contrat arrêté
 
 **Inconvénients :**
 - La validation est à écrire, à tester et à maintenir en parallèle des annotations de type, qui décrivent déjà la forme attendue
@@ -108,7 +108,6 @@ Version retenue : `pydantic>=2.13.5,<3`. La borne basse est 2.12 au minimum, pre
 
 - Le binaire embarque une seconde extension native, et les modes de panne propres au binaire figé passent de trois à quatre
 - Les benchmarks de démarrage et de taille de PRODUCTION.md sont périmés tant qu'ils n'ont pas été refaits avec Pydantic embarqué
-- Une dépendance de plus à suivre, dont la cadence de publication est soutenue
 - Le contrat est maintenu en double, modèles Pydantic et types TypeScript miroir, la génération de code restant écartée : un champ ajouté se répercute des deux côtés à la main
 
 ---

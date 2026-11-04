@@ -12,7 +12,6 @@ paths:
 - Construire en `--onedir` et déclarer l'exe en `bundle.externalBin`, le dossier `_internal/` en `bundle.resources` (cf. [ARCHITECTURE.md § Arborescence](../../../docs/ARCHITECTURE.md#arborescence))
 - Rester en mode console (`console=True` du `.spec`) : le mode fenêtré détache `stdin`/`stdout` sous Windows et casse le protocole NDJSON
 - Déclarer `pyinstaller-hooks-contrib` dans le groupe de dépendances de build : sans lui, sentry-sdk perd ses intégrations, silencieusement ou par `ImportError` selon la version
-- Forcer le backend keyring en code par `set_keyring()` : une régression du hook ne se verrait que dans le binaire figé (cf. [keyring/secrets.md](../keyring/secrets.md))
 - Lire le target triple depuis `rustc --print host-tuple` dans `build.py`, jamais en dur et copier le binaire suffixé dans `src-tauri/binaries/`
 - Passer `--noconfirm` en CI, sans exception
 - Garder `--clean` dans `build.py` : l'analyse repart d'un arbre propre, `_build_info.py` (DSN compris) étant créé puis supprimé à chaque build. C'est aussi le premier réflexe quand un hidden import semble ignoré
@@ -27,6 +26,7 @@ paths:
 - Déclarer `[project.scripts]` dans le `pyproject.toml` du sidecar : `uv init --package` le génère, mais le point d'entrée est le script du `.spec` et rien ne consomme la commande console
 
 ## Gotchas
+- Le `.spec` n'importe rien et un JSON n'interpole rien : le nom du binaire qu'ils recopient est gardé par un test de cohérence (`test_main.py`), pas dérivé
 - Le `.spec` ne voit pas son dossier sur `sys.path` : il n'importe aucun module voisin, tout partage avec `build.py` passe par `SPEC`, `SPECPATH`, `DISTPATH`, `workpath` ou le nom du fichier
 - Tout import par chaîne de caractères échappe à l'analyse statique : sentry-sdk (`importlib`), keyring (entry points), rapidfuzz (extension C++)
 - `--debug=imports` est le premier outil face à un `ModuleNotFoundError` propre au binaire ; `build/<nom>/` liste les modules analysés

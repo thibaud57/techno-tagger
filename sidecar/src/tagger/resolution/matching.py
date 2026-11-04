@@ -42,9 +42,9 @@ _SPACES: Final = re.compile(r"\s+")
 # Entoures d'espaces sauf ; et / : « Jay-Z » ne doit jamais etre coupe. Pas de « & » :
 # il appartient au nom du duo bien plus souvent qu'il ne separe deux artistes (« Pig &
 # Dan », « Hicky & Kalo »). Le signe de multiplication est un vrai separateur, pas une
-# faute de frappe pour x (d'ou le noqa).
+# faute de frappe pour x.
 _ARTIST_SEPARATORS: Final = re.compile(
-    r"\s*[;/]\s*|\s+(?:and|x|×|vs\.?|feat\.?|ft\.?|featuring)\s+",  # noqa: RUF001
+    r"\s*[;/]\s*|\s+(?:and|x|×|vs\.?|feat\.?|ft\.?|featuring)\s+",
     re.IGNORECASE,
 )
 # Un nom d'artiste porte des parentheses qui le designent, jamais de crochets : releve

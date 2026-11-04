@@ -1,5 +1,5 @@
 ---
-title: "ADR-003 — Bibliothèque de composants : PrimeNG sous Community License"
+title: "ADR-003 : Bibliothèque de composants : PrimeNG sous Community License"
 status: "accepted"
 description: "Choix de PrimeNG v22 sous Community License gratuite, contre Angular Material et contre le fork MIT Optimus UI, malgré la sortie de l'open source."
 date: "2026-08-02"

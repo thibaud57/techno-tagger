@@ -54,7 +54,7 @@ Exclut le composant de la ligne dépliée, les libellés des champs et le rendu 
 - **Le dump ne s'appuie pas sur cette lecture** : il relit le fichier juste avant l'écriture (ADR-010), le fichier ayant pu changer entre l'ouverture et la confirmation
 - **Dossier du run** : `RunStarted` du pipeline et `run_started` portent `folder`, le dossier tel que `Path` le sérialise. Le store l'expose (`folder`, nul avant `run_started` et après `reset`) et le service le ré-expose en `taggingFolder` : la page Tagging (10) le compare au dossier choisi pour savoir si le run affiché est encore celui de ce dossier, sans rien décider
 - **Miroir TypeScript** manuel (ADR-005, `.claude/rules/typescript/types.md`) ; le store recopie les deux champs sur `TaggingTrack` sans rien calculer (`.claude/rules/angular/signals.md`, `.claude/rules/angular/services.md`, `.claude/rules/angular/tests.md`)
-- Autres rules : `.claude/rules/mutagen/tags.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/python/modeles-donnees.md`, `.claude/rules/python/pattern-matching.md`, `.claude/rules/pytest/tests.md`
+- Autres rules : `.claude/rules/mutagen/tags.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/python/modeles-donnees.md`, `.claude/rules/pytest/tests.md`
 
 ## Acceptance criteria
 

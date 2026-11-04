@@ -21,7 +21,6 @@ paths:
 - Angular 22 : `OnPush` devient le défaut pour tout composant sans `changeDetection` explicite ; `ng update` pose `Eager` sur les composants existants, ce qui ne concerne pas un projet neuf
 - En zoneless, `setTimeout(0)` ne déclenche plus de cycle : le contournement classique de `ExpressionChangedAfterItHasBeenCheckedError` doit être suivi d'un `markForCheck()`
 - Une librairie tierce qui pilote `NgZone` directement se comporte mal en zoneless : vérifier avant d'en introduire une
-- `provideBrowserGlobalErrorListeners()` est requis pour ne pas perdre le tracking d'erreurs, zone.js ne captant plus les rejets non gérés (cf. `app-config.md`)
 
 ## Exemples
 ```typescript

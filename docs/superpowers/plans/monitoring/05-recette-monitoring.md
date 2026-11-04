@@ -368,7 +368,7 @@ git commit -m "feat(ui): self-test Sentry de la webview sur demande du moteur"
 
 ```markdown
 1. Fermer l'application : le plugin `single-instance` réveillerait la fenêtre ouverte, qui n'a pas la variable.
-2. Dans Sentry (organisation `tg-ws`), résoudre les issues de self-test d'un rejeu précédent : `SentrySelfTestError` dans `techno-tagger-sidecar`, `Error` « sentry self test » dans `techno-tagger-ui`. Un rejeu retombe dans le même groupe et, sans nouvelle issue, aucun email ne part.
+2. Dans Sentry (organisation `<org>`), résoudre les issues de self-test d'un rejeu précédent : `SentrySelfTestError` dans `techno-tagger-sidecar`, `Error` « sentry self test » dans `techno-tagger-ui`. Un rejeu retombe dans le même groupe et, sans nouvelle issue, aucun email ne part.
 3. Dans PowerShell : `$env:TECHNO_TAGGER_SENTRY_SELFTEST = "1"`, puis `& "$env:LOCALAPPDATA\techno-tagger\techno-tagger.exe"` (dossier par défaut d'une installation NSIS en `currentUser`, à confirmer par la cible du raccourci du menu Démarrer), puis `Remove-Item Env:TECHNO_TAGGER_SENTRY_SELFTEST` : sinon la variable reste posée dans la session et chaque lancement suivant enverrait ses événements.
 4. Dans Sentry, Issues de chaque projet : une issue `SentrySelfTestError` dans `techno-tagger-sidecar`, une issue `Error` dans `techno-tagger-ui`, chacune avec son email à l'adresse d'alerte du propriétaire.
 5. Ouvrir l'événement, puis la vue JSON (lien en tête de l'événement) et y rechercher `Nova`, `Mind`, le nom de compte Windows (`$env:USERNAME`), le nom de la machine (`$env:COMPUTERNAME`) et `vars` : aucune occurrence.
@@ -417,7 +417,7 @@ Manuelle. Chaque étape cochée note sa date ; une étape qui échoue ouvre un `
 
 - [ ] **Step 1 : releases et source maps** (2026-10-19 : purge non prouvée)
 
-Dans Sentry (organisation `tg-ws`), page Releases de `techno-tagger-sidecar` puis de `techno-tagger-ui` : la version publiée existe, onglet Commits renseigné.
+Dans Sentry (organisation `<org>`), page Releases de `techno-tagger-sidecar` puis de `techno-tagger-ui` : la version publiée existe, onglet Commits renseigné.
 
 Source maps : ouvrir le log du job de build de la Release. Il énumère les `.map` envoyés par `sentry-cli` et n'en montre plus après la purge. Le script npm `sourcemaps` supprime sans rien afficher : si le log ne montre pas la purge, la case reste ouverte et un `chore(ci)` ajoute un `find dist -name '*.map'` après la purge. Aucun contrôle sur l'installeur ni sur le dossier installé : `tauri-codegen` embarque `frontendDist` dans le binaire (PRODUCTION.md l.316), un `.map` oublié n'y serait pas un fichier et la recherche rendrait toujours vide. La seconde preuve est la pile lisible en TypeScript, relevée au step 3.
 
@@ -427,7 +427,7 @@ Source maps : ouvrir le log du job de build de la Release. Il énumère les `.ma
 
 - [x] **Step 3 : self-test** (2026-10-19)
 
-Suivre la procédure de PRODUCTION.md § Observabilité (« Vérifier la remontée depuis l'application installée ») sur l'application installée depuis la Release : résoudre d'abord les issues de self-test précédentes, lancer avec la variable, la retirer de la session. Dans Sentry (organisation `tg-ws`) :
+Suivre la procédure de PRODUCTION.md § Observabilité (« Vérifier la remontée depuis l'application installée ») sur l'application installée depuis la Release : résoudre d'abord les issues de self-test précédentes, lancer avec la variable, la retirer de la session. Dans Sentry (organisation `<org>`) :
 1. Issues de `techno-tagger-sidecar` : issue `SentrySelfTestError`. Issues de `techno-tagger-ui` : issue `Error` « sentry self test ». Un email pour chacune, dans la boîte de l'adresse d'alerte du propriétaire.
 2. Pour chaque événement : vue JSON (lien en tête de l'événement), recherche de `Nova`, `Mind`, du nom de compte Windows, du nom de la machine et de `vars` : aucune occurrence. Puis le payload attendu point par point (`server_name` sur l'événement du sidecar seulement).
 3. Pile de l'événement webview lisible en TypeScript (source maps résolues par Debug ID).

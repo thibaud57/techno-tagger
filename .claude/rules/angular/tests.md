@@ -34,6 +34,7 @@ paths:
 - `describe`, `it`, `expect` et `beforeEach` sont des globals ; seul `vi` s'importe
 - Angular 22 : `TestBed.getLastFixture()` récupère le dernier fixture créé sans en garder la référence
 - `src/fixtures/` est exclu de `tsconfig.app.json` et déclaré dans `tsconfig.spec.json` : un dossier de helpers de test absent des deux n'est rattaché à aucun projet et ESLint échoue à le parser
+
 ## Exemples
 ```typescript
 // ✅

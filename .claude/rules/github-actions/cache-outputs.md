@@ -2,6 +2,8 @@
 paths:
   - ".github/workflows/**/*.yml"
   - ".github/workflows/**/*.yaml"
+  - ".github/actions/**/action.yml"
+  - ".github/dependabot.yml"
 ---
 
 # GitHub Actions : cache, outputs et artifacts
@@ -10,7 +12,6 @@ paths:
 - Construire une clé de cache avec `runner.os` et `hashFiles` sur le lockfile de la zone concernée, plus des `restore-keys` en repli
 - Laisser les actions de setup gérer leur propre cache (`pnpm/setup` avec `cache: true`, désactivé par défaut ; `astral-sh/setup-uv` ; `Swatinem/rust-cache`) plutôt que câbler un `actions/cache` par-dessus
 - Publier une valeur entre jobs par `echo "clé=valeur" >> $GITHUB_OUTPUT` sur un step porteur d'un `id:`, remontée dans `outputs:` du job et lue en `needs.<job>.outputs.<clé>`
-- Annoter avec `::error file=…,line=…::` ce qui doit remonter dans la PR plutôt que se perdre dans la sortie du step
 
 ## À éviter
 - Mettre `src-tauri/target/release/` en cache : Tauri y copie le sidecar sans invalider la copie, un cache périmé embarquerait un ancien binaire dans l'installeur distribué
@@ -23,7 +24,6 @@ paths:
 - Le cache est plafonné à 10 Go par dépôt, toutes branches et workflows confondus et une entrée non lue depuis 7 jours est supprimée : le build de release, mensuel au mieux, part à froid
 - Un run ne restaure que les caches de sa branche, de la branche par défaut ou, pour une PR, de sa base : un cache créé par une PR ne sert qu'à ses re-runs
 - `cache-mode` (`read`, `write`, `none`…) restreint l'accès au cache par workflow ou par job ; sans lui, les défauts sécurisés de GitHub s'appliquent
-- `::add-mask::` masque une valeur calculée à l'exécution, ce que le masquage des secrets statiques ne couvre pas
 - La rétention par défaut d'un artifact est de 90 jours ; l'installeur distribué vit sur la Release, pas dans un artifact
 
 ## Exemples

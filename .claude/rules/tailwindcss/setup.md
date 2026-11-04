@@ -11,7 +11,7 @@ paths:
 - Garder un seul fichier CSS d'entrée, qui porte l'`@import "tailwindcss"`, les `@plugin`, le `@custom-variant` et le `@theme`
 - Configurer en CSS : `@theme` remplace `theme.extend`, `@plugin "nom"` remplace le tableau `plugins`
 - Nommer le fichier PostCSS exactement `.postcssrc.json` ou `postcss.config.json`, avec `@tailwindcss/postcss` pour seul plugin
-- Écrire le `@custom-variant dark` sur exactement le sélecteur passé en `darkModeSelector` à `providePrimeNG()`, dans le même commit (valeur dans [DESIGN.md § Dark / Light Mode](../../../docs/DESIGN.md#dark--light-mode))
+- Écrire le `@custom-variant dark` sur exactement le sélecteur passé en `darkModeSelector` à `providePrimeNG()`, dans le même commit (valeur dans [knowledges/primeng.md](../../../docs/knowledges/primeng.md#mode-sombre-forcé))
 - Garder le `&:where(...)` du variant : sa spécificité nulle évite de faire gagner le variant sur des règles voisines
 - Déclarer `tailwindStylesheet` dans `.prettierrc` dès l'installation du plugin de tri, le chemin étant résolu relativement au fichier de config Prettier
 - Charger le plugin `tailwindcss-primeui` : il expose les design tokens du preset en classes utilitaires
@@ -30,6 +30,7 @@ paths:
 - `tailwindcss-primeui` n'est plus maintenu activement : un token absent se déclare directement dans `@theme`
 - `--font-sans` alimente `--default-font-family`, que le preflight applique à `html, :host` : une règle `font-family` sur `body` laisserait `font-sans` sur la pile système, écart muet
 - `tailwindStylesheet` remplace `tailwindConfig` de la v3 : sans lui, le plugin ne résout ni le thème ni les plugins et le tri devient approximatif. Il exige Prettier ≥ 3.7 et le paquet est ESM-only
+
 ## Exemples
 ```css
 /* ✅ toute la configuration dans le CSS d'entrée */
@@ -39,7 +40,7 @@ paths:
 @custom-variant dark (&:where(.app-dark, .app-dark *));   /* même sélecteur que darkModeSelector */
 
 @theme {
-  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-sans: 'Example Sans', system-ui, sans-serif;
 }
 
 /* ❌ v3 : directives et config JS */

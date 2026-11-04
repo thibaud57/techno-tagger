@@ -11,14 +11,17 @@ paths:
 - Injecter le transport par un jeton plutôt qu'appeler le plugin Tauri en direct : le service reste testable hors Tauri. Tauri découpe déjà `stdout` en lignes
 - Convertir avec `toSignal()` pour l'affichage et `toObservable()` pour appliquer des opérateurs à un signal
 - Fournir un `initialValue` à `toSignal()` ; ne passer `requireSync: true` que sur une source qui émet à la souscription (`BehaviorSubject`, `of()`)
-- Se désabonner par `takeUntilDestroyed()` sur toute souscription manuelle- Traiter les erreurs par `retry({ count, delay })` puis `catchError`, avec un backoff quand la source est réseau
+- Se désabonner par `takeUntilDestroyed()` sur toute souscription manuelle
+- Traiter les erreurs par `retry({ count, delay })` puis `catchError`, avec un backoff quand la source est réseau
 
 ## À éviter
 - Le couple `destroy$ = new Subject<void>()` + `ngOnDestroy`, remplacé par `takeUntilDestroyed()`
 - `firstValueFrom()` sur le flux du sidecar, qui ne complète jamais
 - Les souscriptions imbriquées, à remplacer par un opérateur de projection
+
 ## Gotchas
-- `toSignal()` et `toObservable()` exigent un injection context (champ de classe ou constructeur), sinon passer l'option `injector`- Angular 22 accepte RxJS `^6.5.3 || ^7.4.0` : rester sur la ligne 7
+- `toSignal()` et `toObservable()` exigent un injection context (champ de classe ou constructeur), sinon passer l'option `injector`
+- Angular 22 accepte RxJS `^6.5.3 || ^7.4.0` : rester sur la ligne 7
 
 ## Exemples
 ```typescript

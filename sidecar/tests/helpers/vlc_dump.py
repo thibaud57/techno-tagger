@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from pathlib import Path
 
+# Les trois DDL restent sur une ligne, comme le releve : les decouper nuirait a la comparaison
 DDL_PLAYLIST: Final = "CREATE TABLE Playlist(id_playlist INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT COLLATE NOCASE,creation_date UNSIGNED INT NOT NULL,artwork_mrl TEXT,nb_video UNSIGNED INT NOT NULL DEFAULT 0,nb_audio UNSIGNED INT NOT NULL DEFAULT 0,nb_unknown UNSIGNED INT NOT NULL DEFAULT 0,nb_present_video UNSIGNED INT NOT NULL DEFAULT 0 CHECK(nb_present_video <= nb_video),nb_present_audio UNSIGNED INT NOT NULL DEFAULT 0 CHECK(nb_present_audio <= nb_audio),nb_present_unknown UNSIGNED INT NOT NULL DEFAULT 0 CHECK(nb_present_unknown <= nb_unknown),duration UNSIGNED INT NOT NULL DEFAULT 0,nb_duration_unknown UNSIGNED INT NOT NULL DEFAULT 0, is_favorite BOOLEAN NOT NULL DEFAULT FALSE)"  # noqa: E501
 
 DDL_PLAYLIST_MEDIA_RELATION: Final = "CREATE TABLE PlaylistMediaRelation(media_id INTEGER,playlist_id INTEGER,position INTEGER,FOREIGN KEY(media_id) REFERENCES Media(id_media) ON DELETE NO ACTION,FOREIGN KEY(playlist_id) REFERENCES Playlist(id_playlist) ON DELETE CASCADE)"  # noqa: E501

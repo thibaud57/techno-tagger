@@ -1,5 +1,5 @@
 ---
-title: "ADR-015 — Cibles de distribution : Windows seul au MVP"
+title: "ADR-015 : Cibles de distribution : Windows seul au MVP"
 status: "accepted"
 description: "Le MVP ne cible que Windows, macOS et Linux étant repoussés en Post-MVP en raison du coût de la notarisation Apple et de l'absence de cross-compilation PyInstaller."
 date: "2026-08-27"
@@ -92,9 +92,8 @@ Le mode PyInstaller retenu pour cette cible Windows est `--onedir`, détaillé e
 
 ## Positives
 
-- Une seule chaîne de build, un seul installeur, une seule signature à mettre en place
 - Aucune dépense, budget nul respecté
-- Le premier build, seul moment coûteux, est passé tôt dans l'ordre de développement (étape 4)
+- Le premier build, seul moment coûteux, est passé tôt dans le développement
 - L'avertissement SmartScreen sur installeur non signé se contourne en deux clics dans la fenêtre elle-même, là où Gatekeeper envoie l'utilisateur dans les Réglages Système
 
 ## Négatives

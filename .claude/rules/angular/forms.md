@@ -14,13 +14,13 @@ paths:
 - Debouncer au niveau du validateur avec `validateAsync(path, { debounce })`
 - Écrire un custom control natif en implémentant `FormValueControl<T>` (un `value = model()` suffit) ; un composant `ControlValueAccessor` existant se branche tel quel sur `[formField]`
 - Envoyer une commande par une méthode du composant, pas par `submit()` : la commande NDJSON rend la main aussitôt et son échec arrive plus tard dans `lastError`
-- Traduire les messages d'erreur par ngx-translate
 
 ## Gotchas
 - Les états d'un champ Signal Forms sont des signals à appeler (`f.email().valid()`, `touched()`, `errors()`), alors que `getError('required')` rend une valeur directe
 - Un écran dont la seule règle est « bouton actif quand le champ est rempli » n'a rien à valider : un `computed()` suffit, `form()` ne sert qu'à lier les composants PrimeNG par `[formField]`
 - Angular 22 : `touched` n'est plus un model bidirectionnel ; un custom control le lit par un `input` et le déclenche par l'output `touch()`
 - Angular 22 : `markAsTouched()` marque le champ et tous ses descendants, ce qui change le comportement des soumissions partielles
+
 ## Exemples
 ```typescript
 // ✅ Signal Forms : modèle signal, validation déclarative quand il y a à valider

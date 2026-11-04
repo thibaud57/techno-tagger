@@ -15,6 +15,7 @@ paths:
 - Compter les morceaux par `count(DISTINCT media_id)` sur `PlaylistMediaRelation`, jamais par les compteurs dénormalisés de `Playlist` : un morceau peut figurer deux fois dans une playlist et l'extraction les fusionne
 - Résoudre par `filename` en cherchant récursivement dans le dossier source : la base vient du téléphone, les fichiers sont sur le PC
 - Rejeter avec un message clair un fichier qui n'est pas une base SQLite valide
+
 ## À éviter
 - Utiliser le chemin stocké en base : il pointe vers l'arborescence du téléphone, pas vers le PC
 - Externaliser la requête SQL dans un fichier éditable

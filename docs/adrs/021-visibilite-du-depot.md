@@ -1,5 +1,5 @@
 ---
-title: "ADR-021 — Visibilité du dépôt et canal de distribution"
+title: "ADR-021 : Visibilité du dépôt et canal de distribution"
 status: "accepted"
 description: "Dépôt public et distribution par GitHub Releases, seul canal permettant à des utilisateurs sans compte GitHub de télécharger l'installeur et de recevoir les mises à jour."
 date: "2026-08-02"
@@ -101,7 +101,6 @@ Quelqu'un qui lirait tout le code n'aurait toujours aucun moyen d'appeler l'API.
 
 - Les amis téléchargent et mettent à jour sans compte, sans token, sans explication
 - Aucun secret à embarquer dans le binaire pour que l'updater fonctionne
-- Minutes CI illimitées, et runner macOS gratuit le jour où la cible revient
 - Rien à héberger ni à surveiller sur le VPS, qui reste dédié à l'API
 
 ## Négatives

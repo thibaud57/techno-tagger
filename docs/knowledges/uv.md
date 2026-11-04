@@ -67,7 +67,7 @@ required-version = ">=0.13,<0.14"
 
 ```yaml
 # .github/actions/setup-uv/action.yml : sans `version`, l'action lit required-version
-- uses: astral-sh/setup-uv@<sha> # v10.3.0
+- uses: astral-sh/setup-uv@<sha> # v10.3.3
   with:
     version-file: sidecar/pyproject.toml
 ```

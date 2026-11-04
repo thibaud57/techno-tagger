@@ -1,13 +1,14 @@
 ---
 paths:
+  - "src/app/app.routes.ts"
   - "src/app/**/*.routes.ts"
+  - "src/app/app.config.ts"
   - "src/app/**/*.html"
 ---
 
-# Angular : lazy loading et code splitting
+# Angular : lazy loading et @defer
 
 ## À faire
-- Charger chaque feature par `loadComponent` et grouper un ensemble de routes liées par `loadChildren` vers son `*.routes.ts`
 - Différer avec `@defer` les blocs lourds absents du premier rendu, avec un `@placeholder` s'ils occupent une place dans le layout
 - Différer toute modale du shell : `@defer (when <visible>; prefetch on idle)`, sinon elle part dans le bundle initial avec ses dépendances
 - Combiner affichage et préchargement quand l'ouverture est déclenchée par l'utilisateur : `@defer (on interaction; prefetch on idle)`

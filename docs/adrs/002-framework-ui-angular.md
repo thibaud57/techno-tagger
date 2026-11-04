@@ -1,5 +1,5 @@
 ---
-title: "ADR-002 — Framework UI : Angular"
+title: "ADR-002 : Framework UI : Angular"
 status: "accepted"
 description: "Choix d'Angular pour l'interface de l'application desktop, contre React + Next.js, dans un contexte sans serveur et sans logique métier côté interface."
 date: "2026-08-02"

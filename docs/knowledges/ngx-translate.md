@@ -1,6 +1,6 @@
 ---
 title: "ngx-translate — Internationalisation à l'exécution"
-version: "18.0.0"
+version: "18.1.0"
 description: "Référence technique pour ngx-translate v18 : providers standalone, http-loader, fallbackLang, currentLang en Signal et bascule de langue sans rebuild."
 date: "2026-08-29"
 keywords: ["ngx-translate", "i18n", "angular", "signals", "standalone", "locale"]
@@ -14,7 +14,7 @@ Bibliothèque d'internationalisation qui charge les traductions à l'exécution.
 
 C'est ce qui la distingue de l'i18n natif d'Angular, qui produit un bundle par langue : un utilisateur ne pourrait pas changer de langue sans réinstaller.
 
-Cette fiche couvre `@ngx-translate/core` 18.0.0 et `@ngx-translate/http-loader` 18.0.0, dont les versions vont de pair.
+Cette fiche couvre `@ngx-translate/core` 18.1.0 et `@ngx-translate/http-loader` 18.1.0, dont les versions vont de pair.
 
 ---
 

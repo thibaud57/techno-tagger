@@ -1,5 +1,5 @@
 ---
-title: "ADR-017 — Taille du pool de concurrence"
+title: "ADR-017 : Taille du pool de concurrence"
 status: "accepted"
 description: "Le pool client reflète les sémaphores de concurrence sortante de techno-scraper (Beatport 3, Bandcamp 2), au-delà desquels les requêtes s'empilent et consomment le budget de timeout de l'API."
 date: "2026-08-02"

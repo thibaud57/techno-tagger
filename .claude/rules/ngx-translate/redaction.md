@@ -16,4 +16,6 @@ paths:
 - Mettre une phrase par ligne dans tout message de plusieurs phrases (`\n` dans la traduction, des deux côtés) et une ligne vide (`\n\n`) entre les blocs d'une modale longue
 - Composer le motif d'un fichier en deux lignes : la cause `reason.<code>`, puis le remède `reason.fix.<code>` (absent pour `file_missing` et `write_failed`) qui interpole `{{retry}}` avec le contexte `reason.retry.<phase>` (`write`, `rollback`, `extraction`). Traduire le refus d'une phase longue par `errors.phase_busy.<phase>`, la phase qui tourne et non celle demandée
 
-> La charte et ses exceptions (une phrase par ligne) sont dans [DESIGN.md § Conventions de Code](../../../docs/DESIGN.md#-conventions-de-code).
+## Exceptions
+
+- Une cellule réservée reste immobile, donc une seule phrase ou une seule ligne : le bandeau de source de l'arbitrage (une phrase), le motif d'un non résolu dans la modale du lien (deux lignes de `text-xs`), l'aide de la clé API (une ligne), le bandeau de démo (ses deux phrases sur sa ligne de 32px)

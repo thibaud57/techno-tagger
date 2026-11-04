@@ -57,7 +57,7 @@ demo-data/
 .ds-sync/
 ds-bundle/
 .design-sync/.cache/
-# Export local du projet distant, reconstruit par /design-sync
+# Copie locale de l'artifact du design system : la source en ligne fait foi, une copie versionnée vieillirait
 .design-sync/design-system/
 .design-sync/learnings/
 .design-sync/node_modules

@@ -34,7 +34,7 @@
   - `docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302` (v6.2.0) ;
   - `docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069` (v4.4.1) ;
   - `docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc` (v7.4.0).
-- **Secrets** : `DOKPLOY_URL` (origine sans slash final), `DOKPLOY_TOKEN`, `DOKPLOY_COMPOSE_ID`, `PRIMENG_LICENSE_KEY` (existant). Tous passés par `env:` au niveau du step, jamais interpolés dans un `run:` ni dans un `with:` (`.claude/rules/github-actions/secrets-variables.md`).
+- **Secrets** : `DOKPLOY_URL` (origine sans slash final), `DOKPLOY_TOKEN`, `DOKPLOY_COMPOSE_ID`, `PRIMENG_LICENSE_KEY` (existant). Tous passés par `env:` au niveau du step, jamais interpolés dans un `run:` ni dans un `with:` (`.claude/rules/github-actions/security-permissions.md`).
 - **Docs gouvernées par un skill** : PRODUCTION.md (`production-doc`), ARCHITECTURE.md (`architecture-doc`), VERSIONS.md (`versions-doc`), rules (`rules-doc`). Charger le skill avant d'écrire. Aucun nom d'outil d'hébergement au-delà de ceux que PRODUCTION.md cite déjà, la sonde externe nommée par son rôle, aucune version de l'hébergement.
 - **Gate vert à chaque commit** : `just lint-workflows`, `just lint-sidecar`, `just test-sidecar`, plus la commande de vérification de la tâche. `just lint` entier exige le binaire du sidecar, inutile ici. Commits `feat(demo): …` pour l'image et le compose, `chore(ci): …` pour les workflows, `docs: …` pour la doc.
 
@@ -274,7 +274,7 @@ git commit -m "chore(ci): publier et redeployer la demo a chaque release"
 ### Task 5: Documentation d'exploitation
 
 **Files:**
-- Modify: `docs/PRODUCTION.md`, `docs/ARCHITECTURE.md`, `.claude/rules/github-actions/secrets-variables.md`
+- Modify: `docs/PRODUCTION.md`, `docs/ARCHITECTURE.md`, `.claude/rules/github-actions/security-permissions.md`
 
 - [ ] **Step 1: PRODUCTION.md**
 
@@ -294,7 +294,7 @@ Charger `Skill[production-doc]`. Sections à amender (numéros de ligne relevés
 
 Charger `Skill[architecture-doc]`. Dans § Infrastructure, l'hébergement passe de « Aucun » à « Aucun pour l'app ; démo web statique sur le VPS (Dokploy, ADR-023) ». Ajouter le job `demo` au diagramme de la chaîne de release.
 
-- [ ] **Step 3: Rule `secrets-variables.md`**
+- [ ] **Step 3: Rule `security-permissions.md`**
 
 Charger `Skill[rules-doc]`. Dans « À faire », les trois secrets Dokploy rejoignent la liste des secrets stockés. Dans « À éviter », la raison de « pas d'`environment:` » ne repose plus sur « aucun déploiement serveur ». Elle devient : un seul déploiement, déclenché par le tag, dont release-please est déjà le point de contrôle humain.
 
@@ -304,7 +304,7 @@ Run: `grep -n "demo-techno-tagger\|DOKPLOY_COMPOSE_ID\|healthz" docs/PRODUCTION.
 Expected : les sections ci-dessus portent la démo.
 
 ```bash
-git add docs/PRODUCTION.md docs/ARCHITECTURE.md .claude/rules/github-actions/secrets-variables.md
+git add docs/PRODUCTION.md docs/ARCHITECTURE.md .claude/rules/github-actions/security-permissions.md
 git commit -m "docs: exploitation de la demo web publique"
 ```
 

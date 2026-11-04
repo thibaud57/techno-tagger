@@ -361,16 +361,6 @@ def test_the_lockfile_bumps_filter_on_the_local_package_name() -> None:
     }
 
 
-def _setup_input(action: str, key: str) -> str:
-    """Lit une entree `with:` d'une action composite de `.github/actions/`, seul
-    endroit des workflows ou vit la version d'un outil. Regex faute de lecteur YAML.
-    """
-    text = (REPO / f".github/actions/{action}/action.yml").read_text(encoding="utf-8")
-    values = re.findall(rf"^\s+{key}:\s*[\"']?([^\"'\s#]+)[\"']?\s*(?:#.*)?$", text, re.MULTILINE)
-    assert len(values) == 1, f"{key} attendu une fois dans {action}, trouve {values}"
-    return str(values[0])
-
-
 def _version(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split("."))
 
@@ -391,13 +381,12 @@ def test_uv_build_follows_the_required_uv_minor() -> None:
     assert _version(bounds[2])[:2] == _version(required[2])[:2]
 
 
-def test_the_ci_node_major_is_declared_in_engines() -> None:
-    """`engines.node` et le `runtime` de `setup-pnpm` montent ensemble au passage LTS :
-    un oubli laisse la CI construire sur une majeure que le projet ne declare pas.
-    """
-    major = _setup_input("setup-pnpm", "runtime").removeprefix("node@")
+def test_the_ci_reads_node_from_dev_engines() -> None:
+    """Un `runtime` en dur dans `setup-pnpm` supplanterait `devEngines.runtime`."""
+    action = (REPO / ".github/actions/setup-pnpm/action.yml").read_text(encoding="utf-8")
 
-    assert f"^{major}." in str(read_json("package.json", "engines", "node"))
+    assert "runtime:" not in action
+    assert read_json("package.json", "devEngines", "runtime", "onFail") == "download"
 
 
 def test_the_repository_url_is_the_one_cargo_publishes() -> None:

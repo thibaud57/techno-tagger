@@ -1,5 +1,5 @@
 ---
-title: "ADR-023 — Démo web publique par rejeu d'un run enregistré"
+title: "ADR-023 : Démo web publique par rejeu d'un run enregistré"
 status: "accepted"
 description: "La démo web rejoue dans le navigateur les réponses NDJSON du vrai sidecar, enregistrées sur une bibliothèque fictive face à un faux techno-scraper. Données fictives de bout en bout, garde stricte en CI, container statique isolé déployé au tag."
 date: "2026-10-25"
@@ -14,7 +14,7 @@ Le portfolio du propriétaire veut un bouton « Voir la démo » qui ouvre l'app
 
 Le sidecar ne tourne pas dans un navigateur : il appelle techno-scraper avec une clé API par utilisateur. Le dépôt est public (cf. [ADR-021](021-visibilite-du-depot.md)) et rien de personnel ne doit quitter la machine d'un utilisateur (cf. [ADR-014](014-observabilite-sentry-et-rgpd.md)). Une démo publique, ouverte à n'importe quel visiteur, ne peut donc ni embarquer de clé ni envoyer de saisie visiteur vers un service.
 
-L'étude de faisabilité date du 2026-10-25. Les décisions datées qui en découlent sont consignées dans `docs/BRAINSTORM.md` § Notes.
+L'étude de faisabilité date du 2026-10-25.
 
 ---
 
@@ -126,7 +126,7 @@ A garde tout le métier dans le sidecar et ne laisse que des fichiers statiques 
 
 # 📝 Notes complémentaires
 
-Les options B, C et D ont été comparées pendant l'étude de faisabilité du 2026-10-25. Les décisions détaillées (données, build, hébergement, rattrapage, bandeau) sont datées dans `docs/BRAINSTORM.md` § Notes. Le bandeau de la démo renvoie vers un lien « Me contacter » et jamais vers un téléchargement : l'application est privée et le portfolio reste le point de contact.
+Les options B, C et D ont été comparées pendant l'étude de faisabilité du 2026-10-25. Le bandeau de la démo renvoie vers un lien « Me contacter » et jamais vers un téléchargement : l'application est privée et le portfolio reste le point de contact.
 
 Le catalogue fictif est vérifié par une recherche Beatport et Discogs avant enregistrement : aucun nom d'artiste ou de label ne doit désigner un vrai artiste ou label. Le résultat et sa date sont consignés en tête du module du catalogue. Le nombre de morceaux, de combinaisons et de sessions enregistrés est relevé dans le scénario versionné, pas dans ce document.
 

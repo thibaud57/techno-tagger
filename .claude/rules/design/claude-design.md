@@ -8,7 +8,7 @@ paths:
 
 # Claude Design : maquette de l'application
 
-Le projet Claude Design « Techno Tagger Design System » porte dans `ui_kits/techno-tagger/` une recréation cliquable de l'application, un fichier par écran (`PlaylistScreen`, `TaggingScreen`, `ArbitrationDialog`, `SettingsScreen`) plus `AppShell` pour le shell. Elle fait foi sur **à quoi l'écran ressemble**, quand DESIGN.md fait foi sur **les règles et les composants** (déjà couvert par les rules `primeng` et `tailwindcss`). Le lien du projet est dans [DESIGN.md § Maquette et design system externes](../../../docs/DESIGN.md#maquette-et-design-system-externes), la procédure de sync et le journal dans `.design-sync/NOTES.md`.
+Le design system « Techno Tagger Design System », artifact Claude, porte dans `ui_kits/techno-tagger/` une recréation cliquable de l'application, un fichier par écran (`PlaylistScreen`, `TaggingScreen`, `ArbitrationDialog`, `SettingsScreen`) plus `AppShell` pour le shell. Elle fait foi sur **à quoi l'écran ressemble**, quand DESIGN.md fait foi sur **les règles et les composants** (déjà couvert par les rules `primeng` et `tailwindcss`). Le lien de l'artifact est dans [DESIGN.md § Maquette et design system externes](../../../docs/DESIGN.md#maquette-et-design-system-externes), la procédure de sync et le journal dans `.design-sync/NOTES.md`.
 
 ## À faire
 

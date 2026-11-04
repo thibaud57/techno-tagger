@@ -234,7 +234,7 @@ setup: install build-sidecar
 # Verifier que l'environnement local est pret : sortie vide = rien a signaler
 [group('setup')]
 check:
-    @node --version > /dev/null 2>&1 || echo "⚠️ Node requis (voir engines de package.json)"
+    @node --version > /dev/null 2>&1 || echo "⚠️ Node requis (voir devEngines de package.json)"
     @pnpm --version > /dev/null 2>&1 || echo "⚠️ pnpm requis (version dans devEngines de package.json)"
     @uv --version > /dev/null 2>&1 || echo "⚠️ uv requis (version dans required-version de sidecar/pyproject.toml)"
     @rustc --version > /dev/null 2>&1 || echo "⚠️ Rust requis (version dans rust-toolchain.toml)"

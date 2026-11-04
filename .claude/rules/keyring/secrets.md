@@ -21,6 +21,7 @@ paths:
 - Stocker la clé dans le `store` Tauri ou un fichier de configuration (cf. [ADR-012](../../../docs/adrs/012-securite-cle-api-keyring.md))
 - Logguer la clé, même tronquée, ou la laisser passer dans un event Sentry (cf. [ADR-014](../../../docs/adrs/014-observabilite-sentry-et-rgpd.md))
 - Capturer `Exception` autour des appels keyring : `NoKeyringError` et `PasswordSetError` demandent des messages différents
+
 ## Gotchas
 - Depuis 12.0.0, les backends ne sont découverts que par entry points : sans hook, le binaire figé lève `NoKeyringError` (`No recommended backend was available`), jamais en développement
 - `hook-keyring.py` de PyInstaller résout le backend (`collect_submodules`) et copie les métadonnées ; le `.spec` double volontairement ce `copy_metadata`. Les `--hidden-import win32ctypes.pywin32.win32cred` et `win32ctypes.pywin32.pywintypes` restent indispensables

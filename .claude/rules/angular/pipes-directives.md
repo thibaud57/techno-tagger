@@ -12,13 +12,16 @@ paths:
 - Déclarer les bindings et listeners d'une directive dans la propriété `host` du décorateur plutôt qu'avec `@HostBinding` / `@HostListener`
 - Passer par `Renderer2` pour toucher au DOM depuis une directive
 - Appeler `viewContainer.clear()` avant de recréer les vues d'une directive structurelle, sinon elles s'accumulent
+
 ## À éviter
 - Les pipes impurs (`pure: false`) : réévalués à chaque cycle de détection
 - Écrire une directive structurelle pour ce que `@if` et `@for` couvrent déjà
 - `bypassSecurityTrust*()` sur une donnée non validée : c'est une faille XSS ouverte
+
 ## Gotchas
 - Un pipe pur ne se réévalue que sur une nouvelle référence : muter le tableau qu'il reçoit ne déclenche rien
 - `standalone: true` est implicite depuis Angular 19 pour les pipes comme pour les directives
+
 ## Exemples
 ```typescript
 // ✅ Dérivation par computed, réévaluée uniquement quand une dépendance change

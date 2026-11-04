@@ -48,7 +48,7 @@ Le déploiement suit le modèle du portfolio (relevé du 2026-10-25), réglages 
 - **À modifier** : `docs/PRODUCTION.md` (via `Skill[production-doc]`)
 - **À modifier** : `docs/ARCHITECTURE.md` (§ Infrastructure, via `Skill[architecture-doc]`)
 - **À modifier** : `docs/VERSIONS.md` (images de base épinglées, via `Skill[versions-doc]`)
-- **À modifier** : `.claude/rules/github-actions/secrets-variables.md` (la prémisse « aucun déploiement serveur » devient fausse, via `Skill[rules-doc]`)
+- **À modifier** : `.claude/rules/github-actions/security-permissions.md` (la prémisse « aucun déploiement serveur » devient fausse, via `Skill[rules-doc]`)
 
 ## Architecture approach
 
@@ -78,7 +78,7 @@ Le déploiement suit le modèle du portfolio (relevé du 2026-10-25), réglages 
   - Logging `json-file`, `max-size 20m`, `max-file 5`, comme le portfolio.
   - **Gardé par le test de cohérence** : le compose déployé est celui de `main` au dernier Deploy, une édition qui retirerait `read_only`, `cap_drop`, `no-new-privileges` ou `pids_limit`, ou ajouterait `ports`, `volumes` ou `privileged`, partirait en production sans alerte. Le test lit ces clés.
   - L'isolation réseau (Isolated Deployment) est un réglage de Dokploy, hors fichier : la checklist de mise en place le vérifie.
-- **Job `demo`** (`release-please.yml`, `.claude/rules/github-actions/workflows.md`, `job-control.md`, `security-permissions.md`, `secrets-variables.md`, `runners.md`, `cache-outputs.md`, `expressions-contexts.md`) :
+- **Job `demo`** (`release-please.yml`, `.claude/rules/github-actions/workflows.md`, `job-control.md`, `security-permissions.md`, `expressions-contexts.md`) :
   - **Déclenchement** : `needs: [release-please, build]`, `if: needs.release-please.outputs.release_created == 'true'`. La démo ne part qu'après l'installeur publié, et un échec de `build` la saute.
   - **Environnement** : `ubuntu-24.04`, `timeout-minutes: 20`, `permissions: { contents: read, packages: write }`, checkout sur `needs.release-please.outputs.tag_name` avec `persist-credentials: false` (le job ne pousse rien sur Git).
   - **Image** :
@@ -90,7 +90,7 @@ Le déploiement suit le modèle du portfolio (relevé du 2026-10-25), réglages 
     - image `ghcr.io/${{ github.repository }}-demo` ;
     - tags `latest` et `{{version}}` de `tag_name` ;
     - cache `type=gha` ;
-    - secret de build `primeng_license_key`, passé par `secret-envs` depuis une variable `env:` du step qui lit `secrets.PRIMENG_LICENSE_KEY` (`.claude/rules/github-actions/secrets-variables.md` : un secret se passe par `env:`).
+    - secret de build `primeng_license_key`, passé par `secret-envs` depuis une variable `env:` du step qui lit `secrets.PRIMENG_LICENSE_KEY` (`.claude/rules/github-actions/security-permissions.md` : un secret se passe par `env:`).
   - **Redéploiement** : une seule requête `curl -fsSL --max-time 60 -X POST "$DOKPLOY_URL/api/compose.redeploy"`, en-tête `x-api-key: $DOKPLOY_TOKEN`, corps `{"composeId":"$DOKPLOY_COMPOSE_ID"}`, secrets passés par `env:`. Pas de nouvelle tentative automatique : un POST accepté mais sans réponse à temps relancerait un second redéploiement, un échec réseau se relance à la main (Re-run job). Mêmes noms de secrets que le portfolio, posés dans les secrets de ce dépôt. `DOKPLOY_URL` est l'origine du tableau de bord, sans slash final.
   - **Clé d'API Dokploy** : actif à pouvoir de déploiement, exposé à toute modification de workflow qui atteint `main`. Sa portée est celle qu'offre Dokploy à sa création (relevée à la mise en place, écrite dans PRODUCTION.md). Rotation : au moins une fois par an et à tout soupçon de fuite, révocation côté Dokploy d'abord, puis secret GitHub remplacé.
   - Un échec de ce job ne touche pas l'installeur, déjà publié. GitHub l'envoie par email.

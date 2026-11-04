@@ -26,18 +26,14 @@ paths:
 ## Gotchas
 - La clé passe par `providePrimeNG({ license })`, injectée au build par `--define` depuis `PRIMENG_LICENSE_KEY` (dotenv en local, secret en CI), jamais par `environments/` versionné
 - Sans clé valide, les composants affichent une notice de licence **y compris en développement** : la webview Tauri n'est pas exemptée
-- La base rem est passée de 14px à 16px en v22 : tout style maison calé sur 14px se retrouve décalé- `prefix: 'p'` fixe le préfixe des variables CSS (`--p-primary-color`), consommées aussi côté Tailwind par `tailwindcss-primeui`
+- La base rem est passée de 14px à 16px en v22 : tout style maison calé sur 14px se retrouve décalé
+- `prefix: 'p'` fixe le préfixe des variables CSS (`--p-primary-color`), consommées aussi côté Tailwind par `tailwindcss-primeui`
 
 ## Exemples
 ```typescript
 // ✅ personnalisation par tokens
-const TaggerPreset = definePreset(Aura, {
+const AppPreset = definePreset(Aura, {
   semantic: { primary: { 500: '{violet.500}' } },
-});
-
-providePrimeNG({
-  theme: { preset: TaggerPreset, options: { prefix: 'p', darkModeSelector: DARK_SELECTOR } },
-  license: PRIMENG_LICENSE_KEY,   // fournie au build depuis les secrets, jamais commitée
 });
 
 // ❌ surcharge par sélecteur : casse à la montée de version

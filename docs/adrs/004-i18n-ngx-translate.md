@@ -1,5 +1,5 @@
 ---
-title: "ADR-004 — Internationalisation : ngx-translate"
+title: "ADR-004 : Internationalisation : ngx-translate"
 status: "accepted"
 description: "Choix de ngx-translate pour la bascule français / anglais à l'exécution, contre @angular/localize qui imposerait un installeur par langue, et contre Transloco."
 date: "2026-08-02"
@@ -82,7 +82,7 @@ Quelle solution d'internationalisation permet une bascule de langue à l'exécut
 
 Les deux bibliothèques tierces sont maintenues et fonctionnellement équivalentes sur ce périmètre. Le départage se fait sur la documentation de compatibilité : ngx-translate annonce ses tests contre Angular 18 à 22 et traite explicitement le passage d'OnPush en stratégie par défaut, ce que Transloco ne documente pas. Sur deux langues et quelques dizaines de libellés, aucun autre critère ne pèse.
 
-L'i18n est câblée dès le premier écran développé (étape 5 de l'ordre de développement). L'ajouter après coup obligerait à reprendre chaque libellé déjà écrit en dur.
+L'i18n est câblée dès le premier écran développé. L'ajouter après coup obligerait à reprendre chaque libellé déjà écrit en dur.
 
 ---
 

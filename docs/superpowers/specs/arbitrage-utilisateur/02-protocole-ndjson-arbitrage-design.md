@@ -56,7 +56,7 @@ Exclut le miroir TypeScript et toute interface (sub-projects 03 et 04), et toute
   - sans run courant, un geste lève `arbitration_not_pending` ;
   - hors phase réseau, un geste `resolve_arbitration` est suivi d'un `progress` de phase `url_recovery` : un refus tardif grossit le total du rattrapage (Feature 4).
 - **Erreurs** (`.claude/rules/python/gestion-erreurs.md`) : un geste refusé sort en `error` avec `command` (`resolve_arbitration` ou `switch_arbitration_source`) et `params.track_id`. Aucun code nouveau : ceux du 01 sont déjà traduits. Sur un run dont l'écriture est confirmée, un geste lève `run_committed` : plus aucune décision n'y entre (Feature 5).
-- **Traduction** : `handlers.py` traduit `ArbitrationUpdated` en `arbitration_updated` et réutilise `_resolved` pour `TrackResolved`. Le dispatch des commandes reste fermé par `assert_never` (`.claude/rules/python/pattern-matching.md`).
+- **Traduction** : `handlers.py` traduit `ArbitrationUpdated` en `arbitration_updated` et réutilise `_resolved` pour `TrackResolved`. Le dispatch des commandes reste fermé par `assert_never` (`.claude/rules/python/type-hints.md`).
 
 ## Acceptance criteria
 

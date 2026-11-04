@@ -6,17 +6,13 @@ paths:
 # Ruff : lint et format
 
 ## À faire
-- Déclarer `select` explicitement plutôt que d'hériter du jeu par défaut de la version installée
 - Laisser `target-version` non posé : Ruff le dérive de `project.requires-python`
 - En local, `ruff check --fix` puis `ruff format` (`just format-sidecar`) : le formateur ne trie pas les imports et l'ordre inverse laisse du code mal formaté. La CI ne fait que vérifier, par `ruff check` et `ruff format --check`
-- Utiliser `per-file-ignores` pour les tests (`S101`) et les `__init__.py` (`F401`) plutôt que de désactiver une règle globalement
-- Bannir `asyncio.get_event_loop` et `sqlite3.version` dans `banned-api`, avec le remplaçant en message : Python 3.14 les rejette
 - Épingler la version de Ruff par `uv.lock`, que la CI lance par `uv run` et laisser Dependabot proposer la montée
 - Cadrer une montée de version par `ruff check --statistics` avant de regarder le diff
 - Produire des annotations natives en CI par `RUFF_OUTPUT_FORMAT=github`
 
 ## À éviter
-- Reprendre un `[tool.ruff]` antérieur à 0.16 sans `select` : le jeu par défaut est passé de 59 à 413 règles, le premier `ruff check` produit un diff ingérable
 - Confondre `select` (remplace entièrement le jeu actif) et `extend-select` (s'y ajoute)
 - `--fix` dans un job CI : elle vérifie, elle ne réécrit pas, sinon des régressions se committent silencieusement
 - `--unsafe-fixes` sur un lot large sans relire le diff : par définition ces corrections peuvent changer le comportement

@@ -1,5 +1,5 @@
 ---
-title: "ADR-011 — Politique d'écriture des tags"
+title: "ADR-011 : Politique d'écriture des tags"
 status: "accepted"
 description: "Quatre formats supportés via mutagen, écriture de tout ce que l'API renvoie sans cases à cocher, et un champ null qui ne touche jamais au tag existant."
 date: "2026-10-11"
@@ -115,7 +115,7 @@ Les trois champs sans équivalent Picard (`SOURCE_ID`, `SOURCE`, et l'URL en Vor
 | Champ API | Tag ID3 | Beatport | Bandcamp | Note |
 |---|---|---|---|---|
 | `artists[]` | TPE1 (`artist`) | ✅ | ✅ | noms joints |
-| — | TPE2 (`albumartist`) | ❌ | ❌ | le contrat ne rend pas d'artiste de sortie (`release` : id, title, source_title, catalog_number, release_date, artwork_url) : source à définir, non écrit tant qu'elle ne l'est pas |
+| - | TPE2 (`albumartist`) | ❌ | ❌ | le contrat ne rend pas d'artiste de sortie (`release` : id, title, source_title, catalog_number, release_date, artwork_url) : source à définir, non écrit tant qu'elle ne l'est pas |
 | `remixers[]` | TPE4 | ✅ | partiel | non exposé par EasyID3, à enregistrer ; Bandcamp : seulement si le titre nomme le remixeur (cf. Contexte) |
 | `title` + `mix_name` | TIT2 (`title`) | ✅ | ✅ | cf. règles |
 | `release.title` | TALB (`album`) | ✅ | ✅ | |
@@ -160,7 +160,6 @@ Les trois champs sans équivalent Picard (`SOURCE_ID`, `SOURCE`, et l'URL en Vor
 - Une bibliothèque mixte est traitée intégralement, quel que soit le format d'achat
 - Un tagging depuis Bandcamp n'appauvrit jamais un fichier déjà renseigné
 - La traçabilité (`SOURCE_ID`, `SOURCE`) permet un re-tag ciblé sans refaire la recherche
-- Aucune interface de sélection à concevoir, traduire ou expliquer
 
 ## Négatives
 

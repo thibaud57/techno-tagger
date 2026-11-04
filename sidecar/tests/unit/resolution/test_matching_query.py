@@ -156,7 +156,7 @@ def test_leaves_an_unclosed_or_nested_group_as_is(title: str, expected: str) -> 
     [
         ("Farrago x Amelie Lens", "Farrago, Amelie Lens"),
         ("Adam Beyer X Bart Skils", "Adam Beyer, Bart Skils"),
-        ("Amelie Lens × Farrago", "Amelie Lens, Farrago"),  # noqa: RUF001
+        ("Amelie Lens × Farrago", "Amelie Lens, Farrago"),
         ("Adam Beyer;Bart Skils", "Adam Beyer, Bart Skils"),
         ("Adam Beyer / Bart Skils", "Adam Beyer, Bart Skils"),
         ("Chase and Status", "Chase, Status"),

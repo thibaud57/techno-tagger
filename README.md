@@ -25,7 +25,7 @@ Les mises à jour se proposent d'elles-mêmes au lancement de l'application.
 
 ## Démarrage
 
-Prérequis : [Node](https://nodejs.org/), [pnpm](https://pnpm.io/), [uv](https://docs.astral.sh/uv/), [cargo](https://www.rust-lang.org/tools/install), [just](https://github.com/casey/just) avec bash (Git Bash sous Windows, le `Justfile` et les scripts pnpm passant par `bash`), [actionlint](https://github.com/rhysd/actionlint) (`winget install rhysd.actionlint`, requis par `just lint`) et les Build Tools C++ de Visual Studio (cf. [docs/VERSIONS.md § Post-Install](docs/VERSIONS.md#post-install--setup)). Versions exactes dans `engines` et `devEngines` de `package.json` (Node, pnpm), `required-version` de `sidecar/pyproject.toml` (uv), `rust-toolchain.toml` et `sidecar/.python-version`.
+Prérequis : [Node](https://nodejs.org/), [pnpm](https://pnpm.io/), [uv](https://docs.astral.sh/uv/), [cargo](https://www.rust-lang.org/tools/install), [just](https://github.com/casey/just) avec bash (Git Bash sous Windows, le `Justfile` et les scripts pnpm passant par `bash`), [actionlint](https://github.com/rhysd/actionlint) (`winget install rhysd.actionlint`, requis par `just lint`) et les Build Tools C++ de Visual Studio (cf. [docs/VERSIONS.md § Post-Install](docs/VERSIONS.md#post-install--setup)). Versions exactes dans `devEngines` de `package.json` (Node, pnpm), `required-version` de `sidecar/pyproject.toml` (uv), `rust-toolchain.toml` et `sidecar/.python-version`.
 
 ```bash
 cp .env.example .env    # secrets de build, commentés dans le fichier (DSN vides = SDK Sentry inerte)

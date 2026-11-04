@@ -16,12 +16,9 @@ paths:
 
 ## À éviter
 - `@angular/animations` et le DSL `trigger()` / `state()` : déprécié depuis Angular 20.2, suppression prévue en 23
-- Déclarer deux fois le même input, output ou model dans un composant : erreur de compilation depuis Angular 22
+
 ## Gotchas
-- Angular 22 : `strictTemplates` est activé par défaut, les erreurs de type dans les templates deviennent des erreurs de compilation
-- Angular 22.2 : `strictUnclaimedEventNames` (opt-in, activé dans `tsconfig.json`) fait une erreur de compilation d'un `(output)` qu'aucune directive ne déclare, typiquement un output mal orthographié
 - Angular 22 : l'optional chaining `?.` retourne `undefined` et non plus `null`, ce qui change les conditions qui distinguaient les deux
-- Angular 22 : un `@for` malformé est type-checked, là où l'échec était silencieux au runtime
 - PrimeNG 22 : `pTemplate` supprimé (utiliser `ng-template` plus une variable de référence), `styleClass` supprimé sur les composants host-enabled (utiliser `class`), sélecteurs camelCase supprimés au profit du kebab-case
 - `pInputText` et `pTooltip` sont des directives posées sur un élément existant, pas des composants
 

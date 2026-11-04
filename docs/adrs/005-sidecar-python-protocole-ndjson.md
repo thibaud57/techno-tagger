@@ -1,5 +1,5 @@
 ---
-title: "ADR-005 — Métier en sidecar Python et protocole NDJSON"
+title: "ADR-005 : Métier en sidecar Python et protocole NDJSON"
 status: "accepted"
 description: "Le métier reste en Python dans un sidecar lancé en process long, communiquant avec l'interface par commandes JSON sur stdin et événements NDJSON sur stdout."
 date: "2026-08-27"
@@ -43,7 +43,7 @@ Dans quel langage écrire le métier, et sous quelle forme le faire dialoguer av
 - Un process à surveiller : redémarrage si le sidecar tombe, gestion de la fermeture propre de l'application
 - Le binaire PyInstaller doit porter le suffixe target-triple, et PyInstaller ne cross-compile pas
 
-**Coût estimé :** Moyen. Le protocole est l'étape 3 de l'ordre de développement, à figer avant d'écrire du TypeScript contre lui.
+**Coût estimé :** Moyen. Le protocole est à figer avant d'écrire du TypeScript contre lui.
 
 ## Option B : Réécriture du métier en Rust dans la coquille Tauri
 
@@ -88,7 +88,7 @@ Le choix du langage est dicté par mutagen : écrire correctement les tags de qu
 
 Le choix du process long est dicté par les deux besoins du MVP. La progression impose déjà un flux d'événements ; une fois ce flux en place, laisser le pipeline tourner pendant un arbitrage ne coûte que quelques dizaines de lignes.
 
-Le protocole est traité comme une petite API, pas comme un détail d'implémentation : il est figé à l'étape 3, avant l'écriture du TypeScript qui le consomme.
+Le protocole est traité comme une petite API, pas comme un détail d'implémentation : il est figé avant l'écriture du TypeScript qui le consomme.
 
 ---
 
@@ -112,7 +112,7 @@ Le protocole est traité comme une petite API, pas comme un détail d'implément
 
 # 📝 Notes complémentaires
 
-Les types TypeScript sont maintenus à la main plutôt que générés : le contrat compte une vingtaine de types et se stabilise à l'étape 3, une chaîne de génération coûterait plus cher qu'elle ne rapporte.
+Les types TypeScript sont maintenus à la main plutôt que générés : le contrat compte une vingtaine de types et se stabilise une fois figé, une chaîne de génération coûterait plus cher qu'elle ne rapporte.
 
 Le protocole ne transporte aucun secret : la clé API n'apparaît ni dans les commandes, ni dans les événements. Les Settings envoient `set_api_key`, le sidecar la range dans le trousseau et ne la renvoie jamais.
 

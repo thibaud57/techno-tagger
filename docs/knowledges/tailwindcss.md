@@ -1,6 +1,6 @@
 ---
 title: "Tailwind CSS v4 — Styling utilitaire"
-version: "4.3.3"
+version: "4.3.4"
 description: "Référence technique pour Tailwind CSS v4 : config CSS-first, intégration Angular via PostCSS, plugin tailwindcss-primeui, variant dark aligné sur PrimeNG."
 date: "2026-08-29"
 keywords: ["tailwind", "postcss", "css-first", "design-tokens", "dark-mode", "primeui"]
@@ -12,7 +12,7 @@ technologies: ["Angular", "PrimeNG", "PostCSS", "Prettier"]
 
 Couvre le layout et l'espacement que PrimeNG ne fournit pas. PrimeNG livre les composants, Tailwind écrit ce qui les entoure.
 
-Cette fiche couvre `tailwindcss` 4.3.3, `@tailwindcss/postcss` 4.3.3 (même monorepo, versions alignées), `tailwindcss-primeui` 0.6.1 et `prettier-plugin-tailwindcss` 0.8.1.
+Cette fiche couvre `tailwindcss` 4.3.4, `@tailwindcss/postcss` 4.3.4 (même monorepo, versions alignées), `tailwindcss-primeui` 0.6.1 et `prettier-plugin-tailwindcss` 0.8.1.
 
 **Contrainte structurante : Tailwind v4 ne compile ni SCSS ni LESS.** C'est un build tool complet, plus un plugin PostCSS qui cohabite avec un préprocesseur. Tout le styling du projet est donc en CSS pur.
 

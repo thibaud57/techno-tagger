@@ -7,10 +7,10 @@ paths:
 
 ## À faire
 - `encoding="utf-8"` explicite à chaque `open()`, `read_text()` et `write_text()` : la cible est Windows, dont la locale par défaut est `cp1252`
-- `pathlib.Path` et l'opérateur `/` pour tout chemin, `mkdir(parents=True, exist_ok=True)` et `unlink(missing_ok=True)` pour les créations et suppressions
+- `mkdir(parents=True, exist_ok=True)` et `unlink(missing_ok=True)` pour les créations et suppressions (PTH impose déjà `pathlib`)
 - Émettre chaque événement NDJSON sur une seule ligne (`model_dump_json()`, ou `json.dumps` sans `indent`), vidée par le `line_buffering=True` posé sur `stdout` au démarrage, pas par des `flush()` (cf. [ADR-005](../../../docs/adrs/005-sidecar-python-protocole-ndjson.md))
 - `ensure_ascii=False` pour les rapports JSON lisibles, `sort_keys=True` quand un rendu déterministe est attendu
-- `datetime.now(UTC)` et `isoformat()` pour produire, `fromisoformat()` pour relire
+- `isoformat()` pour produire un horodatage, `fromisoformat()` pour le relire (DTZ impose déjà `datetime.now(UTC)`)
 - Lire la configuration d'environnement par `os.getenv(clé, défaut)` avec cast explicite et `os.environ[clé]` quand l'absence doit être fatale
 
 ## À éviter
@@ -36,7 +36,6 @@ plan_path.write_text(json.dumps(plan, ensure_ascii=False, sort_keys=True), encod
 sys.stdout.reconfigure(line_buffering=True)  # une fois, au démarrage
 sys.stdout.write(json.dumps(event) + "\n")   # une ligne = un événement, vidée par le \n
 
-# ❌ encodage implicite, indent sur le flux, horodatage naive
+# ❌ encodage implicite, indent sur le flux
 plan_path.write_text(json.dumps(plan, indent=2))
-created_at = datetime.utcnow()
 ```

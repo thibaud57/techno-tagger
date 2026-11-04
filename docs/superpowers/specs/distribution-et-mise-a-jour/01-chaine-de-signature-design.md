@@ -67,7 +67,7 @@ Aucune : ce sub-project est autoporté.
   - Le job garde `contents: write`, sans permission de plus (`.claude/rules/github-actions/security-permissions.md`).
   - Cf. Décision : contrôle des artefacts publiés.
 - **Gardes de configuration** dans `test_main.py`, à côté des gardes d'identité existantes, par le helper `_at` (`.claude/rules/pytest/tests.md`) : elles ne gardent que ce dont la régression est muette (cf. Tests à écrire).
-- Rules applicables : `.claude/rules/tauri/config-bundle.md`, `.claude/rules/tauri/capabilities.md`, `.claude/rules/github-actions/workflows.md`, `.claude/rules/github-actions/expressions-contexts.md`, `.claude/rules/github-actions/secrets-variables.md`, `.claude/rules/github-actions/security-permissions.md`, `.claude/rules/release-please/config.md`, `.claude/rules/pytest/tests.md`, `.claude/rules/python/type-hints.md`. ADRs : ADR-001, ADR-015, ADR-021.
+- Rules applicables : `.claude/rules/tauri/config-bundle.md`, `.claude/rules/tauri/capabilities.md`, `.claude/rules/github-actions/workflows.md`, `.claude/rules/github-actions/expressions-contexts.md`, `.claude/rules/github-actions/security-permissions.md`, `.claude/rules/github-actions/security-permissions.md`, `.claude/rules/release-please/config.md`, `.claude/rules/pytest/tests.md`, `.claude/rules/python/type-hints.md`. ADRs : ADR-001, ADR-015, ADR-021.
 
 ## Acceptance criteria
 

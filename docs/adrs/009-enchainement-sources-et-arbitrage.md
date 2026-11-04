@@ -1,5 +1,5 @@
 ---
-title: "ADR-009 — Enchaînement des sources et arbitrage utilisateur"
+title: "ADR-009 : Enchaînement des sources et arbitrage utilisateur"
 status: "accepted"
 description: "Beatport puis Bandcamp, jamais spéculativement, avec une modale à deux temps qui reste ouverte pendant l'appel de secours et n'affiche que les candidats en zone grise."
 date: "2026-08-02"

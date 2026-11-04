@@ -67,7 +67,7 @@ Exclut le service et le store Angular (sub-project 08), les boutons et confirmat
 - **Erreurs** : `RollbackUnavailableError` (`rollback_unavailable`, `params.run_id` et `params.track_id` le cas échéant) dans `rollback.py` ; `PhaseBusyError` dans `__main__.py`, partagée par toutes les phases longues ; `TagDumpUnreadableError` (existante) sur un dump visé illisible (`.claude/rules/python/gestion-erreurs.md`, `.claude/rules/ngx-translate/i18n.md`)
 - **Logs** sans nom de fichier ni titre : run et motifs seulement, clés du jeu fixe (CLAUDE.md, rien de personnel ; `.claude/rules/python/gestion-erreurs.md`)
 - **Miroir TypeScript** manuel (ADR-005, `.claude/rules/typescript/types.md`) : les deux commandes rejoignent `SidecarCommand`, `TrackState` gagne `rolled_back`, `TrackFailureReason` gagne `name_taken`. Les deux événements rejoignent `SidecarEvent` avec leur routage au sub-project 08 : le `switch` exhaustif de `sidecar.service.ts` refuserait un événement non routé. Le comportement de l'interface reste aux sub-projects 08 et 11
-- Autres rules : `.claude/rules/python/fichiers-io.md`, `.claude/rules/python/pattern-matching.md`, `.claude/rules/python/modeles-donnees.md`, `.claude/rules/pytest/tests.md`, `.claude/rules/mutagen/tags.md`
+- Autres rules : `.claude/rules/python/fichiers-io.md`, `.claude/rules/python/type-hints.md`, `.claude/rules/python/modeles-donnees.md`, `.claude/rules/pytest/tests.md`, `.claude/rules/mutagen/tags.md`
 
 ## Acceptance criteria
 

@@ -12,7 +12,7 @@ paths:
 ## À faire
 - Garder `app.config.ts` minimal : router, PrimeNG, ngx-translate, Sentry et les `provideAppInitializer()` du bootstrap (langue, sidecar)
 - Ajouter `provideBrowserGlobalErrorListeners()` : sans zone.js, les rejets non gérés ne sont plus capturés
-- Configurer PrimeNG avec le preset du projet (`definePreset()` sur Aura, dans `core/platform/theme.ts`), `darkModeSelector` et `cssLayer` de DESIGN.md. Un écart global va dans le preset, un écart d'instance dans un `[dt]`
+- Configurer PrimeNG avec le preset du projet (`definePreset()` sur Aura, dans `core/platform/theme.ts`), `darkModeSelector` et `cssLayer` de DESIGN.md
 - Déclarer la configuration applicative par un `InjectionToken` avec factory, plutôt que par un objet importé
 - Régler `budgets` et `outputHashing` par configuration dans `angular.json`
 - Poser dans le `define` d'`angular.json` un repli inerte pour chaque constante de build : sans lui, `ng build` ou `ng test` hors script npm lève un `ReferenceError` au bootstrap. Jamais de secret dans ce JSON
@@ -30,7 +30,6 @@ paths:
 ## Gotchas
 - Angular 22.1 : chaque bundle reçoit un `//# debugId=<uuid>` dès que les source maps de scripts sont émises, c'est par lui que Sentry relie un bundle à sa map
 - Angular 22.1 : dans un git worktree, un chemin de cache relatif se résout depuis la racine du dépôt principal, donc `.angular/cache` est partagé entre worktrees
-- Angular 22 exige Node `^22.22.3 || ^24.15.0 || >=26.0.0` et TypeScript `>=6.0.0 <6.1.0` (cf. [typescript/types.md](../typescript/types.md))
 - Les suffixes de fichiers générés, supprimés en Angular 20, sont restaurés par le bloc `schematics` d'`angular.json` : `ng g c user` produit `user.component.ts` et `UserComponent`
 - Tauri ne pose aucun nonce ni hash CSP sur les styles d'un build Angular : garder le critical CSS désactivé (`optimization.styles.inlineCritical: false`), dont l'`onload=` serait bloqué
 - `devEngines.packageManager` est la seule source de la version de pnpm (cf. `pnpm/workspace.md`) : ne pas ajouter `packageManager` en plus, ni Corepack
@@ -42,7 +41,6 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes, withComponentInputBinding()),
     provideBrowserGlobalErrorListeners(),
-    providePrimeNG({ theme: { preset: TECHNO_TAGGER_PRESET, options: { darkModeSelector: '.app-dark' } } }),
   ],
 };
 

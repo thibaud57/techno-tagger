@@ -2,6 +2,8 @@
 paths:
   - ".github/workflows/**/*.yml"
   - ".github/workflows/**/*.yaml"
+  - ".github/actions/**/action.yml"
+  - ".github/dependabot.yml"
 ---
 
 # GitHub Actions : secrets et variables
@@ -19,7 +21,9 @@ paths:
 - Faire transiter la clé de signature ailleurs que dans les secrets : ni dépôt, ni artefact de CI, ni log de build
 - `echo` d'un secret pour déboguer : le masquage est automatique mais imparfait sur les valeurs courtes ou trop communes et il ne couvre pas une valeur dérivée (encodée, tronquée, transformée)
 - Attendre des secrets dans un run déclenché par une PR de fork : ils n'y sont pas transmis
+
 ## Gotchas
+- Le `GITHUB_TOKEN` est régénéré par run et expire à la fin du job : rien à faire tourner
 - Les secrets Dependabot sont un stock distinct des secrets Actions, jamais partagés ; les PR de Dependabot passent le même gate qualité que les PR humaines
 - Le contexte `secrets` n'est disponible ni dans un `if:` de job ni dans un `if:` de step : pour conditionner un step sur la présence d'un secret, l'exposer en `env:` du job puis tester `env.X` dans le `if:` du step
 - Une valeur masquée ne peut plus être publiée comme output de job

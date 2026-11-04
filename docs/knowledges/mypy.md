@@ -1,6 +1,6 @@
 ---
 title: "Mypy — Vérification statique de types du sidecar"
-version: "2.4.0"
+version: "2.4.1"
 description: "Référence technique pour Mypy : mode strict et ce qu'il active réellement, nouveaux défauts de la 2.0, typage asyncio, py.typed et exécution en CI."
 date: "2026-10-09"
 keywords: ["mypy", "typing", "strict", "asyncio", "py-typed", "ci"]
