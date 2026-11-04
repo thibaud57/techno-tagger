@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.9](https://github.com/thibaud57/techno-tagger/compare/v1.1.8...v1.1.9) (2026-11-04)
+
+
+### Bug Fixes
+
+* montées de dépendances ([#184](https://github.com/thibaud57/techno-tagger/issues/184)) ([c36c830](https://github.com/thibaud57/techno-tagger/commit/c36c83057072392a590d713bf41ab97a10547f9c))
+
 ## [1.1.8](https://github.com/thibaud57/techno-tagger/compare/v1.1.7...v1.1.8) (2026-10-29)
 
 
