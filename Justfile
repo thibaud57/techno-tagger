@@ -192,11 +192,13 @@ test-sidecar:
     # globale serait mecaniquement basse
     uv run pytest --cov-fail-under=80
 
-# Tests de la webview, sans watch
+# Tests de la webview, sans watch, plancher de couverture compris
 [group('quality')]
 test-ui:
     # Le builder active watch sur un TTY : `just test` (parallel) resterait bloque
-    pnpm exec ng test --watch=false
+    # Seuil dans la configuration `coverage` d'angular.json et non dans les options par defaut :
+    # sur un run cible (`ng test`), la couverture globale serait mecaniquement basse
+    pnpm exec ng test --watch=false --configuration=coverage
 
 # Tous les tests
 [group('quality')]
