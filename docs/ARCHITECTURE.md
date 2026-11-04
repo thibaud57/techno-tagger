@@ -807,9 +807,7 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 
 ### Coverage
 
-**80 % sur `sidecar/`**, seuil bloquant en CI. C'est là que vit le métier, donc là qu'un pourcentage mesure quelque chose.
-
-**Aucun seuil chiffré sur `src/`**, le périmètre y remplace le pourcentage. L'interface n'a presque pas de logique : atteindre 80 % obligerait à couvrir des templates, c'est-à-dire à écrire exactement les tests que la stratégie interdit. Ce sont les lignes « Unitaires (UI) » qui doivent être couvertes et leur absence se voit en review.
+Plancher du socle qualité (80 % lignes et branches) dans `just test-sidecar` et `just test-ui`, sans objectif propre au projet. La webview mesure `src/` hors `src/fixtures` (code de test, jamais livré). Aucun test écrit pour le pourcentage : les lignes « Unitaires (UI) » restent le périmètre à couvrir.
 
 ---
 

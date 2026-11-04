@@ -97,7 +97,7 @@ Quatre fichiers portent un numéro de version, pour une seule vérité :
 
 **Automatisé (vérifier le statut avant de merger) :**
 - [ ] CI verte : Ruff + Mypy strict + pytest sur `sidecar/`, lint + typecheck + Vitest sur `src/`, `just build-sidecar` et `just smoke-sidecar` puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` sur `src-tauri/` (`just audit` n'y bloque pas) (clippy subsume `cargo check` ; sans le binaire du sidecar en place, la validation d'`externalBin` fait échouer la compilation avant même `cargo check`)
-- [ ] Seuil de coverage 80 % tenu sur `sidecar/`. **Aucun seuil chiffré sur `src/`** : c'est le périmètre des lignes « Unitaires (UI) » qui doit être couvert, et son absence se voit en review, pas dans un pourcentage (cf. [ARCHITECTURE.md § Coverage](ARCHITECTURE.md#coverage))
+- [ ] Plancher de coverage 80 % tenu sur `sidecar/` et `src/` (cf. [ARCHITECTURE.md § Coverage](ARCHITECTURE.md#coverage))
 - [ ] Lock files à jour et commités (`pnpm-lock.yaml`, `uv.lock`, `Cargo.lock`)
 
 **Manuel :**
@@ -276,7 +276,7 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
-| Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones et `demo-image` sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff (check + format) + Mypy strict + pytest (`sidecar/`), ESLint + Prettier + `actionlint` + typecheck + build Angular puis `just build-demo` + Vitest (`src/`), `just build-sidecar` + `just smoke-sidecar` (lance le binaire figé, exige la réponse `version` égale à celle de `package.json`) puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` (`src-tauri/`), seuil de coverage sur `sidecar/`, `just audit-*` non bloquants (cf. § Dépendances) | Gate qualité |
+| Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones et `demo-image` sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff (check + format) + Mypy strict + pytest (`sidecar/`), ESLint + Prettier + `actionlint` + typecheck + build Angular puis `just build-demo` + Vitest (`src/`), `just build-sidecar` + `just smoke-sidecar` (lance le binaire figé, exige la réponse `version` égale à celle de `package.json`) puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` (`src-tauri/`), plancher de coverage sur `sidecar/` et `src/`, `just audit-*` non bloquants (cf. § Dépendances) | Gate qualité |
 | Job `demo-image` de la même CI, mêmes déclencheurs, sauté sur Markdown seul | Image de la démo construite **sans la pousser** (clé PrimeNG vide), lancée sous les contraintes du compose (lecture seule, `--cap-drop ALL`, `no-new-privileges`, limites de pids, de mémoire et de CPU), puis sondée : `/healthz` à `200` ; sur `/`, `/settings`, `/demo/scenario.json` et une URL inexistante à extension, la CSP et `X-Robots-Tag` lus depuis `demo/headers.conf` ; `Cache-Control: no-cache` sur le scénario ; `<app-root` dans `/settings` ; process non root. Inclus dans l'agrégateur `ci` | Gate qualité |
 | Push `main`, `workflow_dispatch` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump des fichiers de version et des deux lockfiles, cf. § Propagation de la version). **Aucun build.** | - |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `just smoke-sidecar` → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release → URL de `latest.json` remplacées par les liens sous le tag → garde → publication de la Release (créée en draft) | GitHub Releases |
@@ -386,7 +386,7 @@ Items à valider avant le tout premier merge sur `main` déclenchant la premièr
 
 - [x] **`just lint`** : Ruff + Ruff format (`sidecar/`), ESLint + Prettier (`src/`), `cargo clippy -- -D warnings` + `cargo fmt --check` (`src-tauri/`), `actionlint` (workflows) (2026-10-23)
 - [x] **`just typecheck`** : `tsc --noEmit` sur les deux tsconfig Angular, Mypy strict sur `sidecar/src` et `sidecar/tests` (2026-10-23)
-- [x] **`just test`** : pytest avec le seuil de couverture 80 % bloquant sur `sidecar/`, Vitest sur `src/` (2026-10-23, 1238 tests sidecar, 967 tests UI)
+- [x] **`just test`** : pytest et Vitest avec le plancher de couverture 80 % bloquant sur `sidecar/` et `src/` (2026-10-23, 1238 tests sidecar, 967 tests UI)
 - [x] **`just build`** : binaire PyInstaller du sidecar (`build-sidecar`) puis installeur NSIS (`tauri build`) (2026-10-23, installeur NSIS produit localement)
 - [x] **Smoke test du livrable** : installer le bundle produit sur une machine ou VM propre, lancer, saisir une clé, faire un run complet sur quelques morceaux (2026-10-21, installeur de la Release chez un utilisateur réel)
 - [x] **Test de sécurité vert** : la clé API n'apparaît ni dans les logs, ni dans les rapports, ni dans les payloads Sentry ; aucun chemin ni titre de morceau dans les payloads Sentry (2026-10-23, clé absente des logs, rapports, exports et sorties de la recette `/verify` ; `sentry_probe` et `selftest_probe` sans chemin ni titre)

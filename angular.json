@@ -117,6 +117,16 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "isolate": true
+          },
+          "configurations": {
+            "coverage": {
+              "coverage": true,
+              "coverageExclude": ["src/fixtures/**"],
+              "coverageThresholds": {
+                "lines": 80,
+                "branches": 80
+              }
+            }
           }
         },
         "lint": {

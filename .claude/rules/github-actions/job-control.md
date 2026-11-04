@@ -22,7 +22,7 @@ paths:
 - Un job qui échoue fait sauter (`skipped`, pas `cancelled`) les jobs qui en dépendent par `needs:`, sans toucher aux jobs parallèles déjà démarrés. Un job dépendant ne tourne quand même qu'avec `if: ${{ !cancelled() }}` ou `always()`
 - `concurrency` ne garde qu'un run en attente par groupe : un nouveau run pending annule le pending précédent, même avec `cancel-in-progress: false`
 - Un required check porté par un workflow sauté par `paths:` ou `[skip ci]` reste « Pending » et bloque la PR : d'où le job `changes` et l'agrégateur `ci` qui passe sur une zone `skipped`
-- Le seuil de coverage de 80 % sur `sidecar/` est un gate bloquant : il doit faire échouer le job, jamais être toléré par `continue-on-error`
+- Le plancher de coverage de 80 % sur `sidecar/` et `src/` est un gate bloquant : il doit faire échouer le job, jamais être toléré par `continue-on-error`
 
 ## Exemples
 ```yaml

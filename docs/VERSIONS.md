@@ -66,6 +66,7 @@ Zone `src/`, gestionnaire **pnpm**, fichiers `package.json` + `pnpm-lock.yaml`.
 | tslib | `2.9.1` | ✅ | Requis par Angular (peer `^2.3.0` d'`@angular/build`), version lue dans `pnpm-lock.yaml` (relevé le 2026-11-04) |
 | jsdom | `30.1.3` | ✅ | Environnement par défaut de Vitest sous `@angular/build:unit-test`. Plancher Node `^24.15.0 \|\| >=26.0.0` depuis la 30.0.0 |
 | Vitest | `5.1.0` | ✅ | Runner par défaut du CLI Angular 22, accepté en 5.x par `@angular/build` depuis 22.2.0. `clearMocks` à `true` par défaut |
+| @vitest/coverage-v8 | `5.1.0` | ✅ | Même version que Vitest (peer exacte). Plancher 80 % lignes et branches dans la configuration `coverage` d'`angular.json`, appelée par `just test-ui` |
 | angular-eslint | `22.6.0` | ✅ | ESLint 9+ en flat config uniquement. Règles d'accessibilité hors du preset `recommended`. `@eslint/js` `10.0.1` (peer `eslint ^10.0.0`, relevé le 2026-10-29) ajouté par `ng add angular-eslint` |
 | Prettier | `3.9.10` | ✅ | Parser Angular embarqué : `@angular/compiler` 22.0.6 (lu dans `node_modules/prettier/plugins/angular.js`, relevé le 2026-10-29), contre 22.2.4 pour le build. `semi: false` depuis le 2026-09-06, aligné sur le portfolio |
 | prettier-plugin-tailwindcss | `0.8.1` | ✅ | Exige Prettier ≥ 3.7.x et l'option `tailwindStylesheet` en Tailwind v4 |
