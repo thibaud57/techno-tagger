@@ -439,7 +439,15 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 
 ## Plateforme d'hébergement
 
-Le moteur de conteneurs et le PaaS du VPS de la démo web ne sont déclarés par aucun fichier versionné. Leurs versions, relevés et pièges de montée vivent dans la documentation privée d'exploitation (hors dépôt, dépôt public).
+Le moteur de conteneurs, le PaaS et le reverse proxy du VPS de la démo web ne sont déclarés par aucun fichier versionné : rien ne signale quand ils périment, d'où leur place ici et non dans [VERSIONS.md](VERSIONS.md).
+
+| Composant | Rôle pour le projet | Relever la version |
+|-----------|---------------------|--------------------|
+| Docker Engine | exécute le conteneur de la démo | SSH, `docker version --format '{{.Server.Version}}'` |
+| Dokploy | tire l'image GHCR et redéploie le Compose `techno-tagger-demo` | UI Dokploy |
+| Traefik (embarqué par Dokploy) | TLS et routage du domaine de la démo | SSH, `docker ps --filter name=traefik --format '{{.Image}}'` |
+
+> ⚠️ **Relever la version réelle avant toute montée** : ce tableau n'en porte aucune.
 
 ---
 
