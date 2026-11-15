@@ -2,8 +2,8 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { FakeAppWindow } from "../../../../fixtures/app-window"
-import { action, hostOf } from "../../../../fixtures/dom"
+import { FakeAppWindow } from "../../../../testing/app-window"
+import { action, hostOf } from "../../../../testing/dom"
 import { APP_WINDOW } from "../../../core/platform/app-window"
 
 import { RESIZE_SETTLE_MS, WindowControlsComponent } from "./window-controls.component"

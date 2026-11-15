@@ -2,17 +2,17 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { silenceConsoleError } from "../../../fixtures/console"
+import { silenceConsoleError } from "../../../testing/console"
 import {
   EMPTY_EXTRACTION,
   EXTRACTION_REQUEST,
   PLAYLISTS,
   playlistsListed,
-} from "../../../fixtures/extraction"
-import { FEEDBACK_READY } from "../../../fixtures/feedback"
-import { PAST_RUN, TRACK_LOADED, runLoaded, runsListed } from "../../../fixtures/past-runs"
-import { FOLDER_MISSING, INTERRUPTED, interruptedRun } from "../../../fixtures/resume"
-import { DEFAULT_THRESHOLDS, LOG_FILE } from "../../../fixtures/settings"
+} from "../../../testing/extraction"
+import { FEEDBACK_READY } from "../../../testing/feedback"
+import { PAST_RUN, TRACK_LOADED, runLoaded, runsListed } from "../../../testing/past-runs"
+import { FOLDER_MISSING, INTERRUPTED, interruptedRun } from "../../../testing/resume"
+import { DEFAULT_THRESHOLDS, LOG_FILE } from "../../../testing/settings"
 import {
   RUN_ID,
   RUN_STARTED,
@@ -20,8 +20,8 @@ import {
   arbitrationRequired,
   arbitrationUpdated,
   trackResolved,
-} from "../../../fixtures/tagging"
-import { TRACK_URL, resolvedByUrl, urlRecoveryError } from "../../../fixtures/url-recovery"
+} from "../../../testing/tagging"
+import { TRACK_URL, resolvedByUrl, urlRecoveryError } from "../../../testing/url-recovery"
 import {
   NETWORK_FINISHED,
   ROLLBACK_RUN,
@@ -32,7 +32,7 @@ import {
   rollbackFinished,
   rollbackInFlight,
   writeFinishedWithFailures,
-} from "../../../fixtures/write"
+} from "../../../testing/write"
 import { PastRunsStore } from "../stores/past-runs.store"
 import { BUSY_PHASES, BusyPhase, SidecarEvent, VersionEvent } from "./protocol"
 import { SIDECAR_TRANSPORT, SidecarHandlers, SidecarTransport } from "./sidecar-transport"

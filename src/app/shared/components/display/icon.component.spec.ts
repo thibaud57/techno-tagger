@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { hostOf } from "../../../../fixtures/dom"
+import { hostOf } from "../../../../testing/dom"
 import { ICON_NAMES, IconComponent } from "./icon.component"
 
 /** Parcourt `ICON_NAMES` : Angular ne verifie pas l'exhaustivite d'un `@switch`. */

@@ -3,22 +3,22 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { dialogLabel, page } from "../../../../fixtures/dialog"
-import { action } from "../../../../fixtures/dom"
-import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
+import { dialogLabel, page } from "../../../../testing/dialog"
+import { action } from "../../../../testing/dom"
+import { type NativeStub, nativeStub } from "../../../../testing/native-stub"
 import {
   provideSidecarStub,
   sidecarStub,
   type SidecarStubOverrides,
-} from "../../../../fixtures/sidecar-stub"
-import { preferencesStub } from "../../../../fixtures/preferences-stub"
-import { translateWith } from "../../../../fixtures/translate"
+} from "../../../../testing/sidecar-stub"
+import { preferencesStub } from "../../../../testing/preferences-stub"
+import { translateWith } from "../../../../testing/translate"
 import {
   availableUpdate,
   failingUpdate,
   hangingUpdate,
   updaterStub,
-} from "../../../../fixtures/updater"
+} from "../../../../testing/updater"
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"
 import { UpdateService } from "../../../core/platform/update.service"

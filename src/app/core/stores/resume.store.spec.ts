@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { INTERRUPTED } from "../../../fixtures/resume"
+import { INTERRUPTED } from "../../../testing/resume"
 
 import { ResumeStore } from "./resume.store"
 

@@ -3,18 +3,18 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { MessageService } from "primeng/api"
 import { vi } from "vitest"
 
-import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
-import { type PreferencesStub, preferencesStub } from "../../../fixtures/preferences-stub"
-import { type SidecarStub, provideSidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
-import { spyToast } from "../../../fixtures/toast"
-import { translateWith } from "../../../fixtures/translate"
+import { EMPTY_EXTRACTION } from "../../../testing/extraction"
+import { type PreferencesStub, preferencesStub } from "../../../testing/preferences-stub"
+import { type SidecarStub, provideSidecarStub, sidecarStub } from "../../../testing/sidecar-stub"
+import { spyToast } from "../../../testing/toast"
+import { translateWith } from "../../../testing/translate"
 import {
   NETWORK_FINISHED,
   WRITE_FINISHED,
   failedRollback,
   rollbackFinished,
   writeFinishedWithFailures,
-} from "../../../fixtures/write"
+} from "../../../testing/write"
 import { CompletionSignalService } from "./completion-signal.service"
 import { PreferencesService } from "./preferences.service"
 

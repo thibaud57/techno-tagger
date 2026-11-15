@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { hostOf } from "../../../../fixtures/dom"
+import { hostOf } from "../../../../testing/dom"
 import { SourceLogoComponent, type SourceName } from "./source-logo.component"
 
 /** Une source sans trace rendrait une cellule vide, sans erreur. */

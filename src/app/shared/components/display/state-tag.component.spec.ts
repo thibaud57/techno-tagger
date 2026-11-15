@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { hostOf, iconOf } from "../../../../fixtures/dom"
+import { hostOf, iconOf } from "../../../../testing/dom"
 import type { TrackResolution } from "../../../core/sidecar/protocol"
 
 import type { IconName } from "./icon.component"

@@ -6,9 +6,9 @@ import {
   activeRun,
   provideSidecarStub,
   sidecarStub,
-} from "../../../../fixtures/sidecar-stub"
-import { arbitrationRequired, recoveredTrack, unresolvedTrack } from "../../../../fixtures/tagging"
-import { TRACK_URL } from "../../../../fixtures/url-recovery"
+} from "../../../../testing/sidecar-stub"
+import { arbitrationRequired, recoveredTrack, unresolvedTrack } from "../../../../testing/tagging"
+import { TRACK_URL } from "../../../../testing/url-recovery"
 import { type AppEdition, APP_EDITION } from "../../../core/platform/app-edition"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 

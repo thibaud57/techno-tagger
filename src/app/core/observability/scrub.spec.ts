@@ -1,4 +1,4 @@
-import PATH_MASK_CASES from "../../../fixtures/path-masks.json"
+import PATH_MASK_CASES from "../../../testing/fixtures/path-masks.json"
 import { MASK, PATH_MASK, scrub } from "./scrub"
 
 /**

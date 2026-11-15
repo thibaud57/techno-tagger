@@ -2,7 +2,7 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { sidecarStub } from "../../../fixtures/sidecar-stub"
+import { sidecarStub } from "../../../testing/sidecar-stub"
 import { SidecarService } from "../sidecar/sidecar.service"
 
 import { CAPTURE_EXCEPTION } from "./capture-exception"

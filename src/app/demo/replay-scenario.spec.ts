@@ -1,5 +1,5 @@
 import rawScenario from "../../demo/scenario.json"
-import { chosen } from "../../fixtures/demo-scenario"
+import { chosen } from "../../testing/demo-scenario"
 import { choose, initialReplayState, type Choice, type ReplayState } from "./replay"
 import { parseScenario, type JsonObject, type StatefulReply } from "./scenario"
 
