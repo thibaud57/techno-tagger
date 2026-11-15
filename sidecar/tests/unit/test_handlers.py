@@ -241,7 +241,6 @@ async def _rolled_back(live: LiveRun) -> tuple[RollbackFinished, list[Event]]:
 
 
 @pytest.mark.asyncio
-@pytest.mark.usefixtures("app_data")
 async def test_skips_the_displayed_track_of_a_dump_entry_it_never_wrote(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -259,7 +258,6 @@ async def test_skips_the_displayed_track_of_a_dump_entry_it_never_wrote(
 
 
 @pytest.mark.asyncio
-@pytest.mark.usefixtures("app_data")
 @pytest.mark.parametrize(
     "settle",
     [
