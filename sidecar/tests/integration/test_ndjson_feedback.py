@@ -59,7 +59,6 @@ async def test_a_run_written_in_an_earlier_session_gives_its_issue_url(folder: P
     assert ready["run_id"] == run_id
 
 
-@pytest.mark.usefixtures("app_data")
 def test_an_unknown_run_is_refused_with_its_run_id() -> None:
     events = drive(line("prepare_feedback", run_id=UNKNOWN_RUN))
 

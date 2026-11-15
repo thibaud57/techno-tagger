@@ -126,9 +126,13 @@ def _key(memory_keyring: MemoryKeyring) -> None:
     memory_keyring.secrets[(SERVICE, USERNAME)] = "k3y-t0k3n"
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def app_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Isole le dossier de donnees d'application sous `tmp_path`."""
+    """Isole le dossier de donnees d'application sous `tmp_path`.
+
+    Autouse : `handlers.*` et la purge de demarrage ecrivent plans, dumps et logs sous
+    `LOCALAPPDATA`, et un test qui l'oublierait ecrirait dans le profil de la machine.
+    """
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
 
 

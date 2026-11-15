@@ -20,13 +20,6 @@ if TYPE_CHECKING:
     from tagging_api import Gate
 
 
-@pytest.fixture(autouse=True)
-def app_data(app_data: None) -> None:
-    """Dossier de donnees isole pour tout test d'integration : la boucle y ecrit plans,
-    dumps, logs et cache sans jamais toucher ceux de la machine.
-    """
-
-
 @pytest.fixture
 def cdn() -> FakeCdn:
     """CDN de pochettes simule, que `api` branche sur la boucle."""

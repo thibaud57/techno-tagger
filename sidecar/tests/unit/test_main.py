@@ -134,7 +134,6 @@ PURGES: Final = {
 }
 
 
-@pytest.mark.usefixtures("app_data")
 @pytest.mark.parametrize("failing", PURGES, ids=["dumps", "plans", "feedback"])
 def test_a_failed_purge_stops_neither_the_startup_nor_the_next_purges(
     startup: _Startup, caplog: pytest.LogCaptureFixture, failing: str
@@ -156,7 +155,6 @@ def test_a_failed_purge_stops_neither_the_startup_nor_the_next_purges(
     assert all(spy.call_count == 1 for spy in spies)
 
 
-@pytest.mark.usefixtures("app_data")
 def test_the_startup_purge_removes_the_plans_older_than_thirty_days(tmp_path: Path) -> None:
     started_at = datetime.now(UTC) - timedelta(days=31)
     expired = save_plan(plan_dir(), plan_of(tmp_path, [RECORD], started_at=started_at))
@@ -166,7 +164,6 @@ def test_the_startup_purge_removes_the_plans_older_than_thirty_days(tmp_path: Pa
     assert not expired.exists()
 
 
-@pytest.mark.usefixtures("app_data")
 def test_the_startup_purge_removes_the_feedback_exports_older_than_thirty_days() -> None:
     expired = feedback_dir() / stamped_name(
         datetime.now(UTC) - timedelta(days=31), SECOND_RUN_ID, ".json"
