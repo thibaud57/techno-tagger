@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { firstValueFrom } from "rxjs"
 
-import { action, hostOf } from "../../fixtures/dom"
+import { action, hostOf } from "../../testing/dom"
 import { DEMO_RELOAD, DemoBannerComponent } from "./demo-banner.component"
 
 describe("DemoBannerComponent", () => {

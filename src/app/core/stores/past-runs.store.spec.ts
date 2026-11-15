@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 
-import { OTHER_PAST_RUN, PAST_RUN, TRACK_LOADED, runLoaded } from "../../../fixtures/past-runs"
-import { commandError, phaseBusy } from "../../../fixtures/write"
+import { OTHER_PAST_RUN, PAST_RUN, TRACK_LOADED, runLoaded } from "../../../testing/past-runs"
+import { commandError, phaseBusy } from "../../../testing/write"
 
 import { PastRunsStore, loadedTrack } from "./past-runs.store"
 

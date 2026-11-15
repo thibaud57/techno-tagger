@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { TranslateService, provideTranslateService } from "@ngx-translate/core"
 import { firstValueFrom } from "rxjs"
 
-import { translateWith } from "../../../fixtures/translate"
+import { translateWith } from "../../../testing/translate"
 import { ReasonTextPipe, extractionReasonKeys, rollbackReasonKeys, trackReasonKeys } from "./reason"
 
 describe("reason keys", () => {

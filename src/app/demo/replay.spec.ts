@@ -1,4 +1,4 @@
-import { chosen, scenarioWith, statefulReply, statelessReply } from "../../fixtures/demo-scenario"
+import { chosen, scenarioWith, statefulReply, statelessReply } from "../../testing/demo-scenario"
 import { choose, commandKey, initialReplayState, recoveryUrlOf } from "./replay"
 import type { JsonObject } from "./scenario"
 

@@ -1,8 +1,8 @@
 import { TestBed } from "@angular/core/testing"
 
 import type { SidecarHandlers } from "../core/sidecar/sidecar-transport"
-import { silenceConsoleError } from "../../fixtures/console"
-import { scenarioWith, statefulReply, statelessReply } from "../../fixtures/demo-scenario"
+import { silenceConsoleError } from "../../testing/console"
+import { scenarioWith, statefulReply, statelessReply } from "../../testing/demo-scenario"
 import { DemoScenarioService } from "./demo-scenario.service"
 import { ReplayTransport } from "./replay-transport"
 import { DemoScenarioError } from "./scenario"

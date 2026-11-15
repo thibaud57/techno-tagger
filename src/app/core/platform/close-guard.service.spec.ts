@@ -1,10 +1,10 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { FakeAppWindow } from "../../../fixtures/app-window"
-import { silenceConsoleError } from "../../../fixtures/console"
-import { type SidecarStub, provideSidecarStub, sidecarStub } from "../../../fixtures/sidecar-stub"
-import { rollbackInFlight } from "../../../fixtures/write"
+import { FakeAppWindow } from "../../../testing/app-window"
+import { silenceConsoleError } from "../../../testing/console"
+import { type SidecarStub, provideSidecarStub, sidecarStub } from "../../../testing/sidecar-stub"
+import { rollbackInFlight } from "../../../testing/write"
 import { APP_WINDOW } from "./app-window"
 import { CloseGuard } from "./close-guard.service"
 

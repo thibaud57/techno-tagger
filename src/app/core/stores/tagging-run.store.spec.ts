@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { silenceConsoleError } from "../../../fixtures/console"
+import { silenceConsoleError } from "../../../testing/console"
 import {
   RUN_ID,
   RUN_STARTED,
@@ -10,8 +10,8 @@ import {
   TAGS_BEFORE,
   arbitrationRequired,
   trackResolved,
-} from "../../../fixtures/tagging"
-import { NETWORK_FINISHED, rollbackFinished } from "../../../fixtures/write"
+} from "../../../testing/tagging"
+import { NETWORK_FINISHED, rollbackFinished } from "../../../testing/write"
 import { ArbitrationRequiredEvent, RunFinishedEvent } from "../sidecar/protocol"
 import { TaggingRunStore } from "./tagging-run.store"
 

@@ -2,16 +2,16 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { silenceConsoleError } from "../../../../fixtures/console"
-import { action, hostOf, tooltipOf } from "../../../../fixtures/dom"
-import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
+import { silenceConsoleError } from "../../../../testing/console"
+import { action, hostOf, tooltipOf } from "../../../../testing/dom"
+import { type NativeStub, nativeStub } from "../../../../testing/native-stub"
 import {
   PENDING_TRACK,
   RESOLVED_TRACK,
   SOURCE_URL,
   TAGS_AFTER,
   TAGS_BEFORE,
-} from "../../../../fixtures/tagging"
+} from "../../../../testing/tagging"
 import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"

@@ -1,4 +1,4 @@
-import { EMPTY_EXTRACTION } from "../../../fixtures/extraction"
+import { EMPTY_EXTRACTION } from "../../../testing/extraction"
 import type { DuplicateResolution, ExtractionFailure } from "../../core/sidecar/protocol"
 
 import { toExtractionRows, type FormatSize } from "./extraction-rows"

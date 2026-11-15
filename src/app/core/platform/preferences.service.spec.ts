@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { type Store, load } from "@tauri-apps/plugin-store"
 import { vi } from "vitest"
 
-import { CUSTOM_THRESHOLDS } from "../../../fixtures/settings"
+import { CUSTOM_THRESHOLDS } from "../../../testing/settings"
 import {
   DEFAULT_EXTRACTION_MODE,
   DEFAULT_SOUND_SIGNAL,

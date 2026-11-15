@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { urlRecoveryError } from "../../../fixtures/url-recovery"
+import { urlRecoveryError } from "../../../testing/url-recovery"
 import { UrlRecoveryStore } from "./url-recovery.store"
 
 describe("UrlRecoveryStore", () => {

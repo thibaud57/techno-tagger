@@ -79,7 +79,7 @@ techno-tagger/
 │   │   ├── features/                     # un dossier par onglet : playlist/, tagging/ (run, arbitrage, rattrapage par URL, récapitulatif), settings/
 │   │   └── demo/                         # shell de la démo, build `demo` seul
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
-│   ├── fixtures/                         # événements du contrat et stubs de services partagés par les specs, hors build
+│   ├── testing/                          # événements du contrat, stubs de services et helpers partagés par les specs, hors build ; fixtures/ pour les fichiers de données
 │   ├── demo/                             # généré par `just record-demo` : scenario.json et artworks/*.svg, servis par le seul build `demo` (cf. ADR-023)
 │   ├── main.ts, main.demo.ts             # points d'entrée, Sentry dans le premier seulement
 │   └── styles.css                        # CSS pur, jamais SCSS
@@ -802,12 +802,12 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 
 - **CI** : GitHub Actions, une version fixe de Python et de Node par job (pas de matrice), aucun service container nécessaire (pas de base de données)
 - **Local** : fixtures de fichiers audio des quatre formats, base `vlc_media.db` de test, playlists M3U8 d'exemple
-- **Fixtures de l'UI** : événements du contrat et stubs de `SidecarService`, `PreferencesService` et `NativeService` partagés par plusieurs specs, dans `src/fixtures/`, pendant de `sidecar/tests/helpers/`
+- **Fixtures de l'UI** : événements du contrat et stubs de `SidecarService`, `PreferencesService` et `NativeService` partagés par plusieurs specs, dans `src/testing/` (données de test dans `src/testing/fixtures/`), pendant de `sidecar/tests/helpers/` et `sidecar/tests/fixtures/`
 - **Services externes** : techno-scraper et Sentry **toujours mockés**. Aucun test ne consomme le quota de l'API ni ne pollue le projet Sentry.
 
 ### Coverage
 
-Plancher du socle qualité (80 % lignes et branches) dans `just test-sidecar` et `just test-ui`, sans objectif propre au projet. La webview mesure `src/` hors `src/fixtures` (code de test, jamais livré). Aucun test écrit pour le pourcentage : les lignes « Unitaires (UI) » restent le périmètre à couvrir.
+Plancher du socle qualité (80 % lignes et branches) dans `just test-sidecar` et `just test-ui`, sans objectif propre au projet. La webview mesure `src/` hors `src/testing` (code de test, jamais livré). Aucun test écrit pour le pourcentage : les lignes « Unitaires (UI) » restent le périmètre à couvrir.
 
 ---
 
