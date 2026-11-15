@@ -79,7 +79,7 @@ techno-tagger/
 │   │   ├── features/                     # un dossier par onglet : playlist/, tagging/ (run, arbitrage, rattrapage par URL, récapitulatif), settings/
 │   │   └── demo/                         # shell de la démo, build `demo` seul
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
-│   ├── testing/                          # événements du contrat, stubs de services et helpers partagés par les specs, hors build ; fixtures/ pour les fichiers de données
+│   ├── testing/                          # événements du contrat, stubs de services et helpers partagés par les specs, hors build
 │   ├── demo/                             # généré par `just record-demo` : scenario.json et artworks/*.svg, servis par le seul build `demo` (cf. ADR-023)
 │   ├── main.ts, main.demo.ts             # points d'entrée, Sentry dans le premier seulement
 │   └── styles.css                        # CSS pur, jamais SCSS
