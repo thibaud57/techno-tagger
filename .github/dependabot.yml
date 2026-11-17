@@ -10,9 +10,11 @@ updates:
       include: "scope"
     cooldown:
       default-days: 7
-    # Majeure bloquée par Angular (VERSIONS.md § Montées Bloquées)
+    # Majeures bloquées (VERSIONS.md § Montées Bloquées)
     ignore:
       - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "jsdom"
         update-types: ["version-update:semver-major"]
     groups:
       minor-patch:
