@@ -6,6 +6,8 @@ set ignore-comments
 # bash sur tous les OS (Git Bash sous Windows) : set windows-shell est deprecie depuis just 1.56
 set shell := ["bash", "-cu"]
 
+ZIZMOR_VERSION := "1.32.0"
+
 # ── Dev ───────────────────────────────────────────────────────────────────────
 
 # Lancer l'application complete (Angular + fenetre Tauri)
@@ -121,6 +123,7 @@ lint-tauri:
 [group('quality')]
 lint-workflows:
     actionlint
+    GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" uvx zizmor@{{ ZIZMOR_VERSION }} .
 
 # Lint des trois zones et des workflows
 [group('quality')]
@@ -192,11 +195,13 @@ test-sidecar:
     # globale serait mecaniquement basse
     uv run pytest --cov-fail-under=80
 
-# Tests de la webview, sans watch
+# Tests de la webview, sans watch, plancher de couverture compris
 [group('quality')]
 test-ui:
     # Le builder active watch sur un TTY : `just test` (parallel) resterait bloque
-    pnpm exec ng test --watch=false
+    # Seuil dans la configuration `coverage` d'angular.json et non dans les options par defaut :
+    # sur un run cible (`ng test`), la couverture globale serait mecaniquement basse
+    pnpm exec ng test --watch=false --configuration=coverage
 
 # Tous les tests
 [group('quality')]

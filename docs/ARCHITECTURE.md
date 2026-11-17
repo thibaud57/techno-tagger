@@ -79,7 +79,7 @@ techno-tagger/
 │   │   ├── features/                     # un dossier par onglet : playlist/, tagging/ (run, arbitrage, rattrapage par URL, récapitulatif), settings/
 │   │   └── demo/                         # shell de la démo, build `demo` seul
 │   ├── assets/icons/                     # SVG Simple Icons : beatport, bandcamp, soundcloud, vlc
-│   ├── fixtures/                         # événements du contrat et stubs de services partagés par les specs, hors build
+│   ├── testing/                          # événements du contrat, stubs de services et helpers partagés par les specs, hors build
 │   ├── demo/                             # généré par `just record-demo` : scenario.json et artworks/*.svg, servis par le seul build `demo` (cf. ADR-023)
 │   ├── main.ts, main.demo.ts             # points d'entrée, Sentry dans le premier seulement
 │   └── styles.css                        # CSS pur, jamais SCSS
@@ -802,14 +802,12 @@ Le critère est le même partout : **une régression de notre code ferait-elle �
 
 - **CI** : GitHub Actions, une version fixe de Python et de Node par job (pas de matrice), aucun service container nécessaire (pas de base de données)
 - **Local** : fixtures de fichiers audio des quatre formats, base `vlc_media.db` de test, playlists M3U8 d'exemple
-- **Fixtures de l'UI** : événements du contrat et stubs de `SidecarService`, `PreferencesService` et `NativeService` partagés par plusieurs specs, dans `src/fixtures/`, pendant de `sidecar/tests/helpers/`
+- **Fixtures de l'UI** : événements du contrat et stubs de `SidecarService`, `PreferencesService` et `NativeService` partagés par plusieurs specs, dans `src/testing/` (données de test dans `src/testing/fixtures/`), pendant de `sidecar/tests/helpers/` et `sidecar/tests/fixtures/`
 - **Services externes** : techno-scraper et Sentry **toujours mockés**. Aucun test ne consomme le quota de l'API ni ne pollue le projet Sentry.
 
 ### Coverage
 
-**80 % sur `sidecar/`**, seuil bloquant en CI. C'est là que vit le métier, donc là qu'un pourcentage mesure quelque chose.
-
-**Aucun seuil chiffré sur `src/`**, le périmètre y remplace le pourcentage. L'interface n'a presque pas de logique : atteindre 80 % obligerait à couvrir des templates, c'est-à-dire à écrire exactement les tests que la stratégie interdit. Ce sont les lignes « Unitaires (UI) » qui doivent être couvertes et leur absence se voit en review.
+Plancher du socle qualité (80 % lignes et branches) dans `just test-sidecar` et `just test-ui`, sans objectif propre au projet. La webview mesure `src/` hors `src/testing` (code de test, jamais livré). Aucun test écrit pour le pourcentage : les lignes « Unitaires (UI) » restent le périmètre à couvrir.
 
 ---
 

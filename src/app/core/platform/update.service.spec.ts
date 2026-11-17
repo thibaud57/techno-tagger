@@ -2,19 +2,19 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { vi } from "vitest"
 
-import { INTERRUPTED } from "../../../fixtures/resume"
+import { INTERRUPTED } from "../../../testing/resume"
 import {
   provideSidecarStub,
   sidecarStub,
   type SidecarStubOverrides,
-} from "../../../fixtures/sidecar-stub"
+} from "../../../testing/sidecar-stub"
 import {
   availableUpdate,
   failingUpdate,
   hangingUpdate,
   updaterStub,
-} from "../../../fixtures/updater"
-import { preferencesStub } from "../../../fixtures/preferences-stub"
+} from "../../../testing/updater"
+import { preferencesStub } from "../../../testing/preferences-stub"
 import { CAPTURE_EXCEPTION } from "../observability/capture-exception"
 import type { DetectedRun } from "../stores/resume.store"
 

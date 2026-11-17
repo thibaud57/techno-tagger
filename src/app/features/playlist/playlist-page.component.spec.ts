@@ -4,17 +4,17 @@ import { provideRouter } from "@angular/router"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { heightClassPx } from "../../../fixtures/dom"
-import { EMPTY_EXTRACTION, EXTRACTION_REQUEST } from "../../../fixtures/extraction"
-import { type NativeStub, nativeStub } from "../../../fixtures/native-stub"
-import { type PreferencesStub, preferencesStub } from "../../../fixtures/preferences-stub"
-import { stubNavigation } from "../../../fixtures/router"
+import { heightClassPx } from "../../../testing/dom"
+import { EMPTY_EXTRACTION, EXTRACTION_REQUEST } from "../../../testing/extraction"
+import { type NativeStub, nativeStub } from "../../../testing/native-stub"
+import { type PreferencesStub, preferencesStub } from "../../../testing/preferences-stub"
+import { stubNavigation } from "../../../testing/router"
 import {
   type SidecarStubOverrides,
   commandFailed,
   provideSidecarStub,
   sidecarStub,
-} from "../../../fixtures/sidecar-stub"
+} from "../../../testing/sidecar-stub"
 import { NativeService } from "../../core/platform/native.service"
 import { PreferencesService } from "../../core/platform/preferences.service"
 import type { PlaylistFormat } from "../../core/sidecar/protocol"

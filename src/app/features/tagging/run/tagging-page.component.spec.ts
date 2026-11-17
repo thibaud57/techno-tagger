@@ -5,29 +5,29 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService } from "primeng/api"
 import { vi } from "vitest"
 
-import { spyConfirmation } from "../../../../fixtures/confirm"
-import { action, hostOf, iconOf, tooltipOf } from "../../../../fixtures/dom"
-import { type NativeStub, nativeStub } from "../../../../fixtures/native-stub"
-import { OTHER_PAST_RUN } from "../../../../fixtures/past-runs"
-import { preferencesStub } from "../../../../fixtures/preferences-stub"
-import { stubNavigation } from "../../../../fixtures/router"
-import { CUSTOM_THRESHOLDS } from "../../../../fixtures/settings"
+import { spyConfirmation } from "../../../../testing/confirm"
+import { action, hostOf, iconOf, tooltipOf } from "../../../../testing/dom"
+import { type NativeStub, nativeStub } from "../../../../testing/native-stub"
+import { OTHER_PAST_RUN } from "../../../../testing/past-runs"
+import { preferencesStub } from "../../../../testing/preferences-stub"
+import { stubNavigation } from "../../../../testing/router"
+import { CUSTOM_THRESHOLDS } from "../../../../testing/settings"
 import {
   type SidecarStubOverrides,
   activeRun,
   commandFailed,
   provideSidecarStub,
   sidecarStub,
-} from "../../../../fixtures/sidecar-stub"
+} from "../../../../testing/sidecar-stub"
 import {
   RUN_ID,
   awaitingTrack,
   resolvedTrack,
   unresolvedTrack,
   writtenTrack as written,
-} from "../../../../fixtures/tagging"
-import { translateWith } from "../../../../fixtures/translate"
-import { WRITE_FINISHED, failedRollback, rollbackInFlight } from "../../../../fixtures/write"
+} from "../../../../testing/tagging"
+import { translateWith } from "../../../../testing/translate"
+import { WRITE_FINISHED, failedRollback, rollbackInFlight } from "../../../../testing/write"
 import { type AppEdition, APP_EDITION, DEMO_UNAVAILABLE } from "../../../core/platform/app-edition"
 import { NativeService } from "../../../core/platform/native.service"
 import { PreferencesService } from "../../../core/platform/preferences.service"

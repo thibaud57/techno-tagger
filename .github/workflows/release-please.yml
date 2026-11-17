@@ -59,6 +59,7 @@ jobs:
         with:
           # L'action Sentry (set_commits auto par defaut) remonte l'historique depuis la release precedente.
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
         env:
@@ -85,9 +86,11 @@ jobs:
           # Et non le defaut github.sha : il vaut la tete de main sur un
           # workflow_dispatch, pas le commit que release-please vient de taguer.
           ref: ${{ needs.release-please.outputs.tag_name }}
+          persist-credentials: false
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-pnpm
-      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      # rustup est sur le runner : canal, composants et cible lus dans rust-toolchain.toml
+      - run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri

@@ -1,4 +1,4 @@
-import { PENDING_TRACK, resolvedTrack, unresolvedTrack } from "../../../../fixtures/tagging"
+import { PENDING_TRACK, resolvedTrack, unresolvedTrack } from "../../../../testing/tagging"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 
 import { inFilter, matchesSearch, recapCounts, type RecapFilter } from "./recap-filter"

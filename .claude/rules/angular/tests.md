@@ -1,7 +1,7 @@
 ---
 paths:
   - "src/app/**/*.spec.ts"
-  - "src/fixtures/**/*.ts"
+  - "src/testing/**/*.ts"
 ---
 
 # Angular : tests unitaires
@@ -15,8 +15,8 @@ paths:
 - Écouter un `output()` par `subscribe(vi.fn())` : `firstValueFrom()` exige `outputToObservable()` et ne prouve pas qu'il n'a rien émis
 - Assertions DOM : `not.toBeNull()` ou `toBeTruthy()`
 - Appeler `fixture.detectChanges()` dans le `it()` quand des blocs `@if` conditionnent l'élément cherché
-- Mocker le protocole NDJSON au niveau du service qui l'expose et les plugins Tauri par les stubs de `PreferencesService` et `NativeService` (`src/fixtures/`) : un `vi.mock` de `@tauri-apps/*` ne vit que dans la spec de l'adaptateur
-- Chercher dans `src/fixtures/` le stub, le jeu d'événements ou le helper DOM avant d'en écrire un. Dès qu'une deuxième spec en a besoin, il y rejoint les autres ; à usage unique, il reste dans sa spec
+- Mocker le protocole NDJSON au niveau du service qui l'expose et les plugins Tauri par les stubs de `PreferencesService` et `NativeService` (`src/testing/`) : un `vi.mock` de `@tauri-apps/*` ne vit que dans la spec de l'adaptateur
+- Chercher dans `src/testing/` le stub, le jeu d'événements ou le helper DOM avant d'en écrire un. Dès qu'une deuxième spec en a besoin, il y rejoint les autres ; à usage unique, il reste dans sa spec
 
 ## À éviter
 - `toBeDefined()` sur un élément du DOM : vrai même quand la requête retourne `null`
@@ -33,7 +33,7 @@ paths:
 - `vi.resetAllMocks()` réinitialise appels et retours mais ne restaure pas l'implémentation d'origine, contrairement à `vi.restoreAllMocks()` qui n'agit que sur les spies
 - `describe`, `it`, `expect` et `beforeEach` sont des globals ; seul `vi` s'importe
 - Angular 22 : `TestBed.getLastFixture()` récupère le dernier fixture créé sans en garder la référence
-- `src/fixtures/` est exclu de `tsconfig.app.json` et déclaré dans `tsconfig.spec.json` : un dossier de helpers de test absent des deux n'est rattaché à aucun projet et ESLint échoue à le parser
+- `src/testing/` est exclu de `tsconfig.app.json` et déclaré dans `tsconfig.spec.json` : un dossier de helpers de test absent des deux n'est rattaché à aucun projet et ESLint échoue à le parser
 
 ## Exemples
 ```typescript

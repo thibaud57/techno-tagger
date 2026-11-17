@@ -2,8 +2,8 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { type Hosted, hostOf, iconOf } from "../../../../fixtures/dom"
-import { nativeStub } from "../../../../fixtures/native-stub"
+import { type Hosted, hostOf, iconOf } from "../../../../testing/dom"
+import { nativeStub } from "../../../../testing/native-stub"
 import {
   PENDING_TRACK,
   RESOLVED_TRACK,
@@ -12,13 +12,13 @@ import {
   arbitrationRequired,
   awaitingTrack,
   unresolvedTrack,
-} from "../../../../fixtures/tagging"
+} from "../../../../testing/tagging"
 import {
   detailsOf,
   settleScroller as settle,
   stubOffscreenLayout,
   toggleOf,
-} from "../../../../fixtures/virtual-scroll"
+} from "../../../../testing/virtual-scroll"
 import { NativeService } from "../../../core/platform/native.service"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 

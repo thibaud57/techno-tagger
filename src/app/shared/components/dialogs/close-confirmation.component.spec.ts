@@ -1,9 +1,9 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { closeGuardStub } from "../../../../fixtures/close-guard"
-import { dialogLabel, page } from "../../../../fixtures/dialog"
-import { action } from "../../../../fixtures/dom"
+import { closeGuardStub } from "../../../../testing/close-guard"
+import { dialogLabel, page } from "../../../../testing/dialog"
+import { action } from "../../../../testing/dom"
 import { CloseGuard } from "../../../core/platform/close-guard.service"
 
 import { CloseConfirmationComponent } from "./close-confirmation.component"

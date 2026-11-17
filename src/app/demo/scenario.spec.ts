@@ -1,4 +1,4 @@
-import { scenarioWith } from "../../fixtures/demo-scenario"
+import { scenarioWith } from "../../testing/demo-scenario"
 import { DemoScenarioError, parseScenario } from "./scenario"
 
 describe("parseScenario", () => {

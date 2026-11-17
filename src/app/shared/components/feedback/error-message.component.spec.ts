@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { commandError, phaseBusy } from "../../../../fixtures/write"
+import { commandError, phaseBusy } from "../../../../testing/write"
 import { BUSY_PHASES, type SidecarErrorEvent } from "../../../core/sidecar/protocol"
 import { ErrorMessageComponent } from "./error-message.component"
 

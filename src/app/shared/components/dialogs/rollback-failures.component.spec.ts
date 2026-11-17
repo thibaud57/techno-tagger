@@ -1,8 +1,8 @@
 import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 
-import { hostOf } from "../../../../fixtures/dom"
-import { translateWith } from "../../../../fixtures/translate"
+import { hostOf } from "../../../../testing/dom"
+import { translateWith } from "../../../../testing/translate"
 import type { RollbackFailure } from "../../../core/sidecar/protocol"
 
 import { RollbackFailuresComponent } from "./rollback-failures.component"

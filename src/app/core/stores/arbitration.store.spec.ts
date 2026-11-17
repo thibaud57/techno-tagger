@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { arbitrationRequired, arbitrationUpdated } from "../../../fixtures/tagging"
+import { arbitrationRequired, arbitrationUpdated } from "../../../testing/tagging"
 import { ArbitrationStore } from "./arbitration.store"
 
 describe("ArbitrationStore", () => {

@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 
-import { hostOf, iconOf } from "../../../../fixtures/dom"
+import { hostOf, iconOf } from "../../../../testing/dom"
 import type { IconName } from "../display/icon.component"
 import { MessageComponent, type MessageSeverity } from "./message.component"
 

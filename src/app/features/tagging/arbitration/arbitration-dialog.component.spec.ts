@@ -3,8 +3,8 @@ import { TestBed } from "@angular/core/testing"
 import { provideTranslateService } from "@ngx-translate/core"
 import { vi } from "vitest"
 
-import { dialogLabel, linkField, page, pasteLink } from "../../../../fixtures/dialog"
-import { action, errorMessageOf, heightClassPx, iconOf } from "../../../../fixtures/dom"
+import { dialogLabel, linkField, page, pasteLink } from "../../../../testing/dialog"
+import { action, errorMessageOf, heightClassPx, iconOf } from "../../../../testing/dom"
 import {
   type SidecarStub,
   type SidecarStubOverrides,
@@ -12,10 +12,10 @@ import {
   commandFailed,
   provideSidecarStub,
   sidecarStub,
-} from "../../../../fixtures/sidecar-stub"
-import { PENDING_TRACK, arbitrationRequired, unresolvedTrack } from "../../../../fixtures/tagging"
-import { TRACK_URL } from "../../../../fixtures/url-recovery"
-import { commandError } from "../../../../fixtures/write"
+} from "../../../../testing/sidecar-stub"
+import { PENDING_TRACK, arbitrationRequired, unresolvedTrack } from "../../../../testing/tagging"
+import { TRACK_URL } from "../../../../testing/url-recovery"
+import { commandError } from "../../../../testing/write"
 import type { ArbitrationState } from "../../../core/sidecar/protocol"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 

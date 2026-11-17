@@ -5,23 +5,23 @@ import { provideTranslateService } from "@ngx-translate/core"
 import { ConfirmationService } from "primeng/api"
 import { vi } from "vitest"
 
-import { type Hosted, action, hostOf } from "../../../../fixtures/dom"
-import { OTHER_PAST_RUN, PAST_RUN, TRACK_LOADED } from "../../../../fixtures/past-runs"
-import { stubNavigation } from "../../../../fixtures/router"
+import { type Hosted, action, hostOf } from "../../../../testing/dom"
+import { OTHER_PAST_RUN, PAST_RUN, TRACK_LOADED } from "../../../../testing/past-runs"
+import { stubNavigation } from "../../../../testing/router"
 import {
   type SidecarStubOverrides,
   commandFailed,
   provideSidecarStub,
   sidecarStub,
-} from "../../../../fixtures/sidecar-stub"
-import { RUN_ID, unresolvedTrack, writtenTrack } from "../../../../fixtures/tagging"
+} from "../../../../testing/sidecar-stub"
+import { RUN_ID, unresolvedTrack, writtenTrack } from "../../../../testing/tagging"
 import {
   settleScroller,
   stubOffscreenLayout,
   toggleOf,
   togglesOf,
-} from "../../../../fixtures/virtual-scroll"
-import { ROLLBACK_RUN, commandError, failedRollback } from "../../../../fixtures/write"
+} from "../../../../testing/virtual-scroll"
+import { ROLLBACK_RUN, commandError, failedRollback } from "../../../../testing/write"
 import { type LoadedRun, loadedTrack } from "../../../core/stores/past-runs.store"
 import type { TaggingTrack } from "../../../core/stores/tagging-run.store"
 import { TOOLTIP } from "../../../shared/utils/tooltip"

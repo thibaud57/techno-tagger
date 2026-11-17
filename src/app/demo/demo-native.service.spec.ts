@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 
 import { NativeService } from "../core/platform/native.service"
-import { scenarioWith } from "../../fixtures/demo-scenario"
+import { scenarioWith } from "../../testing/demo-scenario"
 import { DemoNativeService } from "./demo-native.service"
 import { DemoScenarioService } from "./demo-scenario.service"
 

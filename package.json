@@ -60,6 +60,7 @@
     "@sentry/cli": "^3.8.2",
     "@tailwindcss/postcss": "4.3.4",
     "@tauri-apps/cli": "2.12.4",
+    "@vitest/coverage-v8": "5.1.0",
     "angular-eslint": "22.6.0",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",

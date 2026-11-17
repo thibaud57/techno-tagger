@@ -4,7 +4,7 @@ Application desktop Windows mono-utilisateur qui extrait les morceaux d'une play
 
 ## Stack
 
-Métier : Python (sidecar autonome empaqueté par PyInstaller, protocole NDJSON sur stdin/stdout), pydantic, mutagen, rapidfuzz, httpx2, keyring | Interface : Angular 22 + PrimeNG 22 (preset Aura, dark permanent) + Tailwind 4 + ngx-translate | Coquille : Tauri v2 (Rust) | Gestionnaires : pnpm (`src/`), uv (`sidecar/`), cargo (`src-tauri/`) | Qualité : Ruff, Prettier (versions exactes : [VERSIONS.md](../docs/VERSIONS.md))
+Métier : Python (sidecar autonome empaqueté par PyInstaller, protocole NDJSON sur stdin/stdout), pydantic, mutagen, rapidfuzz, httpx2, keyring | Interface : Angular + PrimeNG (preset Aura, dark permanent) + Tailwind + ngx-translate | Coquille : Tauri (Rust) | Gestionnaires : pnpm (`src/`), uv (`sidecar/`), cargo (`src-tauri/`) | Qualité : Ruff, Prettier (versions exactes : [VERSIONS.md](../docs/VERSIONS.md))
 
 ## Documentation
 
@@ -27,7 +27,7 @@ Métier : Python (sidecar autonome empaqueté par PyInstaller, protocole NDJSON 
 - **Aucune ligne de scraping dans ce dépôt** : techno-scraper est la seule source de données, via son API et le header `X-API-Key`. Le dépôt est public, et c'est ce qui rend la distribution anonyme possible.
 - **Aucun fichier musical n'est modifié avant la confirmation globale du run**, et les tags d'origine sont sauvegardés avant toute réécriture. Le coût d'une erreur ici est la bibliothèque de l'utilisateur, pas un test rouge.
 - **Rien de personnel ne quitte la machine** : SDK Sentry durci, aucun événement métier envoyé, et aucun titre de morceau ne part sans un geste manuel explicite. Les rapports et les logs restent en local.
-- **Une valeur, une source** : version, nom d'application, identifiant de bundle et nom du binaire du sidecar vivent à un seul endroit et sont dérivés ailleurs. Une copie inévitable est gardée par un test de cohérence (cf. [release-please](rules/release-please/config.md) et [pyinstaller](rules/pyinstaller/build.md)).
+- **Une valeur, une source** : version, nom d'application, identifiant de bundle et nom du binaire du sidecar vivent à un seul endroit et sont dérivés ailleurs. Une copie inévitable est gardée par un test de cohérence (cf. [PRODUCTION.md § Propagation de la version](../docs/PRODUCTION.md#propagation-de-la-version) et [pyinstaller](rules/pyinstaller/build.md)).
 - **No-lib-test** : un test échoue contre une régression de notre code, jamais contre une montée de dépendance, sauf deux exceptions voulues : la garde `data_collection` de Sentry ([ADR-014](../docs/adrs/014-observabilite-sentry-et-rgpd.md)) et le rejeu de la démo web ([ADR-023](../docs/adrs/023-demo-web-par-rejeu.md)). Cf. [pytest](rules/pytest/tests.md).
 
 > Les règles techniques (Angular, PrimeNG, Tauri, pydantic, keyring, PyInstaller, Ruff, Mypy…) sont dans [.claude/rules/](rules/) et chargées dynamiquement selon les fichiers touchés.

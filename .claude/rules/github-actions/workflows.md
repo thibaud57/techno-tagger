@@ -23,7 +23,7 @@ paths:
 
 ## Gotchas
 - `actions/checkout` v7 refuse par défaut de récupérer le code d'une PR de fork sous `pull_request_target` et sous `workflow_run` déclenché par une PR (opt-out `allow-unsafe-pr-checkout`). Un SHA épinglé sur une v6 ou antérieure ne reçoit pas cette garde
-- Une action composite locale s'appelle par `uses: ./.github/actions/<nom>` après `actions/checkout` et Dependabot ne la scanne que si son dossier figure dans les `directories` de l'entrée `github-actions`
+- Une action composite locale s'appelle par `uses: ./.github/actions/<nom>` après `actions/checkout`
 - `::add-mask::` masque une valeur calculée à l'exécution, ce que le masquage des secrets statiques ne couvre pas
 
 ## Exemples

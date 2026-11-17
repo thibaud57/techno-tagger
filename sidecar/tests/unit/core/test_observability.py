@@ -25,7 +25,7 @@ from tagger.resolution.scraper_client import API_BASE_URL, ApiContractError
 SEARCH_URL: Final = f"{API_BASE_URL}/beatport/search"
 CONTRACT_ERROR_MODULE: Final = ApiContractError.__module__
 PATH_MASK_CASES: Final = TypeAdapter(list[dict[str, str]]).validate_python(
-    read_json("src/fixtures/path-masks.json")
+    read_json("src/testing/fixtures/path-masks.json")
 )
 
 if TYPE_CHECKING:
