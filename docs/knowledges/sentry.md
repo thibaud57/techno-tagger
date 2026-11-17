@@ -165,7 +165,7 @@ release = "techno-tagger@1.4.2"   # préfixe + version release-please, identique
 
 ### Points Importants
 
-- La valeur vient de la version de l'application, celle que release-please synchronise entre `package.json`, `Cargo.toml`, `tauri.conf.json` et `pyproject.toml` (cf. [release-please.md](release-please.md))
+- La valeur vient de la version de l'application, celle que release-please synchronise entre `package.json`, `Cargo.toml`, `tauri.conf.json` et `pyproject.toml` (cf. [PRODUCTION.md § Propagation de la version](../PRODUCTION.md#propagation-de-la-version))
 - Sans `release`, une erreur ne se rattache à aucune version : le diagnostic à distance chez un utilisateur devient une devinette
 - `environment` distingue les runs de développement de ceux des utilisateurs, ce qui évite de consommer le quota avec ses propres essais
 

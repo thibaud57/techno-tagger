@@ -6,10 +6,9 @@ on:
   pull_request:
     branches: [main, develop]
 
-# Un push qui en chasse un autre annule le run precedent, mais seulement sur PR :
-# sur main chaque commit garde son propre resultat de CI.
+# Annulation sur PR seulement. Hors PR un groupe par run : un groupe ne garde qu'un run en attente
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -29,6 +28,10 @@ jobs:
       source: ${{ steps.filter.outputs.source }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Sur push, paths-filter trouve le commit precedent sans fetch
+          fetch-depth: 0
+          persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -38,6 +41,7 @@ jobs:
               - '**'
               - '!**/*.md'
               - '!docs/**'
+              - '!.claude/**'
 
   sidecar:
     # Exception documentee au defaut ubuntu-24.04 : le sidecar cible Windows par
@@ -50,6 +54,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-just
       - name: Installer les dependances
@@ -80,7 +86,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-pnpm
+      # uvx pour zizmor (just lint-workflows)
+      - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-just
       # Script epingle au commit du tag v1.7.12 et binaire epingle par l'argument :
       # une URL sur `main` serait une reference mutable, comme un tag d'action
@@ -90,6 +100,9 @@ jobs:
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: just lint-ui
       - run: just lint-workflows
+        env:
+          # Audits en ligne de zizmor
+          GH_TOKEN: ${{ github.token }}
       - run: just typecheck-ui
       # tsc --noEmit ne verifie pas les templates : seul le compilateur Angular
       # le fait, or ni typecheck-ui ni test-ui ne le declenchent sur toute l'app.
@@ -118,9 +131,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-uv
-      # Le rust-toolchain.toml du depot prime sur la selection de l'action
-      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      # rustup est sur le runner : canal, composants et cible lus dans rust-toolchain.toml
+      - run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
@@ -196,7 +211,7 @@ jobs:
   # ajoute plus tard est couvert des qu'il entre dans `needs`.
   ci:
     needs: [changes, sidecar, ui, tauri, demo-image]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -210,13 +225,13 @@ jobs:
           DEMO_IMAGE: ${{ needs.demo-image.result }}
         run: |
           if [[ "$CHANGES" != "success" ]]; then
-            echo "::error::La detection des fichiers modifies n'est pas passee"
+            echo "::error title=CI::La detection des fichiers modifies n'est pas passee"
             exit 1
           fi
           echo "sidecar=$SIDECAR ui=$UI tauri=$TAURI demo-image=$DEMO_IMAGE"
           for r in "$SIDECAR" "$UI" "$TAURI" "$DEMO_IMAGE"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
-              echo "::error::Une zone au moins n'est pas passee"
+              echo "::error title=CI::Une zone au moins n'est pas passee"
               exit 1
             fi
           done

@@ -418,7 +418,6 @@ Toutes exigent `tauri` en `^2.12`. Relevé le 2026-10-29 : `shell` `2.6.0`, `dia
 | `pnpm/setup` | `v3.1.2` (2026-10-25) | Installe pnpm et Node, à la place d'`actions/setup-node`. **Exige pnpm 11+** |
 | `astral-sh/setup-uv` | `v10.3.3` | Runtime `node24` |
 | `dorny/paths-filter` | `v4.0.3` (2026-08-05) | Job `changes` : saute les trois zones sur une PR de markdown seul |
-| `dtolnay/rust-toolchain` | `@stable` | Pas de semver : la révision **est** la sélection. Le `rust-toolchain.toml` prime ensuite |
 | `tauri-apps/tauri-action` | `v1.0.0` (2026-06-29) | Écrit dans `latest.json` l'URL d'API de l'asset (tauri-action#1315), limitée à 60 appels par heure et par IP sans token : le workflow la remplace par le lien sous le tag (constaté sur la v0.10.0) |
 | `googleapis/release-please-action` | `v5.0.0` (2026-04-22) | Runtime Node 24 |
 | `extractions/setup-just` | `v4.0.0` | Lit la version dans `minimum-version` du `Justfile` |
@@ -426,6 +425,7 @@ Toutes exigent `tauri` en `^2.12`. Relevé le 2026-10-29 : `shell` `2.6.0`, `dia
 | `Swatinem/rust-cache` | `v2.9.3` (2026-10-20) | |
 | `docker/*` (démo) | `setup-buildx-action` `v4.4.1`, `build-push-action` `v7.4.0`, `login-action` `v4.7.0`, `metadata-action` `v6.2.0` | Jobs `demo-image` et `demo` |
 | `rhysd/actionlint` | `1.7.12` (2026-03-30) | Script et binaire épinglés dans le job `ui`. Le support du label `ubuntu-26.04` n'est pas confirmé dans ses notes |
+| zizmor | `1.32.0` (2026-11-02) | Pas une action : `uvx` dans `just lint-workflows`, version en tête du Justfile, montée à la main |
 
 **Breaking Changes Majeurs** :
 - **`windows-latest` ne pointe plus sur Windows Server 2022** mais sur Windows Server 2025 avec Visual Studio 2026 : c'est ce genre de bascule silencieuse que l'épinglage `windows-2025` / `ubuntu-24.04` évite. Dependabot ne suit pas les images, leur montée est manuelle
@@ -440,13 +440,11 @@ Toutes exigent `tauri` en `^2.12`. Relevé le 2026-10-29 : `shell` `2.6.0`, `dia
 **Version actuelle** : action `5.0.0` (2026-04-22), CLI npm `17.11.2` (2026-08-24). L'action embarque release-please 17.6.0, en retard sur le CLI
 **Stabilité** : ⚠️
 
-**Le point critique d'[ARCHITECTURE.md § CI/CD](ARCHITECTURE.md#cicd) est confirmé par la doc GitHub** : « events triggered by the `GITHUB_TOKEN` will not create a new workflow run », donc le tag créé ne déclenche aucun workflow. Contournements par ordre de préférence : (1) **chaînage `needs:` dans le même workflow** sur les outputs `release_created` et `tag_name`, sans token supplémentaire (choix du projet) ; (2) Personal Access Token ; (3) token de GitHub App.
+**Build chaîné en `needs:`** dans le workflow release-please, sur les outputs `release_created` et `tag_name` (PRODUCTION.md § Pipelines).
 
 **Propagation d'une version dans trois langages** : [PRODUCTION.md § Propagation de la version](PRODUCTION.md#propagation-de-la-version).
 
-**Le piège n'est pas la propagation mais les lockfiles** : `uv.lock` et `Cargo.lock` portent la version du paquet local, et `uv sync --locked` refuse un lock désaccordé, ce qui ferait échouer le build de release. Depuis le 2026-10-28, les deux sont suivis par `extra-files` avec un filtre `@.name.value`, recette vérifiée ce jour-là sur release-please 17.6.0. Syntaxe, piège du `No entries modified` silencieux et support natif à venir : [knowledges/release-please.md § Mode manifest et `extra-files`](knowledges/release-please.md#mode-manifest-et-extra-files).
-
-**Comportement `chore:`** : « A releasable unit is a commit to the branch with one of the following prefixes: 'feat', 'fix', and 'deps'. (A 'chore' or 'build' commit is not a releasable unit.) ». Échappatoire : `Release-As: x.x.x` dans le corps d'un commit de `main`.
+**Lockfiles** : `uv.lock` et `Cargo.lock` portent la version du paquet local, suivis par `extra-files` ; `uv sync --locked` refuserait un lock désaccordé au build de release.
 
 **Recommandation** : ✅ Le flux `develop` → `main` **n'est documenté nulle part** (release-please raisonne sur une branche de vérité unique, pilotée par `target-branch`). Il marche pourtant sans réglage : le squash-merge de la PR `develop → main` est un commit ordinaire de `main`. **Confirmé au premier run**, tag `v0.1.0` et `CHANGELOG.md` à l'appui.
 
@@ -457,7 +455,6 @@ Toutes exigent `tauri` en `^2.12`. Relevé le 2026-10-29 : `shell` `2.6.0`, `dia
 **Mode de panne assumé depuis le 2026-10-15.** Sur un `pnpm-lock.yaml` à deux documents (écrit dès que `devEngines.packageManager` est déclaré), le graphe de dépendances GitHub ne lit que le premier document et rapporte zéro dépendance : **les alertes de sécurité npm se referment sans rien afficher**, les PR de bump continuent de fonctionner ([dependabot-core#15904](https://github.com/dependabot/dependabot-core/issues/15904), ouverte, derniers constats du 2026-09-23). Le pin a été retenu pour le même schéma qu'uv et que les autres projets du poste ; la veille CVE npm repose sur `just audit-ui` en CI, non bloquant, lu à chaque release ([PRODUCTION.md § Dépendances](PRODUCTION.md#dépendances)). La clôture de #15904 rend les alertes à nouveau fiables, sans rien changer au dépôt.
 
 **Pièges** :
-- `groups` avec `update-types: [minor, patch]` groupe par écosystème, laissant les majeures sortir isolées. Une entrée `updates` par écosystème, déclarée explicitement
 - **Dependabot appelle la CLI du gestionnaire** (`pnpm install`, `uv lock`, `cargo update`) : le `minimumReleaseAge: 1440` de `pnpm-workspace.yaml` s'applique à une PR Dependabot comme à une installation locale
 
 ### 7. Images Docker de la démo
@@ -548,11 +545,11 @@ Les versions vivent dans les tableaux ci-dessus et dans les lockfiles : cette se
 
 ### rust-toolchain.toml
 
-Épingler la stable avec `clippy`, `rustfmt` et la cible `x86_64-pc-windows-msvc` : seule source de vérité, `rustup` en local comme `dtolnay/rust-toolchain@stable` en CI s'y conforment.
+Épingler la stable avec `clippy`, `rustfmt` et la cible `x86_64-pc-windows-msvc` : seule source de vérité, `rustup` en local comme `rustup toolchain install` en CI s'y conforment.
 
 ### dependabot.yml
 
-Cinq entrées `updates` (`npm` en `/`, `uv` en `/sidecar`, `cargo` en `/src-tauri`, `github-actions`, `docker` en `/demo`). Pour `github-actions`, `directories: ["/", "/.github/actions/*"]` : le premier ne couvre que `.github/workflows`, le second les actions composites locales. `open-pull-requests-limit: 5` pour tenir le flux de PR d'uv et de Ruff.
+Cinq entrées `updates` (`npm` en `/`, `uv` en `/sidecar`, `cargo` en `/src-tauri`, `github-actions`, `docker` en `/demo`), toutes vers `develop` ; la majeure `typescript` ignorée tant que le blocage tient (§ Montées Bloquées).
 
 ## Post-Install / Setup
 
@@ -617,7 +614,7 @@ Mises à jour majeures écartées par une incompatibilité prouvée, ou identifi
 
 | Paquet | Actuel | Disponible | Blocage | Levée attendue |
 |---|---|---|---|---|
-| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.4 et `typescript-eslint` 8.72.1 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-29) | TS 7.1 stable avec son API (beta publiée le 2026-10-20), puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` |
+| TypeScript | `6.0.3` | `7.0.2` | `@angular/compiler-cli` 22.2.4 et `typescript-eslint` 8.72.1 déclarent `typescript: <6.1`, et TS 7.0 n'a pas d'API programmatique (angular/angular#69704 fermée `not planned`, revérifié le 2026-10-29) | TS 7.1 stable avec son API (beta publiée le 2026-10-20), puis Angular et typescript-eslint déclarant TS 7 dans leurs `peerDependencies` ; retirer alors l'`ignore` de `dependabot.yml` |
 | Python | `3.14.10` | `3.15` | Aucun blocage technique identifié : décision du projet de rester en 3.14 tant que l'écosystème 3.15 n'est pas mûr (relevé le 2026-10-29) | Écosystème 3.15 mûr, vers la 3.15.2 |
 
 ---

@@ -74,9 +74,7 @@ Scope conseillé = la zone ou le module concerné : `sidecar`, `ui`, `tauri`, ou
 | `test` | Ajout / modification de tests ou de fixtures | skip |
 | `chore` | Outillage, dépendances (`pnpm-lock.yaml`, `uv.lock`, `Cargo.lock`), CI, config Tauri | skip |
 
-> ⚠️ **PR `develop → main`** : le squash-merge crée 1 commit sur `main` portant le **titre de la PR** comme message. Titre obligatoirement `feat:` / `fix:` / `feat!:`, sinon release-please skip → pas de PR de release → pas de tag → **pas de build, donc aucune mise à jour distribuée**. Forcer une version (`Release-As: X.Y.Z`) : [knowledges/release-please.md § Forcer une version](knowledges/release-please.md#forcer-une-version).
-
-> 🐛 **Merger cette PR avec un corps explicite** : `gh pr merge <n> --squash --body "<une ligne>"`. Le corps auto-généré re-liste d'anciens commits déjà publiés et fait bumper en MAJOR à tort (piège constaté sur techno-scraper, deux MAJOR indus). Mécanique et rattrapage : [knowledges/release-please.md § Forcer une version](knowledges/release-please.md#forcer-une-version).
+> ⚠️ **PR `develop → main`** : le squash-merge crée 1 commit sur `main` portant le **titre de la PR** comme message. Titre obligatoirement `feat:` / `fix:` / `feat!:`, sinon release-please skip → pas de PR de release → pas de tag → **pas de build, donc aucune mise à jour distribuée**. Dépôt en squash seul, commit = titre de la PR, corps vide. Forcer une version : `gh pr merge <n> --squash --body "Release-As: X.Y.Z"`.
 
 ## Propagation de la version
 
@@ -89,7 +87,7 @@ Quatre fichiers portent un numéro de version, pour une seule vérité :
 | `src-tauri/Cargo.toml` | release-please | `extra-files` (updater TOML générique sur `package.version`) |
 | `sidecar/pyproject.toml` | release-please | `extra-files` (updater TOML générique sur `project.version`) |
 
-> 🔴 **Les deux lockfiles portent aussi la version du package local**, dans un tableau `[[package]]` : `extra-files` les bumpe par un filtre sur son nom (`tagger` pour `sidecar/uv.lock`, `techno-tagger` pour `src-tauri/Cargo.lock`), syntaxe et piège dans [knowledges/release-please.md § Mode manifest et `extra-files`](knowledges/release-please.md#mode-manifest-et-extra-files). Un filtre qui ne matche plus rien n'échoue pas : `test_the_lockfile_bumps_filter_on_the_local_package_name` garde le nom recopié, et `uv sync --locked` comme `cargo clippy --locked` font échouer la CI de la PR de release sur un lock désaccordé. Sans ces gardes, `uv.lock` casserait le build de release et `Cargo.lock` serait réécrit en silence au build.
+> 🔴 **Les deux lockfiles portent aussi la version du package local**, dans un tableau `[[package]]` : `extra-files` les bumpe par un filtre sur son nom (`tagger` pour `sidecar/uv.lock`, `techno-tagger` pour `src-tauri/Cargo.lock`). Un filtre qui ne matche plus rien n'échoue pas : `test_the_lockfile_bumps_filter_on_the_local_package_name` garde le nom recopié, et `uv sync --locked` comme `cargo clippy --locked` font échouer la CI de la PR de release sur un lock désaccordé. Sans ces gardes, `uv.lock` casserait le build de release et `Cargo.lock` serait réécrit en silence au build.
 
 > La version compte au-delà du CHANGELOG : c'est elle que le sidecar passe en `release=` à Sentry (`techno-tagger@X.Y.Z`), et c'est elle que l'updater compare pour décider d'une mise à jour. Un bump manuel oublié quelque part rend le tri Sentry faux ou une mise à jour invisible.
 
@@ -276,16 +274,16 @@ TECHNO_TAGGER_SENTRY_SELFTEST=<seule variable de configuration lue à l'exécuti
 
 | Trigger | Étapes | Cible |
 |---------|--------|-------|
-| Push `main`, PR vers `main` ou `develop`. Markdown seul (`**/*.md`, `docs/**`) : les trois zones et `demo-image` sont sautées et le check `ci`, exigé par la protection de branche, passe quand même | Ruff (check + format) + Mypy strict + pytest (`sidecar/`), ESLint + Prettier + `actionlint` + typecheck + build Angular puis `just build-demo` + Vitest (`src/`), `just build-sidecar` + `just smoke-sidecar` (lance le binaire figé, exige la réponse `version` égale à celle de `package.json`) puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` (`src-tauri/`), plancher de coverage sur `sidecar/` et `src/`, `just audit-*` non bloquants (cf. § Dépendances) | Gate qualité |
+| Push `main`, PR vers `main` ou `develop`. Doc seule (`**/*.md`, `docs/**`, `.claude/**`) : les trois zones et `demo-image` sont sautées et le check `ci`, exigé par le ruleset, passe quand même | Ruff (check + format) + Mypy strict + pytest (`sidecar/`), ESLint + Prettier + `actionlint` + zizmor + typecheck + build Angular puis `just build-demo` + Vitest (`src/`), `just build-sidecar` + `just smoke-sidecar` (lance le binaire figé, exige la réponse `version` égale à celle de `package.json`) puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` (`src-tauri/`), plancher de coverage sur `sidecar/` et `src/`, `just audit-*` non bloquants (cf. § Dépendances) | Gate qualité |
 | Job `demo-image` de la même CI, mêmes déclencheurs, sauté sur Markdown seul | Image de la démo construite **sans la pousser** (clé PrimeNG vide), lancée sous les contraintes du compose (lecture seule, `--cap-drop ALL`, `no-new-privileges`, limites de pids, de mémoire et de CPU), puis sondée : `/healthz` à `200` ; sur `/`, `/settings`, `/demo/scenario.json` et une URL inexistante à extension, la CSP et `X-Robots-Tag` lus depuis `demo/headers.conf` ; `Cache-Control: no-cache` sur le scénario ; `<app-root` dans `/settings` ; process non root. Inclus dans l'agrégateur `ci` | Gate qualité |
 | Push `main`, `workflow_dispatch` | release-please ouvre / met à jour la PR de release (CHANGELOG + bump des fichiers de version et des deux lockfiles, cf. § Propagation de la version). **Aucun build.** | - |
 | Merge PR release-please | Tag `vX.Y.Z`, puis **dans le même workflow** : build PyInstaller Windows → copie du binaire en `src-tauri/binaries/` avec son suffixe target-triple → `just smoke-sidecar` → `tauri build` → signature du bundle → publication de l'installeur et de `latest.json` sur la Release → URL de `latest.json` remplacées par les liens sous le tag → garde → publication de la Release (créée en draft) | GitHub Releases |
 | Merge PR release-please | Job `sentry-release`, en parallèle du build : release `techno-tagger@X.Y.Z` créée dans les deux projets Sentry, `set_commits: auto` | Sentry |
 | Merge PR release-please, **après le job `build`** | Job `demo` : image de la démo construite au tag et poussée sur GHCR (`latest` et `X.Y.Z`), puis **une seule requête** `POST` sur l'API de redéploiement de Dokploy (secrets `DOKPLOY_URL`, `DOKPLOY_TOKEN`, `DOKPLOY_COMPOSE_ID`) | GHCR, puis Dokploy |
 
-> ℹ️ **Token de la GitHub App de release** : release-please passe par un token d'installation frappé à chaque run (`actions/create-github-app-token`, secrets en § Gestion des Secrets). Raison : depuis le [changement GitHub du 2026-06-11](https://github.blog/changelog/2026-06-11-bot-created-pull-requests-can-run-workflows-if-approved/), la CI d'une PR créée par le `GITHUB_TOKEN`, comme celle d'un commit qu'il pousse, attend une approbation manuelle ([doc](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)), et le run s'affiche en échec (« workflow file issue », 0 job). Les jobs `build`, `sentry-release` et `demo` gardent le `GITHUB_TOKEN` : la publication de la Release n'en demande pas d'autre.
+> ℹ️ **Token de la GitHub App de release** pour release-please seul (secrets en § Gestion des Secrets) ; les jobs `build`, `sentry-release` et `demo` gardent le `GITHUB_TOKEN`.
 >
-> 🔴 **Le job de build ne doit PAS être posé sur `on: push: tags`** : un tag créé par le `GITHUB_TOKEN` ne déclenche aucun workflow (les exceptions de GitHub sont `workflow_dispatch`, `repository_dispatch` et certains événements `pull_request`), un workflow séparé ne partirait donc **jamais, et sans erreur** : Release vide, updater aveugle, rien dans l'interface de GitHub. Le build est **chaîné en `needs:`** dans le workflow release-please, conditionné à `release_created`, ce qui lui donne aussi les outputs de release-please (`id`, `tag_name`, `version`) : le chaînage reste le choix même avec le token d'App. Mécanique : [knowledges/release-please.md § Chaînage `needs:` obligatoire](knowledges/release-please.md#chaînage-needs-obligatoire). Piège déjà rencontré sur techno-scraper.
+> 🔴 **Le build est chaîné en `needs:` dans le workflow release-please**, conditionné à `release_created`, jamais sur `on: push: tags` : il reçoit les outputs `id`, `tag_name` et `version`.
 
 > **Job `demo`** : `needs: [release-please, build]`, donc la démo ne part qu'après l'installeur publié : un `build` en échec la saute. Pas de nouvelle tentative automatique sur le `POST` : une requête acceptée dont la réponse arrive trop tard, rejouée, lancerait un second redéploiement. Un échec se relance à la main (« Re-run job »), GitHub l'envoie par email, sans toucher à l'installeur. Un lot uniquement `chore:` ne crée pas de release, donc ne redéploie pas la démo. Le build de release tourne sans cache : un secret BuildKit n'entre pas dans la clé du cache de couche, donc réutiliser celui du CI publierait la démo avec une clé PrimeNG vide.
 
@@ -427,7 +425,7 @@ Items one-shot après la première Release publiée, nécessitant qu'elle soit a
 | Outils (uv, pnpm) | Sur montée retenue dans VERSIONS.md | Bump de `required-version` et `uv_build` dans `sidecar/pyproject.toml`, ou de `devEngines.packageManager` dans `package.json` (puis `pnpm install` pour le lockfile) : seuls endroits où vivent ces versions, la CI les lit |
 | Licence PrimeNG Community | Annuelle | Renouvellement gratuit, mise à jour du secret `PRIMENG_LICENSE_KEY`. Clé valable 12 mois avec 30 jours de grâce, décidée par l'[ADR-003](adrs/003-primeng-community-license.md) (cf. [VERSIONS.md § Conflits](VERSIONS.md#conflits-potentiels)) : cette ligne et les entrées `PRIMENG_LICENSE_KEY` des tableaux de secrets tombent si la bibliothèque change |
 
-**Dependabot** : écosystèmes `npm`, `uv`, `cargo`, `github-actions` et `docker` (`/demo`) déclarés explicitement (pas d'auto-détection), une entrée `updates` chacun dans `dependabot.yml`, celle de `github-actions` couvrant aussi les actions composites de `.github/actions/*`, cadence mensuelle, PRs ciblant `develop`, `open-pull-requests-limit: 5` pour tenir le flux. Grouper minor et patch par écosystème via `groups` ; laisser les **majeures sortir isolées**, une par dépendance, ce qui met d'office en quarantaine les mises à jour à risque. Les crates Tauri (`cargo`) et leurs paquets `@tauri-apps` (`npm`) montent par deux PR distinctes alors que la CI ne lance jamais `tauri build` : `test_the_tauri_crates_and_their_npm_packages_are_aligned` (`sidecar/tests/unit/test_main.py`) fait échouer la CI tant qu'un des deux côtés est en retard.
+**Dependabot** : hors de sa portée, `devEngines.runtime` (ligne ci-dessus), les images de runner, le script actionlint de `ci.yml`, la version de zizmor et le `minimum-version` du Justfile. Les crates Tauri (`cargo`) et leurs paquets `@tauri-apps` (`npm`) montent par deux PR distinctes alors que la CI ne lance jamais `tauri build` : `test_the_tauri_crates_and_their_npm_packages_are_aligned` (`sidecar/tests/unit/test_main.py`) fait échouer la CI tant qu'un des deux côtés est en retard.
 
 > ⚠️ **Les alertes de sécurité npm de GitHub ne sont pas fiables sur ce dépôt.** Le pin `devEngines.packageManager` (retenu le 2026-10-15, même schéma que les autres projets) donne un `pnpm-lock.yaml` à deux documents, dont le graphe de dépendances ne lit que le premier : zéro dépendance rapportée, alertes refermées sans rien afficher, PR de bump intactes ([dependabot-core#15904](https://github.com/dependabot/dependabot-core/issues/15904), ouverte). La veille CVE npm passe par `just audit-ui` en CI, non bloquant : **lire son résultat à chaque release** (Checklist Release). Détail dans [VERSIONS.md § Dependabot](VERSIONS.md#6-dependabot).
 
@@ -526,31 +524,9 @@ Le redéploiement de la CI relance le compose cloné au dernier Deploy, sans rel
 
 | Outil | Scope | Fréquence | Config |
 |-------|-------|-----------|--------|
-| Dependabot | `npm`, `uv`, `cargo`, `github-actions`, `docker` | Mensuelle | `dependabot.yml`, une entrée par écosystème, PRs vers `develop`, minor+patch groupés par écosystème, majeures isolées |
+| Dependabot | `npm`, `uv`, `cargo`, `github-actions`, `docker` | Mensuelle, sécurité à l'alerte | PRs de version vers `develop` ; PRs de sécurité vers `main`, retitrées `fix(deps):` pour livrer |
 | CI | Toutes les PRs Dependabot | À chaque PR | Même gate qualité que les PRs humaines |
-| Alertes de sécurité GitHub | Dépôt public | Continu | **« Dependency graph » et « Dependabot alerts » à laisser activés** : c'est le graphe de dépendances qui les produit, `dependabot.yml` ne pilote que les PR de mise à jour |
 | `just audit` | `pnpm audit --audit-level=high` sur `src/`, `uv audit` sur `sidecar/` | À chaque run CI (`audit-ui`, `audit-sidecar`), et en local avant chaque release | **Non bloquant** en CI, une CVE publiée en amont ne doit pas figer une PR sans rapport ; la Checklist Release oblige à lire le résultat. `src-tauri/` non couvert, `cargo audit` exigerait une installation à part |
-
-> Dependabot est intégré et gratuit sur dépôt public, aucune app tierce à installer. Les alertes de sécurité restent produites par le graphe de dépendances de GitHub et non par `dependabot.yml` : les désactiver en croyant qu'elles font doublon avec les PR de mise à jour priverait le projet de sa seule veille CVE.
-
-## Réglages Actions du dépôt
-
-Le dépôt est public : n'importe qui peut ouvrir une PR depuis un fork, et ce que la CI exécute alors dépend autant des réglages de Settings → Actions que des workflows. Ces réglages ne vivent dans aucun fichier versionné, d'où leur relevé ici.
-
-| Réglage | Cible | Relevé le 2026-10-27 | Pourquoi |
-|---------|-------|----------------------|----------|
-| Permissions par défaut du `GITHUB_TOKEN` | `read` (restricted) | ✅ `read` | Chaque workflow redéclare ses scopes, un oubli retombe sur la lecture seule |
-| Autoriser Actions à créer et approuver des PR | Désactivé | ✅ désactivé (corrigé le 2026-10-27, avant : activé) | release-please ouvre la PR de release avec le token de la GitHub App de release ([Gestion des Secrets](#gestion-des-secrets)) : le `GITHUB_TOKEN` n'a aucune PR à créer ni à valider, et sa CI part sans approbation manuelle (cf. § Pipelines) |
-| Épinglage SHA obligatoire | Activé | ✅ activé (corrigé le 2026-10-09) | Transforme en règle de plateforme la convention SHA des workflows : une action en tag flottant est refusée au lieu de passer |
-| Approbation des workflows de fork | Tous les contributeurs externes | ✅ tous les contributeurs externes (corrigé le 2026-10-09) | Sinon, une seule contribution acceptée (une typo suffit) dispense de l'approbation toutes les suivantes |
-| Actor rules (workflow execution protections) | Aucune, ou `dependabot[bot]` inclus | ✅ aucune | Une actor rule qui oublie `dependabot[bot]` bloque ses PR sans erreur visible |
-
-```bash
-# Relire l'état réel
-gh api repos/thibaud57/techno-tagger/actions/permissions
-gh api repos/thibaud57/techno-tagger/actions/permissions/workflow
-gh api repos/thibaud57/techno-tagger/actions/permissions/fork-pr-contributor-approval
-```
 
 ---
 

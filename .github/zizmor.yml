@@ -1,0 +1,4 @@
+rules:
+  # Réclame la syntaxe `$/` des lockfiles de workflow, qu'actionlint rejette
+  self-repository:
+    disable: true
