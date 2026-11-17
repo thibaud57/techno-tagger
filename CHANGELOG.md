@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.11](https://github.com/thibaud57/techno-tagger/compare/v1.1.10...v1.1.11) (2026-11-17)
+
+
+### Bug Fixes
+
+* **deps:** montée des dépendances npm, cargo, uv et actions ([#204](https://github.com/thibaud57/techno-tagger/issues/204)) ([79bc1dd](https://github.com/thibaud57/techno-tagger/commit/79bc1ddb1f5691f12d1736ce2ead18dc34941343))
+
 ## [1.1.10](https://github.com/thibaud57/techno-tagger/compare/v1.1.9...v1.1.10) (2026-11-17)
 
 
