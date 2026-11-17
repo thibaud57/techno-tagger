@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.10](https://github.com/thibaud57/techno-tagger/compare/v1.1.9...v1.1.10) (2026-11-17)
+
+
+### Continuous Integration
+
+* aligner la configuration GitHub ([#194](https://github.com/thibaud57/techno-tagger/issues/194)) ([3ee7686](https://github.com/thibaud57/techno-tagger/commit/3ee76865905cbcb419b8dd029ea4520b8b17f5e6))
+
 ## [1.1.9](https://github.com/thibaud57/techno-tagger/compare/v1.1.8...v1.1.9) (2026-11-04)
 
 
