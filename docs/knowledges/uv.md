@@ -1,6 +1,6 @@
 ---
 title: "uv — Gestionnaire de paquets et d'environnement Python"
-version: "0.13.6"
+version: "0.13.7"
 description: "Référence technique pour uv : projet et dependency groups, lockfile et politique de versionnement, sync en CI, gestion des versions de Python et exécution des outils."
 date: "2026-10-27"
 keywords: ["uv", "python", "lockfile", "pep-735", "pyproject", "ci"]
