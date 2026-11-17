@@ -9,7 +9,7 @@ paths:
 ## À faire
 - `runs-on: ubuntu-24.04` pour les jobs de qualité, sauf le sidecar et la coquille Tauri : keyring WinVault, cp1252 et `%LOCALAPPDATA%` ne se testent que sous Windows ; le `cargo check` de la coquille exige le binaire PyInstaller du sidecar
 - `runs-on: windows-2025` pour PyInstaller et `tauri build` : PyInstaller ne cross-compile pas
-- Installer explicitement chaque toolchain (`pnpm/setup`, `astral-sh/setup-uv`, `dtolnay/rust-toolchain` cadré par `rust-toolchain.toml`) plutôt que prendre celle de l'image
+- Installer explicitement chaque toolchain (`pnpm/setup`, `astral-sh/setup-uv`, `rustup toolchain install` cadré par `rust-toolchain.toml`) plutôt que prendre celle de l'image
 - Un label d'image figé, jamais `-latest` : un label flottant change d'image sans préavis (`ubuntu-latest` bascule vers 26.04 entre le 2026-10-19 et le 2026-11-19). Dependabot ne suit pas les images, leur montée est manuelle
 
 ## À éviter

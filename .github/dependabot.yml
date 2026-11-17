@@ -5,6 +5,15 @@ updates:
     target-branch: develop
     schedule:
       interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 7
+    # Majeure bloquée par Angular (VERSIONS.md § Montées Bloquées)
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-patch:
         update-types:
@@ -15,6 +24,11 @@ updates:
     target-branch: develop
     schedule:
       interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 7
     groups:
       minor-patch:
         update-types:
@@ -25,6 +39,11 @@ updates:
     target-branch: develop
     schedule:
       interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 7
     groups:
       minor-patch:
         update-types:
@@ -39,6 +58,11 @@ updates:
     target-branch: develop
     schedule:
       interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 7
     groups:
       minor-patch:
         update-types:
@@ -49,6 +73,11 @@ updates:
     target-branch: develop
     schedule:
       interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 7
     groups:
       minor-patch:
         update-types:

@@ -6,6 +6,8 @@ set ignore-comments
 # bash sur tous les OS (Git Bash sous Windows) : set windows-shell est deprecie depuis just 1.56
 set shell := ["bash", "-cu"]
 
+ZIZMOR_VERSION := "1.32.0"
+
 # ── Dev ───────────────────────────────────────────────────────────────────────
 
 # Lancer l'application complete (Angular + fenetre Tauri)
@@ -121,6 +123,7 @@ lint-tauri:
 [group('quality')]
 lint-workflows:
     actionlint
+    GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" uvx zizmor@{{ ZIZMOR_VERSION }} .
 
 # Lint des trois zones et des workflows
 [group('quality')]

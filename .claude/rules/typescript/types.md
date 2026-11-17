@@ -23,7 +23,7 @@ paths:
 ## Gotchas
 - Défauts de la 6 : `strict`, `module: "esnext"`, `target: "es2025"`, `types: []`. Un type global qui « disparaît » vient de `types: []`
 - La 6 refuse `alwaysStrict: false`, `esModuleInterop: false`, `--target es5`, `--moduleResolution node10` et `--outFile`
-- La version est épinglée au tilde pour rester sous la borne et Dependabot proposera la majeure en PR séparée, à refuser tant que la borne tient (cf. [VERSIONS.md](../../../docs/VERSIONS.md))
+- La version est épinglée au tilde pour rester sous la borne ; la majeure est ignorée dans `.github/dependabot.yml` tant que la borne tient (cf. [VERSIONS.md](../../../docs/VERSIONS.md))
 
 ## Exemples
 ```typescript

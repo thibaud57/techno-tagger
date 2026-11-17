@@ -202,7 +202,7 @@ pnpm exec tsc --watch            # recompile en continu
 
 ## ✅ Recommandations
 
-- **Épingler TypeScript dans la plage exigée par Angular** et refuser la majeure que Dependabot proposera tant que la borne tient
+- **Épingler TypeScript dans la plage exigée par Angular** ; la majeure est ignorée dans `dependabot.yml` tant que la borne tient
 - **Modéliser tout le contrat NDJSON en unions discriminées** avec une branche `never` d'exhaustivité
 - **Typer les entrées externes en `unknown`** puis les faire passer par un type guard
 - **Garder un job `tsc --noEmit` en CI**, distinct du build et des tests

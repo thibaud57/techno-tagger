@@ -4,14 +4,18 @@
     ".": {
       "release-type": "node",
       "package-name": "techno-tagger",
-      "changelog-path": "CHANGELOG.md",
-      "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": false,
-      "initial-version": "0.1.0",
       "draft": true,
       "force-tag-creation": true,
-      "prerelease": false,
       "include-component-in-tag": false,
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
+        { "type": "docs", "section": "Documentation", "hidden": true },
+        { "type": "refactor", "section": "Code Refactoring", "hidden": true },
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "chore", "section": "Miscellaneous Chores", "hidden": true },
+        { "type": "ci", "section": "Continuous Integration", "hidden": true }
+      ],
       "extra-files": [
         {
           "type": "toml",

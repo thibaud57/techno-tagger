@@ -8,7 +8,7 @@ paths:
 
 ## À faire
 - Écrire les `if:` sans `${{ }}`, sauf si l'expression commence par `!` où ils deviennent obligatoires (`!` est un tag YAML réservé)
-- Réserver `always()` à un job qui doit rendre un verdict même sur annulation, comme l'agrégateur `ci` exigé par la protection : sauté, il compterait comme passé
+- Écrire `if: ${{ !cancelled() }}` sur un job qui doit rendre un verdict après un échec, comme l'agrégateur `ci` exigé par le ruleset : sauté, il compterait comme passé
 - Choisir une valeur par `case(pred1, val1, ..., défaut)` plutôt que par le détournement `cond && a || b`, qui rend `b` dès que `a` est vide
 
 ## À éviter

@@ -13,4 +13,4 @@ runs:
         echo "version=$version" >> "$GITHUB_OUTPUT"
     - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       with:
-        just-version: ${{ steps.version.outputs.version }}
+        just-version: ${{ steps.version.outputs.version }} # zizmor: ignore[unpinned-tools] version épinglée par le Justfile
