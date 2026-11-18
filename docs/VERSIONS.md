@@ -399,7 +399,7 @@ Toutes exigent `tauri` en `^2.12`. Relevé le 2026-10-29 : `shell` `2.6.0`, `dia
 **Recommandation** : ✅ Zone grise non bloquante : le format retourné par `locale()` du plugin `os` n'est documenté que par renvoi vers la référence JavaScript. Le format BCP-47 attendu par [ARCHITECTURE.md § i18n](ARCHITECTURE.md#i18n) n'est attesté ni par le dépôt ni par PRODUCTION.md, la règle « commence par `fr` » (`src/app/core/i18n/language.ts`) étant de toute façon tolérante. Levée côté spawn : `shell:allow-spawn` restreinte au sidecar (`"sidecar": true`), portée par `src-tauri/capabilities/default.json`, fonctionne sur l'installeur de la 0.11.0 (2026-10-21).
 
 ### 3. Rust
-**Version actuelle** : `1.99.1` (2026-10-16), canal stable. Prochaine, `1.100.0`, attendue le 2026-11-12
+**Version actuelle** : `1.99.1` (2026-10-16), canal stable. `1.100.0` publiée le 2026-11-12 (releases GitHub de rust-lang/rust, relevé le 2026-11-18), non épinglée : la montée de `rust-toolchain.toml` se fait dans une PR dédiée
 **Stabilité** : ✅
 
 **Breaking Changes Majeurs** :
