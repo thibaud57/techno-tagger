@@ -34,11 +34,10 @@ Métier : Python (sidecar autonome empaqueté par PyInstaller, protocole NDJSON 
 
 ### Workflow Git
 
-Branches : `feature/*` → `develop` → `main` → tag `vX.Y.Z` (créé par release-please uniquement) | `hotfix/*` → `main`
-Commits : `type(scope): description`, types `feat | feat! | fix | docs | refactor | test | chore`, scopes `sidecar | ui | tauri` ou plus fin (`matching`, `playlists`, `files`, `plan`, `cache`, `settings`)
+Branches : `<type>/<slug>` → `develop` → `main` → tag `vX.Y.Z` (créé par release-please uniquement) | `hotfix/<slug>` → `main`
+Commits : `type(scope): description`, scopes `sidecar | ui | tauri` ou plus fin (`matching`, `playlists`, `files`, `plan`, `cache`, `settings`). Types, merge en squash et dépendances : skill `git-ops`
 
 **Le titre d'une PR `develop → main` doit être `feat:`, `fix:` ou `feat!:`** : le squash-merge en fait le message lu par release-please. Un titre hors convention ne produit ni tag ni build, donc aucune mise à jour distribuée, et rien ne le signale.
-**Merger cette PR avec un corps explicite** : `gh pr merge <n> --squash --body "<une ligne>"`. Le corps auto-généré re-liste des `BREAKING CHANGE:` déjà publiés et fait bumper en MAJOR à tort.
 
 > Politique de tag, checklist release, flux hotfix : [PRODUCTION.md](../docs/PRODUCTION.md)
 

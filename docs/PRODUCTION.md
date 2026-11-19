@@ -29,32 +29,32 @@ Ce qui distingue ce projet d'une API : **il n'y a pas de consommateur de contrat
 
 ### Flow
 ```
-feature/* → develop → main → tag vX.Y.Z → build + GitHub Release → updater   (flux normal)
-hotfix/*  → main → tag vX.Y.Z → build + GitHub Release → updater             (flux hotfix)
+<type>/<slug> → develop → main → tag vX.Y.Z → build + GitHub Release → updater   (flux normal)
+hotfix/<slug> → main → tag vX.Y.Z → build + GitHub Release → updater             (flux hotfix)
 ```
 
-`main` = branche d'intégration de production : ce qui y est mergé est **candidat**, mais **c'est le tag qui construit et publie**. `develop` = branche d'intégration où s'accumulent les features.
+`main` = branche d'intégration de production : ce qui y est mergé est **candidat**, mais **c'est le tag qui construit et publie**. `develop` = branche d'intégration où s'accumulent les features. Branches de travail et types : convention Git commune (CLAUDE.md user § Git & intégration), `<type>/<slug>` et `feat/<feature-slug>` pour un epic.
 
 ### Flux Release
 
 | Étape | Branch | Environnement | Déclencheur |
 |-------|--------|---------------|-------------|
-| Développement | `feature/*` | Local (`tauri dev`, binaire de `just build-sidecar`) | Manuel |
-| Validation qualité | `feature/*` → PR | CI (GitHub Actions) | Push / PR : Ruff + Mypy + pytest, lint + typecheck + Vitest, `just build-sidecar` + `just smoke-sidecar` puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` |
-| Intégration | `develop` | Local | Merge `feature/*` → `develop` |
-| Intégration prod | `main` | Aucune publication | Merge `develop` → `main` (lot de features prêt) |
+| Développement | `<type>/<slug>` | Local (`tauri dev`, binaire de `just build-sidecar`) | Manuel |
+| Validation qualité | `<type>/<slug>` → PR | CI (GitHub Actions) | Push / PR : Ruff + Mypy + pytest, lint + typecheck + Vitest, `just build-sidecar` + `just smoke-sidecar` puis `cargo clippy --locked -- -D warnings` + `cargo fmt --check` |
+| Intégration | `develop` | Local | Squash-merge `<type>/<slug>` → `develop` (`gh pr merge <n> --squash --delete-branch`) |
+| Intégration prod | `main` | Aucune publication | Squash-merge `develop` → `main` (lot de features prêt), sans `--delete-branch` |
 | PR release (CHANGELOG + bump) | `release-please--branches--main--*` | - | Auto à chaque push sur `main` (release-please) |
 | Tag + **build + publication** | - | Distribution (GitHub Releases) | Merge de la PR release-please → tag `vX.Y.Z` → job de build **chaîné** (cf. § Pipelines) |
-| Resync develop | `develop` | Local | Back-merge `main` → `develop` après tag |
+| Resync develop | `develop` | Local | Back-merge `main` → `develop` en local puis push, après tag (GitHub n'offre que le squash) |
 
 ### Flux Hotfix
 
 | Étape | Branch | Environnement | Déclencheur |
 |-------|--------|---------------|-------------|
-| Correctif | `hotfix/*` depuis `main` | Local | Manuel |
-| Intégration prod | `main` | - | Merge `hotfix/*` → `main` (PR titrée `fix:`) |
+| Correctif | `hotfix/<slug>` depuis `main` | Local | Manuel |
+| Intégration prod | `main` | - | Squash-merge `hotfix/<slug>` → `main` (PR titrée `fix:`, `--delete-branch`) |
 | Tag + **build + publication** | - | Distribution | Merge de la PR release-please (bump PATCH) → tag → build chaîné |
-| Resync develop | `develop` | Local | Back-merge `main` → `develop` après tag |
+| Resync develop | `develop` | Local | Back-merge `main` → `develop` en local puis push, après tag (GitHub n'offre que le squash) |
 
 > ⚠️ **Un hotfix n'atteint l'utilisateur qu'au prochain lancement de son application.** L'updater vérifie au démarrage, ou quand l'utilisateur lance la recherche depuis Réglages > Administration : quelqu'un qui laisse l'app ouverte sans y penser, ou qui ne la rouvre pas de la semaine, reste sur la version cassée. Il n'existe aucun canal pour forcer une mise à jour, ni pour savoir qui l'a prise. C'est la différence structurelle avec une API, où un déploiement corrige tout le monde d'un coup.
 
@@ -68,13 +68,14 @@ Scope conseillé = la zone ou le module concerné : `sidecar`, `ui`, `tauri`, ou
 |------|-------|----------------|
 | `feat` | Nouvelle feature visible (`feat(playlists): support M3U8 étendu`) | **MINOR bump** |
 | `feat!` | Schéma de rapport ou de plan de run incompatible (footer `BREAKING CHANGE:` accepté aussi) | **MAJOR bump** |
-| `fix` | Correction (parsing, scoring, écriture de tags, interface) | **PATCH bump** |
+| `fix` | Correction (parsing, scoring, écriture de tags, interface), montée de dépendance à livrer (`fix(deps)`), annulation d'un changement livré | **PATCH bump** |
 | `docs` | Documentation uniquement (docs/, ADRs, README) | skip |
 | `refactor` | Refactoring sans changement de comportement | skip |
 | `test` | Ajout / modification de tests ou de fixtures | skip |
-| `chore` | Outillage, dépendances (`pnpm-lock.yaml`, `uv.lock`, `Cargo.lock`), CI, config Tauri | skip |
+| `ci` | Workflows GitHub Actions | skip |
+| `chore` | Outillage, dépendances montées par Dependabot (`chore(deps)`), config Tauri | skip |
 
-> ⚠️ **PR `develop → main`** : le squash-merge crée 1 commit sur `main` portant le **titre de la PR** comme message. Titre obligatoirement `feat:` / `fix:` / `feat!:`, sinon release-please skip → pas de PR de release → pas de tag → **pas de build, donc aucune mise à jour distribuée**. Dépôt en squash seul, commit = titre de la PR, corps vide. Forcer une version : `gh pr merge <n> --squash --body "Release-As: X.Y.Z"`.
+> ⚠️ **PR `develop → main`** : le squash-merge crée 1 commit sur `main` portant le **titre de la PR** comme message. Titre obligatoirement `feat:` / `fix:` / `feat!:`, sinon release-please skip → pas de PR de release → pas de tag → **pas de build, donc aucune mise à jour distribuée**. Dépôt en squash seul : commit = titre de la PR, corps vide. Forcer une version : `gh pr merge <n> --squash --body "Release-As: X.Y.Z"`.
 
 ## Propagation de la version
 
@@ -102,7 +103,7 @@ Quatre fichiers portent un numéro de version, pour une seule vérité :
 - [ ] `just audit` lu : chaque vulnérabilité remontée est corrigée, ou constatée sans correctif disponible (cf. § Dépendances)
 - [ ] **Sauvegarde de la clé privée updater revérifiée** : l'entrée de la clé et celle de son mot de passe sont présentes dans le gestionnaire de mots de passe et correspondent à la clé en service. Sa perte est le seul incident sans procédure de retour (cf. § Backup & Recovery)
 - [ ] **`DEMO_IMAGE` vaut `latest` dans Dokploy** (onglet Environment du compose de la démo) : laissée épinglée après un retour arrière, elle redéploierait l'ancienne version à ce tag, sans alerte (cf. § Rollback)
-- [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/* → main` pour un correctif urgent)
+- [ ] Merge validé (`develop → main` pour un lot de features, ou `hotfix/<slug> → main` pour un correctif urgent)
 - [ ] PR release-please relue : CHANGELOG lisible et bump cohérent avec la grille de la § Versioning
 - [ ] PR de release : `sidecar/uv.lock` et `src-tauri/Cargo.lock` y portent la nouvelle version (cf. § Propagation de la version), et sa CI part sans approbation. Des runs « en attente d'approbation » signalent un retour au `GITHUB_TOKEN` : vérifier l'`id: app-token` du workflow (cf. § Pipelines)
 - [ ] Merge de la PR → tag `vX.Y.Z` auto-créé, job de build **vert** (PyInstaller + `just smoke-sidecar` + `tauri build` + signature)
@@ -114,9 +115,9 @@ Quatre fichiers portent un numéro de version, pour une seule vérité :
 - [ ] Un run réel de bout en bout : playlist → arbitrage → écriture → rapport
 - [ ] Back-merge `main → develop` (fait redescendre le bump de version + le CHANGELOG)
 
-> **Politique de tagging** : les tags sont créés par release-please au merge de la PR de release, jamais à la main, et **le tag est ce qui construit et publie**. Les merges `feature/* → develop` et `develop → main` ne produisent aucun artefact.
+> **Politique de tagging** : les tags sont créés par release-please au merge de la PR de release, jamais à la main, et **le tag est ce qui construit et publie**. Les merges `<type>/<slug> → develop` et `develop → main` ne produisent aucun artefact.
 
-> ⚠️ Le tag **précède** la validation. Il atteste qu'une version est *publiée*, pas qu'elle est *bonne*. Smoke test rouge → `hotfix/*` puis nouveau tag `PATCH`, jamais de suppression du tag fautif (cf. § Rollback).
+> ⚠️ Le tag **précède** la validation. Il atteste qu'une version est *publiée*, pas qu'elle est *bonne*. Smoke test rouge → `hotfix/<slug>` puis nouveau tag `PATCH`, jamais de suppression du tag fautif (cf. § Rollback).
 
 > **Garder l'installeur N-1 sous la main.** Le smoke test de mise à jour est le seul qui exerce la chaîne signature + `latest.json` + updater, et il exige une installation en version antérieure. Sans installeur précédent conservé, ce test devient impossible à rejouer.
 
@@ -200,7 +201,7 @@ Deux états de l'application, pas des branches ni des serveurs, plus la démo we
 
 | Env | Accès | Branch | Sidecar | Auto-publication |
 |-----|-------|--------|---------|------------------|
-| Développement | `tauri dev` en local | `develop`, `feature/*` | Binaire de `just build-sidecar`, exigé dès la compilation | Non |
+| Développement | `tauri dev` en local | `develop`, `<type>/<slug>` | Binaire de `just build-sidecar`, exigé dès la compilation | Non |
 | Distribution | Installeur GitHub Releases | `main` (tags uniquement) | Binaire PyInstaller empaqueté, signature de l'updater en CI | Oui, au tag (cf. § Pipelines) |
 | Démo web | `https://demo-techno-tagger.thibaud-geisler.com` | `main` (tags uniquement ; Dokploy relit `demo/compose.yaml` sur `main` à chaque redéploiement) | Aucun : image statique, le métier est rejoué depuis un scénario enregistré | Oui, au tag (job `demo`, cf. § Pipelines) |
 
@@ -301,14 +302,14 @@ Il n'y a **rien à faire redescendre côté application** : aucun serveur ne la 
 
 **Procédure**, pour une Release publiée :
 1. **Dépublier la Release fautive** (la repasser en draft) pour que `latest.json` cesse d'être servi. Les installations non encore mises à jour arrêtent immédiatement de la voir ; celles qui l'ont déjà prise ne reviennent pas en arrière pour autant. Le tag Git, lui, reste : il ne disparaît pas quand la Release repasse en brouillon.
-2. `hotfix/*` depuis `main` → PR titrée `fix:` → merge → PR release-please → **nouveau tag `PATCH`**. Jamais de suppression du tag fautif, qui fausserait le CHANGELOG sans rien corriger chez personne.
+2. `hotfix/<slug>` depuis `main` (revert d'un changement livré compris : jamais de commit direct sur `main`) → PR titrée `fix:` → merge → PR release-please → **nouveau tag `PATCH`**. Jamais de suppression du tag fautif, qui fausserait le CHANGELOG sans rien corriger chez personne.
 3. Vérifier la nouvelle Release : installeur + `latest.json` présents, smoke test d'installation et de mise à jour.
 4. **Prévenir les utilisateurs à la main** si la version fautive a pu être installée. C'est le seul canal disponible : aucun mécanisme ne permet de forcer une mise à jour ni de savoir qui tourne sur quelle version.
 
 **Démo web** : un vrai retour arrière est possible, sans rebuild ni commit.
 1. Dans Dokploy, onglet Environment du compose de la démo, poser `DEMO_IMAGE` sur la version précédente (`…-demo:X.Y.Z`, `ghcr.io/<owner>/techno-tagger-demo`).
 2. **Redeploy** : immédiat, l'image `X.Y.Z` existe déjà sur GHCR.
-3. Publier le correctif (`hotfix/*`, nouveau tag `PATCH`), puis **remettre `DEMO_IMAGE` sur `latest`**.
+3. Publier le correctif (`hotfix/<slug>`, nouveau tag `PATCH`), puis **remettre `DEMO_IMAGE` sur `latest`**.
 
 > ⚠️ Tant que `DEMO_IMAGE` reste épinglée, la release suivante redéploie la vieille version, sans alerte. C'est pourquoi la Checklist Release vérifie qu'elle vaut `latest` avant le tag.
 
@@ -524,7 +525,7 @@ Le redéploiement de la CI relance le compose cloné au dernier Deploy, sans rel
 
 | Outil | Scope | Fréquence | Config |
 |-------|-------|-----------|--------|
-| Dependabot | `npm`, `uv`, `cargo`, `github-actions`, `docker` | Mensuelle, sécurité à l'alerte | PRs de version vers `develop` ; PRs de sécurité vers `main`, retitrées `fix(deps):` pour livrer |
+| Dependabot | `npm`, `uv`, `cargo`, `github-actions`, `docker` | Mensuelle, sécurité à l'alerte | PRs de version vers `develop` ; PRs de sécurité vers `main`, retitrées `fix(deps):` avant le merge quand le correctif se livre ; Dependabot reste en `chore(deps)`, une montée à livrer s'écrit `fix(deps)` |
 | CI | Toutes les PRs Dependabot | À chaque PR | Même gate qualité que les PRs humaines |
 | `just audit` | `pnpm audit --audit-level=high` sur `src/`, `uv audit` sur `sidecar/` | À chaque run CI (`audit-ui`, `audit-sidecar`), et en local avant chaque release | **Non bloquant** en CI, une CVE publiée en amont ne doit pas figer une PR sans rapport ; la Checklist Release oblige à lire le résultat. `src-tauri/` non couvert, `cargo audit` exigerait une installation à part |
 
