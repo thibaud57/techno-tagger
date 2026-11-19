@@ -115,7 +115,7 @@ Quatre fichiers portent un numéro de version, pour une seule vérité :
 - [ ] Un run réel de bout en bout : playlist → arbitrage → écriture → rapport
 - [ ] Back-merge `main → develop` (fait redescendre le bump de version + le CHANGELOG)
 
-> **Politique de tagging** : les tags sont créés par release-please au merge de la PR de release, jamais à la main, et **le tag est ce qui construit et publie**. Les merges `<type>/<slug> → develop` et `develop → main` ne produisent aucun artefact.
+> **Politique de tagging** : les tags sont créés par release-please au merge de la PR de release, jamais à la main : **le tag est ce qui construit et publie**. Les merges `<type>/<slug> → develop` et `develop → main` ne produisent aucun artefact.
 
 > ⚠️ Le tag **précède** la validation. Il atteste qu'une version est *publiée*, pas qu'elle est *bonne*. Smoke test rouge → `hotfix/<slug>` puis nouveau tag `PATCH`, jamais de suppression du tag fautif (cf. § Rollback).
 
