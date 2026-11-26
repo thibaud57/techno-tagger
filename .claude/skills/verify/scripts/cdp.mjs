@@ -1,5 +1,5 @@
 // Pilote CDP de WebView2 : evalue un script de page dans la fenetre Tauri et rend son
-// resultat en JSON sur stdout. Usage :
+// resultat en JSON sur stdout. Le port de debogage est `CDP_PORT` (9222 par defaut). Usage :
 //   node cdp.mjs <script-de-page.js> [argument ...]
 //   node cdp.mjs --key <touche>              vraie touche clavier (Escape, Enter, ArrowDown...)
 //   node cdp.mjs --screenshot <sortie.png>   capture de la fenetre
@@ -12,8 +12,6 @@
 //   node cdp.mjs --viewport <w> <h> <...>    l'appel qui suit, a cette taille de fenetre
 // Le script recoit ses arguments dans `__args`, et le prealable `page/preamble.js` devant lui
 // (`wait`, `until`, `__service(nom)`, `__sidecarService()`).
-//
-// `fetch` et `WebSocket` natifs plutot que curl, que les hooks bloquent.
 import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -55,10 +53,12 @@ const KEYS = {
   ArrowRight: { code: "ArrowRight", windowsVirtualKeyCode: 39 },
 }
 
+const PORT = process.env.CDP_PORT ?? "9222"
+
 const target = async () => {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
-      const pages = await (await fetch("http://127.0.0.1:9222/json")).json()
+      const pages = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()
       const page = pages.find((entry) => entry.type === "page" && entry.webSocketDebuggerUrl)
       if (page) return page
     } catch {
@@ -67,8 +67,9 @@ const target = async () => {
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
   fail(
-    "aucune page CDP sur 127.0.0.1:9222 : lancer la fenetre par " +
-      'WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" just dev',
+    `aucune page CDP sur 127.0.0.1:${PORT} : lancer la fenetre, sur des dossiers de donnees jetables, par ` +
+      `LOCALAPPDATA="$(mktemp -d)" WEBVIEW2_USER_DATA_FOLDER="$(mktemp -d)" ` +
+      `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=${PORT}" SENTRY_DSN_UI= TECHNO_TAGGER_SENTRY_SELFTEST= just dev`,
   )
 }
 
@@ -203,7 +204,7 @@ if (scriptPath === "--press" || scriptPath === "--release") {
 }
 
 // Un glisser qui finit hors de l'element se joue en une seule connexion : separe en trois appels,
-// le relachement hors de la piste n'arrive pas au curseur, qui reste « tenu » (relevé le 2026-10-15)
+// le relachement hors de la piste n'arrive pas au curseur, qui reste « tenu »
 if (scriptPath === "--drag") {
   const [x1, y1, x2, y2] = args.map(Number)
   if (![x1, y1, x2, y2].every(Number.isFinite)) fail("usage : node cdp.mjs --drag <x1> <y1> <x2> <y2>")
