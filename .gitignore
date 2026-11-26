@@ -53,6 +53,9 @@ logs/
 # Bibliotheque de demonstration : plusieurs Go de fichiers generes, reconstruits par just demo
 demo-data/
 
+# Projet Remotion local de la video de demonstration, rendu compris
+demo-video/
+
 # design-sync : scripts, build et etat machine. Seuls config.json et NOTES.md sont versionnes
 .ds-sync/
 ds-bundle/
