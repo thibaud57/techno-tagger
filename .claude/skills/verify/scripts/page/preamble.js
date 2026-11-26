@@ -1,7 +1,4 @@
-// Injecte par cdp.mjs devant chaque script de page.
-//
-// Dans un fichier et non en argument de commande : le hook qui bloque le mot designant
-// la cle d'un provider intercepte l'expression quand elle passe sur la ligne de commande.
+// Injecte par cdp.mjs devant chaque script de page : attente et acces au service du sidecar.
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 

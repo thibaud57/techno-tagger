@@ -208,6 +208,16 @@ test-ui:
 [parallel]
 test: test-sidecar test-ui
 
+# Un scenario de la recette /verify, sans appel a l'API de production (les window* lisent le manifeste de mise a jour sur GitHub), ex : just verify extraction
+[group('quality')]
+verify parcours *ARGS:
+    node .claude/skills/verify/scripts/{{ parcours }}.mjs {{ ARGS }}
+
+# Tous les scenarios de /verify a la suite : sidecar, fenetre, demo (aucun appel a l'API de production, la liste est dans run_all.mjs)
+[group('quality')]
+verify-all:
+    node .claude/skills/verify/scripts/run_all.mjs
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 # Installer les dependances de la webview

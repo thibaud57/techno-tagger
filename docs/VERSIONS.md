@@ -70,6 +70,7 @@ Zone `src/`, gestionnaire **pnpm**, fichiers `package.json` + `pnpm-lock.yaml`.
 | angular-eslint | `22.6.0` | ✅ | ESLint 9+ en flat config uniquement. Règles d'accessibilité hors du preset `recommended`. `@eslint/js` `10.0.1` (peer `eslint ^10.0.0`, relevé le 2026-10-29) ajouté par `ng add angular-eslint` |
 | Prettier | `3.9.10` | ✅ | Parser Angular embarqué : `@angular/compiler` 22.0.6 (lu dans `node_modules/prettier/plugins/angular.js`, relevé le 2026-10-29), contre 22.2.5 pour le build. `semi: false` depuis le 2026-09-06, aligné sur le portfolio |
 | prettier-plugin-tailwindcss | `0.8.1` | ✅ | Exige Prettier ≥ 3.7.x et l'option `tailwindStylesheet` en Tailwind v4 |
+| playwright-core | `1.65.1` | ✅ | Pilote le Chrome déjà installé sur le poste (`channel: "chrome"`), sans télécharger de navigateur. Importé par les primitives communes de tous les scénarios de la recette `/verify` (`_common.mjs`), il ne lance un navigateur que pour les `demo*`. Hors des tests Vitest et hors de l'image de démo (relevé le 2026-11-25) |
 
 ## Partagé / Infrastructure
 
